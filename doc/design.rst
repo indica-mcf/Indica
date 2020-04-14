@@ -43,15 +43,15 @@ do and requires some additional information about how coordinates map,
 so we will likely want to provide convenience methods for that
 purpose.
 
-In order to perform these sorts of conversions, it will be necessary to
-provide functions which map from one coordinate system to another. An
-arbitrary number of potential coordinate systems could be used and
-being able to map between each of them would require $O(n^2)$
-different functions. This can be reduced to $O(n)$ if instead we
-choose a "master" coordinate system to which all the others can be
-converted. A sensible choice for this would be $R, z$, as these axes
-are orthogonal and the coordinates remain constant over time (unlike
-flux surfaces).
+In order to perform these sorts of conversions, it will be necessary
+to provide functions which map from one coordinate system to
+another. An arbitrary number of potential coordinate systems could be
+used and being able to map between each of them would require
+:math:`O(n^2)` different functions. This can be reduced to
+:math:`O(n)` if instead we choose a "master" coordinate system to
+which all the others can be converted. A sensible choice for this
+would be :math:`R, z`, as these axes are orthogonal and the
+coordinates remain constant over time (unlike flux surfaces).
 
 To achieve this, each :py:class:`xarray.DataArray` would contain a piece of metadata
 called ``mapToMaster`` and another called ``mapFromMaster``. Both of these
