@@ -7,10 +7,18 @@ cache:
 pages:
   stage: deploy
   before_script:
-    - apt-get update && apt-get install -y plantuml
+    - apt-get update && apt-get install -y Xvfb
+    - wget -O /usr/local/lib/plantuml.jar http://sourceforge.net/projects/plantuml/files/plantuml.jar/download
+    - |
+      cat <<EOT > /usr/local/bin/plantuml
+      #!/bin/sh -e
+      java -splash:no -jar /path/to/plantuml.jar "$@"
+      EOT
+    - chmod +x /usr/local/bin/plantuml
     - pip install sphinx sphinxcontrib-plantuml
 
   script:
+    - cd doc/
     - make html
     - mv _build/html/ ../public/
 
