@@ -1,9 +1,5 @@
 image: python:3
 
-cache:
-  paths:
-    - .local
-
 pages:
   stage: deploy
   before_script:
@@ -15,6 +11,8 @@ pages:
       java -Djava.awt.headless=true -splash:no -jar /usr/local/lib/plantuml.jar "$@"
       EOT
     - chmod +x /usr/local/bin/plantuml
+    - echo `which plantuml`
+    - cat `which plantuml`
     - pip install sphinx sphinxcontrib-plantuml
 
   script:
