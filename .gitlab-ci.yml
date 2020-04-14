@@ -1,0 +1,22 @@
+image: python/3-buster
+
+cache:
+  paths:
+    - .local
+
+pages:
+  stage: deploy
+  before_script:
+    - apt-get update && apt-get install -y plantuml
+    - pip install sphinx sphinxcontrib-plantuml
+
+  script:
+    - make html
+    - mv _build/html/ ../public/
+
+  artifacts:
+      paths:
+      - public
+
+  only:
+    - master
