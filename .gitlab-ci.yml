@@ -7,7 +7,7 @@ cache:
 pages:
   stage: deploy
   before_script:
-    - apt-get update && apt-get install -y Xvfb
+    - apt-get update && apt-get install -y default-jre-headless
     - wget -O /usr/local/lib/plantuml.jar http://sourceforge.net/projects/plantuml/files/plantuml.jar/download
     - |
       cat <<EOT > /usr/local/bin/plantuml
