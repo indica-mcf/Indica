@@ -3,12 +3,11 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Conspire
-========
+Impurities Project
+==================
 
-ConsPIRE (Consistent Plasma Impurity Radiation Estimate) is a library
-for iteratively determining what species are present in the plasma of
-a fusion reactor.
+This is a library for iteratively determining what species are present
+in the plasma of a fusion reactor.
 
 Contents:
 
