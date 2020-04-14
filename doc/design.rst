@@ -77,6 +77,7 @@ illustrates this structure.
 
 .. uml::
 
+   @startuml
    class DataArray {
    + name: str
    + values: ndarray
@@ -100,6 +101,7 @@ illustrates this structure.
    
    DataArray -* WSXAccessor
    DataArray o- WSXAccessor
+   @enduml
 
 The next diagram gives an example of some of these attributes in a
 :py:class:`xarray.DataArray` object.

@@ -12,7 +12,7 @@ pages:
     - |
       cat <<EOT > /usr/local/bin/plantuml
       #!/bin/sh -e
-      java -splash:no -jar /usr/local/lib/plantuml.jar "$@"
+      java -Djava.awt.headless=true -splash:no -jar /usr/local/lib/plantuml.jar "$@"
       EOT
     - chmod +x /usr/local/bin/plantuml
     - pip install sphinx sphinxcontrib-plantuml
