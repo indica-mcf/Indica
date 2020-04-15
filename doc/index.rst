@@ -16,6 +16,7 @@ Contents:
    
    installation
    tutorial
+   original
    design
    api
 
