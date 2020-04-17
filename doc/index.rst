@@ -17,6 +17,7 @@ Contents:
    installation
    tutorial
    original
+   data
    design
    api
 
