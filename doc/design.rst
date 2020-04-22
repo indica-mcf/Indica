@@ -116,7 +116,7 @@ The next diagram gives an example of some of these attributes in a
    }
 
 Custom accessors appear like attributes on
-py:class:`xarray.DataArray`, with their own set of methods. This
+:py:class:`xarray.DataArray`, with their own set of methods. This
 allows xarray extensions to be "namespaced" (i.e., common
 functionality gets grouped into the same accessor). The
 use is as follows::
@@ -139,12 +139,60 @@ xarrays in their own code.
 Data IO
 -------
 
-Reading data should be achieved by defining a standard interface. A
-different subclass would then be defined for each data
-source/format. These would return :py:class:`xarray.DataArray` objects
-with all the necessary metadata. More information should be gathered
-on how each source is accessed to determine how best to define a
-common interface for them.
+Reading data should be achieved by defining a standard interface,
+:py:class:`DataReader`. A different subclass would then be defined for
+each data source/format. These would return
+:py:class:`xarray.DataArray` objects with all the necessary metadata.
+
+.. uml::
+
+   abstract class DataReader {
+   + {static} available_data: dict
+   __
+   + get(key: string, revision): DataArray
+   + authenticate(name: str, password: str): bool
+   + {abstract} close()
+   - {abstract} _get_data(key: str, revision): DataArray
+   .. «property» ..
+   + {abstract} requires_authentication(): bool
+   }
+
+   class PPFReader {
+   + {static} available_data: dict
+   + uid: str
+   + seq: int
+   - _client: SALClient
+   __
+   + __init__(uid: str, seq: int)
+   + authenticate(name: str, password: str): bool
+   + close()
+   - _get_data(key: string, revision: int): DataArray
+   .. «property» ..
+   + {abstract} requires_authentication(): bool
+   }
+
+   DataReader <|- PPFReader
+   }
+
+Here we see that reader classes contain public methods for getting
+data using a key (and optional revision, to specify which version of
+data in systems using version control). It also provides methods for
+authentication and closing a database connection. Each reader should
+feature a dictionary called ``available_data`` where keys are valid
+arguments for the :py:meth:`DataReader.get` method and corresponding
+values are the type of data which gets returned (see next
+section). Python's abstract base class module (:py:mod:`abc`) can be
+used when defining ``DataReader``
+
+The :py:meth:`DataReader.get` method is implemented in the parent
+class and provides basic functionality for checking whether a key is
+valid and that the returned :py:class:`xarray.DataArray` object
+contains the expected metadata. The actual process of getting this
+data is delegated to the abstract private method
+:py:meth:`DataReader._get_data`, which is implementation
+dependent. Implementations are free to define additional private
+methods if necessary. The form of the constructor for each reader
+class is not defined, as this is likely to vary widely.
 
 A similar approach could be taken for writing data out to different
 formats. Presumably we would want to include the formats used by
@@ -327,6 +375,15 @@ tree could look like.
    major_rad_offset o-- electron_temp
    major_rad_offset o-- equilibrium
 
+   
+There already exist standards and library for recording this sort of
+information, so we should seek to use them. We could also look to
+integrate the `command patter
+<https://en.wikipedia.org/wiki/Command_pattern>`_ for the "replay"
+feature. A `chain of responsibility
+<https://en.wikipedia.org/wiki/Chain-of-responsibility_pattern>`_
+could be useful as well.
+
 
 Operations on Data
 ------------------
@@ -374,3 +431,9 @@ calling the operation, additional parameters could potentially be
 provided at instantiation-time; this would be useful if the
 operation were expected to be applied multiple times to different data
 but using some of the same parameters.
+
+We can discuss whether it would be best to have the call return a new
+object or to operate on the first argument in-place. I find the former
+tidier, more readable, generally less prone to bugs, etc. However, the
+second can save memory. Both approaches allow us to avoid operating on
+global variables.
