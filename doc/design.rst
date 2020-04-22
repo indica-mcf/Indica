@@ -172,7 +172,6 @@ each data source/format. These would return
    }
 
    DataReader <|- PPFReader
-   }
 
 Here we see that reader classes contain public methods for getting
 data using a key (and optional revision, to specify which version of
