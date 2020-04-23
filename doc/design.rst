@@ -53,15 +53,15 @@ which all the others can be converted. A sensible choice for this
 would be :math:`R, z`, as these axes are orthogonal and the
 coordinates remain constant over time (unlike flux surfaces).
 
-To achieve this, each :py:class:`xarray.DataArray` would contain a piece of metadata
-called ``mapToMaster`` and another called ``mapFromMaster``. Both of these
-would be functions, each taking 2 arguments (plus an optional third)
-and returning a 2-tuple (or 3-tuple, if the optional argument is
-provided). The first would accept a coordinate on the system used by
-the :py:class:`xarray.DataArray` and return the corresponding location in the master
-coordinate system. The second function would perform the inverse
-operation. The optional third argument corresponds to time and would
-be needed if a coordinate system is not fixed in time.
+To achieve this, each :py:class:`xarray.DataArray` would contain a
+piece of metadata called ``map_to_master`` and another called
+``map_from_master``. Both of these would be functions, each taking 3
+arguments and returning a 3-tuple. The first would accept a coordinate
+on the system used by the :py:class:`xarray.DataArray` and return the
+corresponding location in the master coordinate system. The second
+function would perform the inverse operation. The optional third
+argument corresponds to time and would be needed if a coordinate
+system is not fixed in time.
 
 When two :py:class:`xarray.DataArray` objects use the same coordinate
 system with only different grid spacing, the built in
@@ -111,7 +111,7 @@ The next diagram gives an example of some of these attributes in a
    + values
    + dims = ["rho", "R"]
    + coords = {"rho": [-1.0, ..., 1.0], "R": [2.0, ..., 4.0]}
-   + attrs = {"mapToMaster": func(rho, R, t=None) -> (R, z, t),\n\t "mapFromMaster": func(R, z, t=None) -> (rho, R, t), ...}
+   + attrs = {"map_to_master": func(rho, R, t=None) -> (R, z, t),\n\t "map_from_master": func(R, z, t=None) -> (rho, R, t), ...}
    + wsx
    }
 
@@ -135,12 +135,47 @@ use is as follows::
 Anyone who imports this library will be able to use the accessor with
 xarrays in their own code.
 
+Metadata
+~~~~~~~~
+
+The following metadata should be attached to
+:py:class:`xarray.DataArrays`:
+
+equilibrium : **str**
+    A string identifying the set of equilibrium data used for this
+    object's coordinate system.
+
+generate_mappers : **function(equilibrium) -> (map_to_master, map_from_master)**
+    A higher ordered function which can be used as a factory
+    for the two mapping functions below.
+
+map_to_master : **function(x1, x2, t) -> (rho, theta, t)**
+    A function mapping from the coordinate system of this data to the
+    "master" coordinate system. Will be ``None`` immediately after
+    read-in.
+
+map_from_master : **func(rho, theta, t) -> (x1, x2, t)**
+    A function mapping from the "master" coordinate system to the
+    coordinate system of this data. Will be ``None`` immediately after
+    read-in.
+
+datatype : **(str, str)**
+    Information on the type of data stored in this
+    :py:class:`xarray.DataArray` object. See :ref:`Data Value Type System`.
+
+provenance : TBC
+    Information on the process which generated this data. See
+    :ref:`Provenance Tracking`.
+
+error (optional) : **ndarray**
+    Uncertainty in the value.
+
 
 Data IO
 -------
 
 Reading data should be achieved by defining a standard interface,
-:py:class:`DataReader`. A different subclass would then be defined for
+:py:class:`reader.DataReader`. A different subclass would then be defined for
 each data source/format. These would return
 :py:class:`xarray.DataArray` objects with all the necessary metadata.
 
@@ -178,26 +213,56 @@ data using a key (and optional revision, to specify which version of
 data in systems using version control). It also provides methods for
 authentication and closing a database connection. Each reader should
 feature a dictionary called ``available_data`` where keys are valid
-arguments for the :py:meth:`DataReader.get` method and corresponding
+arguments for the :py:meth:`reader.DataReader.get` method and corresponding
 values are the type of data which gets returned (see next
 section). Python's abstract base class module (:py:mod:`abc`) can be
 used when defining ``DataReader``
 
-The :py:meth:`DataReader.get` method is implemented in the parent
+The :py:meth:`reader.DataReader.get` method is implemented in the parent
 class and provides basic functionality for checking whether a key is
 valid and that the returned :py:class:`xarray.DataArray` object
 contains the expected metadata. The actual process of getting this
 data is delegated to the abstract private method
-:py:meth:`DataReader._get_data`, which is implementation
+:py:meth:`reader.DataReader._get_data`, which is implementation
 dependent. Implementations are free to define additional private
 methods if necessary. The form of the constructor for each reader
 class is not defined, as this is likely to vary widely.
 
-A similar approach could be taken for writing data out to different
-formats. Presumably we would want to include the formats used by
-different research centres. However, it might also be useful to use
-some general formats for output, such as NetCDF or HDF5.
+A complicating factor in all of this is that the ``map_to_master`` and
+``map_from_master`` metadata functions can only be created once
+equilibrium data has been loaded. Furthermore, ideally one would be
+able to change which equilibrium was used on the fly, without having
+to reload all other data. The solution to this is to define an
+additional metadata function, called ``generate_mappers`` which takes
+an :py:class:`xarray.Dataset` object containing equilibrium data
+(exact format TBC) as an argument. It would return a tuple made up of
+the ``map_to_master`` and ``map_from_master`` functions appropriate
+to that equilibrium.
 
+Exactly where and how ``generate_mappers`` should be used can be a
+matter of further discussion. One approach would be to do it in one of
+the :ref:`Operations on Data` described below. This has the advantage
+of keeping a clear separation of concerns between the different
+classes in the program, but could be somewhat verbose to use. Another
+option would be to allow an equilibrium dataset to be assigned to a
+reader object (perhaps even have the reader automatically load the
+entire dataset). It would then use this dataset to call the
+``generate_mappers`` function when reading in all future data. This
+would be more convenient, but somewhat complicates the logic of the
+program by mixing functionality.
+
+Should all data need to be remapped to a new set of equilibrium data,
+it is proposed that the :ref:`Provenance Tracking` system be used to
+automatically do this. This would be part of the broader "replay"
+functionality which would be possible with provenance data.
+
+A similar approach of defining an abstract base class could be taken
+for writing data out to different formats. Presumably we would want to
+include the formats used by different research centres. However, it
+might also be useful to use some general formats for output, such as
+NetCDF or HDF5. This would probably be an easier operation, as it
+would not require so much knowledge of the peculiarities of how data
+is stored by different research groups.
 
 
 Data Value Type System

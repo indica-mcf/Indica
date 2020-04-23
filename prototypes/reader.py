@@ -4,21 +4,46 @@
 from abc import ABC, abstractmethod
 from numbers import Number as Scalar
 import socket
-from typing import Any, ClassVar, Dict, Optional, Tuple, Union
+from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Union
 
-from numpy import ndarray
+import numpy as np
 from sal.client import SALClient, AuthenticationFailed
 from sal.dataclass import Signal
-from xarrays import DataArray
+from xarrays import DataArray, Dataset
 
 
 DataType = Tuple[str, str]
-Number = Union[ndarray, Scalar]
+Number = Union[np.ndarray, Scalar]
 OptNumber = Union[Number, None]
+Coordinate = Tuple[OptNumber, OptNumber, OptNumber]
+Remapper = Callable[[OptNumber, OptNumber, OptNumber], Coordinate]
 
 
-def trivial_remap(x1: OptNumber, x2: OptNumber, t: OptNumber) -> \
-                                     Tuple[OptNumber, OptNumber, OptNumber]:
+def trivial_factory(equilibrium: Dataset) -> Tuple[Remapper, Remapper]:
+    """Construct functions to map between the coordinate system on data
+    and the master coordinate system.
+
+    This particular factory produces :py:func:`trivial_remap` mapping
+    functions.
+
+    Parameters
+    ---------
+    equilibrium
+        The set of equilibrium data to use when calculating mapping.
+
+    Returns
+    -------
+    map_to : coordinate mapping function
+        Function mapping from the data coordinates to the master coordinates.
+
+    map_from : coordinate mapping function
+        Function mapping from the master coordinates to the data coordinates.
+
+    """
+    return (trivial_remap, trivial_remap)
+
+
+def trivial_remap(x1: OptNumber, x2: OptNumber, t: OptNumber) -> Coordinate:
     """A trivial function for mapping between coordinate systems.
 
     This makes no change to the coordinates and should be used for
@@ -26,22 +51,22 @@ def trivial_remap(x1: OptNumber, x2: OptNumber, t: OptNumber) -> \
 
     Parameters
     ----------
-    x1
+    x1 : array_like or None
         The first spatial coordinate (if there is one, otherwise ``None``)
-    x2
+    x2 : array_like or None
         The second spatial coordinate (if there is one, otherwise ``None``)
-    t
+    t : array_like or None
         The time coordinate (if there is one, otherwise ``None``)
 
     Returns
     -------
-    x1 :
+    x1 : ndarray or None
         New coordinate in first spatial dimension (if there is one, otherwise
         ``None``)
-    x2 :
+    x2 : ndarray or None
         New coordinate in second spatial dimension (if there is one, otherwise
         ``None``)
-    t :
+    t : ndarray or None
         New time coordinate( if there is one, otherwise ``None``)
     """
     return x1, x2, t
@@ -166,14 +191,18 @@ class PPFReader(DataReader):
 
     Currently the following types of data are supported.
 
-    ==========  =============  ==============  =================
-    Key         Data type      Data for        Instrument
-    ==========  =============  ==============  =================
-    efit_rmag   Major radius   Magnetic axis   EFIT equilibrium
-    efit_zmag   Z position     Magnetic axis   EFIT equilibrium
-    efit_rsep   Major radius   Separatrix      EFIT equilibrium
-    efit_zsep   Z position     Separatrix      EFIT equilibrium
-    ==========  =============  ==============  =================
+    ==========  ===============  ==============  =================
+    Key         Data type        Data for        Instrument
+    ==========  ===============  ==============  =================
+    efit_rmag   Major radius     Magnetic axis   EFIT equilibrium
+    efit_zmag   Z position       Magnetic axis   EFIT equilibrium
+    efit_rsep   Major radius     Separatrix      EFIT equilibrium
+    efit_zsep   Z position       Separatrix      EFIT equilibrium
+    hrts_ne     Number density   Electrons       HRTS
+    hrts_te     Temperature      Electrons       HRTS
+    lidr_ne     Number density   Electrons       LIDR
+    lidr_te     Temperature      Electrons       LIDR
+    ==========  ===============  ==============  =================
 
     Note that there will need to be some refactoring to support other
     data types. However, **this is guaranteed not to affect the public
@@ -181,11 +210,11 @@ class PPFReader(DataReader):
 
     Parameters
     ----------
-    pulse
+    pulse : int
         The ID number for the pulse from which to get data.
-    uid
+    uid : str
         The UID for the particular data to be read.
-    server
+    server : str
         The URL for the SAL server to read data from.
 
     Attributes
@@ -205,10 +234,21 @@ class PPFReader(DataReader):
         "efit_zmag": ("z", "mag_axis"),
         "efit_rsep": ("major_rad", "separatrix_axis"),
         "efit_zsep": ("z", "separatrix_axis"),
-        # "hrts_ne": ("number_density", "electrons"),
-        # "hrts_te": ("temperature", "electrons"),
-        # "lidr_ne": ("number_density", "electrons"),
-        # "lidr_te": ("temperature", "electrons"),
+        "hrts_ne": ("number_density", "electrons"),
+        "hrts_te": ("temperature", "electrons"),
+        "lidr_ne": ("number_density", "electrons"),
+        "lidr_te": ("temperature", "electrons"),
+    }
+
+    _HANDLER_METHODS: ClassVar[Dict[str, str]] = {
+        "efit_rmag": "_handle_equilibrium_position",
+        "efit_zmag": "_handle_equilibrium_position",
+        "efit_rsep": "_handle_equilibrium_position",
+        "efit_zsep": "_handle_equilibrium_position",
+        "hrts_ne": "_handle_electron_data",
+        "hrts_te": "_handle_electron_data",
+        "lidr_ne": "_handle_electron_data",
+        "lidr_te": "_handle_electron_data",
     }
 
     def __init__(self, pulse: int, uid: str = "jetppf",
@@ -220,26 +260,54 @@ class PPFReader(DataReader):
     def _get_data(self, key: str, revision: int = 0) -> DataArray:
         """Reads and returns the data for the given key. Should only be called
         by :py:meth:`DataReader.get`."""
+        return getattr(self, self._HANDLER_METHODS[key])(key, revision)
+
+    def _get_signal(self, key: str, revision: int) -> Signal:
+        """Gets the signal for the given DDA, at the given revision."""
         path = "/pulse/{:i}/ppf/signal/{}/{}:{:i}"
-        signal = self._client.get(path.format(self.pulse, self.uid,
-                                              key.replace("_", "/"), revision))
+        return self._client.get(path.format(self.pulse, self.uid,
+                                            key.replace("_", "/"), revision))
+
+    def _handle_equilibrium_position(self, key: str,
+                                     revision: int) -> DataArray:
+        """Produce :py:class:`xarray.DataArray` for data relating to position
+        of equilibrium."""
+        signal = self._get_signal(key, revision)
         provenance = None  # TODO: construct provenance data
-        meta = {"map_to_master": trivial_remap,
-                "map_from_master": trivial_remap,
+        meta = {"generate_mappers": trivial_factory,
+                "map_to_master": None,
+                "map_from_master": None,
                 "datatype": self.AVAILABLE_DATA[key],
                 "provenance": provenance}
-        return DataArray(signal.data, {'t': signal.dimensions[0].data}, "t",
-                         key, meta)
+        return DataArray(signal.data, [("t", signal.dimensions[0].data)],
+                         name=key, attrs=meta)
 
-    # def _get_hrts_ne(self, revision: int = 0) -> DataArray:
-    #     key = "hrts_ne"
-    #     signal = self._get_signal(key, revision)
-    #     error = self._get_signal("hrts_dne", revision)
-    #     provenance = None  # TODO: construct provenance data
-    #     meta = {"datatype": self.AVAILABLE_DATA[key], "error": error.data, "provenance": provenance}
-    #     return DataArray(signal.data, {"t": signal.dimensions[0].data,
-    #                                    "R0": signal.dimensions[0].data},
-    #                      ["t", "R0"], "hrts_ne", key, meta)
+    def _handle_electron_data(self, key: str, revision: int) -> DataArray:
+        """Produce :py:class:`xarray.DataArray` for electron temperature or
+        number density."""
+        signal = self._get_signal(key, revision)
+        error = self._get_signal(key[:-2] + "d" + key[-2:], revision)
+        provenance = None  # TODO: construct provenance data
+        ticks = np.arange(signal.dimensions[1].length)
+
+        r0 = signal.dimensions[1].data
+        z = self._get_signal(key[:-2] + "z", revision).data
+
+        def map_factory(equilibrium: Dataset) -> Tuple[Remapper, Remapper]:
+            # Implementation TBC, but use r0 and z.
+            r0
+            z
+            return (None, None)
+
+        meta = {"generate_mappers": map_factory,
+                "map_to_master": None,
+                "map_from_master": None,
+                "datatype": self.AVAILABLE_DATA[key],
+                "provenance": provenance,
+                "error": error.data}
+        return DataArray(signal.data, [("t", signal.dimensions[0].data),
+                                       (key[:-2] + "coord", ticks)],
+                         name=key, attrs=meta)
 
     def close(self):
         """Ends connection to the SAL server from which PPF data is being

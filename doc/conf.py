@@ -300,3 +300,4 @@ intersphinx_mapping = {'http://xarray.pydata.org/en/stable/': None,
 
 # Autodoc configurations
 autodoc_mock_imports = ["numpy", "xarrays", "sal"]
+autodoc_typehints = 'description'
