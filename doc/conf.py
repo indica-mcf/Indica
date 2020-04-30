@@ -296,8 +296,9 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'http://xarray.pydata.org/en/stable/': None,
+                       'https://prov.readthedocs.io/en/latest/': None,
                        'https://docs.python.org/3': None}
 
 # Autodoc configurations
-autodoc_mock_imports = ["numpy", "xarrays", "sal"]
+autodoc_mock_imports = ["numpy", "xarrays", "sal", "prov"]
 autodoc_typehints = 'description'

@@ -2,14 +2,18 @@
 """
 
 from abc import ABC, abstractmethod
+import datetime
 from numbers import Number as Scalar
 import socket
-from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Union
+from typing import Any, Callable, ClassVar, Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
+import prov.model as prov
 from sal.client import SALClient, AuthenticationFailed
 from sal.dataclass import Signal
 from xarrays import DataArray, Dataset
+
+import session
 
 
 DataType = Tuple[str, str]
@@ -68,6 +72,7 @@ def trivial_remap(x1: OptNumber, x2: OptNumber, t: OptNumber) -> Coordinate:
         ``None``)
     t : ndarray or None
         New time coordinate( if there is one, otherwise ``None``)
+
     """
     return x1, x2, t
 
@@ -86,9 +91,39 @@ class DataReader(ABC):
     AVAILABLE_DATA: Dict[str, DataType]
         A mapping of the keys used to get each piece of data to the type of
         data associated with that key.
+    NAMESPACE: Tuple[str, str]
+        The abbreviation and full URL for the PROV namespace of the reader
+        class.
+    prov_id: str
+        The hash used to identify this object in provenance documents.
+    agent: prov.model.ProvAgent
+        An agent representing this object in provenance documents.
+        DataArray objects can be attributed to it.
+    entity: prov.model.ProvEntity
+        An entity representing this object in provenance documents. It is used
+        to provide information on the object's own provenance.
     """
 
     AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {}
+    NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
+
+    def __init__(self, sess: session.Session = session.global_session,
+                 **kwargs):
+        """Creates a provenance entity/agent for the reader object.
+
+        """
+        self.session = sess
+        self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
+        # TODO: also include library version and, ideally, version of
+        # relevent dependency in the hash
+        self.prov_id = session.hash_vals(reader_type=self.__class__.__name__,
+                                         **kwargs)
+        self.agent = self.session.prov.agent(self.prov_id)
+        self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
+        self.entity = self.session.prov.entity(self.prov_id, kwargs)
+        self.session.prov.generation(self.entity, self.session.session,
+                                     time=datetime.datetime.now())
+        self.session.prov.attribution(self.entity, self.session.agent)
 
     def __enter__(self) -> 'DataReader':
         """Called at beginning of a context manager."""
@@ -133,9 +168,66 @@ class DataReader(ABC):
         # Check the data type is one that is registered globally
         result = self._get_data(key, revision)
         # Check the result has appropriate metadata
+        assert "generate_mappers" in result.attrs
+        assert "map_to_master" in result.attrs
+        assert "map_from_master" in result.attrs
+        assert "datatype" in result.attrs
+        assert "provenance" in result.attrs
         return result
 
-    def authenticate(name: str, password: str) -> bool:
+    def create_provenance(self, key: str, revision: Any,
+                          data_objects: Iterable[str],
+                          start_time: Optional[datetime.datetime] = None,
+                          end_time: Optional[datetime.datetime] = None):
+        """Create a provenance entity for the given set of data. This should
+        be attached as metadata.
+
+        Note that this method just creates the provenance data
+        appropriate for the arguments it has been provided with. It
+        does not check that these arguments are actually valid and
+        that the provenance corresponds to actually existing data.
+
+        Parameters
+        ----------
+        key
+            Identifies what data was read. Should be present in
+            :py:attr:`AVAILABLE_DATA`.
+        revision
+            Object indicating which version of data should be used.
+        data_objects
+            Identifiers for the database entries or files which the data was 
+            read from.
+        start_time
+            The time read-in began.
+        end_time
+            The time read-in was finished (defaults to present time).
+        """
+        entity_id = session.hash_vals(creator=self.prov_id, key=key,
+                                      revision=revision)
+        attrs = {prov.PROV_TYPE: "DataArray",
+                 prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key])}
+        read_date = datetime.datetime.now()
+        activity_id = session.hash_vals(agent=self.prov_id, date=read_date)
+        if not end_time:
+            end_time = datetime.datetime.now()
+        activity = self.session.prov.activity(activity_id, start_time,
+                                              end_time,
+                                              {prov.PROV_TYPE: "ReadData"})
+        activity.wasAssociatedWith(self.session.agent)
+        activity.wasAssociatedWith(self.agent)
+        activity.wasInformedBy(self.session.session)
+        entity = self.session.prov.entity(entity_id, attrs)
+        entity.wasGeneratedBy(activity, end_time)
+        entity.wasAttributedTo(self.session.agent)
+        entity.wasAttributedTo(self.agent)
+        for data in data_objects:
+            # TODO: Find some way to avoid duplicate records
+            data_entity = self.prov.entity(self.namespace[0]+data)
+            entity.wasDerivedFrom(data_entity)
+            activity.used(data_entity)
+        return entity
+
+    def authenticate(self, name: str, password: str) -> bool:
         """Confirms user has permission to access data.
 
         This must be called before reading data from some sources. The default
@@ -222,10 +314,9 @@ class PPFReader(DataReader):
     AVAILABLE_DATA: Dict[str, DataType]
         A mapping of the keys used to get each piece of data to the type of
         data associated with that key.
-    pulse : int
-        The ID number for the pulse from which to get data.
-    uid : str
-        The UID for the particular data to be read.
+    NAMESPACE: Tuple[str, str]
+        The abbreviation and full URL for the PROV namespace of the reader
+        class.
 
     """
 
@@ -252,7 +343,10 @@ class PPFReader(DataReader):
     }
 
     def __init__(self, pulse: int, uid: str = "jetppf",
-                 server: str = "https://sal.jet.uk"):
+                 server: str = "https://sal.jet.uk",
+                 sess: session.Session = session.global_session):
+        self.NAMESPACE: Tuple[str, str] = ("jet", server)
+        super().__init__(sess, puls=pulse, uid=uid, server=server)
         self.pulse = pulse
         self.uid = uid
         self._client = SALClient(server)
@@ -262,32 +356,38 @@ class PPFReader(DataReader):
         by :py:meth:`DataReader.get`."""
         return getattr(self, self._HANDLER_METHODS[key])(key, revision)
 
-    def _get_signal(self, key: str, revision: int) -> Signal:
+    def _get_signal(self, key: str, revision: int) -> Tuple[Signal, str]:
         """Gets the signal for the given DDA, at the given revision."""
         path = "/pulse/{:i}/ppf/signal/{}/{}:{:i}"
-        return self._client.get(path.format(self.pulse, self.uid,
-                                            key.replace("_", "/"), revision))
+        return (self._client.get(path.format(self.pulse, self.uid,
+                                             key.replace("_", "/"), revision)),
+                path)
 
     def _handle_equilibrium_position(self, key: str,
                                      revision: int) -> DataArray:
         """Produce :py:class:`xarray.DataArray` for data relating to position
         of equilibrium."""
-        signal = self._get_signal(key, revision)
-        provenance = None  # TODO: construct provenance data
+        start = datetime.datetime.now()
+        signal, uid = self._get_signal(key, revision)
         meta = {"generate_mappers": trivial_factory,
                 "map_to_master": None,
                 "map_from_master": None,
-                "datatype": self.AVAILABLE_DATA[key],
-                "provenance": provenance}
-        return DataArray(signal.data, [("t", signal.dimensions[0].data)],
+                "datatype": self.AVAILABLE_DATA[key]}
+        data = DataArray(signal.data, [("t", signal.dimensions[0].data)],
                          name=key, attrs=meta)
+        data.attrs['provenance'] = self.create_provenance(key, revision,
+                                                          [uid], start)
+        return data
 
     def _handle_electron_data(self, key: str, revision: int) -> DataArray:
         """Produce :py:class:`xarray.DataArray` for electron temperature or
         number density."""
-        signal = self._get_signal(key, revision)
-        error = self._get_signal(key[:-2] + "d" + key[-2:], revision)
-        provenance = None  # TODO: construct provenance data
+        start = datetime.datetime.now()
+        uids = []
+        uid, signal = self._get_signal(key, revision)
+        uids.append(uid)
+        uid, error = self._get_signal(key[:-2] + "d" + key[-2:], revision)
+        uids.append(uid)
         ticks = np.arange(signal.dimensions[1].length)
 
         r0 = signal.dimensions[1].data
@@ -303,11 +403,13 @@ class PPFReader(DataReader):
                 "map_to_master": None,
                 "map_from_master": None,
                 "datatype": self.AVAILABLE_DATA[key],
-                "provenance": provenance,
                 "error": error.data}
-        return DataArray(signal.data, [("t", signal.dimensions[0].data),
+        data = DataArray(signal.data, [("t", signal.dimensions[0].data),
                                        (key[:-2] + "coord", ticks)],
                          name=key, attrs=meta)
+        data.attrs['provenance'] = self.create_provenance(key, revision, uids,
+                                                          start)
+        return data
 
     def close(self):
         """Ends connection to the SAL server from which PPF data is being

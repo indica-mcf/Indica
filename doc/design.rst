@@ -163,7 +163,7 @@ datatype : **(str, str)**
     Information on the type of data stored in this
     :py:class:`xarray.DataArray` object. See :ref:`Data Value Type System`.
 
-provenance : TBC
+provenance : **:py:class:`prov.model.ProvEntity`**
     Information on the process which generated this data. See
     :ref:`Provenance Tracking`.
 
@@ -350,108 +350,119 @@ how a data set is generated. For this reason, it is proposed that the
 software contains a mechanism for tracking data "provenance". Every
 time data is created, either by being read in from the disk, by some
 assumption specified by the user, or by a calculation on other data, a
-record should also be created describing how this was done. This
-record could look something like the ``ProvenanceTree`` class described
-in UML below.
+record should also be created describing how this was done.
 
-.. uml::
-
-   class ProvenanceTree {
-   + name: str
-   + created: date
-   + creator: str 
-   + commit: str
-   + metadata: dict
-   + inputs: list
-   }
-
-The meaning of each attribute is
-
-name
-   description of what this data represents
-
-created
-   the date this data was read from disk or calculated
-
-creator
-   the name of the class which produced this data
-
-commit
-   the git hash for the version of the code which was used
-
-metadata
-   information provided by the creator
-
-inputs
-   the ``ProvenanceNode`` objects used to calculate this data
-
-Sufficient information should be provided in the metadata that the
-data could be exactly recreated using the same inputs. When writing
-data out to disk, the provenance information should be embedded in the
-output file. In future it would be possible to implement a function
-which uses this data to "replay" a calculation. Breakpoints could be
-inserted into this for debugging purposes. Alternatively, metadata or
-inputs could be altered prior to replaying the calculation, to see how
-doing something differently would affect the results.
-
-The UML object diagram below gives a sense of what a full provenance
-tree could look like.
-
-.. uml::
-   
-   object sxr_data {
-   + name = "SXR Camera V"
-   + created = "2020-01-01 12:00"
-   + creator = "PPFReader"
-   + commit = "8a5cf74"
-   + metadata = {'pulse': 94672, user_id': 'JETPPF',\n\t 'source': 'EFIT', 'start': 47., 'end': 53.5,\n\t 'smooth': 0.02}
-   + inputs = [major_rad_offset]
-   }
-   
-   object major_rad_offset {
-   + name = "EFIT Major Radius Offset"
-   + created = "2020-01-01 11:59"
-   + creator = "EFITOffset"
-   + commit = "8a5cf74"
-   + meta = {'target_temp': 100.}
-   + inputs = [equilibrium, electron_temp]
-   }
-   
-   object electron_temp {
-   + name = "HRTS Electron Temperatures"
-   + created = "2020-01-01 11:58"
-   + creator = "PPFReader"
-   + commit = "8a5cf74"
-   + metadata = {'pulse': 94672, user_id': 'JETPPF',\n\t 'source': 'EFIT', 'start': 47., 'end': 53.5,\n\t 'smooth': 0.02}
-   + inputs = []
-   }
-   
-   object equilibrium {
-   + name = "EFIT Equilibrium Data"
-   + created = "2020-01-01 11:57"
-   + creator = "PPFReader"
-   + commit = "8a5cf74"
-   + metadata = {'pulse': 94672, user_id': 'JETPPF',\n\t 'source': 'EFIT', 'start': 47., 'end': 53.5,\n\t 'smooth': 0.02}
-   + inputs = []
-   }
-   
-   sxr_data o-- major_rad_offset
-   major_rad_offset o-- electron_temp
-   major_rad_offset o-- equilibrium
-
-   
 There already exist standards and library for recording this sort of
-information, so we should seek to use them. We could also look to
-integrate the `command patter
-<https://en.wikipedia.org/wiki/Command_pattern>`_ for the "replay"
-feature. A `chain of responsibility
-<https://en.wikipedia.org/wiki/Chain-of-responsibility_pattern>`_
-could be useful as well.
+information, so we should seek to use them. W3C defines the `PROV
+standard <https://www.w3.org/TR/2013/NOTE-prov-overview-20130430/>`_
+for representing this sort of data and the `PyProv
+<https://prov.readthedocs.io/en/latest/index.html>`_ library exists to
+use it from within Python. In this model, there are the following
+types of records:
+
+Entity : :py:class:`prov.model.ProvEntity`
+    Something you want to describe the provenance of, such as book,
+    piece of artwork, scientific paper, web page, or book.
+Activity : :py:class:`prov.model.ProvActivity`
+    Something occurring over a period of time which acts on or with
+    entities.
+Agent : :py:class:`prov.model.ProvAgent`
+    Something bearing responsibility for an activity occurring or an
+    entity existing.
+
+There are various sorts of relationships between these objects, with
+the main ones summarised in the diagram below.
+
+.. image:: _static/provRelationships.png
+
+This software a class :py:class:`session.Session` which holds the
+:py:class:`provenance document <prov.model.ProvDocument>` as well as
+contains information about the user and
+version of the software. A global session can be established using
+:py:meth:`session.Session.begin` or a context manager. Doing so requires
+specifying information about the user, such as an ORCiD ID (other
+options TBC). The library will then use this global session to record
+information or, alternatively, you can provide your own instance when
+constructing objects. This allows greater flexibility and, e.g.,
+running two sessions in parallel.
+
+What follows is a list of the sorts of PROV objects which will be
+generated. Each of them should come with an unique identifier. Where
+the data is read from some sort of database this could be the key for
+the object. Otherwise it should be a hash generated from the metadata
+of the object.
+
+Calculations
+~~~~~~~~~~~~
+A calculation will be represented by an **Activity**. It will be
+linked with the data entities it used to do the calculation, the user
+or other agent to invoke it, and the Operator object which actually
+performed it.
+
+:py:class:`xarray.DataArray` objects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Each data object will be represented by an **Entity**. This entity will
+contain links with the user and piece of software (e.g., reader or
+operator) to create it, the reading or calculation activity it was
+produced by, and any entities which went into its creation.
+
+:py:class:`reader.DataReader` objects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+These objects are represented as both an **Entity** and an
+**Agent**. The former is used to describe how it was instantiated
+(e.g., the user that created it, what arguments were used) while the
+latter can be used to indicate when it creates DataArray objects by
+reading them in.
+
+Dependency
+~~~~~~~~~~
+Third-party libraries which are depended on should be represented as
+**Entitites** in the provenance data. Information should be provided
+on which version was used.
+
+External data
+~~~~~~~~~~~~~
+External data (e.g., contained in source files or remote databases)
+should have a simple representation as an **Entity**. Sufficient
+information should be provided to uniquely identify the record.
+
+Operator objects
+~~~~~~~~~~~~~~~~
+Similar to reader objects, these are represented as both an **Entity**
+and an **Agent**. Again, the former provides information on who
+created the operator and what arguments were used. The latter
+indicates the object's role in performing calculations.
+
+Package
+~~~~~~~
+The overall library/impurities package is itself represented by an
+**Entity**. This should contain information on the version or git
+commit. It could also provide information on the authors who wrote it.
+
+Reading data
+~~~~~~~~~~~~
+Reading data is an **Activity**. It is associated with a reader agent
+and a user of the software. It uses external data entities. 
+
+:py:class:`session.Session` object
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+An **Activity** representing the current running instance of this
+software. It uses the package and dependencies and is associated with
+the user to launch it. It contains metadata on the computer being
+used, the working directory, etc.
+
+Users
+~~~~~
+The person using the software is represented as an **Agent**. Data
+objects will be attributed to them. They are associated with the
+session. Sometimes they will delegate authority to classes or
+functions which are themselves agents. Sufficient metadata should be
+provided to allow them to be contacted. Ideally they would have some
+sort of unique identifier such as an ORCiD ID.
 
 
 Operations on Data
 ------------------
-
 In the previous two sections I referred to "operations" on data. These
 should be seen as something distinct from standard mathematical
 operators, etc. Rather, they should be thought of as representing some
