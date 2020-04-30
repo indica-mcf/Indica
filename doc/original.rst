@@ -25,6 +25,8 @@ Documentation and Publications
 | `M. Sertoli et al. Nuclear Fusion 55, 113029 (2015) <https://doi.org/10.1088/0029-5515/55/11/113029>`_
 | `P. Piovesan et al. Plasma Physics and Controlled Fusion 59, 014027 (2016) <https://doi.org/10.1088/0741-3335/59/1/014027>`_
 
+.. _concept:
+
 Code concept
 --------------
 
@@ -98,7 +100,7 @@ In this section, the steps of code execution are outlined in detail. The names u
 	* **Downsample** to reference time axis t_unfold
 	* **Choose which channels to keep** (*some channels may be faulty and should be discarded from the start*)
 
-	*All other diagnostics are currently read later on, but could be read at this point or anyway using a common GUI. Below is a list of all other physical quantities and respective diagnostics currently included in the computation:*
+	*All other diagnostics are currently read later on before commencing the calculation of the impourity density (step 7.). They could also be read at this stage, but should anuwau be read using a common diagnostic-reading-GUI, callable anytime in order to change the data used for the computation or DDA names if specific data is not of good quality. Below is a list of all other physical quantities and respective diagnostics currently included in the computation:*
 	
 	* **Total radiation**: KB5 
 	* **Radiation tomographic reconstructions**: BOLT, B5NN, B5ML, B5MF, ... 
@@ -131,4 +133,18 @@ In this section, the steps of code execution are outlined in detail. The names u
 	* **Symmety**: perform a simple **Abel inversion** of all available LOS
 	* **Asymmetry**:
 		a) Perform **Abel inversion** of a specified set of lines of sight of one camera (HFS viewing LOS of camera V)
-		b) **Fit all LOS using equation 1** of | `M. Sertoli et al. Review of Scientific Instruments 89, 113501 (2018) <https://doi.org/10.1063/1.5046562>`_ searching for the best profiles of **ϵ_SXR(ρ,R_0;t)** and **λ_SXR(ρ;t)**. The local emissivity calculated in a) is used as starting point for ϵ_SXR, while λ_SXR is set to zero across the full radius. Quite strict boundery conditions for ϵ_SXR and λ_SXR are specified to avoid problems in the plasma centre and at the boundary (rho = 1) and radial smoothing is performed to avoid excessive gradients. The number of spline knots can be varied between 3-6 depending on gradients in the emissivity pattern and rate of asymmetry.
+		b) **Fit all LOS using equation 1** of | `M. Sertoli et al. Review of Scientific Instruments 89, 113501 (2018) <https://doi.org/10.1063/1.5046562>`_ searching for the best profiles of **ϵ_SXR(ρ,R_0;t)** and **λ_SXR(ρ;t)**. The local emissivity calculated in a) is used as starting point for ϵ_SXR, while λ_SXR is set to zero across the full radius. Quite strict boundery conditions for ϵ_SXR and λ_SXR are specified to avoid problems in the plasma centre and at the boundary (rho = 1) and radial smoothing is performed to avoid excessive gradients. **The number of knots** for ϵ_SXR and λ_SXR is chosen by the user (**typically between 3-6**) depending on gradients in the emissivity pattern and rate of asymmetry.
+		
+7. **Define parameters to calculate the plasma composition**
+	* **SXR detection limit** (float, default = 1500): defined as a minimum Te (eV) roughtly coincident with the photon energy of the filter function edge. This limit depends on the thickness of the Be-filter and on the quality of atomic data, so is machine dependent. (*A default is provided and usually works fine, but the user must have the possibility to choose a different radius or temperature limit*)
+	* **Account for Zeff** (bool, default = True): calculate a low-Z impurity density to account for missing contributions to the Zeff measurement (*possible only if a Zeff measurement is available*)
+	* **Cross-calibrate to VUV (default = True)**: use independent passive-spectroscopy impurity concentration measurement of Z0 to cross-calibrate the impurity density calculated using SXR. *For W this is currently implemented using KT7/3 quasi-continuum or spectral lines measurements*.
+	* **Choose impurity elements**: 
+		* Z0: main radiator (default = W)
+		* Z1: time-evolving low-Z (default = Be)
+		* Z2: if Z1 != Be, choose background constant Be concentration (*this element is currently hard-wired, but should be a choice of the user*)
+		* Z3: second mid-/high-Z element (default = Ni) 
+	* **Choose extrapolation methods** of impurity density Z0 beyond the SXR detection limit. All extrapolation methods (*choice of user*) proceed separately on the LFS- and HFS-midplane to preserve the measured asymmetry. The asymmetry factor λ_Z0 is re-calculated on the extrapolated profiles and used to estimate the 2D impurity density maps and all quantities that depend on them (e.g. total radiated power, Zeff LOS-integral, etc.).
+		* **Constant concentration**: follow shape of electron density profile
+		* **Extrapolate derivative**: use derivative at SXR detection limit to extrapolate LFS impurity density until a **rho_max** (user defined) where derivative -> 0; beyond rho_max use electron density shape to extrapolate up to the separatrix. The HFS impurity density is extrapolated using shape of electron density only
+		* **Fit to KB5**: extrapolate Z0 impurity density using gaussian shape to fit experimental KB5 LOS-integrals. The fit parameteres  are the gaussian peak, height and width. Beyond the peak, the electron density shape is used up to the separatrix. (*The fit is a delicate point and requires more details...*)

@@ -110,7 +110,7 @@ Grouped by measurement quantity, the diagnostics (identified with their DDA name
 * Tomographic reconstruction of total radiation: **BOLT, B5NN, B5ML, B5MF**
 * Other tools/diagnostics: **analysis of MHD activity** through FFT and toroidal mode analysis of Mirnov coils, oscillation amplitudes of fast KK3 and SXR.
 
-Below are the details of the data-types (DTYPE) that have to be read for each diagnostic (DDA). These DTYPEs can be read durectly from the diagnostic PPF unless otherwised specified (e.g. > *Flush*):
+Below are the details of the data-types (DTYPE) that have to be read for each diagnostic (DDA). These DTYPEs can be read durectly from the diagnostic PPF unless otherwised specified (e.g. *Flush* or *SURF*). Flush is currently not available for Python 3, but there are privately developed wrappers that can be used/modified. The SURF database is a publicly available ASCII file */home/flush/surf/input/overlays_db.dat*.
 
 .. list-table:: Title
 	:widths: 5 5 10 60
@@ -207,7 +207,7 @@ Below are the details of the data-types (DTYPE) that have to be read for each di
 	*	- 
 		- z 
 		- 
-		- **NOT IN PPF**: z position of the viewing LOS (horizontal view), changed from 0.1335 (m) to 0.2485 (m) at pulse 80318
+		- **NOT IN PPF**: z position of the viewing LOS (horizontal view) *> SURF database has slightly different vaues from Datahandbook = 0.1335 (m) for JPN < 80318, 0.2485 (m) for JPN > 80318*
 	*	- SXR
 		- V##, T##, H##
 		- t_sxr
@@ -232,3 +232,43 @@ Below are the details of the data-types (DTYPE) that have to be read for each di
 		- LOSH, LOSV
 		- 
 		- Info on LOS coordinates (mm) for KS3 measurements: R_start = LOSH[1], R_end = LOSH[4], z_start = LOSH[2], z_end = LOSH[5], same for LOSV
+	* 	- CXRS *(many DDAs)*
+		- TI
+		- x_cxrs, t_cxrs
+		- Ion temperature (eV), x_cxrs is an *effective* position of measurement in the torus frame (m), but the correct R is RPOS (see below)
+	*	-
+		- TIHI, TILO
+		- x_cxrs, t_cxrs
+		- Upper, lower TI limits (eV): TI_ERR = (TIHI - TILO)/2.
+	*	-
+		- ANGF
+		- x_cxrs, t_cxrs
+		- Angular rotation frequency (rad)
+	*	-
+		- AFHI, AFLO
+		- x_cxrs, t_cxrs
+		- Upper, lower ANGF limits (rad): ANGF_ERR = (AFHI - AFLO)/2.
+	*	-
+		- CONC
+		- x_cxrs, t_cxrs
+		- Concentration (%) of measured impurity
+	*	-
+		- COHI, COLO
+		- x_cxrs, t_cxrs
+		- Upper, lower CONC limits (rad): CONC_ERR = (COHI - COLO)/2.
+	*	-
+		- RPOS
+		- x_cxrs, t_cxrs
+		- R position of measurement (m) *time-dependent since it depends on which PINI is on*
+	*	-
+		- POS
+		- x_cxrs, t_cxrs
+		- z position of measurement (m) *time-dependent since it depends on which PINI is on*
+	*	-
+		- MASS
+		- 
+		- Atomic mass of measured impurity
+	*	-
+		- TEXP
+		- t_cxrs
+		- Exposure time (s)
