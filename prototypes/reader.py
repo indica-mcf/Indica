@@ -102,13 +102,14 @@ class DataReader(ABC):
     entity: prov.model.ProvEntity
         An entity representing this object in provenance documents. It is used
         to provide information on the object's own provenance.
+
     """
 
     AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {}
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
     def __init__(self, sess: session.Session = session.global_session,
-                 **kwargs):
+                 **kwargs: Dict[str, Any]):
         """Creates a provenance entity/agent for the reader object.
 
         """
@@ -178,7 +179,8 @@ class DataReader(ABC):
     def create_provenance(self, key: str, revision: Any,
                           data_objects: Iterable[str],
                           start_time: Optional[datetime.datetime] = None,
-                          end_time: Optional[datetime.datetime] = None):
+                          end_time: Optional[datetime.datetime] = None) -> \
+            prov.ProvEntity:
         """Create a provenance entity for the given set of data. This should
         be attached as metadata.
 
@@ -201,15 +203,19 @@ class DataReader(ABC):
             The time read-in began.
         end_time
             The time read-in was finished (defaults to present time).
+
+        Returns
+        -------
+        :
+            A provenance entity for the newly read-in data.
         """
-        entity_id = session.hash_vals(creator=self.prov_id, key=key,
-                                      revision=revision)
-        attrs = {prov.PROV_TYPE: "DataArray",
-                 prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key])}
-        read_date = datetime.datetime.now()
-        activity_id = session.hash_vals(agent=self.prov_id, date=read_date)
         if not end_time:
             end_time = datetime.datetime.now()
+        entity_id = session.hash_vals(creator=self.prov_id, key=key,
+                                      revision=revision, date=end_time)
+        attrs = {prov.PROV_TYPE: "DataArray",
+                 prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key])}
+        activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(activity_id, start_time,
                                               end_time,
                                               {prov.PROV_TYPE: "ReadData"})
@@ -359,6 +365,8 @@ class PPFReader(DataReader):
     def _get_signal(self, key: str, revision: int) -> Tuple[Signal, str]:
         """Gets the signal for the given DDA, at the given revision."""
         path = "/pulse/{:i}/ppf/signal/{}/{}:{:i}"
+        # TODO: if revision == 0 update it with absolute revision
+        # number in path before returning
         return (self._client.get(path.format(self.pulse, self.uid,
                                              key.replace("_", "/"), revision)),
                 path)
@@ -391,7 +399,8 @@ class PPFReader(DataReader):
         ticks = np.arange(signal.dimensions[1].length)
 
         r0 = signal.dimensions[1].data
-        z = self._get_signal(key[:-2] + "z", revision).data
+        z, uid = self._get_signal(key[:-2] + "z", revision).data
+        uids.append(uid)
 
         def map_factory(equilibrium: Dataset) -> Tuple[Remapper, Remapper]:
             # Implementation TBC, but use r0 and z.

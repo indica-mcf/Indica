@@ -478,25 +478,29 @@ might look something like the UML below.
 
 .. uml::
 
-   class Operation {
-   - _provenance_input: list
-   
+   class Operator {
+   - _start_time: datetime
+   - _input_provenance: list
+   - _session: Session
+   + agent: ProvAgent
+   + entity: ProvEntity
+
+   + __init__(self, sess, **kwargs)
+   + {abstract} __call__(self, *args): DataArray
+   + create_provenance()
    + validate_arguments(*args)
-   + set_result_metadata(result: DataArray): DataArray
-   - _create_result_provenance()
+   + {static} recreate(provenance: ProvEntity): Operator
    }
    
-   class ImplementedOperation {
-   - {static} input_types: list
-   - {static} result_types: list
-   - _provenance_metadata: dict
+   class ImplementedOperator {
+   + {static} INPUT_TYPES: list
+   + {static} RESULT_TYPES: list
    
-   + __init__(...)
-   + __call__(...)
-   + {static} recreate(provenance: ProvenanceTree): ImplementedOperation
+   + __init__(self, ...)
+   + __call__(self, ...): DataArray
    }
    
-   Operation <|-- ImplementedOperation
+   Operator <|-- ImplementedOperator
 
 While performing the calculation they should not make reference to any
 global data except for well-established physical constants, for
