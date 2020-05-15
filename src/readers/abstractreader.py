@@ -4,15 +4,14 @@
 from abc import ABC, abstractmethod
 import datetime
 from numbers import Number as Scalar
-import socket
 from typing import Any, Callable, ClassVar, Dict, Iterable, Optional, Tuple, Union
+from warnings import warn
 
 import numpy as np
 import prov.model as prov
-from sal.client import SALClient, AuthenticationFailed
-from sal.dataclass import Signal
 from xarrays import DataArray, Dataset
 
+from dattypes import GENERAL_DATATYPES, SPECIFIC_DATATYPES, DatatypeWarning
 import session
 
 
@@ -110,9 +109,11 @@ class DataReader(ABC):
 
     def __init__(self, sess: session.Session = session.global_session,
                  **kwargs: Dict[str, Any]):
-        """Creates a provenance entity/agent for the reader object.
+        """Creates a provenance entity/agent for the reader object. Also
+        checks valid datatypes have been specified for the available data.
 
         """
+        self._start_time = None
         self.session = sess
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
         # TODO: also include library version and, ideally, version of
@@ -167,20 +168,33 @@ class DataReader(ABC):
             raise ValueError("{} can not read data for key {}".format(
                 self.__class__.__name__, repr(key)))
         # Check the data type is one that is registered globally
+        self._start_time = datetime.datetime.now()
         result = self._get_data(key, revision)
         # Check the result has appropriate metadata
         assert "generate_mappers" in result.attrs
         assert "map_to_master" in result.attrs
         assert "map_from_master" in result.attrs
         assert "datatype" in result.attrs
+        dt = result.attrs["datatype"]
+        expected_dt = self.AVAILABLE_DATA[key]
+        assert dt[0] == expected_dt[0]
+        if dt[0] not in GENERAL_DATATYPES:
+            warn("DataReader class {} returns unrecognised general "
+                 "datatype '{}' for  key '{}'".format(
+                     self.__class__.__name__, dt[0], key),
+                 DatatypeWarning)
+        if expected_dt[1]:
+            assert dt[1] == expected_dt[1]
+        if dt[1] not in SPECIFIC_DATATYPES:
+            warn("DataReader class {} returns unrecognised specific "
+                 "datatype '{}' for key '{}'".format(
+                     self.__class__.__name__, dt[1], key),
+                 DatatypeWarning)
         assert "provenance" in result.attrs
         return result
 
     def create_provenance(self, key: str, revision: Any,
-                          data_objects: Iterable[str],
-                          start_time: Optional[datetime.datetime] = None,
-                          end_time: Optional[datetime.datetime] = None) -> \
-            prov.ProvEntity:
+                          data_objects: Iterable[str]) -> prov.ProvEntity:
         """Create a provenance entity for the given set of data. This should
         be attached as metadata.
 
@@ -199,24 +213,19 @@ class DataReader(ABC):
         data_objects
             Identifiers for the database entries or files which the data was 
             read from.
-        start_time
-            The time read-in began.
-        end_time
-            The time read-in was finished (defaults to present time).
 
         Returns
         -------
         :
             A provenance entity for the newly read-in data.
         """
-        if not end_time:
-            end_time = datetime.datetime.now()
+        end_time = datetime.datetime.now()
         entity_id = session.hash_vals(creator=self.prov_id, key=key,
                                       revision=revision, date=end_time)
         attrs = {prov.PROV_TYPE: "DataArray",
                  prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key])}
         activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
-        activity = self.session.prov.activity(activity_id, start_time,
+        activity = self.session.prov.activity(activity_id, self._start_time,
                                               end_time,
                                               {prov.PROV_TYPE: "ReadData"})
         activity.wasAssociatedWith(self.session.agent)
@@ -282,171 +291,3 @@ class DataReader(ABC):
         etc.) from which data is being read."""
         raise NotImplementedError("{} does not implement a 'close' "
                                   "method.".format(self.__class__.__name__))
-
-
-class PPFReader(DataReader):
-    """Class to read JET PPF data using SAL.
-
-    Currently the following types of data are supported.
-
-    ==========  ===============  ==============  =================
-    Key         Data type        Data for        Instrument
-    ==========  ===============  ==============  =================
-    efit_rmag   Major radius     Magnetic axis   EFIT equilibrium
-    efit_zmag   Z position       Magnetic axis   EFIT equilibrium
-    efit_rsep   Major radius     Separatrix      EFIT equilibrium
-    efit_zsep   Z position       Separatrix      EFIT equilibrium
-    hrts_ne     Number density   Electrons       HRTS
-    hrts_te     Temperature      Electrons       HRTS
-    lidr_ne     Number density   Electrons       LIDR
-    lidr_te     Temperature      Electrons       LIDR
-    ==========  ===============  ==============  =================
-
-    Note that there will need to be some refactoring to support other
-    data types. However, **this is guaranteed not to affect the public
-    interface**.
-
-    Parameters
-    ----------
-    pulse : int
-        The ID number for the pulse from which to get data.
-    uid : str
-        The UID for the particular data to be read.
-    server : str
-        The URL for the SAL server to read data from.
-
-    Attributes
-    ----------
-    AVAILABLE_DATA: Dict[str, DataType]
-        A mapping of the keys used to get each piece of data to the type of
-        data associated with that key.
-    NAMESPACE: Tuple[str, str]
-        The abbreviation and full URL for the PROV namespace of the reader
-        class.
-
-    """
-
-    AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {
-        "efit_rmag": ("major_rad", "mag_axis"),
-        "efit_zmag": ("z", "mag_axis"),
-        "efit_rsep": ("major_rad", "separatrix_axis"),
-        "efit_zsep": ("z", "separatrix_axis"),
-        "hrts_ne": ("number_density", "electrons"),
-        "hrts_te": ("temperature", "electrons"),
-        "lidr_ne": ("number_density", "electrons"),
-        "lidr_te": ("temperature", "electrons"),
-    }
-
-    _HANDLER_METHODS: ClassVar[Dict[str, str]] = {
-        "efit_rmag": "_handle_equilibrium_position",
-        "efit_zmag": "_handle_equilibrium_position",
-        "efit_rsep": "_handle_equilibrium_position",
-        "efit_zsep": "_handle_equilibrium_position",
-        "hrts_ne": "_handle_electron_data",
-        "hrts_te": "_handle_electron_data",
-        "lidr_ne": "_handle_electron_data",
-        "lidr_te": "_handle_electron_data",
-    }
-
-    def __init__(self, pulse: int, uid: str = "jetppf",
-                 server: str = "https://sal.jet.uk",
-                 sess: session.Session = session.global_session):
-        self.NAMESPACE: Tuple[str, str] = ("jet", server)
-        super().__init__(sess, puls=pulse, uid=uid, server=server)
-        self.pulse = pulse
-        self.uid = uid
-        self._client = SALClient(server)
-
-    def _get_data(self, key: str, revision: int = 0) -> DataArray:
-        """Reads and returns the data for the given key. Should only be called
-        by :py:meth:`DataReader.get`."""
-        return getattr(self, self._HANDLER_METHODS[key])(key, revision)
-
-    def _get_signal(self, key: str, revision: int) -> Tuple[Signal, str]:
-        """Gets the signal for the given DDA, at the given revision."""
-        path = "/pulse/{:i}/ppf/signal/{}/{}:{:i}"
-        # TODO: if revision == 0 update it with absolute revision
-        # number in path before returning
-        return (self._client.get(path.format(self.pulse, self.uid,
-                                             key.replace("_", "/"), revision)),
-                path)
-
-    def _handle_equilibrium_position(self, key: str,
-                                     revision: int) -> DataArray:
-        """Produce :py:class:`xarray.DataArray` for data relating to position
-        of equilibrium."""
-        start = datetime.datetime.now()
-        signal, uid = self._get_signal(key, revision)
-        meta = {"generate_mappers": trivial_factory,
-                "map_to_master": None,
-                "map_from_master": None,
-                "datatype": self.AVAILABLE_DATA[key]}
-        data = DataArray(signal.data, [("t", signal.dimensions[0].data)],
-                         name=key, attrs=meta)
-        data.attrs['provenance'] = self.create_provenance(key, revision,
-                                                          [uid], start)
-        return data
-
-    def _handle_electron_data(self, key: str, revision: int) -> DataArray:
-        """Produce :py:class:`xarray.DataArray` for electron temperature or
-        number density."""
-        start = datetime.datetime.now()
-        uids = []
-        uid, signal = self._get_signal(key, revision)
-        uids.append(uid)
-        uid, error = self._get_signal(key[:-2] + "d" + key[-2:], revision)
-        uids.append(uid)
-        ticks = np.arange(signal.dimensions[1].length)
-
-        r0 = signal.dimensions[1].data
-        z, uid = self._get_signal(key[:-2] + "z", revision).data
-        uids.append(uid)
-
-        def map_factory(equilibrium: Dataset) -> Tuple[Remapper, Remapper]:
-            # Implementation TBC, but use r0 and z.
-            r0
-            z
-            return (None, None)
-
-        meta = {"generate_mappers": map_factory,
-                "map_to_master": None,
-                "map_from_master": None,
-                "datatype": self.AVAILABLE_DATA[key],
-                "error": error.data}
-        data = DataArray(signal.data, [("t", signal.dimensions[0].data),
-                                       (key[:-2] + "coord", ticks)],
-                         name=key, attrs=meta)
-        data.attrs['provenance'] = self.create_provenance(key, revision, uids,
-                                                          start)
-        return data
-
-    def close(self):
-        """Ends connection to the SAL server from which PPF data is being
-        read."""
-        del self.server
-
-    @property
-    def requires_authentication(self):
-        # Perform the necessary logic to know whether authentication is needed.
-        return not socket.gethostname().startswith("heimdall")
-
-    def authenticate(self, name: str, password: str):
-        """Log onto the JET/SAL system to access data.
-
-        Parameters
-        ----------
-        name:
-            Your username when logging onto Heimdall.
-        password:
-            SecureID passcode (pin followed by value displayed on token).
-
-        Returns
-        -------
-        :
-            Indicates whether authentication was succesful.
-        """
-        try:
-            self._client.authenticate(name, password)
-            return True
-        except AuthenticationFailed:
-            return False
