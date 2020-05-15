@@ -4,10 +4,12 @@
 from abc import ABC, abstractmethod
 import datetime
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
+from warnings import warn
 
 import prov.model as prov
 from xarrays import DataArray
 
+from dattypes import GENERAL_DATATYPES, SPECIFIC_DATATYPES, DatatypeWarning
 import session
 
 
@@ -58,8 +60,9 @@ class Operator(ABC):
 
     def __init__(self, sess: session.Session = session.global_session,
                  **kwargs: Dict[str, Any]):
-        """Creates a provenance entity/agent for the operator object. Should
-        be called by initialisers in subclasses.
+        """Creates a provenance entity/agent for the operator object. Also
+        checks arguments and results are of valid datatypes. Should be
+        called by initialisers in subclasses.
 
         """
         self._start_time = None
@@ -72,9 +75,31 @@ class Operator(ABC):
         self._session.prov.actedOnBehalfOf(self.agent, self._session.agent)
         self.entity = self._session.prov.entity(self.prov_id, kwargs)
         self._session.prov.generation(self.entity, self._session.session,
-                                     time=datetime.datetime.now())
+                                      time=datetime.datetime.now())
         self._session.prov.attribution(self.entity, self._session.agent)
         self._input_provenance: List[prov.ProvEntity] = []
+        for i, datatype in enumerate(self.ARGUMENT_TYPES):
+            if datatype[0] not in GENERAL_DATATYPES:
+                warn("Operator class {} expects argument {} to have "
+                     "unrecognised general datatype '{}'".format(
+                         self.__class__.__name__, i+1, datatype[0]),
+                     DatatypeWarning)
+            if datatype[1] not in SPECIFIC_DATATYPES:
+                warn("Operator class {} expects argument {} to have "
+                     "unrecognised specific datatype '{}'".format(
+                         self.__class__.__name__, i+1, datatype[1]),
+                     DatatypeWarning)
+        for i, datatype in enumerate(self.RETURN_TYPES):
+            if datatype[0] not in GENERAL_DATATYPES:
+                warn("Operator class {} produces result {} with "
+                     "unrecognised general datatype '{}'".format(
+                         self.__class__.__name__, i+1, datatype[0]),
+                     DatatypeWarning)
+            if datatype[1] not in SPECIFIC_DATATYPES:
+                warn("Operator class {} produces result {} with "
+                     "unrecognised specific datatype '{}'".format(
+                         self.__class__.__name__, i+1, datatype[1]),
+                     DatatypeWarning)
 
     def validate_arguments(self, *args: Sequence[DataArray]):
         """Checks that arguments to the operator are of the expected types.
@@ -100,14 +125,14 @@ class Operator(ABC):
             datatype = arg.attrs['datatype']
             if datatype[0] != expected[0]:
                 message = "Argument {} of wrong data type for operator {}: " \
-                    "expected {}, received {}.".format(i+1,
+                    "expected {:r}, received {:r}.".format(i+1,
                                                        self.__class__.__name__,
                                                        expected[0],
                                                        datatype[0])
                 raise OperatorError(message)
             if expected[1] and datatype[1] != expected[1]:
                 message = "Argument {} of wrong type of {} for operator {}: " \
-                    "expected to be for {}, received {}.".format(
+                    "expected to be for {:r}, received {:r}.".format(
                         i+1, expected[0], self.class_.__name__, expected[1],
                         datatype[1])
                 raise OperatorError(message)
