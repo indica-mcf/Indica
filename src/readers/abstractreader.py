@@ -3,78 +3,25 @@
 
 from abc import ABC, abstractmethod
 import datetime
-from numbers import Number as Scalar
-from typing import Any, Callable, ClassVar, Dict, Iterable, Optional, Tuple, Union
+from numbers import Number
+import os
+from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Tuple
 from warnings import warn
 
 import numpy as np
+from scipy.interpolate import interp1d
 import prov.model as prov
-from xarrays import DataArray, Dataset
+from xarray import DataArray
 
-from dattypes import GENERAL_DATATYPES, SPECIFIC_DATATYPES, DatatypeWarning
+import datatypes
 import session
+from .selector import choose_on_plot, DataSelector
+from ..utilities import to_filename
 
-
-DataType = Tuple[str, str]
-Number = Union[np.ndarray, Scalar]
-OptNumber = Union[Number, None]
-Coordinate = Tuple[OptNumber, OptNumber, OptNumber]
-Remapper = Callable[[OptNumber, OptNumber, OptNumber], Coordinate]
-
-
-def trivial_factory(equilibrium: Dataset) -> Tuple[Remapper, Remapper]:
-    """Construct functions to map between the coordinate system on data
-    and the master coordinate system.
-
-    This particular factory produces :py:func:`trivial_remap` mapping
-    functions.
-
-    Parameters
-    ---------
-    equilibrium
-        The set of equilibrium data to use when calculating mapping.
-
-    Returns
-    -------
-    map_to : coordinate mapping function
-        Function mapping from the data coordinates to the master coordinates.
-
-    map_from : coordinate mapping function
-        Function mapping from the master coordinates to the data coordinates.
-
-    """
-    return (trivial_remap, trivial_remap)
-
-
-def trivial_remap(x1: OptNumber, x2: OptNumber, t: OptNumber) -> Coordinate:
-    """A trivial function for mapping between coordinate systems.
-
-    This makes no change to the coordinates and should be used for
-    data on the master coordinate system.
-
-    Parameters
-    ----------
-    x1 : array_like or None
-        The first spatial coordinate (if there is one, otherwise ``None``)
-    x2 : array_like or None
-        The second spatial coordinate (if there is one, otherwise ``None``)
-    t : array_like or None
-        The time coordinate (if there is one, otherwise ``None``)
-
-    Returns
-    -------
-    x1 : ndarray or None
-        New coordinate in first spatial dimension (if there is one, otherwise
-        ``None``)
-    x2 : ndarray or None
-        New coordinate in second spatial dimension (if there is one, otherwise
-        ``None``)
-    t : ndarray or None
-        New time coordinate( if there is one, otherwise ``None``)
-
-    """
-    return x1, x2, t
-
+# TODO: Place this in som global location?
+CACHE_DIR = ".impurities"
+MIN_TIME_BIN = 5
+MAX_TIME_FACTOR = 10
 
 class DataReader(ABC):
     """Abstract base class to read data in from a database.
@@ -87,7 +34,7 @@ class DataReader(ABC):
 
     Attributes
     ----------
-    AVAILABLE_DATA: Dict[str, DataType]
+    AVAILABLE_DATA: Dict[str, datatypes.DataType]
         A mapping of the keys used to get each piece of data to the type of
         data associated with that key.
     NAMESPACE: Tuple[str, str]
@@ -104,17 +51,23 @@ class DataReader(ABC):
 
     """
 
-    AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {}
+    AVAILABLE_DATA: ClassVar[Dict[str, datatypes.DataType]] = {}
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
-    def __init__(self, sess: session.Session = session.global_session,
+    def __init__(self, tstart: float, tend: float, interval: float,
+                 sess: session.Session = session.global_session,
+                 selector: DataSelector = choose_on_plot,
                  **kwargs: Dict[str, Any]):
         """Creates a provenance entity/agent for the reader object. Also
         checks valid datatypes have been specified for the available data.
 
         """
+        self._tstart = tstart
+        self._tend = tend
+        self._interval = interval
         self._start_time = None
         self.session = sess
+        self._selector = selector
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
@@ -122,7 +75,10 @@ class DataReader(ABC):
                                          **kwargs)
         self.agent = self.session.prov.agent(self.prov_id)
         self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
-        self.entity = self.session.prov.entity(self.prov_id, kwargs)
+        # TODO: Properly namespace the attributes on this entity.
+        self.entity = self.session.prov.entity(self.prov_id,
+                                               {"tstart": tstart, "tend": tend,
+                                                "interval": interval} + kwargs)
         self.session.prov.generation(self.entity, self.session.session,
                                      time=datetime.datetime.now())
         self.session.prov.attribution(self.entity, self.session.agent)
@@ -178,23 +134,24 @@ class DataReader(ABC):
         dt = result.attrs["datatype"]
         expected_dt = self.AVAILABLE_DATA[key]
         assert dt[0] == expected_dt[0]
-        if dt[0] not in GENERAL_DATATYPES:
+        if dt[0] not in datatypes.GENERAL_DATATYPES:
             warn("DataReader class {} returns unrecognised general "
                  "datatype '{}' for  key '{}'".format(
                      self.__class__.__name__, dt[0], key),
-                 DatatypeWarning)
+                 datatypes.DatatypeWarning)
         if expected_dt[1]:
             assert dt[1] == expected_dt[1]
-        if dt[1] not in SPECIFIC_DATATYPES:
+        if dt[1] not in datatypes.SPECIFIC_DATATYPES:
             warn("DataReader class {} returns unrecognised specific "
                  "datatype '{}' for key '{}'".format(
                      self.__class__.__name__, dt[1], key),
-                 DatatypeWarning)
+                 datatypes.DatatypeWarning)
         assert "provenance" in result.attrs
         return result
 
     def create_provenance(self, key: str, revision: Any,
-                          data_objects: Iterable[str]) -> prov.ProvEntity:
+                          data_objects: Iterable[str],
+                          ignored: Iterable[Number]) -> prov.ProvEntity:
         """Create a provenance entity for the given set of data. This should
         be attached as metadata.
 
@@ -211,8 +168,10 @@ class DataReader(ABC):
         revision
             Object indicating which version of data should be used.
         data_objects
-            Identifiers for the database entries or files which the data was 
+            Identifiers for the database entries or files which the data was
             read from.
+        ignored
+            A list of channels which were ignored/dropped from the data.
 
         Returns
         -------
@@ -221,9 +180,12 @@ class DataReader(ABC):
         """
         end_time = datetime.datetime.now()
         entity_id = session.hash_vals(creator=self.prov_id, key=key,
-                                      revision=revision, date=end_time)
+                                      revision=revision, ignored=ignored,
+                                      date=end_time)
+        # TODO: properly namespace the data type and ignored channels
         attrs = {prov.PROV_TYPE: "DataArray",
-                 prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key])}
+                 prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key]),
+                 'ignored_channels': ",".join(ignored)}
         activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(activity_id, self._start_time,
                                               end_time,
@@ -241,6 +203,57 @@ class DataReader(ABC):
             entity.wasDerivedFrom(data_entity)
             activity.used(data_entity)
         return entity
+
+    @abstractmethod
+    def _select_channels(self, cache_key: str, data: DataArray, channel_dim:
+                         str, bad_channels: Container[Number]) \
+            -> Iterable[Number]:
+        """Allows the user to select which channels should be read and which
+        should be discarded, using whichever method was specified when
+        the reader was constructed.
+
+        This method will check whether channels have previously been
+        selected for this particular data and load them if so. The
+        user will then be given a chance to modify this selection. The
+        user's choices will then be cached for reuse later,
+        overwriting any existing records which were loaded.
+
+        Parameters
+        ----------
+        cache_key:
+            Name of file from which to load a user's previous selection and to
+            which to save the results of this selection.
+        data:
+            The data from which channels should be selected to discard.
+        channel_dim:
+            The name of the dimension used for storing separate channels. This
+            will be used for the x-axis in the plot.
+        bad_channels:
+            A (possibly empty) list of channel labels which are known to be
+            incorrectly calibrated, faulty, or otherwise untrustworty. These
+            will be plotted in red, but must still be specifically selected by
+            the user to be discared.
+
+        Returns
+        -------
+        :
+            A list of channel labels which the user has selected to be
+            discarded.
+
+        """
+        cache_name = to_filename(cache_key)
+        cache_file = os.path.expanduser(os.path.join("~", CACHE_DIR,
+                                                     self.__class__.name,
+                                                     cache_name))
+        os.makedirs(os.path.dirname(cache_file), 0o755, exist_ok=True)
+        if os.path.exists(cache_file):
+            cached_vals = np.loadtxt(cache_file,
+                                     dtype=data.coords[channel_dim].dtype)
+        else:
+            cached_vals = []
+        ignored = self._selector(data, channel_dim, bad_channels, cached_vals)
+        np.savetxt(cache_file, ignored)
+        return ignored
 
     def authenticate(self, name: str, password: str) -> bool:
         """Confirms user has permission to access data.
@@ -270,7 +283,7 @@ class DataReader(ABC):
         """Indicates whether authentication is required to read data.
 
         Returns
-        ----------
+        -------
         :
             True of authenticationis needed, otherwise false.
         """

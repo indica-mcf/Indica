@@ -2,6 +2,10 @@
 
 """
 
+from typing import Tuple
+
+DataType = Tuple[str, str]
+
 #: Information on the general datatypes, stored in a dictionary. Keys
 #  are the names of the datatypes, values are tuples where the first
 #  element is a description and the second is the units for the data

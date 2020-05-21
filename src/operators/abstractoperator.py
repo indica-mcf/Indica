@@ -248,6 +248,7 @@ class CalcZeff(Operator):
         q_Be = None  # TODO: get this from ADAS data and T_e
         # TODO: make sure all arguments are mapped to same coordinate system
         result = (n_e + n_Be*(q_Be**2 - q_Be))/n_e
+        # TODO: Properly propagate uncertainty
         result.name = "Zeff"
         result.attrs["generate_mappers"] = n_e.attrs["generate_mappers"]
         result.attrs["map_to_master"] = n_e.attrs["map_to_master"]
