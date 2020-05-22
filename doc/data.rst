@@ -98,22 +98,33 @@ For JET diagnostics, if the information on the LOS or measurement positions is n
 
 .. _dtype:
 
-List of DDA and DTYPEs
-----------------------------
-
+List of Data to Read
+--------------------------------------
 Grouped by measurement quantity, the diagnostics (identified with their DDA names) currently included in the program are:
 
 * Electron density and temperature diagnostics: **HRTS, LIDR, KK3, KG10**
 * Radiation: **SXR, KB5**
 * Spectroscopy: **KS3, KT7/3**
-* Ion temperature and toroidal rotation: **CXRS**
+* Charge exchange recombination spectroscopy: **CXRS**
 * Tomographic reconstruction of total radiation: **BOLT, B5NN, B5ML, B5MF**
 * Other tools/diagnostics: **analysis of MHD activity** through FFT and toroidal mode analysis of Mirnov coils, oscillation amplitudes of fast KK3 and SXR.
 
-Below are the details of the data-types (DTYPE) that have to be read for each diagnostic (DDA). These DTYPEs can be read durectly from the diagnostic PPF unless otherwised specified (e.g. *Flush* or *SURF*). Flush is currently not available for Python 3, but there are privately developed wrappers that can be used/modified. The SURF database is a publicly available ASCII file */home/flush/surf/input/overlays_db.dat*.
+Below are the details of the data that has to be read for each of these and other quantities that have to be read or computed for a correct functioning of the program. Most of the diagnostic variables are stored in PPFs of which DDA and DTYPE are specified. When this is not the case, the source of this information will be specified in the column DDA: 
 
-.. list-table:: Title
-	:widths: 5 5 10 60
+* **Surf** = external databases to read LOS coordinates
+* **Flush** = libraries for reading specific attributes of the equilibrium of mapping between coordinates
+* **ASCII** = for quantities stored in ASCII files 
+* **User** = user-defined quantities
+
+and DTYPE will simply be a variable name.
+
+For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno.viola@ukaea.uk>`_ . The Surf database is a publicly available ASCII file */home/flush/surf/input/overlays_db.dat* and maintained by `David Taylor <David.Taylor@ukaea.uk>`_. 
+
+
+**Equilibrium**
+
+.. list-table::
+	:widths: 5 15 10 60
 	:header-rows: 1
 	
 	* 	- DDA
@@ -121,154 +132,216 @@ Below are the details of the data-types (DTYPE) that have to be read for each di
 		- Axes
 		- Description
 	* 	- EFIT
-		- RMAG
-		- t_eq
-		- Major radius of magnetic axis (m)
-
-	* 	- 
-		- ZMAG
-		- t_eq
-		- Z of magnetic axis (m)
-
-	* 	- 
-		- RSEP
-		- n_sep, t_eq
-		- Separatrix major radius array (m), n_sep = user defined # of points > *Flush*
-	* 	- 
-		- ZSEP
-		- n_sep, t_eq
-		- Separatrix Z array (m), n_sep = user defined # of points  > *Flush*
-	* 	- 
-		- BR, BZ, BT
-		- R, t_eq
-		- Components of the magnetic field at the midplane (z = z_ax = ZMAG)  > *Flush*
-	* 	- HRTS
-		- NE
-		- R_hrts, t_hrts
-		- Electron density (m^-3)
-	* 	- 
-		- DNE	
-		- R_hrts, t_hrts	
-		- Electron density error (m-3)
-
+		- RMAG, ZMAG
+		- t
+		- Major radius and Z of magnetic axis (m)
+	*	- User
+		- RHO_EQ
+		- nrho_eq
+		- Reference coordinate for the equilibrium data, nrho_eq = 101 (currently) = user defined # of points
+	*	- "
+		- THETA
+		- ntheta
+		- Array of poloidal angles [0, 2 pi) for calculation of flux-surface-averaged quantities etc., ntheta = 10 (currently) = user defined # of poloidal angles
+	* 	- Flush
+		- RHO_TOR
+		- rho_eq, t
+		- Conversion of reference radial coordinate rho = rho_poloidal to the normalized toroidal flux coordinate used in many modelling codes (*flush_getftorprofile*)
+	* 	- "
+		- VOL
+		- "
+		- Volume within flux surfaces defined by rho_eq (combination of *flush_getflux, flush_getvolume*)
+	*	- "
+		- MAJR_LFS, MAJR_HFS
+		- "
+		- Map of rho_eq on major radius R  at LFS and HFS (combination of *flush_getabsoluteflux, flush_getmagaxisflux, flush_getlcfsflux*)
 	*	- 
-		- TE	
-		- R_hrts, t_hrts
-		- Electron temperature (eV)
+		- MINR_LFS, MINR_HFS
+		- "
+		- Minor radius on LFS and HFS, calculated from MAJR_LFS and MAJR_LFS
+	* 	- "
+		- RSEP, ZSEP
+		- nsep, t
+		- Separatrix major radius and z position arrays (m), nsep = 150 (currently) = user defined # of points (*Flush_getLCFSboundary*)
+	* 	- Flush 
+		- BR, BZ, BT, BTOT
+		- R, t
+		- Radial (BR), vertical (BZ), toroidal (BT) components and total (Btot) magnetic field at the midplane, interpolated on [MAJR_HFS, MAJR_LFS] (*flush_getBr, flush_getBz, flush_getBt*)
 
-	* 	- 
-		- DTE	
-		- R_hrts, t_hrts
-		- Electron temperature error (eV)
+|
 
-	* 	- 
-		- Z	
-		- R_hrts, t_hrts
+**Electron density and temperature**
 
-		- Z positions of measurements (m)
-	* 	- LIDR
-		- NE	
-		- R_lidr, t_lidr
-		- Electron density (m-3)
-
-	* 	- 
-		- DNE	
-		- R_lidr, t_lidr	
-		- Electron density error (m-3)
-
-	* 	- 
-		- TE	
-		- R_lidr, t_lidr
-		- Electron temperature (eV)
-
-	* 	- 
-		- DTE	
-		- R_lidr, t_lidr
-		- Electron temperature error (eV)
-
-	*	-
-		- Z	
-		- R_lidr, t_lidr
-		- Z positions of measurements (m)
+.. list-table:: HRTS and LIDR
+	:widths: 5 15 10 60
+	:header-rows: 1
 	
-	*	- KK3
-		- GEN
-		- 20, 96
-		- Acquisition parameters including: 
+	* 	- DDA
+		- DTYPE
+		- Axes
+		- Description
+	* 	- HRTS, LIDR
+		- NE
+		- R, t
+		- Electron density (m^-3), R (m) maj-R position of measurement, t (s) time of measurement
+	* 	- "
+		- DNE
+		- "
+		- Electron density error (m-3)
+	*	- "
+		- TE	
+		- "
+		- Electron temperature (eV)
+	* 	- "
+		- DTE	
+		- "
+		- Electron temperature error (eV)
+	* 	- "
+		- Z
+		-  "
+		- Z positions of measurements (m)
 			
-			* *channel_index = np.argwhere(GEN[0, :] > 0)*
-			* *f_chan = GEN[15, :] (GHz) = resonator frequency to calculate channel R_chan from B_tot*
-			* *nharm_chan = GEN[11, :] = measured harmonic of cyclotron frequency, necessary to calculate channel R_chan from B_tot*
-			* *cal_chan = GEN[18, :] and GEN[19, :] = channel calibrated if != 0 (if ==0, let user choose whether to use the data)*
-	*	- 
+.. list-table:: KK3
+	:widths: 5 15 10 60
+	:header-rows: 1
+
+	* 	- DDA
+		- DTYPE
+		- Axes
+		- Description
+	*	- KK3
 		- TE##
-		- t_kk3
-		- Electron temperature (eV) of each channel (## = channel_number = channel_index + 1)
-	*	- 
+		- t
+		- Electron temperature (eV) of each channel (## = channel_number, *identify from PPF DTYPEs starting with 'TE'*)
+	*	- "
+		- GEN
+		- 
+		- Acquisition parameters including:  
+
+			* channel_index = np.argwhere(GEN[0, :] > 0); 
+			* f_chan = GEN[15, :] (GHz) = resonator frequency to calculate channel R_chan from B_tot;
+			* nharm_chan = GEN[11, :] = measured harmonic of cyclotron frequency, necessary to calculate channel R_chan from B_tot; 
+			* cal_chan = GEN[18, :] and GEN[19, :] = channel calibrated if != 0 (if ==0, let user choose whether to use the data)
+
+	*	- Surf
 		- z 
 		- 
-		- **NOT IN PPF**: z position of the viewing LOS (horizontal view) *> SURF database has slightly different vaues from Datahandbook = 0.1335 (m) for JPN < 80318, 0.2485 (m) for JPN > 80318*
+		- z position of the viewing LOS (horizontal view). *Surf has slightly different vaues from Datahandbook = 0.1335 (m) for JPN < 80318, 0.2485 (m) for JPN > 80318*
+	* 	- Flush 
+		- R##
+		- Btot, t
+		- Radial position of each channel calculated interpolating the total B-field along the LOS of the KK3 antenna with the B-field of cold resonance calculated using the electron cyclotron frequency formula with info from GEN (*flush_getBr, flush_getBz, flush_getBt*)
+
+| 
+
+**Radiation**
+
+.. list-table:: SXR
+	:widths: 5 15 10 60
+	:header-rows: 1
+		
+	* 	- DDA
+		- DTYPE
+		- Axes
+		- Description
 	*	- SXR
 		- V##, T##, H##
-		- t_sxr
+		- t
 		- Brightness (W m^-2) of the each LOS (## = LOS_number) for cameras V, T, H (user to choose which to read)
-	*	-
+	*	- Surf
 		- (R, z)
-		- 
-		- **NOT IN PPF** coordinates (m) of each LOS *> SURF database*
+		- channel, nlos
+		- Coordinates (m) of all LOS. Identifying string in Surf database is respectively 'KJ3-4 V', 'KJ3-4 T', 'KJ5', nlos = 100 (currently) = number of points along each los, chosen with identical equally spaced steps for all LOS.		
+
+.. list-table:: KB5
+	:widths: 5 15 10 60
+	:header-rows: 1
+
+	* 	- DDA
+		- DTYPE
+		- Axes
+		- Description
 	*	- BOLO
 		- KB5V, KB5H
-		- channel_index, t_kb5
-		- Brightness (W m^-2) of the each LOS (channel_number = channel_index + 1) for cameras V, H (user to choose which to read)
-	*	-
+		- channel, t
+		- Brightness (W m^-2) of all LOS (channel_number = channel_index + 1) for cameras V, H (user to choose which to read)
+	*	- Surf
 		- (R, z)
-		- 
-		- **NOT IN PPF** radial coordinates (m) of each LOS *> SURF database*
+		- channel, nlos
+		- Coordinates (m) of all LOS. Identifying string in Surf database is  'KB5'
+		
+**Spectroscopy**
+
+.. list-table:: KS3
+	:widths: 5 15 10 60	
+	:header-rows: 1
+
+	* 	- DDA
+		- DTYPE
+		- Axes
+		- Description
 	* 	- KS3
 		- ZEFH, ZEFV
-		- t_ks3
-		- Zeff measurements from horizontal and vertical LOS
+		- t
+		- Zeff measurements from horizontal and vertical lines-of-sight
 	* 	- EDG7
 		- LOSH, LOSV
 		- 
 		- Info on LOS coordinates (mm) for KS3 measurements: R_start = LOSH[1], R_end = LOSH[4], z_start = LOSH[2], z_end = LOSH[5], same for LOSV
-	* 	- CXRS *(many DDAs)*
+
+| 
+
+**Charge exchange recombination spectroscopy**
+
+.. list-table:: 
+	:widths: 5 15 10 60
+	:header-rows: 1
+	
+	* 	- DDA
+		- DTYPE
+		- Axes
+		- Description
+	* 	- Many DDAs, e.g. CXG6
 		- TI
-		- x_cxrs, t_cxrs
+		- x, t
 		- Ion temperature (eV), x_cxrs is an *effective* position of measurement in the torus frame (m), but the correct R is RPOS (see below)
-	*	-
+	*	- "
 		- TIHI, TILO
-		- x_cxrs, t_cxrs
+		- "
 		- Upper, lower TI limits (eV): TI_ERR = (TIHI - TILO)/2.
-	*	-
+	*	- "
 		- ANGF
-		- x_cxrs, t_cxrs
+		- "
 		- Angular rotation frequency (rad)
-	*	-
+	*	- "
 		- AFHI, AFLO
-		- x_cxrs, t_cxrs
+		- "
 		- Upper, lower ANGF limits (rad): ANGF_ERR = (AFHI - AFLO)/2.
-	*	-
+	*	- "
 		- CONC
-		- x_cxrs, t_cxrs
+		- "
 		- Concentration (%) of measured impurity
-	*	-
+	*	- "
 		- COHI, COLO
-		- x_cxrs, t_cxrs
+		- "
 		- Upper, lower CONC limits (rad): CONC_ERR = (COHI - COLO)/2.
-	*	-
+	*	- "
 		- RPOS
-		- x_cxrs, t_cxrs
-		- R position of measurement (m) *time-dependent since it depends on which PINI is on*
-	*	-
+		- "
+		- R position of measurement (m) 
+	*	- "
 		- POS
-		- x_cxrs, t_cxrs
-		- z position of measurement (m) *time-dependent since it depends on which PINI is on*
-	*	-
+		- "
+		- z position of measurement (m) 
+	*	- "
 		- MASS
 		- 
 		- Atomic mass of measured impurity
-	*	-
+	*	- "
 		- TEXP
-		- t_cxrs
+		- t
 		- Exposure time (s)
+
+Additionally to these, all measurement coordinates and LOS will have to be converted from (R, z) to rho using Flush (*flush_getabsoluteflux, flush_getmagaxisflux, flush_getlcfsflux*). Both coordinate systems should be saved for future use. 
+
+LOS coordinates shouldn't be just the start and end of the LOS, but arrays of values along the LOS which can then be used for performing integrals and other operations, both in (R, z) and rho. 
