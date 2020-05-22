@@ -161,8 +161,8 @@ class Operator(ABC):
         activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
         # TODO: Should each subclass specify its own PROV_TYPE?
         activity = self._session.prov.activity(activity_id, self._start_time,
-                                              end_time,
-                                              {prov.PROV_TYPE: "Calculation"})
+                                               end_time,
+                                               {prov.PROV_TYPE: "Calculation"})
         activity.wasAssociatedWith(self._session.agent)
         activity.wasAssociatedWith(self.agent)
         activity.wasInformedBy(self._session.session)

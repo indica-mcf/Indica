@@ -1,8 +1,41 @@
 """Various miscellanious helper functions."""
 
+import inspect
 import string
 
 import numpy as np
+
+
+def positional_parameters(func):
+    """Returns an ordered list of the names of arguments which can be
+    passed to a function positionally.
+
+    Parameters
+    ----------
+    func
+        A function/callable for which to get information on the positional
+        arguments.
+
+    Returns
+    -------
+    param_names : List[str]
+        Ordered list of names of function parameters which can be passed to
+        positionally.
+    var_positional : str or None
+        Name of variable positional parameter, if present (e.g., ``*args``).
+
+    """
+    param_names = []
+    var_positional = None
+    for param in inspect.signature(func).parameters.values():
+        if param.kind == inspect.Parameter.POSITIONAL_ONLY or \
+           param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+            param_names.append(param.name)
+        elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+            var_positional = param.name
+        else:
+            break
+    return param_names, var_positional
 
 
 def sum_squares(x: np.ndarray, axis: int, **kwargs):
