@@ -148,3 +148,18 @@ In this section, the steps of code execution are outlined in detail. The names u
 		* **Constant concentration**: follow shape of electron density profile
 		* **Extrapolate derivative**: use derivative at SXR detection limit to extrapolate LFS impurity density until a **rho_max** (user defined) where derivative -> 0; beyond rho_max use electron density shape to extrapolate up to the separatrix. The HFS impurity density is extrapolated using shape of electron density only
 		* **Fit to KB5**: extrapolate Z0 impurity density using gaussian shape to fit experimental KB5 LOS-integrals. The fit parameteres  are the gaussian peak, height and width. Beyond the peak, the electron density shape is used up to the separatrix. (*The fit is a delicate point and requires more details...*)
+		
+8. **Read atomic data**
+	* **Read ADAS and/or user-specified files** to build ionization balance and cooling factors for all elements (main ion + Z0-Z3 + minority in new version).
+		
+		* SCD: ionization rate coefficients
+		* ACD: recombination rate coefficients
+		* PLT: total radiation loss parameter (spectral lines)
+		* PRB: total radiation loss parameter (recombination and bremsstrahlung)
+		* PLSX: SXR-filtered radiation loss parameter (spectral lines)
+		* PRSX: SXR_filtered radiation loss parameter (recombination and bremsstrahlung)
+	* **Interpolate the data on the electron temperature profiles** that will be used for the computation
+	* **Build fractional abundance, mean-charge, charge^2** (for Zeff calculation) variables from the ionization and recombination rates assuming local-ionization-equilibrium (in new version, add possibility of using fast transport codes e.g. STRAHL to evaluate transport-dependent ionization/recombination balance)
+	* **Estimate uncertainty of the radiation loss parameters** by using upper and lower bounds of electron temperature data as limits.
+		
+	*The SXR files are machine-dependent because they change for varying Be-filters. All other fines MUST be the same for all experiments. It might be worthwhile to install the ADAS files with the program in order not to rely on locally available files and to ensure the data-sets used on different machines are identical. User choice should still be possible if new data-sets were to become available, but information in this regard will anyway be stored in the provenance.*
