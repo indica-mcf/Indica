@@ -9,7 +9,6 @@ from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Tuple
 from warnings import warn
 
 import numpy as np
-from scipy.interpolate import interp1d
 import prov.model as prov
 from xarray import DataArray
 
@@ -20,8 +19,7 @@ from ..utilities import to_filename
 
 # TODO: Place this in som global location?
 CACHE_DIR = ".impurities"
-MIN_TIME_BIN = 5
-MAX_TIME_FACTOR = 10
+
 
 class DataReader(ABC):
     """Abstract base class to read data in from a database.

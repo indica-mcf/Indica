@@ -11,7 +11,7 @@ from sal.client import SALClient, AuthenticationFailed
 from sal.dataclass import Signal
 from sal.core.exception import InvalidPath, NodeNotFound
 import scipy.constants as sc
-from xarray import DataArray, Dataset
+from xarray import DataArray
 
 from reader import DataReader, DataSelector
 from datatypes import DataType
