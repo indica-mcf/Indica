@@ -3,6 +3,7 @@
 """
 
 import datetime
+from functools import wraps
 import hashlib
 import typing
 
@@ -145,7 +146,7 @@ class Session:
         global_session = cls(user_orcid)
 
 
-def generate_prov(func, pass_sess=False):
+def generate_prov(pass_sess=False):
     """Decorator to be applied to functions generating
     :py:class:`xarray.DataArray` output. It will produce PROV data and
     attach it as an attribute.
@@ -155,73 +156,73 @@ def generate_prov(func, pass_sess=False):
 
     Parameters
     ----------
-    func
-        A function of arbitrary signature, but returning at least one
-        :py:class:`xarray.DataArray` obejcts.
     pass_sess
         Indicates whether, if a keyword argument called ``sess`` is present,
         it should be passed to ``func``.
 
     """
 
-    param_names, var_positional = utilities.positional_parameters(func)
-    num_positional = len(var_positional)
+    def outer_wrapper(func):
+        param_names, var_positional = utilities.positional_parameters(func)
+        num_positional = len(var_positional)
 
-    def wrapper(*args, **kwargs):
-        session = kwargs.get("sess", global_session)
-        if "sess" in kwargs and not pass_sess:
-            kwargs = dict(kwargs)
-            del kwargs["sess"]
-        start_time = datetime.datetime.now()
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            session = kwargs.get("sess", global_session)
+            if "sess" in kwargs and not pass_sess:
+                kwargs = dict(kwargs)
+                del kwargs["sess"]
+            start_time = datetime.datetime.now()
 
-        result = func(*args, **kwargs)
+            result = func(*args, **kwargs)
 
-        end_time = datetime.datetime.now()
-        args_prov = []
-        activity_attrs = {prov.PROV_TYPE: func.__name__}
-        id_attrs = {}
-        for i, arg in enumerate(args):
-            if i < num_positional:
-                argname = param_names[i]
-            else:
-                argname = var_positional + str(i - num_positional)
-            if isinstance(arg, DataArray):
-                args_prov.append(arg.attrs["provenance"])
-                id_attrs[argname] = args_prov[-1].identifier
-            else:
-                args_prov[argname] = str(arg)
-                activity_attrs[argname] = str(arg)
-        for key, val in kwargs.items():
-            if isinstance(arg, DataArray):
-                args_prov.append(val.attrs["provenance"])
-                id_attrs[key] = args_prov[-1].identifier
-            else:
-                args_prov[key] = str(key)
-                activity_attrs[val] = str(arg)
-        generated_array = False
-        activity_id = hash_vals(agent=session.agent, date=end_time, **id_attrs)
-        activity = session.prov.activity(activity_id, start_time, end_time,
-                                         activity_attrs)
-        if isinstance(result, tuple):
-            entity_id = hash_vals(activity=activity_id, name=result.name,
-                                  **id_attrs)
-            entity = session.prov.entity(entity_id)
-            entity.wasGeneratedBy(activity, end_time)
-            entity.wasAttributedTo(session.agent)
-            result.attrs["provenance"] = entity
-        elif isinstance(result, DataArray):
-            for i, r in enumerate(result):
-                if isinstance(r, DataArray):
-                    entity_id = hash_vals(activity=activity_id,
-                                          position=str(i), name=r.name,
-                                          **id_attrs)
-                    entity = session.prov.entity(entity_id)
-                    entity.wasGeneratedBy(activity, end_time)
-                    entity.wasAttributedTo(session.agent)
-                    r.attrs["provenance"] = entity
-        if not generated_array:
-            raise ValueError("No DataArray object was produced by the "
-                             "function. Can not assign PROV data.")
-        return result
+            end_time = datetime.datetime.now()
+            args_prov = []
+            activity_attrs = {prov.PROV_TYPE: func.__name__}
+            id_attrs = {}
+            for i, arg in enumerate(args):
+                if i < num_positional:
+                    argname = param_names[i]
+                else:
+                    argname = var_positional + str(i - num_positional)
+                if isinstance(arg, DataArray):
+                    args_prov.append(arg.attrs["provenance"])
+                    id_attrs[argname] = args_prov[-1].identifier
+                else:
+                    args_prov[argname] = str(arg)
+                    activity_attrs[argname] = str(arg)
+            for key, val in kwargs.items():
+                if isinstance(arg, DataArray):
+                    args_prov.append(val.attrs["provenance"])
+                    id_attrs[key] = args_prov[-1].identifier
+                else:
+                    args_prov[key] = str(key)
+                    activity_attrs[val] = str(arg)
+            generated_array = False
+            activity_id = hash_vals(agent=session.agent, date=end_time, **id_attrs)
+            activity = session.prov.activity(activity_id, start_time, end_time,
+                                             activity_attrs)
+            if isinstance(result, tuple):
+                entity_id = hash_vals(activity=activity_id, name=result.name,
+                                      **id_attrs)
+                entity = session.prov.entity(entity_id)
+                entity.wasGeneratedBy(activity, end_time)
+                entity.wasAttributedTo(session.agent)
+                result.attrs["provenance"] = entity
+            elif isinstance(result, DataArray):
+                for i, r in enumerate(result):
+                    if isinstance(r, DataArray):
+                        entity_id = hash_vals(activity=activity_id,
+                                              position=str(i), name=r.name,
+                                              **id_attrs)
+                        entity = session.prov.entity(entity_id)
+                        entity.wasGeneratedBy(activity, end_time)
+                        entity.wasAttributedTo(session.agent)
+                        r.attrs["provenance"] = entity
+            if not generated_array:
+                raise ValueError("No DataArray object was produced by the "
+                                 "function. Can not assign PROV data.")
+            return result
 
-    return wrapper
+        return wrapper
+    return outer_wrapper
