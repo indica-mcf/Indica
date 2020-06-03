@@ -159,7 +159,7 @@ In this section, the steps of code execution are outlined in detail. The names u
 		* Zeff
 		* Impurity concentrations estimated by passive spectrocopy (independent scaling factors for each measurement e.g. from VUV, X-ray spectrometers, CXRS, etc.)
 	
-	*This should be available to the user in the GUI, e.g. to the right of the UID and DDA names of each measurement.*
+	*This should be available to the user in the GUI when performing the calculation of the impurity densities.*
 		
 8. **Read atomic data**
 	* **Read ADAS and/or user-specified files** to build ionization balance and cooling factors for all elements (main ion + Z0-Z3 + minority in new version). 	*The program should automatically set default filenames if data is available for that element, otherwise return an error message. The user should also have the possibility to choose alternative files of the same format.*
@@ -177,3 +177,5 @@ In this section, the steps of code execution are outlined in detail. The names u
 	*The SXR files are machine-dependent because they change for varying Be-filters. All other fines MUST be the same for all experiments. It might be worthwhile to install the ADAS files with the program in order not to rely on locally available files and to ensure the data-sets used on different machines are identical. User choice should still be possible if new data-sets were to become available, but information in this regard will anyway be stored in the provenance.*
 	
 	*In the new version of the code, there should be the option of evaluating the fractional abundance accounting for transport, by coupling with fast impurity transport codes* (e.g. SANCO, `STRAHL  <https://pure.mpg.de/rest/items/item_2143869/component/file_2143868/content>`_, etc.). *A theory driven estimation of the impurity transport coefficients could also be estimated using neoclassical and turbulence codes (NEO? GKW?) which would also improve the calculation of the peaking factors of the secondary mid-/high-Z impurity Z3 with respect to the main element Z0.*
+	
+9. **Computation of high-Z impurity density** is iterative... 
