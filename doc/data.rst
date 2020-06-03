@@ -345,3 +345,53 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 Additionally to these, all measurement coordinates and LOS will have to be converted from (R, z) to rho using Flush (*flush_getabsoluteflux, flush_getmagaxisflux, flush_getlcfsflux*). Both coordinate systems should be saved for future use. 
 
 LOS coordinates shouldn't be just the start and end of the LOS, but arrays of values along the LOS which can then be used for performing integrals and other operations, both in (R, z) and rho. 
+
+| 
+
+**ADAS atomic data files**
+
+For each element included in the analysis, files must be read for: ionization (SCD) and recombination rates (ACD), total radiation loss parameters from spectral lines (PLT) and recombination/Bremsstrahlung (PRB), SXR-filtered radiation loss parameters from spectral lines (PLSX) and recombination/Bremsstrahlung (PRSX), SXR-filter function.
+
+ADAS filenames are standard (e.g. scd96_he.dat) and include a class identifier (e.g. “scd” for ionization rate coefficients), a year identifier (e.g. “96”) and the element, fully in lower-case (e.g. "he") with an underscore in front. All of the files used are stored in the official ADAS repository, apart from SXR-filtered radiation loss parameter files which are often built locally starting from SXR-filter function files (labelled e.g. ‘sxrfil5.dat’). Care must be taken to avoid confusion since on different machines these files can have the same name, but different filter characteristics (e.g. AUG and JET have 75 um and 250 um filters but the files are all labelled plsx5, prsx5, sxrfil5). 
+
+The files reported below are the ones currently used. The SXR files are JET-specific for 250 um Be-windows. When using the code on other machines, all files will be the same apart from the SXR-filtered radiation loss parameter files.
+
+.. list-table:: 
+	:widths: 15 55 25
+	:header-rows: 1
+
+	* 	- Element
+		- Files
+		- Comment
+	*	- H
+		- scd96, acd96, plt96, prb96, plsx5, prsx5
+		-
+	* 	- He
+		- acd96, scd96, plt96, prb96, plsx5, prsx5
+		- 
+	*	- Be
+		- acd96, scd96, plt96, prb96, plsx5, prsx5
+		- 
+	* 	- N
+		- acd96, scd96, plt96, prb96
+		- No SXR-filtered data for 250 um filter
+	* 	- Ne
+		- acd96, scd96, plt96, prb96, plsx5, prsx5
+		- 
+	* 	- Ar
+		- acd85, scd85, plt00, prb00, plsx5, prsx5
+		- 
+	*	- Fe
+		- acd00, scd00, plt00, prb00, plsx5, prsx5
+		- 
+	*	- Ni
+		- acd89, scd89, plt01, prb00, plsx5, prsx5
+		- 
+	*	- Mo
+		- acd89, scd89, plt89, prb89
+		- No SXR-filtered data for 250 um filter
+	* 	- W
+		- acd89, scd89, plt89, prb89, plsx5, prsx5
+		- Other files from Thomas Pütterich are currently used. Effort to use official ADAS files is under way.
+
+*For historical reasons, all of these files are currently locally stored in the ../atomdat/ directory of the* `STRAHL program <https://pure.mpg.de/rest/items/item_2143869/component/file_2143868/content>`_ . *In the new version, it will be worthwhile to decouple this from STRAHL and have a local repository within the main program directory.*
