@@ -352,12 +352,12 @@ LOS coordinates shouldn't be just the start and end of the LOS, but arrays of va
 
 For each element included in the analysis, files must be read for: ionization (SCD) and recombination rates (ACD), total radiation loss parameters from spectral lines (PLT) and recombination/Bremsstrahlung (PRB), SXR-filtered radiation loss parameters from spectral lines (PLSX) and recombination/Bremsstrahlung (PRSX), SXR-filter function.
 
-ADAS filenames are standard (e.g. scd96_he.dat) and include a class identifier “scd”, year identifyer “96” and the element (all letters lower-case) with an underscore in front. All of the files used are stored in the official repository, apart from SXR-filtered radiation loss parameter files which are often built locally starting from SXR-filter function files labelled e.g. ‘sxrfil5.dat’. **Care must be taken to avoid confusion since on different machines these files can have the same name, but different filter characteristics (e.g. AUG and JET have 75 um and 250 um filters but the files are all labelled plsx5, prsx5, sxrfil5).**
+ADAS filenames are standard (e.g. scd96_he.dat) and include a class identifier (e.g. “scd” for ionization rate coefficients), a year identifier (e.g. “96”) and the element, fully in lower-case (e.g. "he") with an underscore in front. All of the files used are stored in the official ADAS repository, apart from SXR-filtered radiation loss parameter files which are often built locally starting from SXR-filter function files (labelled e.g. ‘sxrfil5.dat’). Care must be taken to avoid confusion since on different machines these files can have the same name, but different filter characteristics (e.g. AUG and JET have 75 um and 250 um filters but the files are all labelled plsx5, prsx5, sxrfil5). 
 
-The files reported below are the ones currently used on JET, with the SXR-filtered files using sxrfilt5.dat. When using the code on other machines, all files will be the same apart from the SXR-filtered radiation loss parameter files.
+The files reported below are the ones currently used. The SXR files are JET-specific for 250 um Be-windows. When using the code on other machines, all files will be the same apart from the SXR-filtered radiation loss parameter files.
 
 .. list-table:: 
-	:widths: 10 25 60
+	:widths: 15 55 25
 	:header-rows: 1
 
 	* 	- Element
@@ -392,4 +392,6 @@ The files reported below are the ones currently used on JET, with the SXR-filter
 		- No SXR-filtered data for 250 um filter
 	* 	- W
 		- acd89, scd89, plt89, prb89, plsx5, prsx5
-		- Other files from Thomas Pütterich are currently used and overrwritten to these. Effort to use official ADAS files is under way
+		- Other files from Thomas Pütterich are currently used. Effort to use official ADAS files is under way.
+
+*For historical reasons, all of these files are currently locally stored in the ../atomdat/ directory of the* `STRAHL program <https://pure.mpg.de/rest/items/item_2143869/component/file_2143868/content>`_ . *In the new version, it will be worthwhile to decouple this from STRAHL and have a local repository within the main program directory.*
