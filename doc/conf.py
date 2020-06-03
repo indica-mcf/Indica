@@ -19,7 +19,7 @@ import os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('../prototypes'))
+sys.path.insert(0, os.path.abspath('../src'))
 
 # -- General configuration ------------------------------------------------
 
@@ -300,5 +300,5 @@ intersphinx_mapping = {'http://xarray.pydata.org/en/stable/': None,
                        'https://docs.python.org/3': None}
 
 # Autodoc configurations
-autodoc_mock_imports = ["numpy", "xarrays", "sal", "prov"]
+autodoc_mock_imports = ["matplotlib", "numpy", "prov", "sal", "scipy", "xarray"]
 autodoc_typehints = 'description'

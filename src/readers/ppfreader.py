@@ -13,7 +13,7 @@ from sal.core.exception import InvalidPath, NodeNotFound
 import scipy.constants as sc
 from xarray import DataArray
 
-from reader import DataReader, DataSelector
+from .abstractreader import DataReader, DataSelector
 from datatypes import DataType
 import session
 

@@ -1,5 +1,6 @@
 ``reader`` Module
 =================
 
-.. automodule:: reader
+.. automodule:: readers
    :members:
+   :imported-members:

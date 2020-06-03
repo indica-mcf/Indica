@@ -5,5 +5,6 @@ functionality for a different format of data.
 
 """
 
-from abstractreader import DataReader
-from ppfreader import PPFReader
+from .abstractreader import DataReader
+from .ppfreader import PPFReader
+from .selectors import choose_on_plot, DataSelector

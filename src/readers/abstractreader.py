@@ -14,8 +14,8 @@ from xarray import DataArray
 
 import datatypes
 import session
-from .selector import choose_on_plot, DataSelector
-from ..utilities import to_filename
+from .selectors import choose_on_plot, DataSelector
+from utilities import to_filename
 
 # TODO: Place this in som global location?
 CACHE_DIR = ".impurities"
