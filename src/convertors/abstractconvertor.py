@@ -241,8 +241,7 @@ class CoordinateTransform(ABC):
             return self._convert_from_Rz(self, R, z, t)
 
     @abstractmethod
-    def _convert_from_Rz(self, x1: Number, x2: Number,
-                         t: Number) -> Coordinates:
+    def _convert_from_Rz(self, R: Number, z: Number, t: Number) -> Coordinates:
         """Implementation of conversion from the R-z coordinate system, without
         caching or default argument values.
         """
