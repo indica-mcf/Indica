@@ -1,7 +1,9 @@
+"""Provides an abstract interface for coordinate conversion.
+"""
+
 from abc import ABC, abstractmethod
-from functools import wraps
 from numbers import Number as Scalar
-from typing import Callable, Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 
@@ -10,57 +12,9 @@ OptNumber = Optional[Number]
 Coordinates = (Number, Number, Number)
 
 
-def check_and_cache_defaults(default1: str, default2: str, default3: str):
-    """Decorator to handle checking whether to use default coordinates and to 
-    handle caching of the default result.
-
-    Parameters
-    ----------
-    default_1
-        Name of the attribute of the
-        :py:class:`abstractconvertor.CoordinateTransform` to provide the
-        default for the first argument of the decorated method.
-
-    default_2
-        Name of the attribute of the
-        :py:class:`abstractconvertor.CoordinateTransform` to provide the
-        default for the second argument of the decorated method.
-
-    default_3
-        Name of the attribute of the
-        :py:class:`abstractconvertor.CoordinateTransform` to provide the
-        default for the second argument of the decorated method.
-
-    """
-    def check_decorator(method):
-        cached_val = None
-
-        @wraps(method)
-        def new_method(self, x1, x2, t):
-            global cached_val
-            use_cached = True
-            if x1 is None:
-                x1 = getattr(self, default1)
-            else:
-                use_cached = False
-            if x2 is None:
-                x2 = getattr(self, default2)
-            else:
-                use_cached = False
-            if t is None:
-                t = getattr(self, default3)
-            else:
-                use_cached = False
-            if use_cached:
-                if cached_val is None:
-                    cached_val = method(self, x1, x2, t)
-                return cached_val
-            else:
-                return method(self, x1, x2, t)
-
-        return new_method
-
-    return check_decorator
+class EquilibriumException(Exception):
+    """Exception raised if a convertor object's equilibrium object is set
+    twice."""
 
 
 class CoordinateTransform(ABC):
@@ -70,9 +24,7 @@ class CoordinateTransform(ABC):
 
     Subclasses should allow each instance to have a "default grid" on
     which to calculate results. This can be cached for efficient
-    retrieval. There should probably be some sort of default grid for
-    the master coordinate system as well, although how to go about
-    specifying this without relying on global variables is unclear.
+    retrieval.
 
     Note that not all coordinate systems will have an actual x2
     dimension (for example, the lines-of-site for soft X-ray
@@ -83,27 +35,45 @@ class CoordinateTransform(ABC):
     and 1 is the end (possibly overlapping, if the coordinate system is
     periodic).
 
+    Parameters
+    ----------
+    default_x1
+        The default grid to use for the first spatial coordinate.
+    default_x1
+        The default grid to use for the second spatial coordinate.
+    default_R
+        The default grid to use for the R-coordinate when converting to this
+        coordinate system.
+    default_z
+        The default grid to use for the z-coordinate when converting to this
+        coordinate system.
+    default_t
+        The default grid to use for time.
+
     """
 
     _CONVERSION_METHODS: Dict[str, str] = {}
 
-    def __init__(self, default_x, default_y, default_R, default_z, default_t):
-        self.default_x = default_x
-        self.default_y = default_y
-        self.default_t = default_t
+    def __init__(self, default_x1: np.ndarray, default_x2: np.ndarray,
+                 default_R: np.ndarray, default_z: np.ndarray,
+                 default_t: np.ndarray):
+        self.default_x1 = default_x1
+        self.default_x2 = default_x2
         self.default_R = default_R
         self.default_z = default_z
+        self.default_t = default_t
         self.default_distance = [None, None]
         self.default_to_Rz = None
         self.default_from_Rz = None
 
-    @abstractmethod
     def set_equilibrium(self, equilibrium, force=False):
         """Initialise the object using a set of equilibrium data.
 
         If it has already been initialised with the same equilibrium
         data then do nothing. If already initialised with a different
-        equilibrium, throw an error unless ``force == True``.
+        equilibrium, throw an
+        :py:class:`abstractconvertor.EquilibriumException` unless
+        ``force == True``.
 
         Parameters
         ----------
@@ -115,8 +85,13 @@ class CoordinateTransform(ABC):
             equilibrium data.
 
         """
-        raise NotImplementedError("{} does not implement a 'init' "
-                                  "method.".format(self.__class__.__name__))
+        if not self.equilibrium or force:
+            self.default_to_Rz = None
+            self.default_from_Rz = None
+            self.default_distance = [None, None]
+            self.equilibrium = equilibrium
+        elif self.equilibrium != equilibrium:
+            raise EquilibriumException("Attempt to set equilibrium twice.")
 
     def convert_to(self, other: "CoordinateTransform", x1: OptNumber = None,
                    x2: OptNumber = None, t: OptNumber = None) -> Coordinates:
@@ -159,15 +134,14 @@ class CoordinateTransform(ABC):
             R, z, t = self._convert_to_Rz(x1, x2, t)
             return other._convert_from_Rz(R, z, t)
 
-    @abstractmethod
-    def _convert_to_Rz(self, x1: OptNumber = None, x2: OptNumber = None,
-                       t: OptNumber = None) -> Coordinates:
+    def convert_to_Rz(self, x1: OptNumber = None, x2: OptNumber = None,
+                      t: OptNumber = None) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         If an arguments is not provided then use the default grid for
         that dimension. This grid is implementation-defined, but
         should be the one which will be most commonly used to allow
-        for caching.
+        for efficient caching of the result.
 
         Parameters
         ----------
@@ -189,18 +163,42 @@ class CoordinateTransform(ABC):
             pointer to that)
 
         """
+        use_cached = True
+        if x1 is None:
+            x1 = self.default1_x1
+        else:
+            use_cached = False
+        if x2 is None:
+            x2 = self.default_x2
+        else:
+            use_cached = False
+        if t is None:
+            t = self.default_t
+        else:
+            use_cached = False
+        if use_cached:
+            if self.default_to_Rz is None:
+                self.default_to_Rz = self._convert_to_Rz(self, x1, x2, t)
+            return self.default_to_Rz
+        else:
+            return self._convert_to_Rz(self, x1, x2, t)
+
+    @abstractmethod
+    def _convert_to_Rz(self, x1: Number, x2: Number, t: Number) -> Coordinates:
+        """Implementation of conversion to the R-z coordinate system, without
+        caching or default argument values.
+        """
         raise NotImplementedError("{} does not implement a 'to_master' "
                                   "method.".format(self.__class__.__name__))
 
-    @abstractmethod
-    def _convert_from_Rz(self, R: OptNumber = None, z: OptNumber = None,
-                         t: OptNumber = None) -> Coordinates:
+    def convert_from_Rz(self, R: OptNumber = None, z: OptNumber = None,
+                        t: OptNumber = None) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         If an arguments is not provided then return the master
         coordinates on the default grid for that dimension. This grid is
         implementation-defined, but should be the one which will be
-        most commonly used to allow for caching.
+        most commonly used to allow for efficient caching.
 
         Parameters
         ----------
@@ -221,6 +219,32 @@ class CoordinateTransform(ABC):
             The time coordinate (if one pass as an argument then is just a
             pointer to that)
 
+        """
+        use_cached = True
+        if R is None:
+            R = self.default_R
+        else:
+            use_cached = False
+        if z is None:
+            z = self.default_z
+        else:
+            use_cached = False
+        if t is None:
+            t = self.default_t
+        else:
+            use_cached = False
+        if use_cached:
+            if self.default_from_Rz is None:
+                self.default_from_Rz = self._convert_from_Rz(self, R, z, t)
+            return self.default_from_Rz
+        else:
+            return self._convert_from_Rz(self, R, z, t)
+
+    @abstractmethod
+    def _convert_from_Rz(self, x1: Number, x2: Number,
+                         t: Number) -> Coordinates:
+        """Implementation of conversion from the R-z coordinate system, without
+        caching or default argument values.
         """
         raise NotImplementedError("{} does not implement a 'from_master' "
                                   "method.".format(self.__class__.__name__))
@@ -272,7 +296,7 @@ class CoordinateTransform(ABC):
         else:
             use_cached = False
         if x1 is None:
-            x1 = self.default_x1
+            x2 = self.default_x2
         else:
             use_cached = False
         if t is None:
