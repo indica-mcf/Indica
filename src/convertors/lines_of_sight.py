@@ -21,10 +21,11 @@ class LinesOfSightTransform(CoordinateTransform):
 
     If not passed to the constructor, the default grid for converting
     from the R-z system is chosen as follows:
-    - The R-grid ranges from ``min(R_start.min(),`R_end.min())`` to
-      ``max(R_start.max(),`R_end.max())`` with ``num_points`` intervals.
-    - The z-grid ranges from ``min(z_start.min(),`z_end.min())`` to
-      ``max(z_start.max(),`z_end.max())`` with ``num_points`` intervals.
+
+    - The R-grid ranges from ``min(R_start.min(), R_end.min())`` to
+      ``max(R_start.max(), R_end.max())`` with ``num_points`` intervals.
+    - The z-grid ranges from ``min(z_start.min(), z_end.min())`` to
+      ``max(z_start.max(), z_end.max())`` with ``num_points`` intervals.
 
     Parameters
     ----------
