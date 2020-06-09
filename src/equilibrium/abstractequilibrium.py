@@ -11,6 +11,8 @@ import prov.model as prov
 import numpy as np
 from xarray import DataArray
 
+import session
+
 Number = Union[np.ndarray, Scalar]
 OptNumber = Optional[Number]
 
@@ -19,13 +21,31 @@ class Equilibrium(ABC):
     """Abstract base class for reading in equilibrium data.
     """
 
-    def __init__(self, R_ax, z_ax, R_sep, z_sep, tstart, tend):
+    def __init__(self, R_ax: DataArray, z_ax: DataArray, R_sep: DataArray,
+                 z_sep: DataArray, tstart: float, tend: float,
+                 sess: session.Session = session.global_session, **kwargs):
         self.R_ax = R_ax
         self.z_ax = z_ax
         self.R_sep = R_sep
         self.z_sep = z_sep
         self.tstart = tstart
         self.tend = tend
+        self.session = sess
+        self.prov_id = session.hash_vals(equilib_type=self.__class__.__name__,
+                                         R_ax=R_ax, z_ax=z_ax, R_sep=R_sep,
+                                         z_sep=z_sep, tstart=tstart, tend=tend,
+                                         **kwargs)
+        self.entity = session.prov.entity(self.prov_id,
+                                          {"tstart": tstart, "tend": tend,
+                                           prov.PROV_TYPE: "Equilibrium"} +
+                                          kwargs)
+        session.prov.generation(self.entity, session.session,
+                                time=datetime.datetime.now())
+        session.prov.attribution(self.entitiy, session.agent)
+        self.entity.wasDerivedFrom(R_ax.attrs["provenance"])
+        self.entity.wasDerivedFrom(z_ax.attrs["provenance"])
+        self.entity.wasDerivedFrom(R_sep.attrs["provenance"])
+        self.entity.wasDerivedFrom(z_sep.attrs["provenance"])
 
     def calibrate(self, T_e: DataArray):
         """Works out the offset needed for the for the equilibrium to line up

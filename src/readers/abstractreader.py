@@ -66,6 +66,7 @@ class DataReader(ABC):
         self._start_time = None
         self.session = sess
         self._selector = selector
+        # TODO: This should be done once in the Session object
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
@@ -202,7 +203,6 @@ class DataReader(ABC):
             activity.used(data_entity)
         return entity
 
-    @abstractmethod
     def _select_channels(self, cache_key: str, data: DataArray, channel_dim:
                          str, bad_channels: Container[Number]) \
             -> Iterable[Number]:

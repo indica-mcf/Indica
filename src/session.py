@@ -168,6 +168,7 @@ def generate_prov(pass_sess=False):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # TODO: Fix decorator with arguments
             session = kwargs.get("sess", global_session)
             if "sess" in kwargs and not pass_sess:
                 kwargs = dict(kwargs)
