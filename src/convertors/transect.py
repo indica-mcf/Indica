@@ -29,8 +29,8 @@ class TransectCoordinates(CoordinateTransform):
     approximated). However, this has some computational overhead, so
     it may be changed in future.
 
-    Parmeters
-    ---------
+    Parameters
+    ----------
     R_positions
         1-D array of major radii of locations along the transect.
     z_positions
