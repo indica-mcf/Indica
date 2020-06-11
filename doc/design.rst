@@ -152,6 +152,17 @@ this method multiple times with the same equilibrium object will have
 no affect. Calling with a different equilibrium object will cause an
 error unless specifying the argument ``force=True``.
 
+.. uml::
+   class CoordinateTransform {
+   + set_equilibrium(equilibrium: Equilibrium, force: bool)
+   + convert_to(other: CoordinateTransform, x1: arraylike, x2: arraylike, t: arraylike): (arraylike, arraylike, arraylike)
+   + convert_to_Rz(x1: arraylike, x2: arraylike, t: arraylike): (arraylike, arraylike, arraylike)
+   + convert_from_Rz(x1: arraylike, x2: arraylike, t: arraylike): (arraylike, arraylike, arraylike)
+   + distance(direction: int, x1: arraylike, x2: arraylike, t: arraylike): (arraylike, arraylike)
+   - _convert_to_Rz(x1: arraylike, x2: arraylike, t: arraylike): (arraylike, arraylike, arraylike)
+   - _convert_from_Rz(x1: arraylike, x2: arraylike, t: arraylike): (arraylike, arraylike, arraylike)
+   }
+
 Each DataArray will have a ``transform`` attribute which is one of
 these objects. To save on memory and computation, different data from the same
 instrument/diagnostic will share a single transform object. This
