@@ -1,4 +1,4 @@
-Concept and workflow
+Concept and Workflow
 ==============================
 
 This section of the documentation describes the original WSX code (up to March 2020) written in IDL by `Marco Sertoli <marco.sertoli@ukaea.uk>`_ .
@@ -25,10 +25,44 @@ Documentation and Publications
 | `M. Sertoli et al. Nuclear Fusion 55, 113029 (2015) <https://doi.org/10.1088/0029-5515/55/11/113029>`_
 | `P. Piovesan et al. Plasma Physics and Controlled Fusion 59, 014027 (2016) <https://doi.org/10.1088/0741-3335/59/1/014027>`_
 
+Scope, Inputs and Outputs
+------------------------------------------
+The main scope of the code is to evaluate the plasma composition combining a large set of measurements from different diagnostics. The code calculates the time evolution of the density profiles of 3(+1) impurities: one low-Z and two mid-/high-Z elements (+ one additional background low-Z impurity, constant in time). Mid-Z and high-Z elements are resolved in 2D on a poloidal plane to account for poloidal asymmetries.
+
+The main inputs necessary for the computation are:
+
+* equilibrium information and flux-surface mapping libraries
+* atomic data (ionization balance and radiative loss parameters)
+* diagnostic data for the following quantities:
+	* electron temperature and density profiles
+	* ion temperature and toroidal rotation
+	* SXR radiation
+	* total radiation
+	* effective charge
+	* passive spectroscopy impurity concentration measurements
+	* fast magnetic measurement (for MHD investigations)
+
+The output of the code is the time evolution of:
+
+* 2D poloidal maps of the mid-Z and high-Z impurities (e.g. Ni and W, for JET)
+* Concentration of the low-Z impurities
+* Zeff profile
+* Main ion density profile (dilution)
+* 2D poloidal map of the total radiation
+
+These resuzlts are checked for consistency against various parameters/measurements including:
+
+* Total radiation vs. bolometry LOS-integrals
+* High-Z poloidal asymmetry vs. measured toroidal rotation
+* Low-Z impurity concentration vs. CXRS measurements
+* High-Z impurity concentration vs. passive spectroscopy estimates
+
+The outputs of the code can be used for further analysis (e.g. the calculation of impurity transport coefficients), comparison with theoretical estimates (e.g. impurity poloidal asymmetries), can be fed into modelling codes (e.g. turbulence modelling, TRANSP modelling), comparison and benchmarking of diagnostic data.
+
 .. _concept:
 
-Code concept
---------------
+Concept
+----------------------------
 
 The concepts behind the code are thoroughly explained in the cited references, but it is useful to summarize here the main assumptions and features:
 
@@ -178,4 +212,4 @@ In this section, the steps of code execution are outlined in detail. The names u
 	
 	*In the new version of the code, there should be the option of evaluating the fractional abundance accounting for transport, by coupling with fast impurity transport codes* (e.g. SANCO, `STRAHL  <https://pure.mpg.de/rest/items/item_2143869/component/file_2143868/content>`_, etc.). *A theory driven estimation of the impurity transport coefficients could also be estimated using neoclassical and turbulence codes (NEO? GKW?) which would also improve the calculation of the peaking factors of the secondary mid-/high-Z impurity Z3 with respect to the main element Z0.*
 	
-9. **Computation of high-Z impurity density** is iterative... 
+9. **Computation of plasma composition**. This is iterative and (at present) semi-automatic. It starts with the most basic assumptions and then relies on the user understanding the results of the various consistency checks and taking decisions on the next steps (see steps 1-9 of section :ref:`concept`). *In the new version of the code it should be attempted to make the whole procedure as automatic as possible. The user will anyway have to go through the data consistenty checks, decide if the working assumptions give consistent results or if modifications are needed. The most delicate part is the extrapolation beyond the detection range of the SXR detectors which requires fitting to the total radiated power while still accounting for the contributions of the different elements.*
