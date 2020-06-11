@@ -8,22 +8,91 @@ organisation of the code. It is primarily intended for developers.
 Data Containers
 ---------------
 
-I would recommend basing data storage on the `xarrays
-<http://xarray.pydata.org/en/stable/>`_ package and, in particular, the
-:py:class:`xarray.DataArray` class which it provides. This can be used
-to store multidimensional data with labelled dimensions, coordinates
-along each dimension, and associated metadata. Standard mathematical
-operations are built into these objects. We should be able to use this
-class to represent all of the data, without needing to create any
-specific subclasses. Additional functionality which we need can be
-achieved through using meta-data or by providing a `"custom accessor" 
+Diagnostics and the results of calculations are stored in the
+:py:class:`xarray.DataArray`. This stores multidimensional data with
+labelled dimensions, coordinates along each dimension, and associated
+metadata. Standard mathematical operations are built into these
+objects. Additional bespoke functionality is provided using meta-data
+or `"custom accessors"
 <http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_,
-as described in the xarray documentation. More details on the required
-extensions is provided below.
+as described in the xarray documentation.
 
 
-Coordinate Systems
-------------------
+
+Accessing Equilibrium Data
+--------------------------
+
+Key to analysing any fusion reactor data is knowing the equilibrium
+state of the plasma. This is done using equilibrium
+calculations. Multiple models are available for this and it should be
+easy to swap one for another in the calculation. It is also desirable
+that they use the same interface, regardless of what fusion reactor
+the equilibrium is for or what library is used to access the data.
+
+The equilibrium data which is of interest is the total magnetic field
+strength, the location of various flux surface (poloidal, toroidal,
+and potentially others), the minor radius, the volume enclosed by a
+given flux surface, and the minimum flux surface for a
+line-of-sight. An abstract class was defined with abstract methods to
+access this data. Rather than try to anticipate every type of flux
+surface which might be needed, any method which takes or returns a
+flux surface has an argument ``kind`` which accepts a string
+specifying which one is desired (``"toroidal"``, by default). There is
+also a method to convert between different flux surface types.
+
+Unfortunately, equilibrium results are not always entirely accurate
+and may need to be adjusted. A multiplier for the magnetic field
+strength should be provided in the constructor for the equilibrium
+object. Additionally, the location of the flux surfaces will often be
+slightly offset along the major axis from the "real" ones. Therefore,
+a ``calibrate`` method is provided. This estimates (to the nearest
+half centimetre) the offset in R needed for the electron temperature
+at the last closed flux surface to be about 100eV. It provides a plot
+of the optimal R-shift at different times, with the average value also
+draw. This average value is used to reposition the flux surfaces and a
+second plot is produced with electron temperature against normalised
+flux. The user can choose to accept this offset or to specify a custom
+value. If the latter, these plots will be recreated with the new
+R-shift and the user will again be asked whether or not to accept it.
+
+The abstract equilibrium class can be represented by the following
+UML.
+
+.. uml::
+
+   class Equilibrium {
+   + R_ax: DataArray
+   + R_sep: DataArray
+   + z_ax: DataArray
+   + z_sep: DataArray
+   + tstart: float
+   + tend: float
+   + provenance: ProvEntity
+   - _session: Session
+   
+   + calibrate(T_e: DataArray, selector: Callable)
+   + {abstract} Btot(R: arraylike, z: arraylike, t: arraylike): (arraylike, arraylike)
+   + {abstract} enclosed_volume(rho: array_like, t: array_like, kind: str): (arraylike, arraylike)
+   + {abstract} minor_radius(rho: arraylike, theta: arraylike, t: arraylike, kind: str): (arraylike, arraylike)
+   + {abstract} flux_coords(R: arraylike, z: arraylike, t: arraylike, kind: str): (arraylike, arraylike, arralylike)
+   + {abstract} spatial_coords(rho: arraylike, theta: arraylike, t: arraylike, kind: str): (arraylike, arraylike, arralylike)
+   + {abstract} convert_flux_coords(rho: arraylike, theta: arraylike, t: arraylike, kind: str): (arraylike, arraylike, arralylike)
+   + R_hfs(rho: arraylike, t: arraylike, kind: str): (arraylike, arraylike)
+   + R_lfs(rho: arraylike, t: arraylike, kind: str): (arraylike, arraylike)
+   }
+
+
+
+Coordinate Systems and Transforms
+---------------------------------
+
+Each diagnostic which is used for calculations is stored on a
+different coordinate system and/or grid. One of the key challenges is
+thus to make it easy to convert between these coordinate systems. This
+is further complicated by the fact that many of the coordinate systems
+are based on what (time-dependent) equilibrium state was calculated
+for the plasma. Transforms between coordinate systems must therefore
+be agnostic as to which equilibrium results are used.
 
 When operations are performed on :py:class:`xarray.DataArray` objects,
 they are :ref:`automatically aligned <math automatic alignment>`
@@ -35,33 +104,59 @@ names, it automatically performs :ref:`compute.broadcasting`. However,
 note that this would not be physically correct if the coordinates are
 not linearly independent.
 
-There is also built-in support of :ref:`interpolating onto a new
+There is also built-in support for :ref:`interpolating onto a new
 coordinate system <interp>`. This
-can be for either different grid-spacing on the same axes or for
+can be either for different grid-spacing on the same axes or for
 another set of axes entirely. The latter can be slightly cumbersome to
 do and requires some additional information about how coordinates map,
 so we will likely want to provide convenience methods for that
 purpose.
 
-In order to perform these sorts of conversions, it will be necessary
-to provide functions which map from one coordinate system to
-another. An arbitrary number of potential coordinate systems could be
-used and being able to map between each of them would require
-:math:`O(n^2)` different functions. This can be reduced to
-:math:`O(n)` if instead we choose a "master" coordinate system to
-which all the others can be converted. A sensible choice for this
-would be :math:`R, z`, as these axes are orthogonal and the
-coordinates remain constant over time (unlike flux surfaces).
+In order to perform these sorts of conversions, I means is necessary
+to map from one coordinate system to another. An arbitrary number of
+potential coordinate systems could be used and being able to map
+between each of them would require :math:`O(n^2)` different
+functions. This can be reduced to :math:`O(n)` if instead we choose a
+go-between coordinate system to which all the others can be
+converted. A sensible choice for this would be :math:`R, z`, as these
+axes are orthogonal, the coordinates remain constant over time, and
+libraries to retrieve equilibrium data typically work in these
+coordinates.
 
-To achieve this, each :py:class:`xarray.DataArray` would contain a
-piece of metadata called ``map_to_master`` and another called
-``map_from_master``. Both of these would be functions, each taking 3
-arguments and returning a 3-tuple. The first would accept a coordinate
-on the system used by the :py:class:`xarray.DataArray` and return the
-corresponding location in the master coordinate system. The second
-function would perform the inverse operation. The optional third
-argument corresponds to time and would be needed if a coordinate
-system is not fixed in time.
+A :py:class:`convertors.CoordinateTransform` class is defined to handle
+this process. This is an abstract class which will have a different
+subclass for each type of coordinate system. It has two abstract
+methods (both private), for converting coordinates to and from
+R-z. These get wrapped by public (non-abstract) methods which provide
+default argument values and cache the result for these
+defaults. A non-abstract ``convert_to`` method takes
+another coordinate system as an argument and will map coordinates
+onto it. Finally, the ``distance`` method can provide the spatial
+distance between grid-points along a given axis and first grid-point
+on that axis.
+
+In addition to doing conversions via R-z coordinates, subclasses of
+:py:class:`convertors.CoordinateTransform` may define additional
+methods to map directly between coordinate systems. This would be
+useful if there is a more efficient way to do the conversion without
+going through R-z, if that transformation is expected to be
+particularly frequently used, or if that transformation would need to
+be done as a step in converting to R-z coordinates.
+
+The :py:class:`convertors.CoordinateTransform` class is agnostic to the
+equilibrium data and can be instantiated without any knowledge of
+it. However, many subclasses will require equilibrium information to
+perform the needed calculations. This can be set using the
+``set_equilibrium`` method at any time after instantiation. Calling
+this method multiple times with the same equilibrium object will have
+no affect. Calling with a different equilibrium object will cause an
+error unless specifying the argument ``force=True``.
+
+Each DataArray will have a ``transform`` attribute which is one of
+these objects. To save on memory and computation, different data from the same
+instrument/diagnostic will share a single transform object. This
+should not normally be of any concern for the user, unless they area
+attempting to use multiple sets of equilibrium data at once.
 
 When two :py:class:`xarray.DataArray` objects use the same coordinate
 system with only different grid spacing, the built in
@@ -72,48 +167,7 @@ extending :py:class:`xarray.DataArray` with a `"custom accessor"
 <http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_
 that has a method ``remap_like()``, which would provide the same
 behaviour (and simply delegate to ``interp_like()`` if the same
-coordinate system is used). The following UML class diagram
-illustrates this structure.
-
-.. uml::
-
-   class DataArray {
-   + name: str
-   + values: ndarray
-   + dims: tuple
-   + coords: dict
-   + attrs: dict
-   + wsx: WSXAccessor
-   ...
-   __
-   ...
-   + interp(coords): DataArray
-   + interp_like(other: DataArray): DataArray
-   ...
-   }
-
-   class WSXAccessor {
-   - _obj: DataArray
-   
-   + remap_like(other: DataArray): DataArray
-   }
-   
-   DataArray -* WSXAccessor
-   DataArray o- WSXAccessor
-
-The next diagram gives an example of some of these attributes in a
-:py:class:`xarray.DataArray` object.
-
-.. uml::
-
-   object example_data {
-   + name = "W density"
-   + values
-   + dims = ["rho", "R"]
-   + coords = {"rho": [-1.0, ..., 1.0], "R": [2.0, ..., 4.0]}
-   + attrs = {"map_to_master": func(rho, R, t=None) -> (R, z, t),\n\t "map_from_master": func(R, z, t=None) -> (rho, R, t), ...}
-   + wsx
-   }
+coordinate system is used). More details to follow.
 
 Custom accessors appear like attributes on
 :py:class:`xarray.DataArray`, with their own set of methods. This
@@ -127,10 +181,10 @@ use is as follows::
   array3 = array1 + array2
 
   # Same coordinate system as array1
-  array4 = array1 + array2.WSXAccessor.remap_like(array1)
+  array4 = array1 + array2.impurities.remap_like(array1)
 
   # Same coordinate system as array2
-  array5 = array1.WSXAccessor.remap_like(array2) + array2
+  array5 = array1.impurities.remap_like(array2) + array2
 
 Anyone who imports this library will be able to use the accessor with
 xarrays in their own code.
@@ -139,25 +193,7 @@ Metadata
 ~~~~~~~~
 
 The following metadata should be attached to
-:py:class:`xarray.DataArrays`:
-
-equilibrium : **str**
-    A string identifying the set of equilibrium data used for this
-    object's coordinate system.
-
-generate_mappers : **function(equilibrium) -> (map_to_master, map_from_master)**
-    A higher ordered function which can be used as a factory
-    for the two mapping functions below.
-
-map_to_master : **function(x1, x2, t) -> (rho, theta, t)**
-    A function mapping from the coordinate system of this data to the
-    "master" coordinate system. Will be ``None`` immediately after
-    read-in.
-
-map_from_master : **func(rho, theta, t) -> (x1, x2, t)**
-    A function mapping from the "master" coordinate system to the
-    coordinate system of this data. Will be ``None`` immediately after
-    read-in.
+:py:class:`xarray.DataArray`:
 
 datatype : **(str, str)**
     Information on the type of data stored in this
@@ -167,6 +203,10 @@ provenance : **:py:class:`prov.model.ProvEntity`**
     Information on the process which generated this data. See
     :ref:`Provenance Tracking`.
 
+transform : **:py:class:`convertors.CoordinateTransform`**
+    An object describing the coordinate system of this data, with
+    methods to map to other coordinate systems.
+
 error (optional) : **ndarray**
     Uncertainty in the value.
 
@@ -175,7 +215,7 @@ Data IO
 -------
 
 Reading data should be achieved by defining a standard interface,
-:py:class:`reader.DataReader`. A different subclass would then be defined for
+:py:class:`readers.DataReader`. A different subclass would then be defined for
 each data source/format. These would return
 :py:class:`xarray.DataArray` objects with all the necessary metadata.
 
@@ -274,58 +314,41 @@ itself is in terms of what units are associated with a
 number. However, you may have multiple distinct quantities with the
 same units and an operation may require a specific one of those. It is
 desirable to be able to detect mistake arising from using the wrong
-quantity as quickly as possible. For this reason it would be useful to
-allow different operations on data to define what it expects that data
-to be and to check that this condition is met.
+quantity as quickly as possible. For this reason, operations on data
+define what they expects that data to be and to check this.
 
 Beyond catching errors when using this software as a library or
-interactively at the command line, this technique could be valuable
-when building a GUI interface. It would allow the GUI to limit the
+interactively at the command line, this technique will be valuable
+when building a GUI interface. It will allow the GUI to limit the
 choice of input for each operation to those variables which are
-valid. This would simplify use (as your choices would be limited to
+valid. This will simplify use (as your choices will be limited to
 those which are appropriate) and make it safer.
 
-This system need not be very complicated. A type would consist of one
-mandatory label and a second, optional one. The first label would
-indicate the general sort of quantity (e.g., number density,
-temperature, luminosity, etc.) and the second would specify what that
+This system need not be very complicated. A type consists of one
+mandatory label and a second, optional one. The first label
+indicates the general sort of quantity (e.g., number density,
+temperature, luminosity, etc.) and the second specifies what that
 quantity applies to (type of ion, electrons, soft X-rays, etc.). This
-could be expressed as a 2-tuple, where the first element is a string
-and the second is either a string or ``None``. See examples below.
-
-::
-   
-    # Describes a generic number density of some particle
-    ("n", None)
-    # Describes number density of electrons
-    ("n", "e")
-    # Describes number density of Tungsten
-    ("n", "W")
-    
-    ("T", None) # Temperature
-    ("T", "e")  # Electron temperature
-
-It can be a matter of discussion whether we should use short symbolic
-labels for types or whether they should be slightly longer and more
-descriptive, e.g.::
+is expressed as a 2-tuple, where the first element is a string
+and the second is either a string or ``None``. See examples below::
 
     # Describes a generic number density of some particle
     ("number_density", None)
     # Describes number density of electrons
     ("number_density", "electrons")
-    # Describes number density of Tungsten
-    ("number_density", "tungsten")
+    # Describes number density of primary impurity
+    ("number_density", "impurity0")
     
     ("temperature", None) # Temperature
     ("temperature", "electrons")  # Electron temperature
 
-Each operation on data would contain information on the types of
-arguments it expects to receive and return and would have methods to
+Each operation on data contains information on the types of
+arguments it expects to receive and return and has a method to
 confirm that these expectations are met. An operation should always
 specify the first element in the type tuple and may choose to specify
-the second if appropriate. Each :py:class:`xarray.DataArray` would
-contain one of these type-tuples in its metadata, associated to the
-key ``"type"`` and this should always specify both elements of the
+the second if appropriate. Each :py:class:`xarray.DataArray`
+contains one of these type-tuples in its metadata, associated to the
+key ``"type"`` and this always specifies both elements of the
 tuple.
 
 In principal, this is all the infrastructure that would be needed for
@@ -337,9 +360,17 @@ to and in what units it should be provided. This information would be
 useful documentation for users and could be integrated in a GUI
 interface. This could be accomplished using dictionaries::
 
-    general_types = {"n": ("Number density of a particle", "m^-3"),
-                     "T": ("Temperature of a species", "keV")}
-    specific_types = {"e": "electrons", "W": "Tungsten"}
+    general_types = {"number_density": ("Number density of a particle", "m^-3"),
+                     "temperature": ("Temperature of a species", "keV")}
+    specific_types = {"electrons": "Electron gas in plasma",
+                      "impurity0": "Primary impurity, varying in space and time"}
+
+Note that impurities are not specified by their actual
+composition. This is because calculations do not depend on a
+particular element but rather on the assumptions which have been made
+about that impurity. These are indicated by names such as
+``"impurity0"``, ``"impurity"``, etc. More details about these
+different assumptions will be explained elsewhere.
 
 
 Provenance Tracking
@@ -353,12 +384,11 @@ assumption specified by the user, or by a calculation on other data, a
 record should also be created describing how this was done.
 
 There already exist standards and library for recording this sort of
-information, so we should seek to use them. W3C defines the `PROV
-standard <https://www.w3.org/TR/2013/NOTE-prov-overview-20130430/>`_
-for representing this sort of data and the `PyProv
-<https://prov.readthedocs.io/en/latest/index.html>`_ library exists to
-use it from within Python. In this model, there are the following
-types of records:
+information: W3C defines the `PROV standard
+<https://www.w3.org/TR/2013/NOTE-prov-overview-20130430/>`_ and the
+`PyProv <https://prov.readthedocs.io/en/latest/index.html>`_ library
+exists to use it from within Python. In this model, there are the
+following types of records:
 
 Entity : :py:class:`prov.model.ProvEntity`
     Something you want to describe the provenance of, such as book,
@@ -375,16 +405,16 @@ the main ones summarised in the diagram below.
 
 .. image:: _static/provRelationships.png
 
-This software a class :py:class:`session.Session` which holds the
-:py:class:`provenance document <prov.model.ProvDocument>` as well as
-contains information about the user and
-version of the software. A global session can be established using
-:py:meth:`session.Session.begin` or a context manager. Doing so requires
-specifying information about the user, such as an ORCiD ID (other
-options TBC). The library will then use this global session to record
+This software provides a class :py:class:`session.Session` which holds
+the :py:class:`provenance document <prov.model.ProvDocument>` as well
+as contains information about the user and version of the software. A
+global session can be established using
+:py:meth:`session.Session.begin` or a context manager. Doing so
+requires specifying information about the user, such as an email or
+ORCiD ID. The library will then use this global session to record
 information or, alternatively, you can provide your own instance when
-constructing objects. This allows greater flexibility and, e.g.,
-running two sessions in parallel.
+constructing objects. The latter option allows greater flexibility
+and, e.g., running two sessions in parallel.
 
 What follows is a list of the sorts of PROV objects which will be
 generated. Each of them should come with an unique identifier. Where
@@ -458,7 +488,8 @@ objects will be attributed to them. They are associated with the
 session. Sometimes they will delegate authority to classes or
 functions which are themselves agents. Sufficient metadata should be
 provided to allow them to be contacted. Ideally they would have some
-sort of unique identifier such as an ORCiD ID.
+sort of unique identifier such as an ORCiD ID, but email is also
+acceptable.
 
 
 Operations on Data
