@@ -30,22 +30,22 @@ class Equilibrium(ABC):
         self.z_sep = z_sep
         self.tstart = tstart
         self.tend = tend
-        self.session = sess
+        self._session = sess
         self.prov_id = session.hash_vals(equilib_type=self.__class__.__name__,
                                          R_ax=R_ax, z_ax=z_ax, R_sep=R_sep,
                                          z_sep=z_sep, tstart=tstart, tend=tend,
                                          **kwargs)
-        self.entity = session.prov.entity(self.prov_id,
-                                          {"tstart": tstart, "tend": tend,
-                                           prov.PROV_TYPE: "Equilibrium"} +
-                                          kwargs)
+        self.provonence = session.prov.entity(self.prov_id,
+                                              {"tstart": tstart, "tend": tend,
+                                               prov.PROV_TYPE: "Equilibrium"} +
+                                              kwargs)
         session.prov.generation(self.entity, session.session,
                                 time=datetime.datetime.now())
         session.prov.attribution(self.entitiy, session.agent)
-        self.entity.wasDerivedFrom(R_ax.attrs["provenance"])
-        self.entity.wasDerivedFrom(z_ax.attrs["provenance"])
-        self.entity.wasDerivedFrom(R_sep.attrs["provenance"])
-        self.entity.wasDerivedFrom(z_sep.attrs["provenance"])
+        self.provenance.wasDerivedFrom(R_ax.attrs["provenance"])
+        self.provenance.wasDerivedFrom(z_ax.attrs["provenance"])
+        self.provenance.wasDerivedFrom(R_sep.attrs["provenance"])
+        self.provenance.wasDerivedFrom(z_sep.attrs["provenance"])
 
     def calibrate(self, T_e: DataArray):
         """Works out the offset needed for the for the equilibrium to line up
@@ -64,19 +64,6 @@ class Equilibrium(ABC):
         # TODO: Determine what to do with result (return it, use internally, etc.)
         # TODO: Maybe I should call this with the constructor.
         pass
-
-    @property
-    @abstractmethod
-    def provenance(self) -> prov.ProvEntity:
-        """Returns a PROV entity for this Equilibrium object.
-
-        This should contain sufficient information (include
-        dependencies on any input data) to be able to recreate it
-        exactly.
-
-        """
-        raise NotImplementedError("{} does not implement a 'provenance' "
-                                  "property.".format(self.__class__.__name__))
 
     @abstractmethod
     def Btot(self, R: Number, z: Number, t: OptNumber = None) -> (Number,
@@ -105,8 +92,8 @@ class Equilibrium(ABC):
         raise NotImplementedError("{} does not implement an 'Btot' "
                                   "method.".format(self.__class__.__name__))
 
-    def axis_R_lfs(self, rho: Number, t: OptNumber = None,
-                   kind: str = "toroidal") -> (Number, Number):
+    def R_lfs(self, rho: Number, t: OptNumber = None,
+              kind: str = "toroidal") -> (Number, Number):
         """Major radius position of the given flux surface on the Low Flux
          Side of the magnetic axis.
 
@@ -134,8 +121,8 @@ class Equilibrium(ABC):
         R, z, t = self.spatial_coords(rho, 0.0, t, kind)
         return R, t
 
-    def axis_R_hfs(self, rho: Number, t: OptNumber = None,
-                   kind: str = "toroidal") -> (Number, Number):
+    def R_hfs(self, rho: Number, t: OptNumber = None,
+              kind: str = "toroidal") -> (Number, Number):
         """Major radius position of the given flux surface on the High Flux
          Side of the magnetic axis.
 
@@ -165,7 +152,7 @@ class Equilibrium(ABC):
         return R, t
 
     @abstractmethod
-    def enclosed_volume(self, rhow: Number, t: OptNumber = None) -> (Number,
+    def enclosed_volume(self, rho: Number, t: OptNumber = None) -> (Number,
                                                                      Number):
         """Returns the volume enclosed by the specified flux surface.
 

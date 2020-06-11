@@ -126,13 +126,14 @@ class CoordinateTransform(ABC):
             pointer to that)
 
         """
+        # TODO: cache all results for default arguments
         other_name = other.__class__.__name__
         if other_name in self.CONVERSION_METHODS:
             convertor = getattr(self, self.CONVERSION_METHODS[other_name])
             return convertor(x1, x2, t)
         else:
-            R, z, t = self._convert_to_Rz(x1, x2, t)
-            return other._convert_from_Rz(R, z, t)
+            R, z, t = self.convert_to_Rz(x1, x2, t)
+            return other.convert_from_Rz(R, z, t)
 
     def convert_to_Rz(self, x1: OptNumber = None, x2: OptNumber = None,
                       t: OptNumber = None) -> Coordinates:
@@ -260,6 +261,9 @@ class CoordinateTransform(ABC):
         distancees on the default grid for that dimension. This grid is
         implementation-defined, but should be the one which will be
         most commonly used to allow for caching.
+
+        Note that distance is calculated using Euclidean lines between
+        points. As such, it will not be accurate for a curved axis.
 
         Parameters
         ----------

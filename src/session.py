@@ -167,8 +167,7 @@ def generate_prov(pass_sess=False):
         num_positional = len(var_positional)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
-            # TODO: Fix decorator with arguments
+        def prov_generator(*args, **kwargs):
             session = kwargs.get("sess", global_session)
             if "sess" in kwargs and not pass_sess:
                 kwargs = dict(kwargs)
@@ -203,14 +202,14 @@ def generate_prov(pass_sess=False):
             activity_id = hash_vals(agent=session.agent, date=end_time, **id_attrs)
             activity = session.prov.activity(activity_id, start_time, end_time,
                                              activity_attrs)
-            if isinstance(result, tuple):
+            if isinstance(result, DataArray):
                 entity_id = hash_vals(activity=activity_id, name=result.name,
                                       **id_attrs)
                 entity = session.prov.entity(entity_id)
                 entity.wasGeneratedBy(activity, end_time)
                 entity.wasAttributedTo(session.agent)
                 result.attrs["provenance"] = entity
-            elif isinstance(result, DataArray):
+            elif isinstance(result, tuple):
                 for i, r in enumerate(result):
                     if isinstance(r, DataArray):
                         entity_id = hash_vals(activity=activity_id,
@@ -225,5 +224,5 @@ def generate_prov(pass_sess=False):
                                  "function. Can not assign PROV data.")
             return result
 
-        return wrapper
+        return prov_generator
     return outer_wrapper
