@@ -153,6 +153,7 @@ no affect. Calling with a different equilibrium object will cause an
 error unless specifying the argument ``force=True``.
 
 .. uml::
+
    class CoordinateTransform {
    + set_equilibrium(equilibrium: Equilibrium, force: bool)
    + convert_to(other: CoordinateTransform, x1: arraylike, x2: arraylike, t: arraylike): (arraylike, arraylike, arraylike)

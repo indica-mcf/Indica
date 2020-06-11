@@ -297,7 +297,9 @@ texinfo_documents = [
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'http://xarray.pydata.org/en/stable/': None,
                        'https://prov.readthedocs.io/en/latest/': None,
-                       'https://docs.python.org/3': None}
+                       'https://docs.python.org/3': None,
+                       'https://numpy.org/doc/stable/': None,
+                       'https://docs.scipy.org/doc/scipy/reference/': None}
 
 # Autodoc configurations
 autodoc_mock_imports = ["matplotlib", "numpy", "prov", "sal", "scipy", "xarray"]

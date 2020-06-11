@@ -59,7 +59,6 @@ These resuzlts are checked for consistency against various parameters/measuremen
 
 The outputs of the code can be used for further analysis (e.g. the calculation of impurity transport coefficients), comparison with theoretical estimates (e.g. impurity poloidal asymmetries), can be fed into modelling codes (e.g. turbulence modelling, TRANSP modelling), comparison and benchmarking of diagnostic data.
 
-.. _concept:
 
 Concept
 ----------------------------
