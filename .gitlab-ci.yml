@@ -24,20 +24,20 @@ unit_tests:
     expire_in: 1 day
 
 
-integration_tests:
-  stage: test
-  before_script:
-    - pip install -r requirements.txt
-    - pip install -r testing-requirements.txt
-  script:
-    - coverage run -m pytest tests/integration
-    - coverage report
-    - coverage html
-    - mv htmlcov htmlcov_integration
-  artifacts:
-    paths:
-      - htmlcov_integration
-    expire_in: 1 day
+#integration_tests:
+#  stage: test
+#  before_script:
+#    - pip install -r requirements.txt
+#    - pip install -r testing-requirements.txt
+#  script:
+#    - coverage run -m pytest tests/integration
+#    - coverage report
+#    - coverage html
+#    - mv htmlcov htmlcov_integration
+#  artifacts:
+#    paths:
+#      - htmlcov_integration
+#    expire_in: 1 day
 
 
 pages:
