@@ -59,7 +59,7 @@ pages:
     - mv _build/html/ ../public/
     - mkdir public/coverage
     - mv htmlcov_unit/ public/coverage/unit
-    - mv htmlcov_integration/ public/coverage/integration
+#    - mv htmlcov_integration/ public/coverage/integration
 
   artifacts:
       paths:
