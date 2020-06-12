@@ -1,5 +1,45 @@
 image: python:3
 
+cache:
+  paths:
+    - .local
+
+variables:
+  PYTHONPATH: .
+
+
+unit_tests:
+  stage: test
+  before_script:
+    - pip install -r requirements.txt
+    - pip install -r testing-requirements.txt
+  script:
+    - coverage run -m pytest tests/unit
+    - coverage report -m --omit=tests/*
+    - coverage html --omit=tests/*
+    - mv htmlcov htmlcov_unit
+  artifacts:
+    paths:
+      - htmlcov_unit
+    expire_in: 1 day
+
+
+integration_tests:
+  stage: test
+  before_script:
+    - pip install -r requirements.txt
+    - pip install -r testing-requirements.txt
+  script:
+    - coverage run -m pytest tests/integration
+    - coverage report -m --omit=tests/*
+    - coverage html --omit=tests/*
+    - mv htmlcov htmlcov_integration
+  artifacts:
+    paths:
+      - htmlcov_integration
+    expire_in: 1 day
+
+
 pages:
   stage: deploy
   before_script:
@@ -17,6 +57,9 @@ pages:
     - cd doc/
     - make html
     - mv _build/html/ ../public/
+    - mkdir public/coverage
+    - mv htmlcov_unit/ public/coverage/unit
+    - mv htmlcov_integration/ public/coverage/integration
 
   artifacts:
       paths:
