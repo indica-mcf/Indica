@@ -15,8 +15,8 @@ unit_tests:
     - pip install -r testing-requirements.txt
   script:
     - coverage run -m pytest tests/unit
-    - coverage report -m --omit=tests/*
-    - coverage html --omit=tests/*
+    - coverage report
+    - coverage html
     - mv htmlcov htmlcov_unit
   artifacts:
     paths:
@@ -31,8 +31,8 @@ integration_tests:
     - pip install -r testing-requirements.txt
   script:
     - coverage run -m pytest tests/integration
-    - coverage report -m --omit=tests/*
-    - coverage html --omit=tests/*
+    - coverage report
+    - coverage html
     - mv htmlcov htmlcov_integration
   artifacts:
     paths:

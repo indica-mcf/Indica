@@ -3,3 +3,4 @@ doc/_build
 *.pyc
 venv/
 .hypothesis/
+.coverage
