@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import datetime
 from numbers import Number
 import os
-from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Tuple
+from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Set, Tuple
 from warnings import warn
 
 import numpy as np
@@ -92,61 +92,107 @@ class DataReader(ABC):
         self.close()
         return False
 
-    def get(self, key: str, revision: Optional[Any] = None) -> DataArray:
-        """Reads data for the specified key.
-
-        Reads data from a database or disk. This object will provide
-        all necessary additional attributes to describe provenance and
-        the coordinate system.
-
-        This method requires :py:meth:`_get_data` to be overridden by
-        a subclass. It will call that method, checking to ensure your
-        data is listed as being available from this reader. It will
-        also ensure the result contains necessary metadata such as
-        provenance and conversions for the coordinate system.
+    def get_thompson_scattering(self, uid: str, instrument: str,
+                                revision: Optional[int] = None,
+                                quantities: Set[str] = {"ne", "te"}) \
+            -> Dict[str, DataArray]:
+        """Reads data based on Thompspm Scattering.
 
         Parameters
         ----------
-        key
-            Identifies what data is to be read. Must be present in
-            :py:attr:`AVAILABLE_DATA`.
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
         revision
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database. Options are
+            "ne" (electron number density) and "te" (electron temperature).
 
         Returns
         -------
         :
-            The requested raw data, with appropriate metadata.
+            A dictionary containing the requested physical quantities.
         """
-        if key in self.AVAILABLE_DATA:
-            raise ValueError("{} can not read data for key {}".format(
-                self.__class__.__name__, repr(key)))
-        # Check the data type is one that is registered globally
-        self._start_time = datetime.datetime.now()
-        result = self._get_data(key, revision)
-        # Check the result has appropriate metadata
-        assert "generate_mappers" in result.attrs
-        assert "map_to_master" in result.attrs
-        assert "map_from_master" in result.attrs
-        assert "datatype" in result.attrs
-        dt = result.attrs["datatype"]
-        expected_dt = self.AVAILABLE_DATA[key]
-        assert dt[0] == expected_dt[0]
-        if dt[0] not in datatypes.GENERAL_DATATYPES:
-            warn("DataReader class {} returns unrecognised general "
-                 "datatype '{}' for  key '{}'".format(
-                     self.__class__.__name__, dt[0], key),
-                 datatypes.DatatypeWarning)
-        if expected_dt[1]:
-            assert dt[1] == expected_dt[1]
-        if dt[1] not in datatypes.SPECIFIC_DATATYPES:
-            warn("DataReader class {} returns unrecognised specific "
-                 "datatype '{}' for key '{}'".format(
-                     self.__class__.__name__, dt[1], key),
-                 datatypes.DatatypeWarning)
-        assert "provenance" in result.attrs
-        return result
+        database_results = self._get_thompson_scattering(uid, instrument,
+                                                         revision, quantities)
+        ticks = np.arange(database_results["length"])
+        keycoord = instrument + "_coord"
+        coords = [("t", database_results["times"]), (keycoord, ticks)]
+        data = {}
+        if "ne" in quantities:
+            key = self.__class__.__name__ + "/thompson/" + instrument + "/" + uid + "/ne"
+            meta = {"datatype": ("number_density", "electron"),
+                    "error": DataArray(database_results["ne_error"], coords)}
+            ne_data = DataArray(database_results["ne"], coords,
+                                name=instrument + "_ne", attrs=meta)
+            drop = self._select_channels(key, ne_data, keycoord)
+            ne_data.attrs['provenance'] = self.create_provenance(key, revision,
+                                                                 database_results["ne_records"], drop)
+            data["ne"] = ne_data.drop_sel({keycoord: drop})
+        if "te" in quantities:
+            key = self.__class__.__name__ + "/thompson/" + instrument + "/" + uid + "/te"
+            meta = {"datatype": ("temperature", "electron"),
+                    "error": DataArray(database_results["te_error"], coords)}
+            te_data = DataArray(database_results["te"], coords,
+                                name=instrument + "_te", attrs=meta)
+            drop = self._select_channels(key, te_data, keycoord)
+            te_data.attrs['provenance'] = self.create_provenance(key, revision,
+                                                              database_results["ne_records"], drop)
+            data["te"] = te_data.drop_sel({keycoord: drop})
+        return data
+
+    def _get_thompson_scattering(self, uid: str, instrument: str,
+                                 revision: Optional[int],
+                                 quantities: Set[str]) -> Dict[str, Any]:
+        """Gets raw data for Thompson scattering from the database.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database. Options are
+            "ne" (electron number density) and "te" (electron temperature).
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        length : int
+            Number of channels in data
+        R : ndarray
+            Major radius positions for each channel
+        z : ndarray
+            Vertical position of each channel
+        times : ndarray
+            The times at which measurements were taken
+        ne : ndarray or None
+            Electron number density (first axis is time, second channel)
+        ne_error : ndarray or None
+            Uncertainty in electron number density
+        ne_records : List[str] or None
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for electron number density.
+        te : ndarray or None
+            Electron temperature (first axis is time, second channel)
+        te_error : ndarray or None
+            Uncertainty in electron temperature
+        te_records : List[str] or None
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for electron temperature.
+        
+
+        """
+        raise NotImplementedError("{} does not implement a '_get_unsafe' "
+                                  "method.".format(self.__class__.__name__))
 
     def create_provenance(self, key: str, revision: Any,
                           data_objects: Iterable[str],
@@ -288,13 +334,6 @@ class DataReader(ABC):
         raise NotImplementedError("{} does not implement a "
                                   "'requires_authentication' "
                                   "property.".format(self.__class__.__name__))
-
-    @abstractmethod
-    def _get_data(self, key: str, revision: Optional[Any] = None) -> DataArray:
-        """An unsafe version of :py:meth:`get` which must be implemented by
-        each subclass. It does not check that the key is valid."""
-        raise NotImplementedError("{} does not implement a '_get_unsafe' "
-                                  "method.".format(self.__class__.__name__))
 
     @abstractmethod
     def close(self) -> None:
