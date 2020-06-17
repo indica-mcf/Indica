@@ -4,7 +4,7 @@ reading PPF data produced by JET.
 """
 
 import socket
-from typing import ClassVar, Dict, Tuple
+from typing import ClassVar, Dict, Tuple, Set, Any, Optional
 
 import numpy as np
 from sal.client import SALClient, AuthenticationFailed
@@ -76,6 +76,25 @@ class PPFReader(DataReader):
 
     """
 
+    # TODO: Build this up dynamically when instantiating
+    DIAGNOSTIC_QUANTITIES = {"thomson_scattering":
+                             {"jetppf": {"hrts":
+                                         {"ne": ("number_density", "electron"),
+                                          "te": ("temperature", "electron")},
+                                         "lidr":
+                                         {"ne": ("number_density", "electron"),
+                                          "te": ("temperature", "electron")},
+                                         }
+                              },
+                             "charge_exchange":
+                             {"jetppf": {"cxg6":
+                                         {"angf": ("angular_freq", None),
+                                          "conc": ("concentration", None),
+                                          "ti": ("temperature", None)},
+                                         }
+                              }
+                             }
+
     AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {
         "cxg6_angf": ("angular_freq", None),
         "cxg6_conc": ("concentration", None),
@@ -94,183 +113,168 @@ class PPFReader(DataReader):
         "sxr_v": ("luminous_flux", "sxr"),
     }
 
-    _HANDLER_METHODS: ClassVar[Dict[str, str]] = {
-        "cxg6_angf": "_handle_cxrs",
-        "cxg6_conc": "_handle_cxrs",
-        "cxg6_ti": "_handle_cxrs",
-        "efit_rmag": "_handle_equilibrium_position",
-        "efit_zmag": "_handle_equilibrium_position",
-        "efit_rsep": "_handle_equilibrium_position",
-        "efit_zsep": "_handle_equilibrium_position",
-        "hrts_ne": "_handle_electron_data",
-        "hrts_te": "_handle_electron_data",
-        "kk3_te": "_handle_kk3",
-        "lidr_ne": "_handle_electron_data",
-        "lidr_te": "_handle_electron_data",
-        "sxr_h": "_handle_sxr",
-        "sxr_t": "_handle_sxr",
-        "sxr_v": "_handle_sxr",
-    }
-
-    _CXRS_ERROR = {'angf': 'afhi', 'conc': 'cohi', 'ti': 'ti_hi'}
     _SXR_RANGES = {'sxr_h': (2, 17), 'sxr_t': (1, 35), 'sxr_v': (1, 35)}
 
-    def __init__(self, times: np.ndarray, pulse: int, uid: str = "jetppf",
+    def __init__(self, pulse: int, tstart: float, tend: float,
                  server: str = "https://sal.jet.uk",
-                 default_error: float = 0.05, selector: DataSelector = None,
+                 default_error: float = 0.05, max_freq: float = 1e6,
+                 selector: DataSelector = None,
                  sess: session.Session = session.global_session):
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
-        super().__init__(sess, selector, pulse=pulse, uid=uid, server=server)
+        super().__init__(tstart, tend, max_freq, sess, selector, pulse=pulse,
+                         server=server)
         self.pulse = pulse
-        self.uid = uid
-        self.times = times
         self._client = SALClient(server)
         self._default_error = default_error
 
-    def _get_data(self, key: str, revision: int = 0) -> DataArray:
-        """Reads and returns the data for the given key. Should only be called
-        by :py:meth:`DataReader.get`."""
-        return getattr(self, self._HANDLER_METHODS[key])(key, revision)
-
-    def _get_signal(self, key: str, revision: int) -> Tuple[Signal, str]:
+    def _get_signal(self, uid: str, instrument: str, quantity: str,
+                    revision: int) -> Tuple[Signal, str]:
         """Gets the signal for the given DDA, at the given revision."""
-        path = "/pulse/{:i}/ppf/signal/{}/{}:{:d}".format(
-            self.pulse, self.uid, key.replace("_", "/"), revision)
+        path = "/pulse/{:i}/ppf/signal/{}/{}/{}:{:d}".format(
+            self.pulse, uid, instrument, quantity, revision)
         # TODO: if revision == 0 update it with absolute revision
         # number in path before returning
         return self._client.get(path), path
 
-    def _handle_cxrs(self, key: str, revision: int) -> DataArray:
+    def _get_charge_exchange(self, uid: str, instrument: str,
+                             revision: Optional[int],
+                             quantities: Set[str]) -> Dict[str, Any]:
         """Return temperature, angular frequency, or concentration data for an
         ion, measured using charge exchange recombination
         spectroscopy.
 
         """
-        key_parts = key.split("_")
-        instrument = key_parts[0]
-        diagnostic = key_parts[1]
-        uid, signal = self._get_signal(key, revision)
-        uids = [uid]
-        uid, high = self._get_signal(instrument + self._CXRS_ERROR[diagnostic],
-                                     revision)
-        uids.append(uid)
-        uid, atomic_mass = self._get_signal(instrument + "_mass",
-                                            revision)
-        uids.append(uid)
-        # TODO: get ion species from atomic mass
-        ion = None
-        uid, texp = self._get_signal(instrument + "_texp", revision)
-        uids.append(uid)
-        ticks = np.arange(signal.dimensions[1].length)
-        keycoord = instrument + "_coord"
-        coords = [("t", signal.dimensions[0].data), (keycoord, ticks)]
-        error = (high.data - signal.data)/2
-        meta = {"datatype": (self.AVALABLE_DATA[key][0], ion),
-                "error": DataArray(error, coords), "exposure_time": texp.data}
-        data = DataArray(signal.data, coords, name=key, attrs=meta)
-        r0, uid = self._get_signal(instrument + "_rpos", revision)
-        uids.append(uid)
-        z, uid = self._get_signal(instrument + "_pos", revision)
-        uids.append(uid)
-        # TODO: use r0, z to create some sort of converter object
-        # TODO: should I use one cache-key for all diagnostics from
-        # the same instrument?
-        drop = self._select_channels(uids[0], data, keycoord)
-        data.attrs['provenance'] = self.create_provenance(key, revision, uids,
-                                                          drop)
-        return data.drop_sel({keycoord: drop})
+        results = {}
+        R, R_path = self._get_signal(uid, instrument, "rpos", revision)
+        z, z_path = self._get_signal(uid, instrument, "pos", revision)
+        mass, m_path = self._get_signal(uid, instrument, "mass", revision)
+        texp, t_path = self._get_signal(uid, instrument, "texp", revision)
+        # TODO: get element from mass
+        results["R"] = R
+        results["z"] = z
+        results["length"] = len(R)
+        results["element"] = None
+        results["texp"] = None
+        paths = [R_path, z_path, m_path, t_path]
+        nstart = 0
+        nend = -1
+        if "angf" in quantities:
+            angf, a_path = self._get_signal(uid, instrument, "angf", revision)
+            afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
+            results["angf"] = angf.data[nstart:nend, :].copy()
+            results["angf_err"] = afhi.data[nstart:nend, :] - results["angf"]
+            results["angf_records"] = paths + [a_path, e_path]
+        if "conc" in quantities:
+            conc, c_path = self._get_signal(uid, instrument, "conc", revision)
+            cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
+            results["conc"] = conc.data[nstart:nend, :].copy()
+            results["conc_err"] = cohi.data[nstart:nend, :] - results["conc"]
+            results["conc_records"] = paths + [c_path, e_path]
+        if "ti" in quantities:
+            ti, t_path = self._get_signal(uid, instrument, "ti", revision)
+            tihi, e_path = self._get_signal(uid, instrument, "ti_hi", revision)
+            results["ti"] = ti.data[nstart:nend, :].copy()
+            results["ti_err"] = tihi.data[nstart:nend, :] - results["ti"]
+            results["ti_records"] = paths + [t_path, e_path]
+        return results
 
-    def _handle_electron_data(self, key: str, revision: int) -> DataArray:
+    def _get_thomson_scattering(self, uid: str, instrument: str,
+                                revision: Optional[int],
+                                quantities: Set[str]) -> Dict[str, Any]:
         """Produce :py:class:`xarray.DataArray` for electron temperature or
         number density."""
-        uids = []
-        uid, signal = self._get_signal(key, revision)
-        uids.append(uid)
-        uid, error = self._get_signal(key[:-2] + "d" + key[-2:], revision)
-        uids.append(uid)
-        ticks = np.arange(signal.dimensions[1].length)
-        r0 = signal.dimensions[1].data
-        z, uid = self._get_signal(key[:-2] + "z", revision)
-        uids.append(uid)
-        keycoord = key[:-2] + "coord"
-        coords = [("t", signal.dimensions[0].data), (keycoord, ticks)]
-        meta = {"datatype": self.AVAILABLE_DATA[key],
-                "error": DataArray(error.data, coords)}
-        data = DataArray(signal.data, coords, name=key, attrs=meta)
-        drop = self._select_channels(uids[0], data, keycoord)
-        data.attrs['provenance'] = self.create_provenance(key, revision, uids,
-                                                          drop)
-        return data.drop_sel({keycoord: drop})
+        results = {}
+        z, z_path = self._get_signal(uid, instrument, "z", revision)
+        results["z"] = z.data
+        results["R"] = z.dimension[1].data
+        results["length"] = len(z.data)
+        nstart = 0
+        nend = -1
+        if "te" in quantities:
+            te, t_path = self._get_signal(uid, instrument, "te", revision)
+            dte, e_path = self._get_signal(uid, instrument, "dte", revision)
+            self._set_times_item(results, te.dimensions[0].data, nstart, nend)
+            results["te"] = te[nstart:nend, :].copy()
+            results["te_error"] = dte[nstart:nend, :].copy()
+            results["te_records"] = [z_path, t_path, e_path]
+        if "ne" in quantities:
+            ne, d_path = self._get_signal(uid, instrument, "ne", revision)
+            dne, e_path = self._get_signal(uid, instrument, "dne", revision)
+            self._set_times_item(results, ne.dimensions[0].data, nstart, nend)
+            results["ne"] = ne[nstart:nend, :].copy()
+            results["ne_error"] = dne[nstart:nend, :].copy()
+            results["ne_records"] = [z_path, d_path, e_path]
+        return results
 
-    def _handle_equilibrium_position(self, key: str,
-                                     revision: int) -> DataArray:
-        """Produce :py:class:`xarray.DataArray` for data relating to position
-        of equilibrium."""
-        signal, uid = self._get_signal(key, revision)
-        meta = {"datatype": self.AVAILABLE_DATA[key]}
-        data = DataArray(signal.data, [("t", signal.dimensions[0].data)],
-                         name=key, attrs=meta)
-        data.attrs['provenance'] = self.create_provenance(key, revision,
-                                                          [uid])
-        return data
+    # def _handle_equilibrium_position(self, key: str,
+    #                                  revision: int) -> DataArray:
+    #     """Produce :py:class:`xarray.DataArray` for data relating to position
+    #     of equilibrium."""
+    #     signal, uid = self._get_signal(key, revision)
+    #     meta = {"datatype": self.AVAILABLE_DATA[key]}
+    #     data = DataArray(signal.data, [("t", signal.dimensions[0].data)],
+    #                      name=key, attrs=meta)
+    #     data.attrs['provenance'] = self.create_provenance(key, revision,
+    #                                                       [uid])
+    #     return data
 
-    def _handle_kk3(self, key: str, revision: int) -> DataArray:
-        """Produce :py:class:`xarray.DataArray` for electron temperature."""
-        uid, general_dat = self._get_signal("kk3_gen", revision)
-        channel_index = np.argwhere(general_dat.data[0, :] > 0)
-        f_chan = general_dat.data[15, channel_index]
-        nharm_chan = general_dat.data[11, channel_index]
-        uids = [uid]
-        temperatures = []
-        Btot = []
+    # def _handle_kk3(self, key: str, revision: int) -> DataArray:
+    #     """Produce :py:class:`xarray.DataArray` for electron temperature."""
+    #     uid, general_dat = self._get_signal("kk3_gen", revision)
+    #     channel_index = np.argwhere(general_dat.data[0, :] > 0)
+    #     f_chan = general_dat.data[15, channel_index]
+    #     nharm_chan = general_dat.data[11, channel_index]
+    #     uids = [uid]
+    #     temperatures = []
+    #     Btot = []
 
-        for i, f, nharm in zip(channel_index, f_chan, nharm_chan):
-            uid, signal = self._get_signal("{}{:02d}".format(key, i),
-                                           revision)
-            uids.append(uid)
-            temperatures.append(signal.data)
-            Btot.append(2 * np.pi, f * sc.m_e / (nharm * sc.e))
+    #     for i, f, nharm in zip(channel_index, f_chan, nharm_chan):
+    #         uid, signal = self._get_signal("{}{:02d}".format(key, i),
+    #                                        revision)
+    #         uids.append(uid)
+    #         temperatures.append(signal.data)
+    #         Btot.append(2 * np.pi, f * sc.m_e / (nharm * sc.e))
 
-        uncalibrated = Btot[general_dat.data[18, channel_index] != 0.0]
-        temps_array = np.array(temperatures)
-        coords = [("Btot", np.array(Btot)), ("t", signal.dimensions[0].data)]
-        meta = {"datatype": self.AVALABLE_DATA[key],
-                "error": DataArray(0.1*temps_array, coords)}
-        # TODO: Select correct time range
-        data = DataArray(temps_array, coords, name=key,
-                         attrs=meta)
-        drop = self._select_channels(uid, data, "Btot", uncalibrated)
-        data.attrs["provenance"] = self.create_provenance(key, revision, uids,
-                                                          drop)
-        return data.drop_sel({"Btot": drop})
+    #     uncalibrated = Btot[general_dat.data[18, channel_index] != 0.0]
+    #     temps_array = np.array(temperatures)
+    #     coords = [("Btot", np.array(Btot)), ("t", signal.dimensions[0].data)]
+    #     meta = {"datatype": self.AVALABLE_DATA[key],
+    #             "error": DataArray(0.1*temps_array, coords)}
+    #     # TODO: Select correct time range
+    #     data = DataArray(temps_array, coords, name=key,
+    #                      attrs=meta)
+    #     drop = self._select_channels(uid, data, "Btot", uncalibrated)
+    #     data.attrs["provenance"] = self.create_provenance(key, revision, uids,
+    #                                                       drop)
+    #     return data.drop_sel({"Btot": drop})
 
-    def _handle_sxr(self, key: str, revision: int) -> DataArray:
-        """Produce :py:class:`xarray.DataArray` for line-of-site soft X-ray
-        luminous flux."""
-        uids = []
-        luminosities = []
-        channels = []
-        for i in range(self._SXR_RANGES[key][0], self._SXR_RANGES[key][1] + 1):
-            try:
-                uid, signal = self._get_signal("{}{:02d}".format(key, i),
-                                               revision)
-            except (InvalidPath, NodeNotFound):
-                continue
-            uids.append(uid)
-            luminosities.append(signal.data)
-            channels.append(i)
-        # TODO: embed coordinate transform data
-        # TODO: select only the required times
-        lum_array = np.array(luminosities)
-        keychan = key + "_channel"
-        coords = [(keychan, channels), ("t", signal.dimensions[0].data)]
-        meta = {"datatype": self.AVALABLE_DATA[key],
-                "error": DataArray(self._default_error * lum_array, coords)}
-        data = DataArray(lum_array, coords, name=key, attrs=meta)
-        drop = self._selector(uid, data, keychan, [])
-        data.attrs['provenance'] = self.create_provenance(key, revision, uids,
-                                                          drop)
-        return data.drop_sel({keychan: drop})
+    # def _handle_sxr(self, key: str, revision: int) -> DataArray:
+    #     """Produce :py:class:`xarray.DataArray` for line-of-site soft X-ray
+    #     luminous flux."""
+    #     uids = []
+    #     luminosities = []
+    #     channels = []
+    #     for i in range(self._SXR_RANGES[key][0], self._SXR_RANGES[key][1] + 1):
+    #         try:
+    #             uid, signal = self._get_signal("{}{:02d}".format(key, i),
+    #                                            revision)
+    #         except (InvalidPath, NodeNotFound):
+    #             continue
+    #         uids.append(uid)
+    #         luminosities.append(signal.data)
+    #         channels.append(i)
+    #     # TODO: embed coordinate transform data
+    #     # TODO: select only the required times
+    #     lum_array = np.array(luminosities)
+    #     keychan = key + "_channel"
+    #     coords = [(keychan, channels), ("t", signal.dimensions[0].data)]
+    #     meta = {"datatype": self.AVALABLE_DATA[key],
+    #             "error": DataArray(self._default_error * lum_array, coords)}
+    #     data = DataArray(lum_array, coords, name=key, attrs=meta)
+    #     drop = self._selector(uid, data, keychan, [])
+    #     data.attrs['provenance'] = self.create_provenance(key, revision, uids,
+    #                                                       drop)
+    #     return data.drop_sel({keychan: drop})
 
     def close(self):
         """Ends connection to the SAL server from which PPF data is being

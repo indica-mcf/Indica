@@ -54,6 +54,44 @@ def sum_squares(x: np.ndarray, axis: int, **kwargs):
     return np.sum(x**2, axis=axis)
 
 
+def get_slice_limits(low: float, high: float, data: np.ndarray) -> (int, int):
+    """Returns the start and end points needed to slice ``data`` so that
+    all values fall between ``high`` and ``low`` (inclusive).
+
+    An error will be raised if ``data`` does not contain values above and below
+    these limits.
+
+    Parameters
+    ----------
+    low
+        The lower limit for the data.
+    high
+        The upper limit for the data.
+    data
+        An ordered 1-D array of values.
+
+    Returns
+    -------
+    start
+        The index above which all values of ``data`` are greater or equal to
+        ``low``.
+    end
+        The index below which all values of ``data`` are less than or equal to
+        ``high"
+
+    """
+    start = np.argmax(data > low) - 1
+    if start < 0:
+        raise ValueError("Low value {} not in range of provided "
+                         "data.".format(low))
+    end = np.argmax(data >= high)
+    if end < 1:
+        raise ValueError("High value {} not in range of provided "
+                         "data.".format(high))
+
+    return (start, end)
+
+
 def to_filename(name):
     """Takes a string and returns a valid filename based on it."""
     valid_chars = "-_.(){}{}".format(string.ascii_letters, string.digits)

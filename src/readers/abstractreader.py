@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 import datetime
 from numbers import Number
 import os
-from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Set, Tuple
-from warnings import warn
+from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Set, \
+    Tuple
 
 import numpy as np
 import prov.model as prov
@@ -15,7 +15,7 @@ from xarray import DataArray
 import datatypes
 import session
 from .selectors import choose_on_plot, DataSelector
-from utilities import to_filename
+from utilities import get_slice_limits, to_filename
 
 # TODO: Place this in som global location?
 CACHE_DIR = ".impurities"
@@ -49,10 +49,11 @@ class DataReader(ABC):
 
     """
 
-    AVAILABLE_DATA: ClassVar[Dict[str, datatypes.DataType]] = {}
+    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, datatypes.DataType]]]]  = None
+    RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
-    def __init__(self, tstart: float, tend: float, interval: float,
+    def __init__(self, tstart: float, tend: float, max_freq: float,
                  sess: session.Session = session.global_session,
                  selector: DataSelector = choose_on_plot,
                  **kwargs: Dict[str, Any]):
@@ -62,7 +63,7 @@ class DataReader(ABC):
         """
         self._tstart = tstart
         self._tend = tend
-        self._interval = interval
+        self._max_freq = max_freq
         self._start_time = None
         self.session = sess
         self._selector = selector
@@ -70,14 +71,14 @@ class DataReader(ABC):
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
+        prov_attrs = {"tstart": tstart, "tend": tend,
+                      "max_freq": max_freq} + kwargs
         self.prov_id = session.hash_vals(reader_type=self.__class__.__name__,
-                                         **kwargs)
+                                         **prov_attrs)
         self.agent = self.session.prov.agent(self.prov_id)
         self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
         # TODO: Properly namespace the attributes on this entity.
-        self.entity = self.session.prov.entity(self.prov_id,
-                                               {"tstart": tstart, "tend": tend,
-                                                "interval": interval} + kwargs)
+        self.entity = self.session.prov.entity(self.prov_id, prov_attrs)
         self.session.prov.generation(self.entity, self.session.session,
                                      time=datetime.datetime.now())
         self.session.prov.attribution(self.entity, self.session.agent)
@@ -92,11 +93,11 @@ class DataReader(ABC):
         self.close()
         return False
 
-    def get_thompson_scattering(self, uid: str, instrument: str,
-                                revision: Optional[int] = None,
-                                quantities: Set[str] = {"ne", "te"}) \
+    def get_thomson_scattering(self, uid: str, instrument: str,
+                               revision: Optional[int] = None,
+                               quantities: Set[str] = {"ne", "te"}) \
             -> Dict[str, DataArray]:
-        """Reads data based on Thompspm Scattering.
+        """Reads data based on Thomson Scattering.
 
         Parameters
         ----------
@@ -116,38 +117,40 @@ class DataReader(ABC):
         :
             A dictionary containing the requested physical quantities.
         """
-        database_results = self._get_thompson_scattering(uid, instrument,
-                                                         revision, quantities)
+        available_quantities = self.DIAGNOSTIC_QUANTITIES["thomson_scattering"]
+        database_results = self._get_thomson_scattering(uid, instrument,
+                                                        revision, quantities)
         ticks = np.arange(database_results["length"])
         keycoord = instrument + "_coord"
         coords = [("t", database_results["times"]), (keycoord, ticks)]
         data = {}
-        if "ne" in quantities:
-            key = self.__class__.__name__ + "/thompson/" + instrument + "/" + uid + "/ne"
-            meta = {"datatype": ("number_density", "electron"),
-                    "error": DataArray(database_results["ne_error"], coords)}
-            ne_data = DataArray(database_results["ne"], coords,
-                                name=instrument + "_ne", attrs=meta)
-            drop = self._select_channels(key, ne_data, keycoord)
-            ne_data.attrs['provenance'] = self.create_provenance(key, revision,
-                                                                 database_results["ne_records"], drop)
-            data["ne"] = ne_data.drop_sel({keycoord: drop})
-        if "te" in quantities:
-            key = self.__class__.__name__ + "/thompson/" + instrument + "/" + uid + "/te"
-            meta = {"datatype": ("temperature", "electron"),
-                    "error": DataArray(database_results["te_error"], coords)}
-            te_data = DataArray(database_results["te"], coords,
-                                name=instrument + "_te", attrs=meta)
-            drop = self._select_channels(key, te_data, keycoord)
-            te_data.attrs['provenance'] = self.create_provenance(key, revision,
-                                                              database_results["ne_records"], drop)
-            data["te"] = te_data.drop_sel({keycoord: drop})
+        # TODO: Assemble a CoordinateTransform object
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError("{} can not read thomson_scattering data for "
+                                 "quantity {}".format(self.__class__.__name__,
+                                                      quantity))
+
+            key = self.RECORD_TEMPLATE.format(self.__class__.__name__,
+                                              "thomson", instrument, uid,
+                                              quantity)
+            meta = {"datatype": available_quantities[quantity],
+                    "error": DataArray(database_results[quantity + "_error"],
+                                       coords)}
+            quant_data = DataArray(database_results[quantity], coords,
+                                   name=instrument + "_" + quantity,
+                                   attrs=meta)
+            drop = self._select_channels(key, quant_data, keycoord)
+            quant_data.attrs['provenance'] = self.create_provenance(
+                key, revision, database_results[quantity + "_records"], drop)
+            data[quantity] = quant_data.drop_sel({keycoord: drop})
         return data
 
-    def _get_thompson_scattering(self, uid: str, instrument: str,
-                                 revision: Optional[int],
-                                 quantities: Set[str]) -> Dict[str, Any]:
-        """Gets raw data for Thompson scattering from the database.
+    def _get_thomson_scattering(self, uid: str, instrument: str,
+                                revision: Optional[int],
+                                quantities: Set[str]) -> Dict[str, Any]:
+        """Gets raw data for Thomson scattering from the database. Data outside
+        the desired time range will be discarded.
 
         Parameters
         ----------
@@ -174,21 +177,137 @@ class DataReader(ABC):
             Vertical position of each channel
         times : ndarray
             The times at which measurements were taken
-        ne : ndarray or None
+        ne : ndarray (optional)
             Electron number density (first axis is time, second channel)
-        ne_error : ndarray or None
+        ne_error : ndarray (optional)
             Uncertainty in electron number density
-        ne_records : List[str] or None
+        ne_records : List[str] (optional)
             Representations (e.g., paths) for the records in the database used
             to access data needed for electron number density.
-        te : ndarray or None
+        te : ndarray (optional)
             Electron temperature (first axis is time, second channel)
-        te_error : ndarray or None
+        te_error : ndarray (optional)
             Uncertainty in electron temperature
-        te_records : List[str] or None
+        te_records : List[str] (optional)
             Representations (e.g., paths) for the records in the database used
             to access data needed for electron temperature.
-        
+
+        """
+        raise NotImplementedError("{} does not implement a '_get_unsafe' "
+                                  "method.".format(self.__class__.__name__))
+
+    def get_charge_exchange(self, uid: str, instrument: str,
+                            revision: Optional[int] = None,
+                            quantities: Set[str] = {"ne", "te"}) \
+            -> Dict[str, DataArray]:
+        """Reads charge exchange data.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database. Options are
+            "ne" (electron number density) and "te" (electron temperature).
+
+        Returns
+        -------
+        :
+            A dictionary containing the requested physical quantities.
+
+        """
+        available_quantities = self.DIAGNOSTIC_QUANTITIES["charge_exchange"]
+        database_results = self._get_charge_exchange(uid, instrument,
+                                                     revision, quantities)
+        ticks = np.arange(database_results["length"])
+        keycoord = instrument + "_coord"
+        coords = [("t", database_results["times"]), (keycoord, ticks)]
+        data = {}
+        # TODO: Assemble a CoordinateTransform object
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError("{} can not read thomson_scattering data for "
+                                 "quantity {}".format(self.__class__.__name__,
+                                                      quantity))
+
+            key = self.RECORD_TEMPLATE.format(self.__class__.__name__,
+                                              "cxrs", instrument, uid,
+                                              quantity)
+            meta = {"datatype": available_quantities[quantity],
+                    "element": database_results["element"],
+                    "error": DataArray(database_results[quantity + "_error"],
+                                       coords),
+                    "exposure_time": available_quantities["texp"]}
+            quant_data = DataArray(database_results[quantity], coords,
+                                   name=instrument + "_" + quantity,
+                                   attrs=meta)
+            drop = self._select_channels(key, quant_data, keycoord)
+            quant_data.attrs['provenance'] = self.create_provenance(
+                key, revision, database_results[quantity + "_records"], drop)
+            data[quantity] = quant_data.drop_sel({keycoord: drop})
+        return data
+
+    def _get_charge_exchange(self, uid: str, instrument: str,
+                             revision: Optional[int],
+                             quantities: Set[str]) -> Dict[str, Any]:
+        """Gets raw data for charge exchange from the database. Data outside
+        the desired time range will be discarded.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database. Options are
+            "ne" (electron number density) and "te" (electron temperature).
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        length : int
+            Number of channels in data
+        R : ndarray
+            Major radius positions for each channel
+        z : ndarray
+            Vertical position of each channel
+        element : str
+            The element this ion data is for
+        texp : ndarray
+            Exposure times
+        times : ndarray
+            The times at which measurements were taken
+        angf : ndarray (optional)
+            Angular frequency of ion (first axis is time, second channel)
+        angf_error : ndarray (optional)
+            Uncertainty in angular frequency
+        angf_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for angular frequency.
+        conc : ndarray (optional)
+            Ion concentration (first axis is time, second channel)
+        conc_error : ndarray (optional)
+            Uncertainty in ion concentration.
+        conc_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for ion concentration.
+        ti : ndarray (optional)
+            Ion temperature (first axis is time, second channel)
+        ti_error : ndarray (optional)
+            Uncertainty in ion temperature.
+        ti_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for ion temperature.
 
         """
         raise NotImplementedError("{} does not implement a '_get_unsafe' "
@@ -244,7 +363,7 @@ class DataReader(ABC):
         entity.wasAttributedTo(self.agent)
         for data in data_objects:
             # TODO: Find some way to avoid duplicate records
-            data_entity = self.prov.entity(self.namespace[0]+data)
+            data_entity = self.prov.entity(self.namespace[0] + ":" + data)
             entity.wasDerivedFrom(data_entity)
             activity.used(data_entity)
         return entity
@@ -298,6 +417,18 @@ class DataReader(ABC):
         ignored = self._selector(data, channel_dim, bad_channels, cached_vals)
         np.savetxt(cache_file, ignored)
         return ignored
+
+    def _set_times_item(self, results: Dict[str, Any], times: np.ndarray,
+                        nstart: int, nend: int) -> (int, int):
+        """Add the "times" data to the dictionary, if not already
+        present. Also return the upper and lower limits required based
+        on the start and end times desired.
+
+        """
+        if "times" not in results:
+            nstart, nend = get_slice_limits(self._tstart, self._tend)
+            results["times"] = times[nstart, nend].copy()
+        return nstart, nend
 
     def authenticate(self, name: str, password: str) -> bool:
         """Confirms user has permission to access data.
