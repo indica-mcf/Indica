@@ -117,7 +117,7 @@ class DataReader(ABC):
         :
             A dictionary containing the requested physical quantities.
         """
-        available_quantities = self.DIAGNOSTIC_QUANTITIES["thomson_scattering"]
+        available_quantities = self.DIAGNOSTIC_QUANTITIES["thomson_scattering"][uid][instrument]
         database_results = self._get_thomson_scattering(uid, instrument,
                                                         revision, quantities)
         ticks = np.arange(database_results["length"])
@@ -221,7 +221,7 @@ class DataReader(ABC):
             A dictionary containing the requested physical quantities.
 
         """
-        available_quantities = self.DIAGNOSTIC_QUANTITIES["charge_exchange"]
+        available_quantities = self.DIAGNOSTIC_QUANTITIES["charge_exchange"][uid][instrument]
         database_results = self._get_charge_exchange(uid, instrument,
                                                      revision, quantities)
         ticks = np.arange(database_results["length"])
