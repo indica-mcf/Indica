@@ -6,9 +6,9 @@ Surf data.
 import numpy as np
 
 
-def read_surf_los(filename: str, pulse: int, instrument: str,
-                  scale: bool = True) -> (np.ndarray, np.ndarray, np.ndarray,
-                                          np.ndarray):
+def read_surf_los(
+    filename: str, pulse: int, instrument: str, scale: bool = True
+) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """Read beginning and ends of lines of sight from Surf data.
 
     Optionally scale the lines of sight so they are all the same

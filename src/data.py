@@ -4,6 +4,7 @@
 
 import xarray
 
+
 @xarray.register_dataarray_accessor("impurities")
 class ImpuritiesAccessor:
     def __init__(self, xarray_obj):
@@ -44,7 +45,8 @@ class ImpuritiesAccessor:
             x2_other = None
 
         x1_map, x2_map, t_map = self._obj.attrs["map_from_master"](
-            *other.attrs["map_to_master"](x1_other, x2_other, t_other))
+            *other.attrs["map_to_master"](x1_other, x2_other, t_other)
+        )
 
         dims_self = list(other.dims)
         coords_self = []
@@ -68,11 +70,13 @@ class ImpuritiesAccessor:
             coords_self.used.append(("t", other.coords["t"]))
 
         if has_x1:
-            coords_map[dims_self[0]] = xarray.DataArray(x1_map,
-                                                        coords=coords_self)
+            coords_map[dims_self[0]] = xarray.DataArray(
+                x1_map, coords=coords_self
+            )
         if has_x2:
-            coords_map[dims_self[1]] = xarray.DataArray(x2_map,
-                                                        coords=coords_self)
+            coords_map[dims_self[1]] = xarray.DataArray(
+                x2_map, coords=coords_self
+            )
         if has_t:
             coords_map["t"] = xarray.DataArray(t_map, coords=coords_self)
 

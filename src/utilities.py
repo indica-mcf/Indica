@@ -28,8 +28,10 @@ def positional_parameters(func):
     param_names = []
     var_positional = None
     for param in inspect.signature(func).parameters.values():
-        if param.kind == inspect.Parameter.POSITIONAL_ONLY or \
-           param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+        if (
+            param.kind == inspect.Parameter.POSITIONAL_ONLY
+            or param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+        ):
             param_names.append(param.name)
         elif param.kind == inspect.Parameter.VAR_POSITIONAL:
             var_positional = param.name
@@ -51,7 +53,7 @@ def sum_squares(x: np.ndarray, axis: int, **kwargs):
         Additiona keyword arguments (unused)
 
     """
-    return np.sum(x**2, axis=axis)
+    return np.sum(x ** 2, axis=axis)
 
 
 def get_slice_limits(low: float, high: float, data: np.ndarray) -> (int, int):
@@ -82,12 +84,14 @@ def get_slice_limits(low: float, high: float, data: np.ndarray) -> (int, int):
     """
     start = np.argmax(data > low) - 1
     if start < 0:
-        raise ValueError("Low value {} not in range of provided "
-                         "data.".format(low))
+        raise ValueError(
+            "Low value {} not in range of provided " "data.".format(low)
+        )
     end = np.argmax(data >= high)
     if end < 1:
-        raise ValueError("High value {} not in range of provided "
-                         "data.".format(high))
+        raise ValueError(
+            "High value {} not in range of provided " "data.".format(high)
+        )
 
     return (start, end)
 

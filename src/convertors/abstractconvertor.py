@@ -54,9 +54,14 @@ class CoordinateTransform(ABC):
 
     _CONVERSION_METHODS: Dict[str, str] = {}
 
-    def __init__(self, default_x1: np.ndarray, default_x2: np.ndarray,
-                 default_R: np.ndarray, default_z: np.ndarray,
-                 default_t: np.ndarray):
+    def __init__(
+        self,
+        default_x1: np.ndarray,
+        default_x2: np.ndarray,
+        default_R: np.ndarray,
+        default_z: np.ndarray,
+        default_t: np.ndarray,
+    ):
         self.default_x1 = default_x1
         self.default_x2 = default_x2
         self.default_R = default_R
@@ -93,8 +98,13 @@ class CoordinateTransform(ABC):
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
 
-    def convert_to(self, other: "CoordinateTransform", x1: OptNumber = None,
-                   x2: OptNumber = None, t: OptNumber = None) -> Coordinates:
+    def convert_to(
+        self,
+        other: "CoordinateTransform",
+        x1: OptNumber = None,
+        x2: OptNumber = None,
+        t: OptNumber = None,
+    ) -> Coordinates:
         """General routine to map coordinates from this system to those used
         in ``other``. Array broadcasting will be performed as necessary.
 
@@ -135,8 +145,9 @@ class CoordinateTransform(ABC):
             R, z, t = self.convert_to_Rz(x1, x2, t)
             return other.convert_from_Rz(R, z, t)
 
-    def convert_to_Rz(self, x1: OptNumber = None, x2: OptNumber = None,
-                      t: OptNumber = None) -> Coordinates:
+    def convert_to_Rz(
+        self, x1: OptNumber = None, x2: OptNumber = None, t: OptNumber = None
+    ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         If an arguments is not provided then use the default grid for
@@ -189,11 +200,14 @@ class CoordinateTransform(ABC):
         """Implementation of conversion to the R-z coordinate system, without
         caching or default argument values.
         """
-        raise NotImplementedError("{} does not implement a 'to_master' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a 'to_master' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    def convert_from_Rz(self, R: OptNumber = None, z: OptNumber = None,
-                        t: OptNumber = None) -> Coordinates:
+    def convert_from_Rz(
+        self, R: OptNumber = None, z: OptNumber = None, t: OptNumber = None
+    ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         If an arguments is not provided then return the master
@@ -246,11 +260,18 @@ class CoordinateTransform(ABC):
         """Implementation of conversion from the R-z coordinate system, without
         caching or default argument values.
         """
-        raise NotImplementedError("{} does not implement a 'from_master' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a 'from_master' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    def distance(self, direction: int, x1: OptNumber = None, x2: OptNumber =
-                 None, t: OptNumber = None) -> (Number, Number):
+    def distance(
+        self,
+        direction: int,
+        x1: OptNumber = None,
+        x2: OptNumber = None,
+        t: OptNumber = None,
+    ) -> (Number, Number):
         """Give the distance (in physical space) from the origin in the
         specified direction.
 
@@ -285,13 +306,14 @@ class CoordinateTransform(ABC):
             pointer to that)
 
         """
+
         def calc_distance(direction, x1, x2, t):
             R, z, t = self._convert_to_rz(x1, x2, t)
             slc = [slice(None)] * R.ndim
             slc[direction - 1] = slice(0, 1)
             R0 = R[slc]
             z0 = z[slc]
-            return np.sqrt((R - R0)**2 + (z - z0)**2), t
+            return np.sqrt((R - R0) ** 2 + (z - z0) ** 2), t
 
         use_cached = True
         if x1 is None:
@@ -308,8 +330,9 @@ class CoordinateTransform(ABC):
             use_cached = False
         if use_cached:
             if self.default_distance[direction - 1] is None:
-                self.default_distance[direction - 1] = calc_distance(direction,
-                                                                     x1, x2, t)
+                self.default_distance[direction - 1] = calc_distance(
+                    direction, x1, x2, t
+                )
             return self.default_distance[direction - 1]
         else:
             return calc_distance(direction, x1, x2, t)

@@ -1,21 +1,25 @@
 """Callback functions for choosing which channels of data should be kept."""
 
 from numbers import Number
-from typing import Any, Callable, Container, Iterable
+from typing import Callable, Container, Iterable
 
 import matplotlib.pyplot as plt
 from xarray import DataArray
 
 #: Callback function which can be used to choose which data should be read.
-DataSelector = Callable[[DataArray, str, Container[Number], Container[Number]],
-                        Iterable[Number]]
+DataSelector = Callable[
+    [DataArray, str, Container[Number], Container[Number]], Iterable[Number]
+]
 
 MAX_TIME_SLICES = 10
 
 
-def choose_on_plot(data: DataArray, channel_dim: str, bad_channels:
-                   Container[Number], unselected_channels:
-                   Container[Number] = []) -> Iterable[Number]:
+def choose_on_plot(
+    data: DataArray,
+    channel_dim: str,
+    bad_channels: Container[Number],
+    unselected_channels: Container[Number] = [],
+) -> Iterable[Number]:
     """Produces a plot in its own window, on which the user can click data
     from channels which they wish to be discarded.
 
@@ -45,18 +49,24 @@ def choose_on_plot(data: DataArray, channel_dim: str, bad_channels:
         A list of channel labels which the user has selected to be discarded.
 
     """
-    print("Click any channel you wish to ignore. Click a second time to "
-          "include it\nagain. Ignored channels are in grey and suspicious "
-          "channels are in red.\n")
+    print(
+        "Click any channel you wish to ignore. Click a second time to "
+        "include it\nagain. Ignored channels are in grey and suspicious "
+        "channels are in red.\n"
+    )
     print("Once finished, close the plot.")
 
     channels_to_drop = list(unselected_channels)
 
     # Get colour array
-    original_colours = ["r" if label in data.coords[channel_dim] else "b"
-                        for label in bad_channels]
-    colours = [c if label not in channels_to_drop else "#ADADAD" for c, label
-               in zip(original_colours, data.coords[channel_dim])]
+    original_colours = [
+        "r" if label in data.coords[channel_dim] else "b"
+        for label in bad_channels
+    ]
+    colours = [
+        c if label not in channels_to_drop else "#ADADAD"
+        for c, label in zip(original_colours, data.coords[channel_dim])
+    ]
 
     plots = []
 
@@ -72,7 +82,9 @@ def choose_on_plot(data: DataArray, channel_dim: str, bad_channels:
             colours[ind] = "#ADADAD"
             print("Ignoring data at {}={}".format(channel_dim, label))
         for plot in plots:
-            plot.set_color(colours)  # Does this work? Or should I use set_facecolor?
+            plot.set_color(
+                colours
+            )  # Does this work? Or should I use set_facecolor?
         # Not sure whether I'll need this:
         # event.canvas.draw()
 
@@ -86,17 +98,22 @@ def choose_on_plot(data: DataArray, channel_dim: str, bad_channels:
 
     fig = plt.figure()
     if other_dim is None:
-        plots.append(plt.scatter(data.coords[channel_dim], data, c=colours,
-                                 picker=True))
+        plots.append(
+            plt.scatter(data.coords[channel_dim], data, c=colours, picker=True)
+        )
     else:
         # Work out which time slices to plot
         available_rows = len(data.coords[other_dim])
         stride = available_rows % MAX_TIME_SLICES
         for row in range(0, available_rows, stride):
-            plots.append(plt.scatter(data.coords[channel_dim],
-                                     data[{other_dim: row,
-                                           channel_dim: slice(None)}],
-                                     c=colours, picker=True))
+            plots.append(
+                plt.scatter(
+                    data.coords[channel_dim],
+                    data[{other_dim: row, channel_dim: slice(None)}],
+                    c=colours,
+                    picker=True,
+                )
+            )
 
     fig.canvas.mpl_connect("pick_event", on_pick)
     plt.show()

@@ -47,19 +47,31 @@ class LinesOfSightTransform(CoordinateTransform):
 
     """
 
-    def __init__(self, R_start: np.ndarray, z_start: np.ndarray,
-                 R_end: np.ndarray, z_end: np.ndarray,
-                 num_intervals: int = 100,
-                 default_R: Optional[np.ndarray] = None,
-                 default_z: Optional[np.ndarray] = None) -> Coordinates:
+    def __init__(
+        self,
+        R_start: np.ndarray,
+        z_start: np.ndarray,
+        R_end: np.ndarray,
+        z_end: np.ndarray,
+        num_intervals: int = 100,
+        default_R: Optional[np.ndarray] = None,
+        default_z: Optional[np.ndarray] = None,
+    ) -> Coordinates:
         indices = np.arange(len(R_start))
-        x2 = np.expand_dims(np.linspace(0., 1., num_intervals + 1), axis=0)
-        R_default = np.linsapce(min(R_start.min(), R_end.min()),
-                                max(R_start.max(), R_end.max()),
-                                num_intervals + 1)
-        z_default = np.expand_dims(np.linsapce(min(z_start.min(), z_end.min()),
-                                               max(z_start.max(), z_end.max()),
-                                               num_intervals + 1), axis=0)
+        x2 = np.expand_dims(np.linspace(0.0, 1.0, num_intervals + 1), axis=0)
+        R_default = np.linsapce(
+            min(R_start.min(), R_end.min()),
+            max(R_start.max(), R_end.max()),
+            num_intervals + 1,
+        )
+        z_default = np.expand_dims(
+            np.linsapce(
+                min(z_start.min(), z_end.min()),
+                max(z_start.max(), z_end.max()),
+                num_intervals + 1,
+            ),
+            axis=0,
+        )
         self.R_start = R_start
         self.z_start = z_start
         self.R_end = R_end
@@ -71,12 +83,12 @@ class LinesOfSightTransform(CoordinateTransform):
     def _convert_to_Rz(self, x1: Number, x2: Number, t: Number) -> Coordinates:
         c = np.ceil(x1)
         f = np.floor(x1)
-        Rs = (self.R_start[c] - self.R_start[f])*(x1 - f) + self.R_start[f]
-        Re = (self.R_end[c] - self.R_end[f])*(x1 - f) + self.R_start[f]
-        zs = (self.z_start[c] - self.z_start[f])*(x1 - f) + self.z_start[f]
-        ze = (self.z_end[c] - self.z_end[f])*(x1 - f) + self.z_start[f]
-        R = Rs + (Re - Rs)*x2
-        z = zs + (ze - zs)*x2
+        Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
+        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_start[f]
+        zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_start[f]
+        R = Rs + (Re - Rs) * x2
+        z = zs + (ze - zs) * x2
         return R, z, t
 
     def _convert_from_Rz(self, R: Number, z: Number, t: Number) -> Coordinates:
@@ -87,8 +99,9 @@ class LinesOfSightTransform(CoordinateTransform):
             R_vals, z_vals, _ = self.convert_to_Rz()
             index_vals = self.default_x1 * np.ones_like(self.default_x2)
             x2_vals = np.ones_like(self.default_x1) * self.default_x2
-            self.index_inversion = interp2d(R_vals, z_vals, index_vals,
-                                            copy=False)
+            self.index_inversion = interp2d(
+                R_vals, z_vals, index_vals, copy=False
+            )
             self.x2_inversion = interp2d(R_vals, z_vals, x2_vals, copy=False)
         x1 = self.index_inversion(R, z)
         x2 = self.x2_inversion(R, z)

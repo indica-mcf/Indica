@@ -5,8 +5,15 @@ from abc import ABC, abstractmethod
 import datetime
 from numbers import Number
 import os
-from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Set, \
-    Tuple
+from typing import (
+    Any,
+    Container,
+    Dict,
+    Iterable,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import numpy as np
 import prov.model as prov
@@ -49,14 +56,21 @@ class DataReader(ABC):
 
     """
 
-    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, datatypes.DataType]]]]  = None
+    DIAGNOSTIC_QUANTITIES: Dict[
+        str, Dict[str, Dict[str, Dict[str, datatypes.DataType]]]
+    ] = None
     RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
-    def __init__(self, tstart: float, tend: float, max_freq: float,
-                 sess: session.Session = session.global_session,
-                 selector: DataSelector = choose_on_plot,
-                 **kwargs: Dict[str, Any]):
+    def __init__(
+        self,
+        tstart: float,
+        tend: float,
+        max_freq: float,
+        sess: session.Session = session.global_session,
+        selector: DataSelector = choose_on_plot,
+        **kwargs: Dict[str, Any]
+    ):
         """Creates a provenance entity/agent for the reader object. Also
         checks valid datatypes have been specified for the available data.
 
@@ -71,19 +85,24 @@ class DataReader(ABC):
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
-        prov_attrs = {"tstart": tstart, "tend": tend,
-                      "max_freq": max_freq} + kwargs
-        self.prov_id = session.hash_vals(reader_type=self.__class__.__name__,
-                                         **prov_attrs)
+        prov_attrs = {
+            "tstart": tstart,
+            "tend": tend,
+            "max_freq": max_freq,
+        } + kwargs
+        self.prov_id = session.hash_vals(
+            reader_type=self.__class__.__name__, **prov_attrs
+        )
         self.agent = self.session.prov.agent(self.prov_id)
         self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
         # TODO: Properly namespace the attributes on this entity.
         self.entity = self.session.prov.entity(self.prov_id, prov_attrs)
-        self.session.prov.generation(self.entity, self.session.session,
-                                     time=datetime.datetime.now())
+        self.session.prov.generation(
+            self.entity, self.session.session, time=datetime.datetime.now()
+        )
         self.session.prov.attribution(self.entity, self.session.agent)
 
-    def __enter__(self) -> 'DataReader':
+    def __enter__(self) -> "DataReader":
         """Called at beginning of a context manager."""
         return self
 
@@ -93,10 +112,13 @@ class DataReader(ABC):
         self.close()
         return False
 
-    def get_thomson_scattering(self, uid: str, instrument: str,
-                               revision: Optional[int] = None,
-                               quantities: Set[str] = {"ne", "te"}) \
-            -> Dict[str, DataArray]:
+    def get_thomson_scattering(
+        self,
+        uid: str,
+        instrument: str,
+        revision: Optional[int] = None,
+        quantities: Set[str] = {"ne", "te"},
+    ) -> Dict[str, DataArray]:
         """Reads data based on Thomson Scattering.
 
         Parameters
@@ -117,9 +139,12 @@ class DataReader(ABC):
         :
             A dictionary containing the requested physical quantities.
         """
-        available_quantities = self.DIAGNOSTIC_QUANTITIES["thomson_scattering"][uid][instrument]
-        database_results = self._get_thomson_scattering(uid, instrument,
-                                                        revision, quantities)
+        available_quantities = self.DIAGNOSTIC_QUANTITIES[
+            "thomson_scattering"
+        ][uid][instrument]
+        database_results = self._get_thomson_scattering(
+            uid, instrument, revision, quantities
+        )
         ticks = np.arange(database_results["length"])
         keycoord = instrument + "_coord"
         coords = [("t", database_results["times"]), (keycoord, ticks)]
@@ -127,28 +152,40 @@ class DataReader(ABC):
         # TODO: Assemble a CoordinateTransform object
         for quantity in quantities:
             if quantity not in available_quantities:
-                raise ValueError("{} can not read thomson_scattering data for "
-                                 "quantity {}".format(self.__class__.__name__,
-                                                      quantity))
+                raise ValueError(
+                    "{} can not read thomson_scattering data for "
+                    "quantity {}".format(self.__class__.__name__, quantity)
+                )
 
-            key = self.RECORD_TEMPLATE.format(self.__class__.__name__,
-                                              "thomson", instrument, uid,
-                                              quantity)
-            meta = {"datatype": available_quantities[quantity],
-                    "error": DataArray(database_results[quantity + "_error"],
-                                       coords)}
-            quant_data = DataArray(database_results[quantity], coords,
-                                   name=instrument + "_" + quantity,
-                                   attrs=meta)
+            key = self.RECORD_TEMPLATE.format(
+                self.__class__.__name__, "thomson", instrument, uid, quantity
+            )
+            meta = {
+                "datatype": available_quantities[quantity],
+                "error": DataArray(
+                    database_results[quantity + "_error"], coords
+                ),
+            }
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                name=instrument + "_" + quantity,
+                attrs=meta,
+            )
             drop = self._select_channels(key, quant_data, keycoord)
-            quant_data.attrs['provenance'] = self.create_provenance(
-                key, revision, database_results[quantity + "_records"], drop)
+            quant_data.attrs["provenance"] = self.create_provenance(
+                key, revision, database_results[quantity + "_records"], drop
+            )
             data[quantity] = quant_data.drop_sel({keycoord: drop})
         return data
 
-    def _get_thomson_scattering(self, uid: str, instrument: str,
-                                revision: Optional[int],
-                                quantities: Set[str]) -> Dict[str, Any]:
+    def _get_thomson_scattering(
+        self,
+        uid: str,
+        instrument: str,
+        revision: Optional[int],
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
         """Gets raw data for Thomson scattering from the database. Data outside
         the desired time range will be discarded.
 
@@ -193,13 +230,18 @@ class DataReader(ABC):
             to access data needed for electron temperature.
 
         """
-        raise NotImplementedError("{} does not implement a '_get_unsafe' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a '_get_unsafe' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    def get_charge_exchange(self, uid: str, instrument: str,
-                            revision: Optional[int] = None,
-                            quantities: Set[str] = {"ne", "te"}) \
-            -> Dict[str, DataArray]:
+    def get_charge_exchange(
+        self,
+        uid: str,
+        instrument: str,
+        revision: Optional[int] = None,
+        quantities: Set[str] = {"ne", "te"},
+    ) -> Dict[str, DataArray]:
         """Reads charge exchange data.
 
         Parameters
@@ -221,9 +263,12 @@ class DataReader(ABC):
             A dictionary containing the requested physical quantities.
 
         """
-        available_quantities = self.DIAGNOSTIC_QUANTITIES["charge_exchange"][uid][instrument]
-        database_results = self._get_charge_exchange(uid, instrument,
-                                                     revision, quantities)
+        available_quantities = self.DIAGNOSTIC_QUANTITIES["charge_exchange"][
+            uid
+        ][instrument]
+        database_results = self._get_charge_exchange(
+            uid, instrument, revision, quantities
+        )
         ticks = np.arange(database_results["length"])
         keycoord = instrument + "_coord"
         coords = [("t", database_results["times"]), (keycoord, ticks)]
@@ -231,30 +276,42 @@ class DataReader(ABC):
         # TODO: Assemble a CoordinateTransform object
         for quantity in quantities:
             if quantity not in available_quantities:
-                raise ValueError("{} can not read thomson_scattering data for "
-                                 "quantity {}".format(self.__class__.__name__,
-                                                      quantity))
+                raise ValueError(
+                    "{} can not read thomson_scattering data for "
+                    "quantity {}".format(self.__class__.__name__, quantity)
+                )
 
-            key = self.RECORD_TEMPLATE.format(self.__class__.__name__,
-                                              "cxrs", instrument, uid,
-                                              quantity)
-            meta = {"datatype": available_quantities[quantity],
-                    "element": database_results["element"],
-                    "error": DataArray(database_results[quantity + "_error"],
-                                       coords),
-                    "exposure_time": available_quantities["texp"]}
-            quant_data = DataArray(database_results[quantity], coords,
-                                   name=instrument + "_" + quantity,
-                                   attrs=meta)
+            key = self.RECORD_TEMPLATE.format(
+                self.__class__.__name__, "cxrs", instrument, uid, quantity
+            )
+            meta = {
+                "datatype": available_quantities[quantity],
+                "element": database_results["element"],
+                "error": DataArray(
+                    database_results[quantity + "_error"], coords
+                ),
+                "exposure_time": available_quantities["texp"],
+            }
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                name=instrument + "_" + quantity,
+                attrs=meta,
+            )
             drop = self._select_channels(key, quant_data, keycoord)
-            quant_data.attrs['provenance'] = self.create_provenance(
-                key, revision, database_results[quantity + "_records"], drop)
+            quant_data.attrs["provenance"] = self.create_provenance(
+                key, revision, database_results[quantity + "_records"], drop
+            )
             data[quantity] = quant_data.drop_sel({keycoord: drop})
         return data
 
-    def _get_charge_exchange(self, uid: str, instrument: str,
-                             revision: Optional[int],
-                             quantities: Set[str]) -> Dict[str, Any]:
+    def _get_charge_exchange(
+        self,
+        uid: str,
+        instrument: str,
+        revision: Optional[int],
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
         """Gets raw data for charge exchange from the database. Data outside
         the desired time range will be discarded.
 
@@ -310,12 +367,18 @@ class DataReader(ABC):
             to access data needed for ion temperature.
 
         """
-        raise NotImplementedError("{} does not implement a '_get_unsafe' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a '_get_unsafe' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    def create_provenance(self, key: str, revision: Any,
-                          data_objects: Iterable[str],
-                          ignored: Iterable[Number]) -> prov.ProvEntity:
+    def create_provenance(
+        self,
+        key: str,
+        revision: Any,
+        data_objects: Iterable[str],
+        ignored: Iterable[Number],
+    ) -> prov.ProvEntity:
         """Create a provenance entity for the given set of data. This should
         be attached as metadata.
 
@@ -343,17 +406,26 @@ class DataReader(ABC):
             A provenance entity for the newly read-in data.
         """
         end_time = datetime.datetime.now()
-        entity_id = session.hash_vals(creator=self.prov_id, key=key,
-                                      revision=revision, ignored=ignored,
-                                      date=end_time)
+        entity_id = session.hash_vals(
+            creator=self.prov_id,
+            key=key,
+            revision=revision,
+            ignored=ignored,
+            date=end_time,
+        )
         # TODO: properly namespace the data type and ignored channels
-        attrs = {prov.PROV_TYPE: "DataArray",
-                 prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key]),
-                 'ignored_channels': ",".join(ignored)}
+        attrs = {
+            prov.PROV_TYPE: "DataArray",
+            prov.PROV_VALUE: ",".join(self.AVAILABLE_DATA[key]),
+            "ignored_channels": ",".join(ignored),
+        }
         activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
-        activity = self.session.prov.activity(activity_id, self._start_time,
-                                              end_time,
-                                              {prov.PROV_TYPE: "ReadData"})
+        activity = self.session.prov.activity(
+            activity_id,
+            self._start_time,
+            end_time,
+            {prov.PROV_TYPE: "ReadData"},
+        )
         activity.wasAssociatedWith(self.session.agent)
         activity.wasAssociatedWith(self.agent)
         activity.wasInformedBy(self.session.session)
@@ -368,9 +440,13 @@ class DataReader(ABC):
             activity.used(data_entity)
         return entity
 
-    def _select_channels(self, cache_key: str, data: DataArray, channel_dim:
-                         str, bad_channels: Container[Number]) \
-            -> Iterable[Number]:
+    def _select_channels(
+        self,
+        cache_key: str,
+        data: DataArray,
+        channel_dim: str,
+        bad_channels: Container[Number],
+    ) -> Iterable[Number]:
         """Allows the user to select which channels should be read and which
         should be discarded, using whichever method was specified when
         the reader was constructed.
@@ -405,21 +481,27 @@ class DataReader(ABC):
 
         """
         cache_name = to_filename(cache_key)
-        cache_file = os.path.expanduser(os.path.join("~", CACHE_DIR,
-                                                     self.__class__.name,
-                                                     cache_name))
+        cache_file = os.path.expanduser(
+            os.path.join("~", CACHE_DIR, self.__class__.name, cache_name)
+        )
         os.makedirs(os.path.dirname(cache_file), 0o755, exist_ok=True)
         if os.path.exists(cache_file):
-            cached_vals = np.loadtxt(cache_file,
-                                     dtype=data.coords[channel_dim].dtype)
+            cached_vals = np.loadtxt(
+                cache_file, dtype=data.coords[channel_dim].dtype
+            )
         else:
             cached_vals = []
         ignored = self._selector(data, channel_dim, bad_channels, cached_vals)
         np.savetxt(cache_file, ignored)
         return ignored
 
-    def _set_times_item(self, results: Dict[str, Any], times: np.ndarray,
-                        nstart: int, nend: int) -> (int, int):
+    def _set_times_item(
+        self,
+        results: Dict[str, Any],
+        times: np.ndarray,
+        nstart: int,
+        nend: int,
+    ) -> (int, int):
         """Add the "times" data to the dictionary, if not already
         present. Also return the upper and lower limits required based
         on the start and end times desired.
@@ -462,13 +544,17 @@ class DataReader(ABC):
         :
             True of authenticationis needed, otherwise false.
         """
-        raise NotImplementedError("{} does not implement a "
-                                  "'requires_authentication' "
-                                  "property.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a "
+            "'requires_authentication' "
+            "property.".format(self.__class__.__name__)
+        )
 
     @abstractmethod
     def close(self) -> None:
         """Closes connection to whatever backend (file, database, server,
         etc.) from which data is being read."""
-        raise NotImplementedError("{} does not implement a 'close' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a 'close' "
+            "method.".format(self.__class__.__name__)
+        )

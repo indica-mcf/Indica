@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 import datetime
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
+from typing import Any, ClassVar, Dict, List, Sequence, Tuple
 from warnings import warn
 
 import prov.model as prov
@@ -34,7 +34,7 @@ class AbstractOperator(ABC):
     Parameters
     ----------
     args
-        The arguments for the calculation, with number and meaning to be 
+        The arguments for the calculation, with number and meaning to be
         determined by the subclass.
 
     Attributes
@@ -58,8 +58,11 @@ class AbstractOperator(ABC):
     ARGUMENT_TYPES: ClassVar[List[DataType]] = []
     RESULT_TYPES: ClassVar[List[DataType]] = []
 
-    def __init__(self, sess: session.Session = session.global_session,
-                 **kwargs: Dict[str, Any]):
+    def __init__(
+        self,
+        sess: session.Session = session.global_session,
+        **kwargs: Dict[str, Any]
+    ):
         """Creates a provenance entity/agent for the operator object. Also
         checks arguments and results are of valid datatypes. Should be
         called by initialisers in subclasses.
@@ -69,37 +72,51 @@ class AbstractOperator(ABC):
         self._session = sess
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
-        self.prov_id = session.hash_vals(operator_type=self.__class__.__name__,
-                                         **kwargs)
+        self.prov_id = session.hash_vals(
+            operator_type=self.__class__.__name__, **kwargs
+        )
         self.agent = self._session.prov.agent(self.prov_id)
         self._session.prov.actedOnBehalfOf(self.agent, self._session.agent)
         self.entity = self._session.prov.entity(self.prov_id, kwargs)
-        self._session.prov.generation(self.entity, self._session.session,
-                                      time=datetime.datetime.now())
+        self._session.prov.generation(
+            self.entity, self._session.session, time=datetime.datetime.now()
+        )
         self._session.prov.attribution(self.entity, self._session.agent)
         self._input_provenance: List[prov.ProvEntity] = []
         for i, datatype in enumerate(self.ARGUMENT_TYPES):
             if datatype[0] not in GENERAL_DATATYPES:
-                warn("Operator class {} expects argument {} to have "
-                     "unrecognised general datatype '{}'".format(
-                         self.__class__.__name__, i+1, datatype[0]),
-                     DatatypeWarning)
+                warn(
+                    "Operator class {} expects argument {} to have "
+                    "unrecognised general datatype '{}'".format(
+                        self.__class__.__name__, i + 1, datatype[0]
+                    ),
+                    DatatypeWarning,
+                )
             if datatype[1] not in SPECIFIC_DATATYPES:
-                warn("Operator class {} expects argument {} to have "
-                     "unrecognised specific datatype '{}'".format(
-                         self.__class__.__name__, i+1, datatype[1]),
-                     DatatypeWarning)
+                warn(
+                    "Operator class {} expects argument {} to have "
+                    "unrecognised specific datatype '{}'".format(
+                        self.__class__.__name__, i + 1, datatype[1]
+                    ),
+                    DatatypeWarning,
+                )
         for i, datatype in enumerate(self.RETURN_TYPES):
             if datatype[0] not in GENERAL_DATATYPES:
-                warn("Operator class {} produces result {} with "
-                     "unrecognised general datatype '{}'".format(
-                         self.__class__.__name__, i+1, datatype[0]),
-                     DatatypeWarning)
+                warn(
+                    "Operator class {} produces result {} with "
+                    "unrecognised general datatype '{}'".format(
+                        self.__class__.__name__, i + 1, datatype[0]
+                    ),
+                    DatatypeWarning,
+                )
             if datatype[1] not in SPECIFIC_DATATYPES:
-                warn("Operator class {} produces result {} with "
-                     "unrecognised specific datatype '{}'".format(
-                         self.__class__.__name__, i+1, datatype[1]),
-                     DatatypeWarning)
+                warn(
+                    "Operator class {} produces result {} with "
+                    "unrecognised specific datatype '{}'".format(
+                        self.__class__.__name__, i + 1, datatype[1]
+                    ),
+                    DatatypeWarning,
+                )
 
     def validate_arguments(self, *args: Sequence[DataArray]):
         """Checks that arguments to the operator are of the expected types.
@@ -113,28 +130,41 @@ class AbstractOperator(ABC):
 
         """
         self._start_time = datetime.datetime.now()
-        self._input_provenance = [arg.attrs['provenance'] for arg in args]
+        self._input_provenance = [arg.attrs["provenance"] for arg in args]
         arg_len = len(args)
         expected_len = len(self.ARGUMENT_TYPES)
         if arg_len != expected_len:
-            message = "Operator of class {} received {} arguments but " \
-                "expected {}".format(self.__class__.__name__, arg_len,
-                                     expected_len)
+            message = (
+                "Operator of class {} received {} arguments but "
+                "expected {}".format(
+                    self.__class__.__name__, arg_len, expected_len
+                )
+            )
             raise OperatorError(message)
         for i, arg, expected in enumerate(zip(args, self.ARGUMENT_TYPES)):
-            datatype = arg.attrs['datatype']
+            datatype = arg.attrs["datatype"]
             if datatype[0] != expected[0]:
-                message = "Argument {} of wrong data type for operator {}: " \
-                    "expected {:r}, received {:r}.".format(i+1,
-                                                       self.__class__.__name__,
-                                                       expected[0],
-                                                       datatype[0])
+                message = (
+                    "Argument {} of wrong data type for operator {}: "
+                    "expected {:r}, received {:r}.".format(
+                        i + 1,
+                        self.__class__.__name__,
+                        expected[0],
+                        datatype[0],
+                    )
+                )
                 raise OperatorError(message)
             if expected[1] and datatype[1] != expected[1]:
-                message = "Argument {} of wrong type of {} for operator {}: " \
+                message = (
+                    "Argument {} of wrong type of {} for operator {}: "
                     "expected to be for {:r}, received {:r}.".format(
-                        i+1, expected[0], self.class_.__name__, expected[1],
-                        datatype[1])
+                        i + 1,
+                        expected[0],
+                        self.class_.__name__,
+                        expected[1],
+                        datatype[1],
+                    )
+                )
                 raise OperatorError(message)
 
     def create_provenance(self) -> prov.ProvEntity:
@@ -155,14 +185,22 @@ class AbstractOperator(ABC):
 
         """
         end_time = datetime.datetime.now()
-        entity_id = session.hash_vals(creator=self.prov_id, date=end_time,
-                                      **{"arg" + str(i): p.identifier for i, p
-                                         in enumerate(self._input_provenance)})
+        entity_id = session.hash_vals(
+            creator=self.prov_id,
+            date=end_time,
+            **{
+                "arg" + str(i): p.identifier
+                for i, p in enumerate(self._input_provenance)
+            }
+        )
         activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
         # TODO: Should each subclass specify its own PROV_TYPE?
-        activity = self._session.prov.activity(activity_id, self._start_time,
-                                               end_time,
-                                               {prov.PROV_TYPE: "Calculation"})
+        activity = self._session.prov.activity(
+            activity_id,
+            self._start_time,
+            end_time,
+            {prov.PROV_TYPE: "Calculation"},
+        )
         activity.wasAssociatedWith(self._session.agent)
         activity.wasAssociatedWith(self.agent)
         activity.wasInformedBy(self._session.session)
@@ -185,6 +223,7 @@ class AbstractOperator(ABC):
         :py:class:`xarray.DataArray` objects.
 
         """
-        raise NotImplementedError("{} does not implement a "
-                                  "'__call__' method.".format(
-                                      self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a "
+            "'__call__' method.".format(self.__class__.__name__)
+        )

@@ -84,6 +84,8 @@ class TrivialTransform(CoordinateTransform):
             pointer to that)
 
         """
-        raise NotImplementedError("{} does not implement a 'from_master' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a 'from_master' "
+            "method.".format(self.__class__.__name__)
+        )
         return R, z, t

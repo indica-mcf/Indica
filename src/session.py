@@ -83,14 +83,15 @@ class Session:
 
     def __init__(self, user_orcid: str):
         self.prov = prov.ProvDocument()
-        self.prov.set_default_namespace('https://ccfe.ukaea.uk/')
-        self.prov.add_namespace('orcid', 'https://orcid.org/')
-        self._user = [self.prov.agent('orcid:' + user_orcid)]
+        self.prov.set_default_namespace("https://ccfe.ukaea.uk/")
+        self.prov.add_namespace("orcid", "https://orcid.org/")
+        self._user = [self.prov.agent("orcid:" + user_orcid)]
         date = datetime.datetime.now()
-        session_properties = {'os': None, 'directory': None, 'host': None}
+        session_properties = {"os": None, "directory": None, "host": None}
         session_id = hash_vals(startTime=date, **session_properties)
-        self.session = self.prov.activity(session_id, date, None,
-                                          session_properties)
+        self.session = self.prov.activity(
+            session_id, date, None, session_properties
+        )
         self.prov.association(self.session, self._user[0])
 
         self.data = {}
@@ -229,12 +230,16 @@ def generate_prov(pass_sess=False):
                     args_prov[key] = str(key)
                     activity_attrs[val] = str(arg)
             generated_array = False
-            activity_id = hash_vals(agent=session.agent, date=end_time, **id_attrs)
-            activity = session.prov.activity(activity_id, start_time, end_time,
-                                             activity_attrs)
+            activity_id = hash_vals(
+                agent=session.agent, date=end_time, **id_attrs
+            )
+            activity = session.prov.activity(
+                activity_id, start_time, end_time, activity_attrs
+            )
             if isinstance(result, DataArray):
-                entity_id = hash_vals(activity=activity_id, name=result.name,
-                                      **id_attrs)
+                entity_id = hash_vals(
+                    activity=activity_id, name=result.name, **id_attrs
+                )
                 entity = session.prov.entity(entity_id)
                 entity.wasGeneratedBy(activity, end_time)
                 entity.wasAttributedTo(session.agent)
@@ -242,17 +247,23 @@ def generate_prov(pass_sess=False):
             elif isinstance(result, tuple):
                 for i, r in enumerate(result):
                     if isinstance(r, DataArray):
-                        entity_id = hash_vals(activity=activity_id,
-                                              position=str(i), name=r.name,
-                                              **id_attrs)
+                        entity_id = hash_vals(
+                            activity=activity_id,
+                            position=str(i),
+                            name=r.name,
+                            **id_attrs
+                        )
                         entity = session.prov.entity(entity_id)
                         entity.wasGeneratedBy(activity, end_time)
                         entity.wasAttributedTo(session.agent)
                         r.attrs["provenance"] = entity
             if not generated_array:
-                raise ValueError("No DataArray object was produced by the "
-                                 "function. Can not assign PROV data.")
+                raise ValueError(
+                    "No DataArray object was produced by the "
+                    "function. Can not assign PROV data."
+                )
             return result
 
         return prov_generator
+
     return outer_wrapper

@@ -36,13 +36,19 @@ class CalcZeff(AbstractOperator):
         Ordered list of the types of data returned by the operator.
     """
 
-    ARGUMENT_TYPES = ['number_desnity', 'electrons',
-                      'number_density', 'beryllium',
-                      'temperature', 'electrons']
-    RESULT_TYPES = [('effective_charge', 'plasma')]
+    ARGUMENT_TYPES = [
+        "number_desnity",
+        "electrons",
+        "number_density",
+        "beryllium",
+        "temperature",
+        "electrons",
+    ]
+    RESULT_TYPES = [("effective_charge", "plasma")]
 
-    def __init__(self, adas_data: str,
-                 sess: session.Session = session.global_session):
+    def __init__(
+        self, adas_data: str, sess: session.Session = session.global_session
+    ):
         """Creates a provenance entity/agent for the operator object.
 
         Parameters
@@ -58,13 +64,14 @@ class CalcZeff(AbstractOperator):
         super(self).__init__(sess, adas_data=adas_data)
         self.adas_data = adas_data
 
-    def __call__(self, n_e: DataArray, n_Be: DataArray,
-                 T_e: DataArray) -> DataArray:
+    def __call__(
+        self, n_e: DataArray, n_Be: DataArray, T_e: DataArray
+    ) -> DataArray:
         """Perform the calculation."""
         self.validate_arguments(n_e, n_Be, T_e)
         q_Be = None  # TODO: get this from ADAS data and T_e
         # TODO: make sure all arguments are mapped to same coordinate system
-        result = (n_e + n_Be*(q_Be**2 - q_Be))/n_e
+        result = (n_e + n_Be * (q_Be ** 2 - q_Be)) / n_e
         # TODO: Properly propagate uncertainty
         result.name = "Zeff"
         result.attrs["generate_mappers"] = n_e.attrs["generate_mappers"]

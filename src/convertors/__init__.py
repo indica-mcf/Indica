@@ -5,3 +5,10 @@ from .abstractconvertor import CoordinateTransform
 from .lines_of_sight import LinesOfSightTransform
 from .transect import TransectCoordinates
 from .time import convert_in_time
+
+__all__ = [
+    "CoordinateTransform",
+    "LinesOfSightTransform",
+    "TransectCoordinates",
+    "convert_in_time",
+]

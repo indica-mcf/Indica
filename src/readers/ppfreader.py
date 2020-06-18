@@ -6,12 +6,8 @@ reading PPF data produced by JET.
 import socket
 from typing import ClassVar, Dict, Tuple, Set, Any, Optional
 
-import numpy as np
 from sal.client import SALClient, AuthenticationFailed
 from sal.dataclass import Signal
-from sal.core.exception import InvalidPath, NodeNotFound
-import scipy.constants as sc
-from xarray import DataArray
 
 from .abstractreader import DataReader, DataSelector
 from datatypes import DataType
@@ -77,23 +73,29 @@ class PPFReader(DataReader):
     """
 
     # TODO: Build this up dynamically when instantiating
-    DIAGNOSTIC_QUANTITIES = {"thomson_scattering":
-                             {"jetppf": {"hrts":
-                                         {"ne": ("number_density", "electron"),
-                                          "te": ("temperature", "electron")},
-                                         "lidr":
-                                         {"ne": ("number_density", "electron"),
-                                          "te": ("temperature", "electron")},
-                                         }
-                              },
-                             "charge_exchange":
-                             {"jetppf": {"cxg6":
-                                         {"angf": ("angular_freq", None),
-                                          "conc": ("concentration", None),
-                                          "ti": ("temperature", None)},
-                                         }
-                              }
-                             }
+    DIAGNOSTIC_QUANTITIES = {
+        "thomson_scattering": {
+            "jetppf": {
+                "hrts": {
+                    "ne": ("number_density", "electron"),
+                    "te": ("temperature", "electron"),
+                },
+                "lidr": {
+                    "ne": ("number_density", "electron"),
+                    "te": ("temperature", "electron"),
+                },
+            }
+        },
+        "charge_exchange": {
+            "jetppf": {
+                "cxg6": {
+                    "angf": ("angular_freq", None),
+                    "conc": ("concentration", None),
+                    "ti": ("temperature", None),
+                },
+            }
+        },
+    }
 
     AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {
         "cxg6_angf": ("angular_freq", None),
@@ -113,32 +115,45 @@ class PPFReader(DataReader):
         "sxr_v": ("luminous_flux", "sxr"),
     }
 
-    _SXR_RANGES = {'sxr_h': (2, 17), 'sxr_t': (1, 35), 'sxr_v': (1, 35)}
+    _SXR_RANGES = {"sxr_h": (2, 17), "sxr_t": (1, 35), "sxr_v": (1, 35)}
 
-    def __init__(self, pulse: int, tstart: float, tend: float,
-                 server: str = "https://sal.jet.uk",
-                 default_error: float = 0.05, max_freq: float = 1e6,
-                 selector: DataSelector = None,
-                 sess: session.Session = session.global_session):
+    def __init__(
+        self,
+        pulse: int,
+        tstart: float,
+        tend: float,
+        server: str = "https://sal.jet.uk",
+        default_error: float = 0.05,
+        max_freq: float = 1e6,
+        selector: DataSelector = None,
+        sess: session.Session = session.global_session,
+    ):
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
-        super().__init__(tstart, tend, max_freq, sess, selector, pulse=pulse,
-                         server=server)
+        super().__init__(
+            tstart, tend, max_freq, sess, selector, pulse=pulse, server=server
+        )
         self.pulse = pulse
         self._client = SALClient(server)
         self._default_error = default_error
 
-    def _get_signal(self, uid: str, instrument: str, quantity: str,
-                    revision: int) -> Tuple[Signal, str]:
+    def _get_signal(
+        self, uid: str, instrument: str, quantity: str, revision: int
+    ) -> Tuple[Signal, str]:
         """Gets the signal for the given DDA, at the given revision."""
         path = "/pulse/{:i}/ppf/signal/{}/{}/{}:{:d}".format(
-            self.pulse, uid, instrument, quantity, revision)
+            self.pulse, uid, instrument, quantity, revision
+        )
         # TODO: if revision == 0 update it with absolute revision
         # number in path before returning
         return self._client.get(path), path
 
-    def _get_charge_exchange(self, uid: str, instrument: str,
-                             revision: Optional[int],
-                             quantities: Set[str]) -> Dict[str, Any]:
+    def _get_charge_exchange(
+        self,
+        uid: str,
+        instrument: str,
+        revision: Optional[int],
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
         """Return temperature, angular frequency, or concentration data for an
         ion, measured using charge exchange recombination
         spectroscopy.
@@ -178,9 +193,13 @@ class PPFReader(DataReader):
             results["ti_records"] = paths + [t_path, e_path]
         return results
 
-    def _get_thomson_scattering(self, uid: str, instrument: str,
-                                revision: Optional[int],
-                                quantities: Set[str]) -> Dict[str, Any]:
+    def _get_thomson_scattering(
+        self,
+        uid: str,
+        instrument: str,
+        revision: Optional[int],
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
         """Produce :py:class:`xarray.DataArray` for electron temperature or
         number density."""
         results = {}
@@ -244,8 +263,8 @@ class PPFReader(DataReader):
     #     data = DataArray(temps_array, coords, name=key,
     #                      attrs=meta)
     #     drop = self._select_channels(uid, data, "Btot", uncalibrated)
-    #     data.attrs["provenance"] = self.create_provenance(key, revision, uids,
-    #                                                       drop)
+    #     data.attrs["provenance"] = self.create_provenance(key, revision,
+    #                                                       uids, drop)
     #     return data.drop_sel({"Btot": drop})
 
     # def _handle_sxr(self, key: str, revision: int) -> DataArray:
@@ -254,7 +273,8 @@ class PPFReader(DataReader):
     #     uids = []
     #     luminosities = []
     #     channels = []
-    #     for i in range(self._SXR_RANGES[key][0], self._SXR_RANGES[key][1] + 1):
+    #     for i in range(self._SXR_RANGES[key][0],
+    #                    self._SXR_RANGES[key][1] + 1):
     #         try:
     #             uid, signal = self._get_signal("{}{:02d}".format(key, i),
     #                                            revision)
@@ -272,8 +292,8 @@ class PPFReader(DataReader):
     #             "error": DataArray(self._default_error * lum_array, coords)}
     #     data = DataArray(lum_array, coords, name=key, attrs=meta)
     #     drop = self._selector(uid, data, keychan, [])
-    #     data.attrs['provenance'] = self.create_provenance(key, revision, uids,
-    #                                                       drop)
+    #     data.attrs['provenance'] = self.create_provenance(key, revision,
+    #                                                       uids, drop)
     #     return data.drop_sel({keychan: drop})
 
     def close(self):
