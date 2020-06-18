@@ -7,3 +7,4 @@ sphinxcontrib-plantuml
 pytest-cov
 coverage[toml]
 pre-commit
+mypy

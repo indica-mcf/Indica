@@ -12,9 +12,9 @@ unit_tests:
   stage: test
   before_script:
     - pip install -r requirements.txt
-    - pip install -r testing-requirements.txt
+    - pip install -r requirements-dev.txt
   script:
-    - coverage run -m pytest tests/unit
+    - pytest --cov=src/ tests/unit
     - coverage report
     - coverage html
     - mv htmlcov htmlcov_unit
@@ -30,7 +30,7 @@ unit_tests:
 #    - pip install -r requirements.txt
 #    - pip install -r testing-requirements.txt
 #  script:
-#    - coverage run -m pytest tests/integration
+#    - pytest --cov=src/ tests/integration
 #    - coverage report
 #    - coverage html
 #    - mv htmlcov htmlcov_integration
