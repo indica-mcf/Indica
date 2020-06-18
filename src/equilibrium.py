@@ -1,11 +1,12 @@
 """Contains an abstract base class for reading equilibrium data for a pulse.
 """
 
-from abc import ABC, abstractmethod
 import datetime
 from numbers import Number as Scalar
-import os
-from typing import Any, ClassVar, Container, Dict, Iterable, Optional, Tuple, Union
+from typing import (
+    Optional,
+    Union,
+)
 
 import prov.model as prov
 import numpy as np
@@ -17,13 +18,21 @@ Number = Union[np.ndarray, Scalar]
 OptNumber = Optional[Number]
 
 
-class Equilibrium(ABC):
+class Equilibrium:
     """Abstract base class for reading in equilibrium data.
     """
 
-    def __init__(self, R_ax: DataArray, z_ax: DataArray, R_sep: DataArray,
-                 z_sep: DataArray, tstart: float, tend: float,
-                 sess: session.Session = session.global_session, **kwargs):
+    def __init__(
+        self,
+        R_ax: DataArray,
+        z_ax: DataArray,
+        R_sep: DataArray,
+        z_sep: DataArray,
+        tstart: float,
+        tend: float,
+        sess: session.Session = session.global_session,
+        **kwargs
+    ):
         self.R_ax = R_ax
         self.z_ax = z_ax
         self.R_sep = R_sep
@@ -31,16 +40,24 @@ class Equilibrium(ABC):
         self.tstart = tstart
         self.tend = tend
         self._session = sess
-        self.prov_id = session.hash_vals(equilib_type=self.__class__.__name__,
-                                         R_ax=R_ax, z_ax=z_ax, R_sep=R_sep,
-                                         z_sep=z_sep, tstart=tstart, tend=tend,
-                                         **kwargs)
-        self.provonence = session.prov.entity(self.prov_id,
-                                              {"tstart": tstart, "tend": tend,
-                                               prov.PROV_TYPE: "Equilibrium"} +
-                                              kwargs)
-        session.prov.generation(self.entity, session.session,
-                                time=datetime.datetime.now())
+        self.prov_id = session.hash_vals(
+            equilib_type=self.__class__.__name__,
+            R_ax=R_ax,
+            z_ax=z_ax,
+            R_sep=R_sep,
+            z_sep=z_sep,
+            tstart=tstart,
+            tend=tend,
+            **kwargs
+        )
+        self.provonence = session.prov.entity(
+            self.prov_id,
+            {"tstart": tstart, "tend": tend, prov.PROV_TYPE: "Equilibrium"}
+            + kwargs,
+        )
+        session.prov.generation(
+            self.entity, session.session, time=datetime.datetime.now()
+        )
         session.prov.attribution(self.entitiy, session.agent)
         self.provenance.wasDerivedFrom(R_ax.attrs["provenance"])
         self.provenance.wasDerivedFrom(z_ax.attrs["provenance"])
@@ -61,13 +78,14 @@ class Equilibrium(ABC):
         # TODO: Define an interface so can pass in a prompt function
         # (with sane default).
         # TODO: Actually write this
-        # TODO: Determine what to do with result (return it, use internally, etc.)
+        # TODO: Determine what to do with result (return it, use internally,
+        #       etc.)
         # TODO: Maybe I should call this with the constructor.
         pass
 
-    @abstractmethod
-    def Btot(self, R: Number, z: Number, t: OptNumber = None) -> (Number,
-                                                                  Number):
+    def Btot(
+        self, R: Number, z: Number, t: OptNumber = None
+    ) -> (Number, Number):
         """Total magnetic field strength at this location in space.
 
         Parameters
@@ -89,11 +107,14 @@ class Equilibrium(ABC):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError("{} does not implement an 'Btot' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement an 'Btot' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    def R_lfs(self, rho: Number, t: OptNumber = None,
-              kind: str = "toroidal") -> (Number, Number):
+    def R_lfs(
+        self, rho: Number, t: OptNumber = None, kind: str = "toroidal"
+    ) -> (Number, Number):
         """Major radius position of the given flux surface on the Low Flux
          Side of the magnetic axis.
 
@@ -121,8 +142,9 @@ class Equilibrium(ABC):
         R, z, t = self.spatial_coords(rho, 0.0, t, kind)
         return R, t
 
-    def R_hfs(self, rho: Number, t: OptNumber = None,
-              kind: str = "toroidal") -> (Number, Number):
+    def R_hfs(
+        self, rho: Number, t: OptNumber = None, kind: str = "toroidal"
+    ) -> (Number, Number):
         """Major radius position of the given flux surface on the High Flux
          Side of the magnetic axis.
 
@@ -151,9 +173,9 @@ class Equilibrium(ABC):
         R, z, t = self.spatial_coords(rho, np.pi, t, kind)
         return R, t
 
-    @abstractmethod
-    def enclosed_volume(self, rho: Number, t: OptNumber = None) -> (Number,
-                                                                     Number):
+    def enclosed_volume(
+        self, rho: Number, t: OptNumber = None
+    ) -> (Number, Number):
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
@@ -173,12 +195,18 @@ class Equilibrium(ABC):
         :
             Volumes of space enclosed by the flux surfaces.
         """
-        raise NotImplementedError("{} does not implement an 'enclosed_volume' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement an 'enclosed_volume' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    @abstractmethod
-    def minor_radius(self, rho: Number, theta: Number, t: OptNumber = None,
-                     kind: str = "toroidal") -> (Number, Number):
+    def minor_radius(
+        self,
+        rho: Number,
+        theta: Number,
+        t: OptNumber = None,
+        kind: str = "toroidal",
+    ) -> (Number, Number):
         """Minor radius at the given locations in the tokamak.
 
         Parameters
@@ -203,12 +231,14 @@ class Equilibrium(ABC):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError("{} does not implement a 'minor_radius' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a 'minor_radius' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    @abstractmethod
-    def flux_coords(self, R: Number, z: Number, t: OptNumber = None,
-                    kind: str = "toroidal") -> (Number, Number, Number):
+    def flux_coords(
+        self, R: Number, z: Number, t: OptNumber = None, kind: str = "toroidal"
+    ) -> (Number, Number, Number):
         """Convert to the flux surface coordinate system.
 
         Parameters
@@ -235,12 +265,18 @@ class Equilibrium(ABC):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError("{} does not implement a 'flux_coords' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a 'flux_coords' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    @abstractmethod
-    def spatial_coords(self, rho: Number, theta: Number, t: OptNumber = None,
-                       kind: str = "toroidal") -> (Number, Number, Number):
+    def spatial_coords(
+        self,
+        rho: Number,
+        theta: Number,
+        t: OptNumber = None,
+        kind: str = "toroidal",
+    ) -> (Number, Number, Number):
         """Convert to the spatial coordinate system.
 
         Parameters
@@ -267,15 +303,19 @@ class Equilibrium(ABC):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError("{} does not implement a 'spatial_coords' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a 'spatial_coords' "
+            "method.".format(self.__class__.__name__)
+        )
 
-    @abstractmethod
-    def convert_flux_coords(self, rho: Number, theta: Number, t: OptNumber =
-                            None, from_kind: Optional[str] = "toroidal",
-                            to_kind: Optional[str] = "poloidal") -> (Number,
-                                                                     Number,
-                                                                     Number):
+    def convert_flux_coords(
+        self,
+        rho: Number,
+        theta: Number,
+        t: OptNumber = None,
+        from_kind: Optional[str] = "toroidal",
+        to_kind: Optional[str] = "poloidal",
+    ) -> (Number, Number, Number):
         """Convert between different coordinate systems.
 
         Parameters
@@ -307,6 +347,8 @@ class Equilibrium(ABC):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError("{} does not implement a "
-                                  "'convert_flux_coords' "
-                                  "method.".format(self.__class__.__name__))
+        raise NotImplementedError(
+            "{} does not implement a "
+            "'convert_flux_coords' "
+            "method.".format(self.__class__.__name__)
+        )

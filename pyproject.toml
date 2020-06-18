@@ -16,5 +16,5 @@ testpaths = ["tests"]
 [tool.coveragve.run]
 source = "src/"
 
-[tool.coverage.report]
-show_missing = True
+#[tool.coverage.report]
+#show_missing = True
