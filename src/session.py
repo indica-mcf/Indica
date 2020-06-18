@@ -48,13 +48,22 @@ def hash_vals(**kwargs: typing.Dict[str, typing.Any]) -> str:
 
 
 class Session:
-    """A class handling information about the use of the software. Mostly
-    this is for purposes of provenance.
+    """Manages the a particular run of the software.
+
+    Has the following uses:
+    - keep information about version of package and dependencies
+    - hold provenance information
+    - track the data read/calculated and operators instantiated
+    - allow that data to be exported and reloaded
+
+    TODO: Consider whether some of these behaviours should be spun off
+    into separate classes which are then aggregated into this one.
 
     Parameters
     ----------
-    user_orcid: str
-        The ORCiD ID for the person using the software.
+    user_id: str
+        Something with which to identify the user. Recommend either an email
+        address or an ORCiD ID.
 
     Attributes
     ----------
@@ -64,6 +73,11 @@ class Session:
     session: prov.model.ProvActivity
         The provenance Activity object representing this session. It should
         contain information about versions of different libraries being used.
+    data: Dict[str, DataArray]
+        All of the data which has been read in or calculated during this
+        session.
+    operators: Dict[str, AbstractOperator]
+        All of the operators which have been instantiated during this session.
 
     """
 
@@ -78,6 +92,9 @@ class Session:
         self.session = self.prov.activity(session_id, date, None,
                                           session_properties)
         self.prov.association(self.session, self._user[0])
+
+        self.data = {}
+        self.operators = {}
 
     def __enter__(self):
         global global_session
@@ -131,19 +148,32 @@ class Session:
         """
         return self._user.pop()
 
+    def export(self, filename: str):
+        """Write all of the data and operators from this session into a file,
+        for reuse later.
+        """
+        pass
+
     @classmethod
-    def begin(cls, user_orcid: str):
+    def begin(cls, user_id: str):
         """Sets up a global session, without bothering with a context
         manager.
 
         Parameters
         ----------
         user_orcid
-            The ORCiD ID for the person using the software.
+            An identifier, such as an email address or ORCiD ID, for the person
+            using the software.
 
         """
         global global_session
-        global_session = cls(user_orcid)
+        global_session = cls(user_id)
+
+    @classmethod
+    def reload(cls, filename: str) -> "Session":
+        """Create a session from a saved which was written to ``filename``.
+        """
+        pass
 
 
 def generate_prov(pass_sess=False):
