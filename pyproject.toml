@@ -1,0 +1,20 @@
+[tool.black]
+line-length = 79
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | venv
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coveragve.run]
+source = "src/"
+
+[tool.coverage.report]
+show_missing = True
