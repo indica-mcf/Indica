@@ -1,9 +1,10 @@
 """Coordinate system for data collected on a 1-D along through the Tokamak"""
 
-from .abstractconvertor import Coordinates, CoordinateTransform, Number
-
 import numpy as np
 from scipy.interp import interp1d
+
+from .abstractconvertor import Coordinates
+from .abstractconvertor import CoordinateTransform
 
 
 class TransectCoordinates(CoordinateTransform):
@@ -45,12 +46,16 @@ class TransectCoordinates(CoordinateTransform):
         self.invert = interp1d(R_positions, indices, copy=False)
         super().__init__(indices, 0, R_positions, z_positions, 0)
 
-    def _convert_to_Rz(self, x1: Number, x2: Number, t: Number) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: np.ArrayLike, x2: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         R = self.R_vals(x1)
         z = self.z_vals(x1) + x2
         return R, z, t
 
-    def _convert_from_Rz(self, R: Number, z: Number, t: Number) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: np.ArrayLike, z: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         x1 = self.invert(R)
         x2 = z - self.z_vals(x1)
         return x1, x2, t

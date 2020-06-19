@@ -1,12 +1,14 @@
 """Coordinate system representing a collection of lines of sight.
 """
 
+from typing import Callable
 from typing import Optional
 
 import numpy as np
 from scipy.interp import interp2d
 
-from .abstractconvertor import Coordinates, CoordinateTransform, Number
+from .abstractconvertor import Coordinates
+from .abstractconvertor import CoordinateTransform
 
 
 class LinesOfSightTransform(CoordinateTransform):
@@ -56,7 +58,7 @@ class LinesOfSightTransform(CoordinateTransform):
         num_intervals: int = 100,
         default_R: Optional[np.ndarray] = None,
         default_z: Optional[np.ndarray] = None,
-    ) -> Coordinates:
+    ):
         indices = np.arange(len(R_start))
         x2 = np.expand_dims(np.linspace(0.0, 1.0, num_intervals + 1), axis=0)
         R_default = np.linsapce(
@@ -76,11 +78,17 @@ class LinesOfSightTransform(CoordinateTransform):
         self.z_start = z_start
         self.R_end = R_end
         self.z_end = z_end
-        self.index_inversion = None
-        self.x2_inversion = None
+        self.index_inversion: Optional[
+            Callable[[np.ArrayLike, np.ArrayLike], np.ArrayLike]
+        ] = None
+        self.x2_inversion: Optional[
+            Callable[[np.ArrayLike, np.ArrayLike], np.ArrayLike]
+        ] = None
         super().__init__(indices, x2, R_default, z_default, 0)
 
-    def _convert_to_Rz(self, x1: Number, x2: Number, t: Number) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: np.ArrayLike, x2: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         c = np.ceil(x1)
         f = np.floor(x1)
         Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
@@ -91,7 +99,9 @@ class LinesOfSightTransform(CoordinateTransform):
         z = zs + (ze - zs) * x2
         return R, z, t
 
-    def _convert_from_Rz(self, R: Number, z: Number, t: Number) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: np.ArrayLike, z: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         # TODO: Consider if there is some way to invert this exactly,
         # rather than rely on interpolation (which is necessarily
         # inexact, as well as computationally expensive).
@@ -99,10 +109,9 @@ class LinesOfSightTransform(CoordinateTransform):
             R_vals, z_vals, _ = self.convert_to_Rz()
             index_vals = self.default_x1 * np.ones_like(self.default_x2)
             x2_vals = np.ones_like(self.default_x1) * self.default_x2
-            self.index_inversion = interp2d(
-                R_vals, z_vals, index_vals, copy=False
-            )
+            self.index_inversion = interp2d(R_vals, z_vals, index_vals, copy=False)
             self.x2_inversion = interp2d(R_vals, z_vals, x2_vals, copy=False)
+        assert self.x2_inversion is not None
         x1 = self.index_inversion(R, z)
         x2 = self.x2_inversion(R, z)
         return x1, x2, t

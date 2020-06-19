@@ -1,15 +1,21 @@
 """Experimental design for performing mathematical operations on data.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 import datetime
-from typing import Any, ClassVar, Dict, List, Sequence, Tuple
+from typing import Any
+from typing import ClassVar
+from typing import List
+from typing import Tuple
 from warnings import warn
 
 import prov.model as prov
 from xarray import DataArray
 
-from datatypes import GENERAL_DATATYPES, SPECIFIC_DATATYPES, DatatypeWarning
+from datatypes import DatatypeWarning
+from datatypes import GENERAL_DATATYPES
+from datatypes import SPECIFIC_DATATYPES
 import session
 
 
@@ -23,7 +29,7 @@ class OperatorError(Exception):
     """
 
 
-class AbstractOperator(ABC):
+class Operator(ABC):
 
     """Abstract base class for performing calculations with data.
 
@@ -42,7 +48,7 @@ class AbstractOperator(ABC):
     ARGUMENT_TYPES: List[DataType]
         Ordered list of the types of data expected for each argument of the
         operator.
-    RESULT_TYPES: List[DataType]
+    RETURN_TYPES: List[DataType]
         Ordered list of the types of data returned by the operator.
     prov_id: str
         The hash used to identify this object in provenance documents.
@@ -56,19 +62,14 @@ class AbstractOperator(ABC):
     """
 
     ARGUMENT_TYPES: ClassVar[List[DataType]] = []
-    RESULT_TYPES: ClassVar[List[DataType]] = []
+    RETURN_TYPES: ClassVar[List[DataType]] = []
 
-    def __init__(
-        self,
-        sess: session.Session = session.global_session,
-        **kwargs: Dict[str, Any]
-    ):
+    def __init__(self, sess: session.Session = session.global_session, **kwargs: Any):
         """Creates a provenance entity/agent for the operator object. Also
         checks arguments and results are of valid datatypes. Should be
         called by initialisers in subclasses.
 
         """
-        self._start_time = None
         self._session = sess
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
@@ -118,7 +119,7 @@ class AbstractOperator(ABC):
                     DatatypeWarning,
                 )
 
-    def validate_arguments(self, *args: Sequence[DataArray]):
+    def validate_arguments(self, *args: DataArray):
         """Checks that arguments to the operator are of the expected types.
 
         Also gathers provenance information for use later.
@@ -136,21 +137,16 @@ class AbstractOperator(ABC):
         if arg_len != expected_len:
             message = (
                 "Operator of class {} received {} arguments but "
-                "expected {}".format(
-                    self.__class__.__name__, arg_len, expected_len
-                )
+                "expected {}".format(self.__class__.__name__, arg_len, expected_len)
             )
             raise OperatorError(message)
-        for i, arg, expected in enumerate(zip(args, self.ARGUMENT_TYPES)):
+        for i, (arg, expected) in enumerate(zip(args, self.ARGUMENT_TYPES)):
             datatype = arg.attrs["datatype"]
             if datatype[0] != expected[0]:
                 message = (
                     "Argument {} of wrong data type for operator {}: "
                     "expected {:r}, received {:r}.".format(
-                        i + 1,
-                        self.__class__.__name__,
-                        expected[0],
-                        datatype[0],
+                        i + 1, self.__class__.__name__, expected[0], datatype[0],
                     )
                 )
                 raise OperatorError(message)
@@ -160,7 +156,7 @@ class AbstractOperator(ABC):
                     "expected to be for {:r}, received {:r}.".format(
                         i + 1,
                         expected[0],
-                        self.class_.__name__,
+                        self.__class__.__name__,
                         expected[1],
                         datatype[1],
                     )
@@ -196,10 +192,7 @@ class AbstractOperator(ABC):
         activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
         # TODO: Should each subclass specify its own PROV_TYPE?
         activity = self._session.prov.activity(
-            activity_id,
-            self._start_time,
-            end_time,
-            {prov.PROV_TYPE: "Calculation"},
+            activity_id, self._start_time, end_time, {prov.PROV_TYPE: "Calculation"},
         )
         activity.wasAssociatedWith(self._session.agent)
         activity.wasAssociatedWith(self.agent)
@@ -215,12 +208,16 @@ class AbstractOperator(ABC):
         return entity
 
     @abstractmethod
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
         """The invocation of the operator.
 
         The exact number of arguments should be determined by the
         subclass. However, it is anticipated that these would all be
         :py:class:`xarray.DataArray` objects.
+
+        Unfortunately, we can not use Mypy static type-checking for
+        this routine or its overriding implementations, as the number
+        of arguments will vary.
 
         """
         raise NotImplementedError(

@@ -1,14 +1,18 @@
 """Callback functions for choosing which channels of data should be kept."""
 
 from numbers import Number
-from typing import Callable, Container, Iterable
+from typing import Callable
+from typing import Collection
+from typing import Iterable
+from typing import List
 
+from matplotlib.collections import PathCollection
 import matplotlib.pyplot as plt
 from xarray import DataArray
 
 #: Callback function which can be used to choose which data should be read.
 DataSelector = Callable[
-    [DataArray, str, Container[Number], Container[Number]], Iterable[Number]
+    [DataArray, str, Collection[Number], Iterable[Number]], Iterable[Number]
 ]
 
 MAX_TIME_SLICES = 10
@@ -17,8 +21,8 @@ MAX_TIME_SLICES = 10
 def choose_on_plot(
     data: DataArray,
     channel_dim: str,
-    bad_channels: Container[Number],
-    unselected_channels: Container[Number] = [],
+    bad_channels: Collection[Number],
+    unselected_channels: Iterable[Number] = [],
 ) -> Iterable[Number]:
     """Produces a plot in its own window, on which the user can click data
     from channels which they wish to be discarded.
@@ -60,15 +64,14 @@ def choose_on_plot(
 
     # Get colour array
     original_colours = [
-        "r" if label in data.coords[channel_dim] else "b"
-        for label in bad_channels
+        "r" if label in bad_channels else "b" for label in data.coords[channel_dim]
     ]
     colours = [
         c if label not in channels_to_drop else "#ADADAD"
         for c, label in zip(original_colours, data.coords[channel_dim])
     ]
 
-    plots = []
+    plots: List[PathCollection] = []
 
     def on_pick(event):
         ind = event.ind
@@ -82,9 +85,7 @@ def choose_on_plot(
             colours[ind] = "#ADADAD"
             print("Ignoring data at {}={}".format(channel_dim, label))
         for plot in plots:
-            plot.set_color(
-                colours
-            )  # Does this work? Or should I use set_facecolor?
+            plot.set_color(colours)  # Does this work? Or should I use set_facecolor?
         # Not sure whether I'll need this:
         # event.canvas.draw()
 

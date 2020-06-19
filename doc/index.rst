@@ -13,7 +13,7 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-   
+
    installation
    tutorial
    original
@@ -29,4 +29,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

@@ -4,14 +4,21 @@ reading PPF data produced by JET.
 """
 
 import socket
-from typing import ClassVar, Dict, Tuple, Set, Any, Optional
+from typing import Any
+from typing import ClassVar
+from typing import Dict
+from typing import Set
+from typing import Tuple
 
-from sal.client import SALClient, AuthenticationFailed
+from sal.client import AuthenticationFailed
+from sal.client import SALClient
 from sal.dataclass import Signal
 
-from .abstractreader import DataReader, DataSelector
 from datatypes import DataType
 import session
+from .abstractreader import DataReader
+from .abstractreader import DataSelector
+from .selectors import choose_on_plot
 
 
 class PPFReader(DataReader):
@@ -125,7 +132,7 @@ class PPFReader(DataReader):
         server: str = "https://sal.jet.uk",
         default_error: float = 0.05,
         max_freq: float = 1e6,
-        selector: DataSelector = None,
+        selector: DataSelector = choose_on_plot,
         sess: session.Session = session.global_session,
     ):
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
@@ -140,7 +147,7 @@ class PPFReader(DataReader):
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> Tuple[Signal, str]:
         """Gets the signal for the given DDA, at the given revision."""
-        path = "/pulse/{:i}/ppf/signal/{}/{}/{}:{:d}".format(
+        path = "/pulse/{:d}/ppf/signal/{}/{}/{}:{:d}".format(
             self.pulse, uid, instrument, quantity, revision
         )
         # TODO: if revision == 0 update it with absolute revision
@@ -148,11 +155,7 @@ class PPFReader(DataReader):
         return self._client.get(path), path
 
     def _get_charge_exchange(
-        self,
-        uid: str,
-        instrument: str,
-        revision: Optional[int],
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Return temperature, angular frequency, or concentration data for an
         ion, measured using charge exchange recombination
@@ -194,11 +197,7 @@ class PPFReader(DataReader):
         return results
 
     def _get_thomson_scattering(
-        self,
-        uid: str,
-        instrument: str,
-        revision: Optional[int],
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Produce :py:class:`xarray.DataArray` for electron temperature or
         number density."""

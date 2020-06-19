@@ -1,9 +1,32 @@
 repos:
+-   repo: https://github.com/sqlalchemyorg/zimports/
+    rev: 0.2.0
+    hooks:
+    - id: zimports
+      name: "Reorganise Import Statements"
 -   repo: https://github.com/psf/black
     rev: stable
     hooks:
     - id: black
+      name: "Reformat Code Using black"
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+    - id: check-yaml
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+    - id: requirements-txt-fixer
+      files: requirements.*\.txt
+    - id: mixed-line-ending
+      name: "Fix Mixed Line Ending"
 -   repo: https://gitlab.com/pycqa/flake8
     rev: 3.7.9
     hooks:
     - id: flake8
+      additional_dependencies:
+      - flake8-import-order
+      name: "Check Code Style Using flake8"
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: ''  # Use the sha / tag you want to point at
+    hooks:
+    -   id: mypy

@@ -2,11 +2,16 @@
 
 import inspect
 import string
+from typing import Any
+from typing import Callable
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import numpy as np
 
 
-def positional_parameters(func):
+def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional[str]]:
     """Returns an ordered list of the names of arguments which can be
     passed to a function positionally.
 
@@ -40,7 +45,7 @@ def positional_parameters(func):
     return param_names, var_positional
 
 
-def sum_squares(x: np.ndarray, axis: int, **kwargs):
+def sum_squares(x: np.ArrayLike, axis: int, **kwargs: Any) -> np.ArrayLike:
     """Perform a reduction on the provided data by taking the sum of squares.
 
     Parameters
@@ -56,7 +61,7 @@ def sum_squares(x: np.ndarray, axis: int, **kwargs):
     return np.sum(x ** 2, axis=axis)
 
 
-def get_slice_limits(low: float, high: float, data: np.ndarray) -> (int, int):
+def get_slice_limits(low: float, high: float, data: np.ArrayLike) -> Tuple[int, int]:
     """Returns the start and end points needed to slice ``data`` so that
     all values fall between ``high`` and ``low`` (inclusive).
 
@@ -84,19 +89,15 @@ def get_slice_limits(low: float, high: float, data: np.ndarray) -> (int, int):
     """
     start = np.argmax(data > low) - 1
     if start < 0:
-        raise ValueError(
-            "Low value {} not in range of provided " "data.".format(low)
-        )
+        raise ValueError("Low value {} not in range of provided " "data.".format(low))
     end = np.argmax(data >= high)
     if end < 1:
-        raise ValueError(
-            "High value {} not in range of provided " "data.".format(high)
-        )
+        raise ValueError("High value {} not in range of provided " "data.".format(high))
 
     return (start, end)
 
 
-def to_filename(name):
+def to_filename(name: str) -> str:
     """Takes a string and returns a valid filename based on it."""
     valid_chars = "-_.(){}{}".format(string.ascii_letters, string.digits)
     filename = name.replace("/", "-").replace("\\", "-")

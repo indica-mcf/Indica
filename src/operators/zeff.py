@@ -1,13 +1,11 @@
 """Simple example of an operator calculating $Z_{eff}$.
 """
 
-from xarray import DataArray
-
-from .abstractoperator import AbstractOperator
 import session
+from .abstractoperator import Operator
 
 
-class CalcZeff(AbstractOperator):
+class CalcZeff(Operator):
     """Calculate effective charge of ions in plasma.
 
     This is intended for illustrative purposes only and will likely
@@ -37,18 +35,13 @@ class CalcZeff(AbstractOperator):
     """
 
     ARGUMENT_TYPES = [
-        "number_desnity",
-        "electrons",
-        "number_density",
-        "beryllium",
-        "temperature",
-        "electrons",
+        ("number_desnity", "electrons"),
+        ("number_density", "beryllium"),
+        ("temperature", "electrons"),
     ]
     RESULT_TYPES = [("effective_charge", "plasma")]
 
-    def __init__(
-        self, adas_data: str, sess: session.Session = session.global_session
-    ):
+    def __init__(self, adas_data: str, sess: session.Session = session.global_session):
         """Creates a provenance entity/agent for the operator object.
 
         Parameters
@@ -61,15 +54,13 @@ class CalcZeff(AbstractOperator):
             Holds and communicates provenance information.
 
         """
-        super(self).__init__(sess, adas_data=adas_data)
+        super().__init__(sess, adas_data=adas_data)
         self.adas_data = adas_data
 
-    def __call__(
-        self, n_e: DataArray, n_Be: DataArray, T_e: DataArray
-    ) -> DataArray:
+    def __call__(self, n_e, n_Be, T_e):
         """Perform the calculation."""
         self.validate_arguments(n_e, n_Be, T_e)
-        q_Be = None  # TODO: get this from ADAS data and T_e
+        q_Be = 1  # TODO: get this from ADAS data and T_e
         # TODO: make sure all arguments are mapped to same coordinate system
         result = (n_e + n_Be * (q_Be ** 2 - q_Be)) / n_e
         # TODO: Properly propagate uncertainty

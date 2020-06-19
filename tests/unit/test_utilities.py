@@ -2,11 +2,16 @@
 
 import re
 
-from hypothesis import assume, example, given
-from hypothesis.extra.numpy import arrays, array_shapes
-from hypothesis.strategies import dictionaries, from_regex, none, sampled_from
+from hypothesis import assume
+from hypothesis import example
+from hypothesis import given
+from hypothesis.extra.numpy import array_shapes
+from hypothesis.extra.numpy import arrays
+from hypothesis.strategies import dictionaries
+from hypothesis.strategies import from_regex
+from hypothesis.strategies import none
+from hypothesis.strategies import sampled_from
 import numpy as np
-
 from src import utilities
 
 VALID_FILENAME = re.compile(r"^[a-zA-Z0-9_\-().]+$")

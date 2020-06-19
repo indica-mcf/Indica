@@ -1,10 +1,11 @@
 """Routines for averaging or interpolate along the time axis."""
 
-from utilities import sum_squares
-import session
-
 import numpy as np
-from xarray import DataArray, sqrt
+from xarray import DataArray
+from xarray import sqrt
+
+import session
+from utilities import sum_squares
 
 
 def convert_in_time(
@@ -84,9 +85,7 @@ def interpolate_in_time(
         )
     end = np.argmax(tcoords >= tend)
     if end < 1:
-        raise ValueError(
-            "End time {} not in range of provided " "data.".format(tend)
-        )
+        raise ValueError("End time {} not in range of provided " "data.".format(tend))
     npoints = round((tend - tstart) / interval) + 1
     tvals = np.linspace(tstart, tend, npoints)
     return data.interp(t=tvals, method=method)
@@ -130,12 +129,8 @@ def bin_in_time(
         )
     nend = np.argmax(tcoords > tbins[-1])
     if tcoords[nend] < tbins[-1]:
-        raise ValueError(
-            "End time {} not in range of provided " "data.".format(tend)
-        )
-    grouped = data.isel(t=slice(nstart, nend)).groupby_bins(
-        "t", tbins, tlabels
-    )
+        raise ValueError("End time {} not in range of provided " "data.".format(tend))
+    grouped = data.isel(t=slice(nstart, nend)).groupby_bins("t", tbins, tlabels)
     averaged = grouped.mean("t", keep_attrs=True)
     # TODO: determine appropriate value of DDOF (Delta Degrees of Freedom)
     variance = grouped.var("t")

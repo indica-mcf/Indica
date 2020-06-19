@@ -1,15 +1,16 @@
 """Provides an abstract interface for coordinate conversion.
 """
 
-from abc import ABC, abstractmethod
-from numbers import Number as Scalar
-from typing import Dict, Optional, Union
+from abc import ABC
+from abc import abstractmethod
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import numpy as np
 
-Number = Union[np.ndarray, Scalar]
-OptNumber = Optional[Number]
-Coordinates = (Number, Number, Number)
+Coordinates = Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]
 
 
 class EquilibriumException(Exception):
@@ -56,20 +57,23 @@ class CoordinateTransform(ABC):
 
     def __init__(
         self,
-        default_x1: np.ndarray,
-        default_x2: np.ndarray,
-        default_R: np.ndarray,
-        default_z: np.ndarray,
-        default_t: np.ndarray,
+        default_x1: np.ArrayLike,
+        default_x2: np.ArrayLike,
+        default_R: np.ArrayLike,
+        default_z: np.ArrayLike,
+        default_t: np.ArrayLike,
     ):
         self.default_x1 = default_x1
         self.default_x2 = default_x2
         self.default_R = default_R
         self.default_z = default_z
         self.default_t = default_t
-        self.default_distance = [None, None]
-        self.default_to_Rz = None
-        self.default_from_Rz = None
+        self.default_distance: List[Tuple[np.ArrayLike, np.ArrayLike]] = [
+            (None, None),
+            (None, None),
+        ]
+        self.default_to_Rz: Coordinates = (None, None, None)
+        self.default_from_Rz: Coordinates = (None, None, None)
 
     def set_equilibrium(self, equilibrium, force=False):
         """Initialise the object using a set of equilibrium data.
@@ -101,9 +105,9 @@ class CoordinateTransform(ABC):
     def convert_to(
         self,
         other: "CoordinateTransform",
-        x1: OptNumber = None,
-        x2: OptNumber = None,
-        t: OptNumber = None,
+        x1: Optional[np.ArrayLike] = None,
+        x2: Optional[np.ArrayLike] = None,
+        t: Optional[np.ArrayLike] = None,
     ) -> Coordinates:
         """General routine to map coordinates from this system to those used
         in ``other``. Array broadcasting will be performed as necessary.
@@ -138,15 +142,18 @@ class CoordinateTransform(ABC):
         """
         # TODO: cache all results for default arguments
         other_name = other.__class__.__name__
-        if other_name in self.CONVERSION_METHODS:
-            convertor = getattr(self, self.CONVERSION_METHODS[other_name])
+        if other_name in self._CONVERSION_METHODS:
+            convertor = getattr(self, self._CONVERSION_METHODS[other_name])
             return convertor(x1, x2, t)
         else:
             R, z, t = self.convert_to_Rz(x1, x2, t)
             return other.convert_from_Rz(R, z, t)
 
     def convert_to_Rz(
-        self, x1: OptNumber = None, x2: OptNumber = None, t: OptNumber = None
+        self,
+        x1: Optional[np.ArrayLike] = None,
+        x2: Optional[np.ArrayLike] = None,
+        t: Optional[np.ArrayLike] = None,
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
@@ -177,7 +184,7 @@ class CoordinateTransform(ABC):
         """
         use_cached = True
         if x1 is None:
-            x1 = self.default1_x1
+            x1 = self.default_x1
         else:
             use_cached = False
         if x2 is None:
@@ -190,13 +197,15 @@ class CoordinateTransform(ABC):
             use_cached = False
         if use_cached:
             if self.default_to_Rz is None:
-                self.default_to_Rz = self._convert_to_Rz(self, x1, x2, t)
+                self.default_to_Rz = self._convert_to_Rz(x1, x2, t)
             return self.default_to_Rz
         else:
-            return self._convert_to_Rz(self, x1, x2, t)
+            return self._convert_to_Rz(x1, x2, t)
 
     @abstractmethod
-    def _convert_to_Rz(self, x1: Number, x2: Number, t: Number) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: np.ArrayLike, x2: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         """Implementation of conversion to the R-z coordinate system, without
         caching or default argument values.
         """
@@ -206,7 +215,10 @@ class CoordinateTransform(ABC):
         )
 
     def convert_from_Rz(
-        self, R: OptNumber = None, z: OptNumber = None, t: OptNumber = None
+        self,
+        R: Optional[np.ArrayLike] = None,
+        z: Optional[np.ArrayLike] = None,
+        t: Optional[np.ArrayLike] = None,
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
@@ -250,13 +262,15 @@ class CoordinateTransform(ABC):
             use_cached = False
         if use_cached:
             if self.default_from_Rz is None:
-                self.default_from_Rz = self._convert_from_Rz(self, R, z, t)
+                self.default_from_Rz = self._convert_from_Rz(R, z, t)
             return self.default_from_Rz
         else:
-            return self._convert_from_Rz(self, R, z, t)
+            return self._convert_from_Rz(R, z, t)
 
     @abstractmethod
-    def _convert_from_Rz(self, R: Number, z: Number, t: Number) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: np.ArrayLike, z: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         """Implementation of conversion from the R-z coordinate system, without
         caching or default argument values.
         """
@@ -268,10 +282,10 @@ class CoordinateTransform(ABC):
     def distance(
         self,
         direction: int,
-        x1: OptNumber = None,
-        x2: OptNumber = None,
-        t: OptNumber = None,
-    ) -> (Number, Number):
+        x1: Optional[np.ArrayLike] = None,
+        x2: Optional[np.ArrayLike] = None,
+        t: Optional[np.ArrayLike] = None,
+    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
         """Give the distance (in physical space) from the origin in the
         specified direction.
 

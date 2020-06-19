@@ -12,14 +12,10 @@ DataType = Tuple[str, str]
 #  (empty if unitless).
 GENERAL_DATATYPES = {
     "angular_freq": (
-        "Angular speed at which a species of"
-        " ion completes a loop of the Tokamak",
+        "Angular speed at which a species of" " ion completes a loop of the Tokamak",
         "\rad s^{-1}",
     ),
-    "concentration": (
-        "Portion of nuclei which are the given" " type of ion",
-        "%",
-    ),
+    "concentration": ("Portion of nuclei which are the given" " type of ion", "%",),
     "effective_charge": (
         "Ratio of positive ion charge to " "electron charge in plasma",
         "",

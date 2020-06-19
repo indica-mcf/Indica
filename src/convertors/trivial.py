@@ -1,7 +1,10 @@
 """Trivial class for transforming to and from R-z coordinate systems.
 """
 
-from .abstractconvertor import CoordinateTransform, Number, Coordinates
+import numpy as np
+
+from .abstractconvertor import Coordinates
+from .abstractconvertor import CoordinateTransform
 
 
 class TrivialTransform(CoordinateTransform):
@@ -26,7 +29,9 @@ class TrivialTransform(CoordinateTransform):
 
     """
 
-    def _convert_to_Rz(self, x1: Number, x2: Number, t: Number) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: np.ArrayLike, x2: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         If an arguments is not provided then use the default grid for
@@ -56,7 +61,9 @@ class TrivialTransform(CoordinateTransform):
         """
         return x1, x2, t
 
-    def _convert_from_Rz(self, R: Number, z: Number, t: Number) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: np.ArrayLike, z: np.ArrayLike, t: np.ArrayLike
+    ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         If an arguments is not provided then return the master

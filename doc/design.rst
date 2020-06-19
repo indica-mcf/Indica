@@ -1,6 +1,6 @@
 Code Design
 ===========
-   
+
 This section of the documentation describes the data structures and
 organisation of the code. It is primarily intended for developers.
 
@@ -69,7 +69,7 @@ UML.
    + tend: float
    + provenance: ProvEntity
    - _session: Session
-   
+
    + calibrate(T_e: DataArray, selector: Callable)
    + {abstract} Btot(R: arraylike, z: arraylike, t: arraylike): (arraylike, arraylike)
    + {abstract} enclosed_volume(rho: array_like, t: array_like, kind: str): (arraylike, arraylike)
@@ -188,7 +188,7 @@ functionality gets grouped into the same accessor). The
 use is as follows::
 
   # array1 and array2 are on different coordinate systems.
-  
+
   # Broadcasting creates a 4D array; probably not what you want
   array3 = array1 + array2
 
@@ -350,7 +350,7 @@ and the second is either a string or ``None``. See examples below::
     ("number_density", "electrons")
     # Describes number density of primary impurity
     ("number_density", "impurity0")
-    
+
     ("temperature", None) # Temperature
     ("temperature", "electrons")  # Electron temperature
 
@@ -484,7 +484,7 @@ commit. It could also provide information on the authors who wrote it.
 Reading data
 ~~~~~~~~~~~~
 Reading data is an **Activity**. It is associated with a reader agent
-and a user of the software. It uses external data entities. 
+and a user of the software. It uses external data entities.
 
 :py:class:`session.Session` object
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -534,15 +534,15 @@ might look something like the UML below.
    + validate_arguments(*args)
    + {static} recreate(provenance: ProvEntity): Operator
    }
-   
+
    class ImplementedOperator {
    + {static} INPUT_TYPES: list
    + {static} RESULT_TYPES: list
-   
+
    + __init__(self, ...)
    + __call__(self, ...): DataArray
    }
-   
+
    Operator <|-- ImplementedOperator
 
 While performing the calculation they should not make reference to any

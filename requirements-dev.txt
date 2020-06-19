@@ -1,10 +1,10 @@
-pytest
+coverage
+coverage[toml]
 hypothesis
 hypothesis[numpy]
-coverage
+mypy
+pre-commit
+pytest
+pytest-cov
 sphinx
 sphinxcontrib-plantuml
-pytest-cov
-coverage[toml]
-pre-commit
-mypy

@@ -5,8 +5,8 @@
 import xarray
 
 
-@xarray.register_dataarray_accessor("impurities")
-class ImpuritiesAccessor:
+@xarray.register_dataarray_accessor("composition")
+class CompositionAccessor:
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
@@ -67,16 +67,12 @@ class ImpuritiesAccessor:
         else:
             has_x2 = False
         if has_t:
-            coords_self.used.append(("t", other.coords["t"]))
+            coords_self.append(("t", other.coords["t"]))
 
         if has_x1:
-            coords_map[dims_self[0]] = xarray.DataArray(
-                x1_map, coords=coords_self
-            )
+            coords_map[dims_self[0]] = xarray.DataArray(x1_map, coords=coords_self)
         if has_x2:
-            coords_map[dims_self[1]] = xarray.DataArray(
-                x2_map, coords=coords_self
-            )
+            coords_map[dims_self[1]] = xarray.DataArray(x2_map, coords=coords_self)
         if has_t:
             coords_map["t"] = xarray.DataArray(t_map, coords=coords_self)
 

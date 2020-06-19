@@ -9,6 +9,7 @@ import typing
 
 import prov.model as prov
 from xarray import DataArray
+from xarray import Dataset
 
 import utilities
 
@@ -24,7 +25,7 @@ def get_dependency_data():
     raise NotImplementedError("TODO: write this function")
 
 
-def hash_vals(**kwargs: typing.Dict[str, typing.Any]) -> str:
+def hash_vals(**kwargs: typing.Any) -> str:
     """Produces an SHA256 hash from the key-value pairs passed as
     arguments.
 
@@ -39,7 +40,7 @@ def hash_vals(**kwargs: typing.Dict[str, typing.Any]) -> str:
         A hexadecimal representation of the hash.
     """
     hash_result = hashlib.sha256()
-    for key, val in kwargs:
+    for key, val in kwargs.items():
         hash_result.update(bytes(key, encoding="utf-8"))
         hash_result.update(b":")
         hash_result.update(bytes(str(val), encoding="utf-8"))
@@ -73,7 +74,7 @@ class Session:
     session: prov.model.ProvActivity
         The provenance Activity object representing this session. It should
         contain information about versions of different libraries being used.
-    data: Dict[str, DataArray]
+    data: typing.Dict[str, DataArray]
         All of the data which has been read in or calculated during this
         session.
     operators: Dict[str, AbstractOperator]
@@ -89,13 +90,10 @@ class Session:
         date = datetime.datetime.now()
         session_properties = {"os": None, "directory": None, "host": None}
         session_id = hash_vals(startTime=date, **session_properties)
-        self.session = self.prov.activity(
-            session_id, date, None, session_properties
-        )
+        self.session = self.prov.activity(session_id, date, None, session_properties)
         self.prov.association(self.session, self._user[0])
 
-        self.data = {}
-        self.operators = {}
+        self.data: typing.Dict[str, typing.Union[DataArray, Dataset]] = {}
 
     def __enter__(self):
         global global_session
@@ -230,9 +228,7 @@ def generate_prov(pass_sess=False):
                     args_prov[key] = str(key)
                     activity_attrs[val] = str(arg)
             generated_array = False
-            activity_id = hash_vals(
-                agent=session.agent, date=end_time, **id_attrs
-            )
+            activity_id = hash_vals(agent=session.agent, date=end_time, **id_attrs)
             activity = session.prov.activity(
                 activity_id, start_time, end_time, activity_attrs
             )
