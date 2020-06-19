@@ -3,6 +3,7 @@
 
 import datetime
 from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import prov.model as prov
@@ -80,7 +81,7 @@ class Equilibrium:
 
     def Btot(
         self, R: np.ArrayLike, z: np.ArrayLike, t: Optional[np.ArrayLike] = None
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
         """Total magnetic field strength at this location in space.
 
         Parameters
@@ -111,7 +112,7 @@ class Equilibrium:
         rho: np.ArrayLike,
         t: Optional[np.ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
         """Major radius position of the given flux surface on the Low Flux
          Side of the magnetic axis.
 
@@ -144,7 +145,7 @@ class Equilibrium:
         rho: np.ArrayLike,
         t: Optional[np.ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
         """Major radius position of the given flux surface on the High Flux
          Side of the magnetic axis.
 
@@ -175,7 +176,7 @@ class Equilibrium:
 
     def enclosed_volume(
         self, rho: np.ArrayLike, t: Optional[np.ArrayLike] = None
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
@@ -206,7 +207,7 @@ class Equilibrium:
         theta: np.ArrayLike,
         t: Optional[np.ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
         """Minor radius at the given locations in the tokamak.
 
         Parameters
@@ -242,7 +243,7 @@ class Equilibrium:
         z: np.ArrayLike,
         t: Optional[np.ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
         """Convert to the flux surface coordinate system.
 
         Parameters
@@ -280,7 +281,7 @@ class Equilibrium:
         theta: np.ArrayLike,
         t: Optional[np.ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
         """Convert to the spatial coordinate system.
 
         Parameters
@@ -319,7 +320,7 @@ class Equilibrium:
         t: Optional[np.ArrayLike] = None,
         from_kind: Optional[str] = "toroidal",
         to_kind: Optional[str] = "poloidal",
-    ) -> np.Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
         """Convert between different coordinate systems.
 
         Parameters

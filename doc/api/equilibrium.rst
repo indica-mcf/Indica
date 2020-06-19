@@ -3,4 +3,3 @@
 
 .. automodule:: equilibrium
    :members:
-   :imported-members:
