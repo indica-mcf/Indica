@@ -13,10 +13,12 @@ from warnings import warn
 import prov.model as prov
 from xarray import DataArray
 
-from datatypes import DatatypeWarning
-from datatypes import GENERAL_DATATYPES
-from datatypes import SPECIFIC_DATATYPES
-import session
+from ..datatypes import DatatypeWarning
+from ..datatypes import GENERAL_DATATYPES
+from ..datatypes import SPECIFIC_DATATYPES
+from ..session import global_session
+from ..session import hash_vals
+from ..session import Session
 
 
 DataType = Tuple[str, str]
@@ -64,7 +66,7 @@ class Operator(ABC):
     ARGUMENT_TYPES: ClassVar[List[DataType]] = []
     RETURN_TYPES: ClassVar[List[DataType]] = []
 
-    def __init__(self, sess: session.Session = session.global_session, **kwargs: Any):
+    def __init__(self, sess: Session = global_session, **kwargs: Any):
         """Creates a provenance entity/agent for the operator object. Also
         checks arguments and results are of valid datatypes. Should be
         called by initialisers in subclasses.
@@ -73,9 +75,7 @@ class Operator(ABC):
         self._session = sess
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
-        self.prov_id = session.hash_vals(
-            operator_type=self.__class__.__name__, **kwargs
-        )
+        self.prov_id = hash_vals(operator_type=self.__class__.__name__, **kwargs)
         self.agent = self._session.prov.agent(self.prov_id)
         self._session.prov.actedOnBehalfOf(self.agent, self._session.agent)
         self.entity = self._session.prov.entity(self.prov_id, kwargs)
@@ -181,7 +181,7 @@ class Operator(ABC):
 
         """
         end_time = datetime.datetime.now()
-        entity_id = session.hash_vals(
+        entity_id = hash_vals(
             creator=self.prov_id,
             date=end_time,
             **{
@@ -189,7 +189,7 @@ class Operator(ABC):
                 for i, p in enumerate(self._input_provenance)
             }
         )
-        activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
+        activity_id = hash_vals(agent=self.prov_id, date=end_time)
         # TODO: Should each subclass specify its own PROV_TYPE?
         activity = self._session.prov.activity(
             activity_id, self._start_time, end_time, {prov.PROV_TYPE: "Calculation"},

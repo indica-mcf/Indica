@@ -11,13 +11,13 @@ import prov.model as prov
 from xarray import DataArray
 from xarray import Dataset
 
-import utilities
+from .utilities import positional_parameters
 
 __author__ = "Marco Sertoli"
 __credits__ = ["Chris MacMackin", "Marco Sertoli"]
 
 
-global_session = None
+global_session: "Session"
 
 
 def get_dependency_data():
@@ -192,7 +192,7 @@ def generate_prov(pass_sess=False):
     """
 
     def outer_wrapper(func):
-        param_names, var_positional = utilities.positional_parameters(func)
+        param_names, var_positional = positional_parameters(func)
         num_positional = len(var_positional)
 
         @wraps(func)

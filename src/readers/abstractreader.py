@@ -19,12 +19,13 @@ import numpy as np
 import prov.model as prov
 from xarray import DataArray
 
-import datatypes
-import session
-from utilities import get_slice_limits
-from utilities import to_filename
 from .selectors import choose_on_plot
 from .selectors import DataSelector
+from ..datatypes import DataType
+from ..session import hash_vals
+from ..session import Session
+from ..utilities import get_slice_limits
+from ..utilities import to_filename
 
 # TODO: Place this in som global location?
 CACHE_DIR = ".impurities"
@@ -41,7 +42,7 @@ class DataReader(ABC):
 
     Attributes
     ----------
-    AVAILABLE_DATA: Dict[str, datatypes.DataType]
+    AVAILABLE_DATA: Dict[str, DataType]
         A mapping of the keys used to get each piece of data to the type of
         data associated with that key.
     NAMESPACE: Tuple[str, str]
@@ -58,9 +59,7 @@ class DataReader(ABC):
 
     """
 
-    DIAGNOSTIC_QUANTITIES: Dict[
-        str, Dict[str, Dict[str, Dict[str, datatypes.DataType]]]
-    ] = {}
+    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, DataType]]]] = {}
     RECORD_TEMPLATE = "{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
@@ -69,7 +68,7 @@ class DataReader(ABC):
         tstart: float,
         tend: float,
         max_freq: float,
-        sess: session.Session = session.global_session,
+        sess: Session,
         selector: DataSelector = choose_on_plot,
         **kwargs: Any
     ):
@@ -90,9 +89,7 @@ class DataReader(ABC):
         prov_attrs: Dict[str, Any] = dict(
             tstart=tstart, tend=tend, max_freq=max_freq, **kwargs
         )
-        self.prov_id = session.hash_vals(
-            reader_type=self.__class__.__name__, **prov_attrs
-        )
+        self.prov_id = hash_vals(reader_type=self.__class__.__name__, **prov_attrs)
         self.agent = self.session.prov.agent(self.prov_id)
         self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
         # TODO: Properly namespace the attributes on this entity.
@@ -407,7 +404,7 @@ class DataReader(ABC):
             A provenance entity for the newly read-in data.
         """
         end_time = datetime.datetime.now()
-        entity_id = session.hash_vals(
+        entity_id = hash_vals(
             creator=self.prov_id,
             diagnostic=diagnostic,
             uid=uid,
@@ -425,7 +422,7 @@ class DataReader(ABC):
             ),
             "ignored_channels": str(ignored),
         }
-        activity_id = session.hash_vals(agent=self.prov_id, date=end_time)
+        activity_id = hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(
             activity_id, self._start_time, end_time, {prov.PROV_TYPE: "ReadData"},
         )
@@ -505,7 +502,7 @@ class DataReader(ABC):
 
         """
         if "times" not in results:
-            nstart, nend = get_slice_limits(self._tstart, self._tend)
+            nstart, nend = get_slice_limits(self._tstart, self._tend, times)
             results["times"] = times[nstart, nend].copy()
         return nstart, nend
 

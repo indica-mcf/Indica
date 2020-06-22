@@ -14,11 +14,12 @@ from sal.client import AuthenticationFailed
 from sal.client import SALClient
 from sal.dataclass import Signal
 
-from datatypes import DataType
-import session
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
+from ..datatypes import DataType
+from ..session import global_session
+from ..session import Session
 
 
 class PPFReader(DataReader):
@@ -64,7 +65,7 @@ class PPFReader(DataReader):
     default_error : float
         Relative uncertainty to use for diagnostics which do not provide a
         value themselves.
-    sess : session.Session
+    sess : Session
         An object representing the session being run. Contains information
         such as provenance data.
 
@@ -133,7 +134,7 @@ class PPFReader(DataReader):
         default_error: float = 0.05,
         max_freq: float = 1e6,
         selector: DataSelector = choose_on_plot,
-        sess: session.Session = session.global_session,
+        sess: Session = global_session,
     ):
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
         super().__init__(

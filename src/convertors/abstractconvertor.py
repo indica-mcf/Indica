@@ -10,7 +10,9 @@ from typing import Tuple
 
 import numpy as np
 
-Coordinates = Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]
+from ..numpy_typing import ArrayLike
+
+Coordinates = Tuple[ArrayLike, ArrayLike, ArrayLike]
 
 
 class EquilibriumException(Exception):
@@ -57,18 +59,18 @@ class CoordinateTransform(ABC):
 
     def __init__(
         self,
-        default_x1: np.ArrayLike,
-        default_x2: np.ArrayLike,
-        default_R: np.ArrayLike,
-        default_z: np.ArrayLike,
-        default_t: np.ArrayLike,
+        default_x1: ArrayLike,
+        default_x2: ArrayLike,
+        default_R: ArrayLike,
+        default_z: ArrayLike,
+        default_t: ArrayLike,
     ):
         self.default_x1 = default_x1
         self.default_x2 = default_x2
         self.default_R = default_R
         self.default_z = default_z
         self.default_t = default_t
-        self.default_distance: List[Tuple[np.ArrayLike, np.ArrayLike]] = [
+        self.default_distance: List[Tuple[ArrayLike, ArrayLike]] = [
             (None, None),
             (None, None),
         ]
@@ -105,9 +107,9 @@ class CoordinateTransform(ABC):
     def convert_to(
         self,
         other: "CoordinateTransform",
-        x1: Optional[np.ArrayLike] = None,
-        x2: Optional[np.ArrayLike] = None,
-        t: Optional[np.ArrayLike] = None,
+        x1: Optional[ArrayLike] = None,
+        x2: Optional[ArrayLike] = None,
+        t: Optional[ArrayLike] = None,
     ) -> Coordinates:
         """General routine to map coordinates from this system to those used
         in ``other``. Array broadcasting will be performed as necessary.
@@ -151,9 +153,9 @@ class CoordinateTransform(ABC):
 
     def convert_to_Rz(
         self,
-        x1: Optional[np.ArrayLike] = None,
-        x2: Optional[np.ArrayLike] = None,
-        t: Optional[np.ArrayLike] = None,
+        x1: Optional[ArrayLike] = None,
+        x2: Optional[ArrayLike] = None,
+        t: Optional[ArrayLike] = None,
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
@@ -203,9 +205,7 @@ class CoordinateTransform(ABC):
             return self._convert_to_Rz(x1, x2, t)
 
     @abstractmethod
-    def _convert_to_Rz(
-        self, x1: np.ArrayLike, x2: np.ArrayLike, t: np.ArrayLike
-    ) -> Coordinates:
+    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
         """Implementation of conversion to the R-z coordinate system, without
         caching or default argument values.
         """
@@ -216,9 +216,9 @@ class CoordinateTransform(ABC):
 
     def convert_from_Rz(
         self,
-        R: Optional[np.ArrayLike] = None,
-        z: Optional[np.ArrayLike] = None,
-        t: Optional[np.ArrayLike] = None,
+        R: Optional[ArrayLike] = None,
+        z: Optional[ArrayLike] = None,
+        t: Optional[ArrayLike] = None,
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
@@ -268,9 +268,7 @@ class CoordinateTransform(ABC):
             return self._convert_from_Rz(R, z, t)
 
     @abstractmethod
-    def _convert_from_Rz(
-        self, R: np.ArrayLike, z: np.ArrayLike, t: np.ArrayLike
-    ) -> Coordinates:
+    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
         """Implementation of conversion from the R-z coordinate system, without
         caching or default argument values.
         """
@@ -282,10 +280,10 @@ class CoordinateTransform(ABC):
     def distance(
         self,
         direction: int,
-        x1: Optional[np.ArrayLike] = None,
-        x2: Optional[np.ArrayLike] = None,
-        t: Optional[np.ArrayLike] = None,
-    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
+        x1: Optional[ArrayLike] = None,
+        x2: Optional[ArrayLike] = None,
+        t: Optional[ArrayLike] = None,
+    ) -> Tuple[ArrayLike, ArrayLike]:
         """Give the distance (in physical space) from the origin in the
         specified direction.
 

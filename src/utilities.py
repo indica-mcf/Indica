@@ -10,6 +10,8 @@ from typing import Tuple
 
 import numpy as np
 
+from .numpy_typing import ArrayLike
+
 
 def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional[str]]:
     """Returns an ordered list of the names of arguments which can be
@@ -45,7 +47,7 @@ def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional
     return param_names, var_positional
 
 
-def sum_squares(x: np.ArrayLike, axis: int, **kwargs: Any) -> np.ArrayLike:
+def sum_squares(x: ArrayLike, axis: int, **kwargs: Any) -> ArrayLike:
     """Perform a reduction on the provided data by taking the sum of squares.
 
     Parameters
@@ -61,7 +63,7 @@ def sum_squares(x: np.ArrayLike, axis: int, **kwargs: Any) -> np.ArrayLike:
     return np.sum(x ** 2, axis=axis)
 
 
-def get_slice_limits(low: float, high: float, data: np.ArrayLike) -> Tuple[int, int]:
+def get_slice_limits(low: float, high: float, data: ArrayLike) -> Tuple[int, int]:
     """Returns the start and end points needed to slice ``data`` so that
     all values fall between ``high`` and ``low`` (inclusive).
 

@@ -4,8 +4,8 @@ import numpy as np
 from xarray import DataArray
 from xarray import sqrt
 
-import session
-from utilities import sum_squares
+from ..session import generate_prov
+from ..utilities import sum_squares
 
 
 def convert_in_time(
@@ -45,7 +45,7 @@ def convert_in_time(
         return interpolate_in_time(tstart, tend, interval, data, method)
 
 
-@session.generate_prov
+@generate_prov
 def interpolate_in_time(
     tstart: float,
     tend: float,
@@ -91,7 +91,7 @@ def interpolate_in_time(
     return data.interp(t=tvals, method=method)
 
 
-@session.generate_prov
+@generate_prov
 def bin_in_time(
     tstart: float, tend: float, interval: float, data: DataArray
 ) -> DataArray:

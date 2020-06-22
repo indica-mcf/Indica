@@ -9,7 +9,12 @@ import numpy as np
 import prov.model as prov
 from xarray import DataArray
 
-import session
+from .numpy_typing import ArrayLike
+from .session import global_session
+from .session import hash_vals
+from .session import Session
+
+# TODO: This is not available in current release, so find some other solution:
 
 
 class Equilibrium:
@@ -24,7 +29,7 @@ class Equilibrium:
         z_sep: DataArray,
         tstart: float,
         tend: float,
-        sess: session.Session = session.global_session,
+        sess: Session = global_session,
         **kwargs
     ):
         self.R_ax = R_ax
@@ -34,7 +39,7 @@ class Equilibrium:
         self.tstart = tstart
         self.tend = tend
         self._session = sess
-        self.prov_id = session.hash_vals(
+        self.prov_id = hash_vals(
             equilib_type=self.__class__.__name__,
             R_ax=R_ax,
             z_ax=z_ax,
@@ -44,17 +49,17 @@ class Equilibrium:
             tend=tend,
             **kwargs
         )
-        self.provenance = session.prov.entity(
+        self.provenance = sess.prov.entity(
             self.prov_id,
             dict(
                 **{"tstart": tstart, "tend": tend, prov.PROV_TYPE: "Equilibrium"},
                 **kwargs
             ),
         )
-        session.prov.generation(
-            self.provenance, session.session, time=datetime.datetime.now()
+        sess.prov.generation(
+            self.provenance, sess.session, time=datetime.datetime.now()
         )
-        session.prov.attribution(self.provenance, session.agent)
+        sess.prov.attribution(self.provenance, sess.agent)
         self.provenance.wasDerivedFrom(R_ax.attrs["provenance"])
         self.provenance.wasDerivedFrom(z_ax.attrs["provenance"])
         self.provenance.wasDerivedFrom(R_sep.attrs["provenance"])
@@ -80,8 +85,8 @@ class Equilibrium:
         pass
 
     def Btot(
-        self, R: np.ArrayLike, z: np.ArrayLike, t: Optional[np.ArrayLike] = None
-    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
+        self, R: ArrayLike, z: ArrayLike, t: Optional[ArrayLike] = None
+    ) -> Tuple[ArrayLike, ArrayLike]:
         """Total magnetic field strength at this location in space.
 
         Parameters
@@ -108,11 +113,8 @@ class Equilibrium:
         )
 
     def R_lfs(
-        self,
-        rho: np.ArrayLike,
-        t: Optional[np.ArrayLike] = None,
-        kind: str = "toroidal",
-    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
+        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "toroidal",
+    ) -> Tuple[ArrayLike, ArrayLike]:
         """Major radius position of the given flux surface on the Low Flux
          Side of the magnetic axis.
 
@@ -141,11 +143,8 @@ class Equilibrium:
         return R, t
 
     def R_hfs(
-        self,
-        rho: np.ArrayLike,
-        t: Optional[np.ArrayLike] = None,
-        kind: str = "toroidal",
-    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
+        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "toroidal",
+    ) -> Tuple[ArrayLike, ArrayLike]:
         """Major radius position of the given flux surface on the High Flux
          Side of the magnetic axis.
 
@@ -175,8 +174,8 @@ class Equilibrium:
         return R, t
 
     def enclosed_volume(
-        self, rho: np.ArrayLike, t: Optional[np.ArrayLike] = None
-    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
+        self, rho: ArrayLike, t: Optional[ArrayLike] = None
+    ) -> Tuple[ArrayLike, ArrayLike]:
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
@@ -203,11 +202,11 @@ class Equilibrium:
 
     def minor_radius(
         self,
-        rho: np.ArrayLike,
-        theta: np.ArrayLike,
-        t: Optional[np.ArrayLike] = None,
+        rho: ArrayLike,
+        theta: ArrayLike,
+        t: Optional[ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> Tuple[np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[ArrayLike, ArrayLike]:
         """Minor radius at the given locations in the tokamak.
 
         Parameters
@@ -239,11 +238,11 @@ class Equilibrium:
 
     def flux_coords(
         self,
-        R: np.ArrayLike,
-        z: np.ArrayLike,
-        t: Optional[np.ArrayLike] = None,
+        R: ArrayLike,
+        z: ArrayLike,
+        t: Optional[ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[ArrayLike, ArrayLike, ArrayLike]:
         """Convert to the flux surface coordinate system.
 
         Parameters
@@ -277,11 +276,11 @@ class Equilibrium:
 
     def spatial_coords(
         self,
-        rho: np.ArrayLike,
-        theta: np.ArrayLike,
-        t: Optional[np.ArrayLike] = None,
+        rho: ArrayLike,
+        theta: ArrayLike,
+        t: Optional[ArrayLike] = None,
         kind: str = "toroidal",
-    ) -> Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[ArrayLike, ArrayLike, ArrayLike]:
         """Convert to the spatial coordinate system.
 
         Parameters
@@ -315,12 +314,12 @@ class Equilibrium:
 
     def convert_flux_coords(
         self,
-        rho: np.ArrayLike,
-        theta: np.ArrayLike,
-        t: Optional[np.ArrayLike] = None,
+        rho: ArrayLike,
+        theta: ArrayLike,
+        t: Optional[ArrayLike] = None,
         from_kind: Optional[str] = "toroidal",
         to_kind: Optional[str] = "poloidal",
-    ) -> Tuple[np.ArrayLike, np.ArrayLike, np.ArrayLike]:
+    ) -> Tuple[ArrayLike, ArrayLike, ArrayLike]:
         """Convert between different coordinate systems.
 
         Parameters

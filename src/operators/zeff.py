@@ -1,8 +1,9 @@
 """Simple example of an operator calculating $Z_{eff}$.
 """
 
-import session
 from .abstractoperator import Operator
+from ..session import global_session
+from ..session import Session
 
 
 class CalcZeff(Operator):
@@ -41,7 +42,7 @@ class CalcZeff(Operator):
     ]
     RESULT_TYPES = [("effective_charge", "plasma")]
 
-    def __init__(self, adas_data: str, sess: session.Session = session.global_session):
+    def __init__(self, adas_data: str, sess: Session = global_session):
         """Creates a provenance entity/agent for the operator object.
 
         Parameters

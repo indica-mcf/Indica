@@ -9,6 +9,7 @@ from scipy.interp import interp2d
 
 from .abstractconvertor import Coordinates
 from .abstractconvertor import CoordinateTransform
+from ..numpy_typing import ArrayLike
 
 
 class LinesOfSightTransform(CoordinateTransform):
@@ -79,16 +80,12 @@ class LinesOfSightTransform(CoordinateTransform):
         self.R_end = R_end
         self.z_end = z_end
         self.index_inversion: Optional[
-            Callable[[np.ArrayLike, np.ArrayLike], np.ArrayLike]
+            Callable[[ArrayLike, ArrayLike], ArrayLike]
         ] = None
-        self.x2_inversion: Optional[
-            Callable[[np.ArrayLike, np.ArrayLike], np.ArrayLike]
-        ] = None
+        self.x2_inversion: Optional[Callable[[ArrayLike, ArrayLike], ArrayLike]] = None
         super().__init__(indices, x2, R_default, z_default, 0)
 
-    def _convert_to_Rz(
-        self, x1: np.ArrayLike, x2: np.ArrayLike, t: np.ArrayLike
-    ) -> Coordinates:
+    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
         c = np.ceil(x1)
         f = np.floor(x1)
         Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
@@ -99,9 +96,7 @@ class LinesOfSightTransform(CoordinateTransform):
         z = zs + (ze - zs) * x2
         return R, z, t
 
-    def _convert_from_Rz(
-        self, R: np.ArrayLike, z: np.ArrayLike, t: np.ArrayLike
-    ) -> Coordinates:
+    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
         # TODO: Consider if there is some way to invert this exactly,
         # rather than rely on interpolation (which is necessarily
         # inexact, as well as computationally expensive).

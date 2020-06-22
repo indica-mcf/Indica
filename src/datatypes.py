@@ -2,9 +2,10 @@
 
 """
 
+from typing import Optional
 from typing import Tuple
 
-DataType = Tuple[str, str]
+DataType = Tuple[str, Optional[str]]
 
 #: Information on the general datatypes, stored in a dictionary. Keys
 #  are the names of the datatypes, values are tuples where the first

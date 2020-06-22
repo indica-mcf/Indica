@@ -1,5 +1,5 @@
 ``equilibrium`` module
 ======================
 
-.. automodule:: equilibrium
+.. automodule:: src.equilibrium
    :members:

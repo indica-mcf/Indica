@@ -1,5 +1,5 @@
 ``session`` Module
 ==================
 
-.. automodule:: session
+.. automodule:: src.session
    :members:
