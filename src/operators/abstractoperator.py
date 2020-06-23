@@ -7,12 +7,14 @@ import datetime
 from typing import Any
 from typing import ClassVar
 from typing import List
-from typing import Tuple
+from typing import Union
 from warnings import warn
 
 import prov.model as prov
 from xarray import DataArray
+from xarray import Dataset
 
+from ..datatypes import DataType
 from ..datatypes import DatatypeWarning
 from ..datatypes import GENERAL_DATATYPES
 from ..datatypes import SPECIFIC_DATATYPES
@@ -20,8 +22,7 @@ from ..session import global_session
 from ..session import hash_vals
 from ..session import Session
 
-
-DataType = Tuple[str, str]
+Data = Union[DataArray, Dataset]
 
 
 class OperatorError(Exception):
@@ -119,7 +120,7 @@ class Operator(ABC):
                     DatatypeWarning,
                 )
 
-    def validate_arguments(self, *args: DataArray):
+    def validate_arguments(self, *args: Data):
         """Checks that arguments to the operator are of the expected types.
 
         Also gathers provenance information for use later.

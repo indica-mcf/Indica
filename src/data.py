@@ -2,15 +2,21 @@
 
 """
 
-import xarray
+from typing import Optional
+from typing import Tuple
+
+import xarray as xr
+
+from .datatypes import ArrayType
+from .datatypes import DatasetType
 
 
-@xarray.register_dataarray_accessor("composition")
-class CompositionAccessor:
-    def __init__(self, xarray_obj):
+@xr.register_dataarray_accessor("composition")
+class CompositionArrayAccessor:
+    def __init__(self, xarray_obj: xr.DataArray):
         self._obj = xarray_obj
 
-    def remap_like(self, other: xarray.DataArray):
+    def remap_like(self, other: xr.DataArray):
         """Remap and interpolate the data in this array onto a new coordinate
         system.
 
@@ -29,6 +35,7 @@ class CompositionAccessor:
         # TODO: add more checks that a remap is possibe.
         # TODO: add some checks to catch trivial cases
         # TODO: check the mapping methods are actually present
+        # TODO: add provenance, such as making result an alternate version of original
         dims_other = list(other.dims)
         try:
             dims_other.remove("t")
@@ -44,8 +51,8 @@ class CompositionAccessor:
         else:
             x2_other = None
 
-        x1_map, x2_map, t_map = self._obj.attrs["map_from_master"](
-            *other.attrs["map_to_master"](x1_other, x2_other, t_other)
+        x1_map, x2_map, t_map = self._obj.attrs["transform"](
+            other.attrs["transform"], x1_other, x2_other, t_other
         )
 
         dims_self = list(other.dims)
@@ -70,10 +77,111 @@ class CompositionAccessor:
             coords_self.append(("t", other.coords["t"]))
 
         if has_x1:
-            coords_map[dims_self[0]] = xarray.DataArray(x1_map, coords=coords_self)
+            coords_map[dims_self[0]] = xr.DataArray(x1_map, coords=coords_self)
         if has_x2:
-            coords_map[dims_self[1]] = xarray.DataArray(x2_map, coords=coords_self)
+            coords_map[dims_self[1]] = xr.DataArray(x2_map, coords=coords_self)
         if has_t:
-            coords_map["t"] = xarray.DataArray(t_map, coords=coords_self)
-
+            coords_map["t"] = xr.DataArray(t_map, coords=coords_self)
         return self._obj.interp(coords_map)
+
+    def check_datatype(self, data_type: ArrayType) -> Tuple[bool, Optional[str]]:
+        """Checks that the dasta type of this :py:class:`xarray.DataArray`
+        matches the argument.
+
+        Parameters
+        ----------
+        datatype
+            The datatype to check this array against.
+
+        Returns
+        -------
+        status
+            Whether the datatype of this array matches the argument.
+        message
+            If ``status == False``, an explaination of why.
+
+        """
+        pass
+
+
+@xr.register_dataset_accessor("composition")
+class CompositionDatasetAccessor:
+    def __init__(self, xarray_obj: xr.Dataset):
+        self._obj = xarray_obj
+
+    def attach(self, key: str, array: xr.DataArray, overwrite: bool = False):
+        """Adds an additional :py:class:`xarray.DataArray` to this
+        :py:class:`xarray.Dataset`. This dataset must be used for
+        aggregating data with the same specific datatype (see
+        :py:data:`SPECIFIC_DATATYPES`).
+
+        It will update the metadata (datatype and provenance) to
+        ensure the new DataArray is correctly included. If there is
+        already an item with that key then it will raise an exception
+        (unless the value is the same). This behaviour can be
+        overridden with the `overwrite` argument.
+
+        This function will fail if the specific datatyp for ``array``
+        differs from that for this Dataset. It will also fail if the
+        dimensions of ``array`` differ from those of the Dataset.
+
+        Parameters
+        ----------
+        key
+            The label which will map to the new data
+        array
+            The data to be added to this :py:class:`xarray.Dataset`
+        overwrite
+            If ``True`` and ``key`` already exists in this Dataset then
+            overwrite the old value. Otherwise raise an error.
+        """
+        pass
+
+    @property
+    def datatype(self) -> DatasetType:
+        """Returns a structure describing the data contained within this Dataset.
+
+        """
+        pass
+
+    def check_datatype(self, datatype: DatasetType) -> Tuple[bool, Optional[str]]:
+        """Checks that the dasta type of this :py:class:`xarray.DataArray`
+        matches the argument.
+
+        This checks that all of the key/value pairs present in
+        ``datatype`` match those in this Dataset. It will still return
+        ``True`` even if there are _additional_ members of this
+        dataset not included in ``datatype``.
+
+        Parameters
+        ----------
+        datatype
+            The datatype to check this Dataset against.
+
+        Returns
+        -------
+        status
+            Whether the datatype of this array matches the argument.
+        message
+            If ``status == False``, an explaination of why.
+
+        """
+        pass
+
+
+def aggregate(**kwargs: xr.DataArray) -> xr.Dataset:
+    """Combines the key-value pairs in ``kwargs`` into a Dataset,
+    performing various checks.
+
+    In order for this to succeed, the following must hold:
+    - All arguments must have the same specific datatype (see
+     :py:data:`SPECIFIC_DATATYPES`).
+    - All arguments must use the same coordinate system.
+    - All arguments must use the same :py:class`CoordinateTransform` object
+    - All arguments need to store data on the same grid
+
+    In addition to performing these checks, this function will create
+    the correct provenance.
+
+    """
+    pass

@@ -2,16 +2,39 @@
 
 """
 
+from typing import Dict
+from typing import Literal
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
-DataType = Tuple[str, Optional[str]]
+
+GeneralDataType = Literal[
+    "angular_freq",
+    "concentration",
+    "effective_charge",
+    "luminous_flux",
+    "major_rad",
+    "number_density",
+    "temperature",
+    "z",
+]
+SpecificDataType = Literal[
+    "beryllium",
+    "electrons",
+    "mag_axis",
+    "nickle",
+    "plasma",
+    "separatrix_axis",
+    "sxr",
+    "tungston",
+]
 
 #: Information on the general datatypes, stored in a dictionary. Keys
 #  are the names of the datatypes, values are tuples where the first
 #  element is a description and the second is the units for the data
 #  (empty if unitless).
-GENERAL_DATATYPES = {
+GENERAL_DATATYPES: Dict[str, Tuple[str, str]] = {
     "angular_freq": (
         "Angular speed at which a species of" " ion completes a loop of the Tokamak",
         "\rad s^{-1}",
@@ -38,7 +61,7 @@ GENERAL_DATATYPES = {
 #  applied to. This could be a type of ion, subatomic particle,
 #  etc. The key is a designator for the specific datatype and the
 #  value is a description.
-SPECIFIC_DATATYPES = {
+SPECIFIC_DATATYPES: Dict[str, str] = {
     "beryllium": "Beryllium ions in plasma",
     "electrons": "Electron gas in plasma",
     "mag_axis": "Magnetic axis for equilibrium in tokamak",
@@ -48,6 +71,12 @@ SPECIFIC_DATATYPES = {
     "sxr": "Soft X-rays",
     "tungston": "Tungston ions in plasma",
 }
+
+#: Structure for type information for :py:class:`xarray.DataArray` objects.
+ArrayType = Tuple[str, Optional[str]]
+#: Structure for type information for :py:class:`xarray.Dataset` objects.
+DatasetType = Tuple[str, Dict[str, str]]
+DataType = Union[ArrayType, DatasetType]
 
 
 class DatatypeWarning(Warning):

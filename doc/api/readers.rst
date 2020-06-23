@@ -1,5 +1,5 @@
-``reader`` Module
-=================
+``readers`` Module
+==================
 
 .. automodule:: src.readers
    :members:

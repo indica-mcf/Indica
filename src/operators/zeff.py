@@ -1,7 +1,11 @@
 """Simple example of an operator calculating $Z_{eff}$.
 """
 
+from typing import ClassVar
+from typing import List
+
 from .abstractoperator import Operator
+from ..datatypes import DataType
 from ..session import global_session
 from ..session import Session
 
@@ -35,7 +39,7 @@ class CalcZeff(Operator):
         Ordered list of the types of data returned by the operator.
     """
 
-    ARGUMENT_TYPES = [
+    ARGUMENT_TYPES: ClassVar[List[DataType]] = [
         ("number_desnity", "electrons"),
         ("number_density", "beryllium"),
         ("temperature", "electrons"),

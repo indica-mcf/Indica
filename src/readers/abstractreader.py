@@ -18,10 +18,11 @@ from typing import Tuple
 import numpy as np
 import prov.model as prov
 from xarray import DataArray
+from xarray import Dataset
 
 from .selectors import choose_on_plot
 from .selectors import DataSelector
-from ..datatypes import DataType
+from ..datatypes import ArrayType
 from ..session import hash_vals
 from ..session import Session
 from ..utilities import get_slice_limits
@@ -42,9 +43,6 @@ class DataReader(ABC):
 
     Attributes
     ----------
-    AVAILABLE_DATA: Dict[str, DataType]
-        A mapping of the keys used to get each piece of data to the type of
-        data associated with that key.
     NAMESPACE: Tuple[str, str]
         The abbreviation and full URL for the PROV namespace of the reader
         class.
@@ -59,7 +57,7 @@ class DataReader(ABC):
 
     """
 
-    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, DataType]]]] = {}
+    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, ArrayType]]]] = {}
     RECORD_TEMPLATE = "{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
@@ -115,7 +113,7 @@ class DataReader(ABC):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"ne", "te"},
-    ) -> Dict[str, DataArray]:
+    ) -> Dataset:
         """Reads data based on Thomson Scattering.
 
         Parameters
@@ -134,7 +132,7 @@ class DataReader(ABC):
         Returns
         -------
         :
-            A dictionary containing the requested physical quantities.
+            A dataset containing the requested physical quantities.
         """
         available_quantities = self.DIAGNOSTIC_QUANTITIES["thomson_scattering"][uid][
             instrument
@@ -178,7 +176,7 @@ class DataReader(ABC):
                 drop,
             )
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
-        return data
+        return Dataset(data)
 
     def _get_thomson_scattering(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
@@ -238,7 +236,7 @@ class DataReader(ABC):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"ne", "te"},
-    ) -> Dict[str, DataArray]:
+    ) -> Dataset:
         """Reads charge exchange data.
 
         Parameters
@@ -302,7 +300,7 @@ class DataReader(ABC):
                 drop,
             )
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
-        return data
+        return Dataset(data)
 
     def _get_charge_exchange(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
@@ -536,7 +534,7 @@ class DataReader(ABC):
         Returns
         -------
         :
-            True of authenticationis needed, otherwise false.
+            True if authenticationis needed, otherwise false.
         """
         raise NotImplementedError(
             "{} does not implement a "
