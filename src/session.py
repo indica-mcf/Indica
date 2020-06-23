@@ -5,6 +5,7 @@
 import datetime
 from functools import wraps
 import hashlib
+import re
 import typing
 
 import prov.model as prov
@@ -13,9 +14,16 @@ from xarray import Dataset
 
 from .utilities import positional_parameters
 
+if typing.TYPE_CHECKING:
+    from readers import DataReader
+    from equilibrium import Equilibrium
+    from operators import Operator
+
 __author__ = "Marco Sertoli"
 __credits__ = ["Chris MacMackin", "Marco Sertoli"]
 
+
+ORCID_RE = re.compile(r"^\d{4}-\d{4}-\d{4}-\d{4}$")
 
 global_session: "Session"
 
@@ -82,11 +90,14 @@ class Session:
 
     """
 
-    def __init__(self, user_orcid: str):
+    def __init__(self, user_id: str):
         self.prov = prov.ProvDocument()
         self.prov.set_default_namespace("https://ccfe.ukaea.uk/")
-        self.prov.add_namespace("orcid", "https://orcid.org/")
-        self._user = [self.prov.agent("orcid:" + user_orcid)]
+        if ORCID_RE.match(user_id):
+            self.prov.add_namespace("orcid", "https://orcid.org/")
+            self._user = [self.prov.agent("orcid:" + user_id)]
+        else:
+            self._user = [self.prov.agent(user_id)]
         date = datetime.datetime.now()
         session_properties = {"os": None, "directory": None, "host": None}
         session_id = hash_vals(startTime=date, **session_properties)
@@ -94,6 +105,9 @@ class Session:
         self.prov.association(self.session, self._user[0])
 
         self.data: typing.Dict[str, typing.Union[DataArray, Dataset]] = {}
+        self.equilibria: typing.Dict[str, Equilibrium] = {}
+        self.operators: typing.Dict[str, Operator] = {}
+        self.readers: typing.Dict[str, DataReader] = {}
 
     def __enter__(self):
         global global_session
@@ -160,7 +174,7 @@ class Session:
 
         Parameters
         ----------
-        user_orcid
+        user_id
             An identifier, such as an email address or ORCiD ID, for the person
             using the software.
 
@@ -170,7 +184,10 @@ class Session:
 
     @classmethod
     def reload(cls, filename: str) -> "Session":
-        """Create a session from a saved which was written to ``filename``.
+        """Create a session from a saved which was written to
+        ``filename``. Thanks to some Python voodoo, any local
+        variables in ``__main__`` will be recreated.
+
         """
         pass
 
