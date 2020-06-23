@@ -12,3 +12,4 @@ Contents:
    api/operators.rst
    api/readers.rst
    api/session.rst
+   api/writers.rst
