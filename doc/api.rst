@@ -13,3 +13,4 @@ Contents:
    api/readers.rst
    api/session.rst
    api/writers.rst
+   api/xarray.rst
