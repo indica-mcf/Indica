@@ -2,6 +2,7 @@
 """
 
 import datetime
+from typing import Dict
 from typing import Optional
 from typing import Tuple
 
@@ -10,79 +11,59 @@ import prov.model as prov
 from xarray import DataArray
 
 from .numpy_typing import ArrayLike
+from .offset import interactive_offset_choice
+from .offset import OffsetPicker
 from .session import global_session
 from .session import hash_vals
 from .session import Session
 
-# TODO: This is not available in current release, so find some other solution:
-
 
 class Equilibrium:
-    """Abstract base class for reading in equilibrium data.
+    """Class to hold and interpolate equilibrium data.
+
+    At instantiation it will require calibration to select an offset
+    along the major radius. Electron temperature data is provided for
+    this purpose. Once calibrated, the electron temperature at
+    normalised flux surface rho = 1 should be about 100eV.
+
+    Parameters
+    ----------
+    equilibrium_data : Dict[str, DataArray]
+        A collection of equilibrium data rea in using
+        :py:meth:`~src.readers.DataReader.get_equilibrium`. TODO: List full set
+        of required quantities.
+    T_e : DataArray
+        Electron temperature data (from HRTS on JET).
+    sess : Session
+        An object representing the session being run. Contains information
+        such as provenance data.
+    offset_picker: OffsetPicker
+        A callback which determines by how much to offset the equilibrium data
+        along the major radius. Allows the user to select this interactively.
+
     """
 
     def __init__(
         self,
-        R_ax: DataArray,
-        z_ax: DataArray,
-        R_sep: DataArray,
-        z_sep: DataArray,
-        tstart: float,
-        tend: float,
+        equilibrium_data: Dict[str, DataArray],
+        T_e: DataArray,
         sess: Session = global_session,
+        ofsset_picker: OffsetPicker = interactive_offset_choice,
         **kwargs
     ):
-        self.R_ax = R_ax
-        self.z_ax = z_ax
-        self.R_sep = R_sep
-        self.z_sep = z_sep
-        self.tstart = tstart
-        self.tend = tend
         self._session = sess
-        self.prov_id = hash_vals(
-            equilib_type=self.__class__.__name__,
-            R_ax=R_ax,
-            z_ax=z_ax,
-            R_sep=R_sep,
-            z_sep=z_sep,
-            tstart=tstart,
-            tend=tend,
-            **kwargs
-        )
+        # TODO: Collect necessary data from ``equilbrium_data`` and
+        # interpolate as needed
+        # TODO: calibrate the equilibrium
+        self.prov_id = hash_vals(**equilibrium_data)
         self.provenance = sess.prov.entity(
-            self.prov_id,
-            dict(
-                **{"tstart": tstart, "tend": tend, prov.PROV_TYPE: "Equilibrium"},
-                **kwargs
-            ),
+            self.prov_id, dict(**{prov.PROV_TYPE: "Equilibrium"},),
         )
         sess.prov.generation(
             self.provenance, sess.session, time=datetime.datetime.now()
         )
         sess.prov.attribution(self.provenance, sess.agent)
-        self.provenance.wasDerivedFrom(R_ax.attrs["provenance"])
-        self.provenance.wasDerivedFrom(z_ax.attrs["provenance"])
-        self.provenance.wasDerivedFrom(R_sep.attrs["provenance"])
-        self.provenance.wasDerivedFrom(z_sep.attrs["provenance"])
-
-    def calibrate(self, T_e: DataArray):
-        """Works out the offset needed for the for the equilibrium to line up
-        properly. (I.e., to ensure the electron temperature is about
-        100eV at the separatrix).
-
-        Parameters
-        ----------
-        T_e
-            Electron temperature data (from HRTS on JET).
-
-        """
-        # TODO: Define an interface so can pass in a prompt function
-        # (with sane default).
-        # TODO: Actually write this
-        # TODO: Determine what to do with result (return it, use internally,
-        #       etc.)
-        # TODO: Maybe I should call this with the constructor.
-        pass
+        # TODO: Add PROV dependencies to ``equilibrium_data``
 
     def Btot(
         self, R: ArrayLike, z: ArrayLike, t: Optional[ArrayLike] = None
@@ -109,7 +90,7 @@ class Equilibrium:
             results are given for. Otherwise return the argument.
         """
         raise NotImplementedError(
-            "{} does not implement an 'Btot' " "method.".format(self.__class__.__name__)
+            "{} does not implement an 'Btot' method.".format(self.__class__.__name__)
         )
 
     def R_lfs(
