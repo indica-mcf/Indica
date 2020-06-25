@@ -18,7 +18,6 @@ from typing import Tuple
 import numpy as np
 import prov.model as prov
 from xarray import DataArray
-from xarray import Dataset
 
 from .selectors import choose_on_plot
 from .selectors import DataSelector
@@ -137,7 +136,7 @@ class DataReader(ABC):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"ne", "te"},
-    ) -> Dataset:
+    ) -> Dict[str, DataArray]:
         """Reads data based on Thomson Scattering.
 
         Parameters
@@ -200,7 +199,7 @@ class DataReader(ABC):
                 drop,
             )
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
-        return Dataset(data)
+        return data
 
     def _get_thomson_scattering(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
@@ -260,7 +259,7 @@ class DataReader(ABC):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"ne", "te"},
-    ) -> Dataset:
+    ) -> Dict[str, DataArray]:
         """Reads charge exchange data.
 
         Parameters
@@ -324,7 +323,7 @@ class DataReader(ABC):
                 drop,
             )
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
-        return Dataset(data)
+        return data
 
     def _get_charge_exchange(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
