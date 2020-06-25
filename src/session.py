@@ -192,6 +192,9 @@ class Session:
         pass
 
 
+global_session = Session("")
+
+
 def generate_prov(pass_sess=False):
     """Decorator to be applied to functions generating
     :py:class:`xarray.DataArray` output. It will produce PROV data and
