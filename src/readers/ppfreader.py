@@ -71,9 +71,11 @@ class PPFReader(DataReader):
 
     Attributes
     ----------
-    AVAILABLE_DATA: Dict[str, DataType]
-        A mapping of the keys used to get each piece of data to the type of
-        data associated with that key.
+    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, ArrayType]]]]
+        Hierarchical information on the quantities which are available for
+        reading. These are indexed by (in order) diagnostic name, UID,
+        instrument name, and quantity name. The values of the innermost
+        dictionary describe the physical type of the data to be read.
     NAMESPACE: Tuple[str, str]
         The abbreviation and full URL for the PROV namespace of the reader
         class.
@@ -303,6 +305,13 @@ class PPFReader(DataReader):
 
     @property
     def requires_authentication(self):
+        """Indicates whether authentication is required to read data.
+
+        Returns
+        -------
+        :
+            True if authenticationis needed, otherwise false.
+        """
         # Perform the necessary logic to know whether authentication is needed.
         return not socket.gethostname().startswith("heimdall")
 

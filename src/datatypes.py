@@ -55,8 +55,10 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
 
 #: Structure for type information for :py:class:`xarray.DataArray` objects.
 ArrayType = Tuple[GeneralDataType, Optional[SpecificDataType]]
+
 #: Structure for type information for :py:class:`xarray.Dataset` objects.
 DatasetType = Tuple[SpecificDataType, Dict[str, GeneralDataType]]
+
 DataType = Union[ArrayType, DatasetType]
 
 

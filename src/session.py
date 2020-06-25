@@ -76,17 +76,21 @@ class Session:
 
     Attributes
     ----------
-    prov: prov.model.ProvDocument
-        The document containing all of the provenance information for this
-        session.
-    session: prov.model.ProvActivity
-        The provenance Activity object representing this session. It should
-        contain information about versions of different libraries being used.
     data: typing.Dict[str, DataArray]
         All of the data which has been read in or calculated during this
         session.
-    operators: Dict[str, AbstractOperator]
+    equilibria: typing.Dict[str, Equilibrium]
+        All of the equilibrium objects which have been created during this
+        session.
+    operators: typing.Dict[str, AbstractOperator]
         All of the operators which have been instantiated during this session.
+    prov: prov.model.ProvDocument
+        The document containing all of the provenance information for this
+        session.
+    readers: typing.Dict[str, DataReader]
+    session: prov.model.ProvActivity
+        The provenance Activity object representing this session. It should
+        contain information about versions of different libraries being used.
 
     """
 
@@ -195,7 +199,7 @@ class Session:
 global_session = Session("")
 
 
-def generate_prov(pass_sess=False):
+def generate_prov(pass_sess: bool = False):
     """Decorator to be applied to functions generating
     :py:class:`xarray.DataArray` output. It will produce PROV data and
     attach it as an attribute.

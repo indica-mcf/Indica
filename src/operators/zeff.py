@@ -17,18 +17,14 @@ class CalcZeff(Operator):
     undergo considerable refactoring prior to inclusion in the
     codebase
 
-    Note that the "Parameters" section below describes the paramters
-    used when calling an object of this class and *not* when
-    constructing a new object as would normally be the case.
-
     Parameters
     ----------
-    n_e
-        Number density of electrons.
-    n_Be
-        Number density of Beryllium ions.
-    T_e
-        Temperature of electrons.
+    adas_data
+        String indicating what source of atomic data to use. (Details TBC)
+
+    sess
+        Object representing this session of calculations with the library.
+        Holds and communicates provenance information.
 
     Attributes
     ----------
@@ -49,21 +45,28 @@ class CalcZeff(Operator):
     def __init__(self, adas_data: str, sess: Session = global_session):
         """Creates a provenance entity/agent for the operator object.
 
-        Parameters
-        ----------
-        adas_data
-            String indicating what source of atomic data to use. (Details TBC)
-
-        sess
-            Object representing this session of calculations with the library.
-            Holds and communicates provenance information.
-
         """
         super().__init__(sess, adas_data=adas_data)
         self.adas_data = adas_data
 
     def __call__(self, n_e, n_Be, T_e):
-        """Perform the calculation."""
+        """Perform the calculation.
+
+        Parameters
+        ----------
+        n_e: DataArray
+            Number density of electrons.
+        n_Be: DataArray
+            Number density of Beryllium ions.
+        T_e: DataArray
+            Temperature of electrons.
+
+        Returns
+        -------
+        : DataArray
+            The effective charge of the plasma.
+
+        """
         self.validate_arguments(n_e, n_Be, T_e)
         q_Be = 1  # TODO: get this from ADAS data and T_e
         # TODO: make sure all arguments are mapped to same coordinate system

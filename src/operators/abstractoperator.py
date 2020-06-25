@@ -42,16 +42,20 @@ class Operator(ABC):
 
     Parameters
     ----------
-    args
-        The arguments for the calculation, with number and meaning to be
-        determined by the subclass.
+    sess: Session
+        An object representing the session being run. Contains information
+        such as provenance data.
+    kwargs: Any
+        Any other arguments which should be recorded in the PROV entity for
+        the reader.
 
     Attributes
     ----------
-    ARGUMENT_TYPES: List[DataType]
+    ARGUMENT_TYPES: ClassVar[List[DataType]]
         Ordered list of the types of data expected for each argument of the
-        operator.
-    RETURN_TYPES: List[DataType]
+        operator. If there are variadic positional arguments then their type is
+        given by the final element of the list.
+    RETURN_TYPES: ClassVar[List[DataType]]
         Ordered list of the types of data returned by the operator.
     prov_id: str
         The hash used to identify this object in provenance documents.

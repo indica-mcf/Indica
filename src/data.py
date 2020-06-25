@@ -1,4 +1,14 @@
-"""Routines for any impurity-specific methods on the DataArray class.
+"""`"Custom accessors"
+<http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_,
+are defined to provide additional functionality to
+:py:class:`xarray.DataArray` and :py:class:`xarray.Dataset`
+objects. These accessors group methods under the namespace
+``composition``. E.g.::
+
+  data_array.composition.remap_like(array2)
+  data_array.composition.check_datatype(("temperature", "electron"))
+  dataset.composition.check_datatype(("electron", {"T": "temperature",
+                                                   "n": "number_density"}))
 
 """
 
@@ -9,10 +19,16 @@ import xarray as xr
 
 from .datatypes import ArrayType
 from .datatypes import DatasetType
+from .equilibrium import Equilibrium
 
 
 @xr.register_dataarray_accessor("composition")
 class CompositionArrayAccessor:
+    """Class providing additional functionality to
+    :py:class:`xarray.DataArray` objects which is useful for this software.
+
+    """
+
     def __init__(self, xarray_obj: xr.DataArray):
         self._obj = xarray_obj
 
@@ -103,9 +119,43 @@ class CompositionArrayAccessor:
         """
         pass
 
+    @property
+    def equilibrium(self) -> Equilibrium:
+        """The equilibrium object currently used by this DataArray (or, more
+        accurately, by its
+        :py:class:`~src.convertors.CoordinateTransform` object). When
+        setting this porperty, ensures provenance will be updated
+        accordingly.
+
+        """
+        pass
+
+    @equilibrium.setter
+    def equilibrium(self, value: Equilibrium):
+        pass
+
+    @property
+    def with_ignored_data(self) -> xr.DataArray:
+        """The full version of this data, including the channels which were
+        dropped at read-in.
+
+        """
+        pass
+
+    @property
+    def ignored_data(self) -> xr.DataArray:
+        """The data from which were dropped at read-in.
+
+        """
+
 
 @xr.register_dataset_accessor("composition")
 class CompositionDatasetAccessor:
+    """Class providing additional functionality to
+    :py:class:`xarray.Dataset` objects which is useful for this software.
+
+    """
+
     def __init__(self, xarray_obj: xr.Dataset):
         self._obj = xarray_obj
 
@@ -139,7 +189,7 @@ class CompositionDatasetAccessor:
 
     @property
     def datatype(self) -> DatasetType:
-        """Returns a structure describing the data contained within this Dataset.
+        """A structure describing the data contained within this Dataset.
 
         """
         pass
@@ -174,8 +224,9 @@ def aggregate(**kwargs: xr.DataArray) -> xr.Dataset:
     performing various checks.
 
     In order for this to succeed, the following must hold:
+
     - All arguments must have the same specific datatype (see
-     :py:data:`SPECIFIC_DATATYPES`).
+      :py:data:`SPECIFIC_DATATYPES`).
     - All arguments must use the same coordinate system.
     - All arguments must use the same :py:class`CoordinateTransform` object
     - All arguments need to store data on the same grid

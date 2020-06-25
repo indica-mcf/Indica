@@ -43,22 +43,27 @@ class DataReader(ABC):
 
     Attributes
     ----------
-    NAMESPACE: Tuple[str, str]
-        The abbreviation and full URL for the PROV namespace of the reader
-        class.
-    prov_id: str
-        The hash used to identify this object in provenance documents.
     agent: prov.model.ProvAgent
         An agent representing this object in provenance documents.
         DataArray objects can be attributed to it.
+    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, ArrayType]]]]
+        Hierarchical information on the quantities which are available for
+        reading. These are indexed by (in order) diagnostic name, UID,
+        instrument name, and quantity name. The values of the innermost
+        dictionary describe the physical type of the data to be read.
     entity: prov.model.ProvEntity
         An entity representing this object in provenance documents. It is used
         to provide information on the object's own provenance.
+    NAMESPACE: Classvar[Tuple[str, str]]
+        The abbreviation and full URL for the PROV namespace of the database
+        the class reads from.
+    prov_id: str
+        The hash used to identify this object in provenance documents.
 
     """
 
     DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, ArrayType]]]] = {}
-    RECORD_TEMPLATE = "{}-{}-{}-{}"
+    _RECORD_TEMPLATE = "{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
     def __init__(
@@ -71,7 +76,27 @@ class DataReader(ABC):
         **kwargs: Any
     ):
         """Creates a provenance entity/agent for the reader object. Also
-        checks valid datatypes have been specified for the available data.
+        checks valid datatypes have been specified for the available
+        data. This should be called by constructors on subtypes.
+
+        Parameters
+        ----------
+        tstart
+            Start of time range for which to get data.
+        tend
+            End of time range for which to get data.
+        max_freq
+            Maximum frequency of data-sampling, abov which some osrt of
+            averaging or compression may be performed.
+        sess
+            An object representing the session being run. Contains information
+            such as provenance data.
+        selector
+            A callback which can be used to interactively determine the which
+            channels of data can be dropped.
+        kwargs
+            Any other arguments which should be recorded in the PROV entity for
+            the reader.
 
         """
         self._tstart = tstart
@@ -80,7 +105,6 @@ class DataReader(ABC):
         self._start_time = None
         self.session = sess
         self._selector = selector
-        # TODO: This should be done once in the Session object
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
@@ -152,7 +176,7 @@ class DataReader(ABC):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            cachefile = self.RECORD_TEMPLATE.format(
+            cachefile = self._RECORD_TEMPLATE.format(
                 "thomson", instrument, uid, quantity
             )
             meta = {
@@ -276,7 +300,7 @@ class DataReader(ABC):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            cachefile = self.RECORD_TEMPLATE.format("cxrs", instrument, uid, quantity)
+            cachefile = self._RECORD_TEMPLATE.format("cxrs", instrument, uid, quantity)
             meta = {
                 "datatype": available_quantities[quantity],
                 "element": database_results["element"],

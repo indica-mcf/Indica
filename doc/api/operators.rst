@@ -4,4 +4,4 @@
 .. automodule:: src.operators
    :members:
    :imported-members:
-   :special-members: __init__
+   :special-members: __call__
