@@ -365,25 +365,32 @@ class is not defined, as this is likely to vary widely.
 
 In addition to reading in diagnostics, it is necessary to load ADAS
 atomic data. Fortunately, this is much more straightforward. A simple
-:py:class:`~src.readers.ADASReader` class is defined with a
+abstract :py:class:`~src.readers.ADASReader` class is defined with a
 py:meth:`:`~src.readers.ADASReader.get` method, taking a filename as
-an argument. When instantiating the class the user can specify the
-directory which should be used when evaluating relative paths. By
-default this will be an installed location containing ADAS files
-distributed with the code, but this may be overridden. The ``get``
-method returns an :py:class:`xarray.Dataset`, each member of which is
-data for a different charge state. The coordinates of these data are
-density and temperature of the element. All of the usual metadata will
-be available except for ``transform``, which is not meaningful in this
-case.
+an argument. Each supported ADAS format will have a subclass which
+implements a ``_get`` method. It is this method which does the actual
+parsing of the file.  When instantiating these objects the user can
+specify the directory which should be used when evaluating relative
+paths. By default this will be an installed location containing ADAS
+files distributed with the code, but this may be overridden. The
+``get`` method returns an :py:class:`xarray.Dataset`, each member of
+which is data for a different charge state. The coordinates of these
+data are density and temperature of the element. All of the usual
+metadata will be available except for ``transform``, which is not
+meaningful in this case.
 
 .. uml::
 
-   class ADASReader {
+   abstract class ADASReader {
    + path: str
 
    + __init__(path: str)
    + get(filename: str): Dataset
+   - {abstract} _get(filename: str): Tuple[Dict[str, ndarray], ArrayType]
+   }
+
+   class ADF11Reader {
+   - _get(filename: str): Tuple[Dict[str, ndarray], ArrayType]
    }
 
 Output

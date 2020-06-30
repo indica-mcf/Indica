@@ -1,8 +1,6 @@
 """Experimental design for reading data from disk/database.
 """
 
-from abc import ABC
-from abc import abstractmethod
 import datetime
 from numbers import Number
 import os
@@ -10,7 +8,6 @@ from typing import Any
 from typing import Collection
 from typing import Dict
 from typing import Iterable
-from typing import Literal
 from typing import Optional
 from typing import Set
 from typing import Tuple
@@ -21,17 +18,18 @@ from xarray import DataArray
 
 from .selectors import choose_on_plot
 from .selectors import DataSelector
+from ..abstractio import BaseIO
 from ..datatypes import ArrayType
 from ..session import hash_vals
 from ..session import Session
 from ..utilities import get_slice_limits
 from ..utilities import to_filename
 
-# TODO: Place this in som global location?
+# TODO: Place this in some global location?
 CACHE_DIR = ".impurities"
 
 
-class DataReader(ABC):
+class DataReader(BaseIO):
     """Abstract base class to read data in from a database.
 
     This defines the interface used by all concrete objects which read
@@ -119,16 +117,6 @@ class DataReader(ABC):
             self.entity, self.session.session, time=datetime.datetime.now()
         )
         self.session.prov.attribution(self.entity, self.session.agent)
-
-    def __enter__(self) -> "DataReader":
-        """Called at beginning of a context manager."""
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_traceback) -> Literal[False]:
-        """Close reader at end of context manager. Don't try to handle
-        exceptions."""
-        self.close()
-        return False
 
     def get_thomson_scattering(
         self,
@@ -384,7 +372,7 @@ class DataReader(ABC):
 
         """
         raise NotImplementedError(
-            "{} does not implement a '_get_unsafe' "
+            "{} does not implement a '_get_charge_exchange' "
             "method.".format(self.__class__.__name__)
         )
 
@@ -526,49 +514,3 @@ class DataReader(ABC):
             nstart, nend = get_slice_limits(self._tstart, self._tend, times)
             results["times"] = times[nstart, nend].copy()
         return nstart, nend
-
-    def authenticate(self, name: str, password: str) -> bool:
-        """Confirms user has permission to access data.
-
-        This must be called before reading data from some sources. The default
-        implementation does nothing. If the value of
-        `py:meth:requires_authentication` is ``False`` then it does not need
-        to be called.
-
-        Parameters
-        ----------
-        name
-            Username to authenticate against.
-        password
-            Password for that user.
-
-        Returns
-        -------
-        :
-            Indicates whether authentication was succesful.
-        """
-        return True
-
-    @property
-    @abstractmethod
-    def requires_authentication(self) -> bool:
-        """Indicates whether authentication is required to read data.
-
-        Returns
-        -------
-        :
-            True if authenticationis needed, otherwise false.
-        """
-        raise NotImplementedError(
-            "{} does not implement a "
-            "'requires_authentication' "
-            "property.".format(self.__class__.__name__)
-        )
-
-    @abstractmethod
-    def close(self) -> None:
-        """Closes connection to whatever backend (file, database, server,
-        etc.) from which data is being read."""
-        raise NotImplementedError(
-            "{} does not implement a 'close' " "method.".format(self.__class__.__name__)
-        )

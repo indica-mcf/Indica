@@ -1,9 +1,16 @@
-"""Function for reading in ADAS atomic data in ADF11 format."""
+"""Base class for reading in ADAS atomic data."""
 
+from abc import ABC
+from abc import abstractmethod
 import datetime
+from typing import Dict
+from typing import Tuple
+from typing import Union
 
+import numpy as np
 from xarray import Dataset
 
+from ..datatypes import ArrayType
 from ..session import global_session
 from ..session import hash_vals
 from ..session import Session
@@ -13,8 +20,8 @@ from ..session import Session
 DEFAULT_PATH: str = ""
 
 
-class ADASReader:
-    """Class for reading atomic data from ADAS files in ADF11 format.
+class ADASReader(ABC):
+    """Class for reading atomic data from ADAS files.0
 
     Parameters
     ----------
@@ -44,7 +51,7 @@ class ADASReader:
         self.session.prov.attribution(self.entity, self.session.agent)
 
     def get(self, filename: str) -> Dataset:
-        """Read the specified ADF11 ADAS file.
+        """Read data from the specified ADAS file.
 
         Parameters
         ----------
@@ -53,8 +60,39 @@ class ADASReader:
 
         Returns
         -------
+        :
             The data in the specified file. Dimensions are density and
             temperature. Each members of the dataset correspond to a
             different charge state.
 
         """
+
+    @abstractmethod
+    def _get(
+        self, absolute_path: str
+    ) -> Tuple[Dict[Union[int, str], np.ndarray], ArrayType]:
+        """Parse the ADAS file, returning its data in a dictionary.
+
+        Parameters
+        ----------
+        absolute_path
+            The path to the file to be parsed.
+
+        Returns
+        -------
+        values : Dict[Union[int, str], np.ndarray]
+            A dictionary containing the following items:
+
+            densities
+                The densities at which the data is provided
+            temperatures
+                The temperatures at which the data is provided
+            _int_
+                The ADAS data for this charge state
+
+        data : DataType
+            The type of data being read in (quantity and element)
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get' " "method.".format(self.__class__.__name__)
+        )
