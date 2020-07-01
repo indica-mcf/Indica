@@ -3,8 +3,8 @@
 import numpy as np
 from scipy.interp import interp1d
 
-from .abstractconvertor import Coordinates
-from .abstractconvertor import CoordinateTransform
+from .abstractconverter import Coordinates
+from .abstractconverter import CoordinateTransform
 from ..numpy_typing import ArrayLike
 
 

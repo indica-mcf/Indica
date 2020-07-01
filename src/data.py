@@ -123,7 +123,7 @@ class CompositionArrayAccessor:
     def equilibrium(self) -> Equilibrium:
         """The equilibrium object currently used by this DataArray (or, more
         accurately, by its
-        :py:class:`~src.convertors.CoordinateTransform` object). When
+        :py:class:`~src.converters.CoordinateTransform` object). When
         setting this porperty, ensures provenance will be updated
         accordingly.
 

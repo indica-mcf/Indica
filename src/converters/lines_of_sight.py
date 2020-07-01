@@ -7,8 +7,8 @@ from typing import Optional
 import numpy as np
 from scipy.interp import interp2d
 
-from .abstractconvertor import Coordinates
-from .abstractconvertor import CoordinateTransform
+from .abstractconverter import Coordinates
+from .abstractconverter import CoordinateTransform
 from ..numpy_typing import ArrayLike
 
 

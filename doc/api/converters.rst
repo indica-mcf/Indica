@@ -1,6 +1,6 @@
-``convertors`` module
+``converters`` module
 =====================
 
-.. automodule:: src.convertors
+.. automodule:: src.converters
    :members:
    :imported-members:

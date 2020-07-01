@@ -1,8 +1,8 @@
 """Trivial class for transforming to and from R-z coordinate systems.
 """
 
-from .abstractconvertor import Coordinates
-from .abstractconvertor import CoordinateTransform
+from .abstractconverter import Coordinates
+from .abstractconverter import CoordinateTransform
 from ..numpy_typing import ArrayLike
 
 

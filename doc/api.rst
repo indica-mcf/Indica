@@ -6,7 +6,7 @@ Contents:
 .. toctree::
    :maxdepth: 3
 
-   api/convertors.rst
+   api/converters.rst
    api/datatypes.rst
    api/equilibrium.rst
    api/operators.rst

@@ -217,7 +217,7 @@ def generate_prov(pass_sess: bool = False):
 
     def outer_wrapper(func):
         param_names, var_positional = positional_parameters(func)
-        num_positional = len(var_positional)
+        num_positional = len(param_names)
 
         @wraps(func)
         def prov_generator(*args, **kwargs):

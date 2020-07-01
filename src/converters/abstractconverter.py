@@ -16,7 +16,7 @@ Coordinates = Tuple[ArrayLike, ArrayLike, ArrayLike]
 
 
 class EquilibriumException(Exception):
-    """Exception raised if a convertor object's equilibrium object is set
+    """Exception raised if a converter object's equilibrium object is set
     twice."""
 
 
@@ -83,7 +83,7 @@ class CoordinateTransform(ABC):
         If it has already been initialised with the same equilibrium
         data then do nothing. If already initialised with a different
         equilibrium, throw an
-        :py:class:`abstractconvertor.EquilibriumException` unless
+        :py:class:`abstractconverter.EquilibriumException` unless
         ``force == True``.
 
         Parameters
@@ -145,8 +145,8 @@ class CoordinateTransform(ABC):
         # TODO: cache all results for default arguments
         other_name = other.__class__.__name__
         if other_name in self._CONVERSION_METHODS:
-            convertor = getattr(self, self._CONVERSION_METHODS[other_name])
-            return convertor(x1, x2, t)
+            converter = getattr(self, self._CONVERSION_METHODS[other_name])
+            return converter(x1, x2, t)
         else:
             R, z, t = self.convert_to_Rz(x1, x2, t)
             return other.convert_from_Rz(R, z, t)

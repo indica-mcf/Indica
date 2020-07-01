@@ -44,7 +44,7 @@ partial_provenance : :py:class:`prov.model.ProvEntity`
     Information on the process which generated this data, not
     including the equilibrium used. See :ref:`Provenance Tracking`.
 
-transform : :py:class:`src.convertors.CoordinateTransform`
+transform : :py:class:`src.converters.CoordinateTransform`
     An object describing the coordinate system of this data, with
     methods to map to other coordinate systems. See :ref:`Coordinate
     Systems and Transforms`
@@ -182,7 +182,7 @@ axes are orthogonal, the coordinates remain constant over time, and
 libraries to retrieve equilibrium data typically work in these
 coordinates.
 
-A :py:class:`~src.convertors.CoordinateTransform` class is defined to handle
+A :py:class:`~src.converters.CoordinateTransform` class is defined to handle
 this process. This is an abstract class which will have a different
 subclass for each type of coordinate system. It has two abstract
 methods (both private), for converting coordinates to and from
@@ -195,18 +195,18 @@ distance between grid-points along a given axis and first grid-point
 on that axis.
 
 In addition to doing conversions via R-z coordinates, subclasses of
-:py:class:`~src.convertors.CoordinateTransform` may define additional
+:py:class:`~src.converters.CoordinateTransform` may define additional
 methods to map directly between coordinate systems. This would be
 useful if there is a more efficient way to do the conversion without
 going through R-z, if that transformation is expected to be
 particularly frequently used, or if that transformation would need to
 be done as a step in converting to R-z coordinates.
 
-The :py:class:`~src.convertors.CoordinateTransform` class is agnostic
+The :py:class:`~src.converters.CoordinateTransform` class is agnostic
 to the equilibrium data and can be instantiated without any knowledge
 of it. However, many subclasses will require equilibrium information
 to perform the needed calculations. This can be set using the
-:py:meth:`~src.convertors.CoordinateTransform.set_equilibrium` method
+:py:meth:`~src.converters.CoordinateTransform.set_equilibrium` method
 at any time after instantiation. Calling this method multiple times
 with the same equilibrium object will have no affect. Calling with a
 different equilibrium object will cause an error unless specifying the
@@ -232,8 +232,8 @@ argument ``force=True``.
    - {static} decode(input: str): CoordinateTransform
    }
 
-Methods to :py:meth:`~src.convertors.CoordinateTransform.encode` and
-:py:meth:`~src.convertors.CoordinateTransform.decode` a transform
+Methods to :py:meth:`~src.converters.CoordinateTransform.encode` and
+:py:meth:`~src.converters.CoordinateTransform.decode` a transform
 to/from JSON will be provided. This will work by encoding the
 arguments used to instantiate a transform object, allowing it to be
 recreated upon decoding. Note that this means the equilibrium will
@@ -249,7 +249,7 @@ should not normally be of any concern for the user, unless they area
 attempting to use multiple sets of equilibrium data at once.
 
 Not that the methods on
-:py:class:`~src.convertors.CoordinateTransform` make use of `array
+:py:class:`~src.converters.CoordinateTransform` make use of `array
 broadcasting
 <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ to
 create a grid of values. This means that if all arguments are 1-D
@@ -263,16 +263,16 @@ only one dimension on the input grids have a length greater than 1.
 ::
 
    # This will return a set of 1-D arrays
-   convertor1.convert_to(convertor2, [0, 1, 2], [0, -1, -2], t=5.0)
+   converter1.convert_to(converter2, [0, 1, 2], [0, -1, -2], t=5.0)
    # This will return a set of 2-D arrays
-   convertor1.convert_to(convertor2, [[0, 1, 2],
+   converter1.convert_to(converter2, [[0, 1, 2],
                                       [0, 1, 2],
                                       [0, 1, 2]],
                                      [[ 0,  0,  0],
 				      [-1, -1, -1],
                                       [-2, -2, -2]], t=5.0)
    # This will return the same 2-D arrays as the previous command
-   convertor1.convert_to(convertor2, [[0, 1, 2]], [[0], [-1], [-2]],
+   converter1.convert_to(converter2, [[0, 1, 2]], [[0], [-1], [-2]],
                          t=5.0)
 
 When two :py:class:`xarray.DataArray` objects use the same coordinate
@@ -335,7 +335,7 @@ Input
 Reading data is done using a standard interface,
 :py:class:`~src.readers.DataReader`. A different subclass is
 defined for each data source/format. These return collections of
-:py:class:`xarray.DataArrat` objects with all the necessary metadata.
+:py:class:`xarray.DataArray` objects with all the necessary metadata.
 
 .. uml::
 
@@ -369,7 +369,8 @@ defined for each data source/format. These return collections of
    + {abstract} requires_authentication(): bool
    }
 
-   BaseIO <|-- DataReader <|-- PPFReader
+   BaseIO <|-- DataReader
+   DataReader <|-- PPFReader
 
 Here we see that reader classes contain public methods for getting
 data for each type of diagnostic. It also provides methods for
@@ -394,7 +395,7 @@ class is not defined, as this is likely to vary widely.
 In addition to reading in diagnostics, it is necessary to load ADAS
 atomic data. Fortunately, this is much more straightforward. A simple
 abstract :py:class:`~src.readers.ADASReader` class is defined with a
-py:meth:`:`~src.readers.ADASReader.get` method, taking a filename as
+py:meth:`~src.readers.ADASReader.get` method, taking a filename as
 an argument. Each supported ADAS format will have a subclass which
 implements a ``_get`` method. It is this method which does the actual
 parsing of the file.  When instantiating these objects the user can
@@ -424,7 +425,8 @@ meaningful in this case.
    - _get(filename: str): Tuple[Dict[str, ndarray], ArrayType]
    }
 
-   BaseIO <|-- ADASReader <|-- ADF11Reader
+   BaseIO <|-- ADASReader
+   ADASReader <|-- ADF11Reader
 
 Output
 ~~~~~~
@@ -448,7 +450,8 @@ different formats.
    + requires_authentication(): bool
    }
 
-   BaseIO <|-- DataWriter <|-- NetCDFWriter
+   BaseIO <|-- DataWriter
+   DataWriter <|-- NetCDFWriter
 
 In derived class in this example writes to NetCDF files, which is a
 particularly easy task as there is already close integration between
@@ -461,7 +464,7 @@ each diagnostic is stored data in the database and reorganising that
 into a consistent format. When writing we can rely all diagnostics
 being represented in essentially the same way in memory and thus only
 need to convert it into a writeable format once, in the
-:py:meth:`src.writers.AbstractWriter.write` method. The only task
+:py:meth:`src.writers.DataWriter.write` method. The only task
 remaining is the simple one of writing to disk or a database in the
 private ``_write`` method.
 
@@ -724,11 +727,11 @@ discreet, physically meaningful calculation which one wishes to
 perform on some data. They take physical quantities as arguments and
 return one or more derived physical quantities as a result. It is
 proposed that these be represented by callable objects of class
-``Operation``. A base class is provided, containing some utility
-methods, which all operators inherit from. The main purpose of
-these utility methods is to check that types of arguments are
-correct and to assemble information on data provenance. The class
-is represented by the following UML:
+:py:class:`src.operators.Operator`. A base class is provided,
+containing some utility methods, which all operators inherit from. The
+main purpose of these utility methods is to check that types of
+arguments are correct and to assemble information on data
+provenance. The class is represented by the following UML:
 
 .. uml::
 
