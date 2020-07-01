@@ -348,3 +348,16 @@ class CoordinateTransform(ABC):
             return self.default_distance[direction - 1]
         else:
             return calc_distance(direction, x1, x2, t)
+
+    def encode(self) -> str:
+        """Returns a JSON representation of this object. Should be sufficient
+        to recreate it identically from scratch (except for the
+        equilibrium)."""
+        pass
+
+    @staticmethod
+    def decode(self, json: str) -> "CoordinateTransform":
+        """Takes some JSON and decodes it into a CoordinateTransform object.
+
+        """
+        pass

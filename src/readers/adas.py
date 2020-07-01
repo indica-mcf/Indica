@@ -1,15 +1,16 @@
 """Base class for reading in ADAS atomic data."""
 
-from abc import ABC
 from abc import abstractmethod
 import datetime
 from typing import Dict
+from typing import Literal
 from typing import Tuple
 from typing import Union
 
 import numpy as np
 from xarray import Dataset
 
+from ..abstractio import BaseIO
 from ..datatypes import ArrayType
 from ..session import global_session
 from ..session import hash_vals
@@ -20,7 +21,7 @@ from ..session import Session
 DEFAULT_PATH: str = ""
 
 
-class ADASReader(ABC):
+class ADASReader(BaseIO):
     """Class for reading atomic data from ADAS files.0
 
     Parameters
@@ -49,6 +50,11 @@ class ADASReader(ABC):
             self.entity, self.session.session, time=datetime.datetime.now()
         )
         self.session.prov.attribution(self.entity, self.session.agent)
+
+    def close(self):
+        """Closes connections to database/files. For this class it does not
+        need to do anything."""
+        pass
 
     def get(self, filename: str) -> Dataset:
         """Read data from the specified ADAS file.
@@ -96,3 +102,8 @@ class ADASReader(ABC):
         raise NotImplementedError(
             "{} does not implement a '_get' " "method.".format(self.__class__.__name__)
         )
+
+    @property
+    def requires_authentication(self) -> Literal[False]:
+        """Reading ADAS data never requires authentication."""
+        return False

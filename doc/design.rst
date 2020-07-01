@@ -202,14 +202,15 @@ going through R-z, if that transformation is expected to be
 particularly frequently used, or if that transformation would need to
 be done as a step in converting to R-z coordinates.
 
-The :py:class:`~src.convertors.CoordinateTransform` class is agnostic to the
-equilibrium data and can be instantiated without any knowledge of
-it. However, many subclasses will require equilibrium information to
-perform the needed calculations. This can be set using the
-``set_equilibrium`` method at any time after instantiation. Calling
-this method multiple times with the same equilibrium object will have
-no affect. Calling with a different equilibrium object will cause an
-error unless specifying the argument ``force=True``.
+The :py:class:`~src.convertors.CoordinateTransform` class is agnostic
+to the equilibrium data and can be instantiated without any knowledge
+of it. However, many subclasses will require equilibrium information
+to perform the needed calculations. This can be set using the
+:py:meth:`~src.convertors.CoordinateTransform.set_equilibrium` method
+at any time after instantiation. Calling this method multiple times
+with the same equilibrium object will have no affect. Calling with a
+different equilibrium object will cause an error unless specifying the
+argument ``force=True``.
 
 .. uml::
 
@@ -223,11 +224,23 @@ error unless specifying the argument ``force=True``.
      \t\t\t\t\t\t(arraylike, arraylike, arraylike)
    + distance(direction: int, x1: arraylike, x2: arraylike,
               \t\tt: arraylike): (arraylike, arraylike)
-   - _convert_to_Rz(x1: arraylike, x2: arraylike, t: arraylike):
+   - {abstract} _convert_to_Rz(x1: arraylike, x2: arraylike, t: arraylike):
      \t\t\t\t\t\t(arraylike, arraylike, arraylike)
-   - _convert_from_Rz(x1: arraylike, x2: arraylike, t: arraylike):
+   - {abstract} _convert_from_Rz(x1: arraylike, x2: arraylike, t: arraylike):
      \t\t\t\t\t\t(arraylike, arraylike, arraylike)
+   - encode(): str
+   - {static} decode(input: str): CoordinateTransform
    }
+
+Methods to :py:meth:`~src.convertors.CoordinateTransform.encode` and
+:py:meth:`~src.convertors.CoordinateTransform.decode` a transform
+to/from JSON will be provided. This will work by encoding the
+arguments used to instantiate a transform object, allowing it to be
+recreated upon decoding. Note that this means the equilibrium will
+still need to be set again manually. Most of this functionality should
+be implemented from the base class and those writing subclasses
+shouldn't need to do more than call a method at instantiation or use a
+decorator (details TBC).
 
 Each DataArray will have a ``transform`` attribute which is one of
 these objects. To save on memory and computation, different data from the same
@@ -297,6 +310,25 @@ xarrays in their own code.
 Data IO
 -------
 
+There is some common functionality for all reading and writing
+operations which will be performed. This involves authenticating
+users and opening/closing the IO stream. For convenience, methods
+should be provided to make the latter possible through a context
+manager. This functionality is placed in a common base class
+:py:class:`~src.abstractio.BaseIO`, leaving methods abstract where
+necessary.
+
+.. uml::
+
+   abstract class BaseIO {
+   + __enter__(): DataWriter
+   + __exit__(exc_type, exc_value, exc_traceback): bool
+   + authenticate(name: str, password: str): bool
+   + {abstract} close()
+   .. «property» ..
+   + {abstract} requires_authentication(): bool
+   }
+
 Input
 ~~~~~
 
@@ -319,10 +351,6 @@ defined for each data source/format. These return collections of
    - {abstract} _get_thomson_scattering(uid: str, instrument: str, revision: int,
                \t\t\t\tquantities: Set[str]): Dict[str, Any]
      etc.
-   + authenticate(name: str, password: str): bool
-   + {abstract} close()
-   .. «property» ..
-   + {abstract} requires_authentication(): bool
    }
 
    class PPFReader {
@@ -341,7 +369,7 @@ defined for each data source/format. These return collections of
    + {abstract} requires_authentication(): bool
    }
 
-   DataReader <|-- PPFReader
+   BaseIO <|-- DataReader <|-- PPFReader
 
 Here we see that reader classes contain public methods for getting
 data for each type of diagnostic. It also provides methods for
@@ -387,11 +415,16 @@ meaningful in this case.
    + __init__(path: str)
    + get(filename: str): Dataset
    - {abstract} _get(filename: str): Tuple[Dict[str, ndarray], ArrayType]
+   + close()
+   .. «property» ..
+   + requires_authentication(): bool
    }
 
    class ADF11Reader {
    - _get(filename: str): Tuple[Dict[str, ndarray], ArrayType]
    }
+
+   BaseIO <|-- ADASReader <|-- ADF11Reader
 
 Output
 ~~~~~~
@@ -403,38 +436,62 @@ different formats.
 .. uml::
 
    abstract class DataWriter {
-   + __enter__(): DataWriter
-   + __exit__(exc_type, exc_value, exc_traceback): bool
-   + {abstract} write(uid: str, name: str, *args: Union[DataArray, Dataset])
-   + {abstract} close()
-   + authenticate(name: str, password: str): bool
-   .. «property» ..
-   + {abstract} requires_authentication(): bool
+   + write(uid: str, name: str, *args: Union[DataArray, Dataset])
+   - {abstract} _write(uid: str, name: str, data: Dataset, equilibria: Dict[str, Equilibrium], prov: ProvDocument)
    }
 
    class NetCDFWriter {
    + __init__(filename: str)
-   + write(uid: str, name: str, *args: Union[DataArray, Dataset])
+   + _write(uid: str, name: str, data: Dataset, equilibria: Dict[str, Equilibrium], prov: ProvDocument)
    + close()
    .. «property» ..
    + requires_authentication(): bool
    }
 
-   DataWriter <|-- NetCDFWriter
+   BaseIO <|-- DataWriter <|-- NetCDFWriter
 
 In derived class in this example writes to NetCDF files, which is a
 particularly easy task as there is already close integration between
 xarray and NetCDF. Other derived classes will be defined for each
 database system which the software is able to read from.
 
-This is a much simpler design than that used for reading data. This is
+This is a simpler design than that used for reading data. This is
 because reading data requires dealing with the particularities of how
-each group stores data in the database and reorganising that into a
-consistent format. When writing there is no (or minimal) need to
-reorganise data and we can rely on all diagnostics being represented
-in essentially the same way in memory. Without the task of
-reorganisation, the only task remaining is the simple one of writing
-to disk or a database.
+each diagnostic is stored data in the database and reorganising that
+into a consistent format. When writing we can rely all diagnostics
+being represented in essentially the same way in memory and thus only
+need to convert it into a writeable format once, in the
+:py:meth:`src.writers.AbstractWriter.write` method. The only task
+remaining is the simple one of writing to disk or a database in the
+private ``_write`` method.
+
+To reformat data to be more amenable to writing, the following will
+occur. All data will be placed in a new :py:class:`xarray.Dataset`
+containing all data, with attributes reformated as necessary:
+
+- Uncertainty will be made a member of the dataset, with the name
+  ``VARIABLE_uncertainty``, where ``VARIABLE`` is the name of the
+  variable it is associated with.
+- Dropped data will be merged into the main data and the attribute will
+  be replaced with a list of the indices of the dropped channels and
+  ``dropped_dim``, the name of the dimension these indices are for.
+- The coordinate transform will be replaced with a JSON serialisation,
+  from which it can be recreated. These serialisations will be stored
+  in a dictionary attribute for the Dataset as a whole, with each
+  DataArray holding the key for its corresponding transform.
+- The PROV attributes will be replaced by the ID for that entity. The
+  complete PROV data for the session will be passed to low-level
+  writing routines as a separate argument.
+- Datatypes will be serialised as JSON
+- All variables will have an ``equilibrium`` attribute, which provides an
+  identifier for the equilibrium data (passed to the low-level writer
+  in a dictionary).
+
+PROV and equilibrium data should be written elsewhere in the output
+file/database, with attributes used to associate variables with it. If
+desired, a similar approach could be taken when it comes to writing
+coordinate transform data, as many variables are likely to share the
+same transform.
 
 
 Data Value Type System

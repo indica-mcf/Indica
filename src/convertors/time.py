@@ -45,7 +45,7 @@ def convert_in_time(
         return interpolate_in_time(tstart, tend, interval, data, method)
 
 
-@generate_prov
+@generate_prov()
 def interpolate_in_time(
     tstart: float,
     tend: float,
@@ -91,7 +91,7 @@ def interpolate_in_time(
     return data.interp(t=tvals, method=method)
 
 
-@generate_prov
+@generate_prov()
 def bin_in_time(
     tstart: float, tend: float, interval: float, data: DataArray
 ) -> DataArray:
