@@ -356,7 +356,7 @@ class CoordinateTransform(ABC):
         pass
 
     @staticmethod
-    def decode(self, json: str) -> "CoordinateTransform":
+    def decode(json: str) -> "CoordinateTransform":
         """Takes some JSON and decodes it into a CoordinateTransform object.
 
         """

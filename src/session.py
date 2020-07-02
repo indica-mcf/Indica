@@ -47,6 +47,7 @@ def hash_vals(**kwargs: typing.Any) -> str:
     str
         A hexadecimal representation of the hash.
     """
+    # TODO: include date/time in hash
     hash_result = hashlib.sha256()
     for key, val in kwargs.items():
         hash_result.update(bytes(key, encoding="utf-8"))
