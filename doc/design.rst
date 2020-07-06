@@ -395,7 +395,7 @@ class is not defined, as this is likely to vary widely.
 In addition to reading in diagnostics, it is necessary to load ADAS
 atomic data. Fortunately, this is much more straightforward. A simple
 abstract :py:class:`~src.readers.ADASReader` class is defined with a
-py:meth:`~src.readers.ADASReader.get` method, taking a filename as
+:py:meth:`~src.readers.ADASReader.get` method, taking a filename as
 an argument. Each supported ADAS format will have a subclass which
 implements a ``_get`` method. It is this method which does the actual
 parsing of the file.  When instantiating these objects the user can
