@@ -1,7 +1,7 @@
 """Coordinate system for data collected on a 1-D along through the Tokamak"""
 
 import numpy as np
-from scipy.interp import interp1d
+from scipy.interpolate import interp1d
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform

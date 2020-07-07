@@ -3,13 +3,24 @@
 from functools import lru_cache
 
 import hypothesis.extra.numpy as hynp
-import hypothesis.strategy as hyst
+import hypothesis.strategies as hyst
 import numpy as np
 
 
 @hyst.composite
+def sane_floats(draw):
+    """Returns floating point numbers which are non-NaN and not too big or too
+    small. These floats shouldn't suffer from overflow or underflow.
+
+    """
+    return draw(
+        hyst.one_of(hyst.floats(-1e3, -1e-3), hyst.just(0.0), hyst.floats(1e-3, 1e3))
+    )
+
+
+@hyst.composite
 def polynomial_functions(
-    draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(1, 11)
+    draw, domain=(0.0, 1.0), max_val=None, min_terms=1, max_terms=11
 ):
     """Generates callable functions f(x) which are polynomials.
 
@@ -20,8 +31,10 @@ def polynomial_functions(
         be called outside of this range, but values may be very large.
     max_coeff: float
         The maximum value of the coefficient on any term in the series.
-    terms: int or strategy for ints
-        The number of terms to include in the series.
+    min_terms: int
+        The minimum number of terms to include in the series.
+    max_terms: int
+        The maximum number of terms to include in the series.
 
     Returns
     -------
@@ -30,10 +43,10 @@ def polynomial_functions(
 
     """
     min_val = -max_val if max_val else max_val
-    nterms = draw(terms)
+    nterms = draw(hyst.integers(min_terms, max_terms))
     coeffs = draw(
         hyst.lists(
-            draw(hyst.floats(min_val, max_val, allow_infinity=False, allow_nan=False)),
+            hyst.floats(min_val, max_val, allow_infinity=False, allow_nan=False),
             min_size=nterms,
             max_size=nterms,
         )
@@ -42,7 +55,7 @@ def polynomial_functions(
     def f(x):
         x = (x - domain[0]) / (domain[1] - domain[0])
         term = 1
-        y = 0.0
+        y = np.zeros_like(x)
         for coeff in coeffs:
             y += coeff * term
             term *= x
@@ -52,7 +65,7 @@ def polynomial_functions(
 
 
 @hyst.composite
-def sine_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(0, 10)):
+def sine_functions(draw, domain=(0.0, 1.0), max_val=None, min_terms=0, max_terms=10):
     """Generates callable functions f(x) which are sums of sines and cosines.
 
     Parameters
@@ -62,8 +75,10 @@ def sine_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(0,
         be called outside of this range, but will exhibit periodicity.
     max_coeff: float
         The maximum value of the coefficient on any term in the series.
-    terms: int or strategy for ints
-        The number of sine terms to include in the series.
+    min_terms: int
+        The minimum number of sine terms to include in the series.
+    max_terms: int
+        The maximum number of sine terms to include in the series.
 
     Returns
     -------
@@ -72,17 +87,17 @@ def sine_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(0,
 
     """
     min_val = -max_val if max_val else max_val
-    nterms = draw(terms)
+    nterms = draw(hyst.integers(min_terms, max_terms))
     sin_coeffs = draw(
         hyst.lists(
-            draw(hyst.floats(min_val, max_val, allow_infinity=False, allow_nan=False)),
+            hyst.floats(min_val, max_val, allow_infinity=False, allow_nan=False),
             min_size=nterms,
             max_size=nterms,
         )
     )
     cos_coeffs = draw(
         hyst.lists(
-            draw(hyst.floats(min_val, max_val, allow_infinity=False, allow_nan=False)),
+            hyst.floats(min_val, max_val, allow_infinity=False, allow_nan=False),
             min_size=nterms,
             max_size=nterms,
         )
@@ -91,7 +106,7 @@ def sine_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(0,
 
     def f(x):
         x = (x - domain[0]) / (domain[1] - domain[0])
-        y = offset
+        y = np.ones_like(x) * offset
         for i, (scoeff, ccoeff) in enumerate(zip(sin_coeffs, cos_coeffs)):
             y += scoeff * np.sin(np.pi * (i + 1) * x)
             y += ccoeff * np.cos(np.pi * (i + 1) * x)
@@ -101,7 +116,7 @@ def sine_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(0,
 
 
 @hyst.composite
-def smooth_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(0, 10)):
+def smooth_functions(draw, domain=(0.0, 1.0), max_val=None, min_terms=0, max_terms=10):
     """Generates callable functions f(x) which are smoothly varying
 
     Parameters
@@ -111,8 +126,10 @@ def smooth_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(
         be called outside of this range, but will exhibit periodicity.
     max_coeff: float
         The maximum value of the coefficient on any term in the series.
-    terms: int or strategy for ints
-        The number of non-constant terms to include in the function.
+    min_terms: int
+        The minimum number of non-constant terms to include in the function.
+    max_terms: int
+        The maximum number of non-constant terms to include in the function.
 
     Returns
     -------
@@ -120,11 +137,10 @@ def smooth_functions(draw, domain=(0.0, 1.0), max_val=None, terms=hyst.integers(
         A smoothly varying function.
 
     """
-    nterms = draw(terms()) + 1
     return draw(
         hyst.one_of(
-            polynomial_functions(domain, max_val, nterms + 1),
-            sine_functions(domain, max_val, nterms),
+            polynomial_functions(domain, max_val, min_terms + 1, max_terms + 1),
+            sine_functions(domain, max_val, min_terms, max_terms),
         )
     )
 
@@ -212,7 +228,7 @@ def irregular_space(
         Only returned if ``restep`` is True. Size of spacing between samples.
 
     """
-    space_func = draw(smooth_functions())
+    space_func = draw(smooth_functions(max_val=1.0))
     n = num - 1 if endpoint else num
     lin = np.linspace(0.0, 1.0, n, True, False, dtype)
     spacing = abs(space_func(lin)) + 1 / (num * 10)
@@ -226,6 +242,50 @@ def irregular_space(
     if retstep:
         return result + start, spacing
     return result + start
+
+
+@hyst.composite
+def monotonic_series(
+    draw, start, stop, num=50, endpoint=True, retstep=False, dtype=None
+):
+    """Strategy for generating arrays where values increase monotonically
+    from ``start`` to ``stop``. Interface mimics that of
+    :py:func:`numpy.linspace`. Reduces to regularly spaced values.
+
+    Parameters
+    ----------
+    start: float
+        The starting value of the sequence.
+    stop: float
+        The end value of the sequence, unless endpoint is set to False. In that
+        case, the sequence consists of all but the last of num + 1 evenly
+        spaced samples, so that stop is excluded. Note that the step size
+        changes when endpoint is False.
+    num: int, optional
+        Number of samples to generate. Default is 50. Must be non-negative.
+    endpoint: bool, optional
+        If True, stop is the last sample. Otherwise, it is not included.
+        Default is True.
+    retstep: bool, optional
+        If True, return (samples, steps), where steps is the spacing between
+        samples.
+    dtype: dtype, optional
+        The type of the output array. If dtype is not given, infer the data
+        type from the other input arguments.
+
+    Returns
+    -------
+    samples: ndarray
+        An array of ``num`` irregularly spaced samples.
+
+    steps: ndarray, optional
+        Only returned if ``restep`` is True. Size of spacing between samples.
+
+    """
+    if draw(hyst.booleans()):
+        return draw(irregular_space(start, stop, num, endpoint, retstep, dtype))
+    else:
+        return np.linspace(start, stop, num, endpoint, retstep, dtype)
 
 
 @hyst.composite
@@ -302,11 +362,11 @@ def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None,
         else draw(hyst.floats(min_vals[i], 1e7))
         for i in range(3)
     ]
-    x1 = draw(irregular_space(min_vals[0], max_vals[0], draw(hyst.integers(1))))
+    x1 = draw(monotonic_series(min_vals[0], max_vals[0], draw(hyst.integers(1))))
     x2 = np.expand_dims(
-        draw(irregular_space(min_vals[1], max_vals[1], draw(hyst.integers(1)))), 0
+        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(1)))), 0
     )
     t = np.expand_dims(
-        draw(irregular_space(min_vals[1], max_vals[1], draw(hyst.integers(1)))), (0, 1)
+        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(1)))), (0, 1)
     )
     return x1, x2, t

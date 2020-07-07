@@ -5,7 +5,7 @@ from typing import Callable
 from typing import Optional
 
 import numpy as np
-from scipy.interp import interp2d
+from scipy.interpolate import interp2d
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform

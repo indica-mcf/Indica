@@ -2,7 +2,6 @@
 
 import numpy as np
 from xarray import DataArray
-from xarray import sqrt
 
 from ..session import generate_prov
 from ..utilities import sum_squares
@@ -139,6 +138,6 @@ def bin_in_time(
         .isel(t=slice(nstart, nend))
         .groupby_bins("t", tbins, tlabels)
     )
-    uncertainty = sqrt(grouped.reduce(sum_squares, "t") + variance)
+    uncertainty = np.sqrt(grouped.reduce(sum_squares, "t") + variance)
     averaged.attrs["error"] = uncertainty.rename(t_bins="t")
     return averaged.rename(t_bins="t")

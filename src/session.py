@@ -197,7 +197,7 @@ class Session:
         pass
 
 
-global_session = Session("")
+global_session = Session("anonymous@example.com")
 
 
 def generate_prov(pass_sess: bool = False):
