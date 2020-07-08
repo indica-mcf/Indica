@@ -321,11 +321,13 @@ class CoordinateTransform(ABC):
 
         def calc_distance(direction, x1, x2, t):
             R, z, t = self._convert_to_rz(x1, x2, t)
-            slc = [slice(None)] * R.ndim
-            slc[direction - 1] = slice(0, 1)
-            R0 = R[slc]
-            z0 = z[slc]
-            return np.sqrt((R - R0) ** 2 + (z - z0) ** 2), t
+            slc1 = [slice(None)] * R.ndim
+            slc1[direction - 1] = slice(0, -1)
+            slc2 = [slice(None)] * R.ndim
+            slc2[direction - 1] = slice(1, None)
+            spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2), t
+            result = np.zeros_like(np.broadcast(R, z, t))
+            return np.cumsum(spacings, direction, out=result[slc2])
 
         use_cached = True
         if x1 is None:

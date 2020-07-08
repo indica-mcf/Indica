@@ -3,6 +3,7 @@
 
 from typing import Callable
 from typing import Optional
+from typing import Tuple
 
 import numpy as np
 from scipy.interpolate import interp2d
@@ -43,6 +44,9 @@ class LinesOfSightTransform(CoordinateTransform):
     num_intervals
         The number of intervals in the default grid for the second coordinate.
         Note that there will be one more points in the grid than this.
+    machine_dimensions
+        A tuple giving the boundaries of the Tokamak in R-z space:
+        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
     default_R
         Default R-grid to use when converting from the R-z coordinate system.
     default_z
@@ -57,23 +61,35 @@ class LinesOfSightTransform(CoordinateTransform):
         R_end: np.ndarray,
         z_end: np.ndarray,
         num_intervals: int = 100,
+        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+            (1.83, 3.9),
+            (-1.75, 2.0),
+        ),
         default_R: Optional[np.ndarray] = None,
         default_z: Optional[np.ndarray] = None,
     ):
         indices = np.arange(len(R_start))
         x2 = np.expand_dims(np.linspace(0.0, 1.0, num_intervals + 1), axis=0)
-        R_default = np.linsapce(
-            min(R_start.min(), R_end.min()),
-            max(R_start.max(), R_end.max()),
-            num_intervals + 1,
-        )
-        z_default = np.expand_dims(
+        R_default = (
             np.linsapce(
-                min(z_start.min(), z_end.min()),
-                max(z_start.max(), z_end.max()),
+                min(R_start.min(), R_end.min()),
+                max(R_start.max(), R_end.max()),
                 num_intervals + 1,
-            ),
-            axis=0,
+            )
+            if not default_R
+            else default_R
+        )
+        z_default = (
+            np.expand_dims(
+                np.linsapce(
+                    min(z_start.min(), z_end.min()),
+                    max(z_start.max(), z_end.max()),
+                    num_intervals + 1,
+                ),
+                axis=0,
+            )
+            if not default_z
+            else default_z
         )
         self.R_start = R_start
         self.z_start = z_start

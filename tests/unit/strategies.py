@@ -290,7 +290,11 @@ def monotonic_series(
 
 @hyst.composite
 def arbitrary_coordinates(
-    draw, min_value=(None, None, None), max_value=(None, None, None), unique=False
+    draw,
+    min_value=(None, None, None),
+    max_value=(None, None, None),
+    unique=False,
+    min_side=1,
 ):
     """Strategy to generate valid sets of coordinates as input for conversions.
 
@@ -302,6 +306,8 @@ def arbitrary_coordinates(
         The maximum value to use for each coordinate
     unique
         Whether values in each coordinate array should be unique
+    min_side
+        The smallest size that an unaligned dimension can posess
 
     Returns
     -------
@@ -314,7 +320,7 @@ def arbitrary_coordinates(
 
     """
     shapes = draw(
-        hynp.mutually_broadcastable_shapes(num_shapes=3, max_dims=3)
+        hynp.mutually_broadcastable_shapes(num_shapes=3, max_dims=3, min_side=min_side)
     ).input_shapes
     return draw(
         hynp.arrays(
@@ -333,7 +339,7 @@ def arbitrary_coordinates(
 def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None, None)):
     """Generates sets of coordinates to form the basis/grid for a
     coordinate system. The grid spacing will be smoothly varying, but
-    not necessarily regular.
+    not necessarily regularly spaced.
 
     Parameters
     ----------
@@ -362,11 +368,11 @@ def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None,
         else draw(hyst.floats(min_vals[i], 1e7))
         for i in range(3)
     ]
-    x1 = draw(monotonic_series(min_vals[0], max_vals[0], draw(hyst.integers(1))))
+    x1 = draw(monotonic_series(min_vals[0], max_vals[0], draw(hyst.integers(2))))
     x2 = np.expand_dims(
-        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(1)))), 0
+        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2)))), 0
     )
     t = np.expand_dims(
-        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(1)))), (0, 1)
+        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2)))), (0, 1)
     )
     return x1, x2, t
