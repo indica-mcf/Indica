@@ -1,6 +1,7 @@
 """Tests for line-of-sight coordinate transforms."""
 
 from itertools import product
+from unittest.mock import MagicMock
 
 from hypothesis import given
 from hypothesis.strategies import booleans
@@ -126,6 +127,7 @@ def parallel_los_coordinates(
         num_intervals,
         machine_dimensions,
     )
+    transform.set_equilibrium(MagicMock())
     return transform, vertical, R_vals, z_vals
 
 
@@ -300,14 +302,16 @@ def los_coordinates(
         ``((Rmin, Rmax), (zmin, zmax)``.
 
     """
-    return LinesOfSightTransform(
+    result = LinesOfSightTransform(
         *draw(
             los_coordinates_parameters(machine_dims, min_los, max_los, min_num, max_num)
         )
     )
+    result.set_equilibrium(MagicMock())
+    return result
 
 
-# TODO: consider converting these tests assuming parallel Los to work with
+# TODO: consider converting these tests assuming parallel LoS to work with
 # general ones
 
 
@@ -354,8 +358,10 @@ def tests_parallel_los_from_Rz(coords, time):
         ch, pos, t = transform.convert_from_Rz(R, z, time)
         if vertical:
             assert ch == approx(i)
+            assert pos == approx(z / (zvals[-1] - zvals[0]))
         else:
             assert ch == approx(j)
+            assert pos == approx(R / (Rvals[-1] - Rvals[0]))
 
 
 @given(

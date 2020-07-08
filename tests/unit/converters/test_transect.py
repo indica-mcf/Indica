@@ -1,5 +1,7 @@
 """Test conversions on transect coordinate system"""
 
+from unittest.mock import MagicMock
+
 from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
@@ -58,9 +60,11 @@ def transect_coordinates(draw, min_points, max_points):
         The maximum number of (R,z) pairs in the transect
 
     """
-    return TransectCoordinates(
+    result = TransectCoordinates(
         *draw(transect_coordinates_parameters(min_points, max_points))
     )
+    result.set_equilibrium(MagicMock())
+    return result
 
 
 @given(transect_coordinates_parameters(), floats(0.0, 1.0), floats())

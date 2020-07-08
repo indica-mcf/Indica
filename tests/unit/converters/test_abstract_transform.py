@@ -1,14 +1,19 @@
 """Tests that apply to all subclasses."""
 
+from unittest.mock import MagicMock
+
 from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import integers
+from hypothesis.strategies import just
 from hypothesis.strategies import lists
 from hypothesis.strategies import one_of
 import numpy as np
 from pytest import approx
+from pytest import raises
 
 from src.converters import CoordinateTransform
+from src.converters import EquilibriumException
 from .strategies import arbitrary_coordinates
 from .test_lines_of_sight import los_coordinates
 from .test_transect import transect_coordinates
@@ -17,10 +22,17 @@ from .test_transect import transect_coordinates
 @composite
 def coordinate_transforms(draw):
     """Strategy for generating abritrary
-    :py:class:`src.converters.CoordinateTransform` objects.
+    :py:class:`src.converters.CoordinateTransform` objects. They should already
+    have had an equilibrium object set, if necessary for them to function.
 
     """
     return draw(one_of(transect_coordinates(), los_coordinates()))
+
+
+@composite
+def equilibria(draw):
+    """Generates equilibrium objects. At present it just returns a mock."""
+    return draw(just(MagicMock()))
 
 
 @given(coordinate_transforms(), integers(1, 1000))
@@ -87,7 +99,7 @@ def test_transforms_encoding(transform):
     assert transform2.encode() == encoding
 
 
-@given(coordinate_transforms, arbitrary_coordinates(min_side=2))
+@given(coordinate_transforms(), arbitrary_coordinates(min_side=2))
 def test_transform_reverse_direction(transform, coords):
     """Test reversing direction of input to distance method"""
     x1, x2, t = coords
@@ -99,7 +111,7 @@ def test_transform_reverse_direction(transform, coords):
     assert d_reversed[:, :-1, :] == approx(d[:, :-1, :])
 
 
-@given(coordinate_transforms, arbitrary_coordinates(min_side=2))
+@given(coordinate_transforms(), arbitrary_coordinates(min_side=2))
 def test_transform_distance_increasing(transform, coords):
     """Test distances monotonic increasing"""
     d, t = transform.distance(1, *coords)
@@ -119,3 +131,30 @@ def test_transforms_independent(transforms, coords):
     assert np.all(coords[0] == approx(expected[0]))
     assert np.all(coords[1] == approx(expected[1]))
     assert coords[2] is expected[2]
+
+
+@given(coordinate_transforms(), equilibria())
+def test_transform_change_equilibrium(transform, equilibrium):
+    """Test setting a new equilibrium is handled properly"""
+    expected_R, expected_z, expected_t1 = transform.convert_to_Rz()
+    expected_x1, expected_x2, expected_t2 = transform.convert_from_Rz()
+    expected_d1, expected_t3 = transform.distance(1)
+    expected_d2, expected_t4 = transform.distance(2)
+    with raises(EquilibriumException):
+        transform.set_equilibrium(equilibrium)
+    transform.set_equilibrium(equilibrium, force=True)
+    transform.set_equilibrium(equilibrium)
+    R, z, t = transform.convert_to_Rz()
+    assert R is not expected_R
+    assert z is not expected_z
+    assert t is not expected_t1
+    x1, x2, t = transform.convert_from_Rz()
+    assert x1 is not expected_x1
+    assert x2 is not expected_x2
+    assert t is not expected_t2
+    d1, t = transform.distance(1)
+    assert d1 is not expected_d1
+    assert t is not expected_t3
+    d2, t = transform.distance(2)
+    assert d2 is not expected_d2
+    assert t is not expected_t4
