@@ -42,9 +42,15 @@ class TransectCoordinates(CoordinateTransform):
 
     def __init__(self, R_positions: np.ndarray, z_positions: np.ndarray):
         indices = np.arange(len(R_positions))
-        self.R_vals = interp1d(indices, R_positions, copy=False)
-        self.z_vals = interp1d(indices, z_positions, copy=False)
-        self.invert = interp1d(R_positions, indices, copy=False)
+        self.R_vals = interp1d(
+            indices, R_positions, copy=False, fill_value="extrapolate"
+        )
+        self.z_vals = interp1d(
+            indices, z_positions, copy=False, fill_value="extrapolate"
+        )
+        self.invert = interp1d(
+            R_positions, indices, copy=False, fill_value="extrapolate"
+        )
         super().__init__(indices, 0, R_positions, z_positions, 0)
 
     def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:

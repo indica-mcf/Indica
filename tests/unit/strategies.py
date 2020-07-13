@@ -1,4 +1,4 @@
-"""Strategies for property-based testing."""
+"""Some general strategies for property-based testing."""
 
 from functools import lru_cache
 
@@ -295,6 +295,7 @@ def arbitrary_coordinates(
     max_value=(None, None, None),
     unique=False,
     min_side=1,
+    base_shape=(),
 ):
     """Strategy to generate valid sets of coordinates as input for conversions.
 
@@ -308,6 +309,8 @@ def arbitrary_coordinates(
         Whether values in each coordinate array should be unique
     min_side
         The smallest size that an unaligned dimension can posess
+    base_shape
+        Shape against which all the coordinates should be broadcastable
 
     Returns
     -------
@@ -376,3 +379,33 @@ def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None,
         draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2)))), (0, 1)
     )
     return x1, x2, t
+
+
+@hyst.composite
+def ordered_pairs(draw):
+    """Generate tuples consisting of two unique floats, with the smaller one
+    first."""
+    x1 = draw(sane_floats())
+    x2 = draw(sane_floats().filter(lambda x: not np.isclose(x, x1, 1e-3, 1e-3)))
+    return min(x1, x2), max(x1, x2)
+
+
+@hyst.composite
+def machine_dimensions(draw):
+    """Generates tuples describing the size of a tokamak."""
+    return draw(hyst.tuples(ordered_pairs(), ordered_pairs()))
+
+
+@hyst.composite
+def domains(draw):
+    """Generates tuples describing valid range of R, z, and t values for
+    coordinate transforms.
+
+    """
+    return draw(hyst.tuples(ordered_pairs(), ordered_pairs(), ordered_pairs()))
+
+
+# Generate some fake data of some kind, with 0-2 spatial dimensions
+
+
+# Given a data type descriptor, generate an appropriate DataArray or Dataset

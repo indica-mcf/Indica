@@ -32,7 +32,7 @@ class Equilibrium:
         A collection of equilibrium data rea in using
         :py:meth:`~src.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
-    T_e : DataArray
+    T_e : Optional[DataArray]
         Electron temperature data (from HRTS on JET).
     sess : Session
         An object representing the session being run. Contains information
@@ -46,10 +46,9 @@ class Equilibrium:
     def __init__(
         self,
         equilibrium_data: Dict[str, DataArray],
-        T_e: DataArray,
+        T_e: Optional[DataArray] = None,
         sess: Session = global_session,
         ofsset_picker: OffsetPicker = interactive_offset_choice,
-        **kwargs
     ):
         self._session = sess
         # TODO: Collect necessary data from ``equilbrium_data`` and

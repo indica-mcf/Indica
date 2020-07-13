@@ -15,6 +15,7 @@ from pytest import approx
 from src.converters import LinesOfSightTransform
 from ..strategies import arbitrary_coordinates
 from ..strategies import basis_coordinates
+from ..strategies import machine_dimensions
 from ..strategies import monotonic_series
 from ..strategies import sane_floats
 
@@ -47,16 +48,6 @@ def inside_machine(coords, dimensions, boundary=True):
             and dimensions[1][0] < coords[1]
             and coords[1] < dimensions[1][1]
         )
-
-
-@composite
-def machine_dimensions(draw):
-    """Generates tuples describing the size of a tokamak."""
-    R1 = draw(sane_floats())
-    R2 = draw(sane_floats().filter(lambda x: x != approx(R1, rel=1e-3, abs=1e-3)))
-    z1 = draw(sane_floats())
-    z2 = draw(sane_floats().filter(lambda x: x != approx(z1, rel=1e-3, abs=1e-3)))
-    return ((min(R1, R2), max(R1, R2)), (min(z1, z2), max(z1, z2)))
 
 
 @composite
@@ -95,13 +86,13 @@ def parallel_los_coordinates(
     if not machine_dims:
         machine_dims = draw(machine_dimensions())
     if draw(booleans()):
-        R_start, R_stop = machine_dimensions[0]
+        R_start, R_stop = machine_dims[0]
     else:
-        R_stop, R_start = machine_dimensions[0]
+        R_stop, R_start = machine_dims[0]
     if draw(booleans()):
-        z_start, z_stop = machine_dimensions[1]
+        z_start, z_stop = machine_dims[1]
     else:
-        z_stop, z_start = machine_dimensions[1]
+        z_stop, z_start = machine_dims[1]
     vertical = draw(booleans())
     num_los = draw(integers(min_los, max_los))
     num_intervals = draw(integers(min_num, max_num))
@@ -125,7 +116,7 @@ def parallel_los_coordinates(
         R_stop_vals,
         z_stop_vals,
         num_intervals,
-        machine_dimensions,
+        machine_dims,
     )
     transform.set_equilibrium(MagicMock())
     return transform, vertical, R_vals, z_vals
@@ -133,7 +124,7 @@ def parallel_los_coordinates(
 
 @composite
 def los_coordinates_parameters(
-    draw, machine_dims=None, min_los=2, max_los=100, min_num=2, max_num=100
+    draw, domain=None, min_los=2, max_los=100, min_num=2, max_num=100
 ):
     """Generates the arguments needed to instantiate a
     :py:class:`src.converters.LinesOfSightTransform` object with lines of
@@ -141,9 +132,10 @@ def los_coordinates_parameters(
 
     Parameters
     ----------
-    machine_dims: Tuple[Tuple[float, float], Tuple[float, float]], optional
-        A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``. If absent will draw values.
+    domain: Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]
+        A tuple giving the range of R,z,t values for which the transform is
+        guaranteed to work: ``((Rmin, Rmax), (zmin, zmax), (tmin, tmax)``. Will
+        be used to constrain size of Tokamak.
     min_los: int
         The minimum number of lines of sight
     max_los: int
@@ -168,7 +160,7 @@ def los_coordinates_parameters(
         Note that there will be one more points in the grid than this.
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
+        ``((Rmin, Rmax), (zmin, zmax)``.
     default_R
         Default R-grid to use when converting from the R-z coordinate system.
     default_z
@@ -176,8 +168,45 @@ def los_coordinates_parameters(
 
     """
     # TODO: consider making this more general
-    if not machine_dims:
+
+    def theta_range(origin, hard_min, hard_max, domain, edge):
+        min_i = 0 if edge == 0 or edge == 1 else 1
+        max_i = 0 if edge == 1 or edge == 2 else 1
+        min_j = 0 if edge == 1 or edge == 2 else 1
+        max_j = 0 if edge == 2 or edge == 3 else 1
+        if domain:
+            theta_min = np.atan(
+                (origin[1] - domain[1][min_j]) / (origin[0] - domain[0][min_i])
+            )
+            theta_max = np.atan(
+                (origin[1] - domain[1][max_j]) / (origin[0] - domain[0][max_i])
+            )
+            if theta_min < theta_max:
+                theta_max += 2 * np.pi
+        else:
+            theta1 = draw(floats(hard_min, hard_max))
+            theta2 = draw(
+                floats(hard_min, hard_max).filter(
+                    lambda x: x != approx(theta1, abs=1e-3, rel=1e-3)
+                )
+            )
+            theta_max = max(theta1, theta2)
+            theta_min = min(theta1, theta2)
+        return theta_min, theta_max
+
+    if not domain:
         machine_dims = draw(machine_dimensions())
+    else:
+        machine_dims = (
+            (
+                draw(floats(max_value=machine_dims[0][0], allow_infinity=False)),
+                draw(floats(min_value=machine_dims[0][1], allow_infinity=False)),
+            ),
+            (
+                draw(floats(max_value=machine_dims[1][0], allow_infinity=False)),
+                draw(floats(min_value=machine_dims[1][1], allow_infinity=False)),
+            ),
+        )
     edge = draw(integers(0, 3))
     start_length = draw(
         floats(
@@ -195,30 +224,37 @@ def los_coordinates_parameters(
             floats(machine_dims[0][0] + start_length, machine_dims[0][1] - start_length)
         )
         z_origin = machine_dims[1][1]
-        theta_min = np.pi
-        theta_max = 2 * np.pi
+        theta_min, theta_max = theta_range(
+            (R_origin, z_origin), np.pi, 2 * np.pi, domain, edge
+        )
     elif edge == 1:
         R_origin = machine_dims[0][0]
         z_origin = draw(
             floats(machine_dims[1][0] + start_length, machine_dims[0][1] - start_length)
         )
-        theta_min = -0.5 * np.pi
-        theta_max = 0.5 * np.pi
+        theta_min, theta_max = theta_range(
+            (R_origin, z_origin), -0.5 * np.pi, 0.5 * np.pi, domain, edge
+        )
     elif edge == 2:
         R_origin = draw(
             floats(machine_dims[0][0] + start_length, machine_dims[0][1] - start_length)
         )
         z_origin = machine_dims[1][0]
-        theta_min = 0.0
-        theta_max = np.pi
+        theta_min, theta_max = theta_range(
+            (R_origin, z_origin), 0.0, np.pi, domain, edge
+        )
     else:
         R_origin = machine_dims[0][1]
         z_origin = draw(
             floats(machine_dims[1][0] + start_length, machine_dims[1][1] - start_length)
         )
-        theta_min = 0.5 * np.pi
-        theta_max = 1.5 * np.pi
-    angles = np.array(
+        theta_min, theta_max = theta_range(
+            (R_origin, z_origin), 0.5 * np.pi, 1.5 * np.pi, domain, edge
+        )
+    angles = draw(
+        monotonic_series(theta_min, theta_max, draw(integers(min_los, max_los)))
+    )
+    np.array(
         draw(
             lists(
                 floats(theta_min, theta_max),
@@ -270,9 +306,7 @@ def los_coordinates_parameters(
 
 
 @composite
-def los_coordinates(
-    draw, machine_dims=None, min_los=2, max_los=100, min_num=2, max_num=100
-):
+def los_coordinates(draw, domain=None, min_los=2, max_los=100, min_num=2, max_num=100):
     """Generates :py:class:`src.converters.LinesOfSightTransform` objects
     with lines of sight radiating from a point.
 
@@ -281,6 +315,10 @@ def los_coordinates(
 
     Parameters
     ----------
+    domain: Tuple[Tuple[float, float], Tuple[float, float]], optional
+        A tuple giving the range of R-z values for which the transform is
+        guaranteed to work: ``((Rmin, Rmax), (zmin, zmax)``. If absent will
+        draw values.
     machine_dims: Tuple[Tuple[float, float], Tuple[float, float]], optional
         A tuple giving the boundaries of the Tokamak in R-z space:
         ``((Rmin, Rmax), (zmin, zmax)``. If absent will draw values.
@@ -303,9 +341,7 @@ def los_coordinates(
 
     """
     result = LinesOfSightTransform(
-        *draw(
-            los_coordinates_parameters(machine_dims, min_los, max_los, min_num, max_num)
-        )
+        *draw(los_coordinates_parameters(domain, min_los, max_los, min_num, max_num))
     )
     result.set_equilibrium(MagicMock())
     return result

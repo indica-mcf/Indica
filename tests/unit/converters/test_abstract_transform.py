@@ -15,18 +15,26 @@ from pytest import raises
 from src.converters import CoordinateTransform
 from src.converters import EquilibriumException
 from .strategies import arbitrary_coordinates
+from .strategies import domains
 from .test_lines_of_sight import los_coordinates
 from .test_transect import transect_coordinates
 
 
 @composite
-def coordinate_transforms(draw):
+def coordinate_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
     """Strategy for generating abritrary
     :py:class:`src.converters.CoordinateTransform` objects. They should already
     have had an equilibrium object set, if necessary for them to function.
 
+    Parameters
+    ----------
+    domain : Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]
+        A region in the native coordinate system over which the transform is
+        guarnateed to return non-NaN results. Takes form
+        ``((x1_start, x1_stop), (x2_start, x2_stop), (t_start, t_stop))``.
+
     """
-    return draw(one_of(transect_coordinates(), los_coordinates()))
+    return draw(one_of(transect_coordinates(domain), los_coordinates(domain)))
 
 
 @composite
@@ -122,9 +130,15 @@ def test_transform_distance_increasing(transform, coords):
     assert np.all(d[:, :-1, ...] < d[:, 1:, ...])
 
 
-@given(lists(coordinate_transforms(), min_size=3), arbitrary_coordinates())
+@given(
+    domains().flatmap(lambda d: lists(coordinate_transforms(domain=d), min_size=3)),
+    arbitrary_coordinates(),
+)
 def test_transforms_independent(transforms, coords):
     """Test irrelevance of intermediate transforms"""
+    # TODO: Need some way to ensure that
+    #       (1) coords are within the range the first transform can convert to R-z
+    #       (2) we avoid the singularity in polar coordinates
     expected = transforms[0].convert_to(transforms[-1], *coords)
     for transform1, transform2 in zip(transforms, transforms[1:]):
         coords = transform1.convert_to(transform2, *coords)
