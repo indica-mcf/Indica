@@ -4,10 +4,12 @@ from unittest.mock import Mock
 
 from hypothesis import given
 from hypothesis.strategies import composite
+from hypothesis.strategies import floats
 import numpy as np
 
 from src.converters import FluxSurfaceCoordinates
 from src.equilibrium import Equilibrium
+from ..fake_equilibrium import fake_equilibria
 from ..strategies import arbitrary_coordinates
 from ..test_equilibrium import flux_types
 
@@ -23,8 +25,9 @@ def flux_coordinate_arguments(draw):
 @composite
 def flux_coordinates(draw):
     result = FluxSurfaceCoordinates(*draw(flux_coordinate_arguments()))
-    # TODO: create some sort of fake equilibrium which makes useable transforms
-    result.set_equilibrium(Mock())
+    Rmag = draw(floats(0.1, 10.0))
+    zmag = draw(floats(-10.0, 10.0))
+    result.set_equilibrium(draw(fake_equilibria(Rmag, zmag)))
     return result
 
 
@@ -33,7 +36,7 @@ def flux_coordinates(draw):
     arbitrary_coordinates(),
     arbitrary_coordinates((0.0, 0.0, None), (1.0, 2 * np.pi, None)),
 )
-def test_flux_from_Rz(transform_args, coords, expected_result):
+def test_flux_from_Rz_mock(transform_args, coords, expected_result):
     """Test transform of data to flux coordinates."""
     equilib = Mock(spec=Equilibrium)
     equilib.flux_coords.return_value = expected_result
@@ -51,10 +54,10 @@ def test_flux_from_Rz(transform_args, coords, expected_result):
     arbitrary_coordinates((0.0, 0.0, None), (1.0, 2 * np.pi, None)),
     arbitrary_coordinates(),
 )
-def test_flux_to_Rz(transform_args, coords, expected_result):
+def test_flux_to_Rz_mock(transform_args, coords, expected_result):
     """Test transform of data from flux coordinates."""
     equilib = Mock(spec=Equilibrium)
-    equilib.flux_coords.return_value = expected_result
+    equilib.spatial_coords.return_value = expected_result
     transform = FluxSurfaceCoordinates(*transform_args)
     transform.set_equilibrium(equilib)
     result = transform.convert_from_Rz(*coords)

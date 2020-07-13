@@ -1,15 +1,48 @@
 """A subclass of :py:class:`src.equilibrium.Equilibrium` which fakes
 the implementation."""
 
+from itertools import product
+
+from hypothesis.strategies import composite
+from hypothesis.strategies import floats
+from hypothesis.strategies import one_of
+from hypothesis.strategies import sampled_from
 import numpy as np
 
 from src.equilibrium import Equilibrium
+
+
+FLUX_TYPES = ["toroidal", "poloidal"]
 
 
 class FakeEquilibrium(Equilibrium):
     """A class which fakes the behaviour of an Equilibrium object.  Flux
     surface and magnetic fields are taken to vary in an elliptical profile
     away from the magnetif axis.
+
+    Fluxes have form $$r^2 = \\frac{(R-R_{mag})^2}{a^2} +
+    \\frac{(z-z_{mag})^2}{b^2},$$ where $r = \\rho^n(1 + \\alpha t)$ and $a$, $b$,
+    $n$ and $\\alpha$ are parameters specified by the user at instantiation.
+    $B_{tot}$ varies in the same manner.
+
+    Paramter values may be specified at instantiation using
+    keyword-arguments of the constructor. There are also default
+    values available for flux kinds ``poloidal``, ``toroidal``, and
+    the total magnetic field strength.
+
+    Parameters
+    ----------
+    Rmag : float
+        Major radius of the magnetic axis
+    zmag : float
+        Vertical position of the magnetic axis
+    kwargs : Dict[str, float]
+        Values for parameters describing the equilibrium profile. Keys take the
+        form ``<flux_type>_<parameter_name>``. The ``<flux_type>`` may be any
+        string which will be accpeted as a ``kind`` argument in methods such as
+        :py:meth:`flux_coords``, or ``Btot`` if the paremeter is describing the
+        profile of total magnetic field strength. The ``<parameter_name>`` may
+        be ``a``, ``b``, ``n``, or ``alpha``.
 
     """
 
@@ -84,3 +117,29 @@ class FakeEquilibrium(Equilibrium):
     ):
         R, z, t = self.spatial_coords(rho, theta, t, from_kind)
         return self.flux_coords(R, z, t, to_kind)
+
+
+@composite
+def fake_equilibria(draw, Rmag, zmag, flux_types=FLUX_TYPES, **kwargs):
+    """Generate instances of the FakeEquilibrium class, with the specified
+    flux types. Parameters will be drawn from the ``floats`` strategy,
+    unless explicitely specified as a keyword arguments. These
+    parameters should take the form ``<flux_type>_a``,
+    ``<flux_type>_b``, ``<flux_type>_n`` and ``flux_type>_alpha``. In
+    addition to the flux types specified as an argument, you may
+    specify the parameter values for ``Btot``.
+
+    """
+    flux_types.append("Btot")
+    param_types = {
+        "a": floats(0.01, 10.0),
+        "b": floats(0.01, 10.0),
+        "n": one_of(sampled_from(1, 2, 0.5), floats(0.2, 4.0)),
+        "alpha": floats(-0.01, 0.1),
+    }
+    param_values = {}
+    for flux, param in product(flux_types, param_types):
+        param_name = flux + "_" + param
+        if param_name not in param_values:
+            param_values[param_name] = draw(param_types[param])
+    return FakeEquilibrium(Rmag, zmag, **param_values)

@@ -154,7 +154,7 @@ class Equilibrium:
         return R, t
 
     def enclosed_volume(
-        self, rho: ArrayLike, t: Optional[ArrayLike] = None
+        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "toroidal",
     ) -> Tuple[ArrayLike, ArrayLike]:
         """Returns the volume enclosed by the specified flux surface.
 
