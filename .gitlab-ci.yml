@@ -15,10 +15,8 @@ unit_tests:
     - pip install -r requirements-dev.txt
   script:
     - pytest --cov=src/ tests/unit
-    - coverage report
     - coverage html
     - mv htmlcov htmlcov_unit
-  allow_failure: true # For the moment
   artifacts:
     paths:
       - htmlcov_unit
@@ -32,7 +30,6 @@ unit_tests:
 #    - pip install -r testing-requirements.txt
 #  script:
 #    - pytest --cov=src/ tests/integration
-#    - coverage report
 #    - coverage html
 #    - mv htmlcov htmlcov_integration
 #  artifacts:
@@ -59,8 +56,8 @@ pages:
     - make html
     - mv _build/html/ ../public/
     - mkdir ../public/coverage
-    - mv ../htmlcov_unit/ ../public/coverage/unit
-#    - mv ../htmlcov_integration/ ../public/coverage/integration
+    - if [ -d htmlcov_unit ]; then mv ../htmlcov_unit/ ../public/coverage/unit; fi
+    - if [ -d htmlcov_integration]; then mv ../htmlcov_integration/ ../public/coverage/integration; fi
 
   artifacts:
       paths:
