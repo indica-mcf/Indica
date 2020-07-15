@@ -16,15 +16,19 @@ from src.converters import CoordinateTransform
 from src.converters import EquilibriumException
 from .strategies import arbitrary_coordinates
 from .strategies import domains
+from .test_flux_surfaces import flux_coordinates
 from .test_lines_of_sight import los_coordinates
 from .test_transect import transect_coordinates
+from .test_trivial import trivial_transforms
 
 
 @composite
 def coordinate_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
     """Strategy for generating abritrary
     :py:class:`src.converters.CoordinateTransform` objects. They should already
-    have had an equilibrium object set, if necessary for them to function.
+    have had an equilibrium object set.
+
+    Reduces towards simpler coordinate systems.
 
     Parameters
     ----------
@@ -34,7 +38,14 @@ def coordinate_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
         ``((x1_start, x1_stop), (x2_start, x2_stop), (t_start, t_stop))``.
 
     """
-    return draw(one_of(transect_coordinates(domain), los_coordinates(domain)))
+    return draw(
+        one_of(
+            trivial_transforms(),
+            transect_coordinates(domain),
+            los_coordinates(domain),
+            flux_coordinates(),
+        )
+    )
 
 
 @composite
