@@ -9,6 +9,7 @@ from hypothesis.strategies import booleans
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
+from hypothesis.strategies import just
 import numpy as np
 from pytest import approx
 
@@ -61,7 +62,7 @@ def get_wall_intersection(R_start, z_start, angles, dimensions):
         np.abs(dimensions[1][0] - z_start),
         np.abs(dimensions[0][1] - R_start),
     ]
-    nearest_wall = np.argmix(distances, 0)
+    nearest_wall = np.argmax(distances, 0)
     tan_theta = np.tan(angles)
     choices_horizontal = np.where(
         angles % (2 * np.pi) == 0, 0, np.where(angles % (2 * np.pi) == np.pi, 1, 2)
@@ -71,64 +72,72 @@ def get_wall_intersection(R_start, z_start, angles, dimensions):
         0,
         np.where(angles % (2 * np.pi) == 3 * np.pi / 2, 1, 2),
     )
-    intersections = [
-        (
-            np.choose(
-                choices_horizontal,
-                [
-                    dimensions[0][1],
-                    dimensions[0][0],
-                    R_start + (dimensions[1][1] - z_start) / tan_theta,
-                ],
-            ),
-            dimensions[1][1],
-        ),
-        (
-            dimensions[0][0],
-            np.choose(
-                choices_vertical,
-                [
-                    dimensions[1][1],
-                    dimensions[1][0],
-                    z_start + tan_theta * (dimensions[0][0] - R_start),
-                ],
-            ),
-        ),
-        (
-            np.choose(
-                choices_horizontal,
-                [
-                    dimensions[0][1],
-                    dimensions[0][0],
-                    R_start + (dimensions[1][0] - z_start) / tan_theta,
-                ],
-            ),
-            dimensions[1][0],
-        ),
-        (
-            dimensions[0][1],
-            np.choose(
-                choices_vertical,
-                [
-                    dimensions[1][1],
-                    dimensions[1][0],
-                    z_start + tan_theta * (dimensions[0][1] - R_start),
-                ],
-            ),
-        ),
-    ]
+    ones = np.ones(np.broadcast(R_start, z_start, angles).shape)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        intersections = np.array(
+            [
+                (
+                    np.choose(
+                        choices_horizontal,
+                        [
+                            dimensions[0][1],
+                            dimensions[0][0],
+                            R_start + (dimensions[1][1] - z_start) / tan_theta,
+                        ],
+                    ),
+                    dimensions[1][1] * ones,
+                ),
+                (
+                    dimensions[0][0] * ones,
+                    np.choose(
+                        choices_vertical,
+                        [
+                            dimensions[1][1],
+                            dimensions[1][0],
+                            z_start + tan_theta * (dimensions[0][0] - R_start),
+                        ],
+                    ),
+                ),
+                (
+                    np.choose(
+                        choices_horizontal,
+                        [
+                            dimensions[0][1],
+                            dimensions[0][0],
+                            R_start + (dimensions[1][0] - z_start) / tan_theta,
+                        ],
+                    ),
+                    dimensions[1][0] * ones,
+                ),
+                (
+                    dimensions[0][1] * ones,
+                    np.choose(
+                        choices_vertical,
+                        [
+                            dimensions[1][1],
+                            dimensions[1][0],
+                            z_start + tan_theta * (dimensions[0][1] - R_start),
+                        ],
+                    ),
+                ),
+            ]
+        )
     tol = 1e-12
     in_tokamak = [
-        dimensions[i % 2][0] * (1 + tol)
-        <= intersections[i][i % 2]
-        <= dimensions[i % 2][1] * (1 + tol)
+        np.logical_and(
+            np.logical_and(
+                dimensions[i % 2][0] * (1 - tol * np.sign(dimensions[i % 2][0])) - tol
+                <= intersections[i, i % 2, :],
+                intersections[i, i % 2, :]
+                <= dimensions[i % 2][1] * (1 + tol * np.sign(dimensions[i % 2][1]))
+                + tol,
+            ),
+            i != nearest_wall,
+        )
         for i in range(4)
     ]
-    nearest_wall_p1 = nearest_wall + 1
-    intersect_wall = np.argmax(
-        in_tokamak[:nearest_wall] + in_tokamak[nearest_wall_p1:], 0
-    )
-    return [intersections[wall][i] for i, wall in enumerate(intersect_wall)]
+    intersect_wall = np.argmax(in_tokamak, 0)
+    return [intersections[wall, :, i] for i, wall in enumerate(intersect_wall)]
 
 
 @composite
@@ -336,15 +345,19 @@ def los_coordinates_parameters(
     )
     z_start = z_origin + start_length * np.cos(angles)
     R_start = R_origin + start_length * np.sin(angles)
-    stop = get_wall_intersection(R_start, z_start, angles, machine_dims)
-    distance = (
-        1
-        - arrays(
-            np.float, len(angles), elements=floats(0.0, 1.0, exclude_max=True), fill=0.0
+    stop = np.array(get_wall_intersection(R_origin, z_origin, angles, machine_dims))
+    end_length = (
+        draw(
+            arrays(
+                np.float,
+                len(angles),
+                elements=floats(0.0, 1.0, exclude_max=True),
+                fill=just(0.0),
+            )
         )
-    ) * np.sqrt((R_start - stop[:, 0]) ** 2 + (z_start - stop[:, 1]))
-    R_stop = R_start + distance * np.cos(angles)
-    z_stop = z_start + distance * np.sin(angles)
+    ) * np.sqrt((R_start - stop[:, 0]) ** 2 + (z_start - stop[:, 1]) ** 2)
+    R_stop = stop[:, 0] - end_length * np.cos(angles)
+    z_stop = stop[:, 1] - end_length * np.sin(angles)
     default_R, default_z, _ = draw(
         basis_coordinates(
             (machine_dims[0][0], machine_dims[1][0], None),
@@ -468,7 +481,7 @@ def tests_parallel_los_from_Rz(coords, time):
 def test_los_uniform_distances(transform, start, end, steps, time):
     """Test distances are uniform along lines of sight"""
     samples = np.expand_dims(np.linspace(start, end, steps), 1)
-    distance, t = transform.distance(x2=samples, t=time)
+    distance, t = transform.distance(1, x2=samples, t=time)
     assert np.all(distance[:, 1:] == approx(distance[:, 0]))
 
 
