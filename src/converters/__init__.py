@@ -5,11 +5,10 @@ from .abstractconverter import CoordinateTransform
 from .abstractconverter import EquilibriumException
 from .flux_surfaces import FluxSurfaceCoordinates
 from .lines_of_sight import LinesOfSightTransform
+from .magnetic import MagneticCoordinates
 from .time import convert_in_time
 from .transect import TransectCoordinates
 from .trivial import TrivialTransform
-
-# from .magnetic import MagneticCoordinates
 
 __all__ = [
     "CoordinateTransform",

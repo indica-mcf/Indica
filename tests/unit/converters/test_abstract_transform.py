@@ -14,16 +14,21 @@ from pytest import raises
 
 from src.converters import CoordinateTransform
 from src.converters import EquilibriumException
-from .strategies import arbitrary_coordinates
-from .strategies import domains
+from src.converters import MagneticCoordinates
+from src.converters import TransectCoordinates
 from .test_flux_surfaces import flux_coordinates
 from .test_lines_of_sight import los_coordinates
+from .test_magnetic import magnetic_coordinates
 from .test_transect import transect_coordinates
 from .test_trivial import trivial_transforms
+from ..strategies import arbitrary_coordinates
+from ..strategies import domains
 
 
 @composite
-def coordinate_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
+def coordinate_transforms(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1, min_dims=0
+):
     """Strategy for generating abritrary
     :py:class:`src.converters.CoordinateTransform` objects. They should already
     have had an equilibrium object set.
@@ -36,14 +41,21 @@ def coordinate_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
         A region in the native coordinate system over which the transform is
         guarnateed to return non-NaN results. Takes form
         ``((x1_start, x1_stop), (x2_start, x2_stop), (t_start, t_stop))``.
+    min_side : integer
+        The minimum number of elements in an unaligned dimension for the
+        default coordinate arrays. (Not available for all coordinate systems.)
+    min_dims : integer
+        The minimum number of dimensions for the default coordinate arrays.
+        (Not available for all coordinate systems.)
 
     """
     return draw(
         one_of(
-            trivial_transforms(),
-            transect_coordinates(domain),
+            trivial_transforms(min_side=min_side, min_dims=min_dims),
+            transect_coordinates(),
+            magnetic_coordinates(domain),
             los_coordinates(domain),
-            flux_coordinates(),
+            flux_coordinates(min_side=min_side, min_dims=min_dims),
         )
     )
 
@@ -54,7 +66,7 @@ def equilibria(draw):
     return draw(just(MagicMock()))
 
 
-@given(coordinate_transforms(), integers(1, 1000))
+@given(coordinate_transforms(min_side=2, min_dims=2), integers(1, 1000))
 def test_transform_defaults(transform, attempts):
     """Test calling with default arguments always returns same objects"""
     expected_R, expected_z, expected_t1 = transform.convert_to_Rz()
@@ -73,9 +85,12 @@ def test_transform_defaults(transform, attempts):
         d1, t = transform.distance(1)
         assert d1 is expected_d1
         assert t is expected_t3
-        d2, t = transform.distance(2)
-        assert d2 is expected_d2
-        assert t is expected_t4
+        # Transect coordinates always have 1-D default values, so can't
+        # get distance in the second spatial dimension
+        if not isinstance(transform, (TransectCoordinates, MagneticCoordinates)):
+            d2, t = transform.distance(2)
+            assert d2 is expected_d2
+            assert t is expected_t4
 
 
 @given(coordinate_transforms(), arbitrary_coordinates())
@@ -90,11 +105,15 @@ def test_transform_broadcasting(transform, coords):
     assert x1.shape == expected
     assert x2.shape == expected
     assert t.shape == expected
-    if isinstance(coords[0], np.ndarray):
+    if isinstance(coords[0], np.ndarray) and coords[0].shape[0] > 1:
         d, t = transform.distance(1, *coords)
         assert d.shape == expected
         assert t.shape == expected
-    if isinstance(coords[1], np.ndarray):
+    if (
+        isinstance(coords[1], np.ndarray)
+        and coords[1].ndim > 1
+        and coords[1].shape[1] > 1
+    ):
         d, t = transform.distance(2, *coords)
         assert d.shape == expected
         assert t.shape == expected
@@ -118,7 +137,7 @@ def test_transforms_encoding(transform):
     assert transform2.encode() == encoding
 
 
-@given(coordinate_transforms(), arbitrary_coordinates(min_side=2))
+@given(coordinate_transforms(), arbitrary_coordinates(min_side=2, min_dims=2))
 def test_transform_reverse_direction(transform, coords):
     """Test reversing direction of input to distance method"""
     x1, x2, t = coords
@@ -130,7 +149,7 @@ def test_transform_reverse_direction(transform, coords):
     assert d_reversed[:, :-1, :] == approx(d[:, :-1, :])
 
 
-@given(coordinate_transforms(), arbitrary_coordinates(min_side=2))
+@given(coordinate_transforms(), arbitrary_coordinates(min_side=2, min_dims=2))
 def test_transform_distance_increasing(transform, coords):
     """Test distances monotonic increasing"""
     d, t = transform.distance(1, *coords)
@@ -158,7 +177,7 @@ def test_transforms_independent(transforms, coords):
     assert coords[2] is expected[2]
 
 
-@given(coordinate_transforms(), equilibria())
+@given(coordinate_transforms(min_side=2, min_dims=2), equilibria())
 def test_transform_change_equilibrium(transform, equilibrium):
     """Test setting a new equilibrium is handled properly"""
     expected_R, expected_z, expected_t1 = transform.convert_to_Rz()
@@ -180,6 +199,9 @@ def test_transform_change_equilibrium(transform, equilibrium):
     d1, t = transform.distance(1)
     assert d1 is not expected_d1
     assert t is not expected_t3
-    d2, t = transform.distance(2)
-    assert d2 is not expected_d2
-    assert t is not expected_t4
+    # Transect coordinates always have 1-D default values, so can't
+    # get distance in the second spatial dimension
+    if not isinstance(transform, (TransectCoordinates, MagneticCoordinates)):
+        d2, t = transform.distance(2)
+        assert d2 is not expected_d2
+        assert t is not expected_t4
