@@ -56,7 +56,7 @@ class Equilibrium:
         # TODO: calibrate the equilibrium
         self.prov_id = hash_vals(**equilibrium_data)
         self.provenance = sess.prov.entity(
-            self.prov_id, dict(**{prov.PROV_TYPE: "Equilibrium"},),
+            self.prov_id, {prov.PROV_TYPE: "Equilibrium"},
         )
         sess.prov.generation(
             self.provenance, sess.session, time=datetime.datetime.now()

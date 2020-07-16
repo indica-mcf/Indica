@@ -9,11 +9,14 @@ from .time import convert_in_time
 from .transect import TransectCoordinates
 from .trivial import TrivialTransform
 
+# from .magnetic import MagneticCoordinates
+
 __all__ = [
     "CoordinateTransform",
     "EquilibriumException",
     "FluxSurfaceCoordinates",
     "LinesOfSightTransform",
+    "MagneticCoordinates",
     "TransectCoordinates",
     "TrivialTransform",
     "convert_in_time",

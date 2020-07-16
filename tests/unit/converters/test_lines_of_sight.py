@@ -4,11 +4,11 @@ from itertools import product
 from unittest.mock import MagicMock
 
 from hypothesis import given
+from hypothesis.extra.numpy import arrays
 from hypothesis.strategies import booleans
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
-from hypothesis.strategies import lists
 import numpy as np
 from pytest import approx
 
@@ -48,6 +48,87 @@ def inside_machine(coords, dimensions, boundary=True):
             and dimensions[1][0] < coords[1]
             and coords[1] < dimensions[1][1]
         )
+
+
+def get_wall_intersection(R_start, z_start, angles, dimensions):
+    """Returns the location where a line of sight interects with the Tokamak
+    wall. This will be whichever wall the starting point is further away from.
+
+    """
+    distances = [
+        np.abs(dimensions[1][1] - z_start),
+        np.abs(dimensions[0][0] - R_start),
+        np.abs(dimensions[1][0] - z_start),
+        np.abs(dimensions[0][1] - R_start),
+    ]
+    nearest_wall = np.argmix(distances, 0)
+    tan_theta = np.tan(angles)
+    choices_horizontal = np.where(
+        angles % (2 * np.pi) == 0, 0, np.where(angles % (2 * np.pi) == np.pi, 1, 2)
+    )
+    choices_vertical = np.where(
+        angles % (2 * np.pi) == np.pi / 2,
+        0,
+        np.where(angles % (2 * np.pi) == 3 * np.pi / 2, 1, 2),
+    )
+    intersections = [
+        (
+            np.choose(
+                choices_horizontal,
+                [
+                    dimensions[0][1],
+                    dimensions[0][0],
+                    R_start + (dimensions[1][1] - z_start) / tan_theta,
+                ],
+            ),
+            dimensions[1][1],
+        ),
+        (
+            dimensions[0][0],
+            np.choose(
+                choices_vertical,
+                [
+                    dimensions[1][1],
+                    dimensions[1][0],
+                    z_start + tan_theta * (dimensions[0][0] - R_start),
+                ],
+            ),
+        ),
+        (
+            np.choose(
+                choices_horizontal,
+                [
+                    dimensions[0][1],
+                    dimensions[0][0],
+                    R_start + (dimensions[1][0] - z_start) / tan_theta,
+                ],
+            ),
+            dimensions[1][0],
+        ),
+        (
+            dimensions[0][1],
+            np.choose(
+                choices_vertical,
+                [
+                    dimensions[1][1],
+                    dimensions[1][0],
+                    z_start + tan_theta * (dimensions[0][1] - R_start),
+                ],
+            ),
+        ),
+    ]
+    tol = 1e-12
+    in_tokamak = [
+        dimensions[i % 2][0] * (1 + tol)
+        <= intersections[i][i % 2]
+        <= dimensions[i % 2][1] * (1 + tol)
+        for i in range(4)
+    ]
+    nearest_wall_p1 = nearest_wall + 1
+    intersect_wall = np.argmax(
+        in_tokamak[:nearest_wall] + in_tokamak[nearest_wall_p1:], 0
+    )
+    return [intersections[wall][i] for i, wall in enumerate(intersect_wall)]
 
 
 @composite
@@ -175,11 +256,11 @@ def los_coordinates_parameters(
         min_j = 0 if edge == 1 or edge == 2 else 1
         max_j = 0 if edge == 2 or edge == 3 else 1
         if domain:
-            theta_min = np.atan(
-                (origin[1] - domain[1][min_j]) / (origin[0] - domain[0][min_i])
+            theta_min = np.arctan2(
+                (origin[1] - domain[1][min_j]), (origin[0] - domain[0][min_i])
             )
-            theta_max = np.atan(
-                (origin[1] - domain[1][max_j]) / (origin[0] - domain[0][max_i])
+            theta_max = np.arctan2(
+                (origin[1] - domain[1][max_j]), (origin[0] - domain[0][max_i])
             )
             if theta_min < theta_max:
                 theta_max += 2 * np.pi
@@ -199,94 +280,71 @@ def los_coordinates_parameters(
     else:
         machine_dims = (
             (
-                draw(floats(max_value=machine_dims[0][0], allow_infinity=False)),
-                draw(floats(min_value=machine_dims[0][1], allow_infinity=False)),
+                draw(floats(max_value=domain[0][0], allow_infinity=False)),
+                draw(floats(min_value=domain[0][1], allow_infinity=False)),
             ),
             (
-                draw(floats(max_value=machine_dims[1][0], allow_infinity=False)),
-                draw(floats(min_value=machine_dims[1][1], allow_infinity=False)),
+                draw(floats(max_value=domain[1][0], allow_infinity=False)),
+                draw(floats(min_value=domain[1][1], allow_infinity=False)),
             ),
         )
     edge = draw(integers(0, 3))
     start_length = draw(
         floats(
             0.0,
-            (
-                machine_dims[0][1] - machine_dims[0][0]
-                if edge % 2 == 0
-                else machine_dims[1][1] - machine_dims[1][0]
+            min(
+                machine_dims[0][1] - machine_dims[0][0],
+                machine_dims[1][1] - machine_dims[1][0],
             )
-            * 0.1,
+            * 0.05,
         )
     )
     if edge == 0:
-        R_origin = draw(
-            floats(machine_dims[0][0] + start_length, machine_dims[0][1] - start_length)
-        )
+        centre = (machine_dims[0][1] + machine_dims[0][0]) / 2
+        half_width = (machine_dims[0][1] - machine_dims[0][0]) / 2
+        R_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
         z_origin = machine_dims[1][1]
         theta_min, theta_max = theta_range(
             (R_origin, z_origin), np.pi, 2 * np.pi, domain, edge
         )
     elif edge == 1:
+        centre = (machine_dims[1][1] + machine_dims[1][0]) / 2
+        half_width = (machine_dims[1][1] - machine_dims[1][0]) / 2
         R_origin = machine_dims[0][0]
-        z_origin = draw(
-            floats(machine_dims[1][0] + start_length, machine_dims[0][1] - start_length)
-        )
+        z_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
         theta_min, theta_max = theta_range(
             (R_origin, z_origin), -0.5 * np.pi, 0.5 * np.pi, domain, edge
         )
     elif edge == 2:
-        R_origin = draw(
-            floats(machine_dims[0][0] + start_length, machine_dims[0][1] - start_length)
-        )
+        centre = (machine_dims[0][1] + machine_dims[0][0]) / 2
+        half_width = (machine_dims[0][1] - machine_dims[0][0]) / 2
+        R_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
         z_origin = machine_dims[1][0]
         theta_min, theta_max = theta_range(
             (R_origin, z_origin), 0.0, np.pi, domain, edge
         )
     else:
+        centre = (machine_dims[1][1] + machine_dims[1][0]) / 2
+        half_width = (machine_dims[1][1] - machine_dims[1][0]) / 2
         R_origin = machine_dims[0][1]
-        z_origin = draw(
-            floats(machine_dims[1][0] + start_length, machine_dims[1][1] - start_length)
-        )
+        z_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
         theta_min, theta_max = theta_range(
             (R_origin, z_origin), 0.5 * np.pi, 1.5 * np.pi, domain, edge
         )
     angles = draw(
         monotonic_series(theta_min, theta_max, draw(integers(min_los, max_los)))
     )
-    np.array(
-        draw(
-            lists(
-                floats(theta_min, theta_max),
-                min_size=min_los,
-                max_size=max_los,
-                unique=True,
-            ).map(sorted)
+    z_start = z_origin + start_length * np.cos(angles)
+    R_start = R_origin + start_length * np.sin(angles)
+    stop = get_wall_intersection(R_start, z_start, angles, machine_dims)
+    distance = (
+        1
+        - arrays(
+            np.float, len(angles), elements=floats(0.0, 1.0, exclude_max=True), fill=0.0
         )
-    )
-    z_start = z_origin + start_length * np.tan(angles)
-    R_start = R_origin + start_length * np.tan(angles)
-    z_stop = np.array(
-        [
-            z_start
-            if theta == 0.0 or theta == np.pi
-            else draw(
-                floats(
-                    z_start,
-                    machine_dims[1][1] if np.tan(theta) > 1 else machine_dims[1][0],
-                )
-            )
-            for theta in angles
-        ]
-    )
-    R_stop = [
-        draw(floats(R_start, machine_dims[0][1]))
-        if theta == 0.0
-        else draw(floats(machine_dims[0][0], R_start))
-        if theta == np.pi
-        else R_origin + (z_stop - z_origin) / np.tan(theta)
-        for theta in angles
-    ]
+    ) * np.sqrt((R_start - stop[:, 0]) ** 2 + (z_start - stop[:, 1]))
+    R_stop = R_start + distance * np.cos(angles)
+    z_stop = z_start + distance * np.sin(angles)
     default_R, default_z, _ = draw(
         basis_coordinates(
             (machine_dims[0][0], machine_dims[1][0], None),
@@ -426,7 +484,7 @@ def test_los_end_points(parameters, time):
 @given(los_coordinates_parameters(), arbitrary_coordinates())
 def test_los_default_Rz(parameters, Rz_defaults):
     """Test expected defaults are used in transforms for R and z"""
-    R_default, z_default = Rz_defaults
+    R_default, z_default, _ = Rz_defaults
     transform = LinesOfSightTransform(*parameters[:-2], R_default, z_default)
     x1, x2, t = transform.convert_from_Rz(R_default, z_default)
     x1_default, x2_deafult, t = transform.convert_from_Rz()

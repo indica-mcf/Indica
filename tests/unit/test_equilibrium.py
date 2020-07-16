@@ -37,7 +37,7 @@ def equilibria(draw):
 
 @composite
 def flux_types(draw):
-    return sampled_from(*FLUX_TYPES)
+    return draw(sampled_from(FLUX_TYPES))
 
 
 @given(

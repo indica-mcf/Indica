@@ -14,7 +14,7 @@ def sane_floats(draw):
 
     """
     return draw(
-        hyst.one_of(hyst.floats(-1e3, -1e-3), hyst.just(0.0), hyst.floats(1e-3, 1e3))
+        hyst.one_of(hyst.just(0.0), hyst.floats(1e-3, 1e3), hyst.floats(-1e3, -1e-3))
     )
 
 
@@ -295,6 +295,7 @@ def arbitrary_coordinates(
     max_value=(None, None, None),
     unique=False,
     min_side=1,
+    min_dims=0,
     base_shape=(),
 ):
     """Strategy to generate valid sets of coordinates as input for conversions.
@@ -309,6 +310,8 @@ def arbitrary_coordinates(
         Whether values in each coordinate array should be unique
     min_side
         The smallest size that an unaligned dimension can posess
+    min_dims
+        The smallest number of dimensions allowed for the resulting coordinates
     base_shape
         Shape against which all the coordinates should be broadcastable
 
@@ -323,16 +326,20 @@ def arbitrary_coordinates(
 
     """
     shapes = draw(
-        hynp.mutually_broadcastable_shapes(num_shapes=3, max_dims=3, min_side=min_side)
+        hynp.mutually_broadcastable_shapes(
+            num_shapes=3, min_dims=min_dims, max_dims=3, min_side=min_side, max_side=200
+        )
     ).input_shapes
-    return draw(
-        hynp.arrays(
-            np.float,
-            shapes[i],
-            elements=hyst.floats(
-                min_value[i], max_value[i], allow_nan=False, allow_infinity=False
-            ),
-            unique=unique,
+    return tuple(
+        draw(
+            hynp.arrays(
+                np.float,
+                shapes[i],
+                elements=hyst.floats(
+                    min_value[i], max_value[i], allow_nan=False, allow_infinity=False
+                ),
+                unique=unique,
+            )
         )
         for i in range(3)
     )
@@ -371,12 +378,13 @@ def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None,
         else draw(hyst.floats(min_vals[i], 1e7))
         for i in range(3)
     ]
-    x1 = draw(monotonic_series(min_vals[0], max_vals[0], draw(hyst.integers(2))))
+    x1 = draw(monotonic_series(min_vals[0], max_vals[0], draw(hyst.integers(2, 200))))
     x2 = np.expand_dims(
-        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2)))), 0
+        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2, 200)))), 0
     )
     t = np.expand_dims(
-        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2)))), (0, 1)
+        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2, 200)))),
+        (0, 1),
     )
     return x1, x2, t
 

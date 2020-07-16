@@ -29,7 +29,7 @@ class FluxSurfaceCoordinates(CoordinateTransform):
 
     """
 
-    def __int__(
+    def __init__(
         self,
         kind: str,
         default_rho: ArrayLike,

@@ -15,16 +15,67 @@ from ..test_equilibrium import flux_types
 
 
 @composite
-def flux_coordinate_arguments(draw):
-    rho, theta, t = draw(arbitrary_coordinates())
+def flux_coordinate_arguments(draw, min_side=1, min_dims=0):
+    """Generate the parameters needed to instantiate
+    :py:class:`src.converters.FluxSurfaceCoordinates`.
+
+    Parameters
+    ----------
+    min_side : integer
+        The minimum number of elements in an unaligned dimension for the
+        default coordinate arrays. (Not available for all coordinate systems.)
+    min_dims : integer
+        The minimum number of dimensions for the default coordinate arrays.
+        (Not available for all coordinate systems.)
+
+    Returns
+    -------
+    flux_kind : str
+        What sort of flux is being used (e.g., ``"poloidal"``, ``"toroidal"``)
+    rho : ndarray
+        Default coordinates for flux surface value
+    theta : ndarray
+        Default coordinates for angle
+    R : ndarray
+        Default coordinates for major radius
+    z : ndarray
+        Default coordinates for vertical position
+    t : ndarray
+        Default coordinates for time
+
+    """
+    rho, theta, t = draw(
+        arbitrary_coordinates(
+            (0.0, 0.0, None),
+            (1.0, 2 * np.pi, None),
+            min_side=min_side,
+            min_dims=min_dims,
+        )
+    )
     bshape = t.shape if isinstance(t, np.ndarray) else ()
-    R, z, t = draw(arbitrary_coordinates(base_shape=bshape))
+    R, z, t = draw(
+        arbitrary_coordinates(base_shape=bshape, min_side=min_side, min_dims=min_dims)
+    )
     return draw(flux_types()), rho, theta, R, z, t
 
 
 @composite
-def flux_coordinates(draw):
-    result = FluxSurfaceCoordinates(*draw(flux_coordinate_arguments()))
+def flux_coordinates(draw, min_side=1, min_dims=0):
+    """Generates :py:class:`src.converters.FluxSurfaceCoordinates` objects.
+
+    Parameters
+    ----------
+    min_side : integer
+        The minimum number of elements in an unaligned dimension for the
+        default coordinate arrays. (Not available for all coordinate systems.)
+    min_dims : integer
+        The minimum number of dimensions for the default coordinate arrays.
+        (Not available for all coordinate systems.)
+
+    """
+    result = FluxSurfaceCoordinates(
+        *draw(flux_coordinate_arguments(min_side, min_dims))
+    )
     Rmag = draw(floats(0.1, 10.0))
     zmag = draw(floats(-10.0, 10.0))
     result.set_equilibrium(draw(fake_equilibria(Rmag, zmag)))

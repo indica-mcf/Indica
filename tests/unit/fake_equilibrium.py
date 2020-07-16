@@ -23,7 +23,9 @@ class FakeEquilibrium(Equilibrium):
     Fluxes have form $$r^2 = \\frac{(R-R_{mag})^2}{a^2} +
     \\frac{(z-z_{mag})^2}{b^2},$$ where $r = \\rho^n(1 + \\alpha t)$ and $a$, $b$,
     $n$ and $\\alpha$ are parameters specified by the user at instantiation.
-    $B_{tot}$ varies in the same manner.
+
+    $B_{tot}$ varies according to a different equation:
+    $$B_{tot} = \\frac{(1 + \\alpha t) a}{1 + bR} + (z - z_{mag}).$$
 
     Paramter values may be specified at instantiation using
     keyword-arguments of the constructor. There are also default
@@ -36,6 +38,8 @@ class FakeEquilibrium(Equilibrium):
         Major radius of the magnetic axis
     zmag : float
         Vertical position of the magnetic axis
+    B_coeff : float
+        Coefficient on B term on magnetic field variation
     kwargs : Dict[str, float]
         Values for parameters describing the equilibrium profile. Keys take the
         form ``<flux_type>_<parameter_name>``. The ``<flux_type>`` may be any
@@ -55,13 +59,14 @@ class FakeEquilibrium(Equilibrium):
         "toroidal_b": 1.44,
         "toroidal_n": 0.5,
         "toroidal_alpha": -0.00005,
-        "Btot_a": 0.6,
-        "Btot_b": 1.21,
-        "Btot_n": 1,
+        "Btot_a": 1.0,
+        "Btot_b": 1.0,
         "Btot_alpha": 0.001,
     }
 
-    def __init__(self, Rmag=3.0, zmag=0.0, **kwargs):
+    def __init__(
+        self, Rmag=3.0, zmag=0.0, Bmax=1.0, B_coeff=1.0, B_alpha=0.001, **kwargs
+    ):
         self.Rmag = Rmag
         self.zmag = zmag
         self.parameters = kwargs
@@ -71,7 +76,11 @@ class FakeEquilibrium(Equilibrium):
         self.default_t = 0.0
 
     def Btot(self, R, z, t=None):
-        return self.flux_coords(R, z, t, "Btot")
+        return (
+            (1 + self.parameters["B_alpha"] * t)
+            * self.parameters["Bmax"]
+            / (1 + self.parameters["Bcoeff"] * R)
+        )
 
     def minor_radius(self, rho, theta, t=None, kind="toroidal"):
         if not t:
@@ -130,16 +139,21 @@ def fake_equilibria(draw, Rmag, zmag, flux_types=FLUX_TYPES, **kwargs):
     specify the parameter values for ``Btot``.
 
     """
-    flux_types.append("Btot")
     param_types = {
         "a": floats(0.01, 10.0),
         "b": floats(0.01, 10.0),
-        "n": one_of(sampled_from(1, 2, 0.5), floats(0.2, 4.0)),
+        "n": one_of(sampled_from([1, 2, 0.5]), floats(0.2, 4.0)),
         "alpha": floats(-0.01, 0.1),
     }
-    param_values = {}
+    param_values = kwargs
     for flux, param in product(flux_types, param_types):
         param_name = flux + "_" + param
         if param_name not in param_values:
             param_values[param_name] = draw(param_types[param])
+    if "Btot_a" in flux_types and "Btot_a" not in param_values:
+        param_values["Btot_a"] = draw(floats(1e-3, 1e3))
+    if "Btot_b" in flux_types and "Btot_b" not in param_values:
+        param_values["Btot_b"] = draw(floats(1e-5, 1e-2))
+    if "Btot_alpha" in flux_types and "Btot_alpha" not in param_values:
+        param_values["Btot_alpha"] = draw(floats(-1e-3, 1e-3))
     return FakeEquilibrium(Rmag, zmag, **param_values)

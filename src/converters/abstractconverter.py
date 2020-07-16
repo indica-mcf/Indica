@@ -10,6 +10,7 @@ from typing import Tuple
 
 import numpy as np
 
+from ..equilibrium import Equilibrium
 from ..numpy_typing import ArrayLike
 
 Coordinates = Tuple[ArrayLike, ArrayLike, ArrayLike]
@@ -76,8 +77,9 @@ class CoordinateTransform(ABC):
         ]
         self.default_to_Rz: Coordinates = (None, None, None)
         self.default_from_Rz: Coordinates = (None, None, None)
+        self.equilibrium: Equilibrium
 
-    def set_equilibrium(self, equilibrium, force=False):
+    def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
 
         If it has already been initialised with the same equilibrium
@@ -96,10 +98,13 @@ class CoordinateTransform(ABC):
             equilibrium data.
 
         """
-        if not self.equilibrium or force:
-            self.default_to_Rz = None
-            self.default_from_Rz = None
-            self.default_distance = [None, None]
+        if not hasattr(self, "equilibrium") or force:
+            self.default_to_Rz = (None, None, None)
+            self.default_from_Rz = (None, None, None)
+            self.default_distance = [
+                (None, None),
+                (None, None),
+            ]
             self.equilibrium = equilibrium
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
@@ -300,7 +305,7 @@ class CoordinateTransform(ABC):
 
         Parameters
         ----------
-        distance : {1, 2}
+        direction : {1, 2}
             Which direction (x1 or x2) to give the distance along.
         x1 : array_like
             The first spatial coordinate in this system.
@@ -320,11 +325,13 @@ class CoordinateTransform(ABC):
         """
 
         def calc_distance(direction, x1, x2, t):
-            R, z, t = self._convert_to_rz(x1, x2, t)
+            R, z, t = self._convert_to_Rz(x1, x2, t)
             slc1 = [slice(None)] * R.ndim
             slc1[direction - 1] = slice(0, -1)
+            slc1 = tuple(slc1)
             slc2 = [slice(None)] * R.ndim
             slc2[direction - 1] = slice(1, None)
+            slc2 = tuple(slc2)
             spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2), t
             result = np.zeros_like(np.broadcast(R, z, t))
             return np.cumsum(spacings, direction, out=result[slc2])

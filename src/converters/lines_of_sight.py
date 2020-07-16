@@ -71,24 +71,24 @@ class LinesOfSightTransform(CoordinateTransform):
         indices = np.arange(len(R_start))
         x2 = np.expand_dims(np.linspace(0.0, 1.0, num_intervals + 1), axis=0)
         R_default = (
-            np.linsapce(
+            np.linspace(
                 min(R_start.min(), R_end.min()),
                 max(R_start.max(), R_end.max()),
                 num_intervals + 1,
             )
-            if not default_R
+            if default_R is None
             else default_R
         )
         z_default = (
             np.expand_dims(
-                np.linsapce(
+                np.linspace(
                     min(z_start.min(), z_end.min()),
                     max(z_start.max(), z_end.max()),
                     num_intervals + 1,
                 ),
                 axis=0,
             )
-            if not default_z
+            if default_z is None
             else default_z
         )
         self.R_start = R_start
