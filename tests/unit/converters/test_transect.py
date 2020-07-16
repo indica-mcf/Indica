@@ -75,7 +75,7 @@ def test_transect_zero(params, position, time):
     R = Rvals[0] + position * (Rvals[-1] - Rvals[0])
     z = zvals[0] + position * (zvals[-1] - zvals[0])
     i, zprime, t = transform.convert_from_Rz(R, z, time)
-    tol = max(1e-20 / position, 1e-10) if position != 0.0 else 1e-20
+    tol = max(1e-20 / position, 1e-10) if position != 0.0 else 1e-10
     assert zprime == approx(0.0, abs=tol)
 
 
