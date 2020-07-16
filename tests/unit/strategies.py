@@ -295,6 +295,7 @@ def arbitrary_coordinates(
     max_value=(None, None, None),
     unique=False,
     min_side=1,
+    max_side=25,
     min_dims=0,
     base_shape=(),
 ):
@@ -310,6 +311,8 @@ def arbitrary_coordinates(
         Whether values in each coordinate array should be unique
     min_side
         The smallest size that an unaligned dimension can posess
+    max_side
+        The greatest size that an unaligned dimension can posess
     min_dims
         The smallest number of dimensions allowed for the resulting coordinates
     base_shape
@@ -327,7 +330,11 @@ def arbitrary_coordinates(
     """
     shapes = draw(
         hynp.mutually_broadcastable_shapes(
-            num_shapes=3, min_dims=min_dims, max_dims=3, min_side=min_side, max_side=200
+            num_shapes=3,
+            min_dims=min_dims,
+            max_dims=3,
+            min_side=min_side,
+            max_side=max_side,
         )
     ).input_shapes
     return tuple(
