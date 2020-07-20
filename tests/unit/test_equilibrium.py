@@ -46,8 +46,8 @@ def flux_types(draw):
     flux_types(),
 )
 def test_lfs_rad(equilib_dat, coords, ftype):
-    """Check R_lfs and R_hfs actually on low-flux surfaces and have
-    appropriate flux surface values.
+    """Check R_lfs actually on low-flux surfaces and have appropriate flux
+    surface values.
 
     """
     equilib = Equilibrium(equilib_dat, sess=MagicMock())
@@ -65,8 +65,8 @@ def test_lfs_rad(equilib_dat, coords, ftype):
     flux_types(),
 )
 def test_hfs_rad(equilib_dat, coords, ftype):
-    """Check R_lfs and R_hfs actually on high-flux surfaces and have
-    appropriate flux surface values.
+    """Check R_hfs actually on high-flux surfaces and have appropriate
+    flux surface values.
 
     """
     equilib = Equilibrium(equilib_dat, sess=MagicMock())

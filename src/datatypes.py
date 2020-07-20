@@ -17,20 +17,20 @@ SpecificDataType = str
 #  (empty if unitless).
 GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     "angular_freq": (
-        "Angular speed at which a species of" " ion completes a loop of the Tokamak",
+        "Angular speed at which a species of ion completes a loop of the Tokamak",
         "\rad s^{-1}",
     ),
-    "concentration": ("Portion of nuclei which are the given" " type of ion", "%",),
+    "concentration": ("Portion of nuclei which are the given type of ion", "%",),
     "effective_charge": (
-        "Ratio of positive ion charge to " "electron charge in plasma",
+        "Ratio of positive ion charge to electron charge in plasma",
         "",
     ),
     "luminous_flux": (
-        "Radiation power received per unit " "area at some point",
+        "Radiation power received per unit area at some point",
         "W m^{-2}",
     ),
     "major_rad": (
-        "Horizontal position within the tokamak " "along the major radius",
+        "Horizontal position within the tokamak along the major radius",
         "m",
     ),
     "number_density": ("Number of particles per cubic metre", "m^{-3}"),
