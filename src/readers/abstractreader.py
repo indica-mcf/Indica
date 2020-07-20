@@ -15,6 +15,7 @@ from typing import Tuple
 import numpy as np
 import prov.model as prov
 from xarray import DataArray
+from xarray import Dataset
 
 from .selectors import choose_on_plot
 from .selectors import DataSelector
@@ -124,7 +125,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"ne", "te"},
-    ) -> Dict[str, DataArray]:
+    ) -> Dataset:
         """Reads data based on Thomson Scattering.
 
         Parameters
@@ -247,7 +248,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"ne", "te"},
-    ) -> Dict[str, DataArray]:
+    ) -> Dataset:
         """Reads charge exchange data.
 
         Parameters
@@ -266,7 +267,7 @@ class DataReader(BaseIO):
         Returns
         -------
         :
-            A dictionary containing the requested physical quantities.
+            A dataset containing the requested physical quantities.
 
         """
         available_quantities = self.DIAGNOSTIC_QUANTITIES["charge_exchange"][uid][
@@ -373,6 +374,332 @@ class DataReader(BaseIO):
         """
         raise NotImplementedError(
             "{} does not implement a '_get_charge_exchange' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def get_equilibrium(
+        self,
+        uid: str,
+        calculation: str,
+        revision: int = 0,
+        quantities: Set[str] = {"ne", "te"},
+    ) -> Dataset:
+        """Reads equilibrium data.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        calculation
+            Name of the code used to calculate this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database. Options are
+            TODO!
+
+        Returns
+        -------
+        :
+            A dataset containing the requested physical quantities.
+
+        """
+
+    def _get_equilibrium(
+        self, uid: str, calculation: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Gets raw data for equilibrium from the database. Data outside
+        the desired time range will be discarded.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        calculation
+            Name of the code used to calculate this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database. Options are
+            TODO!
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        TODO: Complete the list of quantitites
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_equilibrium' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def get_cyclotron(self, uid: str, instrument: str, revision: int = 0,) -> Dataset:
+        """Reads electron temperature measurements from cyclotron data.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+
+        Returns
+        -------
+        :
+            A dataset containing the electron temperature.
+
+        """
+
+    def _get_cyclotron(
+        self, uid: str, calculation: str, revision: int = 0,
+    ) -> Dict[str, Any]:
+        """Gets raw data for cyclotron resonance from the database. Data
+        outside the desired time range will be discarded.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        length : int
+            Number of channels in data
+        z : float
+            Vertical position of line of sight
+        times : ndarray
+            The times at which measurements were taken
+        te : ndarray
+            Electron temperature (first axis is time, second channel)
+        te_error : ndarray
+            Uncertainty in electron temperature
+        te_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for electron temperature.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_cyclotron' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def get_radiation(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int = 0,
+        quantities: Set[str] = {"V", "H"},
+    ) -> Dataset:
+        """Reads data on radiation flux.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument/DDA which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which cameras to read quantitie(s) from. Options are
+            "H", "T", and "V". Not all cameras are available for all DDAs.
+
+        Returns
+        -------
+        :
+            A dataset containing the requested radiation values.
+        """
+
+    def _get_radiation(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Gets raw data for radiant fluxes from the database. Data outside
+        the desired time range will be discarded.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument/DDA which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.  Options are
+            "H", "T", and "V". Not all cameras are available for all DDAs.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        length : Dict[str, int]
+            Number of channels in data for each camera
+        times : ndarray
+            The times at which measurements were taken
+        H : ndarray (optional)
+            Brightness from camera H (first axis is time, second channel)
+        H_error : ndarray (optional)
+            Uncertainty in brightness for camera H.
+        H_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed from camera H.
+        H_Rstart : ndarray (optional)
+            Major radius of start positions for lines of sight from camera H.
+        H_Rstop : ndarray (optional)
+            Major radius of stop positions for lines of sight from camera H.
+        H_zstart : ndarray (optional)
+            Vertical location of start positions for lines of sight from
+            camera H.
+        H_zstop : ndarray (optional)
+            Vertical location of stop positions for lines of sight from
+            camera H.
+        T : ndarray (optional)
+            Brightness from camera T (first axis is time, second channel)
+        T_error : ndarray (optional)
+            Uncertainty in brightness for camera T.
+        T_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed from camera T.
+        T_Rstart : ndarray (optional)
+            Major radius of start positions for lines of sight from camera T.
+        T_Rstop : ndarray (optional)
+            Major radius of stop positions for lines of sight from camera T.
+        T_zstart : ndarray (optional)
+            Vertical location of start positions for lines of sight from
+            camera T.
+        T_zstop : ndarray (optional)
+            Vertical location of stop positions for lines of sight from
+            camera T.
+        V : ndarray (optional)
+            Brightness from camera V (first axis is time, second channel)
+        V_error : ndarray (optional)
+            Uncertainty in brightness for camera V.
+        V_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed from camera V.
+        V_Rstart : ndarray (optional)
+            Major radius of start positions for lines of sight from camera V.
+        V_Rstop : ndarray (optional)
+            Major radius of stop positions for lines of sight from camera V.
+        V_zstart : ndarray (optional)
+            Vertical location of start positions for lines of sight from
+            camera V.
+        V_zstop : ndarray (optional)
+            Vertical location of stop positions for lines of sight from
+            camera V.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_radiation' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def get_spectroscopy(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int = 0,
+        quantities: Set[str] = {"H", "V"},
+    ) -> Dataset:
+        """Reads spectroscopic measurements of effective charge.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.  Options are
+            "H" (horizontal line of sight) and "V" (vertical).
+
+        Returns
+        -------
+        :
+            A dataset containing the requested effective charge data.
+
+        """
+
+    def _get_spectroscopy(
+        self, uid: str, calculation: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Gets raw spectroscopic data for effective charge from the
+        database. Data outside the desired time range will be
+        discarded.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.  Options are
+            "H" (horizontal line of sight) and "V" (vertical).
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        times : ndarray
+            The times at which measurements were taken
+        H : ndarray (optional)
+            Effective charge along horizontal line of sight (first axis is
+            time).
+        H_error : ndarray (optional)
+            Uncertainty in horizontal effective charge measurement
+        H_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed from horizontal line of sight
+        H_Rstart : float (optional)
+            Major radius of start positions for horizontal line of sight.
+        H_Rstop : float (optional)
+            Major radius of stop position for horizontal line of sight from.
+        H_zstart : float (optional)
+            Vertical location of start position for horizontal line of sight.
+        H_zstop : float (optional)
+            Vertical location of start position for horizontal lines of sight.
+        V : ndarray (optional)
+            Effective charge along vertical line of sight (first axis is time).
+        V_error : ndarray (optional)
+            Uncertainty in vertical effective charge measurement
+        V_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed from vertical line of sight
+        V_Rstart : float (optional)
+            Major radius of start positions for vertical line of sight.
+        V_Rstop : float (optional)
+            Major radius of stop position for vertical line of sight from.
+        V_zstart : float (optional)
+            Vertical location of start position for vertical line of sight.
+        V_zstop : float (optional)
+            Vertical location of start position for vertical lines of sight.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_spectroscopy' "
             "method.".format(self.__class__.__name__)
         )
 
