@@ -1,6 +1,7 @@
 """Some general strategies for property-based testing."""
 
 from functools import lru_cache
+from functools import reduce
 
 import hypothesis.extra.numpy as hynp
 import hypothesis.strategies as hyst
@@ -146,6 +147,64 @@ def smooth_functions(draw, domain=(0.0, 1.0), max_val=None, min_terms=0, max_ter
 
 
 @hyst.composite
+def separable_functions(draw, *args):
+    """Returns a function which is separable along _n_-dimensional coordinates,
+    where _n_ is the length of _*args_.
+
+    Parameters
+    ----------
+    args
+        Strategies for the function of each coordinate, in order.
+
+    """
+    if not args:
+        args = [smooth_functions(), smooth_functions(), smooth_functions()]
+    funcs = [draw(arg) for arg in args]
+
+    def func(*coords):
+        assert len(coords) == len(funcs)
+        return reduce(lambda x, y: x * y, [f(c) for f, c in zip(funcs, coords)])
+
+    return func
+
+
+@hyst.composite
+def radial_functions(
+    draw,
+    R_mag=0.0,
+    z_mag=0.0,
+    r_func=smooth_functions(),
+    theta_func=sine_functions((0.0, np.pi)),
+    t_func=smooth_functions(),
+):
+    """Returns a function which is radially symmetric about the magnetic axis.
+
+    Parameters
+    ----------
+    R_mag
+        Major raduis position of the magnetic axis
+    z_mag
+        Vertical position of the magnetic axis
+    r_func
+        Strategy for the function describing radial variations
+    theta_func
+        Strategy for the function describing poloidal variations. Should be
+        periodic on domain [0, 2\\pi].
+    t_func
+        Strategy for the function describing variation in time
+
+    """
+    rad_func = draw(separable_functions(r_func, theta_func, t_func))
+
+    def func(R, z, t):
+        r = np.sqrt((R - R_mag) ** 2 + (z - z_mag) ** 2)
+        theta = np.arctan2(z - z_mag, R - R_mag)
+        return rad_func(r, theta, t)
+
+    return func
+
+
+@hyst.composite
 def noisy_functions(draw, func, rel_sigma=0.02, abs_sigma=1e-3, cache=False):
     """Returns a function which is ``func`` plus some Guassian noise.
 
@@ -181,9 +240,10 @@ def noisy_functions(draw, func, rel_sigma=0.02, abs_sigma=1e-3, cache=False):
     """
     rand = draw(hyst.randoms())
 
+    @np.vectorize
     def noisy(*args):
         y = func(*args)
-        return (1 + rand.gauss(y, rel_sigma)) * y + rand.gauss(0.0, abs_sigma)
+        return rand.gauss(y, rel_sigma * y) + rand.gauss(0.0, abs_sigma)
 
     if cache:
         return lru_cache(None)(noisy)
@@ -418,9 +478,6 @@ def domains(draw):
 
     """
     return draw(hyst.tuples(ordered_pairs(), ordered_pairs(), ordered_pairs()))
-
-
-# Generate some fake data of some kind, with 0-2 spatial dimensions
 
 
 # Given a data type descriptor, generate an appropriate DataArray or Dataset

@@ -2,7 +2,9 @@
 
 """
 
+from collections import defaultdict
 from typing import Dict
+from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
@@ -52,6 +54,25 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
     "sxr": "Soft X-rays",
     "tungston": "Tungston ions in plasma",
 }
+
+
+#: Dictionary describing which general datatypes are valid for each specific
+#  datatype.
+COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdict(
+    lambda: [
+        "angular_freq",
+        "concentration",
+        "effective_charge",
+        "number_density",
+        "temperature",
+    ],
+    {
+        "electrons": ["angular_freq", "number_density", "temperature"],
+        "mag_axis": ["major_rad", "z"],
+        "separatrix_axis": ["major_rad", "z"],
+        "sxr": ["luminous_flux"],
+    },
+)
 
 #: Structure for type information for :py:class:`xarray.DataArray` objects.
 ArrayType = Tuple[GeneralDataType, Optional[SpecificDataType]]
