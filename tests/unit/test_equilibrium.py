@@ -47,7 +47,7 @@ def test_lfs_rad_consistent(equilib_dat, coords, ftype):
     z_mag = equilib_dat["zmag"].interp(t=time)
     R_mag = equilib_dat["rmag"].interp(t=time)  # TODO: add R-shift
     assert np.all(rho == approx(equilib.flux_coords(R_lfs, z_mag, time)[0]))
-    assert np.all(R_lfs <= R_mag)
+    assert np.all(R_lfs >= R_mag)
 
 
 @given(
@@ -66,7 +66,7 @@ def test_hfs_rad_consistent(equilib_dat, coords, ftype):
     z_mag = equilib_dat["zmag"].interp(t=time)
     R_mag = equilib_dat["rmag"].interp(t=time)  # TODO: add R-shift
     assert np.all(rho == approx(equilib.flux_coords(R_hfs, z_mag, time)[0]))
-    assert np.all(R_hfs >= R_mag)
+    assert np.all(R_hfs <= R_mag)
 
 
 @given(
