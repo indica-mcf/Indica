@@ -31,12 +31,26 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Radiation power received per unit area at some point",
         "W m^{-2}",
     ),
+    "magnetic_flux": ("Unnormalised poloidal component of magnetic flux", "Wb/2\\pi"),
     "major_rad": (
         "Horizontal position within the tokamak along the major radius",
         "m",
     ),
+    "norm_flux_pol": (
+        "Square root of normalised poloidal component of magnetic flux",
+        "",
+    ),
+    "norm_flux_tor": (
+        "Square root of normalised toroidal component of magnetic flux",
+        "",
+    ),
     "number_density": ("Number of particles per cubic metre", "m^{-3}"),
     "temperature": ("Thermal temperature of some particals", "eV"),
+    "toroidal_flux": ("Unnormalised toroidal component of magnetic flux", "Wb"),
+    "vol_jacobian": (
+        "Derivative of enclosed volume with respect to normalised poloidal flux",
+        "m^3",
+    ),
     "z": ("Vertical position from mid-plane of Tokamak", "m"),
 }
 
@@ -47,6 +61,8 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
 SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
     "beryllium": "Beryllium ions in plasma",
     "electrons": "Electron gas in plasma",
+    "hfs": "High flux surface",
+    "lfs": "Low flux surface",
     "mag_axis": "Magnetic axis for equilibrium in tokamak",
     "nickle": "Nickle ions in plasma",
     "plasma": "The plasma as a whole",
@@ -68,7 +84,20 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
     ],
     {
         "electrons": ["angular_freq", "number_density", "temperature"],
+        "hfs": ["major_rad", "z"],
+        "lfs": ["major_rad", "z"],
         "mag_axis": ["major_rad", "z"],
+        "plasma": [
+            "angular_freq",
+            "effective_charge",
+            "magnetic_flux",
+            "norm_flux_pol",
+            "norm_flux_tor",
+            "number_density",
+            "temperature",
+            "toroidal_flux",
+            "vol_jacobian",
+        ],
         "separatrix_axis": ["major_rad", "z"],
         "sxr": ["luminous_flux"],
     },
