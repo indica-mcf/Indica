@@ -15,7 +15,6 @@ from typing import Tuple
 import numpy as np
 import prov.model as prov
 from xarray import DataArray
-from xarray import Dataset
 
 from .selectors import choose_on_plot
 from .selectors import DataSelector
@@ -125,7 +124,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"ne", "te"},
-    ) -> Dataset:
+    ) -> Dict[str, DataArray]:
         """Reads data based on Thomson Scattering.
 
         Parameters
@@ -247,8 +246,8 @@ class DataReader(BaseIO):
         uid: str,
         instrument: str,
         revision: int = 0,
-        quantities: Set[str] = {"ne", "te"},
-    ) -> Dataset:
+        quantities: Set[str] = {"angf", "conf", "ti"},
+    ) -> Dict[str, DataArray]:
         """Reads charge exchange data.
 
         Parameters
@@ -262,7 +261,8 @@ class DataReader(BaseIO):
             version of data to get. Default is the most recent.
         quantities
             Which physical quantitie(s) to read from the database. Options are
-            "ne" (electron number density) and "te" (electron temperature).
+            "angf" (angular frequency of ion), "conc" (ion concentration), and
+            "ti" (ion temperature).
 
         Returns
         -------
@@ -331,7 +331,8 @@ class DataReader(BaseIO):
             version of data to get. Default is the most recent.
         quantities
             Which physical quantitie(s) to read from the database. Options are
-            "ne" (electron number density) and "te" (electron temperature).
+            "angf" (angular frequency of ion), "conc" (ion concentration), and
+            "ti" (ion temperature).
 
         Returns
         -------
@@ -382,8 +383,20 @@ class DataReader(BaseIO):
         uid: str,
         calculation: str,
         revision: int = 0,
-        quantities: Set[str] = {"ne", "te"},
-    ) -> Dataset:
+        quantities: Set[str] = {
+            "faxs",
+            "fbnd",
+            "ftor",
+            "rmji",
+            "rmjo",
+            "psi",
+            "vjac",
+            "rmag",
+            "zmag",
+            "rsep",
+            "zsep",
+        },
+    ) -> Dict[str, DataArray]:
         """Reads equilibrium data.
 
         Parameters
@@ -397,12 +410,13 @@ class DataReader(BaseIO):
             version of data to get. Default is the most recent.
         quantities
             Which physical quantitie(s) to read from the database. Options are
-            TODO!
+            "faxs", "fbnd", "ftor", "rmji", "rmjo", "psi", "vjac", "rmag",
+            "zmag", "rsep", "zsep".
 
         Returns
         -------
         :
-            A dataset containing the requested physical quantities.
+            A dictionary containing the requested physical quantities.
 
         """
 
@@ -437,7 +451,9 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def get_cyclotron(self, uid: str, instrument: str, revision: int = 0,) -> Dataset:
+    def get_cyclotron_emissions(
+        self, uid: str, instrument: str, revision: int = 0,
+    ) -> Dict[str, DataArray]:
         """Reads electron temperature measurements from cyclotron data.
 
         Parameters
@@ -453,11 +469,11 @@ class DataReader(BaseIO):
         Returns
         -------
         :
-            A dataset containing the electron temperature.
+            A dictionary containing the electron temperature.
 
         """
 
-    def _get_cyclotron(
+    def _get_cyclotron_emissions(
         self, uid: str, calculation: str, revision: int = 0,
     ) -> Dict[str, Any]:
         """Gets raw data for cyclotron resonance from the database. Data
@@ -503,7 +519,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"V", "H"},
-    ) -> Dataset:
+    ) -> Dict[str, DataArray]:
         """Reads data on radiation flux.
 
         Parameters
@@ -522,7 +538,7 @@ class DataReader(BaseIO):
         Returns
         -------
         :
-            A dataset containing the requested radiation values.
+            A dictionary containing the requested radiation values.
         """
 
     def _get_radiation(
@@ -610,13 +626,13 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def get_spectroscopy(
+    def get_bremsstrahlung_spectroscopy(
         self,
         uid: str,
         instrument: str,
         revision: int = 0,
         quantities: Set[str] = {"H", "V"},
-    ) -> Dataset:
+    ) -> Dict[str, DataArray]:
         """Reads spectroscopic measurements of effective charge.
 
         Parameters
@@ -635,11 +651,11 @@ class DataReader(BaseIO):
         Returns
         -------
         :
-            A dataset containing the requested effective charge data.
+            A dictionary containing the requested effective charge data.
 
         """
 
-    def _get_spectroscopy(
+    def _get_bremsstrahlung_spectroscopy(
         self, uid: str, calculation: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Gets raw spectroscopic data for effective charge from the
