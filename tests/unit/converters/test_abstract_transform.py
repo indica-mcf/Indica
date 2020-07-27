@@ -161,19 +161,24 @@ def test_transform_distance_increasing(transform, coords):
 
 
 @given(
-    domains().flatmap(lambda d: lists(coordinate_transforms(domain=d), min_size=3)),
-    arbitrary_coordinates(),
+    domains().flatmap(
+        lambda d: (d, lists(coordinate_transforms(domain=d), min_size=3, max_size=10))
+    ),
+    arbitrary_coordinates(min_value=(0.0, 0.0, 0.0), max_value=(1.0, 1.0, 1.0)),
 )
-def test_transforms_independent(transforms, coords):
+def test_transforms_independent(domain_transforms, normalised_coords):
     """Test irrelevance of intermediate transforms"""
-    # TODO: Need some way to ensure that
-    #       (1) coords are within the range the first transform can convert to R-z
-    #       (2) we avoid the singularity in polar coordinates
+    domain, transforms = domain_transforms
+    Rz_coords = (
+        normalised_coords[1] * (domain[i][1] - domain[i][0]) + domain[i][0]
+        for i in len(normalised_coords)
+    )
+    coords = transforms[0].convert_from_Rz(*Rz_coords)
     expected = transforms[0].convert_to(transforms[-1], *coords)
     for transform1, transform2 in zip(transforms, transforms[1:]):
         coords = transform1.convert_to(transform2, *coords)
-    assert np.all(coords[0] == approx(expected[0]))
-    assert np.all(coords[1] == approx(expected[1]))
+    assert np.all(coords[0] == approx(expected[0], abs=1e-5, rel=1e-5))
+    assert np.all(coords[1] == approx(expected[1], abs=1e-5, rel=1e-5))
     assert coords[2] is expected[2]
 
 
