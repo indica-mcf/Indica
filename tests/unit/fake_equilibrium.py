@@ -12,7 +12,7 @@ import numpy as np
 from src.equilibrium import Equilibrium
 
 
-FLUX_TYPES = ["toroidal", "poloidal"]
+FLUX_TYPES = ["poloidal", "toroidal"]
 
 
 class FakeEquilibrium(Equilibrium):
@@ -56,8 +56,8 @@ class FakeEquilibrium(Equilibrium):
         "poloidal_n": 1,
         "poloidal_alpha": 0.01,
         "toroidal_a": 0.7,
-        "toroidal_b": 1.44,
-        "toroidal_n": 0.5,
+        "toroidal_b": 1.4,
+        "toroidal_n": 1,
         "toroidal_alpha": -0.00005,
         "Btot_a": 1.0,
         "Btot_b": 1.0,
