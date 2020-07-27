@@ -93,7 +93,7 @@ class Equilibrium:
         )
 
     def R_lfs(
-        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "toroidal",
+        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "poloidal",
     ) -> Tuple[ArrayLike, ArrayLike]:
         """Major radius position of the given flux surface on the Low Flux
          Side of the magnetic axis.
@@ -123,7 +123,7 @@ class Equilibrium:
         return R, t
 
     def R_hfs(
-        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "toroidal",
+        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "poloidal",
     ) -> Tuple[ArrayLike, ArrayLike]:
         """Major radius position of the given flux surface on the High Flux
          Side of the magnetic axis.
@@ -154,7 +154,7 @@ class Equilibrium:
         return R, t
 
     def enclosed_volume(
-        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "toroidal",
+        self, rho: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "poloidal",
     ) -> Tuple[ArrayLike, ArrayLike]:
         """Returns the volume enclosed by the specified flux surface.
 
@@ -185,7 +185,7 @@ class Equilibrium:
         rho: ArrayLike,
         theta: ArrayLike,
         t: Optional[ArrayLike] = None,
-        kind: str = "toroidal",
+        kind: str = "poloidal",
     ) -> Tuple[ArrayLike, ArrayLike]:
         """Minor radius at the given locations in the tokamak.
 
@@ -221,7 +221,7 @@ class Equilibrium:
         R: ArrayLike,
         z: ArrayLike,
         t: Optional[ArrayLike] = None,
-        kind: str = "toroidal",
+        kind: str = "poloidal",
     ) -> Tuple[ArrayLike, ArrayLike, ArrayLike]:
         """Convert to the flux surface coordinate system.
 
@@ -259,7 +259,7 @@ class Equilibrium:
         rho: ArrayLike,
         theta: ArrayLike,
         t: Optional[ArrayLike] = None,
-        kind: str = "toroidal",
+        kind: str = "poloidal",
     ) -> Tuple[ArrayLike, ArrayLike, ArrayLike]:
         """Convert to the spatial coordinate system.
 
@@ -297,8 +297,8 @@ class Equilibrium:
         rho: ArrayLike,
         theta: ArrayLike,
         t: Optional[ArrayLike] = None,
-        from_kind: Optional[str] = "toroidal",
-        to_kind: Optional[str] = "poloidal",
+        from_kind: Optional[str] = "poloidal",
+        to_kind: Optional[str] = "toroidal",
     ) -> Tuple[ArrayLike, ArrayLike, ArrayLike]:
         """Convert between different coordinate systems.
 
