@@ -3,6 +3,7 @@ routines for interpolating or downsampling in time."""
 
 from .abstractconverter import CoordinateTransform
 from .abstractconverter import EquilibriumException
+from .enclosed_volume import EnclosedVolumeCoordinates
 from .flux_surfaces import FluxSurfaceCoordinates
 from .lines_of_sight import LinesOfSightTransform
 from .magnetic import MagneticCoordinates
@@ -12,6 +13,7 @@ from .trivial import TrivialTransform
 
 __all__ = [
     "CoordinateTransform",
+    "EnclosedVolumeCoordinates",
     "EquilibriumException",
     "FluxSurfaceCoordinates",
     "LinesOfSightTransform",

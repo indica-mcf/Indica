@@ -1,5 +1,7 @@
 """Class to handle conversions to and from flux surface coordinates."""
 
+from typing import Dict
+
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import ArrayLike
@@ -28,6 +30,10 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         The default grid to use for time.
 
     """
+
+    _CONVERSION_METHODS: Dict[str, str] = {
+        "EnclosedVolumeCoordinates": "_convert_to_vol"
+    }
 
     def __init__(
         self,
@@ -85,6 +91,32 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             The second spatial coordinate in this system.
         t
             The time coordinate (if one pass as an argument then is just a
+            pointer to that)
+
+        """
+
+    def _convert_to_vol(
+        self, rho: ArrayLike, theta: ArrayLike, t: ArrayLike
+    ) -> Coordinates:
+        """Convert from this coordinate system to a flux surface coordinate system.
+
+        Parameters
+        ----------
+        rho
+            The first spatial coordinate in this system.
+        theta
+            The second spatial coordinate in this system.
+        t
+            The time coordinate (if there is one, otherwise ``None``)
+
+        Returns
+        -------
+        vol
+            Volume enclosed by the flux surface rho.
+        theta
+            Poloidal angle coordinate
+        t
+            Time coordinate (if one passed as an argument, then is just a
             pointer to that)
 
         """
