@@ -1,5 +1,7 @@
 """Test methods present on the base class DataReader."""
 
+from unittest.mock import patch
+
 from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import integers
@@ -351,15 +353,21 @@ def test_equilibrium(data, quantities, uid, calculation, revision):
         assert_data_arrays_equal(actual, expected)
 
 
-# Check works properly in context manager
+@patch.object(MockReader, "close")
+def test_context_manager(mock_close):
+    """Check works properly in context manager."""
+    with MockReader() as reader:
+        print(reader.requires_authentication)
+    mock_close.assert_called()
 
-# Check default authenticate always returns True
+
+@given(text(), text())
+def test_default_authentication(username, password):
+    """Check default authenticate always returns True"""
+    reader = MockReader()
+    assert reader.authenticate(username, password)
+
 
 # Check appropriate PROV data created for reader object
 
-# Check getter methods return data formatted correctly (metadata, coordinates,
-# etc.)
-
-# Check getter methods return appropriate PROV data
-
-# Check selecting channels properly handles cachi
+# Check selecting channels properly handles caching
