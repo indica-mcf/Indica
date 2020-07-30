@@ -384,6 +384,7 @@ class DataReader(BaseIO):
         calculation: str,
         revision: int = 0,
         quantities: Set[str] = {
+            "f",
             "faxs",
             "fbnd",
             "ftor",
@@ -410,7 +411,7 @@ class DataReader(BaseIO):
             version of data to get. Default is the most recent.
         quantities
             Which physical quantitie(s) to read from the database. Options are
-            "faxs", "fbnd", "ftor", "rmji", "rmjo", "psi", "vjac", "rmag",
+            "f", "faxs", "fbnd", "ftor", "rmji", "rmjo", "psi", "vjac", "rmag",
             "zmag", "rsep", "zsep".
 
         Returns
@@ -437,14 +438,49 @@ class DataReader(BaseIO):
             version of data to get. Default is the most recent.
         quantities
             Which physical quantitie(s) to read from the database. Options are
-            TODO!
+            "f", "faxs", "fbnd", "ftor", "rmji", "rmjo", "psi", "vjac", "rmag",
+            "rsep", "zmag", "zsep".
 
         Returns
         -------
         A dictionary containing the following items:
 
-        TODO: Complete the list of quantitites
-
+        psin : ndarray
+            Normalised poloidal flux locations at which data is sampled.
+        times : ndarray
+            Times at which data is sampled.
+        f : ndarray (optional)
+            Btor * R (first axis is time, second is psin)
+        faxs : ndarray (optional)
+            Poloidal flux (psi) at magnetic axis.
+        fbnd : ndarray (optional)
+            Poloidal flux (psi) at separatrix/plasma boundary.
+        ftor : ndarray (optional)
+            Unnormalised toroidal flux (psi).
+        rmji : ndarray (optional)
+            Major radius at which different poloidal flux surface intersect
+            zmag on the high flux side (first axis is time, second is psin).
+        rmjo : ndarray (optional)
+            Major radius at which different poloidal flux surface intersect
+            zmag on the low flux side (first axis is time, second is psin).
+        psi : ndarray (optional)
+            Unnormalised poloidal flux (first axis is time, second is major,
+            radius third is vertical position)
+        psi_r : ndarray (optional)
+            Major radii at which psi is given
+        psi_z : ndarray (optional)
+            Vertical positions at which psi is given
+        vjac : ndarray (optional)
+            Derivative of volume enclosed by poloidal flux surface, with
+            respect to psin (first axis is time, second is psin)
+        rmag : ndarray (optional)
+            Major radius of magnetic axis
+        rsep : ndarray (optional)
+            Major radius of separatrix
+        zmag : ndarray (optional)
+            Vertical position of magnetic axis
+        zsep : ndarray (optional)
+            Vertical position of separatrix
         """
         raise NotImplementedError(
             "{} does not implement a '_get_equilibrium' "
@@ -497,6 +533,8 @@ class DataReader(BaseIO):
             Number of channels in data
         z : float
             Vertical position of line of sight
+        Btot : ndarray
+            The magnetic field strengths at which measurements were taken
         times : ndarray
             The times at which measurements were taken
         te : ndarray
@@ -518,9 +556,9 @@ class DataReader(BaseIO):
         uid: str,
         instrument: str,
         revision: int = 0,
-        quantities: Set[str] = {"V", "H"},
+        quantities: Set[str] = {"H", "T", "V"},
     ) -> Dict[str, DataArray]:
-        """Reads data on radiation flux.
+        """Reads data on irradiance.
 
         Parameters
         ----------
@@ -544,7 +582,7 @@ class DataReader(BaseIO):
     def _get_radiation(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
-        """Gets raw data for radiant fluxes from the database. Data outside
+        """Gets raw data for irradiance from the database. Data outside
         the desired time range will be discarded.
 
         Parameters
@@ -623,6 +661,102 @@ class DataReader(BaseIO):
         """
         raise NotImplementedError(
             "{} does not implement a '_get_radiation' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def get_bolometry(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int = 0,
+        quantities: Set[str] = {"H", "V"},
+    ) -> Dict[str, DataArray]:
+        """Reads bolometric irradiance data.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument/DDA which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which cameras to read quantitie(s) from. Options are
+            "H" and "V". Not all cameras are available for all DDAs.
+
+        Returns
+        -------
+        :
+            A dictionary containing the requested radiation values.
+        """
+
+    def _get_bolometry(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Gets raw data for bolometric irradiance from the database. Data outside
+        the desired time range will be discarded.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument/DDA which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.  Options are
+            "H" and "V". Not all cameras are available for all DDAs.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        length : Dict[str, int]
+            Number of channels in data for each camera
+        times : ndarray
+            The times at which measurements were taken
+        H : ndarray (optional)
+            Brightness from camera H (first axis is time, second channel)
+        H_error : ndarray (optional)
+            Uncertainty in brightness for camera H.
+        H_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed from camera H.
+        H_Rstart : ndarray (optional)
+            Major radius of start positions for lines of sight from camera H.
+        H_Rstop : ndarray (optional)
+            Major radius of stop positions for lines of sight from camera H.
+        H_zstart : ndarray (optional)
+            Vertical location of start positions for lines of sight from
+            camera H.
+        H_zstop : ndarray (optional)
+            Vertical location of stop positions for lines of sight from
+            camera H.
+        V : ndarray (optional)
+            Brightness from camera V (first axis is time, second channel)
+        V_error : ndarray (optional)
+            Uncertainty in brightness for camera V.
+        V_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed from camera V.
+        V_Rstart : ndarray (optional)
+            Major radius of start positions for lines of sight from camera V.
+        V_Rstop : ndarray (optional)
+            Major radius of stop positions for lines of sight from camera V.
+        V_zstart : ndarray (optional)
+            Vertical location of start positions for lines of sight from
+            camera V.
+        V_zstop : ndarray (optional)
+            Vertical location of stop positions for lines of sight from
+            camera V.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_bolometry' "
             "method.".format(self.__class__.__name__)
         )
 

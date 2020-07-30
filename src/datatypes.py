@@ -59,6 +59,7 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
 #  etc. The key is a designator for the specific datatype and the
 #  value is a description.
 SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
+    "bolometric": "All wavelengths of radiation",
     "beryllium": "Beryllium ions in plasma",
     "electrons": "Electron gas in plasma",
     "hfs": "High flux surface",
@@ -83,6 +84,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "temperature",
     ],
     {
+        "bolometric": ["luminous_flux"],
         "electrons": ["angular_freq", "number_density", "temperature"],
         "hfs": ["major_rad", "z"],
         "lfs": ["major_rad", "z"],
@@ -102,6 +104,10 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "sxr": ["luminous_flux"],
     },
 )
+
+
+#: The specific datatypes corresponding to an element/ion in the plasma
+ELEMENTS = set(SPECIFIC_DATATYPES) - set(COMPATIBLE_DATATYPES)
 
 #: Structure for type information for :py:class:`xarray.DataArray` objects.
 ArrayType = Tuple[GeneralDataType, Optional[SpecificDataType]]

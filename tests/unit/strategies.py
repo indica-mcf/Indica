@@ -349,6 +349,27 @@ def monotonic_series(
 
 
 @hyst.composite
+def float_series(draw, min_value, max_value, min_size=2, max_size=50):
+    """Strategy to generate a monotonic increaseing series of floats.
+
+    Parameters
+    ----------
+    min_value : float
+        Minimum value that may be held in the series.
+    max_value : float
+        Maximum value that may be held in the series.
+    min_size : int
+        The minimum number of elements in the series.
+    max_size : int
+        The maximum number of elements in the series.
+    """
+    start = draw(hyst.floats(min_value, max_value, exclude_max=True))
+    stop = draw(hyst.floats(start, max_value, exclude_min=True))
+    n = draw(hyst.integers(min_size, max_size))
+    return draw(monotonic_series(start, stop, n))
+
+
+@hyst.composite
 def arbitrary_coordinates(
     draw,
     min_value=(None, None, None),

@@ -89,6 +89,7 @@ def data_arrays_from_coords(
         smooth_functions(-1.75, 2.0),
         smooth_functions(50.0, 120.0),
     ),
+    override_coords=[None, None, None],
     rel_sigma=0.02,
     abs_sigma=-1e-3,
     uncertainty=True,
@@ -106,6 +107,9 @@ def data_arrays_from_coords(
     data
         A strategy to generate functions which calculate the contents of the
         DataArray from the coordinates.
+    override_coords
+        If item is not None, use those coordinates rather than the defaults
+        from the coordinate transform. Should be ordered ``[x1, x2, t]``.
     rel_sigma
         Standard deviation of relative noise applied to the data
     abs_sigma
@@ -125,9 +129,9 @@ def data_arrays_from_coords(
         data_type[1] if data_type[1] else draw(specific_datatypes(general_type))
     )
 
-    x1 = coordinates.default_x1
-    x2 = coordinates.default_x2
-    t = coordinates.default_t
+    x1 = override_coords[0] if override_coords[0] else coordinates.default_x1
+    x2 = override_coords[1] if override_coords[1] else coordinates.default_x2
+    t = override_coords[2] if override_coords[2] else coordinates.default_t
     func = (
         draw(noisy_functions(draw(data), rel_sigma, abs_sigma))
         if rel_sigma or abs_sigma
@@ -135,7 +139,7 @@ def data_arrays_from_coords(
     )
     coordinates = [
         c
-        for c in [("x1", x1), ("x2", x2), ("t", t)]
+        for c in [("t", t), ("x1", x1), ("x2", x2)]
         if isinstance(c[1], np.ndarray) and c[1].ndims > 0
     ]
     result = DataArray(func(x1, x2, t), coordinates=coordinates)
@@ -219,6 +223,7 @@ def array_dictionaries(
         smooth_functions(-1.75, 2.0),
         smooth_functions(50.0, 120.0),
     ),
+    override_coords=[None, None, None],
     rel_sigma=0.02,
     abs_sigma=-1e-3,
     uncertainty=True,
@@ -238,6 +243,9 @@ def array_dictionaries(
     data
         A strategy to generate functions which calculate the contents of the
         DataArray from the coordinates.
+    override_coords
+        If item is not None, use those coordinates rather than the defaults
+        from the coordinate transform. Should be ordered ``[x1, x2, t]``.
     rel_sigma
         Standard deviation of relative noise applied to the data
     abs_sigma
@@ -257,6 +265,7 @@ def array_dictionaries(
                 options[key],
                 coordinates,
                 data,
+                override_coords,
                 rel_sigma,
                 abs_sigma,
                 uncertainty,
@@ -381,7 +390,6 @@ def equilibrium_data(
     nspace = draw(integers(min_spatial_points, max_spatial_points))
     ntime = draw(integers(min_time_points, max_time_points))
     times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
-    times_perp = np.expand_dims(times, (0, 1))
     tfuncs = smooth_functions((start_time, end_time), 0.01)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
     z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
@@ -395,7 +403,7 @@ def equilibrium_data(
     raw_result["faxs"] = fmin + np.abs(draw(tfuncs)(times))
     raw_result["fbnd"] = fmax - np.abs(draw(tfuncs)(times))
     attrs = {
-        "transform": TrivialTransform(0.0, 0.0, 0.0, 0.0, times_perp),
+        "transform": TrivialTransform(0.0, 0.0, 0.0, 0.0, times),
         "provenance": MagicMock(),
         "partial_provenance": MagicMock(),
     }
@@ -428,9 +436,9 @@ def equilibrium_data(
         (rgrid - result["rmag"]) ** 2 / a_coeff ** 2
         + (zgrid - result["zmag"]) ** 2 / b_coeff ** 2
     ) ** (0.5 / n_exp)
-    psi = (result["fbnd"] - result["faxs"]) * psin + result["axs"]
+    psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
-    psi.attrs["transform"] = TrivialTransform(0.0, 0.0, 0.0, 0.0, times_perp)
+    psi.attrs["transform"] = TrivialTransform(0.0, 0.0, 0.0, 0.0, times)
     psi.attrs["provenance"] = MagicMock()
     psi.attrs["partial_provenance"] = MagicMock()
     psi.attrs["datatype"] = ("norm_flux_pol", "plasma")
@@ -440,16 +448,14 @@ def equilibrium_data(
     rho = np.sqrt(psin_coords)
     psin_data = DataArray(psin_coords, dims=[("rho", rho)])
     raw_result = {}
-    attrs["transform"] = FluxSurfaceCoordinates(
-        "poloidal", rho, 0.0, 0.0, 0.0, times_perp
-    )
+    attrs["transform"] = FluxSurfaceCoordinates("poloidal", rho, 0.0, 0.0, 0.0, times)
     ftor_min = draw(floats(0.0, 1.0))
     ftor_max = draw(floats(max(1.0, 2 * fmin), 10.0))
     result["ftor"] = DataArray(
         np.outer(
-            draw(monotonic_series(ftor_min, ftor_max, nspace)), abs(draw(tfuncs)(times))
+            abs(draw(tfuncs)(times)), draw(monotonic_series(ftor_min, ftor_max, nspace))
         ),
-        dims=[("rho", rho), ("t", times)],
+        dims=[("t", times), ("rho", rho)],
     )
     result["ftor"].attrs["datatype"] = ("toroidal_flux", "plasma")
     result["rmjo"] = result["rmag"] + a_coeff * psin_data ** n_exp
