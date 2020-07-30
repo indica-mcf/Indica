@@ -99,14 +99,14 @@ class MockReader(ConcreteReader):
     def _add_dropped_channel_data(self, data):
         """Figure out which channels have been dropped from data and add that
         list as an option for the mock implementation of _select_channels."""
-        if not hasattr(self, "dropped_channels") or "error" not in data.attrs:
+        if not hasattr(self, "drop_channels") or "dropped" not in data.attrs:
             return
         dim = list(filter(lambda x: x != "t", data.coords))[0]
         channels = [
             np.nonzero(data.coords[dim] == v)[0][0]
-            for v in data.attrs["error"].coords[dim]
+            for v in data.attrs["dropped"].coords[dim]
         ]
-        self.dropped_channels[str(data.values)] = channels
+        self.drop_channels[str(data.values)] = channels
 
     @set_results("_get_thomson_scattering")
     def set_thomson_scattering(self, default, specific={}):

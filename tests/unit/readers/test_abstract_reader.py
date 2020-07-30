@@ -6,6 +6,7 @@ from hypothesis.strategies import integers
 from hypothesis.strategies import lists
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
+import numpy as np
 
 from src.datatypes import ELEMENTS
 from .mock_reader import MockReader
@@ -65,6 +66,19 @@ def expected_data(draw, coordinate_transform, *options, unique_transforms=False)
         for key, datatype in items:
             result[key] = data_arrays(datatype, coordinate_transform)
         return result
+
+
+def find_dropped_channels(array, dimension):
+    """Returns a list of the channel index numbers for channels which have
+    been dropped from ``dimension`` of ``data``.
+
+    """
+    if "dropped" not in array.attrs:
+        return []
+    return [
+        np.nonzero(array.coords[dimension] == v)[0][0]
+        for v in array.attrs["dropped"].coords[dimension]
+    ]
 
 
 def assert_data_arrays_equal(actual, expected):
@@ -127,8 +141,16 @@ def test_thomson_scattering(data, uid, instrument, revision):
     reader._get_thomson_scattering.assert_called_once_with(
         uid, instrument, revision, quantities
     )
-    for actual, expected in [(results[q], data[q]) for q in quantities]:
+    for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected)
+        reader.create_provenance.assert_any_call(
+            "thomson_scattering",
+            uid,
+            instrument,
+            revision,
+            q,
+            find_dropped_channels(expected, expected.dims[1]),
+        )
 
 
 @given(
@@ -155,8 +177,16 @@ def test_charge_exchange(data, uid, instrument, revision):
     reader._get_charge_exchange.assert_called_once_with(
         uid, instrument, revision, quantities
     )
-    for actual, expected in [(results[q], data[q]) for q in quantities]:
+    for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected)
+        reader.create_provenance.assert_any_call(
+            "charge_exchange",
+            uid,
+            instrument,
+            revision,
+            q,
+            find_dropped_channels(expected, expected.dims[1]),
+        )
 
 
 @given(
@@ -176,8 +206,16 @@ def test_cyclotron_emissions(data, uid, instrument, revision):
     reader._get_cyclotron_emissions.assert_called_once_with(
         uid, instrument, revision, quantities
     )
-    for actual, expected in [(results[q], data[q]) for q in quantities]:
+    for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected)
+        reader.create_provenance.assert_any_call(
+            "cyclotron_emissions",
+            uid,
+            instrument,
+            revision,
+            q,
+            find_dropped_channels(expected, expected.dims[1]),
+        )
 
 
 @given(
@@ -201,8 +239,16 @@ def test_radiation(data, uid, instrument, revision):
     quantities = set(data)
     results = reader.get_radiation(uid, instrument, revision, quantities)
     reader._get_radiation.assert_called_once_with(uid, instrument, revision, quantities)
-    for actual, expected in [(results[q], data[q]) for q in quantities]:
+    for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected)
+        reader.create_provenance.assert_any_call(
+            "radiation",
+            uid,
+            instrument,
+            revision,
+            q,
+            find_dropped_channels(expected, expected.dims[1]),
+        )
 
 
 @given(
@@ -225,8 +271,16 @@ def test_bolometry(data, uid, instrument, revision):
     quantities = set(data)
     results = reader.get_bolometry(uid, instrument, revision, quantities)
     reader._get_bolometry.assert_called_once_with(uid, instrument, revision, quantities)
-    for actual, expected in [(results[q], data[q]) for q in quantities]:
+    for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected)
+        reader.create_provenance.assert_any_call(
+            "bolometry",
+            uid,
+            instrument,
+            revision,
+            q,
+            find_dropped_channels(expected, expected.dims[1]),
+        )
 
 
 @given(
@@ -253,8 +307,11 @@ def test_bremsstrahlung_spectroscopy(data, uid, instrument, revision):
     reader._get_bremsstrahlung_spectroscopy.assert_called_once_with(
         uid, instrument, revision, quantities
     )
-    for actual, expected in [(results[q], data[q]) for q in quantities]:
+    for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected)
+        reader.create_provenance.assert_any_call(
+            "bolometry", uid, instrument, revision, q, []
+        )
 
 
 @given(
