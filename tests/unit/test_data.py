@@ -6,8 +6,10 @@ from unittest.mock import MagicMock
 from hypothesis import assume
 from hypothesis import given
 from hypothesis.strategies import dictionaries
+from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from hypothesis.strategies import lists
+from hypothesis.strategies import one_of
 from hypothesis.strategies import only
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
@@ -112,9 +114,7 @@ def test_restoring_dropped_data(array):
     )
     .flatmap(
         lambda x: tuples(
-            only(x[0]),
-            only(x[1]),
-            lists(integers(min_value=0, max_value=x[0].sizes[x[1]]), unique=True),
+            only(x[0]), only(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
         )
     )
 )
@@ -122,7 +122,7 @@ def test_dropping_data(arguments):
     """Check dropping new or additional data works as expected."""
     array, drop_dim, to_drop = arguments
     result = array.composition.ignore_data(to_drop, drop_dim)
-    assert np.all(np.isnan(result[{drop_dim: to_drop}]))
+    assert np.all(np.isnan(result.loc[{drop_dim: to_drop}]))
     assert result.attrs["dropped"].equals(
         array.composition.with_ignored_data.loc[
             {drop_dim: result.attrs["dropped"].coords[drop_dim]}
@@ -132,13 +132,12 @@ def test_dropping_data(arguments):
         assert np.all(
             np.isnan(result.loc[{drop_dim: array.attrs["dropped"].coords[drop_dim]}])
         )
-    newly_dropped_coords = array.coords[drop_dim]
     if "dropped" in array.attrs:
         dropped_coords = np.unique(
-            np.concat([newly_dropped_coords, array.attrs["dropped"].coords[drop_dim]])
+            np.concat([to_drop, array.attrs["dropped"].coords[drop_dim]])
         )
     else:
-        dropped_coords = np.unique(newly_dropped_coords)
+        dropped_coords = np.unique(to_drop)
     assert np.all(dropped_coords == result.attrs["dropped"].coords[drop_dim])
     assert np.all(np.isnan(result.loc[{drop_dim: dropped_coords}]))
     assert result.drop_sel(**{drop_dim: dropped_coords}).equals(
@@ -154,9 +153,7 @@ def test_dropping_data(arguments):
     )
     .flatmap(
         lambda x: tuples(
-            only(x[0]),
-            only(x[1]),
-            lists(integers(min_value=0, max_value=x[0].sizes[x[1]]), unique=True),
+            only(x[0]), only(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
         )
     )
 )
@@ -169,7 +166,7 @@ def test_dropping_invalid_data(arguments):
         array.composition.ignore_data(to_drop, drop_dim)
 
 
-@given(data_arrays(), lists(integers()), text())
+@given(data_arrays(), lists(one_of(integers(), floats())), text())
 def test_dropping_invalid_dim(array, to_drop, drop_dim):
     """Test fails when trying to drop data in a nonexistent dimension."""
     assume(drop_dim not in array.dims)

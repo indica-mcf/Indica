@@ -419,6 +419,9 @@ def test_prov_for_reader(tstart, tend, max_freq, extra_reader_attrs):
     assert session.agent.identifier == attribution.get_attribute("prov:agent")[1]
 
 
+numbers = one_of(integers(), floats(allow_nan=False, allow_infinity=False))
+
+
 @given(
     text(),
     text(),
@@ -426,7 +429,7 @@ def test_prov_for_reader(tstart, tend, max_freq, extra_reader_attrs):
     integers(),
     text(),
     lists(text(), max_size=10, unique=True),
-    lists(integers(0), max_size=20, unique=True),
+    lists(numbers, max_size=20, unique=True),
 )
 def test_prov_for_data(
     diagnostic, uid, instrument, revision, quantity, data_objects, ignored
@@ -501,9 +504,6 @@ def cachedir():
         areader.CACHE_DIR = os.path.relpath(new_cache, userdir)
         yield areader.CACHE_DIR
     areader.CACHE_DIR = old_cache
-
-
-numbers = one_of(integers(), floats(allow_nan=False, allow_infinity=False))
 
 
 @given(

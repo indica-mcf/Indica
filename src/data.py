@@ -12,6 +12,7 @@ objects. These accessors group methods under the namespace
 
 """
 
+from numbers import Number
 from typing import Iterable
 from typing import Optional
 from typing import Tuple
@@ -143,20 +144,20 @@ class CompositionArrayAccessor:
         """
         pass
 
-    def ignore_data(self, indices: Iterable[int], dimension: str) -> xr.DataArray:
+    def ignore_data(self, labels: Iterable[Number], dimension: str) -> xr.DataArray:
         """Create a copy of this array which masks the specified data.
 
         Parameters
         ----------
-        indices
-            The indices for which data should be ignored.
+        labels
+            The channel labels for which data should be ignored.
         dimension
-            The name of the dimension the indices are along
+            The name of the dimension the labels are along
 
         Returns
         -------
         :
-            A copy of this object, but with data for the specified indices
+            A copy of this object, but with data for the specified labels
             along the specified dimension marked as NaN.
 
         """
