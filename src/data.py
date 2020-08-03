@@ -143,12 +143,6 @@ class CompositionArrayAccessor:
         """
         pass
 
-    @property
-    def ignored_data(self) -> xr.DataArray:
-        """The data which were dropped at read-in.
-
-        """
-
     def ignore_data(self, indices: Iterable[int], dimension: str) -> xr.DataArray:
         """Create a copy of this array which masks the specified data.
 

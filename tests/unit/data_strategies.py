@@ -5,6 +5,7 @@
 
 from unittest.mock import MagicMock
 
+from hypothesis.strategies import booleans
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
@@ -59,6 +60,65 @@ def specific_datatypes(draw, general_datatype=None):
         return True
 
     return draw(sampled_from(dt.SPECIFIC_DATATYPES.keys()).filter(valid_datatype))
+
+
+@composite
+def compatible_dataset_types(draw, datatype):
+    """Strategy to generate a datatype for a dataset that is compatible
+    with the argument. This means the result contains no variables not
+    present in ``datatype``, the specific type of all variables is the
+    same as that for the dataset as a whole, and all variables have either
+    the same or unconstrained general datatype."""
+    result_vars = draw(
+        lists(sampled_from(datatype[1]), min_size=1, unique=True).map(
+            lambda keys: {k: datatype[1][k] for k in keys}
+        )
+    )
+    return (
+        datatype[0],
+        {k: None if draw(booleans()) else v for k, v in result_vars.items()},
+    )
+
+
+@composite
+def incompatible_dataset_types(draw, datatype):
+    """Strategy to generate a datatype for a dataset that is incompatible
+    with the argument. This means the result has a different specific
+    type than that of ``datatype``, contains one or more variables not
+    present in ``datatype``, or the general type of one or more
+    variables does not match those in ``datatype``.
+
+    """
+    result_vars = draw(
+        lists(sampled_from(datatype[1]), unique=True).map(
+            lambda keys: {k: datatype[1][k] for k in keys}
+        )
+    )
+    errors = draw(lists(integers(0, 2), min_size=1, unique=True))
+    specific_type = (
+        draw(specific_datatypes().filter(lambda d: d != datatype[0]))
+        if 0 in errors
+        else datatype[0]
+    )
+    general_types = {k: None if draw(booleans()) else v for k, v in result_vars.items()}
+    if 1 in errors:
+        change = draw(
+            lists(
+                booleans(), min_size=len(result_vars), max_size=len(result_vars)
+            ).filter(lambda l: any(l))
+        )
+        for k, v in [(k, v) for (k, v), c in zip(result_vars.items(), change) if c]:
+            general_types[k] = draw(
+                general_datatypes(specific_type).filter(lambda d: d != v)
+            )
+    if 2 in errors:
+        for key in draw(
+            lists(
+                text().filter(lambda t: t not in general_types), min_size=1, max_size=5
+            )
+        ):
+            general_types[key] = draw(general_datatypes(specific_type))
+    return specific_type, general_types
 
 
 @composite
@@ -139,28 +199,31 @@ def data_arrays_from_coords(
     )
     coordinates = [
         c
-        for c in [("t", t), ("x1", x1), ("x2", x2)]
+        for c in [("x1", x1), ("x2", x2), ("t", t)]
         if isinstance(c[1], np.ndarray) and c[1].ndims > 0
     ]
-    result = DataArray(func(x1, x2, t), coordinates=coordinates)
+    result = DataArray(func(t, x1, x2), coordinates=coordinates)
     dropped = (
         draw(dropped_channels(len(x1), max_dropped))
         if isinstance(x1, np.ndarray)
         else []
     )
-    to_keep = not DataArray(x1, coordinates=[("x1", x1)]).isin(dropped)
-    dropped_result = result.isel(x1=dropped)
-    result = result.where(to_keep)
-    if uncertainty and (rel_sigma or abs_sigma):
-        error = rel_sigma * result + abs_sigma
-        result.attrs["error"] = error
-        dropped_error = rel_sigma * dropped_result + abs_sigma
-        dropped_result.attrs["error"] = dropped_error
-    result.attrs["dropped"] = dropped_result
+    if dropped:
+        to_keep = not DataArray(x1, coordinates=[("x1", x1)]).isin(dropped)
+        dropped_result = result.isel(x1=dropped)
+        result = result.where(to_keep)
+        if uncertainty and (rel_sigma or abs_sigma):
+            error = rel_sigma * result + abs_sigma
+            result.attrs["error"] = error
+            dropped_error = rel_sigma * dropped_result + abs_sigma
+            dropped_result.attrs["error"] = dropped_error
+            result.attrs["dropped"] = dropped_result
     result.attrs["datatype"] = (general_type, specific_type)
     result.attrs["provenance"] = MagicMock()
     result.attrs["partial_provenance"] = MagicMock()
     result.attrs["transform"] = coordinates
+    if hasattr(coordinates, "equilibrium"):
+        result.composition.equilibrium = coordinates.equilibrium
     return result
 
 
@@ -333,12 +396,14 @@ def datasets(
     )
     if data_type[1]:
         general_type = {
-            k: (v if v else draw(specific_datatypes(specific_type)))
+            k: (v if v else draw(general_datatypes(specific_type)))
             for k, v in data_type[1].items()
         }
     else:
         general_type = draw(
-            text(), specific_datatypes(specific_type), min_size=1, max_size=5
+            dictionaries(
+                text(), general_datatypes(specific_type), min_size=1, max_size=5
+            )
         )
     transform = draw(coordinates)
     data = {}

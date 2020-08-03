@@ -7,7 +7,9 @@ from hypothesis.strategies import composite
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import lists
+from hypothesis.strategies import only
 from hypothesis.strategies import sampled_from
+from hypothesis.strategies import tuples
 import numpy as np
 from pytest import approx
 from pytest import raises
@@ -162,7 +164,9 @@ def test_transform_distance_increasing(transform, coords):
 
 @given(
     domains().flatmap(
-        lambda d: (d, lists(coordinate_transforms(domain=d), min_size=3, max_size=10))
+        lambda d: tuples(
+            only(d), lists(coordinate_transforms(domain=d), min_size=3, max_size=10)
+        )
     ),
     arbitrary_coordinates(min_value=(0.0, 0.0, 0.0), max_value=(1.0, 1.0, 1.0)),
 )
