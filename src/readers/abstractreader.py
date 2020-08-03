@@ -904,7 +904,7 @@ class DataReader(BaseIO):
         attrs = {
             prov.PROV_TYPE: "DataArray",
             prov.PROV_VALUE: ",".join(
-                self.DIAGNOSTIC_QUANTITIES["charge_exchange"][uid][instrument]
+                self.DIAGNOSTIC_QUANTITIES[diagnostic][uid][instrument]
             ),
             "ignored_channels": str(ignored),
         }
@@ -940,8 +940,8 @@ class DataReader(BaseIO):
         This method will check whether channels have previously been
         selected for this particular data and load them if so. The
         user will then be given a chance to modify this selection. The
-        user's choices will then be cached for reuse later,
-        overwriting any existing records which were loaded.
+        user's choices will be cached for reuse later, overwriting any
+        existing records which were loaded.
 
         Parameters
         ----------
