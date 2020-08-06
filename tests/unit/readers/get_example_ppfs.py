@@ -8,6 +8,7 @@ import click
 import numpy as np
 import sal.client
 import sal.core.exception
+import sal.dataclass
 
 
 QUANTITIES = itertools.chain(
@@ -15,7 +16,7 @@ QUANTITIES = itertools.chain(
     [
         f"{dda}/{dtype}"
         for dda, dtype in itertools.product(
-            ["efit"],
+            ["efit", "eftp"],
             [
                 "f",
                 "faxs",
@@ -80,7 +81,7 @@ QUANTITIES = itertools.chain(
             map(
                 lambda x, y: zip(itertools.repeat(x), y),
                 ["h", "t", "v"],
-                [range(2, 18), range(1, 36), range(1, 36)],
+                [range(1, 18), range(1, 36), range(1, 36)],
             )
         )
     ],
@@ -88,44 +89,173 @@ QUANTITIES = itertools.chain(
 
 
 @click.command()
-@click.option("-p", "--pulse", default=90279, help="Pulse number to get data for.")
+@click.option("-p", "--pulse", default=97624, help="Pulse number to get data for.")
 @click.option("-u", "--uid", default="jetppf", help="UID to get data for.")
 @click.option(
     "--url",
     default="https://sal.jet.uk",
     help="URL of SAL server to get PPF data from.",
 )
-# @click.option("--username", default=lambda: os.environ.get("USER", ""),
-#               show_default="current user",
-#               help="Username with which to connect to PPF database.")
-# @click.password_option(help="Password to connect to PPF database.")
+@click.option(
+    "-c",
+    "--channel-stride",
+    default=1,
+    help="The inverse of the fractions channels to keep in the data.",
+)
+@click.option(
+    "-t",
+    "--max-times",
+    default=100,
+    help="The (rough) maximum number of increments along the time axis for which "
+    "to keep data.",
+)
+@click.option(
+    "-sp",
+    "--single-precision",
+    default=True,
+    help="Whether to convert data to single precision floats.",
+)
+@click.option(
+    "-s",
+    "--sourcefile",
+    default=None,
+    type=click.File("rb"),
+    help="A pickle file with which initially to populate the dictionary. Only "
+    "data not already present in this file will be downloaded.",
+)
 @click.argument("output", type=click.File("wb"))
-def get_example_ppfs(pulse, uid, url, output):
+def get_example_ppfs(
+    pulse, uid, url, channel_stride, max_times, single_precision, sourcefile, output
+):
     """Script ot download some PPF data. This is done using the SAL
     interface. SAL Signal objects will be pickled and stored in
     file OUTPUT for later use (e.g., when testing). The pickle file
     contains a dictionary where keys are of the format "DDA/DTYPE",
     all lower-case (e.g., "lidr/ne", "cxg6/angf", etc.).
 
+    Optionally, the --sourcefile option may be used. If this is the
+    case then pickled data will be read in from that file and used to
+    initialise the dictionary. Data will only be downloaded from the
+    database if not already present in the SOURCEFILE. This can be
+    used, e.g., to collect data from multiple pulses to build up a
+    complete set of diagnostics.
+
     Depending on the network from which you are accessing the SAL server, you
     may need to provide authentication.
+
+    By default, the size of the data will be reduced by limiting the
+    number of increments along the time axis and converting double
+    precision floats to single precision. These settings can be
+    changed using command-line flags.
 
     """
     base_path = f"/pulse/{pulse:5d}/ppf/signal/{uid}/"
     client = sal.client.SALClient(url)
-    values = {}
+    if sourcefile:
+        values = pickle.load(sourcefile)
+        if not isinstance(values, dict):
+            print(f"File {sourcefile.name} does not contain valid data.")
+            exit(-1)
+        sourcefile.close()
+    else:
+        values = {}
     # Get the main quantities
-    for q in QUANTITIES:
+    for q in itertools.filterfalse(lambda q: q in values, QUANTITIES):
+        path = base_path + q
         try:
-            values[q] = client.get(base_path + q)
+            print(f"Getting data for {path}...")
+            values[q] = thin_data(
+                client.get(path), channel_stride, max_times, single_precision
+            )
         except sal.core.exception.NodeNotFound:
-            continue
+            print("FAILED! Skipping...")
     # Get data for cyclotron emissions
-    if "kk3/gen" in QUANTITIES:
-        for channel in np.argwhere(values["kk3/gen"].data[15, :] > 0):
-            key = f"kk3/te{channel:02d}"
-            values[key] = client.get(base_path + key)
+    if "kk3/gen" in values:
+        for channel in np.argwhere(values["kk3/gen"].data[15, :] > 0).flatten():
+            key = f"kk3/te{channel + 1:02d}"
+            if key in values:
+                continue
+            path = base_path + key
+            try:
+                print(f"Getting data for {path}...")
+                values[key] = thin_data(
+                    client.get(path), channel_stride, max_times, single_precision
+                )
+            except sal.core.exception.NodeNotFound:
+                print("FAILED! Skipping...")
     pickle.dump(values, output)
+
+
+def thin_data(signal, channel_stride=2, max_times=100, single_precision=True):
+    """Reduces the size of some data by dropping some of the channels,
+    reducing the number of times to some maximum, and/or switching to
+    single precision.
+
+    Parameters
+    ----------
+    signal : Signal
+        The data to be reduced in size.
+    channel_stride : int
+        The inverse of the fraction of channels to keep.
+    max_times : int
+        The maximum number of points to keep along the time axis. The actual
+        number may be slightly different, to ensure equal spacing.
+    single_precision : bool
+        Whether to reduce the data to use single precision
+
+    """
+    dtype = np.float32 if single_precision else signal.dtype
+    time_dim = None
+    other_dims = []
+    time_pos = -1
+    for i, dim in enumerate(signal.dimensions):
+        if dim.temporal:
+            time_dim = dim
+            time_pos = i
+        else:
+            other_dims.append(dim)
+    if time_dim:
+        time_stride = max(int(len(time_dim.data) / max_times), 1)
+        new_time = sal.dataclass.ArrayDimension(
+            time_dim.data[::time_stride],
+            dtype,
+            time_dim.units,
+            time_dim.error,
+            time_dim.temporal,
+            time_dim.description,
+        )
+    new_dims = []
+    for dim in other_dims:
+        new_dims.append(
+            sal.dataclass.ArrayDimension(
+                dim.data[::channel_stride],
+                dtype,
+                dim.units,
+                dim.error,
+                dim.temporal,
+                dim.description,
+            )
+        )
+    slices = [slice(None, None, channel_stride)] * signal.data.ndim
+    if time_dim:
+        new_dims.insert(time_pos, new_time)
+        slices[time_pos] = slice(None, None, time_stride)
+    new_mask = (
+        sal.dataclass.ArrayStatus(
+            signal.mask.status[slices], signal.mask.key, signal.mask.description
+        )
+        if isinstance(signal.mask, sal.dataclass.ArrayStatus)
+        else signal.mask
+    )
+    return sal.dataclass.Signal(
+        new_dims,
+        signal.data[slices].astype(np.float32),
+        dtype,
+        signal.error,
+        new_mask,
+        signal.units,
+        signal.description,
+    )
 
 
 if __name__ == "__main__":
