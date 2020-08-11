@@ -43,11 +43,9 @@ class DataReader(BaseIO):
     agent: prov.model.ProvAgent
         An agent representing this object in provenance documents.
         DataArray objects can be attributed to it.
-    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, ArrayType]]]]
-        Hierarchical information on the quantities which are available for
-        reading. These are indexed by (in order) diagnostic name, UID,
-        instrument name, and quantity name. The values of the innermost
-        dictionary describe the physical type of the data to be read.
+    DDA_METHODS: Dict[str, str]
+        Mapping between instrument/DDA names and method to use to assemble that
+        data. Implementation-specific.
     entity: prov.model.ProvEntity
         An entity representing this object in provenance documents. It is used
         to provide information on the object's own provenance.
@@ -59,7 +57,44 @@ class DataReader(BaseIO):
 
     """
 
-    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, ArrayType]]]] = {}
+    DDA_METHODS: Dict[str, str] = {}
+    # Mapping between methods for reading data and the quantities which can be
+    # fetched. An implementation may override this for specific DDAs.
+    _AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
+        "get_thomson_scattering": {
+            "ne": ("number_density", "electron"),
+            "te": ("temperature", "electron"),
+        },
+        "get_charge_exchange": {
+            "angf": ("angular_freq", None),
+            "conc": ("concentration", None),
+            "ti": ("temperature", None),
+        },
+        "get_bremsstrahlung_spectroscopy": {
+            "H": ("effective_charge", "plasma"),
+            "V": ("effective_charge", "plasma"),
+        },
+        "get_equilibrium": {
+            "f": ("f_value", "plasma"),
+            "faxs": ("magnetic_flux", "mag_axis"),
+            "fbnd": ("magnetic_flux", "separatrix_axis"),
+            "ftor": ("toroidal_flux", "plasma"),
+            "rmji": ("major_rad", "hfs"),
+            "rmjo": ("major_rad", "lfs"),
+            "psi": ("magnetic_flux", "plasma"),
+            "vjac": ("volume_jacobian", "plasma"),
+            "rmag": ("major_rad", "mag_axis"),
+            "rsep": ("major_rad", "separatrix_axis"),
+            "zmag": ("z", "mag_axis"),
+            "zsep": ("z", "separatrix_axis"),
+        },
+        "get_cyclotron_emissions": {"te": ("temperature", "electron"),},
+        "get_radiation": {"H": ("luminous_flux", None), "V": ("luminous_flux", None),},
+    }
+    # Quantities available for specific DDAs in a given
+    # implementation. Override values given in _AVAILABLE_QUANTITIES.
+    _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
+
     _RECORD_TEMPLATE = "{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
@@ -118,6 +153,45 @@ class DataReader(BaseIO):
         )
         self.session.prov.attribution(self.entity, self.session.agent)
 
+    def get(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int = 0,
+        quantities: Set[str] = set(),
+    ) -> Dict[str, DataArray]:
+        """Reads data for the requested instrument/DDA. In general this will be
+        the method you want to use when reading.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            The instrument which measured this data (DDA at JET)
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database. Defaults to
+            all available quantities for that instrument.
+
+        Returns
+        -------
+        :
+            A dictionary containing the requested physical quantities.
+        """
+        if instrument not in self.DDA_METHODS:
+            raise ValueError(
+                "{} does not support reading for instrument {}".format(
+                    self.__class__.__name__, instrument
+                )
+            )
+        method = getattr(self, self.DDA_METHODS[instrument])
+        if not quantities:
+            quantities = set(self.available_quantities(instrument))
+        return method(uid, instrument, revision, quantities)
+
     def get_thomson_scattering(
         self,
         uid: str,
@@ -143,11 +217,9 @@ class DataReader(BaseIO):
         Returns
         -------
         :
-            A dataset containing the requested physical quantities.
+            A dictionary containing the requested physical quantities.
         """
-        available_quantities = self.DIAGNOSTIC_QUANTITIES["thomson_scattering"][uid][
-            instrument
-        ]
+        available_quantities = self.available_quantities(instrument)
         database_results = self._get_thomson_scattering(
             uid, instrument, revision, quantities
         )
@@ -267,12 +339,10 @@ class DataReader(BaseIO):
         Returns
         -------
         :
-            A dataset containing the requested physical quantities.
+            A dictionary containing the requested physical quantities.
 
         """
-        available_quantities = self.DIAGNOSTIC_QUANTITIES["charge_exchange"][uid][
-            instrument
-        ]
+        available_quantities = self.available_quantities(instrument)
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
@@ -451,18 +521,36 @@ class DataReader(BaseIO):
             Times at which data is sampled.
         f : ndarray (optional)
             Btor * R (first axis is time, second is psin)
+        f_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for f.
         faxs : ndarray (optional)
             Poloidal flux (psi) at magnetic axis.
+        faxs_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for faxs.
         fbnd : ndarray (optional)
             Poloidal flux (psi) at separatrix/plasma boundary.
+        fbnd_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for fbnd.
         ftor : ndarray (optional)
             Unnormalised toroidal flux (psi).
+        ftor_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for ftor.
         rmji : ndarray (optional)
             Major radius at which different poloidal flux surface intersect
             zmag on the high flux side (first axis is time, second is psin).
+        rmji_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for rmji.
         rmjo : ndarray (optional)
             Major radius at which different poloidal flux surface intersect
             zmag on the low flux side (first axis is time, second is psin).
+        rmjo_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for rmjo.
         psi : ndarray (optional)
             Unnormalised poloidal flux (first axis is time, second is major,
             radius third is vertical position)
@@ -470,17 +558,35 @@ class DataReader(BaseIO):
             Major radii at which psi is given
         psi_z : ndarray (optional)
             Vertical positions at which psi is given
+        psi_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for psi.
         vjac : ndarray (optional)
             Derivative of volume enclosed by poloidal flux surface, with
             respect to psin (first axis is time, second is psin)
+        vjac_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for vjac.
         rmag : ndarray (optional)
             Major radius of magnetic axis
+        rmag_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for rmag.
         rsep : ndarray (optional)
             Major radius of separatrix
+        rsep_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for rsep.
         zmag : ndarray (optional)
             Vertical position of magnetic axis
+        zmag_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for zmag.
         zsep : ndarray (optional)
             Vertical position of separatrix
+        zsep_records : List[str] (optional)
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for zsep.
         """
         raise NotImplementedError(
             "{} does not implement a '_get_equilibrium' "
@@ -530,7 +636,7 @@ class DataReader(BaseIO):
         A dictionary containing the following items:
 
         length : int
-            Number of channels in data
+            Number of channels in data.
         z : float
             Vertical position of line of sight
         Btot : ndarray
@@ -544,6 +650,8 @@ class DataReader(BaseIO):
         te_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for electron temperature.
+        bad_channels : List[int]
+            Btot values for channels which have not been properly calibrated.
 
         """
         raise NotImplementedError(
@@ -817,34 +925,35 @@ class DataReader(BaseIO):
             The times at which measurements were taken
         H : ndarray (optional)
             Effective charge along horizontal line of sight (first axis is
-            time).
+            time, second is channel).
         H_error : ndarray (optional)
             Uncertainty in horizontal effective charge measurement
         H_records : List[str] (optional)
             Representations (e.g., paths) for the records in the database used
             to access data needed from horizontal line of sight
-        H_Rstart : float (optional)
+        H_Rstart : ndarray (optional)
             Major radius of start positions for horizontal line of sight.
-        H_Rstop : float (optional)
+        H_Rstop : ndarray (optional)
             Major radius of stop position for horizontal line of sight from.
-        H_zstart : float (optional)
+        H_zstart : ndarray (optional)
             Vertical location of start position for horizontal line of sight.
-        H_zstop : float (optional)
+        H_zstop : ndarray (optional)
             Vertical location of start position for horizontal lines of sight.
         V : ndarray (optional)
-            Effective charge along vertical line of sight (first axis is time).
+            Effective charge along vertical line of sight (first axis is time,
+            second is channel).
         V_error : ndarray (optional)
             Uncertainty in vertical effective charge measurement
         V_records : List[str] (optional)
             Representations (e.g., paths) for the records in the database used
             to access data needed from vertical line of sight
-        V_Rstart : float (optional)
+        V_Rstart : ndarray (optional)
             Major radius of start positions for vertical line of sight.
-        V_Rstop : float (optional)
+        V_Rstop : ndarray (optional)
             Major radius of stop position for vertical line of sight from.
-        V_zstart : float (optional)
+        V_zstart : ndarray (optional)
             Vertical location of start position for vertical line of sight.
-        V_zstop : float (optional)
+        V_zstop : ndarray (optional)
             Vertical location of start position for vertical lines of sight.
 
         """
@@ -903,9 +1012,7 @@ class DataReader(BaseIO):
         # TODO: properly namespace the data type and ignored channels
         attrs = {
             prov.PROV_TYPE: "DataArray",
-            prov.PROV_VALUE: ",".join(
-                self.DIAGNOSTIC_QUANTITIES[diagnostic][uid][instrument]
-            ),
+            prov.PROV_VALUE: ",".join(self.available_quantities(instrument)[quantity]),
             "ignored_channels": str(ignored),
         }
         activity_id = hash_vals(agent=self.prov_id, date=end_time)
@@ -991,3 +1098,13 @@ class DataReader(BaseIO):
             nstart, nend = get_slice_limits(self._tstart, self._tend, times)
             results["times"] = times[nstart, nend].copy()
         return nstart, nend
+
+    def available_quantities(self, instrument):
+        """Return the quantities which can be read for the specified
+        instrument/DDA."""
+        if instrument not in self.DDA_METHODS:
+            raise ValueError("Can not read data for instrument {}".format(instrument))
+        if instrument in self._IMPLEMENTATION_QUANTITIES:
+            return self._IMPLEMENTATION_QUANTITIES[instrument]
+        else:
+            return self._AVAILABLE_QUANTITIES[self.DDA_METHODS[instrument]]

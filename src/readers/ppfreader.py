@@ -5,7 +5,6 @@ reading PPF data produced by JET.
 
 import socket
 from typing import Any
-from typing import ClassVar
 from typing import Dict
 from typing import Set
 from typing import Tuple
@@ -17,7 +16,6 @@ from sal.dataclass import Signal
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
-from ..datatypes import DataType
 from ..session import global_session
 from ..session import Session
 
@@ -82,50 +80,51 @@ class PPFReader(DataReader):
 
     """
 
-    # TODO: Build this up dynamically when instantiating
-    DIAGNOSTIC_QUANTITIES = {
-        "thomson_scattering": {
-            "jetppf": {
-                "hrts": {
-                    "ne": ("number_density", "electron"),
-                    "te": ("temperature", "electron"),
-                },
-                "lidr": {
-                    "ne": ("number_density", "electron"),
-                    "te": ("temperature", "electron"),
-                },
-            }
+    DDA_METHODS = {
+        "hrts": "get_thomson_scattering",
+        "lidr": "get_thomson_scattering",
+        "efit": "get_equilibrium",
+        "eftp": "get_equilibrium",
+        "kk3": "get_cyclotron_emissions",
+        "cxg6": "get_charge_exchange",
+        "ks3": "get_bremsstrahlung_spectroscopy",
+        "sxr": "get_radiation",
+        "bolo": "get_radiation",
+        "kg10": "get_thomson_scattering",
+    }
+    _IMPLEMENTATION_QUANTITIES = {
+        "ks3": {"ne": ("number_density", "electron")},
+        "sxr": {
+            "H": ("luminous_flux", "sxr"),
+            "T": ("luminous_flux", "sxr"),
+            "V": ("luminous_flux", "sxr"),
         },
-        "charge_exchange": {
-            "jetppf": {
-                "cxg6": {
-                    "angf": ("angular_freq", None),
-                    "conc": ("concentration", None),
-                    "ti": ("temperature", None),
-                },
-            }
+        "bolo": {
+            "H": ("luminous_flux", "bolometric"),
+            "V": ("luminous_flux", "bolometric"),
         },
     }
 
-    AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {
-        "cxg6_angf": ("angular_freq", None),
-        "cxg6_conc": ("concentration", None),
-        "cxg6_ti": ("temperature", None),
-        "efit_rmag": ("major_rad", "mag_axis"),
-        "efit_zmag": ("z", "mag_axis"),
-        "efit_rsep": ("major_rad", "separatrix_axis"),
-        "efit_zsep": ("z", "separatrix_axis"),
-        "hrts_ne": ("number_density", "electrons"),
-        "hrts_te": ("temperature", "electrons"),
-        "kk3_te": ("temperature", "electrons"),
-        "lidr_ne": ("number_density", "electrons"),
-        "lidr_te": ("temperature", "electrons"),
-        "sxr_h": ("luminous_flux", "sxr"),
-        "sxr_t": ("luminous_flux", "sxr"),
-        "sxr_v": ("luminous_flux", "sxr"),
-    }
+    #    AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {
+    #        "cxg6_angf": ("angular_freq", None),
+    #        "cxg6_conc": ("concentration", None),
+    #        "cxg6_ti": ("temperature", None),
+    #        "efit_rmag": ("major_rad", "mag_axis"),
+    #        "efit_zmag": ("z", "mag_axis"),
+    #        "efit_rsep": ("major_rad", "separatrix_axis"),
+    #        "efit_zsep": ("z", "separatrix_axis"),
+    #        "hrts_ne": ("number_density", "electrons"),
+    #        "hrts_te": ("temperature", "electrons"),
+    #        "kk3_te": ("temperature", "electrons"),
+    #        "lidr_ne": ("number_density", "electrons"),
+    #        "lidr_te": ("temperature", "electrons"),
+    #        "sxr_h": ("luminous_flux", "sxr"),
+    #        "sxr_t": ("luminous_flux", "sxr"),
+    #        "sxr_v": ("luminous_flux", "sxr"),
+    #    }
 
-    _SXR_RANGES = {"sxr_h": (2, 17), "sxr_t": (1, 35), "sxr_v": (1, 35)}
+    _SXR_RANGES = {"H": (2, 17), "sxr_t": (1, 35), "sxr_v": (1, 35)}
+    _KK3_RANGE = (1, 96)
 
     def __init__(
         self,

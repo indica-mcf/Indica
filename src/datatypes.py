@@ -27,6 +27,10 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Ratio of positive ion charge to electron charge in plasma",
         "",
     ),
+    "f_value": (
+        "Product of toroidal magnetic field strength and major radius",
+        "Wb m",
+    ),
     "luminous_flux": (
         "Radiation power received per unit area at some point",
         "W m^{-2}",
@@ -88,7 +92,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "electrons": ["angular_freq", "number_density", "temperature"],
         "hfs": ["major_rad", "z"],
         "lfs": ["major_rad", "z"],
-        "mag_axis": ["major_rad", "z"],
+        "mag_axis": ["magnetic_flux", "major_rad", "z"],
         "plasma": [
             "angular_freq",
             "effective_charge",
@@ -100,7 +104,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "toroidal_flux",
             "vol_jacobian",
         ],
-        "separatrix_axis": ["major_rad", "z"],
+        "separatrix_axis": ["magnetic_flux", "major_rad", "z"],
         "sxr": ["luminous_flux"],
     },
 )
