@@ -83,7 +83,7 @@ class DataReader(BaseIO):
         tend
             End of time range for which to get data.
         max_freq
-            Maximum frequency of data-sampling, abov which some osrt of
+            Maximum frequency of data-sampling, above which some sort of
             averaging or compression may be performed.
         sess
             An object representing the session being run. Contains information

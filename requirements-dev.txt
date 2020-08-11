@@ -1,3 +1,4 @@
+click
 coverage
 coverage[toml]
 hypothesis

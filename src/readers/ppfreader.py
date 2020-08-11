@@ -301,7 +301,7 @@ class PPFReader(DataReader):
     def close(self):
         """Ends connection to the SAL server from which PPF data is being
         read."""
-        del self.server
+        del self._client
 
     @property
     def requires_authentication(self):
