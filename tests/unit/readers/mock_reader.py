@@ -80,7 +80,17 @@ class MockReader(ConcreteReader):
 
     """
 
-    def __init__(self, mock_select_channels=True, mock_provenance=True):
+    def __init__(
+        self,
+        mock_select_channels=True,
+        mock_provenance=True,
+        tstart=0.0,
+        tend=1e10,
+        max_freq=1e50,
+    ):
+        self._tstart = tstart
+        self._tend = tend
+        self._max_freq = max_freq
         self._get_thomson_scattering = MagicMock()
         self._get_charge_exchange = MagicMock()
         self._get_equilibrium = MagicMock()

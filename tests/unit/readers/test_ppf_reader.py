@@ -49,15 +49,6 @@ lines_of_sight = tuples(
 )
 
 
-def check_times(times, raw_times, time_range, max_freq):
-    """Checks the time data returned by a _get method is correct."""
-    assert np.all(times >= time_range[0] - 0.5)
-    assert np.all(times <= time_range[1] + 0.5)
-    assert np.all(np.unique(times) == times)
-    assert np.all(np.isin(times, raw_times))
-    assert len(times) / (times[-1] - times[0]) <= max_freq
-
-
 def get_record(reader, pulse, uid, instrument, dtype, revision):
     """Gets the path for the requested recrod, with the correct revision for
     the data actually heald in the database."""
@@ -137,17 +128,11 @@ def test_get_thomson_scattering(
     assert np.all(z_signal.data == results["z"])
     assert len(z_signal.data) == results["length"]
     assert np.all(z_signal.dimensions[0].data == results["R"])
-    raw_times = reader._client.DATA[f"{instrument}/{quantities[0]}"].dimensions[0].data
-    check_times(results["times"], raw_times, time_range, freq)
-    time_slice = np.argwhere(np.isin(raw_times, results["times"]))
     records = [get_record(reader, pulse, uid, instrument, "z", revision)]
     for q in quantities:
+        assert np.all(results[q] == reader.client.DATA[f"{instrument}/{q}"].data)
         assert np.all(
-            results[q] == reader.client.DATA[f"{instrument}/{q}"].data[time_slice, :]
-        )
-        assert np.all(
-            results[q + "_error"]
-            == reader.client.DATA[f"{instrument}/d{q}"].data[time_slice, :]
+            results[q + "_error"] == reader.client.DATA[f"{instrument}/d{q}"].data
         )
         assert sorted(results[q + "_records"]) == sorted(
             records
@@ -200,25 +185,16 @@ def test_get_charge_exchange(
     assert np.all(z_signal.data == results["z"])
     assert len(z_signal.data) == results["length"]
     assert np.all(reader._client.DATA[f"{instrument}/rpos"] == results["R"])
-    raw_times = reader._client.DATA[f"{instrument}/{quantities[0]}"].dimensions[0].data
-    check_times(results["times"], raw_times, time_range, freq)
-    time_slice = np.argwhere(np.isin(raw_times, results["times"]))
-    assert np.all(
-        reader._client.DATA[f"{instrument}/texp"].data[time_slice] == results["texp"]
-    )
+    assert np.all(reader._client.DATA[f"{instrument}/texp"].data == results["texp"])
     records = ["pos", "rpos", "texp", "mass"].maps(
         lambda q: get_record(reader, pulse, uid, instrument, q, revision)
     )
     uncertainties = {"angf": "afhi", "conc": "cohi", "ti": "tihi"}
     for q in quantities:
-        assert np.all(
-            results[q] == reader.client.DATA[f"{instrument}/{q}"].data[time_slice, :]
-        )
+        assert np.all(results[q] == reader.client.DATA[f"{instrument}/{q}"].data)
         assert np.all(
             results[q + "_error"] + results[q]
-            == reader.client.DATA[f"{instrument}/{uncertainties[q]}"].data[
-                time_slice, :
-            ]
+            == reader.client.DATA[f"{instrument}/{uncertainties[q]}"].data
         )
         assert sorted(results[q + "_records"]) == sorted(
             records
@@ -288,13 +264,8 @@ def test_get_equilibrium(
         return
     signal = reader._client.DATA[f"{instrument}/f"]
     assert np.all(signal.dimensions[1] == results["psin"])
-    raw_times = signal.dimensions[0]
-    check_times(results["times"], raw_times, time_range, freq)
-    time_slice = np.argwhere(np.isin(raw_times, results["times"]))
     for q in quantities:
-        assert np.all(
-            results[q] == reader.client.DATA[f"{instrument}/{q}"].data[time_slice, :]
-        )
+        assert np.all(results[q] == reader.client.DATA[f"{instrument}/{q}"].data)
         if q == "psi":
             assert sorted(results[q + "_records"]) == sorted(
                 map(
@@ -355,9 +326,6 @@ def test_get_cyclotron_emissions(
     if bad_rev:
         return
     assert results["z"] == los[2][0]
-    raw_times = reader._client.DATA[f"{instrument}/{quantities[0]}"].dimensions[0].data
-    check_times(results["times"], raw_times, time_range, freq)
-    time_slice = np.argwhere(np.isin(raw_times, results["times"]))
     # TODO: determine how best to describe the SURF data for PROV
     records = [
         "surf_overlays.db",
@@ -374,8 +342,7 @@ def test_get_cyclotron_emissions(
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
             assert np.all(
-                emissions[:, i]
-                == reader._client.DATA[f"{instrument}/{name}"].data[time_slice, :]
+                emissions[:, i] == reader._client.DATA[f"{instrument}/{name}"]
             )
         assert np.all(
             results["Btot"] * sc.e * gen[11, channel_indices] / (2 * np.pi * sc.m_e)
@@ -442,9 +409,6 @@ def test_get_sxr(
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    raw_times = reader._client.DATA[f"{instrument}/{quantities[0]}"].dimensions[0].data
-    check_times(results["times"], raw_times, time_range, freq)
-    time_slice = np.argwhere(np.isin(raw_times, results["times"]))
     # TODO: determine how best to describe the SURF data for PROV
     records = ["surf_overlays.db"]
     for q in quantities:
@@ -458,8 +422,7 @@ def test_get_sxr(
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
             assert np.all(
-                radiation[:, i]
-                == reader._client.DATA[f"{instrument}/{name}"].data[time_slice, :]
+                radiation[:, i] == reader._client.DATA[f"{instrument}/{name}"].data
             )
         assert np.all(results[q + "_Rstart"] == los[0][channel_indices])
         assert np.all(results[q + "_Rstop"] == los[1][channel_indices])
@@ -521,18 +484,13 @@ def test_get_radiation(
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    raw_times = reader._client.DATA[f"{instrument}/{quantities[0]}"].dimensions[0].data
-    check_times(results["times"], raw_times, time_range, freq)
-    time_slice = np.argwhere(np.isin(raw_times, results["times"]))
     # TODO: determine how best to describe the SURF data for PROV
     records = ["surf_overlays.db"]
     for q in quantities:
         radiation = results[q]
         length = results["length"][q]
         assert length == radiation.shape[1]
-        assert np.all(
-            radiation == reader._client.DATA[f"{instrument}/{q}"][time_slice, :]
-        )
+        assert np.all(radiation == reader._client.DATA[f"{instrument}/{q}"])
         assert np.all(results[q + "_Rstart"] == los[0][:length])
         assert np.all(results[q + "_Rstop"] == los[1][:length])
         assert np.all(results[q + "_zstart"] == los[2][:length])
@@ -581,18 +539,11 @@ def test_get_bremsstrahlung_spectroscopy(
         results = reader._get_charge_exchange(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    raw_times = reader._client.DATA[f"{instrument}/{quantities[0]}"].dimensions[0].data
-    check_times(results["times"], raw_times, time_range, freq)
-    time_slice = np.argwhere(np.isin(raw_times, results["times"]))
     for q in quantities:
-        assert np.all(
-            results[q] == reader._client.DATA[f"{instrument}/{q}"].data[time_slice, :]
-        )
+        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"])
         assert np.all(
             results["q"] + results[q + "_error"]
-            == pytest.approx(
-                reader._client.DATA[f"{instrument}/{q[0]}{q[-1]}hi"][time_slice, :]
-            )
+            == pytest.approx(reader._client.DATA[f"{instrument}/{q[0]}{q[-1]}hi"])
         )
         los = reader._client.DATA[f"edg7/los{q[-1]}"]
         assert results[q + "Rstart"] == los[0]

@@ -364,7 +364,7 @@ def float_series(draw, min_value, max_value, min_size=2, max_size=50):
         The maximum number of elements in the series.
     """
     start = draw(hyst.floats(min_value, max_value, exclude_max=True))
-    stop = draw(hyst.floats(start, max_value, exclude_min=True))
+    stop = max_value - draw(hyst.floats(0, max_value - start, exclude_min=True))
     n = draw(hyst.integers(min_size, max_size))
     return draw(monotonic_series(start, stop, n))
 

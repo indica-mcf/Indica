@@ -33,6 +33,10 @@ from ..data_strategies import equilibrium_data
 from ..strategies import float_series
 
 
+times = lists(floats(0.0, 1000.0), min_size=2, max_size=2).map(sorted)
+max_freqs = floats(0.1, 1000.0)
+
+
 @composite
 def dicts_with(draw, *options, min_size=0, max_size=None):
     """Strategy to produce a dictionary containig some combination of the
@@ -95,21 +99,28 @@ def find_dropped_channels(array, dimension):
     ]
 
 
-def assert_data_arrays_equal(actual, expected):
+def assert_data_arrays_equal(actual, expected, tstart, tend, max_freq):
     """Performs various assertions to confirm that the two DataArray objects
     are equivalent."""
     assert actual.name == expected.name
     assert actual.attrs["datatype"] == expected.attrs["datatype"]
-    assert actual.equals(expected)
+    times = actual.coords["t"]
+    assert np.all(times >= tstart - 0.5)
+    assert np.all(times <= tend + 0.5)
+    assert np.all(np.unique(times) == times)
+    assert np.all(np.isin(times, expected.coords["t"]))
+    assert len(times) / (times[-1] - times[0]) <= max_freq
+    tslice = np.argwhere(np.isin(expected.coords["t"], times))
+    assert actual.equals(expected.isel(t=tslice))
     if "error" in expected.attrs:
-        assert actual.attrs["error"].equals(expected.attrs["error"])
+        assert actual.attrs["error"].equals(expected.attrs["error"].isel(t=tslice))
     if "dropped" in expected.attrs:
-        assert actual.attrs["dropped"].equals(expected.attrs["dropped"])
+        assert actual.attrs["dropped"].equals(expected.attrs["dropped"].isel(t=tslice))
         if "error" in expected.attrs:
             assert (
                 actual.attrs["dropped"]
                 .attrs["error"]
-                .equals(expected.attrs["dropped"].attrs["error"])
+                .equals(expected.attrs["dropped"].attrs["error"].isel(t=tslice))
             )
     assert actual.attrs["transform"] == expected.attrs["transform"]
 
@@ -143,12 +154,14 @@ def finish_fake_array(array, instrument, quantity, coord_name1=None, coord_name2
     text(),
     text(),
     integers(),
+    times,
+    max_freqs,
 )
-def test_thomson_scattering(data, uid, instrument, revision):
+def test_thomson_scattering(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_thomson_scattering method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
-    reader = MockReader()
+    reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_thomson_scattering(uid, instrument, revision, quantities)
@@ -156,7 +169,7 @@ def test_thomson_scattering(data, uid, instrument, revision):
         uid, instrument, revision, quantities
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
-        assert_data_arrays_equal(actual, expected)
+        assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
             "thomson_scattering",
             uid,
@@ -179,12 +192,14 @@ def test_thomson_scattering(data, uid, instrument, revision):
     text(),
     text(),
     integers(),
+    times,
+    max_freqs,
 )
-def test_charge_exchange(data, uid, instrument, revision):
+def test_charge_exchange(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_charge_exchange method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
-    reader = MockReader()
+    reader = MockReader(True, True, *time_range, max_freq)
     reader.set_charge_exchange(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_charge_exchange(uid, instrument, revision, quantities)
@@ -192,7 +207,7 @@ def test_charge_exchange(data, uid, instrument, revision):
         uid, instrument, revision, quantities
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
-        assert_data_arrays_equal(actual, expected)
+        assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
             "charge_exchange",
             uid,
@@ -208,12 +223,14 @@ def test_charge_exchange(data, uid, instrument, revision):
     text(),
     text(),
     integers(),
+    times,
+    max_freqs,
 )
-def test_cyclotron_emissions(data, uid, instrument, revision):
+def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_cyclotron_emissions method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
-    reader = MockReader()
+    reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_cyclotron_emissions(uid, instrument, revision, quantities)
@@ -221,7 +238,7 @@ def test_cyclotron_emissions(data, uid, instrument, revision):
         uid, instrument, revision, quantities
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
-        assert_data_arrays_equal(actual, expected)
+        assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
             "cyclotron_emissions",
             uid,
@@ -235,26 +252,28 @@ def test_cyclotron_emissions(data, uid, instrument, revision):
 @given(
     expected_data(
         los_coordinates(),
-        ("H", ("luminous_flux", "sxr")),
-        ("T", ("luminous_flux", "sxr")),
-        ("V", ("luminous_flux", "sxr")),
+        ("h", ("luminous_flux", "sxr")),
+        ("t", ("luminous_flux", "sxr")),
+        ("v", ("luminous_flux", "sxr")),
         unique_transforms=True,
     ),
     text(),
     text(),
     integers(),
+    times,
+    max_freqs,
 )
-def test_radiation(data, uid, instrument, revision):
+def test_radiation(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
-    reader = MockReader()
+    reader = MockReader(True, True, *time_range, max_freq)
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_radiation(uid, instrument, revision, quantities)
     reader._get_radiation.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
-        assert_data_arrays_equal(actual, expected)
+        assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
             "radiation",
             uid,
@@ -268,25 +287,27 @@ def test_radiation(data, uid, instrument, revision):
 @given(
     expected_data(
         los_coordinates(),
-        ("H", ("luminous_flux", "bolometric")),
-        ("V", ("luminous_flux", "bolometric")),
+        ("kb5h", ("luminous_flux", "bolometric")),
+        ("kb5v", ("luminous_flux", "bolometric")),
         unique_transforms=True,
     ),
     text(),
     text(),
     integers(),
+    times,
+    max_freqs,
 )
-def test_bolometry(data, uid, instrument, revision):
+def test_bolometry(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_bolometry method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
-    reader = MockReader()
+    reader = MockReader(True, True, *time_range, max_freq)
     reader.set_bolometry(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_bolometry(uid, instrument, revision, quantities)
     reader._get_bolometry.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
-        assert_data_arrays_equal(actual, expected)
+        assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
             "bolometry",
             uid,
@@ -300,19 +321,23 @@ def test_bolometry(data, uid, instrument, revision):
 @given(
     expected_data(
         los_coordinates(),
-        ("H", ("effective_charge", "plasma")),
-        ("V", ("effective_charge", "plasma")),
+        ("h", ("effective_charge", "plasma")),
+        ("v", ("effective_charge", "plasma")),
         unique_transforms=True,
     ),
     text(),
     text(),
     integers(),
+    times,
+    max_freqs,
 )
-def test_bremsstrahlung_spectroscopy(data, uid, instrument, revision):
+def test_bremsstrahlung_spectroscopy(
+    data, uid, instrument, revision, time_range, max_freq
+):
     """Test the get_bremsstrahlung_spectroscopy method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
-    reader = MockReader()
+    reader = MockReader(True, True, *time_range, max_freq)
     reader.set_bremsstrahlung_spectroscopy(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_bremsstrahlung_spectroscopy(
@@ -322,9 +347,14 @@ def test_bremsstrahlung_spectroscopy(data, uid, instrument, revision):
         uid, instrument, revision, quantities
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
-        assert_data_arrays_equal(actual, expected)
+        assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
-            "bolometry", uid, instrument, revision, q, []
+            "bolometry",
+            uid,
+            instrument,
+            revision,
+            q,
+            find_dropped_channels(expected, expected.dims[1]),
         )
 
 
@@ -352,17 +382,21 @@ def test_bremsstrahlung_spectroscopy(data, uid, instrument, revision):
     text(),
     text(),
     integers(),
+    times,
+    max_freqs,
 )
-def test_equilibrium(data, quantities, uid, calculation, revision):
+def test_equilibrium(
+    data, quantities, uid, calculation, revision, time_range, max_freq
+):
     """Test the get_equilibrium method correctly combines and processes raw
     data.
 
     """
-    reader = MockReader()
+    reader = MockReader(True, True, *time_range, max_freq)
     reader.set_equilibrium(data["ftor"], data)
     results = reader.get_equilibrium(uid, calculation, revision, set(quantities))
     for actual, expected in [(results[q], data[q]) for q in quantities]:
-        assert_data_arrays_equal(actual, expected)
+        assert_data_arrays_equal(actual, expected, *time_range, max_freq)
 
 
 @patch.object(MockReader, "close")
