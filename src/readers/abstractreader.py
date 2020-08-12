@@ -71,8 +71,8 @@ class DataReader(BaseIO):
             "ti": ("temperature", None),
         },
         "get_bremsstrahlung_spectroscopy": {
-            "H": ("effective_charge", "plasma"),
-            "V": ("effective_charge", "plasma"),
+            "h": ("effective_charge", "plasma"),
+            "v": ("effective_charge", "plasma"),
         },
         "get_equilibrium": {
             "f": ("f_value", "plasma"),
@@ -89,7 +89,7 @@ class DataReader(BaseIO):
             "zsep": ("z", "separatrix_axis"),
         },
         "get_cyclotron_emissions": {"te": ("temperature", "electron"),},
-        "get_radiation": {"H": ("luminous_flux", None), "V": ("luminous_flux", None),},
+        "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
     }
     # Quantities available for specific DDAs in a given
     # implementation. Override values given in _AVAILABLE_QUANTITIES.
@@ -193,11 +193,7 @@ class DataReader(BaseIO):
         return method(uid, instrument, revision, quantities)
 
     def get_thomson_scattering(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int = 0,
-        quantities: Set[str] = {"ne", "te"},
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads data based on Thomson Scattering.
 
@@ -211,8 +207,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database. Options are
-            "ne" (electron number density) and "te" (electron temperature).
+            Which physical quantitie(s) to read from the database..
 
         Returns
         -------
@@ -277,8 +272,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database. Options are
-            "ne" (electron number density) and "te" (electron temperature).
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -292,20 +286,16 @@ class DataReader(BaseIO):
             Vertical position of each channel
         times : ndarray
             The times at which measurements were taken
-        ne : ndarray (optional)
-            Electron number density (first axis is time, second channel)
-        ne_error : ndarray (optional)
-            Uncertainty in electron number density
-        ne_records : List[str] (optional)
+
+        For each quantity requested there will also be the items:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_error : ndarray
+            Uncertainty in the data
+        <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
-            to access data needed for electron number density.
-        te : ndarray (optional)
-            Electron temperature (first axis is time, second channel)
-        te_error : ndarray (optional)
-            Uncertainty in electron temperature
-        te_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for electron temperature.
+            to access data needed for this data.
 
         """
         raise NotImplementedError(
@@ -314,11 +304,7 @@ class DataReader(BaseIO):
         )
 
     def get_charge_exchange(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int = 0,
-        quantities: Set[str] = {"angf", "conf", "ti"},
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads charge exchange data.
 
@@ -332,9 +318,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database. Options are
-            "angf" (angular frequency of ion), "conc" (ion concentration), and
-            "ti" (ion temperature).
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -400,9 +384,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database. Options are
-            "angf" (angular frequency of ion), "conc" (ion concentration), and
-            "ti" (ion temperature).
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -420,27 +402,16 @@ class DataReader(BaseIO):
             Exposure times
         times : ndarray
             The times at which measurements were taken
-        angf : ndarray (optional)
-            Angular frequency of ion (first axis is time, second channel)
-        angf_error : ndarray (optional)
-            Uncertainty in angular frequency
-        angf_records : List[str] (optional)
+
+        For each quantity requested there will also be the items:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_error : ndarray
+            Uncertainty in the data
+        <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
-            to access data needed for angular frequency.
-        conc : ndarray (optional)
-            Ion concentration (first axis is time, second channel)
-        conc_error : ndarray (optional)
-            Uncertainty in ion concentration.
-        conc_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for ion concentration.
-        ti : ndarray (optional)
-            Ion temperature (first axis is time, second channel)
-        ti_error : ndarray (optional)
-            Uncertainty in ion temperature.
-        ti_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for ion temperature.
+            to access data needed for this data.
 
         """
         raise NotImplementedError(
@@ -449,24 +420,7 @@ class DataReader(BaseIO):
         )
 
     def get_equilibrium(
-        self,
-        uid: str,
-        calculation: str,
-        revision: int = 0,
-        quantities: Set[str] = {
-            "f",
-            "faxs",
-            "fbnd",
-            "ftor",
-            "rmji",
-            "rmjo",
-            "psi",
-            "vjac",
-            "rmag",
-            "zmag",
-            "rsep",
-            "zsep",
-        },
+        self, uid: str, calculation: str, revision: int, quantities: Set[str]
     ) -> Dict[str, DataArray]:
         """Reads equilibrium data.
 
@@ -480,9 +434,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database. Options are
-            "f", "faxs", "fbnd", "ftor", "rmji", "rmjo", "psi", "vjac", "rmag",
-            "zmag", "rsep", "zsep".
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -507,9 +459,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database. Options are
-            "f", "faxs", "fbnd", "ftor", "rmji", "rmjo", "psi", "vjac", "rmag",
-            "rsep", "zmag", "zsep".
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -519,74 +469,22 @@ class DataReader(BaseIO):
             Normalised poloidal flux locations at which data is sampled.
         times : ndarray
             Times at which data is sampled.
-        f : ndarray (optional)
-            Btor * R (first axis is time, second is psin)
-        f_records : List[str] (optional)
+
+        For each quantity requested there will also be items
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
-            to access data needed for f.
-        faxs : ndarray (optional)
-            Poloidal flux (psi) at magnetic axis.
-        faxs_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for faxs.
-        fbnd : ndarray (optional)
-            Poloidal flux (psi) at separatrix/plasma boundary.
-        fbnd_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for fbnd.
-        ftor : ndarray (optional)
-            Unnormalised toroidal flux (psi).
-        ftor_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for ftor.
-        rmji : ndarray (optional)
-            Major radius at which different poloidal flux surface intersect
-            zmag on the high flux side (first axis is time, second is psin).
-        rmji_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for rmji.
-        rmjo : ndarray (optional)
-            Major radius at which different poloidal flux surface intersect
-            zmag on the low flux side (first axis is time, second is psin).
-        rmjo_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for rmjo.
-        psi : ndarray (optional)
-            Unnormalised poloidal flux (first axis is time, second is major,
-            radius third is vertical position)
+            to access data needed for this data.
+
+        When ``psi`` is requested, the following will be present as well:
+
         psi_r : ndarray (optional)
             Major radii at which psi is given
         psi_z : ndarray (optional)
             Vertical positions at which psi is given
-        psi_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for psi.
-        vjac : ndarray (optional)
-            Derivative of volume enclosed by poloidal flux surface, with
-            respect to psin (first axis is time, second is psin)
-        vjac_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for vjac.
-        rmag : ndarray (optional)
-            Major radius of magnetic axis
-        rmag_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for rmag.
-        rsep : ndarray (optional)
-            Major radius of separatrix
-        rsep_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for rsep.
-        zmag : ndarray (optional)
-            Vertical position of magnetic axis
-        zmag_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for zmag.
-        zsep : ndarray (optional)
-            Vertical position of separatrix
-        zsep_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for zsep.
+
         """
         raise NotImplementedError(
             "{} does not implement a '_get_equilibrium' "
@@ -594,7 +492,7 @@ class DataReader(BaseIO):
         )
 
     def get_cyclotron_emissions(
-        self, uid: str, instrument: str, revision: int = 0,
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads electron temperature measurements from cyclotron data.
 
@@ -607,6 +505,8 @@ class DataReader(BaseIO):
         revision
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to fetch the data for.
 
         Returns
         -------
@@ -616,7 +516,7 @@ class DataReader(BaseIO):
         """
 
     def _get_cyclotron_emissions(
-        self, uid: str, calculation: str, revision: int = 0,
+        self, uid: str, calculation: str, revision: int, quantities: Set[str]
     ) -> Dict[str, Any]:
         """Gets raw data for cyclotron resonance from the database. Data
         outside the desired time range will be discarded.
@@ -630,6 +530,8 @@ class DataReader(BaseIO):
         revision
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to fetch the data for.
 
         Returns
         -------
@@ -643,15 +545,18 @@ class DataReader(BaseIO):
             The magnetic field strengths at which measurements were taken
         times : ndarray
             The times at which measurements were taken
-        te : ndarray
-            Electron temperature (first axis is time, second channel)
-        te_error : ndarray
-            Uncertainty in electron temperature
-        te_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for electron temperature.
-        bad_channels : List[int]
+        bad_channels : List[float]
             Btot values for channels which have not been properly calibrated.
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_error : ndarray
+            Uncertainty in the data
+        <quantity>_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for this data.
 
         """
         raise NotImplementedError(
@@ -660,11 +565,7 @@ class DataReader(BaseIO):
         )
 
     def get_radiation(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int = 0,
-        quantities: Set[str] = {"H", "T", "V"},
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads data on irradiance.
 
@@ -678,8 +579,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which cameras to read quantitie(s) from. Options are
-            "H", "T", and "V". Not all cameras are available for all DDAs.
+            Which cameras to read quantitie(s) from.
 
         Returns
         -------
@@ -703,8 +603,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database.  Options are
-            "H", "T", and "V". Not all cameras are available for all DDAs.
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -714,57 +613,24 @@ class DataReader(BaseIO):
             Number of channels in data for each camera
         times : ndarray
             The times at which measurements were taken
-        H : ndarray (optional)
-            Brightness from camera H (first axis is time, second channel)
-        H_error : ndarray (optional)
-            Uncertainty in brightness for camera H.
-        H_records : List[str] (optional)
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_error : ndarray
+            Uncertainty in the data
+        <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
-            to access data needed from camera H.
-        H_Rstart : ndarray (optional)
-            Major radius of start positions for lines of sight from camera H.
-        H_Rstop : ndarray (optional)
-            Major radius of stop positions for lines of sight from camera H.
-        H_zstart : ndarray (optional)
-            Vertical location of start positions for lines of sight from
-            camera H.
-        H_zstop : ndarray (optional)
-            Vertical location of stop positions for lines of sight from
-            camera H.
-        T : ndarray (optional)
-            Brightness from camera T (first axis is time, second channel)
-        T_error : ndarray (optional)
-            Uncertainty in brightness for camera T.
-        T_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed from camera T.
-        T_Rstart : ndarray (optional)
-            Major radius of start positions for lines of sight from camera T.
-        T_Rstop : ndarray (optional)
-            Major radius of stop positions for lines of sight from camera T.
-        T_zstart : ndarray (optional)
-            Vertical location of start positions for lines of sight from
-            camera T.
-        T_zstop : ndarray (optional)
-            Vertical location of stop positions for lines of sight from
-            camera T.
-        V : ndarray (optional)
-            Brightness from camera V (first axis is time, second channel)
-        V_error : ndarray (optional)
-            Uncertainty in brightness for camera V.
-        V_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed from camera V.
-        V_Rstart : ndarray (optional)
-            Major radius of start positions for lines of sight from camera V.
-        V_Rstop : ndarray (optional)
-            Major radius of stop positions for lines of sight from camera V.
-        V_zstart : ndarray (optional)
-            Vertical location of start positions for lines of sight from
-            camera V.
-        V_zstop : ndarray (optional)
-            Vertical location of stop positions for lines of sight from
-            camera V.
+            to access data needed for this data.
+        <quantity>_Rstart : ndarray
+            Major radius of start positions for lines of sight for this data.
+        <quantity>_Rstop : ndarray
+            Major radius of stop positions for lines of sight for this data.
+        <quantity>_zstart : ndarray
+            Vertical location of start positions for lines of sight for this data.
+        <quantity>_zstop : ndarray
+            Vertical location of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -772,108 +638,59 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def get_bolometry(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int = 0,
-        quantities: Set[str] = {"H", "V"},
-    ) -> Dict[str, DataArray]:
-        """Reads bolometric irradiance data.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument/DDA which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which cameras to read quantitie(s) from. Options are
-            "H" and "V". Not all cameras are available for all DDAs.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested radiation values.
-        """
-
-    def _get_bolometry(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
-    ) -> Dict[str, Any]:
-        """Gets raw data for bolometric irradiance from the database. Data outside
-        the desired time range will be discarded.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument/DDA which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.  Options are
-            "H" and "V". Not all cameras are available for all DDAs.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        length : Dict[str, int]
-            Number of channels in data for each camera
-        times : ndarray
-            The times at which measurements were taken
-        H : ndarray (optional)
-            Brightness from camera H (first axis is time, second channel)
-        H_error : ndarray (optional)
-            Uncertainty in brightness for camera H.
-        H_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed from camera H.
-        H_Rstart : ndarray (optional)
-            Major radius of start positions for lines of sight from camera H.
-        H_Rstop : ndarray (optional)
-            Major radius of stop positions for lines of sight from camera H.
-        H_zstart : ndarray (optional)
-            Vertical location of start positions for lines of sight from
-            camera H.
-        H_zstop : ndarray (optional)
-            Vertical location of stop positions for lines of sight from
-            camera H.
-        V : ndarray (optional)
-            Brightness from camera V (first axis is time, second channel)
-        V_error : ndarray (optional)
-            Uncertainty in brightness for camera V.
-        V_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed from camera V.
-        V_Rstart : ndarray (optional)
-            Major radius of start positions for lines of sight from camera V.
-        V_Rstop : ndarray (optional)
-            Major radius of stop positions for lines of sight from camera V.
-        V_zstart : ndarray (optional)
-            Vertical location of start positions for lines of sight from
-            camera V.
-        V_zstop : ndarray (optional)
-            Vertical location of stop positions for lines of sight from
-            camera V.
-
-        """
-        raise NotImplementedError(
-            "{} does not implement a '_get_bolometry' "
-            "method.".format(self.__class__.__name__)
-        )
+    #    def _get_bolometry(
+    #        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    #    ) -> Dict[str, Any]:
+    #        """Gets raw data for bolometric irradiance from the database. Data outside
+    #        the desired time range will be discarded.
+    #
+    #        Parameters
+    #        ----------
+    #        uid
+    #            User ID (i.e., which user created this data)
+    #        instrument
+    #            Name of the instrument/DDA which measured this data
+    #        revision
+    #            An object (of implementation-dependent type) specifying what
+    #            version of data to get. Default is the most recent.
+    #        quantities
+    #            Which physical quantitie(s) to read from the database.
+    #
+    #        Returns
+    #        -------
+    #        A dictionary containing the following items:
+    #
+    #        length : Dict[str, int]
+    #            Number of channels in data for each camera
+    #        times : ndarray
+    #            The times at which measurements were taken
+    #
+    #        For each requested quantity, the following items will also be present:
+    #
+    #        <quantity> : ndarray
+    #            The data itself (first axis is time, second channel)
+    #        <quantity>_error : ndarray
+    #            Uncertainty in the data
+    #        <quantity>_records : List[str]
+    #            Representations (e.g., paths) for the records in the database used
+    #            to access data needed for this data.
+    #        <quantity>_Rstart : ndarray
+    #            Major radius of start positions for lines of sight for this data.
+    #        <quantity>_Rstop : ndarray
+    #            Major radius of stop positions for lines of sight for this data.
+    #        <quantity>_zstart : ndarray
+    #            Vertical location of start positions for lines of sight for this data.
+    #        <quantity>_zstop : ndarray
+    #            Vertical location of stop positions for lines of sight for this data.
+    #
+    #        """
+    #        raise NotImplementedError(
+    #            "{} does not implement a '_get_bolometry' "
+    #            "method.".format(self.__class__.__name__)
+    #        )
 
     def get_bremsstrahlung_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int = 0,
-        quantities: Set[str] = {"H", "V"},
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads spectroscopic measurements of effective charge.
 
@@ -887,8 +704,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database.  Options are
-            "H" (horizontal line of sight) and "V" (vertical).
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -914,8 +730,7 @@ class DataReader(BaseIO):
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
         quantities
-            Which physical quantitie(s) to read from the database.  Options are
-            "H" (horizontal line of sight) and "V" (vertical).
+            Which physical quantitie(s) to read from the database.
 
         Returns
         -------
@@ -923,38 +738,24 @@ class DataReader(BaseIO):
 
         times : ndarray
             The times at which measurements were taken
-        H : ndarray (optional)
-            Effective charge along horizontal line of sight (first axis is
-            time, second is channel).
-        H_error : ndarray (optional)
-            Uncertainty in horizontal effective charge measurement
-        H_records : List[str] (optional)
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_error : ndarray
+            Uncertainty in the data
+        <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
-            to access data needed from horizontal line of sight
-        H_Rstart : ndarray (optional)
-            Major radius of start positions for horizontal line of sight.
-        H_Rstop : ndarray (optional)
-            Major radius of stop position for horizontal line of sight from.
-        H_zstart : ndarray (optional)
-            Vertical location of start position for horizontal line of sight.
-        H_zstop : ndarray (optional)
-            Vertical location of start position for horizontal lines of sight.
-        V : ndarray (optional)
-            Effective charge along vertical line of sight (first axis is time,
-            second is channel).
-        V_error : ndarray (optional)
-            Uncertainty in vertical effective charge measurement
-        V_records : List[str] (optional)
-            Representations (e.g., paths) for the records in the database used
-            to access data needed from vertical line of sight
-        V_Rstart : ndarray (optional)
-            Major radius of start positions for vertical line of sight.
-        V_Rstop : ndarray (optional)
-            Major radius of stop position for vertical line of sight from.
-        V_zstart : ndarray (optional)
-            Vertical location of start position for vertical line of sight.
-        V_zstop : ndarray (optional)
-            Vertical location of start position for vertical lines of sight.
+            to access data needed for this data.
+        <quantity>_Rstart : float
+            Major radius of start position for line of sight for this data.
+        <quantity>_Rstop : float
+            Major radius of stop position for line of sight for this data.
+        <quantity>_zstart : float
+            Vertical location of start position for line of sight for this data.
+        <quantity>_zstop : float
+            Vertical location of stop position for line of sight for this data.
 
         """
         raise NotImplementedError(

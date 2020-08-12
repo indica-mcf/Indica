@@ -93,15 +93,19 @@ class PPFReader(DataReader):
         "kg10": "get_thomson_scattering",
     }
     _IMPLEMENTATION_QUANTITIES = {
-        "ks3": {"ne": ("number_density", "electron")},
+        "kg10": {"ne": ("number_density", "electron")},
         "sxr": {
-            "H": ("luminous_flux", "sxr"),
-            "T": ("luminous_flux", "sxr"),
-            "V": ("luminous_flux", "sxr"),
+            "h": ("luminous_flux", "sxr"),
+            "t": ("luminous_flux", "sxr"),
+            "v": ("luminous_flux", "sxr"),
         },
         "bolo": {
-            "H": ("luminous_flux", "bolometric"),
-            "V": ("luminous_flux", "bolometric"),
+            "kb5h": ("luminous_flux", "bolometric"),
+            "kb5v": ("luminous_flux", "bolometric"),
+        },
+        "ks3": {
+            "zefh": ("effective_charge", "plasma"),
+            "zefv": ("effective_charge", "plasma"),
         },
     }
 
