@@ -4,3 +4,5 @@ doc/_build
 venv/
 .hypothesis/
 .coverage
+indica.egg-info/
+dist/

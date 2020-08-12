@@ -1,6 +1,0 @@
-matplotlib
-netCDF4
-numpy
-prov
-scipy
-xarray

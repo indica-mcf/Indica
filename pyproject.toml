@@ -1,3 +1,7 @@
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poestry.masonry.api"
+
 [tool.black]
 line-length = 88
 include = '\.pyi?$'
@@ -18,3 +22,36 @@ source = "indica/"
 
 #[tool.coverage.report]
 #show_missing = True
+
+[tool.poetry]
+name = "indica"
+version = "0.1.0"
+description = "Integrated Diagnostic Composition Analysis"
+
+license = "GPL-3.0-only"
+
+authors = [
+    "Marco Sertoli <marco.sertoli@ukaea.uk>",
+    "Chris MacMackin <chris.macmackin@ukaea.uk>"
+]
+
+readme = 'README.md'  # Markdown files are supported
+
+[tool.poetry.dependencies]
+python = "^3.6.1"
+prov = "^1.5.3"
+netCDF4 = "^1.5.4"
+numpy = "^1.19.1"
+scipy = "^1.5.2"
+xarray = "^0.16.0"
+
+[tool.poetry.dev-dependencies]
+click = "^7.1.2"
+coverage = {extras = ["toml"], version = "^5.2.1"}
+hypothesis = {extras = ["numpy"], version = "^5.24.2"}
+mypy = "^0.782"
+pre-commit = "^2.6.0"
+pytest = "^6.0.1"
+pytest-cov = "^2.10.0"
+sphinx = "^3.2.0"
+sphinxcontrib-plantuml = "^0.18"
