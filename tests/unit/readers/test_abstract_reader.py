@@ -176,6 +176,7 @@ def test_thomson_scattering(data, uid, instrument, revision, time_range, max_fre
             instrument,
             revision,
             q,
+            [],
             find_dropped_channels(expected, expected.dims[1]),
         )
 
@@ -214,6 +215,7 @@ def test_charge_exchange(data, uid, instrument, revision, time_range, max_freq):
             instrument,
             revision,
             q,
+            [],
             find_dropped_channels(expected, expected.dims[1]),
         )
 
@@ -245,6 +247,7 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
             instrument,
             revision,
             q,
+            [],
             find_dropped_channels(expected, expected.dims[1]),
         )
 
@@ -280,6 +283,7 @@ def test_radiation(data, uid, instrument, revision, time_range, max_freq):
             instrument,
             revision,
             q,
+            [],
             find_dropped_channels(expected, expected.dims[1]),
         )
 
@@ -302,18 +306,19 @@ def test_bolometry(data, uid, instrument, revision, time_range, max_freq):
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
     reader = MockReader(True, True, *time_range, max_freq)
-    reader.set_bolometry(next(iter(data.values())), data)
+    reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
-    results = reader.get_bolometry(uid, instrument, revision, quantities)
+    results = reader.get_radiation(uid, instrument, revision, quantities)
     reader._get_bolometry.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
-            "bolometry",
+            "radiation",
             uid,
             instrument,
             revision,
             q,
+            [],
             find_dropped_channels(expected, expected.dims[1]),
         )
 
@@ -349,11 +354,12 @@ def test_bremsstrahlung_spectroscopy(
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         reader.create_provenance.assert_any_call(
-            "bolometry",
+            "bremsstrahlung_spectroscopy",
             uid,
             instrument,
             revision,
             q,
+            [],
             find_dropped_channels(expected, expected.dims[1]),
         )
 
@@ -395,8 +401,17 @@ def test_equilibrium(
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_equilibrium(data["ftor"], data)
     results = reader.get_equilibrium(uid, calculation, revision, set(quantities))
-    for actual, expected in [(results[q], data[q]) for q in quantities]:
+    for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
+        reader.create_provenance.assert_any_call(
+            "equilibrium",
+            uid,
+            calculation,
+            revision,
+            q,
+            [],
+            find_dropped_channels(expected, expected.dims[1]),
+        )
 
 
 @patch.object(MockReader, "close")
