@@ -87,6 +87,7 @@ class MockReader(ConcreteReader):
         self._get_cyclotron_emissions = MagicMock()
         self._get_radiation = MagicMock()
         self._get_bremsstrahlung_spectroscopy = MagicMock()
+        self.available_quantities = MagicMock()
         if mock_select_channels:
             self._select_channels = MagicMock()
             self.drop_channels = {}

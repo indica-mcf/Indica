@@ -32,7 +32,7 @@ def fake_sal_client(datafile):
             def __init__(self, url, verify_https_cert=True):
                 self.url = url
                 self._blacklist = []
-                self._revisions = {}
+                self._revisions = [1]
 
             authenticate = Mock()
 
@@ -62,6 +62,12 @@ def fake_sal_client(datafile):
                     if ":" in path_components[-1]
                     else 0
                 )
+                if revision == 0:
+                    revision = self._revisions[-1]
+                elif revision < self._revisions[0]:
+                    raise NodeNotFound(f"Node {path} does not exist.")
+                else:
+                    revision = next(filter(lambda r: r <= revision, self._revisions))
                 key = "/".join(path_components[-2:])
                 if len(path_components) < 6:
                     return Mock()
@@ -71,6 +77,9 @@ def fake_sal_client(datafile):
                         list({key.split("/")[0] for key in self.DATA}),
                         [],
                         datetime.now(),
+                        revision,
+                        self._revisions[-1],
+                        self._revisions,
                     )
                 elif len(path_components) == 7:
                     return BranchReport(
@@ -85,14 +94,12 @@ def fake_sal_client(datafile):
                             if key.split["/"][0] == path_components[-1]
                         ],
                         datetime.now(),
+                        revision,
+                        self._revisions[-1],
+                        self._revisions,
                     )
                 elif len(path_components) == 8 and key in self.DATA:
                     node = self.DATA[key]
-                    revisions = self._revisions.get(key, [1])
-                    if revision == 0:
-                        revision = revisions[-1]
-                    if revision not in revisions:
-                        raise NodeNotFound(f"Node {path} does not exist.")
                     return LeafReport(
                         f"Leaf {path}",
                         node.CLASS,
@@ -100,8 +107,8 @@ def fake_sal_client(datafile):
                         node.VERSION,
                         datetime.now(),
                         revision,
-                        revisions[-1],
-                        revisions,
+                        self._revisions[-1],
+                        self._revisions,
                     )
                 else:
                     raise NodeNotFound(f"Node {path} does not exist.")
