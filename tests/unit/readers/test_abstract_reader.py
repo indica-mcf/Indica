@@ -20,7 +20,9 @@ from hypothesis.strategies import text
 import numpy as np
 import prov.model as prov
 from pytest import fixture
+from xarray import DataArray
 
+import src.converters.time
 from src.datatypes import ELEMENTS
 from .mock_reader import ConcreteReader
 from .mock_reader import MockReader
@@ -35,6 +37,21 @@ from ..strategies import float_series
 
 times = lists(floats(0.0, 1000.0), min_size=2, max_size=2).map(sorted)
 max_freqs = floats(0.1, 1000.0)
+
+
+def fake_bin_in_time(tstart: float, tend: float, interval: float, data: DataArray):
+    """Fake implementation of src.converters.time.bin_in_time. Rather than
+    averaging values it downsamples, taking the value from the nearest
+    available point."""
+    npoints = round((tend - tstart) / interval) + 1
+    tlabels = np.linspace(tstart, tend, npoints)
+    return data.sel(t=tlabels, method="nearest")
+
+
+@fixture
+def patch_bin_in_time(monkeypatch):
+    """Patch src.converters.time.bin_in_time to user fake_bin_in_time."""
+    monkeypatch.setattr(src.converters.time, "bin_in_time", fake_bin_in_time)
 
 
 @composite
@@ -157,7 +174,9 @@ def finish_fake_array(array, instrument, quantity, coord_name1=None, coord_name2
     times,
     max_freqs,
 )
-def test_thomson_scattering(data, uid, instrument, revision, time_range, max_freq):
+def test_thomson_scattering(
+    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+):
     """Test the get_thomson_scattering method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
@@ -196,7 +215,9 @@ def test_thomson_scattering(data, uid, instrument, revision, time_range, max_fre
     times,
     max_freqs,
 )
-def test_charge_exchange(data, uid, instrument, revision, time_range, max_freq):
+def test_charge_exchange(
+    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+):
     """Test the get_charge_exchange method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
@@ -228,7 +249,9 @@ def test_charge_exchange(data, uid, instrument, revision, time_range, max_freq):
     times,
     max_freqs,
 )
-def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_freq):
+def test_cyclotron_emissions(
+    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+):
     """Test the get_cyclotron_emissions method correctly combines and processes
     raw data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
@@ -266,9 +289,9 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
     times,
     max_freqs,
 )
-def test_radiation(data, uid, instrument, revision, time_range, max_freq):
+def test_sxr(data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time):
     """Test the get_radiation method correctly combines and processes
-    raw data."""
+    raw SXR data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_radiation(next(iter(data.values())), data)
@@ -301,9 +324,11 @@ def test_radiation(data, uid, instrument, revision, time_range, max_freq):
     times,
     max_freqs,
 )
-def test_bolometry(data, uid, instrument, revision, time_range, max_freq):
-    """Test the get_bolometry method correctly combines and processes
-    raw data."""
+def test_bolometry(
+    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+):
+    """Test the get_radiation method correctly combines and processes
+    raw bolometry data."""
     [finish_fake_array(v, instrument, k) for k, v in data.items]
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_radiation(next(iter(data.values())), data)
@@ -337,7 +362,7 @@ def test_bolometry(data, uid, instrument, revision, time_range, max_freq):
     max_freqs,
 )
 def test_bremsstrahlung_spectroscopy(
-    data, uid, instrument, revision, time_range, max_freq
+    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
 ):
     """Test the get_bremsstrahlung_spectroscopy method correctly combines and processes
     raw data."""
@@ -392,7 +417,14 @@ def test_bremsstrahlung_spectroscopy(
     max_freqs,
 )
 def test_equilibrium(
-    data, quantities, uid, calculation, revision, time_range, max_freq
+    data,
+    quantities,
+    uid,
+    calculation,
+    revision,
+    time_range,
+    max_freq,
+    patch_bin_in_time,
 ):
     """Test the get_equilibrium method correctly combines and processes raw
     data.
