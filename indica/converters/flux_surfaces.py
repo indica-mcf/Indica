@@ -15,7 +15,7 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     ----------
     kind
         The type of flux surface to use. Must be a valid argument for methods
-        on the :py:class:`src.equilibrium.Equilibrium` class.
+        on the :py:class:`indica.equilibrium.Equilibrium` class.
     default_rho
         The default grid to use for the flux surface.
     default_theta

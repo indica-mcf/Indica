@@ -1,6 +1,6 @@
 ``writers`` Module
 ==================
 
-.. automodule:: src.writers
+.. automodule:: indica.writers
    :members:
    :imported-members:

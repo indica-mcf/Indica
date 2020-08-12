@@ -1,5 +1,5 @@
 ``datatypes`` Module
 ====================
 
-.. automodule:: src.datatypes
+.. automodule:: indica.datatypes
    :members:

@@ -21,8 +21,8 @@ import sal.client
 import sal.core.exceptions
 import scipy.constants as sc
 
-from src.readers import PPFReader
-import src.readers.surf_los
+from indica.readers import PPFReader
+import indica.readers.surf_los
 from .fake_salclient import fake_sal_client
 
 
@@ -320,7 +320,9 @@ def test_get_cyclotron_emissions(
         sal.core.exceptions.NodeNotFound
     ) if bad_rev else nullcontext():
         m.setattr(
-            src.readers.surf_los, "read_surf_los", mock_surf=MagicMock(return_value=los)
+            indica.readers.surf_los,
+            "read_surf_los",
+            mock_surf=MagicMock(return_value=los),
         )
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
@@ -404,7 +406,9 @@ def test_get_sxr(
         sal.core.exceptions.NodeNotFound
     ) if bad_rev else nullcontext():
         m.setattr(
-            src.readers.surf_los, "read_surf_los", mock_surf=MagicMock(return_value=los)
+            indica.readers.surf_los,
+            "read_surf_los",
+            mock_surf=MagicMock(return_value=los),
         )
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
@@ -479,7 +483,9 @@ def test_get_radiation(
         sal.core.exceptions.NodeNotFound
     ) if bad_rev else nullcontext():
         m.setattr(
-            src.readers.surf_los, "read_surf_los", mock_surf=MagicMock(return_value=los)
+            indica.readers.surf_los,
+            "read_surf_los",
+            mock_surf=MagicMock(return_value=los),
         )
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
@@ -576,14 +582,14 @@ def test_general_get(
     pulse, time_range, error, freq, uid, instrument, revision, quantities, patch_sal
 ):
     """Test the generic get method to ensure it calls the correct things."""
-    with patch.object("src.reader.PPFReader.get_thomson_scattering"), patch.object(
-        "src.reader.PPFReader.get_charge_exchange"
-    ), patch.object("src.reader.PPFReader.get_equilibrium"), patch.object(
-        "src.reader.PPFReader.get_cyclotron_emissions"
+    with patch.object("indica.reader.PPFReader.get_thomson_scattering"), patch.object(
+        "indica.reader.PPFReader.get_charge_exchange"
+    ), patch.object("indica.reader.PPFReader.get_equilibrium"), patch.object(
+        "indica.reader.PPFReader.get_cyclotron_emissions"
     ), patch.object(
-        "src.reader.PPFReader.get_radiation"
+        "indica.reader.PPFReader.get_radiation"
     ), patch.object(
-        "src.reader.PPFReader.get_bremsstrahlung_spectroscopy"
+        "indica.reader.PPFReader.get_bremsstrahlung_spectroscopy"
     ):
         reader = PPFReader(
             pulse,

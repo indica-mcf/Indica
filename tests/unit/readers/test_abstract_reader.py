@@ -22,8 +22,8 @@ import prov.model as prov
 from pytest import fixture
 from xarray import DataArray
 
-import src.converters.time
-from src.datatypes import ELEMENTS
+import indica.converters.time
+from indica.datatypes import ELEMENTS
 from .mock_reader import ConcreteReader
 from .mock_reader import MockReader
 from ..converters.test_lines_of_sight import los_coordinates
@@ -40,7 +40,7 @@ max_freqs = floats(0.1, 1000.0)
 
 
 def fake_bin_in_time(tstart: float, tend: float, interval: float, data: DataArray):
-    """Fake implementation of src.converters.time.bin_in_time. Rather than
+    """Fake implementation of indica.converters.time.bin_in_time. Rather than
     averaging values it downsamples, taking the value from the nearest
     available point."""
     npoints = round((tend - tstart) / interval) + 1
@@ -50,8 +50,8 @@ def fake_bin_in_time(tstart: float, tend: float, interval: float, data: DataArra
 
 @fixture
 def patch_bin_in_time(monkeypatch):
-    """Patch src.converters.time.bin_in_time to user fake_bin_in_time."""
-    monkeypatch.setattr(src.converters.time, "bin_in_time", fake_bin_in_time)
+    """Patch indica.converters.time.bin_in_time to user fake_bin_in_time."""
+    monkeypatch.setattr(indica.converters.time, "bin_in_time", fake_bin_in_time)
 
 
 @composite
@@ -577,7 +577,7 @@ def cachedir():
     drop.
 
     """
-    import src.readers.abstractreader as areader
+    import indica.readers.abstractreader as areader
 
     old_cache = areader.CACHE_DIR
     userdir = os.path.expanduser("~")

@@ -1,5 +1,5 @@
 ``xarray`` Extensions
 =====================
 
-.. automodule:: src.data
+.. automodule:: indica.data
    :members:

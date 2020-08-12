@@ -19,9 +19,9 @@ import numpy as np
 from xarray import DataArray
 from xarray import Dataset
 
-from src.converters import FluxSurfaceCoordinates
-from src.converters import TrivialTransform
-import src.datatypes as dt
+from indica.converters import FluxSurfaceCoordinates
+from indica.converters import TrivialTransform
+import indica.datatypes as dt
 from .converters.test_abstract_transform import coordinate_transforms
 from .strategies import monotonic_series
 from .strategies import noisy_functions
@@ -32,7 +32,7 @@ from .strategies import smooth_functions
 @composite
 def general_datatypes(draw, specific_datatype=None):
     """A strategy to select one of the general data types defined in
-    :py:mod:`src.datatypes`. If ``specific_datatype`` is present then the
+    :py:mod:`indica.datatypes`. If ``specific_datatype`` is present then the
     result will be compatible with that.
 
     """
@@ -49,7 +49,7 @@ def general_datatypes(draw, specific_datatype=None):
 @composite
 def specific_datatypes(draw, general_datatype=None):
     """A strategy to select one of the specific data types defined in
-    :py:mod:`src.datatypes`. If ``general_datatype`` is present then the result
+    :py:mod:`indica.datatypes`. If ``general_datatype`` is present then the result
     will be compatible with that.
 
     """
@@ -251,7 +251,7 @@ def data_arrays(
         The data type of the data_array to be generated. If either element of
         the tuple is ``None`` then that element will be drawn from a strategy.
     coordinates
-        A strategy for generating :py:class:`src.converters.CoordinateTransform`
+        A strategy for generating :py:class:`indica.converters.CoordinateTransform`
         objects. If absent, any type of transform could be used.
     data
         A strategy to generate functions which calculate the contents of the
@@ -364,7 +364,7 @@ def datasets(
         strategy. If the dictionary is empty then its contents will be drawn
         from a strategy.
     coordinates
-        A strategy for generating :py:class:`src.converters.CoordinateTransform`
+        A strategy for generating :py:class:`indica.converters.CoordinateTransform`
         objects. If absent, any type of transform could be used.
     data
         A strategy to generate functions which calculate the contents of the
@@ -436,7 +436,7 @@ def equilibrium_data(
     end_time=80.0,
 ):
     """Returns a dictionary containing the data necessary to construct an
-    :py:class:`src.equilibrium.Equilibrium` object.
+    :py:class:`indica.equilibrium.Equilibrium` object.
 
     Parameters
     ----------

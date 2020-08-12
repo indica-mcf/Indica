@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from src.readers import DataReader
+from indica.readers import DataReader
 
 
 def set_results(mock_name):

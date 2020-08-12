@@ -14,10 +14,10 @@ import numpy as np
 from pytest import approx
 from pytest import raises
 
-from src.converters import CoordinateTransform
-from src.converters import EquilibriumException
-from src.converters import MagneticCoordinates
-from src.converters import TransectCoordinates
+from indica.converters import CoordinateTransform
+from indica.converters import EquilibriumException
+from indica.converters import MagneticCoordinates
+from indica.converters import TransectCoordinates
 from .test_flux_surfaces import flux_coordinates
 from .test_lines_of_sight import los_coordinates
 from .test_magnetic import magnetic_coordinates
@@ -32,7 +32,7 @@ def coordinate_transforms(
     draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1, min_dims=0
 ):
     """Strategy for generating abritrary
-    :py:class:`src.converters.CoordinateTransform` objects. They should already
+    :py:class:`indica.converters.CoordinateTransform` objects. They should already
     have had an equilibrium object set.
 
     Reduces towards simpler coordinate systems.

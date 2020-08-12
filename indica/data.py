@@ -24,8 +24,8 @@ from .datatypes import DatasetType
 from .equilibrium import Equilibrium
 
 
-@xr.register_dataarray_accessor("composition")
-class CompositionArrayAccessor:
+@xr.register_dataarray_accessor("indica")
+class InDiCAArrayAccessor:
     """Class providing additional functionality to
     :py:class:`xarray.DataArray` objects which is useful for this software.
 
@@ -125,7 +125,7 @@ class CompositionArrayAccessor:
     def equilibrium(self) -> Equilibrium:
         """The equilibrium object currently used by this DataArray (or, more
         accurately, by its
-        :py:class:`~src.converters.CoordinateTransform` object). When
+        :py:class:`~indica.converters.CoordinateTransform` object). When
         setting this porperty, ensures provenance will be updated
         accordingly.
 
@@ -163,8 +163,8 @@ class CompositionArrayAccessor:
         """
 
 
-@xr.register_dataset_accessor("composition")
-class CompositionDatasetAccessor:
+@xr.register_dataset_accessor("indica")
+class InDiCADatasetAccessor:
     """Class providing additional functionality to
     :py:class:`xarray.Dataset` objects which is useful for this software.
 

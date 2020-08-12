@@ -6,7 +6,7 @@ from hypothesis import given
 from hypothesis.strategies import composite
 import numpy as np
 
-from src.converters import TrivialTransform
+from indica.converters import TrivialTransform
 from ..strategies import arbitrary_coordinates
 
 

@@ -30,7 +30,7 @@ class Equilibrium:
     ----------
     equilibrium_data : Dict[str, DataArray]
         A collection of equilibrium data rea in using
-        :py:meth:`~src.readers.DataReader.get_equilibrium`. TODO: List full set
+        :py:meth:`~indica.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
     T_e : Optional[DataArray]
         Electron temperature data (from HRTS on JET).

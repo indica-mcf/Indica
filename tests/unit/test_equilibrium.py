@@ -10,7 +10,7 @@ import numpy as np
 from pytest import approx
 from scipy.integrate import quad
 
-from src.equilibrium import Equilibrium
+from indica.equilibrium import Equilibrium
 from .data_strategies import equilibrium_data
 from .fake_equilibrium import FLUX_TYPES
 from .strategies import arbitrary_coordinates
@@ -18,7 +18,7 @@ from .strategies import arbitrary_coordinates
 
 @composite
 def equilibria(draw):
-    """Generate :py:class:`src.equilibrium.Equilibrium` objects for
+    """Generate :py:class:`indica.equilibrium.Equilibrium` objects for
     testing purposes.
 
     """

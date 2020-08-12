@@ -8,7 +8,7 @@ from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from pytest import approx
 
-from src.converters import TransectCoordinates
+from indica.converters import TransectCoordinates
 from ..strategies import monotonic_series
 from ..strategies import sane_floats
 
@@ -16,7 +16,7 @@ from ..strategies import sane_floats
 @composite
 def transect_coordinates_parameters(draw, min_points=2, max_points=100):
     """Generates the parameters needed to instantiate
-    :py:class:`src.converters.TransectCoordinates` objects.
+    :py:class:`indica.converters.TransectCoordinates` objects.
 
     Parameters
     ----------
@@ -50,7 +50,7 @@ def transect_coordinates_parameters(draw, min_points=2, max_points=100):
 
 @composite
 def transect_coordinates(draw, min_points=2, max_points=100):
-    """Generates :py:class:`src.converters.TransectCoordinates` objects.
+    """Generates :py:class:`indica.converters.TransectCoordinates` objects.
 
     Parameters
     ----------

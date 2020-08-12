@@ -10,8 +10,8 @@ from hypothesis.strategies import one_of
 import numpy as np
 from pytest import approx
 
-from src.converters import MagneticCoordinates
-from src.equilibrium import Equilibrium
+from indica.converters import MagneticCoordinates
+from indica.equilibrium import Equilibrium
 from ..fake_equilibrium import fake_equilibria
 from ..fake_equilibrium import FakeEquilibrium
 from ..strategies import arbitrary_coordinates
@@ -100,6 +100,7 @@ def test_magnetic_to_Rz_fake(
 ):
     """Test transform of data from magnetic field coordinates."""
     z_los, default_Bvals, default_t = transform_args
+    # FIXME: What is this for?
     if z_los < zmag:
         z_los, zmag = zmag, z_los
     B, x2, time = coords

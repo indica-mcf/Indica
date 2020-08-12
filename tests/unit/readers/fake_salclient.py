@@ -23,7 +23,8 @@ def fake_sal_client(datafile):
 
         class FakeSALClient(SALClient):
             """Fake implementation of the SALClient class. It only implements the
-            subset of functionality used by the :py:class:`src.readers.PPFReader` class.
+            subset of functionality used by the
+            :py:class:`indica.readers.PPFReader` class.
 
             """
 

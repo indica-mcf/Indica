@@ -12,7 +12,8 @@ from hypothesis.strategies import from_regex
 from hypothesis.strategies import none
 from hypothesis.strategies import sampled_from
 import numpy as np
-from src import utilities
+
+from indica import utilities
 
 VALID_FILENAME = re.compile(r"^[a-zA-Z0-9_\-().]+$")
 

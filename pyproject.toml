@@ -14,7 +14,7 @@ exclude = '''
 testpaths = ["tests"]
 
 [tool.coveragve.run]
-source = "src/"
+source = "indica/"
 
 #[tool.coverage.report]
 #show_missing = True

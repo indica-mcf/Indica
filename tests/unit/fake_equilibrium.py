@@ -1,4 +1,4 @@
-"""A subclass of :py:class:`src.equilibrium.Equilibrium` which fakes
+"""A subclass of :py:class:`indica.equilibrium.Equilibrium` which fakes
 the implementation."""
 
 from itertools import product
@@ -9,7 +9,7 @@ from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 import numpy as np
 
-from src.equilibrium import Equilibrium
+from indica.equilibrium import Equilibrium
 
 
 FLUX_TYPES = ["poloidal", "toroidal"]

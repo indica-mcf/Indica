@@ -7,8 +7,8 @@ from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 import numpy as np
 
-from src.converters import FluxSurfaceCoordinates
-from src.equilibrium import Equilibrium
+from indica.converters import FluxSurfaceCoordinates
+from indica.equilibrium import Equilibrium
 from ..fake_equilibrium import fake_equilibria
 from ..strategies import arbitrary_coordinates
 from ..test_equilibrium import flux_types
@@ -17,7 +17,7 @@ from ..test_equilibrium import flux_types
 @composite
 def flux_coordinate_arguments(draw, min_side=1, min_dims=0):
     """Generate the parameters needed to instantiate
-    :py:class:`src.converters.FluxSurfaceCoordinates`.
+    :py:class:`indica.converters.FluxSurfaceCoordinates`.
 
     Parameters
     ----------
@@ -61,7 +61,7 @@ def flux_coordinate_arguments(draw, min_side=1, min_dims=0):
 
 @composite
 def flux_coordinates(draw, min_side=1, min_dims=0):
-    """Generates :py:class:`src.converters.FluxSurfaceCoordinates` objects.
+    """Generates :py:class:`indica.converters.FluxSurfaceCoordinates` objects.
 
     Parameters
     ----------

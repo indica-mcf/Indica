@@ -18,7 +18,7 @@ import numpy as np
 from pytest import approx
 from pytest import raises
 
-from src.data import aggregate
+from indica.data import aggregate
 from .converters.test_abstract_transform import coordinate_transforms
 from .data_strategies import compatible_dataset_types
 from .data_strategies import data_arrays
@@ -50,7 +50,7 @@ def dropped_dimension(array):
 def test_remap_metadata(original, template):
     """Test remapped data has appropriate metadata, provenance, and
     coordinates."""
-    remapped = original.composition.remap_like(template)
+    remapped = original.indica.remap_like(template)
     assert remapped.attrs["datatype"] == original.attrs["datatype"]
     assert remapped.attrs["transform"] is template.attrs["transform"]
     assert remapped.coords == template.coords
@@ -76,10 +76,10 @@ def test_remap_inverts(original, template):
 
 @given(lists(data_arrays(), min_size=3, max_size=10))
 def test_remap_invariant(arrays):
-    expected = arrays[0].composition.remap_like(arrays[1])
+    expected = arrays[0].indica.remap_like(arrays[1])
     actual = arrays[0]
     for template in arrays[1:]:
-        actual = actual.composition.remap_like(template)
+        actual = actual.indica.remap_like(template)
     assert np.all(actual == approx(expected, rel=1e-4))
 
 
@@ -87,7 +87,7 @@ def test_remap_invariant(arrays):
 def test_remap_values(original, template):
     """Check results of remapping are sensible."""
     # TODO: Rewrite so checking against function used to create the fake data
-    remapped = original.composition.remap_like(template)
+    remapped = original.indica.remap_like(template)
     assert np.all(original.min() <= remapped <= original.max())
 
 
@@ -121,10 +121,10 @@ def test_restoring_dropped_data(array):
 def test_dropping_data(arguments):
     """Check dropping new or additional data works as expected."""
     array, drop_dim, to_drop = arguments
-    result = array.composition.ignore_data(to_drop, drop_dim)
+    result = array.indica.ignore_data(to_drop, drop_dim)
     assert np.all(np.isnan(result.loc[{drop_dim: to_drop}]))
     assert result.attrs["dropped"].equals(
-        array.composition.with_ignored_data.loc[
+        array.indica.with_ignored_data.loc[
             {drop_dim: result.attrs["dropped"].coords[drop_dim]}
         ]
     )
@@ -163,7 +163,7 @@ def test_dropping_invalid_data(arguments):
     existing dropped channels"""
     array, drop_dim, to_drop = arguments
     with raises(ValueError):
-        array.composition.ignore_data(to_drop, drop_dim)
+        array.indica.ignore_data(to_drop, drop_dim)
 
 
 @given(data_arrays(), lists(one_of(integers(), floats())), text())
@@ -171,7 +171,7 @@ def test_dropping_invalid_dim(array, to_drop, drop_dim):
     """Test fails when trying to drop data in a nonexistent dimension."""
     assume(drop_dim not in array.dims)
     with raises(ValueError):
-        array.composition.ignore_data(to_drop, drop_dim)
+        array.indica.ignore_data(to_drop, drop_dim)
 
 
 @given(data_arrays())
@@ -180,7 +180,7 @@ def test_get_equilibrium(array):
     object.
 
     """
-    assert array.composition.equilibrium is array.attrs["transform"].equilibrium
+    assert array.indica.equilibrium is array.attrs["transform"].equilibrium
 
 
 @given(data_arrays())
@@ -190,10 +190,10 @@ def test_set_equilibrium(array):
 
     """
     new_equilib = MagicMock()
-    assert array.composition.equilibrium
+    assert array.indica.equilibrium
     old_partial_prov = array.attrs["partial_provenance"]
     old_prov = array.attrs["provenance"]
-    array.composition.equilibrium = new_equilib
+    array.indica.equilibrium = new_equilib
     assert array.attrs["transform"].equilibrium is new_equilib
     assert array.attrs["partial_provenance"] is old_partial_prov
     assert array.attrs["provenance"] is not old_prov
@@ -205,10 +205,10 @@ def test_set_equilibrium(array):
 @given(data_arrays)
 def test_set_same_equilibrium(array):
     """Check setting the equilibrium to its existing value does nothing."""
-    equilib = array.composition.equilibrium
+    equilib = array.indica.equilibrium
     old_partial_prov = array.attrs["partial_provenance"]
     old_prov = array.attrs["provenance"]
-    array.composition.equilibrium = equilib
+    array.indica.equilibrium = equilib
     assert array.attrs["transform"].equilibrium is equilib
     assert array.attrs["partial_provenance"] is old_partial_prov
     assert array.attrs["provenance"] is old_prov
@@ -218,9 +218,9 @@ def test_set_same_equilibrium(array):
 def test_compatible_data_array_type(array):
     """Test checking datatype for compatible types."""
     dt = array.attrs["datatype"]
-    assert array.composition.check_datatype(dt)
-    assert array.composition.check_datatype((None, dt[1]))
-    assert array.composition.check_datatype((dt[0], None))
+    assert array.indica.check_datatype(dt)
+    assert array.indica.check_datatype((None, dt[1]))
+    assert array.indica.check_datatype((dt[0], None))
 
 
 @given(
@@ -236,9 +236,9 @@ def test_incompatible_data_array_type(arguments):
     """Test checking datatype for incompatible types."""
     array, general, specific = arguments
     dt = array.attrs["datatype"]
-    assert not array.composition.check_datatype((general, dt[1]))
-    assert not array.composition.check_datatype((dt[0], specific))
-    assert not array.composition.check_datatype((general, specific))
+    assert not array.indica.check_datatype((general, dt[1]))
+    assert not array.indica.check_datatype((dt[0], specific))
+    assert not array.indica.check_datatype((general, specific))
 
 
 # Dataset tests:
@@ -251,7 +251,7 @@ def test_attach_invalid_type(dataset, key, specific, general):
     assume(dataset.attrs["datatype"][0] != specific)
     new_data = next(dataset.values()).assign_attrs(datatype=(general, specific))
     with raises(ValueError):
-        dataset.composition.attach(key, new_data, overwrite=True)
+        dataset.indica.attach(key, new_data, overwrite=True)
 
 
 @given(datasets(), text(), data_arrays())
@@ -261,7 +261,7 @@ def test_attach_invalid_dims(dataset, key, data_array):
     assume(sample.attrs["transform"] != data_array.attrs["transform"])
     data_array.attrs["datatype"] = sample.attrs["datatype"]
     with raises(ValueError):
-        dataset.composition.attach(key, data_array, overwrite=True)
+        dataset.indica.attach(key, data_array, overwrite=True)
 
 
 @given(datasets(), text())
@@ -269,9 +269,9 @@ def test_attach_valid(dataset, key):
     """Check attach method works correctly when given valid data"""
     assume(key not in dataset)
     new_data = next(dataset.values()).copy()
-    dataset.composition.attach(key, new_data)
+    dataset.indica.attach(key, new_data)
     assert dataset[key] is new_data
-    assert dataset.composition.datatype[1][key] == new_data.attrs["datatype"]
+    assert dataset.indica.datatype[1][key] == new_data.attrs["datatype"]
     dataset.attrs["provenance"].hadMember.assert_called_with(
         new_data.attrs["provenance"]
     )
@@ -282,7 +282,7 @@ def test_attach_fail_overwrite(dataset):
     """Test attach method fails to overwite existing key by default."""
     key, value = next(dataset.items())
     with raises(ValueError):
-        dataset.composition.attach(key, value.copy())
+        dataset.indica.attach(key, value.copy())
 
 
 @given(datasets())
@@ -294,14 +294,14 @@ def test_attach_overwrite(dataset):
     key, value = next(dataset.items())
     value = value.copy()
     assert dataset[key] is not value
-    dataset.composition.attach(key, value, overwrite=True)
+    dataset.indica.attach(key, value, overwrite=True)
     assert dataset[key] is value
 
 
 @given(datasets())
 def test_dataset_datatype(dataset):
     """Check datatype matches contents of Dataset"""
-    dtype = dataset.composition.datatype
+    dtype = dataset.indica.datatype
     assert len(dtype[1]) == len(dataset.data_vars)
     for key, general_type in dtype[1].items():
         var_type = dataset[key].attrs["datatype"]
@@ -311,19 +311,19 @@ def test_dataset_datatype(dataset):
 
 @given(
     datasets().flatmap(
-        lambda d: tuples(only(d), compatible_dataset_types(d.composition.datatype))
+        lambda d: tuples(only(d), compatible_dataset_types(d.indica.datatype))
     )
 )
 def test_compatible_dataset_type(arguments):
     """Test that checking datatype works for compatible ones: fewer
     variables and where a variable has unconstrained general_datatype."""
     dataset, compatible_type = arguments
-    assert dataset.composition.compatible_dataset_types(compatible_type)
+    assert dataset.indica.compatible_dataset_types(compatible_type)
 
 
 @given(
     datasets().flatmap(
-        lambda d: tuples(only(d), incompatible_dataset_types(d.composition.datatype))
+        lambda d: tuples(only(d), incompatible_dataset_types(d.indica.datatype))
     )
 )
 def test_incompatible_dataset_type(arguments):
@@ -334,7 +334,7 @@ def test_incompatible_dataset_type(arguments):
 
     """
     dataset, incompatible_type = arguments
-    assert not dataset.composition.compatible_dataset_types(incompatible_type)
+    assert not dataset.indica.compatible_dataset_types(incompatible_type)
 
 
 @given(datasets())

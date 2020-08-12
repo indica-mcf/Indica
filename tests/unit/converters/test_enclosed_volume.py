@@ -7,14 +7,14 @@ from hypothesis.strategies import composite
 import numpy as np
 from pytest import approx
 
-from src.converters import EnclosedVolumeCoordinates
+from indica.converters import EnclosedVolumeCoordinates
 from .test_flux_surfaces import flux_coordinates
 from ..strategies import arbitrary_coordinates
 
 
 @composite
 def enclosed_volume_coordinates(draw, min_side=1, min_dims=0):
-    """Generates :py:class:`src.converters.EnclosedVolumeCoordinates` objects.
+    """Generates :py:class:`indica.converters.EnclosedVolumeCoordinates` objects.
 
     Parameters
     ----------

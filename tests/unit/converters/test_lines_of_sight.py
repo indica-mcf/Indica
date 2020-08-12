@@ -13,7 +13,7 @@ from hypothesis.strategies import just
 import numpy as np
 from pytest import approx
 
-from src.converters import LinesOfSightTransform
+from indica.converters import LinesOfSightTransform
 from ..strategies import arbitrary_coordinates
 from ..strategies import basis_coordinates
 from ..strategies import machine_dimensions
@@ -144,7 +144,7 @@ def get_wall_intersection(R_start, z_start, angles, dimensions):
 def parallel_los_coordinates(
     draw, machine_dims=None, min_los=2, max_los=100, min_num=2, max_num=100
 ):
-    """Generates :py:class:`src.converters.LinesOfSightTransform`  objects
+    """Generates :py:class:`indica.converters.LinesOfSightTransform`  objects
     where lines of sight are parallel, either horizontally or vertically.
 
     Parameters
@@ -217,7 +217,7 @@ def los_coordinates_parameters(
     draw, domain=None, min_los=2, max_los=100, min_num=2, max_num=100
 ):
     """Generates the arguments needed to instantiate a
-    :py:class:`src.converters.LinesOfSightTransform` object with lines of
+    :py:class:`indica.converters.LinesOfSightTransform` object with lines of
     sight radiating from a point.
 
     Parameters
@@ -378,7 +378,7 @@ def los_coordinates_parameters(
 
 @composite
 def los_coordinates(draw, domain=None, min_los=2, max_los=100, min_num=2, max_num=100):
-    """Generates :py:class:`src.converters.LinesOfSightTransform` objects
+    """Generates :py:class:`indica.converters.LinesOfSightTransform` objects
     with lines of sight radiating from a point.
 
     At present this point is on the edge of the Tokamak, for reasons of

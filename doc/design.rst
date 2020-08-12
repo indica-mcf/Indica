@@ -44,7 +44,7 @@ partial_provenance : :py:class:`prov.model.ProvEntity`
     Information on the process which generated this data, not
     including the equilibrium used. See :ref:`Provenance Tracking`.
 
-transform : :py:class:`src.converters.CoordinateTransform`
+transform : :py:class:`indica.converters.CoordinateTransform`
     An object describing the coordinate system of this data, with
     methods to map to other coordinate systems. See :ref:`Coordinate
     Systems and Transforms`
@@ -83,7 +83,7 @@ The equilibrium data which is of interest is the total magnetic field
 strength, the location of various flux surface (poloidal, toroidal,
 and potentially others), the minor radius, the volume enclosed by a
 given flux surface, and the minimum flux surface for a
-line-of-sight. An :py:class:`~src.equilibrium.Equilibrium` class is defined with
+line-of-sight. An :py:class:`~indica.equilibrium.Equilibrium` class is defined with
 methods to obtain these values. Rather than try to anticipate every type of flux
 surface which might be needed, any method which takes or returns a
 flux surface has an argument ``kind`` which accepts a string
@@ -111,9 +111,9 @@ to provide a handler method with custom functionality, such as
 determining the result automatically or to integrate the selection
 interface more tightly with the GUI.)
 
-:py:class:`~src.equilibrium.Equilibrium` objects are instantiated using a
+:py:class:`~indica.equilibrium.Equilibrium` objects are instantiated using a
 :py:class:`xarray.Dataset` of equilibrium data obtained using a
-:py:class:`~src.readers.DataReader` object (see :ref:`Data IO`). The equilibrium
+:py:class:`~indica.readers.DataReader` object (see :ref:`Data IO`). The equilibrium
 class can be represented by the following UML.
 
 .. uml::
@@ -182,7 +182,7 @@ axes are orthogonal, the coordinates remain constant over time, and
 libraries to retrieve equilibrium data typically work in these
 coordinates.
 
-A :py:class:`~src.converters.CoordinateTransform` class is defined to handle
+A :py:class:`~indica.converters.CoordinateTransform` class is defined to handle
 this process. This is an abstract class which will have a different
 subclass for each type of coordinate system. It has two abstract
 methods (both private), for converting coordinates to and from
@@ -195,18 +195,18 @@ distance between grid-points along a given axis and first grid-point
 on that axis.
 
 In addition to doing conversions via R-z coordinates, subclasses of
-:py:class:`~src.converters.CoordinateTransform` may define additional
+:py:class:`~indica.converters.CoordinateTransform` may define additional
 methods to map directly between coordinate systems. This would be
 useful if there is a more efficient way to do the conversion without
 going through R-z, if that transformation is expected to be
 particularly frequently used, or if that transformation would need to
 be done as a step in converting to R-z coordinates.
 
-The :py:class:`~src.converters.CoordinateTransform` class is agnostic
+The :py:class:`~indica.converters.CoordinateTransform` class is agnostic
 to the equilibrium data and can be instantiated without any knowledge
 of it. However, many subclasses will require equilibrium information
 to perform the needed calculations. This can be set using the
-:py:meth:`~src.converters.CoordinateTransform.set_equilibrium` method
+:py:meth:`~indica.converters.CoordinateTransform.set_equilibrium` method
 at any time after instantiation. Calling this method multiple times
 with the same equilibrium object will have no affect. Calling with a
 different equilibrium object will cause an error unless specifying the
@@ -232,8 +232,8 @@ argument ``force=True``.
    - {static} decode(input: str): CoordinateTransform
    }
 
-Methods to :py:meth:`~src.converters.CoordinateTransform.encode` and
-:py:meth:`~src.converters.CoordinateTransform.decode` a transform
+Methods to :py:meth:`~indica.converters.CoordinateTransform.encode` and
+:py:meth:`~indica.converters.CoordinateTransform.decode` a transform
 to/from JSON will be provided. This will work by encoding the
 arguments used to instantiate a transform object, allowing it to be
 recreated upon decoding. Note that this means the equilibrium will
@@ -249,7 +249,7 @@ should not normally be of any concern for the user, unless they area
 attempting to use multiple sets of equilibrium data at once.
 
 Not that the methods on
-:py:class:`~src.converters.CoordinateTransform` make use of `array
+:py:class:`~indica.converters.CoordinateTransform` make use of `array
 broadcasting
 <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ to
 create a grid of values. This means that if all arguments are 1-D
@@ -298,10 +298,10 @@ use is as follows::
   array3 = array1 + array2
 
   # Same coordinate system as array1
-  array4 = array1 + array2.src.remap_like(array1)
+  array4 = array1 + array2.indica.remap_like(array1)
 
   # Same coordinate system as array2
-  array5 = array1.src.remap_like(array2) + array2
+  array5 = array1.indica.remap_like(array2) + array2
 
 Anyone who imports this library will be able to use the accessor with
 xarrays in their own code.
@@ -315,7 +315,7 @@ operations which will be performed. This involves authenticating
 users and opening/closing the IO stream. For convenience, methods
 should be provided to make the latter possible through a context
 manager. This functionality is placed in a common base class
-:py:class:`~src.abstractio.BaseIO`, leaving methods abstract where
+:py:class:`~indica.abstractio.BaseIO`, leaving methods abstract where
 necessary.
 
 .. uml::
@@ -333,7 +333,7 @@ Input
 ~~~~~
 
 Reading data is done using a standard interface,
-:py:class:`~src.readers.DataReader`. A different subclass is
+:py:class:`~indica.readers.DataReader`. A different subclass is
 defined for each data source/format. These return collections of
 :py:class:`xarray.DataArray` objects with all the necessary metadata.
 
@@ -382,7 +382,7 @@ available, as well as the :ref:`data type of each one <Data Value Type
 System>`.
 
 The methods for getting diagnostic data (e.g.,
-:py:meth:`~src.readers.DataReader.get_thomson_scattering`) method is
+:py:meth:`~indica.readers.DataReader.get_thomson_scattering`) method is
 implemented in the parent class and provides basic functionality for
 assembling raw NumPy arrays into :py:class:`xarray.DataArray` objects,
 with appropriate metadata. The actual process of getting these arrays
@@ -394,8 +394,8 @@ class is not defined, as this is likely to vary widely.
 
 In addition to reading in diagnostics, it is necessary to load ADAS
 atomic data. Fortunately, this is much more straightforward. A simple
-abstract :py:class:`~src.readers.ADASReader` class is defined with a
-:py:meth:`~src.readers.ADASReader.get` method, taking a filename as
+abstract :py:class:`~indica.readers.ADASReader` class is defined with a
+:py:meth:`~indica.readers.ADASReader.get` method, taking a filename as
 an argument. Each supported ADAS format will have a subclass which
 implements a ``_get`` method. It is this method which does the actual
 parsing of the file.  When instantiating these objects the user can
@@ -432,7 +432,7 @@ Output
 ~~~~~~
 
 A similar approach of defining an abstract base class
-(:py:class:`src.writers.DataWriter`) is used for writing out data to
+(:py:class:`indica.writers.DataWriter`) is used for writing out data to
 different formats.
 
 .. uml::
@@ -464,7 +464,7 @@ each diagnostic is stored data in the database and reorganising that
 into a consistent format. When writing we can rely all diagnostics
 being represented in essentially the same way in memory and thus only
 need to convert it into a writeable format once, in the
-:py:meth:`src.writers.DataWriter.write` method. The only task
+:py:meth:`indica.writers.DataWriter.write` method. The only task
 remaining is the simple one of writing to disk or a database in the
 private ``_write`` method.
 
@@ -607,11 +607,11 @@ the main ones summarised in the diagram below.
 
 .. image:: _static/provRelationships.png
 
-This software provides a class :py:class:`~src.session.Session` which holds
+This software provides a class :py:class:`~indica.session.Session` which holds
 the :py:class:`provenance document <prov.model.ProvDocument>` as well
 as contains information about the user and version of the software. A
 global session can be established using
-:py:meth:`src.session.Session.begin` or a context manager. Doing so
+:py:meth:`indica.session.Session.begin` or a context manager. Doing so
 requires specifying information about the user, such as an email or
 ORCiD ID. The library will then use this global session to record
 information or, alternatively, you can provide your own instance when
@@ -644,7 +644,7 @@ An additional **Entity** (a `collection
 <https://www.w3.org/TR/2013/REC-prov-dm-20130430/#section-collections>`_)
 will be stored as an attribute with key ``provenance``. This
 collection will contain the ``partial_provenance`` entity and the
-entity for the :py:class:`src.equilibrium.Equilibrium` object used by
+entity for the :py:class:`indica.equilibrium.Equilibrium` object used by
 this data. Any change to the equilibrium object will result in a new
 provenance entity.
 
@@ -656,7 +656,7 @@ Datasets will also be represented by **Entities**, specifically a
 DataArray objects making up the dataset will be indicated in PROV as members
 of the collection.
 
-:py:class:`~src.readers.DataReader` objects
+:py:class:`~indica.readers.DataReader` objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 These objects are represented as both an **Entity** and an
 **Agent**. The former is used to describe how it was instantiated
@@ -670,7 +670,7 @@ Third-party libraries which are depended on should be represented as
 **Entitites** in the provenance data. Information should be provided
 on which version was used.
 
-:py:class:`~src.equilibrium.Equilibrium` objects
+:py:class:`~indica.equilibrium.Equilibrium` objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 An Equilibrium object will be represented by an **Entity**. This
 references the user (agent) to instantiate it, the constructor call
@@ -700,7 +700,7 @@ Reading data
 Reading data is an **Activity**. It is associated with a reader agent
 and a user of the software. It uses external data entities.
 
-:py:class:`~src.session.Session` objects
+:py:class:`~indica.session.Session` objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 An **Activity** representing the current running instance of this
 software. It uses the package and dependencies and is associated with
@@ -727,7 +727,7 @@ discreet, physically meaningful calculation which one wishes to
 perform on some data. They take physical quantities as arguments and
 return one or more derived physical quantities as a result. It is
 proposed that these be represented by callable objects of class
-:py:class:`src.operators.Operator`. A base class is provided,
+:py:class:`indica.operators.Operator`. A base class is provided,
 containing some utility methods, which all operators inherit from. The
 main purpose of these utility methods is to check that types of
 arguments are correct and to assemble information on data
