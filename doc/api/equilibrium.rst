@@ -1,4 +1,4 @@
-``equilibrium`` module
+``equilibrium`` Module
 ======================
 
 .. automodule:: indica.equilibrium

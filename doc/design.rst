@@ -2,7 +2,8 @@ Code Design
 ===========
 
 This section of the documentation describes the data structures and
-organisation of the code. It is primarily intended for developers.
+organisation of the code for InDiCA. It is primarily intended for
+developers.
 
 
 Data Containers
@@ -657,7 +658,7 @@ DataArray objects making up the dataset will be indicated in PROV as members
 of the collection.
 
 :py:class:`~indica.readers.DataReader` objects
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 These objects are represented as both an **Entity** and an
 **Agent**. The former is used to describe how it was instantiated
 (e.g., the user that created it, what arguments were used) while the
@@ -671,7 +672,7 @@ Third-party libraries which are depended on should be represented as
 on which version was used.
 
 :py:class:`~indica.equilibrium.Equilibrium` objects
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 An Equilibrium object will be represented by an **Entity**. This
 references the user (agent) to instantiate it, the constructor call
 (activity) that did so, and the data (entities) used in its creation.
@@ -701,7 +702,7 @@ Reading data is an **Activity**. It is associated with a reader agent
 and a user of the software. It uses external data entities.
 
 :py:class:`~indica.session.Session` objects
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 An **Activity** representing the current running instance of this
 software. It uses the package and dependencies and is associated with
 the user to launch it. It contains metadata on the computer being

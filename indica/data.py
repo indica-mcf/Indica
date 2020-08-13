@@ -3,12 +3,12 @@
 are defined to provide additional functionality to
 :py:class:`xarray.DataArray` and :py:class:`xarray.Dataset`
 objects. These accessors group methods under the namespace
-``composition``. E.g.::
+``indica``. E.g.::
 
-  data_array.composition.remap_like(array2)
-  data_array.composition.check_datatype(("temperature", "electron"))
-  dataset.composition.check_datatype(("electron", {"T": "temperature",
-                                                   "n": "number_density"}))
+  data_array.indica.remap_like(array2)
+  data_array.indica.check_datatype(("temperature", "electron"))
+  dataset.indica.check_datatype(("electron", {"T": "temperature",
+                                              "n": "number_density"}))
 
 """
 
@@ -34,7 +34,7 @@ class InDiCAArrayAccessor:
     def __init__(self, xarray_obj: xr.DataArray):
         self._obj = xarray_obj
 
-    def remap_like(self, other: xr.DataArray):
+    def remap_like(self, other: xr.DataArray) -> xr.DataArray:
         """Remap and interpolate the data in this array onto a new coordinate
         system.
 
@@ -108,7 +108,7 @@ class InDiCAArrayAccessor:
 
         Parameters
         ----------
-        datatype
+        data_type
             The datatype to check this array against.
 
         Returns

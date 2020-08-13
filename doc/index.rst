@@ -3,11 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Impurities Project
-==================
+InDiCA
+======
 
-This is a library for iteratively determining what species are present
-in the plasma of a fusion reactor.
+The Integrated Diagnostic Composition Analysis tool is a library for
+iteratively determining what species are present in the plasma of a
+fusion reactor.
 
 Contents:
 

@@ -1,4 +1,4 @@
-``converters`` module
+``converters`` Module
 =====================
 
 .. automodule:: indica.converters
