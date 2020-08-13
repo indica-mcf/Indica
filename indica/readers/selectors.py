@@ -3,8 +3,10 @@
 from numbers import Number
 from typing import Callable
 from typing import Collection
+from typing import Hashable
 from typing import Iterable
 from typing import List
+from typing import Optional
 
 from matplotlib.collections import PathCollection
 import matplotlib.pyplot as plt
@@ -93,7 +95,9 @@ def choose_on_plot(
         raise ValueError("Received DataArray with more than 2 dimensions.")
     channel_pos = data.dims.index(channel_dim)
     if data.ndim > 1:
-        other_dim = data.dims[0] if channel_pos == 1 else data.dims[1]
+        other_dim: Optional[Hashable] = data.dims[0] if channel_pos == 1 else data.dims[
+            1
+        ]
     else:
         other_dim = None
 

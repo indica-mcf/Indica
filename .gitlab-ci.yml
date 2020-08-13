@@ -8,6 +8,7 @@ before_script:
   - pip install poetry
   - poetry install
 
+
 unit_tests:
   stage: test
   script:
@@ -36,6 +37,12 @@ integration_tests:
   allow_failure: true
 
 
+mypy:
+  stage: test
+  script:
+    - poetry run mypy -p indica
+
+
 pages:
   stage: deploy
   before_script:
@@ -49,7 +56,6 @@ pages:
     - chmod +x /usr/local/bin/plantuml
     - pip install poetry
     - poetry install
-
   script:
     - cd doc/
     - poetry run make html
@@ -57,12 +63,9 @@ pages:
     - mkdir ../public/coverage
     - if [ -d ../htmlcov_unit ]; then mv ../htmlcov_unit/ ../public/coverage/unit; fi
     - if [ -d ../htmlcov_integration]; then mv ../htmlcov_integration/ ../public/coverage/integration; fi
-
   artifacts:
       paths:
       - public
-
   only:
     - master
-
   when: always

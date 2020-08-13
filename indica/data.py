@@ -19,6 +19,7 @@ from typing import Tuple
 
 import xarray as xr
 
+from .converters import CoordinateTransform
 from .datatypes import ArrayType
 from .datatypes import DatasetType
 from .equilibrium import Equilibrium
@@ -57,20 +58,22 @@ class InDiCAArrayAccessor:
         dims_other = list(other.dims)
         try:
             dims_other.remove("t")
-            t_other = other.coords["t"]
+            t_other: Optional[xr.DataArray] = other.coords["t"]
         except ValueError:
             t_other = None
         if len(dims_other) > 0:
-            x1_other = other.coords[dims_other[0]]
+            x1_other: Optional[xr.DataArray] = other.coords[dims_other[0]]
         else:
             x1_other = None
         if len(dims_other) > 1:
-            x2_other = other.coords[dims_other[1]]
+            x2_other: Optional[xr.DataArray] = other.coords[dims_other[1]]
         else:
             x2_other = None
 
-        x1_map, x2_map, t_map = self._obj.attrs["transform"](
-            other.attrs["transform"], x1_other, x2_other, t_other
+        self_transform: CoordinateTransform = self._obj.attrs["transform"]
+        other_transform: CoordinateTransform = other.attrs["transform"]
+        x1_map, x2_map, t_map = self_transform.convert_to(
+            other_transform, x1_other, x2_other, t_other
         )
 
         dims_self = list(other.dims)

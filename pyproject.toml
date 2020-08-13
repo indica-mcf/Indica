@@ -17,12 +17,6 @@ exclude = '''
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.coveragve.run]
-source = "indica/"
-
-#[tool.coverage.report]
-#show_missing = True
-
 [tool.poetry]
 name = "indica"
 version = "0.1.0"
