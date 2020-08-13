@@ -2,7 +2,9 @@ image: python:3
 
 cache:
   paths:
-    - .local
+    - /root/.cache/pypoetry/virtualenv
+    - /root/.local
+    - /root/.cache/pip
 
 before_script:
   - pip install poetry
