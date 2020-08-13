@@ -10,8 +10,8 @@ import numpy as np
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 from ..fake_equilibrium import fake_equilibria
+from ..fake_equilibrium import flux_types
 from ..strategies import arbitrary_coordinates
-from ..test_equilibrium import flux_types
 
 
 @composite

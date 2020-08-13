@@ -8,9 +8,9 @@ from hypothesis import given
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
+from hypothesis.strategies import just
 from hypothesis.strategies import lists
 from hypothesis.strategies import one_of
-from hypothesis.strategies import only
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 from hypothesis.strategies import tuples
@@ -106,15 +106,15 @@ def test_restoring_dropped_data(array):
     data_arrays()
     .flatmap(
         lambda d: tuples(
-            only(d),
-            only(dropped_dimension(d))
+            just(d),
+            just(dropped_dimension(d))
             if dropped_dimension(d)
             else sampled_from(d.dims),
         )
     )
     .flatmap(
         lambda x: tuples(
-            only(x[0]), only(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
+            just(x[0]), just(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
         )
     )
 )
@@ -149,11 +149,11 @@ def test_dropping_data(arguments):
     data_arrays()
     .filter(lambda d: "dropped" in d.attrs)
     .flatmap(
-        lambda d: tuples(only(d), sampled_from(set(d.dims) - {dropped_dimension(d)}))
+        lambda d: tuples(just(d), sampled_from(set(d.dims) - {dropped_dimension(d)}))
     )
     .flatmap(
         lambda x: tuples(
-            only(x[0]), only(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
+            just(x[0]), just(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
         )
     )
 )
@@ -224,9 +224,9 @@ def test_compatible_data_array_type(array):
 
 
 @given(
-    data_arrays.flatmap(
+    data_arrays().flatmap(
         lambda d: tuples(
-            only(d),
+            just(d),
             general_datatypes().filter(lambda x: x != d.attrs["datatype"][0]),
             specific_datatypes().filter(lambda x: x != d.attrs["datatype"][1]),
         )
@@ -311,7 +311,7 @@ def test_dataset_datatype(dataset):
 
 @given(
     datasets().flatmap(
-        lambda d: tuples(only(d), compatible_dataset_types(d.indica.datatype))
+        lambda d: tuples(just(d), compatible_dataset_types(d.indica.datatype))
     )
 )
 def test_compatible_dataset_type(arguments):
@@ -323,7 +323,7 @@ def test_compatible_dataset_type(arguments):
 
 @given(
     datasets().flatmap(
-        lambda d: tuples(only(d), incompatible_dataset_types(d.indica.datatype))
+        lambda d: tuples(just(d), incompatible_dataset_types(d.indica.datatype))
     )
 )
 def test_incompatible_dataset_type(arguments):
@@ -354,7 +354,7 @@ def test_aggregate(dataset):
 @given(
     datasets().flatmap(
         lambda d: tuples(
-            only(d),
+            just(d),
             dictionaries(
                 sampled_from(d.data_vars),
                 specific_datatypes().filter(lambda t: t != d.attrs["datatype"][0]),
@@ -378,7 +378,7 @@ def test_aggregate_incompatible_types(arguments):
 @given(
     datasets().flatmap(
         lambda d: tuples(
-            only(d),
+            just(d),
             dictionaries(
                 sampled_from(d.data_vars),
                 coordinate_transforms(),
@@ -401,7 +401,7 @@ def test_aggregate_incompatible_transforms(arguments):
 @given(
     datasets().flatmap(
         lambda d: tuples(
-            only(d),
+            just(d),
             lists(sampled_from(d.data_vars), min_size=1, max_size=len(d) - 1).flatmap(
                 lambda keys: {
                     key: data_arrays(d[key].attrs["datatype"]) for key in keys

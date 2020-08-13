@@ -5,14 +5,13 @@ from unittest.mock import MagicMock
 from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
-from hypothesis.strategies import sampled_from
 import numpy as np
 from pytest import approx
 from scipy.integrate import quad
 
 from indica.equilibrium import Equilibrium
 from .data_strategies import equilibrium_data
-from .fake_equilibrium import FLUX_TYPES
+from .fake_equilibrium import flux_types
 from .strategies import arbitrary_coordinates
 
 
@@ -24,11 +23,6 @@ def equilibria(draw):
     """
     # TODO: Create version of this routine that sets the offset
     return Equilibrium(draw(equilibrium_data()), sess=MagicMock())
-
-
-@composite
-def flux_types(draw):
-    return draw(sampled_from(FLUX_TYPES))
 
 
 @given(
@@ -144,7 +138,7 @@ def test_flux_flux_conversion(equilib, coords, ftype1, ftype2):
 
 
 @given(
-    equilibrium_data(min_spatial=10, max_spatial=20),
+    equilibrium_data(min_spatial_points=10, max_spatial_points=20),
     arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
     flux_types(),
 )

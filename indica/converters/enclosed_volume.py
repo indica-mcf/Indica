@@ -2,7 +2,7 @@
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from .flux_surface import FluxSurfaceCoordinates
+from .flux_surfaces import FluxSurfaceCoordinates
 from ..numpy_typing import ArrayLike
 
 

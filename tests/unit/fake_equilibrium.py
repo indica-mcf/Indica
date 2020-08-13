@@ -15,6 +15,11 @@ from indica.equilibrium import Equilibrium
 FLUX_TYPES = ["poloidal", "toroidal"]
 
 
+@composite
+def flux_types(draw):
+    return draw(sampled_from(FLUX_TYPES))
+
+
 class FakeEquilibrium(Equilibrium):
     """A class which fakes the behaviour of an Equilibrium object.  Flux
     surface and magnetic fields are taken to vary in an elliptical profile

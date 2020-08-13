@@ -9,8 +9,8 @@ from typing import Dict
 from typing import Set
 from typing import Tuple
 
-from sal.client import AuthenticationFailed
 from sal.client import SALClient
+from sal.core.exception import AuthenticationFailed
 from sal.dataclass import Signal
 
 from .abstractreader import DataReader

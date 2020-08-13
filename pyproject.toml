@@ -44,6 +44,8 @@ netCDF4 = "^1.5.4"
 numpy = "^1.19.1"
 scipy = "^1.5.2"
 xarray = "^0.16.0"
+matplotlib = "^3.3.0"
+sal = "^1.2.2"
 
 [tool.poetry.dev-dependencies]
 click = "^7.1.2"

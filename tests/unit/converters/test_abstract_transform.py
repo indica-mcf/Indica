@@ -7,7 +7,6 @@ from hypothesis.strategies import composite
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import lists
-from hypothesis.strategies import only
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import tuples
 import numpy as np
@@ -32,8 +31,8 @@ def coordinate_transforms(
     draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1, min_dims=0
 ):
     """Strategy for generating abritrary
-    :py:class:`indica.converters.CoordinateTransform` objects. They should already
-    have had an equilibrium object set.
+    :py:class:`indica.converters.CoordinateTransform` objects. They
+    should already have had an equilibrium object set.
 
     Reduces towards simpler coordinate systems.
 
@@ -53,11 +52,13 @@ def coordinate_transforms(
     """
     return draw(
         sampled_from(
-            trivial_transforms(min_side=min_side, min_dims=min_dims),
-            transect_coordinates(),
-            magnetic_coordinates(domain),
-            los_coordinates(domain),
-            flux_coordinates(min_side=min_side, min_dims=min_dims),
+            [
+                trivial_transforms(min_side=min_side, min_dims=min_dims),
+                transect_coordinates(),
+                magnetic_coordinates(domain),
+                los_coordinates(domain),
+                flux_coordinates(min_side=min_side, min_dims=min_dims),
+            ]
         )
     )
 
@@ -165,7 +166,7 @@ def test_transform_distance_increasing(transform, coords):
 @given(
     domains().flatmap(
         lambda d: tuples(
-            only(d), lists(coordinate_transforms(domain=d), min_size=3, max_size=10)
+            just(d), lists(coordinate_transforms(domain=d), min_size=3, max_size=10)
         )
     ),
     arbitrary_coordinates(min_value=(0.0, 0.0, 0.0), max_value=(1.0, 1.0, 1.0)),

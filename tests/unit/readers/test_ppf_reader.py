@@ -10,15 +10,15 @@ from hypothesis import given
 from hypothesis.extra.numpy import arrays
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
+from hypothesis.strategies import just
 from hypothesis.strategies import lists
-from hypothesis.strategies import only
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 from hypothesis.strategies import tuples
 import numpy as np
 import pytest
 import sal.client
-import sal.core.exceptions
+import sal.core.exception
 import scipy.constants as sc
 
 from indica.readers import PPFReader
@@ -65,7 +65,7 @@ def test_needs_authentication():
     """
     reader = PPFReader(90272, 0.0, 100.0, selector=MagicMock(), session=MagicMock())
     if reader.needs_authentication:
-        with pytest.raises(sal.core.exceptions.PermissionError):
+        with pytest.raises(sal.core.exception.PermissionError):
             reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
     else:
         reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
@@ -91,7 +91,7 @@ def test_authentication(pulse, time_range, error, freq, user, password, fake_sal
     times,
     errors,
     max_freqs,
-    only("jetppf"),
+    just("jetppf"),
     sampled_from(["hrts", "lidr"]),
     revisions,
     edited_revisions,
@@ -120,7 +120,7 @@ def test_get_thomson_scattering(
     )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    with pytest.raises(sal.core.exceptions.NodeNotFound) if bad_rev else nullcontext():
+    with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
         results = reader._get_thomson_scattering(uid, instrument, revision, quantities)
     if bad_rev:
         return
@@ -148,8 +148,8 @@ def test_get_thomson_scattering(
     times,
     errors,
     max_freqs,
-    only("cgiroud"),
-    only("cxg6"),
+    just("cgiroud"),
+    just("cxg6"),
     revisions,
     edited_revisions,
     lists(sampled_from(["angf", "conc", "ti"]), min_size=1, unique=True).map(set),
@@ -177,7 +177,7 @@ def test_get_charge_exchange(
     )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    with pytest.raises(sal.core.exceptions.NodeNotFound) if bad_rev else nullcontext():
+    with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
         results = reader._get_charge_exchange(uid, instrument, revision, quantities)
     if bad_rev:
         return
@@ -210,7 +210,7 @@ def test_get_charge_exchange(
     times,
     errors,
     max_freqs,
-    only("jetppf"),
+    just("jetppf"),
     sampled_from(["efit", "eftp"]),
     revisions,
     edited_revisions,
@@ -258,7 +258,7 @@ def test_get_equilibrium(
     )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    with pytest.raises(sal.core.exceptions.NodeNotFound) if bad_rev else nullcontext():
+    with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
         results = reader._get_equilibrium(uid, instrument, revision, quantities)
     if bad_rev:
         return
@@ -284,9 +284,9 @@ def test_get_equilibrium(
     times,
     errors,
     max_freqs,
-    only("jetppf"),
-    only("kk3"),
-    only({"te"}),
+    just("jetppf"),
+    just("kk3"),
+    just({"te"}),
     revisions,
     edited_revisions,
     lines_of_sight,
@@ -317,7 +317,7 @@ def test_get_cyclotron_emissions(
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with monkeypatch.context() as m, pytest.raises(
-        sal.core.exceptions.NodeNotFound
+        sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
         m.setattr(
             indica.readers.surf_los,
@@ -370,8 +370,8 @@ def test_get_cyclotron_emissions(
     times,
     errors,
     max_freqs,
-    only("jetppf"),
-    only("sxr"),
+    just("jetppf"),
+    just("sxr"),
     revisions,
     edited_revisions,
     lists(sampled_from(["h", "t", "v"]), min_size=1, unique=True).map(set),
@@ -403,7 +403,7 @@ def test_get_sxr(
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with monkeypatch.context() as m, pytest.raises(
-        sal.core.exceptions.NodeNotFound
+        sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
         m.setattr(
             indica.readers.surf_los,
@@ -447,8 +447,8 @@ def test_get_sxr(
     times,
     errors,
     max_freqs,
-    only("jetppf"),
-    only("bolo"),
+    just("jetppf"),
+    just("bolo"),
     revisions,
     edited_revisions,
     lists(sampled_from(["kb5h", "kb5v"]), min_size=1, unique=True).map(set),
@@ -480,7 +480,7 @@ def test_get_radiation(
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with monkeypatch.context() as m, pytest.raises(
-        sal.core.exceptions.NodeNotFound
+        sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
         m.setattr(
             indica.readers.surf_los,
@@ -512,8 +512,8 @@ def test_get_radiation(
     times,
     errors,
     max_freqs,
-    only("jetppf"),
-    only("ks3"),
+    just("jetppf"),
+    just("ks3"),
     revisions,
     edited_revisions,
     lists(sampled_from(["zefh", "zefv"]), min_size=1, unique=True).map(set),
@@ -541,7 +541,7 @@ def test_get_bremsstrahlung_spectroscopy(
     )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    with pytest.raises(sal.core.exceptions.NodeNotFound) if bad_rev else nullcontext():
+    with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
         results = reader._get_charge_exchange(uid, instrument, revision, quantities)
     if bad_rev:
         return

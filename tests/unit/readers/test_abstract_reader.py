@@ -7,14 +7,14 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-from hypotehsis.strategies import from_regex
-from hypotehsis.strategies import one_of
 from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
+from hypothesis.strategies import from_regex
 from hypothesis.strategies import integers
 from hypothesis.strategies import lists
+from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 import numpy as np
