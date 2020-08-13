@@ -4,18 +4,15 @@ cache:
   paths:
     - .local
 
-variables:
-  PYTHONPATH: .
-
+before_script:
+  - pip install poetry
+  - poetry install
 
 unit_tests:
   stage: test
-  before_script:
-    - pip install -r requirements.txt
-    - pip install -r requirements-dev.txt
   script:
-    - pytest --cov=src/ tests/unit
-    - coverage html
+    - poetry run pytest --cov=src/ tests/unit
+    - poetry run coverage html
     - mv htmlcov htmlcov_unit
   artifacts:
     paths:
@@ -27,12 +24,9 @@ unit_tests:
 
 integration_tests:
   stage: test
-  before_script:
-    - pip install -r requirements.txt
-    - pip install -r testing-requirements.txt
   script:
-    - pytest --cov=src/ tests/integration
-    - coverage html
+    - poetry run pytest --cov=src/ tests/integration
+    - poetry run coverage html
     - mv htmlcov htmlcov_integration
   artifacts:
     paths:
@@ -53,15 +47,16 @@ pages:
       java -Djava.awt.headless=true -splash:no -jar /usr/local/lib/plantuml.jar "\$@"
       EOT
     - chmod +x /usr/local/bin/plantuml
-    - pip install sphinx sphinxcontrib-plantuml
+    - pip install poetry
+    - poetry install
 
   script:
     - cd doc/
-    - make html
+    - poetry run make html
     - mv _build/html/ ../public/
     - mkdir ../public/coverage
-    - if [ -d htmlcov_unit ]; then mv ../htmlcov_unit/ ../public/coverage/unit; fi
-    - if [ -d htmlcov_integration]; then mv ../htmlcov_integration/ ../public/coverage/integration; fi
+    - if [ -d ../htmlcov_unit ]; then mv ../htmlcov_unit/ ../public/coverage/unit; fi
+    - if [ -d ../htmlcov_integration]; then mv ../htmlcov_integration/ ../public/coverage/integration; fi
 
   artifacts:
       paths:
