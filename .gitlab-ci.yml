@@ -11,7 +11,7 @@ before_script:
 unit_tests:
   stage: test
   script:
-    - poetry run pytest --cov=src/ tests/unit
+    - poetry run pytest --cov=indica/ tests/unit
     - poetry run coverage html
     - mv htmlcov htmlcov_unit
   artifacts:
@@ -25,7 +25,7 @@ unit_tests:
 integration_tests:
   stage: test
   script:
-    - poetry run pytest --cov=src/ tests/integration
+    - poetry run pytest --cov=indica/ tests/integration
     - poetry run coverage html
     - mv htmlcov htmlcov_integration
   artifacts:
