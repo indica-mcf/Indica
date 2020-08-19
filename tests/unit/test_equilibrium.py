@@ -5,9 +5,12 @@ from unittest.mock import MagicMock
 from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
+from hypothesis.strategies import just
+from hypothesis.strategies import tuples
 import numpy as np
 from pytest import approx
 from scipy.integrate import quad
+from xarray import DataArray
 
 from indica.equilibrium import Equilibrium
 from .data_strategies import equilibrium_data
@@ -16,62 +19,88 @@ from .strategies import arbitrary_coordinates
 
 
 @composite
-def equilibria(draw):
+def offset_pickers(draw, min_value=0.0, max_value=0.04):
+    """Generate a mock offset-picker object which will return some fixed value.
+
+    """
+    return MagicMock(return_value=(draw(floats(min_value, max_value)), True))
+
+
+@composite
+def equilibria(
+    draw,
+    min_offset=0.0,
+    max_offset=0.04,
+    min_spatial_points=3,
+    max_spatial_points=12,
+    min_time_points=2,
+    max_time_points=15,
+    Btot_factor=None,
+):
     """Generate :py:class:`indica.equilibrium.Equilibrium` objects for
     testing purposes.
 
     """
-    # TODO: Create version of this routine that sets the offset
-    return Equilibrium(draw(equilibrium_data()), sess=MagicMock())
+    return Equilibrium(
+        draw(
+            equilibrium_data(
+                ((1.83, 3.9), (-1.75, 2.0)),
+                min_spatial_points,
+                max_spatial_points,
+                min_time_points,
+                max_time_points,
+                Btot_factor=Btot_factor,
+            )
+        ),
+        DataArray(),
+        MagicMock(),
+        draw(offset_pickers(min_offset, max_offset)),
+    )
 
 
 @given(
-    equilibrium_data(),
+    equilibria(),
     arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
     flux_types(),
 )
-def test_lfs_rad_consistent(equilib_dat, coords, ftype):
+def test_lfs_rad_consistent(equilib, coords, ftype, offset):
     """Check R_lfs actually on low-flux surfaces and have appropriate flux
     surface values.
 
     """
-    equilib = Equilibrium(equilib_dat, sess=MagicMock())
     rho, theta, time = coords
     R_lfs, t = equilib.R_lfs(rho, time, ftype)
-    z_mag = equilib_dat["zmag"].interp(t=time)
-    R_mag = equilib_dat["rmag"].interp(t=time)  # TODO: add R-shift
+    R_mag, z_mag, _ = equilib.spatial_coords(0.0, 0.0, time)
     assert np.all(rho == approx(equilib.flux_coords(R_lfs, z_mag, time)[0]))
     assert np.all(R_lfs >= R_mag)
 
 
 @given(
-    equilibrium_data(),
+    equilibria(),
     arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
     flux_types(),
 )
-def test_hfs_rad_consistent(equilib_dat, coords, ftype):
+def test_hfs_rad_consistent(equilib, coords, ftype):
     """Check R_hfs actually on high-flux surfaces and have appropriate
     flux surface values.
 
     """
-    equilib = Equilibrium(equilib_dat, sess=MagicMock())
     rho, theta, time = coords
     R_hfs, t = equilib.R_hfs(rho, time, ftype)
-    z_mag = equilib_dat["zmag"].interp(t=time)
-    R_mag = equilib_dat["rmag"].interp(t=time)  # TODO: add R-shift
+    R_mag, z_mag, _ = equilib.spatial_coords(0.0, 0.0, time)
     assert np.all(rho == approx(equilib.flux_coords(R_hfs, z_mag, time)[0]))
     assert np.all(R_hfs <= R_mag)
 
 
 @given(
-    equilibrium_data(), flux_types(),
+    equilibrium_data(), flux_types(), offset_pickers(),
 )
-def test_lfs_rad_expected(equilib_dat, ftype):
+def test_lfs_rad_expected(equilib_dat, ftype, offset):
     """Check R_lfs matches input data used to construct equilibrium object.
 
     """
-    equilib = Equilibrium(equilib_dat, sess=MagicMock())
-    expected = equilib_dat["rmjo"]
+    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
+    expected = equilib_dat["rmjo"] + offset.return_value[0]
     time = np.expand_dims(expected.dims["t"], (0, 1))
     rho = equilib.convert_flux_coords(
         expected.dims["rho"], 0.0, time, "poloidal", ftype
@@ -84,13 +113,14 @@ def test_lfs_rad_expected(equilib_dat, ftype):
     equilibrium_data(),
     arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
     flux_types(),
+    offset_pickers(),
 )
-def test_hfs_rad_expected(equilib_dat, coords, ftype):
+def test_hfs_rad_expected(equilib_dat, coords, ftype, offset):
     """Check R_hfs matches input data used to construct equilibrium object.
 
     """
-    equilib = Equilibrium(equilib_dat, sess=MagicMock())
-    expected = equilib_dat["rmji"]
+    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
+    expected = equilib_dat["rmji"] + offset.return_value[0]
     time = np.expand_dims(expected.dims["t"], (0, 1))
     rho = equilib.convert_flux_coords(
         expected.dims["rho"], 0.0, time, "poloidal", ftype
@@ -141,16 +171,17 @@ def test_flux_flux_conversion(equilib, coords, ftype1, ftype2):
     equilibrium_data(min_spatial_points=10, max_spatial_points=20),
     arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
     flux_types(),
+    offset_pickers(),
 )
-def test_minor_radius(equilib_dat, coords, ftype):
+def test_minor_radius(equilib_dat, coords, ftype, offset):
     """Check minor radius of location matches data used to construct
     equilibrium object.
 
     """
     rho, theta, time = coords
-    equilib = Equilibrium(equilib_dat, MagicMock())
+    equilib = Equilibrium(equilib_dat, MagicMock(), DataArray(), offset)
     psi = equilib_dat["psi"]
-    Rmag = equilib_dat["rmag"]
+    Rmag = equilib_dat["rmag"] + offset.return_value[0]
     zmag = equilib_dat["zmag"]
     faxs = equilib_dat["faxs"]
     fbnd = equilib_dat["fbnd"]
@@ -176,14 +207,15 @@ def test_minor_radius(equilib_dat, coords, ftype):
     equilibrium_data(min_spatial_points=10, max_spatial_points=20),
     arbitrary_coordinates((0.15, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
     flux_types(),
+    offset_pickers(),
 )
-def test_volume_derivative(equilib_dat, coords, ftype):
+def test_volume_derivative(equilib_dat, coords, ftype, offset):
     """Check derivatives of volumes enclosed within flux surfaces match
     Jacobian in input data. Need to use a reasonably large number of
     spatial points to ensure integration is done accurately.
 
     """
-    equilib = Equilibrium(equilib_dat, sess=MagicMock())
+    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
     vjac = equilib_dat["vjac"]
     rho, _, time = coords
     dpsi = 0.01
@@ -206,19 +238,19 @@ def test_volume_derivative(equilib_dat, coords, ftype):
 
 
 @given(
-    equilibrium_data(min_spatial_points=10, max_spatial_points=20).map(
-        lambda x: Equilibrium(x, sess=MagicMock())
-    ),
+    equilibrium_data(min_spatial_points=10, max_spatial_points=20),
     floats(0.0, 1.0, exclude_min=True),
     floats(75.0, 80.0),
     flux_types(),
+    offset_pickers(),
 )
-def test_volume_enclosed(equilib, rho, time, ftype):
+def test_volume_enclosed(equilib_dat, rho, time, ftype, offset):
     """Check enclosed volume is actually correct for that flux surface by
     integrating area within it. It is assumed that the data from which
     the object is constructed is valid.
 
     """
+    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
     Rmag, R_err = quad(
         lambda th: equilib.spatial_coords(rho, th, time, ftype)[0], 0.0, 2 * np.pi
     )
@@ -232,6 +264,42 @@ def test_volume_enclosed(equilib, rho, time, ftype):
     assert actual == approx(expected, rel=tol, abs=tol)
 
 
-# Test use of offset picker
+@given(
+    floats(1.0, 100.0).flatmap(
+        lambda x: tuples(
+            just(x),
+            equilibria(min_spatial_points=10, max_spatial_points=20, Btot_factor=x),
+        )
+    ),
+    arbitrary_coordinates((1.83, -1.75, 75.0), (3.9, 2.0, 80.0)),
+)
+def test_magnetic_field_strength(strength_equilibrium, coords):
+    """Tests that the total magnetic field strenght is calculated correctly. It
+    hould be a constant."""
+    strength, equilib = strength_equilibrium
+    R, z, t = coords
+    Btot, t2 = equilib.Btot(R, z, t)
+    assert t2 is t
+    assert np.all(Btot == approx(strength, rel=1e-4, abs=1e-4))
 
-# Check provenance is correct
+
+@given(
+    equilibrium_data(), flux_types(), floats(0.0, 2 * np.pi), offset_pickers(),
+)
+def test_offsets(equilib_dat, ftype, theta, offset):
+    """Tests that offsets to the equilibrium data are handled correctly."""
+    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
+    times = equilib_dat["rmag"].coords["t"]
+    R, z, _ = equilib.spatial_coords(0.0, theta, times, ftype)
+    assert np.all(R - offset.return_value[0] == approx(equilib_dat["rmag"]))
+
+
+@given(equilibrium_data, offset_pickers())
+def test_provenance(equilib_dat, offset):
+    """Test that the appropriate provenance is created for the equilibrium object."""
+    session = MagicMock()
+    equilib = Equilibrium(equilib_dat, DataArray(), session, offset)
+    session.prov.entity.assert_called()
+    # TODO: Consider checking that creation time and offset value are correct.
+    for data in equilib_dat.values():
+        equilib.provenance.hadMember.assert_any_call(data.attrs["partial_provenance"])

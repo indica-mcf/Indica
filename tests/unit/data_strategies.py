@@ -434,6 +434,7 @@ def equilibrium_data(
     max_time_points=15,
     start_time=75.0,
     end_time=80.0,
+    Btot_factor=None,
 ):
     """Returns a dictionary containing the data necessary to construct an
     :py:class:`indica.equilibrium.Equilibrium` object.
@@ -450,6 +451,9 @@ def equilibrium_data(
         The minimum number of points to use for the time axis
     max_time_points
         The maximum number of points to use for the time axis
+    Btot_factor
+        If present, the equilibrium will have total magnetic field strength
+        Btot_factor/R.
     """
     result = {}
     nspace = draw(integers(min_spatial_points, max_spatial_points))
@@ -464,9 +468,19 @@ def equilibrium_data(
     raw_result["rsep"] = r_centre + draw(tfuncs)(times)
     raw_result["zsep"] = 0.85 * machine_dims[1][0] + np.abs(draw(tfuncs)(times))
     fmin = draw(floats(0.0, 1.0))
-    fmax = draw(floats(max(1.0, 2 * fmin), 10.0))
     raw_result["faxs"] = fmin + np.abs(draw(tfuncs)(times))
-    raw_result["fbnd"] = fmax - np.abs(draw(tfuncs)(times))
+    if Btot_factor is None:
+        fmax = draw(floats(max(1.0, 2 * fmin), 10.0))
+        raw_result["fbnd"] = fmax - np.abs(draw(tfuncs)(times))
+    else:
+        a_coeff = np.sqrt(
+            (raw_result["rsep"] - raw_result["rmag"]) ** 2
+            + (raw_result["zsep"] - raw_result["zmag"]) ** 2
+        )
+        fdiff_max = Btot_factor * a_coeff
+        raw_result["fbnd"] = np.vectorize(
+            lambda axs, diff: axs + draw(floats(0.001 * diff, diff))
+        )(raw_result["faxs"], fdiff_max)
     attrs = {
         "transform": TrivialTransform(0.0, 0.0, 0.0, 0.0, times),
         "provenance": MagicMock(),
@@ -486,12 +500,16 @@ def equilibrium_data(
         )
         result[k].attrs["datatype"] = (general_dtype, specific_dtype)
 
-    width = machine_dims[0][1] - machine_dims[0][0]
-    a_coeff = machine_dims[0][1] - draw(floats(0.0, 0.2 * width)) - result["rmag"]
-    b_coeff = (result["zsep"] - result["zmag"]) / np.sqrt(
-        (1 - (result["rsep"] - result["rmag"]) ** 2 / a_coeff ** 2)
-    )
-    n_exp = 1 + draw(floats(-0.5, 2.0))
+    if Btot_factor is None:
+        width = machine_dims[0][1] - machine_dims[0][0]
+        a_coeff = machine_dims[0][1] - draw(floats(0.0, 0.2 * width)) - result["rmag"]
+        b_coeff = (result["zsep"] - result["zmag"]) / np.sqrt(
+            (1 - (result["rsep"] - result["rmag"]) ** 2 / a_coeff ** 2)
+        )
+        n_exp = 1 + draw(floats(-0.5, 2.0))
+    else:
+        b_coeff = a_coeff
+        n_exp = 1
 
     r = np.linspace(machine_dims[0][0], machine_dims[0][1], nspace)
     z = np.linspace(machine_dims[1][0], machine_dims[1][1], nspace)
@@ -523,6 +541,25 @@ def equilibrium_data(
         dims=[("t", times), ("rho", rho)],
     )
     result["ftor"].attrs["datatype"] = ("toroidal_flux", "plasma")
+    if Btot_factor is None:
+        f_min = draw(floats(0.0, 1.0))
+        f_max = draw(floats(max(1.0, 2 * fmin), 10.0))
+        f_raw = (
+            np.outer(
+                abs(draw(tfuncs)(times)), draw(monotonic_series(f_min, f_max, nspace))
+            ),
+        )
+    else:
+        f_raw = np.outer(
+            np.sqrt(
+                Btot_factor ** 2
+                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff ** 2
+            ),
+            np.ones_like(rho),
+        )
+        f_raw[:, 0] = Btot_factor
+    result["f"] = DataArray(f_raw, dims=[("t", times), ("rho", rho)])
+    result["f"].attrs["datatype"] = ("f_value", "plasma")
     result["rmjo"] = result["rmag"] + a_coeff * psin_data ** n_exp
     result["rmji"] = result["rmag"] - a_coeff * psin_data ** n_exp
     result["vjac"] = (
