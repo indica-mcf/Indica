@@ -14,11 +14,12 @@ from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 from hypothesis.strategies import tuples
-import indicia.readers.surf_los as surf_los
 import numpy as np
 import pytest
 
-filepath = Path(surf_los).parent / "surf_los.dat"
+import indica.readers.surf_los as surf_los
+
+filepath = Path(surf_los.__file__).parent / "surf_los.dat"
 PIXEL = 0.00099
 
 
