@@ -43,8 +43,6 @@ class FakeEquilibrium(Equilibrium):
         Major radius of the magnetic axis
     zmag : float
         Vertical position of the magnetic axis
-    B_coeff : float
-        Coefficient on B term on magnetic field variation
     kwargs : Dict[str, float]
         Values for parameters describing the equilibrium profile. Keys take the
         form ``<flux_type>_<parameter_name>``. The ``<flux_type>`` may be any
@@ -69,9 +67,7 @@ class FakeEquilibrium(Equilibrium):
         "Btot_alpha": 0.001,
     }
 
-    def __init__(
-        self, Rmag=3.0, zmag=0.0, Bmax=1.0, B_coeff=1.0, B_alpha=0.001, **kwargs
-    ):
+    def __init__(self, Rmag=3.0, zmag=0.0, Bmax=1.0, **kwargs):
         self.Rmag = Rmag
         self.zmag = zmag
         self.parameters = kwargs
@@ -82,9 +78,12 @@ class FakeEquilibrium(Equilibrium):
 
     def Btot(self, R, z, t=None):
         return (
-            (1 + self.parameters["B_alpha"] * t)
-            * self.parameters["Bmax"]
-            / (1 + self.parameters["Bcoeff"] * R)
+            (1 + self.parameters["Btot_alpha"] * t)
+            * self.parameters["Btot_a"]
+            / (1 + self.parameters["Btot_b"] * R)
+            + z
+            - self.zmag,
+            t,
         )
 
     def minor_radius(self, rho, theta, t=None, kind="toroidal"):
@@ -139,7 +138,7 @@ def fake_equilibria(draw, Rmag, zmag, flux_types=FLUX_TYPES, **kwargs):
     flux types. Parameters will be drawn from the ``floats`` strategy,
     unless explicitely specified as a keyword arguments. These
     parameters should take the form ``<flux_type>_a``,
-    ``<flux_type>_b``, ``<flux_type>_n`` and ``flux_type>_alpha``. In
+    ``<flux_type>_b``, ``<flux_type>_n`` and ``<flux_type>_alpha``. In
     addition to the flux types specified as an argument, you may
     specify the parameter values for ``Btot``.
 

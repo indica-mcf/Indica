@@ -139,7 +139,7 @@ def test_interpolate_linear_data(tstart, tend, frequency, times, a, b, abs_err, 
 @given(
     time_in_range,
     time_in_range,
-    floats(0.2, 10.0, include_lower=False),
+    floats(0.2, 10.0, exclude_min=True),
     useful_data_arrays,
     methods,
 )
