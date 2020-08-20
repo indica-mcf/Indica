@@ -10,7 +10,7 @@ from ..utilities import sum_squares
 def convert_in_time(
     tstart: float,
     tend: float,
-    interval: float,
+    frequency: float,
     data: DataArray,
     method: str = "linear",
 ) -> DataArray:
@@ -23,8 +23,8 @@ def convert_in_time(
         The lower limit in time for determining which data to retain.
     tup
         The upper limit in time for determining which data to retain.
-    interval
-        Width of bins on the time axis.
+    frequency
+        Frequency of sampling on the time axis.
     data
         Data to be interpolated/binned.
     method
@@ -38,17 +38,17 @@ def convert_in_time(
 
     """
     collection_interval = data.coords["t"][1] - data.coords["t"][0]
-    if collection_interval / interval >= 5:
-        return bin_in_time(tstart, tend, interval, data)
+    if collection_interval * frequency >= 5:
+        return bin_in_time(tstart, tend, frequency, data)
     else:
-        return interpolate_in_time(tstart, tend, interval, data, method)
+        return interpolate_in_time(tstart, tend, frequency, data, method)
 
 
 @generate_prov()
 def interpolate_in_time(
     tstart: float,
     tend: float,
-    interval: float,
+    frequency: float,
     data: DataArray,
     method: str = "linear",
 ) -> DataArray:
@@ -61,8 +61,8 @@ def interpolate_in_time(
         The lower limit in time for determining which data to retain.
     tup
         The upper limit in time for determining which data to retain.
-    interval
-        Width of bins on the time axis.
+    frequency
+        Frequency of sampling on the time axis.
     data
         Data to be interpolated.
     method
@@ -85,14 +85,14 @@ def interpolate_in_time(
     end = np.argmax(tcoords >= tend)
     if end < 1:
         raise ValueError("End time {} not in range of provided " "data.".format(tend))
-    npoints = round((tend - tstart) / interval) + 1
+    npoints = round((tend - tstart) * frequency)
     tvals = np.linspace(tstart, tend, npoints)
     return data.interp(t=tvals, method=method)
 
 
 @generate_prov()
 def bin_in_time(
-    tstart: float, tend: float, interval: float, data: DataArray
+    tstart: float, tend: float, frequency: float, data: DataArray
 ) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
@@ -103,8 +103,8 @@ def bin_in_time(
         The lower limit in time for determining which data to retain.
     tup
         The upper limit in time for determining which data to retain.
-    interval
-        Width of bins on the time axis.
+    frequency
+        Frequency of sampling on the time axis.
     data
         Data to be binned.
 
@@ -114,11 +114,12 @@ def bin_in_time(
         Array like the input, but binned along the time axis.
 
     """
-    npoints = round((tend - tstart) / interval) + 1
+    npoints = round((tend - tstart) * frequency)
     tlabels = np.linspace(tstart, tend, npoints)
     tbins = np.empty(npoints + 1)
-    tbins[0] = tstart - 0.5 * interval
-    tbins[1:] = tlabels + 0.5 * interval
+    half_interval = 0.5 / frequency
+    tbins[0] = tstart - half_interval
+    tbins[1:] = tlabels + half_interval
 
     tcoords = data.coords["t"]
     nstart = np.argmax(tcoords > tbins[0])

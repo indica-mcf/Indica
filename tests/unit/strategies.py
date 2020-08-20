@@ -499,6 +499,3 @@ def domains(draw):
 
     """
     return draw(hyst.tuples(ordered_pairs(), ordered_pairs(), ordered_pairs()))
-
-
-# Given a data type descriptor, generate an appropriate DataArray or Dataset
