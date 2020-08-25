@@ -12,10 +12,13 @@ from indica.equilibrium import Equilibrium
 from ..fake_equilibrium import fake_equilibria
 from ..fake_equilibrium import flux_types
 from ..strategies import arbitrary_coordinates
+from ..strategies import basis_coordinates
 
 
 @composite
-def flux_coordinate_arguments(draw, min_side=1, min_dims=0):
+def flux_coordinate_arguments(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1
+):
     """Generate the parameters needed to instantiate
     :py:class:`indica.converters.FluxSurfaceCoordinates`.
 
@@ -24,9 +27,6 @@ def flux_coordinate_arguments(draw, min_side=1, min_dims=0):
     min_side : integer
         The minimum number of elements in an unaligned dimension for the
         default coordinate arrays. (Not available for all coordinate systems.)
-    min_dims : integer
-        The minimum number of dimensions for the default coordinate arrays.
-        (Not available for all coordinate systems.)
 
     Returns
     -------
@@ -45,22 +45,20 @@ def flux_coordinate_arguments(draw, min_side=1, min_dims=0):
 
     """
     rho, theta, t = draw(
-        arbitrary_coordinates(
-            (0.0, 0.0, None),
-            (1.0, 2 * np.pi, None),
-            min_side=min_side,
-            min_dims=min_dims,
+        basis_coordinates(
+            (0.0, 0.0, domain[2][0]), (1.0, 2 * np.pi, domain[2][1]), min_side=min_side,
         )
     )
-    bshape = t.shape if isinstance(t, np.ndarray) else ()
     R, z, t = draw(
-        arbitrary_coordinates(base_shape=bshape, min_side=min_side, min_dims=min_dims)
+        basis_coordinates(
+            tuple(dim[0] for dim in domain), tuple(dim[1] for dim in domain), min_side
+        )
     )
     return draw(flux_types()), rho, theta, R, z, t
 
 
 @composite
-def flux_coordinates(draw, min_side=1, min_dims=0):
+def flux_coordinates(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1):
     """Generates :py:class:`indica.converters.FluxSurfaceCoordinates` objects.
 
     Parameters
@@ -68,16 +66,11 @@ def flux_coordinates(draw, min_side=1, min_dims=0):
     min_side : integer
         The minimum number of elements in an unaligned dimension for the
         default coordinate arrays. (Not available for all coordinate systems.)
-    min_dims : integer
-        The minimum number of dimensions for the default coordinate arrays.
-        (Not available for all coordinate systems.)
 
     """
-    result = FluxSurfaceCoordinates(
-        *draw(flux_coordinate_arguments(min_side, min_dims))
-    )
-    Rmag = draw(floats(0.1, 10.0))
-    zmag = draw(floats(-10.0, 10.0))
+    result = FluxSurfaceCoordinates(*draw(flux_coordinate_arguments(domain, min_side)))
+    Rmag = draw(floats(*domain[0]))
+    zmag = draw(floats(*domain[1]))
     result.set_equilibrium(draw(fake_equilibria(Rmag, zmag)))
     return result
 

@@ -7,7 +7,7 @@ from hypothesis.strategies import composite
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import lists
-from hypothesis.strategies import sampled_from
+from hypothesis.strategies import one_of
 from hypothesis.strategies import tuples
 import numpy as np
 from pytest import approx
@@ -51,13 +51,13 @@ def coordinate_transforms(
 
     """
     return draw(
-        sampled_from(
+        one_of(
             [
-                trivial_transforms(min_side=min_side, min_dims=min_dims),
-                transect_coordinates(),
+                trivial_transforms(domain, min_side=min_side),
+                transect_coordinates(domain),
                 magnetic_coordinates(domain),
+                flux_coordinates(domain, min_side=min_side),
                 los_coordinates(domain),
-                flux_coordinates(min_side=min_side, min_dims=min_dims),
             ]
         )
     )

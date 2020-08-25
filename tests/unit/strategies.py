@@ -30,7 +30,7 @@ def polynomial_functions(
     domain: Tuple[float, float]
         The domain over which the resulting function should be called. It can
         be called outside of this range, but values may be very large.
-    max_coeff: float
+    max_val: float
         The maximum value of the coefficient on any term in the series.
     min_terms: int
         The minimum number of terms to include in the series.
@@ -43,7 +43,9 @@ def polynomial_functions(
         A smoothly varying function.
 
     """
-    min_val = -max_val if max_val else max_val
+    if not max_val:
+        max_val = draw(hyst.floats(1e-3, 1e3))
+    min_val = -max_val
     nterms = draw(hyst.integers(min_terms, max_terms))
     coeffs = draw(
         hyst.lists(
@@ -158,7 +160,11 @@ def separable_functions(draw, *args):
 
     """
     if not args:
-        args = [smooth_functions(), smooth_functions(), smooth_functions()]
+        args = [
+            smooth_functions(max_val=10.0),
+            smooth_functions(max_val=10.0),
+            smooth_functions(max_val=10.0),
+        ]
     funcs = [draw(arg) for arg in args]
 
     def func(*coords):
@@ -173,9 +179,9 @@ def radial_functions(
     draw,
     R_mag=0.0,
     z_mag=0.0,
-    r_func=smooth_functions(),
-    theta_func=sine_functions((0.0, np.pi)),
-    t_func=smooth_functions(),
+    r_func=smooth_functions(max_val=10.0),
+    theta_func=sine_functions((0.0, np.pi), max_val=10.0),
+    t_func=smooth_functions(max_val=10.0),
 ):
     """Returns a function which is radially symmetric about the magnetic axis.
 
@@ -238,15 +244,14 @@ def noisy_functions(draw, func, rel_sigma=0.02, abs_sigma=1e-3, cache=False):
         random noise.
 
     """
-    rand = draw(hyst.randoms())
+    rand = draw(hyst.randoms(use_true_random=False))
 
-    @np.vectorize
     def noisy(*args):
         y = func(*args)
         return rand.gauss(y, rel_sigma * y) + rand.gauss(0.0, abs_sigma)
 
     if cache:
-        return lru_cache(None)(noisy)
+        return lru_cache(None)(np.vectorize(noisy))
     return noisy
 
 
@@ -349,7 +354,7 @@ def monotonic_series(
 
 
 @hyst.composite
-def float_series(draw, min_value, max_value, min_size=2, max_size=50):
+def float_series(draw, min_value, max_value, min_size=2, max_size=20):
     """Strategy to generate a monotonic increaseing series of floats.
 
     Parameters
@@ -376,7 +381,7 @@ def arbitrary_coordinates(
     max_value=(None, None, None),
     unique=False,
     min_side=1,
-    max_side=25,
+    max_side=20,
     min_dims=0,
     base_shape=(),
 ):
@@ -434,7 +439,13 @@ def arbitrary_coordinates(
 
 
 @hyst.composite
-def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None, None)):
+def basis_coordinates(
+    draw,
+    min_value=(None, None, None),
+    max_value=(None, None, None),
+    min_side=2,
+    max_side=20,
+):
     """Generates sets of coordinates to form the basis/grid for a
     coordinate system. The grid spacing will be smoothly varying, but
     not necessarily regularly spaced.
@@ -445,6 +456,10 @@ def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None,
         The minimum value to use for each coordinate
     max_value
         The maximum value to use for each coordinate
+    min_side
+        The smallest size that an unaligned dimension can posess
+    max_side
+        The greatest size that an unaligned dimension can posess
 
     Returns
     -------
@@ -466,13 +481,26 @@ def basis_coordinates(draw, min_value=(None, None, None), max_value=(None, None,
         else draw(hyst.floats(min_vals[i], 1e7))
         for i in range(3)
     ]
-    x1 = draw(monotonic_series(min_vals[0], max_vals[0], draw(hyst.integers(2, 200))))
-    x2 = np.expand_dims(
-        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2, 200)))), 0
+    x1 = np.expand_dims(
+        draw(
+            monotonic_series(
+                min_vals[0], max_vals[0], draw(hyst.integers(min_side, max_side))
+            )
+        ),
+        (1,),
+    )
+    x2 = draw(
+        monotonic_series(
+            min_vals[1], max_vals[1], draw(hyst.integers(min_side, max_side))
+        )
     )
     t = np.expand_dims(
-        draw(monotonic_series(min_vals[1], max_vals[1], draw(hyst.integers(2, 200)))),
-        (0, 1),
+        draw(
+            monotonic_series(
+                min_vals[1], max_vals[1], draw(hyst.integers(min_side, max_side))
+            )
+        ),
+        (1, 2),
     )
     return x1, x2, t
 

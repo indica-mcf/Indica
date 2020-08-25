@@ -14,7 +14,9 @@ from ..strategies import sane_floats
 
 
 @composite
-def transect_coordinates_parameters(draw, min_points=2, max_points=100):
+def transect_coordinates_parameters(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_points=2, max_points=20
+):
     """Generates the parameters needed to instantiate
     :py:class:`indica.converters.TransectCoordinates` objects.
 
@@ -35,13 +37,13 @@ def transect_coordinates_parameters(draw, min_points=2, max_points=100):
     """
     num = draw(integers(min_points, max_points))
     ticks = draw(monotonic_series(0.0, 1.0, num))
-    R_start = draw(sane_floats())
+    R_start = draw(floats(*domain[0]))
     R_stop = draw(
-        sane_floats().filter(lambda x: x != approx(R_start, rel=1e-3, abs=1e-3))
+        floats(*domain[0]).filter(lambda x: x != approx(R_start, rel=1e-3, abs=1e-3))
     )
-    z_start = draw(sane_floats())
+    z_start = draw(floats(*domain[1]))
     z_stop = draw(
-        sane_floats().filter(lambda x: x != approx(z_start, rel=1e-3, abs=1e-3))
+        floats(*domain[1]).filter(lambda x: x != approx(z_start, rel=1e-3, abs=1e-3))
     )
     R_vals = R_start + (R_stop - R_start) * ticks
     z_vals = z_start + (z_stop - z_start) * ticks
@@ -49,7 +51,9 @@ def transect_coordinates_parameters(draw, min_points=2, max_points=100):
 
 
 @composite
-def transect_coordinates(draw, min_points=2, max_points=100):
+def transect_coordinates(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_points=2, max_points=100
+):
     """Generates :py:class:`indica.converters.TransectCoordinates` objects.
 
     Parameters
@@ -61,7 +65,7 @@ def transect_coordinates(draw, min_points=2, max_points=100):
 
     """
     result = TransectCoordinates(
-        *draw(transect_coordinates_parameters(min_points, max_points))
+        *draw(transect_coordinates_parameters(domain, min_points, max_points))
     )
     result.set_equilibrium(MagicMock())
     return result

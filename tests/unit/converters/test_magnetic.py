@@ -6,7 +6,6 @@ from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
-from hypothesis.strategies import one_of
 import numpy as np
 from pytest import approx
 
@@ -20,35 +19,36 @@ from ..strategies import sane_floats
 
 
 @composite
-def magnetic_coordinate_arguments(draw, min_points=2, max_points=100):
-    z = draw(floats(-10.0, 10.0))
+def magnetic_coordinate_arguments(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_points=2, max_points=20
+):
+    z = draw(floats(*domain[1]))
     n = draw(integers(min_points, max_points))
     Bmax = draw(floats(1e-3, 1e6))
     Bstart = draw(floats(1e-8, Bmax / 10))
     Bstop = draw(floats(2 * Bstart, Bmax))
     Bvals = draw(monotonic_series(Bstart, Bstop, n))
-    tstart = draw(floats(0.0, 500.0))
-    tstop = draw(floats(tstart, 1000.0, exclude_min=True))
-    Rstart = draw(floats(0.0, 1.0))
-    Rstop = draw(floats(2 * Rstart, 10.0))
-    t = draw(
-        one_of(
-            floats(tstart, tstop),
-            monotonic_series(tstart, tstop, draw(integers(2, 100))),
-        )
+    tstart = draw(floats(*domain[2]))
+    tstop = draw(
+        floats(*domain[2]).filter(lambda x: x != approx(tstart, rel=1e-3, abs=1e-3))
     )
-    if isinstance(t, np.ndarray):
-        t = np.expand_dims(t, (0, 1))
+    Rstart = draw(floats(*domain[0]))
+    Rstop = draw(
+        floats(*domain[0]).filter(lambda x: x != approx(Rstart, rel=1e-3, abs=1e-3))
+    )
+    t = draw(monotonic_series(tstart, tstop, draw(integers(2, 20))),)
     Rvals = draw(monotonic_series(Rstart, Rstop, draw(integers(10, 50))),)
     return z, Bvals, Rvals, t
 
 
 @composite
-def magnetic_coordinates(draw, domain=None, min_points=2, max_points=100):
-    z, B, R, t = draw(magnetic_coordinate_arguments(min_points, max_points))
+def magnetic_coordinates(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_points=2, max_points=20
+):
+    z, B, R, t = draw(magnetic_coordinate_arguments(domain, min_points, max_points))
     if domain:
-        Rmin = min(R.min(), domain[0][0])
-        tmin = min(t.min(), domain[2][0])
+        Rmin = domain[0][0]
+        tmin = domain[2][0]
     else:
         Rmin = R.min()
         tmin = t.min()
@@ -66,7 +66,7 @@ def magnetic_coordinates(draw, domain=None, min_points=2, max_points=100):
             draw(sane_floats()), draw(sane_floats()), Btot_alpha=B_alpha, Btot_b=Bcoeff
         )
     )
-    result = MagneticCoordinates(z, B, R, t)
+    result = MagneticCoordinates(z, np.expand_dims(B, 0), np.expand_dims(R, 1), t)
     result.set_equilibrium(equilib)
     return result
 

@@ -37,13 +37,10 @@ def general_datatypes(draw, specific_datatype=None):
 
     """
 
-    def valid_datatype(datatype):
-        if specific_datatype:
-            return datatype in dt.COMPATIBLE_DATATYPES[specific_datatype]
-        return True
-
     if specific_datatype:
-        return draw(sampled_from(dt.GENERAL_DATATYPES.keys()).filter(valid_datatype))
+        return draw(sampled_from(sorted(dt.GENERAL_DATATYPES[specific_datatype])))
+    else:
+        return draw(sampled_from(sorted(dt.GENERAL_DATATYPES.keys())))
 
 
 @composite
@@ -59,7 +56,9 @@ def specific_datatypes(draw, general_datatype=None):
             return general_datatype in dt.COMPATIBLE_DATATYPES[datatype]
         return True
 
-    return draw(sampled_from(dt.SPECIFIC_DATATYPES.keys()).filter(valid_datatype))
+    return draw(
+        sampled_from(sorted(dt.SPECIFIC_DATATYPES.keys())).filter(valid_datatype)
+    )
 
 
 @composite
@@ -140,18 +139,19 @@ def dropped_channels(draw, size, max_dropped=0.1):
     )
 
 
+@composite
 def data_arrays_from_coords(
     draw,
     data_type=(None, None),
     coordinates=TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0),
     data=separable_functions(
-        smooth_functions((1.83, 3.9)),
-        smooth_functions(-1.75, 2.0),
-        smooth_functions(50.0, 120.0),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
     ),
     override_coords=[None, None, None],
     rel_sigma=0.02,
-    abs_sigma=-1e-3,
+    abs_sigma=1e-3,
     uncertainty=True,
     max_dropped=0.1,
 ):
@@ -166,7 +166,8 @@ def data_arrays_from_coords(
         A coordinate transform to use for this data.
     data
         A strategy to generate functions which calculate the contents of the
-        DataArray from the coordinates.
+        DataArray from the coordinates. Note that all coordinates will be
+        normalised before being passed to this function.
     override_coords
         If item is not None, use those coordinates rather than the defaults
         from the coordinate transform. Should be ordered ``[x1, x2, t]``.
@@ -189,27 +190,47 @@ def data_arrays_from_coords(
         data_type[1] if data_type[1] else draw(specific_datatypes(general_type))
     )
 
-    x1 = override_coords[0] if override_coords[0] else coordinates.default_x1
-    x2 = override_coords[1] if override_coords[1] else coordinates.default_x2
-    t = override_coords[2] if override_coords[2] else coordinates.default_t
+    x1 = coordinates.default_x1 if override_coords[0] is None else override_coords[0]
+    x2 = coordinates.default_x2 if override_coords[1] is None else override_coords[1]
+    t = coordinates.default_t if override_coords[2] is None else override_coords[2]
     func = (
         draw(noisy_functions(draw(data), rel_sigma, abs_sigma))
         if rel_sigma or abs_sigma
         else draw(data)
     )
-    coordinates = [
-        c
-        for c in [("x1", x1), ("x2", x2), ("t", t)]
-        if isinstance(c[1], np.ndarray) and c[1].ndims > 0
+    coords = [
+        (c[0], c[1].flatten())
+        for c in [("t", t), ("x1", x1), ("x2", x2)]
+        if isinstance(c[1], np.ndarray) and c[1].ndim > 0
     ]
-    result = DataArray(func(t, x1, x2), coordinates=coordinates)
+    if isinstance(x1, np.ndarray) and x1.ndim > 0:
+        min_val = np.min(x1)
+        width = np.abs(np.max(x1) - min_val)
+        x1_scaled = (x1 - min_val) / (width if width else 1.0)
+    else:
+        x1_scaled = 0.0
+    if isinstance(x2, np.ndarray) and x2.ndim > 0:
+        min_val = np.min(x2)
+        width = np.abs(np.max(x2) - min_val)
+        x2_scaled = (x2 - min_val) / (width if width else 1.0)
+    else:
+        x2_scaled = 0.0
+    if isinstance(t, np.ndarray) and t.ndim > 0:
+        min_val = np.min(t)
+        width = np.abs(np.max(t) - min_val)
+        t_scaled = (t - min_val) / (width if width else 1.0)
+    else:
+        t_scaled = 0.0
+    result = DataArray(np.squeeze(func(x1_scaled, x2_scaled, t_scaled)), coords=coords)
     dropped = (
         draw(dropped_channels(len(x1), max_dropped))
         if isinstance(x1, np.ndarray)
         else []
     )
     if dropped:
-        to_keep = not DataArray(x1, coordinates=[("x1", x1)]).isin(dropped)
+        to_keep = np.logical_not(
+            DataArray(x1.flatten(), coords=[("x1", x1.flatten())]).isin(dropped)
+        )
         dropped_result = result.isel(x1=dropped)
         result = result.where(to_keep)
         if uncertainty and (rel_sigma or abs_sigma):
@@ -223,7 +244,7 @@ def data_arrays_from_coords(
     result.attrs["partial_provenance"] = MagicMock()
     result.attrs["transform"] = coordinates
     if hasattr(coordinates, "equilibrium"):
-        result.composition.equilibrium = coordinates.equilibrium
+        result.indica.equilibrium = coordinates.equilibrium
     return result
 
 
@@ -233,12 +254,13 @@ def data_arrays(
     data_type=(None, None),
     coordinates=coordinate_transforms(((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3),
     data=separable_functions(
-        smooth_functions((1.83, 3.9)),
-        smooth_functions(-1.75, 2.0),
-        smooth_functions(50.0, 120.0),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
     ),
+    override_coords=[None, None, None],
     rel_sigma=0.02,
-    abs_sigma=-1e-3,
+    abs_sigma=1e-3,
     uncertainty=True,
     max_dropped=0.1,
 ):
@@ -256,6 +278,9 @@ def data_arrays(
     data
         A strategy to generate functions which calculate the contents of the
         DataArray from the coordinates.
+    override_coords
+        If item is not None, use those coordinates rather than the defaults
+        from the coordinate transform. Should be ordered ``[x1, x2, t]``.
     rel_sigma
         Standard deviation of relative noise applied to the data
     abs_sigma
@@ -271,7 +296,14 @@ def data_arrays(
     transform = draw(coordinates)
     return draw(
         data_arrays_from_coords(
-            data_type, transform, data, rel_sigma, abs_sigma, uncertainty, max_dropped
+            data_type,
+            transform,
+            data,
+            override_coords,
+            rel_sigma,
+            abs_sigma,
+            uncertainty,
+            max_dropped,
         )
     )
 

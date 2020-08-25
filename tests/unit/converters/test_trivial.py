@@ -4,18 +4,20 @@ from unittest.mock import MagicMock
 
 from hypothesis import given
 from hypothesis.strategies import composite
-import numpy as np
 
 from indica.converters import TrivialTransform
 from ..strategies import arbitrary_coordinates
+from ..strategies import basis_coordinates
 
 
 @composite
-def trivial_transforms(draw, min_side=1, min_dims=0):
-    x1, x2, t = draw(arbitrary_coordinates(min_side=min_side, min_dims=min_dims))
-    bshape = t.shape if isinstance(t, np.ndarray) else ()
+def trivial_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1):
+    # TODO: update basis_coords to support min_side and min_dims
+    x1, x2, t = draw(basis_coordinates(min_side=min_side))
     R, z, t = draw(
-        arbitrary_coordinates(base_shape=bshape, min_side=min_side, min_dims=min_dims)
+        basis_coordinates(
+            tuple(dim[0] for dim in domain), tuple(dim[1] for dim in domain), min_side
+        )
     )
     result = TrivialTransform(x1, x2, R, z, t)
     result.set_equilibrium(MagicMock())

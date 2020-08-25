@@ -214,7 +214,7 @@ def parallel_los_coordinates(
 
 @composite
 def los_coordinates_parameters(
-    draw, domain=None, min_los=2, max_los=100, min_num=2, max_num=100
+    draw, domain=None, min_los=2, max_los=10, min_num=2, max_num=10
 ):
     """Generates the arguments needed to instantiate a
     :py:class:`indica.converters.LinesOfSightTransform` object with lines of
@@ -287,14 +287,46 @@ def los_coordinates_parameters(
     if not domain:
         machine_dims = draw(machine_dimensions())
     else:
+        min_R = domain[0][0]
+        max_R = domain[0][1]
+        min_z = domain[1][0]
+        max_z = domain[1][1]
         machine_dims = (
             (
-                draw(floats(max_value=domain[0][0], allow_infinity=False)),
-                draw(floats(min_value=domain[0][1], allow_infinity=False)),
+                draw(
+                    floats(
+                        -10 * np.sign(min_R) * min_R,
+                        min_R,
+                        allow_nan=False,
+                        allow_infinity=False,
+                    )
+                ),
+                draw(
+                    floats(
+                        max_R,
+                        10 * np.sign(max_R) * max_R,
+                        allow_nan=False,
+                        allow_infinity=False,
+                    )
+                ),
             ),
             (
-                draw(floats(max_value=domain[1][0], allow_infinity=False)),
-                draw(floats(min_value=domain[1][1], allow_infinity=False)),
+                draw(
+                    floats(
+                        -10 * np.sign(min_z) * min_z,
+                        min_z,
+                        allow_nan=False,
+                        allow_infinity=False,
+                    )
+                ),
+                draw(
+                    floats(
+                        max_z,
+                        10 * np.sign(max_z) * max_z,
+                        allow_nan=False,
+                        allow_infinity=False,
+                    )
+                ),
             ),
         )
     edge = draw(integers(0, 3))
@@ -360,8 +392,8 @@ def los_coordinates_parameters(
     z_stop = stop[:, 1] - end_length * np.sin(angles)
     default_R, default_z, _ = draw(
         basis_coordinates(
-            (machine_dims[0][0], machine_dims[1][0], None),
-            (machine_dims[0][1], machine_dims[1][1], None),
+            (machine_dims[0][0], machine_dims[1][0], domain[2][0] if domain else None),
+            (machine_dims[0][1], machine_dims[1][1], domain[2][1] if domain else None),
         )
     )
     return (
@@ -377,7 +409,7 @@ def los_coordinates_parameters(
 
 
 @composite
-def los_coordinates(draw, domain=None, min_los=2, max_los=100, min_num=2, max_num=100):
+def los_coordinates(draw, domain=None, min_los=2, max_los=10, min_num=2, max_num=10):
     """Generates :py:class:`indica.converters.LinesOfSightTransform` objects
     with lines of sight radiating from a point.
 

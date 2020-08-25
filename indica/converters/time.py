@@ -37,8 +37,10 @@ def convert_in_time(
         Array like the input, but interpolated or binned along the time axis.
 
     """
-    collection_interval = data.coords["t"][1] - data.coords["t"][0]
-    if collection_interval * frequency >= 5:
+    original_freq = (len(data.coords["t"]) - 1) / (
+        data.coords["t"][-1] - data.coords["t"][0]
+    )
+    if frequency / original_freq <= 0.2:
         return bin_in_time(tstart, tend, frequency, data)
     else:
         return interpolate_in_time(tstart, tend, frequency, data, method)
@@ -77,14 +79,12 @@ def interpolate_in_time(
     """
     # Old implementation from abstract reader. Will likely need to be changed.
     tcoords = data.coords["t"]
-    start = np.argmax(tcoords > tstart) - 1
+    start = np.argmax((tcoords > tstart).data) - 1
     if start < 0:
-        raise ValueError(
-            "Start time {} not in range of provided " "data.".format(tstart)
-        )
-    end = np.argmax(tcoords >= tend)
+        raise ValueError("Start time {} not in range of provided data.".format(tstart))
+    end = np.argmax((tcoords >= tend).data)
     if end < 1:
-        raise ValueError("End time {} not in range of provided " "data.".format(tend))
+        raise ValueError("End time {} not in range of provided data.".format(tend))
     npoints = round((tend - tstart) * frequency)
     tvals = np.linspace(tstart, tend, npoints)
     return data.interp(t=tvals, method=method)
@@ -122,14 +122,12 @@ def bin_in_time(
     tbins[1:] = tlabels + half_interval
 
     tcoords = data.coords["t"]
-    nstart = np.argmax(tcoords > tbins[0])
+    nstart = np.argmax((tcoords > tbins[0]).data)
     if tcoords[nstart] < tbins[0] or tcoords[nstart] > tbins[1]:
-        raise ValueError(
-            "Start time {} not in range of provided " "data.".format(tstart)
-        )
-    nend = np.argmax(tcoords > tbins[-1])
+        raise ValueError("Start time {} not in range of provided data.".format(tstart))
+    nend = np.argmax((tcoords > tbins[-1]).data)
     if tcoords[nend] < tbins[-1]:
-        raise ValueError("End time {} not in range of provided " "data.".format(tend))
+        raise ValueError("End time {} not in range of provided data.".format(tend))
     grouped = data.isel(t=slice(nstart, nend)).groupby_bins("t", tbins, tlabels)
     averaged = grouped.mean("t", keep_attrs=True)
     # TODO: determine appropriate value of DDOF (Delta Degrees of Freedom)

@@ -68,8 +68,8 @@ class LinesOfSightTransform(CoordinateTransform):
         default_R: Optional[np.ndarray] = None,
         default_z: Optional[np.ndarray] = None,
     ):
-        indices = np.arange(len(R_start))
-        x2 = np.expand_dims(np.linspace(0.0, 1.0, num_intervals + 1), axis=0)
+        indices = np.expand_dims(np.arange(len(R_start)), axis=1)
+        x2 = np.linspace(0.0, 1.0, num_intervals + 1)
         R_default = (
             np.linspace(
                 min(R_start.min(), R_end.min()),
@@ -86,7 +86,7 @@ class LinesOfSightTransform(CoordinateTransform):
                     max(z_start.max(), z_end.max()),
                     num_intervals + 1,
                 ),
-                axis=0,
+                axis=1,
             )
             if default_z is None
             else default_z
