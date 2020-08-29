@@ -1,9 +1,9 @@
 """Routines for averaging or interpolate along the time axis."""
 
 import numpy as np
+from xarray import concat
 from xarray import DataArray
 
-from ..session import generate_prov
 from ..utilities import sum_squares
 
 
@@ -37,16 +37,13 @@ def convert_in_time(
         Array like the input, but interpolated or binned along the time axis.
 
     """
-    original_freq = (len(data.coords["t"]) - 1) / (
-        data.coords["t"][-1] - data.coords["t"][0]
-    )
+    original_freq = 1 / (data.coords["t"][1] - data.coords["t"][0])
     if frequency / original_freq <= 0.2:
         return bin_in_time(tstart, tend, frequency, data)
     else:
         return interpolate_in_time(tstart, tend, frequency, data, method)
 
 
-@generate_prov()
 def interpolate_in_time(
     tstart: float,
     tend: float,
@@ -85,12 +82,46 @@ def interpolate_in_time(
     end = np.argmax((tcoords >= tend).data)
     if end < 1:
         raise ValueError("End time {} not in range of provided data.".format(tend))
-    npoints = round((tend - tstart) * frequency)
+    npoints = round((tend - tstart) * frequency) + 1
     tvals = np.linspace(tstart, tend, npoints)
-    return data.interp(t=tvals, method=method)
+    if "dropped" in data.attrs:
+        dropped_dim = next(
+            dim
+            for dim, grid in data.coords.items()
+            if len(grid) != len(data.attrs["dropped"].coords[dim])
+        )
+        cleaned_data = data.dropna(dropped_dim)
+        if "error" in data.attrs:
+            cleaned_data.attrs["error"] = data.attrs["error"].dropna(dropped_dim)
+    else:
+        cleaned_data = data
+    result = cleaned_data.interp(t=tvals, method=method)
+    if "error" in data.attrs:
+        result.attrs["error"] = cleaned_data.attrs["error"].interp(
+            t=tvals, method=method
+        )
+    if "dropped" in data.attrs:
+        result.attrs["dropped"] = data.attrs["dropped"].interp(t=tvals, method=method)
+        result = concat(
+            [result, result.attrs["dropped"] + float("nan")],
+            dropped_dim,
+            combine_attrs="override",
+        ).sortby(dropped_dim)
+        if "error" in data.attrs:
+            result.attrs["dropped"].attrs["error"] = (
+                data.attrs["dropped"].attrs["error"].interp(t=tvals, method=method)
+            )
+            result.attrs["error"] = concat(
+                [
+                    result.attrs["error"],
+                    result.attrs["dropped"].attrs["error"] + float("nan"),
+                ],
+                dropped_dim,
+            ).sortby(dropped_dim)
+
+    return result
 
 
-@generate_prov()
 def bin_in_time(
     tstart: float, tend: float, frequency: float, data: DataArray
 ) -> DataArray:
@@ -114,29 +145,57 @@ def bin_in_time(
         Array like the input, but binned along the time axis.
 
     """
-    npoints = round((tend - tstart) * frequency)
+    npoints = round(abs(tend - tstart) * frequency) + 1
+    half_interval = 0.5 * (tend - tstart) / (npoints - 1)
+    tcoords = data.coords["t"]
+    if tcoords[0] > tstart + half_interval:
+        raise ValueError(
+            "No data falls within first bin {}.".format(
+                (tstart - half_interval, tstart + half_interval)
+            )
+        )
+    if tcoords[-1] < tend - half_interval:
+        raise ValueError(
+            "No data falls within last bin {}.".format(
+                (tend - half_interval, tend + half_interval)
+            )
+        )
     tlabels = np.linspace(tstart, tend, npoints)
     tbins = np.empty(npoints + 1)
-    half_interval = 0.5 / frequency
     tbins[0] = tstart - half_interval
     tbins[1:] = tlabels + half_interval
-
-    tcoords = data.coords["t"]
-    nstart = np.argmax((tcoords > tbins[0]).data)
-    if tcoords[nstart] < tbins[0] or tcoords[nstart] > tbins[1]:
-        raise ValueError("Start time {} not in range of provided data.".format(tstart))
-    nend = np.argmax((tcoords > tbins[-1]).data)
-    if tcoords[nend] < tbins[-1]:
-        raise ValueError("End time {} not in range of provided data.".format(tend))
-    grouped = data.isel(t=slice(nstart, nend)).groupby_bins("t", tbins, tlabels)
-    averaged = grouped.mean("t", keep_attrs=True)
-    # TODO: determine appropriate value of DDOF (Delta Degrees of Freedom)
-    variance = grouped.var("t")
-    grouped = (
-        data.attrs["error"]
-        .isel(t=slice(nstart, nend))
-        .groupby_bins("t", tbins, tlabels)
+    grouped = data.sel(t=slice(tbins[0], tbins[-1])).groupby_bins(
+        "t", tbins, labels=tlabels
     )
-    uncertainty = np.sqrt(grouped.reduce(sum_squares, "t") + variance)
-    averaged.attrs["error"] = uncertainty.rename(t_bins="t")
+    averaged = grouped.mean("t", keep_attrs=True)
+    if "error" in data.attrs:
+        grouped = (
+            data.attrs["error"]
+            .sel(t=slice(tbins[0], tbins[-1]))
+            .groupby_bins("t", tbins, labels=tlabels)
+        )
+        uncertainty = np.sqrt(
+            grouped.reduce(
+                lambda x, axis: sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
+            )
+        )
+        averaged.attrs["error"] = uncertainty.rename(t_bins="t")
+    if "dropped" in data.attrs:
+        grouped = (
+            data.attrs["dropped"]
+            .sel(t=slice(tbins[0], tbins[-1]))
+            .groupby_bins("t", tbins, labels=tlabels)
+        )
+        dropped = grouped.mean("t")
+        averaged.attrs["dropped"] = dropped.rename(t_bins="t")
+        if "error" in data.attrs:
+            grouped = (
+                data.attrs["dropped"]
+                .attrs["error"]
+                .sel(t=slice(tbins[0], tbins[-1]))
+                .groupby_bins("t", tbins, labels=tlabels)
+            )
+            uncertainty = np.sqrt(grouped.reduce(sum_squares, "t"))
+            averaged.attrs["dropped"].attrs["error"] = uncertainty.rename(t_bins="t")
+
     return averaged.rename(t_bins="t")

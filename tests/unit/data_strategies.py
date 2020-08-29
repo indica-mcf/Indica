@@ -222,23 +222,24 @@ def data_arrays_from_coords(
     else:
         t_scaled = 0.0
     result = DataArray(np.squeeze(func(x1_scaled, x2_scaled, t_scaled)), coords=coords)
+    flat_x1 = x1.flatten()
     dropped = (
-        draw(dropped_channels(len(x1), max_dropped))
+        [flat_x1[i] for i in draw(dropped_channels(len(x1), max_dropped))]
         if isinstance(x1, np.ndarray)
         else []
     )
-    if dropped:
+    if dropped and flat_x1[0] != flat_x1[-1]:
         to_keep = np.logical_not(
-            DataArray(x1.flatten(), coords=[("x1", x1.flatten())]).isin(dropped)
+            DataArray(flat_x1, coords=[("x1", flat_x1)]).isin(dropped)
         )
-        dropped_result = result.isel(x1=dropped)
+        dropped_result = result.sel(x1=dropped)
         result = result.where(to_keep)
         if uncertainty and (rel_sigma or abs_sigma):
             error = rel_sigma * result + abs_sigma
             result.attrs["error"] = error
             dropped_error = rel_sigma * dropped_result + abs_sigma
             dropped_result.attrs["error"] = dropped_error
-            result.attrs["dropped"] = dropped_result
+        result.attrs["dropped"] = dropped_result
     result.attrs["datatype"] = (general_type, specific_type)
     result.attrs["provenance"] = MagicMock()
     result.attrs["partial_provenance"] = MagicMock()

@@ -243,7 +243,7 @@ def generate_prov(pass_sess: bool = False):
                     args_prov.append(arg.attrs["provenance"])
                     id_attrs[argname] = args_prov[-1].identifier
                 else:
-                    args_prov[argname] = str(arg)
+                    args_prov.append(str(arg))
                     activity_attrs[argname] = str(arg)
             for key, val in kwargs.items():
                 if isinstance(arg, DataArray):

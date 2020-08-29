@@ -3,4 +3,7 @@
 
 """
 
-__all__ = ["InDiCAArrayAccessor, InDiCADatasetAccessor"]
+from .data import InDiCAArrayAccessor
+from .data import InDiCADatasetAccessor
+
+__all__ = ["InDiCAArrayAccessor", "InDiCADatasetAccessor"]

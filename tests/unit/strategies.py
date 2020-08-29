@@ -244,11 +244,19 @@ def noisy_functions(draw, func, rel_sigma=0.02, abs_sigma=1e-3, cache=False):
         random noise.
 
     """
-    rand = draw(hyst.randoms(use_true_random=False))
 
     def noisy(*args):
         y = func(*args)
-        return rand.gauss(y, rel_sigma * y) + rand.gauss(0.0, abs_sigma)
+        max_std = 5
+        varriance = max_std * rel_sigma * np.max(np.abs(y)) + max_std * abs_sigma
+        return y + draw(
+            hynp.arrays(
+                float,
+                y.shape,
+                elements=hyst.floats(-varriance, varriance),
+                fill=hyst.just(0.0),
+            )
+        )
 
     if cache:
         return lru_cache(None)(np.vectorize(noisy))
