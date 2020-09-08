@@ -172,8 +172,11 @@ class Equilibrium:
 
         Returns
         -------
-        :
+        vol
             Volumes of space enclosed by the flux surfaces.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
         """
         raise NotImplementedError(
             "{} does not implement an 'enclosed_volume' "

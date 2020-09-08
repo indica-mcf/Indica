@@ -70,6 +70,7 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             pointer to that)
 
         """
+        return self.equilibrium.spatial_coords(x1, x2, t, self.flux_kind)
 
     def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
@@ -94,11 +95,13 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             pointer to that)
 
         """
+        return self.equilibrium.flux_coords(R, z, t, self.flux_kind)
 
     def _convert_to_vol(
         self, rho: ArrayLike, theta: ArrayLike, t: ArrayLike
     ) -> Coordinates:
-        """Convert from this coordinate system to a flux surface coordinate system.
+        """Convert from this coordinate system to one using volume enclosed by
+        the flux surfaces as a coordinate.
 
         Parameters
         ----------
@@ -120,3 +123,5 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             pointer to that)
 
         """
+        vol, _ = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
+        return vol, theta, t
