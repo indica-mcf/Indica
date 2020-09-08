@@ -70,6 +70,9 @@ def flux_coordinates(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side
     """
     result = FluxSurfaceCoordinates(*draw(flux_coordinate_arguments(domain, min_side)))
     Rmag = draw(floats(*domain[0]))
+    if abs(Rmag) < 1e-10:
+        sign = 1 if Rmag == 0.0 else np.sign(Rmag)
+        Rmag += sign * 0.1 * (domain[0][1] - domain[0][0])
     zmag = draw(floats(*domain[1]))
     result.set_equilibrium(draw(fake_equilibria(Rmag, zmag)))
     return result

@@ -123,5 +123,5 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             pointer to that)
 
         """
-        vol, _ = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
+        vol, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
         return vol, theta, t

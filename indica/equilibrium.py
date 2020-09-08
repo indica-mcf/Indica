@@ -163,7 +163,7 @@ class Equilibrium:
         rho
             Flux surfaces to get the enclosed volumes for.
         t
-            Times at which to get the major radius. Defaults to the
+            Times at which to get the enclosed volume. Defaults to the
             time range specified when equilibrium object was instantiated and
             frequency the equilibrium data was calculated at.
         kind
@@ -180,6 +180,36 @@ class Equilibrium:
         """
         raise NotImplementedError(
             "{} does not implement an 'enclosed_volume' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def invert_enclosed_volume(
+        self, vol: ArrayLike, t: Optional[ArrayLike] = None, kind: str = "poloidal",
+    ) -> Tuple[ArrayLike, ArrayLike]:
+        """Returns the value of the flux surface enclosing the specified volume.
+
+        Parameters
+        ----------
+        vol
+            Volumes of space enclosed by the flux surfaces.
+        t
+            Times at which to get the enclosed volume. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+        kind
+            The type of flux surface to use. May be "toroidal", "poloidal",
+            plus optional extras depending on implementation.
+
+        Returns
+        -------
+        rho
+            Flux surfaces for the enclosed volumes.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        raise NotImplementedError(
+            "{} does not implement an 'invert_enclosed_volume' "
             "method.".format(self.__class__.__name__)
         )
 

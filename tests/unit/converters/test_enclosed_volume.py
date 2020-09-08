@@ -34,8 +34,9 @@ def enclosed_volume_coordinates(draw, min_side=1, min_dims=0):
 )
 def test_convert_to_Rz(flux_transform, coords):
     """Test conversion of enclosde-volume coordinates to R,z coordinates."""
+    rho, theta, t = coords
     vol, t = flux_transform.equilibrium.enclosed_volume(
-        *coords, flux_transform.flux_kind
+        rho, t, flux_transform.flux_kind
     )
     R_expected, z_expected, t_expected = flux_transform.convert_to_Rz(*coords)
     transform = EnclosedVolumeCoordinates(flux_transform)
@@ -60,7 +61,9 @@ def test_convert_from_Rz(flux_transform, coords, flux_coords, expected_coords):
     transform = EnclosedVolumeCoordinates(flux_transform)
     vol, theta, t = transform.convert_from_Rz(*coords)
     equilib.flux_coords.assert_called_with(*coords, flux_transform.flux_kind)
-    equilib.enclosde_volume.assert_called_with(flux_coords[0], flux_coords[2])
+    equilib.enclosed_volume.assert_called_with(
+        flux_coords[0], flux_coords[2], flux_transform.flux_kind
+    )
     assert vol is expected_coords[0]
     assert theta is flux_coords[1]
     assert t is expected_coords[2]

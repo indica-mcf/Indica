@@ -203,7 +203,7 @@ class CoordinateTransform(ABC):
         else:
             use_cached = False
         if use_cached:
-            if self.default_to_Rz is None:
+            if self.default_to_Rz[0] is None:
                 self.default_to_Rz = self._convert_to_Rz(x1, x2, t)
             return self.default_to_Rz
         else:
@@ -266,7 +266,7 @@ class CoordinateTransform(ABC):
         else:
             use_cached = False
         if use_cached:
-            if self.default_from_Rz is None:
+            if self.default_from_Rz[0] is None:
                 self.default_from_Rz = self._convert_from_Rz(R, z, t)
             return self.default_from_Rz
         else:

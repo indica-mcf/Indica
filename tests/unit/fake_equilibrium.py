@@ -68,7 +68,7 @@ class FakeEquilibrium(Equilibrium):
     }
 
     def __init__(self, Rmag=3.0, zmag=0.0, Bmax=1.0, **kwargs):
-        self.Rmag = Rmag
+        self.Rmag = np.abs(Rmag)
         self.zmag = zmag
         self.parameters = kwargs
         for k, v in self.DEFAULT_PARAMS.items():
@@ -86,16 +86,38 @@ class FakeEquilibrium(Equilibrium):
             t,
         )
 
-    def minor_radius(self, rho, theta, t=None, kind="toroidal"):
-        if not t:
+    def enclosed_volume(self, rho, t=None, kind="poloidal"):
+        if t is not None:
+            t = self.default_t
+        a = self.parameters[kind + "_a"]
+        b = self.parameters[kind + "_b"]
+        n = self.parameters[kind + "_n"]
+        alpha = self.parameters[kind + "_alpha"]
+        vol = 2 * np.pi ** 2 * a * b * rho ** (2 * n) * (1 + alpha * t) ** 2 * self.Rmag
+        return vol, t
+
+    def invert_enclosed_volume(self, vol, t=None, kind="poloidal"):
+        if t is not None:
+            t = self.default_t
+        a = self.parameters[kind + "_a"]
+        b = self.parameters[kind + "_b"]
+        n = self.parameters[kind + "_n"]
+        alpha = self.parameters[kind + "_alpha"]
+        rho = (vol / (2 * np.pi ** 2 * a * b * (1 + alpha * t) ** 2 * self.Rmag)) ** (
+            0.5 / n
+        )
+        return rho, t
+
+    def minor_radius(self, rho, theta, t=None, kind="poloidal"):
+        if t is not None:
             t = self.default_t
         r = rho ** self.parameters[kind + "_n"] * (
             1 + self.parameters[kind + "_alpha"] * t
         )
         return r, t
 
-    def flux_coords(self, R, z, t=None, kind="toroidal"):
-        if not t:
+    def flux_coords(self, R, z, t=None, kind="poloidal"):
+        if t is not None:
             t = self.default_t
         rho = (
             (
@@ -107,8 +129,8 @@ class FakeEquilibrium(Equilibrium):
         theta = np.atan((z - self.zmag) / (R - self.Rmag))
         return rho, theta, t
 
-    def spatial_coords(self, rho, theta, t=None, kind="toroidal"):
-        if not t:
+    def spatial_coords(self, rho, theta, t=None, kind="poloidal"):
+        if t is not None:
             t = self.default_t
         tan_theta = np.tan(theta)
         dR = np.sign(tan_theta) * np.sqrt(
@@ -123,10 +145,10 @@ class FakeEquilibrium(Equilibrium):
             )
         )
         dz = tan_theta * dR
-        return self.Rmag + dR, self.zmag + dz
+        return self.Rmag + dR, self.zmag + dz, t
 
     def convert_flux_coords(
-        self, rho, theta, t=None, from_kind="toroidal", to_kind="poloidal"
+        self, rho, theta, t=None, from_kind="poloidal", to_kind="toroidal"
     ):
         R, z, t = self.spatial_coords(rho, theta, t, from_kind)
         return self.flux_coords(R, z, t, to_kind)

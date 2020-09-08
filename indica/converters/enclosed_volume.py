@@ -37,7 +37,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     def _convert_to_rho(
         self, volume: ArrayLike, theta: ArrayLike, t: ArrayLike
     ) -> Coordinates:
-        """Convert from this coordinate system to a flux surface coordinate system.
+        """Convert from this coordinate system to a flux surface coordinate
+        system.
 
         Parameters
         ----------
@@ -59,6 +60,10 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
             pointer to that)
 
         """
+        rho, t = self.equilibrium.invert_enclosed_volume(
+            volume, t, self.flux_transform.flux_kind
+        )
+        return rho, theta, t
 
     def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
@@ -83,6 +88,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
             pointer to that)
 
         """
+        rho, theta, t = self._convert_to_rho(x1, x2, t)
+        return self.flux_transform._convert_to_Rz(rho, theta, t)
 
     def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
@@ -107,3 +114,5 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
             pointer to that)
 
         """
+        rho, theta, t = self.flux_transform._convert_from_Rz(R, z, t)
+        return self.flux_transform._convert_to_vol(rho, theta, t)

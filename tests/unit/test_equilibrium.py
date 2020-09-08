@@ -265,6 +265,19 @@ def test_volume_enclosed(equilib_dat, rho, time, ftype, offset):
 
 
 @given(
+    equilibria(), arbitrary_coordinates((0.0, 75.0), (1.0, 80.0)), flux_types(),
+)
+def test_invert_volume_enclosed(equilibrium, coords, ftype):
+    """Tests that can correctly invert the calculation of volume enclosed by
+    a flux surface."""
+    rho, t = coords
+    vol, t = equilibrium.enclosed_volume(rho, t, ftype)
+    rho2, t2 = equilibrium.invert_enclosed_volume(vol, t, ftype)
+    assert rho2 == approx(rho)
+    assert t2 is t
+
+
+@given(
     floats(1.0, 100.0).flatmap(
         lambda x: tuples(
             just(x),
