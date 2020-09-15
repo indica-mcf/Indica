@@ -12,7 +12,6 @@ from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import lists
-from hypothesis.strategies import nothing
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 import numpy as np
@@ -154,6 +153,7 @@ def data_arrays_from_coords(
     abs_sigma=1e-3,
     uncertainty=True,
     max_dropped=0.1,
+    require_dropped=False,
 ):
     """Returns a DataArray which uses the given coordinate transform.
 
@@ -181,6 +181,8 @@ def data_arrays_from_coords(
     max_dropped
         The maximum number of channels to drop, as a fraction of the total
         number of channels.
+    require_dropped
+        If True, ensure at least one channel is dropped.
 
     """
     general_type = (
@@ -228,6 +230,11 @@ def data_arrays_from_coords(
         if isinstance(x1, np.ndarray)
         else []
     )
+    if require_dropped and len(dropped) == 0:
+        dropped = [flat_x1[0]]
+    if uncertainty and (rel_sigma or abs_sigma):
+        error = rel_sigma * result + abs_sigma
+        result.attrs["error"] = error
     if dropped and flat_x1[0] != flat_x1[-1]:
         to_keep = np.logical_not(
             DataArray(flat_x1, coords=[("x1", flat_x1)]).isin(dropped)
@@ -235,10 +242,8 @@ def data_arrays_from_coords(
         dropped_result = result.sel(x1=dropped)
         result = result.where(to_keep)
         if uncertainty and (rel_sigma or abs_sigma):
-            error = rel_sigma * result + abs_sigma
-            result.attrs["error"] = error
-            dropped_error = rel_sigma * dropped_result + abs_sigma
-            dropped_result.attrs["error"] = dropped_error
+            dropped_result.attrs["error"] = result.attrs["error"].sel(x1=dropped)
+            result.attrs["error"] = result.attrs["error"].where(to_keep)
         result.attrs["dropped"] = dropped_result
     result.attrs["datatype"] = (general_type, specific_type)
     result.attrs["provenance"] = MagicMock()
@@ -264,6 +269,7 @@ def data_arrays(
     abs_sigma=1e-3,
     uncertainty=True,
     max_dropped=0.1,
+    require_dropped=False,
 ):
     """Returns a DataArray, with appropriate metadata for use in testing
     calculations.
@@ -292,6 +298,8 @@ def data_arrays(
     max_dropped
         The maximum number of channels to drop, as a fraction of the total
         number of channels.
+    require_dropped
+        If True, ensure at least one channel is dropped.
 
     """
     transform = draw(coordinates)
@@ -305,6 +313,7 @@ def data_arrays(
             abs_sigma,
             uncertainty,
             max_dropped,
+            require_dropped,
         )
     )
 
@@ -315,15 +324,17 @@ def array_dictionaries(
     coordinates,
     options,
     data=separable_functions(
-        smooth_functions((1.83, 3.9)),
-        smooth_functions(-1.75, 2.0),
-        smooth_functions(50.0, 120.0),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
     ),
     override_coords=[None, None, None],
     rel_sigma=0.02,
-    abs_sigma=-1e-3,
+    abs_sigma=1e-3,
     uncertainty=True,
     max_dropped=0.1,
+    min_size=1,
+    require_dropped=False,
 ):
     """Create a dictionary of DataArrays, all with the same coordinate
     transform, with keys selected from those in ``options``.
@@ -352,10 +363,18 @@ def array_dictionaries(
     max_dropped
         The maximum number of channels to drop, as a fraction of the total
         number of channels.
+    min_size
+        The minumum number of DataArrays in the dictionary. Must not be larger
+        than ``options``.
+    require_dropped
+        If True, ensure at least one channel is dropped.
 
     """
-    result = draw(dictionaries(sampled_from(options.keys()), nothing()))
-    for key in result:
+    result = {}
+    keys = draw(
+        lists(sampled_from(sorted(options.keys())), unique=True, min_size=min_size)
+    )
+    for key in keys:
         result[key] = draw(
             data_arrays_from_coords(
                 options[key],
@@ -366,6 +385,7 @@ def array_dictionaries(
                 abs_sigma,
                 uncertainty,
                 max_dropped,
+                require_dropped,
             )
         )
     return result
@@ -377,14 +397,15 @@ def datasets(
     data_type=(None, {}),
     coordinates=coordinate_transforms(((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3),
     data=separable_functions(
-        smooth_functions((1.83, 3.9)),
-        smooth_functions(-1.75, 2.0),
-        smooth_functions(50.0, 120.0),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
     ),
     rel_sigma=0.02,
-    abs_sigma=-1e-3,
+    abs_sigma=1e-3,
     uncertainty=True,
     max_dropped=0.1,
+    require_dropped=False,
 ):
     """Returns a Dataset, with appropriate metadata for use in testing
     calculations.
@@ -412,6 +433,8 @@ def datasets(
     max_dropped
         The maximum number of channels to drop, as a fraction of the total
         number of channels.
+    require_dropped
+        If True, ensure at least one channel is dropped.
 
     """
 
@@ -449,6 +472,8 @@ def datasets(
                 rel_sigma,
                 abs_sigma,
                 uncertainty,
+                max_dropped,
+                require_dropped,
             )
         )
     return Dataset(

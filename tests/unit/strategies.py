@@ -248,12 +248,12 @@ def noisy_functions(draw, func, rel_sigma=0.02, abs_sigma=1e-3, cache=False):
     def noisy(*args):
         y = func(*args)
         max_std = 5
-        varriance = max_std * rel_sigma * np.max(np.abs(y)) + max_std * abs_sigma
+        variance = max_std * rel_sigma * np.max(np.abs(y)) + max_std * abs_sigma
         return y + draw(
             hynp.arrays(
                 float,
                 y.shape,
-                elements=hyst.floats(-varriance, varriance),
+                elements=hyst.floats(-variance, variance),
                 fill=hyst.just(0.0),
             )
         )
