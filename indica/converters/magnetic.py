@@ -1,5 +1,8 @@
 """Coordinate systems based on strength of magnetic field."""
 
+from typing import Callable
+from typing import Tuple
+
 import numpy as np
 from scipy.optimize import root_scalar
 
@@ -38,7 +41,7 @@ class MagneticCoordinates(CoordinateTransform):
         self, z: float, default_B: ArrayLike, default_R: ArrayLike, default_t: ArrayLike
     ):
         self.z_los = z
-        super().__init__(default_B, 0.0, default_R, z, default_t)
+        super().__init__(default_B, 0.0, default_R, z, np.expand_dims(default_t, 1))
 
     def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
@@ -64,16 +67,16 @@ class MagneticCoordinates(CoordinateTransform):
 
         """
         # print("Recieved by _convert_to_Rz", x1, x2, t)
-        brackets = [self.default_R.min(), self.default_R.max()]
+        left = self.default_R.min()
+        right = self.default_R.max()
 
         @np.vectorize
-        def find_root(B: float, x2: float, t: float):
-            result = root_scalar(
-                lambda R: self._convert_from_Rz(R, x2 + self.z_los, t)[0] - B,
-                bracket=brackets,
-                xtol=1e-6,
-                rtol=1e-6,
-            )
+        def find_root(B: float, x2: float, t: float) -> float:
+            def func(R: float) -> float:
+                return self._convert_from_Rz(R, x2 + self.z_los, t)[0] - B
+
+            brackets = find_brackets(left, right, func)
+            result = root_scalar(func, bracket=brackets, xtol=1e-8, rtol=1e-6,)
             if result.converged:
                 return result.root
             raise ConvergenceError(
@@ -113,3 +116,37 @@ class MagneticCoordinates(CoordinateTransform):
             return False
         result = self._abstract_equals(other)
         return result and np.all(self.z_los == other.z_los)
+
+
+def find_brackets(
+    left: float, right: float, function: Callable[[float], float]
+) -> Tuple[float, float]:
+    """Find suitable brackets around a root of the function. Relies in standard
+    shape of total magnetic field strength.
+
+    """
+    fleft = function(left)
+    fright = function(right)
+    if fleft * fright <= 0.0:
+        return left, right
+    if fleft < 0.0:
+        if left > 1e-1:
+            left /= 1.5
+        elif left > 0.0:
+            left = 0.0
+        elif left == 0.0:
+            left = -0.1
+        else:
+            left *= 1.5
+        return find_brackets(left, right, function)
+    assert fright > 0.0
+    # Calculate new right bracket
+    if left < -1e-1:
+        left /= 1.5
+    elif left < 0.0:
+        left = 0.0
+    elif left == 0.0:
+        left = 0.1
+    else:
+        left *= 1.5
+    return find_brackets(left, right, function)

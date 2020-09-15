@@ -28,16 +28,8 @@ def magnetic_coordinate_arguments(
     Bstart = draw(floats(1e-8, Bmax / 10))
     Bstop = draw(floats(2 * Bstart, Bmax))
     Bvals = draw(monotonic_series(Bstart, Bstop, n))
-    tstart = draw(floats(*domain[2]))
-    tstop = draw(
-        floats(*domain[2]).filter(lambda x: x != approx(tstart, rel=1e-3, abs=1e-3))
-    )
-    Rstart = draw(floats(*domain[0]))
-    Rstop = draw(
-        floats(*domain[0]).filter(lambda x: x != approx(Rstart, rel=1e-3, abs=1e-3))
-    )
-    t = draw(monotonic_series(tstart, tstop, draw(integers(2, 20))),)
-    Rvals = draw(monotonic_series(Rstart, Rstop, draw(integers(10, 50))),)
+    t = draw(monotonic_series(*domain[2], draw(integers(2, 20))),)
+    Rvals = draw(monotonic_series(*domain[0], draw(integers(10, 50))),)
     return z, Bvals, Rvals, t
 
 
@@ -66,8 +58,9 @@ def magnetic_coordinates(
             draw(sane_floats()), draw(sane_floats()), Btot_alpha=B_alpha, Btot_b=Bcoeff
         )
     )
-    result = MagneticCoordinates(z, np.expand_dims(B, 0), np.expand_dims(R, 1), t)
+    result = MagneticCoordinates(z, B, R, t)
     result.set_equilibrium(equilib)
+    result.default_x1 = result.convert_from_Rz()[0][0]
     return result
 
 
