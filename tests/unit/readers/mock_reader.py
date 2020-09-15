@@ -90,7 +90,7 @@ class MockReader(ConcreteReader):
         tend=1e10,
         max_freq=1e50,
     ):
-        self.reader_cache_id = "mock"
+        self._reader_cache_id = "mock"
         self._tstart = tstart
         self._tend = tend
         self._max_freq = max_freq

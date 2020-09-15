@@ -141,7 +141,7 @@ class PPFReader(DataReader):
         selector: DataSelector = choose_on_plot,
         session: Session = global_session,
     ):
-        self.reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
+        self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
         super().__init__(
             tstart, tend, max_freq, session, selector, pulse=pulse, server=server
