@@ -1,7 +1,6 @@
 """Routines for averaging or interpolate along the time axis."""
 
 import numpy as np
-from xarray import concat
 from xarray import DataArray
 
 from ..utilities import sum_squares
@@ -84,40 +83,15 @@ def interpolate_in_time(
         raise ValueError("End time {} not in range of provided data.".format(tend))
     npoints = round((tend - tstart) * frequency) + 1
     tvals = np.linspace(tstart, tend, npoints)
-    if "dropped" in data.attrs:
-        dropped_dim = next(
-            dim
-            for dim, grid in data.coords.items()
-            if len(grid) != len(data.attrs["dropped"].coords[dim])
-        )
-        cleaned_data = data.dropna(dropped_dim)
-        if "error" in data.attrs:
-            cleaned_data.attrs["error"] = data.attrs["error"].dropna(dropped_dim)
-    else:
-        cleaned_data = data
+    cleaned_data = data.indica.with_ignored_data
     result = cleaned_data.interp(t=tvals, method=method)
     if "error" in data.attrs:
         result.attrs["error"] = cleaned_data.attrs["error"].interp(
             t=tvals, method=method
         )
     if "dropped" in data.attrs:
-        result.attrs["dropped"] = data.attrs["dropped"].interp(t=tvals, method=method)
-        result = concat(
-            [result, result.attrs["dropped"] + float("nan")],
-            dropped_dim,
-            combine_attrs="override",
-        ).sortby(dropped_dim)
-        if "error" in data.attrs:
-            result.attrs["dropped"].attrs["error"] = (
-                data.attrs["dropped"].attrs["error"].interp(t=tvals, method=method)
-            )
-            result.attrs["error"] = concat(
-                [
-                    result.attrs["error"],
-                    result.attrs["dropped"].attrs["error"] + float("nan"),
-                ],
-                dropped_dim,
-            ).sortby(dropped_dim)
+        ddim = data.indica.drop_dim
+        result = result.indica.ignore_data(data.attrs["dropped"].coords[ddim], ddim)
 
     return result
 
