@@ -12,8 +12,7 @@ objects. These accessors group methods under the namespace
 
 """
 
-from numbers import Number
-from typing import Iterable
+from itertools import filterfalse
 from typing import Optional
 from typing import Tuple
 
@@ -23,6 +22,7 @@ from .converters import CoordinateTransform
 from .datatypes import ArrayType
 from .datatypes import DatasetType
 from .equilibrium import Equilibrium
+from .numpy_typing import ArrayLike
 
 
 @xr.register_dataarray_accessor("indica")
@@ -145,9 +145,36 @@ class InDiCAArrayAccessor:
         dropped at read-in.
 
         """
-        pass
+        if "dropped" in self._obj.attrs:
+            ddim = self.drop_dim
+            dropped = self._obj.attrs["dropped"]
+            result = self._obj.copy()
+            result.loc[{ddim: dropped.coords[ddim]}] = dropped
+            if "error" in self._obj.attrs:
+                result.attrs["error"] = result.attrs["error"].copy()
+                result.attrs["error"].loc[{ddim: dropped.coords[ddim]}] = dropped.attrs[
+                    "error"
+                ]
+            del result.attrs["dropped"]
+            return result
+        else:
+            return self._obj
 
-    def ignore_data(self, labels: Iterable[Number], dimension: str) -> xr.DataArray:
+    @property
+    def drop_dim(self) -> Optional[str]:
+        """The dimension, if any, which contains dropped channels."""
+        if "dropped" in self._obj.attrs:
+            return next(
+                filterfalse(
+                    lambda dim: self._obj.coords[dim].equals(
+                        self._obj.attrs["dropped"].coords[dim]
+                    ),
+                    self._obj.dims,
+                )
+            )
+        return None
+
+    def ignore_data(self, labels: ArrayLike, dimension: str) -> xr.DataArray:
         """Create a copy of this array which masks the specified data.
 
         Parameters
@@ -164,6 +191,48 @@ class InDiCAArrayAccessor:
             along the specified dimension marked as NaN.
 
         """
+        ddim = self.drop_dim
+        if ddim and ddim != dimension:
+            raise ValueError(
+                f"Can not not ignore data along dimension {dimension}; channels "
+                f"have already been ignored in dimension {ddim}."
+            )
+        if ddim:
+            unique_labels = list(
+                filter(
+                    lambda l: l not in self._obj.attrs["dropped"].coords[dimension],
+                    labels,
+                )
+            )
+        else:
+            unique_labels = labels
+        if len(unique_labels) == 0:
+            return self._obj
+        result = self._obj.copy()
+        result.loc[{dimension: unique_labels}] = float("nan")
+        result.attrs["dropped"] = self._obj.loc[{dimension: unique_labels}]
+        if "error" in result.attrs:
+            result.attrs["error"] = result.attrs["error"].copy()
+        result.attrs["dropped"].attrs = {}
+        if "dropped" in self._obj.attrs:
+            result.attrs["dropped"] = xr.concat(
+                [self._obj.attrs["dropped"], result.attrs["dropped"]], dim=dimension
+            )
+        if "error" in self._obj.attrs:
+            result.attrs["error"].loc[{dimension: unique_labels}] = float("nan")
+            result.attrs["dropped"].attrs["error"] = self._obj.attrs["error"].loc[
+                {dimension: unique_labels}
+            ]
+            result.attrs["dropped"].attrs["error"].attrs = {}
+            if "dropped" in self._obj.attrs:
+                result.attrs["dropped"].attrs["error"] = xr.concat(
+                    [
+                        self._obj.attrs["dropped"].attrs["error"],
+                        result.attrs["dropped"].attrs["error"],
+                    ],
+                    dim=dimension,
+                )
+        return result
 
 
 @xr.register_dataset_accessor("indica")

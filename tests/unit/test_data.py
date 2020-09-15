@@ -36,10 +36,10 @@ def dropped_dimension(array):
     if "dropped" not in array.attrs:
         return None
     was_dropped = [
-        array.coords[d] == array.attrs["dropped"].coords[d] for d in array.dims
+        array.coords[d].equals(array.attrs["dropped"].coords[d]) for d in array.dims
     ]
-    assert was_dropped.count(True) == 1
-    return array.dims[was_dropped.index(True)]
+    assert was_dropped.count(False) == 1
+    return array.dims[was_dropped.index(False)]
 
 
 # DataArray tests:
@@ -94,12 +94,27 @@ def test_remap_values(original, template):
 @given(data_arrays())
 def test_restoring_dropped_data(array):
     """Check reconstruction of array with ignored data is correct."""
-    all_data = array.with_ignored_data
-    assert np.all(np.logical_or(all_data == array.with_ignored_data, np.isnan(array)))
+    all_data = array.indica.with_ignored_data
+    assert np.all(np.logical_or(all_data == array, np.isnan(array)))
     if "dropped" in array.attrs:
+        assert all_data is not array
         assert all_data.loc[array.attrs["dropped"].coords].equals(
             array.attrs["dropped"]
         )
+    if "error" in array.attrs:
+        assert np.all(
+            np.logical_or(
+                all_data.attrs["error"] == array.attrs["error"],
+                np.isnan(array.attrs["error"]),
+            )
+        )
+        if "dropped" in array.attrs:
+            assert all_data.attrs["error"] is not array.attrs["error"]
+            assert (
+                all_data.attrs["error"]
+                .loc[array.attrs["dropped"].coords]
+                .equals(array.attrs["dropped"].attrs["error"])
+            )
 
 
 @given(
@@ -114,50 +129,113 @@ def test_restoring_dropped_data(array):
     )
     .flatmap(
         lambda x: tuples(
-            just(x[0]), just(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
+            just(x[0]),
+            just(x[1]),
+            lists(sampled_from(x[0].coords[x[1]].values), unique=True),
         )
     )
 )
 def test_dropping_data(arguments):
     """Check dropping new or additional data works as expected."""
     array, drop_dim, to_drop = arguments
+    original_attrs = array.attrs
     result = array.indica.ignore_data(to_drop, drop_dim)
-    assert np.all(np.isnan(result.loc[{drop_dim: to_drop}]))
-    assert result.attrs["dropped"].equals(
-        array.indica.with_ignored_data.loc[
-            {drop_dim: result.attrs["dropped"].coords[drop_dim]}
-        ]
-    )
+    assert original_attrs == array.attrs
     if "dropped" in array.attrs:
         assert np.all(
             np.isnan(result.loc[{drop_dim: array.attrs["dropped"].coords[drop_dim]}])
         )
-    if "dropped" in array.attrs:
+        if "error" in array.attrs:
+            assert np.all(
+                np.isnan(
+                    result.attrs["error"].loc[
+                        {drop_dim: array.attrs["dropped"].coords[drop_dim]}
+                    ]
+                )
+            )
         dropped_coords = np.unique(
-            np.concat([to_drop, array.attrs["dropped"].coords[drop_dim]])
+            np.concatenate([to_drop, array.attrs["dropped"].coords[drop_dim]])
         )
     else:
         dropped_coords = np.unique(to_drop)
-    assert np.all(dropped_coords == result.attrs["dropped"].coords[drop_dim])
-    assert np.all(np.isnan(result.loc[{drop_dim: dropped_coords}]))
-    assert result.drop_sel(**{drop_dim: dropped_coords}).equals(
-        array.drop_sel(**{drop_dim: dropped_coords})
-    )
+    if len(to_drop) > 0:
+        assert np.all(np.isnan(result.loc[{drop_dim: to_drop}]))
+        if "dropped" in array.attrs and np.any(
+            np.isin(to_drop, array.attrs["dropped"].coords[drop_dim], invert=True)
+        ):
+            assert result.attrs["dropped"] is not array.attrs["dropped"]
+        assert result.attrs["dropped"].equals(
+            array.indica.with_ignored_data.loc[
+                {drop_dim: result.attrs["dropped"].coords[drop_dim]}
+            ]
+        )
+        assert np.all(
+            dropped_coords == np.sort(result.attrs["dropped"].coords[drop_dim])
+        )
+        assert np.all(np.logical_not(np.isnan(result.attrs["dropped"])))
+        if "error" in array.attrs:
+            if "dropped" in array.attrs:
+                if np.any(
+                    np.isin(
+                        to_drop, array.attrs["dropped"].coords[drop_dim], invert=True
+                    )
+                ):
+                    assert (
+                        result.attrs["dropped"].attrs["error"]
+                        is not array.attrs["dropped"].attrs["error"]
+                    )
+                    assert result.attrs["error"] is not array.attrs["error"]
+            else:
+                assert result.attrs["error"] is not array.attrs["error"]
+            assert np.all(np.isnan(result.attrs["error"].loc[{drop_dim: to_drop}]))
+            assert (
+                result.attrs["dropped"]
+                .attrs["error"]
+                .equals(
+                    array.indica.with_ignored_data.attrs["error"].loc[
+                        {drop_dim: result.attrs["dropped"].coords[drop_dim]}
+                    ]
+                )
+            )
+            assert np.all(
+                dropped_coords
+                == np.sort(result.attrs["dropped"].attrs["error"].coords[drop_dim])
+            )
+            assert np.all(
+                np.logical_not(np.isnan(result.attrs["dropped"].attrs["error"]))
+            )
+    if len(dropped_coords) > 0:
+        assert np.all(np.isnan(result.loc[{drop_dim: dropped_coords}]))
+        assert result.drop_sel(**{drop_dim: dropped_coords}).equals(
+            array.drop_sel(**{drop_dim: dropped_coords})
+        )
+        if "error" in array.attrs:
+            assert np.all(
+                np.isnan(result.attrs["error"].loc[{drop_dim: dropped_coords}])
+            )
+            assert (
+                result.attrs["error"]
+                .drop_sel(**{drop_dim: dropped_coords})
+                .equals(array.attrs["error"].drop_sel(**{drop_dim: dropped_coords}))
+            )
 
 
 @given(
     data_arrays()
-    .filter(lambda d: "dropped" in d.attrs)
+    .filter(lambda d: "dropped" in d.attrs and len(d.dims) > 1)
     .flatmap(
-        lambda d: tuples(just(d), sampled_from(set(d.dims) - {dropped_dimension(d)}))
+        lambda d: tuples(
+            just(d), sampled_from(sorted(set(d.dims) - {dropped_dimension(d)}))
+        )
     )
     .flatmap(
         lambda x: tuples(
-            just(x[0]), just(x[1]), lists(sampled_from(x[0].coords[x[1]]), unique=True),
+            just(x[0]),
+            just(x[1]),
+            lists(sampled_from(x[0].coords[x[1]].values), unique=True),
         )
     )
 )
-@given(data_arrays())
 def test_dropping_invalid_data(arguments):
     """Test fails when trying to drop data in different dimension than
     existing dropped channels"""
