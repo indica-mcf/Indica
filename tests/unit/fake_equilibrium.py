@@ -87,7 +87,7 @@ class FakeEquilibrium(Equilibrium):
         )
 
     def enclosed_volume(self, rho, t=None, kind="poloidal"):
-        if t is not None:
+        if t is None:
             t = self.default_t
         a = self.parameters[kind + "_a"]
         b = self.parameters[kind + "_b"]
@@ -97,7 +97,7 @@ class FakeEquilibrium(Equilibrium):
         return vol, t
 
     def invert_enclosed_volume(self, vol, t=None, kind="poloidal"):
-        if t is not None:
+        if t is None:
             t = self.default_t
         a = self.parameters[kind + "_a"]
         b = self.parameters[kind + "_b"]
@@ -109,7 +109,7 @@ class FakeEquilibrium(Equilibrium):
         return rho, t
 
     def minor_radius(self, rho, theta, t=None, kind="poloidal"):
-        if t is not None:
+        if t is None:
             t = self.default_t
         r = rho ** self.parameters[kind + "_n"] * (
             1 + self.parameters[kind + "_alpha"] * t
@@ -117,26 +117,26 @@ class FakeEquilibrium(Equilibrium):
         return r, t
 
     def flux_coords(self, R, z, t=None, kind="poloidal"):
-        if t is not None:
+        if t is None:
             t = self.default_t
         rho = (
             (
                 (R - self.Rmag) ** 2 / self.parameters[kind + "_a"] ** 2
                 + (z - self.zmag) ** 2 / self.parameters[kind + "_b"] ** 2
             )
-            / (1 + self.parameters[kind + "_alpha"] * t)
+            / (1 + self.parameters[kind + "_alpha"] * t) ** 2
         ) ** (1 / (2 * self.parameters[kind + "_n"]))
-        theta = np.atan((z - self.zmag) / (R - self.Rmag))
+        theta = np.arctan2((z - self.zmag), (R - self.Rmag))
         return rho, theta, t
 
     def spatial_coords(self, rho, theta, t=None, kind="poloidal"):
-        if t is not None:
+        if t is None:
             t = self.default_t
         tan_theta = np.tan(theta)
-        dR = np.sign(tan_theta) * np.sqrt(
+        dR = np.sign(np.cos(theta)) * np.sqrt(
             (
                 rho ** self.parameters[kind + "_n"]
-                * (1 + self.parameters[kind + "_alpha"])
+                * (1 + self.parameters[kind + "_alpha"] * t)
             )
             ** 2
             / (
