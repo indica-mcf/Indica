@@ -34,15 +34,14 @@ def fake_sal_client(datafile):
                 self.url = url
                 self._blacklist = []
                 self._revisions = [1]
-
-            authenticate = Mock()
+                self.authenticate = Mock(return_value=True)
 
             def get(self, path, summary=False):
                 """Gets the node at the specified path."""
                 path_components = path.split("/")
                 if path_components[-1] and len(path_components) == 8:
                     # Leaf node
-                    dda = path_components = [-2]
+                    dda = path_components[-2]
                     dtype = path_components[-1].split(":")[0]
                     key = f"{dda}/{dtype}"
                     if key in self._blacklist or key not in self.DATA:
@@ -69,7 +68,7 @@ def fake_sal_client(datafile):
                     raise NodeNotFound(f"Node {path} does not exist.")
                 else:
                     revision = next(filter(lambda r: r <= revision, self._revisions))
-                key = "/".join(path_components[-2:])
+                key = f"{path_components[-2]}/{path_components[-1].split(':')[0]}"
                 if len(path_components) < 6:
                     return Mock()
                 elif len(path_components) == 6:

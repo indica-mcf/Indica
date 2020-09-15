@@ -139,25 +139,28 @@ class PPFReader(DataReader):
         default_error: float = 0.05,
         max_freq: float = 1e6,
         selector: DataSelector = choose_on_plot,
-        sess: Session = global_session,
+        session: Session = global_session,
     ):
+        self.reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
         super().__init__(
-            tstart, tend, max_freq, sess, selector, pulse=pulse, server=server
+            tstart, tend, max_freq, session, selector, pulse=pulse, server=server
         )
         self.pulse = pulse
         self._client = SALClient(server)
+        self._client.prompt_for_password = False
         self._default_error = default_error
 
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> Tuple[Signal, str]:
         """Gets the signal for the given DDA, at the given revision."""
-        path = "/pulse/{:d}/ppf/signal/{}/{}/{}:{:d}".format(
-            self.pulse, uid, instrument, quantity, revision
+        path_template = "/pulse/{:d}/ppf/signal/{}/{}/{}:{:d}"
+        path = path_template.format(self.pulse, uid, instrument, quantity, revision)
+        info = self._client.list(path)
+        path = path_template.format(
+            self.pulse, uid, instrument, quantity, info.revision_current,
         )
-        # TODO: if revision == 0 update it with absolute revision
-        # number in path before returning
         return self._client.get(path), path
 
     def _get_charge_exchange(
@@ -180,25 +183,23 @@ class PPFReader(DataReader):
         results["element"] = None
         results["texp"] = None
         paths = [R_path, z_path, m_path, t_path]
-        nstart = 0
-        nend = -1
         if "angf" in quantities:
             angf, a_path = self._get_signal(uid, instrument, "angf", revision)
             afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
-            results["angf"] = angf.data[nstart:nend, :].copy()
-            results["angf_err"] = afhi.data[nstart:nend, :] - results["angf"]
+            results["angf"] = angf.data
+            results["angf_err"] = afhi.data
             results["angf_records"] = paths + [a_path, e_path]
         if "conc" in quantities:
             conc, c_path = self._get_signal(uid, instrument, "conc", revision)
             cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
-            results["conc"] = conc.data[nstart:nend, :].copy()
-            results["conc_err"] = cohi.data[nstart:nend, :] - results["conc"]
+            results["conc"] = conc.data
+            results["conc_err"] = cohi.data
             results["conc_records"] = paths + [c_path, e_path]
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "ti_hi", revision)
-            results["ti"] = ti.data[nstart:nend, :].copy()
-            results["ti_err"] = tihi.data[nstart:nend, :] - results["ti"]
+            results["ti"] = ti.data
+            results["ti_err"] = tihi.data
             results["ti_records"] = paths + [t_path, e_path]
         return results
 
@@ -210,23 +211,31 @@ class PPFReader(DataReader):
         results = {}
         z, z_path = self._get_signal(uid, instrument, "z", revision)
         results["z"] = z.data
-        results["R"] = z.dimension[1].data
+        results["R"] = z.dimensions[0].data
         results["length"] = len(z.data)
         nstart = 0
         nend = -1
         if "te" in quantities:
             te, t_path = self._get_signal(uid, instrument, "te", revision)
-            dte, e_path = self._get_signal(uid, instrument, "dte", revision)
             self._set_times_item(results, te.dimensions[0].data, nstart, nend)
-            results["te"] = te[nstart:nend, :].copy()
-            results["te_error"] = dte[nstart:nend, :].copy()
+            results["te"] = te.data
+            if instrument == "lidr":
+                tehi, e_path = self._get_signal(uid, instrument, "teu", revision)
+                results["te_error"] = tehi.data - results["te"]
+            else:
+                dte, e_path = self._get_signal(uid, instrument, "dte", revision)
+                results["te_error"] = dte.data
             results["te_records"] = [z_path, t_path, e_path]
         if "ne" in quantities:
             ne, d_path = self._get_signal(uid, instrument, "ne", revision)
-            dne, e_path = self._get_signal(uid, instrument, "dne", revision)
             self._set_times_item(results, ne.dimensions[0].data, nstart, nend)
-            results["ne"] = ne[nstart:nend, :].copy()
-            results["ne_error"] = dne[nstart:nend, :].copy()
+            results["ne"] = ne.data
+            if instrument == "lidr":
+                nehi, e_path = self._get_signal(uid, instrument, "neu", revision)
+                results["ne_error"] = nehi.data - results["ne"]
+            else:
+                dne, e_path = self._get_signal(uid, instrument, "dne", revision)
+                results["ne_error"] = dne.data
             results["ne_records"] = [z_path, d_path, e_path]
         return results
 

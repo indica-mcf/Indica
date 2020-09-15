@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from hypothesis import given
+from hypothesis import settings
 from hypothesis.extra.numpy import arrays
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
@@ -29,13 +30,7 @@ from .fake_salclient import fake_sal_client
 @pytest.fixture(scope="module")
 def fake_sal():
     """Loads data to create a fake SALClient class."""
-    return fake_sal_client(pathlib.Path(__file__).parent.absolute() / "sample_ppfs.pkl")
-
-
-@pytest.fixture
-def patch_sal(fake_sal, monkeypatch):
-    """Monkeypatches the SALClient class with the fake version."""
-    monkeypatch.setattr(sal.client, "SALClient", fake_sal)
+    return fake_sal_client(pathlib.Path(__file__).parent.absolute() / "ppf_samples.pkl")
 
 
 pulses = integers(1, 99999)
@@ -43,7 +38,8 @@ times = lists(floats(30.0, 80.0), min_size=2, max_size=2).map(sorted)
 errors = floats(0.0001, 0.2)
 max_freqs = floats(2.0, 1000.0)
 revisions = integers(0)
-edited_revisions = lists(revisions, min_size=1, unique=True).map(sorted)
+actual_revisions = integers(1)
+edited_revisions = lists(actual_revisions, min_size=1, unique=True).map(sorted)
 lines_of_sight = tuples(
     arrays(float, 96), arrays(float, 96), arrays(float, 96), arrays(float, 96)
 )
@@ -64,26 +60,28 @@ def test_needs_authentication():
     TODO: consider whether I should use mocking so both possibilities are tested.
     """
     reader = PPFReader(90272, 0.0, 100.0, selector=MagicMock(), session=MagicMock())
-    if reader.needs_authentication:
-        with pytest.raises(sal.core.exception.PermissionError):
+    if reader.requires_authentication:
+        with pytest.raises(sal.core.exception.AuthenticationFailed):
             reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
     else:
         reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
 
 
+@settings(report_multiple_bugs=False)
 @given(pulses, times, errors, max_freqs, text(), text())
-def test_authentication(pulse, time_range, error, freq, user, password, fake_sal):
+def test_authentication(fake_sal, pulse, time_range, error, freq, user, password):
     """Test authentication method on client get called."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
-    assert reader.authenticate(user, password)
-    reader._client.authenticate.assert_called_once_with(user, password)
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
+        assert reader.authenticate(user, password)
+        reader._client.authenticate.assert_called_once_with(user, password)
 
 
 @given(
@@ -97,7 +95,9 @@ def test_authentication(pulse, time_range, error, freq, user, password, fake_sal
     edited_revisions,
     lists(sampled_from(["te", "ne"]), min_size=1, unique=True).map(set),
 )
+@settings(report_multiple_bugs=False)
 def test_get_thomson_scattering(
+    fake_sal,
     pulse,
     time_range,
     error,
@@ -107,17 +107,17 @@ def test_get_thomson_scattering(
     revision,
     available_revisions,
     quantities,
-    patch_sal,
 ):
     """Test quantities returned by _get_thomson_scattering are correct."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -130,17 +130,26 @@ def test_get_thomson_scattering(
     assert np.all(z_signal.dimensions[0].data == results["R"])
     records = [get_record(reader, pulse, uid, instrument, "z", revision)]
     for q in quantities:
-        assert np.all(results[q] == reader.client.DATA[f"{instrument}/{q}"].data)
-        assert np.all(
-            results[q + "_error"] == reader.client.DATA[f"{instrument}/d{q}"].data
-        )
-        assert sorted(results[q + "_records"]) == sorted(
+        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"].data)
+        if instrument == "lidr":
+            assert np.all(
+                results[q] + results[q + "_error"]
+                == reader._client.DATA[f"{instrument}/{q}u"].data
+            )
+        else:
+            assert np.all(
+                results[q + "_error"] == reader._client.DATA[f"{instrument}/d{q}"].data
+            )
+        expected = sorted(
             records
-            + map(
-                lambda x: get_record(reader, pulse, uid, instrument, x, revision),
-                [q, "d" + q],
+            + list(
+                map(
+                    lambda x: get_record(reader, pulse, uid, instrument, x, revision),
+                    [q, q + "u" if instrument == "lidr" else "d" + q],
+                )
             )
         )
+        assert sorted(results[q + "_records"]) == expected
 
 
 @given(
@@ -155,6 +164,7 @@ def test_get_thomson_scattering(
     lists(sampled_from(["angf", "conc", "ti"]), min_size=1, unique=True).map(set),
 )
 def test_get_charge_exchange(
+    fake_sal,
     pulse,
     time_range,
     error,
@@ -164,17 +174,17 @@ def test_get_charge_exchange(
     revision,
     available_revisions,
     quantities,
-    patch_sal,
 ):
     """Test quantities returned by _get_charge_exchange are correct."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -191,10 +201,10 @@ def test_get_charge_exchange(
     )
     uncertainties = {"angf": "afhi", "conc": "cohi", "ti": "tihi"}
     for q in quantities:
-        assert np.all(results[q] == reader.client.DATA[f"{instrument}/{q}"].data)
+        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"].data)
         assert np.all(
             results[q + "_error"] + results[q]
-            == reader.client.DATA[f"{instrument}/{uncertainties[q]}"].data
+            == reader._client.DATA[f"{instrument}/{uncertainties[q]}"].data
         )
         assert sorted(results[q + "_records"]) == sorted(
             records
@@ -236,6 +246,7 @@ def test_get_charge_exchange(
     ).map(set),
 )
 def test_get_equilibrium(
+    fake_sal,
     pulse,
     time_range,
     error,
@@ -245,17 +256,17 @@ def test_get_equilibrium(
     revision,
     available_revisions,
     quantities,
-    patch_sal,
 ):
     """Test quantities returned by _get_equilibrium are correct."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -265,7 +276,7 @@ def test_get_equilibrium(
     signal = reader._client.DATA[f"{instrument}/f"]
     assert np.all(signal.dimensions[1] == results["psin"])
     for q in quantities:
-        assert np.all(results[q] == reader.client.DATA[f"{instrument}/{q}"].data)
+        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"].data)
         if q == "psi":
             assert sorted(results[q + "_records"]) == sorted(
                 map(
@@ -292,6 +303,8 @@ def test_get_equilibrium(
     lines_of_sight,
 )
 def test_get_cyclotron_emissions(
+    fake_sal,
+    monkeypatch,
     pulse,
     time_range,
     error,
@@ -302,18 +315,17 @@ def test_get_cyclotron_emissions(
     revision,
     available_revisions,
     los,
-    patch_sal,
-    monkeypatch,
 ):
     """Test quantities returned by _get_cyclotrons_emissions are correct."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with monkeypatch.context() as m, pytest.raises(
@@ -378,6 +390,8 @@ def test_get_cyclotron_emissions(
     lines_of_sight,
 )
 def test_get_sxr(
+    fake_sal,
+    monkeypatch,
     pulse,
     time_range,
     error,
@@ -388,18 +402,17 @@ def test_get_sxr(
     available_revisions,
     quantities,
     los,
-    patch_sal,
-    monkeypatch,
 ):
     """Test SXR quantities returned by _get_radiation are correct."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with monkeypatch.context() as m, pytest.raises(
@@ -455,6 +468,8 @@ def test_get_sxr(
     lines_of_sight,
 )
 def test_get_radiation(
+    fake_sal,
+    monkeypatch,
     pulse,
     time_range,
     error,
@@ -465,18 +480,17 @@ def test_get_radiation(
     available_revisions,
     quantities,
     los,
-    patch_sal,
-    monkeypatch,
 ):
     """Test bolometric quantities returned by _get_radiation are correct."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with monkeypatch.context() as m, pytest.raises(
@@ -519,6 +533,7 @@ def test_get_radiation(
     lists(sampled_from(["zefh", "zefv"]), min_size=1, unique=True).map(set),
 )
 def test_get_bremsstrahlung_spectroscopy(
+    fake_sal,
     pulse,
     time_range,
     error,
@@ -528,17 +543,17 @@ def test_get_bremsstrahlung_spectroscopy(
     revision,
     available_revisions,
     quantities,
-    patch_sal,
 ):
     """Test data returned by _get_bremsstrahlung_spectroscopy is correct."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -579,7 +594,7 @@ def test_get_bremsstrahlung_spectroscopy(
     lists(text(), min_size=1, unique=True).map(set),
 )
 def test_general_get(
-    pulse, time_range, error, freq, uid, instrument, revision, quantities, patch_sal
+    fake_sal, pulse, time_range, error, freq, uid, instrument, revision, quantities
 ):
     """Test the generic get method to ensure it calls the correct things."""
     with patch.object("indica.reader.PPFReader.get_thomson_scattering"), patch.object(
@@ -616,16 +631,17 @@ def test_general_get(
     revisions,
 )
 def test_get_defaults(
-    pulse, time_range, error, freq, uid, instrument, revision, patch_sal
+    fake_sal, pulse, time_range, error, freq, uid, instrument, revision
 ):
     """Test the generic get method uses appropriate default quantities."""
-    reader = PPFReader(
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
     results = reader.get(uid, instrument, revision)
     assert set(results) == set(reader.available_quantities(instrument))
