@@ -2,6 +2,8 @@
 
 from typing import Dict
 
+import numpy as np
+
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import ArrayLike
@@ -125,3 +127,9 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         """
         vol, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
         return vol, theta, t
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        result = self._abstract_equals(other)
+        return result and np.all(self.flux_kind == other.flux_kind)

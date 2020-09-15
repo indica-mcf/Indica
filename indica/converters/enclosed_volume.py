@@ -116,3 +116,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
         """
         rho, theta, t = self.flux_transform._convert_from_Rz(R, z, t)
         return self.flux_transform._convert_to_vol(rho, theta, t)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self.flux_transform == other.flux_transform

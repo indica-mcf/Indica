@@ -282,6 +282,33 @@ class CoordinateTransform(ABC):
             "method.".format(self.__class__.__name__)
         )
 
+    def _abstract_equals(self, other: "CoordinateTransform") -> bool:
+        """Checks that default coordinate values and equilibrium objects are
+        the same on two transform classes.
+
+        """
+        if not isinstance(other, self.__class__):
+            return False
+        if not hasattr(self, "equilibrium"):
+            result = not hasattr(other, "equilibrium")
+        elif not hasattr(other, "equilibrium"):
+            result = False
+        else:
+            result = self.equilibrium == other.equilibrium
+        result = result and np.all(self.default_R == other.default_R)
+        result = result and np.all(self.default_z == other.default_z)
+        result = result and np.all(self.default_x1 == other.default_x1)
+        result = result and np.all(self.default_x2 == other.default_x2)
+        result = result and np.all(self.default_t == other.default_t)
+        return result
+
+    @abstractmethod
+    def __eq__(self, other: object) -> bool:
+        """Check that two transforms are describing the same coordinate system."""
+        raise NotImplementedError(
+            "{} does not implement an '__eq__' method".format(self.__class__.__name__)
+        )
+
     def distance(
         self,
         direction: int,
@@ -327,21 +354,21 @@ class CoordinateTransform(ABC):
         def calc_distance(direction, x1, x2, t):
             R, z, t = self._convert_to_Rz(x1, x2, t)
             slc1 = [slice(None)] * R.ndim
-            slc1[direction - 1] = slice(0, -1)
+            slc1[direction] = slice(0, -1)
             slc1 = tuple(slc1)
             slc2 = [slice(None)] * R.ndim
-            slc2[direction - 1] = slice(1, None)
+            slc2[direction] = slice(1, None)
             slc2 = tuple(slc2)
-            spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2), t
-            result = np.zeros_like(np.broadcast(R, z, t))
-            return np.cumsum(spacings, direction, out=result[slc2])
+            spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2)
+            result = np.zeros(np.broadcast(R, z).shape)
+            return np.cumsum(spacings, direction, out=result[slc2]), t
 
         use_cached = True
         if x1 is None:
             x1 = self.default_x1
         else:
             use_cached = False
-        if x1 is None:
+        if x2 is None:
             x2 = self.default_x2
         else:
             use_cached = False
@@ -350,7 +377,7 @@ class CoordinateTransform(ABC):
         else:
             use_cached = False
         if use_cached:
-            if self.default_distance[direction - 1] is None:
+            if self.default_distance[direction - 1][0] is None:
                 self.default_distance[direction - 1] = calc_distance(
                     direction, x1, x2, t
                 )

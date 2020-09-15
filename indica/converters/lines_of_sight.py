@@ -101,9 +101,19 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2_inversion: Optional[Callable[[ArrayLike, ArrayLike], ArrayLike]] = None
         super().__init__(indices, x2, R_default, z_default, 0)
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        result = self._abstract_equals(other)
+        result = result and np.all(self.R_start == other.R_start)
+        result = result and np.all(self.z_start == other.z_start)
+        result = result and np.all(self.R_end == other.R_end)
+        result = result and np.all(self.z_end == other.z_end)
+        return result
+
     def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
-        c = np.ceil(x1)
-        f = np.floor(x1)
+        c = np.ceil(x1).astype(int)
+        f = np.floor(x1).astype(int)
         Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
         Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_start[f]
         zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]

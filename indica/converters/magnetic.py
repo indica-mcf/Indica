@@ -107,3 +107,9 @@ class MagneticCoordinates(CoordinateTransform):
         """
         B, t2 = self.equilibrium.Btot(R, z, t)
         return B, z - self.z_los, t2
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        result = self._abstract_equals(other)
+        return result and np.all(self.z_los == other.z_los)

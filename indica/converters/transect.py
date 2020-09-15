@@ -62,3 +62,8 @@ class TransectCoordinates(CoordinateTransform):
         x1 = self.invert(R)
         x2 = z - self.z_vals(x1)
         return x1, x2, t
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self._abstract_equals(other)
