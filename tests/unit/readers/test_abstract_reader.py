@@ -1,13 +1,16 @@
 """Test methods present on the base class DataReader."""
 
+from contextlib import contextmanager
 from copy import copy
 import datetime
 import os
 from tempfile import TemporaryDirectory
+from time import sleep
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from hypothesis import given
+from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
@@ -17,9 +20,11 @@ from hypothesis.strategies import lists
 from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
+from hypothesis.strategies import tuples
 import numpy as np
 import prov.model as prov
 from pytest import fixture
+from pytest import mark
 from xarray import DataArray
 
 import indica.converters.time
@@ -35,7 +40,9 @@ from ..data_strategies import equilibrium_data
 from ..strategies import float_series
 
 
-times = lists(floats(0.0, 1000.0), min_size=2, max_size=2).map(sorted)
+tstarts = floats(0.0, 1000.0)
+tends = floats(0.0, 1000.0).map(lambda x: 1000.0 - x)
+times = tuples(tstarts, tends).map(sorted)
 max_freqs = floats(0.1, 1000.0)
 
 
@@ -55,7 +62,7 @@ def patch_bin_in_time(monkeypatch):
 
 
 @composite
-def dicts_with(draw, *options, min_size=0, max_size=None):
+def dicts_with(draw, *options, min_size=1, max_size=None):
     """Strategy to produce a dictionary containig some combination of the
     key-value pairs passed as arguments in the form of tuples.
 
@@ -86,7 +93,7 @@ def expected_data(draw, coordinate_transform, *options, unique_transforms=False)
         Whether the data arrays in the result should all use the same transform
         object or unique ones of the same class.
     """
-    time = (float_series(0.0, 1e3),)
+    time = np.expand_dims(draw(float_series(0.0, 1e3)), (1, 2))
     if not unique_transforms:
         return draw(
             array_dictionaries(
@@ -96,10 +103,12 @@ def expected_data(draw, coordinate_transform, *options, unique_transforms=False)
             )
         )
     else:
-        items = draw(dicts_with(options))
+        items = draw(dicts_with(*options))
         result = {}
         for key, datatype in items:
-            result[key] = data_arrays(datatype, coordinate_transform)
+            result[key] = data_arrays(
+                datatype, coordinate_transform, override_coords=[None, None, time]
+            )
         return result
 
 
@@ -110,10 +119,7 @@ def find_dropped_channels(array, dimension):
     """
     if "dropped" not in array.attrs:
         return []
-    return [
-        np.nonzero(array.coords[dimension] == v)[0][0]
-        for v in array.attrs["dropped"].coords[dimension]
-    ]
+    return array.attrs["dropped"].coords[dimension].values
 
 
 def assert_data_arrays_equal(actual, expected, tstart, tend, max_freq):
@@ -126,8 +132,9 @@ def assert_data_arrays_equal(actual, expected, tstart, tend, max_freq):
     assert np.all(times <= tend + 0.5)
     assert np.all(np.unique(times) == times)
     assert np.all(np.isin(times, expected.coords["t"]))
-    assert len(times) / (times[-1] - times[0]) <= max_freq
-    tslice = np.argwhere(np.isin(expected.coords["t"], times))
+    if len(times) > 1:
+        assert len(times) / (times[-1] - times[0]) <= max_freq
+    tslice = np.isin(expected.coords["t"], times)
     assert actual.equals(expected.isel(t=tslice))
     if "error" in expected.attrs:
         assert actual.attrs["error"].equals(expected.attrs["error"].isel(t=tslice))
@@ -142,24 +149,73 @@ def assert_data_arrays_equal(actual, expected, tstart, tend, max_freq):
     assert actual.attrs["transform"] == expected.attrs["transform"]
 
 
+def _check_calls_equivalent(actual_args, expected_args):
+    """Checks two calls to a mock are equivalent. Unlike the standard,
+    implementation, this one is designed to work with numpy arrays."""
+    if len(actual_args[0]) != len(expected_args[0]):
+        return False
+    for a, e in zip(actual_args[0], expected_args[0]):
+        if isinstance(a, np.ndarray) or isinstance(e, np.ndarray):
+            val = np.all(a == e)
+        else:
+            val = a == e
+        if not val:
+            return False
+    if len(actual_args[1]) != len(expected_args[1]):
+        return False
+    if actual_args[1].keys() != expected_args[1].keys():
+        return False
+    for key in actual_args[1]:
+        a = actual_args[1][key]
+        e = expected_args[1][key]
+        if isinstance(a, np.ndarray) or isinstance(e, np.ndarray):
+            val = np.all(a == e)
+        else:
+            val = a == e
+        if not val:
+            return False
+    return True
+
+
+def assert_any_call(mock, *expected_args, **expected_kwargs):
+    """Checks the mock has been called with these arguments at some point.
+    Unlike the standard implementation, this works with numpy arrays.
+    """
+    for call in mock.call_args_list:
+        if _check_calls_equivalent(call, (expected_args, expected_kwargs)):
+            return
+    assert False, "No matching calls."
+
+
+def assert_called_with(mock, *expected_args, **expected_kwargs):
+    """Checks the most recent call to the mock was made with these arguments.
+    Unlike the standard implementation, this works with numpy arrays.
+    """
+    assert mock.call_args is not None
+    assert _check_calls_equivalent(mock.call_args, (expected_args, expected_kwargs))
+
+
 def finish_fake_array(array, instrument, quantity, coord_name1=None, coord_name2=None):
     """Modify the provided data array (in place) to use appropriate names."""
     array.name = instrument + "_" + quantity
-    dims = ["t"]
-    if len(array.dims) > 1:
-        dims.append(coord_name1 if coord_name1 else instrument + "_coord")
-    if len(array.dims) > 2:
-        dims.append(coord_name2 if coord_name2 else instrument + "_coord2")
-    if len(array.dims) > 3:
-        dims.extend(array.dims[3:])
-    dims = tuple(dims)
-    array.dims = dims
+    newdims = {}
+    if "x1" in array.dims:
+        newdims["x1"] = coord_name1 if coord_name1 else instrument + "_coord"
+    if "x2" in array.dims:
+        newdims["x2"] = coord_name2 if coord_name2 else instrument + "_coord2"
+    if len(newdims) > 0:
+        array = array.rename(newdims)
     if "error" in array.attrs:
-        array.attrs["error"].dims = dims
+        array.attrs["error"] = array.attrs["error"].rename(newdims)
     if "dropped" in array.attrs:
-        array.attrs["dropped"].dims = dims
+        array.attrs["dropped"] = array.attrs["dropped"].rename(newdims)
         if "error" in array.attrs:
-            array.attrs["dropped"].attrs["error"].dims = dims
+            array.attrs["dropped"].attrs["error"] = (
+                array.attrs["dropped"].attrs["error"].rename(newdims)
+            )
+    if hasattr(array.attrs["transform"], "equilibrium"):
+        del array.attrs["transform"].equilibrium
+    return array
 
 
 @given(
@@ -175,11 +231,12 @@ def finish_fake_array(array, instrument, quantity, coord_name1=None, coord_name2
     max_freqs,
 )
 def test_thomson_scattering(
-    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
 ):
     """Test the get_thomson_scattering method correctly combines and processes
     raw data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items]
+    for key, val in data.items():
+        data[key] = finish_fake_array(val, instrument, key)
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
@@ -189,7 +246,8 @@ def test_thomson_scattering(
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        reader.create_provenance.assert_any_call(
+        assert_any_call(
+            reader.create_provenance,
             "thomson_scattering",
             uid,
             instrument,
@@ -201,7 +259,7 @@ def test_thomson_scattering(
 
 
 @given(
-    sampled_from(ELEMENTS).flatmap(
+    sampled_from(sorted(ELEMENTS)).flatmap(
         lambda x: expected_data(
             transect_coordinates(),
             ("angf", ("angular_freq", x)),
@@ -216,11 +274,11 @@ def test_thomson_scattering(
     max_freqs,
 )
 def test_charge_exchange(
-    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
 ):
     """Test the get_charge_exchange method correctly combines and processes
     raw data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items]
+    [finish_fake_array(v, instrument, k) for k, v in data.items()]
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_charge_exchange(next(iter(data.values())), data)
     quantities = set(data)
@@ -230,7 +288,9 @@ def test_charge_exchange(
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        reader.create_provenance.assert_any_call(
+        assert_any_call()
+        assert_any_call(
+            reader.create_provenance,
             "charge_exchange",
             uid,
             instrument,
@@ -250,11 +310,11 @@ def test_charge_exchange(
     max_freqs,
 )
 def test_cyclotron_emissions(
-    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
 ):
     """Test the get_cyclotron_emissions method correctly combines and processes
     raw data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items]
+    [finish_fake_array(v, instrument, k) for k, v in data.items()]
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
@@ -264,7 +324,8 @@ def test_cyclotron_emissions(
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        reader.create_provenance.assert_any_call(
+        assert_any_call(
+            reader.create_provenance,
             "cyclotron_emissions",
             uid,
             instrument,
@@ -289,10 +350,10 @@ def test_cyclotron_emissions(
     times,
     max_freqs,
 )
-def test_sxr(data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time):
+def test_sxr(patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items]
+    [finish_fake_array(v, instrument, k) for k, v in data.items()]
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
@@ -300,7 +361,8 @@ def test_sxr(data, uid, instrument, revision, time_range, max_freq, patch_bin_in
     reader._get_radiation.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        reader.create_provenance.assert_any_call(
+        assert_any_call(
+            reader.create_provenance,
             "radiation",
             uid,
             instrument,
@@ -325,11 +387,11 @@ def test_sxr(data, uid, instrument, revision, time_range, max_freq, patch_bin_in
     max_freqs,
 )
 def test_bolometry(
-    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
 ):
     """Test the get_radiation method correctly combines and processes
     raw bolometry data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items]
+    [finish_fake_array(v, instrument, k) for k, v in data.items()]
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
@@ -337,7 +399,8 @@ def test_bolometry(
     reader._get_bolometry.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        reader.create_provenance.assert_any_call(
+        assert_any_call(
+            reader.create_provenance,
             "radiation",
             uid,
             instrument,
@@ -362,11 +425,11 @@ def test_bolometry(
     max_freqs,
 )
 def test_bremsstrahlung_spectroscopy(
-    data, uid, instrument, revision, time_range, max_freq, patch_bin_in_time
+    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
 ):
     """Test the get_bremsstrahlung_spectroscopy method correctly combines and processes
     raw data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items]
+    [finish_fake_array(v, instrument, k) for k, v in data.items()]
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_bremsstrahlung_spectroscopy(next(iter(data.values())), data)
     quantities = set(data)
@@ -378,7 +441,8 @@ def test_bremsstrahlung_spectroscopy(
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        reader.create_provenance.assert_any_call(
+        assert_any_call(
+            reader.create_provenance,
             "bremsstrahlung_spectroscopy",
             uid,
             instrument,
@@ -417,6 +481,7 @@ def test_bremsstrahlung_spectroscopy(
     max_freqs,
 )
 def test_equilibrium(
+    patch_bin_in_time,
     data,
     quantities,
     uid,
@@ -424,7 +489,6 @@ def test_equilibrium(
     revision,
     time_range,
     max_freq,
-    patch_bin_in_time,
 ):
     """Test the get_equilibrium method correctly combines and processes raw
     data.
@@ -435,7 +499,8 @@ def test_equilibrium(
     results = reader.get_equilibrium(uid, calculation, revision, set(quantities))
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        reader.create_provenance.assert_any_call(
+        assert_any_call(
+            reader.create_provenance,
             "equilibrium",
             uid,
             calculation,
@@ -484,9 +549,9 @@ def test_prov_for_reader(tstart, tend, max_freq, extra_reader_attrs):
     reader = ConcreteReader(tstart, tend, max_freq, session, **extra_reader_attrs)
     t2 = datetime.datetime.now()
     assert hasattr(reader, "agent")
-    assert isinstance(reader.agent, prov.Agent)
+    assert isinstance(reader.agent, prov.ProvAgent)
     assert hasattr(reader, "entity")
-    assert isinstance(reader.entity, prov.Entity)
+    assert isinstance(reader.entity, prov.ProvEntity)
     assert reader.agent.identifier == reader.entity.identifier == reader.prov_id
     deleg = get_only_record(doc, prov.ProvDelegation)
     assert reader.agent.idnetifier == deleg.get_attribute("prov:delegate")[1]
@@ -571,7 +636,7 @@ def test_prov_for_data(
     assert len(data) == 0
 
 
-@fixture
+@contextmanager
 def cachedir():
     """Set up a fake cache directory for testing getting of channels to
     drop.
@@ -583,43 +648,73 @@ def cachedir():
     userdir = os.path.expanduser("~")
     with TemporaryDirectory(dir=userdir) as new_cache:
         areader.CACHE_DIR = os.path.relpath(new_cache, userdir)
-        yield areader.CACHE_DIR
-    areader.CACHE_DIR = old_cache
+        try:
+            yield areader.CACHE_DIR
+        finally:
+            areader.CACHE_DIR = old_cache
 
 
+@mark.filterwarnings("ignore:loadtxt")
 @given(
     from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
     text(),
-    lists(numbers, unique=True),
-    lists(numbers, unique=True),
-    lists(numbers, unique=True),
+    sampled_from(
+        [
+            integers(-2147483647, 2147483647),
+            floats(allow_nan=False, allow_infinity=False),
+        ]
+    ).flatmap(
+        lambda strat: tuples(
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+        )
+    ),
 )
-def test_select_channels(key, dim, bad_channels, expected1, expected2, cachedir):
+@settings(report_multiple_bugs=False)
+def test_select_channels(key, dim, channel_args):
     """Check selecting channels properly handles caching."""
+    bad_channels, expected1, expected2 = channel_args
     data = MagicMock()
     selector = MagicMock()
-    selector.return_value = expected1
-    reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector)
-    cachefile = os.path.join("~", cachedir, reader.__class__.__name__, key)
-    if os.path.isfile(cachefile):
-        os.remove(cachefile)
-    # Test when no cache file is present
-    channels = reader._select_channels(key, data, dim, bad_channels)
-    assert np.all(channels == expected1)
-    selector.assert_called_with(data, dim, bad_channels, [])
-    assert os.path.isfile(cachefile)
-    # Check when cache file present but select different channels
-    creation_time = os.path.getctime(cachefile)
-    selector.return_value = expected2
-    channels = reader._select_channels(key, data, dim, bad_channels)
-    assert np.all(channels == expected2)
-    selector.assert_called_with(data, dim, bad_channels, expected1)
-    mod_time1 = os.path.getmtime(cachefile)
-    assert creation_time < mod_time1
-    # Check when cache file present and reuse those channels
-    selector.side_effect = lambda data, dim, bad, cached: cached
-    channels = reader._select_channels(key, data, dim, bad_channels)
-    assert np.all(channels == expected2)
-    selector.assert_called_with(data, dim, bad_channels, expected2)
-    mod_time2 = os.path.getmtime(cachefile)
-    assert mod_time1 < mod_time2
+    data.coords[dim].dtype = (
+        type(expected1[0])
+        if len(expected1) > 0
+        else type(expected2[0])
+        if len(expected2) > 0
+        else type(bad_channels[0])
+        if len(bad_channels) > 0
+        else float
+    )
+    with cachedir() as cdir:
+        selector.return_value = expected1
+        reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector)
+        cachefile = os.path.expanduser(
+            os.path.join("~", cdir, reader.__class__.__name__, key)
+        )
+        print(cachefile)
+        if os.path.isfile(cachefile):
+            os.remove(cachefile)
+        # Test when no cache file is present
+        channels = reader._select_channels(key, data, dim, bad_channels)
+        assert np.all(channels == expected1)
+        assert_called_with(selector, data, dim, bad_channels, [])
+        assert os.path.isfile(cachefile)
+        # Check when cache file present but select different channels
+        creation_time = os.path.getctime(cachefile)
+        selector.return_value = expected2
+        sleep(1e-2)
+        channels = reader._select_channels(key, data, dim, bad_channels)
+        assert np.all(channels == expected2)
+        assert_called_with(selector, data, dim, bad_channels, expected1)
+        mod_time1 = os.path.getmtime(cachefile)
+        assert creation_time < mod_time1
+        # Check when cache file present and reuse those channels
+        selector.side_effect = lambda data, dim, bad, cached: cached
+        data.coords[dim].dtype = type(expected2[0]) if len(expected2) > 0 else float
+        sleep(1e-2)
+        channels = reader._select_channels(key, data, dim, bad_channels)
+        assert np.all(channels == expected2)
+        assert_called_with(selector, data, dim, bad_channels, expected2)
+        mod_time2 = os.path.getmtime(cachefile)
+        assert mod_time1 < mod_time2

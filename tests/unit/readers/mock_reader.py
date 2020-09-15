@@ -2,9 +2,8 @@
 reader methods."""
 
 from collections import defaultdict
+import inspect
 from unittest.mock import MagicMock
-
-import numpy as np
 
 from indica.readers import DataReader
 
@@ -20,12 +19,12 @@ def set_results(mock_name):
 
     def inner(func):
         def setter(self, default, specific={}):
-            non_optional, def_vals, spec_vals = func(default, specific)
+            non_optional, def_vals, spec_vals = func(self, default, specific)
 
             def side_effects(uid, instrument, revision, quantities):
                 result = dict(non_optional)
                 for q in quantities:
-                    vals = spec_vals.getitem(q, def_vals)
+                    vals = spec_vals.get(q, def_vals)
                     for desc, val in vals.items():
                         key = q + "_" + desc if desc else q
                         result[key] = val
@@ -44,8 +43,11 @@ def get_vals_error_records(sample):
     created it.
 
     """
-    s = sample.with_ignored_data()
-    return {"": s.values, "error": s.attrs["error"].values, "records": []}
+    s = sample.indica.with_ignored_data
+    result = {"": s.values, "error": s.attrs["error"].values, "records": []}
+    if "error" in sample.attrs:
+        result["error"] = s.attrs["error"].values
+    return result
 
 
 def get_vals_error_records_los(sample):
@@ -88,6 +90,7 @@ class MockReader(ConcreteReader):
         tend=1e10,
         max_freq=1e50,
     ):
+        self.reader_cache_id = "mock"
         self._tstart = tstart
         self._tend = tend
         self._max_freq = max_freq
@@ -97,27 +100,35 @@ class MockReader(ConcreteReader):
         self._get_cyclotron_emissions = MagicMock()
         self._get_radiation = MagicMock()
         self._get_bremsstrahlung_spectroscopy = MagicMock()
-        self.available_quantities = MagicMock()
+
+        def dummy_selector(k, d, c, b=[]):
+            return self.drop_channels[k.split("-")[1]][k.split("-")[-1]]
+
         if mock_select_channels:
             self._select_channels = MagicMock()
             self.drop_channels = {}
-            self._select_channels.side_effect = lambda k, d, c, b: self.drop_channels[
-                str(d.values)
-            ]
+            self._select_channels.side_effect = dummy_selector
         if mock_provenance:
             self.create_provenance = MagicMock()
 
-    def _add_dropped_channel_data(self, data):
+    def _add_dropped_channel_data(self, diagnostic, default, specific):
         """Figure out which channels have been dropped from data and add that
         list as an option for the mock implementation of _select_channels."""
-        if not hasattr(self, "drop_channels") or "dropped" not in data.attrs:
+        if not hasattr(self, "drop_channels"):
             return
-        dim = list(filter(lambda x: x != "t", data.coords))[0]
-        channels = [
-            np.nonzero(data.coords[dim] == v)[0][0]
-            for v in data.attrs["dropped"].coords[dim]
-        ]
-        self.drop_channels[str(data.values)] = channels
+
+        def get_drop_list(data):
+            if "dropped" not in data.attrs:
+                channels = []
+            else:
+                dim = data.indica.drop_dim
+                channels = data.attrs["dropped"].coords[dim].values
+            return channels
+
+        self.drop_channels[diagnostic] = defaultdict(lambda: get_drop_list(default))
+        self.drop_channels[diagnostic].update(
+            {k: get_drop_list(v) for k, v in specific.items()}
+        )
 
     @set_results("_get_thomson_scattering")
     def set_thomson_scattering(self, default, specific={}):
@@ -127,8 +138,7 @@ class MockReader(ConcreteReader):
         provided for its key in the ``specific`` dict.
 
         """
-        self._add_dropped_channel_data(default)
-        [self._add_dropped_channel_data(s) for s in specific.values()]
+        self._add_dropped_channel_data("thomson", default, specific)
         non_optional = {}
         non_optional["R"] = default.attrs["transform"].default_R
         non_optional["z"] = default.attrs["transform"].default_z
@@ -146,8 +156,7 @@ class MockReader(ConcreteReader):
         key in the ``specific`` dict.
 
         """
-        self._add_dropped_channel_data(default)
-        [self._add_dropped_channel_data(s) for s in specific.values()]
+        self._add_dropped_channel_data("cxrs", default, specific)
         non_optional = {}
         non_optional["R"] = default.attrs["transform"].default_R
         non_optional["z"] = default.attrs["transform"].default_z
@@ -186,8 +195,7 @@ class MockReader(ConcreteReader):
         provided for its key in the ``specific`` dict.
 
         """
-        self._add_dropped_channel_data(default)
-        [self._add_dropped_channel_data(s) for s in specific.values()]
+        self._add_dropped_channel_data("cyclotron", default, specific)
         non_optional = {}
         non_optional["Btot"] = default.coords["Btot"]
         non_optional["z"] = default.attrs["transform"].default_z
@@ -205,8 +213,7 @@ class MockReader(ConcreteReader):
         provided for its key in the ``specific`` dict.
 
         """
-        self._add_dropped_channel_data(default)
-        [self._add_dropped_channel_data(s) for s in specific.values()]
+        self._add_dropped_channel_data("radiation", default, specific)
         non_optional = {}
         non_optional["times"] = default.coords["t"]
         non_optional["length"] = defaultdict(
@@ -224,8 +231,7 @@ class MockReader(ConcreteReader):
         the ``specific`` dict.
 
         """
-        self._add_dropped_channel_data(default)
-        [self._add_dropped_channel_data(s) for s in specific.values()]
+        self._add_dropped_channel_data("bolometry", default, specific)
         non_optional = {}
         non_optional["times"] = default.coords["t"]
         non_optional["length"] = defaultdict(
@@ -243,11 +249,17 @@ class MockReader(ConcreteReader):
         provided for its key in the ``specific`` dict.
 
         """
-        self._add_dropped_channel_data(default)
-        [self._add_dropped_channel_data(s) for s in specific.values()]
+        self._add_dropped_channel_data("bremsstrahlung", default, specific)
         non_optional = {}
         non_optional["times"] = default.coords["t"]
         non_optional["length"] = default.shape[1]
         default_vals = get_vals_error_records_los(default)
         specific_vals = {k: get_vals_error_records_los(v) for k, v in specific.items()}
         return non_optional, default_vals, specific_vals
+
+    def available_quantities(self, instrument):
+        method = inspect.stack()[1].function
+        if instrument in self._IMPLEMENTATION_QUANTITIES:
+            return self._IMPLEMENTATION_QUANTITIES[instrument]
+        else:
+            return self._AVAILABLE_QUANTITIES[method]

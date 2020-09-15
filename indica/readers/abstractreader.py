@@ -19,14 +19,14 @@ from xarray import DataArray
 from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
+from ..converters import TransectCoordinates
 from ..datatypes import ArrayType
 from ..session import hash_vals
 from ..session import Session
-from ..utilities import get_slice_limits
 from ..utilities import to_filename
 
 # TODO: Place this in some global location?
-CACHE_DIR = ".impurities"
+CACHE_DIR = ".indica"
 
 
 class DataReader(BaseIO):
@@ -62,8 +62,8 @@ class DataReader(BaseIO):
     # fetched. An implementation may override this for specific DDAs.
     _AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "get_thomson_scattering": {
-            "ne": ("number_density", "electron"),
-            "te": ("temperature", "electron"),
+            "ne": ("number_density", "electrons"),
+            "te": ("temperature", "electrons"),
         },
         "get_charge_exchange": {
             "angf": ("angular_freq", None),
@@ -88,14 +88,14 @@ class DataReader(BaseIO):
             "zmag": ("z", "mag_axis"),
             "zsep": ("z", "separatrix_axis"),
         },
-        "get_cyclotron_emissions": {"te": ("temperature", "electron"),},
+        "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
         "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
     }
     # Quantities available for specific DDAs in a given
     # implementation. Override values given in _AVAILABLE_QUANTITIES.
     _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
 
-    _RECORD_TEMPLATE = "{}-{}-{}-{}"
+    _RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
 
     def __init__(
@@ -131,8 +131,9 @@ class DataReader(BaseIO):
             the reader.
 
         """
-        self._tstart = tstart
-        self._tend = tend
+        self._reader_cache_id: str
+        self._tstart = tstart - 0.5
+        self._tend = tend + 0.5
         self._max_freq = max_freq
         self._start_time = None
         self.session = sess
@@ -220,32 +221,51 @@ class DataReader(BaseIO):
         )
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
-        coords = [("t", database_results["times"]), (diagnostic_coord, ticks)]
+        times = database_results["times"]
+        coords = [("t", times), (diagnostic_coord, ticks)]
         data = {}
         # TODO: Assemble a CoordinateTransform object
+        downsample_ratio = int(
+            np.ceil(len(times) / (times[-1] - times[0]) / self._max_freq)
+        )
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
-                    "{} can not read thomson_scattering data for "
+                    "{} can not read Thomson scattering data for "
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
             cachefile = self._RECORD_TEMPLATE.format(
-                "thomson", instrument, uid, quantity
+                self._reader_cache_id, "thomson", instrument, uid, quantity
             )
             meta = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(database_results[quantity + "_error"], coords),
+                "error": DataArray(database_results[quantity + "_error"], coords).sel(
+                    t=slice(self._tstart, self._tend)
+                ),
+                "transform": TransectCoordinates(
+                    database_results["R"], database_results["z"]
+                ),
             }
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
                 name=instrument + "_" + quantity,
                 attrs=meta,
-            )
+            ).sel(t=slice(self._tstart, self._tend))
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+                quant_data.attrs["error"] = np.sqrt(
+                    (quant_data.attrs["error"] ** 2)
+                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .mean
+                    / downsample_ratio
+                )
             drop = self._select_channels(cachefile, quant_data, diagnostic_coord)
             quant_data.attrs["provenance"] = self.create_provenance(
-                "thompson",
+                "thomson_scattering",
                 uid,
                 instrument,
                 revision,
@@ -253,7 +273,7 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 drop,
             )
-            data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
+            data[quantity] = quant_data.indica.ignore_data(drop, diagnostic_coord)
         return data
 
     def _get_thomson_scattering(
@@ -342,7 +362,9 @@ class DataReader(BaseIO):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            cachefile = self._RECORD_TEMPLATE.format("cxrs", instrument, uid, quantity)
+            cachefile = self._RECORD_TEMPLATE.format(
+                self._reader_cache_id, "cxrs", instrument, uid, quantity
+            )
             meta = {
                 "datatype": available_quantities[quantity],
                 "element": database_results["element"],
@@ -879,26 +901,27 @@ class DataReader(BaseIO):
             os.path.join("~", CACHE_DIR, self.__class__.__name__, cache_name)
         )
         os.makedirs(os.path.dirname(cache_file), 0o755, exist_ok=True)
+        dtype = data.coords[channel_dim].dtype
         if os.path.exists(cache_file):
-            cached_vals = np.loadtxt(cache_file, dtype=data.coords[channel_dim].dtype)
+            cached_vals = np.loadtxt(cache_file, dtype)
+            if cached_vals.ndim == 0:
+                cached_vals = np.array([cached_vals])
         else:
             cached_vals = []
         ignored = self._selector(data, channel_dim, bad_channels, cached_vals)
-        np.savetxt(cache_file, ignored)
+        form = "%d" if np.issubdtype(dtype, np.integer) else "%.18e"
+        np.savetxt(cache_file, ignored, form)
         return ignored
 
     def _set_times_item(
         self, results: Dict[str, Any], times: np.ndarray, nstart: int, nend: int,
-    ) -> Tuple[int, int]:
+    ):
         """Add the "times" data to the dictionary, if not already
-        present. Also return the upper and lower limits required based
-        on the start and end times desired.
+        present.
 
         """
         if "times" not in results:
-            nstart, nend = get_slice_limits(self._tstart, self._tend, times)
-            results["times"] = times[nstart, nend].copy()
-        return nstart, nend
+            results["times"] = times
 
     def available_quantities(self, instrument):
         """Return the quantities which can be read for the specified
