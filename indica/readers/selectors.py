@@ -60,7 +60,7 @@ def choose_on_plot(
         "include it\nagain. Ignored channels are in grey and suspicious "
         "channels are in red.\n"
     )
-    print("Once finished, close the plot.")
+    print("Once finished, close the plot.\n")
 
     channels_to_drop = list(unselected_channels)
 
@@ -76,8 +76,8 @@ def choose_on_plot(
     plots: List[PathCollection] = []
 
     def on_pick(event):
-        ind = event.ind
-        label = data.coords[channel_dim][ind]
+        ind = event.ind[0]
+        label = data.coords[channel_dim].data[ind]
         if label in channels_to_drop:
             channels_to_drop.remove(label)
             colours[ind] = original_colours[ind]
@@ -89,7 +89,7 @@ def choose_on_plot(
         for plot in plots:
             plot.set_color(colours)  # Does this work? Or should I use set_facecolor?
         # Not sure whether I'll need this:
-        # event.canvas.draw()
+        event.canvas.draw()
 
     if data.ndim > 2:
         raise ValueError("Received DataArray with more than 2 dimensions.")
@@ -109,7 +109,7 @@ def choose_on_plot(
     else:
         # Work out which time slices to plot
         available_rows = len(data.coords[other_dim])
-        stride = available_rows % MAX_TIME_SLICES
+        stride = available_rows // MAX_TIME_SLICES
         for row in range(0, available_rows, stride):
             plots.append(
                 plt.scatter(
@@ -121,5 +121,9 @@ def choose_on_plot(
             )
 
     fig.canvas.mpl_connect("pick_event", on_pick)
+    plt.xlabel(channel_dim)
+    datatype = data.attrs["datatype"]
+    plt.ylabel(f"{datatype[1]} {datatype[0]}")
     plt.show()
+    print("---------------------------------------------------------------------\n")
     return channels_to_drop
