@@ -34,7 +34,6 @@ from ..converters.test_transect import transect_coordinates
 from ..data_strategies import array_dictionaries
 from ..data_strategies import data_arrays
 from ..data_strategies import equilibrium_data
-from ..strategies import float_series
 
 
 tstarts = floats(0.0, 1000.0)
@@ -75,7 +74,10 @@ def expected_data(draw, coordinate_transform, *options, unique_transforms=False)
         Whether the data arrays in the result should all use the same transform
         object or unique ones of the same class.
     """
-    time = np.expand_dims(draw(float_series(0.0, 1e3)), (1, 2))
+    start = draw(floats(0.0, 9.9999e2))
+    stop = 1e3 - draw(floats(0.0, 9.9999e2 - start, exclude_min=True))
+    n = draw(integers(2, 20))
+    time = np.expand_dims(np.linspace(start, stop, n), (1, 2))
     if not unique_transforms:
         return draw(
             array_dictionaries(
@@ -257,6 +259,10 @@ def finish_fake_array(array, instrument, quantity, coord_name1=None, coord_name2
     if hasattr(array.attrs["transform"], "equilibrium"):
         del array.attrs["transform"].equilibrium
     return array
+
+
+# Ignore warnings when an empty array
+pytestmark = mark.filterwarnings("ignore:Mean of empty slice")
 
 
 @given(

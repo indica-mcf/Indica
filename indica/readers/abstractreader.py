@@ -248,12 +248,9 @@ class DataReader(BaseIO):
                 ),
                 "transform": transform,
             }
-            quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                name=instrument + "_" + quantity,
-                attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
+                t=slice(self._tstart, self._tend)
+            )
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -264,6 +261,7 @@ class DataReader(BaseIO):
                     .mean()
                     / downsample_ratio
                 )
+            quant_data.name = instrument + "_" + quantity
             drop = self._select_channels(cachefile, quant_data, diagnostic_coord)
             quant_data.attrs["provenance"] = self.create_provenance(
                 "thomson_scattering",
