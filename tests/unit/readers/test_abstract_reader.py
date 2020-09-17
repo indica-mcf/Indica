@@ -23,11 +23,8 @@ from hypothesis.strategies import tuples
 import numpy as np
 import prov.model as prov
 from pytest import approx
-from pytest import fixture
 from pytest import mark
-from xarray import DataArray
 
-import indica.converters.time
 from indica.datatypes import ELEMENTS
 from .mock_reader import ConcreteReader
 from .mock_reader import MockReader
@@ -44,21 +41,6 @@ tstarts = floats(0.0, 1000.0)
 tends = floats(0.0, 1000.0).map(lambda x: 1000.0 - x)
 times = tuples(tstarts, tends).map(sorted)
 max_freqs = floats(1e-3, 10.0).map(lambda x: 1 / x)
-
-
-def fake_bin_in_time(tstart: float, tend: float, interval: float, data: DataArray):
-    """Fake implementation of indica.converters.time.bin_in_time. Rather than
-    averaging values it downsamples, taking the value from the nearest
-    available point."""
-    npoints = round((tend - tstart) / interval) + 1
-    tlabels = np.linspace(tstart, tend, npoints)
-    return data.sel(t=tlabels, method="nearest")
-
-
-@fixture
-def patch_bin_in_time(monkeypatch):
-    """Patch indica.converters.time.bin_in_time to user fake_bin_in_time."""
-    monkeypatch.setattr(indica.converters.time, "bin_in_time", fake_bin_in_time)
 
 
 @composite
@@ -289,9 +271,7 @@ def finish_fake_array(array, instrument, quantity, coord_name1=None, coord_name2
     times,
     max_freqs,
 )
-def test_thomson_scattering(
-    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
-):
+def test_thomson_scattering(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_thomson_scattering method correctly combines and processes
     raw data."""
     for key, val in data.items():
@@ -332,9 +312,7 @@ def test_thomson_scattering(
     times,
     max_freqs,
 )
-def test_charge_exchange(
-    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
-):
+def test_charge_exchange(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_charge_exchange method correctly combines and processes
     raw data."""
     for key, val in data.items():
@@ -369,9 +347,7 @@ def test_charge_exchange(
     times,
     max_freqs,
 )
-def test_cyclotron_emissions(
-    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
-):
+def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_cyclotron_emissions method correctly combines and processes
     raw data."""
     for key, val in data.items():
@@ -411,7 +387,7 @@ def test_cyclotron_emissions(
     times,
     max_freqs,
 )
-def test_sxr(patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq):
+def test_sxr(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
     for key, val in data.items():
@@ -448,9 +424,7 @@ def test_sxr(patch_bin_in_time, data, uid, instrument, revision, time_range, max
     times,
     max_freqs,
 )
-def test_bolometry(
-    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
-):
+def test_bolometry(data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw bolometry data."""
     for key, val in data.items():
@@ -488,7 +462,7 @@ def test_bolometry(
     max_freqs,
 )
 def test_bremsstrahlung_spectroscopy(
-    patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq
+    data, uid, instrument, revision, time_range, max_freq
 ):
     """Test the get_bremsstrahlung_spectroscopy method correctly combines and processes
     raw data."""
@@ -546,14 +520,7 @@ def test_bremsstrahlung_spectroscopy(
     max_freqs,
 )
 def test_equilibrium(
-    patch_bin_in_time,
-    data,
-    quantities,
-    uid,
-    calculation,
-    revision,
-    time_range,
-    max_freq,
+    data, quantities, uid, calculation, revision, time_range, max_freq,
 ):
     """Test the get_equilibrium method correctly combines and processes raw
     data.
