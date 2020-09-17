@@ -142,7 +142,7 @@ class MockReader(ConcreteReader):
         non_optional = {}
         non_optional["R"] = default.attrs["transform"].default_R
         non_optional["z"] = default.attrs["transform"].default_z
-        non_optional["times"] = default.coords["t"]
+        non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
         default_vals = get_vals_error_records(default)
         specific_vals = {k: get_vals_error_records(v) for k, v in specific.items()}
@@ -160,7 +160,7 @@ class MockReader(ConcreteReader):
         non_optional = {}
         non_optional["R"] = default.attrs["transform"].default_R
         non_optional["z"] = default.attrs["transform"].default_z
-        non_optional["times"] = default.coords["t"]
+        non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
         non_optional["element"] = default.attrs["datatype"][1]
         non_optional["texp"] = default.attrs["texp"]
@@ -178,13 +178,14 @@ class MockReader(ConcreteReader):
 
         """
         non_optional = {}
-        non_optional["times"] = default.coords["t"]
-        non_optional["psin"] = default.coords["rho"] ** 2
+        non_optional["times"] = default.coords["t"].values
+        non_optional["psin"] = default.coords["rho_poloidal"].values ** 2
         default_vals = default.values
-        specific_vals = {k: {"": v.values} for k, v in specific.items()}
+        specific_vals = {k: {"": v.values, "records": []} for k, v in specific.items()}
         if "psi" in specific:
-            specific_vals["psi"]["r"] = specific["psi"].coords["R"]
-            specific_vals["psi"]["z"] = specific["psi"].coords["z"]
+            specific_vals["psi"][""] = specific["psi"].values
+            specific_vals["psi"]["r"] = specific["psi"].coords["R"].values
+            specific_vals["psi"]["z"] = specific["psi"].coords["z"].values
         return non_optional, default_vals, specific_vals
 
     @set_results("_get_cyclotron_emissions")

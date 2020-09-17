@@ -10,7 +10,6 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from hypothesis import given
-from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
@@ -23,6 +22,7 @@ from hypothesis.strategies import text
 from hypothesis.strategies import tuples
 import numpy as np
 import prov.model as prov
+from pytest import approx
 from pytest import fixture
 from pytest import mark
 from xarray import DataArray
@@ -43,7 +43,7 @@ from ..strategies import float_series
 tstarts = floats(0.0, 1000.0)
 tends = floats(0.0, 1000.0).map(lambda x: 1000.0 - x)
 times = tuples(tstarts, tends).map(sorted)
-max_freqs = floats(0.1, 1000.0)
+max_freqs = floats(1e-3, 10.0).map(lambda x: 1 / x)
 
 
 def fake_bin_in_time(tstart: float, tend: float, interval: float, data: DataArray):
@@ -122,31 +122,90 @@ def find_dropped_channels(array, dimension):
     return array.attrs["dropped"].coords[dimension].values
 
 
+def assert_values_equal(actual, expected, tstart, tend):
+    """Checks actual array is equal to the expected one within the
+    requested time range.
+
+    """
+    tslice = slice(tstart, tend)
+    assert actual.equals(expected.sel(t=tslice))
+    if "error" in expected.attrs:
+        assert actual.attrs["error"].equals(expected.attrs["error"].sel(t=tslice))
+    if "dropped" in expected.attrs:
+        assert actual.attrs["dropped"].equals(expected.attrs["dropped"].sel(t=tslice))
+        if "error" in expected.attrs:
+            assert (
+                actual.attrs["dropped"]
+                .attrs["error"]
+                .equals(expected.attrs["dropped"].attrs["error"].sel(t=tslice))
+            )
+
+
+def assert_values_binned_equal(actual, expected, max_freq):
+    """Checks actual array is consistent with binning the expected one so
+    as to satisfy the maximum frequency requirement.
+
+    """
+    min_width = 1 / max_freq
+    times = actual.coords["t"]
+    original_times = expected.coords["t"]
+    spacing = original_times[1] - original_times[0]
+    half_width = 0.5 * np.ceil(min_width / spacing) * spacing
+    # if not np.all(expected.isel(t=-1).values == expected.isel(t=0).values):
+    #     breakpoint()
+    for t in times:
+        tslice = slice(t - half_width, t + half_width)
+        count = len(expected.coords["t"].sel(t=tslice))
+        assert actual.sel(t=t).values == approx(
+            expected.sel(t=tslice).mean("t").values, nan_ok=True
+        )
+        if "error" in expected.attrs:
+            assert actual.attrs["error"].sel(t=t).values == approx(
+                np.sqrt(
+                    (expected.attrs["error"].sel(t=tslice) ** 2).mean("t") / count
+                ).values,
+                nan_ok=True,
+            )
+        if "dropped" in expected.attrs:
+            assert actual.attrs["dropped"].sel(t=t).values == approx(
+                expected.attrs["dropped"].sel(t=tslice).mean("t").values
+            )
+            if "error" in expected.attrs:
+                assert actual.attrs["dropped"].attrs["error"].sel(t=t).values == approx(
+                    np.sqrt(
+                        (
+                            expected.attrs["dropped"].attrs["error"].sel(t=tslice) ** 2
+                        ).mean("t")
+                        / count
+                    ).values
+                )
+
+
 def assert_data_arrays_equal(actual, expected, tstart, tend, max_freq):
     """Performs various assertions to confirm that the two DataArray objects
     are equivalent."""
     assert actual.name == expected.name
     assert actual.attrs["datatype"] == expected.attrs["datatype"]
     times = actual.coords["t"]
+    original_times = expected.coords["t"]
     assert np.all(times >= tstart - 0.5)
     assert np.all(times <= tend + 0.5)
     assert np.all(np.unique(times) == times)
-    assert np.all(np.isin(times, expected.coords["t"]))
     if len(times) > 1:
-        assert len(times) / (times[-1] - times[0]) <= max_freq
-    tslice = np.isin(expected.coords["t"], times)
-    assert actual.equals(expected.isel(t=tslice))
-    if "error" in expected.attrs:
-        assert actual.attrs["error"].equals(expected.attrs["error"].isel(t=tslice))
-    if "dropped" in expected.attrs:
-        assert actual.attrs["dropped"].equals(expected.attrs["dropped"].isel(t=tslice))
-        if "error" in expected.attrs:
-            assert (
-                actual.attrs["dropped"]
-                .attrs["error"]
-                .equals(expected.attrs["dropped"].attrs["error"].isel(t=tslice))
-            )
+        actual_freq = float((len(times) - 1) / (times[-1] - times[0]))
+        original_freq = float(
+            (len(original_times) - 1) / (original_times[-1] - original_times[0])
+        )
+        assert actual_freq <= max_freq
+        assert (
+            original_freq == approx(actual_freq)
+            or (round(original_freq / actual_freq) + 1) * actual_freq > max_freq
+        )
     assert actual.attrs["transform"] == expected.attrs["transform"]
+    if len(expected.coords["t"].sel(t=slice(tstart, tend))) == len(actual.coords["t"]):
+        assert_values_equal(actual, expected, tstart, tend)
+    else:
+        assert_values_binned_equal(actual, expected, max_freq)
 
 
 def _check_calls_equivalent(actual_args, expected_args):
@@ -278,7 +337,8 @@ def test_charge_exchange(
 ):
     """Test the get_charge_exchange method correctly combines and processes
     raw data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items()]
+    for key, val in data.items():
+        data[key] = finish_fake_array(val, instrument, key)
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_charge_exchange(next(iter(data.values())), data)
     quantities = set(data)
@@ -314,7 +374,8 @@ def test_cyclotron_emissions(
 ):
     """Test the get_cyclotron_emissions method correctly combines and processes
     raw data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items()]
+    for key, val in data.items():
+        data[key] = finish_fake_array(val, instrument, key)
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
@@ -353,7 +414,8 @@ def test_cyclotron_emissions(
 def test_sxr(patch_bin_in_time, data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items()]
+    for key, val in data.items():
+        data[key] = finish_fake_array(val, instrument, key)
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
@@ -391,7 +453,8 @@ def test_bolometry(
 ):
     """Test the get_radiation method correctly combines and processes
     raw bolometry data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items()]
+    for key, val in data.items():
+        data[key] = finish_fake_array(val, instrument, key)
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
@@ -429,7 +492,8 @@ def test_bremsstrahlung_spectroscopy(
 ):
     """Test the get_bremsstrahlung_spectroscopy method correctly combines and processes
     raw data."""
-    [finish_fake_array(v, instrument, k) for k, v in data.items()]
+    for key, val in data.items():
+        data[key] = finish_fake_array(val, instrument, key)
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_bremsstrahlung_spectroscopy(next(iter(data.values())), data)
     quantities = set(data)
@@ -473,6 +537,7 @@ def test_bremsstrahlung_spectroscopy(
             ]
         ),
         unique=True,
+        min_size=1,
     ),
     text(),
     text(),
@@ -494,6 +559,8 @@ def test_equilibrium(
     data.
 
     """
+    for key in data:
+        data[key].name = calculation + "_" + data[key].name
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_equilibrium(data["ftor"], data)
     results = reader.get_equilibrium(uid, calculation, revision, set(quantities))
@@ -507,7 +574,7 @@ def test_equilibrium(
             revision,
             q,
             [],
-            find_dropped_channels(expected, expected.dims[1]),
+            [],
         )
 
 
@@ -671,7 +738,6 @@ def cachedir():
         )
     ),
 )
-@settings(report_multiple_bugs=False)
 def test_select_channels(key, dim, channel_args):
     """Check selecting channels properly handles caching."""
     bad_channels, expected1, expected2 = channel_args

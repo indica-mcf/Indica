@@ -517,7 +517,7 @@ def equilibrium_data(
     nspace = draw(integers(min_spatial_points, max_spatial_points))
     ntime = draw(integers(min_time_points, max_time_points))
     times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
-    tfuncs = smooth_functions((start_time, end_time), 0.01)
+    tfuncs = smooth_functions((start_time, end_time), 0.1)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
     z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
     raw_result = {}
@@ -540,17 +540,17 @@ def equilibrium_data(
             lambda axs, diff: axs + draw(floats(0.001 * diff, diff))
         )(raw_result["faxs"], fdiff_max)
     attrs = {
-        "transform": TrivialTransform(0.0, 0.0, 0.0, 0.0, times),
+        "transform": TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0),
         "provenance": MagicMock(),
         "partial_provenance": MagicMock(),
     }
     for k, v in raw_result.items():
-        result[k] = DataArray(v, dims=[("t", times)], name=k, attrs=attrs)
+        result[k] = DataArray(v, coords=[("t", times)], name=k, attrs=attrs)
         general_dtype = (
             "major_rad"
             if k.startswith("r")
             else "z"
-            if k.startswith("f")
+            if k.startswith("z")
             else "magnetic_flux"
         )
         specific_dtype = (
@@ -559,8 +559,12 @@ def equilibrium_data(
         result[k].attrs["datatype"] = (general_dtype, specific_dtype)
 
     if Btot_factor is None:
-        width = machine_dims[0][1] - machine_dims[0][0]
-        a_coeff = machine_dims[0][1] - draw(floats(0.0, 0.2 * width)) - result["rmag"]
+        a_coeff = DataArray(
+            np.vectorize(lambda x, y: draw(floats(max(1e-2, 1.001 * x), max(1e-1, y))))(
+                np.abs(result["rsep"] - result["rmag"]), result["rmag"]
+            ),
+            coords=[("t", times)],
+        )
         b_coeff = (result["zsep"] - result["zmag"]) / np.sqrt(
             (1 - (result["rsep"] - result["rmag"]) ** 2 / a_coeff ** 2)
         )
@@ -571,42 +575,44 @@ def equilibrium_data(
 
     r = np.linspace(machine_dims[0][0], machine_dims[0][1], nspace)
     z = np.linspace(machine_dims[1][0], machine_dims[1][1], nspace)
-    rgrid = DataArray(r, dims=[("R", r)])
-    zgrid = DataArray(z, dims=[("z", z)])
+    rgrid = DataArray(r, coords=[("R", r)])
+    zgrid = DataArray(z, coords=[("z", z)])
     psin = (
-        (rgrid - result["rmag"]) ** 2 / a_coeff ** 2
-        + (zgrid - result["zmag"]) ** 2 / b_coeff ** 2
+        (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
+        + (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
     ) ** (0.5 / n_exp)
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
-    psi.attrs["transform"] = TrivialTransform(0.0, 0.0, 0.0, 0.0, times)
+    psi.attrs["transform"] = attrs["transform"]
     psi.attrs["provenance"] = MagicMock()
     psi.attrs["partial_provenance"] = MagicMock()
-    psi.attrs["datatype"] = ("norm_flux_pol", "plasma")
+    psi.attrs["datatype"] = ("magnetic_flux", "plasma")
     result["psi"] = psi
 
     psin_coords = np.linspace(0.0, 1.0, nspace)
     rho = np.sqrt(psin_coords)
-    psin_data = DataArray(psin_coords, dims=[("rho", rho)])
+    psin_data = DataArray(psin_coords, coords=[("rho_poloidal", rho)])
     raw_result = {}
-    attrs["transform"] = FluxSurfaceCoordinates("poloidal", rho, 0.0, 0.0, 0.0, times)
+    attrs["transform"] = FluxSurfaceCoordinates(
+        "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
+    )
     ftor_min = draw(floats(0.0, 1.0))
     ftor_max = draw(floats(max(1.0, 2 * fmin), 10.0))
     result["ftor"] = DataArray(
         np.outer(
             abs(draw(tfuncs)(times)), draw(monotonic_series(ftor_min, ftor_max, nspace))
         ),
-        dims=[("t", times), ("rho", rho)],
+        coords=[("t", times), ("rho_poloidal", rho)],
+        name="ftor",
+        attrs=attrs,
     )
     result["ftor"].attrs["datatype"] = ("toroidal_flux", "plasma")
     if Btot_factor is None:
         f_min = draw(floats(0.0, 1.0))
         f_max = draw(floats(max(1.0, 2 * fmin), 10.0))
-        f_raw = (
-            np.outer(
-                abs(draw(tfuncs)(times)), draw(monotonic_series(f_min, f_max, nspace))
-            ),
-        )
+        time_vals = draw(tfuncs)(times)
+        space_vals = draw(monotonic_series(f_min, f_max, nspace))
+        f_raw = np.outer(abs(1 + time_vals), space_vals)
     else:
         f_raw = np.outer(
             np.sqrt(
@@ -616,10 +622,20 @@ def equilibrium_data(
             np.ones_like(rho),
         )
         f_raw[:, 0] = Btot_factor
-    result["f"] = DataArray(f_raw, dims=[("t", times), ("rho", rho)])
+    result["f"] = DataArray(
+        f_raw, coords=[("t", times), ("rho_poloidal", rho)], name="f", attrs=attrs
+    )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
-    result["rmjo"] = result["rmag"] + a_coeff * psin_data ** n_exp
-    result["rmji"] = result["rmag"] - a_coeff * psin_data ** n_exp
+    result["rmjo"] = (result["rmag"] + a_coeff * psin_data ** n_exp).assign_attrs(
+        **attrs
+    )
+    result["rmjo"].name = "rmjo"
+    result["rmjo"].attrs["datatype"] = ("major_rad", "lfs")
+    result["rmji"] = (result["rmag"] - a_coeff * psin_data ** n_exp).assign_attrs(
+        **attrs
+    )
+    result["rmji"].name = "rmji"
+    result["rmji"].attrs["datatype"] = ("major_rad", "hfs")
     result["vjac"] = (
         4
         * n_exp
@@ -628,9 +644,12 @@ def equilibrium_data(
         * a_coeff
         * b_coeff
         * psin_data ** (2 * n_exp - 1)
-    )
+    ).assign_attrs(**attrs)
+    result["vjac"].name = "vjac"
+    result["vjac"].attrs["datatype"] = ("volume_jacobian", "plasma")
     for k in raw_result:
         result[k].attrs.update(attrs)
+        result[k].name = k
         general_datatype = (
             "toroidal_flux"
             if k == "ftor"
