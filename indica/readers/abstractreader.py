@@ -464,11 +464,11 @@ class DataReader(BaseIO):
 
         """
         location_quantities = {"psi", "rmag", "zmag", "rsep", "zsep", "faxs", "fbnd"}
+        flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(calculation)
         database_results = self._get_equilibrium(uid, calculation, revision, quantities)
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
-        rho = np.sqrt(database_results["psin"])
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
@@ -480,14 +480,19 @@ class DataReader(BaseIO):
             ]
         else:
             coords_3d = []
-        coords_2d = [("t", times), (diagnostic_coord, rho)]
         coords_1d = [("t", times)]
-        flux_transform = FluxSurfaceCoordinates(
-            "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
-        )
         trivial_transform = TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0)
+        if len(flux_quantities & quantities):
+            rho = np.sqrt(database_results["psin"])
+            coords_2d = [("t", times), (diagnostic_coord, rho)]
+            flux_transform = FluxSurfaceCoordinates(
+                "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
+            )
+        else:
+            rho = None
+            coords_2d = []
+            flux_transform = FluxSurfaceCoordinates("poloidal", 0.0, 0.0, 0.0, 0.0, 0.0)
         data = {}
-        # TODO: Assemble a CoordinateTransform object
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
@@ -550,8 +555,6 @@ class DataReader(BaseIO):
         -------
         A dictionary containing the following items:
 
-        psin : ndarray
-            Normalised poloidal flux locations at which data is sampled.
         times : ndarray
             Times at which data is sampled.
 
@@ -569,6 +572,12 @@ class DataReader(BaseIO):
             Major radii at which psi is given
         psi_z : ndarray (optional)
             Vertical positions at which psi is given
+
+        When at least one of "f", "ftor", or "vjac" is requested then
+        the results will also include:
+
+        psin : ndarray
+            Normalised poloidal flux locations at which data is sampled.
 
         """
         raise NotImplementedError(
@@ -977,7 +986,7 @@ class DataReader(BaseIO):
         return ignored
 
     def _set_times_item(
-        self, results: Dict[str, Any], times: np.ndarray, nstart: int, nend: int,
+        self, results: Dict[str, Any], times: np.ndarray,
     ):
         """Add the "times" data to the dictionary, if not already
         present.

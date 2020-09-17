@@ -206,18 +206,18 @@ class PPFReader(DataReader):
     def _get_thomson_scattering(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
-        """Produce :py:class:`xarray.DataArray` for electron temperature or
-        number density."""
+        """Fetch raw data for electron temperature or number density
+        calculated from Thomson scattering.
+
+        """
         results = {}
         z, z_path = self._get_signal(uid, instrument, "z", revision)
         results["z"] = z.data
         results["R"] = z.dimensions[0].data
         results["length"] = len(z.data)
-        nstart = 0
-        nend = -1
         if "te" in quantities:
             te, t_path = self._get_signal(uid, instrument, "te", revision)
-            self._set_times_item(results, te.dimensions[0].data, nstart, nend)
+            self._set_times_item(results, te.dimensions[0].data)
             results["te"] = te.data
             if instrument == "lidr":
                 tehi, e_path = self._get_signal(uid, instrument, "teu", revision)
@@ -228,7 +228,7 @@ class PPFReader(DataReader):
             results["te_records"] = [z_path, t_path, e_path]
         if "ne" in quantities:
             ne, d_path = self._get_signal(uid, instrument, "ne", revision)
-            self._set_times_item(results, ne.dimensions[0].data, nstart, nend)
+            self._set_times_item(results, ne.dimensions[0].data)
             results["ne"] = ne.data
             if instrument == "lidr":
                 nehi, e_path = self._get_signal(uid, instrument, "neu", revision)

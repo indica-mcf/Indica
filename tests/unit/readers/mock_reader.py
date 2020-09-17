@@ -179,11 +179,17 @@ class MockReader(ConcreteReader):
         """
         non_optional = {}
         non_optional["times"] = default.coords["t"].values
-        non_optional["psin"] = default.coords["rho_poloidal"].values ** 2
         default_vals = default.values
         specific_vals = {k: {"": v.values, "records": []} for k, v in specific.items()}
+        psin_intersection = {"f", "ftor", "rmji", "rmjo", "vjac"} & set(specific)
+        print(set(specific))
+        if len(psin_intersection) > 0:
+            psin = (
+                specific[next(iter(psin_intersection))].coords["rho_poloidal"].values
+                ** 2
+            )
+            non_optional["psin"] = psin
         if "psi" in specific:
-            specific_vals["psi"][""] = specific["psi"].values
             specific_vals["psi"]["r"] = specific["psi"].coords["R"].values
             specific_vals["psi"]["z"] = specific["psi"].coords["z"].values
         return non_optional, default_vals, specific_vals
