@@ -19,7 +19,9 @@ from xarray import DataArray
 from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
+from ..converters import FluxSurfaceCoordinates
 from ..converters import TransectCoordinates
+from ..converters import TrivialTransform
 from ..datatypes import ArrayType
 from ..session import hash_vals
 from ..session import Session
@@ -226,8 +228,9 @@ class DataReader(BaseIO):
         data = {}
         # TODO: Assemble a CoordinateTransform object
         downsample_ratio = int(
-            np.ceil(len(times) / (times[-1] - times[0]) / self._max_freq)
+            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
+        transform = TransectCoordinates(database_results["R"], database_results["z"])
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
@@ -243,9 +246,7 @@ class DataReader(BaseIO):
                 "error": DataArray(database_results[quantity + "_error"], coords).sel(
                     t=slice(self._tstart, self._tend)
                 ),
-                "transform": TransectCoordinates(
-                    database_results["R"], database_results["z"]
-                ),
+                "transform": transform,
             }
             quant_data = DataArray(
                 database_results[quantity],
@@ -260,7 +261,7 @@ class DataReader(BaseIO):
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
                     .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
-                    .mean
+                    .mean()
                     / downsample_ratio
                 )
             drop = self._select_channels(cachefile, quant_data, diagnostic_coord)
@@ -464,6 +465,70 @@ class DataReader(BaseIO):
             A dictionary containing the requested physical quantities.
 
         """
+        location_quantities = {"psi", "rmag", "zmag", "rsep", "zsep", "faxs", "fbnd"}
+        available_quantities = self.available_quantities(calculation)
+        database_results = self._get_equilibrium(uid, calculation, revision, quantities)
+        diagnostic_coord = "rho_poloidal"
+        times = database_results["times"]
+        rho = np.sqrt(database_results["psin"])
+        downsample_ratio = int(
+            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+        )
+        if "psi" in quantities:
+            coords_3d = [
+                ("t", database_results["times"]),
+                ("R", database_results["psi_r"]),
+                ("z", database_results["psi_z"]),
+            ]
+        else:
+            coords_3d = []
+        coords_2d = [("t", times), (diagnostic_coord, rho)]
+        coords_1d = [("t", times)]
+        flux_transform = FluxSurfaceCoordinates(
+            "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
+        )
+        trivial_transform = TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0)
+        data = {}
+        # TODO: Assemble a CoordinateTransform object
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read thomson_scattering data for "
+                    "quantity {}".format(self.__class__.__name__, quantity)
+                )
+
+            meta = {
+                "datatype": available_quantities[quantity],
+                "transform": trivial_transform
+                if quantity in location_quantities
+                else flux_transform,
+            }
+            coords = (
+                coords_3d
+                if quantity == "psi"
+                else coords_1d
+                if quantity in location_quantities
+                else coords_2d
+            )
+            quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
+                t=slice(self._tstart, self._tend)
+            )
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+            quant_data.name = calculation + "_" + quantity
+            quant_data.attrs["provenance"] = self.create_provenance(
+                "equilibrium",
+                uid,
+                calculation,
+                revision,
+                quantity,
+                database_results[quantity + "_records"],
+                [],
+            )
+            data[quantity] = quant_data
+        return data
 
     def _get_equilibrium(
         self, uid: str, calculation: str, revision: int, quantities: Set[str],
