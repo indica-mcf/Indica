@@ -71,7 +71,7 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
     "mag_axis": "Magnetic axis for equilibrium in tokamak",
     "nickle": "Nickle ions in plasma",
     "plasma": "The plasma as a whole",
-    "separatrix_axis": "Sepeparatrix axis for equilibrium " "in tokamak",
+    "separatrix": "Sepeparatrix surface for equilibrium in tokamak",
     "sxr": "Soft X-rays",
     "tungston": "Tungston ions in plasma",
 }
@@ -104,7 +104,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "toroidal_flux",
             "vol_jacobian",
         ],
-        "separatrix_axis": ["magnetic_flux", "major_rad", "z"],
+        "separatrix": ["magnetic_flux", "major_rad", "z"],
         "sxr": ["luminous_flux"],
     },
 )

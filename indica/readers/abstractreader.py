@@ -79,16 +79,16 @@ class DataReader(BaseIO):
         "get_equilibrium": {
             "f": ("f_value", "plasma"),
             "faxs": ("magnetic_flux", "mag_axis"),
-            "fbnd": ("magnetic_flux", "separatrix_axis"),
+            "fbnd": ("magnetic_flux", "separatrix"),
             "ftor": ("toroidal_flux", "plasma"),
             "rmji": ("major_rad", "hfs"),
             "rmjo": ("major_rad", "lfs"),
             "psi": ("magnetic_flux", "plasma"),
             "vjac": ("volume_jacobian", "plasma"),
             "rmag": ("major_rad", "mag_axis"),
-            "rsep": ("major_rad", "separatrix_axis"),
+            "rsep": ("major_rad", "separatrix"),
             "zmag": ("z", "mag_axis"),
-            "zsep": ("z", "separatrix_axis"),
+            "zsep": ("z", "separatrix"),
         },
         "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
         "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
@@ -226,7 +226,6 @@ class DataReader(BaseIO):
         times = database_results["times"]
         coords = [("t", times), (diagnostic_coord, ticks)]
         data = {}
-        # TODO: Assemble a CoordinateTransform object
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
@@ -413,7 +412,7 @@ class DataReader(BaseIO):
 
         length : int
             Number of channels in data
-        R : ndarray
+        R : ndarrays
             Major radius positions for each channel
         z : ndarray
             Vertical position of each channel
@@ -463,7 +462,8 @@ class DataReader(BaseIO):
             A dictionary containing the requested physical quantities.
 
         """
-        location_quantities = {"psi", "rmag", "zmag", "rsep", "zsep", "faxs", "fbnd"}
+        location_quantities = {"psi", "rmag", "zmag", "faxs", "fbnd"}
+        separatrix_quantities = {"rsep", "zsep"}
         flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(calculation)
         database_results = self._get_equilibrium(uid, calculation, revision, quantities)
@@ -472,26 +472,35 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
-        if "psi" in quantities:
-            coords_3d = [
-                ("t", database_results["times"]),
-                ("R", database_results["psi_r"]),
-                ("z", database_results["psi_z"]),
-            ]
-        else:
-            coords_3d = []
-        coords_1d = [("t", times)]
+        coords_1d = {"t": times}
+        dims_1d = coords_1d.keys()
         trivial_transform = TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0)
         if len(flux_quantities & quantities):
             rho = np.sqrt(database_results["psin"])
-            coords_2d = [("t", times), (diagnostic_coord, rho)]
+            coords_2d = {"t": times, diagnostic_coord: rho}
             flux_transform = FluxSurfaceCoordinates(
                 "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
             )
         else:
             rho = None
-            coords_2d = []
+            coords_2d = {}
             flux_transform = FluxSurfaceCoordinates("poloidal", 0.0, 0.0, 0.0, 0.0, 0.0)
+        dims_2d = coords_2d.keys()
+        if len(separatrix_quantities & quantities):
+            dims_sep = ["t", "arbitrary_index"]
+            coords_sep = {"t": times}
+        else:
+            dims_sep = []
+            coords_sep = {}
+        if "psi" in quantities:
+            coords_3d = {
+                "t": database_results["times"],
+                "R": database_results["psi_r"],
+                "z": database_results["psi_z"],
+            }
+        else:
+            coords_3d = {}
+        dims_3d = coords_3d.keys()
         data = {}
         for quantity in quantities:
             if quantity not in available_quantities:
@@ -503,19 +512,21 @@ class DataReader(BaseIO):
             meta = {
                 "datatype": available_quantities[quantity],
                 "transform": trivial_transform
-                if quantity in location_quantities
+                if quantity in location_quantities | separatrix_quantities
                 else flux_transform,
             }
-            coords = (
-                coords_3d
+            coords, dims = (
+                (coords_3d, dims_3d)
                 if quantity == "psi"
-                else coords_1d
+                else (coords_1d, dims_1d)
                 if quantity in location_quantities
-                else coords_2d
+                else (coords_sep, dims_sep)
+                if quantity in separatrix_quantities
+                else (coords_2d, dims_2d)
             )
-            quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
-                t=slice(self._tstart, self._tend)
-            )
+            quant_data = DataArray(
+                database_results[quantity], coords, dims, attrs=meta,
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True

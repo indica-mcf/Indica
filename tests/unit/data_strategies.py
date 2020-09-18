@@ -521,57 +521,81 @@ def equilibrium_data(
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
     z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
     raw_result = {}
-    raw_result["rmag"] = r_centre + draw(tfuncs)(times)
-    raw_result["zmag"] = z_centre + draw(tfuncs)(times)
-    raw_result["rsep"] = r_centre + draw(tfuncs)(times)
-    raw_result["zsep"] = 0.85 * machine_dims[1][0] + np.abs(draw(tfuncs)(times))
-    fmin = draw(floats(0.0, 1.0))
-    raw_result["faxs"] = fmin + np.abs(draw(tfuncs)(times))
-    if Btot_factor is None:
-        fmax = draw(floats(max(1.0, 2 * fmin), 10.0))
-        raw_result["fbnd"] = fmax - np.abs(draw(tfuncs)(times))
-    else:
-        a_coeff = np.sqrt(
-            (raw_result["rsep"] - raw_result["rmag"]) ** 2
-            + (raw_result["zsep"] - raw_result["zmag"]) ** 2
-        )
-        fdiff_max = Btot_factor * a_coeff
-        raw_result["fbnd"] = np.vectorize(
-            lambda axs, diff: axs + draw(floats(0.001 * diff, diff))
-        )(raw_result["faxs"], fdiff_max)
     attrs = {
         "transform": TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0),
         "provenance": MagicMock(),
         "partial_provenance": MagicMock(),
     }
-    for k, v in raw_result.items():
-        result[k] = DataArray(v, coords=[("t", times)], name=k, attrs=attrs)
-        general_dtype = (
-            "major_rad"
-            if k.startswith("r")
-            else "z"
-            if k.startswith("z")
-            else "magnetic_flux"
-        )
-        specific_dtype = (
-            "mag_axis" if k.endswith("mag") or k.endswith("axs") else "separatrix_axis"
-        )
-        result[k].attrs["datatype"] = (general_dtype, specific_dtype)
-
+    result["rmag"] = DataArray(
+        r_centre + draw(tfuncs)(times), coords=[("t", times)], name="rmag", attrs=attrs
+    )
+    result["rmag"].attrs["datatype"] = ("major_rad", "mag_axis")
+    result["zmag"] = DataArray(
+        z_centre + draw(tfuncs)(times), coords=[("t", times)], name="zmag", attrs=attrs
+    )
+    result["zmag"].attrs["datatype"] = ("z", "mag_axis")
+    fmin = draw(floats(0.0, 1.0))
+    result["faxs"] = DataArray(
+        fmin + np.abs(draw(tfuncs)(times)),
+        coords=[("t", times)],
+        name="faxs",
+        attrs=attrs,
+    )
+    result["faxs"].attrs["datatype"] = ("magnetic_flux", "mag_axis")
+    a_coeff = DataArray(
+        np.vectorize(lambda x: draw(floats(min(1e-2, 1e-2 * x), x)))(
+            np.abs(result["rmag"])
+        ),
+        coords=[("t", times)],
+    )
     if Btot_factor is None:
-        a_coeff = DataArray(
-            np.vectorize(lambda x, y: draw(floats(max(1e-2, 1.001 * x), max(1e-1, y))))(
-                np.abs(result["rsep"] - result["rmag"]), result["rmag"]
+        b_coeff = DataArray(
+            np.vectorize(lambda x: draw(floats(min(1e-2, 1e-2 * x), x)))(
+                np.minimum(
+                    np.abs(machine_dims[1][0] - result["zmag"].data),
+                    np.abs(machine_dims[1][1] - result["zmag"].values),
+                ),
             ),
             coords=[("t", times)],
         )
-        b_coeff = (result["zsep"] - result["zmag"]) / np.sqrt(
-            (1 - (result["rsep"] - result["rmag"]) ** 2 / a_coeff ** 2)
-        )
         n_exp = 1 + draw(floats(-0.5, 2.0))
+        fmax = draw(floats(max(1.0, 2 * fmin), 10.0))
+        result["fbnd"] = DataArray(
+            fmax - np.abs(draw(tfuncs)(times)),
+            coords=[("t", times)],
+            name="fbnd",
+            attrs=attrs,
+        )
     else:
         b_coeff = a_coeff
         n_exp = 1
+        fdiff_max = Btot_factor * a_coeff
+        result["fbnd"] = DataArray(
+            np.vectorize(lambda axs, diff: axs + draw(floats(0.001 * diff, diff)))(
+                result["faxs"], fdiff_max.values
+            ),
+            coords=[("t", times)],
+            name="fbnd",
+            attrs=attrs,
+        )
+    result["fbnd"].attrs["datatype"] = ("magnetic_flux", "separatrix")
+    thetas = DataArray(
+        np.linspace(0.0, 2 * np.pi, nspace, endpoint=False), dims=["arbitrary_index"]
+    )
+    result["rsep"] = (
+        result["rmag"]
+        + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
+    ).assign_attrs(**attrs)
+    result["rsep"].name = "rsep"
+    result["rsep"].attrs["datatype"] = ("major_rad", "separatrix")
+    result["zsep"] = (
+        result["zmag"]
+        + a_coeff
+        * b_coeff
+        / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
+    ).assign_attrs(**attrs)
+    result["zsep"].name = "zsep"
+    result["zsep"].attrs["datatype"] = ("z", "separatrix")
 
     r = np.linspace(machine_dims[0][0], machine_dims[0][1], nspace)
     z = np.linspace(machine_dims[1][0], machine_dims[1][1], nspace)
@@ -592,7 +616,6 @@ def equilibrium_data(
     psin_coords = np.linspace(0.0, 1.0, nspace)
     rho = np.sqrt(psin_coords)
     psin_data = DataArray(psin_coords, coords=[("rho_poloidal", rho)])
-    raw_result = {}
     attrs["transform"] = FluxSurfaceCoordinates(
         "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
     )
@@ -647,16 +670,4 @@ def equilibrium_data(
     ).assign_attrs(**attrs)
     result["vjac"].name = "vjac"
     result["vjac"].attrs["datatype"] = ("volume_jacobian", "plasma")
-    for k in raw_result:
-        result[k].attrs.update(attrs)
-        result[k].name = k
-        general_datatype = (
-            "toroidal_flux"
-            if k == "ftor"
-            else "vol_jacobian"
-            if k == "vjac"
-            else "major_rad"
-        )
-        specific_datatype = "hfs" if k == "rmji" else "lfs" if k == "rmjo" else "plasma"
-        result[k].attrs["datatype"] = (general_datatype, specific_datatype)
     return result
