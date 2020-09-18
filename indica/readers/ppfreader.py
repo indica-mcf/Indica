@@ -239,17 +239,39 @@ class PPFReader(DataReader):
             results["ne_records"] = [z_path, d_path, e_path]
         return results
 
-    # def _handle_equilibrium_position(self, key: str,
-    #                                  revision: int) -> DataArray:
-    #     """Produce :py:class:`xarray.DataArray` for data relating to position
-    #     of equilibrium."""
-    #     signal, uid = self._get_signal(key, revision)
-    #     meta = {"datatype": self.AVAILABLE_DATA[key]}
-    #     data = DataArray(signal.data, [("t", signal.dimensions[0].data)],
-    #                      name=key, attrs=meta)
-    #     data.attrs['provenance'] = self.create_provenance(key, revision,
-    #                                                       [uid])
-    #     return data
+    def _get_equilibrium(
+        self, uid: str, calculation: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch raw data for plasma equilibrium.
+
+        """
+        results: Dict[str, Any] = {}
+        for q in quantities:
+            if q.endswith("sep"):
+                dtype = q[:-3] + "bnd"
+            else:
+                dtype = q
+            qval, q_path = self._get_signal(uid, calculation, dtype, revision)
+            self._set_times_item(results, qval.dimensions[0].data)
+            if (
+                len(qval.dimensions) > 1
+                and q not in {"psi", "rsep", "zsep"}
+                and "psin" not in results
+            ):
+                results["psin"] = qval.dimensions[1].data
+            if q == "psi":
+                r, r_path = self._get_signal(uid, calculation, "psir", revision)
+                z, z_path = self._get_signal(uid, calculation, "psiz", revision)
+                results["psi_r"] = r.data
+                results["psi_z"] = z.data
+                results["psi"] = qval.data.reshape(
+                    (len(results["times"]), len(r.data), len(z.data))
+                )
+                results["psi_records"] = [q_path, r_path, z_path]
+            else:
+                results[q] = qval.data
+                results[q + "_records"] = [q_path]
+        return results
 
     # def _handle_kk3(self, key: str, revision: int) -> DataArray:
     #     """Produce :py:class:`xarray.DataArray` for electron temperature."""

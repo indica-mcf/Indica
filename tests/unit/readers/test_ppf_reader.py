@@ -67,7 +67,6 @@ def test_needs_authentication():
         reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
 
 
-@settings(report_multiple_bugs=False)
 @given(pulses, times, errors, max_freqs, text(), text())
 def test_authentication(fake_sal, pulse, time_range, error, freq, user, password):
     """Test authentication method on client get called."""
@@ -215,6 +214,7 @@ def test_get_charge_exchange(
         )
 
 
+@settings(report_multiple_bugs=False)
 @given(
     pulses,
     times,
@@ -274,9 +274,14 @@ def test_get_equilibrium(
     if bad_rev:
         return
     signal = reader._client.DATA[f"{instrument}/f"]
-    assert np.all(signal.dimensions[1] == results["psin"])
+    if len({"f", "ftor", "vjac", "rmji", "rmjo"} & quantities) > 0:
+        assert np.all(signal.dimensions[1].data == results["psin"])
     for q in quantities:
-        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"].data)
+        qmod = q[:-3] + "bnd" if q.endswith("sep") else q
+        assert np.all(
+            results[q].flatten()
+            == reader._client.DATA[f"{instrument}/{qmod}"].data.flatten()
+        )
         if q == "psi":
             assert sorted(results[q + "_records"]) == sorted(
                 map(
@@ -286,7 +291,7 @@ def test_get_equilibrium(
             )
         else:
             assert results[q + "_records"] == [
-                get_record(reader, pulse, uid, instrument, q, revision)
+                get_record(reader, pulse, uid, instrument, qmod, revision)
             ]
 
 
