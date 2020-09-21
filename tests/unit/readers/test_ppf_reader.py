@@ -235,10 +235,10 @@ def test_get_charge_exchange(
                 "rmjo",
                 "psi",
                 "rmag",
-                "rsep",
+                "rbnd",
                 "vjac",
                 "zmag",
-                "zsep",
+                "zbnd",
             ]
         ),
         min_size=1,
@@ -277,10 +277,9 @@ def test_get_equilibrium(
     if len({"f", "ftor", "vjac", "rmji", "rmjo"} & quantities) > 0:
         assert np.all(signal.dimensions[1].data == results["psin"])
     for q in quantities:
-        qmod = q[:-3] + "bnd" if q.endswith("sep") else q
         assert np.all(
             results[q].flatten()
-            == reader._client.DATA[f"{instrument}/{qmod}"].data.flatten()
+            == reader._client.DATA[f"{instrument}/{q}"].data.flatten()
         )
         if q == "psi":
             assert sorted(results[q + "_records"]) == sorted(
@@ -291,7 +290,7 @@ def test_get_equilibrium(
             )
         else:
             assert results[q + "_records"] == [
-                get_record(reader, pulse, uid, instrument, qmod, revision)
+                get_record(reader, pulse, uid, instrument, q, revision)
             ]
 
 

@@ -247,15 +247,11 @@ class PPFReader(DataReader):
         """
         results: Dict[str, Any] = {}
         for q in quantities:
-            if q.endswith("sep"):
-                dtype = q[:-3] + "bnd"
-            else:
-                dtype = q
-            qval, q_path = self._get_signal(uid, calculation, dtype, revision)
+            qval, q_path = self._get_signal(uid, calculation, q, revision)
             self._set_times_item(results, qval.dimensions[0].data)
             if (
                 len(qval.dimensions) > 1
-                and q not in {"psi", "rsep", "zsep"}
+                and q not in {"psi", "rbnd", "zbnd"}
                 and "psin" not in results
             ):
                 results["psin"] = qval.dimensions[1].data

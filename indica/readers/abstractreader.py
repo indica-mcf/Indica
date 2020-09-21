@@ -86,9 +86,9 @@ class DataReader(BaseIO):
             "psi": ("magnetic_flux", "plasma"),
             "vjac": ("volume_jacobian", "plasma"),
             "rmag": ("major_rad", "mag_axis"),
-            "rsep": ("major_rad", "separatrix"),
+            "rbnd": ("major_rad", "separatrix"),
             "zmag": ("z", "mag_axis"),
-            "zsep": ("z", "separatrix"),
+            "zbnd": ("z", "separatrix"),
         },
         "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
         "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
@@ -463,7 +463,7 @@ class DataReader(BaseIO):
 
         """
         location_quantities = {"psi", "rmag", "zmag", "faxs", "fbnd"}
-        separatrix_quantities = {"rsep", "zsep"}
+        separatrix_quantities = {"rbnd", "zbnd"}
         flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(calculation)
         database_results = self._get_equilibrium(uid, calculation, revision, quantities)

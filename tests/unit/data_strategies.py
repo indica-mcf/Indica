@@ -582,20 +582,20 @@ def equilibrium_data(
     thetas = DataArray(
         np.linspace(0.0, 2 * np.pi, nspace, endpoint=False), dims=["arbitrary_index"]
     )
-    result["rsep"] = (
+    result["rbnd"] = (
         result["rmag"]
         + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
     ).assign_attrs(**attrs)
-    result["rsep"].name = "rsep"
-    result["rsep"].attrs["datatype"] = ("major_rad", "separatrix")
-    result["zsep"] = (
+    result["rbnd"].name = "rbnd"
+    result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
+    result["zbnd"] = (
         result["zmag"]
         + a_coeff
         * b_coeff
         / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
     ).assign_attrs(**attrs)
-    result["zsep"].name = "zsep"
-    result["zsep"].attrs["datatype"] = ("z", "separatrix")
+    result["zbnd"].name = "zbnd"
+    result["zbnd"].attrs["datatype"] = ("z", "separatrix")
 
     r = np.linspace(machine_dims[0][0], machine_dims[0][1], nspace)
     z = np.linspace(machine_dims[1][0], machine_dims[1][1], nspace)

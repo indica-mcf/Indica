@@ -512,8 +512,8 @@ def test_bremsstrahlung_spectroscopy(
                 "vjac",
                 "rmag",
                 "zmag",
-                "rsep",
-                "zsep",
+                "rbnd",
+                "zbnd",
             ]
         ),
         unique=True,
