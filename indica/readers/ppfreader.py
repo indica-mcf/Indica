@@ -3,21 +3,37 @@ reading PPF data produced by JET.
 
 """
 
+from pathlib import Path
 import socket
 from typing import Any
 from typing import Dict
 from typing import Set
 from typing import Tuple
 
+import numpy as np
 from sal.client import SALClient
 from sal.core.exception import AuthenticationFailed
+from sal.core.exception import NodeNotFound
 from sal.dataclass import Signal
 
+import indica.readers.surf_los as surf_los
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from ..session import global_session
 from ..session import Session
+
+
+SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
+
+
+class PPFError(Exception):
+    """An exception which occurs when trying to read PPF data which would
+    not be caught by the lower-level SAL library. An example would be
+    failing to find any valid channels for an instrument when each channel
+    is a separate DTYPE.
+
+    """
 
 
 class PPFReader(DataReader):
@@ -127,7 +143,7 @@ class PPFReader(DataReader):
     #        "sxr_v": ("luminous_flux", "sxr"),
     #    }
 
-    _SXR_RANGES = {"H": (2, 17), "sxr_t": (1, 35), "sxr_v": (1, 35)}
+    _SXR_RANGES = {"h": 17, "t": 35, "v": 35}
     _KK3_RANGE = (1, 96)
 
     def __init__(
@@ -269,6 +285,52 @@ class PPFReader(DataReader):
                 results[q + "_records"] = [q_path]
         return results
 
+    def _get_radiation(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch raw data for radiation quantities such as SXR and bolometric
+        fluxes..
+
+        """
+        results: Dict[str, Any] = {"length": {}}
+        for q in quantities:
+            luminosities = []
+            channels = []
+            records = [SURF_PATH.name]
+            for i in range(1, self._SXR_RANGES[q] + 1):
+                try:
+                    qval, q_path = self._get_signal(
+                        uid, instrument, f"{q}{i:02d}", revision
+                    )
+                except NodeNotFound:
+                    continue
+                records.append(q_path)
+                luminosities.append(qval.data)
+                channels.append(i - 1)
+                self._set_times_item(results, qval.dimensions[0].data)
+            if len(channels) == 0:
+                # Try getting information on the DDA, to determine if
+                # the failure is actually due to requesting an invalid
+                # DDA or revision
+                self._client.list(
+                    f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
+                )
+                raise PPFError(f"No channels available for {instrument}/{q}.")
+            results["length"][q] = len(channels)
+            results[q] = np.array(luminosities).T
+            results[q + "_error"] = self._default_error * results[q]
+            results[q + "_records"] = records
+            rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
+                SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
+            )
+            results[q + "_Rstart"] = rstart[channels]
+            results[q + "_Rstop"] = rend[channels]
+            results[q + "_zstart"] = zstart[channels]
+            results[q + "_zstop"] = zend[channels]
+            results[q + "_Tstart"] = Tstart[channels]
+            results[q + "_Tstop"] = Tend[channels]
+        return results
+
     # def _handle_kk3(self, key: str, revision: int) -> DataArray:
     #     """Produce :py:class:`xarray.DataArray` for electron temperature."""
     #     uid, general_dat = self._get_signal("kk3_gen", revision)
@@ -298,35 +360,6 @@ class PPFReader(DataReader):
     #     data.attrs["provenance"] = self.create_provenance(key, revision,
     #                                                       uids, drop)
     #     return data.drop_sel({"Btot": drop})
-
-    # def _handle_sxr(self, key: str, revision: int) -> DataArray:
-    #     """Produce :py:class:`xarray.DataArray` for line-of-site soft X-ray
-    #     luminous flux."""
-    #     uids = []
-    #     luminosities = []
-    #     channels = []
-    #     for i in range(self._SXR_RANGES[key][0],
-    #                    self._SXR_RANGES[key][1] + 1):
-    #         try:
-    #             uid, signal = self._get_signal("{}{:02d}".format(key, i),
-    #                                            revision)
-    #         except (InvalidPath, NodeNotFound):
-    #             continue
-    #         uids.append(uid)
-    #         luminosities.append(signal.data)
-    #         channels.append(i)
-    #     # TODO: embed coordinate transform data
-    #     # TODO: select only the required times
-    #     lum_array = np.array(luminosities)
-    #     keychan = key + "_channel"
-    #     coords = [(keychan, channels), ("t", signal.dimensions[0].data)]
-    #     meta = {"datatype": self.AVALABLE_DATA[key],
-    #             "error": DataArray(self._default_error * lum_array, coords)}
-    #     data = DataArray(lum_array, coords, name=key, attrs=meta)
-    #     drop = self._selector(uid, data, keychan, [])
-    #     data.attrs['provenance'] = self.create_provenance(key, revision,
-    #                                                       uids, drop)
-    #     return data.drop_sel({keychan: drop})
 
     def close(self):
         """Ends connection to the SAL server from which PPF data is being

@@ -60,6 +60,8 @@ def get_vals_error_records_los(sample):
     result["Rstop"] = sample.attrs["transform"].R_stop
     result["zstart"] = sample.attrs["transform"].z_start
     result["zstop"] = sample.attrs["transform"].z_stop
+    result["Tstart"] = sample.attrs["transform"].T_start
+    result["Tstop"] = sample.attrs["transform"].T_stop
     return result
 
 

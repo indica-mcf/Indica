@@ -203,18 +203,17 @@ def _parse_kj34(
             step,
         ) = _DIVIDER.split(line[:-1])
         if criterion.search(label[1:-1]):
+            indices = np.arange(-17, 18, int(step))
             rs = np.empty(len(indices))
             rs[:] = float(R_pinhole) / 1e3
             zs = np.empty(len(indices))
             zs[:] = float(z_pinhole) / 1e3
             theta_d = np.radians(float(theta_chip) - 270.0)
-            print(theta_d)
             f = float(focal_length) / 1e3
             theta = np.arctan2(
                 indices * PIXEL_WIDTH * np.cos(theta_d) - f * np.tan(theta_d),
                 indices * PIXEL_WIDTH * np.sin(theta_d) + f,
             )
-            print(theta)
             rstart.append(rs)
             zstart.append(zs)
             rend.append(rs - np.sin(theta))

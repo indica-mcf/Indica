@@ -23,7 +23,6 @@ import sal.core.exception
 import scipy.constants as sc
 
 from indica.readers import PPFReader
-import indica.readers.surf_los
 from .fake_salclient import fake_sal_client
 
 
@@ -41,8 +40,18 @@ revisions = integers(0)
 actual_revisions = integers(1)
 edited_revisions = lists(actual_revisions, min_size=1, unique=True).map(sorted)
 lines_of_sight = tuples(
-    arrays(float, 96), arrays(float, 96), arrays(float, 96), arrays(float, 96)
+    arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
+    arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
+    arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
+    arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
+    arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
+    arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
 )
+
+
+def trim_lines_of_sight(los, n):
+    """Return a new tuple with the LOS arrays trimmed to length n."""
+    return tuple(d[:n] for d in los)
 
 
 def get_record(reader, pulse, uid, instrument, dtype, revision):
@@ -214,7 +223,6 @@ def test_get_charge_exchange(
         )
 
 
-@settings(report_multiple_bugs=False)
 @given(
     pulses,
     times,
@@ -308,7 +316,6 @@ def test_get_equilibrium(
 )
 def test_get_cyclotron_emissions(
     fake_sal,
-    monkeypatch,
     pulse,
     time_range,
     error,
@@ -332,14 +339,10 @@ def test_get_cyclotron_emissions(
         )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    with monkeypatch.context() as m, pytest.raises(
+    mock_surf = MagicMock(return_value=trim_lines_of_sight(los, 1))
+    with patch("indica.readers.surf_los.read_surf_los", mock_surf), pytest.raises(
         sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
-        m.setattr(
-            indica.readers.surf_los,
-            "read_surf_los",
-            mock_surf=MagicMock(return_value=los),
-        )
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
         return
@@ -393,9 +396,9 @@ def test_get_cyclotron_emissions(
     lists(sampled_from(["h", "t", "v"]), min_size=1, unique=True).map(set),
     lines_of_sight,
 )
+@settings(report_multiple_bugs=False)
 def test_get_sxr(
     fake_sal,
-    monkeypatch,
     pulse,
     time_range,
     error,
@@ -419,19 +422,18 @@ def test_get_sxr(
         )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    with monkeypatch.context() as m, pytest.raises(
+    LOS_LENS = {"sxr/h": 17, "sxr/t": 35, "sxr/v": 35}
+    mock_surf = MagicMock(
+        side_effect=lambda f, p, inst: trim_lines_of_sight(los, LOS_LENS[inst])
+    )
+    with patch("indica.readers.surf_los.read_surf_los", mock_surf), pytest.raises(
         sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
-        m.setattr(
-            indica.readers.surf_los,
-            "read_surf_los",
-            mock_surf=MagicMock(return_value=los),
-        )
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
         return
     # TODO: determine how best to describe the SURF data for PROV
-    records = ["surf_overlays.db"]
+    records = ["surf_los.dat"]
     for q in quantities:
         radiation = results[q]
         assert results["length"][q] == radiation.shape[1]
@@ -452,9 +454,11 @@ def test_get_sxr(
         assert np.all(results[q + "_error"] == pytest.approx(error * radiation))
         assert sorted(results[q + "_records"]) == sorted(
             records
-            + map(
-                lambda x: get_record(reader, pulse, uid, instrument, x, revision),
-                channel_names,
+            + list(
+                map(
+                    lambda x: get_record(reader, pulse, uid, instrument, x, revision),
+                    channel_names,
+                )
             )
         )
 
@@ -473,7 +477,6 @@ def test_get_sxr(
 )
 def test_get_radiation(
     fake_sal,
-    monkeypatch,
     pulse,
     time_range,
     error,
@@ -497,14 +500,13 @@ def test_get_radiation(
         )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    with monkeypatch.context() as m, pytest.raises(
+    LOS_LENS = {"bolo/kb5v": 32, "bolo/kb5h": 24}
+    mock_surf = MagicMock(
+        side_effect=lambda f, p, inst: trim_lines_of_sight(los, LOS_LENS[inst])
+    )
+    with patch("indica.readers.surf_los.read_surf_los", mock_surf), pytest.raises(
         sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
-        m.setattr(
-            indica.readers.surf_los,
-            "read_surf_los",
-            mock_surf=MagicMock(return_value=los),
-        )
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
         return

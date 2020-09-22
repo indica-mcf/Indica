@@ -736,6 +736,10 @@ class DataReader(BaseIO):
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
+        <quantity>_Tstart : ndarray
+            Toroidal offset of start positions for lines of sight for this data.
+        <quantity>_Tstop : ndarray
+            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(

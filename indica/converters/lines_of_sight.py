@@ -37,10 +37,14 @@ class LinesOfSightTransform(CoordinateTransform):
         1-D array of major radii of the start for each line-of-sight.
     z_start
         1-D array of vertical positions of the start for each line-of-sight.
+    T_start
+        1-D array of toroidal offset for the start of each line-of-sight.
     R_end
         1-D array of major radii of the end for each line-of-sight.
     z_end
         1-D array of vertical positions of the end for each line-of-sight.
+    T_end
+        1-D array of toroidal offset for the end of each line-of-sight.
     num_intervals
         The number of intervals in the default grid for the second coordinate.
         Note that there will be one more points in the grid than this.
@@ -58,8 +62,10 @@ class LinesOfSightTransform(CoordinateTransform):
         self,
         R_start: np.ndarray,
         z_start: np.ndarray,
+        T_start: np.ndarray,
         R_end: np.ndarray,
         z_end: np.ndarray,
+        T_end: np.ndarray,
         num_intervals: int = 100,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
@@ -93,8 +99,10 @@ class LinesOfSightTransform(CoordinateTransform):
         )
         self.R_start = R_start
         self.z_start = z_start
+        self.T_start = T_start
         self.R_end = R_end
         self.z_end = z_end
+        self.T_end = T_end
         self.index_inversion: Optional[
             Callable[[ArrayLike, ArrayLike], ArrayLike]
         ] = None
@@ -107,8 +115,10 @@ class LinesOfSightTransform(CoordinateTransform):
         result = self._abstract_equals(other)
         result = result and np.all(self.R_start == other.R_start)
         result = result and np.all(self.z_start == other.z_start)
+        result = result and np.all(self.T_start == other.T_start)
         result = result and np.all(self.R_end == other.R_end)
         result = result and np.all(self.z_end == other.z_end)
+        result = result and np.all(self.T_end == other.T_end)
         return result
 
     def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
