@@ -3,11 +3,33 @@ Surf data.
 
 """
 
+from collections import defaultdict
 from pathlib import Path
+import re
+from typing import DefaultDict
+from typing import Iterable
+from typing import Optional
+from typing import TextIO
 from typing import Tuple
 from typing import Union
 
 import numpy as np
+
+
+INSTRUMENT_MAP: DefaultDict[str, Tuple[Optional[str], re.Pattern]] = defaultdict(
+    lambda: (None, re.compile(".*")),
+    {
+        "sxr/h": ("Soft X-ray/KJ5", re.compile(".*")),
+        "sxr/t": ("Soft X-ray/KJ3-4 T", re.compile(".*")),
+        "sxr/v": ("Soft X-ray/KJ3-4 V", re.compile(".*")),
+        "kk3": ("ECE/KK3", re.compile(".*")),
+        "bolo/kb5h": ("Bolometry/KB5", re.compile(r"KB5H \d+")),
+        "bolo/kb5v": ("Bolometry/KB5", re.compile(r"KB5V \d+")),
+    },
+)
+
+
+_DIVIDER = re.compile(r"(?:\s+|\s*,\s*)(?=(?:[^']*'[^']*')*[^']*$)")
 
 
 class SURFException(Exception):
@@ -18,13 +40,205 @@ class SURFException(Exception):
     """
 
 
+def _parse_lines(
+    data: Iterable[str], criterion: re.Pattern
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Parse the provided lines of data to get the start and end
+    coordinates of the lines of sight. This works when the data is in the
+    "lines" format.
+
+    Parameters
+    ----------
+    data
+        An iterable returning lines from the SURF file which should be parsed
+        to get line-of-sight data.
+    criterion
+        A regular expression against which to evaluate the name of each
+        channel. The channel will only be included in result if the regular
+        expression matches the channel name.
+
+    Retruns
+    -------
+    Rstart
+        Major radius for the start of the line of sight for each channel.
+    Rend
+        Major radius for the end of the line of sight for each channel.
+    Zstart
+        Vertical position for the start of the line of sight for each channel.
+    Zend
+        Vertical position for the end of the line of sight for each channel.
+    Tstart
+        Toroidal offset of start of the line of sight for each channel.
+    Tend
+        Toroidal offset of the end of the line of sight for each channel.
+
+    """
+    rstart = []
+    rend = []
+    zstart = []
+    zend = []
+    for line in data:
+        label, rs, zs, re, ze = _DIVIDER.split(line[:-1])
+        if criterion.search(label[1:-1]):
+            rstart.append(float(rs))
+            rend.append(float(re))
+            zstart.append(float(zs))
+            zend.append(float(ze))
+    return (
+        np.array(rstart),
+        np.array(rend),
+        np.array(zstart),
+        np.array(zend),
+        np.zeros(len(rstart)),
+        np.zeros(len(rstart)),
+    )
+
+
+def _parse_line3d(
+    data: Iterable[str], criterion: re.Pattern
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Parse the provided lines of data to get the start and end
+    coordinates of the lines of sight. This works when the data is in the
+    "line3d" format.
+
+    Parameters
+    ----------
+    data
+        An iterable returning lines from the SURF file which should be parsed
+        to get line-of-sight data.
+    criterion
+        A regular expression against which to evaluate the name of each
+        channel. The channel will only be included in result if the regular
+        expression matches the channel name.
+
+    Retruns
+    -------
+    Rstart
+        Major radius for the start of the line of sight for each channel.
+    Rend
+        Major radius for the end of the line of sight for each channel.
+    Zstart
+        Vertical position for the start of the line of sight for each channel.
+    Zend
+        Vertical position for the end of the line of sight for each channel.
+    Tstart
+        Toroidal offset of start of the line of sight for each channel.
+    Tend
+        Toroidal offset of the end of the line of sight for each channel.
+
+    """
+    rstart = []
+    rend = []
+    zstart = []
+    zend = []
+    Tstart = []
+    Tend = []
+    for line in data:
+        label, rs, Ts, zs, re, Te, ze = _DIVIDER.split(line[:-1])
+        if criterion.search(label[1:-1]):
+            rstart.append(float(rs))
+            rend.append(float(re))
+            zstart.append(float(zs))
+            zend.append(float(ze))
+            Tstart.append(float(Ts))
+            Tend.append(float(Te))
+    return (
+        np.array(rstart),
+        np.array(rend),
+        np.array(zstart),
+        np.array(zend),
+        np.array(Tstart),
+        np.array(Tend),
+    )
+
+
+def _parse_kj34(
+    data: Iterable[str], criterion: re.Pattern
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Parse the provided lines of data to get the start and end
+    coordinates of the lines of sight. This works when the data is in the
+    "kj34" format.
+
+    Parameters
+    ----------
+    data
+        An iterable returning lines from the SURF file which should be parsed
+        to get line-of-sight data.
+    criterion
+        A regular expression against which to evaluate the name of each
+        channel. The channel will only be included in result if the regular
+        expression matches the channel name.
+
+    Retruns
+    -------
+    Rstart
+        Major radius for the start of the line of sight for each channel.
+    Rend
+        Major radius for the end of the line of sight for each channel.
+    Zstart
+        Vertical position for the start of the line of sight for each channel.
+    Zend
+        Vertical position for the end of the line of sight for each channel.
+    Tstart
+        Toroidal offset of start of the line of sight for each channel.
+    Tend
+        Toroidal offset of the end of the line of sight for each channel.
+
+    """
+    PIXEL_WIDTH = 0.00099
+    indices = np.arange(-17, 18)
+    rstart = []
+    rend = []
+    zstart = []
+    zend = []
+    for line in data:
+        (
+            label,
+            theta_chip,
+            central_index,
+            focal_length,
+            R_pinhole,
+            z_pinhole,
+            gamma,
+            step,
+        ) = _DIVIDER.split(line[:-1])
+        if criterion.search(label[1:-1]):
+            rs = np.empty(len(indices))
+            rs[:] = float(R_pinhole) / 1e3
+            zs = np.empty(len(indices))
+            zs[:] = float(z_pinhole) / 1e3
+            theta_d = np.radians(float(theta_chip) - 270.0)
+            print(theta_d)
+            f = float(focal_length) / 1e3
+            theta = np.arctan2(
+                indices * PIXEL_WIDTH * np.cos(theta_d) - f * np.tan(theta_d),
+                indices * PIXEL_WIDTH * np.sin(theta_d) + f,
+            )
+            print(theta)
+            rstart.append(rs)
+            zstart.append(zs)
+            rend.append(rs - np.sin(theta))
+            zend.append(zs - np.cos(theta))
+    rstart = np.concatenate(rstart)
+    rend = np.concatenate(rend)
+    zstart = np.concatenate(zstart)
+    zend = np.concatenate(zend)
+    Tstart = np.zeros_like(rstart)
+    Tend = np.zeros_like(rend)
+    return rstart, rend, zstart, zend, Tstart, Tend
+
+
+SURF_PARSERS = {
+    "lines": _parse_lines,
+    "line3d": _parse_line3d,
+    "kj34": _parse_kj34,
+}
+
+
 def read_surf_los(
     filename: Union[str, Path], pulse: int, instrument: str
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Read beginning and ends of lines of sight from Surf data.
-
-    Optionally scale the lines of sight so they are all the same
-    length as the longest one.
 
     Parameters
     ----------
@@ -49,5 +263,60 @@ def read_surf_los(
         Vertical position for the start of the line of sight for each channel.
     Zend
         Vertical position for the end of the line of sight for each channel.
+    Tstart
+        Toroidal offset of start of the line of sight for each channel.
+    Tend
+        Toroidal offset of the end of the line of sight for each channel.
     """
-    pass
+    with open(filename, "r", encoding="latin-1") as f:
+        instrument_id, criterion = INSTRUMENT_MAP[instrument.lower()]
+        if not instrument_id:
+            instrument_id = instrument
+        data_format, data = _get_text_block(f, pulse, instrument_id)
+    return SURF_PARSERS[data_format](data, criterion)
+
+
+def _get_text_block(
+    file: TextIO, pulse: int, instrument_id: str
+) -> Tuple[str, Iterable[str]]:
+    """Extract the lines from the SURF file containing the data on lines of
+    sight for the requested instrument and pulse number.
+
+    Parameters
+    ----------
+    file
+        A file object from which to extract the data.
+    pulse
+        The pulse number for which this data is desired.
+    instrument_id
+        The ID used for the instrument in the SURF file, obtained from
+        ``INSTRUMENT_MAP``.
+
+    Returns
+    -------
+    data_format
+        A string indicating how the data is stored and, therefore, which
+        function will need to be used to parse it.
+    text_lines
+        An iterable of the lines of data for the requested instrument/pulse.
+
+    """
+    for line in file:
+        if line.startswith("*"):
+            split = line.split("/")
+            if (
+                instrument_id in line
+                and pulse >= int(split[-2])
+                and pulse <= int(split[-1])
+            ):
+                break
+    else:
+        raise SURFException(
+            f"File {file.name} has no LOS data for pulse {pulse} and instrument "
+            f"{instrument_id}."
+        )
+    num_lines, columns, data_format = file.readline().split()
+    lines = []
+    for i in range(int(num_lines)):
+        lines.append(file.readline())
+    return data_format, lines
