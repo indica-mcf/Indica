@@ -7,6 +7,7 @@ import os
 from typing import Any
 from typing import Collection
 from typing import Dict
+from typing import Hashable
 from typing import Iterable
 from typing import Optional
 from typing import Set
@@ -24,6 +25,7 @@ from ..converters import LinesOfSightTransform
 from ..converters import TransectCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import ArrayType
+from ..numpy_typing import ArrayLike
 from ..session import hash_vals
 from ..session import Session
 from ..utilities import to_filename
@@ -474,12 +476,12 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
-        coords_1d = {"t": times}
+        coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
         dims_1d = coords_1d.keys()
         trivial_transform = TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0)
         if len(flux_quantities & quantities):
             rho = np.sqrt(database_results["psin"])
-            coords_2d = {"t": times, diagnostic_coord: rho}
+            coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
             flux_transform = FluxSurfaceCoordinates(
                 "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
             )
@@ -490,12 +492,12 @@ class DataReader(BaseIO):
         dims_2d = coords_2d.keys()
         if len(separatrix_quantities & quantities):
             dims_sep = ["t", "arbitrary_index"]
-            coords_sep = {"t": times}
+            coords_sep: Dict[Hashable, ArrayLike] = {"t": times}
         else:
             dims_sep = []
             coords_sep = {}
         if "psi" in quantities:
-            coords_3d = {
+            coords_3d: Dict[Hashable, ArrayLike] = {
                 "t": database_results["times"],
                 "R": database_results["psi_r"],
                 "z": database_results["psi_z"],

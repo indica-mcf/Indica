@@ -164,12 +164,14 @@ class InDiCAArrayAccessor:
     def drop_dim(self) -> Optional[str]:
         """The dimension, if any, which contains dropped channels."""
         if "dropped" in self._obj.attrs:
-            return next(
-                filterfalse(
-                    lambda dim: self._obj.coords[dim].equals(
-                        self._obj.attrs["dropped"].coords[dim]
-                    ),
-                    self._obj.dims,
+            return str(
+                next(
+                    filterfalse(
+                        lambda dim: self._obj.coords[dim].equals(
+                            self._obj.attrs["dropped"].coords[dim]
+                        ),
+                        self._obj.dims,
+                    )
                 )
             )
         return None
