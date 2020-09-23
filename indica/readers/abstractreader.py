@@ -709,6 +709,9 @@ class DataReader(BaseIO):
             version of data to get. Default is the most recent.
         quantities
             Which physical quantitie(s) to read from the database.
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
 
         Returns
         -------
@@ -716,13 +719,13 @@ class DataReader(BaseIO):
 
         length : Dict[str, int]
             Number of channels in data for each camera
-        times : ndarray
-            The times at which measurements were taken
 
         For each requested quantity, the following items will also be present:
 
         <quantity> : ndarray
             The data itself (first axis is time, second channel)
+        <quantity>_times : ndarray
+            The times at which measurements were taken
         <quantity>_error : ndarray
             Uncertainty in the data
         <quantity>_records : List[str]

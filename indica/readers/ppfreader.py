@@ -292,8 +292,12 @@ class PPFReader(DataReader):
         fluxes..
 
         """
-        results: Dict[str, Any] = {"length": {}}
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": ((1.83, 3.9), (-1.75, 2.0)),
+        }
         for q in quantities:
+            qtime = q + "_times"
             luminosities = []
             channels = []
             records = [SURF_PATH.name]
@@ -307,7 +311,8 @@ class PPFReader(DataReader):
                 records.append(q_path)
                 luminosities.append(qval.data)
                 channels.append(i - 1)
-                self._set_times_item(results, qval.dimensions[0].data)
+                if qtime not in results:
+                    results[qtime] = qval.dimensions[0].data
             if len(channels) == 0:
                 # Try getting information on the DDA, to determine if
                 # the failure is actually due to requesting an invalid
