@@ -138,16 +138,16 @@ def test_get_thomson_scattering(
     assert np.all(z_signal.dimensions[0].data == results["R"])
     records = [get_record(reader, pulse, uid, instrument, "z", revision)]
     for q in quantities:
-        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"].data)
+        signal = reader._client.DATA[f"{instrument}/{q}"]
+        assert np.all(results[q] == signal.data)
+        assert np.all(results["times"] == signal.dimensions[0].data)
         if instrument == "lidr":
-            assert np.all(
-                results[q] + results[q + "_error"]
-                == reader._client.DATA[f"{instrument}/{q}u"].data
-            )
+            error_signal = reader._client.DATA[f"{instrument}/{q}u"]
+            assert np.all(results[q] + results[q + "_error"] == error_signal.data)
         else:
-            assert np.all(
-                results[q + "_error"] == reader._client.DATA[f"{instrument}/d{q}"].data
-            )
+            error_signal = reader._client.DATA[f"{instrument}/d{q}"]
+            assert np.all(results[q + "_error"] == error_signal.data)
+        assert np.all(results["times"] == error_signal.dimensions[0].data)
         expected = sorted(
             records
             + list(
@@ -209,11 +209,12 @@ def test_get_charge_exchange(
     )
     uncertainties = {"angf": "afhi", "conc": "cohi", "ti": "tihi"}
     for q in quantities:
-        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"].data)
-        assert np.all(
-            results[q + "_error"] + results[q]
-            == reader._client.DATA[f"{instrument}/{uncertainties[q]}"].data
-        )
+        signal = reader._client.DATA[f"{instrument}/{q}"]
+        assert np.all(results[q] == signal.data)
+        assert np.all(results["times"] == signal.dimensions[0].data)
+        error_signal = reader._client.DATA[f"{instrument}/{uncertainties[q]}"]
+        assert np.all(results[q + "_error"] + results[q] == error_signal.data)
+        assert np.all(results["times"] == error_signal.dimensions[0].data)
         assert sorted(results[q + "_records"]) == sorted(
             records
             + map(
@@ -285,10 +286,9 @@ def test_get_equilibrium(
     if len({"f", "ftor", "vjac", "rmji", "rmjo"} & quantities) > 0:
         assert np.all(signal.dimensions[1].data == results["psin"])
     for q in quantities:
-        assert np.all(
-            results[q].flatten()
-            == reader._client.DATA[f"{instrument}/{q}"].data.flatten()
-        )
+        signal = reader._client.DATA[f"{instrument}/{q}"]
+        assert np.all(results[q].flatten() == signal.data.flatten())
+        assert np.all(results["times"] == signal.dimensions[0].data)
         if q == "psi":
             assert sorted(results[q + "_records"]) == sorted(
                 map(
@@ -349,7 +349,7 @@ def test_get_cyclotron_emissions(
     assert results["z"] == los[2][0]
     # TODO: determine how best to describe the SURF data for PROV
     records = [
-        "surf_overlays.db",
+        "surf_los.dat",
         get_record(reader, pulse, uid, instrument, "gen", revision),
     ]
     gen = reader._client.DATA[f"{instrument}/gen"]
@@ -432,6 +432,7 @@ def test_get_sxr(
         results = reader._get_radiation(uid, instrument, revision, quantities)
     if bad_rev:
         return
+    assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
     # TODO: determine how best to describe the SURF data for PROV
     records = ["surf_los.dat"]
     for q in quantities:
@@ -444,9 +445,9 @@ def test_get_sxr(
         ]
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
-            assert np.all(
-                radiation[:, i] == reader._client.DATA[f"{instrument}/{name}"].data
-            )
+            signal = reader._client.DATA[f"{instrument}/{name}"]
+            assert np.all(radiation[:, i] == signal.data)
+            assert np.all(results[q + "_times"] == signal.dimensions[0].data)
         assert np.all(results[q + "_Rstart"] == los[0][channel_indices])
         assert np.all(results[q + "_Rstop"] == los[1][channel_indices])
         assert np.all(results[q + "_zstart"] == los[2][channel_indices])
@@ -516,7 +517,9 @@ def test_get_radiation(
         radiation = results[q]
         length = results["length"][q]
         assert length == radiation.shape[1]
-        assert np.all(radiation == reader._client.DATA[f"{instrument}/{q}"])
+        signal = reader._client.DATA[f"{instrument}/{q}"]
+        assert np.all(radiation == signal.data)
+        assert np.all(results[q + "_times"] == signal.dimensions[0].data)
         assert np.all(results[q + "_Rstart"] == los[0][:length])
         assert np.all(results[q + "_Rstop"] == los[1][:length])
         assert np.all(results[q + "_zstart"] == los[2][:length])
@@ -567,11 +570,14 @@ def test_get_bremsstrahlung_spectroscopy(
     if bad_rev:
         return
     for q in quantities:
-        assert np.all(results[q] == reader._client.DATA[f"{instrument}/{q}"])
+        signal = reader._client.DATA[f"{instrument}/{q}"]
+        assert np.all(results[q] == signal.data)
+        assert np.all(results["times"] == signal.dimensions[0].data)
+        error_signal = reader._client.DATA[f"{instrument}/{q[0]}{q[-1]}hi"]
         assert np.all(
-            results["q"] + results[q + "_error"]
-            == pytest.approx(reader._client.DATA[f"{instrument}/{q[0]}{q[-1]}hi"])
+            results["q"] + results[q + "_error"] == pytest.approx(error_signal.data)
         )
+        assert np.all(results["times"] == error_signal.dimensions[0].data)
         los = reader._client.DATA[f"edg7/los{q[-1]}"]
         assert results[q + "Rstart"] == los[0]
         assert results[q + "Rend"] == los[1]
