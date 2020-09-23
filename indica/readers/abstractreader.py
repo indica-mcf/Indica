@@ -20,6 +20,7 @@ from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
+from ..converters import LinesOfSightTransform
 from ..converters import TransectCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import ArrayType
@@ -140,6 +141,7 @@ class DataReader(BaseIO):
         self._start_time = None
         self.session = sess
         self._selector = selector
+        self._los_intervals = 100
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
@@ -690,7 +692,74 @@ class DataReader(BaseIO):
         -------
         :
             A dictionary containing the requested radiation values.
+
         """
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_radiation(uid, instrument, revision, quantities)
+        data = {}
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read radiation data for quantity {}".format(
+                        self.__class__.__name__, quantity
+                    )
+                )
+
+            times = database_results[quantity + "_times"]
+            downsample_ratio = int(
+                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+            )
+            cachefile = self._RECORD_TEMPLATE.format(
+                self._reader_cache_id, "radiation", instrument, uid, quantity
+            )
+            diagnostic_coord = "_".join([instrument, quantity, "coords"])
+            coords = [
+                ("t", times),
+                (diagnostic_coord, np.arange(database_results["length"][quantity])),
+            ]
+            transform = LinesOfSightTransform(
+                database_results[quantity + "_Rstart"],
+                database_results[quantity + "_zstart"],
+                database_results[quantity + "_Tstart"],
+                database_results[quantity + "_Rstop"],
+                database_results[quantity + "_zstop"],
+                database_results[quantity + "_Tstop"],
+                self._los_intervals,
+                database_results["machine_dims"],
+            )
+            meta = {
+                "datatype": available_quantities[quantity],
+                "error": DataArray(database_results[quantity + "_error"], coords).sel(
+                    t=slice(self._tstart, self._tend)
+                ),
+                "transform": transform,
+            }
+            quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
+                t=slice(self._tstart, self._tend)
+            )
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+                quant_data.attrs["error"] = np.sqrt(
+                    (quant_data.attrs["error"] ** 2)
+                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .mean()
+                    / downsample_ratio
+                )
+            quant_data.name = instrument + "_" + quantity
+            drop = self._select_channels(cachefile, quant_data, diagnostic_coord)
+            quant_data.attrs["provenance"] = self.create_provenance(
+                "radiation",
+                uid,
+                instrument,
+                revision,
+                quantity,
+                database_results[quantity + "_records"],
+                drop,
+            )
+            data[quantity] = quant_data.indica.ignore_data(drop, diagnostic_coord)
+        return data
 
     def _get_radiation(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],

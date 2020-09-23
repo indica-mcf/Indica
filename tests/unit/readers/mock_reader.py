@@ -20,6 +20,11 @@ def set_results(mock_name):
     def inner(func):
         def setter(self, default, specific={}):
             non_optional, def_vals, spec_vals = func(self, default, specific)
+            self._set_quantities[mock_name[1:]] = defaultdict(
+                lambda: default.attrs["datatype"]
+            )
+            for k, v in specific.items():
+                self._set_quantities[mock_name[1:]][k] = v.attrs["datatype"]
 
             def side_effects(uid, instrument, revision, quantities):
                 result = dict(non_optional)
@@ -57,11 +62,11 @@ def get_vals_error_records_los(sample):
     """
     result = get_vals_error_records(sample)
     result["Rstart"] = sample.attrs["transform"].R_start
-    result["Rstop"] = sample.attrs["transform"].R_stop
+    result["Rstop"] = sample.attrs["transform"].R_end
     result["zstart"] = sample.attrs["transform"].z_start
-    result["zstop"] = sample.attrs["transform"].z_stop
+    result["zstop"] = sample.attrs["transform"].z_end
     result["Tstart"] = sample.attrs["transform"].T_start
-    result["Tstop"] = sample.attrs["transform"].T_stop
+    result["Tstop"] = sample.attrs["transform"].T_end
     return result
 
 
@@ -91,17 +96,20 @@ class MockReader(ConcreteReader):
         tstart=0.0,
         tend=1e10,
         max_freq=1e50,
+        machine_dims=((1.83, 3.9), (-1.75, 2.0)),
     ):
         self._reader_cache_id = "mock"
         self._tstart = tstart
         self._tend = tend
         self._max_freq = max_freq
+        self._machine_dims = machine_dims
         self._get_thomson_scattering = MagicMock()
         self._get_charge_exchange = MagicMock()
         self._get_equilibrium = MagicMock()
         self._get_cyclotron_emissions = MagicMock()
         self._get_radiation = MagicMock()
         self._get_bremsstrahlung_spectroscopy = MagicMock()
+        self._set_quantities = {}
 
         def dummy_selector(k, d, c, b=[]):
             return self.drop_channels[k.split("-")[1]][k.split("-")[-1]]
@@ -208,7 +216,7 @@ class MockReader(ConcreteReader):
         non_optional = {}
         non_optional["Btot"] = default.coords["Btot"]
         non_optional["z"] = default.attrs["transform"].default_z
-        non_optional["times"] = default.coords["t"]
+        non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
         default_vals = get_vals_error_records(default)
         specific_vals = {k: get_vals_error_records(v) for k, v in specific.items()}
@@ -224,12 +232,16 @@ class MockReader(ConcreteReader):
         """
         self._add_dropped_channel_data("radiation", default, specific)
         non_optional = {}
-        non_optional["times"] = default.coords["t"]
         non_optional["length"] = defaultdict(
             lambda: default.shape[1], {k: v.shape[1] for k, v in specific.items()},
         )
+        non_optional["machine_dims"] = self._machine_dims
         default_vals = get_vals_error_records_los(default)
-        specific_vals = {k: get_vals_error_records_los(v) for k, v in specific.items()}
+        default_vals["times"] = default.coords["t"].values
+        specific_vals = {}
+        for k, v in specific.items():
+            specific_vals[k] = get_vals_error_records_los(v)
+            specific_vals[k]["times"] = v.coords["t"].values
         return non_optional, default_vals, specific_vals
 
     @set_results("_get_bolometry")
@@ -242,7 +254,7 @@ class MockReader(ConcreteReader):
         """
         self._add_dropped_channel_data("bolometry", default, specific)
         non_optional = {}
-        non_optional["times"] = default.coords["t"]
+        non_optional["times"] = default.coords["t"].values
         non_optional["length"] = defaultdict(
             lambda: default.shape[1], {k: v.shape[1] for k, v in specific.items()},
         )
@@ -260,7 +272,7 @@ class MockReader(ConcreteReader):
         """
         self._add_dropped_channel_data("bremsstrahlung", default, specific)
         non_optional = {}
-        non_optional["times"] = default.coords["t"]
+        non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
         default_vals = get_vals_error_records_los(default)
         specific_vals = {k: get_vals_error_records_los(v) for k, v in specific.items()}
@@ -268,7 +280,10 @@ class MockReader(ConcreteReader):
 
     def available_quantities(self, instrument):
         method = inspect.stack()[1].function
-        if instrument in self._IMPLEMENTATION_QUANTITIES:
+        if method in self._set_quantities:
+            return self._set_quantities[method]
+        elif instrument in self._IMPLEMENTATION_QUANTITIES:
+            breakpoint()
             return self._IMPLEMENTATION_QUANTITIES[instrument]
         else:
             return self._AVAILABLE_QUANTITIES[method]

@@ -10,11 +10,13 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from hypothesis import given
+from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
 from hypothesis.strategies import from_regex
 from hypothesis.strategies import integers
+from hypothesis.strategies import just
 from hypothesis.strategies import lists
 from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
@@ -25,6 +27,7 @@ import prov.model as prov
 from pytest import approx
 from pytest import mark
 
+from indica.converters import LinesOfSightTransform
 from indica.datatypes import ELEMENTS
 from .mock_reader import ConcreteReader
 from .mock_reader import MockReader
@@ -34,6 +37,7 @@ from ..converters.test_transect import transect_coordinates
 from ..data_strategies import array_dictionaries
 from ..data_strategies import data_arrays
 from ..data_strategies import equilibrium_data
+from ..strategies import machine_dimensions
 
 
 tstarts = floats(0.0, 1000.0)
@@ -58,7 +62,9 @@ def dicts_with(draw, *options, min_size=1, max_size=None):
 
 
 @composite
-def expected_data(draw, coordinate_transform, *options, unique_transforms=False):
+def expected_data(
+    draw, coordinate_transform, *options, unique_transforms=False, override_x2=None
+):
     """Strategy to produce a dictionary of DataArrays of the type that
     could be returned by a read operation.
 
@@ -73,6 +79,9 @@ def expected_data(draw, coordinate_transform, *options, unique_transforms=False)
     unique_transforms : bool
         Whether the data arrays in the result should all use the same transform
         object or unique ones of the same class.
+    override_x2 : array_like
+        Coordinates to force use of in the second spatial dimension.
+
     """
     start = draw(floats(0.0, 9.9999e2))
     stop = 1e3 - draw(floats(0.0, 9.9999e2 - start, exclude_min=True))
@@ -83,15 +92,19 @@ def expected_data(draw, coordinate_transform, *options, unique_transforms=False)
             array_dictionaries(
                 draw(coordinate_transform),
                 dict(options),
-                override_coords=[None, None, time],
+                override_coords=[None, override_x2, time],
             )
         )
     else:
         items = draw(dicts_with(*options))
         result = {}
-        for key, datatype in items:
-            result[key] = data_arrays(
-                datatype, coordinate_transform, override_coords=[None, None, time]
+        for key, datatype in items.items():
+            result[key] = draw(
+                data_arrays(
+                    datatype,
+                    coordinate_transform,
+                    override_coords=[None, override_x2, time],
+                )
             )
         return result
 
@@ -380,12 +393,18 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
 
 
 @given(
-    expected_data(
-        los_coordinates(),
-        ("h", ("luminous_flux", "sxr")),
-        ("t", ("luminous_flux", "sxr")),
-        ("v", ("luminous_flux", "sxr")),
-        unique_transforms=True,
+    machine_dimensions().flatmap(
+        lambda dims: tuples(
+            just(dims),
+            expected_data(
+                los_coordinates(dims, default_Rz=False),
+                ("h", ("luminous_flux", "sxr")),
+                ("t", ("luminous_flux", "sxr")),
+                ("v", ("luminous_flux", "sxr")),
+                unique_transforms=True,
+                override_x2=0.0,
+            ),
+        )
     ),
     text(),
     text(),
@@ -393,12 +412,22 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
     times,
     max_freqs,
 )
-def test_sxr(data, uid, instrument, revision, time_range, max_freq):
+@settings(report_multiple_bugs=False)
+def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
+    machine_dims, data = dims_data
+    los_intervals = 10
     for key, val in data.items():
-        data[key] = finish_fake_array(val, instrument, key)
-    reader = MockReader(True, True, *time_range, max_freq)
+        t = val.attrs["transform"]
+        val.attrs["transform"] = LinesOfSightTransform(
+            t.R_start, t.z_start, t.T_start, t.R_end, t.z_end, t.T_end, los_intervals
+        )
+        data[key] = finish_fake_array(
+            val, instrument, key, instrument + "_" + key + "_coords"
+        )
+    reader = MockReader(True, True, *time_range, max_freq, machine_dims)
+    reader._los_intervals = los_intervals
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_radiation(uid, instrument, revision, quantities)
@@ -418,11 +447,16 @@ def test_sxr(data, uid, instrument, revision, time_range, max_freq):
 
 
 @given(
-    expected_data(
-        los_coordinates(),
-        ("kb5h", ("luminous_flux", "bolometric")),
-        ("kb5v", ("luminous_flux", "bolometric")),
-        unique_transforms=True,
+    machine_dimensions().flatmap(
+        lambda dims: tuples(
+            just(dims),
+            expected_data(
+                los_coordinates(dims, default_Rz=False),
+                ("kb5h", ("luminous_flux", "bolometric")),
+                ("kb5v", ("luminous_flux", "bolometric")),
+                unique_transforms=True,
+            ),
+        )
     ),
     text(),
     text(),
@@ -430,16 +464,22 @@ def test_sxr(data, uid, instrument, revision, time_range, max_freq):
     times,
     max_freqs,
 )
-def test_bolometry(data, uid, instrument, revision, time_range, max_freq):
+def test_bolometry(dims_data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw bolometry data."""
+    machine_dims, data = dims_data
+    los_intervals = 10
     for key, val in data.items():
+        t = val.attrs["transform"]
+        val.attrs["transform"] = LinesOfSightTransform(
+            t.R_start, t.z_start, t.T_start, t.R_end, t.z_end, t.T_end, los_intervals
+        )
         data[key] = finish_fake_array(val, instrument, key)
-    reader = MockReader(True, True, *time_range, max_freq)
+    reader = MockReader(True, True, *time_range, max_freq, machine_dims)
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_radiation(uid, instrument, revision, quantities)
-    reader._get_bolometry.assert_called_once_with(uid, instrument, revision, quantities)
+    reader._get_radiation.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
         assert_any_call(
