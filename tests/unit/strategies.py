@@ -127,7 +127,7 @@ def smooth_functions(draw, domain=(0.0, 1.0), max_val=None, min_terms=0, max_ter
     domain: Tuple[float, float]
         The domain over which the resulting function should be called. It can
         be called outside of this range, but will exhibit periodicity.
-    max_coeff: float
+    max_val: float
         The maximum value of the coefficient on any term in the series.
     min_terms: int
         The minimum number of non-constant terms to include in the function.
@@ -312,9 +312,12 @@ def irregular_space(
     result = np.empty(num, dtype)
     result[0] = 0.0
     np.cumsum(spacing, out=result[1:])
+    result += start
+    if endpoint:
+        result[-1] = stop
     if retstep:
-        return result + start, spacing
-    return result + start
+        return result, spacing
+    return result
 
 
 @hyst.composite

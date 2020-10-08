@@ -76,10 +76,28 @@ class LinesOfSightTransform(CoordinateTransform):
     ):
         indices = np.expand_dims(np.arange(len(R_start)), axis=1)
         x2 = np.linspace(0.0, 1.0, num_intervals + 1)
+        lengths = _get_wall_intersection_distances(
+            R_start, z_start, T_start, R_end, z_end, T_end, machine_dimensions
+        )
+        new_length = max(lengths)
+        los_lengths = np.sqrt(
+            (R_start - R_end) ** 2 + (z_start - z_end) ** 2 + (T_start - T_end) ** 2
+        )
+        factor = new_length / los_lengths
+        self.R_start = R_start
+        self.z_start = z_start
+        self.T_start = T_start
+        self._original_R_end = R_end
+        self._original_z_end = z_end
+        self._original_T_end = T_end
+        self._machine_dims = machine_dimensions
+        self.R_end = R_start + factor * (R_end - R_start)
+        self.z_end = z_start + factor * (z_end - z_start)
+        self.T_end = T_start + factor * (T_end - T_start)
         R_default = (
             np.linspace(
-                min(R_start.min(), R_end.min()),
-                max(R_start.max(), R_end.max()),
+                min(self.R_start.min(), self.R_end.min()),
+                max(self.R_start.max(), self.R_end.max()),
                 num_intervals + 1,
             )
             if default_R is None
@@ -88,8 +106,8 @@ class LinesOfSightTransform(CoordinateTransform):
         z_default = (
             np.expand_dims(
                 np.linspace(
-                    min(z_start.min(), z_end.min()),
-                    max(z_start.max(), z_end.max()),
+                    min(self.z_start.min(), self.z_end.min()),
+                    max(self.z_start.max(), self.z_end.max()),
                     num_intervals + 1,
                 ),
                 axis=1,
@@ -97,12 +115,6 @@ class LinesOfSightTransform(CoordinateTransform):
             if default_z is None
             else default_z
         )
-        self.R_start = R_start
-        self.z_start = z_start
-        self.T_start = T_start
-        self.R_end = R_end
-        self.z_end = z_end
-        self.T_end = T_end
         self.index_inversion: Optional[
             Callable[[ArrayLike, ArrayLike], ArrayLike]
         ] = None
@@ -125,12 +137,15 @@ class LinesOfSightTransform(CoordinateTransform):
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
         Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
-        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_start[f]
+        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
         zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_start[f]
-        R = Rs + (Re - Rs) * x2
+        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
+        Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
+        R0 = Rs + (Re - Rs) * x2
+        T0 = Ts + (Te - Ts) * x2
         z = zs + (ze - zs) * x2
-        return R, z, t
+        return np.sign(R0) * np.sqrt(R0 ** 2 + T0 ** 2), z, t
 
     def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
         # TODO: Consider if there is some way to invert this exactly,
@@ -146,3 +161,117 @@ class LinesOfSightTransform(CoordinateTransform):
         x1 = self.index_inversion(R, z)
         x2 = self.x2_inversion(R, z)
         return x1, x2, t
+
+    def _distance(
+        self,
+        direction: int,
+        x1: Optional[ArrayLike],
+        x2: Optional[ArrayLike],
+        t: Optional[ArrayLike],
+    ) -> Tuple[ArrayLike, ArrayLike]:
+        """Implementation of calculation of physical distances between points
+        in this coordinate system. This accounts for potential toroidal skew of
+        lines.
+
+        """
+        c = np.ceil(x1).astype(int)
+        f = np.floor(x1).astype(int)
+        Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
+        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
+        zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
+        Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
+        R = Rs + (Re - Rs) * x2
+        T = Ts + (Te - Ts) * x2
+        z = zs + (ze - zs) * x2
+        slc1_list = [slice(None)] * R.ndim
+        slc1_list[direction] = slice(0, -1)
+        slc1 = tuple(slc1_list)
+        slc2_list = [slice(None)] * R.ndim
+        slc2_list[direction] = slice(1, None)
+        slc2 = tuple(slc2_list)
+        spacings = np.sqrt(
+            (R[slc2] - R[slc1]) ** 2
+            + (z[slc2] - z[slc1]) ** 2
+            + (T[slc2] - T[slc1]) ** 2
+        )
+        result = np.zeros(np.broadcast(R, z).shape)
+        np.cumsum(spacings, direction, out=result[slc2])
+        return result, t
+
+
+def _get_wall_intersection_distances(
+    R_start: np.ndarray,
+    z_start: np.ndarray,
+    T_start: np.ndarray,
+    R_end: np.ndarray,
+    z_end: np.ndarray,
+    T_end: np.ndarray,
+    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+        (1.83, 3.9),
+        (-1.75, 2.0),
+    ),
+) -> np.ndarray:
+    """
+    Calculate the lenght needed for a line of sight to intersect with a wall of
+    the Tokamak.
+
+    Parameters
+    ----------
+    R_start
+        1-D array of major radii of the start for each line-of-sight.
+    z_start
+        1-D array of vertical positions of the start for each line-of-sight.
+    T_start
+        1-D array of toroidal offset for the start of each line-of-sight.
+    R_end
+        1-D array of major radii of the end for each line-of-sight.
+    z_end
+        1-D array of vertical positions of the end for each line-of-sight.
+    T_end
+        1-D array of toroidal offset for the end of each line-of-sight.
+    machine_dimensions
+        A tuple giving the boundaries of the Tokamak in R-z space:
+        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
+
+    Returns
+    -------
+    lengths
+        The length of each line of sight for it to intersect a Tokamak wall.
+
+    """
+    opposite_R = np.where(
+        R_end - R_start < 0, machine_dimensions[0][0], machine_dimensions[0][1]
+    )
+    opposite_z = np.where(
+        z_end - z_start < 0, machine_dimensions[1][0], machine_dimensions[1][1]
+    )
+    # Calculate where LOS intersects opposite R-surface
+    a = (R_end - R_start) ** 2 + (T_end - T_start) ** 2
+    b = 2 * (R_start * (R_end - R_start) + T_start * (T_end - T_start))
+    c = R_start ** 2 + T_start ** 2 - opposite_R ** 2
+    factor = np.where(R_end - R_start < 0, -1, 1)
+    mask = b ** 2 - 4 * a * c < 0
+    # Check line of sight actually intersects the expected wall
+    opposite_R[mask] = machine_dimensions[0][1]
+    a[mask] = (R_end[mask] - R_start[mask]) ** 2 + (T_end[mask] - T_start[mask]) ** 2
+    b[mask] = 2 * (
+        R_start[mask] * (R_end[mask] - R_start[mask])
+        + T_start[mask] * (T_end[mask] - T_start[mask])
+    )
+    c[mask] = R_start[mask] ** 2 + T_start[mask] ** 2 - opposite_R[mask] ** 2
+    factor[mask] *= -1
+    x2_trial = (-b + factor * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+    z_trial = z_start + x2_trial * (z_end - z_start)
+
+    x2 = np.where(
+        np.logical_and(
+            machine_dimensions[1][0] <= z_trial, z_trial <= machine_dimensions[1][1]
+        ),
+        x2_trial,
+        (opposite_z - z_start) / (z_end - z_start),
+    )
+    return x2 * np.sqrt(
+        (R_start - R_end) ** 2 + (z_start - z_end) ** 2 + (T_start - T_end) ** 2
+    )

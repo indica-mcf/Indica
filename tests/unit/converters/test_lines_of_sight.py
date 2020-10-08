@@ -10,14 +10,17 @@ from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
+from hypothesis.strategies import one_of
 import numpy as np
 from pytest import approx
+from pytest import mark
 
 from indica.converters import LinesOfSightTransform
 from ..strategies import arbitrary_coordinates
 from ..strategies import basis_coordinates
 from ..strategies import machine_dimensions
 from ..strategies import monotonic_series
+from ..strategies import smooth_functions
 
 
 def inside_machine(coords, dimensions, boundary=True):
@@ -35,113 +38,31 @@ def inside_machine(coords, dimensions, boundary=True):
 
     """
     if boundary:
-        return (
-            dimensions[0][0] <= coords[0]
-            and coords[0] <= dimensions[0][1]
-            and dimensions[1][0] <= coords[1]
-            and coords[1] <= dimensions[1][1]
+        return np.logical_and(
+            dimensions[0][0] <= coords[0],
+            np.logical_and(
+                coords[0] <= dimensions[0][1],
+                np.logical_and(
+                    dimensions[1][0] <= coords[1], coords[1] <= dimensions[1][1]
+                ),
+            ),
         )
     else:
-        return (
-            dimensions[0][0] < coords[0]
-            and coords[0] < dimensions[0][1]
-            and dimensions[1][0] < coords[1]
-            and coords[1] < dimensions[1][1]
-        )
-
-
-def get_wall_intersection(R_start, z_start, angles, dimensions):
-    """Returns the location where a line of sight interects with the Tokamak
-    wall. This will be whichever wall the starting point is further away from.
-
-    """
-    distances = [
-        np.abs(dimensions[1][1] - z_start),
-        np.abs(dimensions[0][0] - R_start),
-        np.abs(dimensions[1][0] - z_start),
-        np.abs(dimensions[0][1] - R_start),
-    ]
-    nearest_wall = np.argmax(distances, 0)
-    tan_theta = np.tan(angles)
-    choices_horizontal = np.where(
-        angles % (2 * np.pi) == 0, 0, np.where(angles % (2 * np.pi) == np.pi, 1, 2)
-    )
-    choices_vertical = np.where(
-        angles % (2 * np.pi) == np.pi / 2,
-        0,
-        np.where(angles % (2 * np.pi) == 3 * np.pi / 2, 1, 2),
-    )
-    ones = np.ones(np.broadcast(R_start, z_start, angles).shape)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        intersections = np.array(
-            [
-                (
-                    np.choose(
-                        choices_horizontal,
-                        [
-                            dimensions[0][1],
-                            dimensions[0][0],
-                            R_start + (dimensions[1][1] - z_start) / tan_theta,
-                        ],
-                    ),
-                    dimensions[1][1] * ones,
-                ),
-                (
-                    dimensions[0][0] * ones,
-                    np.choose(
-                        choices_vertical,
-                        [
-                            dimensions[1][1],
-                            dimensions[1][0],
-                            z_start + tan_theta * (dimensions[0][0] - R_start),
-                        ],
-                    ),
-                ),
-                (
-                    np.choose(
-                        choices_horizontal,
-                        [
-                            dimensions[0][1],
-                            dimensions[0][0],
-                            R_start + (dimensions[1][0] - z_start) / tan_theta,
-                        ],
-                    ),
-                    dimensions[1][0] * ones,
-                ),
-                (
-                    dimensions[0][1] * ones,
-                    np.choose(
-                        choices_vertical,
-                        [
-                            dimensions[1][1],
-                            dimensions[1][0],
-                            z_start + tan_theta * (dimensions[0][1] - R_start),
-                        ],
-                    ),
-                ),
-            ]
-        )
-    tol = 1e-12
-    in_tokamak = [
-        np.logical_and(
+        return np.logical_and(
+            dimensions[0][0] + 1e-12 < coords[0],
             np.logical_and(
-                dimensions[i % 2][0] * (1 - tol * np.sign(dimensions[i % 2][0])) - tol
-                <= intersections[i, i % 2, :],
-                intersections[i, i % 2, :]
-                <= dimensions[i % 2][1] * (1 + tol * np.sign(dimensions[i % 2][1]))
-                + tol,
+                coords[0] < dimensions[0][1] - 1e-12,
+                np.logical_and(
+                    dimensions[1][0] + 1e-12 < coords[1],
+                    coords[1] < dimensions[1][1] - 1e-12,
+                ),
             ),
-            i != nearest_wall,
         )
-        for i in range(4)
-    ]
-    intersect_wall = np.argmax(in_tokamak, 0)
-    return [intersections[wall, :, i] for i, wall in enumerate(intersect_wall)]
 
 
 @composite
 def parallel_los_coordinates(
-    draw, machine_dims=None, min_los=2, max_los=100, min_num=2, max_num=100
+    draw, machine_dims=None, min_los=2, max_los=10, min_num=2, max_num=20
 ):
     """Generates :py:class:`indica.converters.LinesOfSightTransform`  objects
     where lines of sight are parallel, either horizontally or vertically.
@@ -174,14 +95,20 @@ def parallel_los_coordinates(
     """
     if not machine_dims:
         machine_dims = draw(machine_dimensions())
+    if machine_dims[0][0] < 0:
+        offset = abs(machine_dims[0][0])
+        machine_dims = (
+            (machine_dims[0][0] + offset, machine_dims[0][1] + offset),
+            machine_dims[1],
+        )
     if draw(booleans()):
-        R_start, R_stop = machine_dims[0]
-    else:
         R_stop, R_start = machine_dims[0]
-    if draw(booleans()):
-        z_start, z_stop = machine_dims[1]
     else:
+        R_start, R_stop = machine_dims[0]
+    if draw(booleans()):
         z_stop, z_start = machine_dims[1]
+    else:
+        z_start, z_stop = machine_dims[1]
     vertical = draw(booleans())
     num_los = draw(integers(min_los, max_los))
     num_intervals = draw(integers(min_num, max_num))
@@ -202,8 +129,10 @@ def parallel_los_coordinates(
     transform = LinesOfSightTransform(
         R_start_vals,
         z_start_vals,
+        np.zeros_like(R_start_vals),
         R_stop_vals,
         z_stop_vals,
+        np.zeros_like(R_stop_vals),
         num_intervals,
         machine_dims,
     )
@@ -256,139 +185,70 @@ def los_coordinates_parameters(
         Default z-grid to use when converting from the R-z coordinate system.
 
     """
-    # TODO: consider making this more general
-
-    def theta_range(origin, hard_min, hard_max, domain, edge):
-        min_i = 0 if edge == 0 or edge == 1 else 1
-        max_i = 0 if edge == 1 or edge == 2 else 1
-        min_j = 0 if edge == 1 or edge == 2 else 1
-        max_j = 0 if edge == 2 or edge == 3 else 1
-        if domain:
-            theta_min = np.arctan2(
-                (origin[1] - domain[1][min_j]), (origin[0] - domain[0][min_i])
+    focus_R = 2.5 + draw(floats(-2.4, 7.5))
+    if domain and focus_R >= domain[0][0] and focus_R <= domain[0][1]:
+        zdown, zup = domain[1]
+        focus_z = draw(
+            one_of(
+                floats(zup, max(zup + 1.0, 10.0), exclude_min=True),
+                floats(min(zdown - 1.0, -10.0), zdown, exclude_max=True),
             )
-            theta_max = np.arctan2(
-                (origin[1] - domain[1][max_j]), (origin[0] - domain[0][max_i])
-            )
-            if theta_min < theta_max:
-                theta_max += 2 * np.pi
-        else:
-            theta1 = draw(floats(hard_min, hard_max))
-            theta2 = draw(
-                floats(hard_min, hard_max).filter(
-                    lambda x: x != approx(theta1, abs=1e-3, rel=1e-3)
-                )
-            )
-            theta_max = max(theta1, theta2)
-            theta_min = min(theta1, theta2)
-        return theta_min, theta_max
-
-    if not domain:
-        machine_dims = draw(machine_dimensions())
-    else:
-        min_R = domain[0][0]
-        max_R = domain[0][1]
-        min_z = domain[1][0]
-        max_z = domain[1][1]
-        machine_dims = (
-            (
-                draw(
-                    floats(
-                        -10 * np.sign(min_R) * min_R,
-                        min_R,
-                        allow_nan=False,
-                        allow_infinity=False,
-                    )
-                ),
-                draw(
-                    floats(
-                        max_R,
-                        10 * np.sign(max_R) * max_R,
-                        allow_nan=False,
-                        allow_infinity=False,
-                    )
-                ),
-            ),
-            (
-                draw(
-                    floats(
-                        -10 * np.sign(min_z) * min_z,
-                        min_z,
-                        allow_nan=False,
-                        allow_infinity=False,
-                    )
-                ),
-                draw(
-                    floats(
-                        max_z,
-                        10 * np.sign(max_z) * max_z,
-                        allow_nan=False,
-                        allow_infinity=False,
-                    )
-                ),
-            ),
-        )
-    edge = draw(integers(0, 3))
-    start_length = draw(
-        floats(
-            0.0,
-            min(
-                machine_dims[0][1] - machine_dims[0][0],
-                machine_dims[1][1] - machine_dims[1][0],
-            )
-            * 0.05,
-        )
-    )
-    if edge == 0:
-        centre = (machine_dims[0][1] + machine_dims[0][0]) / 2
-        half_width = (machine_dims[0][1] - machine_dims[0][0]) / 2
-        R_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
-        z_origin = machine_dims[1][1]
-        theta_min, theta_max = theta_range(
-            (R_origin, z_origin), np.pi, 2 * np.pi, domain, edge
-        )
-    elif edge == 1:
-        centre = (machine_dims[1][1] + machine_dims[1][0]) / 2
-        half_width = (machine_dims[1][1] - machine_dims[1][0]) / 2
-        R_origin = machine_dims[0][0]
-        z_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
-        theta_min, theta_max = theta_range(
-            (R_origin, z_origin), -0.5 * np.pi, 0.5 * np.pi, domain, edge
-        )
-    elif edge == 2:
-        centre = (machine_dims[0][1] + machine_dims[0][0]) / 2
-        half_width = (machine_dims[0][1] - machine_dims[0][0]) / 2
-        R_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
-        z_origin = machine_dims[1][0]
-        theta_min, theta_max = theta_range(
-            (R_origin, z_origin), 0.0, np.pi, domain, edge
         )
     else:
-        centre = (machine_dims[1][1] + machine_dims[1][0]) / 2
-        half_width = (machine_dims[1][1] - machine_dims[1][0]) / 2
-        R_origin = machine_dims[0][1]
-        z_origin = centre + draw(floats(-0.8 * half_width, 0.8 * half_width))
-        theta_min, theta_max = theta_range(
-            (R_origin, z_origin), 0.5 * np.pi, 1.5 * np.pi, domain, edge
-        )
+        focus_z = draw(floats(-10.0, 10.0))
+    if domain:
+        Rdown, Rup = domain[0]
+        zdown, zup = domain[1]
+        if Rdown < 0 or Rup < 0:
+            raise ValueError(
+                "LinesOfSightTransform does not support domains with R < 0."
+            )
+        t1 = np.arctan2(domain[1][0] - focus_z, domain[0][0] - focus_R)
+        t2 = np.arctan2(domain[1][1] - focus_z, domain[0][0] - focus_R)
+        t3 = np.arctan2(domain[1][0] - focus_z, domain[0][1] - focus_R)
+        t4 = np.arctan2(domain[1][1] - focus_z, domain[0][1] - focus_R)
+        thetas = sorted([t1, t2, t3, t4])
+        if thetas[-1] - thetas[0] > np.pi:
+            thetas = sorted([-t if t < 0 else t for t in thetas])
+        theta_min = draw(floats(-np.pi, thetas[0]))
+        theta_max = draw(floats(thetas[-1], 2 * np.pi))
+        d1 = np.sqrt((focus_R - domain[0][0]) ** 2 + (focus_z - focus_z[1][0]) ** 2)
+        d2 = np.sqrt((focus_R - domain[0][1]) ** 2 + (focus_z - focus_z[1][0]) ** 2)
+        d3 = np.sqrt((focus_R - domain[0][0]) ** 2 + (focus_z - focus_z[1][1]) ** 2)
+        d4 = np.sqrt((focus_R - domain[0][1]) ** 2 + (focus_z - focus_z[1][1]) ** 2)
+        max_dist = min(d1, d2, d3, d4)
+        R1 = 1.5 + draw(floats(-1.5, Rdown - 1.5))
+        R2 = draw(floats(Rup, max(1e3, 2 * Rup)))
+        z1 = draw(floats(min(-1e-3, 2 * zdown), zdown))
+        z2 = draw(floats(zup, max(1e3, 2 * zup)))
+    else:
+        theta_min = 5 * np.pi / 4 + draw(floats(-np.pi, np.pi))
+        theta_max = theta_min + np.pi / 4 + draw(floats(-np.pi, np.pi))
+        diff = theta_max - theta_min
+        if abs(diff) < 0.1:
+            theta_max = theta_min + np.sign(diff) * 0.1
+        max_dist = 0.5
+        R1 = 1.5 + draw(floats(-1.5, focus_R - 1.55, exclude_max=True))
+        R2 = draw(floats(focus_R + 0.05, 1e3, exclude_min=True))
+        z1 = draw(floats(-1e3, focus_z - 0.1, exclude_max=True))
+        z2 = draw(floats(focus_z + 0.1, 1e3, exclude_min=True))
+    machine_dims = ((R1, R2), (z1, z2))
     angles = draw(
         monotonic_series(theta_min, theta_max, draw(integers(min_los, max_los)))
     )
-    z_start = z_origin + start_length * np.cos(angles)
-    R_start = R_origin + start_length * np.sin(angles)
-    stop = np.array(get_wall_intersection(R_origin, z_origin, angles, machine_dims))
-    end_length = (
-        draw(
-            arrays(
-                np.float,
-                len(angles),
-                elements=floats(0.0, 1.0, exclude_max=True),
-                fill=just(0.0),
-            )
+    start_distance = draw(floats(0.0, max_dist))
+    lengths = draw(
+        arrays(
+            np.float,
+            len(angles),
+            elements=floats(-0.4, 1.0, exclude_max=True).map(lambda x: x + 0.5),
+            fill=just(0.5),
         )
-    ) * np.sqrt((R_start - stop[:, 0]) ** 2 + (z_start - stop[:, 1]) ** 2)
-    R_stop = stop[:, 0] - end_length * np.cos(angles)
-    z_stop = stop[:, 1] - end_length * np.sin(angles)
+    )
+    R_start = focus_R + start_distance * np.cos(angles)
+    z_start = focus_z + start_distance * np.sin(angles)
+    R_stop = focus_R + (start_distance + lengths) * np.cos(angles)
+    z_stop = focus_z + (start_distance + lengths) * np.sin(angles)
     if default_Rz:
         default_R, default_z, _ = draw(
             basis_coordinates(
@@ -406,13 +266,20 @@ def los_coordinates_parameters(
         )
     else:
         default_R, default_z = None, None
+    toroidal_skew = draw(booleans())
+    T_start = np.zeros_like(R_start)
+    if toroidal_skew:
+        skew = draw(smooth_functions((theta_min, theta_max), 0.1))
+        T_stop = skew(angles)
+    else:
+        T_stop = np.zeros_like(R_stop)
     return (
         R_start,
         z_start,
-        np.zeros_like(R_start),
+        T_start,
         R_stop,
         z_stop,
-        np.zeros_like(R_stop),
+        T_stop,
         draw(integers(min_num, max_num)),
         machine_dims,
         default_R,
@@ -468,81 +335,104 @@ def los_coordinates(
     return result
 
 
+# Ignore warnings when an empty array
+pytestmark = mark.filterwarnings("ignore:invalid value encountered in true_divide")
+
+
 # TODO: consider converting these tests assuming parallel LoS to work with
 # general ones
 
 
-# @settings(report_multiple_bugs=False)
-# @given(
-#     parallel_los_coordinates(),
-#     floats(0.0, 1.0, exclude_max=True),
-#     sane_floats(),
-#     floats(),
-# )
-# def tests_parallel_los_to_Rz(coords, position1, position2, time):
-#     """Checks positions fall between appropriate lines of sight."""
-#     transform, vertical, Rvals, zvals = coords
-#     if vertical:
-#         i = position1 * (len(Rvals) - 1)
-#         perp_index = len(zvals) if position2 == 1.0 else np.argmax(position2 < zvals)
-#     else:
-#         i = position1 * (len(zvals) - 1)
-#         perp_index = len(Rvals) if position2 == 1.0 else np.argmax(position2 < Rvals)
-#     los_index = int(i)
-#     R, z, t = transform.convert_to_Rz(i, position2, time)
-#     R_index = los_index if vertical else perp_index
-#     if Rvals[-1] > Rvals[0]:
-#         assert R <= Rvals[R_index + 1]
-#         assert Rvals[R_index] <= R
-#     else:
-#         assert R >= Rvals[R_index + 1]
-#         assert Rvals[R_index] >= R
-#     z_index = perp_index if vertical else los_index
-#     if zvals[-1] > zvals[0]:
-#         assert z <= zvals[z_index + 1]
-#         assert zvals[z_index] <= z
-#     else:
-#         assert z >= zvals[z_index + 1]
-#         assert zvals[z_index] >= z
+@given(
+    parallel_los_coordinates(),
+    floats(0.0, 1.0, exclude_max=True),
+    floats(0.0, 1.0),
+    floats(),
+)
+def test_parallel_los_to_Rz(coords, position1, position2, time):
+    """Checks positions fall between appropriate lines of sight."""
+    transform, vertical, Rvals, zvals = coords
+    if vertical:
+        i = position1 * (len(Rvals) - 1)
+        perp_index = int(position2 * (len(zvals) - 1))
+    else:
+        i = position1 * (len(zvals) - 1)
+        perp_index = int(position2 * (len(Rvals) - 1))
+    los_index = int(i)
+    R, z, t = transform.convert_to_Rz(i, position2, time)
+    R_index = los_index if vertical else perp_index
+    if Rvals[-1] > Rvals[0]:
+        assert R - Rvals[R_index + 1] <= 1e-5
+        assert Rvals[R_index] - R <= 1e-5
+    else:
+        assert R - Rvals[R_index + 1] >= -1e-5
+        assert Rvals[R_index] - R >= -1e-5
+    z_index = perp_index if vertical else los_index
+    if zvals[-1] > zvals[0]:
+        assert z <= zvals[z_index + 1]
+        assert zvals[z_index] <= z
+    else:
+        assert z >= zvals[z_index + 1]
+        assert zvals[z_index] >= z
 
 
 @given(
     parallel_los_coordinates(), floats(),
 )
-def tests_parallel_los_from_Rz(coords, time):
+def test_parallel_los_from_Rz(coords, time):
     """Checks R,z points along linse of sight have correct channel number."""
     transform, vertical, Rvals, zvals = coords
     for (i, R), (j, z) in product(enumerate(Rvals), enumerate(zvals)):
         ch, pos, t = transform.convert_from_Rz(R, z, time)
         if vertical:
-            assert ch == approx(i)
-            assert pos == approx(z / (zvals[-1] - zvals[0]))
+            assert ch == approx(i, abs=1e-5, rel=1e-2)
+            assert pos == approx(
+                (z - zvals[0]) / (zvals[-1] - zvals[0]), abs=1e-5, rel=1e-2
+            )
         else:
-            assert ch == approx(j)
-            assert pos == approx(R / (Rvals[-1] - Rvals[0]))
+            assert ch == approx(j, abs=1e-5, rel=1e-2)
+            assert pos == approx(
+                (R - Rvals[0]) / (Rvals[-1] - Rvals[0]), abs=1e-5, rel=1e-2
+            )
 
 
 @given(
     los_coordinates(),
     floats(0.0, 1.0, exclude_max=True),
     floats(0.0, 1.0, exclude_min=True),
-    integers(1, 50),
+    integers(2, 50),
     floats(),
 )
 def test_los_uniform_distances(transform, start, end, steps, time):
     """Test distances are uniform along lines of sight"""
-    samples = np.expand_dims(np.linspace(start, end, steps), 1)
+    samples = np.linspace(start, end, steps)
     distance, t = transform.distance(1, x2=samples, t=time)
-    assert np.all(distance[:, 1:] == approx(distance[:, 0]))
+    assert np.all(np.isclose(distance[1:, :], distance[0, :], 1e-6, 1e-12))
+
+
+@given(los_coordinates(), integers(2, 50), floats())
+def test_los_distances(transform, npoints, time):
+    """Tests distances along the line of sight are correct."""
+    lengths = np.expand_dims(
+        np.sqrt(
+            (transform.R_end - transform.R_start) ** 2
+            + (transform.z_end - transform.z_start) ** 2
+            + (transform.T_end - transform.T_start) ** 2
+        ),
+        1,
+    )
+    samples = np.linspace(0.0, 1.0, npoints)
+    distance, t = transform.distance(1, x2=samples, t=time)
+    assert distance == approx(lengths * samples)
 
 
 @given(los_coordinates_parameters(), floats())
 def test_los_end_points(parameters, time):
     """Test end of all lines fall on edge or outside of reactor dimensions"""
     transform = LinesOfSightTransform(*parameters)
-    dims = parameters[5]
+    dims = parameters[7]
     R, z, t = transform.convert_to_Rz(x2=1.0, t=time)
-    assert np.all(inside_machine((R, z), dims, False))
+    assert np.all(np.logical_not(inside_machine((R, z), dims, False)))
 
 
 @given(los_coordinates_parameters(), arbitrary_coordinates())

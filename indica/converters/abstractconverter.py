@@ -350,19 +350,6 @@ class CoordinateTransform(ABC):
             pointer to that)
 
         """
-
-        def calc_distance(direction, x1, x2, t):
-            R, z, t = self._convert_to_Rz(x1, x2, t)
-            slc1 = [slice(None)] * R.ndim
-            slc1[direction] = slice(0, -1)
-            slc1 = tuple(slc1)
-            slc2 = [slice(None)] * R.ndim
-            slc2[direction] = slice(1, None)
-            slc2 = tuple(slc2)
-            spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2)
-            result = np.zeros(np.broadcast(R, z).shape)
-            return np.cumsum(spacings, direction, out=result[slc2]), t
-
         use_cached = True
         if x1 is None:
             x1 = self.default_x1
@@ -378,12 +365,36 @@ class CoordinateTransform(ABC):
             use_cached = False
         if use_cached:
             if self.default_distance[direction - 1][0] is None:
-                self.default_distance[direction - 1] = calc_distance(
+                self.default_distance[direction - 1] = self._distance(
                     direction, x1, x2, t
                 )
             return self.default_distance[direction - 1]
         else:
-            return calc_distance(direction, x1, x2, t)
+            return self._distance(direction, x1, x2, t)
+
+    def _distance(
+        self,
+        direction: int,
+        x1: Optional[ArrayLike],
+        x2: Optional[ArrayLike],
+        t: Optional[ArrayLike],
+    ) -> Tuple[ArrayLike, ArrayLike]:
+        """Implementation of calculation of physical distances between points
+        in this coordinate system, without caching or default argument
+        values.
+
+        """
+        R, z, t = self._convert_to_Rz(x1, x2, t)
+        slc1_list = [slice(None)] * R.ndim
+        slc1_list[direction] = slice(0, -1)
+        slc1 = tuple(slc1_list)
+        slc2_list = [slice(None)] * R.ndim
+        slc2_list[direction] = slice(1, None)
+        slc2 = tuple(slc2_list)
+        spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2)
+        result = np.zeros(np.broadcast(R, z).shape)
+        np.cumsum(spacings, direction, out=result[slc2])
+        return result, t
 
     def encode(self) -> str:
         """Returns a JSON representation of this object. Should be sufficient
