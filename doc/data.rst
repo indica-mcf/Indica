@@ -172,7 +172,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 
 **Electron density and temperature**
 
-.. list-table:: HRTS and LIDR
+.. list-table:: HRTS and LIDR (thomson scattering)
 	:widths: 5 15 10 60
 	:header-rows: 1
 
@@ -201,7 +201,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		-  "
 		- Z positions of measurements (m)
 
-.. list-table:: KK3
+.. list-table:: KK3 (electron-cyclotron-emission)
 	:widths: 5 15 10 60
 	:header-rows: 1
 
@@ -232,7 +232,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		- Btot, t
 		- Radial position of each channel calculated interpolating the total B-field along the LOS of the KK3 antenna with the B-field of cold resonance calculated using the electron cyclotron frequency formula with info from GEN (*flush_getBr, flush_getBz, flush_getBt*)
 
-.. list-table:: KG10
+.. list-table:: KG10 (reflectometry)
 	:widths: 5 15 10 60
 	:header-rows: 1
 	
@@ -253,11 +253,24 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		- chan
 		- Z position of the measurement
 
+
+.. list-table:: KY6 (Li-beam)
+	:widths: 5 15 10 60
+	:header-rows: 1
+	
+	* 	- DDA
+		- DTYPE
+		- Axes
+		- Description
+	* 	- KY6
+		- NE
+		- ...
+		- ...
 |
 
 **Radiation**
 
-.. list-table:: SXR
+.. list-table:: SXR (soft X-ray)
 	:widths: 5 15 10 60
 	:header-rows: 1
 
@@ -274,7 +287,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		- channel, nlos
 		- Coordinates (m) of all LOS. Identifying string in Surf database is respectively 'KJ3-4 V', 'KJ3-4 T', 'KJ5', nlos = 100 (currently) = number of points along each los, chosen with identical equally spaced steps for all LOS.
 
-.. list-table:: KB5
+.. list-table:: KB5 (bolometry)
 	:widths: 5 15 10 60
 	:header-rows: 1
 
@@ -295,7 +308,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 
 **Spectroscopy**
 
-.. list-table:: KS3
+.. list-table:: KS3 (Bremsstrahlung)
 	:widths: 5 15 10 60
 	:header-rows: 1
 
@@ -312,7 +325,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		-
 		- Info on LOS coordinates (mm) for KS3 measurements: R_start = LOSH[1], R_end = LOSH[4], z_start = LOSH[2], z_end = LOSH[5], same for LOSV
 
-.. list-table:: KX1
+.. list-table:: KX1 (X-ray crystal spectroscopy)
 	:widths: 5 15 10 60
 	:header-rows: 1
 		
@@ -329,7 +342,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		-
 		- Coordinates (m) of the LOS. Identifying string in Surf database is 'KX1'
 
-.. list-table:: KT7/3
+.. list-table:: KT7/3 (VUV spectroscopy)
 	:widths: 5 15 10 60
 	:header-rows: 1
 
