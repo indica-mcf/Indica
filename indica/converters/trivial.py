@@ -3,7 +3,7 @@
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from ..numpy_typing import ArrayLike
+from ..numpy_typing import LabeledArray
 
 
 class TrivialTransform(CoordinateTransform):
@@ -28,7 +28,9 @@ class TrivialTransform(CoordinateTransform):
 
     """
 
-    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         If an arguments is not provided then use the default grid for
@@ -58,7 +60,9 @@ class TrivialTransform(CoordinateTransform):
         """
         return x1, x2, t
 
-    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         If an arguments is not provided then return the master

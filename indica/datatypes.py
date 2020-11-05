@@ -40,6 +40,7 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Horizontal position within the tokamak along the major radius",
         "m",
     ),
+    "minor_rad": ("Distance of a point from the magnetic axis", "m"),
     "norm_flux_pol": (
         "Square root of normalised poloidal component of magnetic flux",
         "",
@@ -92,7 +93,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "electrons": ["angular_freq", "number_density", "temperature"],
         "hfs": ["major_rad", "z"],
         "lfs": ["major_rad", "z"],
-        "mag_axis": ["magnetic_flux", "major_rad", "z"],
+        "mag_axis": ["magnetic_flux", "major_rad", "minor_rad", "z"],
         "plasma": [
             "angular_freq",
             "effective_charge",
@@ -104,7 +105,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "toroidal_flux",
             "vol_jacobian",
         ],
-        "separatrix": ["magnetic_flux", "major_rad", "z"],
+        "separatrix": ["magnetic_flux", "major_rad", "minor_rad", "z"],
         "sxr": ["luminous_flux"],
     },
 )

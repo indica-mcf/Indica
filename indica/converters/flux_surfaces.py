@@ -6,7 +6,7 @@ import numpy as np
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from ..numpy_typing import ArrayLike
+from ..numpy_typing import LabeledArray
 
 
 class FluxSurfaceCoordinates(CoordinateTransform):
@@ -40,16 +40,18 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     def __init__(
         self,
         kind: str,
-        default_rho: ArrayLike,
-        default_theta: ArrayLike,
-        default_R: ArrayLike,
-        default_z: ArrayLike,
-        default_t: ArrayLike,
+        default_rho: LabeledArray,
+        default_theta: LabeledArray,
+        default_R: LabeledArray,
+        default_z: LabeledArray,
+        default_t: LabeledArray,
     ):
         self.flux_kind = kind
         super().__init__(default_rho, default_theta, default_R, default_z, default_t)
 
-    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         Parameters
@@ -74,7 +76,9 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         """
         return self.equilibrium.spatial_coords(x1, x2, t, self.flux_kind)
 
-    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         Parameters
@@ -100,7 +104,7 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         return self.equilibrium.flux_coords(R, z, t, self.flux_kind)
 
     def _convert_to_vol(
-        self, rho: ArrayLike, theta: ArrayLike, t: ArrayLike
+        self, rho: LabeledArray, theta: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from this coordinate system to one using volume enclosed by
         the flux surfaces as a coordinate.

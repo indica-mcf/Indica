@@ -6,6 +6,7 @@ from functools import reduce
 import hypothesis.extra.numpy as hynp
 import hypothesis.strategies as hyst
 import numpy as np
+from xarray import DataArray
 
 
 @hyst.composite
@@ -395,6 +396,7 @@ def arbitrary_coordinates(
     max_side=20,
     min_dims=0,
     base_shape=(),
+    xarray=False,
 ):
     """Strategy to generate valid sets of coordinates as input for conversions.
 
@@ -414,6 +416,9 @@ def arbitrary_coordinates(
         The smallest number of dimensions allowed for the resulting coordinates
     base_shape
         Shape against which all the coordinates should be broadcastable
+    xarray
+        If true, return results as :py:class:`xarray.DataArray` objects with
+        arbitrary dimension names.
 
     Returns
     -------
@@ -434,7 +439,7 @@ def arbitrary_coordinates(
             max_side=max_side,
         )
     ).input_shapes
-    return tuple(
+    results = tuple(
         draw(
             hynp.arrays(
                 np.float,
@@ -447,6 +452,24 @@ def arbitrary_coordinates(
         )
         for i in range(3)
     )
+    if xarray:
+        ndims = max([r.ndim for r in results])
+        labels = draw(
+            hyst.lists(
+                hyst.text(min_size=1, max_size=32).filter(
+                    lambda x: x
+                    not in ["R", "z", "rho_poloidal", "rho_toroidal", "theta", "t"]
+                ),
+                min_size=ndims,
+                max_size=ndims,
+                unique=True,
+            )
+        )
+        results = tuple(
+            DataArray(array, dims=labels[-array.ndim :] if array.ndim > 0 else [])
+            for array in results
+        )
+    return results
 
 
 @hyst.composite

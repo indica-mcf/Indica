@@ -11,9 +11,9 @@ from typing import Tuple
 import numpy as np
 
 from ..equilibrium import Equilibrium
-from ..numpy_typing import ArrayLike
+from ..numpy_typing import LabeledArray
 
-Coordinates = Tuple[ArrayLike, ArrayLike, ArrayLike]
+Coordinates = Tuple[LabeledArray, LabeledArray, LabeledArray]
 
 
 class EquilibriumException(Exception):
@@ -60,18 +60,18 @@ class CoordinateTransform(ABC):
 
     def __init__(
         self,
-        default_x1: ArrayLike,
-        default_x2: ArrayLike,
-        default_R: ArrayLike,
-        default_z: ArrayLike,
-        default_t: ArrayLike,
+        default_x1: LabeledArray,
+        default_x2: LabeledArray,
+        default_R: LabeledArray,
+        default_z: LabeledArray,
+        default_t: LabeledArray,
     ):
         self.default_x1 = default_x1
         self.default_x2 = default_x2
         self.default_R = default_R
         self.default_z = default_z
         self.default_t = default_t
-        self.default_distance: List[Tuple[ArrayLike, ArrayLike]] = [
+        self.default_distance: List[Tuple[LabeledArray, LabeledArray]] = [
             (None, None),
             (None, None),
         ]
@@ -112,9 +112,9 @@ class CoordinateTransform(ABC):
     def convert_to(
         self,
         other: "CoordinateTransform",
-        x1: Optional[ArrayLike] = None,
-        x2: Optional[ArrayLike] = None,
-        t: Optional[ArrayLike] = None,
+        x1: Optional[LabeledArray] = None,
+        x2: Optional[LabeledArray] = None,
+        t: Optional[LabeledArray] = None,
     ) -> Coordinates:
         """General routine to map coordinates from this system to those used
         in ``other``. Array broadcasting will be performed as necessary.
@@ -158,9 +158,9 @@ class CoordinateTransform(ABC):
 
     def convert_to_Rz(
         self,
-        x1: Optional[ArrayLike] = None,
-        x2: Optional[ArrayLike] = None,
-        t: Optional[ArrayLike] = None,
+        x1: Optional[LabeledArray] = None,
+        x2: Optional[LabeledArray] = None,
+        t: Optional[LabeledArray] = None,
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
@@ -210,7 +210,9 @@ class CoordinateTransform(ABC):
             return self._convert_to_Rz(x1, x2, t)
 
     @abstractmethod
-    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Implementation of conversion to the R-z coordinate system, without
         caching or default argument values.
         """
@@ -221,9 +223,9 @@ class CoordinateTransform(ABC):
 
     def convert_from_Rz(
         self,
-        R: Optional[ArrayLike] = None,
-        z: Optional[ArrayLike] = None,
-        t: Optional[ArrayLike] = None,
+        R: Optional[LabeledArray] = None,
+        z: Optional[LabeledArray] = None,
+        t: Optional[LabeledArray] = None,
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
@@ -273,7 +275,9 @@ class CoordinateTransform(ABC):
             return self._convert_from_Rz(R, z, t)
 
     @abstractmethod
-    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Implementation of conversion from the R-z coordinate system, without
         caching or default argument values.
         """
@@ -287,6 +291,13 @@ class CoordinateTransform(ABC):
         the same on two transform classes.
 
         """
+
+        def are_equal(lhs: LabeledArray, rhs: LabeledArray):
+            if isinstance(lhs, (int, float)):
+                return lhs == rhs
+            else:
+                return lhs.equals(rhs)
+
         if not isinstance(other, self.__class__):
             return False
         if not hasattr(self, "equilibrium"):
@@ -295,11 +306,11 @@ class CoordinateTransform(ABC):
             result = False
         else:
             result = self.equilibrium == other.equilibrium
-        result = result and np.all(self.default_R == other.default_R)
-        result = result and np.all(self.default_z == other.default_z)
-        result = result and np.all(self.default_x1 == other.default_x1)
-        result = result and np.all(self.default_x2 == other.default_x2)
-        result = result and np.all(self.default_t == other.default_t)
+        result = result and are_equal(self.default_R, other.default_R)
+        result = result and are_equal(self.default_z, other.default_z)
+        result = result and are_equal(self.default_x1, other.default_x1)
+        result = result and are_equal(self.default_x2, other.default_x2)
+        result = result and are_equal(self.default_t, other.default_t)
         return result
 
     @abstractmethod
@@ -312,10 +323,10 @@ class CoordinateTransform(ABC):
     def distance(
         self,
         direction: int,
-        x1: Optional[ArrayLike] = None,
-        x2: Optional[ArrayLike] = None,
-        t: Optional[ArrayLike] = None,
-    ) -> Tuple[ArrayLike, ArrayLike]:
+        x1: Optional[LabeledArray] = None,
+        x2: Optional[LabeledArray] = None,
+        t: Optional[LabeledArray] = None,
+    ) -> Tuple[LabeledArray, LabeledArray]:
         """Give the distance (in physical space) from the origin in the
         specified direction.
 
@@ -375,16 +386,18 @@ class CoordinateTransform(ABC):
     def _distance(
         self,
         direction: int,
-        x1: Optional[ArrayLike],
-        x2: Optional[ArrayLike],
-        t: Optional[ArrayLike],
-    ) -> Tuple[ArrayLike, ArrayLike]:
+        x1: Optional[LabeledArray],
+        x2: Optional[LabeledArray],
+        t: Optional[LabeledArray],
+    ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system, without caching or default argument
         values.
 
         """
         R, z, t = self._convert_to_Rz(x1, x2, t)
+        if isinstance(R, (int, float)) or isinstance(z, (int, float)):
+            raise ValueError("Arguments x1 and x2 must be xarray DataArray objects.")
         slc1_list = [slice(None)] * R.ndim
         slc1_list[direction] = slice(0, -1)
         slc1 = tuple(slc1_list)

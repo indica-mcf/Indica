@@ -80,8 +80,8 @@ def flux_coordinates(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side
 
 @given(
     flux_coordinate_arguments(),
-    arbitrary_coordinates(),
-    arbitrary_coordinates((0.0, 0.0, None), (1.0, 2 * np.pi, None)),
+    arbitrary_coordinates(xarray=True),
+    arbitrary_coordinates((0.0, 0.0, None), (1.0, 2 * np.pi, None), xarray=True),
 )
 def test_flux_from_Rz_mock(transform_args, coords, expected_result):
     """Test transform of data to flux coordinates."""
@@ -98,8 +98,8 @@ def test_flux_from_Rz_mock(transform_args, coords, expected_result):
 
 @given(
     flux_coordinate_arguments(),
-    arbitrary_coordinates((0.0, 0.0, None), (1.0, 2 * np.pi, None)),
-    arbitrary_coordinates(),
+    arbitrary_coordinates((0.0, 0.0, None), (1.0, 2 * np.pi, None), xarray=True),
+    arbitrary_coordinates(xarray=True),
 )
 def test_flux_to_Rz_mock(transform_args, coords, expected_result):
     """Test transform of data from flux coordinates."""

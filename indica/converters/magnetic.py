@@ -8,7 +8,7 @@ from scipy.optimize import root_scalar
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from ..numpy_typing import ArrayLike
+from ..numpy_typing import LabeledArray
 
 
 class ConvergenceError(Exception):
@@ -38,12 +38,18 @@ class MagneticCoordinates(CoordinateTransform):
     """
 
     def __init__(
-        self, z: float, default_B: ArrayLike, default_R: ArrayLike, default_t: ArrayLike
+        self,
+        z: float,
+        default_B: LabeledArray,
+        default_R: LabeledArray,
+        default_t: LabeledArray,
     ):
         self.z_los = z
         super().__init__(default_B, 0.0, default_R, z, np.expand_dims(default_t, 1))
 
-    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         Parameters
@@ -67,8 +73,12 @@ class MagneticCoordinates(CoordinateTransform):
 
         """
         # print("Recieved by _convert_to_Rz", x1, x2, t)
-        left = self.default_R.min()
-        right = self.default_R.max()
+        if isinstance(self.default_R, (int, float)):
+            left = self.default_R
+            right = self.default_R
+        else:
+            left = self.default_R.min()
+            right = self.default_R.max()
 
         @np.vectorize
         def find_root(B: float, x2: float, t: float) -> float:
@@ -85,7 +95,9 @@ class MagneticCoordinates(CoordinateTransform):
 
         return find_root(x1, x2, t), x2 + self.z_los, t
 
-    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         Parameters
@@ -128,7 +140,7 @@ def find_brackets(
     fleft = function(left)
     fright = function(right)
     if fleft * fright <= 0.0:
-        return left, right
+        return float(left), float(right)
     if fleft < 0.0:
         if left > 1e-1:
             left /= 1.5

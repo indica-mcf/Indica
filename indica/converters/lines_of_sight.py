@@ -6,11 +6,11 @@ from typing import Optional
 from typing import Tuple
 
 import numpy as np
-from scipy.interpolate import interp2d
+from scipy.optimize import root
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from ..numpy_typing import ArrayLike
+from ..numpy_typing import LabeledArray
 
 
 class LinesOfSightTransform(CoordinateTransform):
@@ -116,9 +116,11 @@ class LinesOfSightTransform(CoordinateTransform):
             else default_z
         )
         self.index_inversion: Optional[
-            Callable[[ArrayLike, ArrayLike], ArrayLike]
+            Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
-        self.x2_inversion: Optional[Callable[[ArrayLike, ArrayLike], ArrayLike]] = None
+        self.x2_inversion: Optional[
+            Callable[[LabeledArray, LabeledArray], LabeledArray]
+        ] = None
         super().__init__(indices, x2, R_default, z_default, 0)
 
     def __eq__(self, other: object) -> bool:
@@ -133,7 +135,9 @@ class LinesOfSightTransform(CoordinateTransform):
         result = result and np.all(self.T_end == other.T_end)
         return result
 
-    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
         Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
@@ -147,28 +151,88 @@ class LinesOfSightTransform(CoordinateTransform):
         z = zs + (ze - zs) * x2
         return np.sign(R0) * np.sqrt(R0 ** 2 + T0 ** 2), z, t
 
-    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
-        # TODO: Consider if there is some way to invert this exactly,
-        # rather than rely on interpolation (which is necessarily
-        # inexact, as well as computationally expensive).
-        if not self.index_inversion:
-            R_vals, z_vals, _ = self.convert_to_Rz()
-            index_vals = self.default_x1 * np.ones_like(self.default_x2)
-            x2_vals = np.ones_like(self.default_x1) * self.default_x2
-            self.index_inversion = interp2d(R_vals, z_vals, index_vals, copy=False)
-            self.x2_inversion = interp2d(R_vals, z_vals, x2_vals, copy=False)
-        assert self.x2_inversion is not None
-        x1 = self.index_inversion(R, z)
-        x2 = self.x2_inversion(R, z)
-        return x1, x2, t
+    def _convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
+        def jacobian(x):
+            x1 = x[0]
+            x2 = x[1]
+            c = np.ceil(x1).astype(int)
+            f = np.floor(x1).astype(int)
+            Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
+            Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
+            zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+            ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+            Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
+            Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
+            R0 = Rs + (Re - Rs) * x2
+            T0 = Ts + (Te - Ts) * x2
+            R = np.sign(R0) * np.sqrt(R0 ** 2 + T0 ** 2)
+            dR0dx1 = (self.R_start[c] - self.R_start[f]) * (1 - x2) + (
+                self.R_end[c] - self.R_end[f]
+            ) * x2
+            dR0dx2 = Re - Rs
+            dTdx1 = (self.T_start[c] - self.T_start[f]) * (1 - x2) + (
+                self.T_end[c] - self.T_end[f]
+            ) * x2
+            dTdx2 = Te - Ts
+            dzdx1 = (self.z_start[c] - self.z_start[f]) * (1 - x2) + (
+                self.z_end[c] - self.z_end[f]
+            ) * x2
+            dzdx2 = ze - zs
+            return [
+                [
+                    2 / R * (R0 * dR0dx1 + T0 * dTdx1),
+                    2 / R * (R0 * dR0dx2 + T0 * dTdx2),
+                ],
+                [dzdx1, dzdx2],
+            ]
+
+        def forward(x):
+            R_prime, z_prime, _ = self._convert_to_Rz(x[0], x[1], 0)
+            return [R_prime - R, z_prime - z]
+
+        @np.vectorize
+        def invert(R, z):
+            """Perform a nonlinear-solve for an R-z pair."""
+            # x = [R, z]
+            result = root(forward, [0, 0.5], jac=jacobian)
+            if not result.success:
+                raise RuntimeWarning(
+                    "Solver did not fully converge while inverting lines of sight."
+                )
+            return result.x[0], result.x[1]
+
+        Rz = invert(R, z)
+        return Rz[0], Rz[1], t
+        # # TODO: Consider if there is some way to invert this exactly,
+        # # rather than rely on interpolation (which is necessarily
+        # # inexact, as well as computationally expensive).
+        # if not self.index_inversion:
+        #     R_vals, z_vals, _ = self.convert_to_Rz()
+        #     points = np.stack((np.ravel(R_vals), np.ravel(z_vals))).T
+        #     index_vals = self.default_x1 * np.ones_like(self.default_x2)
+        #     x2_vals = np.ones_like(self.default_x1) * self.default_x2
+        #     interp2d = (
+        #         LinearNDInterpolator if np.all(self.T_start == 0.0) and
+        #         np.all(self.T_end == 0.0) else CloughTocher2DInterpolator
+        #     )
+        #     self.index_inversion = interp2d(points, np.ravel(index_vals))
+        #     self.x2_inversion = interp2d(points, np.ravel(x2_vals))
+        #     self.index_inversion = Rbf(R_vals, z_vals, index_vals)
+        #     self.x2_inversion = Rbf(R_vals, z_vals, x2_vals)
+        # assert self.x2_inversion is not None
+        # x1 = self.index_inversion(R, z)
+        # x2 = self.x2_inversion(R, z)
+        # return x1, x2, t
 
     def _distance(
         self,
         direction: int,
-        x1: Optional[ArrayLike],
-        x2: Optional[ArrayLike],
-        t: Optional[ArrayLike],
-    ) -> Tuple[ArrayLike, ArrayLike]:
+        x1: Optional[LabeledArray],
+        x2: Optional[LabeledArray],
+        t: Optional[LabeledArray],
+    ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
         lines.

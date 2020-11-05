@@ -14,6 +14,7 @@ from hypothesis.strategies import one_of
 import numpy as np
 from pytest import approx
 from pytest import mark
+from xarray import DataArray
 
 from indica.converters import LinesOfSightTransform
 from ..strategies import arbitrary_coordinates
@@ -113,19 +114,17 @@ def parallel_los_coordinates(
     num_los = draw(integers(min_los, max_los))
     num_intervals = draw(integers(min_num, max_num))
     if vertical:
-        R_vals = R_start_vals = R_stop_vals = draw(
-            monotonic_series(R_start, R_stop, num_los)
-        )
+        R_start_vals = R_stop_vals = draw(monotonic_series(R_start, R_stop, num_los))
+        R_vals = DataArray(R_start_vals, dims="R")
         z_start_vals = np.ones(num_los) * z_start
         z_stop_vals = np.ones(num_los) * z_stop
-        z_vals = np.linspace(z_start, z_stop, num_intervals + 1)
+        z_vals = DataArray(np.linspace(z_start, z_stop, num_intervals + 1), dims="z")
     else:
-        z_vals = z_start_vals = z_stop_vals = draw(
-            monotonic_series(z_start, z_stop, num_los)
-        )
+        z_start_vals = z_stop_vals = draw(monotonic_series(z_start, z_stop, num_los))
+        z_vals = DataArray(z_start_vals, dims="z")
         R_start_vals = np.ones(num_los) * R_start
         R_stop_vals = np.ones(num_los) * R_stop
-        R_vals = np.linspace(R_start, R_stop, num_intervals + 1)
+        R_vals = DataArray(np.linspace(R_start, R_stop, num_intervals + 1), dims="R")
     transform = LinesOfSightTransform(
         R_start_vals,
         z_start_vals,
@@ -435,12 +434,12 @@ def test_los_end_points(parameters, time):
     assert np.all(np.logical_not(inside_machine((R, z), dims, False)))
 
 
-@given(los_coordinates_parameters(), arbitrary_coordinates())
+@given(los_coordinates_parameters(), arbitrary_coordinates(xarray=True))
 def test_los_default_Rz(parameters, Rz_defaults):
     """Test expected defaults are used in transforms for R and z"""
     R_default, z_default, _ = Rz_defaults
     transform = LinesOfSightTransform(*parameters[:-2], R_default, z_default)
     x1, x2, t = transform.convert_from_Rz(R_default, z_default)
     x1_default, x2_deafult, t = transform.convert_from_Rz()
-    assert np.all(x1 == x1_default)
-    assert np.all(x2 == x2_deafult)
+    assert x1.equals(x1_default)
+    assert x2.equals(x2_deafult)

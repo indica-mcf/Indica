@@ -5,7 +5,7 @@ from scipy.interpolate import interp1d
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from ..numpy_typing import ArrayLike
+from ..numpy_typing import LabeledArray
 
 
 class TransectCoordinates(CoordinateTransform):
@@ -53,12 +53,16 @@ class TransectCoordinates(CoordinateTransform):
         )
         super().__init__(indices, 0, R_positions, z_positions, 0)
 
-    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         R = self.R_vals(x1)
         z = self.z_vals(x1) + x2
         return R, z, t
 
-    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
+    def _convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         x1 = self.invert(R)
         x2 = z - self.z_vals(x1)
         return x1, x2, t
