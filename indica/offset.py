@@ -1,18 +1,18 @@
 """Callback functions to choose an offset for equilibrium data."""
 
 from typing import Callable
+from typing import Optional
 from typing import Tuple
 
 from xarray import DataArray
 
-from .numpy_typing import ArrayLike
-
-ConvertToFlux = Callable[[ArrayLike, ArrayLike, ArrayLike], ArrayLike]
-OffsetPicker = Callable[[float, DataArray, ConvertToFlux], Tuple[float, bool]]
+OffsetPicker = Callable[
+    [float, DataArray, DataArray, Optional[DataArray]], Tuple[float, bool]
+]
 
 
 def interactive_offset_choice(
-    guess: float, T_e: DataArray, converter: ConvertToFlux
+    guess: float, T_e: DataArray, flux: DataArray, offset_at_time: Optional[DataArray]
 ) -> Tuple[float, bool]:
     """Plots electron temperature against flux surface when using best
     guess for location of magnetic axis. User then has a chance to accept this
@@ -28,9 +28,11 @@ def interactive_offset_choice(
         Estimate for appropriate offset of the magnetic axis location.
     T_e
         Electron temperature data (from HRTS on JET).
-    converter
-        Function that can get the flux surfece value \rho from (R,z,t)
-        coordinates.
+    flux
+        Normalised flux surface for each channel at each times.
+    offset_at_time
+        The optimal R-offset for each time. If present can be used for an
+        additional plot.
 
     Returns
     -------

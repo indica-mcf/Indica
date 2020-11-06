@@ -3,16 +3,24 @@
 from unittest.mock import MagicMock
 
 from hypothesis import given
+from hypothesis import settings
+from hypothesis.extra.numpy import arrays
+from hypothesis.strategies import booleans
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
+from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import tuples
 import numpy as np
 from pytest import approx
 from scipy.integrate import quad
+from xarray import broadcast
 from xarray import DataArray
+from xarray import where
 
+from indica.converters import TransectCoordinates
 from indica.equilibrium import Equilibrium
+from .data_strategies import data_arrays_from_coords
 from .data_strategies import equilibrium_data
 from .fake_equilibrium import flux_types
 from .strategies import arbitrary_coordinates
@@ -27,43 +35,137 @@ def offset_pickers(draw, min_value=0.0, max_value=0.04):
 
 
 @composite
+def electron_temperatures(
+    draw,
+    rho,
+    zmag,
+    machine_dimensions=((1.83, 3.9), (-1.75, 2.0)),
+    min_spatial_points=3,
+    max_spatial_points=10,
+    min_time_points=3,
+    max_time_points=10,
+    start_time=75.0,
+    end_time=80.0,
+    offset=floats(0.0, 0.04),
+):
+    """Generate electron temperature data suitable for calibrating the
+    equilibrium."""
+    zmin = float(zmag.min())
+    zmax = float(zmag.max())
+    nspace = draw(integers(min_spatial_points, max_spatial_points))
+    R_vals = np.linspace(*machine_dimensions[0], nspace)
+    zstart = draw(floats(machine_dimensions[1][0], zmin))
+    zend = draw(floats(zmax, machine_dimensions[1][1]))
+    if draw(booleans()):
+        zstart, zend = zend, zstart
+    z_vals = np.linspace(zstart, zend, nspace)
+    transform = TransectCoordinates(R_vals, z_vals)
+    ntime = draw(integers(min_time_points, max_time_points))
+    times = np.linspace(start_time, end_time, ntime)
+    times_scaled = np.linspace(0.0, 1.0, ntime)
+    R_array = DataArray(R_vals, dims="index")
+    z_array = DataArray(z_vals, dims="index")
+    rhos = rho.interp(R=R_array, z=z_array)
+    indices = rhos.indica.invert_root(
+        1.0, "index", nspace - 1, method="cubic"
+    ).assign_coords(t=(rhos.t - start_time) / (end_time - start_time))
+    m = DataArray(
+        draw(arrays(float, ntime, elements=floats(-1e4, -10.0), fill=just(-1e3))),
+        coords=[("t", times_scaled)],
+    )
+    b = 1e2 - m * indices.interp(t=times_scaled, method="nearest") / nspace
+    return draw(
+        data_arrays_from_coords(
+            ("temperature", "electrons"),
+            transform,
+            just(
+                lambda x1, x2, t: np.reshape(m.interp(t=np.ravel(t)).data, t.shape) * x1
+                + np.reshape(b.interp(t=np.ravel(t)).data, t.shape)
+            ),
+            [None, None, np.expand_dims(times, 1)],
+            rel_sigma=0.001,
+        )
+    )
+
+
+@composite
+def equilibrium_data_and_Te(
+    draw,
+    machine_dims=((1.83, 3.9), (-1.75, 2.0)),
+    min_spatial_points=5,
+    max_spatial_points=15,
+    min_time_points=2,
+    max_time_points=8,
+    start_time=75.0,
+    end_time=80.0,
+    Btot_factor=None,
+):
+    data = draw(
+        equilibrium_data(
+            machine_dims,
+            min_spatial_points,
+            max_spatial_points,
+            min_time_points,
+            max_time_points,
+            start_time,
+            end_time,
+            Btot_factor,
+        )
+    )
+    if draw(booleans()):
+        rho = np.sqrt((data["psi"] - data["faxs"]) / (data["fbnd"] - data["faxs"]))
+        Te = draw(
+            electron_temperatures(
+                rho,
+                data["zmag"],
+                min_spatial_points=min_spatial_points,
+                max_spatial_points=max_spatial_points,
+            )
+        )
+    else:
+        Te = None
+    return data, Te
+
+
+@composite
 def equilibria(
     draw,
     min_offset=0.0,
     max_offset=0.04,
-    min_spatial_points=3,
-    max_spatial_points=12,
+    min_spatial_points=5,
+    max_spatial_points=15,
     min_time_points=2,
-    max_time_points=15,
+    max_time_points=8,
     Btot_factor=None,
 ):
     """Generate :py:class:`indica.equilibrium.Equilibrium` objects for
     testing purposes.
 
     """
+    data, Te = draw(
+        equilibrium_data_and_Te(
+            ((1.83, 3.9), (-1.75, 2.0)),
+            min_spatial_points,
+            max_spatial_points,
+            min_time_points,
+            max_time_points,
+            Btot_factor=Btot_factor,
+        )
+    )
     return Equilibrium(
-        draw(
-            equilibrium_data(
-                ((1.83, 3.9), (-1.75, 2.0)),
-                min_spatial_points,
-                max_spatial_points,
-                min_time_points,
-                max_time_points,
-                Btot_factor=Btot_factor,
-            )
-        ),
-        DataArray(),
-        MagicMock(),
-        draw(offset_pickers(min_offset, max_offset)),
+        data, Te, MagicMock(), draw(offset_pickers(min_offset, max_offset)),
     )
 
 
+@settings(report_multiple_bugs=False)
 @given(
     equilibria(),
-    arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
+    arbitrary_coordinates(
+        (0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0), max_side=5, xarray=True
+    ),
     flux_types(),
 )
-def test_lfs_rad_consistent(equilib, coords, ftype, offset):
+def test_lfs_rad_consistent(equilib, coords, ftype):
     """Check R_lfs actually on low-flux surfaces and have appropriate flux
     surface values.
 
@@ -71,13 +173,19 @@ def test_lfs_rad_consistent(equilib, coords, ftype, offset):
     rho, theta, time = coords
     R_lfs, t = equilib.R_lfs(rho, time, ftype)
     R_mag, z_mag, _ = equilib.spatial_coords(0.0, 0.0, time)
-    assert np.all(rho == approx(equilib.flux_coords(R_lfs, z_mag, time)[0]))
-    assert np.all(R_lfs >= R_mag)
+    assert np.all(
+        np.isclose(
+            rho, equilib.flux_coords(R_lfs, z_mag, time)[0], rtol=1e-6, atol=1e-1
+        )
+    )
+    assert np.all(np.abs(R_lfs - R_mag) <= 1e-1)
 
 
 @given(
     equilibria(),
-    arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
+    arbitrary_coordinates(
+        (0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0), max_side=5, xarray=True
+    ),
     flux_types(),
 )
 def test_hfs_rad_consistent(equilib, coords, ftype):
@@ -92,46 +200,53 @@ def test_hfs_rad_consistent(equilib, coords, ftype):
     assert np.all(R_hfs <= R_mag)
 
 
+@settings(deadline=500)
 @given(
-    equilibrium_data(), flux_types(), offset_pickers(),
+    equilibrium_data_and_Te(max_spatial_points=10, max_time_points=5),
+    flux_types(),
+    offset_pickers(),
+    booleans(),
 )
-def test_lfs_rad_expected(equilib_dat, ftype, offset):
+def test_lfs_rad_expected(equilib_Te, ftype, offset, use_explicit_t):
     """Check R_lfs matches input data used to construct equilibrium object.
 
     """
-    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
-    expected = equilib_dat["rmjo"] + offset.return_value[0]
-    time = np.expand_dims(expected.dims["t"], (0, 1))
-    rho = equilib.convert_flux_coords(
-        expected.dims["rho"], 0.0, time, "poloidal", ftype
+    equilib_dat, Te = equilib_Te
+    equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
+    expected = equilib_dat["rmjo"] + (offset.return_value[0] if Te is not None else 0.0)
+    t = expected.coords["t"] if use_explicit_t else None
+    rho, _ = equilib.convert_flux_coords(
+        expected.coords["rho_poloidal"], t, "poloidal", ftype
     )
-    R_lfs, t = equilib.R_lfs(rho, time, ftype)
-    assert np.all(R_lfs == approx(expected.values))
+    R_lfs, t = equilib.R_lfs(rho, t, ftype)
+    assert R_lfs.values == approx(expected.values)
 
 
+@settings(deadline=500)
 @given(
-    equilibrium_data(),
-    arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
-    flux_types(),
-    offset_pickers(),
+    equilibrium_data_and_Te(), flux_types(), offset_pickers(), booleans(),
 )
-def test_hfs_rad_expected(equilib_dat, coords, ftype, offset):
+def test_hfs_rad_expected(equilib_Te, ftype, offset, use_explicit_t):
     """Check R_hfs matches input data used to construct equilibrium object.
 
     """
-    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
-    expected = equilib_dat["rmji"] + offset.return_value[0]
-    time = np.expand_dims(expected.dims["t"], (0, 1))
-    rho = equilib.convert_flux_coords(
-        expected.dims["rho"], 0.0, time, "poloidal", ftype
+    equilib_dat, Te = equilib_Te
+    equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
+    expected = equilib_dat["rmji"] + (offset.return_value[0] if Te is not None else 0.0)
+    t = expected.coords["t"] if use_explicit_t else None
+    rho, _ = equilib.convert_flux_coords(
+        expected.coords["rho_poloidal"], t, "poloidal", ftype
     )
-    R_rfs, t = equilib.R_rfs(rho, time, ftype)
-    assert np.all(R_rfs == approx(expected.values))
+    R_hfs, t = equilib.R_hfs(rho, t, ftype)
+    assert R_hfs == approx(expected.values)
 
 
+@settings(report_multiple_bugs=False, deadline=None)
 @given(
     equilibria(),
-    arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
+    arbitrary_coordinates(
+        (0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0), max_side=5, xarray=True
+    ),
     flux_types(),
 )
 def test_flux_spatial_conversion(equilib, coords, ftype):
@@ -141,14 +256,20 @@ def test_flux_spatial_conversion(equilib, coords, ftype):
     rho, theta, time = coords
     R, z, t = equilib.spatial_coords(rho, theta, time, ftype)
     rho2, theta2, t = equilib.flux_coords(R, z, t, ftype)
-    assert np.all(rho2 == approx(rho))
-    assert np.all(theta2 == approx(theta))
+    assert np.allclose(rho2, rho, atol=1e-1, rtol=1e-6)
+    assert np.all(
+        np.where(
+            np.isclose(rho, 0.0, rtol=1e-1, atol=1e-1),
+            True,
+            np.isclose(theta2, theta, atol=1e-1, rtol=1e-6),
+        )
+    )
     assert t is time
 
 
 @given(
     equilibria(),
-    arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
+    arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0), xarray=True),
     flux_types(),
     flux_types(),
 )
@@ -158,45 +279,65 @@ def test_flux_flux_conversion(equilib, coords, ftype1, ftype2):
 
     """
     rho, theta, time = coords
-    rho_tmp, theta_tmp, t = equilib.convert_flux_coords(
-        rho, theta, time, ftype1, ftype2
-    )
-    rho2, theta2, t = equilib.convert_flux_coords(rho_tmp, theta_tmp, t, ftype2, ftype1)
-    assert np.all(rho2 == approx(rho))
-    assert np.all(theta2 == approx(theta))
+    rho_tmp, t = equilib.convert_flux_coords(rho, time, ftype1, ftype2)
+    rho2, t = equilib.convert_flux_coords(rho_tmp, t, ftype2, ftype1)
+    assert np.allclose(rho2, rho, rtol=1e-6, atol=1e-12)
     assert t is time
 
 
+@settings(report_multiple_bugs=False, deadline=None)
 @given(
-    equilibrium_data(min_spatial_points=10, max_spatial_points=20),
-    arbitrary_coordinates((0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
+    equilibrium_data_and_Te(min_spatial_points=10, max_spatial_points=20),
+    arbitrary_coordinates(
+        (0.0, 0.0, 75.0), (1.0, 2 * np.pi, 80.0), max_side=5, xarray=True
+    ),
     flux_types(),
     offset_pickers(),
 )
-def test_minor_radius(equilib_dat, coords, ftype, offset):
+def test_minor_radius(equilib_Te, coords, ftype, offset):
     """Check minor radius of location matches data used to construct
     equilibrium object.
 
     """
+    equilib_dat, Te = equilib_Te
     rho, theta, time = coords
-    equilib = Equilibrium(equilib_dat, MagicMock(), DataArray(), offset)
+    equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
     psi = equilib_dat["psi"]
     Rmag = equilib_dat["rmag"] + offset.return_value[0]
     zmag = equilib_dat["zmag"]
     faxs = equilib_dat["faxs"]
     fbnd = equilib_dat["fbnd"]
     minor_radius, _ = equilib.minor_radius(*coords, ftype)
-    rho_grid = rho * np.ones_like(theta) * np.ones_like(time)
-    theta_grid = np.ones_like(rho) * theta * np.ones_like(time)
-    time_grid = np.ones_like(rho) * np.ones_like(theta) * time
-    for min_r, rh, th, t in zip(minor_radius, rho_grid, theta_grid, time_grid):
-        R = Rmag.interp(t=t) + min_r * np.cos(th)
-        z = zmag.interp(t=t) + min_r * np.sin(th)
-        psi_unnorm = psi.interp(R=R, z=z, t=t)
-        rho_actual = np.sqrt(
-            (psi_unnorm - faxs.interp(t=t)) / (fbnd.interp(t) - faxs.interp(t=t))
+    rho_grid, theta_grid, time_grid = np.broadcast_arrays(rho, theta, time)
+    R = Rmag.interp(t=time, method="nearest") + minor_radius * np.cos(theta)
+    z = zmag.interp(t=time, method="nearest") + minor_radius * np.sin(theta)
+    delta_psi_unnorm = (
+        (psi - faxs)
+        .interp(t=time, method="nearest")
+        .indica.interp2d(
+            R=R,
+            z=z,
+            zero_coords={
+                "R": Rmag.interp(t=time, method="nearest"),
+                "z": zmag.interp(t=time, method="nearest"),
+            },
+            method="cubic",
         )
-        assert rho_actual == approx(rh, abs=1e-4, rel=1e-4)
+    )
+    delta_psi_unnorm = where(
+        np.logical_and(delta_psi_unnorm < 0.0, delta_psi_unnorm > -1e-2),
+        0.0,
+        delta_psi_unnorm,
+    )
+    rho_actual = np.sqrt(
+        delta_psi_unnorm
+        / (
+            fbnd.interp(t=time, method="nearest")
+            - faxs.interp(t=time, method="nearest")
+        )
+    )
+    rho_actual, rho = broadcast(rho_actual, rho)
+    np.testing.assert_allclose(rho_actual, rho, atol=1e-1, rtol=1e-1)
 
 
 # Check Btot and minor rad using some sort of dummy data (e.g., some factor
@@ -204,18 +345,19 @@ def test_minor_radius(equilib_dat, coords, ftype, offset):
 
 
 @given(
-    equilibrium_data(min_spatial_points=10, max_spatial_points=20),
-    arbitrary_coordinates((0.15, 0.0, 75.0), (1.0, 2 * np.pi, 80.0)),
+    equilibrium_data_and_Te(min_spatial_points=10, max_spatial_points=20),
+    arbitrary_coordinates((0.15, 0.0, 75.0), (1.0, 2 * np.pi, 80.0), xarray=True),
     flux_types(),
     offset_pickers(),
 )
-def test_volume_derivative(equilib_dat, coords, ftype, offset):
+def test_volume_derivative(equilib_Te, coords, ftype, offset):
     """Check derivatives of volumes enclosed within flux surfaces match
     Jacobian in input data. Need to use a reasonably large number of
     spatial points to ensure integration is done accurately.
 
     """
-    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
+    equilib_dat, Te = equilib_Te
+    equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
     vjac = equilib_dat["vjac"]
     rho, _, time = coords
     dpsi = 0.01
@@ -238,19 +380,20 @@ def test_volume_derivative(equilib_dat, coords, ftype, offset):
 
 
 @given(
-    equilibrium_data(min_spatial_points=10, max_spatial_points=20),
+    equilibrium_data_and_Te(min_spatial_points=10, max_spatial_points=20),
     floats(0.0, 1.0, exclude_min=True),
     floats(75.0, 80.0),
     flux_types(),
     offset_pickers(),
 )
-def test_volume_enclosed(equilib_dat, rho, time, ftype, offset):
+def test_volume_enclosed(equilib_Te, rho, time, ftype, offset):
     """Check enclosed volume is actually correct for that flux surface by
     integrating area within it. It is assumed that the data from which
     the object is constructed is valid.
 
     """
-    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
+    equilib_dat, Te = equilib_Te
+    equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
     Rmag, R_err = quad(
         lambda th: equilib.spatial_coords(rho, th, time, ftype)[0], 0.0, 2 * np.pi
     )
@@ -265,7 +408,9 @@ def test_volume_enclosed(equilib_dat, rho, time, ftype, offset):
 
 
 @given(
-    equilibria(), arbitrary_coordinates((0.0, 75.0), (1.0, 80.0)), flux_types(),
+    equilibria(),
+    arbitrary_coordinates((0.0, 75.0), (1.0, 80.0), max_side=5, xarray=True),
+    flux_types(),
 )
 def test_invert_volume_enclosed(equilibrium, coords, ftype):
     """Tests that can correctly invert the calculation of volume enclosed by
@@ -284,7 +429,9 @@ def test_invert_volume_enclosed(equilibrium, coords, ftype):
             equilibria(min_spatial_points=10, max_spatial_points=20, Btot_factor=x),
         )
     ),
-    arbitrary_coordinates((1.83, -1.75, 75.0), (3.9, 2.0, 80.0)),
+    arbitrary_coordinates(
+        (1.83, -1.75, 75.0), (3.9, 2.0, 80.0), max_side=5, xarray=True
+    ),
 )
 def test_magnetic_field_strength(strength_equilibrium, coords):
     """Tests that the total magnetic field strenght is calculated correctly. It
@@ -297,21 +444,23 @@ def test_magnetic_field_strength(strength_equilibrium, coords):
 
 
 @given(
-    equilibrium_data(), flux_types(), floats(0.0, 2 * np.pi), offset_pickers(),
+    equilibrium_data_and_Te(), flux_types(), floats(0.0, 2 * np.pi), offset_pickers(),
 )
-def test_offsets(equilib_dat, ftype, theta, offset):
+def test_offsets(equilib_Te, ftype, theta, offset):
     """Tests that offsets to the equilibrium data are handled correctly."""
-    equilib = Equilibrium(equilib_dat, DataArray(), MagicMock(), offset)
+    equilib_dat, Te = equilib_Te
+    equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
     times = equilib_dat["rmag"].coords["t"]
     R, z, _ = equilib.spatial_coords(0.0, theta, times, ftype)
     assert np.all(R - offset.return_value[0] == approx(equilib_dat["rmag"]))
 
 
-@given(equilibrium_data, offset_pickers())
-def test_provenance(equilib_dat, offset):
+@given(equilibrium_data_and_Te(), offset_pickers())
+def test_provenance(equilib_Te, offset):
     """Test that the appropriate provenance is created for the equilibrium object."""
     session = MagicMock()
-    equilib = Equilibrium(equilib_dat, DataArray(), session, offset)
+    equilib_dat, Te = equilib_Te
+    equilib = Equilibrium(equilib_dat, Te, session, offset)
     session.prov.entity.assert_called()
     # TODO: Consider checking that creation time and offset value are correct.
     for data in equilib_dat.values():

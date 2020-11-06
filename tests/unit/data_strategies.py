@@ -517,7 +517,7 @@ def equilibrium_data(
     nspace = draw(integers(min_spatial_points, max_spatial_points))
     ntime = draw(integers(min_time_points, max_time_points))
     times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
-    tfuncs = smooth_functions((start_time, end_time), 0.1)
+    tfuncs = smooth_functions((start_time, end_time), 0.01)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
     z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
     raw_result = {}
@@ -543,22 +543,25 @@ def equilibrium_data(
     )
     result["faxs"].attrs["datatype"] = ("magnetic_flux", "mag_axis")
     a_coeff = DataArray(
-        np.vectorize(lambda x: draw(floats(min(1e-2, 1e-2 * x), x)))(
-            np.abs(result["rmag"])
+        np.vectorize(lambda x: draw(floats(0.75 * x, x)))(
+            np.minimum(
+                np.abs(machine_dims[0][0] - result["rmag"]),
+                np.abs(machine_dims[0][1] - result["rmag"]),
+            )
         ),
         coords=[("t", times)],
     )
     if Btot_factor is None:
         b_coeff = DataArray(
-            np.vectorize(lambda x: draw(floats(min(1e-2, 1e-2 * x), x)))(
+            np.vectorize(lambda x: draw(floats(0.75 * x, x)))(
                 np.minimum(
                     np.abs(machine_dims[1][0] - result["zmag"].data),
-                    np.abs(machine_dims[1][1] - result["zmag"].values),
+                    np.abs(machine_dims[1][1] - result["zmag"].data),
                 ),
             ),
             coords=[("t", times)],
         )
-        n_exp = 1 + draw(floats(-0.5, 2.0))
+        n_exp = 0.5  # 1 # draw(floats(-0.5, 1.0))
         fmax = draw(floats(max(1.0, 2 * fmin), 10.0))
         result["fbnd"] = DataArray(
             fmax - np.abs(draw(tfuncs)(times)),
@@ -605,6 +608,13 @@ def equilibrium_data(
         (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
         + (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
     ) ** (0.5 / n_exp)
+    print("===============================================")
+    print("rgrid", -result["rmag"] + rgrid)
+    print("zgrid", -result["zmag"] + zgrid)
+    print("a coeff", a_coeff)
+    print("b coeff", b_coeff)
+    print("n", n_exp)
+    print(psin)
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
     psi.attrs["transform"] = attrs["transform"]
@@ -623,7 +633,7 @@ def equilibrium_data(
     ftor_max = draw(floats(max(1.0, 2 * fmin), 10.0))
     result["ftor"] = DataArray(
         np.outer(
-            abs(draw(tfuncs)(times)), draw(monotonic_series(ftor_min, ftor_max, nspace))
+            1 + draw(tfuncs)(times), draw(monotonic_series(ftor_min, ftor_max, nspace))
         ),
         coords=[("t", times), ("rho_poloidal", rho)],
         name="ftor",
