@@ -1,5 +1,7 @@
 """Coordinate systems based on volume enclosed by flux surfaces."""
 
+from typing import Dict
+
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from .flux_surfaces import FluxSurfaceCoordinates
@@ -18,7 +20,7 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
 
     """
 
-    # _CONVERSION_METHODS: Dict[str, str] = {"FluxSurfaceCoordinates":"_convert_to_rho"}
+    _CONVERSION_METHODS: Dict[str, str] = {"FluxSurfaceCoordinates": "_convert_to_rho"}
 
     def __init__(
         self, flux_surfaces: FluxSurfaceCoordinates,

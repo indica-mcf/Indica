@@ -57,6 +57,7 @@ class CoordinateTransform(ABC):
     """
 
     _CONVERSION_METHODS: Dict[str, str] = {}
+    _INVERSE_CONVERSION_METHODS: Dict[str, str] = {}
 
     def __init__(
         self,
@@ -149,8 +150,12 @@ class CoordinateTransform(ABC):
         """
         # TODO: cache all results for default arguments
         other_name = other.__class__.__name__
+        self_name = self.__class__.__name__
         if other_name in self._CONVERSION_METHODS:
             converter = getattr(self, self._CONVERSION_METHODS[other_name])
+            return converter(x1, x2, t)
+        elif self_name in other._INVERSE_CONVERSION_METHODS:
+            converter = getattr(other, other._INVERSE_CONVERSION_METHODS[self_name])
             return converter(x1, x2, t)
         else:
             R, z, t = self.convert_to_Rz(x1, x2, t)
