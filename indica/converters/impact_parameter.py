@@ -1,6 +1,8 @@
 """Coordinate systems based on volume enclosed by flux surfaces."""
 
 from typing import Dict
+from typing import Optional
+from typing import Tuple
 
 from xarray import DataArray
 
@@ -179,6 +181,22 @@ class ImpactParameterCoordinates(CoordinateTransform):
         """
         x1, x2, t = self.lines_of_sight.convert_from_Rz(R, z, t)
         return self._convert_from_los(x1, x2, t)
+
+    def _distance(
+        self,
+        direction: int,
+        x1: Optional[LabeledArray],
+        x2: Optional[LabeledArray],
+        t: Optional[LabeledArray],
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Implementation of calculation of physical distances between points
+        in this coordinate system. This accounts for potential toroidal skew of
+        lines.
+
+        """
+        return self.lines_of_sight._distance(
+            direction, *self._convert_to_los(x1, x2, t)
+        )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
