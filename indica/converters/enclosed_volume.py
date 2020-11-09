@@ -122,4 +122,5 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
-        return self.flux_transform == other.flux_transform
+        result = self._abstract_equals(other)
+        return result and self.flux_transform == other.flux_transform

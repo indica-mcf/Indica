@@ -151,6 +151,11 @@ class CoordinateTransform(ABC):
         # TODO: cache all results for default arguments
         other_name = other.__class__.__name__
         self_name = self.__class__.__name__
+        # FIXME: This assumes that conversions can be done for all
+        # instances of the other class, when most likely it can only
+        # be done for a few specific instances. I think it might be
+        # better to have a method which can determine the correct
+        # converter.
         if other_name in self._CONVERSION_METHODS:
             converter = getattr(self, self._CONVERSION_METHODS[other_name])
             return converter(x1, x2, t)

@@ -302,9 +302,6 @@ def los_coordinates(
         A tuple giving the range of R-z values for which the transform is
         guaranteed to work: ``((Rmin, Rmax), (zmin, zmax)``. If absent will
         draw values.
-    machine_dims: Tuple[Tuple[float, float], Tuple[float, float]], optional
-        A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``. If absent will draw values.
     min_los: int
         The minimum number of lines of sight
     max_los: int

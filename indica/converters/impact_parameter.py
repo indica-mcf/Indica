@@ -2,10 +2,11 @@
 
 from typing import Dict
 
-from scipy.interpolate import interp1d
+from xarray import DataArray
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
+from .flux_surfaces import FluxSurfaceCoordinates
 from .lines_of_sight import LinesOfSightTransform
 from ..numpy_typing import LabeledArray
 
@@ -17,12 +18,12 @@ class ImpactParameterCoordinates(CoordinateTransform):
 
     Parameters
     ----------
-    kind
-        The type of flux surface to use. Must be a valid argument for methods
-        on the :py:class:`indica.equilibrium.Equilibrium` class.
     lines_of_sight
         A line-of-sight coordinate system for which this transform will get
-        the impact parameters
+        the impact parameters.
+    flux_surfaces
+        The flux surface coordinate system from which flux values will be used
+        for the impact parameters.
     """
 
     _CONVERSION_METHODS: Dict[str, str] = {"LinesOfSightCoordinates": "_convert_to_los"}
@@ -31,7 +32,9 @@ class ImpactParameterCoordinates(CoordinateTransform):
     }
 
     def __init__(
-        self, kind: str, lines_of_sight: LinesOfSightTransform,
+        self,
+        lines_of_sight: LinesOfSightTransform,
+        flux_surfaces: FluxSurfaceCoordinates,
     ):
         # TODO: Set up proper defaults
         super().__init__(
@@ -41,18 +44,24 @@ class ImpactParameterCoordinates(CoordinateTransform):
             lines_of_sight.default_z,
             lines_of_sight.default_t,
         )
-        self.kind = kind
         self.lines_of_sight = lines_of_sight
-        self.equilibrium = lines_of_sight.equilibrium
-        # TODO: Actually calculate the impact parameter for each individual
-        #       line of sight
-        rho_min = None
-        self.los_to_rhomin = interp1d(
-            self.default_x1, rho_min, kind="cubic", bounds_error=True
-        )
-        self.rhomin_to_los = interp1d(
-            self.default_x1, rho_min, kind="cubic", bounds_error=True
-        )
+        self.flux_surfaces = flux_surfaces
+        if not hasattr(flux_surfaces, "equilibrium"):
+            raise ValueError(
+                "Flux surface coordinate system must have an equilibrium set."
+            )
+        self.equilibrium = flux_surfaces.equilibrium
+        if (
+            hasattr(lines_of_sight, "equilibrium")
+            and lines_of_sight.equilibrium is not flux_surfaces.equilibrium
+        ):
+            raise ValueError(
+                "Two coordinate systems must have the same equilibrium object."
+            )
+        # TODO: Produce a DataArray object containing the impact parameters for
+        #       each LOS index for each time we have equilibrium data.
+        #       Dimension names should be "los_index" and "t".
+        self.rho_min = DataArray(name="rho_min")
 
     def _convert_to_los(
         self, min_rho: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -80,7 +89,13 @@ class ImpactParameterCoordinates(CoordinateTransform):
             pointer to that)
 
         """
-        return self.rhomin_to_los(min_rho), x2, t
+        return (
+            self.rho_min.interp(t=t, method="nearest").indica.invert_interp(
+                min_rho, "los_index", method="cubic"
+            ),
+            x2,
+            t,
+        )
 
     def _convert_from_los(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -107,7 +122,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
             pointer to that)
 
         """
-        return self.los_to_rhomin(x1), x2, t
+        return self.rho_min(t=t, method="nearest").indica.interp2d(los_index=x1), x2, t
 
     def _convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -164,3 +179,10 @@ class ImpactParameterCoordinates(CoordinateTransform):
         """
         x1, x2, t = self.lines_of_sight.convert_from_Rz(R, z, t)
         return self._convert_from_los(x1, x2, t)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        result = self._abstract_equals(other)
+        result = result and self.flux_surfaces == other.flux_surfaces
+        return result and self.lines_of_sight == other.lines_of_sight
