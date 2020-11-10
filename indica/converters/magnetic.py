@@ -77,8 +77,8 @@ class MagneticCoordinates(CoordinateTransform):
             left = self.default_R
             right = self.default_R
         else:
-            left = self.default_R.min()
-            right = self.default_R.max()
+            left = np.min(self.default_R)
+            right = np.max(self.default_R)
 
         @np.vectorize
         def find_root(B: float, x2: float, t: float) -> float:

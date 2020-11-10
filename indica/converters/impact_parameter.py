@@ -1,7 +1,6 @@
 """Coordinate systems based on volume enclosed by flux surfaces."""
 
 from typing import Dict
-from typing import Optional
 from typing import Tuple
 
 from xarray import DataArray
@@ -124,7 +123,11 @@ class ImpactParameterCoordinates(CoordinateTransform):
             pointer to that)
 
         """
-        return self.rho_min(t=t, method="nearest").indica.interp2d(los_index=x1), x2, t
+        return (
+            self.rho_min.interp(t=t, method="nearest").indica.interp2d(los_index=x1),
+            x2,
+            t,
+        )
 
     def _convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -183,11 +186,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         return self._convert_from_los(x1, x2, t)
 
     def _distance(
-        self,
-        direction: int,
-        x1: Optional[LabeledArray],
-        x2: Optional[LabeledArray],
-        t: Optional[LabeledArray],
+        self, direction: int, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of

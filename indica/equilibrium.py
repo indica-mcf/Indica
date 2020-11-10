@@ -2,6 +2,7 @@
 """
 
 import datetime
+from typing import cast
 from typing import Dict
 from typing import Optional
 from typing import Tuple
@@ -77,8 +78,6 @@ class Equilibrium:
         self.rmjo = equilibrium_data["rmjo"]
         self.psi = equilibrium_data["psi"]
         self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-        print("------------------------------------------")
-        print(self.rho)
         self.vjac = equilibrium_data["vjac"]
         self.rmag = equilibrium_data["rmag"]
         self.rbnd = equilibrium_data["rbnd"]
@@ -460,7 +459,9 @@ class Equilibrium:
         rho_interp = where(
             np.logical_and(rho_interp < 0.0, rho_interp > -1e-12), 0.0, rho_interp
         )
-        theta = np.arctan2(z - z_ax, R - self.R_offset - R_ax)
+        theta = np.arctan2(
+            z - cast(np.ndarray, z_ax), R - cast(np.ndarray, self.R_offset) - R_ax
+        )
         if kind != "poloidal":
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
         return rho_interp, theta, t
@@ -544,6 +545,8 @@ class Equilibrium:
         if to_kind not in _FLUX_TYPES:
             raise ValueError(f"Unrecognised output flux kind, '{to_kind}'.")
         if from_kind == to_kind:
+            if t is None:
+                t = self.ftor.coords["t"]
             return rho, t
         if t is not None:
             conversion = self.ftor.interp(t=t, method="nearest")

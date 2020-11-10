@@ -3,17 +3,23 @@
 
 from abc import ABC
 from abc import abstractmethod
+from typing import cast
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
+from xarray import DataArray
+from xarray import Dataset
 
 from ..equilibrium import Equilibrium
 from ..numpy_typing import LabeledArray
 
 Coordinates = Tuple[LabeledArray, LabeledArray, LabeledArray]
+OptionalCoordinates = Tuple[
+    Optional[LabeledArray], Optional[LabeledArray], Optional[LabeledArray]
+]
 
 
 class EquilibriumException(Exception):
@@ -72,12 +78,14 @@ class CoordinateTransform(ABC):
         self.default_R = default_R
         self.default_z = default_z
         self.default_t = default_t
-        self.default_distance: List[Tuple[LabeledArray, LabeledArray]] = [
+        self.default_distance: List[
+            Tuple[Optional[LabeledArray], Optional[LabeledArray]]
+        ] = [
             (None, None),
             (None, None),
         ]
-        self.default_to_Rz: Coordinates = (None, None, None)
-        self.default_from_Rz: Coordinates = (None, None, None)
+        self.default_to_Rz: OptionalCoordinates = (None, None, None)
+        self.default_from_Rz: OptionalCoordinates = (None, None, None)
         self.equilibrium: Equilibrium
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
@@ -215,7 +223,7 @@ class CoordinateTransform(ABC):
         if use_cached:
             if self.default_to_Rz[0] is None:
                 self.default_to_Rz = self._convert_to_Rz(x1, x2, t)
-            return self.default_to_Rz
+            return cast(Coordinates, self.default_to_Rz)
         else:
             return self._convert_to_Rz(x1, x2, t)
 
@@ -280,7 +288,7 @@ class CoordinateTransform(ABC):
         if use_cached:
             if self.default_from_Rz[0] is None:
                 self.default_from_Rz = self._convert_from_Rz(R, z, t)
-            return self.default_from_Rz
+            return cast(Coordinates, self.default_from_Rz)
         else:
             return self._convert_from_Rz(R, z, t)
 
@@ -303,10 +311,14 @@ class CoordinateTransform(ABC):
         """
 
         def are_equal(lhs: LabeledArray, rhs: LabeledArray):
-            if isinstance(lhs, (int, float)):
-                return lhs == rhs
-            else:
+            if isinstance(lhs, (int, float)) or isinstance(rhs, (int, float)):
+                return np.all(lhs == rhs)
+            elif isinstance(lhs, DataArray) and isinstance(rhs, DataArray):
                 return lhs.equals(rhs)
+            elif isinstance(lhs, Dataset) and isinstance(rhs, Dataset):
+                return lhs.equals(rhs)
+            else:
+                return False
 
         if not isinstance(other, self.__class__):
             return False
@@ -389,16 +401,14 @@ class CoordinateTransform(ABC):
                 self.default_distance[direction - 1] = self._distance(
                     direction, x1, x2, t
                 )
-            return self.default_distance[direction - 1]
+            return cast(
+                Tuple[LabeledArray, LabeledArray], self.default_distance[direction - 1]
+            )
         else:
             return self._distance(direction, x1, x2, t)
 
     def _distance(
-        self,
-        direction: int,
-        x1: Optional[LabeledArray],
-        x2: Optional[LabeledArray],
-        t: Optional[LabeledArray],
+        self, direction: int, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system, without caching or default argument

@@ -227,11 +227,7 @@ class LinesOfSightTransform(CoordinateTransform):
         # return x1, x2, t
 
     def _distance(
-        self,
-        direction: int,
-        x1: Optional[LabeledArray],
-        x2: Optional[LabeledArray],
-        t: Optional[LabeledArray],
+        self, direction: int, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of

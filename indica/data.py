@@ -16,8 +16,11 @@ from itertools import filterfalse
 from numbers import Number
 from typing import Any
 from typing import Callable
+from typing import cast
 from typing import Dict
+from typing import Hashable
 from typing import List
+from typing import Mapping
 from typing import Optional
 from typing import Tuple
 from typing import Union
@@ -67,10 +70,10 @@ class InDiCAArrayAccessor:
         values: ArrayLike,
         target: str,
         new_dims: Optional[Union[Tuple[str, ...], str]] = None,
-        coords: Optional[Dict[str, ArrayLike]] = None,
+        coords: Optional[Mapping[Hashable, ArrayLike]] = None,
         method: str = "linear",
         assume_sorted: bool = False,
-        kwargs: Optional[Dict[str, Any]] = None,
+        kwargs: Optional[Mapping[str, Any]] = None,
         **coords_kwargs: ArrayLike,
     ) -> xr.DataArray:
         """Performs an inversion to give coordinates at which the data has the
@@ -149,8 +152,10 @@ class InDiCAArrayAccessor:
                 new_dim_names = []
                 value_dims = new_dim_names
             elif target in values.dims:
+                if self._obj.name is None:
+                    raise ValueError("Values must have a name if 'new_dims' is None.")
                 new_dim_names = [
-                    self._obj.name,
+                    cast(str, self._obj.name),
                 ]
                 value_dims = [
                     target,
@@ -185,10 +190,10 @@ class InDiCAArrayAccessor:
         target: str,
         guess: Optional[ArrayLike] = None,
         new_dims: Optional[Union[Tuple[str, ...], str]] = None,
-        coords: Optional[Dict[str, ArrayLike]] = None,
+        coords: Optional[Mapping[Hashable, ArrayLike]] = None,
         method: str = "linear",
         assume_sorted: bool = False,
-        kwargs: Optional[Dict[str, Any]] = None,
+        kwargs: Optional[Mapping[str, Any]] = None,
         **coords_kwargs: ArrayLike,
     ) -> xr.DataArray:
         """Performs an inversion to give coordinates at which the data has the
@@ -281,8 +286,12 @@ class InDiCAArrayAccessor:
                 value_dims = new_dim_names
             elif target in values.dims:
                 if values.ndim == 1:
+                    if self._obj.name is None:
+                        raise ValueError(
+                            "Values must have a name if 'new_dims' is None."
+                        )
                     new_dim_names = [
-                        self._obj.name,
+                        cast(str, self._obj.name),
                     ]
                     value_dims = [
                         target,
@@ -308,7 +317,7 @@ class InDiCAArrayAccessor:
         else:
             guess_core_dims = []
         if isinstance(values, xr.DataArray):
-            value_dims = [dim for dim in values.dims if dim in new_dim_names]
+            value_dims = [cast(str, dim) for dim in values.dims if dim in new_dim_names]
         else:
             value_dims = []
         data = xr.apply_ufunc(
@@ -442,8 +451,8 @@ class InDiCAArrayAccessor:
 
     def interp2d(
         self,
-        coords: Optional[Dict[str, ArrayLike]] = None,
-        zero_coords: Optional[Dict[str, ArrayLike]] = None,
+        coords: Optional[Mapping[Hashable, ArrayLike]] = None,
+        zero_coords: Optional[Mapping[Hashable, ArrayLike]] = None,
         method: Union[str, int] = "linear",
         assume_sorted: bool = False,
         **coords_kwargs: ArrayLike,
@@ -507,14 +516,14 @@ class InDiCAArrayAccessor:
         ordered_zero_coords: List[ArrayLike] = []
         for k, v in _coords.items():
             if isinstance(v, (np.ndarray, list, tuple)):
-                new_dim = "__new_" + k
-                ordered_coords.append((k, xr.DataArray(v, dims=new_dim)))
+                new_dim = "__new_" + cast(str, k)
+                ordered_coords.append((cast(str, k), xr.DataArray(v, dims=new_dim)))
                 output_core.append(new_dim)
                 interp_core.append([new_dim])
-                rename_dims[new_dim] = k
+                rename_dims[new_dim] = cast(str, k)
             elif isinstance(v, xr.DataArray):
                 if k in v.dims:
-                    new_dim = "__new_" + k
+                    new_dim = "__new_" + cast(str, k)
                     interp_core.append([new_dim])
                     rename_dims[new_dim] = k
                     if new_dim not in output_core:
@@ -531,6 +540,11 @@ class InDiCAArrayAccessor:
             else:
                 ordered_zero_coords.append(None)
         if len(_coords) > 1:
+            input_core: List[List[str]] = [
+                [ordered_coords[0][0]],
+                [ordered_coords[1][0]],
+                list(cast(Mapping[str, Any], _coords)),
+            ]
             result = xr.apply_ufunc(
                 self._get_unlabeled_interpolation_2d(assume_sorted, degree),
                 self._obj.coords[ordered_coords[0][0]],
@@ -540,27 +554,25 @@ class InDiCAArrayAccessor:
                 ordered_coords[1][1],
                 ordered_zero_coords[0],
                 ordered_zero_coords[1],
-                input_core_dims=[
-                    [ordered_coords[0][0]],
-                    [ordered_coords[1][0]],
-                    list(_coords),
-                ]
+                input_core_dims=input_core
                 + interp_core
-                + [[], []],
+                + cast(List[List[str]], [[], []]),
                 output_core_dims=[output_core],
                 exclude_dims=set(_coords),
                 vectorize=True,
             )
         else:
+            input_core = [
+                [ordered_coords[0][0]],
+                list(cast(Mapping[str, Any], _coords)),
+            ]
             result = xr.apply_ufunc(
                 self._get_unlabeled_interpolation_1d(assume_sorted, degree),
                 self._obj.coords[ordered_coords[0][0]],
                 self._obj,
                 ordered_coords[0][1],
                 ordered_zero_coords[0],
-                input_core_dims=[[ordered_coords[0][0]], list(_coords)]
-                + interp_core
-                + [[]],
+                input_core_dims=input_core + interp_core + cast(List[List[str]], [[]]),
                 output_core_dims=[output_core],
                 exclude_dims=set(_coords),
                 vectorize=True,
