@@ -22,11 +22,16 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Angular speed at which a species of ion completes a loop of the Tokamak",
         "\rad s^{-1}",
     ),
+    "asymmetry": (
+        "Parameter describing asymettry between quantities on HFS and LFS",
+        "",
+    ),
     "concentration": ("Portion of nuclei which are the given type of ion", "%",),
     "effective_charge": (
         "Ratio of positive ion charge to electron charge in plasma",
         "",
     ),
+    "emissivity": ("Radiation power produced per unit volume of space", "W m^{-3}"),
     "f_value": (
         "Product of toroidal magnetic field strength and major radius",
         "Wb m",

@@ -1,8 +1,9 @@
 """Simple example of an operator calculating $Z_{eff}$.
 """
 
-from typing import ClassVar
 from typing import List
+
+from xarray import DataArray
 
 from .abstractoperator import Operator
 from ..datatypes import DataType
@@ -35,7 +36,7 @@ class CalcZeff(Operator):
         Ordered list of the types of data returned by the operator.
     """
 
-    ARGUMENT_TYPES: ClassVar[List[DataType]] = [
+    ARGUMENT_TYPES: List[DataType] = [
         ("number_desnity", "electrons"),
         ("number_density", "beryllium"),
         ("temperature", "electrons"),
@@ -49,7 +50,9 @@ class CalcZeff(Operator):
         super().__init__(sess, adas_data=adas_data)
         self.adas_data = adas_data
 
-    def __call__(self, n_e, n_Be, T_e):
+    def __call__(  # type: ignore[override]
+        self, n_e: DataArray, n_Be: DataArray, T_e: DataArray
+    ) -> DataArray:
         """Perform the calculation.
 
         Parameters

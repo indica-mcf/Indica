@@ -70,7 +70,7 @@ class Equilibrium:
         self.faxs = equilibrium_data["faxs"]
         self.fbnd = equilibrium_data["fbnd"]
         ftor = equilibrium_data["ftor"]
-        self.ftor = np.sqrt(
+        self.rhotor = np.sqrt(
             (ftor - ftor.sel(rho_poloidal=0.0))
             / (ftor.sel(rho_poloidal=1.0) - ftor.sel(rho_poloidal=0.0))
         )
@@ -400,7 +400,7 @@ class Equilibrium:
         minor_rads = DataArray(
             np.linspace(0.0, minor_rad_max, ngrid), dims=("r",) + minor_rad_max.dims
         )
-        R_grid = R0 + minor_rads * np.cos(theta) - self.R_offset
+        R_grid = R0 + minor_rads * np.cos(theta)  # - self.R_offset
         z_grid = z0 + minor_rads * np.sin(theta)
         fluxes_samples = reference_rhos.indica.interp2d(
             R=R_grid, z=z_grid, zero_coords={"R": R0, "z": z0}, method="cubic"
@@ -546,13 +546,13 @@ class Equilibrium:
             raise ValueError(f"Unrecognised output flux kind, '{to_kind}'.")
         if from_kind == to_kind:
             if t is None:
-                t = self.ftor.coords["t"]
+                t = self.rhotor.coords["t"]
             return rho, t
         if t is not None:
-            conversion = self.ftor.interp(t=t, method="nearest")
+            conversion = self.rhotor.interp(t=t, method="nearest")
         else:
-            conversion = self.ftor
-            t = self.ftor.coords["t"]
+            conversion = self.rhotor
+            t = self.rhotor.coords["t"]
         if to_kind == "toroidal":
             flux = conversion.indica.interp2d(rho_poloidal=rho, method="cubic")
         elif to_kind == "poloidal":

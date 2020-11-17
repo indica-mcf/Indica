@@ -20,7 +20,7 @@ repos:
     - id: mixed-line-ending
       name: "Fix Mixed Line Ending"
 -   repo: https://gitlab.com/pycqa/flake8
-    rev: 3.7.9
+    rev: 3.8.4
     hooks:
     - id: flake8
       additional_dependencies:

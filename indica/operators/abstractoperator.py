@@ -5,8 +5,8 @@ from abc import ABC
 from abc import abstractmethod
 import datetime
 from typing import Any
-from typing import ClassVar
 from typing import List
+from typing import Tuple
 from typing import Union
 from warnings import warn
 
@@ -68,8 +68,8 @@ class Operator(ABC):
 
     """
 
-    ARGUMENT_TYPES: ClassVar[List[DataType]] = []
-    RETURN_TYPES: ClassVar[List[DataType]] = []
+    ARGUMENT_TYPES: List[DataType] = []
+    RETURN_TYPES: List[DataType] = []
 
     def __init__(self, sess: Session = global_session, **kwargs: Any):
         """Creates a provenance entity/agent for the operator object. Also
@@ -213,7 +213,7 @@ class Operator(ABC):
         return entity
 
     @abstractmethod
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: DataArray) -> Union[DataArray, Tuple[DataArray, ...]]:
         """The invocation of the operator.
 
         The exact number of arguments should be determined by the

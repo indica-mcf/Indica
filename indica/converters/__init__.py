@@ -4,6 +4,7 @@ routines for interpolating or downsampling in time."""
 from .abstractconverter import CoordinateTransform
 from .abstractconverter import EquilibriumException
 from .enclosed_volume import EnclosedVolumeCoordinates
+from .flux_major_radius import FluxMajorRadCoordinates
 from .flux_surfaces import FluxSurfaceCoordinates
 from .impact_parameter import ImpactParameterCoordinates
 from .lines_of_sight import LinesOfSightTransform
@@ -16,6 +17,7 @@ __all__ = [
     "CoordinateTransform",
     "EnclosedVolumeCoordinates",
     "EquilibriumException",
+    "FluxMajorRadCoordinates",
     "FluxSurfaceCoordinates",
     "ImpactParameterCoordinates",
     "LinesOfSightTransform",

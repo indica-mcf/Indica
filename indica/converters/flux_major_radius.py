@@ -41,6 +41,7 @@ class FluxMajorRadCoordinates(CoordinateTransform):
         )
         self.flux_surfaces = flux_surfaces
         self.equilibriub = flux_surfaces.equilibrium
+        self.flux_kind = flux_surfaces.flux_kind
 
     def _convert_from_flux_coords(
         self, rho: LabeledArray, theta: LabeledArray, t: LabeledArray
@@ -129,3 +130,9 @@ class FluxMajorRadCoordinates(CoordinateTransform):
         """
         rho, theta, t = self.flux_surfaces.convert_from_Rz(R, z, t)
         return rho, R, t
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        result = self._abstract_equals(other)
+        return result and self.flux_surfaces == other.flux_surfaces
