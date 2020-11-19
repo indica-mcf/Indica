@@ -4,7 +4,6 @@ reading PPF data produced by JET.
 """
 
 from pathlib import Path
-import socket
 from typing import Any
 from typing import Dict
 from typing import Set
@@ -381,7 +380,11 @@ class PPFReader(DataReader):
             True if authenticationis needed, otherwise false.
         """
         # Perform the necessary logic to know whether authentication is needed.
-        return not socket.gethostname().startswith("heimdall")
+        try:
+            self._client.list("/")
+            return False
+        except AuthenticationFailed:
+            return False
 
     def authenticate(self, name: str, password: str):
         """Log onto the JET/SAL system to access data.
