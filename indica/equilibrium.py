@@ -121,7 +121,7 @@ class Equilibrium:
                 )
                 - 100.0
             ) ** 2
-            best_fits = square_residuals.argmin(dim="offset")
+            best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
             overall_best = best_fits.mean()
             fluxes = rhos.sel(offset=overall_best, method="nearest")
             offset = float(fluxes.offset)
