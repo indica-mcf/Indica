@@ -258,7 +258,14 @@ class InDiCAArrayAccessor:
             )
             roots = interp.roots()
             if len(roots) == 0:
-                raise ValueError(f"Provided data is not available at {value}.")
+                start = target_coords.argmin()
+                end = target_coords.argmax()
+                if data[start] == value:
+                    roots = np.concatenate((roots, [target_coords[start]]))
+                if data[end] == value:
+                    roots = np.concatenate((roots, [target_coords[end]]))
+                if len(roots) == 0:
+                    raise ValueError(f"Provided data is not available at {value}.")
             elif len(roots) > 1 and guess is None:
                 raise ValueError(
                     "A guess must be provided when there is more than one root."
