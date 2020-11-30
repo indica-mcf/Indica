@@ -686,11 +686,12 @@ class InDiCAArrayAccessor:
         accordingly.
 
         """
-        pass
+        return self._obj.attrs["transform"].equilibrium
 
     @equilibrium.setter
     def equilibrium(self, value: Equilibrium):
-        pass
+        self._obj.attrs["transform"].set_quilibrium(value)
+        # TODO: Update provenance
 
     @property
     def with_ignored_data(self) -> xr.DataArray:
