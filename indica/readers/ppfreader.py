@@ -276,7 +276,7 @@ class PPFReader(DataReader):
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
-                    (len(results["times"]), len(r.data), len(z.data))
+                    (len(results["times"]), len(z.data), len(r.data))
                 )
                 results["psi_records"] = [q_path, r_path, z_path]
             else:
@@ -384,7 +384,7 @@ class PPFReader(DataReader):
             self._client.list("/")
             return False
         except AuthenticationFailed:
-            return False
+            return True
 
     def authenticate(self, name: str, password: str):
         """Log onto the JET/SAL system to access data.

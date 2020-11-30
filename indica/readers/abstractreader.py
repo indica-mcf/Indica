@@ -233,7 +233,11 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
-        transform = TransectCoordinates(database_results["R"], database_results["z"])
+        R = database_results["R"]
+        z = database_results["z"]
+        transform = TransectCoordinates(
+            DataArray(R, coords=[("R", R)]), DataArray(z, coords=[("z", z)])
+        )
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
@@ -250,6 +254,8 @@ class DataReader(BaseIO):
                     t=slice(self._tstart, self._tend)
                 ),
                 "transform": transform,
+                "x1": diagnostic_coord,
+                "x2": "z_offset",
             }
             quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
                 t=slice(self._tstart, self._tend)
@@ -477,25 +483,29 @@ class DataReader(BaseIO):
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
-        dims_1d = coords_1d.keys()
+        dims_1d = ("t",)
         trivial_transform = TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0)
-        if len(flux_quantities & quantities):
+        if len(flux_quantities & quantities) > 0:
             rho = np.sqrt(database_results["psin"])
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
             flux_transform = FluxSurfaceCoordinates(
-                "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
+                "poloidal",
+                DataArray(rho, coords=[("rho_poloidal", rho)]),
+                0.0,
+                0.0,
+                0.0,
+                DataArray(times, coords=[("t", times)]),
             )
         else:
             rho = None
             coords_2d = {}
             flux_transform = FluxSurfaceCoordinates("poloidal", 0.0, 0.0, 0.0, 0.0, 0.0)
-        dims_2d = coords_2d.keys()
+        dims_2d = ("t", diagnostic_coord)
         if len(separatrix_quantities & quantities):
-            dims_sep = ["t", "arbitrary_index"]
             coords_sep: Dict[Hashable, ArrayLike] = {"t": times}
         else:
-            dims_sep = []
             coords_sep = {}
+        dims_sep = ("t", "arbitrary_index")
         if "psi" in quantities:
             coords_3d: Dict[Hashable, ArrayLike] = {
                 "t": database_results["times"],
@@ -504,7 +514,7 @@ class DataReader(BaseIO):
             }
         else:
             coords_3d = {}
-        dims_3d = coords_3d.keys()
+        dims_3d = ("t", "z", "R")
         data = {}
         for quantity in quantities:
             if quantity not in available_quantities:
@@ -519,15 +529,27 @@ class DataReader(BaseIO):
                 if quantity in location_quantities | separatrix_quantities
                 else flux_transform,
             }
-            coords, dims = (
-                (coords_3d, dims_3d)
-                if quantity == "psi"
-                else (coords_1d, dims_1d)
-                if quantity in location_quantities
-                else (coords_sep, dims_sep)
-                if quantity in separatrix_quantities
-                else (coords_2d, dims_2d)
-            )
+            dims: Tuple[str, ...]
+            if quantity == "psi":
+                coords = coords_3d
+                dims = dims_3d
+                meta["x1"] = "R"
+                meta["x2"] = "z"
+            elif quantity in location_quantities:
+                coords = coords_1d
+                dims = dims_1d
+                meta["x1"] = None
+                meta["x2"] = None
+            elif quantity in separatrix_quantities:
+                coords = coords_sep
+                dims = dims_sep
+                meta["x1"] = "arbitrary_index"
+                meta["x2"] = None
+            else:
+                coords = coords_2d
+                dims = dims_2d
+                meta["x1"] = diagnostic_coord
+                meta["x2"] = "theta"
             quant_data = DataArray(
                 database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
@@ -735,6 +757,8 @@ class DataReader(BaseIO):
                     t=slice(self._tstart, self._tend)
                 ),
                 "transform": transform,
+                "x1": diagnostic_coord,
+                "x2": "los_position",
             }
             quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
                 t=slice(self._tstart, self._tend)
