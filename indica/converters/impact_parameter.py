@@ -1,9 +1,12 @@
 """Coordinate systems based on volume enclosed by flux surfaces."""
 
+from typing import cast
 from typing import Dict
 from typing import Tuple
 
+import numpy as np
 from xarray import DataArray
+from xarray import where
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -27,9 +30,9 @@ class ImpactParameterCoordinates(CoordinateTransform):
         for the impact parameters.
     """
 
-    _CONVERSION_METHODS: Dict[str, str] = {"LinesOfSightCoordinates": "_convert_to_los"}
+    _CONVERSION_METHODS: Dict[str, str] = {"LinesOfSightTransform": "_convert_to_los"}
     _INVERSE_CONVERSION_METHODS: Dict[str, str] = {
-        "LinesOfSightCoordinates": "_convert_from_los"
+        "LinesOfSightTransform": "_convert_from_los"
     }
 
     def __init__(
@@ -38,13 +41,6 @@ class ImpactParameterCoordinates(CoordinateTransform):
         flux_surfaces: FluxSurfaceCoordinates,
     ):
         # TODO: Set up proper defaults
-        super().__init__(
-            lines_of_sight.default_x1,
-            lines_of_sight.default_x2,
-            lines_of_sight.default_R,
-            lines_of_sight.default_z,
-            lines_of_sight.default_t,
-        )
         self.lines_of_sight = lines_of_sight
         self.flux_surfaces = flux_surfaces
         if not hasattr(flux_surfaces, "equilibrium"):
@@ -62,7 +58,31 @@ class ImpactParameterCoordinates(CoordinateTransform):
         # TODO: Produce a DataArray object containing the impact parameters for
         #       each LOS index for each time we have equilibrium data.
         #       Dimension names should be "los_index" and "t".
-        self.rho_min = DataArray(name="rho_min")
+        rmag = self.equilibrium.rmag
+        zmag = self.equilibrium.zmag
+        R, z, _ = cast(
+            Tuple[DataArray, DataArray, DataArray], lines_of_sight.convert_to_Rz()
+        )
+        rho, _, t = cast(
+            Tuple[DataArray, DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z)
+        )
+        loc = cast(DataArray, rho).argmin("x2")
+        theta = np.arctan2(
+            z.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[1]),
+            R.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[0]),
+        )
+        if np.pi / 4 <= np.abs(theta) <= 3 * np.pi / 4:
+            sign = where(R.isel(x2=loc) < rmag.interp(t=t, method="nearest"), -1, 1)
+        else:
+            sign = where(z.isel(x2=loc) < zmag.interp(t=t, method="nearest"), -1, 1)
+        self.rho_min = sign * rho.isel(x2=loc)
+        super().__init__(
+            self.rho_min,
+            lines_of_sight.default_x2,
+            lines_of_sight.default_R,
+            lines_of_sight.default_z,
+            lines_of_sight.default_t,
+        )
 
     def _convert_to_los(
         self, min_rho: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -124,7 +144,9 @@ class ImpactParameterCoordinates(CoordinateTransform):
 
         """
         return (
-            self.rho_min.interp(t=t, method="nearest").indica.interp2d(los_index=x1),
+            self.rho_min.interp(t=t, method="nearest").indica.interp2d(
+                index=x1, method="cubic"
+            ),
             x2,
             t,
         )
@@ -186,7 +208,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         return self._convert_from_los(x1, x2, t)
 
     def _distance(
-        self, direction: int, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -196,6 +218,22 @@ class ImpactParameterCoordinates(CoordinateTransform):
         return self.lines_of_sight._distance(
             direction, *self._convert_to_los(x1, x2, t)
         )
+
+    def drho(self) -> float:
+        """Calculates the average difference in impact parameters between
+        adjacent lines of sight."""
+        drhos = np.abs(
+            self.rho_min.isel(index=slice(1, None)).data
+            - self.rho_min.isel(index=slice(None, -1)).data
+        )
+        return np.mean(drhos)
+
+    def rhomax(self) -> float:
+        """Returns the time-averaged maximum impact parameter on the low flux
+        surface.
+
+        """
+        return self.rho_min.mean("t").max()
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

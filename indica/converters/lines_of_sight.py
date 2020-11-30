@@ -7,6 +7,8 @@ from typing import Tuple
 
 import numpy as np
 from scipy.optimize import root
+from xarray import DataArray
+from xarray import zeros_like
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -71,11 +73,12 @@ class LinesOfSightTransform(CoordinateTransform):
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
-        default_R: Optional[np.ndarray] = None,
-        default_z: Optional[np.ndarray] = None,
+        default_R: Optional[LabeledArray] = None,
+        default_z: Optional[LabeledArray] = None,
     ):
-        indices = np.expand_dims(np.arange(len(R_start)), axis=1)
-        x2 = np.linspace(0.0, 1.0, num_intervals + 1)
+        indices = DataArray(np.arange(len(R_start)), dims="index")
+        x2_raw = np.linspace(0.0, 1.0, num_intervals + 1)
+        x2 = DataArray(x2_raw, coords=[("x2", x2_raw)])
         lengths = _get_wall_intersection_distances(
             R_start, z_start, T_start, R_end, z_end, T_end, machine_dimensions
         )
@@ -84,44 +87,37 @@ class LinesOfSightTransform(CoordinateTransform):
             (R_start - R_end) ** 2 + (z_start - z_end) ** 2 + (T_start - T_end) ** 2
         )
         factor = new_length / los_lengths
-        self.R_start = R_start
-        self.z_start = z_start
-        self.T_start = T_start
-        self._original_R_end = R_end
-        self._original_z_end = z_end
-        self._original_T_end = T_end
+        self.R_start = DataArray(R_start)
+        self.z_start = DataArray(z_start)
+        self.T_start = DataArray(T_start)
+        self._original_R_end = DataArray(R_end)
+        self._original_z_end = DataArray(z_end)
+        self._original_T_end = DataArray(T_end)
         self._machine_dims = machine_dimensions
-        self.R_end = R_start + factor * (R_end - R_start)
-        self.z_end = z_start + factor * (z_end - z_start)
-        self.T_end = T_start + factor * (T_end - T_start)
-        R_default = (
-            np.linspace(
+        self.R_end = DataArray(R_start + factor * (R_end - R_start))
+        self.z_end = DataArray(z_start + factor * (z_end - z_start))
+        self.T_end = DataArray(T_start + factor * (T_end - T_start))
+        if default_R is None:
+            R_raw = np.linspace(
                 min(self.R_start.min(), self.R_end.min()),
                 max(self.R_start.max(), self.R_end.max()),
                 num_intervals + 1,
             )
-            if default_R is None
-            else default_R
-        )
-        z_default = (
-            np.expand_dims(
-                np.linspace(
-                    min(self.z_start.min(), self.z_end.min()),
-                    max(self.z_start.max(), self.z_end.max()),
-                    num_intervals + 1,
-                ),
-                axis=1,
+            default_R = DataArray(R_raw, coords=[("R", R_raw)])
+        if default_z is None:
+            z_raw = np.linspace(
+                min(self.z_start.min(), self.z_end.min()),
+                max(self.z_start.max(), self.z_end.max()),
+                num_intervals + 1,
             )
-            if default_z is None
-            else default_z
-        )
+            default_z = DataArray(z_raw, coords=[("z", z_raw)])
         self.index_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
         self.x2_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
-        super().__init__(indices, x2, R_default, z_default, 0)
+        super().__init__(indices, x2, default_R, default_z, 0)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -227,7 +223,7 @@ class LinesOfSightTransform(CoordinateTransform):
         # return x1, x2, t
 
     def _distance(
-        self, direction: int, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -245,19 +241,15 @@ class LinesOfSightTransform(CoordinateTransform):
         R = Rs + (Re - Rs) * x2
         T = Ts + (Te - Ts) * x2
         z = zs + (ze - zs) * x2
-        slc1_list = [slice(None)] * R.ndim
-        slc1_list[direction] = slice(0, -1)
-        slc1 = tuple(slc1_list)
-        slc2_list = [slice(None)] * R.ndim
-        slc2_list[direction] = slice(1, None)
-        slc2 = tuple(slc2_list)
+        slc1 = {direction: slice(0, -1)}
+        slc2 = {direction: slice(1, None)}
         spacings = np.sqrt(
             (R[slc2] - R[slc1]) ** 2
             + (z[slc2] - z[slc1]) ** 2
             + (T[slc2] - T[slc1]) ** 2
         )
-        result = np.zeros(np.broadcast(R, z).shape)
-        np.cumsum(spacings, direction, out=result[slc2])
+        result = zeros_like(R)
+        result[slc2] = spacings.cumsum(direction)
         return result, t
 
 

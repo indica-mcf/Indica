@@ -5,13 +5,13 @@ from abc import ABC
 from abc import abstractmethod
 from typing import cast
 from typing import Dict
-from typing import List
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
 from xarray import DataArray
 from xarray import Dataset
+from xarray import zeros_like
 
 from ..equilibrium import Equilibrium
 from ..numpy_typing import LabeledArray
@@ -78,12 +78,7 @@ class CoordinateTransform(ABC):
         self.default_R = default_R
         self.default_z = default_z
         self.default_t = default_t
-        self.default_distance: List[
-            Tuple[Optional[LabeledArray], Optional[LabeledArray]]
-        ] = [
-            (None, None),
-            (None, None),
-        ]
+        self.default_distance: Dict[str, Tuple[LabeledArray, LabeledArray]] = {}
         self.default_to_Rz: OptionalCoordinates = (None, None, None)
         self.default_from_Rz: OptionalCoordinates = (None, None, None)
         self.equilibrium: Equilibrium
@@ -110,10 +105,7 @@ class CoordinateTransform(ABC):
         if not hasattr(self, "equilibrium") or force:
             self.default_to_Rz = (None, None, None)
             self.default_from_Rz = (None, None, None)
-            self.default_distance = [
-                (None, None),
-                (None, None),
-            ]
+            self.default_distance = {}
             self.equilibrium = equilibrium
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
@@ -166,9 +158,21 @@ class CoordinateTransform(ABC):
         # converter.
         if other_name in self._CONVERSION_METHODS:
             converter = getattr(self, self._CONVERSION_METHODS[other_name])
+            if x1 is None:
+                x1 = self.default_x1
+            if x2 is None:
+                x2 = self.default_x2
+            if t is None:
+                t = self.default_t
             return converter(x1, x2, t)
         elif self_name in other._INVERSE_CONVERSION_METHODS:
             converter = getattr(other, other._INVERSE_CONVERSION_METHODS[self_name])
+            if x1 is None:
+                x1 = other.default_x1
+            if x2 is None:
+                x2 = other.default_x2
+            if t is None:
+                t = other.default_t
             return converter(x1, x2, t)
         else:
             R, z, t = self.convert_to_Rz(x1, x2, t)
@@ -344,12 +348,12 @@ class CoordinateTransform(ABC):
 
     def distance(
         self,
-        direction: int,
+        direction: str,
         x1: Optional[LabeledArray] = None,
         x2: Optional[LabeledArray] = None,
         t: Optional[LabeledArray] = None,
     ) -> Tuple[LabeledArray, LabeledArray]:
-        """Give the distance (in physical space) from the origin in the
+        """Give the distance (in physical space) from the origin along the
         specified direction.
 
         This is useful for when taking spatial integrals and differentials in
@@ -365,8 +369,8 @@ class CoordinateTransform(ABC):
 
         Parameters
         ----------
-        direction : {1, 2}
-            Which direction (x1 or x2) to give the distance along.
+        direction : str
+            Which dimension to give the distance along.
         x1 : array_like
             The first spatial coordinate in this system.
         x2 : array_like
@@ -397,43 +401,37 @@ class CoordinateTransform(ABC):
         else:
             use_cached = False
         if use_cached:
-            if self.default_distance[direction - 1][0] is None:
-                self.default_distance[direction - 1] = self._distance(
-                    direction, x1, x2, t
-                )
-            return cast(
-                Tuple[LabeledArray, LabeledArray], self.default_distance[direction - 1]
-            )
+            if direction not in self.default_distance:
+                self.default_distance[direction] = self._distance(direction, x1, x2, t)
+            return self.default_distance[direction]
         else:
             return self._distance(direction, x1, x2, t)
 
     def _distance(
-        self, direction: int, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Implementation of calculation of physical distances between points
         in this coordinate system, without caching or default argument
         values.
 
         """
-        R, z, t = self._convert_to_Rz(x1, x2, t)
+        R, z, t = cast(
+            Tuple[DataArray, DataArray, LabeledArray], self._convert_to_Rz(x1, x2, t)
+        )
         if isinstance(R, (int, float)) or isinstance(z, (int, float)):
             raise ValueError("Arguments x1 and x2 must be xarray DataArray objects.")
-        slc1_list = [slice(None)] * R.ndim
-        slc1_list[direction] = slice(0, -1)
-        slc1 = tuple(slc1_list)
-        slc2_list = [slice(None)] * R.ndim
-        slc2_list[direction] = slice(1, None)
-        slc2 = tuple(slc2_list)
+        slc1 = {direction: slice(0, -1)}
+        slc2 = {direction: slice(1, None)}
         spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2)
-        result = np.zeros(np.broadcast(R, z).shape)
-        np.cumsum(spacings, direction, out=result[slc2])
+        result = zeros_like(R.broadcast_like(z))
+        result[slc2] = spacings.cumsum(direction)
         return result, t
 
     def encode(self) -> str:
         """Returns a JSON representation of this object. Should be sufficient
         to recreate it identically from scratch (except for the
         equilibrium)."""
-        pass
+        return ""
 
     @staticmethod
     def decode(json: str) -> "CoordinateTransform":

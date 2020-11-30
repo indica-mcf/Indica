@@ -40,7 +40,7 @@ class FluxMajorRadCoordinates(CoordinateTransform):
             flux_surfaces.default_t,
         )
         self.flux_surfaces = flux_surfaces
-        self.equilibriub = flux_surfaces.equilibrium
+        self.equilibrium = flux_surfaces.equilibrium
         self.flux_kind = flux_surfaces.flux_kind
 
     def _convert_from_flux_coords(
