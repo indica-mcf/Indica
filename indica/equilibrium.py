@@ -142,10 +142,10 @@ class Equilibrium:
         self.zmin = min(self.rho.coords["z"])
         self.zmax = max(self.rho.coords["z"])
         self.corner_angles = [
-            np.arctan2(self.zmin - self.zmag, self.Rmax - self.rmag),
-            np.arctan2(self.zmax - self.zmag, self.Rmax - self.rmag),
-            np.arctan2(self.zmax - self.zmag, self.Rmin - self.rmag),
-            np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag),
+            np.arctan2(self.zmin - self.zmag, self.Rmax - self.rmag) % (2 * np.pi),
+            np.arctan2(self.zmax - self.zmag, self.Rmax - self.rmag) % (2 * np.pi),
+            np.arctan2(self.zmax - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
+            np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
         ]
 
         self.prov_id = hash_vals(**equilibrium_data)
@@ -375,7 +375,7 @@ class Equilibrium:
             reference_rhos.name = self.rho.name
         else:
             corner_angles = self.corner_angles
-            R0 = self.rmag + self.R_offset
+            R0 = self.rmag
             z0 = self.zmag
             reference_rhos = self.rho
             t = self.rho.coords["t"]
@@ -398,15 +398,17 @@ class Equilibrium:
             vectorize=True,
         )
         minor_rads = DataArray(
-            np.linspace(0.0, minor_rad_max, ngrid), dims=("r",) + minor_rad_max.dims
+            np.linspace(0.0, minor_rad_max, ngrid),
+            dims=("r",) + minor_rad_max.dims,
+            coords=minor_rad_max.coords,
         )
-        R_grid = R0 + minor_rads * np.cos(theta)  # - self.R_offset
+        R_grid = R0 + minor_rads * np.cos(theta)
         z_grid = z0 + minor_rads * np.sin(theta)
         fluxes_samples = reference_rhos.indica.interp2d(
             R=R_grid, z=z_grid, zero_coords={"R": R0, "z": z0}, method="cubic"
         ).rename("rho_" + kind)
         fluxes_samples.loc[{"r": 0}] = 0.0
-        indices = fluxes_samples.indica.invert_interp(rho, "r", method="cubic")
+        indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="cubic")
         return minor_rads.indica.interp2d(r=indices, method="cubic"), t
 
     def flux_coords(
