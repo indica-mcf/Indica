@@ -690,7 +690,7 @@ class InDiCAArrayAccessor:
 
     @equilibrium.setter
     def equilibrium(self, value: Equilibrium):
-        self._obj.attrs["transform"].set_quilibrium(value)
+        self._obj.attrs["transform"].set_equilibrium(value)
         # TODO: Update provenance
 
     @property

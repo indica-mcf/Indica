@@ -2,6 +2,7 @@
 
 from typing import cast
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import Union
 import warnings
@@ -12,10 +13,14 @@ from scipy.interpolate import interp1d
 from scipy.optimize import least_squares
 from xarray import concat
 from xarray import DataArray
+from xarray import where
 
 from .abstractoperator import Operator
+from ..converters import bin_to_time_labels
+from ..converters import CoordinateTransform
 from ..converters import FluxMajorRadCoordinates
 from ..converters import FluxSurfaceCoordinates
+from ..converters import ImpactParameterCoordinates
 from ..converters import LinesOfSightTransform
 from ..datatypes import DataType
 from ..numpy_typing import ArrayLike
@@ -61,29 +66,40 @@ class EmissivityProfile:
         self.transform = FluxMajorRadCoordinates(coord_transform)
         self.rho = "rho_" + self.transform.flux_kind
         self.emissivity_rho_95 = self.symmetric_emissivity(0.95)
-        self.beta = 1.0
+        self.beta = 40.0
         self.coefficient = self.emissivity_rho_95 / (np.exp(-self.beta * 0.05) - 1.0)
         self.time = time
 
-    def __call__(self, R: DataArray, z: DataArray) -> DataArray:
+    def __call__(
+        self,
+        coord_system: CoordinateTransform,
+        x1: Optional[DataArray] = None,
+        x2: Optional[DataArray] = None,
+    ) -> DataArray:
         rho, R, _ = cast(
-            DataArrayCoords, self.transform.convert_from_Rz(R, z, self.time)
+            DataArrayCoords, coord_system.convert_to(self.transform, x1, x2, self.time)
         )
         return self.evaluate(rho, R)
 
-    def evaluate(self, rho: DataArray, R: DataArray) -> DataArray:
+    def evaluate(
+        self, rho: DataArray, R: DataArray, R_0: Optional[DataArray] = None
+    ) -> DataArray:
         """Evaluate the function at a location defined using (R, z) coordinates
         """
-        R_0, _ = self.transform.equilibrium.R_hfs(rho, self.time)
+        if R_0 is None:
+            R_0 = cast(DataArray, self.transform.equilibrium.R_hfs(rho, self.time)[0])
         symmetric = self.symmetric_emissivity(rho)
         mask = np.logical_and(rho > 0.95, rho < 1.0)
         if np.any(mask):
-            symmetric[mask] = self.emissivity_rho_95 + self.coefficient * (
-                1 - np.exp(-self.beta * (rho[mask] - 0.95))
+            symmetric = where(
+                mask,
+                self.emissivity_rho_95
+                + self.coefficient * (1 - np.exp(-self.beta * (rho - 0.95))),
+                symmetric,
             )
         mask = rho >= 1.0
         if np.any(mask):
-            symmetric[mask] = 0.0
+            symmetric = where(mask, 0.0, symmetric)
         asymmetric = self.asymmetry_parameter(rho)
         return symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))
 
@@ -91,6 +107,7 @@ class EmissivityProfile:
 def integrate_los(
     los: LinesOfSightTransform, emissivity: EmissivityProfile, n: int = 65
 ) -> DataArray:
+
     """Integrate the emissivity profile along the line of sight for the
     given time(s).
 
@@ -104,12 +121,12 @@ def integrate_los(
         The (minimum) number of samples with which to integrate. Actual
         number will be the smallest value ``2**k + 1 >= n``.
     """
-    n = 2 ** np.ceil(np.log(2 - 1) / np.log(2)) + 1
+    n = 2 ** int(np.ceil(np.log(n - 1) / np.log(2))) + 1
     x2 = DataArray(np.linspace(0.0, 1.0, n), dims="x2")
-    distances, _ = los.distance(2, DataArray(0), x2[0:2], emissivity.time)
+    distances, _ = los.distance("x2", DataArray(0), x2[0:2], emissivity.time)
     dl = cast(DataArray, distances)[1]
-    R, z, _ = cast(DataArrayCoords, los.convert_to_Rz(x2=x2, t=emissivity.time))
-    emissivity_vals = emissivity(R, z)
+    assert isinstance(los.default_x1, DataArray)
+    emissivity_vals = emissivity(los, los.default_x1, x2)
     axis = emissivity_vals.dims.index("x2")
     return romb(emissivity_vals, dl, axis)
 
@@ -146,13 +163,14 @@ class InvertSXR(Operator):
     ):
         self.delta_rho_factor = delta_rho_factor
         self.flux_coords = flux_coordinates
-        self.R, self.z, self.t = cast(DataArrayCoords, flux_coordinates.convert_to_Rz())
+        assert isinstance(flux_coordinates.default_t, DataArray)
+        self.t = flux_coordinates.default_t
         self.num_cameras = num_cameras
         self.ARGUMENT_TYPES: List[DataType] = [("luminous_flux", "sxr")] * num_cameras
         self.estimate: EmissivityProfile
         super().__init__(
             sess,
-            flux_coordinates=flux_coordinates,
+            flux_coordinates=flux_coordinates.encode(),
             num_cameras=num_cameras,
             delta_rho_factor=delta_rho_factor,
         )
@@ -175,15 +193,27 @@ class InvertSXR(Operator):
             this operator was constructed.
         """
         self.validate_arguments(*cameras)
-        weight_a_param = 0.18 / np.expm1(5)
-        weight_b_param = 0.2 - weight_a_param
         num_los = [len(c.attrs["transform"].default_x1) for c in cameras]
-        weights = [
-            weight_a_param * np.exp(np.linspace(0, 5, n_los)) + weight_b_param
-            for n_los in num_los
+        print("Calculating impact parameters")
+        impact_params = [
+            ImpactParameterCoordinates(c.attrs["transform"], self.flux_coords)
+            for c in cameras
         ]
-        n = 8
-        knots = np.linspace(0.0, 1.0, n)
+        binned_cameras = [bin_to_time_labels(self.t.data, c) for c in cameras]
+        total_los = np.sum(num_los)
+        average_knot_spacing = (
+            self.delta_rho_factor
+            * np.sum([ip.drho() * n for ip, n in zip(impact_params, num_los)])
+            / total_los
+        )
+        # Do I use different ones at each timestep or what?
+        rho_max = max(ip.rhomax() for ip in impact_params)
+        n = int((rho_max / average_knot_spacing).round()) + 2
+        average_knot_spacing = float(rho_max) / (n - 2)
+        spacing = average_knot_spacing * np.linspace(1.2, 0.8, n - 1)
+        knots = np.empty(n)
+        knots[0] = 0.0
+        knots[1:] = np.cumsum(spacing)
 
         def residuals(knotvals: np.ndarray, time: DataArray) -> np.ndarray:
             symmetric_emissivity = knotvals[:n]
@@ -196,11 +226,17 @@ class InvertSXR(Operator):
             )
             start = 0
             resid = np.empty(sum(num_los))
-            for camera, n_los, weight in zip(cameras, num_los, weights):
+            for camera, n_los, ip_coords in zip(binned_cameras, num_los, impact_params):
                 end = start + n_los
-                resid[start:end] = (
-                    integrate_los(camera.attrs["transform"], self.estimate).data
-                    / weights
+                resid[start:end] = integrate_los(
+                    camera.attrs["transform"], self.estimate
+                ).data / (
+                    camera.attrs["error"]
+                    * (
+                        0.8
+                        + 0.4
+                        * ip_coords.rho_min.sel(t=time).rename(index=camera.attrs["x1"])
+                    )
                 )
                 start = end
             return resid
@@ -221,7 +257,7 @@ class InvertSXR(Operator):
                     "reached maximum number of function evaluations.",
                     RuntimeWarning,
                 )
-            results.append(self.estimate(self.R.sel(t=t), self.z.sel(t=t)))
+            results.append(self.estimate(self.flux_coords, None, None))
             guess = fit.x
         result = concat(results, dim=self.t)
         result.attrs["transform"] = self.flux_coords
