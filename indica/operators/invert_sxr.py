@@ -215,7 +215,14 @@ class InvertSXR(Operator):
         knots[0] = 0.0
         knots[1:] = np.cumsum(spacing)
 
-        def residuals(knotvals: np.ndarray, time: DataArray) -> np.ndarray:
+        def residuals(
+            knotvals: np.ndarray,
+            rho: List[DataArray],
+            R: List[DataArray],
+            time: DataArray,
+            R_0: List[DataArray],
+            dl: List[float],
+        ) -> np.ndarray:
             symmetric_emissivity = knotvals[:n]
             asymmetry_parameter = np.empty(n)
             asymmetry_parameter[0] = 0.5 * knotvals[n]
@@ -226,27 +233,72 @@ class InvertSXR(Operator):
             )
             start = 0
             resid = np.empty(sum(num_los))
-            for camera, n_los, ip_coords in zip(binned_cameras, num_los, impact_params):
+            for camera, n_los, ip_coords, rho_cam, Rcam, R0, dlcam in zip(
+                binned_cameras, num_los, impact_params, rho, R, R_0, dl
+            ):
                 end = start + n_los
+                emissivity_vals = self.estimate.evaluate(rho_cam, Rcam, R0)
+                axis = emissivity_vals.dims.index("x2")
+                integral = romb(emissivity_vals, dlcam, axis)
                 resid[start:end] = (
                     camera.sel(t=time)
-                    - integrate_los(camera.attrs["transform"], self.estimate)
-                ) / (
-                    camera.attrs["error"].sel(t=time)
-                    * (
-                        0.8
-                        + 0.4
-                        * ip_coords.rho_min.sel(t=time).rename(index=camera.attrs["x1"])
+                    - integral
+                    / (
+                        camera.attrs["error"].sel(t=time)
+                        * (
+                            0.8
+                            + 0.4
+                            * ip_coords.rho_min.sel(t=time).rename(
+                                index=camera.attrs["x1"]
+                            )
+                        )
                     )
-                )
+                ).data
                 start = end
             return resid
+
+        x2 = DataArray(np.linspace(0.0, 1.0, 65), dims="x2")
+        dls = [
+            cast(
+                DataArray,
+                c.attrs["transform"].distance("x2", DataArray(0), x2[0:2], 0.0)[0],
+            )[1]
+            for c in cameras
+        ]
 
         results: List[DataArray] = []
         abel_inversion = np.zeros(n)
         guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
+        rho_maj_rad = FluxMajorRadCoordinates(self.flux_coords)
+
+        # FOR DEBUG PURPOSES
+        knotvals = guess
+        symmetric_emissivity = knotvals[:n]
+        asymmetry_parameter = np.empty(n)
+        asymmetry_parameter[0] = 0.5 * knotvals[n]
+        asymmetry_parameter[1:-1] = knotvals[n:]
+        asymmetry_parameter[-1] = 0.5 * knotvals[-1]
+        self.estimate = EmissivityProfile(
+            knots, symmetric_emissivity, asymmetry_parameter, self.flux_coords, 45.0
+        )
+        print(self.estimate(self.flux_coords, None, None))
+
         for t in np.asarray(self.t):
-            fit = least_squares(residuals, guess, args=(t,), verbose=2)
+            print(f"Solving for t={t}")
+            print("-----------------\n")
+            rhos, Rs, _ = zip(
+                *[
+                    c.attrs["transform"].convert_to(rho_maj_rad, x2=x2, t=t)
+                    for c in cameras
+                ]
+            )
+            R_0s = [
+                cast(DataArray, ip_coords.equilibrium.R_hfs(rho, t)[0])
+                for ip_coords, rho in zip(impact_params, rhos)
+            ]
+            fit = least_squares(
+                residuals, guess, args=(rhos, Rs, t, R_0s, dls), verbose=2
+            )
             if fit.status == -1:
                 raise RuntimeError(
                     "Improper input to `least_squares` function when trying to "
