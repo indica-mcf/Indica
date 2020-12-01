@@ -228,10 +228,11 @@ class InvertSXR(Operator):
             resid = np.empty(sum(num_los))
             for camera, n_los, ip_coords in zip(binned_cameras, num_los, impact_params):
                 end = start + n_los
-                resid[start:end] = integrate_los(
-                    camera.attrs["transform"], self.estimate
-                ).data / (
-                    camera.attrs["error"]
+                resid[start:end] = (
+                    camera.sel(t=time)
+                    - integrate_los(camera.attrs["transform"], self.estimate)
+                ) / (
+                    camera.attrs["error"].sel(t=time)
                     * (
                         0.8
                         + 0.4
@@ -245,7 +246,7 @@ class InvertSXR(Operator):
         abel_inversion = np.zeros(n)
         guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
         for t in np.asarray(self.t):
-            fit = least_squares(residuals, guess, args=(t,))
+            fit = least_squares(residuals, guess, args=(t,), verbose=2)
             if fit.status == -1:
                 raise RuntimeError(
                     "Improper input to `least_squares` function when trying to "
