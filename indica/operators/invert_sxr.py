@@ -241,8 +241,7 @@ class InvertSXR(Operator):
                 axis = emissivity_vals.dims.index("x2")
                 integral = romb(emissivity_vals, dlcam, axis)
                 resid[start:end] = (
-                    camera.sel(t=time)
-                    - integral
+                    (camera.sel(t=time) - integral)
                     / (
                         camera.attrs["error"].sel(t=time)
                         * (
@@ -267,21 +266,9 @@ class InvertSXR(Operator):
         ]
 
         results: List[DataArray] = []
-        abel_inversion = np.zeros(n)
+        abel_inversion = np.linspace(7e3, 0.0, n)
         guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
         rho_maj_rad = FluxMajorRadCoordinates(self.flux_coords)
-
-        # FOR DEBUG PURPOSES
-        knotvals = guess
-        symmetric_emissivity = knotvals[:n]
-        asymmetry_parameter = np.empty(n)
-        asymmetry_parameter[0] = 0.5 * knotvals[n]
-        asymmetry_parameter[1:-1] = knotvals[n:]
-        asymmetry_parameter[-1] = 0.5 * knotvals[-1]
-        self.estimate = EmissivityProfile(
-            knots, symmetric_emissivity, asymmetry_parameter, self.flux_coords, 45.0
-        )
-        print(self.estimate(self.flux_coords, None, None))
 
         for t in np.asarray(self.t):
             print(f"Solving for t={t}")
@@ -297,7 +284,11 @@ class InvertSXR(Operator):
                 for ip_coords, rho in zip(impact_params, rhos)
             ]
             fit = least_squares(
-                residuals, guess, args=(rhos, Rs, t, R_0s, dls), verbose=2
+                residuals,
+                guess,
+                args=(rhos, Rs, t, R_0s, dls),
+                jac="2-point",
+                verbose=2,
             )
             if fit.status == -1:
                 raise RuntimeError(
