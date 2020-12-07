@@ -236,7 +236,7 @@ class DataReader(BaseIO):
         R = database_results["R"]
         z = database_results["z"]
         transform = TransectCoordinates(
-            DataArray(R, coords=[("R", R)]), DataArray(z, coords=[("z", z)])
+            DataArray(R, dims=diagnostic_coord), DataArray(z, dims=diagnostic_coord)
         )
         for quantity in quantities:
             if quantity not in available_quantities:

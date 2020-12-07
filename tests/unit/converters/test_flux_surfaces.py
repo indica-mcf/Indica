@@ -9,6 +9,7 @@ import numpy as np
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
+from indica.utilities import coord_array
 from ..fake_equilibrium import fake_equilibria
 from ..fake_equilibrium import flux_types
 from ..strategies import arbitrary_coordinates
@@ -54,7 +55,15 @@ def flux_coordinate_arguments(
             tuple(dim[0] for dim in domain), tuple(dim[1] for dim in domain), min_side
         )
     )
-    return draw(flux_types()), rho, theta, R, z, t
+    ftype = draw(flux_types())
+    return (
+        ftype,
+        coord_array(rho.flat, "rho_" + ftype),
+        coord_array(theta.flat, "theta"),
+        coord_array(R.flat, "R"),
+        coord_array(z.flat, "z"),
+        coord_array(t.flat, "t"),
+    )
 
 
 @composite

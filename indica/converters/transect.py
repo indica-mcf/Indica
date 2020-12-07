@@ -2,6 +2,9 @@
 
 import numpy as np
 from scipy.interpolate import interp1d
+from xarray import DataArray
+from xarray import Dataset
+from xarray import Variable
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -40,8 +43,9 @@ class TransectCoordinates(CoordinateTransform):
 
     """
 
-    def __init__(self, R_positions: np.ndarray, z_positions: np.ndarray):
-        indices = np.arange(len(R_positions))
+    def __init__(self, R_positions: LabeledArray, z_positions: LabeledArray):
+        assert isinstance(R_positions, (DataArray, Dataset, Variable))
+        indices = DataArray(np.arange(len(R_positions)))
         self.R_vals = interp1d(
             indices, R_positions, copy=False, fill_value="extrapolate"
         )
@@ -51,7 +55,7 @@ class TransectCoordinates(CoordinateTransform):
         self.invert = interp1d(
             R_positions, indices, copy=False, fill_value="extrapolate"
         )
-        super().__init__(indices, 0, R_positions, z_positions, 0)
+        super().__init__(indices, DataArray(0), R_positions, z_positions, DataArray(0))
 
     def _convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray

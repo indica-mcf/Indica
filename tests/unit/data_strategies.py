@@ -21,6 +21,7 @@ from xarray import Dataset
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import TrivialTransform
 import indica.datatypes as dt
+from indica.utilities import coord_array
 from .converters.test_abstract_transform import coordinate_transforms
 from .strategies import monotonic_series
 from .strategies import noisy_functions
@@ -192,9 +193,17 @@ def data_arrays_from_coords(
         data_type[1] if data_type[1] else draw(specific_datatypes(general_type))
     )
 
-    x1 = coordinates.default_x1 if override_coords[0] is None else override_coords[0]
-    x2 = coordinates.default_x2 if override_coords[1] is None else override_coords[1]
-    t = coordinates.default_t if override_coords[2] is None else override_coords[2]
+    x1 = (
+        coordinates.default_x1.data
+        if override_coords[0] is None
+        else override_coords[0]
+    )
+    x2 = (
+        coordinates.default_x2.data
+        if override_coords[1] is None
+        else override_coords[1]
+    )
+    t = coordinates.default_t.data if override_coords[2] is None else override_coords[2]
     func = (
         draw(noisy_functions(draw(data), rel_sigma, abs_sigma))
         if rel_sigma or abs_sigma
@@ -605,16 +614,9 @@ def equilibrium_data(
     rgrid = DataArray(r, coords=[("R", r)])
     zgrid = DataArray(z, coords=[("z", z)])
     psin = (
-        (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
-        + (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
+        (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
+        + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
     ) ** (0.5 / n_exp)
-    print("===============================================")
-    print("rgrid", -result["rmag"] + rgrid)
-    print("zgrid", -result["zmag"] + zgrid)
-    print("a coeff", a_coeff)
-    print("b coeff", b_coeff)
-    print("n", n_exp)
-    print(psin)
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
     psi.attrs["transform"] = attrs["transform"]
@@ -627,7 +629,12 @@ def equilibrium_data(
     rho = np.sqrt(psin_coords)
     psin_data = DataArray(psin_coords, coords=[("rho_poloidal", rho)])
     attrs["transform"] = FluxSurfaceCoordinates(
-        "poloidal", rho, 0.0, 0.0, 0.0, np.expand_dims(times, 1)
+        "poloidal",
+        coord_array(rho, "rho_poloidal"),
+        DataArray(0.0),
+        DataArray(0.0),
+        DataArray(0.0),
+        coord_array(times, "t"),
     )
     ftor_min = draw(floats(0.0, 1.0))
     ftor_max = draw(floats(max(1.0, 2 * fmin), 10.0))

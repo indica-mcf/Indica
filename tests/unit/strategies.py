@@ -551,7 +551,13 @@ def ordered_pairs(draw):
 @hyst.composite
 def machine_dimensions(draw):
     """Generates tuples describing the size of a tokamak."""
-    return draw(hyst.tuples(ordered_pairs(), ordered_pairs()))
+    candidate = draw(hyst.tuples(ordered_pairs(), ordered_pairs()))
+    if candidate[0][0] < 0:
+        candidate = (
+            (0.0, candidate[0][1] - candidate[0][0]),
+            candidate[1],
+        )
+    return candidate
 
 
 @hyst.composite

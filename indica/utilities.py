@@ -9,6 +9,7 @@ from typing import Optional
 from typing import Tuple
 
 import numpy as np
+from xarray import DataArray
 
 from .numpy_typing import ArrayLike
 
@@ -106,3 +107,16 @@ def to_filename(name: str) -> str:
     filename = filename.replace(" ", "_")
     filename = "".join(c for c in filename if c in valid_chars)
     return filename
+
+
+def coord_array(coord_vals: ArrayLike, coord_name: str):
+    """Create a DataArray which can be used for a coordinate system.
+
+    Parameters
+    ----------
+    coord_vals
+        The position/value at each point on the coordinate grid.
+    coord_name
+        The name of the dimension.
+    """
+    return DataArray(coord_vals, coords=[(coord_name, coord_vals)])

@@ -6,7 +6,9 @@ from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
+from hypothesis.strategies import text
 from pytest import approx
+from xarray import DataArray
 
 from indica.converters import TransectCoordinates
 from ..strategies import monotonic_series
@@ -47,7 +49,8 @@ def transect_coordinates_parameters(
     )
     R_vals = R_start + (R_stop - R_start) * ticks
     z_vals = z_start + (z_stop - z_start) * ticks
-    return R_vals, z_vals
+    cname = draw(text(min_size=1))
+    return DataArray(R_vals, dims=cname), DataArray(z_vals, dims=cname)
 
 
 @composite

@@ -45,6 +45,8 @@ tends = floats(0.0, 1000.0).map(lambda x: 1000.0 - x)
 times = tuples(tstarts, tends).map(sorted)
 max_freqs = floats(1e-3, 10.0).map(lambda x: 1 / x)
 
+los_intervals = 10
+
 
 @composite
 def dicts_with(draw, *options, min_size=1, max_size=None):
@@ -295,6 +297,14 @@ def test_thomson_scattering(data, uid, instrument, revision, time_range, max_fre
     raw data."""
     for key, val in data.items():
         data[key] = finish_fake_array(val, instrument, key)
+        transform = data[key].attrs["transform"]
+        old_dim = transform.default_R.dims[0]
+        transform.default_R = transform.default_R.rename(
+            {old_dim: instrument + "_coord"}
+        )
+        transform.default_z = transform.default_z.rename(
+            {old_dim: instrument + "_coord"}
+        )
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
@@ -397,7 +407,9 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
         lambda dims: tuples(
             just(dims),
             expected_data(
-                los_coordinates(dims, default_Rz=False),
+                los_coordinates(
+                    dims, default_Rz=False, min_num=los_intervals, max_num=los_intervals
+                ),
                 ("h", ("luminous_flux", "sxr")),
                 ("t", ("luminous_flux", "sxr")),
                 ("v", ("luminous_flux", "sxr")),
@@ -417,12 +429,7 @@ def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
     machine_dims, data = dims_data
-    los_intervals = 10
     for key, val in data.items():
-        t = val.attrs["transform"]
-        val.attrs["transform"] = LinesOfSightTransform(
-            t.R_start, t.z_start, t.T_start, t.R_end, t.z_end, t.T_end, los_intervals
-        )
         data[key] = finish_fake_array(
             val, instrument, key, instrument + "_" + key + "_coords"
         )
@@ -430,7 +437,9 @@ def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
     reader._los_intervals = los_intervals
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
+    print("Reading radiation data...")
     results = reader.get_radiation(uid, instrument, revision, quantities)
+    print("Done!")
     reader._get_radiation.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
@@ -510,8 +519,10 @@ def test_bolometry(dims_data, uid, instrument, revision, time_range, max_freq):
 def test_bremsstrahlung_spectroscopy(
     data, uid, instrument, revision, time_range, max_freq
 ):
-    """Test the get_bremsstrahlung_spectroscopy method correctly combines and processes
-    raw data."""
+    """Test the get_bremsstrahlung_spectroscopy method correctly combines
+    and processes raw data.
+
+    """
     for key, val in data.items():
         data[key] = finish_fake_array(val, instrument, key)
     reader = MockReader(True, True, *time_range, max_freq)

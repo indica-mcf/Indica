@@ -61,12 +61,12 @@ def get_vals_error_records_los(sample):
 
     """
     result = get_vals_error_records(sample)
-    result["Rstart"] = sample.attrs["transform"].R_start
-    result["Rstop"] = sample.attrs["transform"].R_end
-    result["zstart"] = sample.attrs["transform"].z_start
-    result["zstop"] = sample.attrs["transform"].z_end
-    result["Tstart"] = sample.attrs["transform"].T_start
-    result["Tstop"] = sample.attrs["transform"].T_end
+    result["Rstart"] = sample.attrs["transform"].R_start.data
+    result["Rstop"] = sample.attrs["transform"].R_end.data
+    result["zstart"] = sample.attrs["transform"].z_start.data
+    result["zstop"] = sample.attrs["transform"].z_end.data
+    result["Tstart"] = sample.attrs["transform"].T_start.data
+    result["Tstop"] = sample.attrs["transform"].T_end.data
     return result
 
 
@@ -192,7 +192,6 @@ class MockReader(ConcreteReader):
         default_vals = default.values
         specific_vals = {k: {"": v.values, "records": []} for k, v in specific.items()}
         psin_intersection = {"f", "ftor", "rmji", "rmjo", "vjac"} & set(specific)
-        print(set(specific))
         if len(psin_intersection) > 0:
             psin = (
                 specific[next(iter(psin_intersection))].coords["rho_poloidal"].values
