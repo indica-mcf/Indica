@@ -123,6 +123,9 @@ class PPFReader(DataReader):
             "zefv": ("effective_charge", "plasma"),
         },
     }
+    _BREMSSTRAHLUNG_LOS = {
+        "ks3": "edg7",
+    }
 
     #    AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {
     #        "cxg6_angf": ("angular_freq", None),
@@ -142,7 +145,13 @@ class PPFReader(DataReader):
     #        "sxr_v": ("luminous_flux", "sxr"),
     #    }
 
-    _SXR_RANGES = {"h": 17, "t": 35, "v": 35}
+    _RADIATION_RANGES = {
+        "sxr/h": 17,
+        "sxr/t": 35,
+        "sxr/v": 35,
+        "bolo/kb5h": 24,
+        "bolo/kb5v": 32,
+    }
     _KK3_RANGE = (1, 96)
 
     def __init__(
@@ -192,29 +201,30 @@ class PPFReader(DataReader):
         mass, m_path = self._get_signal(uid, instrument, "mass", revision)
         texp, t_path = self._get_signal(uid, instrument, "texp", revision)
         # TODO: get element from mass
-        results["R"] = R
-        results["z"] = z
-        results["length"] = len(R)
+        results["R"] = R.data
+        results["z"] = z.data
+        results["length"] = len(R.data)
         results["element"] = None
         results["texp"] = None
+        results["times"] = None
         paths = [R_path, z_path, m_path, t_path]
         if "angf" in quantities:
             angf, a_path = self._get_signal(uid, instrument, "angf", revision)
             afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
             results["angf"] = angf.data
-            results["angf_err"] = afhi.data
+            results["angf_error"] = afhi.data
             results["angf_records"] = paths + [a_path, e_path]
         if "conc" in quantities:
             conc, c_path = self._get_signal(uid, instrument, "conc", revision)
             cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
             results["conc"] = conc.data
-            results["conc_err"] = cohi.data
+            results["conc_error"] = cohi.data
             results["conc_records"] = paths + [c_path, e_path]
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
-            tihi, e_path = self._get_signal(uid, instrument, "ti_hi", revision)
+            tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
             results["ti"] = ti.data
-            results["ti_err"] = tihi.data
+            results["ti_error"] = tihi.data
             results["ti_records"] = paths + [t_path, e_path]
         return results
 
@@ -248,10 +258,14 @@ class PPFReader(DataReader):
             if instrument == "lidr":
                 nehi, e_path = self._get_signal(uid, instrument, "neu", revision)
                 results["ne_error"] = nehi.data - results["ne"]
+            elif instrument == "kg10":
+                results["ne_error"] = 0.0 * results["ne"]
             else:
                 dne, e_path = self._get_signal(uid, instrument, "dne", revision)
                 results["ne_error"] = dne.data
-            results["ne_records"] = [z_path, d_path, e_path]
+            results["ne_records"] = [z_path, d_path]
+            if instrument != "kg10":
+                results["ne_records"].append(e_path)
         return results
 
     def _get_equilibrium(
@@ -300,7 +314,7 @@ class PPFReader(DataReader):
             luminosities = []
             channels = []
             records = [SURF_PATH.name]
-            for i in range(1, self._SXR_RANGES[q] + 1):
+            for i in range(1, self._RADIATION_RANGES[instrument + "/" + q] + 1):
                 try:
                     qval, q_path = self._get_signal(
                         uid, instrument, f"{q}{i:02d}", revision
@@ -333,6 +347,25 @@ class PPFReader(DataReader):
             results[q + "_zstop"] = zend[channels]
             results[q + "_Tstart"] = Tstart[channels]
             results[q + "_Tstop"] = Tend[channels]
+        return results
+
+    def _get_bremsstrahlung_spectroscopy(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        results = {}
+        los_dda = self._BREMSSTRAHLUNG_LOS[instrument]
+        for q in quantities:
+            qval, q_path = self._get_signal(uid, instrument, q, revision)
+            los, l_path = self._get_signal(uid, los_dda, "los" + q[-1], revision)
+            if "times" not in results:
+                results["times"] = qval.dimensions[0].data
+            results[q] = qval.data
+            results[q + "_error"] = 0.0 * results[q]
+            results[q + "_Rstart"] = los.data[1] / 1000
+            results[q + "_Rend"] = los.data[4] / 1000
+            results[q + "_zstart"] = los.data[2] / 1000
+            results[q + "_zend"] = los.data[5] / 1000
+            results[q + "_records"] = [q_path, l_path]
         return results
 
     # def _handle_kk3(self, key: str, revision: int) -> DataArray:

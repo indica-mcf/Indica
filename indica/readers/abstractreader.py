@@ -72,7 +72,7 @@ class DataReader(BaseIO):
         },
         "get_charge_exchange": {
             "angf": ("angular_freq", None),
-            "conc": ("concentration", None),
+            # "conc": ("concentration", None),
             "ti": ("temperature", None),
         },
         "get_bremsstrahlung_spectroscopy": {
@@ -921,7 +921,7 @@ class DataReader(BaseIO):
         """
 
     def _get_bremsstrahlung_spectroscopy(
-        self, uid: str, calculation: str, revision: int, quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Gets raw spectroscopic data for effective charge from the
         database. Data outside the desired time range will be

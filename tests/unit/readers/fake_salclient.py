@@ -87,11 +87,11 @@ def fake_sal_client(datafile):
                         [],
                         [
                             (
-                                key.split["/"][1],
+                                key.split("/")[1],
                                 ObjectReport(value.CLASS, value.GROUP, value.VERSION),
                             )
                             for key, value in self.DATA.items()
-                            if key.split["/"][0] == path_components[-1]
+                            if key.split("/")[0] == path_components[-1]
                         ],
                         datetime.now(),
                         revision,
