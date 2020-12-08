@@ -141,7 +141,14 @@ def parallel_los_coordinates(
 
 @composite
 def los_coordinates_parameters(
-    draw, domain=None, min_los=2, max_los=10, min_num=2, max_num=10, default_Rz=True,
+    draw,
+    domain=None,
+    min_los=2,
+    max_los=10,
+    min_num=2,
+    max_num=10,
+    default_Rz=True,
+    domain_as_dims=False,
 ):
     """Generates the arguments needed to instantiate a
     :py:class:`indica.converters.LinesOfSightTransform` object with lines of
@@ -161,6 +168,11 @@ def los_coordinates_parameters(
         The minimum number of intervals in which to divide the lines of sight
     max_num: int
         The maximum number of intervals in which to divide the lines of sight
+    default_Rz: bool
+        Whether to randomly generate default R and z grids to pass to the
+        transform constructor.
+    domain_as_dims: bool
+        If True, use the domain as the machine dimensions.
 
     Returns
     -------
@@ -208,9 +220,24 @@ def los_coordinates_parameters(
         t4 = np.arctan2(domain[1][1] - focus_z, domain[0][1] - focus_R)
         thetas = sorted([t1, t2, t3, t4])
         if thetas[-1] - thetas[0] > np.pi:
-            thetas = sorted([-t if t < 0 else t for t in thetas])
-        theta_min = draw(floats(-np.pi, thetas[0]))
-        theta_max = draw(floats(thetas[-1], 2 * np.pi))
+            thetas = sorted([np.pi - t if t < 0 else t for t in thetas])
+        theta_range = thetas[-1] - thetas[0]
+        theta_min = draw(
+            floats(
+                thetas[0] + 0.01 * theta_range,
+                thetas[0] + 0.85 * theta_range,
+                exclude_min=True,
+                exclude_max=True,
+            )
+        )
+        theta_max = thetas[-1] - draw(
+            floats(
+                0.01 * theta_range,
+                thetas[-1] - theta_min - 0.05 * theta_range,
+                exclude_min=True,
+                exclude_max=True,
+            )
+        )
         d1 = np.sqrt((focus_R - domain[0][0]) ** 2 + (focus_z - domain[1][0]) ** 2)
         d2 = np.sqrt((focus_R - domain[0][1]) ** 2 + (focus_z - domain[1][0]) ** 2)
         d3 = np.sqrt((focus_R - domain[0][0]) ** 2 + (focus_z - domain[1][1]) ** 2)
@@ -221,8 +248,14 @@ def los_coordinates_parameters(
         z1 = draw(floats(min(-1e-3, 2 * zdown), zdown))
         z2 = draw(floats(zup, max(1e3, 2 * zup)))
     else:
-        theta_min = 5 * np.pi / 4 + draw(floats(-np.pi, np.pi))
-        theta_max = theta_min + np.pi / 4 + draw(floats(-np.pi, np.pi))
+        theta_min = 5 * np.pi / 4 + draw(
+            floats(-np.pi, np.pi, exclude_min=True, exclude_max=True)
+        )
+        theta_max = (
+            theta_min
+            + np.pi / 4
+            + draw(floats(-np.pi, np.pi, exclude_min=True, exclude_max=True))
+        )
         diff = theta_max - theta_min
         if abs(diff) < 0.1:
             theta_max = theta_min + np.sign(diff) * 0.1
@@ -231,7 +264,10 @@ def los_coordinates_parameters(
         R2 = draw(floats(focus_R + 0.05, 1e3, exclude_min=True))
         z1 = draw(floats(-1e3, focus_z - 0.1, exclude_max=True))
         z2 = draw(floats(focus_z + 0.1, 1e3, exclude_min=True))
-    machine_dims = ((R1, R2), (z1, z2))
+    if domain_as_dims:
+        machine_dims = domain
+    else:
+        machine_dims = ((R1, R2), (z1, z2))
     angles = draw(
         monotonic_series(theta_min, theta_max, draw(integers(min_los, max_los)))
     )
@@ -288,7 +324,14 @@ def los_coordinates_parameters(
 
 @composite
 def los_coordinates(
-    draw, domain=None, min_los=2, max_los=10, min_num=2, max_num=10, default_Rz=True,
+    draw,
+    domain=None,
+    min_los=2,
+    max_los=10,
+    min_num=2,
+    max_num=10,
+    default_Rz=True,
+    domain_as_dims=False,
 ):
     """Generates :py:class:`indica.converters.LinesOfSightTransform` objects
     with lines of sight radiating from a point.
@@ -310,6 +353,11 @@ def los_coordinates(
         The minimum number of intervals in which to divide the lines of sight
     max_num: int
         The maximum number of intervals in which to divide the lines of sight
+    default_Rz: bool
+        Whether to randomly generate default R and z grids to pass to the
+        transform constructor.
+    domain_as_dims: bool
+        If True, use the domain as the machine dimensions.
 
     Returns
     -------
@@ -323,7 +371,7 @@ def los_coordinates(
     result = LinesOfSightTransform(
         *draw(
             los_coordinates_parameters(
-                domain, min_los, max_los, min_num, max_num, default_Rz
+                domain, min_los, max_los, min_num, max_num, default_Rz, domain_as_dims
             )
         )
     )

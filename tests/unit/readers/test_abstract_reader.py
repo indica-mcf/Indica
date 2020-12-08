@@ -10,7 +10,6 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from hypothesis import given
-from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
@@ -408,7 +407,11 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
             just(dims),
             expected_data(
                 los_coordinates(
-                    dims, default_Rz=False, min_num=los_intervals, max_num=los_intervals
+                    dims,
+                    default_Rz=False,
+                    min_num=los_intervals,
+                    max_num=los_intervals,
+                    domain_as_dims=True,
                 ),
                 ("h", ("luminous_flux", "sxr")),
                 ("t", ("luminous_flux", "sxr")),
@@ -424,7 +427,7 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
     times,
     max_freqs,
 )
-@settings(report_multiple_bugs=False)
+@mark.filterwarnings("ignore:sqrt")
 def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
@@ -437,9 +440,7 @@ def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
     reader._los_intervals = los_intervals
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
-    print("Reading radiation data...")
     results = reader.get_radiation(uid, instrument, revision, quantities)
-    print("Done!")
     reader._get_radiation.assert_called_once_with(uid, instrument, revision, quantities)
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)

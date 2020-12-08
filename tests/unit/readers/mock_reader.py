@@ -62,11 +62,11 @@ def get_vals_error_records_los(sample):
     """
     result = get_vals_error_records(sample)
     result["Rstart"] = sample.attrs["transform"].R_start.data
-    result["Rstop"] = sample.attrs["transform"].R_end.data
+    result["Rstop"] = sample.attrs["transform"]._original_R_end.data
     result["zstart"] = sample.attrs["transform"].z_start.data
-    result["zstop"] = sample.attrs["transform"].z_end.data
+    result["zstop"] = sample.attrs["transform"]._original_z_end.data
     result["Tstart"] = sample.attrs["transform"].T_start.data
-    result["Tstop"] = sample.attrs["transform"].T_end.data
+    result["Tstop"] = sample.attrs["transform"]._original_T_end.data
     return result
 
 

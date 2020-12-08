@@ -129,6 +129,7 @@ class LinesOfSightTransform(CoordinateTransform):
         result = result and np.all(self.R_end == other.R_end)
         result = result and np.all(self.z_end == other.z_end)
         result = result and np.all(self.T_end == other.T_end)
+        result = result and self._machine_dims == other._machine_dims
         return result
 
     def _convert_to_Rz(
