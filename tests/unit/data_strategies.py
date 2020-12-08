@@ -214,6 +214,7 @@ def data_arrays_from_coords(
         for c in [("t", t), ("x1", x1), ("x2", x2)]
         if isinstance(c[1], np.ndarray) and c[1].ndim > 0
     ]
+    shape = tuple(len(c) for _, c in coords)
     if isinstance(x1, np.ndarray) and x1.ndim > 0:
         min_val = np.min(x1)
         width = np.abs(np.max(x1) - min_val)
@@ -232,7 +233,9 @@ def data_arrays_from_coords(
         t_scaled = (t - min_val) / (width if width else 1.0)
     else:
         t_scaled = 0.0
-    result = DataArray(np.squeeze(func(x1_scaled, x2_scaled, t_scaled)), coords=coords)
+    result = DataArray(
+        np.reshape(func(x1_scaled, x2_scaled, t_scaled), shape), coords=coords
+    )
     flat_x1 = x1.flatten()
     dropped = (
         [flat_x1[i] for i in draw(dropped_channels(len(x1), max_dropped))]

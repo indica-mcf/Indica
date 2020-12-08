@@ -272,7 +272,10 @@ class MockReader(ConcreteReader):
         self._add_dropped_channel_data("bremsstrahlung", default, specific)
         non_optional = {}
         non_optional["times"] = default.coords["t"].values
-        non_optional["length"] = default.shape[1]
+        non_optional["machine_dims"] = self._machine_dims
+        non_optional["length"] = defaultdict(
+            lambda: default.shape[1], {k: v.shape[1] for k, v in specific.items()},
+        )
         default_vals = get_vals_error_records_los(default)
         specific_vals = {k: get_vals_error_records_los(v) for k, v in specific.items()}
         return non_optional, default_vals, specific_vals

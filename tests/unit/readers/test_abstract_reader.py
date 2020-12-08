@@ -427,7 +427,7 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
     times,
     max_freqs,
 )
-@mark.filterwarnings("ignore:sqrt")
+@mark.filterwarnings("ignore:invalid.*sqrt")
 def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
@@ -505,11 +505,26 @@ def test_bolometry(dims_data, uid, instrument, revision, time_range, max_freq):
 
 
 @given(
-    expected_data(
-        los_coordinates(),
-        ("h", ("effective_charge", "plasma")),
-        ("v", ("effective_charge", "plasma")),
-        unique_transforms=True,
+    machine_dimensions().flatmap(
+        lambda dims: tuples(
+            just(dims),
+            expected_data(
+                los_coordinates(
+                    dims,
+                    min_los=1,
+                    max_los=1,
+                    default_Rz=False,
+                    min_num=los_intervals,
+                    max_num=los_intervals,
+                    domain_as_dims=True,
+                    toroidal_skew=False,
+                ),
+                ("h", ("effective_charge", "plasma")),
+                ("v", ("effective_charge", "plasma")),
+                unique_transforms=True,
+                override_x2=0.0,
+            ),
+        )
     ),
     text(),
     text(),
@@ -517,16 +532,21 @@ def test_bolometry(dims_data, uid, instrument, revision, time_range, max_freq):
     times,
     max_freqs,
 )
+@mark.filterwarnings("ignore:divide.*double_scalars")
 def test_bremsstrahlung_spectroscopy(
-    data, uid, instrument, revision, time_range, max_freq
+    dims_data, uid, instrument, revision, time_range, max_freq
 ):
     """Test the get_bremsstrahlung_spectroscopy method correctly combines
     and processes raw data.
 
     """
+    machine_dims, data = dims_data
     for key, val in data.items():
-        data[key] = finish_fake_array(val, instrument, key)
-    reader = MockReader(True, True, *time_range, max_freq)
+        data[key] = finish_fake_array(
+            val, instrument, key, instrument + "_" + key + "_coords"
+        )
+    reader = MockReader(True, True, *time_range, max_freq, machine_dims)
+    reader._los_intervals = los_intervals
     reader.set_bremsstrahlung_spectroscopy(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_bremsstrahlung_spectroscopy(

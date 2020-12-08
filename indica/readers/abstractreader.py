@@ -804,9 +804,6 @@ class DataReader(BaseIO):
             version of data to get. Default is the most recent.
         quantities
             Which physical quantitie(s) to read from the database.
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
 
         Returns
         -------
@@ -814,6 +811,9 @@ class DataReader(BaseIO):
 
         length : Dict[str, int]
             Number of channels in data for each camera
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
 
         For each requested quantity, the following items will also be present:
 
@@ -919,6 +919,78 @@ class DataReader(BaseIO):
             A dictionary containing the requested effective charge data.
 
         """
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_bremsstrahlung_spectroscopy(
+            uid, instrument, revision, quantities
+        )
+        times = database_results["times"]
+        data = {}
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read bremsstrahlung data for quantity {}".format(
+                        self.__class__.__name__, quantity
+                    )
+                )
+            downsample_ratio = int(
+                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+            )
+            diagnostic_coord = "_".join([instrument, quantity, "coords"])
+            coords = [
+                ("t", times),
+                (diagnostic_coord, np.arange(database_results["length"][quantity])),
+            ]
+            transform = LinesOfSightTransform(
+                database_results[quantity + "_Rstart"],
+                database_results[quantity + "_zstart"],
+                database_results[quantity + "_Tstart"],
+                database_results[quantity + "_Rstop"],
+                database_results[quantity + "_zstop"],
+                database_results[quantity + "_Tstop"],
+                self._los_intervals,
+                database_results["machine_dims"],
+            )
+            meta = {
+                "datatype": available_quantities[quantity],
+                "error": DataArray(database_results[quantity + "_error"], coords).sel(
+                    t=slice(self._tstart, self._tend)
+                ),
+                "transform": transform,
+                "x1": diagnostic_coord,
+                "x2": "los_position",
+            }
+            quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
+                t=slice(self._tstart, self._tend)
+            )
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+                quant_data.attrs["error"] = np.sqrt(
+                    (quant_data.attrs["error"] ** 2)
+                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .mean()
+                    / downsample_ratio
+                )
+            quant_data.name = instrument + "_" + quantity
+            if len(database_results[quantity + "_Rstart"]) > 1:
+                cachefile = self._RECORD_TEMPLATE.format(
+                    self._reader_cache_id, "radiation", instrument, uid, quantity
+                )
+                drop = self._select_channels(cachefile, quant_data, diagnostic_coord)
+            else:
+                drop = []
+            quant_data.attrs["provenance"] = self.create_provenance(
+                "bremsstrahlung_spectroscopy",
+                uid,
+                instrument,
+                revision,
+                quantity,
+                database_results[quantity + "_records"],
+                drop,
+            )
+            data[quantity] = quant_data.indica.ignore_data(drop, diagnostic_coord)
+        return data
 
     def _get_bremsstrahlung_spectroscopy(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
@@ -945,6 +1017,9 @@ class DataReader(BaseIO):
 
         times : ndarray
             The times at which measurements were taken
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
 
         For each requested quantity, the following items will also be present:
 
@@ -955,14 +1030,14 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : float
-            Major radius of start position for line of sight for this data.
-        <quantity>_Rstop : float
-            Major radius of stop position for line of sight for this data.
-        <quantity>_zstart : float
-            Vertical location of start position for line of sight for this data.
-        <quantity>_zstop : float
-            Vertical location of stop position for line of sight for this data.
+        <quantity>_Rstart : ndarray
+            Major radius of start positions for lines of sight for this data.
+        <quantity>_Rstop : ndarray
+            Major radius of stop positions for lines of sight for this data.
+        <quantity>_zstart : ndarray
+            Vertical location of start positions for lines of sight for this data.
+        <quantity>_zstop : ndarray
+            Vertical location of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(

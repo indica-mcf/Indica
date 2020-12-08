@@ -153,6 +153,7 @@ class PPFReader(DataReader):
         "bolo/kb5v": 32,
     }
     _KK3_RANGE = (1, 96)
+    MACHINE_DIMS = ((1.83, 3.9), (-1.75, 2.0))
 
     def __init__(
         self,
@@ -307,7 +308,7 @@ class PPFReader(DataReader):
         """
         results: Dict[str, Any] = {
             "length": {},
-            "machine_dims": ((1.83, 3.9), (-1.75, 2.0)),
+            "machine_dims": self.MACHINE_DIMS,
         }
         for q in quantities:
             qtime = q + "_times"
@@ -352,19 +353,23 @@ class PPFReader(DataReader):
     def _get_bremsstrahlung_spectroscopy(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
-        results = {}
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
         los_dda = self._BREMSSTRAHLUNG_LOS[instrument]
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
             los, l_path = self._get_signal(uid, los_dda, "los" + q[-1], revision)
             if "times" not in results:
                 results["times"] = qval.dimensions[0].data
+            results["length"][q] = 1
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
-            results[q + "_Rstart"] = los.data[1] / 1000
-            results[q + "_Rend"] = los.data[4] / 1000
-            results[q + "_zstart"] = los.data[2] / 1000
-            results[q + "_zend"] = los.data[5] / 1000
+            results[q + "_Rstart"] = np.array([los.data[1] / 1000])
+            results[q + "_Rend"] = np.array([los.data[4] / 1000])
+            results[q + "_zstart"] = np.array([los.data[2] / 1000])
+            results[q + "_zend"] = np.array([los.data[5] / 1000])
             results[q + "_records"] = [q_path, l_path]
         return results
 

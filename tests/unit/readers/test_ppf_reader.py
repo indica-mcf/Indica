@@ -571,6 +571,7 @@ def test_get_bremsstrahlung_spectroscopy(
         )
     if bad_rev:
         return
+    assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
     for q in quantities:
         signal = reader._client.DATA[f"{instrument}/{q}"]
         assert np.all(results[q] == signal.data)
@@ -580,10 +581,15 @@ def test_get_bremsstrahlung_spectroscopy(
         assert np.all(results[q + "_error"] == 0.0)
         # assert np.all(results["times"] == error_signal.dimensions[0].data)
         los = reader._client.DATA[f"edg7/los{q[-1]}"]
-        assert results[q + "_Rstart"] == los.data[1] / 1000
-        assert results[q + "_Rend"] == los.data[4] / 1000
-        assert results[q + "_zstart"] == los.data[2] / 1000
-        assert results[q + "_zend"] == los.data[5] / 1000
+        assert results[q + "_Rstart"].shape == (1,)
+        assert results[q + "_Rend"].shape == (1,)
+        assert results[q + "_zstart"].shape == (1,)
+        assert results[q + "_zend"].shape == (1,)
+        assert results["length"][q] == 1
+        assert np.all(results[q + "_Rstart"] == los.data[1] / 1000)
+        assert np.all(results[q + "_Rend"] == los.data[4] / 1000)
+        assert np.all(results[q + "_zstart"] == los.data[2] / 1000)
+        assert np.all(results[q + "_zend"] == los.data[5] / 1000)
         assert sorted(results[q + "_records"]) == sorted(
             map(
                 lambda x: get_record(reader, pulse, uid, x[0], x[1], revision),

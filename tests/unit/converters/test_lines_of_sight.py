@@ -149,6 +149,7 @@ def los_coordinates_parameters(
     max_num=10,
     default_Rz=True,
     domain_as_dims=False,
+    toroidal_skew=None,
 ):
     """Generates the arguments needed to instantiate a
     :py:class:`indica.converters.LinesOfSightTransform` object with lines of
@@ -173,6 +174,9 @@ def los_coordinates_parameters(
         transform constructor.
     domain_as_dims: bool
         If True, use the domain as the machine dimensions.
+    toroidal_skew: Optional[bool]
+        Whether to include any toroidal angle to the lines of sight. Defaults
+        to drawing a value to decide.
 
     Returns
     -------
@@ -301,7 +305,8 @@ def los_coordinates_parameters(
         )
     else:
         default_R, default_z = None, None
-    toroidal_skew = draw(booleans())
+    if toroidal_skew is None:
+        toroidal_skew = draw(booleans())
     T_start = np.zeros_like(R_start)
     if toroidal_skew:
         skew = draw(smooth_functions((theta_min, theta_max), 0.1))
@@ -332,6 +337,7 @@ def los_coordinates(
     max_num=10,
     default_Rz=True,
     domain_as_dims=False,
+    toroidal_skew=None,
 ):
     """Generates :py:class:`indica.converters.LinesOfSightTransform` objects
     with lines of sight radiating from a point.
@@ -358,6 +364,9 @@ def los_coordinates(
         transform constructor.
     domain_as_dims: bool
         If True, use the domain as the machine dimensions.
+    toroidal_skew: Optional[bool]
+        Whether to include any toroidal angle to the lines of sight. Defaults
+        to drawing a value to decide.
 
     Returns
     -------
@@ -371,7 +380,14 @@ def los_coordinates(
     result = LinesOfSightTransform(
         *draw(
             los_coordinates_parameters(
-                domain, min_los, max_los, min_num, max_num, default_Rz, domain_as_dims
+                domain,
+                min_los,
+                max_los,
+                min_num,
+                max_num,
+                default_Rz,
+                domain_as_dims,
+                toroidal_skew,
             )
         )
     )
