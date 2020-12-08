@@ -624,6 +624,8 @@ def test_general_get(
         "indica.readers.PPFReader.get_radiation"
     ), patch(
         "indica.readers.PPFReader.get_bremsstrahlung_spectroscopy"
+    ), patch(
+        "indica.readers.ppfreader.SALClient", fake_sal
     ):
         reader = PPFReader(
             pulse,
