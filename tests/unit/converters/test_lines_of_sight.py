@@ -397,7 +397,9 @@ def los_coordinates(
 
 
 # Ignore warnings when an empty array
-pytestmark = mark.filterwarnings("ignore:invalid value encountered in true_divide")
+pytestmark = mark.filterwarnings(
+    "ignore:(invalid value|divide by zero) encountered in true_divide"
+)
 
 
 # TODO: consider converting these tests assuming parallel LoS to work with

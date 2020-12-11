@@ -6,7 +6,7 @@ from functools import reduce
 import hypothesis.extra.numpy as hynp
 import hypothesis.strategies as hyst
 import numpy as np
-from xarray import DataArray
+import xarray as xr
 
 
 @hyst.composite
@@ -59,7 +59,7 @@ def polynomial_functions(
     def f(x):
         x = (x - domain[0]) / (domain[1] - domain[0])
         term = 1
-        y = np.zeros_like(x)
+        y = xr.zeros_like(x) if isinstance(x, xr.DataArray) else np.zeros_like(x)
         for coeff in coeffs:
             y += coeff * term
             term *= x
@@ -110,7 +110,9 @@ def sine_functions(draw, domain=(0.0, 1.0), max_val=None, min_terms=0, max_terms
 
     def f(x):
         x = (x - domain[0]) / (domain[1] - domain[0])
-        y = np.ones_like(x) * offset
+        y = offset * (
+            xr.ones_like(x) if isinstance(x, xr.DataArray) else np.ones_like(x)
+        )
         for i, (scoeff, ccoeff) in enumerate(zip(sin_coeffs, cos_coeffs)):
             y += scoeff * np.sin(np.pi * (i + 1) * x)
             y += ccoeff * np.cos(np.pi * (i + 1) * x)
@@ -254,7 +256,7 @@ def noisy_functions(draw, func, rel_sigma=0.02, abs_sigma=1e-3, cache=False):
             hynp.arrays(
                 float,
                 y.shape,
-                elements=hyst.floats(-variance, variance),
+                elements=hyst.floats(-float(variance), float(variance)),
                 fill=hyst.just(0.0),
             )
         )
@@ -466,7 +468,7 @@ def arbitrary_coordinates(
             )
         )
         results = tuple(
-            DataArray(array, dims=labels[-array.ndim :] if array.ndim > 0 else [])
+            xr.DataArray(array, dims=labels[-array.ndim :] if array.ndim > 0 else [])
             for array in results
         )
     return results

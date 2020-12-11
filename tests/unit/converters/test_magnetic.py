@@ -11,6 +11,7 @@ from pytest import approx
 
 from indica.converters import MagneticCoordinates
 from indica.equilibrium import Equilibrium
+from indica.utilities import coord_array
 from ..fake_equilibrium import fake_equilibria
 from ..fake_equilibrium import FakeEquilibrium
 from ..strategies import arbitrary_coordinates
@@ -27,9 +28,11 @@ def magnetic_coordinate_arguments(
     Bmax = draw(floats(1e-3, 1e6))
     Bstart = draw(floats(1e-8, Bmax / 10))
     Bstop = draw(floats(2 * Bstart, Bmax))
-    Bvals = draw(monotonic_series(Bstart, Bstop, n))
-    t = draw(monotonic_series(*domain[2], draw(integers(2, 20))),)
-    Rvals = draw(monotonic_series(*domain[0], draw(integers(10, 50))),)
+    Bvals = coord_array(draw(monotonic_series(Bstart, Bstop, n)), "Btot")
+    t = coord_array(draw(monotonic_series(*domain[2], draw(integers(2, 20))),), "t")
+    Rvals = coord_array(
+        draw(monotonic_series(*domain[0], draw(integers(10, 50))),), "R"
+    )
     return z, Bvals, Rvals, t
 
 
@@ -55,7 +58,11 @@ def magnetic_coordinates(
         B_alpha = draw(floats(0.0, 1.0))
     equilib = draw(
         fake_equilibria(
-            draw(sane_floats()), draw(sane_floats()), Btot_alpha=B_alpha, Btot_b=Bcoeff
+            draw(floats(*domain[0])),
+            draw(floats(*domain[1])),
+            t,
+            Btot_alpha=B_alpha,
+            Btot_b=Bcoeff,
         )
     )
     result = MagneticCoordinates(z, B, R, t)

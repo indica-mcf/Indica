@@ -8,6 +8,7 @@ from hypothesis.strategies import floats
 from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 import numpy as np
+from xarray import DataArray
 
 from indica.equilibrium import Equilibrium
 
@@ -67,43 +68,62 @@ class FakeEquilibrium(Equilibrium):
         "Btot_alpha": 0.001,
     }
 
-    def __init__(self, Rmag=3.0, zmag=0.0, Bmax=1.0, **kwargs):
-        self.Rmag = np.abs(Rmag)
-        self.zmag = zmag
+    def __init__(
+        self,
+        Rmag=3.0,
+        zmag=0.0,
+        default_t=DataArray([0.0, 500.0], dims="t"),
+        Bmax=1.0,
+        **kwargs
+    ):
+        ones = DataArray(np.ones_like(default_t), coords=[("t", default_t)])
+        self.rmag = np.abs(Rmag) * ones
+        self.zmag = zmag * ones
         self.parameters = kwargs
         for k, v in self.DEFAULT_PARAMS.items():
             if k not in self.parameters:
                 self.parameters[k] = v
-        self.default_t = 0.0
+        self.default_t = default_t
 
     def Btot(self, R, z, t=None):
+        if t is None:
+            t = self.default_t
+            zmag = self.zmag
+        else:
+            zmag = self.zmag.interp(t=t, method="nearest")
         return (
             (1 + self.parameters["Btot_alpha"] * t)
             * self.parameters["Btot_a"]
             / (1 + self.parameters["Btot_b"] * R)
             + z
-            - self.zmag,
+            - zmag,
             t,
         )
 
     def enclosed_volume(self, rho, t=None, kind="poloidal"):
         if t is None:
             t = self.default_t
+            rmag = self.rmag
+        else:
+            rmag = self.rmag.interp(t=t, method="nearest")
         a = self.parameters[kind + "_a"]
         b = self.parameters[kind + "_b"]
         n = self.parameters[kind + "_n"]
         alpha = self.parameters[kind + "_alpha"]
-        vol = 2 * np.pi ** 2 * a * b * rho ** (2 * n) * (1 + alpha * t) ** 2 * self.Rmag
+        vol = 2 * np.pi ** 2 * a * b * rho ** (2 * n) * (1 + alpha * t) ** 2 * rmag
         return vol, t
 
     def invert_enclosed_volume(self, vol, t=None, kind="poloidal"):
         if t is None:
             t = self.default_t
+            rmag = self.rmag
+        else:
+            rmag = self.rmag.interp(t=t, method="nearest")
         a = self.parameters[kind + "_a"]
         b = self.parameters[kind + "_b"]
         n = self.parameters[kind + "_n"]
         alpha = self.parameters[kind + "_alpha"]
-        rho = (vol / (2 * np.pi ** 2 * a * b * (1 + alpha * t) ** 2 * self.Rmag)) ** (
+        rho = (vol / (2 * np.pi ** 2 * a * b * (1 + alpha * t) ** 2 * rmag)) ** (
             0.5 / n
         )
         return rho, t
@@ -119,19 +139,29 @@ class FakeEquilibrium(Equilibrium):
     def flux_coords(self, R, z, t=None, kind="poloidal"):
         if t is None:
             t = self.default_t
+            rmag = self.rmag
+            zmag = self.zmag
+        else:
+            rmag = self.rmag.interp(t=t, method="nearest")
+            zmag = self.zmag.interp(t=t, method="nearest")
         rho = (
             (
-                (R - self.Rmag) ** 2 / self.parameters[kind + "_a"] ** 2
-                + (z - self.zmag) ** 2 / self.parameters[kind + "_b"] ** 2
+                (R - rmag) ** 2 / self.parameters[kind + "_a"] ** 2
+                + (z - zmag) ** 2 / self.parameters[kind + "_b"] ** 2
             )
             / (1 + self.parameters[kind + "_alpha"] * t) ** 2
         ) ** (1 / (2 * self.parameters[kind + "_n"]))
-        theta = np.arctan2((z - self.zmag), (R - self.Rmag))
+        theta = np.arctan2((z - zmag), (R - rmag))
         return rho, theta, t
 
     def spatial_coords(self, rho, theta, t=None, kind="poloidal"):
         if t is None:
             t = self.default_t
+            rmag = self.rmag
+            zmag = self.zmag
+        else:
+            rmag = self.rmag.interp(t=t, method="nearest")
+            zmag = self.zmag.interp(t=t, method="nearest")
         tan_theta = np.tan(theta)
         dR = np.sign(np.cos(theta)) * np.sqrt(
             (
@@ -145,7 +175,7 @@ class FakeEquilibrium(Equilibrium):
             )
         )
         dz = tan_theta * dR
-        return self.Rmag + dR, self.zmag + dz, t
+        return rmag + dR, zmag + dz, t
 
     def convert_flux_coords(
         self, rho, theta, t=None, from_kind="poloidal", to_kind="toroidal"
@@ -155,7 +185,14 @@ class FakeEquilibrium(Equilibrium):
 
 
 @composite
-def fake_equilibria(draw, Rmag, zmag, flux_types=FLUX_TYPES, **kwargs):
+def fake_equilibria(
+    draw,
+    Rmag,
+    zmag,
+    default_t=DataArray([0.0, 500.0], dims="t"),
+    flux_types=FLUX_TYPES,
+    **kwargs
+):
     """Generate instances of the FakeEquilibrium class, with the specified
     flux types. Parameters will be drawn from the ``floats`` strategy,
     unless explicitely specified as a keyword arguments. These
@@ -166,10 +203,10 @@ def fake_equilibria(draw, Rmag, zmag, flux_types=FLUX_TYPES, **kwargs):
 
     """
     param_types = {
-        "a": floats(0.01, 10.0),
-        "b": floats(0.01, 10.0),
+        "a": floats(-0.9, 9.0).map(lambda x: x + 1.0),
+        "b": floats(-0.9, 9.0).map(lambda x: x + 1.0),
         "n": one_of(sampled_from([1, 2, 0.5]), floats(0.2, 4.0)),
-        "alpha": floats(-0.01, 0.1),
+        "alpha": floats(-0.02, 0.09).map(lambda x: x + 0.01),
     }
     param_values = kwargs
     for flux, param in product(flux_types, param_types):
@@ -182,4 +219,4 @@ def fake_equilibria(draw, Rmag, zmag, flux_types=FLUX_TYPES, **kwargs):
         param_values["Btot_b"] = draw(floats(1e-5, 1e-2))
     if "Btot_alpha" in flux_types and "Btot_alpha" not in param_values:
         param_values["Btot_alpha"] = draw(floats(-1e-3, 1e-3))
-    return FakeEquilibrium(Rmag, zmag, **param_values)
+    return FakeEquilibrium(Rmag, zmag, default_t, **param_values)

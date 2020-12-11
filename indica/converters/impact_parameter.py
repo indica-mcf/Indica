@@ -55,9 +55,6 @@ class ImpactParameterCoordinates(CoordinateTransform):
             raise ValueError(
                 "Two coordinate systems must have the same equilibrium object."
             )
-        # TODO: Produce a DataArray object containing the impact parameters for
-        #       each LOS index for each time we have equilibrium data.
-        #       Dimension names should be "los_index" and "t".
         rmag = self.equilibrium.rmag
         zmag = self.equilibrium.zmag
         R, z, _ = cast(
@@ -66,7 +63,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         rho, _, t = cast(
             Tuple[DataArray, DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z)
         )
-        loc = cast(DataArray, rho).argmin("x2")
+        loc = rho.argmin("x2")
         theta = np.arctan2(
             z.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[1]),
             R.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[0]),
@@ -112,7 +109,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         """
         return (
             self.rho_min.interp(t=t, method="nearest").indica.invert_interp(
-                min_rho, "los_index", method="cubic"
+                min_rho, "index", method="linear"
             ),
             x2,
             t,

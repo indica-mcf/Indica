@@ -38,7 +38,7 @@ def general_datatypes(draw, specific_datatype=None):
     """
 
     if specific_datatype:
-        return draw(sampled_from(sorted(dt.GENERAL_DATATYPES[specific_datatype])))
+        return draw(sampled_from(dt.COMPATIBLE_DATATYPES[specific_datatype]))
     else:
         return draw(sampled_from(sorted(dt.GENERAL_DATATYPES.keys())))
 
@@ -186,6 +186,7 @@ def data_arrays_from_coords(
         If True, ensure at least one channel is dropped.
 
     """
+
     general_type = (
         data_type[0] if data_type[0] else draw(general_datatypes(data_type[1]))
     )
@@ -193,50 +194,44 @@ def data_arrays_from_coords(
         data_type[1] if data_type[1] else draw(specific_datatypes(general_type))
     )
 
-    x1 = (
-        coordinates.default_x1.data
-        if override_coords[0] is None
-        else override_coords[0]
-    )
-    x2 = (
-        coordinates.default_x2.data
-        if override_coords[1] is None
-        else override_coords[1]
-    )
-    t = coordinates.default_t.data if override_coords[2] is None else override_coords[2]
+    x1 = coordinates.default_x1 if override_coords[0] is None else override_coords[0]
+    x2 = coordinates.default_x2 if override_coords[1] is None else override_coords[1]
+    t = coordinates.default_t if override_coords[2] is None else override_coords[2]
     func = (
         draw(noisy_functions(draw(data), rel_sigma, abs_sigma))
         if rel_sigma or abs_sigma
         else draw(data)
     )
     coords = [
-        (c[0], c[1].flatten())
-        for c in [("t", t), ("x1", x1), ("x2", x2)]
-        if isinstance(c[1], np.ndarray) and c[1].ndim > 0
+        (c[0], c[1].flatten() if isinstance(c[1], np.ndarray) else c[1])
+        for c in [("x1", x1), ("x2", x2), ("t", t)]
+        if isinstance(c[1], (np.ndarray, DataArray)) and c[1].ndim > 0
     ]
     shape = tuple(len(c) for _, c in coords)
-    if isinstance(x1, np.ndarray) and x1.ndim > 0:
+    if isinstance(x1, (np.ndarray, DataArray)) and x1.ndim > 0:
         min_val = np.min(x1)
         width = np.abs(np.max(x1) - min_val)
         x1_scaled = (x1 - min_val) / (width if width else 1.0)
     else:
         x1_scaled = 0.0
-    if isinstance(x2, np.ndarray) and x2.ndim > 0:
+    if isinstance(x2, (np.ndarray, DataArray)) and x2.ndim > 0:
         min_val = np.min(x2)
         width = np.abs(np.max(x2) - min_val)
         x2_scaled = (x2 - min_val) / (width if width else 1.0)
     else:
         x2_scaled = 0.0
-    if isinstance(t, np.ndarray) and t.ndim > 0:
+    if isinstance(t, (np.ndarray, DataArray)) and t.ndim > 0:
         min_val = np.min(t)
         width = np.abs(np.max(t) - min_val)
         t_scaled = (t - min_val) / (width if width else 1.0)
     else:
         t_scaled = 0.0
-    result = DataArray(
-        np.reshape(func(x1_scaled, x2_scaled, t_scaled), shape), coords=coords
-    )
-    flat_x1 = x1.flatten()
+    tmp = func(x1_scaled, x2_scaled, t_scaled)
+    result = DataArray(np.reshape(tmp, shape), coords=coords)
+    if isinstance(x1, np.ndarray):
+        flat_x1 = x1.flatten()
+    else:
+        flat_x1 = x1
     dropped = (
         [flat_x1[i] for i in draw(dropped_channels(len(x1), max_dropped))]
         if isinstance(x1, np.ndarray)
@@ -480,12 +475,11 @@ def datasets(
             data_arrays(
                 (gtype, specific_type),
                 just(transform),
-                data,
-                rel_sigma,
-                abs_sigma,
-                uncertainty,
-                max_dropped,
-                require_dropped,
+                rel_sigma=rel_sigma,
+                abs_sigma=abs_sigma,
+                uncertainty=uncertainty,
+                max_dropped=max_dropped,
+                require_dropped=require_dropped,
             )
         )
     return Dataset(

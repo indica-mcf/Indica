@@ -45,7 +45,7 @@ class MagneticCoordinates(CoordinateTransform):
         default_t: LabeledArray,
     ):
         self.z_los = z
-        super().__init__(default_B, 0.0, default_R, z, np.expand_dims(default_t, 1))
+        super().__init__(default_B, 0.0, default_R, z, default_t)
 
     def _convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray

@@ -6,6 +6,7 @@ from hypothesis import given
 from hypothesis.strategies import composite
 
 from indica.converters import TrivialTransform
+from indica.utilities import coord_array
 from ..strategies import arbitrary_coordinates
 from ..strategies import basis_coordinates
 
@@ -19,7 +20,13 @@ def trivial_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_si
             tuple(dim[0] for dim in domain), tuple(dim[1] for dim in domain), min_side
         )
     )
-    result = TrivialTransform(x1, x2, R, z, t)
+    result = TrivialTransform(
+        coord_array(x1.flat, "R"),
+        coord_array(x2.flat, "z"),
+        coord_array(R.flat, "R"),
+        coord_array(z.flat, "z"),
+        coord_array(t.flat, "t"),
+    )
     result.set_equilibrium(MagicMock())
     return result
 
