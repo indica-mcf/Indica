@@ -26,6 +26,7 @@ from xarray.testing import assert_allclose
 
 from indica.datatypes import ORDERED_ELEMENTS
 from indica.readers import ADASReader
+import indica.readers.adas as adas
 from indica.session import hash_vals
 from ..data_strategies import ADAS_GENERAL_DATATYPES
 from ..data_strategies import adf11_data
@@ -67,8 +68,9 @@ def test_reader_provenance(path, creation_time):
         reader = ADASReader(path, MagicMock())
     path = Path(path)
     openadas = path == Path("")
-    namespace = "openadas" if openadas else "localadas"
-    prov_id = f"{namespace}:{hash_vals(path=path)}"
+    if openadas:
+        path = Path.home() / adas.CACHE_DIR / "adas"
+    prov_id = hash_vals(path=path)
     reader.session.prov.agent.assert_called_once_with(prov_id)
     assert reader.agent is reader.session.prov.agent.return_value
     reader.session.prov.entity.assert_called_once_with(
@@ -76,7 +78,7 @@ def test_reader_provenance(path, creation_time):
     )
     assert reader.entity is reader.session.prov.entity.return_value
     reader.session.prov.delegation.assert_called_once_with(
-        reader.agent, reader.session.agent
+        reader.session.agent, reader.agent
     )
     reader.session.prov.generation.assert_called_once_with(
         reader.entity, reader.session.session, time=creation_time
@@ -91,22 +93,21 @@ def test_data_provenance(reader, filename, starttime, endtime):
     with patch("datetime.datetime", MagicMock()):
         datetime.datetime.now.return_value = endtime
         entity = reader.create_provenance(filename, starttime)
+    assert entity is reader.session.prov.entity.return_value
     file_id = f"{reader.namespace}:{filename}"
-    entity_id = f"{reader.namespace}:{hash_vals(filename=filename)}"
-    activity_id = (
-        f"{reader.namespace}:{hash_vals(agent=reader.prov_id, date=starttime)}"
-    )
-    reader.session.prov.entity.assert_called_once_with(entity_id)
+    entity_id = f"{hash_vals(filename=filename, start_time=starttime)}"
+    activity_id = f"{hash_vals(agent=reader.prov_id, date=starttime)}"
+    reader.session.prov.entity.assert_called_with(entity_id)
     reader.session.prov.activity.assert_called_once_with(
         activity_id, starttime, endtime, {prov.PROV_TYPE: "ReadData"}
     )
-    activity = reader.session.activity.return_value
-    reader.session.prov.association.assert_any_call(activity, reader.entity)
-    reader.session.prov.association.assert_any_call(activity, reader.session.entity)
+    activity = reader.session.prov.activity.return_value
+    reader.session.prov.association.assert_any_call(activity, reader.agent)
+    reader.session.prov.association.assert_any_call(activity, reader.session.agent)
     reader.session.prov.communication.assert_called_once_with(
         activity, reader.session.session
     )
-    reader.session.prov.generation.assert_called_once_with(entity, activity, endtime)
+    reader.session.prov.generation.assert_called_with(entity, activity, endtime)
     reader.session.prov.attribution.assert_any_call(entity, reader.agent)
     reader.session.prov.attribution.assert_any_call(entity, reader.session.agent)
     reader.session.prov.derivation.assert_called_once_with(entity, file_id, activity)
@@ -117,7 +118,6 @@ def cachedir(*args):
     """Set up a fake cache directory for storing downloaded OpenADAS data.
 
     """
-    import indica.readers.adas as adas
 
     old_cache = adas.CACHE_DIR
     userdir = os.path.expanduser("~")
@@ -211,8 +211,8 @@ def adf11_array_to_str(
     z = ORDERED_ELEMENTS.index(element)
     nd = len(data.log_electron_density)
     nt = len(data.log_electron_temperature)
-    zmin = int(data.ion_charges[0])
-    zmax = int(data.ion_charges[-1])
+    zmin = int(data.ion_charges[0]) + 1
+    zmax = int(data.ion_charges[-1]) + 1
     result = (
         " " * indent
         + f"{z:4}{nd:5}{nt:5}{zmin:5}{zmax:5}     /{element.upper():15}/{{}}"
@@ -222,7 +222,7 @@ def adf11_array_to_str(
     result += rows_of_eight(data.log_electron_density - 6)
     result += rows_of_eight(data.log_electron_temperature)
     d = date_divider
-    for charge in data.ion_charges:
+    for charge in data.ion_charges + 1:
         if include_metastable_indices:
             result += "-" * 20 + "/ IPRT= 1  / IGRD= 1  /--------/"
         else:

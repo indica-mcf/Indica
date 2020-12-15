@@ -54,9 +54,9 @@ class ADASReader(BaseIO):
             self.session.prov.add_namespace(
                 self.namespace, "file:/" + str(self.path.resolve())
             )
-        self.prov_id = self.namespace + ":" + hash_vals(path=self.path)
+        self.prov_id = hash_vals(path=self.path)
         self.agent = self.session.prov.agent(self.prov_id)
-        self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
+        self.session.prov.delegation(self.session.agent, self.agent)
         self.entity = self.session.prov.entity(
             self.prov_id, {"path": str(self.path.resolve())}
         )
@@ -103,6 +103,24 @@ class ADASReader(BaseIO):
         that the provenance corresponds to actually existing data.
 
         """
+        end_time = datetime.datetime.now()
+        entity = self.session.prov.entity(
+            hash_vals(filename=filename, start_time=start_time)
+        )
+        activity = self.session.prov.activity(
+            hash_vals(agent=self.prov_id, date=start_time),
+            start_time,
+            end_time,
+            {prov.PROV_TYPE: "ReadData"},
+        )
+        self.session.prov.association(activity, self.agent)
+        self.session.prov.association(activity, self.session.agent)
+        self.session.prov.communication(activity, self.session.session)
+        self.session.prov.derivation(entity, f"{self.namespace}:{filename}", activity)
+        self.session.prov.generation(entity, activity, end_time)
+        self.session.prov.attribution(entity, self.agent)
+        self.session.prov.attribution(entity, self.session.agent)
+        return entity
 
     def _get_file(
         self, dataclass: Union[str, Path], filename: Union[str, Path]
