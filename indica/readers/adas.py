@@ -1,51 +1,65 @@
 """Base class for reading in ADAS atomic data."""
 
-from abc import abstractmethod
 import datetime
-from typing import Dict
+from pathlib import Path
 from typing import Literal
-from typing import Tuple
+from typing import TextIO
 from typing import Union
+from urllib.request import urlretrieve
 
-import numpy as np
+import prov.model as prov
 from xarray import Dataset
 
 from ..abstractio import BaseIO
-from ..datatypes import ArrayType
 from ..session import global_session
 from ..session import hash_vals
 from ..session import Session
 
 
 # TODO: Evaluate this location
-DEFAULT_PATH: str = ""
+DEFAULT_PATH = Path("")
+CACHE_DIR = ".indica"
 
 
 class ADASReader(BaseIO):
-    """Class for reading atomic data from ADAS files.0
+    """Class for reading atomic data from ADAS files.
 
     Parameters
     ----------
-    path: str
+    path: Union[str, Path]
         Location from which relative paths should be evaluated.
-        Default is installation directory containing distributed
-        data files.
+        Default is to download files from OpenADAS, storing them
+        in your home directory for later use.
     sesssion: Session
         An object representing the session being run. Contains information
         such as provenance data.
 
     """
 
-    def __init__(self, path: str = DEFAULT_PATH, sess: Session = global_session):
-        self.path = path
+    def __init__(
+        self, path: Union[str, Path] = DEFAULT_PATH, sess: Session = global_session
+    ):
+        path = Path(path)
         self.session = sess
         self.openadas = path == DEFAULT_PATH
-        self.session.prov.add_namespace("adas", "https://open.adas.ac.uk/detail/adf11/")
-        self.session.prov.add_namespace("localfile", "file://")
-        self.prov_id = hash_vals(path=path)
+        if path == DEFAULT_PATH:
+            self.namespace = "openadas"
+            self.session.prov.add_namespace(
+                self.namespace, "https://open.adas.ac.uk/detail/adf11/"
+            )
+            self.path = Path.home() / CACHE_DIR / "adas"
+        else:
+            self.path = path
+            self.namespace = "localadas"
+            self.session.prov.add_namespace(
+                self.namespace, "file:/" + str(self.path.resolve())
+            )
+        self.prov_id = self.namespace + ":" + hash_vals(path=self.path)
         self.agent = self.session.prov.agent(self.prov_id)
         self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
-        self.entity = self.session.prov.entity(self.prov_id, {"path": path})
+        self.entity = self.session.prov.entity(
+            self.prov_id, {"path": str(self.path.resolve())}
+        )
         self.session.prov.generation(
             self.entity, self.session.session, time=datetime.datetime.now()
         )
@@ -56,13 +70,18 @@ class ADASReader(BaseIO):
         need to do anything."""
         pass
 
-    def get(self, filename: str) -> Dataset:
+    def get_adf11(self, quantity: str, element: str, year: int) -> Dataset:
         """Read data from the specified ADAS file.
 
         Parameters
         ----------
-        filename
-            The ADF11 file to read.
+        quantity
+            The type of data to retrieve. Options: scd, acd, plt, prb,
+            plsx, prsx.
+        element
+            The atomic symbol for the element which will be retrieved.
+        year
+            The year the data is from. Only two digits are needed.
 
         Returns
         -------
@@ -73,35 +92,44 @@ class ADASReader(BaseIO):
 
         """
 
-    @abstractmethod
-    def _get(
-        self, absolute_path: str
-    ) -> Tuple[Dict[Union[int, str], np.ndarray], ArrayType]:
-        """Parse the ADAS file, returning its data in a dictionary.
+    def create_provenance(
+        self, filename: Path, start_time: datetime.datetime
+    ) -> prov.ProvEntity:
+        """Create a provenance entity for the given ADAS file.
+
+        Note that this method just creates the provenance data
+        appropriate for the arguments it has been provided with. It
+        does not check that these arguments are actually valid and
+        that the provenance corresponds to actually existing data.
+
+        """
+
+    def _get_file(
+        self, dataclass: Union[str, Path], filename: Union[str, Path]
+    ) -> TextIO:
+        """Retrieves an ADAS file, downloading it from OpenADAS if
+        necessary. It will cache any downloads for later use.
 
         Parameters
         ----------
-        absolute_path
-            The path to the file to be parsed.
+        dataclass
+            The format of ADAS data in this file (e.g., ADF11).
+        filename
+            Name of the file to get.
 
         Returns
         -------
-        values : Dict[Union[int, str], np.ndarray]
-            A dictionary containing the following items:
+        :
+            A file-like object from which the data can be read.
 
-            densities
-                The densities at which the data is provided
-            temperatures
-                The temperatures at which the data is provided
-            _int_
-                The ADAS data for this charge state
-
-        data : DataType
-            The type of data being read in (quantity and element)
         """
-        raise NotImplementedError(
-            "{} does not implement a '_get' " "method.".format(self.__class__.__name__)
-        )
+        filepath = self.path / dataclass / filename
+        if self.openadas and not filepath.exists():
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            urlretrieve(
+                f"https://open.adas.ac.uk/download/{dataclass}/{filename}", filepath
+            )
+        return filepath.open("r")
 
     @property
     def requires_authentication(self) -> Literal[False]:

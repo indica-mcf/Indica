@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 from hypothesis.strategies import booleans
 from hypothesis.strategies import composite
+from hypothesis.strategies import dates
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
@@ -27,6 +28,13 @@ from .strategies import monotonic_series
 from .strategies import noisy_functions
 from .strategies import separable_functions
 from .strategies import smooth_functions
+
+ADAS_GENERAL_DATATYPES = {
+    "scd": "ion_coeff",
+    "rcd": "recomb_coeffs",
+    "plt": "line_emissions",
+    "prb": "recomb_emissions",
+}
 
 
 @composite
@@ -684,4 +692,62 @@ def equilibrium_data(
     ).assign_attrs(**attrs)
     result["vjac"].name = "vjac"
     result["vjac"].attrs["datatype"] = ("volume_jacobian", "plasma")
+    return result
+
+
+@composite
+def adf11_data(
+    draw,
+    min_num_densities=3,
+    max_num_densities=8,
+    min_num_temps=5,
+    max_num_temps=15,
+    quantities=["scd", "rcd", "plt", "prb"],
+):
+    """Generates fake ADF11 data.
+
+    Parameters
+    ----------
+    min_num_densities
+        The minimum number of densities to use.
+    max_num_densities
+        The maximum number of densities to use.
+    min_num_temps
+        The minimum number of temperatures to use.
+    max_num_temps
+        The maximum number of temperatures to use.
+    quantities
+        The types of quantities from which to select.
+
+    """
+    nd = draw(integers(min_num_densities, max_num_densities))
+    nt = draw(integers(min_num_temps, max_num_temps))
+    min_dens = draw(integers(3, 12))
+    max_dens = draw(integers(min_dens + 1, 17))
+    densities = DataArray(
+        np.linspace(min_dens, max_dens, nd) + 6, dims="log_electron_density"
+    )
+    min_temp = draw(floats(-2.0, 2.5))
+    max_temp = draw(floats(min_temp + 1, 6.0))
+    temperatures = DataArray(
+        np.linspace(min_temp, max_temp, nt), dims="log_electron_temperature"
+    )
+    z = draw(integers(1, 74))
+    min_z = draw(integers(1, z))
+    max_z = draw(integers(min_z, z))
+    ion_states = DataArray(np.arange(min_z - 1, max_z, dtype=int), dims="ion_charges")
+    func = draw(
+        separable_functions(
+            smooth_functions((min_z, max_z + 1), max_val=0.1),
+            smooth_functions((min_temp, max_temp), max_val=0.1),
+            smooth_functions((min_dens, max_dens), max_val=0.1),
+        )
+    )
+    data = func(ion_states, temperatures, densities) - 6
+    result = DataArray(data, coords=[ion_states, temperatures, densities])
+    q = draw(sampled_from(quantities))
+    result.attrs["datatype"] = (ADAS_GENERAL_DATATYPES[q], dt.ORDERED_ELEMENTS[z])
+    result.attrs["provenance"] = MagicMock()
+    result.attrs["date"] = draw(dates())
+    result.name = f"log_{dt.ORDERED_ELEMENTS[z]}_{ADAS_GENERAL_DATATYPES[q]}"
     return result
