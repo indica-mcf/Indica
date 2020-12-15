@@ -83,11 +83,11 @@ class Equilibrium:
         self.rbnd = equilibrium_data["rbnd"]
         self.zmag = equilibrium_data["zmag"]
         self.zbnd = equilibrium_data["zbnd"]
+        self.zx = self.zbnd.min("arbitrary_index")
         if T_e is not None:
             Te_Rz = T_e.indica.with_Rz_coords()
             offsets = DataArray(np.linspace(0.0, 0.04, 9), dims="offset", name="offset")
             index = T_e.dims[1]
-            # TODO: Consider how to do 2D cubic interpolation
             rhos = concat(
                 [
                     self.rho.interp(
@@ -150,7 +150,7 @@ class Equilibrium:
 
         self.prov_id = hash_vals(**equilibrium_data)
         self.provenance = sess.prov.entity(
-            self.prov_id, {prov.PROV_TYPE: "Equilibrium"},
+            self.prov_id, {prov.PROV_TYPE: "Equilibrium", "offset": self.R_offset},
         )
         sess.prov.generation(
             self.provenance, sess.session, time=datetime.datetime.now()
@@ -448,12 +448,14 @@ class Equilibrium:
             rho = self.rho.interp(t=t, method="nearest")
             R_ax = self.rmag.interp(t=t, method="nearest")
             z_ax = self.zmag.interp(t=t, method="nearest")
+            z_x_point = self.zx.interp(t=t, method="nearest")
             t = t
         else:
             rho = self.rho
             R_ax = self.rmag
             z_ax = self.zmag
             t = self.rho.coords["t"]
+            z_x_point = self.zx
         rho_interp = rho.indica.interp2d(
             R=R - self.R_offset, z=z, zero_coords={"R": R_ax, "z": z_ax}, method="cubic"
         )
@@ -466,6 +468,10 @@ class Equilibrium:
         )
         if kind != "poloidal":
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
+        # Set rho to be negative in the private flux region
+        rho_interp = where(
+            np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
+        )
         return rho_interp, theta, t
 
     def spatial_coords(
@@ -556,7 +562,9 @@ class Equilibrium:
             conversion = self.rhotor
             t = self.rhotor.coords["t"]
         if to_kind == "toroidal":
-            flux = conversion.indica.interp2d(rho_poloidal=rho, method="cubic")
+            flux = conversion.indica.interp2d(rho_poloidal=np.abs(rho), method="cubic")
         elif to_kind == "poloidal":
-            flux = conversion.indica.invert_interp(rho, "rho_poloidal", method="cubic")
+            flux = conversion.indica.invert_interp(
+                np.abs(rho), "rho_poloidal", method="cubic"
+            )
         return flux, t
