@@ -181,7 +181,7 @@ ORDERED_ELEMENTS: List[SpecificDataType] = [
     "lutetium",
     "hafnium",
     "tantalum",
-    "tungston",
+    "tungsten",
 ]
 
 
