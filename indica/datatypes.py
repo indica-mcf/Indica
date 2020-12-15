@@ -61,6 +61,11 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     "toroidal_flux": ("Unnormalised toroidal component of magnetic flux", "Wb"),
     "recomb_coeffs": ("Effective recombination coefficients", "m^3 s^{-1}"),
     "recomb_emissions": ("Emissions from recombination and bremsstrahlung", "W m^3"),
+    "sxr_line_emissions": ("SXR-filtered line emissions from excitation", "W m^3"),
+    "sxr_recomb_emissions": (
+        "SXR-filtered emissions from recombination and bremsstrahlung",
+        "W m^3",
+    ),
     "vol_jacobian": (
         "Derivative of enclosed volume with respect to normalised poloidal flux",
         "m^3",
@@ -84,6 +89,18 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
     "separatrix": "Sepeparatrix surface for equilibrium in tokamak",
     "sxr": "Soft X-rays",
     "tungston": "Tungston ions in plasma",
+}
+
+
+#: A mapping between ADAS datatypes for ADF11 data and the general
+# datatype used by indica.
+ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
+    "scd": "ion_coeff",
+    "rcd": "recomb_coeffs",
+    "plt": "line_emissions",
+    "plsx": "sxr_line_emissions",
+    "prb": "recomb_emissions",
+    "prsx": "sxr_recomb_emissions",
 }
 
 

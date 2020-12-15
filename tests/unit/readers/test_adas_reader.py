@@ -2,11 +2,11 @@
 
 from contextlib import contextmanager
 import datetime
-from io import StringIO
 import os.path
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
+from tempfile import TemporaryFile
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -24,11 +24,11 @@ from hypothesis.strategies import times
 import prov.model as prov
 from xarray.testing import assert_allclose
 
+from indica.datatypes import ADF11_GENERAL_DATATYPES
 from indica.datatypes import ORDERED_ELEMENTS
 from indica.readers import ADASReader
 import indica.readers.adas as adas
 from indica.session import hash_vals
-from ..data_strategies import ADAS_GENERAL_DATATYPES
 from ..data_strategies import adf11_data
 
 _characters = characters(
@@ -193,7 +193,7 @@ def adf11_array_to_str(
             count += 1
             if count % 8 == 0:
                 result += newline
-            result += f"{float(element):10.6f}"
+            result += f"{float(element):10.5f}"
         result += newline
         return result
 
@@ -222,13 +222,13 @@ def adf11_array_to_str(
     result += rows_of_eight(data.log_electron_density - 6)
     result += rows_of_eight(data.log_electron_temperature)
     d = date_divider
-    for charge in data.ion_charges + 1:
+    for charge in data.ion_charges:
         if include_metastable_indices:
             result += "-" * 20 + "/ IPRT= 1  / IGRD= 1  /--------/"
         else:
             result += "-" * 51 + "/"
         result += (
-            f" Z1={int(charge):<5}/ DATE= {data.attrs['date']:%d{d}%m{d}%y}" + newline
+            f" Z1={int(charge)+1:<5}/ DATE= {data.attrs['date']:%d{d}%m{d}%y}" + newline
         )
         result += rows_of_eight(data.sel(ion_charges=charge) + 6)
     return result
@@ -247,11 +247,11 @@ def adas_comments(draw):
 
 @composite
 def adf11_data_and_file(draw):
-    """Creates ADF11 data and a file-like object imitating how that data
+    """Creates ADF11 data and a string portraying how that data
     would be saved to the disk.
 
     """
-    data = draw(adf11_data())
+    data = draw(adf11_data(max_z=10))
     indent = draw(integers(0, 5))
     divider = draw(sampled_from(["/", ".", "-"]))
     top_comment = draw(text(_characters))
@@ -259,8 +259,7 @@ def adf11_data_and_file(draw):
         top_comment
     )
     comment = draw(adas_comments())
-    fileobj = StringIO(string_data + comment)
-    return data, fileobj
+    return data, string_data + comment
 
 
 @given(
@@ -269,26 +268,29 @@ def adf11_data_and_file(draw):
     from_regex("[a-zA-Z]+", fullmatch=True),
     integers(1921, 2020),
 )
-def test_read_adf11(reader, data_fileobj, element, year):
-    data, fileobj = data_fileobj
-    reader._get_file = MagicMock(return_value=fileobj)
-    reader.create_provenance = MagicMock()
+def test_read_adf11(reader, data_file, element, year):
+    data, file_contents = data_file
     general_type = data.attrs["datatype"][0]
-    for q, dt in ADAS_GENERAL_DATATYPES.items():
+    for q, dt in ADF11_GENERAL_DATATYPES.items():
         if dt == general_type:
             quantity = q
             break
     else:
         raise ValueError(f"Unrecognised ADAS datatype '{general_type}'")
     adas_base = f"{quantity}{year % 100:02}"
-    expected_file = Path(adas_base) / f"{adas_base}_{element}.dat"
+    expected_file = Path(adas_base) / f"{adas_base}_{element.lower()}.dat"
     now = datetime.datetime.now()
-    result = reader.get_adf11(quantity, element, year)
+    reader.create_provenance = MagicMock()
+    with TemporaryFile(mode="w+") as adf11_file:
+        adf11_file.write(file_contents)
+        adf11_file.seek(0)
+        reader._get_file = MagicMock(return_value=adf11_file)
+        result = reader.get_adf11(quantity, element, year)
     reader._get_file.assert_called_once_with("adf11", expected_file)
     reader.create_provenance.assert_called_once()
     args, kwargs = reader.create_provenance.call_args
     assert args[0] == expected_file
     assert args[1] >= now
-    assert_allclose(data, result)
+    assert_allclose(data, result, atol=1e-5)
     assert data.attrs["datatype"] == result.attrs["datatype"]
     assert result.attrs["provenance"] == reader.create_provenance.return_value

@@ -3,6 +3,7 @@
 
 """
 
+import datetime
 from unittest.mock import MagicMock
 
 from hypothesis.strategies import booleans
@@ -28,13 +29,6 @@ from .strategies import monotonic_series
 from .strategies import noisy_functions
 from .strategies import separable_functions
 from .strategies import smooth_functions
-
-ADAS_GENERAL_DATATYPES = {
-    "scd": "ion_coeff",
-    "rcd": "recomb_coeffs",
-    "plt": "line_emissions",
-    "prb": "recomb_emissions",
-}
 
 
 @composite
@@ -702,6 +696,7 @@ def adf11_data(
     max_num_densities=8,
     min_num_temps=5,
     max_num_temps=15,
+    max_z=74,
     quantities=["scd", "rcd", "plt", "prb"],
 ):
     """Generates fake ADF11 data.
@@ -716,6 +711,8 @@ def adf11_data(
         The minimum number of temperatures to use.
     max_num_temps
         The maximum number of temperatures to use.
+    max_z
+        The maximum atomic number to use.
     quantities
         The types of quantities from which to select.
 
@@ -743,11 +740,13 @@ def adf11_data(
             smooth_functions((min_dens, max_dens), max_val=0.1),
         )
     )
-    data = func(ion_states, temperatures, densities) - 6
+    data = np.clip(func(ion_states, temperatures, densities) - 6, -99, 99)
     result = DataArray(data, coords=[ion_states, temperatures, densities])
     q = draw(sampled_from(quantities))
-    result.attrs["datatype"] = (ADAS_GENERAL_DATATYPES[q], dt.ORDERED_ELEMENTS[z])
+    result.attrs["datatype"] = (dt.ADF11_GENERAL_DATATYPES[q], dt.ORDERED_ELEMENTS[z])
     result.attrs["provenance"] = MagicMock()
-    result.attrs["date"] = draw(dates())
-    result.name = f"log_{dt.ORDERED_ELEMENTS[z]}_{ADAS_GENERAL_DATATYPES[q]}"
+    result.attrs["date"] = draw(
+        dates(datetime.date(1940, 1, 1), datetime.date(2020, 12, 31))
+    )
+    result.name = f"log_{dt.ORDERED_ELEMENTS[z]}_{dt.ADF11_GENERAL_DATATYPES[q]}"
     return result

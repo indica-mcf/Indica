@@ -2,15 +2,19 @@
 
 import datetime
 from pathlib import Path
+import re
 from typing import Literal
 from typing import TextIO
 from typing import Union
 from urllib.request import urlretrieve
 
+import numpy as np
 import prov.model as prov
-from xarray import Dataset
+from xarray import DataArray
 
 from ..abstractio import BaseIO
+from ..datatypes import ADF11_GENERAL_DATATYPES
+from ..datatypes import ORDERED_ELEMENTS
 from ..session import global_session
 from ..session import hash_vals
 from ..session import Session
@@ -70,7 +74,7 @@ class ADASReader(BaseIO):
         need to do anything."""
         pass
 
-    def get_adf11(self, quantity: str, element: str, year: int) -> Dataset:
+    def get_adf11(self, quantity: str, element: str, year: int) -> DataArray:
         """Read data from the specified ADAS file.
 
         Parameters
@@ -91,6 +95,56 @@ class ADASReader(BaseIO):
             different charge state.
 
         """
+        now = datetime.datetime.now()
+        file_component = f"{quantity}{year % 100:02}"
+        filename = Path(file_component) / f"{file_component}_{element.lower()}.dat"
+        with self._get_file("adf11", filename) as f:
+            header = f.readline().split()
+            z = int(header[0])
+            nd = int(header[1])
+            nt = int(header[2])
+            zmin = int(header[3]) - 1
+            zmax = int(header[4]) - 1
+            element_name = header[5][1:].lower()
+            assert ORDERED_ELEMENTS.index(element_name) == z
+            f.readline()
+            densities = np.fromfile(f, float, nd, " ")
+            temperatures = np.fromfile(f, float, nt, " ")
+            data = np.empty((zmax - zmin + 1, nt, nd))
+            date = datetime.date.min
+            for i in range(zmax - zmin + 1):
+                section_header = f.readline()
+                m = re.search(r"Z1=\s*(\d+)", section_header, re.I)
+                assert isinstance(m, re.Match)
+                assert int(m.group(1)) - 1 == zmin + i
+                m = re.search(
+                    r"DATE=\s*(\d?\d)[.\-/](\d\d)[.\-/](\d\d)", section_header, re.I
+                )
+                assert isinstance(m, re.Match)
+                short_year = int(m.group(3))
+                year = short_year + (1900 if short_year >= now.year % 100 else 2000)
+                new_date = datetime.date(year, int(m.group(2)), int(m.group(1)))
+                if new_date > date:
+                    date = new_date
+                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+        gen_type = ADF11_GENERAL_DATATYPES[quantity]
+        spec_type = ORDERED_ELEMENTS[z]
+        name = f"log_{spec_type}_{gen_type}"
+        attrs = {
+            "datatype": (gen_type, spec_type),
+            "date": date,
+            "provenance": self.create_provenance(filename, now),
+        }
+        return DataArray(
+            data - 6,
+            coords=[
+                ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
+                ("log_electron_temperature", temperatures),
+                ("log_electron_density", densities + 6),
+            ],
+            name=name,
+            attrs=attrs,
+        )
 
     def create_provenance(
         self, filename: Path, start_time: datetime.datetime
@@ -122,9 +176,7 @@ class ADASReader(BaseIO):
         self.session.prov.attribution(entity, self.session.agent)
         return entity
 
-    def _get_file(
-        self, dataclass: Union[str, Path], filename: Union[str, Path]
-    ) -> TextIO:
+    def _get_file(self, dataclass: str, filename: Union[str, Path]) -> TextIO:
         """Retrieves an ADAS file, downloading it from OpenADAS if
         necessary. It will cache any downloads for later use.
 
