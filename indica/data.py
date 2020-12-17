@@ -348,13 +348,19 @@ class InDiCAArrayAccessor:
         def interpolate_1d(x, z, x_interp, x_zero):
             if assume_sorted and x_zero is None:
                 interpolant = InterpolatedUnivariateSpline(x, z, k=degree)
+                domain = (x[0], x[-1])
             else:
                 if x_zero is not None and x_zero not in x:
                     x = np.append(x, x_zero)
                     z = np.append(z, 0.0)
                 order = np.argsort(x)
                 interpolant = InterpolatedUnivariateSpline(x[order], z[order], k=degree)
-            return interpolant(x_interp)
+                domain = (x[order[0]], x[order[-1]])
+            result = interpolant(x_interp)
+            result[np.logical_or(x_interp < domain[0], x_interp > domain[1])] = float(
+                "nan"
+            )
+            return result
 
         return interpolate_1d
 
@@ -377,6 +383,7 @@ class InDiCAArrayAccessor:
             if assume_sorted:
                 interpolant = RectBivariateSpline(x, y, z, kx=degree, ky=degree)
                 result = interpolant(x_interp, y_interp).T
+                domain = ((x[0], x[-1]), (y[0], y[-1]))
             else:
                 xorder = np.argsort(x)
                 yorder = np.argsort(y)
@@ -397,6 +404,7 @@ class InDiCAArrayAccessor:
                 result = np.empty_like(vals)
                 np.put(vals2, new_xorder, vals, 1)
                 np.put(result, new_yorder, vals2, 0)
+                domain = ((x[xorder[0]], x[xorder[-1]]), (y[yorder[0]], y[yorder[-1]]))
             if (
                 x_zero is not None
                 and y_zero is not None
@@ -452,6 +460,11 @@ class InDiCAArrayAccessor:
                     result[mask] = interpolant(
                         np.stack([xx_interp[mask], yy_interp[mask]], axis=-1)
                     )
+            out_of_domain = np.logical_or(
+                np.logical_or(x_interp < domain[0][0], x_interp > domain[0][1]),
+                np.logical_or(y_interp < domain[1][0], y_interp > domain[1][1]),
+            )
+            result[out_of_domain] = float("nan")
             return result
 
         return interpolate_2d

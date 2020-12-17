@@ -28,7 +28,7 @@ class FluxMajorRadCoordinates(CoordinateTransform):
     """
 
     _INVERSE_CONVERSION_METHODS: Dict[str, str] = {
-        "LinesOfSightCoordinates": "_convert_from_flux_coords"
+        "FluxSurfaceCoordinates": "_convert_from_flux_coords"
     }
 
     def __init__(self, flux_surfaces: FluxSurfaceCoordinates):

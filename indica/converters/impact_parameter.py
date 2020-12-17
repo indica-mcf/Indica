@@ -63,6 +63,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         rho, _, t = cast(
             Tuple[DataArray, DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z)
         )
+        rho = where(rho < 0, float("nan"), rho)
         loc = rho.argmin("x2")
         theta = np.arctan2(
             z.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[1]),
