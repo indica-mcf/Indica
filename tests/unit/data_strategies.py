@@ -697,7 +697,7 @@ def adf11_data(
     min_num_temps=5,
     max_num_temps=15,
     max_z=74,
-    quantities=["scd", "rcd", "plt", "prb"],
+    quantities=["scd", "acd", "plt", "prb"],
 ):
     """Generates fake ADF11 data.
 

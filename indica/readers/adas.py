@@ -74,7 +74,7 @@ class ADASReader(BaseIO):
         need to do anything."""
         pass
 
-    def get_adf11(self, quantity: str, element: str, year: int) -> DataArray:
+    def get_adf11(self, quantity: str, element: str, year: str) -> DataArray:
         """Read data from the specified ADAS file.
 
         Parameters
@@ -85,7 +85,7 @@ class ADASReader(BaseIO):
         element
             The atomic symbol for the element which will be retrieved.
         year
-            The year the data is from. Only two digits are needed.
+            The two-digit year label for the data.
 
         Returns
         -------
@@ -96,7 +96,7 @@ class ADASReader(BaseIO):
 
         """
         now = datetime.datetime.now()
-        file_component = f"{quantity}{year % 100:02}"
+        file_component = f"{quantity}{year}"
         filename = Path(file_component) / f"{file_component}_{element.lower()}.dat"
         with self._get_file("adf11", filename) as f:
             header = f.readline().split()
@@ -122,8 +122,10 @@ class ADASReader(BaseIO):
                 )
                 assert isinstance(m, re.Match)
                 short_year = int(m.group(3))
-                year = short_year + (1900 if short_year >= now.year % 100 else 2000)
-                new_date = datetime.date(year, int(m.group(2)), int(m.group(1)))
+                parsed_year = short_year + (
+                    1900 if short_year >= now.year % 100 else 2000
+                )
+                new_date = datetime.date(parsed_year, int(m.group(2)), int(m.group(1)))
                 if new_date > date:
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))

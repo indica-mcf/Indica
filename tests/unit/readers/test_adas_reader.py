@@ -266,7 +266,7 @@ def adf11_data_and_file(draw):
     adas_readers(),
     adf11_data_and_file(),
     from_regex("[a-zA-Z]+", fullmatch=True),
-    integers(1921, 2020),
+    text(),
 )
 def test_read_adf11(reader, data_file, element, year):
     data, file_contents = data_file
@@ -277,7 +277,7 @@ def test_read_adf11(reader, data_file, element, year):
             break
     else:
         raise ValueError(f"Unrecognised ADAS datatype '{general_type}'")
-    adas_base = f"{quantity}{year % 100:02}"
+    adas_base = f"{quantity}{year}"
     expected_file = Path(adas_base) / f"{adas_base}_{element.lower()}.dat"
     now = datetime.datetime.now()
     reader.create_provenance = MagicMock()

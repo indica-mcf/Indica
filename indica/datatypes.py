@@ -96,7 +96,7 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
 # datatype used by indica.
 ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "scd": "ion_coeff",
-    "rcd": "recomb_coeffs",
+    "acd": "recomb_coeffs",
     "plt": "line_emissions",
     "plsx": "sxr_line_emissions",
     "prb": "recomb_emissions",
