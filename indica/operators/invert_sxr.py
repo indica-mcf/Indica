@@ -12,6 +12,7 @@ from scipy.interpolate import CubicSpline
 from scipy.optimize import least_squares
 from xarray import concat
 from xarray import DataArray
+from xarray import where
 
 from .abstractoperator import Operator
 from ..converters import bin_to_time_labels
@@ -162,7 +163,9 @@ class EmissivityProfile:
                 asymmetric = asymmetric.interp(t=t, method="cubic")
         if R_0 is None:
             R_0 = cast(DataArray, self.transform.equilibrium.R_hfs(rho, t)[0])
-        return (symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))).fillna(0.0)
+        result = symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))
+        # Ensure round-off error doesn't result in any values below 0
+        return where(result < 0.0, 0.0, result).fillna(0.0)
 
 
 def integrate_los(
@@ -271,10 +274,12 @@ class InvertSXR(Operator):
         dim_name = "rho_" + self.flux_coords.flux_kind
 
         def knotvals_to_xarray(knotvals):
-            symmetric_emissivity = DataArray(knotvals[:n], coords=[(dim_name, knots)])
+            symmetric_emissivity = DataArray(np.empty(n), coords=[(dim_name, knots)])
+            symmetric_emissivity[0:-1] = knotvals[0 : n - 1]
+            symmetric_emissivity[-1] = 0.0
             asymmetry_parameter = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            asymmetry_parameter[0] = 0.5 * knotvals[n]
-            asymmetry_parameter[1:-1] = knotvals[n:]
+            asymmetry_parameter[0] = 0.5 * knotvals[n - 1]
+            asymmetry_parameter[1:-1] = knotvals[n - 1 :]
             asymmetry_parameter[-1] = 0.5 * knotvals[-1]
             return symmetric_emissivity, asymmetry_parameter
 
@@ -329,8 +334,12 @@ class InvertSXR(Operator):
 
         symmetric_emissivities: List[DataArray] = []
         asymmetry_parameters: List[DataArray] = []
-        abel_inversion = np.linspace(3e3, 0.0, n)
+        abel_inversion = np.linspace(3e3, 0.0, n - 1)
         guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
+        bounds = (
+            np.concatenate((np.zeros(n - 1), -0.5 * np.ones(n - 2))),
+            np.concatenate((1e6 * np.ones(n - 1), np.ones(n - 2))),
+        )
         rho_maj_rad = FluxMajorRadCoordinates(self.flux_coords)
 
         for t in np.asarray(self.t):
@@ -349,11 +358,9 @@ class InvertSXR(Operator):
             fit = least_squares(
                 residuals,
                 guess,
+                bounds=bounds,
                 args=(rhos, Rs, t, R_0s, dls),
-                jac="2-point",
                 verbose=2,
-                xtol=1e-8,
-                ftol=1e-8,
             )
             if fit.status == -1:
                 raise RuntimeError(
