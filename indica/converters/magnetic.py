@@ -20,7 +20,7 @@ class MagneticCoordinates(CoordinateTransform):
     field strength for location along the transect. The line of sight
     is assumed to be perfectly horizontal. The second coordinate in
     this system is the vertical offset from the line of sight (the
-    argument for which defaults to 0 when converting to Rz
+    argument for which would typically be 0 when converting to Rz
     coordinates).
 
     Parameters
@@ -28,26 +28,25 @@ class MagneticCoordinates(CoordinateTransform):
     z
         The vertical position of the line of sight along which measurements are
         taken. Used as default z position.
-    default_B
-        The default grid to use for the magnetic field strength.
-    default_R
-        The default major radius to use for conversions.
-    default_t
-        The default grid to use for time.
+    machine_dimensions
+        A tuple giving the boundaries of the Tokamak in R-z space:
+        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
 
     """
 
     def __init__(
         self,
         z: float,
-        default_B: LabeledArray,
-        default_R: LabeledArray,
-        default_t: LabeledArray,
+        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+            (1.83, 3.9),
+            (-1.75, 2.0),
+        ),
     ):
         self.z_los = z
-        super().__init__(default_B, 0.0, default_R, z, default_t)
+        self.left = machine_dimensions[0][0]
+        self.right = machine_dimensions[0][1]
 
-    def _convert_to_Rz(
+    def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
@@ -67,25 +66,15 @@ class MagneticCoordinates(CoordinateTransform):
             Major radius coordinate
         z
             Height coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
-        # print("Recieved by _convert_to_Rz", x1, x2, t)
-        if isinstance(self.default_R, (int, float)):
-            left = self.default_R
-            right = self.default_R
-        else:
-            left = np.min(self.default_R)
-            right = np.max(self.default_R)
 
         @np.vectorize
         def find_root(B: float, x2: float, t: float) -> float:
             def func(R: float) -> float:
-                return self._convert_from_Rz(R, x2 + self.z_los, t)[0] - B
+                return self.convert_from_Rz(R, x2 + self.z_los, t)[0] - B
 
-            brackets = find_brackets(left, right, func)
+            brackets = find_brackets(self.left, self.right, func)
             result = root_scalar(func, bracket=brackets, xtol=1e-8, rtol=1e-6,)
             if result.converged:
                 return result.root
@@ -93,9 +82,9 @@ class MagneticCoordinates(CoordinateTransform):
                 f"scipy.optimize.root_scalar failed to converge with flag {result.flag}"
             )
 
-        return find_root(x1, x2, t), x2 + self.z_los, t
+        return find_root(x1, x2, t), x2 + self.z_los
 
-    def _convert_from_Rz(
+    def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
@@ -115,13 +104,10 @@ class MagneticCoordinates(CoordinateTransform):
             The first spatial coordinate in this system.
         x2
             The second spatial coordinate in this system.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
 
         """
         B, t2 = self.equilibrium.Btot(R, z, t)
-        return B, z - self.z_los, t2
+        return B, z - self.z_los
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

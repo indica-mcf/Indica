@@ -124,9 +124,9 @@ class EmissivityProfile:
     def __call__(
         self,
         coord_system: CoordinateTransform,
-        x1: Optional[DataArray] = None,
-        x2: Optional[DataArray] = None,
-        t: Optional[DataArray] = None,
+        x1: DataArray,
+        x2: DataArray,
+        t: DataArray,
     ) -> DataArray:
         rho, R, t = cast(
             DataArrayCoords, coord_system.convert_to(self.transform, x1, x2, t)
@@ -169,7 +169,12 @@ class EmissivityProfile:
 
 
 def integrate_los(
-    los: LinesOfSightTransform, emissivity: EmissivityProfile, n: int = 65
+    los: LinesOfSightTransform,
+    x1: DataArray,
+    x2: DataArray,
+    t: DataArray,
+    emissivity: EmissivityProfile,
+    n: int = 65,
 ) -> DataArray:
 
     """Integrate the emissivity profile along the line of sight for the
@@ -187,10 +192,9 @@ def integrate_los(
     """
     n = 2 ** int(np.ceil(np.log(n - 1) / np.log(2))) + 1
     x2 = DataArray(np.linspace(0.0, 1.0, n), dims="x2")
-    distances, _ = los.distance("x2", DataArray(0), x2[0:2], emissivity.time)
+    distances = los.distance("x2", DataArray(0), x2[0:2], emissivity.time)
     dl = cast(DataArray, distances)[1]
-    assert isinstance(los.default_x1, DataArray)
-    emissivity_vals = emissivity(los, los.default_x1, x2)
+    emissivity_vals = emissivity(los, x1, x2, t)
     axis = emissivity_vals.dims.index("x2")
     return romb(emissivity_vals, dl, axis)
 
@@ -203,6 +207,12 @@ class InvertSXR(Operator):
     ----------
     flux_coordinates : FluxSurfaceCoordinates
         The flux surface coordinate system on which to calculate the fit.
+    rho : DataArray
+        Flux surface coordinates on which to return emissivity result.
+    theta : DataArray
+        Theta coordinates on which to return emissivity result.
+    t : DataArray
+        Time coordinatse on which to return emissivity result.
     num_cameras : int
         The number of cameras to which the data will be fit.
     n_knots : int
@@ -224,14 +234,18 @@ class InvertSXR(Operator):
     def __init__(
         self,
         flux_coordinates: FluxSurfaceCoordinates,
+        rho: DataArray,
+        theta: DataArray,
+        t: DataArray,
         num_cameras: int = 1,
         n_knots: int = 6,
         sess: Session = global_session,
     ):
         self.n_knots = n_knots
         self.flux_coords = flux_coordinates
-        assert isinstance(flux_coordinates.default_t, DataArray)
-        self.t = flux_coordinates.default_t
+        self.rho = rho
+        self.theta = theta
+        self.t = t
         self.num_cameras = num_cameras
         self.ARGUMENT_TYPES: List[DataType] = [("luminous_flux", "sxr")] * num_cameras
         super().__init__(
@@ -243,7 +257,7 @@ class InvertSXR(Operator):
 
     def __call__(  # type: ignore[override]
         self, *cameras: DataArray
-    ) -> Tuple[DataArray, DataArray]:
+    ) -> DataArray:
         """Calculate the emissivity profile for the plasma.
 
         Parameters
@@ -382,7 +396,7 @@ class InvertSXR(Operator):
         estimate = EmissivityProfile(
             symmetric_emissivity, asymmetry_parameter, self.flux_coords
         )
-        result = estimate(self.flux_coords)
+        result = estimate(self.flux_coords, self.rho, self.theta, self.t)
         result.attrs["transform"] = self.flux_coords
         result.attrs["datatype"] = ("emissivity", "sxr")
         result.attrs["provenance"] = self.create_provenance()

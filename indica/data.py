@@ -622,23 +622,14 @@ class InDiCAArrayAccessor:
         # TODO: check the mapping methods are actually present
         # TODO: add provenance, such as making result an alternate version of original
         dims_other = list(other.dims)
-        try:
-            dims_other.remove("t")
-            t_other: Optional[xr.DataArray] = other.coords["t"]
-        except ValueError:
-            t_other = None
-        if len(dims_other) > 0:
-            x1_other: Optional[xr.DataArray] = other.coords[dims_other[0]]
-        else:
-            x1_other = None
-        if len(dims_other) > 1:
-            x2_other: Optional[xr.DataArray] = other.coords[dims_other[1]]
-        else:
-            x2_other = None
+        dims_other.remove("t")
+        t_other: xr.DataArray = other.coords["t"]
+        x1_other: xr.DataArray = other.coords[dims_other[0]]
+        x2_other: xr.DataArray = other.coords[dims_other[1]]
 
         self_transform: CoordinateTransform = self._obj.attrs["transform"]
         other_transform: CoordinateTransform = other.attrs["transform"]
-        x1_map, x2_map, t_map = self_transform.convert_to(
+        x1_map, x2_map = self_transform.convert_to(
             other_transform, x1_other, x2_other, t_other
         )
 
@@ -668,7 +659,7 @@ class InDiCAArrayAccessor:
         if has_x2:
             coords_map[dims_self[1]] = xr.DataArray(x2_map, coords=coords_self)
         if has_t:
-            coords_map["t"] = xr.DataArray(t_map, coords=coords_self)
+            coords_map["t"] = xr.DataArray(t_other, coords=coords_self)
         return self._obj.interp(coords_map)
 
     def check_datatype(self, data_type: ArrayType) -> Tuple[bool, Optional[str]]:

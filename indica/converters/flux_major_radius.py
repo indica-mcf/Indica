@@ -32,13 +32,6 @@ class FluxMajorRadCoordinates(CoordinateTransform):
     }
 
     def __init__(self, flux_surfaces: FluxSurfaceCoordinates):
-        super().__init__(
-            flux_surfaces.default_x1,
-            flux_surfaces.default_x2,
-            flux_surfaces.default_R,
-            flux_surfaces.default_z,
-            flux_surfaces.default_t,
-        )
         self.flux_surfaces = flux_surfaces
         self.equilibrium = flux_surfaces.equilibrium
         self.flux_kind = flux_surfaces.flux_kind
@@ -63,15 +56,12 @@ class FluxMajorRadCoordinates(CoordinateTransform):
             The first spatial coordinate in this system.
         x2
             The second spatial coordinate in this system.
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
-        R, z, t = self.flux_surfaces.convert_to_Rz(rho, theta, t)
-        return rho, R, t
+        R, z = self.flux_surfaces.convert_to_Rz(rho, theta, t)
+        return rho, R
 
-    def _convert_to_Rz(
+    def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
@@ -91,19 +81,16 @@ class FluxMajorRadCoordinates(CoordinateTransform):
             Major radius coordinate
         z
             Height coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
         theta_grid = DataArray(
             np.linspace(0.0, np.pi, 100), dims=("theta",), name="theta"
         )
-        R, z, t = self.flux_surfaces.convert_to_Rz(x1, theta_grid, t)
+        R, z = self.flux_surfaces.convert_to_Rz(x1, theta_grid, t)
         theta_vals = cast(DataArray, R).indica.invert_interp(x2, target="theta")
-        return x2, cast(DataArray, z).indica.interp2d(theta=theta_vals), t
+        return x2, cast(DataArray, z).indica.interp2d(theta=theta_vals)
 
-    def _convert_from_Rz(
+    def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
@@ -123,13 +110,10 @@ class FluxMajorRadCoordinates(CoordinateTransform):
             The first spatial coordinate in this system.
         x2
             The second spatial coordinate in this system.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
 
         """
-        rho, theta, t = self.flux_surfaces.convert_from_Rz(R, z, t)
-        return rho, R, t
+        rho, theta = self.flux_surfaces.convert_from_Rz(R, z, t)
+        return rho, R
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

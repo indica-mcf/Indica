@@ -484,22 +484,14 @@ class DataReader(BaseIO):
         )
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
         dims_1d = ("t",)
-        trivial_transform = TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0)
+        trivial_transform = TrivialTransform()
         if len(flux_quantities & quantities) > 0:
             rho = np.sqrt(database_results["psin"])
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
-            flux_transform = FluxSurfaceCoordinates(
-                "poloidal",
-                DataArray(rho, coords=[("rho_poloidal", rho)]),
-                0.0,
-                0.0,
-                0.0,
-                DataArray(times, coords=[("t", times)]),
-            )
         else:
             rho = None
             coords_2d = {}
-            flux_transform = FluxSurfaceCoordinates("poloidal", 0.0, 0.0, 0.0, 0.0, 0.0)
+        flux_transform = FluxSurfaceCoordinates("poloidal",)
         dims_2d = ("t", diagnostic_coord)
         if len(separatrix_quantities & quantities):
             coords_sep: Dict[Hashable, ArrayLike] = {"t": times}
@@ -748,7 +740,6 @@ class DataReader(BaseIO):
                 database_results[quantity + "_Rstop"],
                 database_results[quantity + "_zstop"],
                 database_results[quantity + "_Tstop"],
-                self._los_intervals,
                 database_results["machine_dims"],
             )
             meta = {
@@ -947,7 +938,6 @@ class DataReader(BaseIO):
                 database_results[quantity + "_Rstop"],
                 database_results[quantity + "_zstop"],
                 database_results[quantity + "_Tstop"],
-                self._los_intervals,
                 database_results["machine_dims"],
             )
             meta = {

@@ -25,14 +25,6 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     def __init__(
         self, flux_surfaces: FluxSurfaceCoordinates,
     ):
-        # TODO: Set up proper defaults
-        super().__init__(
-            flux_surfaces.default_x1,
-            flux_surfaces.default_x2,
-            flux_surfaces.default_R,
-            flux_surfaces.default_z,
-            flux_surfaces.default_t,
-        )
         self.flux_transform = flux_surfaces
         self.equilibrium = flux_surfaces.equilibrium
 
@@ -57,17 +49,14 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
             Flux surface coordinate
         theta
             Poloidal angle coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
         rho, t = self.equilibrium.invert_enclosed_volume(
             volume, t, self.flux_transform.flux_kind
         )
-        return rho, theta, t
+        return rho, theta
 
-    def _convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         Parameters
@@ -85,15 +74,12 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
             Major radius coordinate
         z
             Height coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
-        rho, theta, t = self._convert_to_rho(x1, x2, t)
-        return self.flux_transform._convert_to_Rz(rho, theta, t)
+        rho, theta = self._convert_to_rho(x1, x2, t)
+        return self.flux_transform.convert_to_Rz(rho, theta, t)
 
-    def _convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
+    def convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         Parameters
@@ -111,12 +97,9 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
             The first spatial coordinate in this system.
         x2
             The second spatial coordinate in this system.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
 
         """
-        rho, theta, t = self.flux_transform._convert_from_Rz(R, z, t)
+        rho, theta = self.flux_transform.convert_from_Rz(R, z, t)
         return self.flux_transform._convert_to_vol(rho, theta, t)
 
     def __eq__(self, other: object) -> bool:

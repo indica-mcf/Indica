@@ -47,16 +47,9 @@ class LinesOfSightTransform(CoordinateTransform):
         1-D array of vertical positions of the end for each line-of-sight.
     T_end
         1-D array of toroidal offset for the end of each line-of-sight.
-    num_intervals
-        The number of intervals in the default grid for the second coordinate.
-        Note that there will be one more points in the grid than this.
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in R-z space:
         ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
-    default_R
-        Default R-grid to use when converting from the R-z coordinate system.
-    default_z
-        Default z-grid to use when converting from the R-z coordinate system.
 
     """
 
@@ -68,17 +61,11 @@ class LinesOfSightTransform(CoordinateTransform):
         R_end: np.ndarray,
         z_end: np.ndarray,
         T_end: np.ndarray,
-        num_intervals: int = 100,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
-        default_R: Optional[LabeledArray] = None,
-        default_z: Optional[LabeledArray] = None,
     ):
-        indices = DataArray(np.arange(len(R_start)), dims="index")
-        x2_raw = np.linspace(0.0, 1.0, num_intervals + 1)
-        x2 = DataArray(x2_raw, coords=[("x2", x2_raw)])
         lengths = _get_wall_intersection_distances(
             R_start, z_start, T_start, R_end, z_end, T_end, machine_dimensions
         )
@@ -97,27 +84,12 @@ class LinesOfSightTransform(CoordinateTransform):
         self.R_end = DataArray(R_start + factor * (R_end - R_start))
         self.z_end = DataArray(z_start + factor * (z_end - z_start))
         self.T_end = DataArray(T_start + factor * (T_end - T_start))
-        if default_R is None:
-            R_raw = np.linspace(
-                min(self.R_start.min(), self.R_end.min()),
-                max(self.R_start.max(), self.R_end.max()),
-                num_intervals + 1,
-            )
-            default_R = DataArray(R_raw, coords=[("R", R_raw)])
-        if default_z is None:
-            z_raw = np.linspace(
-                min(self.z_start.min(), self.z_end.min()),
-                max(self.z_start.max(), self.z_end.max()),
-                num_intervals + 1,
-            )
-            default_z = DataArray(z_raw, coords=[("z", z_raw)])
         self.index_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
         self.x2_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
-        super().__init__(indices, x2, default_R, default_z, 0)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -132,7 +104,7 @@ class LinesOfSightTransform(CoordinateTransform):
         result = result and self._machine_dims == other._machine_dims
         return result
 
-    def _convert_to_Rz(
+    def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         c = np.ceil(x1).astype(int)
@@ -146,9 +118,9 @@ class LinesOfSightTransform(CoordinateTransform):
         R0 = Rs + (Re - Rs) * x2
         T0 = Ts + (Te - Ts) * x2
         z = zs + (ze - zs) * x2
-        return np.sign(R0) * np.sqrt(R0 ** 2 + T0 ** 2), z, t
+        return np.sign(R0) * np.sqrt(R0 ** 2 + T0 ** 2), z
 
-    def _convert_from_Rz(
+    def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         def jacobian(x):
@@ -201,7 +173,7 @@ class LinesOfSightTransform(CoordinateTransform):
             return result.x[0], result.x[1]
 
         Rz = invert(R, z)
-        return Rz[0], Rz[1], t
+        return Rz[0], Rz[1]
         # # TODO: Consider if there is some way to invert this exactly,
         # # rather than rely on interpolation (which is necessarily
         # # inexact, as well as computationally expensive).
@@ -221,11 +193,11 @@ class LinesOfSightTransform(CoordinateTransform):
         # assert self.x2_inversion is not None
         # x1 = self.index_inversion(R, z)
         # x2 = self.x2_inversion(R, z)
-        # return x1, x2, t
+        # return x1, x2
 
-    def _distance(
+    def distance(
         self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
-    ) -> Tuple[LabeledArray, LabeledArray]:
+    ) -> LabeledArray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
         lines.
@@ -251,7 +223,7 @@ class LinesOfSightTransform(CoordinateTransform):
         )
         result = zeros_like(R)
         result[slc2] = spacings.cumsum(direction)
-        return result, t
+        return result
 
 
 def _get_wall_intersection_distances(

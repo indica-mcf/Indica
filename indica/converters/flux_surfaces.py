@@ -1,6 +1,7 @@
 """Class to handle conversions to and from flux surface coordinates."""
 
 from typing import Dict
+from typing import Optional
 
 import numpy as np
 
@@ -18,18 +19,6 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     kind
         The type of flux surface to use. Must be a valid argument for methods
         on the :py:class:`indica.equilibrium.Equilibrium` class.
-    default_rho
-        The default grid to use for the flux surface.
-    default_theta
-        The default grid to use for the angle in the polar coordinates.
-    default_R
-        The default grid to use for the R-coordinate when converting to this
-        coordinate system.
-    default_z
-        The default grid to use for the z-coordinate when converting to this
-        coordinate system.
-    default_t
-        The default grid to use for time.
 
     """
 
@@ -38,19 +27,12 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     }
 
     def __init__(
-        self,
-        kind: str,
-        default_rho: LabeledArray,
-        default_theta: LabeledArray,
-        default_R: LabeledArray,
-        default_z: LabeledArray,
-        default_t: LabeledArray,
+        self, kind: str,
     ):
         self.flux_kind = kind
-        super().__init__(default_rho, default_theta, default_R, default_z, default_t)
 
-    def _convert_to_Rz(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    def convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: Optional[LabeledArray] = None
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
@@ -69,15 +51,12 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             Major radius coordinate
         z
             Height coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
-        return self.equilibrium.spatial_coords(x1, x2, t, self.flux_kind)
+        return self.equilibrium.spatial_coords(x1, x2, t, self.flux_kind)[0:2]
 
-    def _convert_from_Rz(
-        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    def convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
@@ -96,15 +75,12 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             The first spatial coordinate in this system.
         x2
             The second spatial coordinate in this system.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
 
         """
-        return self.equilibrium.flux_coords(R, z, t, self.flux_kind)
+        return self.equilibrium.flux_coords(R, z, t, self.flux_kind)[0:2]
 
     def _convert_to_vol(
-        self, rho: LabeledArray, theta: LabeledArray, t: LabeledArray
+        self, rho: LabeledArray, theta: LabeledArray, t: Optional[LabeledArray] = None
     ) -> Coordinates:
         """Convert from this coordinate system to one using volume enclosed by
         the flux surfaces as a coordinate.
@@ -124,13 +100,10 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             Volume enclosed by the flux surface rho.
         theta
             Poloidal angle coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
         vol, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
-        return vol, theta, t
+        return vol, theta
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

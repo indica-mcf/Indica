@@ -55,21 +55,58 @@ class TransectCoordinates(CoordinateTransform):
         self.invert = interp1d(
             R_positions, indices, copy=False, fill_value="extrapolate"
         )
-        super().__init__(indices, DataArray(0), R_positions, z_positions, DataArray(0))
 
-    def _convert_to_Rz(
+    def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
+        """Convert from this coordinate to the R-z coordinate system.
+
+        Parameters
+        ----------
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+        t
+            The time coordinate (if there is one, otherwise ``None``)
+
+        Returns
+        -------
+        R
+            Major radius coordinate
+        z
+            Height coordinate
+
+        """
         R = self.R_vals(x1)
         z = self.z_vals(x1) + x2
-        return R, z, t
+        return R, z
 
-    def _convert_from_Rz(
+    def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
+        """Convert from the master coordinate system to this coordinate.
+
+        Parameters
+        ----------
+        R
+            Major radius coordinate
+        z
+            Height coordinate
+        t
+            Time coordinate)
+
+        Returns
+        -------
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+
+        """
         x1 = self.invert(R)
         x2 = z - self.z_vals(x1)
-        return x1, x2, t
+        return x1, x2
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

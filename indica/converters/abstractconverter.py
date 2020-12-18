@@ -10,16 +10,13 @@ from typing import Tuple
 
 import numpy as np
 from xarray import DataArray
-from xarray import Dataset
 from xarray import zeros_like
 
 from ..equilibrium import Equilibrium
 from ..numpy_typing import LabeledArray
 
-Coordinates = Tuple[LabeledArray, LabeledArray, LabeledArray]
-OptionalCoordinates = Tuple[
-    Optional[LabeledArray], Optional[LabeledArray], Optional[LabeledArray]
-]
+Coordinates = Tuple[LabeledArray, LabeledArray]
+OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]
 
 
 class EquilibriumException(Exception):
@@ -65,23 +62,7 @@ class CoordinateTransform(ABC):
     _CONVERSION_METHODS: Dict[str, str] = {}
     _INVERSE_CONVERSION_METHODS: Dict[str, str] = {}
 
-    def __init__(
-        self,
-        default_x1: LabeledArray,
-        default_x2: LabeledArray,
-        default_R: LabeledArray,
-        default_z: LabeledArray,
-        default_t: LabeledArray,
-    ):
-        self.default_x1 = default_x1
-        self.default_x2 = default_x2
-        self.default_R = default_R
-        self.default_z = default_z
-        self.default_t = default_t
-        self.default_distance: Dict[str, Tuple[LabeledArray, LabeledArray]] = {}
-        self.default_to_Rz: OptionalCoordinates = (None, None, None)
-        self.default_from_Rz: OptionalCoordinates = (None, None, None)
-        self.equilibrium: Equilibrium
+    equilibrium: Equilibrium
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
@@ -103,9 +84,6 @@ class CoordinateTransform(ABC):
 
         """
         if not hasattr(self, "equilibrium") or force:
-            self.default_to_Rz = (None, None, None)
-            self.default_from_Rz = (None, None, None)
-            self.default_distance = {}
             self.equilibrium = equilibrium
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
@@ -113,9 +91,9 @@ class CoordinateTransform(ABC):
     def convert_to(
         self,
         other: "CoordinateTransform",
-        x1: Optional[LabeledArray] = None,
-        x2: Optional[LabeledArray] = None,
-        t: Optional[LabeledArray] = None,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> Coordinates:
         """General routine to map coordinates from this system to those used
         in ``other``. Array broadcasting will be performed as necessary.
@@ -158,38 +136,20 @@ class CoordinateTransform(ABC):
         # converter.
         if other_name in self._CONVERSION_METHODS:
             converter = getattr(self, self._CONVERSION_METHODS[other_name])
-            if x1 is None:
-                x1 = self.default_x1
-            if x2 is None:
-                x2 = self.default_x2
-            if t is None:
-                t = self.default_t
             return converter(x1, x2, t)
         elif self_name in other._INVERSE_CONVERSION_METHODS:
             converter = getattr(other, other._INVERSE_CONVERSION_METHODS[self_name])
-            if x1 is None:
-                x1 = other.default_x1
-            if x2 is None:
-                x2 = other.default_x2
-            if t is None:
-                t = other.default_t
             return converter(x1, x2, t)
         else:
-            R, z, t = self.convert_to_Rz(x1, x2, t)
+            R, z = self.convert_to_Rz(x1, x2, t)
             return other.convert_from_Rz(R, z, t)
 
+    @abstractmethod
     def convert_to_Rz(
-        self,
-        x1: Optional[LabeledArray] = None,
-        x2: Optional[LabeledArray] = None,
-        t: Optional[LabeledArray] = None,
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system.
-
-        If an arguments is not provided then use the default grid for
-        that dimension. This grid is implementation-defined, but
-        should be the one which will be most commonly used to allow
-        for efficient caching of the result.
+        """Convert from this coordinate to the R-z coordinate system. Each
+        subclass must implement this method.
 
         Parameters
         ----------
@@ -198,7 +158,7 @@ class CoordinateTransform(ABC):
         x2
             The second spatial coordinate in this system.
         t
-            The time coordinate (if there is one, otherwise ``None``)
+            The time coordinate
 
         Returns
         -------
@@ -206,55 +166,18 @@ class CoordinateTransform(ABC):
             Major radius coordinate
         z
             Height coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
-        """
-        use_cached = True
-        if x1 is None:
-            x1 = self.default_x1
-        else:
-            use_cached = False
-        if x2 is None:
-            x2 = self.default_x2
-        else:
-            use_cached = False
-        if t is None:
-            t = self.default_t
-        else:
-            use_cached = False
-        if use_cached:
-            if self.default_to_Rz[0] is None:
-                self.default_to_Rz = self._convert_to_Rz(x1, x2, t)
-            return cast(Coordinates, self.default_to_Rz)
-        else:
-            return self._convert_to_Rz(x1, x2, t)
-
-    @abstractmethod
-    def _convert_to_Rz(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
-    ) -> Coordinates:
-        """Implementation of conversion to the R-z coordinate system, without
-        caching or default argument values.
         """
         raise NotImplementedError(
-            "{} does not implement a 'to_master' "
+            "{} does not implement a 'convert_to_Rz' "
             "method.".format(self.__class__.__name__)
         )
 
     def convert_from_Rz(
-        self,
-        R: Optional[LabeledArray] = None,
-        z: Optional[LabeledArray] = None,
-        t: Optional[LabeledArray] = None,
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray,
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate.
-
-        If an arguments is not provided then return the master
-        coordinates on the default grid for that dimension. This grid is
-        implementation-defined, but should be the one which will be
-        most commonly used to allow for efficient caching.
+        """Convert from the master coordinate system to this coordinate. Each
+        subclass must implement this method.
 
         Parameters
         ----------
@@ -263,7 +186,7 @@ class CoordinateTransform(ABC):
         z
             Height coordinate
         t
-            Time coordinate)
+            Time coordinate
 
         Returns
         -------
@@ -271,40 +194,10 @@ class CoordinateTransform(ABC):
             The first spatial coordinate in this system.
         x2
             The second spatial coordinate in this system.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
 
-        """
-        use_cached = True
-        if R is None:
-            R = self.default_R
-        else:
-            use_cached = False
-        if z is None:
-            z = self.default_z
-        else:
-            use_cached = False
-        if t is None:
-            t = self.default_t
-        else:
-            use_cached = False
-        if use_cached:
-            if self.default_from_Rz[0] is None:
-                self.default_from_Rz = self._convert_from_Rz(R, z, t)
-            return cast(Coordinates, self.default_from_Rz)
-        else:
-            return self._convert_from_Rz(R, z, t)
-
-    @abstractmethod
-    def _convert_from_Rz(
-        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
-    ) -> Coordinates:
-        """Implementation of conversion from the R-z coordinate system, without
-        caching or default argument values.
         """
         raise NotImplementedError(
-            "{} does not implement a 'from_master' "
+            "{} does not implement a 'convert_from_Rz' "
             "method.".format(self.__class__.__name__)
         )
 
@@ -313,31 +206,12 @@ class CoordinateTransform(ABC):
         the same on two transform classes.
 
         """
-
-        def are_equal(lhs: LabeledArray, rhs: LabeledArray):
-            if isinstance(lhs, (int, float)) or isinstance(rhs, (int, float)):
-                return np.all(lhs == rhs)
-            elif isinstance(lhs, DataArray) and isinstance(rhs, DataArray):
-                return lhs.equals(rhs)
-            elif isinstance(lhs, Dataset) and isinstance(rhs, Dataset):
-                return lhs.equals(rhs)
-            else:
-                return False
-
-        if not isinstance(other, self.__class__):
-            return False
         if not hasattr(self, "equilibrium"):
-            result = not hasattr(other, "equilibrium")
+            return not hasattr(other, "equilibrium")
         elif not hasattr(other, "equilibrium"):
-            result = False
+            return False
         else:
-            result = self.equilibrium == other.equilibrium
-        result = result and are_equal(self.default_R, other.default_R)
-        result = result and are_equal(self.default_z, other.default_z)
-        result = result and are_equal(self.default_x1, other.default_x1)
-        result = result and are_equal(self.default_x2, other.default_x2)
-        result = result and are_equal(self.default_t, other.default_t)
-        return result
+            return self.equilibrium == other.equilibrium
 
     @abstractmethod
     def __eq__(self, other: object) -> bool:
@@ -347,22 +221,13 @@ class CoordinateTransform(ABC):
         )
 
     def distance(
-        self,
-        direction: str,
-        x1: Optional[LabeledArray] = None,
-        x2: Optional[LabeledArray] = None,
-        t: Optional[LabeledArray] = None,
-    ) -> Tuple[LabeledArray, LabeledArray]:
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+    ) -> LabeledArray:
         """Give the distance (in physical space) from the origin along the
         specified direction.
 
         This is useful for when taking spatial integrals and differentials in
         that direction.
-
-        If an arguments is not provided then return the master
-        distancees on the default grid for that dimension. This grid is
-        implementation-defined, but should be the one which will be
-        most commonly used to allow for caching.
 
         Note that distance is calculated using Euclidean lines between
         points. As such, it will not be accurate for a curved axis.
@@ -371,52 +236,21 @@ class CoordinateTransform(ABC):
         ----------
         direction : str
             Which dimension to give the distance along.
-        x1 : array_like
+        x1
             The first spatial coordinate in this system.
-        x2 : array_like
+        x2
             The second spatial coordinate in this system.
-        t : array_like or None
-            The time coordinate (if there is one, otherwise ``None``)
+        t
+            The time coordinate
 
         Returns
         -------
-        distance : ndarray
+        :
            Distance from the origin in the specified direction.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
-
-        """
-        use_cached = True
-        if x1 is None:
-            x1 = self.default_x1
-        else:
-            use_cached = False
-        if x2 is None:
-            x2 = self.default_x2
-        else:
-            use_cached = False
-        if t is None:
-            t = self.default_t
-        else:
-            use_cached = False
-        if use_cached:
-            if direction not in self.default_distance:
-                self.default_distance[direction] = self._distance(direction, x1, x2, t)
-            return self.default_distance[direction]
-        else:
-            return self._distance(direction, x1, x2, t)
-
-    def _distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
-    ) -> Tuple[LabeledArray, LabeledArray]:
-        """Implementation of calculation of physical distances between points
-        in this coordinate system, without caching or default argument
-        values.
 
         """
         R, z, t = cast(
-            Tuple[DataArray, DataArray, LabeledArray], self._convert_to_Rz(x1, x2, t)
+            Tuple[DataArray, DataArray, LabeledArray], self.convert_to_Rz(x1, x2, t)
         )
         if isinstance(R, (int, float)) or isinstance(z, (int, float)):
             raise ValueError("Arguments x1 and x2 must be xarray DataArray objects.")
@@ -425,7 +259,7 @@ class CoordinateTransform(ABC):
         spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2)
         result = zeros_like(R.broadcast_like(z))
         result[slc2] = spacings.cumsum(direction)
-        return result, t
+        return result
 
     def encode(self) -> str:
         """Returns a JSON representation of this object. Should be sufficient

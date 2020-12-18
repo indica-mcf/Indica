@@ -2,11 +2,8 @@
 
 from unittest.mock import MagicMock
 
-from hypothesis import assume
 from hypothesis import given
-from hypothesis import settings
 from hypothesis.strategies import composite
-from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import lists
 from hypothesis.strategies import one_of
@@ -14,21 +11,14 @@ from hypothesis.strategies import tuples
 import numpy as np
 from pytest import approx
 from pytest import mark
-from pytest import raises
 
 from indica.converters import CoordinateTransform
-from indica.converters import EquilibriumException
-from indica.converters import MagneticCoordinates
-from indica.converters import TransectCoordinates
-from indica.converters import TrivialTransform
 from .test_flux_surfaces import flux_coordinates
 from .test_magnetic import magnetic_coordinates
 from .test_transect import transect_coordinates
 from .test_trivial import trivial_transforms
-from ..fake_equilibrium import fake_equilibria
 from ..strategies import arbitrary_coordinates
 from ..strategies import domains
-from ..strategies import sane_floats
 
 
 @composite
@@ -72,33 +62,6 @@ def coordinate_transforms(
 def equilibria(draw):
     """Generates equilibrium objects. At present it just returns a mock."""
     return draw(just(MagicMock()))
-
-
-@given(coordinate_transforms(min_side=2, min_dims=2), integers(1, 1000))
-def test_transform_defaults(transform, attempts):
-    """Test calling with default arguments always returns same objects"""
-    expected_R, expected_z, expected_t1 = transform.convert_to_Rz()
-    expected_x1, expected_x2, expected_t2 = transform.convert_from_Rz()
-    expected_d1, expected_t3 = transform.distance(1)
-    expected_d2, expected_t4 = transform.distance(2)
-    for i in range(attempts):
-        R, z, t = transform.convert_to_Rz()
-        assert R is expected_R
-        assert z is expected_z
-        assert t is expected_t1
-        x1, x2, t = transform.convert_from_Rz()
-        assert x1 is expected_x1
-        assert x2 is expected_x2
-        assert t is expected_t2
-        d1, t = transform.distance(1)
-        assert d1 is expected_d1
-        assert t is expected_t3
-        # Transect coordinates always have 1-D default values, so can't
-        # get distance in the second spatial dimension
-        if not isinstance(transform, (TransectCoordinates, MagneticCoordinates)):
-            d2, t = transform.distance(2)
-            assert d2 is expected_d2
-            assert t is expected_t4
 
 
 @mark.skip(reason="Difficult to test for this in a general way")
@@ -197,42 +160,3 @@ def test_transforms_independent(domain_transforms, normalised_coords):
     assert np.all(coords[0] == approx(expected[0], abs=1e-5, rel=1e-5))
     assert np.all(coords[1] == approx(expected[1], abs=1e-5, rel=1e-5))
     assert coords[2] is expected[2]
-
-
-@settings(report_multiple_bugs=False)
-@given(
-    coordinate_transforms(min_side=2, min_dims=2),
-    tuples(sane_floats(), sane_floats()).flatmap(lambda t: fake_equilibria(*t)),
-)
-def test_transform_change_equilibrium(transform, equilibrium):
-    """Test setting a new equilibrium is handled properly"""
-    assume(equilibrium != transform.equilibrium)
-    expected_R, expected_z, expected_t1 = transform.convert_to_Rz()
-    expected_x1, expected_x2, expected_t2 = transform.convert_from_Rz()
-    expected_d1, expected_t3 = transform.distance(1)
-    expected_d2, expected_t4 = transform.distance(2)
-    with raises(EquilibriumException):
-        transform.set_equilibrium(equilibrium)
-    transform.set_equilibrium(equilibrium, force=True)
-    transform.set_equilibrium(equilibrium)
-    # For the trivial transform, the default result is the same as the
-    # default grids. As the latter doesn't change when overriding the
-    # equilibrium, neither will the results.
-    if not isinstance(transform, TrivialTransform):
-        R, z, t = transform.convert_to_Rz()
-        assert R is not expected_R
-        assert z is not expected_z
-        assert t is not expected_t1
-        x1, x2, t = transform.convert_from_Rz()
-        assert x1 is not expected_x1
-        assert x2 is not expected_x2
-        assert t is not expected_t2
-    d1, t = transform.distance(1)
-    assert d1 is not expected_d1
-    assert t is not expected_t3
-    # Transect coordinates always have 1-D default values, so can't
-    # get distance in the second spatial dimension
-    if not isinstance(transform, (TransectCoordinates, MagneticCoordinates)):
-        d2, t = transform.distance(2)
-        assert d2 is not expected_d2
-        assert t is not expected_t4

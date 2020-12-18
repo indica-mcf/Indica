@@ -28,6 +28,9 @@ class ImpactParameterCoordinates(CoordinateTransform):
     flux_surfaces
         The flux surface coordinate system from which flux values will be used
         for the impact parameters.
+    num_intervals
+        The number of points along the line of sight at which to evaulate the
+        flux surface value.
     """
 
     _CONVERSION_METHODS: Dict[str, str] = {"LinesOfSightTransform": "_convert_to_los"}
@@ -39,6 +42,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         self,
         lines_of_sight: LinesOfSightTransform,
         flux_surfaces: FluxSurfaceCoordinates,
+        num_intervals: int = 100,
     ):
         # TODO: Set up proper defaults
         self.lines_of_sight = lines_of_sight
@@ -57,13 +61,17 @@ class ImpactParameterCoordinates(CoordinateTransform):
             )
         rmag = self.equilibrium.rmag
         zmag = self.equilibrium.zmag
-        R, z, _ = cast(
-            Tuple[DataArray, DataArray, DataArray], lines_of_sight.convert_to_Rz()
+        R, z = cast(
+            Tuple[DataArray, DataArray],
+            lines_of_sight.convert_to_Rz(
+                DataArray(np.arange(len(lines_of_sight.R_start)), dims="index"),
+                DataArray(np.linspace(0.0, 1.0, num_intervals + 1), dims="x2"),
+                0.0,
+            ),
         )
-        rho, _, t = cast(
-            Tuple[DataArray, DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z)
-        )
+        rho, _ = cast(Tuple[DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z))
         rho = where(rho < 0, float("nan"), rho)
+        t = rho.coords["t"]
         loc = rho.argmin("x2")
         theta = np.arctan2(
             z.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[1]),
@@ -74,13 +82,6 @@ class ImpactParameterCoordinates(CoordinateTransform):
         else:
             sign = where(z.isel(x2=loc) < zmag.interp(t=t, method="nearest"), -1, 1)
         self.rho_min = sign * rho.isel(x2=loc)
-        super().__init__(
-            self.rho_min,
-            lines_of_sight.default_x2,
-            lines_of_sight.default_R,
-            lines_of_sight.default_z,
-            lines_of_sight.default_t,
-        )
 
     def _convert_to_los(
         self, min_rho: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -103,9 +104,6 @@ class ImpactParameterCoordinates(CoordinateTransform):
             to.
         theta
             Position along the line of sight.
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
         return (
@@ -113,7 +111,6 @@ class ImpactParameterCoordinates(CoordinateTransform):
                 min_rho, "index", method="linear"
             ),
             x2,
-            t,
         )
 
     def _convert_from_los(
@@ -136,9 +133,6 @@ class ImpactParameterCoordinates(CoordinateTransform):
             Lowest flux surface value the line of sight touches.
         x2
             Position along the line of sight.
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
         return (
@@ -146,10 +140,9 @@ class ImpactParameterCoordinates(CoordinateTransform):
                 index=x1, method="cubic"
             ),
             x2,
-            t,
         )
 
-    def _convert_to_Rz(
+    def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
@@ -169,15 +162,12 @@ class ImpactParameterCoordinates(CoordinateTransform):
             Major radius coordinate
         z
             Height coordinate
-        t
-            Time coordinate (if one passed as an argument, then is just a
-            pointer to that)
 
         """
-        index, position, t = self._convert_to_los(x1, x2, t)
-        return self.lines_of_sight._convert_to_Rz(index, position, t)
+        index, position = self._convert_to_los(x1, x2, t)
+        return self.lines_of_sight.convert_to_Rz(index, position, t)
 
-    def _convert_from_Rz(
+    def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
@@ -189,7 +179,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         z
             Height coordinate
         t
-            Time coordinate)
+            Time coordinate
 
         Returns
         -------
@@ -197,24 +187,21 @@ class ImpactParameterCoordinates(CoordinateTransform):
             The first spatial coordinate in this system.
         x2
             The second spatial coordinate in this system.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
 
         """
-        x1, x2, t = self.lines_of_sight.convert_from_Rz(R, z, t)
+        x1, x2 = self.lines_of_sight.convert_from_Rz(R, z, t)
         return self._convert_from_los(x1, x2, t)
 
-    def _distance(
+    def distance(
         self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
-    ) -> Tuple[LabeledArray, LabeledArray]:
+    ) -> LabeledArray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
         lines.
 
         """
-        return self.lines_of_sight._distance(
-            direction, *self._convert_to_los(x1, x2, t)
+        return self.lines_of_sight.distance(
+            direction, *self._convert_to_los(x1, x2, t), t
         )
 
     def drho(self) -> float:
