@@ -131,13 +131,14 @@ def parallel_impact_parameter_coordinates(
         position = DataArray(
             position_coord * ones, dims=trial_data.dims, coords=trial_data.coords
         )
-        return los, position, t
+        return los, position
 
-    los_transform._convert_from_Rz = Mock(side_effect=mock_Rz_to_los)
+    los_transform.convert_from_Rz = Mock(side_effect=mock_Rz_to_los)
     flux_transform = draw(flux_coordinates(domain, min_side))
     los_transform.set_equilibrium(flux_transform.equilibrium, force=True)
+    n = len(z_vals) if vertical else len(R_vals)
     return (
-        ImpactParameterCoordinates(los_transform, flux_transform),
+        ImpactParameterCoordinates(los_transform, flux_transform, n - 1),
         vertical,
         R_vals,
         z_vals,
@@ -189,22 +190,27 @@ pytestmark = mark.filterwarnings(
 def test_parallel_from_Rz(transform_data, coords):
     transform, vertical, Rvals, zvals = transform_data
     R, z, t = coords
-    rhomin, position, tnew = transform.convert_from_Rz(*coords)
-    los, position2, _ = transform.lines_of_sight.convert_from_Rz(*coords)
+    rhomin, position = transform.convert_from_Rz(*coords)
+    los, position2 = transform.lines_of_sight.convert_from_Rz(*coords)
     assert np.all(position == position2)
     Rmag = transform.equilibrium.rmag.interp(t=t, method="nearest")
     zmag = transform.equilibrium.zmag.interp(t=t, method="nearest")
     # Catch any cases where round-off-error means LOS > number of
     # lines available
     # los = where(los > nlos - 1, nlos - 1, los)
-    new_R, new_z, _ = transform.lines_of_sight.convert_to_Rz(los, position2, t)
+
+    # lines_of_sight.convert_from_Rz is mocked, so need to figure out
+    # what actual R, z coordinates would be for the results it
+    # returns.
+    new_R, new_z = transform.lines_of_sight.convert_to_Rz(los, position2, t)
+    tnearest = transform.rho_min.coords["t"].sel(t=t, method="nearest")
     if vertical:
         # This transform isn't reliable near the magnetic axis, so
         # don't run the test there
         assume(np.all(not_near_magnetic_axis("R", new_R, Rvals, Rmag)))
         zval_axis = zvals[np.abs(zvals - zmag).argmin("z")]
         rho_expected, _, _ = transform.equilibrium.flux_coords(
-            new_R, zval_axis, t, transform.flux_surfaces.flux_kind
+            new_R, zval_axis, tnearest, transform.flux_surfaces.flux_kind
         )
         rho_expected = where(new_R < Rmag, -rho_expected, rho_expected)
     else:
@@ -213,13 +219,12 @@ def test_parallel_from_Rz(transform_data, coords):
         assume(np.all(not_near_magnetic_axis("z", new_z, zvals, zmag)))
         Rval_axis = Rvals[np.abs(Rvals - Rmag).argmin("R")]
         rho_expected, _, _ = transform.equilibrium.flux_coords(
-            Rval_axis, new_z, t, transform.flux_surfaces.flux_kind
+            Rval_axis, new_z, tnearest, transform.flux_surfaces.flux_kind
         )
         rho_expected = where(new_z < zmag, -rho_expected, rho_expected)
     assert_allclose(
         rho_expected, rhomin.transpose(*rho_expected.dims), rtol=1e-4, atol=1e-1
     )
-    assert t is tnew
 
 
 @given(
@@ -262,8 +267,7 @@ def test_parallel_to_Rz(transform_data, coords):
     impact_max = transform.rho_min.interp(t=t, method="nearest").max(reduction_dims)
     rho = where(rho < impact_min, impact_min, rho)
     rho = where(rho > impact_max, impact_max, rho)
-    Rnew, znew, tnew = transform.convert_to_Rz(rho, positions, t)
+    Rnew, znew = transform.convert_to_Rz(rho, positions, t)
     R, z, _ = broadcast(R, z, t)
     assert_allclose(R, Rnew.transpose(*R.dims), atol=7e-2)
     assert_allclose(z, znew.transpose(*z.dims), atol=7e-2)
-    assert t is tnew

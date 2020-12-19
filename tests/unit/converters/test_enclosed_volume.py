@@ -3,7 +3,6 @@
 from unittest.mock import Mock
 
 from hypothesis import given
-from hypothesis import settings
 from hypothesis.strategies import composite
 import numpy as np
 from xarray.testing import assert_allclose
@@ -30,7 +29,6 @@ def enclosed_volume_coordinates(draw, min_side=1, min_dims=0):
     return EnclosedVolumeCoordinates(draw(flux_coordinates(min_side, min_dims)))
 
 
-@settings(report_multiple_bugs=False)
 @given(
     flux_coordinates(),
     arbitrary_coordinates((0.0, 0.0, 0.0), (1.0, 2 * np.pi, 1e3), xarray=True),
@@ -41,12 +39,11 @@ def test_convert_to_Rz(flux_transform, coords):
     vol, t = flux_transform.equilibrium.enclosed_volume(
         rho, t, flux_transform.flux_kind
     )
-    R_expected, z_expected, t_expected = flux_transform.convert_to_Rz(*coords)
+    R_expected, z_expected = flux_transform.convert_to_Rz(*coords)
     transform = EnclosedVolumeCoordinates(flux_transform)
-    R, z, t = transform.convert_to_Rz(vol, coords[1], t)
+    R, z = transform.convert_to_Rz(vol, coords[1], t)
     assert_allclose(R, R_expected)
     assert_allclose(z, z_expected)
-    assert t is t_expected
 
 
 @given(
@@ -62,11 +59,10 @@ def test_convert_from_Rz(flux_transform, coords, flux_coords, expected_coords):
     equilib.flux_coords.return_value = flux_coords
     equilib.enclosed_volume.return_value = (expected_coords[0], expected_coords[2])
     transform = EnclosedVolumeCoordinates(flux_transform)
-    vol, theta, t = transform.convert_from_Rz(*coords)
+    vol, theta = transform.convert_from_Rz(*coords)
     equilib.flux_coords.assert_called_with(*coords, flux_transform.flux_kind)
     equilib.enclosed_volume.assert_called_with(
-        flux_coords[0], flux_coords[2], flux_transform.flux_kind
+        flux_coords[0], coords[2], flux_transform.flux_kind
     )
     assert vol is expected_coords[0]
     assert theta is flux_coords[1]
-    assert t is expected_coords[2]

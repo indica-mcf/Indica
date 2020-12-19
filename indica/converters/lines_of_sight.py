@@ -158,7 +158,7 @@ class LinesOfSightTransform(CoordinateTransform):
             ]
 
         def forward(x):
-            R_prime, z_prime, _ = self._convert_to_Rz(x[0], x[1], 0)
+            R_prime, z_prime, _ = self.convert_to_Rz(x[0], x[1], 0)
             return [R_prime - R, z_prime - z]
 
         @np.vectorize

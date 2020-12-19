@@ -145,7 +145,7 @@ def dropped_channels(draw, size, max_dropped=0.1):
 def data_arrays_from_coords(
     draw,
     data_type=(None, None),
-    coordinates=TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0),
+    coordinates=TrivialTransform(),
     data=separable_functions(
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
@@ -530,7 +530,7 @@ def equilibrium_data(
     z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
     raw_result = {}
     attrs = {
-        "transform": TrivialTransform(0.0, 0.0, 0.0, 0.0, 0.0),
+        "transform": TrivialTransform(),
         "provenance": MagicMock(),
         "partial_provenance": MagicMock(),
     }

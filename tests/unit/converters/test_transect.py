@@ -81,7 +81,7 @@ def test_transect_zero(params, position, time):
     transform = TransectCoordinates(Rvals, zvals)
     R = Rvals[0] + position * (Rvals[-1] - Rvals[0])
     z = zvals[0] + position * (zvals[-1] - zvals[0])
-    i, zprime, t = transform.convert_from_Rz(R, z, time)
+    i, zprime = transform.convert_from_Rz(R, z, time)
     tol = max(1e-20 / position, 1e-10) if position != 0.0 else 1e-10
     assert zprime == approx(0.0, abs=tol)
 
@@ -97,7 +97,7 @@ def test_transect_returns_indices(params, position, z_offset, time):
     Rvals, zvals = params
     transform = TransectCoordinates(Rvals, zvals)
     index = int(position * (len(Rvals) - 1))
-    i, z, t = transform.convert_from_Rz(Rvals[index], zvals[index] + z_offset, time)
+    i, z = transform.convert_from_Rz(Rvals[index], zvals[index] + z_offset, time)
     assert i == approx(index)
     assert z == approx(z_offset)
 
@@ -114,7 +114,7 @@ def test_transect_returns_Rz(params, position, z_offset, time):
     transform = TransectCoordinates(Rvals, zvals)
     i = position * (len(Rvals) - 1)
     index = int(i)
-    R, z, t = transform.convert_to_Rz(i, z_offset, time)
+    R, z = transform.convert_to_Rz(i, z_offset, time)
     if Rvals[-1] > Rvals[0]:
         assert R <= Rvals[index + 1]
         assert Rvals[index] <= R

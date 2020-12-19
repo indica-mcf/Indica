@@ -13,6 +13,7 @@ from .abstractconverter import CoordinateTransform
 from .flux_surfaces import FluxSurfaceCoordinates
 from .lines_of_sight import LinesOfSightTransform
 from ..numpy_typing import LabeledArray
+from ..utilities import coord_array
 
 
 class ImpactParameterCoordinates(CoordinateTransform):
@@ -64,8 +65,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
         R, z = cast(
             Tuple[DataArray, DataArray],
             lines_of_sight.convert_to_Rz(
-                DataArray(np.arange(len(lines_of_sight.R_start)), dims="index"),
-                DataArray(np.linspace(0.0, 1.0, num_intervals + 1), dims="x2"),
+                coord_array(np.arange(len(lines_of_sight.R_start)), "index"),
+                coord_array(np.linspace(0.0, 1.0, num_intervals + 1), "x2"),
                 0.0,
             ),
         )
@@ -106,6 +107,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
             Position along the line of sight.
 
         """
+        # Cubic splines aren't guaranteed to be monotonicuse linear.
+        # TODO: Find a better spline that I can ensure is monotonic
         return (
             self.rho_min.interp(t=t, method="nearest").indica.invert_interp(
                 min_rho, "index", method="linear"
@@ -135,9 +138,11 @@ class ImpactParameterCoordinates(CoordinateTransform):
             Position along the line of sight.
 
         """
+        # Cubic splines aren't guaranteed to be monotonic, so use linear
+        # TODO: Find a better spline that I can ensure is monotonic
         return (
             self.rho_min.interp(t=t, method="nearest").indica.interp2d(
-                index=x1, method="cubic"
+                index=x1, method="linear"
             ),
             x2,
         )

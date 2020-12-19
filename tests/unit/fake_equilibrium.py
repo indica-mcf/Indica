@@ -72,7 +72,7 @@ class FakeEquilibrium(Equilibrium):
         self,
         Rmag=3.0,
         zmag=0.0,
-        default_t=DataArray([0.0, 500.0], dims="t"),
+        default_t=DataArray([0.0, 5e3], dims="t"),
         Bmax=1.0,
         **kwargs
     ):

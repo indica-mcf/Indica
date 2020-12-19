@@ -18,8 +18,6 @@ from xarray import DataArray
 from xarray.testing import assert_allclose
 
 from indica.converters import LinesOfSightTransform
-from ..strategies import arbitrary_coordinates
-from ..strategies import basis_coordinates
 from ..strategies import machine_dimensions
 from ..strategies import monotonic_series
 from ..strategies import smooth_functions
@@ -133,7 +131,6 @@ def parallel_los_coordinates(
         R_stop_vals,
         z_stop_vals,
         np.zeros_like(R_stop_vals),
-        num_intervals,
         machine_dims,
     )
     transform.set_equilibrium(MagicMock())
@@ -148,7 +145,6 @@ def los_coordinates_parameters(
     max_los=10,
     min_num=2,
     max_num=10,
-    default_Rz=True,
     domain_as_dims=False,
     toroidal_skew=None,
 ):
@@ -170,9 +166,6 @@ def los_coordinates_parameters(
         The minimum number of intervals in which to divide the lines of sight
     max_num: int
         The maximum number of intervals in which to divide the lines of sight
-    default_Rz: bool
-        Whether to randomly generate default R and z grids to pass to the
-        transform constructor.
     domain_as_dims: bool
         If True, use the domain as the machine dimensions.
     toroidal_skew: Optional[bool]
@@ -185,20 +178,17 @@ def los_coordinates_parameters(
         1-D array of major radii of the start for each line-of-sight.
     z_start
         1-D array of vertical positions of the start for each line-of-sight.
+    T_start
+        1-D array of toroidal offsets of the start for each line-of-sight.
     R_end
         1-D array of major radii of the end for each line-of-sight.
     z_end
         1-D array of vertical positions of the end for each line-of-sight.
-    num_intervals
-        The number of intervals in the default grid for the second coordinate.
-        Note that there will be one more points in the grid than this.
+    T_end
+        1-D array of toroidal offsets of the end for each line-of-sight.
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in R-z space:
         ``((Rmin, Rmax), (zmin, zmax)``.
-    default_R
-        Default R-grid to use when converting from the R-z coordinate system.
-    default_z
-        Default z-grid to use when converting from the R-z coordinate system.
 
     """
     focus_R = 2.5 + draw(floats(-2.4, 7.5))
@@ -289,23 +279,6 @@ def los_coordinates_parameters(
     z_start = focus_z + start_distance * np.sin(angles)
     R_stop = focus_R + (start_distance + lengths) * np.cos(angles)
     z_stop = focus_z + (start_distance + lengths) * np.sin(angles)
-    if default_Rz:
-        default_R, default_z, _ = draw(
-            basis_coordinates(
-                (
-                    machine_dims[0][0],
-                    machine_dims[1][0],
-                    domain[2][0] if domain else None,
-                ),
-                (
-                    machine_dims[0][1],
-                    machine_dims[1][1],
-                    domain[2][1] if domain else None,
-                ),
-            )
-        )
-    else:
-        default_R, default_z = None, None
     if toroidal_skew is None:
         toroidal_skew = draw(booleans())
     T_start = np.zeros_like(R_start)
@@ -321,10 +294,7 @@ def los_coordinates_parameters(
         R_stop,
         z_stop,
         T_stop,
-        draw(integers(min_num, max_num)),
         machine_dims,
-        default_R,
-        default_z,
     )
 
 
@@ -336,7 +306,6 @@ def los_coordinates(
     max_los=10,
     min_num=2,
     max_num=10,
-    default_Rz=True,
     domain_as_dims=False,
     toroidal_skew=None,
 ):
@@ -360,9 +329,6 @@ def los_coordinates(
         The minimum number of intervals in which to divide the lines of sight
     max_num: int
         The maximum number of intervals in which to divide the lines of sight
-    default_Rz: bool
-        Whether to randomly generate default R and z grids to pass to the
-        transform constructor.
     domain_as_dims: bool
         If True, use the domain as the machine dimensions.
     toroidal_skew: Optional[bool]
@@ -386,7 +352,6 @@ def los_coordinates(
                 max_los,
                 min_num,
                 max_num,
-                default_Rz,
                 domain_as_dims,
                 toroidal_skew,
             )
@@ -409,7 +374,7 @@ pytestmark = mark.filterwarnings(
 @given(
     parallel_los_coordinates(),
     floats(0.0, 1.0, exclude_max=True),
-    floats(0.0, 1.0),
+    floats(0.0, 1.0, exclude_max=True),
     floats(),
 )
 def test_parallel_los_to_Rz(coords, position1, position2, time):
@@ -422,7 +387,7 @@ def test_parallel_los_to_Rz(coords, position1, position2, time):
         i = position1 * (len(zvals) - 1)
         perp_index = int(position2 * (len(Rvals) - 1))
     los_index = int(i)
-    R, z, t = transform.convert_to_Rz(i, position2, time)
+    R, z = transform.convert_to_Rz(i, position2, time)
     R_index = los_index if vertical else perp_index
     if Rvals[-1] > Rvals[0]:
         assert R - Rvals[R_index + 1] <= 1e-5
@@ -447,7 +412,7 @@ def test_parallel_los_from_Rz(coords, time):
     """Checks R,z points along linse of sight have correct channel number."""
     transform, vertical, Rvals, zvals = coords
     for (i, R), (j, z) in product(enumerate(Rvals), enumerate(zvals)):
-        ch, pos, t = transform.convert_from_Rz(R, z, time)
+        ch, pos = transform.convert_from_Rz(R, z, time)
         if vertical:
             assert ch == approx(i, abs=1e-5, rel=1e-2)
             assert pos == approx(
@@ -469,8 +434,9 @@ def test_parallel_los_from_Rz(coords, time):
 )
 def test_los_uniform_distances(transform, start, end, steps, time):
     """Test distances are uniform along lines of sight"""
+    lines = DataArray(np.arange(len(transform.R_start)), dims="index")
     samples = DataArray(np.linspace(start, end, steps), dims="x2")
-    distance, t = transform.distance("x2", x2=samples, t=time)
+    distance = transform.distance("x2", lines, samples, time)
     assert np.all(
         np.isclose(
             distance.sel(index=slice(1, None)), distance.sel(index=0), 1e-6, 1e-12
@@ -489,8 +455,9 @@ def test_los_distances(transform, npoints, time):
         ),
         dims="index",
     )
+    lines = DataArray(np.arange(len(transform.R_start)), dims="index")
     samples = DataArray(np.linspace(0.0, 1.0, npoints), dims="x2")
-    distance, t = transform.distance("x2", x2=samples, t=time)
+    distance = transform.distance("x2", lines, samples, time)
     assert_allclose(distance, lengths * samples)
 
 
@@ -498,19 +465,7 @@ def test_los_distances(transform, npoints, time):
 def test_los_end_points(parameters, time):
     """Test end of all lines fall on edge or outside of reactor dimensions"""
     transform = LinesOfSightTransform(*parameters)
-    dims = parameters[7]
-    R, z, t = transform.convert_to_Rz(x2=1.0, t=time)
+    lines = DataArray(np.arange(len(transform.R_start)), dims="index")
+    dims = parameters[6]
+    R, z = transform.convert_to_Rz(lines, 1.0, time)
     assert np.all(np.logical_not(inside_machine((R, z), dims, False)))
-
-
-@given(los_coordinates_parameters(), arbitrary_coordinates(xarray=True))
-@mark.xfail(reason="Conversion from R-z is not reliably implemented.")
-@mark.skip("Takes too long to run.")
-def test_los_default_Rz(parameters, Rz_defaults):
-    """Test expected defaults are used in transforms for R and z"""
-    R_default, z_default, _ = Rz_defaults
-    transform = LinesOfSightTransform(*parameters[:-2], R_default, z_default)
-    x1, x2, t = transform.convert_from_Rz(R_default, z_default)
-    x1_default, x2_deafult, t = transform.convert_from_Rz()
-    assert x1.equals(x1_default)
-    assert x2.equals(x2_deafult)
