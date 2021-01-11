@@ -7,6 +7,7 @@ from hypothesis import given
 from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
+from hypothesis.strategies import integers
 import numpy as np
 from numpy.testing import assert_allclose
 from pytest import mark
@@ -30,7 +31,7 @@ def impact_parameter_coordinates(
     max_los=15,
     min_num=5,
     max_num=15,
-    default_Rz=True,
+    name=None,
 ):
     """Generates :py:class:`indica.converters.ImpactParameterCoordinates`
     objects with lines of sight radiation from a point. At present
@@ -54,6 +55,8 @@ def impact_parameter_coordinates(
         The minimum number of intervals in which to divide the lines of sight
     max_num: int
         The maximum number of intervals in which to divide the lines of sight
+    name: Optional[str]
+        The name of the instrument these lines of sight are for.
 
     Returns
     -------
@@ -61,12 +64,12 @@ def impact_parameter_coordinates(
         The coordinate transform object.
 
     """
-    los_transform = los_coordinates(
-        domain[0:2], min_los, max_los, min_num, max_num, default_Rz
-    )
+    los_transform = los_coordinates(domain[0:2], min_los, max_los, name=name)
     flux_transform = flux_coordinates(domain, min_side)
     los_transform.set_equilibrium(flux_transform.equilibrium, force=True)
-    return ImpactParameterCoordinates(los_transform, flux_transform)
+    return ImpactParameterCoordinates(
+        los_transform, flux_transform, draw(integers(min_num, max_num))
+    )
 
 
 @composite

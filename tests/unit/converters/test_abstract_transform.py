@@ -14,11 +14,53 @@ from pytest import mark
 
 from indica.converters import CoordinateTransform
 from .test_flux_surfaces import flux_coordinates
+from .test_flux_surfaces import flux_coordinates_and_axes
 from .test_magnetic import magnetic_coordinates
+from .test_magnetic import magnetic_coordinates_and_axes
 from .test_transect import transect_coordinates
+from .test_transect import transect_coordinates_and_axes
 from .test_trivial import trivial_transforms
+from .test_trivial import trivial_transforms_and_axes
 from ..strategies import arbitrary_coordinates
 from ..strategies import domains
+
+
+@composite
+def coordinate_transforms_and_axes(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1, min_dims=0
+):
+    """Strategy for generating abritrary
+    :py:class:`indica.converters.CoordinateTransform` objects and a
+    set of x1, x2, and t axes to go with them. They should already
+    have had an equilibrium object set.
+
+    Reduces towards simpler coordinate systems.
+
+    Parameters
+    ----------
+    domain : Tuple[Tuple[float, float], Tuple[float, float], Tuple[float, float]]
+        A region in the native coordinate system over which the transform is
+        guarnateed to return non-NaN results. Takes form
+        ``((x1_start, x1_stop), (x2_start, x2_stop), (t_start, t_stop))``.
+    min_side : integer
+        The minimum number of elements in an unaligned dimension for the
+        default coordinate arrays. (Not available for all coordinate systems.)
+    min_dims : integer
+        The minimum number of dimensions for the default coordinate arrays.
+        (Not available for all coordinate systems.)
+
+    """
+    return draw(
+        one_of(
+            [
+                trivial_transforms_and_axes(domain, min_side=min_side),
+                transect_coordinates_and_axes(domain),
+                magnetic_coordinates_and_axes(domain),
+                flux_coordinates_and_axes(domain, min_side=min_side),
+                # los_coordinates_and_axes(domain),
+            ]
+        )
+    )
 
 
 @composite
@@ -51,8 +93,8 @@ def coordinate_transforms(
                 trivial_transforms(domain, min_side=min_side),
                 transect_coordinates(domain),
                 magnetic_coordinates(domain),
-                flux_coordinates(domain, min_side=min_side),
-                #                los_coordinates(domain),
+                flux_coordinates(domain),
+                # los_coordinates(domain),
             ]
         )
     )

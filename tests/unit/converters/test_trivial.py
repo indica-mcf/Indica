@@ -6,7 +6,9 @@ from hypothesis import given
 from hypothesis.strategies import composite
 
 from indica.converters import TrivialTransform
+from indica.utilities import coord_array
 from ..strategies import arbitrary_coordinates
+from ..strategies import basis_coordinates
 
 
 @composite
@@ -14,6 +16,21 @@ def trivial_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
     result = TrivialTransform()
     result.set_equilibrium(MagicMock())
     return result
+
+
+@composite
+def trivial_transforms_and_axes(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=2
+):
+    transform = draw(trivial_transforms(domain))
+    min_vals, max_vals = zip(*domain)
+    x1, x2, t = draw(basis_coordinates(min_vals, max_vals, min_side))
+    return (
+        transform,
+        coord_array(x1, transform.x1_name),
+        coord_array(x2, transform.x2_name),
+        coord_array(t, "t"),
+    )
 
 
 @given(trivial_transforms(), arbitrary_coordinates())

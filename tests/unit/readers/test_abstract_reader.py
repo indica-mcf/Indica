@@ -26,13 +26,12 @@ import prov.model as prov
 from pytest import approx
 from pytest import mark
 
-from indica.converters import LinesOfSightTransform
 from indica.datatypes import ELEMENTS
 from .mock_reader import ConcreteReader
 from .mock_reader import MockReader
 from ..converters.test_lines_of_sight import los_coordinates
 from ..converters.test_magnetic import magnetic_coordinates
-from ..converters.test_transect import transect_coordinates
+from ..converters.test_transect import transect_coordinates_and_axes
 from ..data_strategies import array_dictionaries
 from ..data_strategies import data_arrays
 from ..data_strategies import equilibrium_data
@@ -43,8 +42,6 @@ tstarts = floats(0.0, 1000.0)
 tends = floats(0.0, 1000.0).map(lambda x: 1000.0 - x)
 times = tuples(tstarts, tends).map(sorted)
 max_freqs = floats(1e-3, 10.0).map(lambda x: 1 / x)
-
-los_intervals = 10
 
 
 @composite
@@ -64,16 +61,20 @@ def dicts_with(draw, *options, min_size=1, max_size=None):
 
 @composite
 def expected_data(
-    draw, coordinate_transform, *options, unique_transforms=False, override_x2=None
+    draw,
+    coordinate_transform_and_axes,
+    *options,
+    unique_transforms=False,
+    override_x2=None
 ):
     """Strategy to produce a dictionary of DataArrays of the type that
     could be returned by a read operation.
 
     Parameters
     ----------
-    coordinate_transform : CoordinateTransform strategy
+    coordinate_transform_and_axes : strategy
         Strategy to generate the coordinate transform object describing these
-        data.
+        data and the axes for the x1, x2, and t dimensions.
     options : Tuple[str, Tuple[str, str]]
         Tuples describing possibly quantities to be produced. Follows format
         ``(quantity_name, (general_datatype, specific_datatype))``.
@@ -89,9 +90,11 @@ def expected_data(
     n = draw(integers(2, 20))
     time = np.expand_dims(np.linspace(start, stop, n), (1, 2))
     if not unique_transforms:
-        return draw(
+        transform, x1, x2, t = draw(coordinate_transform_and_axes)
+        result = draw(
             array_dictionaries(
-                draw(coordinate_transform),
+                transform,
+                (x1, x2, t),
                 dict(options),
                 override_coords=[None, override_x2, time],
             )
@@ -103,11 +106,14 @@ def expected_data(
             result[key] = draw(
                 data_arrays(
                     datatype,
-                    coordinate_transform,
+                    coordinate_transform_and_axes,
                     override_coords=[None, override_x2, time],
                 )
             )
-        return result
+    for array in result.values():
+        if hasattr(result[key].attrs["transform"], "equilibrium"):
+            del result[key].attrs["transform"].equilibrium
+    return result
 
 
 def find_dropped_channels(array, dimension):
@@ -252,58 +258,30 @@ def assert_called_with(mock, *expected_args, **expected_kwargs):
     assert _check_calls_equivalent(mock.call_args, (expected_args, expected_kwargs))
 
 
-def finish_fake_array(array, instrument, quantity, coord_name1=None, coord_name2=None):
-    """Modify the provided data array (in place) to use appropriate names."""
-    array.name = instrument + "_" + quantity
-    newdims = {}
-    if "x1" in array.dims:
-        newdims["x1"] = coord_name1 if coord_name1 else instrument + "_coord"
-    if "x2" in array.dims:
-        newdims["x2"] = coord_name2 if coord_name2 else instrument + "_coord2"
-    if len(newdims) > 0:
-        array = array.rename(newdims)
-    if "error" in array.attrs:
-        array.attrs["error"] = array.attrs["error"].rename(newdims)
-    if "dropped" in array.attrs:
-        array.attrs["dropped"] = array.attrs["dropped"].rename(newdims)
-        if "error" in array.attrs:
-            array.attrs["dropped"].attrs["error"] = (
-                array.attrs["dropped"].attrs["error"].rename(newdims)
-            )
-    if hasattr(array.attrs["transform"], "equilibrium"):
-        del array.attrs["transform"].equilibrium
-    return array
-
-
 # Ignore warnings when an empty array
 pytestmark = mark.filterwarnings("ignore:Mean of empty slice")
 
 
 @given(
-    expected_data(
-        transect_coordinates(),
-        ("ne", ("number_density", "electrons")),
-        ("te", ("temperature", "electrons")),
+    text().flatmap(
+        lambda instrument: tuples(
+            expected_data(
+                transect_coordinates_and_axes(coord_name=instrument + "_coord"),
+                ("ne", ("number_density", "electrons")),
+                ("te", ("temperature", "electrons")),
+            ),
+            just(instrument),
+        )
     ),
-    text(),
     text(),
     integers(),
     times,
     max_freqs,
 )
-def test_thomson_scattering(data, uid, instrument, revision, time_range, max_freq):
+def test_thomson_scattering(data_instrument, uid, revision, time_range, max_freq):
     """Test the get_thomson_scattering method correctly combines and processes
     raw data."""
-    for key, val in data.items():
-        data[key] = finish_fake_array(val, instrument, key)
-        transform = data[key].attrs["transform"]
-        old_dim = transform.default_R.dims[0]
-        transform.default_R = transform.default_R.rename(
-            {old_dim: instrument + "_coord"}
-        )
-        transform.default_z = transform.default_z.rename(
-            {old_dim: instrument + "_coord"}
-        )
+    data, instrument = data_instrument
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
@@ -326,25 +304,26 @@ def test_thomson_scattering(data, uid, instrument, revision, time_range, max_fre
 
 
 @given(
-    sampled_from(sorted(ELEMENTS)).flatmap(
-        lambda x: expected_data(
-            transect_coordinates(),
-            ("angf", ("angular_freq", x)),
-            ("conc", ("concentration", x)),
-            ("ti", ("temperature", x)),
+    tuples(sampled_from(sorted(ELEMENTS)), text()).flatmap(
+        lambda x, instrument: tuples(
+            expected_data(
+                transect_coordinates_and_axes(coord_name=instrument + "_coords"),
+                ("angf", ("angular_freq", x)),
+                ("conc", ("concentration", x)),
+                ("ti", ("temperature", x)),
+            ),
+            just(instrument),
         )
     ),
-    text(),
     text(),
     integers(),
     times,
     max_freqs,
 )
-def test_charge_exchange(data, uid, instrument, revision, time_range, max_freq):
+def test_charge_exchange(data_instrument, uid, revision, time_range, max_freq):
     """Test the get_charge_exchange method correctly combines and processes
     raw data."""
-    for key, val in data.items():
-        data[key] = finish_fake_array(val, instrument, key)
+    data, instrument = data_instrument
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_charge_exchange(next(iter(data.values())), data)
     quantities = set(data)
@@ -368,18 +347,24 @@ def test_charge_exchange(data, uid, instrument, revision, time_range, max_freq):
 
 
 @given(
-    expected_data(magnetic_coordinates(), ("te", ("temperature", "electrons")),),
-    text(),
+    text().flatmap(
+        lambda instrument: tuples(
+            expected_data(
+                magnetic_coordinates(name=instrument),
+                ("te", ("temperature", "electrons")),
+            ),
+            just(instrument),
+        )
+    ),
     text(),
     integers(),
     times,
     max_freqs,
 )
-def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_freq):
+def test_cyclotron_emissions(data_instrument, uid, revision, time_range, max_freq):
     """Test the get_cyclotron_emissions method correctly combines and processes
     raw data."""
-    for key, val in data.items():
-        data[key] = finish_fake_array(val, instrument, key)
+    data, instrument = data_instrument
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_thomson_scattering(next(iter(data.values())), data)
     quantities = set(data)
@@ -402,16 +387,15 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
 
 
 @given(
-    machine_dimensions().flatmap(
-        lambda dims: tuples(
-            just(dims),
+    tuples(text(), machine_dimensions()).flatmap(
+        lambda instrument_dims: tuples(
+            just(instrument_dims[1]),
             expected_data(
                 los_coordinates(
-                    dims,
+                    instrument_dims[1],
                     default_Rz=False,
-                    min_num=los_intervals,
-                    max_num=los_intervals,
                     domain_as_dims=True,
+                    name=instrument_dims[0],
                 ),
                 ("h", ("luminous_flux", "sxr")),
                 ("t", ("luminous_flux", "sxr")),
@@ -419,25 +403,20 @@ def test_cyclotron_emissions(data, uid, instrument, revision, time_range, max_fr
                 unique_transforms=True,
                 override_x2=0.0,
             ),
+            just(instrument_dims[0]),
         )
     ),
-    text(),
     text(),
     integers(),
     times,
     max_freqs,
 )
 @mark.filterwarnings("ignore:invalid.*sqrt")
-def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
+def test_sxr(dims_data_instrument, uid, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw SXR data."""
-    machine_dims, data = dims_data
-    for key, val in data.items():
-        data[key] = finish_fake_array(
-            val, instrument, key, instrument + "_" + key + "_coords"
-        )
+    machine_dims, data, instrument = dims_data_instrument
     reader = MockReader(True, True, *time_range, max_freq, machine_dims)
-    reader._los_intervals = los_intervals
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_radiation(uid, instrument, revision, quantities)
@@ -457,34 +436,29 @@ def test_sxr(dims_data, uid, instrument, revision, time_range, max_freq):
 
 
 @given(
-    machine_dimensions().flatmap(
-        lambda dims: tuples(
-            just(dims),
+    tuples(machine_dimensions(), text()).flatmap(
+        lambda dims_instrument: tuples(
+            just(dims_instrument[0]),
             expected_data(
-                los_coordinates(dims, default_Rz=False),
+                los_coordinates(
+                    dims_instrument[0], default_Rz=False, name=dims_instrument[1]
+                ),
                 ("kb5h", ("luminous_flux", "bolometric")),
                 ("kb5v", ("luminous_flux", "bolometric")),
                 unique_transforms=True,
             ),
+            just(dims_instrument[1]),
         )
     ),
-    text(),
     text(),
     integers(),
     times,
     max_freqs,
 )
-def test_bolometry(dims_data, uid, instrument, revision, time_range, max_freq):
+def test_bolometry(dims_data_instrument, uid, revision, time_range, max_freq):
     """Test the get_radiation method correctly combines and processes
     raw bolometry data."""
-    machine_dims, data = dims_data
-    los_intervals = 10
-    for key, val in data.items():
-        t = val.attrs["transform"]
-        val.attrs["transform"] = LinesOfSightTransform(
-            t.R_start, t.z_start, t.T_start, t.R_end, t.z_end, t.T_end, los_intervals
-        )
-        data[key] = finish_fake_array(val, instrument, key)
+    machine_dims, data, instrument = dims_data_instrument
     reader = MockReader(True, True, *time_range, max_freq, machine_dims)
     reader.set_radiation(next(iter(data.values())), data)
     quantities = set(data)
@@ -505,28 +479,27 @@ def test_bolometry(dims_data, uid, instrument, revision, time_range, max_freq):
 
 
 @given(
-    machine_dimensions().flatmap(
-        lambda dims: tuples(
-            just(dims),
+    tuples(machine_dimensions(), text()).flatmap(
+        lambda dims_instrument: tuples(
+            just(dims_instrument[0]),
             expected_data(
                 los_coordinates(
-                    dims,
+                    dims_instrument[0],
                     min_los=1,
                     max_los=1,
                     default_Rz=False,
-                    min_num=los_intervals,
-                    max_num=los_intervals,
                     domain_as_dims=True,
                     toroidal_skew=False,
+                    name=dims_instrument[1],
                 ),
                 ("h", ("effective_charge", "plasma")),
                 ("v", ("effective_charge", "plasma")),
                 unique_transforms=True,
                 override_x2=0.0,
             ),
+            just(dims_instrument[1]),
         )
     ),
-    text(),
     text(),
     integers(),
     times,
@@ -534,19 +507,14 @@ def test_bolometry(dims_data, uid, instrument, revision, time_range, max_freq):
 )
 @mark.filterwarnings("ignore:divide.*double_scalars")
 def test_bremsstrahlung_spectroscopy(
-    dims_data, uid, instrument, revision, time_range, max_freq
+    dims_data_instrument, uid, revision, time_range, max_freq
 ):
     """Test the get_bremsstrahlung_spectroscopy method correctly combines
     and processes raw data.
 
     """
-    machine_dims, data = dims_data
-    for key, val in data.items():
-        data[key] = finish_fake_array(
-            val, instrument, key, instrument + "_" + key + "_coords"
-        )
+    machine_dims, data, instrument = dims_data_instrument
     reader = MockReader(True, True, *time_range, max_freq, machine_dims)
-    reader._los_intervals = los_intervals
     reader.set_bremsstrahlung_spectroscopy(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_bremsstrahlung_spectroscopy(
@@ -598,7 +566,13 @@ def test_bremsstrahlung_spectroscopy(
     max_freqs,
 )
 def test_equilibrium(
-    data, quantities, uid, calculation, revision, time_range, max_freq,
+    data,
+    quantities,
+    uid,
+    calculation,
+    revision,
+    time_range,
+    max_freq,
 ):
     """Test the get_equilibrium method correctly combines and processes raw
     data.
@@ -646,7 +620,10 @@ def get_only_record(doc, record_type):
 
 
 @given(
-    floats(), floats(), floats(), dictionaries(text(), text()),
+    floats(),
+    floats(),
+    floats(),
+    dictionaries(text(), text()),
 )
 def test_prov_for_reader(tstart, tend, max_freq, extra_reader_attrs):
     """Check appropriate PROV data created for reader object"""

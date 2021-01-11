@@ -346,7 +346,7 @@ def test_attach_invalid_dims(dataset, key, data_array):
 def test_attach_valid(dataset, key):
     """Check attach method works correctly when given valid data"""
     assume(key not in dataset)
-    new_data = next(dataset.values()).copy()
+    new_data = next(iter(dataset.values())).copy()
     dataset.indica.attach(key, new_data)
     assert dataset[key] is new_data
     assert dataset.indica.datatype[1][key] == new_data.attrs["datatype"]

@@ -1,23 +1,27 @@
 """Test conversions on transect coordinate system"""
 
-from unittest.mock import MagicMock
-
 from hypothesis import given
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from hypothesis.strategies import text
+import numpy as np
 from pytest import approx
 from xarray import DataArray
 
 from indica.converters import TransectCoordinates
+from indica.utilities import coord_array
 from ..strategies import monotonic_series
 from ..strategies import sane_floats
 
 
 @composite
 def transect_coordinates_parameters(
-    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_points=2, max_points=20
+    draw,
+    domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
+    min_points=2,
+    max_points=20,
+    coord_name=None,
 ):
     """Generates the parameters needed to instantiate
     :py:class:`indica.converters.TransectCoordinates` objects.
@@ -28,6 +32,8 @@ def transect_coordinates_parameters(
         The minimum number of (R,z) pairs in the transect
     max_points: int
         The maximum number of (R,z) pairs in the transect
+    coord_name: Optional[str]
+        Name of the coordinate for the R_vals and z_vals
 
     Returns
     -------
@@ -49,13 +55,51 @@ def transect_coordinates_parameters(
     )
     R_vals = R_start + (R_stop - R_start) * ticks
     z_vals = z_start + (z_stop - z_start) * ticks
-    cname = draw(text(min_size=1))
+    if coord_name is None:
+        cname = draw(text(min_size=1))
+    else:
+        cname = coord_name
     return DataArray(R_vals, dims=cname), DataArray(z_vals, dims=cname)
 
 
 @composite
+def transect_coordinates_and_axes(
+    draw,
+    domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
+    min_points=2,
+    max_points=100,
+    coord_name=None,
+):
+    """Generates :py:class:`indica.converters.TransectCoordinates` objects and
+    (x1, x2, t) axes.
+
+    Parameters
+    ----------
+    min_points: int
+        The minimum number of (R,z) pairs in the transect
+    max_points: int
+        The maximum number of (R,z) pairs in the transect
+    coord_name: Optional[str]
+        Name of the x1 coordinate for this system
+
+    """
+    R_vals, z_vals = draw(
+        transect_coordinates_parameters(domain, min_points, max_points, coord_name)
+    )
+    transform = TransectCoordinates(R_vals, z_vals)
+    x1 = coord_array(DataArray(np.arange(len(R_vals))), transform.x1_name)
+    x2 = DataArray(0)
+    t = DataArray(0)
+    return transform, x1, x2, t
+
+
+@composite
 def transect_coordinates(
-    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_points=2, max_points=100
+    draw,
+    domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
+    min_points=2,
+    max_points=100,
+    coord_name=None,
 ):
     """Generates :py:class:`indica.converters.TransectCoordinates` objects.
 
@@ -65,13 +109,13 @@ def transect_coordinates(
         The minimum number of (R,z) pairs in the transect
     max_points: int
         The maximum number of (R,z) pairs in the transect
+    coord_name: Optional[str]
+        Name of the x1 coordinate for this system
 
     """
-    result = TransectCoordinates(
-        *draw(transect_coordinates_parameters(domain, min_points, max_points))
-    )
-    result.set_equilibrium(MagicMock())
-    return result
+    return draw(
+        transect_coordinates_and_axes(domain, min_points, max_points, coord_name)
+    )[0]
 
 
 @given(transect_coordinates_parameters(), floats(0.0, 1.0), floats())

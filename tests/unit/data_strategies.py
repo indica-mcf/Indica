@@ -12,7 +12,6 @@ from hypothesis.strategies import dates
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
-from hypothesis.strategies import just
 from hypothesis.strategies import lists
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
@@ -24,7 +23,7 @@ from indica.converters import FluxSurfaceCoordinates
 from indica.converters import TrivialTransform
 import indica.datatypes as dt
 from indica.utilities import coord_array
-from .converters.test_abstract_transform import coordinate_transforms
+from .converters.test_abstract_transform import coordinate_transforms_and_axes
 from .strategies import monotonic_series
 from .strategies import noisy_functions
 from .strategies import separable_functions
@@ -146,12 +145,12 @@ def data_arrays_from_coords(
     draw,
     data_type=(None, None),
     coordinates=TrivialTransform(),
+    axes=[0.0, 0.0, 0.0],
     data=separable_functions(
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
     ),
-    override_coords=[None, None, None],
     rel_sigma=0.02,
     abs_sigma=1e-3,
     uncertainty=True,
@@ -167,13 +166,13 @@ def data_arrays_from_coords(
         the tuple is ``None`` then that element will be drawn from a strategy.
     coordinates
         A coordinate transform to use for this data.
+    axes
+        If item is not None, use those coordinates rather than the defaults
+        from the coordinate transform. Should be ordered ``[x1, x2, t]``.
     data
         A strategy to generate functions which calculate the contents of the
         DataArray from the coordinates. Note that all coordinates will be
         normalised before being passed to this function.
-    override_coords
-        If item is not None, use those coordinates rather than the defaults
-        from the coordinate transform. Should be ordered ``[x1, x2, t]``.
     rel_sigma
         Standard deviation of relative noise applied to the data
     abs_sigma
@@ -196,9 +195,7 @@ def data_arrays_from_coords(
         data_type[1] if data_type[1] else draw(specific_datatypes(general_type))
     )
 
-    x1 = coordinates.default_x1 if override_coords[0] is None else override_coords[0]
-    x2 = coordinates.default_x2 if override_coords[1] is None else override_coords[1]
-    t = coordinates.default_t if override_coords[2] is None else override_coords[2]
+    x1, x2, t = axes
     func = (
         draw(noisy_functions(draw(data), rel_sigma, abs_sigma))
         if rel_sigma or abs_sigma
@@ -206,7 +203,7 @@ def data_arrays_from_coords(
     )
     coords = [
         (c[0], c[1].flatten() if isinstance(c[1], np.ndarray) else c[1])
-        for c in [("x1", x1), ("x2", x2), ("t", t)]
+        for c in [(coordinates.x1_name, x1), (coordinates.x2_name, x2), ("t", t)]
         if isinstance(c[1], (np.ndarray, DataArray)) and c[1].ndim > 0
     ]
     shape = tuple(len(c) for _, c in coords)
@@ -267,13 +264,14 @@ def data_arrays_from_coords(
 def data_arrays(
     draw,
     data_type=(None, None),
-    coordinates=coordinate_transforms(((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3),
+    coordinates_and_axes=coordinate_transforms_and_axes(
+        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3
+    ),
     data=separable_functions(
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
     ),
-    override_coords=[None, None, None],
     rel_sigma=0.02,
     abs_sigma=1e-3,
     uncertainty=True,
@@ -289,14 +287,13 @@ def data_arrays(
         The data type of the data_array to be generated. If either element of
         the tuple is ``None`` then that element will be drawn from a strategy.
     coordinates
-        A strategy for generating :py:class:`indica.converters.CoordinateTransform`
+        A strategy for generating a tuple of
+        :py:class:`indica.converters.CoordinateTransform` and the x1, x2, and
+        t axes for them.
         objects. If absent, any type of transform could be used.
     data
         A strategy to generate functions which calculate the contents of the
         DataArray from the coordinates.
-    override_coords
-        If item is not None, use those coordinates rather than the defaults
-        from the coordinate transform. Should be ordered ``[x1, x2, t]``.
     rel_sigma
         Standard deviation of relative noise applied to the data
     abs_sigma
@@ -311,13 +308,13 @@ def data_arrays(
         If True, ensure at least one channel is dropped.
 
     """
-    transform = draw(coordinates)
+    transform, x1, x2, t = draw(coordinates_and_axes)
     return draw(
         data_arrays_from_coords(
             data_type,
             transform,
             data,
-            override_coords,
+            (x1, x2, t),
             rel_sigma,
             abs_sigma,
             uncertainty,
@@ -331,13 +328,13 @@ def data_arrays(
 def array_dictionaries(
     draw,
     coordinates,
+    axes,
     options,
     data=separable_functions(
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
     ),
-    override_coords=[None, None, None],
     rel_sigma=0.02,
     abs_sigma=1e-3,
     uncertainty=True,
@@ -352,6 +349,8 @@ def array_dictionaries(
     ----------
     coordinates
         The coordinate transform to use for this data.
+    axes
+        A tuple of the coordinates for the x1, x2, and t axes.
     options
         A dictionary where keys are those which may be present in the result
         and values are the datatype of the array associated with that key in
@@ -359,9 +358,6 @@ def array_dictionaries(
     data
         A strategy to generate functions which calculate the contents of the
         DataArray from the coordinates.
-    override_coords
-        If item is not None, use those coordinates rather than the defaults
-        from the coordinate transform. Should be ordered ``[x1, x2, t]``.
     rel_sigma
         Standard deviation of relative noise applied to the data
     abs_sigma
@@ -388,8 +384,8 @@ def array_dictionaries(
             data_arrays_from_coords(
                 options[key],
                 coordinates,
+                axes,
                 data,
-                override_coords,
                 rel_sigma,
                 abs_sigma,
                 uncertainty,
@@ -404,7 +400,9 @@ def array_dictionaries(
 def datasets(
     draw,
     data_type=(None, {}),
-    coordinates=coordinate_transforms(((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3),
+    coordinates_and_axes=coordinate_transforms_and_axes(
+        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3
+    ),
     data=separable_functions(
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
@@ -426,9 +424,10 @@ def datasets(
         any value in the dictionary is None then it will be drawn from a
         strategy. If the dictionary is empty then its contents will be drawn
         from a strategy.
-    coordinates
+    coordinates_andAxes
         A strategy for generating :py:class:`indica.converters.CoordinateTransform`
-        objects. If absent, any type of transform could be used.
+        objects and the associated axes for the data. If absent, any type of
+        transform could be used.
     data
         A strategy to generate functions which calculate the contents of the
         DataArray from the coordinates.
@@ -470,13 +469,12 @@ def datasets(
                 text(), general_datatypes(specific_type), min_size=1, max_size=5
             )
         )
-    transform = draw(coordinates)
     data = {}
     for key, gtype in general_type.items():
         data[key] = draw(
             data_arrays(
                 (gtype, specific_type),
-                just(transform),
+                coordinates_and_axes,
                 rel_sigma=rel_sigma,
                 abs_sigma=abs_sigma,
                 uncertainty=uncertainty,

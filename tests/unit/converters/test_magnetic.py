@@ -7,8 +7,10 @@ from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
+from hypothesis.strategies import text
 import numpy as np
 from pytest import approx
+from xarray import DataArray
 
 from indica.converters import MagneticCoordinates
 from indica.equilibrium import Equilibrium
@@ -22,18 +24,22 @@ from ..strategies import sane_floats
 
 
 @composite
-def magnetic_coordinate_arguments(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
+def magnetic_coordinate_arguments(
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), name=None
+):
     R_dims = (
         draw(floats(min(0.0, domain[0][0]), domain[0][0])),
         draw(floats(domain[0][1], max(4.0, domain[0][1] + 1.0))),
     )
     z_dims = draw(machine_dimensions())[1]
+    if name is None:
+        name = draw(text())
     return draw(floats(*domain[1])), (R_dims, z_dims)
 
 
 @composite
-def magnetic_coordinates(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
-    z, machine_dims = draw(magnetic_coordinate_arguments(domain))
+def magnetic_coordinates(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), name=None):
+    z, name, machine_dims = draw(magnetic_coordinate_arguments(domain, name))
     if domain:
         Rmin = domain[0][0]
     else:
@@ -48,16 +54,40 @@ def magnetic_coordinates(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
             draw(floats(*domain[0])),
             draw(floats(*domain[1])),
             coord_array(
-                draw(monotonic_series(*domain[2], draw(integers(2, 20))),), "t"
+                draw(
+                    monotonic_series(*domain[2], draw(integers(2, 20))),
+                ),
+                "t",
             ),
             Btot_alpha=B_alpha,
             Btot_b=Bcoeff,
         )
     )
-    result = MagneticCoordinates(z, machine_dims)
+    result = MagneticCoordinates(z, name, machine_dims)
     result.set_equilibrium(equilib)
-    result.default_x1 = result.convert_from_Rz()[0][0]
     return result
+
+
+@composite
+def magnetic_coordinates_and_axes(
+    draw,
+    domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
+    name=None,
+    min_vals=5,
+    max_vals=12,
+):
+    transform = draw(magnetic_coordinates(domain, name))
+    width = transform.right - transform.left
+    R_start = transform.right - draw(floats(0.0, 0.5 * width))
+    R_end = transform.left + draw(floats(0.0, 0.5 * width))
+    if R_start - R_end < 0.1 * width:
+        R_start = +0.1 * width
+    n = draw(integers(min_vals, max_vals))
+    R = DataArray(np.linspace(R_start, R_end, n))
+    x1 = coord_array(transform.convert_from_Rz(R, 0, 0))
+    x2 = DataArray(0)
+    t = DataArray(0)
+    return transform, x1, x2, t
 
 
 @given(

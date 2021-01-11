@@ -11,6 +11,7 @@ from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import one_of
+from hypothesis.strategies import text
 import numpy as np
 from pytest import approx
 from pytest import mark
@@ -18,6 +19,7 @@ from xarray import DataArray
 from xarray.testing import assert_allclose
 
 from indica.converters import LinesOfSightTransform
+from indica.utilities import coord_array
 from ..strategies import machine_dimensions
 from ..strategies import monotonic_series
 from ..strategies import smooth_functions
@@ -143,10 +145,9 @@ def los_coordinates_parameters(
     domain=None,
     min_los=2,
     max_los=10,
-    min_num=2,
-    max_num=10,
     domain_as_dims=False,
     toroidal_skew=None,
+    name=None,
 ):
     """Generates the arguments needed to instantiate a
     :py:class:`indica.converters.LinesOfSightTransform` object with lines of
@@ -162,15 +163,13 @@ def los_coordinates_parameters(
         The minimum number of lines of sight
     max_los: int
         The maximum number of lines of sight
-    min_num: int
-        The minimum number of intervals in which to divide the lines of sight
-    max_num: int
-        The maximum number of intervals in which to divide the lines of sight
     domain_as_dims: bool
         If True, use the domain as the machine dimensions.
     toroidal_skew: Optional[bool]
         Whether to include any toroidal angle to the lines of sight. Defaults
         to drawing a value to decide.
+    name: Optional[str]
+        The name of the camera these lines of sight are for.
 
     Returns
     -------
@@ -186,6 +185,8 @@ def los_coordinates_parameters(
         1-D array of vertical positions of the end for each line-of-sight.
     T_end
         1-D array of toroidal offsets of the end for each line-of-sight.
+    name: Optional[str]
+        The name of the camera these lines of sight are for.
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in R-z space:
         ``((Rmin, Rmax), (zmin, zmax)``.
@@ -287,6 +288,8 @@ def los_coordinates_parameters(
         T_stop = skew(angles)
     else:
         T_stop = np.zeros_like(R_stop)
+    if name is None:
+        name = draw(text())
     return (
         R_start,
         z_start,
@@ -294,6 +297,7 @@ def los_coordinates_parameters(
         R_stop,
         z_stop,
         T_stop,
+        name,
         machine_dims,
     )
 
@@ -304,10 +308,9 @@ def los_coordinates(
     domain=None,
     min_los=2,
     max_los=10,
-    min_num=2,
-    max_num=10,
     domain_as_dims=False,
     toroidal_skew=None,
+    name=None,
 ):
     """Generates :py:class:`indica.converters.LinesOfSightTransform` objects
     with lines of sight radiating from a point.
@@ -325,15 +328,13 @@ def los_coordinates(
         The minimum number of lines of sight
     max_los: int
         The maximum number of lines of sight
-    min_num: int
-        The minimum number of intervals in which to divide the lines of sight
-    max_num: int
-        The maximum number of intervals in which to divide the lines of sight
     domain_as_dims: bool
         If True, use the domain as the machine dimensions.
     toroidal_skew: Optional[bool]
         Whether to include any toroidal angle to the lines of sight. Defaults
         to drawing a value to decide.
+    name: Optional[str]
+        The name of the camera these lines of sight are for.
 
     Returns
     -------
@@ -350,15 +351,73 @@ def los_coordinates(
                 domain,
                 min_los,
                 max_los,
-                min_num,
-                max_num,
                 domain_as_dims,
                 toroidal_skew,
+                name,
             )
         )
     )
     result.set_equilibrium(MagicMock())
     return result
+
+
+@composite
+def los_coordinates_and_axes(
+    draw,
+    domain=None,
+    min_los=2,
+    max_los=10,
+    domain_as_dims=False,
+    toroidal_skew=None,
+    name=None,
+):
+    """Generates :py:class:`indica.converters.LinesOfSightTransform` objects
+    with lines of sight radiating from a point.
+
+    At present this point is on the edge of the Tokamak, for reasons of
+    convenience.
+
+    Parameters
+    ----------
+    domain: Tuple[Tuple[float, float], Tuple[float, float]], optional
+        A tuple giving the range of R-z values for which the transform is
+        guaranteed to work: ``((Rmin, Rmax), (zmin, zmax)``. If absent will
+        draw values.
+    min_los: int
+        The minimum number of lines of sight
+    max_los: int
+        The maximum number of lines of sight
+    domain_as_dims: bool
+        If True, use the domain as the machine dimensions.
+    toroidal_skew: Optional[bool]
+        Whether to include any toroidal angle to the lines of sight. Defaults
+        to drawing a value to decide.
+    name: Optional[str]
+        The name of the camera these lines of sight are for.
+
+    Returns
+    -------
+    transform: TransectCoordinates
+        The coordinate transform object.
+    machine_dims: Tuple[Tuple[float, float], Tuple[float, float]]
+        A tuple giving the boundaries of the Tokamak in R-z space:
+        ``((Rmin, Rmax), (zmin, zmax)``.
+
+    """
+    transform = draw(
+        los_coordinates(
+            domain,
+            min_los,
+            max_los,
+            domain_as_dims,
+            toroidal_skew,
+            name,
+        )
+    )
+    x1 = coord_array(DataArray(np.arange(len(transform.R_start))), transform.x1_name)
+    x2 = DataArray(0)
+    t = DataArray(0)
+    return transform, x1, x2, t
 
 
 # Ignore warnings when an empty array
@@ -405,7 +464,8 @@ def test_parallel_los_to_Rz(coords, position1, position2, time):
 
 
 @given(
-    parallel_los_coordinates(), floats(),
+    parallel_los_coordinates(),
+    floats(),
 )
 @mark.xfail(reason="Conversion from R-z is not reliably implemented.")
 def test_parallel_los_from_Rz(coords, time):
