@@ -62,18 +62,20 @@ class ImpactParameterCoordinates(CoordinateTransform):
             )
         rmag = self.equilibrium.rmag
         zmag = self.equilibrium.zmag
+        self.x1_name = lines_of_sight.x1_name[:-6] + flux_surfaces.x1_name
+        self.x2_name = lines_of_sight.x2_name
         R, z = cast(
             Tuple[DataArray, DataArray],
             lines_of_sight.convert_to_Rz(
-                coord_array(np.arange(len(lines_of_sight.R_start)), "index"),
-                coord_array(np.linspace(0.0, 1.0, num_intervals + 1), "x2"),
+                coord_array(np.arange(len(lines_of_sight.R_start)), self.x1_name),
+                coord_array(np.linspace(0.0, 1.0, num_intervals + 1), self.x2_name),
                 0.0,
             ),
         )
         rho, _ = cast(Tuple[DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z))
         rho = where(rho < 0, float("nan"), rho)
         t = rho.coords["t"]
-        loc = rho.argmin("x2")
+        loc = rho.argmin(self.x2_name)
         theta = np.arctan2(
             z.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[1]),
             R.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[0]),
@@ -198,7 +200,11 @@ class ImpactParameterCoordinates(CoordinateTransform):
         return self._convert_from_los(x1, x2, t)
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> LabeledArray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of

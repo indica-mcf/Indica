@@ -57,12 +57,23 @@ class CoordinateTransform(ABC):
     default_t
         The default grid to use for time.
 
+    Attributes
+    ----------
+    x1_name: str
+        Name for the first spacial coordinate. May be class- or
+        instance-specific.
+
+    x2_name: str
+        Name for the second spacial coordinate. May be class- or
+        instance-specific.
     """
 
     _CONVERSION_METHODS: Dict[str, str] = {}
     _INVERSE_CONVERSION_METHODS: Dict[str, str] = {}
 
     equilibrium: Equilibrium
+    x1_name: str
+    x2_name: str
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
@@ -146,7 +157,10 @@ class CoordinateTransform(ABC):
 
     @abstractmethod
     def convert_to_Rz(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system. Each
         subclass must implement this method.
@@ -174,7 +188,10 @@ class CoordinateTransform(ABC):
         )
 
     def convert_from_Rz(
-        self, R: LabeledArray, z: LabeledArray, t: LabeledArray,
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: LabeledArray,
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate. Each
         subclass must implement this method.
@@ -221,7 +238,11 @@ class CoordinateTransform(ABC):
         )
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> LabeledArray:
         """Give the distance (in physical space) from the origin along the
         specified direction.
@@ -269,7 +290,5 @@ class CoordinateTransform(ABC):
 
     @staticmethod
     def decode(json: str) -> "CoordinateTransform":
-        """Takes some JSON and decodes it into a CoordinateTransform object.
-
-        """
+        """Takes some JSON and decodes it into a CoordinateTransform object."""
         pass

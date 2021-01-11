@@ -55,6 +55,14 @@ class TransectCoordinates(CoordinateTransform):
         self.invert = interp1d(
             R_positions, indices, copy=False, fill_value="extrapolate"
         )
+        if isinstance(z_positions, DataArray):
+            if R_positions.dims != z_positions.dims:
+                raise ValueError(
+                    "R_positions and z_positions must have the same dimensiosn."
+                )
+
+        self.x1_name = R_positions.dims[0]
+        self.x2_name = self.x1_name + "_z_offset"
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray

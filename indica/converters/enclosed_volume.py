@@ -21,12 +21,15 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     """
 
     _CONVERSION_METHODS: Dict[str, str] = {"FluxSurfaceCoordinates": "_convert_to_rho"}
+    x2_name = "theta"
 
     def __init__(
-        self, flux_surfaces: FluxSurfaceCoordinates,
+        self,
+        flux_surfaces: FluxSurfaceCoordinates,
     ):
         self.flux_transform = flux_surfaces
         self.equilibrium = flux_surfaces.equilibrium
+        self.x1_name = flux_surfaces.x1_name + "_enclosed_volume"
 
     def _convert_to_rho(
         self, volume: ArrayLike, theta: ArrayLike, t: ArrayLike

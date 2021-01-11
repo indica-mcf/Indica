@@ -31,10 +31,13 @@ class FluxMajorRadCoordinates(CoordinateTransform):
         "FluxSurfaceCoordinates": "_convert_from_flux_coords"
     }
 
+    x2_name = "R"
+
     def __init__(self, flux_surfaces: FluxSurfaceCoordinates):
         self.flux_surfaces = flux_surfaces
         self.equilibrium = flux_surfaces.equilibrium
         self.flux_kind = flux_surfaces.flux_kind
+        self.x1_name = flux_surfaces.x1_name
 
     def _convert_from_flux_coords(
         self, rho: LabeledArray, theta: LabeledArray, t: LabeledArray

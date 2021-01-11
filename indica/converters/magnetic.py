@@ -28,6 +28,9 @@ class MagneticCoordinates(CoordinateTransform):
     z
         The vertical position of the line of sight along which measurements are
         taken. Used as default z position.
+    name
+        The name for this coordinate system. Typically taken from the
+        instrument these coordinates are for.
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in R-z space:
         ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
@@ -37,12 +40,15 @@ class MagneticCoordinates(CoordinateTransform):
     def __init__(
         self,
         z: float,
+        name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
     ):
         self.z_los = z
+        self.x1_name = name + "_coord"
+        self.x2_name = self.x1_name + "_z_offset"
         self.left = machine_dimensions[0][0]
         self.right = machine_dimensions[0][1]
 
@@ -75,7 +81,12 @@ class MagneticCoordinates(CoordinateTransform):
                 return self.convert_from_Rz(R, x2 + self.z_los, t)[0] - B
 
             brackets = find_brackets(self.left, self.right, func)
-            result = root_scalar(func, bracket=brackets, xtol=1e-8, rtol=1e-6,)
+            result = root_scalar(
+                func,
+                bracket=brackets,
+                xtol=1e-8,
+                rtol=1e-6,
+            )
             if result.converged:
                 return result.root
             raise ConvergenceError(

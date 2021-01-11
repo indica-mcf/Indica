@@ -13,6 +13,9 @@ class TrivialTransform(CoordinateTransform):
 
     """
 
+    x1_name = "R"
+    x2_name = "z"
+
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:

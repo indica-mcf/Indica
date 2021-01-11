@@ -140,8 +140,7 @@ class EmissivityProfile:
         t: Optional[DataArray] = None,
         R_0: Optional[DataArray] = None,
     ) -> DataArray:
-        """Evaluate the function at a location defined using (R, z) coordinates
-        """
+        """Evaluate the function at a location defined using (R, z) coordinates"""
         # print([(d, rho.coords[d]) for d in rho.dims if d != self._dim])
         # print(self._interp_sym_coords(
         #         [(d, rho.coords[d]) for d in rho.dims if d != self._dim]
@@ -255,9 +254,7 @@ class InvertSXR(Operator):
             n_knots=n_knots,
         )
 
-    def __call__(  # type: ignore[override]
-        self, *cameras: DataArray
-    ) -> DataArray:
+    def __call__(self, *cameras: DataArray) -> DataArray:  # type: ignore[override]
         """Calculate the emissivity profile for the plasma.
 
         Parameters
@@ -327,7 +324,7 @@ class InvertSXR(Operator):
                             + 0.18
                             * np.abs(
                                 ip_coords.rho_min.sel(t=time).rename(
-                                    index=camera.attrs["x1"]
+                                    index=camera.attrs["transform"].x1_name
                                 )
                             )
                         )

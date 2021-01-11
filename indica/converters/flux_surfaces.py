@@ -25,11 +25,14 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     _CONVERSION_METHODS: Dict[str, str] = {
         "EnclosedVolumeCoordinates": "_convert_to_vol"
     }
+    x2_name = "theta"
 
     def __init__(
-        self, kind: str,
+        self,
+        kind: str,
     ):
         self.flux_kind = kind
+        self.x1_name = "rho_" + kind
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: Optional[LabeledArray] = None

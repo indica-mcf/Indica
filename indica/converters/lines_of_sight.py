@@ -47,6 +47,9 @@ class LinesOfSightTransform(CoordinateTransform):
         1-D array of vertical positions of the end for each line-of-sight.
     T_end
         1-D array of toroidal offset for the end of each line-of-sight.
+    name
+        The name to refer to this coordinate system by, typically taken
+        from the instrument it describes.
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in R-z space:
         ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
@@ -61,6 +64,7 @@ class LinesOfSightTransform(CoordinateTransform):
         R_end: np.ndarray,
         z_end: np.ndarray,
         T_end: np.ndarray,
+        name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
@@ -90,6 +94,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
+        self.x1_name = name + "_coords"
+        self.x2_name = name + "_los_position"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -196,7 +202,11 @@ class LinesOfSightTransform(CoordinateTransform):
         # return x1, x2
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> LabeledArray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
