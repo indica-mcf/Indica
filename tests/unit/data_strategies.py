@@ -22,7 +22,6 @@ from xarray import Dataset
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import TrivialTransform
 import indica.datatypes as dt
-from indica.utilities import coord_array
 from .converters.test_abstract_transform import coordinate_transforms_and_axes
 from .strategies import monotonic_series
 from .strategies import noisy_functions
@@ -145,7 +144,7 @@ def data_arrays_from_coords(
     draw,
     data_type=(None, None),
     coordinates=TrivialTransform(),
-    axes=[0.0, 0.0, 0.0],
+    axes=(0.0, 0.0, 0.0),
     data=separable_functions(
         smooth_functions(max_val=1e3),
         smooth_functions(max_val=1e3),
@@ -203,10 +202,16 @@ def data_arrays_from_coords(
     )
     coords = [
         (c[0], c[1].flatten() if isinstance(c[1], np.ndarray) else c[1])
-        for c in [(coordinates.x1_name, x1), (coordinates.x2_name, x2), ("t", t)]
+        for c in [("t", t), (coordinates.x1_name, x1), (coordinates.x2_name, x2)]
         if isinstance(c[1], (np.ndarray, DataArray)) and c[1].ndim > 0
     ]
     shape = tuple(len(c) for _, c in coords)
+    if isinstance(t, (np.ndarray, DataArray)) and t.ndim > 0:
+        min_val = np.min(t)
+        width = np.abs(np.max(t) - min_val)
+        t_scaled = (t - min_val) / (width if width else 1.0)
+    else:
+        t_scaled = 0.0
     if isinstance(x1, (np.ndarray, DataArray)) and x1.ndim > 0:
         min_val = np.min(x1)
         width = np.abs(np.max(x1) - min_val)
@@ -219,13 +224,7 @@ def data_arrays_from_coords(
         x2_scaled = (x2 - min_val) / (width if width else 1.0)
     else:
         x2_scaled = 0.0
-    if isinstance(t, (np.ndarray, DataArray)) and t.ndim > 0:
-        min_val = np.min(t)
-        width = np.abs(np.max(t) - min_val)
-        t_scaled = (t - min_val) / (width if width else 1.0)
-    else:
-        t_scaled = 0.0
-    tmp = func(x1_scaled, x2_scaled, t_scaled)
+    tmp = func(t_scaled, x1_scaled, x2_scaled)
     result = DataArray(np.reshape(tmp, shape), coords=coords)
     if isinstance(x1, np.ndarray):
         flat_x1 = x1.flatten()
@@ -265,7 +264,7 @@ def data_arrays(
     draw,
     data_type=(None, None),
     coordinates_and_axes=coordinate_transforms_and_axes(
-        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3
+        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4
     ),
     data=separable_functions(
         smooth_functions(max_val=1e3),
@@ -313,8 +312,8 @@ def data_arrays(
         data_arrays_from_coords(
             data_type,
             transform,
-            data,
             (x1, x2, t),
+            data,
             rel_sigma,
             abs_sigma,
             uncertainty,
@@ -401,7 +400,7 @@ def datasets(
     draw,
     data_type=(None, {}),
     coordinates_and_axes=coordinate_transforms_and_axes(
-        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 3
+        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4
     ),
     data=separable_functions(
         smooth_functions(max_val=1e3),
@@ -627,11 +626,6 @@ def equilibrium_data(
     psin_data = DataArray(psin_coords, coords=[("rho_poloidal", rho)])
     attrs["transform"] = FluxSurfaceCoordinates(
         "poloidal",
-        coord_array(rho, "rho_poloidal"),
-        DataArray(0.0),
-        DataArray(0.0),
-        DataArray(0.0),
-        coord_array(times, "t"),
     )
     ftor_min = draw(floats(0.0, 1.0))
     ftor_max = draw(floats(max(1.0, 2 * fmin), 10.0))

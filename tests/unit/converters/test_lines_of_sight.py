@@ -133,6 +133,7 @@ def parallel_los_coordinates(
         R_stop_vals,
         z_stop_vals,
         np.zeros_like(R_stop_vals),
+        draw(text()),
         machine_dims,
     )
     transform.set_equilibrium(MagicMock())
@@ -414,7 +415,7 @@ def los_coordinates_and_axes(
             name,
         )
     )
-    x1 = coord_array(DataArray(np.arange(len(transform.R_start))), transform.x1_name)
+    x1 = coord_array(np.arange(len(transform.R_start)), transform.x1_name)
     x2 = DataArray(0)
     t = DataArray(0)
     return transform, x1, x2, t
@@ -526,6 +527,6 @@ def test_los_end_points(parameters, time):
     """Test end of all lines fall on edge or outside of reactor dimensions"""
     transform = LinesOfSightTransform(*parameters)
     lines = DataArray(np.arange(len(transform.R_start)), dims="index")
-    dims = parameters[6]
+    dims = parameters[7]
     R, z = transform.convert_to_Rz(lines, 1.0, time)
     assert np.all(np.logical_not(inside_machine((R, z), dims, False)))

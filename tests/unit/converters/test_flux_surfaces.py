@@ -47,8 +47,13 @@ def flux_coordinates_and_axes(
 
     """
     transform = draw(flux_coordinates(domain))
-    x1_vals, x2_vals, t_vals = draw(
-        basis_coordinates((0.0, 0.0, 0.0), (1.0, 2 * np.pi, 120.0), min_side, max_side)
+    x1_vals, x2_vals, t_vals = map(
+        np.ravel,
+        draw(
+            basis_coordinates(
+                (0.0, 0.0, 0.0), (1.0, 2 * np.pi, 120.0), min_side, max_side
+            )
+        ),
     )
     return (
         transform,
@@ -73,7 +78,6 @@ def test_flux_from_Rz_mock(kind, coords, expected_result):
     equilib.flux_coords.assert_called_with(*coords, kind)
     assert result[0] is expected_result[0]
     assert result[1] is expected_result[1]
-    assert result[2] is expected_result[2]
 
 
 @given(
@@ -91,4 +95,3 @@ def test_flux_to_Rz_mock(kind, coords, expected_result):
     equilib.spatial_coords.assert_called_with(*coords, kind)
     assert result[0] is expected_result[0]
     assert result[1] is expected_result[1]
-    assert result[2] is expected_result[2]

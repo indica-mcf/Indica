@@ -87,7 +87,7 @@ def transect_coordinates_and_axes(
         transect_coordinates_parameters(domain, min_points, max_points, coord_name)
     )
     transform = TransectCoordinates(R_vals, z_vals)
-    x1 = coord_array(DataArray(np.arange(len(R_vals))), transform.x1_name)
+    x1 = coord_array(np.arange(len(R_vals)), transform.x1_name)
     x2 = DataArray(0)
     t = DataArray(0)
     return transform, x1, x2, t
@@ -128,6 +128,8 @@ def test_transect_zero(params, position, time):
     i, zprime = transform.convert_from_Rz(R, z, time)
     tol = max(1e-20 / position, 1e-10) if position != 0.0 else 1e-10
     assert zprime == approx(0.0, abs=tol)
+    assert isinstance(i, DataArray)
+    assert isinstance(zprime, DataArray)
 
 
 @given(
@@ -144,6 +146,8 @@ def test_transect_returns_indices(params, position, z_offset, time):
     i, z = transform.convert_from_Rz(Rvals[index], zvals[index] + z_offset, time)
     assert i == approx(index)
     assert z == approx(z_offset)
+    assert isinstance(i, DataArray)
+    assert isinstance(z, DataArray)
 
 
 @given(
@@ -159,6 +163,8 @@ def test_transect_returns_Rz(params, position, z_offset, time):
     i = position * (len(Rvals) - 1)
     index = int(i)
     R, z = transform.convert_to_Rz(i, z_offset, time)
+    assert isinstance(R, DataArray)
+    assert isinstance(z, DataArray)
     if Rvals[-1] > Rvals[0]:
         assert R <= Rvals[index + 1]
         assert Rvals[index] <= R

@@ -3,8 +3,6 @@
 import numpy as np
 from xarray import DataArray
 
-from ..utilities import sum_squares
-
 
 def convert_in_time(
     tstart: float,
@@ -129,7 +127,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         )
         uncertainty = np.sqrt(
             grouped.reduce(
-                lambda x, axis: sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
+                lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
             )
         )
         averaged.attrs["error"] = uncertainty.rename(t_bins="t")
@@ -148,7 +146,11 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
                 .sel(t=slice(tbins[0], tbins[-1]))
                 .groupby_bins("t", tbins, labels=tlabels)
             )
-            uncertainty = np.sqrt(grouped.reduce(sum_squares, "t"))
+            uncertainty = np.sqrt(
+                grouped.reduce(
+                    lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
+                )
+            )
             averaged.attrs["dropped"].attrs["error"] = uncertainty.rename(t_bins="t")
 
     return averaged.rename(t_bins="t")

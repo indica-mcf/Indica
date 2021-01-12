@@ -236,16 +236,17 @@ class DataReader(BaseIO):
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
         times = database_results["times"]
-        coords = [("t", times), (diagnostic_coord, ticks)]
+        R = database_results["R"]
+        z = database_results["z"]
+        R_coord = DataArray(R, coords=[(diagnostic_coord, ticks)])
+        z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
+        coords = {"t": times, diagnostic_coord: ticks, "R": R_coord, "z": z_coord}
+        dims = ["t", diagnostic_coord]
         data = {}
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
-        R = database_results["R"]
-        z = database_results["z"]
-        transform = TransectCoordinates(
-            DataArray(R, dims=diagnostic_coord), DataArray(z, dims=diagnostic_coord)
-        )
+        transform = TransectCoordinates(R_coord, z_coord)
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
@@ -258,14 +259,15 @@ class DataReader(BaseIO):
             )
             meta = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(database_results[quantity + "_error"], coords).sel(
-                    t=slice(self._tstart, self._tend)
-                ),
+                "error": DataArray(
+                    database_results[quantity + "_error"], dims=dims, coords=coords
+                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
             quant_data = DataArray(
                 database_results[quantity],
-                coords,
+                dims=dims,
+                coords=coords,
                 attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:

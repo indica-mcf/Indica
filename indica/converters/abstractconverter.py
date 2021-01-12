@@ -132,9 +132,6 @@ class CoordinateTransform(ABC):
             The first spatial coordinate in the ``other`` system.
         x2
             The second spatial coordinate in the ``other`` system.
-        t
-            The time coordinate (if one pass as an argument then is just a
-            pointer to that)
 
         """
         # TODO: cache all results for default arguments
@@ -270,9 +267,7 @@ class CoordinateTransform(ABC):
            Distance from the origin in the specified direction.
 
         """
-        R, z, t = cast(
-            Tuple[DataArray, DataArray, LabeledArray], self.convert_to_Rz(x1, x2, t)
-        )
+        R, z = cast(Tuple[DataArray, DataArray], self.convert_to_Rz(x1, x2, t))
         if isinstance(R, (int, float)) or isinstance(z, (int, float)):
             raise ValueError("Arguments x1 and x2 must be xarray DataArray objects.")
         slc1 = {direction: slice(0, -1)}

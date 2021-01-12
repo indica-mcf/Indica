@@ -77,14 +77,20 @@ class ImpactParameterCoordinates(CoordinateTransform):
         t = rho.coords["t"]
         loc = rho.argmin(self.x2_name)
         theta = np.arctan2(
-            z.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[1]),
-            R.sel(x2=0.0).mean() - np.mean(lines_of_sight._machine_dims[0]),
+            z.sel({self.x2_name: 0.0}).mean()
+            - np.mean(lines_of_sight._machine_dims[1]),
+            R.sel({self.x2_name: 0.0}).mean()
+            - np.mean(lines_of_sight._machine_dims[0]),
         )
         if np.pi / 4 <= np.abs(theta) <= 3 * np.pi / 4:
-            sign = where(R.isel(x2=loc) < rmag.interp(t=t, method="nearest"), -1, 1)
+            sign = where(
+                R.isel({self.x2_name: loc}) < rmag.interp(t=t, method="nearest"), -1, 1
+            )
         else:
-            sign = where(z.isel(x2=loc) < zmag.interp(t=t, method="nearest"), -1, 1)
-        self.rho_min = sign * rho.isel(x2=loc)
+            sign = where(
+                z.isel({self.x2_name: loc}) < zmag.interp(t=t, method="nearest"), -1, 1
+            )
+        self.rho_min = sign * rho.isel({self.x2_name: loc})
 
     def _convert_to_los(
         self, min_rho: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -113,7 +119,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         # TODO: Find a better spline that I can ensure is monotonic
         return (
             self.rho_min.interp(t=t, method="nearest").indica.invert_interp(
-                min_rho, "index", method="linear"
+                min_rho, self.x1_name, method="linear"
             ),
             x2,
         )
@@ -144,7 +150,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         # TODO: Find a better spline that I can ensure is monotonic
         return (
             self.rho_min.interp(t=t, method="nearest").indica.interp2d(
-                index=x1, method="linear"
+                {self.x1_name: x1}, method="linear"
             ),
             x2,
         )
@@ -219,8 +225,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
         """Calculates the average difference in impact parameters between
         adjacent lines of sight."""
         drhos = np.abs(
-            self.rho_min.isel(index=slice(1, None)).data
-            - self.rho_min.isel(index=slice(None, -1)).data
+            self.rho_min.isel({self.x1_name: slice(1, None)}).data
+            - self.rho_min.isel({self.x1_name: slice(None, -1)}).data
         )
         return np.mean(drhos)
 

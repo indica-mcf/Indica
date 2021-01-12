@@ -86,8 +86,13 @@ class TransectCoordinates(CoordinateTransform):
             Height coordinate
 
         """
-        R = self.R_vals(x1)
-        z = self.z_vals(x1) + x2
+        array_args = (
+            {"dims": x1.dims, "coords": x1.coords}
+            if isinstance(x1, (DataArray, Variable, Dataset))
+            else {}
+        )
+        R = DataArray(self.R_vals(x1), **array_args)
+        z = DataArray(self.z_vals(x1), **array_args) + x2
         return R, z
 
     def convert_from_Rz(
@@ -112,8 +117,13 @@ class TransectCoordinates(CoordinateTransform):
             The second spatial coordinate in this system.
 
         """
-        x1 = self.invert(R)
-        x2 = z - self.z_vals(x1)
+        array_args = (
+            {"dims": R.dims, "coords": R.coords}
+            if isinstance(R, (DataArray, Variable, Dataset))
+            else {}
+        )
+        x1 = DataArray(self.invert(R), **array_args)
+        x2 = z - DataArray(self.z_vals(x1), **array_args)
         return x1, x2
 
     def __eq__(self, other: object) -> bool:

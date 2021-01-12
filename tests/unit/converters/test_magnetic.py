@@ -34,7 +34,7 @@ def magnetic_coordinate_arguments(
     z_dims = draw(machine_dimensions())[1]
     if name is None:
         name = draw(text())
-    return draw(floats(*domain[1])), (R_dims, z_dims)
+    return draw(floats(*domain[1])), name, (R_dims, z_dims)
 
 
 @composite
@@ -84,7 +84,7 @@ def magnetic_coordinates_and_axes(
         R_start = +0.1 * width
     n = draw(integers(min_vals, max_vals))
     R = DataArray(np.linspace(R_start, R_end, n))
-    x1 = coord_array(transform.convert_from_Rz(R, 0, 0))
+    x1 = coord_array(transform.convert_from_Rz(R, 0, 0)[0], transform.x1_name)
     x2 = DataArray(0)
     t = DataArray(0)
     return transform, x1, x2, t
@@ -124,14 +124,14 @@ def test_magnetic_to_Rz_fake_on_los(
     line of sight.
 
     """
-    z_los, machine_dims = transform_args
+    z_los, name, machine_dims = transform_args
     R_expected_factor, x2, time = coords
     R_expected = (
         R_expected_factor * (machine_dims[0][1] - machine_dims[0][0])
         + machine_dims[0][0]
     )
     B = (1 + Btot_alpha * time) * Btot_a / (1 + Btot_b * R_expected) + z_los - zmag
-    transform = MagneticCoordinates(z_los, machine_dims)
+    transform = MagneticCoordinates(z_los, name, machine_dims)
     transform.set_equilibrium(
         FakeEquilibrium(Rmag, zmag, Btot_a=Btot_a, Btot_b=Btot_b, Btot_alpha=Btot_alpha)
     )
@@ -156,14 +156,14 @@ def test_magnetic_to_Rz_fake(
 ):
     """Test transform of data from magnetic field coordinates for arbitrary
     vertical position."""
-    z_los, machine_dims = transform_args
+    z_los, name, machine_dims = transform_args
     R_expected_factor, x2, time = coords
     R_expected = (
         R_expected_factor * (machine_dims[0][1] - machine_dims[0][0])
         + machine_dims[0][0]
     )
     B = (1 + Btot_alpha * time) * Btot_a / (1 + Btot_b * R_expected) + z_los + x2 - zmag
-    transform = MagneticCoordinates(z_los, machine_dims)
+    transform = MagneticCoordinates(z_los, name, machine_dims)
     transform.set_equilibrium(
         FakeEquilibrium(Rmag, zmag, Btot_a=Btot_a, Btot_b=Btot_b, Btot_alpha=Btot_alpha)
     )

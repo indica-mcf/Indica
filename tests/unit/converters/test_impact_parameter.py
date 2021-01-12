@@ -26,7 +26,6 @@ from ..strategies import arbitrary_coordinates
 def impact_parameter_coordinates(
     draw,
     domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
-    min_side=2,
     min_los=5,
     max_los=15,
     min_num=5,
@@ -44,9 +43,6 @@ def impact_parameter_coordinates(
         A region in the native coordinate system over which the transform is
         guarnateed to return non-NaN results. Takes form
         ``((x1_start, x1_stop), (x2_start, x2_stop), (t_start, t_stop))``.
-    min_side : integer
-        The minimum number of elements in an unaligned dimension for the
-        default coordinate arrays. (Not available for all coordinate systems.)
     min_los: int
         The minimum number of lines of sight
     max_los: int
@@ -65,7 +61,7 @@ def impact_parameter_coordinates(
 
     """
     los_transform = los_coordinates(domain[0:2], min_los, max_los, name=name)
-    flux_transform = flux_coordinates(domain, min_side)
+    flux_transform = draw(flux_coordinates(domain))
     los_transform.set_equilibrium(flux_transform.equilibrium, force=True)
     return ImpactParameterCoordinates(
         los_transform, flux_transform, draw(integers(min_num, max_num))
@@ -76,7 +72,6 @@ def impact_parameter_coordinates(
 def parallel_impact_parameter_coordinates(
     draw,
     domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
-    min_side=2,
     min_los=5,
     max_los=15,
     min_num=5,
@@ -93,9 +88,6 @@ def parallel_impact_parameter_coordinates(
         A region in the native coordinate system over which the transform is
         guarnateed to return non-NaN results. Takes form
         ``((x1_start, x1_stop), (x2_start, x2_stop), (t_start, t_stop))``.
-    min_side : integer
-        The minimum number of elements in an unaligned dimension for the
-        default coordinate arrays. (Not available for all coordinate systems.)
     min_los: int
         The minimum number of lines of sight
     max_los: int
@@ -137,7 +129,7 @@ def parallel_impact_parameter_coordinates(
         return los, position
 
     los_transform.convert_from_Rz = Mock(side_effect=mock_Rz_to_los)
-    flux_transform = draw(flux_coordinates(domain, min_side))
+    flux_transform = draw(flux_coordinates(domain))
     los_transform.set_equilibrium(flux_transform.equilibrium, force=True)
     n = len(z_vals) if vertical else len(R_vals)
     return (

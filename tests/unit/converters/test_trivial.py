@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from hypothesis import given
 from hypothesis.strategies import composite
+import numpy as np
 
 from indica.converters import TrivialTransform
 from indica.utilities import coord_array
@@ -24,7 +25,7 @@ def trivial_transforms_and_axes(
 ):
     transform = draw(trivial_transforms(domain))
     min_vals, max_vals = zip(*domain)
-    x1, x2, t = draw(basis_coordinates(min_vals, max_vals, min_side))
+    x1, x2, t = map(np.ravel, draw(basis_coordinates(min_vals, max_vals, min_side)))
     return (
         transform,
         coord_array(x1, transform.x1_name),

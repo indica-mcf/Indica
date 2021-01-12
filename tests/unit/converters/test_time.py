@@ -6,6 +6,7 @@ from hypothesis import assume
 from hypothesis import given
 from hypothesis import settings
 from hypothesis.strategies import builds
+from hypothesis.strategies import composite
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
@@ -17,23 +18,37 @@ from pytest import raises
 from xarray import DataArray
 
 from indica.converters.time import convert_in_time
-from ..data_strategies import data_arrays
+from indica.utilities import coord_array
+from .test_abstract_transform import coordinate_transforms_and_axes
+from ..data_strategies import data_arrays_from_coords
 from ..strategies import sane_floats
 
 start_times = floats(50.0, 120.0)
 end_times = start_times.map(lambda t: 120.0 - (t - 50.0))
 samples = integers(2, 100)
 methods = sampled_from(["nearest", "zero", "linear", "slinear", "quadratic", "cubic"])
-t_axes = builds(np.linspace, just(50.0), just(120.0), integers(4, 50))
-useful_data_arrays = t_axes.flatmap(
-    lambda x: data_arrays(override_coords=(None, None, np.expand_dims(x, (1, 2))))
+t_axes = builds(np.linspace, just(50.0), just(120.0), integers(4, 50)).map(
+    lambda t: coord_array(t, "t")
 )
-useful_smooth_data = t_axes.flatmap(
-    lambda x: data_arrays(
-        override_coords=(None, None, np.expand_dims(x, (1, 2))),
-        abs_sigma=0.0,
-        rel_sigma=0.0,
+
+
+@composite
+def useful_data_arrays(draw, rel_sigma=0.02, abs_sigma=1e-3):
+    times = draw(t_axes)
+    transform, x1, x2, _ = draw(coordinate_transforms_and_axes())
+    return draw(
+        data_arrays_from_coords(
+            coordinates=transform,
+            axes=(x1, x2, times),
+            abs_sigma=abs_sigma,
+            rel_sigma=rel_sigma,
+        )
     )
+
+
+useful_smooth_data = useful_data_arrays(
+    0.0,
+    0.0,
 )
 
 # Ignore warnings when averaging over a bin containign only NaNs
@@ -49,7 +64,7 @@ def linear_data_array(a, b, times, abs_err):
     return result
 
 
-@given(start_times, end_times, samples, useful_data_arrays, methods)
+@given(start_times, end_times, samples, useful_data_arrays(), methods)
 def test_correct_time_values(tstart, tend, n, data, method):
     """Check always have requested time values."""
     if tstart > tend:
@@ -81,7 +96,7 @@ def test_correct_time_values(tstart, tend, n, data, method):
 
 
 @settings(report_multiple_bugs=False)
-@given(start_times, end_times, samples, useful_data_arrays, methods)
+@given(start_times, end_times, samples, useful_data_arrays(), methods)
 def test_unchanged_axes(tstart, tend, n, data, method):
     """Check other axes unchanged"""
     if tstart > tend:
@@ -113,7 +128,7 @@ def test_unchanged_axes(tstart, tend, n, data, method):
             assert np.all(coords == orig.coords[dim])
 
 
-@given(start_times, end_times, samples, useful_data_arrays, methods)
+@given(start_times, end_times, samples, useful_data_arrays(), methods)
 def test_unchanged_attrs(tstart, tend, n, data, method):
     """Check other axes unchanged"""
     data_attrs = data.attrs
@@ -133,7 +148,7 @@ def test_unchanged_attrs(tstart, tend, n, data, method):
     floats(max_value=50.0, exclude_max=True, allow_infinity=False, allow_nan=False),
     end_times,
     samples,
-    useful_data_arrays,
+    useful_data_arrays(),
     methods,
 )
 def test_invalid_start_time(tstart, tend, n, data, method):
@@ -153,7 +168,7 @@ def test_invalid_start_time(tstart, tend, n, data, method):
     start_times,
     floats(min_value=120.0, exclude_min=True, allow_infinity=False, allow_nan=False),
     samples,
-    useful_data_arrays,
+    useful_data_arrays(),
     methods,
 )
 def test_invalid_end_time(tstart, tend, n, data, method):
@@ -267,7 +282,11 @@ def test_interpolate_linear_data(tstart, tend, n, times, a, b, abs_err, method):
 
 
 @given(
-    start_times, end_times, floats(0.200001, 10.0), useful_data_arrays, methods,
+    start_times,
+    end_times,
+    floats(0.200001, 10.0),
+    useful_data_arrays(),
+    methods,
 )
 def test_call_interpolate(tstart, tend, frequency_factor, data, method):
     """Check interpolation is used when a high frequency is specified."""
@@ -283,7 +302,7 @@ def test_call_interpolate(tstart, tend, frequency_factor, data, method):
         interpolate_in_time.assert_called_with(tstart, tend, frequency, data, method)
 
 
-@given(start_times, end_times, floats(0.01, 0.2), useful_data_arrays, methods)
+@given(start_times, end_times, floats(0.01, 0.2), useful_data_arrays(), methods)
 def test_call_bin(tstart, tend, frequency_factor, data, method):
     """Check binning is used when a low frequency is specified."""
     if tstart > tend:

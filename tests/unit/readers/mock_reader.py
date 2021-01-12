@@ -150,8 +150,8 @@ class MockReader(ConcreteReader):
         """
         self._add_dropped_channel_data("thomson", default, specific)
         non_optional = {}
-        non_optional["R"] = default.attrs["transform"].default_R
-        non_optional["z"] = default.attrs["transform"].default_z
+        non_optional["R"] = default.coords["R"].values
+        non_optional["z"] = default.coords["z"].values
         non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
         default_vals = get_vals_error_records(default)
@@ -168,8 +168,8 @@ class MockReader(ConcreteReader):
         """
         self._add_dropped_channel_data("cxrs", default, specific)
         non_optional = {}
-        non_optional["R"] = default.attrs["transform"].default_R
-        non_optional["z"] = default.attrs["transform"].default_z
+        non_optional["R"] = default.coords["R"].values
+        non_optional["z"] = default.coords["z"].values
         non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
         non_optional["element"] = default.attrs["datatype"][1]
@@ -213,8 +213,8 @@ class MockReader(ConcreteReader):
         """
         self._add_dropped_channel_data("cyclotron", default, specific)
         non_optional = {}
-        non_optional["Btot"] = default.coords["Btot"]
-        non_optional["z"] = default.attrs["transform"].default_z
+        non_optional["Btot"] = default.coords["Btot"].values
+        non_optional["z"] = default.coords["z"].values
         non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
         default_vals = get_vals_error_records(default)
@@ -232,7 +232,8 @@ class MockReader(ConcreteReader):
         self._add_dropped_channel_data("radiation", default, specific)
         non_optional = {}
         non_optional["length"] = defaultdict(
-            lambda: default.shape[1], {k: v.shape[1] for k, v in specific.items()},
+            lambda: default.shape[1],
+            {k: v.shape[1] for k, v in specific.items()},
         )
         non_optional["machine_dims"] = self._machine_dims
         default_vals = get_vals_error_records_los(default)
@@ -255,7 +256,8 @@ class MockReader(ConcreteReader):
         non_optional = {}
         non_optional["times"] = default.coords["t"].values
         non_optional["length"] = defaultdict(
-            lambda: default.shape[1], {k: v.shape[1] for k, v in specific.items()},
+            lambda: default.shape[1],
+            {k: v.shape[1] for k, v in specific.items()},
         )
         default_vals = get_vals_error_records_los(default)
         specific_vals = {k: get_vals_error_records_los(v) for k, v in specific.items()}
@@ -274,7 +276,8 @@ class MockReader(ConcreteReader):
         non_optional["times"] = default.coords["t"].values
         non_optional["machine_dims"] = self._machine_dims
         non_optional["length"] = defaultdict(
-            lambda: default.shape[1], {k: v.shape[1] for k, v in specific.items()},
+            lambda: default.shape[1],
+            {k: v.shape[1] for k, v in specific.items()},
         )
         default_vals = get_vals_error_records_los(default)
         specific_vals = {k: get_vals_error_records_los(v) for k, v in specific.items()}
