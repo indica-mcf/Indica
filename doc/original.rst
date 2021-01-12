@@ -221,14 +221,15 @@ Computation details
 
 1. **Unfolding the SXR lines-of-sight** is strightforward for poloidally symmetric emissivity profiles using e.g. Abel inversion. For poloidally asymmetric profiles, the assumption is that local emissivity distribution on a flux-surface follows the same physics as the impurity density described by equation 1 of `M. Sertoli et al. Review of Scientific Instruments 89, 113501 (2018) <https://doi.org/10.1063/1.5046562>`_. With this in mind, the fitting must search for optimal **ϵ_SXR(ρ,R_0;t)** and **λ_SXR(ρ;t)** profiles that match the LOS integrals (where ρ = is an array in range [0, 1], R_0 indicates the reference major radius, typically the LFS midplane). Below are a few details for the computation:
 
-	a) **Number of spline knots** must avoid overfitting: the spatial distance between knots **dρ** must be >= the spatial resolution of the diagnostic ~ difference between impact parameters **ρ _los** of the neighbouring LOS **dρ _los**. Typical values of dρ range from **dρ _los x 2** for extremely shaped profiles, to **dρ _los x 6** for cases with lower asymmetry and peaking). The outermost knot is = max(ρ _los of LFS viewing LOS) + dρ; the innermost is = dρ. Values further out/in are extrapolated towards symmetry, i.e. towards lower λ_SXR. Complete symmetry means λ_SXR = 0 for all rho. Strong central peaking means λ_SXR(ρ=0) --> 0. Spatial resolution of the knots increases towards outer radii to enable fitting of more shaped profiles.
+	a) **Spline knots** in range [0,1]. Number of knots must avoid overfitting: the spatial distance between knots **dρ** must be >= the spatial resolution of the diagnostic ~ difference between impact parameters **ρ _los** of the neighbouring LOS **dρ _los**. Typical values of dρ range from **dρ _los x 2** for extremely shaped profiles, to **dρ _los x 6** for cases with lower asymmetry and peaking). Spatial resolution of the knots increases towards outer radii to enable fitting of more shaped profiles.
 
 	b) **Boundery conditions** and **prior assumptions** are:
-			* ϵ_SXR(ρ = 1) = 0 *using and exponential function, starting at ρ = 0.95)*
+			* ϵ_SXR(ρ = 1) = 0 
 			* ϵ_SXR(ρ) >= 0
-			* λ_SXR(ρ = 0) ~ 0 *since R**2 - R_0**2 = 0 at the magnetic axis*
 			* λ_SXR(ρ > 0.5) > 0 *where fast particle contributions are negligible*
+	where complete symmetry means λ_SXR = 0 for all rho. Strong central peaking means λ_SXR(ρ=0) --> 0. Spline boundary conditions for ϵ_SXR and λ_SXR 
 			
 	c) **Smootheness** parameters take care to avoid extreme gradients of both ϵ_SXR and λ_SXR close to the plasma centre where the diagnostic is less sensitive, as well as outside of the viewing region of most edge LOS where only indirect effects of the emissivity profile shape are detected. The current fitting routine optimizes ϵ_SXR and λ_SXR scanning their values from outer to inner radii. This is because the emissivity in outer flux surfaces affects all lines of sight, while the emissivity from inner surfaces affects only those LOS crossing this space.
 
 	d) the **first guesses** of ϵ_SXR and λ_SXR from the second time-point onwards are the results calculated for the previous time-point. If the chi-sq resulting from this optimisation is not good enough, then the asymmetry parameter is reset to λ_SXR = 0 and a second round of optimisation is performed.
+	
