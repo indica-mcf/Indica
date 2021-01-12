@@ -219,17 +219,28 @@ In this section, the steps of code execution are outlined in detail. The names u
 Computation details
 ---------------------------------
 
-1. **Unfolding the SXR lines-of-sight** is strightforward for poloidally symmetric emissivity profiles using e.g. Abel inversion. For poloidally asymmetric profiles, the assumption is that local emissivity distribution on a flux-surface follows the same physics as the impurity density described by equation 1 of `M. Sertoli et al. Review of Scientific Instruments 89, 113501 (2018) <https://doi.org/10.1063/1.5046562>`_. With this in mind, the fitting must search for optimal **ϵ_SXR(ρ,R_0;t)** and **λ_SXR(ρ;t)** profiles that match the LOS integrals (where ρ = is an array in range [0, 1], R_0 indicates the reference major radius, typically the LFS midplane). Below are a few details for the computation:
+1. **Unfolding the SXR lines-of-sight** is relatively strightforward for poloidally symmetric emissivity profiles. For poloidally asymmetric profiles, the assumption is that local emissivity distribution on a flux-surface follows the same physics as the impurity density described by equation 1 of `M. Sertoli et al. Review of Scientific Instruments 89, 113501 (2018) <https://doi.org/10.1063/1.5046562>`_. With this in mind, the fitting must search for optimal **ϵ_SXR(ρ,R_0;t)** and **λ_SXR(ρ;t)** profiles that match the LOS integrals (where ρ = is an array in range [0, 1], R_0 indicates the reference major radius, typically the LFS midplane). 	Complete symmetry means λ_SXR = 0. Below are a few details for the computation:
 
-	a) **Spline knots** in range [0,1]. Number of knots must avoid overfitting: the spatial distance between knots **dρ** must be >= the spatial resolution of the diagnostic ~ difference between impact parameters **ρ _los** of the neighbouring LOS **dρ _los**. Typical values of dρ range from **dρ _los x 2** for extremely shaped profiles, to **dρ _los x 6** for cases with lower asymmetry and peaking). Spatial resolution of the knots increases towards outer radii to enable fitting of more shaped profiles.
+	a) **Spline knots** in range ρ = [0, 1]. To avoid overfitting, the spatial distance of the knots must be **dρ > dρ _los**, where dρ _los is the "spatial resolution" of the diagnostic, with **ρ _los**  the lines-of-sight impact parameters. Knot distance increases towards the edge.
 
 	b) **Boundery conditions** and **prior assumptions** are:
-			* ϵ_SXR(ρ = 1) = 0 
+			* ϵ_SXR(ρ = 1) = 0 (this can be treated as a constant and not a fitting parameter)
 			* ϵ_SXR(ρ) >= 0
 			* λ_SXR(ρ > 0.5) > 0 *where fast particle contributions are negligible*
-	where complete symmetry means λ_SXR = 0 for all rho. Strong central peaking means λ_SXR(ρ=0) --> 0. Spline boundary conditions for ϵ_SXR and λ_SXR 
-			
-	c) **Smootheness** parameters take care to avoid extreme gradients of both ϵ_SXR and λ_SXR close to the plasma centre where the diagnostic is less sensitive, as well as outside of the viewing region of most edge LOS where only indirect effects of the emissivity profile shape are detected. The current fitting routine optimizes ϵ_SXR and λ_SXR scanning their values from outer to inner radii. This is because the emissivity in outer flux surfaces affects all lines of sight, while the emissivity from inner surfaces affects only those LOS crossing this space.
+			* derivatives at boundaries: 
+				* ϵ_SXR: 1st derivative(ρ = 0) = 0, 2nd derivative(ρ = 1) = 0
+				* λ_SXR: 2nd derivative(ρ = 0) = 0, 2nd derivative(ρ = 1) = 0 
 
-	d) the **first guesses** of ϵ_SXR and λ_SXR from the second time-point onwards are the results calculated for the previous time-point. If the chi-sq resulting from this optimisation is not good enough, then the asymmetry parameter is reset to λ_SXR = 0 and a second round of optimisation is performed.
+	d) **first guesses** of ϵ_SXR and λ_SXR from the second time-point are equal to the results for the previous time-point. 
 	
+2. **Unfolding the Bolometer lines-of-sight** can be performed using the same methodology as for the SXR, taking care to avoid any LOS viewing the divertor which cannot be described by the poloidal asymmetry formula. The only differences with SXR are: 
+	* **ϵ_BOLO(ρ = 1) != 0** i.e. the emissivity at the separatrix is a fit parameter.
+
+3. **Spline fitting of profile data** (electron temperature and density, ion temperature, toroidal rotation, etc.) can be performed in a similar fashion using cubic splines. There should be a possibility to combine diagnostic data in a single spline fit, e.g. LIDAR and HRTS for the electron density, or HRTS and ECE for electron temperature).
+
+	a) **Spline knots** in range ρ = [0, 1.05].  The high gradient region at the edge requires higher knot density for the pedestal region ρ = [0.85, 1.0].
+	
+	b) **Boundery conditions** and **prior assumptions**:
+		* apart from toroidal rotation, values > 0 over the whole radial range
+		* 1st derivatives at boundaries (ρ = 0 and ρ = 1.05) = 0 
+		* value(ρ = 1.05) = 0
