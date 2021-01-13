@@ -240,7 +240,12 @@ class DataReader(BaseIO):
         z = database_results["z"]
         R_coord = DataArray(R, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
-        coords = {"t": times, diagnostic_coord: ticks, "R": R_coord, "z": z_coord}
+        coords: Dict[Hashable, ArrayLike] = {
+            "t": times,
+            diagnostic_coord: ticks,
+            "R": R_coord,
+            "z": z_coord,
+        }
         dims = ["t", diagnostic_coord]
         data = {}
         downsample_ratio = int(
@@ -260,14 +265,14 @@ class DataReader(BaseIO):
             meta = {
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
-                    database_results[quantity + "_error"], dims=dims, coords=coords
+                    database_results[quantity + "_error"], coords, dims
                 ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
             quant_data = DataArray(
                 database_results[quantity],
-                dims=dims,
-                coords=coords,
+                coords,
+                dims,
                 attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:

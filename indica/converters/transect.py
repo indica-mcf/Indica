@@ -61,7 +61,7 @@ class TransectCoordinates(CoordinateTransform):
                     "R_positions and z_positions must have the same dimensiosn."
                 )
 
-        self.x1_name = R_positions.dims[0]
+        self.x1_name = str(R_positions.dims[0])
         self.x2_name = self.x1_name + "_z_offset"
 
     def convert_to_Rz(
@@ -86,13 +86,10 @@ class TransectCoordinates(CoordinateTransform):
             Height coordinate
 
         """
-        array_args = (
-            {"dims": x1.dims, "coords": x1.coords}
-            if isinstance(x1, (DataArray, Variable, Dataset))
-            else {}
-        )
-        R = DataArray(self.R_vals(x1), **array_args)
-        z = DataArray(self.z_vals(x1), **array_args) + x2
+        dims = x1.dims if isinstance(x1, (DataArray, Variable, Dataset)) else None
+        coords = x1.coords if isinstance(x1, (DataArray, Dataset)) else None
+        R = DataArray(self.R_vals(x1), coords, dims)
+        z = DataArray(self.z_vals(x1), coords, dims) + x2
         return R, z
 
     def convert_from_Rz(
@@ -117,13 +114,11 @@ class TransectCoordinates(CoordinateTransform):
             The second spatial coordinate in this system.
 
         """
-        array_args = (
-            {"dims": R.dims, "coords": R.coords}
-            if isinstance(R, (DataArray, Variable, Dataset))
-            else {}
-        )
-        x1 = DataArray(self.invert(R), **array_args)
-        x2 = z - DataArray(self.z_vals(x1), **array_args)
+        dims = R.dims if isinstance(R, (DataArray, Variable, Dataset)) else None
+        coords = R.coords if isinstance(R, (DataArray, Dataset)) else None
+        x1 = DataArray(self.invert(R), coords, dims)
+        tmp = DataArray(self.z_vals(x1), coords, dims)
+        x2 = z - tmp  # type: ignore
         return x1, x2
 
     def __eq__(self, other: object) -> bool:
