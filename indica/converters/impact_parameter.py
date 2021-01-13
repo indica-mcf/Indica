@@ -1,7 +1,8 @@
 """Coordinate systems based on volume enclosed by flux surfaces."""
 
+from typing import Callable
 from typing import cast
-from typing import Dict
+from typing import Optional
 from typing import Tuple
 
 import numpy as np
@@ -33,11 +34,6 @@ class ImpactParameterCoordinates(CoordinateTransform):
         The number of points along the line of sight at which to evaulate the
         flux surface value.
     """
-
-    _CONVERSION_METHODS: Dict[str, str] = {"LinesOfSightTransform": "_convert_to_los"}
-    _INVERSE_CONVERSION_METHODS: Dict[str, str] = {
-        "LinesOfSightTransform": "_convert_from_los"
-    }
 
     def __init__(
         self,
@@ -91,6 +87,43 @@ class ImpactParameterCoordinates(CoordinateTransform):
                 z.isel({self.x2_name: loc}) < zmag.interp(t=t, method="nearest"), -1, 1
             )
         self.rho_min = sign * rho.isel({self.x2_name: loc})
+
+    def get_converter(
+        self, other: "CoordinateTransform", reverse=False
+    ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
+        """Checks if there is a shortcut to convert between these coordiantes,
+        returning it if so. This can sometimes save the step of
+        converting to (R, z) coordinates first.
+
+        Parameters
+        ----------
+        other
+            The other transform whose coordinate system you want to convert to.
+        reverse
+            If True, try to return a function which converts _from_ ``other``
+            to this coordinate system.
+
+        Returns
+        -------
+        :
+            If a shortcut function is available, return it. Otherwise, None.
+
+        Note
+        ----
+        Implementations should call ``other.get_converter(self, reverse=True``. For
+        obvious reasons, however, they should **only do this when
+        ``reverse == False``**.
+
+        """
+        if reverse:
+            if other == self.lines_of_sight:
+                return self._convert_from_los
+            else:
+                return None
+        if other == self.lines_of_sight:
+            return self._convert_to_los
+        else:
+            return other.get_converter(self, True)
 
     def _convert_to_los(
         self, min_rho: LabeledArray, x2: LabeledArray, t: LabeledArray

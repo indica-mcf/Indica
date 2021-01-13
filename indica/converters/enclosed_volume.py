@@ -1,11 +1,14 @@
 """Coordinate systems based on volume enclosed by flux surfaces."""
 
-from typing import Dict
+from typing import Callable
+from typing import cast
+from typing import Optional
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from .flux_surfaces import FluxSurfaceCoordinates
 from ..numpy_typing import ArrayLike
+from ..numpy_typing import LabeledArray
 
 
 class EnclosedVolumeCoordinates(CoordinateTransform):
@@ -20,7 +23,6 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
 
     """
 
-    _CONVERSION_METHODS: Dict[str, str] = {"FluxSurfaceCoordinates": "_convert_to_rho"}
     x2_name = "theta"
 
     def __init__(
@@ -30,6 +32,43 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
         self.flux_transform = flux_surfaces
         self.equilibrium = flux_surfaces.equilibrium
         self.x1_name = flux_surfaces.x1_name + "_enclosed_volume"
+
+    def get_converter(
+        self, other: CoordinateTransform, reverse=False
+    ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
+        """Checks if there is a shortcut to convert between these coordiantes,
+        returning it if so. This can sometimes save the step of
+        converting to (R, z) coordinates first.
+
+        Parameters
+        ----------
+        other
+            The other transform whose coordinate system you want to convert to.
+        reverse
+            If True, try to return a function which converts _from_ ``other``
+            to this coordinate system.
+
+        Returns
+        -------
+        :
+            If a shortcut function is available, return it. Otherwise, None.
+
+        Note
+        ----
+        Implementations should call ``other.get_converter(self, reverse=True``. For
+        obvious reasons, however, they should **only do this when
+        ``reverse == False``**.
+
+        """
+        if reverse:
+            if other == self.flux_transform:
+                return cast(FluxSurfaceCoordinates, other)._convert_to_vol
+            else:
+                return None
+        if other == self.flux_transform:
+            return self._convert_to_rho
+        else:
+            return other.get_converter(self, True)
 
     def _convert_to_rho(
         self, volume: ArrayLike, theta: ArrayLike, t: ArrayLike

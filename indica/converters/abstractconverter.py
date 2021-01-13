@@ -3,6 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
+from typing import Callable
 from typing import cast
 from typing import Dict
 from typing import Optional
@@ -99,6 +100,37 @@ class CoordinateTransform(ABC):
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
 
+    def get_converter(
+        self, other: "CoordinateTransform", reverse=False
+    ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
+        """Checks if there is a shortcut to convert between these coordiantes,
+        returning it if so. This can sometimes save the step of
+        converting to (R, z) coordinates first.
+
+        Parameters
+        ----------
+        other
+            The other transform whose coordinate system you want to convert to.
+        reverse
+            If True, try to return a function which converts _from_ ``other``
+            to this coordinate system.
+
+        Returns
+        -------
+        :
+            If a shortcut function is available, return it. Otherwise, None.
+
+        Note
+        ----
+        Implementations should call ``other.get_converter(self, reverse=True``. For
+        obvious reasons, however, they should **only do this when
+        ``reverse == False``**.
+
+        """
+        if reverse:
+            return None
+        return other.get_converter(self, True)
+
     def convert_to(
         self,
         other: "CoordinateTransform",
@@ -134,23 +166,11 @@ class CoordinateTransform(ABC):
             The second spatial coordinate in the ``other`` system.
 
         """
-        # TODO: cache all results for default arguments
-        other_name = other.__class__.__name__
-        self_name = self.__class__.__name__
-        # FIXME: This assumes that conversions can be done for all
-        # instances of the other class, when most likely it can only
-        # be done for a few specific instances. I think it might be
-        # better to have a method which can determine the correct
-        # converter.
-        if other_name in self._CONVERSION_METHODS:
-            converter = getattr(self, self._CONVERSION_METHODS[other_name])
+        converter = self.get_converter(other)
+        if converter:
             return converter(x1, x2, t)
-        elif self_name in other._INVERSE_CONVERSION_METHODS:
-            converter = getattr(other, other._INVERSE_CONVERSION_METHODS[self_name])
-            return converter(x1, x2, t)
-        else:
-            R, z = self.convert_to_Rz(x1, x2, t)
-            return other.convert_from_Rz(R, z, t)
+        R, z = self.convert_to_Rz(x1, x2, t)
+        return other.convert_from_Rz(R, z, t)
 
     @abstractmethod
     def convert_to_Rz(

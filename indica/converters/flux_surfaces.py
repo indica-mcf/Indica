@@ -1,6 +1,5 @@
 """Class to handle conversions to and from flux surface coordinates."""
 
-from typing import Dict
 from typing import Optional
 
 import numpy as np
@@ -22,9 +21,6 @@ class FluxSurfaceCoordinates(CoordinateTransform):
 
     """
 
-    _CONVERSION_METHODS: Dict[str, str] = {
-        "EnclosedVolumeCoordinates": "_convert_to_vol"
-    }
     x2_name = "theta"
 
     def __init__(

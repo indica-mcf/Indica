@@ -1,7 +1,9 @@
 """Defines a coordinate system for use when estimating emissivity data."""
 
+from typing import Callable
 from typing import cast
 from typing import Dict
+from typing import Optional
 
 import numpy as np
 from xarray import DataArray
@@ -38,6 +40,40 @@ class FluxMajorRadCoordinates(CoordinateTransform):
         self.equilibrium = flux_surfaces.equilibrium
         self.flux_kind = flux_surfaces.flux_kind
         self.x1_name = flux_surfaces.x1_name
+
+    def get_converter(
+        self, other: CoordinateTransform, reverse=False
+    ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
+        """Checks if there is a shortcut to convert between these coordiantes,
+        returning it if so. This can sometimes save the step of
+        converting to (R, z) coordinates first.
+
+        Parameters
+        ----------
+        other
+            The other transform whose coordinate system you want to convert to.
+        reverse
+            If True, try to return a function which converts _from_ ``other``
+            to this coordinate system.
+
+        Returns
+        -------
+        :
+            If a shortcut function is available, return it. Otherwise, None.
+
+        Note
+        ----
+        Implementations should call ``other.get_converter(self, reverse=True``. For
+        obvious reasons, however, they should **only do this when
+        ``reverse == False``**.
+
+        """
+        if reverse:
+            if other == self.flux_surfaces:
+                return self._convert_from_flux_coords
+            else:
+                return None
+        return other.get_converter(self, True)
 
     def _convert_from_flux_coords(
         self, rho: LabeledArray, theta: LabeledArray, t: LabeledArray
