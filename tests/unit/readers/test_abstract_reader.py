@@ -27,6 +27,7 @@ from pytest import approx
 from pytest import mark
 from xarray import DataArray
 
+from indica.converters import LinesOfSightTransform
 from indica.converters import TransectCoordinates
 from indica.datatypes import ELEMENTS
 from indica.utilities import coord_array
@@ -86,13 +87,15 @@ def expected_data(
 
     """
 
-    def rename_coord(coord, ppa):
-        if coord.ndim == 0:
-            return coord
-        old = coord.dims[0]
-        parts = old.split("_")
-        parts.insert(-1, ppa)
-        return coord.rename({old: "_".join(parts)})
+    def rename_coord(transform, ppa):
+        if isinstance(transform, LinesOfSightTransform):
+            parts = transform.x1_name.split("_")
+            parts.insert(-1, ppa)
+            transform.x1_name = "_".join(parts)
+            parts = transform.x2_name.split("_")
+            parts.insert(-1, ppa)
+            transform.x2_name = "_".join(parts)
+        return transform
 
     start = draw(floats(0.0, 9.9999e2))
     stop = 1e3 - draw(floats(0.0, 9.9999e2 - start, exclude_min=True))
@@ -116,9 +119,9 @@ def expected_data(
                     datatype,
                     coordinate_transform_and_axes.map(
                         lambda x: (
-                            x[0],
-                            rename_coord(x[1], key),
-                            rename_coord(x[2], key),
+                            rename_coord(x[0], key),
+                            x[1],
+                            x[2],
                             time,
                         )
                     ),

@@ -20,6 +20,7 @@ from xarray import DataArray
 from xarray import Dataset
 
 from indica.converters import FluxSurfaceCoordinates
+from indica.converters import LinesOfSightTransform
 from indica.converters import TrivialTransform
 import indica.datatypes as dt
 from .converters.test_abstract_transform import coordinate_transforms_and_axes
@@ -209,7 +210,7 @@ def data_arrays_from_coords(
         elif isinstance(c, DataArray) and c.ndim > 0:
             coords[n] = c.values
             dims.append(n)
-        else:
+        elif not isinstance(coordinates, LinesOfSightTransform):
             coords[n] = c
     shape = tuple(len(coords[dim]) for dim in dims)
     if isinstance(t, (np.ndarray, DataArray)) and t.ndim > 0:
@@ -548,7 +549,8 @@ def equilibrium_data(
     fmin = draw(floats(0.0, 1.0))
     result["faxs"] = DataArray(
         fmin + np.abs(draw(tfuncs)(times)),
-        coords=[("t", times)],
+        {"t": times, "R": result["rmag"], "z": result["zmag"]},
+        ["t"],
         name="faxs",
         attrs=attrs,
     )
@@ -668,11 +670,13 @@ def equilibrium_data(
     )
     result["rmjo"].name = "rmjo"
     result["rmjo"].attrs["datatype"] = ("major_rad", "lfs")
+    result["rmjo"].coords["z"] = result["zmag"]
     result["rmji"] = (result["rmag"] - a_coeff * psin_data ** n_exp).assign_attrs(
         **attrs
     )
     result["rmji"].name = "rmji"
     result["rmji"].attrs["datatype"] = ("major_rad", "hfs")
+    result["rmji"].coords["z"] = result["zmag"]
     result["vjac"] = (
         4
         * n_exp
