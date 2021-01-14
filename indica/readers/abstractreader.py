@@ -240,9 +240,11 @@ class DataReader(BaseIO):
         z = database_results["z"]
         R_coord = DataArray(R, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
+        transform = TransectCoordinates(R_coord, z_coord)
         coords: Dict[Hashable, ArrayLike] = {
             "t": times,
             diagnostic_coord: ticks,
+            transform.x2_name: 0,
             "R": R_coord,
             "z": z_coord,
         }
@@ -251,7 +253,6 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
-        transform = TransectCoordinates(R_coord, z_coord)
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
@@ -503,6 +504,10 @@ class DataReader(BaseIO):
         separatrix_quantities = {"rbnd", "zbnd"}
         flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(calculation)
+        if len({"rmji", "rmjo"} & quantities) > 0:
+            quantities.add("zmag")
+        if "faxs" in quantities:
+            quantities |= {"rmag", "zmag"}
         database_results = self._get_equilibrium(uid, calculation, revision, quantities)
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
@@ -536,8 +541,16 @@ class DataReader(BaseIO):
         else:
             coords_3d = {}
         dims_3d = ("t", "z", "R")
-        data = {}
-        for quantity in quantities:
+        data: Dict[str, DataArray] = {}
+        sorted_quantities = sorted(quantities)
+        if "rmag" in quantities:
+            sorted_quantities.remove("rmag")
+            sorted_quantities.insert(0, "rmag")
+        if "zmag" in quantities:
+            sorted_quantities.remove("zmag")
+            sorted_quantities.insert(0, "zmag")
+        # Get rmag, zmag if need any of rmji, rmjo, faxs
+        for quantity in sorted_quantities:
             if quantity not in available_quantities:
                 raise ValueError(
                     "{} can not read thomson_scattering data for "
@@ -569,6 +582,7 @@ class DataReader(BaseIO):
                 dims,
                 attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
+
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -583,6 +597,11 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 [],
             )
+            if quantity in {"rmji", "rmjo"}:
+                quant_data.coords["z"] = data["zmag"]
+            elif quantity == "faxs":
+                quant_data.coords["R"] = data["rmag"]
+                quant_data.coords["z"] = data["zmag"]
             data[quantity] = quant_data
         return data
 
