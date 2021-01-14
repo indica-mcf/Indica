@@ -21,11 +21,13 @@ def trivial_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
 
 @composite
 def trivial_transforms_and_axes(
-    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=2
+    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=2, max_side=12
 ):
     transform = draw(trivial_transforms(domain))
     min_vals, max_vals = zip(*domain)
-    x1, x2, t = map(np.ravel, draw(basis_coordinates(min_vals, max_vals, min_side)))
+    x1, x2, t = map(
+        np.ravel, draw(basis_coordinates(min_vals, max_vals, min_side, max_side))
+    )
     return (
         transform,
         coord_array(x1, transform.x1_name),

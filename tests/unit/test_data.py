@@ -2,6 +2,7 @@
 
 from copy import copy
 from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from hypothesis import assume
 from hypothesis import given
@@ -15,11 +16,12 @@ from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 from hypothesis.strategies import tuples
 import numpy as np
-from pytest import approx
 from pytest import raises
+from xarray.testing import assert_allclose
 
 from indica.data import aggregate
 from .converters.test_abstract_transform import coordinate_transforms
+from .converters.test_abstract_transform import coordinate_transforms_and_axes
 from .data_strategies import compatible_dataset_types
 from .data_strategies import data_arrays
 from .data_strategies import datasets
@@ -44,6 +46,67 @@ def dropped_dimension(array):
 
 # DataArray tests:
 # ----------------
+
+# TODO: Write tests for inversion routines, interp2d, with_Rz_coords
+
+
+@given(
+    data_arrays(
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+    ),
+    coordinate_transforms(),
+)
+def test_convert_coords(array, transform):
+    actual = array.indica.convert_coords(transform)
+    expected = array.attrs["transform"].convert_to(
+        transform,
+        array.coords[array.attrs["transform"].x1_name],
+        array.coords[array.attrs["transform"].x2_name],
+        array.coords["t"],
+    )
+    for a, e in zip(actual, expected):
+        a.equals(e)
+
+
+@given(
+    data_arrays(
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+    ),
+    coordinate_transforms(),
+)
+def test_convert_coords_cache(array, transform):
+    assume(transform.x1_name not in array.coords)
+    assume(transform.x2_name not in array.coords)
+    with patch.object(
+        array.attrs["transform"], "get_converter", MagicMock(return_value=None)
+    ), patch.object(transform, "convert_from_Rz", wraps=transform.convert_from_Rz):
+        result = array.indica.convert_coords(
+            transform,
+        )
+        result2 = array.indica.convert_coords(transform)
+        transform.convert_from_Rz.assert_called_once()
+    for r1, r2 in zip(result, result2):
+        assert r1.identical(r2)
+
+
+@given(data_arrays())
+def test_get_coords(array):
+    x1 = MagicMock()
+    x2 = MagicMock()
+    convert = MagicMock(return_value=(x1, x2))
+    with patch.object(array.indica, "convert_coords", convert):
+        result = array.indica.get_coords(MagicMock())
+    assert result[0] is x1
+    assert result[1] is x2
+    assert result[2].identical(array.coords["t"])
+
+
+@given(data_arrays())
+def test_get_coords_default(array):
+    result = array.indica.get_coords()
+    assert result[0].identical(array.coords[array.attrs["transform"].x1_name])
+    assert result[1].identical(array.coords[array.attrs["transform"].x2_name])
+    assert result[2].identical(array.coords["t"])
 
 
 @given(data_arrays(), data_arrays())
@@ -70,8 +133,8 @@ def test_remap_metadata(original, template):
 def test_remap_inverts(original, template):
     """Check result of remapping and then remapping back to original is
     approximately teh same as original data."""
-    remapped = original.remap_like(template).remap_like(original)
-    assert np.all(remapped == approx(original, rel=1e-4))
+    remapped = original.indica.remap_like(template).indica.remap_like(original)
+    assert assert_allclose(remapped, original, rtol=1e-4)
 
 
 @given(lists(data_arrays(), min_size=3, max_size=10))
@@ -80,7 +143,7 @@ def test_remap_invariant(arrays):
     actual = arrays[0]
     for template in arrays[1:]:
         actual = actual.indica.remap_like(template)
-    assert np.all(actual == approx(expected, rel=1e-4))
+    assert assert_allclose(actual, expected, rtol=1e-4)
 
 
 @given(data_arrays(rel_sigma=0.0, abs_sigma=0.0), data_arrays())
@@ -88,7 +151,7 @@ def test_remap_values(original, template):
     """Check results of remapping are sensible."""
     # TODO: Rewrite so checking against function used to create the fake data
     remapped = original.indica.remap_like(template)
-    assert np.all(original.min() <= remapped <= original.max())
+    assert np.all(0.95 * original.min() <= remapped <= 1.05 * original.max())
 
 
 @given(data_arrays())

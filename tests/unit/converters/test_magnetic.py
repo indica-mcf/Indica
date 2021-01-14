@@ -78,13 +78,15 @@ def magnetic_coordinates_and_axes(
 ):
     transform = draw(magnetic_coordinates(domain, name))
     width = transform.right - transform.left
-    R_start = transform.right - draw(floats(0.0, 0.5 * width))
-    R_end = transform.left + draw(floats(0.0, 0.5 * width))
+    R_start = transform.right - draw(floats(0.001, 0.5 * width))
+    R_end = transform.left + draw(floats(0.001, 0.5 * width))
     if R_start - R_end < 0.1 * width:
         R_start = +0.1 * width
     n = draw(integers(min_vals, max_vals))
     R = DataArray(np.linspace(R_start, R_end, n))
-    x1 = coord_array(transform.convert_from_Rz(R, 0, 0)[0], transform.x1_name)
+    x1 = coord_array(
+        transform.convert_from_Rz(R, transform.z_los, 0)[0].data, transform.x1_name
+    )
     x2 = DataArray(0)
     t = DataArray(0)
     return transform, x1, x2, t

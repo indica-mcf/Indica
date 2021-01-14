@@ -90,7 +90,9 @@ class FakeEquilibrium(Equilibrium):
             t = self.default_t
             zmag = self.zmag
         else:
-            zmag = self.zmag.interp(t=t, method="nearest")
+            zmag = self.zmag.interp(
+                t=t, method="nearest", kwargs={"fill_value": "extrapolate"}
+            )
         return (
             (1 + self.parameters["Btot_alpha"] * t)
             * self.parameters["Btot_a"]
@@ -105,7 +107,9 @@ class FakeEquilibrium(Equilibrium):
             t = self.default_t
             rmag = self.rmag
         else:
-            rmag = self.rmag.interp(t=t, method="nearest")
+            rmag = self.rmag.interp(
+                t=t, method="nearest", kwargs={"fill_value": "extrapolate"}
+            )
         a = self.parameters[kind + "_a"]
         b = self.parameters[kind + "_b"]
         n = self.parameters[kind + "_n"]
@@ -142,8 +146,12 @@ class FakeEquilibrium(Equilibrium):
             rmag = self.rmag
             zmag = self.zmag
         else:
-            rmag = self.rmag.interp(t=t, method="nearest")
-            zmag = self.zmag.interp(t=t, method="nearest")
+            rmag = self.rmag.interp(
+                t=t, method="nearest", kwargs={"fill_value": "extrapolate"}
+            )
+            zmag = self.zmag.interp(
+                t=t, method="nearest", kwargs={"fill_value": "extrapolate"}
+            )
         rho = (
             (
                 (R - rmag) ** 2 / self.parameters[kind + "_a"] ** 2
@@ -160,8 +168,12 @@ class FakeEquilibrium(Equilibrium):
             rmag = self.rmag
             zmag = self.zmag
         else:
-            rmag = self.rmag.interp(t=t, method="nearest")
-            zmag = self.zmag.interp(t=t, method="nearest")
+            rmag = self.rmag.interp(
+                t=t, method="nearest", kwargs={"fill_value": "extrapolate"}
+            )
+            zmag = self.zmag.interp(
+                t=t, method="nearest", kwargs={"fill_value": "extrapolate"}
+            )
         tan_theta = np.tan(theta)
         dR = np.sign(np.cos(theta)) * np.sqrt(
             (

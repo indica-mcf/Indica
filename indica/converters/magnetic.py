@@ -5,6 +5,7 @@ from typing import Tuple
 
 import numpy as np
 from scipy.optimize import root_scalar
+from xarray import apply_ufunc
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -75,7 +76,6 @@ class MagneticCoordinates(CoordinateTransform):
 
         """
 
-        @np.vectorize
         def find_root(B: float, x2: float, t: float) -> float:
             def func(R: float) -> float:
                 return self.convert_from_Rz(R, x2 + self.z_los, t)[0] - B
@@ -93,7 +93,7 @@ class MagneticCoordinates(CoordinateTransform):
                 f"scipy.optimize.root_scalar failed to converge with flag {result.flag}"
             )
 
-        return find_root(x1, x2, t), x2 + self.z_los
+        return apply_ufunc(find_root, x1, x2, t, vectorize=True), x2 + self.z_los
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray

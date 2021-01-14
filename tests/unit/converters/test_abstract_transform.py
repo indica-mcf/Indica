@@ -28,7 +28,10 @@ from ..strategies import domains
 
 @composite
 def coordinate_transforms_and_axes(
-    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=1
+    draw,
+    domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
+    min_side=1,
+    max_side=12,
 ):
     """Strategy for generating abritrary
     :py:class:`indica.converters.CoordinateTransform` objects and a
@@ -45,17 +48,26 @@ def coordinate_transforms_and_axes(
         ``((x1_start, x1_stop), (x2_start, x2_stop), (t_start, t_stop))``.
     min_side : integer
         The minimum number of elements in an unaligned dimension for the
-        default coordinate arrays. (Not available for all coordinate systems.)
+        default coordinate arrays.
+    max_side : integer
+        The maximum number of elements in an unaligned dimension for the
+        default coordinate arrays.
 
     """
     return draw(
         one_of(
             [
-                trivial_transforms_and_axes(domain, min_side=min_side),
-                transect_coordinates_and_axes(domain),
-                magnetic_coordinates_and_axes(domain),
-                flux_coordinates_and_axes(domain, min_side=min_side),
-                # los_coordinates_and_axes(domain),
+                trivial_transforms_and_axes(
+                    domain, min_side=min_side, max_side=max_side
+                ),
+                transect_coordinates_and_axes(
+                    domain, min_points=min_side, max_points=max_side
+                ),
+                magnetic_coordinates_and_axes(
+                    domain, min_vals=min_side, max_vals=max_side
+                ),
+                flux_coordinates_and_axes(domain, min_side=min_side, max_side=max_side),
+                # los_coordinates_and_axes(domain, min_los=min_side, max_los=max_side),
             ]
         )
     )

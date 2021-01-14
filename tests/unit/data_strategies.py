@@ -200,12 +200,18 @@ def data_arrays_from_coords(
         if rel_sigma or abs_sigma
         else draw(data)
     )
-    coords = [
-        (c[0], c[1].flatten() if isinstance(c[1], np.ndarray) else c[1])
-        for c in [("t", t), (coordinates.x1_name, x1), (coordinates.x2_name, x2)]
-        if isinstance(c[1], (np.ndarray, DataArray)) and c[1].ndim > 0
-    ]
-    shape = tuple(len(c) for _, c in coords)
+    coords = {}
+    dims = []
+    for n, c in [("t", t), (coordinates.x1_name, x1), (coordinates.x2_name, x2)]:
+        if isinstance(c, np.ndarray) and c.ndim > 0:
+            coords[n] = c.flatten()
+            dims.append(n)
+        elif isinstance(c, DataArray) and c.ndim > 0:
+            coords[n] = c.values
+            dims.append(n)
+        else:
+            coords[n] = c
+    shape = tuple(len(coords[dim]) for dim in dims)
     if isinstance(t, (np.ndarray, DataArray)) and t.ndim > 0:
         min_val = np.min(t)
         width = np.abs(np.max(t) - min_val)
@@ -225,7 +231,7 @@ def data_arrays_from_coords(
     else:
         x2_scaled = 0.0
     tmp = func(t_scaled, x1_scaled, x2_scaled)
-    result = DataArray(np.reshape(tmp, shape), coords=coords)
+    result = DataArray(np.reshape(tmp, shape), coords, dims)
     if isinstance(x1, np.ndarray):
         flat_x1 = x1.flatten()
     else:
