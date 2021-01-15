@@ -33,6 +33,9 @@ class ImpactParameterCoordinates(CoordinateTransform):
     num_intervals
         The number of points along the line of sight at which to evaulate the
         flux surface value.
+    times
+        The times at which to evaluate the impact parameter. Defaults to all
+        times at which equilibrium data is available.
     """
 
     def __init__(
@@ -40,6 +43,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         lines_of_sight: LinesOfSightTransform,
         flux_surfaces: FluxSurfaceCoordinates,
         num_intervals: int = 100,
+        times: Optional[LabeledArray] = None,
     ):
         # TODO: Set up proper defaults
         self.lines_of_sight = lines_of_sight
@@ -63,12 +67,16 @@ class ImpactParameterCoordinates(CoordinateTransform):
         R, z = cast(
             Tuple[DataArray, DataArray],
             lines_of_sight.convert_to_Rz(
-                coord_array(np.arange(len(lines_of_sight.R_start)), self.x1_name),
+                coord_array(
+                    np.arange(len(lines_of_sight.R_start)), lines_of_sight.x1_name
+                ),
                 coord_array(np.linspace(0.0, 1.0, num_intervals + 1), self.x2_name),
                 0.0,
             ),
         )
-        rho, _ = cast(Tuple[DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z))
+        rho, _ = cast(
+            Tuple[DataArray, DataArray], flux_surfaces.convert_from_Rz(R, z, times)
+        )
         rho = where(rho < 0, float("nan"), rho)
         t = rho.coords["t"]
         loc = rho.argmin(self.x2_name)
@@ -152,7 +160,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         # TODO: Find a better spline that I can ensure is monotonic
         return (
             self.rho_min.interp(t=t, method="nearest").indica.invert_interp(
-                min_rho, self.x1_name, method="linear"
+                min_rho, self.lines_of_sight.x1_name, method="linear"
             ),
             x2,
         )
@@ -183,7 +191,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
         # TODO: Find a better spline that I can ensure is monotonic
         return (
             self.rho_min.interp(t=t, method="nearest").indica.interp2d(
-                {self.x1_name: x1}, method="linear"
+                {self.lines_of_sight.x1_name: x1}, method="linear"
             ),
             x2,
         )
