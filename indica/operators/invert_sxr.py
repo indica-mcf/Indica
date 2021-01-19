@@ -25,7 +25,6 @@ from ..converters import CoordinateTransform
 from ..converters import FluxMajorRadCoordinates
 from ..converters import FluxSurfaceCoordinates
 from ..converters import ImpactParameterCoordinates
-from ..converters import LinesOfSightTransform
 from ..converters import TrivialTransform
 from ..datatypes import DataType
 from ..session import global_session
@@ -185,36 +184,6 @@ class EmissivityProfile:
         return where(result < 0.0, 0.0, result).fillna(0.0)
 
 
-def integrate_los(
-    los: LinesOfSightTransform,
-    x1: DataArray,
-    x2: DataArray,
-    t: DataArray,
-    emissivity: EmissivityProfile,
-    n: int = 65,
-) -> DataArray:
-    """Integrate the emissivity profile along the line of sight for the
-    given time(s).
-
-    Parameters
-    ----------
-    los
-        The line of sight coordinate system along which to integrate.
-    emissivity
-        The emissivity profile to be integrated.
-    n
-        The (minimum) number of samples with which to integrate. Actual
-        number will be the smallest value ``2**k + 1 >= n``.
-    """
-    n = 2 ** int(np.ceil(np.log(n - 1) / np.log(2))) + 1
-    x2 = DataArray(np.linspace(0.0, 1.0, n), dims="x2")
-    distances = los.distance("x2", DataArray(0), x2[0:2], emissivity.time)
-    dl = cast(DataArray, distances)[1]
-    emissivity_vals = emissivity(los, x1, x2, t)
-    axis = emissivity_vals.dims.index("x2")
-    return romb(emissivity_vals, dl, axis)
-
-
 class InvertSXR(Operator):
     """Estimates the emissivity distribution of the plasma using soft X-ray
     data.
@@ -262,7 +231,7 @@ class InvertSXR(Operator):
         z: DataArray,
         times: DataArray,
         *cameras: DataArray,
-    ) -> DataArray:
+    ) -> Tuple[DataArray, ...]:
         """Calculate the emissivity profile for the plasma.
 
         Parameters
@@ -406,7 +375,7 @@ class InvertSXR(Operator):
         integral: List[DataArray] = []
         for data in zip(*integrals):
             integral.append(concat(data, dim=times))
-            del integral[-1].coords[None]
+            del integral[-1].coords[None]  # type: ignore
         # For some reason concat adds a `None` coordinate
         del symmetric_emissivity.coords[None]
         del asymmetry_parameter.coords[None]
