@@ -42,6 +42,59 @@ from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
 
 
+def _convert_coords(
+    array: Union[xr.Dataset, xr.DataArray], transform: CoordinateTransform
+) -> Coordinates:
+    """Convert this array's coordinates to those of the coordinate system
+    ``transform``. The result will be cached for future reuse.
+
+    Parameters
+    ----------
+    array
+        The object for which coordinates will be converted.
+    transform
+        The transform describing the coordinate system to which the
+        coordiantes will be converted.
+
+    Returns
+    -------
+    x1 : LabeledArray
+        The first spatial coordinate in the new system
+    x2 : LabeledArray
+        The second spatial coordinate in the new system
+
+    """
+    if transform.x1_name not in array.coords or transform.x2_name not in array.coords:
+        self_trans: CoordinateTransform = array.attrs["transform"]
+        converter = self_trans.get_converter(transform)
+        if converter:
+            x1, x2 = converter(
+                array.coords[self_trans.x1_name],
+                array.coords[self_trans.x2_name],
+                array.coords["t"],
+            )
+        else:
+            if "R" not in array.coords or "z" not in array.coords:
+                R, z = self_trans.convert_to_Rz(
+                    array.coords[self_trans.x1_name],
+                    array.coords[self_trans.x2_name],
+                    array.coords["t"],
+                )
+                if "R" not in array.coords:
+                    array.coords["R"] = R
+                if "z" not in array.coords:
+                    array.coords["z"] = z
+            else:
+                R = array.coords["R"]
+                z = array.coords["z"]
+            x1, x2 = transform.convert_from_Rz(R, z, array.coords["t"])
+        if transform.x1_name not in array.coords:
+            array.coords[transform.x1_name] = x1
+        if transform.x2_name not in array.coords:
+            array.coords[transform.x2_name] = x2
+    return array.coords[transform.x1_name], array.coords[transform.x2_name]
+
+
 @xr.register_dataarray_accessor("indica")
 class InDiCAArrayAccessor:
     """Class providing additional functionality to
@@ -628,38 +681,7 @@ class InDiCAArrayAccessor:
             The second spatial coordinate in the new system
 
         """
-        if (
-            transform.x1_name not in self._obj.coords
-            or transform.x2_name not in self._obj.coords
-        ):
-            self_trans: CoordinateTransform = self._obj.attrs["transform"]
-            converter = self_trans.get_converter(transform)
-            if converter:
-                x1, x2 = converter(
-                    self._obj.coords[self_trans.x1_name],
-                    self._obj.coords[self_trans.x2_name],
-                    self._obj.coords["t"],
-                )
-            else:
-                if "R" not in self._obj.coords or "z" not in self._obj.coords:
-                    R, z = self_trans.convert_to_Rz(
-                        self._obj.coords[self_trans.x1_name],
-                        self._obj.coords[self_trans.x2_name],
-                        self._obj.coords["t"],
-                    )
-                    if "R" not in self._obj.coords:
-                        self._obj.coords["R"] = R
-                    if "z" not in self._obj.coords:
-                        self._obj.coords["z"] = z
-                else:
-                    R = self._obj.coords["R"]
-                    z = self._obj.coords["z"]
-                x1, x2 = transform.convert_from_Rz(R, z, self._obj.coords["t"])
-            if transform.x1_name not in self._obj.coords:
-                self._obj.coords[transform.x1_name] = x1
-            if transform.x2_name not in self._obj.coords:
-                self._obj.coords[transform.x2_name] = x2
-        return self._obj.coords[transform.x1_name], self._obj.coords[transform.x2_name]
+        return _convert_coords(self._obj, transform)
 
     def get_coords(
         self, transform: Optional[CoordinateTransform] = None
@@ -858,6 +880,53 @@ class InDiCADatasetAccessor:
 
     def __init__(self, xarray_obj: xr.Dataset):
         self._obj = xarray_obj
+
+    def convert_coords(self, transform: CoordinateTransform) -> Coordinates:
+        """Convert this dataset's coordinates to those of the coordinate system
+        ``transform``. The result will be cached for future reuse.
+
+        Parameters
+        ----------
+        transform
+            The transform describing the coordinate system to which the
+            coordiantes will be converted.
+
+        Returns
+        -------
+        x1 : LabeledArray
+            The first spatial coordinate in the new system
+        x2 : LabeledArray
+            The second spatial coordinate in the new system
+
+        """
+        return _convert_coords(self._obj, transform)
+
+    def get_coords(
+        self, transform: Optional[CoordinateTransform] = None
+    ) -> Tuple[LabeledArray, LabeledArray, LabeledArray]:
+        """Get this dataset's coordinates, including time, in the coordinate
+        system ``transform``. The result will be cached for future
+        reuse.
+
+        Parameters
+        ----------
+        transform
+            The transform describing the coordinate system to which the
+            coordiantes will be converted.
+
+        Returns
+        -------
+        x1 : LabeledArray
+            The first spatial coordinate in the new system
+        x2 : LabeledArray
+            The second spatial coordinate in the new system
+        t : LabeledArray
+            The time coordinate
+
+        """
+        if transform is None:
+            transform = self._obj.attrs["transform"]
+        return self.convert_coords(transform) + (self._obj.coords["t"],)
 
     def attach(self, key: str, array: xr.DataArray, overwrite: bool = False):
         """Adds an additional :py:class:`xarray.DataArray` to this

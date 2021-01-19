@@ -16,6 +16,7 @@ from scipy.optimize import least_squares
 from xarray import apply_ufunc
 from xarray import concat
 from xarray import DataArray
+from xarray import Dataset
 from xarray import where
 
 from .abstractoperator import Operator
@@ -226,6 +227,9 @@ class InvertSXR(Operator):
         The number of cameras to which the data will be fit.
     n_knots : int
         The number of  spline knots to use when fitting the emissivity data.
+    n_intervals : int
+        The number of intervals over which to integrate th eemissivity. Should
+        be 2 ** m + 1, where m is an integer.
     sess : Session
         An object representing the session being run. Contains information
         such as provenance data.
@@ -238,9 +242,11 @@ class InvertSXR(Operator):
         self,
         num_cameras: int = 1,
         n_knots: int = 6,
+        n_intervals: int = 65,
         sess: Session = global_session,
     ):
         self.n_knots = n_knots
+        self.n_intervals = n_intervals
         self.num_cameras = num_cameras
         self.integral: List[DataArray]
         self.ARGUMENT_TYPES: List[DataType] = [("luminous_flux", "sxr")] * num_cameras
@@ -281,19 +287,7 @@ class InvertSXR(Operator):
         flux_coords.set_equilibrium(cameras[0].attrs["transform"].equilibrium)
         self.validate_arguments(*cameras)
         n = self.n_knots
-        num_los = [len(c.coords[c.attrs["transform"].x1_name]) for c in cameras]
-        print("Calculating impact parameters")
-        impact_params = [
-            ImpactParameterCoordinates(c.attrs["transform"], flux_coords, times=times)
-            for c in cameras
-        ]
         binned_cameras = [bin_to_time_labels(times.data, c) for c in cameras]
-        print("...done")
-        rho_max = max(ip.rhomax() for ip in impact_params)
-        knots = np.empty(n)
-        knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
-        knots[-1] = 1.0
-        dim_name = "rho_" + flux_coords.flux_kind
 
         def knotvals_to_xarray(knotvals):
             symmetric_emissivity = DataArray(np.empty(n), coords=[(dim_name, knots)])
@@ -307,49 +301,68 @@ class InvertSXR(Operator):
 
         def residuals(
             knotvals: np.ndarray,
-            rho: List[DataArray],
-            R: List[DataArray],
-            time: DataArray,
-            R_0: List[DataArray],
-            dl: List[float],
+            unfolded_cameras: List[Dataset],
         ) -> np.ndarray:
             symmetric_emissivity, asymmetry_parameter = knotvals_to_xarray(knotvals)
             estimate = EmissivityProfile(
                 symmetric_emissivity, asymmetry_parameter, flux_coords
             )
             start = 0
-            resid = np.empty(sum(num_los))
+            resid = np.empty(sum(c.attrs["nlos"] for c in unfolded_cameras))
             self.integral = []
-            for camera, n_los, ip_coords, rho_cam, Rcam, R0, dlcam in zip(
-                binned_cameras, num_los, impact_params, rho, R, R_0, dl
-            ):
-                end = start + n_los
-                emissivity_vals = estimate.evaluate(rho_cam, Rcam, R_0=R0)
-                axis = emissivity_vals.dims.index("x2")
-                integral = romb(emissivity_vals, dlcam, axis)
+            for c in unfolded_cameras:
+                end = start + c.attrs["nlos"]
+                rho, R = c.indica.convert_coords(rho_maj_rad)
+                rho_min, x2 = c.indica.convert_coords(c.attrs["impact_parameters"])
+                emissivity_vals = estimate.evaluate(rho, R, R_0=c.coords["R_0"])
+                axis = emissivity_vals.dims.index(c.attrs["transform"].x2_name)
+                integral = romb(emissivity_vals, c.attrs["dl"], axis)
                 resid[start:end] = (
-                    (camera.sel(t=time) - integral)
-                    / (
-                        camera.sel(t=time)
-                        * (0.02 + 0.18 * np.abs(ip_coords.rho_min.sel(t=time)))
-                    )
+                    (c.camera - integral) / (c.camera * (0.02 + 0.18 * np.abs(rho_min)))
                 ).data
                 start = end
-                x1_name = camera.attrs["transform"].x1_name
+                x1_name = c.attrs["transform"].x1_name
                 self.integral.append(
-                    DataArray(integral, coords=[(x1_name, camera.coords[x1_name])])
+                    DataArray(integral, coords=[(x1_name, c.coords[x1_name])])
                 )
             assert np.all(np.isfinite(resid))
             return resid
 
-        x2 = DataArray(np.linspace(0.0, 1.0, 65), dims="x2")
-        dls = [
-            cast(
-                DataArray,
-                c.attrs["transform"].distance("x2", DataArray(0), x2[0:2], 0.0),
-            )[1]
-            for c in cameras
+        x2 = np.linspace(0.0, 1.0, self.n_intervals)
+        unfolded_cameras = [
+            Dataset(
+                {"camera": bin_to_time_labels(times.data, c)},
+                {c.attrs["transform"].x2_name: x2},
+                {"transform": c.attrs["transform"]},
+            )
+            for c in binned_cameras
         ]
+
+        rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
+        rho_max = 0.0
+        print("Calculating coordinate conversions")
+        for c in unfolded_cameras:
+            trans = c.attrs["transform"]
+            dl = trans.distance(
+                trans.x2_name, DataArray(0), c.coords[trans.x2_name][0:2], 0.0
+            )[1]
+            c.attrs["dl"] = dl
+            c.attrs["nlos"] = len(c.coords[c.attrs["transform"].x1_name])
+            rho, _ = c.indica.convert_coords(rho_maj_rad)
+            ip_coords = ImpactParameterCoordinates(
+                c.attrs["transform"], flux_coords, times=times
+            )
+            c.attrs["impact_parameters"] = ip_coords
+            impact_param, x2_coords = c.indica.convert_coords(ip_coords)
+            rho_max = max(rho_max, ip_coords.rhomax())
+            c.coords["R_0"] = c.attrs["transform"].equilibrium.R_hfs(
+                rho, c.coords["t"]
+            )[0]
+
+        knots = np.empty(n)
+        knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
+        knots[-1] = 1.0
+        dim_name = "rho_" + flux_coords.flux_kind
 
         symmetric_emissivities: List[DataArray] = []
         asymmetry_parameters: List[DataArray] = []
@@ -360,28 +373,15 @@ class InvertSXR(Operator):
             np.concatenate((np.zeros(n - 1), -0.5 * np.ones(n - 2))),
             np.concatenate((1e6 * np.ones(n - 1), np.ones(n - 2))),
         )
-        rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
 
         for t in np.asarray(times):
-            print(f"Solving for t={t}")
-            print("-----------------\n")
-            rhos, Rs = zip(
-                *[
-                    c.attrs["transform"].convert_to(
-                        rho_maj_rad, c.coords[c.attrs["transform"].x1_name], x2, t
-                    )
-                    for c in cameras
-                ]
-            )
-            R_0s = [
-                cast(DataArray, ip_coords.equilibrium.R_hfs(rho, t)[0])
-                for ip_coords, rho in zip(impact_params, rhos)
-            ]
+            print(f"\nSolving for t={t}")
+            print("------------------\n")
             fit = least_squares(
                 residuals,
                 guess,
                 bounds=bounds,
-                args=(rhos, Rs, t, R_0s, dls),
+                args=([c.sel(t=t) for c in unfolded_cameras],),
                 verbose=2,
             )
             if fit.status == -1:
@@ -400,6 +400,7 @@ class InvertSXR(Operator):
             asymmetry_parameters.append(asym)
             integrals.append(self.integral)
             guess = fit.x
+
         symmetric_emissivity = concat(symmetric_emissivities, dim=times)
         asymmetry_parameter = concat(asymmetry_parameters, dim=times)
         integral: List[DataArray] = []
