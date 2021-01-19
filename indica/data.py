@@ -384,7 +384,7 @@ class InDiCAArrayAccessor:
         def interpolate_2d(x, y, z, x_interp, y_interp, x_zero, y_zero):
             if assume_sorted:
                 interpolant = RectBivariateSpline(x, y, z, kx=degree, ky=degree)
-                result = interpolant(x_interp, y_interp).T
+                result = interpolant(x_interp, y_interp)
                 domain = ((x[0], x[-1]), (y[0], y[-1]))
             else:
                 xorder = np.argsort(x)
@@ -437,6 +437,9 @@ class InDiCAArrayAccessor:
                 ymask = np.logical_and(
                     y_interp >= y_below_zero, y_interp <= y_above_zero
                 )
+                if isinstance(xmask, np.ndarray) and isinstance(ymask, np.ndarray):
+                    xmask = np.expand_dims(xmask, 1)
+                    x_interp = np.expand_dims(x_interp, 1)
                 mask = np.logical_and(xmask, ymask)
                 if np.any(mask):
                     interpolant = CloughTocher2DInterpolator(
@@ -602,6 +605,9 @@ class InDiCAArrayAccessor:
             )
         if len(rename_dims) > 0:
             result = result.rename(rename_dims)
+        for name, coord in ordered_coords:
+            if name not in result.coords:
+                result.coords[name] = coord
         return result
 
     def convert_coords(self, transform: CoordinateTransform) -> Coordinates:

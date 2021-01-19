@@ -224,15 +224,11 @@ class LinesOfSightTransform(CoordinateTransform):
         R = Rs + (Re - Rs) * x2
         T = Ts + (Te - Ts) * x2
         z = zs + (ze - zs) * x2
-        slc1 = {direction: slice(0, -1)}
-        slc2 = {direction: slice(1, None)}
         spacings = np.sqrt(
-            (R[slc2] - R[slc1]) ** 2
-            + (z[slc2] - z[slc1]) ** 2
-            + (T[slc2] - T[slc1]) ** 2
+            R.diff(direction) ** 2 + z.diff(direction) ** 2 + T.diff(direction) ** 2
         )
         result = zeros_like(R)
-        result[slc2] = spacings.cumsum(direction)
+        result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
 
 

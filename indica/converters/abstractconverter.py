@@ -290,11 +290,9 @@ class CoordinateTransform(ABC):
         R, z = cast(Tuple[DataArray, DataArray], self.convert_to_Rz(x1, x2, t))
         if isinstance(R, (int, float)) or isinstance(z, (int, float)):
             raise ValueError("Arguments x1 and x2 must be xarray DataArray objects.")
-        slc1 = {direction: slice(0, -1)}
-        slc2 = {direction: slice(1, None)}
-        spacings = np.sqrt((R[slc2] - R[slc1]) ** 2 + (z[slc2] - z[slc1]) ** 2)
+        spacings = np.sqrt(R.diff(direction) ** 2 + z.diff(direction) ** 2)
         result = zeros_like(R.broadcast_like(z))
-        result[slc2] = spacings.cumsum(direction)
+        result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
 
     def encode(self) -> str:

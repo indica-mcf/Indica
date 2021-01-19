@@ -85,7 +85,6 @@ class Equilibrium:
         self.zbnd = equilibrium_data["zbnd"]
         self.zx = self.zbnd.min("arbitrary_index")
         if T_e is not None:
-            Te_Rz = T_e.indica.with_Rz_coords()
             offsets = DataArray(np.linspace(0.0, 0.04, 9), dims="offset", name="offset")
             index = T_e.dims[1]
             rhos = concat(
@@ -93,13 +92,14 @@ class Equilibrium:
                     self.rho.interp(
                         t=T_e.coords["t"], method="nearest"
                     ).indica.interp2d(
-                        R=Te_Rz.coords["R"] - offset,
-                        z=Te_Rz.coords["z"],
+                        R=T_e.coords["R"] - offset,
+                        z=T_e.coords["z"],
                         zero_coords={
                             "R": self.rmag.interp(t=T_e.coords["t"], method="nearest"),
                             "z": self.zmag.interp(t=T_e.coords["t"], method="nearest"),
                         },
                         method="cubic",
+                        assume_sorted=True,
                     )
                     for offset in offsets
                 ],
@@ -117,7 +117,7 @@ class Equilibrium:
 
             square_residuals = (
                 T_e.dropna(index).indica.interp2d(
-                    {index: separatrix_indices}, method="cubic"
+                    {index: separatrix_indices}, method="cubic", assume_sorted=True
                 )
                 - 100.0
             ) ** 2
@@ -130,7 +130,10 @@ class Equilibrium:
                 fluxes = self.rho.interp(
                     t=T_e.coords["t"], method="nearest"
                 ).indica.interp2d(
-                    R=Te_Rz.coords["R"] - offset, z=Te_Rz.coords["z"], method="cubic"
+                    R=T_e.coords["R"] - offset,
+                    z=T_e.coords["z"],
+                    method="cubic",
+                    assume_sorted=True,
                 )
                 offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
             self.R_offset = offset
@@ -150,7 +153,8 @@ class Equilibrium:
 
         self.prov_id = hash_vals(**equilibrium_data)
         self.provenance = sess.prov.entity(
-            self.prov_id, {prov.PROV_TYPE: "Equilibrium", "offset": self.R_offset},
+            self.prov_id,
+            {prov.PROV_TYPE: "Equilibrium", "offset": self.R_offset},
         )
         sess.prov.generation(
             self.provenance, sess.session, time=datetime.datetime.now()
@@ -405,11 +409,18 @@ class Equilibrium:
         R_grid = R0 + minor_rads * np.cos(theta)
         z_grid = z0 + minor_rads * np.sin(theta)
         fluxes_samples = reference_rhos.indica.interp2d(
-            R=R_grid, z=z_grid, zero_coords={"R": R0, "z": z0}, method="cubic"
+            R=R_grid,
+            z=z_grid,
+            zero_coords={"R": R0, "z": z0},
+            method="cubic",
+            assume_sorted=True,
         ).rename("rho_" + kind)
         fluxes_samples.loc[{"r": 0}] = 0.0
         indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="cubic")
-        return minor_rads.indica.interp2d(r=indices, method="cubic"), t
+        return (
+            minor_rads.indica.interp2d(r=indices, method="cubic", assume_sorted=True),
+            t,
+        )
 
     def flux_coords(
         self,
@@ -457,7 +468,11 @@ class Equilibrium:
             t = self.rho.coords["t"]
             z_x_point = self.zx
         rho_interp = rho.indica.interp2d(
-            R=R - self.R_offset, z=z, zero_coords={"R": R_ax, "z": z_ax}, method="cubic"
+            R=R - self.R_offset,
+            z=z,
+            zero_coords={"R": R_ax, "z": z_ax},
+            method="cubic",
+            assume_sorted=True,
         )
         # Correct for any interpolation errors resulting in negative fluxes
         rho_interp = where(
@@ -562,7 +577,9 @@ class Equilibrium:
             conversion = self.rhotor
             t = self.rhotor.coords["t"]
         if to_kind == "toroidal":
-            flux = conversion.indica.interp2d(rho_poloidal=np.abs(rho), method="cubic")
+            flux = conversion.indica.interp2d(
+                rho_poloidal=np.abs(rho), method="cubic", assume_sorted=True
+            )
         elif to_kind == "poloidal":
             flux = conversion.indica.invert_interp(
                 np.abs(rho), "rho_poloidal", method="cubic"
