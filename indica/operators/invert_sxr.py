@@ -81,7 +81,7 @@ class EmissivityProfile:
             symmetric_emissivity.transpose(*transpose_order),
             0,
             (
-                (2, np.zeros_like(symmetric_emissivity.isel({self._dim: 0}))),
+                (1, np.zeros_like(symmetric_emissivity.isel({self._dim: 0}))),
                 (2, np.zeros_like(symmetric_emissivity.isel({self._dim: -1}))),
             ),
             False,
@@ -231,7 +231,7 @@ class InvertSXR(Operator):
         z: DataArray,
         times: DataArray,
         *cameras: DataArray,
-    ) -> Tuple[DataArray, ...]:
+    ) -> Dataset:
         """Calculate the emissivity profile for the plasma.
 
         Parameters
@@ -286,9 +286,7 @@ class InvertSXR(Operator):
                 emissivity_vals = estimate.evaluate(rho, R, R_0=c.coords["R_0"])
                 axis = emissivity_vals.dims.index(c.attrs["transform"].x2_name)
                 integral = romb(emissivity_vals, c.attrs["dl"], axis)
-                resid[start:end] = (
-                    (c.camera - integral) / (c.camera * (0.02 + 0.18 * np.abs(rho_min)))
-                ).data
+                resid[start:end] = ((c.camera - integral) / c.weights).data
                 start = end
                 x1_name = c.attrs["transform"].x1_name
                 self.integral.append(
@@ -322,8 +320,10 @@ class InvertSXR(Operator):
                 c.attrs["transform"], flux_coords, times=times
             )
             c.attrs["impact_parameters"] = ip_coords
-            impact_param, x2_coords = c.indica.convert_coords(ip_coords)
             rho_max = max(rho_max, ip_coords.rhomax())
+            impact_param, _ = c.indica.convert_coords(ip_coords)
+            c["weights"] = c.camera * (0.02 + 0.18 * np.abs(impact_param))
+            c["weights"].attrs["transform"] = c.camera.attrs["transform"]
             c.coords["R_0"] = c.attrs["transform"].equilibrium.R_hfs(
                 rho, c.coords["t"]
             )[0]
@@ -339,7 +339,7 @@ class InvertSXR(Operator):
         abel_inversion = np.linspace(3e3, 0.0, n - 1)
         guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
         bounds = (
-            np.concatenate((np.zeros(n - 1), -0.5 * np.ones(n - 2))),
+            np.concatenate((np.zeros(n - 1), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
             np.concatenate((1e6 * np.ones(n - 1), np.ones(n - 2))),
         )
 
@@ -371,7 +371,9 @@ class InvertSXR(Operator):
             guess = fit.x
 
         symmetric_emissivity = concat(symmetric_emissivities, dim=times)
+        symmetric_emissivity.attrs["transform"] = flux_coords
         asymmetry_parameter = concat(asymmetry_parameters, dim=times)
+        asymmetry_parameter.attrs["transform"] = flux_coords
         integral: List[DataArray] = []
         for data in zip(*integrals):
             integral.append(concat(data, dim=times))
@@ -383,10 +385,20 @@ class InvertSXR(Operator):
             symmetric_emissivity, asymmetry_parameter, flux_coords
         )
         trivial = TrivialTransform()
-        result = estimate(trivial, R, z, times)
-        result.attrs["transform"] = trivial
-        result.attrs["datatype"] = ("emissivity", "sxr")
-        result.attrs["provenance"] = self.create_provenance()
-        result.attrs["emissivity"] = estimate
-        result.name = "sxr_emissivity"
-        return result, *integral
+        emissivity = estimate(trivial, R, z, times)
+        emissivity.attrs["transform"] = trivial
+        emissivity.attrs["datatype"] = ("emissivity", "sxr")
+        emissivity.attrs["provenance"] = self.create_provenance()
+        emissivity.name = "sxr_emissivity"
+        results = {
+            "emissivity": emissivity,
+            "symmetric_emissivity": symmetric_emissivity,
+            "asymmetry_parameter": asymmetry_parameter,
+        }
+        for inte, c, c_orig in zip(integral, unfolded_cameras, cameras):
+            name = c_orig.name
+            results[name + "_binned"] = c.camera
+            inte.attrs["transform"] = c.camera.attrs["transform"]
+            results[name + "_back_integral"] = inte
+            results[name + "_weights"] = c.weights
+        return Dataset(results, c.coords, {"emissivity_model": estimate})
