@@ -6,8 +6,10 @@ reading PPF data produced by JET.
 from pathlib import Path
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Set
 from typing import Tuple
+from typing import Union
 
 import numpy as np
 from sal.client import SALClient
@@ -184,12 +186,20 @@ class PPFReader(DataReader):
         path = path_template.format(self.pulse, uid, instrument, quantity, revision)
         info = self._client.list(path)
         path = path_template.format(
-            self.pulse, uid, instrument, quantity, info.revision_current,
+            self.pulse,
+            uid,
+            instrument,
+            quantity,
+            info.revision_current,
         )
         return self._client.get(path), path
 
     def _get_charge_exchange(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Return temperature, angular frequency, or concentration data for an
         ion, measured using charge exchange recombination
@@ -230,7 +240,11 @@ class PPFReader(DataReader):
         return results
 
     def _get_thomson_scattering(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for electron temperature or number density
         calculated from Thomson scattering.
@@ -270,11 +284,13 @@ class PPFReader(DataReader):
         return results
 
     def _get_equilibrium(
-        self, uid: str, calculation: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        calculation: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
-        """Fetch raw data for plasma equilibrium.
-
-        """
+        """Fetch raw data for plasma equilibrium."""
         results: Dict[str, Any] = {}
         for q in quantities:
             qval, q_path = self._get_signal(uid, calculation, q, revision)
@@ -300,7 +316,11 @@ class PPFReader(DataReader):
         return results
 
     def _get_radiation(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for radiation quantities such as SXR and bolometric
         fluxes..
@@ -312,31 +332,40 @@ class PPFReader(DataReader):
         }
         for q in quantities:
             qtime = q + "_times"
-            luminosities = []
-            channels = []
             records = [SURF_PATH.name]
-            for i in range(1, self._RADIATION_RANGES[instrument + "/" + q] + 1):
-                try:
-                    qval, q_path = self._get_signal(
-                        uid, instrument, f"{q}{i:02d}", revision
+            if instrument == "bolo":
+                qval, qpath = self._get_signal(uid, instrument, q, revision)
+                records.append(qpath)
+                results["length"][q] = qval.dimensions[1].length
+                results[qtime] = qval.dimensions[0].data
+                results[q] = qval.data
+                channels: Union[List[int], slice] = slice(None, None)
+            else:
+                luminosities = []
+                channels = []
+                for i in range(1, self._RADIATION_RANGES[instrument + "/" + q] + 1):
+                    try:
+                        qval, q_path = self._get_signal(
+                            uid, instrument, f"{q}{i:02d}", revision
+                        )
+                    except NodeNotFound:
+                        continue
+                    records.append(q_path)
+                    luminosities.append(qval.data)
+                    channels.append(i - 1)
+                    if qtime not in results:
+                        results[qtime] = qval.dimensions[0].data
+                if len(channels) == 0:
+                    # TODO: Try getting information on the DDA, to determine if
+                    # the failure is actually due to requesting an invalid
+                    # DDA or revision
+                    self._client.list(
+                        f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:"
+                        f"{revision:d}"
                     )
-                except NodeNotFound:
-                    continue
-                records.append(q_path)
-                luminosities.append(qval.data)
-                channels.append(i - 1)
-                if qtime not in results:
-                    results[qtime] = qval.dimensions[0].data
-            if len(channels) == 0:
-                # Try getting information on the DDA, to determine if
-                # the failure is actually due to requesting an invalid
-                # DDA or revision
-                self._client.list(
-                    f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
-                )
-                raise PPFError(f"No channels available for {instrument}/{q}.")
-            results["length"][q] = len(channels)
-            results[q] = np.array(luminosities).T
+                    raise PPFError(f"No channels available for {instrument}/{q}.")
+                results["length"][q] = len(channels)
+                results[q] = np.array(luminosities).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
             rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
@@ -351,7 +380,11 @@ class PPFReader(DataReader):
         return results
 
     def _get_bremsstrahlung_spectroscopy(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         results: Dict[str, Any] = {
             "length": {},

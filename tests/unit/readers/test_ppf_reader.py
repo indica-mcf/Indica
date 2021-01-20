@@ -512,7 +512,7 @@ def test_get_radiation(
     if bad_rev:
         return
     # TODO: determine how best to describe the SURF data for PROV
-    records = ["surf_overlays.db"]
+    records = ["surf_los.dat"]
     for q in quantities:
         radiation = results[q]
         length = results["length"][q]
