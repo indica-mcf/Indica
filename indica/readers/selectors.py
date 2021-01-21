@@ -8,6 +8,7 @@ from typing import Iterable
 from typing import List
 from typing import Optional
 
+from matplotlib.backend_bases import PickEvent
 from matplotlib.collections import PathCollection
 import matplotlib.pyplot as plt
 from xarray import DataArray
@@ -18,6 +19,32 @@ DataSelector = Callable[
 ]
 
 MAX_TIME_SLICES = 10
+
+
+class PickStack:
+    def __init__(self, stack, on_pick):
+        self.stack = stack
+        self.ax = [artist.axes for artist in self.stack][0]
+        self.on_pick = on_pick
+        self.cid = self.ax.figure.canvas.mpl_connect(
+            "button_press_event", self.fire_pick_event
+        )
+
+    def fire_pick_event(self, event):
+        if not event.inaxes:
+            return
+        cont = [a for a in self.stack if a.contains(event)[0]]
+        if not cont:
+            return
+        pick_event = PickEvent(
+            "pick_Event",
+            self.ax.figure.canvas,
+            event,
+            cont[0],
+            guiEvent=event.guiEvent,
+            **cont[0].contains(event)[1],
+        )
+        self.on_pick(pick_event)
 
 
 def choose_on_plot(
@@ -95,13 +122,12 @@ def choose_on_plot(
         raise ValueError("Received DataArray with more than 2 dimensions.")
     channel_pos = data.dims.index(channel_dim)
     if data.ndim > 1:
-        other_dim: Optional[Hashable] = data.dims[0] if channel_pos == 1 else data.dims[
-            1
-        ]
+        other_dim: Optional[Hashable] = (
+            data.dims[0] if channel_pos == 1 else data.dims[1]
+        )
     else:
         other_dim = None
 
-    fig = plt.figure()
     if other_dim is None:
         plots.append(
             plt.scatter(data.coords[channel_dim], data, c=colours, picker=True)
@@ -120,7 +146,7 @@ def choose_on_plot(
                 )
             )
 
-    fig.canvas.mpl_connect("pick_event", on_pick)
+    PickStack(plots, on_pick)
     plt.xlabel(channel_dim)
     datatype = data.attrs["datatype"]
     plt.ylabel(f"{datatype[1]} {datatype[0]}")
