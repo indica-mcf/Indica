@@ -4,12 +4,16 @@ reading PPF data produced by JET.
 """
 
 from pathlib import Path
+import pickle
+import stat
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Set
 from typing import Tuple
 from typing import Union
+import warnings
 
 import numpy as np
 from sal.client import SALClient
@@ -18,11 +22,13 @@ from sal.core.exception import NodeNotFound
 from sal.dataclass import Signal
 
 import indica.readers.surf_los as surf_los
+from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from ..session import global_session
 from ..session import Session
+from ..utilities import to_filename
 
 
 SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
@@ -37,34 +43,15 @@ class PPFError(Exception):
     """
 
 
+class PPFWarning(UserWarning):
+    """A warning that occurs while trying to read PPF data. Typically
+    related to caching in some way.
+
+    """
+
+
 class PPFReader(DataReader):
     """Class to read JET PPF data using SAL.
-
-    Currently the following types of data are supported.
-
-    ==========  ==================  ================  =================
-    Key         Data type           Data for          Instrument
-    ==========  ==================  ================  =================
-    cxg6_angf   Angular frequency   Pulse dependant   CXG6
-    cxg6_conc   Concentration       Pulse dependant   GXG6
-    cxg6_ti     Temperature         Pulse dependant   CXG6
-    efit_rmag   Major radius        Magnetic axis     EFIT equilibrium
-    efit_zmag   Z position          Magnetic axis     EFIT equilibrium
-    efit_rsep   Major radius        Separatrix        EFIT equilibrium
-    efit_zsep   Z position          Separatrix        EFIT equilibrium
-    hrts_ne     Number density      Electrons         HRTS
-    hrts_te     Temperature         Electrons         HRTS
-    kk3_te      Temperature         Electrons         KK3
-    lidr_ne     Number density      Electrons         LIDR
-    lidr_te     Temperature         Electrons         LIDR
-    sxr_h       Luminous flux       Soft X-rays       SXR camera H
-    sxr_t       Luminous flux       Soft X-rays       SXR camera T
-    sxr_v       Luminous flux       Soft X-rays       SXR camera V
-    ==========  ==================  ================  =================
-
-    Note that there will need to be some refactoring to support other
-    data types. However, **this is guaranteed not to affect the public
-    interface**.
 
     Parameters
     ----------
@@ -129,24 +116,6 @@ class PPFReader(DataReader):
         "ks3": "edg7",
     }
 
-    #    AVAILABLE_DATA: ClassVar[Dict[str, DataType]] = {
-    #        "cxg6_angf": ("angular_freq", None),
-    #        "cxg6_conc": ("concentration", None),
-    #        "cxg6_ti": ("temperature", None),
-    #        "efit_rmag": ("major_rad", "mag_axis"),
-    #        "efit_zmag": ("z", "mag_axis"),
-    #        "efit_rsep": ("major_rad", "separatrix_axis"),
-    #        "efit_zsep": ("z", "separatrix_axis"),
-    #        "hrts_ne": ("number_density", "electrons"),
-    #        "hrts_te": ("temperature", "electrons"),
-    #        "kk3_te": ("temperature", "electrons"),
-    #        "lidr_ne": ("number_density", "electrons"),
-    #        "lidr_te": ("temperature", "electrons"),
-    #        "sxr_h": ("luminous_flux", "sxr"),
-    #        "sxr_t": ("luminous_flux", "sxr"),
-    #        "sxr_v": ("luminous_flux", "sxr"),
-    #    }
-
     _RADIATION_RANGES = {
         "sxr/h": 17,
         "sxr/t": 35,
@@ -178,21 +147,80 @@ class PPFReader(DataReader):
         self._client.prompt_for_password = False
         self._default_error = default_error
 
+    def get_sal_path(
+        self, uid: str, instrument: str, quantity: str, revision: int
+    ) -> str:
+        """Return the path in the PPF database to for the given DDA."""
+        return (
+            f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}/"
+            f"{quantity}:{revision:d}"
+        )
+
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> Tuple[Signal, str]:
         """Gets the signal for the given DDA, at the given revision."""
-        path_template = "/pulse/{:d}/ppf/signal/{}/{}/{}:{:d}"
-        path = path_template.format(self.pulse, uid, instrument, quantity, revision)
+        path = self.get_sal_path(uid, instrument, quantity, revision)
         info = self._client.list(path)
-        path = path_template.format(
-            self.pulse,
+        path = self.get_sal_path(
             uid,
             instrument,
             quantity,
             info.revision_current,
         )
-        return self._client.get(path), path
+        cache_path = self._sal_path_to_file(path)
+        data = self._read_cached_ppf(cache_path)
+        if data is None:
+            data = self._client.get(path)
+            self._write_cached_ppf(cache_path, data)
+        return data, path
+
+    def _read_cached_ppf(self, path: Path) -> Optional[Signal]:
+        """Check if the PPF data specified by `sal_path` has been cached and,
+        if so, load it.
+
+        """
+        if not path.exists():
+            return None
+        permissions = stat.filemode(path.stat().st_mode)
+        if permissions[5] == "w" or permissions[8] == "w":
+            warnings.warn(
+                "Can not open cache file which is writeable by anyone other than "
+                "the user. (Security risk.)",
+                PPFWarning,
+            )
+            return None
+        with path.open("rb") as f:
+            try:
+                return pickle.load(f)
+            except pickle.UnpicklingError:
+                warnings.warn(
+                    f"Error unpickling cache file {path}. (Possible data corruption.)",
+                    PPFWarning,
+                )
+                return None
+
+    def _write_cached_ppf(self, path: Path, data: Signal):
+        """Write the given signal, fetched from `sal_path`, to the disk for
+        later reuse.
+
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as f:
+            pickle.dump(data, f)
+        path.chmod(0o644)
+
+    def _sal_path_to_file(self, sal_path: str) -> Path:
+        """Get the file path which would be used to cache data from the given
+        `sal_path`.
+
+        """
+        return (
+            Path.home()
+            / CACHE_DIR
+            / self.__class__.__name__
+            / to_filename(self._reader_cache_id + sal_path + ".pkl")
+        )
 
     def _get_charge_exchange(
         self,

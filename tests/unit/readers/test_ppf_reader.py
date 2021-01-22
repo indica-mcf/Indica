@@ -1,8 +1,12 @@
 """Test reading from SAL database."""
 
+from contextlib import contextmanager
 from contextlib import nullcontext
+import os
 import pathlib
 import re
+import tempfile
+from unittest.mock import DEFAULT
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -23,6 +27,11 @@ import sal.core.exception
 import scipy.constants as sc
 
 from indica.readers import PPFReader
+from indica.readers.ppfreader import PPFWarning
+from indica.readers.selectors import choose_on_plot
+from indica.readers.selectors import DataSelector
+from indica.session import global_session
+from indica.session import Session
 from .fake_salclient import fake_sal_client
 
 
@@ -47,6 +56,26 @@ lines_of_sight = tuples(
     arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
     arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
 )
+
+
+def patched_ppf_reader(
+    fake_database,
+    pulse: int,
+    tstart: float,
+    tend: float,
+    server: str = "https://sal.jet.uk",
+    default_error: float = 0.05,
+    max_freq: float = 1e6,
+    selector: DataSelector = choose_on_plot,
+    session: Session = global_session,
+):
+    with patch("indica.readers.ppfreader.SALClient", fake_database):
+        reader = PPFReader(
+            pulse, tstart, tend, server, default_error, max_freq, selector, session
+        )
+    reader._read_cached_ppf = MagicMock(return_value=None)  # type: ignore
+    reader._write_cached_ppf = MagicMock()  # type: ignore
+    return reader
 
 
 def trim_lines_of_sight(los, n):
@@ -117,15 +146,15 @@ def test_get_thomson_scattering(
     quantities,
 ):
     """Test quantities returned by _get_thomson_scattering are correct."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
-        reader = PPFReader(
-            pulse,
-            *time_range,
-            default_error=error,
-            max_freq=freq,
-            selector=MagicMock(),
-            session=MagicMock(),
-        )
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -184,15 +213,15 @@ def test_get_charge_exchange(
     quantities,
 ):
     """Test quantities returned by _get_charge_exchange are correct."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
-        reader = PPFReader(
-            pulse,
-            *time_range,
-            default_error=error,
-            max_freq=freq,
-            selector=MagicMock(),
-            session=MagicMock(),
-        )
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -267,15 +296,15 @@ def test_get_equilibrium(
     quantities,
 ):
     """Test quantities returned by _get_equilibrium are correct."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
-        reader = PPFReader(
-            pulse,
-            *time_range,
-            default_error=error,
-            max_freq=freq,
-            selector=MagicMock(),
-            session=MagicMock(),
-        )
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -328,15 +357,15 @@ def test_get_cyclotron_emissions(
     los,
 ):
     """Test quantities returned by _get_cyclotrons_emissions are correct."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
-        reader = PPFReader(
-            pulse,
-            *time_range,
-            default_error=error,
-            max_freq=freq,
-            selector=MagicMock(),
-            session=MagicMock(),
-        )
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     mock_surf = MagicMock(return_value=trim_lines_of_sight(los, 1))
@@ -411,15 +440,15 @@ def test_get_sxr(
     los,
 ):
     """Test SXR quantities returned by _get_radiation are correct."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
-        reader = PPFReader(
-            pulse,
-            *time_range,
-            default_error=error,
-            max_freq=freq,
-            selector=MagicMock(),
-            session=MagicMock(),
-        )
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     LOS_LENS = {"sxr/h": 17, "sxr/t": 35, "sxr/v": 35}
@@ -490,15 +519,15 @@ def test_get_radiation(
     los,
 ):
     """Test bolometric quantities returned by _get_radiation are correct."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
-        reader = PPFReader(
-            pulse,
-            *time_range,
-            default_error=error,
-            max_freq=freq,
-            selector=MagicMock(),
-            session=MagicMock(),
-        )
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     LOS_LENS = {"bolo/kb5v": 32, "bolo/kb5h": 24}
@@ -554,15 +583,15 @@ def test_get_bremsstrahlung_spectroscopy(
     quantities,
 ):
     """Test data returned by _get_bremsstrahlung_spectroscopy is correct."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
-        reader = PPFReader(
-            pulse,
-            *time_range,
-            default_error=error,
-            max_freq=freq,
-            selector=MagicMock(),
-            session=MagicMock(),
-        )
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
     with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
@@ -616,17 +645,15 @@ def test_general_get(
     fake_sal, pulse, time_range, error, freq, uid, instrument, revision, quantities
 ):
     """Test the generic get method to ensure it calls the correct things."""
-    with patch("indica.readers.PPFReader.get_thomson_scattering"), patch(
-        "indica.readers.PPFReader.get_charge_exchange"
-    ), patch("indica.readers.PPFReader.get_equilibrium"), patch(
-        "indica.readers.PPFReader.get_cyclotron_emissions"
-    ), patch(
-        "indica.readers.PPFReader.get_radiation"
-    ), patch(
-        "indica.readers.PPFReader.get_bremsstrahlung_spectroscopy"
-    ), patch(
-        "indica.readers.ppfreader.SALClient", fake_sal
-    ):
+    with patch.multiple(
+        "indica.readers.PPFReader",
+        get_thomson_scattering=DEFAULT,
+        get_charge_exchange=DEFAULT,
+        get_equilibrium=DEFAULT,
+        get_cyclotron_emissions=DEFAULT,
+        get_radiation=DEFAULT,
+        get_bremsstrahlung_spectroscopy=DEFAULT,
+    ), patch("indica.readers.ppfreader.SALClient", fake_sal):
         reader = PPFReader(
             pulse,
             *time_range,
@@ -657,6 +684,39 @@ def test_get_defaults(
     """Test the generic get method uses appropriate default quantities."""
     if instrument == "sxr":
         pulse = max(pulse, 35779)
+    reader = patched_ppf_reader(
+        fake_sal,
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
+    results = reader.get(uid, instrument, revision)
+    assert set(results) == set(reader.available_quantities(instrument))
+
+
+@given(
+    pulses,
+    times,
+    errors,
+    max_freqs,
+    just("jetppf"),
+    sampled_from(["bolo", "efit", "lidr", "eftp", "cxg6"]),
+    revisions,
+)
+def test_cache_read_write(
+    fake_sal,
+    pulse,
+    time_range,
+    error,
+    freq,
+    uid,
+    instrument,
+    revision,
+):
+    """Test that reading a cache produces the same data that was written to it."""
     with patch("indica.readers.ppfreader.SALClient", fake_sal):
         reader = PPFReader(
             pulse,
@@ -666,5 +726,84 @@ def test_get_defaults(
             selector=MagicMock(),
             session=MagicMock(),
         )
-    results = reader.get(uid, instrument, revision)
-    assert set(results) == set(reader.available_quantities(instrument))
+    quantity = sorted(reader.available_quantities(instrument).keys())[0]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        salpath = reader.get_sal_path(uid, instrument, quantity, revision)
+        path = pathlib.Path(tmpdir) / reader._sal_path_to_file(salpath).name
+        data = reader._client.get(salpath)
+        reader._write_cached_ppf(path, data)
+        data2 = reader._read_cached_ppf(path)
+        np.testing.assert_equal(data.data, data2.data)
+
+
+@contextmanager
+def cachedir():
+    """Set up a fake cache directory for testing getting of channels to
+    drop.
+
+    """
+    import indica.readers.ppfreader as ppfreader
+
+    old_cache = ppfreader.CACHE_DIR
+    userdir = os.path.expanduser("~")
+    with tempfile.TemporaryDirectory(dir=userdir) as new_cache:
+        ppfreader.CACHE_DIR = os.path.relpath(new_cache, userdir)
+        try:
+            yield ppfreader.CACHE_DIR
+        finally:
+            ppfreader.CACHE_DIR = old_cache
+
+
+@given(
+    pulses,
+    times,
+    errors,
+    max_freqs,
+    just("jetppf"),
+    sampled_from(["bolo", "efit", "lidr", "eftp", "cxg6"]),
+    revisions,
+)
+def test_get_signal_from_cache(
+    fake_sal,
+    pulse,
+    time_range,
+    error,
+    freq,
+    uid,
+    instrument,
+    revision,
+):
+    """Test that reading a cache produces the same data that was written to it."""
+    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+        reader = PPFReader(
+            pulse,
+            *time_range,
+            default_error=error,
+            max_freq=freq,
+            selector=MagicMock(),
+            session=MagicMock(),
+        )
+    quantity = sorted(reader.available_quantities(instrument).keys())[0]
+    with cachedir() as cdir:
+        data, salpath = reader._get_signal(uid, instrument, quantity, revision)
+        path = reader._sal_path_to_file(salpath)
+        assert pathlib.Path.home() / cdir in path.parents
+        data2 = reader._read_cached_ppf(path)
+        np.testing.assert_equal(data.data, data2.data)
+        with patch.object(reader._client, "get") as mock_get:
+            data3, _ = reader._get_signal(uid, instrument, quantity, revision)
+            mock_get.assert_not_called()
+        np.testing.assert_equal(data.data, data3.data)
+
+
+def test_cache_read_bad_permissions():
+    """Check that reading cached data fails if other users are allowed to
+    write to the file. This is done for security reasons."""
+    reader = PPFReader(0, 0.0, 0.0)
+    with tempfile.NamedTemporaryFile("w") as cachefile:
+        path = pathlib.Path(cachefile.name)
+        cachefile.write("Just some text so the file is not empty.")
+        path.chmod(0o777)
+        with pytest.warns(PPFWarning, match="writeable"):
+            result = reader._read_cached_ppf(path)
+        assert result is None
