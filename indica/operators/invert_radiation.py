@@ -1,6 +1,5 @@
 """Inverts soft X-ray data to estimate the emissivity of the plasma."""
 
-from typing import Any
 from typing import cast
 from typing import Dict
 from typing import Hashable
@@ -13,7 +12,6 @@ import numpy as np
 from scipy.integrate import romb
 from scipy.interpolate import CubicSpline
 from scipy.optimize import least_squares
-from xarray import apply_ufunc
 from xarray import concat
 from xarray import DataArray
 from xarray import Dataset
@@ -27,8 +25,10 @@ from ..converters import FluxSurfaceCoordinates
 from ..converters import ImpactParameterCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import DataType
+from ..datatypes import SpecificDataType
 from ..session import global_session
 from ..session import Session
+from ..utilities import broadcast_spline
 
 DataArrayCoords = Tuple[DataArray, DataArray]
 
@@ -46,9 +46,6 @@ class EmissivityProfile:
         flux surfaces at each knot in rho.
     coord_transform : FluxSurfaceCoordinates
         The flux coordinate system which should be used.
-    time : DataArray
-        The times this profile is for. If not present will try to use time axis
-        from `symmetric_emissivity` or `asymmetry_parameter`.
 
     """
 
@@ -123,10 +120,24 @@ class EmissivityProfile:
         x2: DataArray,
         t: DataArray,
     ) -> DataArray:
+        """Get the emissivity values at the locations given by the coordinates.
+
+        Parameters
+        ----------
+        coord_system
+            The transform describing the system used by the provided coordinates
+        x1
+            The first spatial coordinate
+        x2
+            The second spatial coordinate
+        t
+            The time coordinate
+
+        """
         rho, R = cast(
             DataArrayCoords, coord_system.convert_to(self.transform, x1, x2, t)
         )
-        return self.evaluate(rho, R, t)
+        return self.evaluate(rho, R, t).assign_attrs(transform=coord_system)
 
     def evaluate(
         self,
@@ -136,41 +147,11 @@ class EmissivityProfile:
         R_0: Optional[DataArray] = None,
     ) -> DataArray:
         """Evaluate the function at a location defined using (R, z) coordinates"""
-
-        def broadcast_spline(
-            spline: CubicSpline,
-            spline_dims: Tuple,
-            spline_coords: Dict[Hashable, Any],
-        ):
-            if "t" in rho.coords and "t" in spline_dims:
-                time_outer_product = apply_ufunc(
-                    spline,
-                    rho,
-                    input_core_dims=[[]],
-                    output_core_dims=[
-                        tuple(d if d != "t" else "__new_t" for d in spline_dims)
-                    ],
-                ).assign_coords(__new_t=spline_coords["t"])
-                result = time_outer_product.indica.interp2d(
-                    __new_t=rho.coords["t"], method="cubic"
-                )
-                del result.coords["__new_t"]
-            else:
-                result = apply_ufunc(
-                    spline,
-                    rho,
-                    input_core_dims=[[]],
-                    output_core_dims=[spline_dims],
-                )
-            return result.assign_coords(
-                {k: v for k, v in spline_coords.items() if k != "t"}
-            )
-
         symmetric = broadcast_spline(
-            self.symmetric_emissivity, self.sym_dims, self.sym_coords
+            self.symmetric_emissivity, self.sym_dims, self.sym_coords, rho
         )
         asymmetric = broadcast_spline(
-            self.asymmetry_parameter, self.asym_dims, self.asym_coords
+            self.asymmetry_parameter, self.asym_dims, self.asym_coords, rho
         )
         if t is None:
             if "t" in rho.coords:
@@ -184,14 +165,16 @@ class EmissivityProfile:
         return where(result < 0.0, 0.0, result).fillna(0.0)
 
 
-class InvertSXR(Operator):
-    """Estimates the emissivity distribution of the plasma using soft X-ray
+class InvertRadiation(Operator):
+    """Estimates the emissivity distribution of the plasma using radiation
     data.
 
     Parameters
     ----------
     flux_coordinates : FluxSurfaceCoordinates
         The flux surface coordinate system on which to calculate the fit.
+    datatype : SpecificDataType
+        The type of radiation data to be inverted.
     num_cameras : int
         The number of cameras to which the data will be fit.
     n_knots : int
@@ -205,24 +188,32 @@ class InvertSXR(Operator):
 
     """
 
-    RETURN_TYPES: List[DataType] = [("emissivity", "sxr")]
-
     def __init__(
         self,
         num_cameras: int = 1,
+        datatype: SpecificDataType = "sxr",
         n_knots: int = 6,
         n_intervals: int = 65,
         sess: Session = global_session,
     ):
         self.n_knots = n_knots
         self.n_intervals = n_intervals
+        self.datatype = datatype
         self.num_cameras = num_cameras
         self.integral: List[DataArray]
-        self.ARGUMENT_TYPES: List[DataType] = [("luminous_flux", "sxr")] * num_cameras
+        self.last_knot_zero = datatype == "sxr"
+        # TODO: Update RETURN_TYPES
+        # TODO: Revise to include R, z, t
+        self.ARGUMENT_TYPES: List[DataType] = [
+            ("luminous_flux", datatype)
+        ] * num_cameras
+        self.RETURN_TYPES: List[DataType] = [("emissivity", datatype)]
         super().__init__(
             sess,
             num_cameras=num_cameras,
+            datatype=datatype,
             n_knots=n_knots,
+            n_intervals=n_intervals,
         )
 
     def __call__(  # type: ignore[override]
@@ -249,8 +240,27 @@ class InvertSXR(Operator):
         Returns
         -------
         :
-            Emissivity values on the (\rho, \theta) grid specified when
-            this operator was constructed.
+            A dataset containing the following arrays:
+
+            - **emissivity**: The fit emissivity, on the R-z grid
+            - **symmetric_emissivity**: The symmetric emissivity
+               values which were found during the fit, given along
+               \rho.
+            - **asymmetry_parameter**: The asymmetry of the emissivity
+              which was found during the fit, given along \rho.
+            - **<camera_name>_binned**: The radiation data for that
+              camera, binned in time.
+            - **<camera_name>_back_integral**: The integral of the fit
+              emissivity along the lines of sight of the camera.
+            - **<camera_name>_weights**: The weights assigned to each
+              line of sight of the camera when fitting emissivity.
+
+            The dataset will also contain an attribute named
+            "emissivity_mode", which is an
+            `:py:class:indica.operators.invert_radiation.EmissivityProfile`
+            object that can interpolate the fit emissivity onto
+            arbitrary coordinates.
+
         """
         flux_coords = FluxSurfaceCoordinates("poloidal")
         flux_coords.set_equilibrium(cameras[0].attrs["transform"].equilibrium)
@@ -260,11 +270,12 @@ class InvertSXR(Operator):
 
         def knotvals_to_xarray(knotvals):
             symmetric_emissivity = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            symmetric_emissivity[0:-1] = knotvals[0 : n - 1]
-            symmetric_emissivity[-1] = 0.0
+            symmetric_emissivity[0:m] = knotvals[0:m]
+            if self.last_knot_zero:
+                symmetric_emissivity[-1] = 0.0
             asymmetry_parameter = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            asymmetry_parameter[0] = 0.5 * knotvals[n - 1]
-            asymmetry_parameter[1:-1] = knotvals[n - 1 :]
+            asymmetry_parameter[0] = 0.5 * knotvals[m]
+            asymmetry_parameter[1:-1] = knotvals[m:]
             asymmetry_parameter[-1] = 0.5 * knotvals[-1]
             return symmetric_emissivity, asymmetry_parameter
 
@@ -286,7 +297,9 @@ class InvertSXR(Operator):
                 emissivity_vals = estimate.evaluate(rho, R, R_0=c.coords["R_0"])
                 axis = emissivity_vals.dims.index(c.attrs["transform"].x2_name)
                 integral = romb(emissivity_vals, c.attrs["dl"], axis)
-                resid[start:end] = ((c.camera - integral) / c.weights).data
+                resid[start:end] = ((c.camera - integral) / c.weights)[
+                    c["has_data"]
+                ].data
                 start = end
                 x1_name = c.attrs["transform"].x1_name
                 self.integral.append(
@@ -309,12 +322,13 @@ class InvertSXR(Operator):
         rho_max = 0.0
         print("Calculating coordinate conversions")
         for c in unfolded_cameras:
+            c["has_data"] = np.logical_not(np.isnan(c.camera.isel(t=0)))
             trans = c.attrs["transform"]
             dl = trans.distance(
                 trans.x2_name, DataArray(0), c.coords[trans.x2_name][0:2], 0.0
             )[1]
             c.attrs["dl"] = dl
-            c.attrs["nlos"] = len(c.coords[c.attrs["transform"].x1_name])
+            c.attrs["nlos"] = int(np.sum(c["has_data"]))
             rho, _ = c.indica.convert_coords(rho_maj_rad)
             ip_coords = ImpactParameterCoordinates(
                 c.attrs["transform"], flux_coords, times=times
@@ -329,18 +343,22 @@ class InvertSXR(Operator):
             )[0]
 
         knots = np.empty(n)
-        knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
-        knots[-1] = 1.0
+        if float(rho_max) > 1.0:
+            knots[:] = np.linspace(0, 1.0, n) ** 1.2 * float(rho_max)
+        else:
+            knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
+            knots[-1] = 1.0
         dim_name = "rho_" + flux_coords.flux_kind
 
         symmetric_emissivities: List[DataArray] = []
         asymmetry_parameters: List[DataArray] = []
         integrals: List[List[DataArray]] = []
-        abel_inversion = np.linspace(3e3, 0.0, n - 1)
+        m = n - 1 if self.last_knot_zero else n
+        abel_inversion = np.linspace(3e3, 0.0, m)
         guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
         bounds = (
-            np.concatenate((np.zeros(n - 1), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
-            np.concatenate((1e6 * np.ones(n - 1), np.ones(n - 2))),
+            np.concatenate((np.zeros(m), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
+            np.concatenate((1e12 * np.ones(m), np.ones(n - 2))),
         )
 
         for t in np.asarray(times):
@@ -356,11 +374,11 @@ class InvertSXR(Operator):
             if fit.status == -1:
                 raise RuntimeError(
                     "Improper input to `least_squares` function when trying to "
-                    "fit emissivity to SXR data."
+                    "fit emissivity to radiation data."
                 )
             elif fit.status == 0:
                 warnings.warn(
-                    f"Attempt to fit emissivity to SXR data at time t={t} "
+                    f"Attempt to fit emissivity to radiation data at time t={t} "
                     "reached maximum number of function evaluations.",
                     RuntimeWarning,
                 )
@@ -386,17 +404,17 @@ class InvertSXR(Operator):
         )
         trivial = TrivialTransform()
         emissivity = estimate(trivial, R, z, times)
-        emissivity.attrs["transform"] = trivial
-        emissivity.attrs["datatype"] = ("emissivity", "sxr")
+        emissivity.attrs["datatype"] = ("emissivity", self.datatype)
         emissivity.attrs["provenance"] = self.create_provenance()
-        emissivity.name = "sxr_emissivity"
-        results = {
+        emissivity.name = self.datatype + "_emissivity"
+        results: Dict[Hashable, DataArray] = {
             "emissivity": emissivity,
             "symmetric_emissivity": symmetric_emissivity,
             "asymmetry_parameter": asymmetry_parameter,
         }
         for inte, c, c_orig in zip(integral, unfolded_cameras, cameras):
-            name = c_orig.name
+            assert c_orig.name
+            name = str(c_orig.name)
             results[name + "_binned"] = c.camera
             inte.attrs["transform"] = c.camera.attrs["transform"]
             results[name + "_back_integral"] = inte

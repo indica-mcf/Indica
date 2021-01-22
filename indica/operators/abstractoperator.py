@@ -160,7 +160,7 @@ class Operator(ABC):
             if expected[1] and datatype[1] != expected[1]:
                 message = (
                     "Argument {} of wrong type of {} for operator {}: "
-                    "expected to be for {:r}, received {:r}.".format(
+                    "expected to be for {}, received {}.".format(
                         i + 1,
                         expected[0],
                         self.__class__.__name__,

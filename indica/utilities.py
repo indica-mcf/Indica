@@ -4,11 +4,15 @@ import inspect
 import string
 from typing import Any
 from typing import Callable
+from typing import Dict
+from typing import Hashable
 from typing import List
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
+from scipy.interpolate import CubicSpline
+from xarray import apply_ufunc
 from xarray import DataArray
 
 from .numpy_typing import ArrayLike
@@ -120,3 +124,41 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
         The name of the dimension.
     """
     return DataArray(coord_vals, coords=[(coord_name, coord_vals)])
+
+
+def broadcast_spline(
+    spline: CubicSpline,
+    spline_dims: Tuple,
+    spline_coords: Dict[Hashable, Any],
+    interp_coord: DataArray,
+):
+    """Applies to a `:class:xarray.DataArray` input, broadcasting and/or
+    interpolating appropriately.
+
+    Note
+    ----
+    Currently the only dimension which are checked for presence in
+    both the spline data and the input is "t".
+
+    TODO: Implement these checks for other dimensions as well.
+
+    """
+    if "t" in interp_coord.coords and "t" in spline_dims:
+        time_outer_product = apply_ufunc(
+            spline,
+            interp_coord,
+            input_core_dims=[[]],
+            output_core_dims=[tuple(d if d != "t" else "__new_t" for d in spline_dims)],
+        ).assign_coords(__new_t=spline_coords["t"])
+        result = time_outer_product.indica.interp2d(
+            __new_t=interp_coord.coords["t"], method="cubic"
+        )
+        del result.coords["__new_t"]
+    else:
+        result = apply_ufunc(
+            spline,
+            interp_coord,
+            input_core_dims=[[]],
+            output_core_dims=[spline_dims],
+        )
+    return result.assign_coords({k: v for k, v in spline_coords.items()})

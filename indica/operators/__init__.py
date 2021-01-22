@@ -1,6 +1,8 @@
 from .abstractoperator import Operator
 from .abstractoperator import OperatorError
-from .invert_sxr import InvertSXR
+from .invert_radiation import InvertRadiation
 from .zeff import CalcZeff
 
-__all__ = ["Operator", "OperatorError", "CalcZeff", "InvertSXR"]
+# from .spline_fit import SplineFit
+
+__all__ = ["Operator", "OperatorError", "CalcZeff", "InvertRadiation"]  # , "SplineFit"]

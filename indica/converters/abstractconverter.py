@@ -166,6 +166,8 @@ class CoordinateTransform(ABC):
             The second spatial coordinate in the ``other`` system.
 
         """
+        if self == other:
+            return x1, x2
         converter = self.get_converter(other)
         if converter:
             return converter(x1, x2, t)
