@@ -8,3 +8,4 @@ indica.egg-info/
 dist/
 htmlcov/
 .dir-locals.el
+*.pkl
