@@ -9,6 +9,7 @@ from typing import Collection
 from typing import Dict
 from typing import Hashable
 from typing import Iterable
+from typing import List
 from typing import Optional
 from typing import Set
 from typing import Tuple
@@ -260,9 +261,6 @@ class DataReader(BaseIO):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            cachefile = self._RECORD_TEMPLATE.format(
-                self._reader_cache_id, "thomson", instrument, uid, quantity
-            )
             meta = {
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
@@ -287,7 +285,9 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            drop = self._select_channels(cachefile, quant_data, transform.x1_name)
+            drop = self._select_channels(
+                "thomson", uid, instrument, quantity, quant_data, transform.x1_name
+            )
             quant_data.attrs["provenance"] = self.create_provenance(
                 "thomson_scattering",
                 uid,
@@ -394,9 +394,6 @@ class DataReader(BaseIO):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            cachefile = self._RECORD_TEMPLATE.format(
-                self._reader_cache_id, "cxrs", instrument, uid, quantity
-            )
             meta = {
                 "datatype": available_quantities[quantity],
                 "element": database_results["element"],
@@ -409,7 +406,9 @@ class DataReader(BaseIO):
                 name=instrument + "_" + quantity,
                 attrs=meta,
             )
-            drop = self._select_channels(cachefile, quant_data, diagnostic_coord)
+            drop = self._select_channels(
+                "cxrs", uid, instrument, quantity, quant_data, diagnostic_coord
+            )
             quant_data.attrs["provenance"] = self.create_provenance(
                 "cxrs",
                 uid,
@@ -780,9 +779,6 @@ class DataReader(BaseIO):
             downsample_ratio = int(
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
-            cachefile = self._RECORD_TEMPLATE.format(
-                self._reader_cache_id, "radiation", instrument, uid, quantity
-            )
             transform = LinesOfSightTransform(
                 database_results[quantity + "_Rstart"],
                 database_results[quantity + "_zstart"],
@@ -820,7 +816,9 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            drop = self._select_channels(cachefile, quant_data, transform.x1_name)
+            drop = self._select_channels(
+                "radiation", uid, instrument, quantity, quant_data, transform.x1_name
+            )
             quant_data.attrs["provenance"] = self.create_provenance(
                 "radiation",
                 uid,
@@ -1027,10 +1025,14 @@ class DataReader(BaseIO):
                 )
             quant_data.name = instrument + "_" + quantity
             if len(database_results[quantity + "_Rstart"]) > 1:
-                cachefile = self._RECORD_TEMPLATE.format(
-                    self._reader_cache_id, "radiation", instrument, uid, quantity
+                drop = self._select_channels(
+                    "radiation",
+                    uid,
+                    instrument,
+                    quantity,
+                    quant_data,
+                    transform.x1_name,
                 )
-                drop = self._select_channels(cachefile, quant_data, transform.x1_name)
             else:
                 drop = []
             quant_data.attrs["provenance"] = self.create_provenance(
@@ -1178,7 +1180,10 @@ class DataReader(BaseIO):
 
     def _select_channels(
         self,
-        cache_key: str,
+        category: str,
+        uid: str,
+        instrument: str,
+        quantity: str,
         data: DataArray,
         channel_dim: str,
         bad_channels: Collection[Number] = [],
@@ -1195,9 +1200,14 @@ class DataReader(BaseIO):
 
         Parameters
         ----------
-        cache_key:
-            Name of file from which to load a user's previous selection and to
-            which to save the results of this selection.
+        category:
+            type of data being fetched (based on name of the reader method used).
+        uid
+            User ID (i.e., which user created this data).
+        instrument
+            Name of the instrument which measured this data.
+        quantities
+            Which physical quantity this data represents.
         data:
             The data from which channels should be selected to discard.
         channel_dim:
@@ -1216,19 +1226,25 @@ class DataReader(BaseIO):
             discarded.
 
         """
+        cache_key = self._RECORD_TEMPLATE.format(
+            self._reader_cache_id, category, instrument, uid, quantity
+        )
         cache_name = to_filename(cache_key)
         cache_file = os.path.expanduser(
             os.path.join("~", CACHE_DIR, self.__class__.__name__, cache_name)
         )
         os.makedirs(os.path.dirname(cache_file), 0o755, exist_ok=True)
+        intrinsic_bad = self._get_bad_channels(uid, instrument, quantity)
         dtype = data.coords[channel_dim].dtype
         if os.path.exists(cache_file):
             cached_vals = np.loadtxt(cache_file, dtype)
             if cached_vals.ndim == 0:
                 cached_vals = np.array([cached_vals])
         else:
-            cached_vals = []
-        ignored = self._selector(data, channel_dim, bad_channels, cached_vals)
+            cached_vals = intrinsic_bad
+        ignored = self._selector(
+            data, channel_dim, list(*intrinsic_bad, *bad_channels), cached_vals
+        )
         form = "%d" if np.issubdtype(dtype, np.integer) else "%.18e"
         np.savetxt(cache_file, ignored, form)
         return ignored
@@ -1244,6 +1260,34 @@ class DataReader(BaseIO):
         """
         if "times" not in results:
             results["times"] = times
+
+    def _get_bad_channels(
+        self, uid: str, instrument: str, quantity: str
+    ) -> List[Number]:
+        """Returns a list of channels which are known to be bad for all pulses
+        on this instrument. Typically this would be for reasons of
+        geometriy (e.g., lines of sight facing the diverter). This
+        should be overridden with machine-specific information.
+
+        Parameters
+        ----------
+        category:
+            type of data being fetched (based on name of the reader method used).
+        uid
+            User ID (i.e., which user created this data).
+        instrument
+            Name of the instrument which measured this data.
+        quantities
+            Which physical quantity this data represents.
+
+        Returns
+        -------
+        :
+            A list of channels known to be problematic. These will be ignored
+            by default.
+
+        """
+        return []
 
     def available_quantities(self, instrument):
         """Return the quantities which can be read for the specified

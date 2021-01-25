@@ -73,6 +73,8 @@ def get_vals_error_records_los(sample):
 class ConcreteReader(DataReader):
     """Minimal implementation of reader class that can be instantiated."""
 
+    _reader_cache_id = "ConcreteReader"
+
     @property
     def requires_authentication(self):
         return False
@@ -111,8 +113,8 @@ class MockReader(ConcreteReader):
         self._get_bremsstrahlung_spectroscopy = MagicMock()
         self._set_quantities = {}
 
-        def dummy_selector(k, d, c, b=[]):
-            return self.drop_channels[k.split("-")[1]][k.split("-")[-1]]
+        def dummy_selector(cat, uid, inst, quant, d, c, b=[]):
+            return self.drop_channels[cat][quant]
 
         if mock_select_channels:
             self._select_channels = MagicMock()

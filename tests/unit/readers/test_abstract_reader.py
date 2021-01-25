@@ -791,6 +791,9 @@ def cachedir():
 @mark.filterwarnings("ignore:loadtxt")
 @given(
     from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
     text(),
     sampled_from(
         [
@@ -802,12 +805,13 @@ def cachedir():
             lists(strat, unique=True),
             lists(strat, unique=True),
             lists(strat, unique=True),
+            lists(strat, unique=True),
         )
     ),
 )
-def test_select_channels(key, dim, channel_args):
+def test_select_channels(category, uid, instrument, quantity, dim, channel_args):
     """Check selecting channels properly handles caching."""
-    bad_channels, expected1, expected2 = channel_args
+    bad_channels, intrinsic_bad_channels, expected1, expected2 = channel_args
     data = MagicMock()
     selector = MagicMock()
     data.coords[dim].dtype = (
@@ -817,37 +821,60 @@ def test_select_channels(key, dim, channel_args):
         if len(expected2) > 0
         else type(bad_channels[0])
         if len(bad_channels) > 0
+        else type(intrinsic_bad_channels[0])
+        if len(intrinsic_bad_channels) > 0
         else float
     )
-    with cachedir() as cdir:
+    with cachedir() as cdir, patch.object(
+        ConcreteReader, "_get_bad_channels"
+    ) as get_bad:
         selector.return_value = expected1
         reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector)
-        cachefile = os.path.expanduser(
-            os.path.join("~", cdir, reader.__class__.__name__, key)
+        get_bad.return_value = intrinsic_bad_channels
+        cache_key = reader._RECORD_TEMPLATE.format(
+            reader._reader_cache_id, category, instrument, uid, quantity
         )
-        print(cachefile)
+        cachefile = os.path.expanduser(
+            os.path.join("~", cdir, reader.__class__.__name__, cache_key)
+        )
         if os.path.isfile(cachefile):
             os.remove(cachefile)
         # Test when no cache file is present
-        channels = reader._select_channels(key, data, dim, bad_channels)
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
         assert np.all(channels == expected1)
-        assert_called_with(selector, data, dim, bad_channels, [])
+        assert_called_with(
+            selector,
+            data,
+            dim,
+            intrinsic_bad_channels + bad_channels,
+            intrinsic_bad_channels,
+        )
         assert os.path.isfile(cachefile)
         # Check when cache file present but select different channels
         creation_time = os.path.getctime(cachefile)
         selector.return_value = expected2
         sleep(1e-2)
-        channels = reader._select_channels(key, data, dim, bad_channels)
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
         assert np.all(channels == expected2)
-        assert_called_with(selector, data, dim, bad_channels, expected1)
+        assert_called_with(
+            selector, data, dim, intrinsic_bad_channels + bad_channels, expected1
+        )
         mod_time1 = os.path.getmtime(cachefile)
         assert creation_time < mod_time1
         # Check when cache file present and reuse those channels
         selector.side_effect = lambda data, dim, bad, cached: cached
         data.coords[dim].dtype = type(expected2[0]) if len(expected2) > 0 else float
         sleep(1e-2)
-        channels = reader._select_channels(key, data, dim, bad_channels)
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
         assert np.all(channels == expected2)
-        assert_called_with(selector, data, dim, bad_channels, expected2)
+        assert_called_with(
+            selector, data, dim, intrinsic_bad_channels + bad_channels, expected2
+        )
         mod_time2 = os.path.getmtime(cachefile)
         assert mod_time1 < mod_time2

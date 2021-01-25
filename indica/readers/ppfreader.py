@@ -3,11 +3,15 @@ reading PPF data produced by JET.
 
 """
 
+from itertools import chain
+from numbers import Number
 from pathlib import Path
 import pickle
 import stat
 from typing import Any
+from typing import cast
 from typing import Dict
+from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Set
@@ -464,6 +468,53 @@ class PPFReader(DataReader):
     #                                                       uids, drop)
     #     return data.drop_sel({"Btot": drop})
 
+    def _get_bad_channels(
+        self, uid: str, instrument: str, quantity: str
+    ) -> List[Number]:
+        """Returns a list of channels which are known to be bad for all pulses
+        on this instrument. Typically this would be for reasons of
+        geometriy (e.g., lines of sight facing the diverter). This
+        should be overridden with machine-specific information.
+
+        Parameters
+        ----------
+        category:
+            type of data being fetched (based on name of the reader method used).
+        uid
+            User ID (i.e., which user created this data).
+        instrument
+            Name of the instrument which measured this data.
+        quantities
+            Which physical quantity this data represents.
+
+        Returns
+        -------
+        :
+            A list of channels known to be problematic. These will be ignored
+            by default.
+
+        """
+        if instrument == "bolo":
+            if quantity == "kb5h":
+                return list(
+                    chain(
+                        cast(Iterator[Number], range(0, 8)),
+                        cast(Iterator[Number], range(19, 24)),
+                    ),
+                )
+            elif quantity == "kb5v":
+                return list(
+                    chain(
+                        cast(Iterator[Number], range(0, 1)),
+                        cast(Iterator[Number], range(5, 16)),
+                        cast(Iterator[Number], range(22, 32)),
+                    )
+                )
+            else:
+                return []
+        else:
+            return []
+
     def close(self):
         """Ends connection to the SAL server from which PPF data is being
         read."""
@@ -493,7 +544,7 @@ class PPFReader(DataReader):
         name:
             Your username when logging onto Heimdall.
         password:
-            SecureID passcode (pin followed by value displayed on token).
+            Your single sign-on password.
 
         Returns
         -------
