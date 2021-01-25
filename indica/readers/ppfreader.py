@@ -3,7 +3,6 @@ reading PPF data produced by JET.
 
 """
 
-from itertools import chain
 from numbers import Number
 from pathlib import Path
 import pickle
@@ -11,7 +10,6 @@ import stat
 from typing import Any
 from typing import cast
 from typing import Dict
-from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Set
@@ -496,20 +494,9 @@ class PPFReader(DataReader):
         """
         if instrument == "bolo":
             if quantity == "kb5h":
-                return list(
-                    chain(
-                        cast(Iterator[Number], range(0, 8)),
-                        cast(Iterator[Number], range(19, 24)),
-                    ),
-                )
+                return cast(List[Number], [*range(0, 8), *range(19, 24)])
             elif quantity == "kb5v":
-                return list(
-                    chain(
-                        cast(Iterator[Number], range(0, 1)),
-                        cast(Iterator[Number], range(5, 16)),
-                        cast(Iterator[Number], range(22, 32)),
-                    )
-                )
+                return cast(List[Number], [*range(0, 1), *range(5, 16), *range(22, 32)])
             else:
                 return []
         else:

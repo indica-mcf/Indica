@@ -1243,7 +1243,7 @@ class DataReader(BaseIO):
         else:
             cached_vals = intrinsic_bad
         ignored = self._selector(
-            data, channel_dim, list(*intrinsic_bad, *bad_channels), cached_vals
+            data, channel_dim, [*intrinsic_bad, *bad_channels], cached_vals
         )
         form = "%d" if np.issubdtype(dtype, np.integer) else "%.18e"
         np.savetxt(cache_file, ignored, form)
