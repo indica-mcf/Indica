@@ -146,10 +146,11 @@ def choose_on_plot(
                 )
             )
 
-    PickStack(plots, on_pick)
+    p = PickStack(plots, on_pick)
     plt.xlabel(channel_dim)
     datatype = data.attrs["datatype"]
     plt.ylabel(f"{datatype[1]} {datatype[0]}")
     plt.show()
     print("---------------------------------------------------------------------\n")
+    del p
     return channels_to_drop
