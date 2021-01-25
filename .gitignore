@@ -6,3 +6,5 @@ venv/
 .coverage
 indica.egg-info/
 dist/
+htmlcov/
+.dir-locals.el
