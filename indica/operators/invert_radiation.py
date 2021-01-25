@@ -1,5 +1,6 @@
 """Inverts soft X-ray data to estimate the emissivity of the plasma."""
 
+from typing import Any
 from typing import cast
 from typing import Dict
 from typing import Hashable
@@ -412,11 +413,14 @@ class InvertRadiation(Operator):
             "symmetric_emissivity": symmetric_emissivity,
             "asymmetry_parameter": asymmetry_parameter,
         }
+        coords: Dict[Hashable, Any] = {}
         for inte, c, c_orig in zip(integral, unfolded_cameras, cameras):
             assert c_orig.name
             name = str(c_orig.name)
+            coords.update(c.coords)
             results[name + "_binned"] = c.camera
             inte.attrs["transform"] = c.camera.attrs["transform"]
             results[name + "_back_integral"] = inte
             results[name + "_weights"] = c.weights
-        return Dataset(results, c.coords, {"emissivity_model": estimate})
+        del coords["R_0"]
+        return Dataset(results, coords, {"emissivity_model": estimate})

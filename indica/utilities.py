@@ -152,13 +152,13 @@ def broadcast_spline(
         ).assign_coords(__new_t=spline_coords["t"])
         result = time_outer_product.indica.interp2d(
             __new_t=interp_coord.coords["t"], method="cubic"
-        )
+        ).assign_coords({k: v for k, v in spline_coords.items() if k != "t"})
         del result.coords["__new_t"]
+        return result
     else:
-        result = apply_ufunc(
+        return apply_ufunc(
             spline,
             interp_coord,
             input_core_dims=[[]],
             output_core_dims=[spline_dims],
-        )
-    return result.assign_coords({k: v for k, v in spline_coords.items()})
+        ).assign_coords({k: v for k, v in spline_coords.items()})
