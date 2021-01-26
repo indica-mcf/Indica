@@ -56,7 +56,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "impurities"
+project = "InDiCa"
 copyright = "2020, Marco Sertoli, Chris MacMackin"
 author = "Marco Sertoli, Chris MacMackin"
 
@@ -118,7 +118,7 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "alabaster"
+# html_theme = "alabaster"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -231,10 +231,10 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        "impurities.tex",
-        "impurities Documentation",
+        "indica.tex",
+        "InDiCa Documentation",
         "Marco Sertoli, Chris MacMackin",
-        "manual",
+        "A library for iteratively determining plasma composition",
     ),
 ]
 
@@ -263,7 +263,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "impurities", "impurities Documentation", [author], 1)]
+man_pages = [(master_doc, "indica", "InDiCa Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -277,11 +277,11 @@ man_pages = [(master_doc, "impurities", "impurities Documentation", [author], 1)
 texinfo_documents = [
     (
         master_doc,
-        "impurities",
-        "impurities Documentation",
+        "indica",
+        "InDiCa Documentation",
         author,
-        "impurities",
-        "One line description of project.",
+        "InDiCa",
+        "A library for iteratively determining plasma composition",
         "Miscellaneous",
     ),
 ]
