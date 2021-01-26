@@ -8,8 +8,8 @@ sphinx:
 python:
   version: 3.8
   install:
-    - method: pip
-      path: .
+    - path: .
+      method: pip
       extra_requirements:
         - docs
     - system_packages: true
