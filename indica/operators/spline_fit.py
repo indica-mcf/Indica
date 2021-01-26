@@ -160,7 +160,7 @@ class SplineFit(Operator):
         n_knots = len(knots)
         flux_surfaces = FluxSurfaceCoordinates("poloidal")
         flux_surfaces.set_equilibrium(data[0].indica.equilibrium)
-        binned_data = [bin_to_time_labels(times, d) for d in data]
+        binned_data = [bin_to_time_labels(times.data, d) for d in data]
         good_channels = [
             np.logical_not(np.isnan(d.isel(t=0))).drop_vars("t") for d in data
         ]
