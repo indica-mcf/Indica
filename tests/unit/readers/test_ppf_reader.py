@@ -6,6 +6,9 @@ import os
 import pathlib
 import re
 import tempfile
+from typing import Callable
+from typing import cast
+from typing import List
 from unittest.mock import DEFAULT
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -42,12 +45,16 @@ def fake_sal():
 
 
 pulses = integers(1, 99999)
-times = lists(floats(30.0, 80.0), min_size=2, max_size=2).map(sorted)
+times = lists(floats(30.0, 80.0), min_size=2, max_size=2).map(
+    cast(Callable[[List[float]], List], sorted)
+)
 errors = floats(0.0001, 0.2)
 max_freqs = floats(2.0, 1000.0)
 revisions = integers(0)
 actual_revisions = integers(1)
-edited_revisions = lists(actual_revisions, min_size=1, unique=True).map(sorted)
+edited_revisions = lists(actual_revisions, min_size=1, unique=True).map(
+    cast(Callable[[List[int]], List], sorted)
+)
 lines_of_sight = tuples(
     arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),
     arrays(float, 35, elements=floats(allow_infinity=False, allow_nan=False)),

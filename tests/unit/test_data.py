@@ -1,6 +1,12 @@
 """Tests of methods on the custom accessors used with xarray objects."""
 
 from copy import copy
+from typing import Any
+from typing import Callable
+from typing import cast
+from typing import Dict
+from typing import List
+from typing import Tuple
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -109,7 +115,15 @@ def test_get_coords_default(array):
     assert result[2].identical(array.coords["t"])
 
 
-@given(data_arrays(), data_arrays())
+# TODO: Ensure the template data all fall within domain of the original (how?)
+@given(
+    data_arrays(
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+    ),
+    data_arrays(
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+    ),
+)
 def test_remap_metadata(original, template):
     """Test remapped data has appropriate metadata, provenance, and
     coordinates."""
@@ -129,7 +143,14 @@ def test_remap_metadata(original, template):
     )
 
 
-@given(data_arrays(), data_arrays())
+@given(
+    data_arrays(
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+    ),
+    data_arrays(
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+    ),
+)
 def test_remap_inverts(original, template):
     """Check result of remapping and then remapping back to original is
     approximately teh same as original data."""
@@ -137,7 +158,15 @@ def test_remap_inverts(original, template):
     assert assert_allclose(remapped, original, rtol=1e-4)
 
 
-@given(lists(data_arrays(), min_size=3, max_size=10))
+@given(
+    lists(
+        data_arrays(
+            coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+        ),
+        min_size=3,
+        max_size=10,
+    )
+)
 def test_remap_invariant(arrays):
     expected = arrays[0].indica.remap_like(arrays[1])
     actual = arrays[0]
@@ -146,12 +175,24 @@ def test_remap_invariant(arrays):
     assert assert_allclose(actual, expected, rtol=1e-4)
 
 
-@given(data_arrays(rel_sigma=0.0, abs_sigma=0.0), data_arrays())
+@given(
+    data_arrays(rel_sigma=0.0, abs_sigma=0.0),
+    data_arrays(
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=5, max_side=5)
+    ),
+)
 def test_remap_values(original, template):
     """Check results of remapping are sensible."""
     # TODO: Rewrite so checking against function used to create the fake data
     remapped = original.indica.remap_like(template)
-    assert np.all(0.95 * original.min() <= remapped <= 1.05 * original.max())
+    minval = original.min()
+    maxval = original.max()
+    assert np.all(
+        np.logical_and(
+            minval - 0.05 * np.abs(minval) <= remapped,
+            remapped <= maxval + 0.05 * np.abs(maxval),
+        )
+    )
 
 
 @given(data_arrays())
@@ -343,7 +384,7 @@ def test_set_equilibrium(array):
     array.attrs["provenance"].hadMember.assert_any_call(array.attrs["provenance"])
 
 
-@given(data_arrays)
+@given(data_arrays())
 def test_set_same_equilibrium(array):
     """Check setting the equilibrium to its existing value does nothing."""
     equilib = array.indica.equilibrium
@@ -543,12 +584,14 @@ def test_aggregate_incompatible_transforms(arguments):
     datasets().flatmap(
         lambda d: tuples(
             just(d),
-            lists(sampled_from(d.data_vars), min_size=1, max_size=len(d) - 1).flatmap(
-                lambda keys: {
-                    key: data_arrays(d[key].attrs["datatype"]) for key in keys
-                }
-            ),
-        )
+            lists(
+                sampled_from(d.data_vars).flatmap(
+                    lambda key: tuples(just(key), data_arrays(d[key].attrs["datatype"]))
+                ),
+                min_size=1,
+                max_size=len(d) - 1,
+            ).map(cast(Callable[[List[Tuple]], Dict[Any, Any]], dict)),
+        ),
     )
 )
 def test_aggregate_incompatible_grids(arguments):
