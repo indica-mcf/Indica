@@ -7,9 +7,7 @@ from typing import Literal
 
 
 class BaseIO(ABC):
-    """An abstract class defining methods needed by all IO objects.
-
-    """
+    """An abstract class defining methods needed by all IO objects."""
 
     def __enter__(self) -> "BaseIO":
         """Called at beginning of a context manager."""

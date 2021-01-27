@@ -40,7 +40,13 @@ class Equilibrium:
         :py:meth:`~indica.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
     T_e : Optional[DataArray]
-        Electron temperature data (from HRTS on JET).
+        Electron temperature data (from HRTS on JET). If present, used to compute
+        an offset of the equilibrium along the major radius.
+    R_shift : float
+        How much to shift the equilibrium profile inwards on the major radius.
+        Ignored if `T_e` is also passed as an argument.
+    z_shift : flaot
+        How much to shift the equilibrium profile in the vertical coordinate.
     sess : Session
         An object representing the session being run. Contains information
         such as provenance data.
@@ -54,6 +60,8 @@ class Equilibrium:
         self,
         equilibrium_data: Dict[str, DataArray],
         T_e: Optional[DataArray] = None,
+        R_shift: float = 0.0,
+        z_shift: float = 0.0,
         sess: Session = global_session,
         offset_picker: OffsetPicker = interactive_offset_choice,
     ):
@@ -138,7 +146,9 @@ class Equilibrium:
                 offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
             self.R_offset = offset
         else:
-            self.R_offset = 0.0
+            self.R_offset = R_shift
+
+        self.z_offset = z_shift
 
         self.Rmin = min(self.rho.coords["R"])
         self.Rmax = max(self.rho.coords["R"])

@@ -38,11 +38,17 @@ QUANTITIES = itertools.chain(
     # Thomson scattering
     [
         f"{dda}/{dtype}"
-        for dda, dtype in itertools.product(["hrts"], ["ne", "dne", "te", "dte", "z"],)
+        for dda, dtype in itertools.product(
+            ["hrts"],
+            ["ne", "dne", "te", "dte", "z"],
+        )
     ],
     [
         f"{dda}/{dtype}"
-        for dda, dtype in itertools.product(["lidr"], ["ne", "neu", "te", "teu", "z"],)
+        for dda, dtype in itertools.product(
+            ["lidr"],
+            ["ne", "neu", "te", "teu", "z"],
+        )
     ],
     ["kg10/ne", "kg10/r", "kg10/z"],
     # Electron cyclotron emissions; main data can only be retrieved after

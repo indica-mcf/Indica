@@ -227,20 +227,20 @@ Computation details
 			* ϵ_SXR(ρ = 1) = 0 (this can be treated as a constant and not a fitting parameter)
 			* ϵ_SXR(ρ) >= 0
 			* λ_SXR(ρ > 0.5) > 0 *where fast particle contributions are negligible*
-			* derivatives at boundaries: 
+			* derivatives at boundaries:
 				* ϵ_SXR: 1st derivative(ρ = 0) = 0, 2nd derivative(ρ = 1) = 0
-				* λ_SXR: 2nd derivative(ρ = 0) = 0, 2nd derivative(ρ = 1) = 0 
+				* λ_SXR: 2nd derivative(ρ = 0) = 0, 2nd derivative(ρ = 1) = 0
 
-	d) **first guesses** of ϵ_SXR and λ_SXR from the second time-point are equal to the results for the previous time-point. 
-	
-2. **Unfolding the Bolometer lines-of-sight** can be performed using the same methodology as for the SXR, taking care to avoid any LOS viewing the divertor which cannot be described by the poloidal asymmetry formula. The only differences with SXR are: 
+	d) **first guesses** of ϵ_SXR and λ_SXR from the second time-point are equal to the results for the previous time-point.
+
+2. **Unfolding the Bolometer lines-of-sight** can be performed using the same methodology as for the SXR, taking care to avoid any LOS viewing the divertor which cannot be described by the poloidal asymmetry formula. The only differences with SXR are:
 	* **ϵ_BOLO(ρ = 1) != 0** i.e. the emissivity at the separatrix is a fit parameter.
 
 3. **Spline fitting of profile data** (electron temperature and density, ion temperature, toroidal rotation, etc.) can be performed in a similar fashion using cubic splines. There should be a possibility to combine diagnostic data in a single spline fit, e.g. LIDAR and HRTS for the electron density, or HRTS and ECE for electron temperature).
 
 	a) **Spline knots** in range ρ = [0, 1.05].  The high gradient region at the edge requires higher knot density for the pedestal region ρ = [0.85, 1.0].
-	
+
 	b) **Boundery conditions** and **prior assumptions**:
 		* apart from toroidal rotation, values > 0 over the whole radial range
-		* 1st derivatives at boundaries (ρ = 0 and ρ = 1.05) = 0 
+		* 1st derivatives at boundaries (ρ = 0 and ρ = 1.05) = 0
 		* value(ρ = 1.05) = 0

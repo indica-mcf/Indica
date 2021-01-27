@@ -28,9 +28,7 @@ from .strategies import arbitrary_coordinates
 
 @composite
 def offset_pickers(draw, min_value=0.0, max_value=0.04):
-    """Generate a mock offset-picker object which will return some fixed value.
-
-    """
+    """Generate a mock offset-picker object which will return some fixed value."""
     return MagicMock(return_value=(draw(floats(min_value, max_value)), True))
 
 
@@ -153,7 +151,10 @@ def equilibria(
         )
     )
     return Equilibrium(
-        data, Te, MagicMock(), draw(offset_pickers(min_offset, max_offset)),
+        data,
+        Te,
+        MagicMock(),
+        draw(offset_pickers(min_offset, max_offset)),
     )
 
 
@@ -208,9 +209,7 @@ def test_hfs_rad_consistent(equilib, coords, ftype):
     booleans(),
 )
 def test_lfs_rad_expected(equilib_Te, ftype, offset, use_explicit_t):
-    """Check R_lfs matches input data used to construct equilibrium object.
-
-    """
+    """Check R_lfs matches input data used to construct equilibrium object."""
     equilib_dat, Te = equilib_Te
     equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
     expected = equilib_dat["rmjo"] + (offset.return_value[0] if Te is not None else 0.0)
@@ -224,12 +223,13 @@ def test_lfs_rad_expected(equilib_Te, ftype, offset, use_explicit_t):
 
 @settings(deadline=500)
 @given(
-    equilibrium_data_and_Te(), flux_types(), offset_pickers(), booleans(),
+    equilibrium_data_and_Te(),
+    flux_types(),
+    offset_pickers(),
+    booleans(),
 )
 def test_hfs_rad_expected(equilib_Te, ftype, offset, use_explicit_t):
-    """Check R_hfs matches input data used to construct equilibrium object.
-
-    """
+    """Check R_hfs matches input data used to construct equilibrium object."""
     equilib_dat, Te = equilib_Te
     equilib = Equilibrium(equilib_dat, Te, MagicMock(), offset)
     expected = equilib_dat["rmji"] + (offset.return_value[0] if Te is not None else 0.0)
@@ -250,9 +250,7 @@ def test_hfs_rad_expected(equilib_Te, ftype, offset, use_explicit_t):
     flux_types(),
 )
 def test_flux_spatial_conversion(equilib, coords, ftype):
-    """Check flux and spatial coordinate conversions can invert each other.
-
-    """
+    """Check flux and spatial coordinate conversions can invert each other."""
     rho, theta, time = coords
     R, z, t = equilib.spatial_coords(rho, theta, time, ftype)
     rho2, theta2, t = equilib.flux_coords(R, z, t, ftype)
@@ -444,7 +442,10 @@ def test_magnetic_field_strength(strength_equilibrium, coords):
 
 
 @given(
-    equilibrium_data_and_Te(), flux_types(), floats(0.0, 2 * np.pi), offset_pickers(),
+    equilibrium_data_and_Te(),
+    flux_types(),
+    floats(0.0, 2 * np.pi),
+    offset_pickers(),
 )
 def test_offsets(equilib_Te, ftype, theta, offset):
     """Tests that offsets to the equilibrium data are handled correctly."""
