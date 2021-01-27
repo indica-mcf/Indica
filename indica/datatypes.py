@@ -26,7 +26,10 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Parameter describing asymettry between quantities on HFS and LFS",
         "",
     ),
-    "concentration": ("Portion of nuclei which are the given type of ion", "%",),
+    "concentration": (
+        "Portion of nuclei which are the given type of ion",
+        "%",
+    ),
     "effective_charge": (
         "Ratio of positive ion charge to electron charge in plasma",
         "",

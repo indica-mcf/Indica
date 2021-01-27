@@ -115,9 +115,7 @@ def test_data_provenance(reader, filename, starttime, endtime):
 
 @contextmanager
 def cachedir(*args):
-    """Set up a fake cache directory for storing downloaded OpenADAS data.
-
-    """
+    """Set up a fake cache directory for storing downloaded OpenADAS data."""
 
     old_cache = adas.CACHE_DIR
     userdir = os.path.expanduser("~")
@@ -141,7 +139,8 @@ def test_cache_openadas():
         filestream = reader._get_file(adas_class, adas_file)
         assert filestream.name == str(cache_file)
         urlretrieve.assert_called_once_with(
-            f"https://open.adas.ac.uk/download/{adas_class}/{adas_file}", cache_file,
+            f"https://open.adas.ac.uk/download/{adas_class}/{adas_file}",
+            cache_file,
         )
         urlretrieve.reset_mock()
         filestream2 = reader._get_file(adas_class, adas_file)

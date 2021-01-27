@@ -44,9 +44,7 @@ class CalcZeff(Operator):
     RESULT_TYPES = [("effective_charge", "plasma")]
 
     def __init__(self, adas_data: str, sess: Session = global_session):
-        """Creates a provenance entity/agent for the operator object.
-
-        """
+        """Creates a provenance entity/agent for the operator object."""
         super().__init__(sess, adas_data=adas_data)
         self.adas_data = adas_data
 

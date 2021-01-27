@@ -235,7 +235,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 .. list-table:: KG10 (reflectometry)
 	:widths: 5 15 10 60
 	:header-rows: 1
-	
+
 	* 	- DDA
 		- DTYPE
 		- Axes
@@ -257,7 +257,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 .. list-table:: KY6 (Li-beam)
 	:widths: 5 15 10 60
 	:header-rows: 1
-	
+
 	* 	- DDA
 		- DTYPE
 		- Axes
@@ -304,7 +304,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		- channel, nlos
 		- Coordinates (m) of all LOS. Identifying string in Surf database is  'KB5'
 
-| 
+|
 
 **Spectroscopy**
 
@@ -328,7 +328,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 .. list-table:: KX1 (X-ray crystal spectroscopy)
 	:widths: 5 15 10 60
 	:header-rows: 1
-		
+
 	* 	- DDA
 		- DTYPE
 		- Axes
@@ -356,7 +356,7 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 		- *Spectra has to be read, fitting a-la-Pütterich to be performed*
 	* 	- Surf
 		- (R,z)
-		- 
+		-
 		- Coordinates (m) of the LOS. Identifying string in Surf database is 'KT7D'
 
 |
@@ -419,20 +419,20 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 .. list-table::
 	:widths: 5 15 10 60
 	:header-rows: 1
-	
+
 	* 	- DDA
 		- DTYPE
 		- Axes
 		- Description
-	*	- C1M- (JPF nodes) 
+	*	- C1M- (JPF nodes)
 		- T001, T002, T008, T009, H302, H303, H304, H305
 		- t
 		- Signals from the toroidal set of fast magnetic coils
 	*	- ...
 		- (R, z, phi, theta)
-		- 
+		-
 		- Position and orientation of the coils
-		
+
 Additionally to these, all measurement coordinates and LOS will have to be converted from (R, z) to rho using Flush (*flush_getabsoluteflux, flush_getmagaxisflux, flush_getlcfsflux*). Both coordinate systems should be saved for future use.
 
 LOS coordinates shouldn't be just the start and end of the LOS, but arrays of values along the LOS which can then be used for performing integrals and other operations, both in (R, z) and rho.
