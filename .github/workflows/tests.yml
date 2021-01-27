@@ -69,6 +69,7 @@ jobs:
         poetry run pytest --cov-report=xml --cov=indica
 
     - name: "Upload coverage to Codecov"
+      if: ${{ always() }}
       uses: codecov/codecov-action@v1
       with:
         fail_ci_if_error: true
