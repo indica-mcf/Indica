@@ -22,7 +22,7 @@ on:
       - poetry.lock
 
 jobs:
-  tests:
+  docs:
 
     runs-on: ubuntu-latest
 
