@@ -1,5 +1,10 @@
 # InDiCA
 
+[![Documentation
+Status](https://readthedocs.org/projects/indica-ukaea/badge/?version=latest)](https://indica-ukaea.readthedocs.io/en/latest/?badge=latest)
+[![tests](https://github.com/ukaea/Indica/workflows/tests/badge.svg)](https://github.com/ukaea/Indica/actions?query=workflow%3Atests)
+[![linting](https://github.com/ukaea/Indica/workflows/linting/badge.svg)](https://github.com/ukaea/Indica/actions?query=workflow%3Alinting)
+
 InDiCA (**In**tegrated **Di**agnostic **C**omposition **A**nalysis) is
 a tool which allows a large number of different diagnostics to be
 combined to calculate a self-consistent composition of the plasma

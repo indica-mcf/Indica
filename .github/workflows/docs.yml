@@ -1,6 +1,6 @@
 # This workflow will test that documentation is successfully generated
 
-name: Sphinx docs
+name: sphinx docs
 
 on:
   push:
