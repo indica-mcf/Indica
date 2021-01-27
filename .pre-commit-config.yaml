@@ -15,8 +15,6 @@ repos:
     - id: check-yaml
     - id: end-of-file-fixer
     - id: trailing-whitespace
-    - id: requirements-txt-fixer
-      files: requirements.*\.txt
     - id: mixed-line-ending
       name: "Fix Mixed Line Ending"
 -   repo: https://gitlab.com/pycqa/flake8
