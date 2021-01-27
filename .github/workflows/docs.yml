@@ -1,34 +1,30 @@
-# This workflow will install Python dependencies and run tests with a variety of Python versions
+# This workflow will test that documentation is successfully generated
 
 name: Python tests
 
 on:
   push:
-    paths:
-      - .github/workflows/tests.yml
-      - indica/**
-      - tests/**
-      - poetry.lock
     branches:
       - master
       - develop
-  pull_request:
     paths:
-      - .github/workflows/*
+      - .github/workflows/docs.yml
       - indica/**
-      - tests/**
+      - doc/**
       - poetry.lock
+  pull_request:
     branches:
       - '**'
+    paths:
+      - .github/workflows/docs.yml
+      - indica/**
+      - doc/**
+      - poetry.lock
 
 jobs:
   tests:
 
-    strategy:
-      matrix:
-        python-version: [3.8, 3.9]
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -36,7 +32,7 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.8
 
     - name: Install Poetry
       uses: abatilo/actions-poetry@v2.0.0
@@ -61,8 +57,9 @@ jobs:
 
     - name: Install dependencies
       shell: bash
-      run: python -m poetry install
-
-    - name: Test with pytest
       run: |
-        poetry run pytest
+        python -m poetry install
+
+    - name: Test docs build successfully
+      run: |
+        poetry run make -C doc html
