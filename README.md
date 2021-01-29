@@ -20,5 +20,5 @@ ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/).
 
 ## License
 
-Intuitemp is distributed under the [GNU General Public License version
+InDiCA is distributed under the [GNU General Public License version
 3](LICENSE.md) or, at your option, any later version.
