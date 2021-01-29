@@ -997,20 +997,29 @@ class DataReader(BaseIO):
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
             )
-            coords = [
-                ("t", times),
-                (transform.x1_name, np.arange(database_results["length"][quantity])),
-            ]
+            if database_results["length"][quantity] > 1:
+                dims = [transform.x1_name, "t"]
+                coords = {
+                    "t": times,
+                    transform.x1_name: np.arange(database_results["length"][quantity]),
+                }
+            else:
+                dims = ["t"]
+                coords = {
+                    "t": times,
+                    transform.x1_name: 0,
+                }
             meta = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(database_results[quantity + "_error"], coords).sel(
-                    t=slice(self._tstart, self._tend)
-                ),
+                "error": DataArray(
+                    database_results[quantity + "_error"], coords, dims
+                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
+                dims,
                 attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
@@ -1097,6 +1106,10 @@ class DataReader(BaseIO):
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
+        <quantity>_Tstart : ndarray
+            Toroidal offset of start positions for lines of sight for this data.
+        <quantity>_Tstop : ndarray
+            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(

@@ -430,9 +430,11 @@ class PPFReader(DataReader):
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
             results[q + "_Rstart"] = np.array([los.data[1] / 1000])
-            results[q + "_Rend"] = np.array([los.data[4] / 1000])
+            results[q + "_Rstop"] = np.array([los.data[4] / 1000])
             results[q + "_zstart"] = np.array([los.data[2] / 1000])
-            results[q + "_zend"] = np.array([los.data[5] / 1000])
+            results[q + "_zstop"] = np.array([los.data[5] / 1000])
+            results[q + "_Tstart"] = np.zeros_like(results[q + "_Rstart"])
+            results[q + "_Tstop"] = np.zeros_like(results[q + "_Rstop"])
             results[q + "_records"] = [q_path, l_path]
         return results
 
