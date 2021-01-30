@@ -279,7 +279,7 @@ class MockReader(ConcreteReader):
         non_optional["machine_dims"] = self._machine_dims
         non_optional["length"] = defaultdict(
             lambda: default.shape[1],
-            {k: v.shape[1] for k, v in specific.items()},
+            {k: v.shape[1] if v.ndim > 1 else 1 for k, v in specific.items()},
         )
         default_vals = get_vals_error_records_los(default)
         specific_vals = {k: get_vals_error_records_los(v) for k, v in specific.items()}

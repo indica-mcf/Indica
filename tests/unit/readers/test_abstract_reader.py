@@ -531,7 +531,7 @@ def test_bolometry(dims_data_instrument, uid, revision, time_range, max_freq):
                 los_coordinates_and_axes(
                     dims_instrument[0],
                     min_los=1,
-                    max_los=1,
+                    max_los=2,
                     domain_as_dims=True,
                     toroidal_skew=False,
                     name=dims_instrument[1],
@@ -559,6 +559,11 @@ def test_bremsstrahlung_spectroscopy(
     machine_dims, data, instrument = dims_data_instrument
     for quantity, array in data.items():
         array.name = instrument + "_" + quantity
+        if array.shape[1] == 1:
+            data[quantity] = array.isel({array.attrs["transform"].x1_name: 0})
+            data[quantity].attrs["error"] = array.attrs["error"].isel(
+                {array.attrs["transform"].x1_name: 0}
+            )
     reader = MockReader(True, True, *time_range, max_freq, machine_dims)
     reader.set_bremsstrahlung_spectroscopy(next(iter(data.values())), data)
     quantities = set(data)
@@ -578,7 +583,9 @@ def test_bremsstrahlung_spectroscopy(
             revision,
             q,
             [],
-            find_dropped_channels(expected, expected.dims[1]),
+            find_dropped_channels(expected, expected.dims[1])
+            if expected.ndim > 1
+            else [],
         )
 
 

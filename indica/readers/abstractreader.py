@@ -997,18 +997,15 @@ class DataReader(BaseIO):
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
             )
+            coords: Dict[Hashable, Any] = {"t": times}
+            dims = ["t"]
             if database_results["length"][quantity] > 1:
-                dims = [transform.x1_name, "t"]
-                coords = {
-                    "t": times,
-                    transform.x1_name: np.arange(database_results["length"][quantity]),
-                }
+                dims.append(transform.x1_name)
+                coords[transform.x1_name] = np.arange(
+                    database_results["length"][quantity]
+                )
             else:
-                dims = ["t"]
-                coords = {
-                    "t": times,
-                    transform.x1_name: 0,
-                }
+                coords[transform.x1_name] = 0
             meta = {
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
@@ -1035,7 +1032,7 @@ class DataReader(BaseIO):
             quant_data.name = instrument + "_" + quantity
             if len(database_results[quantity + "_Rstart"]) > 1:
                 drop = self._select_channels(
-                    "radiation",
+                    "bremsstrahlung",
                     uid,
                     instrument,
                     quantity,
