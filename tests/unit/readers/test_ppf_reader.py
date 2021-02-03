@@ -628,9 +628,9 @@ def test_get_bremsstrahlung_spectroscopy(
         # assert np.all(results["times"] == error_signal.dimensions[0].data)
         los = reader._client.DATA[f"edg7/los{q[-1]}"]
         assert results[q + "_Rstart"].shape == (1,)
-        assert results[q + "_Rend"].shape == (1,)
+        assert results[q + "_Rstop"].shape == (1,)
         assert results[q + "_zstart"].shape == (1,)
-        assert results[q + "_zend"].shape == (1,)
+        assert results[q + "_zstop"].shape == (1,)
         assert results["length"][q] == 1
         assert np.all(results[q + "_Rstart"] == los.data[1] / 1000)
         assert np.all(results[q + "_Rstop"] == los.data[4] / 1000)
@@ -686,34 +686,6 @@ def test_general_get(
         getattr(reader, reader.DDA_METHODS[instrument]).assert_called_once_with(
             uid, instrument, revision, quantities
         )
-
-
-@given(
-    pulses,
-    times,
-    errors,
-    max_freqs,
-    text(min_size=1),
-    sampled_from(sorted(PPFReader.DDA_METHODS.keys())),
-    revisions,
-)
-def test_get_defaults(
-    fake_sal, pulse, time_range, error, freq, uid, instrument, revision
-):
-    """Test the generic get method uses appropriate default quantities."""
-    if instrument == "sxr":
-        pulse = max(pulse, 35779)
-    reader = patched_ppf_reader(
-        fake_sal,
-        pulse,
-        *time_range,
-        default_error=error,
-        max_freq=freq,
-        selector=MagicMock(),
-        session=MagicMock(),
-    )
-    results = reader.get(uid, instrument, revision)
-    assert set(results) == set(reader.available_quantities(instrument))
 
 
 @given(
