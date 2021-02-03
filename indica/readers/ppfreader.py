@@ -29,6 +29,7 @@ from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
+from ..datatypes import ELEMENTS_BY_MASS
 from ..session import global_session
 from ..session import Session
 from ..utilities import to_filename
@@ -242,31 +243,37 @@ class PPFReader(DataReader):
         z, z_path = self._get_signal(uid, instrument, "pos", revision)
         mass, m_path = self._get_signal(uid, instrument, "mass", revision)
         texp, t_path = self._get_signal(uid, instrument, "texp", revision)
-        # TODO: get element from mass
-        results["R"] = R.data
-        results["z"] = z.data
-        results["length"] = len(R.data)
-        results["element"] = None
-        results["texp"] = None
+        # We approximate that the positions do not change much in time
+        results["R"] = R.data[0, :]
+        results["z"] = z.data[0, :]
+        results["length"] = R.data.shape[1]
+        results["element"] = ELEMENTS_BY_MASS[int(round(mass.data[0]))]
+        results["texp"] = texp.data
         results["times"] = None
         paths = [R_path, z_path, m_path, t_path]
         if "angf" in quantities:
             angf, a_path = self._get_signal(uid, instrument, "angf", revision)
             afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
+            if results["times"] is None:
+                results["times"] = angf.dimensions[0].data
             results["angf"] = angf.data
-            results["angf_error"] = afhi.data
+            results["angf_error"] = afhi.data - angf.data
             results["angf_records"] = paths + [a_path, e_path]
         if "conc" in quantities:
             conc, c_path = self._get_signal(uid, instrument, "conc", revision)
             cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
+            if results["times"] is None:
+                results["times"] = conc.dimensions[0].data
             results["conc"] = conc.data
-            results["conc_error"] = cohi.data
+            results["conc_error"] = cohi.data - conc.data
             results["conc_records"] = paths + [c_path, e_path]
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
+            if results["times"] is None:
+                results["times"] = ti.dimensions[0].data
             results["ti"] = ti.data
-            results["ti_error"] = tihi.data
+            results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
         return results
 
