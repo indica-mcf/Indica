@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from hypothesis import given
+from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
@@ -26,6 +27,7 @@ import prov.model as prov
 from pytest import approx
 from pytest import mark
 from xarray import DataArray
+from xarray import ones_like
 
 from indica.converters import LinesOfSightTransform
 from indica.converters import MagneticCoordinates
@@ -41,6 +43,7 @@ from ..data_strategies import array_dictionaries
 from ..data_strategies import data_arrays
 from ..data_strategies import equilibrium_data
 from ..strategies import machine_dimensions
+from ..strategies import sane_floats
 
 
 tstarts = floats(0.0, 1000.0)
@@ -98,7 +101,7 @@ def expected_data(
             transform.x2_name = "_".join(parts)
         return transform
 
-    start = draw(floats(0.0, 9.9999e2))
+    start = draw(floats(0.0, 9.9998e2))
     stop = 1e3 - draw(floats(0.0, 9.9999e2 - start, exclude_min=True))
     n = draw(integers(2, 20))
     time = coord_array(np.linspace(start, stop, n), "t")
@@ -367,13 +370,18 @@ def test_thomson_scattering(data_instrument, uid, revision, time_range, max_freq
     integers(),
     times,
     max_freqs,
+    sane_floats(),
 )
-def test_charge_exchange(data_instrument, uid, revision, time_range, max_freq):
+@settings(report_multiple_bugs=False)
+def test_charge_exchange(data_instrument, uid, revision, time_range, max_freq, texp):
     """Test the get_charge_exchange method correctly combines and processes
     raw data."""
     data, instrument = data_instrument
     for quantity, array in data.items():
         array.name = instrument + "_" + quantity
+        array.attrs["exposure_time"] = texp * ones_like(array.coords["t"]).drop_vars(
+            array.attrs["transform"].x2_name
+        )
     reader = MockReader(True, True, *time_range, max_freq)
     reader.set_charge_exchange(next(iter(data.values())), data)
     quantities = set(data)
@@ -383,10 +391,20 @@ def test_charge_exchange(data_instrument, uid, revision, time_range, max_freq):
     )
     for q, actual, expected in [(q, results[q], data[q]) for q in quantities]:
         assert_data_arrays_equal(actual, expected, *time_range, max_freq)
-        assert_any_call()
+        texp_exp = expected.attrs["exposure_time"]
+        texp_act = actual.attrs["exposure_time"]
+        assert texp_act.coords["t"].equals(
+            actual.coords["t"].drop_vars(actual.attrs["transform"].x2_name)
+        )
+        if len(texp_exp.coords["t"].sel(t=slice(*time_range))) == len(
+            texp_act.coords["t"]
+        ):
+            assert_values_equal(texp_act, texp_exp, *time_range)
+        else:
+            assert_values_binned_equal(texp_act, texp_exp, max_freq)
         assert_any_call(
             reader.create_provenance,
-            "charge_exchange",
+            "cxrs",
             uid,
             instrument,
             revision,

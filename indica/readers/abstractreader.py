@@ -385,9 +385,35 @@ class DataReader(BaseIO):
         )
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
-        coords = [("t", database_results["times"]), (diagnostic_coord, ticks)]
         data = {}
-        # TODO: Assemble a CoordinateTransform object
+        R_coord = DataArray(database_results["R"], coords=[(diagnostic_coord, ticks)])
+        z_coord = DataArray(database_results["z"], coords=[(diagnostic_coord, ticks)])
+        transform = TransectCoordinates(R_coord, z_coord)
+        times = database_results["times"]
+        coords = {
+            "t": times,
+            diagnostic_coord: ticks,
+            transform.x2_name: 0,
+            "R": R_coord,
+            "z": z_coord,
+        }
+        dims = ["t", diagnostic_coord]
+        downsample_ratio = int(
+            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+        )
+        texp = DataArray(database_results["texp"], coords=[("t", times)]).sel(
+            t=slice(self._tstart, self._tend)
+        )
+        if downsample_ratio > 1:
+            # Seems to be some sort of bug setting the coordinate when
+            # coarsening a 1-D array
+            new_t = texp.t.coarsen(t=downsample_ratio, boundary="trim").mean()
+            texp = (
+                texp.coarsen(t=downsample_ratio, boundary="trim")
+                .mean()
+                .assign_coords(t=new_t)
+            )
+
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
@@ -396,17 +422,33 @@ class DataReader(BaseIO):
                 )
 
             meta = {
-                "datatype": available_quantities[quantity],
-                "element": database_results["element"],
-                "error": DataArray(database_results[quantity + "_error"], coords),
-                "exposure_time": available_quantities["texp"],
+                "datatype": (
+                    available_quantities[quantity][0],
+                    database_results["element"],
+                ),
+                "transform": transform,
+                "error": DataArray(
+                    database_results[quantity + "_error"], coords, dims
+                ).sel(t=slice(self._tstart, self._tend)),
+                "exposure_time": texp,
             }
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
-                name=instrument + "_" + quantity,
+                dims,
                 attrs=meta,
-            )
+            ).sel(t=slice(self._tstart, self._tend))
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+                quant_data.attrs["error"] = np.sqrt(
+                    (quant_data.attrs["error"] ** 2)
+                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .mean()
+                    / downsample_ratio
+                )
+            quant_data.name = instrument + "_" + quantity
             drop = self._select_channels(
                 "cxrs", uid, instrument, quantity, quant_data, diagnostic_coord
             )
@@ -1239,7 +1281,9 @@ class DataReader(BaseIO):
         # TODO: properly namespace the data type and ignored channels
         attrs = {
             prov.PROV_TYPE: "DataArray",
-            prov.PROV_VALUE: ",".join(self.available_quantities(instrument)[quantity]),
+            prov.PROV_VALUE: ",".join(
+                str(s) for s in self.available_quantities(instrument)[quantity]
+            ),
             "ignored_channels": str(ignored),
         }
         activity_id = hash_vals(agent=self.prov_id, date=end_time)

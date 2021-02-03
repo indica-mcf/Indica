@@ -206,7 +206,7 @@ def test_get_thomson_scattering(
     just("cxg6"),
     revisions,
     edited_revisions,
-    lists(sampled_from(["angf", "conc", "ti"]), min_size=1, unique=True).map(set),
+    lists(sampled_from(["angf", "ti"]), min_size=1, unique=True).map(set),
 )
 def test_get_charge_exchange(
     fake_sal,
@@ -237,13 +237,15 @@ def test_get_charge_exchange(
     if bad_rev:
         return
     z_signal = reader._client.DATA[f"{instrument}/pos"]
-    assert np.all(z_signal.data == results["z"])
-    assert len(z_signal.data) == results["length"]
-    assert np.all(reader._client.DATA[f"{instrument}/rpos"] == results["R"])
+    assert np.all(z_signal.data[0, :] == results["z"])
+    assert len(z_signal.data[0, :]) == results["length"]
+    assert np.all(reader._client.DATA[f"{instrument}/rpos"].data[0, :] == results["R"])
     assert np.all(reader._client.DATA[f"{instrument}/texp"].data == results["texp"])
-    records = ["pos", "rpos", "texp", "mass"].maps(
-        lambda q: get_record(reader, pulse, uid, instrument, q, revision)
-    )
+    assert isinstance(results["element"], str)
+    records = [
+        get_record(reader, pulse, uid, instrument, q, revision)
+        for q in ["pos", "rpos", "texp", "mass"]
+    ]
     uncertainties = {"angf": "afhi", "conc": "cohi", "ti": "tihi"}
     for q in quantities:
         signal = reader._client.DATA[f"{instrument}/{q}"]
@@ -254,10 +256,10 @@ def test_get_charge_exchange(
         assert np.all(results["times"] == error_signal.dimensions[0].data)
         assert sorted(results[q + "_records"]) == sorted(
             records
-            + map(
-                lambda x: get_record(reader, pulse, uid, instrument, x, revision),
-                [q, uncertainties[q]],
-            )
+            + [
+                get_record(reader, pulse, uid, instrument, x, revision)
+                for x in [q, uncertainties[q]]
+            ]
         )
 
 
