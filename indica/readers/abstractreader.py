@@ -23,6 +23,7 @@ from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
 from ..converters import LinesOfSightTransform
+from ..converters import MagneticCoordinates
 from ..converters import TransectCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import ArrayType
@@ -687,6 +688,77 @@ class DataReader(BaseIO):
             A dictionary containing the electron temperature.
 
         """
+        available_quantities = self.available_quantities(instrument)
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read cyclotron emission data for "
+                    "quantity {}".format(self.__class__.__name__, quantity)
+                )
+
+        database_results = self._get_cyclotron_emissions(
+            uid, instrument, revision, quantities
+        )
+        times = database_results["times"]
+        transform = MagneticCoordinates(
+            database_results["z"], instrument, database_results["machine_dims"]
+        )
+        coords: Dict[Hashable, ArrayLike] = {
+            "t": times,
+            transform.x1_name: database_results["Btot"],
+            transform.x2_name: 0,
+            "z": database_results["z"],
+        }
+        dims = ["t", transform.x1_name]
+        data = {}
+        downsample_ratio = int(
+            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+        )
+        for quantity in quantities:
+            meta = {
+                "datatype": available_quantities[quantity],
+                "error": DataArray(
+                    database_results[quantity + "_error"], coords, dims
+                ).sel(t=slice(self._tstart, self._tend)),
+                "transform": transform,
+            }
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                dims,
+                attrs=meta,
+            ).sel(t=slice(self._tstart, self._tend))
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+                quant_data.attrs["error"] = np.sqrt(
+                    (quant_data.attrs["error"] ** 2)
+                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .mean()
+                    / downsample_ratio
+                )
+            quant_data.name = instrument + "_" + quantity
+            drop = self._select_channels(
+                "cyclotron",
+                uid,
+                instrument,
+                quantity,
+                quant_data,
+                transform.x1_name,
+                database_results["bad_channels"],
+            )
+            quant_data.attrs["provenance"] = self.create_provenance(
+                "cyclotron_emissions",
+                uid,
+                instrument,
+                revision,
+                quantity,
+                database_results[quantity + "_records"],
+                drop,
+            )
+            data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+        return data
 
     def _get_cyclotron_emissions(
         self, uid: str, calculation: str, revision: int, quantities: Set[str]
@@ -720,6 +792,9 @@ class DataReader(BaseIO):
             The times at which measurements were taken
         bad_channels : List[float]
             Btot values for channels which have not been properly calibrated.
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
 
         For each requested quantity, the following items will also be present:
 

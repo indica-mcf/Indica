@@ -28,6 +28,7 @@ from pytest import mark
 from xarray import DataArray
 
 from indica.converters import LinesOfSightTransform
+from indica.converters import MagneticCoordinates
 from indica.converters import TransectCoordinates
 from indica.datatypes import ELEMENTS
 from indica.utilities import coord_array
@@ -147,6 +148,16 @@ def expected_data(
                 a.coords["z"] = DataArray(
                     transform.z_vals.y, coords=[(x1name, a.coords[x1name].values)]
                 )
+        if isinstance(transform, MagneticCoordinates):
+            to_fix = [array]
+            if "error" in array.attrs:
+                to_fix.append(array.attrs["error"])
+            if "dropped" in array.attrs:
+                to_fix.append(array.attrs["dropped"])
+                if "error" in array.attrs:
+                    to_fix.append(array.attrs["dropped"].attrs["error"])
+            for a in to_fix:
+                a.coords["z"] = transform.z_los
     return result
 
 
@@ -344,9 +355,7 @@ def test_thomson_scattering(data_instrument, uid, revision, time_range, max_freq
     tuples(sampled_from(sorted(ELEMENTS)), text()).flatmap(
         lambda elem_instrument: tuples(
             expected_data(
-                transect_coordinates_and_axes(
-                    coord_name=elem_instrument[1] + "_coords"
-                ),
+                transect_coordinates_and_axes(coord_name=elem_instrument[1] + "_coord"),
                 ("angf", ("angular_freq", elem_instrument[0])),
                 ("conc", ("concentration", elem_instrument[0])),
                 ("ti", ("temperature", elem_instrument[0])),
@@ -409,7 +418,7 @@ def test_cyclotron_emissions(data_instrument, uid, revision, time_range, max_fre
     for quantity, array in data.items():
         array.name = instrument + "_" + quantity
     reader = MockReader(True, True, *time_range, max_freq)
-    reader.set_thomson_scattering(next(iter(data.values())), data)
+    reader.set_cyclotron_emissions(next(iter(data.values())), data)
     quantities = set(data)
     results = reader.get_cyclotron_emissions(uid, instrument, revision, quantities)
     reader._get_cyclotron_emissions.assert_called_once_with(
