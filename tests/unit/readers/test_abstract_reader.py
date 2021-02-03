@@ -1,5 +1,6 @@
 """Test methods present on the base class DataReader."""
 
+from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
 import datetime
@@ -18,6 +19,7 @@ from hypothesis.strategies import from_regex
 from hypothesis.strategies import integers
 from hypothesis.strategies import just
 from hypothesis.strategies import lists
+from hypothesis.strategies import none
 from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
@@ -42,6 +44,8 @@ from ..converters.test_transect import transect_coordinates_and_axes
 from ..data_strategies import array_dictionaries
 from ..data_strategies import data_arrays
 from ..data_strategies import equilibrium_data
+from ..data_strategies import general_datatypes
+from ..data_strategies import specific_datatypes
 from ..strategies import machine_dimensions
 from ..strategies import sane_floats
 
@@ -693,7 +697,7 @@ def test_default_authentication(username, password):
 
 def get_only_record(doc, record_type):
     """Get the only record from the Prov document with the specified type."""
-    records = doc.get_records(record_type)
+    records = list(doc.get_records(record_type))
     assert len(records) == 1
     return records[0]
 
@@ -702,7 +706,7 @@ def get_only_record(doc, record_type):
     floats(),
     floats(),
     floats(),
-    dictionaries(text(), text()),
+    dictionaries(from_regex("[a-zA-Z][a-zA-Z0-9_]*", fullmatch=True), text()),
 )
 def test_prov_for_reader(tstart, tend, max_freq, extra_reader_attrs):
     """Check appropriate PROV data created for reader object"""
@@ -720,17 +724,21 @@ def test_prov_for_reader(tstart, tend, max_freq, extra_reader_attrs):
     assert isinstance(reader.agent, prov.ProvAgent)
     assert hasattr(reader, "entity")
     assert isinstance(reader.entity, prov.ProvEntity)
-    assert reader.agent.identifier == reader.entity.identifier == reader.prov_id
+    assert (
+        reader.agent.identifier.localpart
+        == reader.entity.identifier.localpart
+        == reader.prov_id
+    )
     deleg = get_only_record(doc, prov.ProvDelegation)
-    assert reader.agent.idnetifier == deleg.get_attribute("prov:delegate")[1]
-    assert session.agent.identifier == deleg.get_attribute("prov:responsible")[1]
+    assert {reader.agent.identifier} == deleg.get_attribute("prov:delegate")
+    assert {session.agent.identifier} == deleg.get_attribute("prov:responsible")
     gen = get_only_record(doc, prov.ProvGeneration)
-    assert reader.entity.identifier == gen.get_attribute("prov:entity")[1]
-    assert session.session.identifier == gen.get_attribute("prov:activity")[1]
-    assert t1 < gen.get_attribute("prov:time")[1] < t2
-    attribution = get_only_record(doc, "prov.ProvAttribution")
-    assert reader.entity.identifier == attribution.get_attribute("prov:entity")[1]
-    assert session.agent.identifier == attribution.get_attribute("prov:agent")[1]
+    assert {reader.entity.identifier} == gen.get_attribute("prov:entity")
+    assert {session.session.identifier} == gen.get_attribute("prov:activity")
+    assert t1 < next(iter(gen.get_attribute("prov:time"))) < t2
+    attribution = get_only_record(doc, prov.ProvAttribution)
+    assert {reader.entity.identifier} == attribution.get_attribute("prov:entity")
+    assert {session.agent.identifier} == attribution.get_attribute("prov:agent")
 
 
 numbers = one_of(integers(), floats(allow_nan=False, allow_infinity=False))
@@ -742,11 +750,21 @@ numbers = one_of(integers(), floats(allow_nan=False, allow_infinity=False))
     text(),
     integers(),
     text(),
-    lists(text(), max_size=10, unique=True),
+    lists(text(min_size=1).filter(lambda x: ":" not in x), max_size=10, unique=True),
     lists(numbers, max_size=20, unique=True),
+    general_datatypes(),
+    one_of(specific_datatypes(), none()),
 )
 def test_prov_for_data(
-    diagnostic, uid, instrument, revision, quantity, data_objects, ignored
+    diagnostic,
+    uid,
+    instrument,
+    revision,
+    quantity,
+    data_objects,
+    ignored,
+    gen_type,
+    spec_type,
 ):
     """Check appropriate PROV data created for data object"""
     doc = prov.ProvDocument()
@@ -757,48 +775,62 @@ def test_prov_for_data(
         session=doc.activity("session_activity"),
     )
     reader = ConcreteReader(0.0, 1.0, 100.0, session)
-    reader.DIAGNOSTIC_QUANTITIES = MagicMock()
+    reader.available_quantities = MagicMock(
+        return_value=defaultdict(lambda: (gen_type, spec_type))
+    )
     reader._start_time = datetime.datetime.now()
     entity = reader.create_provenance(
         diagnostic, uid, instrument, revision, quantity, data_objects, ignored
     )
     t2 = datetime.datetime.now()
-    assert entity.get_attribute(prov.PROV_TYPE)[1] == "DataArray"
-    assert isinstance(entity.get_attribute(prov.PROV_VALUE)[1], MagicMock)
-    assert entity.get_attribute("ignored_channels") == str(ignored)
-    generated = get_only_record(doc, prov.ProvGeneration)
-    assert entity.identifier == generated.get_attribute("prov:entity")[1]
-    activity_id = generated.get_attribute("prov:activity")[1]
-    end_time = generated.get_attribute("prov:time")[1]
+    assert entity.get_attribute(prov.PROV_TYPE) == {"DataArray"}
+    assert entity.get_attribute(prov.PROV_VALUE) == {gen_type + "," + str(spec_type)}
+    assert entity.get_attribute("ignored_channels") == {str(ignored)}
+    generated_candidates = list(
+        filter(
+            lambda x: {entity.identifier} == x.get_attribute("prov:entity"),
+            doc.get_records(prov.ProvGeneration),
+        )
+    )
+    assert len(generated_candidates) == 1
+    generated = generated_candidates[0]
+    assert {entity.identifier} == generated.get_attribute("prov:entity")
+    activity_id = next(iter(generated.get_attribute("prov:activity")))
+    end_time = next(iter(generated.get_attribute("prov:time")))
     assert reader._start_time < end_time < t2
     informed = get_only_record(doc, prov.ProvCommunication)
-    assert activity_id == informed.get_attribute("prov:informed")[1]
-    assert session.session.identifier == informed.get_attribute("prov:informant")[1]
-    expected_agents = [session.agent.identifer, reader.agent.identifier]
+    assert {activity_id} == informed.get_attribute("prov:informed")
+    assert {session.session.identifier} == informed.get_attribute("prov:informant")
+    expected_agents = [session.agent.identifier, reader.agent.identifier]
     for a in doc.get_records(prov.ProvAssociation):
-        assert activity_id == a.get_attribute("prov:activity")[1]
-        agent_id = a.get_attribute("prov:agent")[1]
+        assert {activity_id} == a.get_attribute("prov:activity")
+        agent_id = next(iter(a.get_attribute("prov:agent")))
         assert agent_id in expected_agents
         expected_agents.remove(agent_id)
     assert len(expected_agents) == 0
-    expected_agents = [session.agent.identifer, reader.agent.identifer]
-    for a in doc.get_records(prov.ProvAttribution):
-        assert entity.identifier == a.get_attribute("prov:entity")[1]
-        agent_id = a.get_attribute("prov:agent")[1]
+    expected_agents = [session.agent.identifier, reader.agent.identifier]
+    for a in filter(
+        lambda x: {entity.identifier} == x.get_attribute("prov:entity"),
+        doc.get_records(prov.ProvAttribution),
+    ):
+        agent_id = next(iter(a.get_attribute("prov:agent")))
         assert agent_id in expected_agents
         expected_agents.remove(agent_id)
     assert len(expected_agents) == 0
-    data = copy(data_objects)
+    data = [
+        doc.valid_qualified_name(reader.NAMESPACE[0] + ":" + d) for d in data_objects
+    ]
+    data2 = copy(data)
     for d in doc.get_records(prov.ProvDerivation):
-        assert entity.identifer == d.get_attribute("prov:generatedEntity")[1]
-        used_id = d.get_attribute("prov:usedEntity")[1]
+        assert {entity.identifier} == d.get_attribute("prov:generatedEntity")
+        used_id = next(iter(d.get_attribute("prov:usedEntity")))
         assert used_id in data
         data.remove(used_id)
     assert len(data) == 0
-    data = data_objects
+    data = data2
     for u in doc.get_records(prov.ProvUsage):
-        assert activity_id == u.get_attribute("prov:activity")
-        entity_id = u.get_attribute("prov:entity")
+        assert {activity_id} == u.get_attribute("prov:activity")
+        entity_id = next(iter(u.get_attribute("prov:entity")))
         assert entity_id in data
         data.remove(entity_id)
     assert len(data) == 0

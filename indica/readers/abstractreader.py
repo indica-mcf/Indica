@@ -1010,57 +1010,6 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    #    def _get_bolometry(
-    #        self, uid: str, instrument: str, revision: int, quantities: Set[str],
-    #    ) -> Dict[str, Any]:
-    #        """Gets raw data for bolometric irradiance from the database. Data outside
-    #        the desired time range will be discarded.
-    #
-    #        Parameters
-    #        ----------
-    #        uid
-    #            User ID (i.e., which user created this data)
-    #        instrument
-    #            Name of the instrument/DDA which measured this data
-    #        revision
-    #            An object (of implementation-dependent type) specifying what
-    #            version of data to get. Default is the most recent.
-    #        quantities
-    #            Which physical quantitie(s) to read from the database.
-    #
-    #        Returns
-    #        -------
-    #        A dictionary containing the following items:
-    #
-    #        length : Dict[str, int]
-    #            Number of channels in data for each camera
-    #        times : ndarray
-    #            The times at which measurements were taken
-    #
-    #        For each requested quantity, the following items will also be present:
-    #
-    #        <quantity> : ndarray
-    #            The data itself (first axis is time, second channel)
-    #        <quantity>_error : ndarray
-    #            Uncertainty in the data
-    #        <quantity>_records : List[str]
-    #            Representations (e.g., paths) for the records in the database used
-    #            to access data needed for this data.
-    #        <quantity>_Rstart : ndarray
-    #            Major radius of start positions for lines of sight for this data.
-    #        <quantity>_Rstop : ndarray
-    #            Major radius of stop positions for lines of sight for this data.
-    #        <quantity>_zstart : ndarray
-    #            Vertical location of start positions for lines of sight for this data.
-    #        <quantity>_zstop : ndarray
-    #            Vertical location of stop positions for lines of sight for this data.
-    #
-    #        """
-    #        raise NotImplementedError(
-    #            "{} does not implement a '_get_bolometry' "
-    #            "method.".format(self.__class__.__name__)
-    #        )
-
     def get_bremsstrahlung_spectroscopy(
         self,
         uid: str,
@@ -1303,6 +1252,7 @@ class DataReader(BaseIO):
         for data in data_objects:
             # TODO: Find some way to avoid duplicate records
             data_entity = self.session.prov.entity(self.NAMESPACE[0] + ":" + data)
+            print(data_entity.identifier)
             entity.wasDerivedFrom(data_entity)
             activity.used(data_entity)
         return entity
