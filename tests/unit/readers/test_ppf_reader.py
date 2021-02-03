@@ -36,6 +36,7 @@ from indica.readers.selectors import DataSelector
 from indica.session import global_session
 from indica.session import Session
 from .fake_salclient import fake_sal_client
+from ..strategies import sane_floats
 
 
 @pytest.fixture(scope="module")
@@ -348,7 +349,7 @@ def test_get_equilibrium(
     just({"te"}),
     revisions,
     edited_revisions,
-    lines_of_sight,
+    sane_floats(),
 )
 def test_get_cyclotron_emissions(
     fake_sal,
@@ -361,7 +362,7 @@ def test_get_cyclotron_emissions(
     quantities,
     revision,
     available_revisions,
-    los,
+    z,
 ):
     """Test quantities returned by _get_cyclotrons_emissions are correct."""
     reader = patched_ppf_reader(
@@ -375,48 +376,55 @@ def test_get_cyclotron_emissions(
     )
     reader._client._revisions = available_revisions
     bad_rev = revision != 0 and revision < available_revisions[0]
-    mock_surf = MagicMock(return_value=trim_lines_of_sight(los, 1))
+    mock_surf = MagicMock(
+        return_value=(
+            np.array([0]),
+            np.array([0]),
+            np.array([z]),
+            np.array([z]),
+            np.array([0]),
+            np.array([0]),
+        )
+    )
     with patch("indica.readers.surf_los.read_surf_los", mock_surf), pytest.raises(
         sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
         results = reader._get_cyclotron_emissions(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    assert results["z"] == los[2][0]
+    assert results["z"] == z
     # TODO: determine how best to describe the SURF data for PROV
     records = [
         "surf_los.dat",
         get_record(reader, pulse, uid, instrument, "gen", revision),
     ]
+    assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
     gen = reader._client.DATA[f"{instrument}/gen"]
     for q in quantities:
-        emissions = results[q]
+        vals = results[q]
         channel_names = [
-            key.split("/")[-1]
-            for key in reader._client.DATA
-            if re.search(rf"{q}\d\d$", key, re.I)
+            f"{q}{chan + 1:02d}" for chan, v in enumerate(gen.data[0, :]) if v != 0.0
         ]
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
             assert np.all(
-                emissions[:, i] == reader._client.DATA[f"{instrument}/{name}"]
+                vals[:, i] == reader._client.DATA[f"{instrument}/{name}"].data
             )
-        assert np.all(
-            results["Btot"] * sc.e * gen[11, channel_indices] / (2 * np.pi * sc.m_e)
-            == pytest.approx(gen[15, channel_indices])
-        )
-        assert np.all(results[q + "_error"] == pytest.approx(0.1 * emissions))
+        assert results["Btot"] * sc.e * gen.data[11, channel_indices] / (
+            2 * np.pi * sc.m_e
+        ) == pytest.approx(gen.data[15, channel_indices] * 1e9)
+        assert np.all(results[q + "_error"] == pytest.approx(error * vals))
         bad_channels = np.argwhere(np.isin(results["Btot"], results["bad_channels"]))
-        assert np.all(gen[18, bad_channels] == 0)
-        assert np.all(gen[19, bad_channels] == 0)
-        assert np.all(np.delete(gen[18, :], bad_channels) != 0)
-        assert np.all(np.delete(gen[19, :], bad_channels) != 0)
+        assert np.all(gen.data[18, bad_channels] == 0)
+        assert np.all(gen.data[19, bad_channels] == 0)
+        assert np.all(np.delete(gen.data[18, :], bad_channels) != 0)
+        assert np.all(np.delete(gen.data[19, :], bad_channels) != 0)
         assert sorted(results[q + "_records"]) == sorted(
             records
-            + map(
-                lambda x: get_record(reader, pulse, uid, instrument, x, revision),
-                channel_names,
-            )
+            + [
+                get_record(reader, pulse, uid, instrument, x, revision)
+                for x in channel_names
+            ]
         )
 
 

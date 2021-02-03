@@ -22,6 +22,7 @@ from sal.client import SALClient
 from sal.core.exception import AuthenticationFailed
 from sal.core.exception import NodeNotFound
 from sal.dataclass import Signal
+import scipy.constants as sc
 
 import indica.readers.surf_los as surf_los
 from .abstractreader import CACHE_DIR
@@ -343,6 +344,48 @@ class PPFReader(DataReader):
             else:
                 results[q] = qval.data
                 results[q + "_records"] = [q_path]
+        return results
+
+    def _get_cyclotron_emissions(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch raw data for electron cyclotron emissin diagnostics."""
+        _, _, zstart, zend, _, _ = surf_los.read_surf_los(
+            SURF_PATH, self.pulse, instrument.lower()
+        )
+        assert zstart[0] == zend[0]
+        gen, gen_path = self._get_signal(uid, instrument, "gen", revision)
+        channels = np.argwhere(gen.data[0, :] > 0)[:, 0]
+        freq = gen.data[15, channels] * 1e9
+        nharm = gen.data[11, channels]
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+            "z": zstart[0],
+            "length": len(channels),
+            "Btot": 2 * np.pi * freq * sc.m_e / (sc.e * nharm),
+        }
+        bad_channels = np.argwhere(
+            np.logical_or(gen.data[18, channels] == 0.0, gen.data[19, channels] == 0.0)
+        )
+        results["bad_channels"] = results["Btot"][bad_channels]
+        for q in quantities:
+            records = [SURF_PATH.name, gen_path]
+            data = []
+            for i in channels:
+                qval, q_path = self._get_signal(
+                    uid, instrument, f"{q}{i + 1:02d}", revision
+                )
+                records.append(q_path)
+                data.append(qval.data)
+                if "times" not in results:
+                    results["times"] = qval.dimensions[0].data
+            results[q] = np.array(data).T
+            results[q + "_error"] = self._default_error * results[q]
+            results[q + "_records"] = records
         return results
 
     def _get_radiation(

@@ -48,7 +48,7 @@ class MagneticCoordinates(CoordinateTransform):
         ),
     ):
         self.z_los = z
-        self.x1_name = name + "_coord"
+        self.x1_name = name + "_Btot"
         self.x2_name = self.x1_name + "_z_offset"
         self.left = machine_dimensions[0][0]
         self.right = machine_dimensions[0][1]

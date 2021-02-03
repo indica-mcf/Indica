@@ -215,10 +215,12 @@ class MockReader(ConcreteReader):
         """
         self._add_dropped_channel_data("cyclotron", default, specific)
         non_optional = {}
-        non_optional["Btot"] = default.coords["Btot"].values
+        non_optional["Btot"] = default.coords[default.attrs["transform"].x1_name].values
         non_optional["z"] = default.coords["z"].values
         non_optional["times"] = default.coords["t"].values
         non_optional["length"] = default.shape[1]
+        non_optional["machine_dims"] = self._machine_dims
+        non_optional["bad_channels"] = []
         default_vals = get_vals_error_records(default)
         specific_vals = {k: get_vals_error_records(v) for k, v in specific.items()}
         return non_optional, default_vals, specific_vals
