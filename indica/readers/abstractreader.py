@@ -390,7 +390,7 @@ class DataReader(BaseIO):
         z_coord = DataArray(database_results["z"], coords=[(diagnostic_coord, ticks)])
         transform = TransectCoordinates(R_coord, z_coord)
         times = database_results["times"]
-        coords = {
+        coords: Dict[Hashable, Any] = {
             "t": times,
             diagnostic_coord: ticks,
             transform.x2_name: 0,
