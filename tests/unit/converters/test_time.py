@@ -35,7 +35,7 @@ t_axes = builds(np.linspace, just(50.0), just(120.0), integers(4, 50)).map(
 @composite
 def useful_data_arrays(draw, rel_sigma=0.02, abs_sigma=1e-3):
     times = draw(t_axes)
-    transform, x1, x2, _ = draw(coordinate_transforms_and_axes())
+    transform, x1, x2, _ = draw(coordinate_transforms_and_axes(min_side=2))
     return draw(
         data_arrays_from_coords(
             coordinates=transform,
@@ -246,7 +246,6 @@ def test_interpolate_linear_data(tstart, tend, n, times, a, b, abs_err, method):
             ceil += 1
         return ceil
 
-    print(a, b)
     data = linear_data_array(a, b, times, abs_err)
     if tstart > tend:
         tstart, tend = tend, tstart
