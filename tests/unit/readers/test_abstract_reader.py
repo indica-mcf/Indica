@@ -467,6 +467,8 @@ def test_cyclotron_emissions(data_instrument, uid, revision, time_range, max_fre
             expected_data(
                 los_coordinates_and_axes(
                     instrument_dims[1],
+                    2,
+                    5,
                     domain_as_dims=True,
                     name=instrument_dims[0],
                 ),
@@ -515,7 +517,11 @@ def test_sxr(dims_data_instrument, uid, revision, time_range, max_freq):
             just(dims_instrument[0]),
             expected_data(
                 los_coordinates_and_axes(
-                    dims_instrument[0], domain_as_dims=True, name=dims_instrument[1]
+                    dims_instrument[0],
+                    2,
+                    5,
+                    domain_as_dims=True,
+                    name=dims_instrument[1],
                 ),
                 ("kb5h", ("luminous_flux", "bolometric")),
                 ("kb5v", ("luminous_flux", "bolometric")),
