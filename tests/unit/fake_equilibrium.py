@@ -122,7 +122,9 @@ class FakeEquilibrium(Equilibrium):
             t = self.default_t
             rmag = self.rmag
         else:
-            rmag = self.rmag.interp(t=t, method="nearest")
+            rmag = self.rmag.interp(
+                t=t, method="nearest", kwargs={"fill_value": "extrapolate"}
+            )
         a = self.parameters[kind + "_a"]
         b = self.parameters[kind + "_b"]
         n = self.parameters[kind + "_n"]
