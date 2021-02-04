@@ -73,8 +73,8 @@ def magnetic_coordinates_and_axes(
     draw,
     domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
     name=None,
-    min_vals=5,
-    max_vals=12,
+    min_vals=2,
+    max_vals=5,
 ):
     transform = draw(magnetic_coordinates(domain, name))
     width = transform.right - transform.left
@@ -94,8 +94,8 @@ def magnetic_coordinates_and_axes(
 
 @given(
     magnetic_coordinate_arguments(),
-    arbitrary_coordinates(),
-    arbitrary_coordinates((0.0, 0.0, 0.0), max_side=3),
+    arbitrary_coordinates(max_side=2),
+    arbitrary_coordinates((0.0, 0.0, 0.0), max_side=2),
 )
 def test_magnetic_from_Rz_mock(transform_args, coords, expected_result):
     """Test transform of data to magnetic field coordinates."""
@@ -111,7 +111,7 @@ def test_magnetic_from_Rz_mock(transform_args, coords, expected_result):
 
 @given(
     magnetic_coordinate_arguments(),
-    arbitrary_coordinates((0.00001, None, 0.0), (1.0, None, 1e3), max_side=3),
+    arbitrary_coordinates((0.00001, None, 0.0), (1.0, None, 1e3), max_side=2),
     sane_floats(),
     sane_floats(),
     floats(0.1, 1e3),
@@ -137,7 +137,6 @@ def test_magnetic_to_Rz_fake_on_los(
     transform.set_equilibrium(
         FakeEquilibrium(Rmag, zmag, Btot_a=Btot_a, Btot_b=Btot_b, Btot_alpha=Btot_alpha)
     )
-    #    print("Sent to _convert_to_Rz", B, None, time)
     R, z = transform.convert_to_Rz(B, 0.0, time)
     assert np.all(R == approx(R_expected * np.ones_like(time), abs=1e-6, rel=1e-6))
     assert z == approx(z_los)
@@ -145,7 +144,7 @@ def test_magnetic_to_Rz_fake_on_los(
 
 @given(
     magnetic_coordinate_arguments(),
-    arbitrary_coordinates((0.00001, -2.0, 0.0), (1.0, 2.0, 1e3), max_side=3),
+    arbitrary_coordinates((0.00001, -2.0, 0.0), (1.0, 2.0, 1e3), max_side=2),
     sane_floats(),
     sane_floats(),
     floats(0.1, 1e3),
