@@ -83,22 +83,26 @@ elsewhere in the code).
 The equilibrium data which is of interest is the total magnetic field
 strength, the location of various flux surface (poloidal, toroidal,
 and potentially others), the minor radius, the volume enclosed by a
-given flux surface, and the minimum flux surface for a
-line-of-sight. An :py:class:`~indica.equilibrium.Equilibrium` class is defined with
-methods to obtain these values. Rather than try to anticipate every type of flux
-surface which might be needed, any method which takes or returns a
-flux surface has an argument ``kind`` which accepts a string
-specifying which one is desired (``"toroidal"``, by default). There is
-also a method to convert between different flux surface types. This
-will allow support to be added for additional kinds of fluxes without
-needing to change the interface.
+given flux surface, and the minimum flux surface for a line-of-sight
+(impact parameter). An :py:class:`~indica.equilibrium.Equilibrium`
+class is defined with methods to obtain these values. Rather than try
+to anticipate every type of flux surface which might be needed, any
+method which takes or returns a flux surface has an argument ``kind``
+which accepts a string specifying which one is desired
+(``"poloidal"``, by default). There is also a method to convert
+between different flux surface types. This will allow support to be
+added for additional kinds of fluxes without needing to change the
+interface.
 
 Unfortunately, equilibrium results are not always entirely accurate
-and may need to be adjusted. A multiplier for the magnetic field
-strength should be provided in the constructor for the equilibrium
-object. Additionally, the location of the flux surfaces will often be
+and may need to be adjusted. The location of the flux surfaces will often be
 slightly offset along the major axis from the "real" ones. Therefore,
-a ``calibrate`` method is provided. This estimates (to the nearest
+the user can pass in ``R_shift`` and ``z_shift`` arguments to the
+constructor, indicating how much the flux surfaces should be moved by
+in each direction. It is also possible to pass an a DataArray
+containing electron temperatures. If this is present, then instead of
+using the specified ``R_shift`` the constructor will attempt to
+determine an optimal one. It estimates (to the nearest
 half centimetre) the offset in R needed for the electron temperature
 at the last closed flux surface to be about 100eV. It provides a plot
 of the optimal R-shift at different times, with the average value also
@@ -108,12 +112,12 @@ flux. The user can choose to accept this offset or to specify a custom
 value. If the latter, these plots will be recreated with the new
 R-shift and the user will again be asked whether or not to accept
 it. (This is the default behaviour; it is also possible for the user
-to provide a handler method with custom functionality, such as
+to provide a handler function with custom functionality, such as
 determining the result automatically or to integrate the selection
 interface more tightly with the GUI.)
 
 :py:class:`~indica.equilibrium.Equilibrium` objects are instantiated using a
-:py:class:`xarray.Dataset` of equilibrium data obtained using a
+dictionary of :py:class:`xarray.DataArray` objects obtained using a
 :py:class:`~indica.readers.DataReader` object (see :ref:`Data IO`). The equilibrium
 class can be represented by the following UML.
 
@@ -125,21 +129,23 @@ class can be represented by the following UML.
    + provenance: ProvEntity
    - _session: Session
 
-   + __init__(equilibrium_data: Dataset)
-   + calibrate(T_e: DataArray, selector: Callable)
-   + Btot(R: arraylike, z: arraylike, t: arraylike): (arraylike, arraylike)
-   + enclosed_volume(rho: array_like, t: array_like, kind: str):
-     \t\t\t\t\t\t\t(arraylike, arraylike)
-   + minor_radius(rho: arraylike, theta: arraylike, t: arraylike,
-     \t\t\tkind: str): (arraylike, arraylike)
-   + flux_coords(R: arraylike, z: arraylike, t: arraylike, kind: str):
-     \t\t\t\t\t\t\t(arraylike, arraylike, arraylike)
-   + spatial_coords(rho: arraylike, theta: arraylike, t: arraylike,
-     \t\t\tkind: str): (arraylike, arraylike, arraylike)
-   + convert_flux_coords(rho: arraylike, theta: arraylike, t: arraylike,
-     \t\t\tkind: str): (arraylike, arraylike, arraylike)
-   + R_hfs(rho: arraylike, t: arraylike, kind: str): (arraylike, arraylike)
-   + R_lfs(rho: arraylike, t: arraylike, kind: str): (arraylike, arraylike)
+   + __init__(equilibrium_data: Dict[str, DataArray], T_e: DataArray,
+     \t\t\tR_shift: float, z_shift: float)
+   + Btot(R: DataArray, z: DataArray, t: DataArray): (DataArray, DataArray)
+   + enclosed_volume(rho: DataArray, t: DataArray, kind: str):
+     \t\t\t\t\t\t\t(DataArray, DataArray)
+   + invert_enclosed_volume(vol: DataArray, t: DataArray, kind: str):
+     \t\t\t\t\t\t\t(DataArray, DataArray)
+   + minor_radius(rho: DataArray, theta: DataArray, t: DataArray,
+     \t\t\tkind: str): (DataArray, DataArray)
+   + flux_coords(R: DataArray, z: DataArray, t: DataArray, kind: str):
+     \t\t\t\t\t\t\t(DataArray, DataArray, DataArray)
+   + spatial_coords(rho: DataArray, theta: DataArray, t: DataArray,
+     \t\t\tkind: str): (DataArray, DataArray, DataArray)
+   + convert_flux_coords(rho: DataArray, t: DataArray, from_kind: str,
+     \t\t\tto_kind: str): (DataArray, DataArray)
+   + R_hfs(rho: DataArray, t: DataArray, kind: str): (DataArray, DataArray)
+   + R_lfs(rho: DataArray, t: DataArray, kind: str): (DataArray, DataArray)
    }
 
 
@@ -158,21 +164,20 @@ When operations are performed on :py:class:`xarray.DataArray` objects,
 they are :ref:`automatically aligned <math automatic alignment>`
 ("alignment" meaning that ticks on their respective axes have the same
 locations). Any indices which do not match are discarded; the result
-consists only of the union of the two sets of coordinates. When
+consists only of the intersection of the two sets of coordinates. When
 operating on datasets where some or all dimensions have different
 names, it automatically performs :ref:`compute.broadcasting`. However,
 note that this would not be physically correct if the coordinates are
 not linearly independent.
 
 There is also built-in support for :ref:`interpolating onto a new
-coordinate system <interp>`. This
-can be either for different grid-spacing on the same axes or for
-another set of axes entirely. The latter can be slightly cumbersome to
-do and requires some additional information about how coordinates map,
-so we will likely want to provide convenience methods for that
-purpose.
+coordinate system <interp>`. This can be either for different
+grid-spacing on the same axes or for another set of axes entirely.
+Unfortunately, only 1st order interpolation is supported if
+interpolating over multiple dimensions. This is all a bit cumbersome,
+so convenience methods are provided to make it easier.
 
-In order to perform these sorts of conversions, I means is necessary
+In order to perform these sorts of conversions, a means is necessary
 to map from one coordinate system to another. An arbitrary number of
 potential coordinate systems could be used and being able to map
 between each of them would require :math:`O(n^2)` different
@@ -186,22 +191,44 @@ coordinates.
 A :py:class:`~indica.converters.CoordinateTransform` class is defined to handle
 this process. This is an abstract class which will have a different
 subclass for each type of coordinate system. It has two abstract
-methods (both private), for converting coordinates to and from
-R-z. These get wrapped by public (non-abstract) methods which provide
-default argument values and cache the result for these
-defaults. A non-abstract ``convert_to`` method takes
+methods, for converting coordinates to and from
+R-z. A non-abstract ``convert_to`` method takes
 another coordinate system as an argument and will map coordinates
 onto it. Finally, the ``distance`` method can provide the spatial
 distance between grid-points along a given axis and first grid-point
 on that axis.
 
+.. note::
+   If you wish to convert the coordinates used by a particular
+   :py:class:`xarray.DataArray` into a different coordinate system, do
+   not call transform's methods directly. Instead you should use
+   :py:meth:`~indica.data.InDiCAArrayAccessor.convert_coords` or
+   :py:meth:`~indica.data.InDiCAArrayAccessor.get_coords`. The
+   only difference between the two is the latter will also return the
+   time coordinates. These methods are simpler and will also cache
+   results to save needing to recalculate them if they are needed
+   again later.
+
 In addition to doing conversions via R-z coordinates, subclasses of
-:py:class:`~indica.converters.CoordinateTransform` may define additional
-methods to map directly between coordinate systems. This would be
-useful if there is a more efficient way to do the conversion without
-going through R-z, if that transformation is expected to be
+:py:class:`~indica.converters.CoordinateTransform` may define
+additional methods to map directly between coordinate systems. This
+would be useful if there is a more efficient way to do the conversion
+without going through R-z, if that transformation is expected to be
 particularly frequently used, or if that transformation would need to
-be done as a step in converting to R-z coordinates.
+be done as a step in converting to R-z coordinates. These can be
+accessed by calling
+:py:meth:`~indica.converters.CoordinateTransform.get_converter` with
+the coordinate transform that you wish to convert to. If a shortcut
+method is available for this conversion, it will be
+returned. Otherwise, `None` will be returned. It is the responsibility
+of the writer of the subclass to override this method, if necessary.
+
+Each subclass should indicate the names of the two spatial dimensions
+associated with the coordinate system. In some cases these can be
+specified as static attributes (when the coordinate is universal, such
+as `R`, `z`, and `rho_poloidal`) while in others they should be object
+attributes (e.g., when it corresponds to channel numbers for a
+particular instrument).
 
 The :py:class:`~indica.converters.CoordinateTransform` class is agnostic
 to the equilibrium data and can be instantiated without any knowledge
@@ -216,19 +243,19 @@ argument ``force=True``.
 .. uml::
 
    class CoordinateTransform {
+   + x1_name: str
+   + x2_name: str
+
    + set_equilibrium(equilibrium: Equilibrium, force: bool)
-   + convert_to(other: CoordinateTransform, x1: arraylike, x2: arraylike,
-                \t\tt: arraylike): (arraylike, arraylike, arraylike)
-   + convert_to_Rz(x1: arraylike, x2: arraylike, t: arraylike):
-     \t\t\t\t\t\t(arraylike, arraylike, arraylike)
-   + convert_from_Rz(x1: arraylike, x2: arraylike, t: arraylike):
-     \t\t\t\t\t\t(arraylike, arraylike, arraylike)
-   + distance(direction: int, x1: arraylike, x2: arraylike,
-              \t\tt: arraylike): (arraylike, arraylike)
-   - {abstract} _convert_to_Rz(x1: arraylike, x2: arraylike, t: arraylike):
-     \t\t\t\t\t\t(arraylike, arraylike, arraylike)
-   - {abstract} _convert_from_Rz(x1: arraylike, x2: arraylike, t: arraylike):
-     \t\t\t\t\t\t(arraylike, arraylike, arraylike)
+   + get_converter(other: CoordinateTransform, reverse: bool): Optional[Callable]
+   + convert_to(other: CoordinateTransform, x1: DataArray, x2: DataArray,
+                \t\tt: DataArray): (DataArray, DataArray, DataArray)
+   + {abstract} convert_to_Rz(x1: DataArray, x2: DataArray, t: DataArray):
+     \t\t\t\t\t\t(DataArray, DataArray, DataArray)
+   + {abstract} convert_from_Rz(x1: DataArray, x2: DataArray, t: DataArray):
+     \t\t\t\t\t\t(DataArray, DataArray, DataArray)
+   + distance(direction: int, x1: DataArray, x2: DataArray,
+              \t\tt: DataArray): (DataArray, DataArray)
    - encode(): str
    - {static} decode(input: str): CoordinateTransform
    }
@@ -246,66 +273,14 @@ decorator (details TBC).
 Each DataArray will have a ``transform`` attribute which is one of
 these objects. To save on memory and computation, different data from the same
 instrument/diagnostic will share a single transform object. This
-should not normally be of any concern for the user, unless they area
+should not normally be of any concern for the user, unless they are
 attempting to use multiple sets of equilibrium data at once.
 
-Not that the methods on
-:py:class:`~indica.converters.CoordinateTransform` make use of `array
-broadcasting
-<https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ to
-create a grid of values. This means that if all arguments are 1-D
-arrays (``x1``, ``x2``, ``t``) then the results will be 1-D arrays
-giving the transformed coordinates at ``(x1[0], x2[0], t[0])``, ``(x1[1],
-x2[1], t[1])``, etc. If you want your results to be on a
-multidimensional grid you will need to pass in multidimensional grids
-as arguments. However, broadcasting will still work properly even if
-only one dimension on the input grids have a length greater than 1.
-
-::
-
-   # This will return a set of 1-D arrays
-   converter1.convert_to(converter2, [0, 1, 2], [0, -1, -2], t=5.0)
-   # This will return a set of 2-D arrays
-   converter1.convert_to(converter2, [[0, 1, 2],
-                                      [0, 1, 2],
-                                      [0, 1, 2]],
-                                     [[ 0,  0,  0],
-				      [-1, -1, -1],
-                                      [-2, -2, -2]], t=5.0)
-   # This will return the same 2-D arrays as the previous command
-   converter1.convert_to(converter2, [[0, 1, 2]], [[0], [-1], [-2]],
-                         t=5.0)
-
-When two :py:class:`xarray.DataArray` objects use the same coordinate
-system with only different grid spacing, the built in
-:py:meth:`~xarray.DataArray.interp_like` method already provides a
-convenient interface to interpolate one onto the same locations as the
-other. For converting to different coordinate systems, I would suggest
-extending :py:class:`xarray.DataArray` with a `"custom accessor"
-<http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_
-that has a method ``remap_like()``, which would provide the same
-behaviour (and simply delegate to ``interp_like()`` if the same
-coordinate system is used). More details to follow.
-
-Custom accessors appear like attributes on
-:py:class:`xarray.DataArray`, with their own set of methods. This
-allows xarray extensions to be "namespaced" (i.e., common
-functionality gets grouped into the same accessor). The
-use is as follows::
-
-  # array1 and array2 are on different coordinate systems.
-
-  # Broadcasting creates a 4D array; probably not what you want
-  array3 = array1 + array2
-
-  # Same coordinate system as array1
-  array4 = array1 + array2.indica.remap_like(array1)
-
-  # Same coordinate system as array2
-  array5 = array1.indica.remap_like(array2) + array2
-
-Anyone who imports this library will be able to use the accessor with
-xarrays in their own code.
+The methods on :py:class:`~indica.converters.CoordinateTransform` take
+:py:class:`xarray.DataArray` objects as arguments. They make use of
+`broadcasting by dimension name
+<http://xarray.pydata.org/en/stable/computation.html#broadcasting-by-dimension-name>`_. This
+allows easy creation of grids.
 
 
 Data IO
@@ -333,6 +308,9 @@ necessary.
 Input
 ~~~~~
 
+Diagnostics
+```````````
+
 Reading data is done using a standard interface,
 :py:class:`~indica.readers.DataReader`. A different subclass is
 defined for each data source/format. These return collections of
@@ -341,8 +319,13 @@ defined for each data source/format. These return collections of
 .. uml::
 
    abstract class DataReader {
-   + DIAGNOSTIC_QUANTITIES: dict
+   + {static} NAMESPACE: (str, str)
+   - {static} _AVAILABLE_QUANTITIES: dict
+   + {abstract} DDA_METHODS: dict
+   - {abstract} _IMPLEMENTATION_QUANTITIES: dict
    __
+   + get(uid: str, instrument: str, revision: int,
+               \t\t\t\tquantities: Set[str]): Dict[str, DataArray]
    + get_thomson_scattering(uid: str, instrument: str, revision: int,
                \t\t\t\tquantities: Set[str]): Dict[str, DataArray]
    - {abstract} _get_thomson_scattering(uid: str, instrument: str, revision: int,
@@ -352,10 +335,13 @@ defined for each data source/format. These return collections of
    - {abstract} _get_thomson_scattering(uid: str, instrument: str, revision: int,
                \t\t\t\tquantities: Set[str]): Dict[str, Any]
      etc.
+   + available_quantities(instrument: str): Dict[str, (str, str)]
    }
 
    class PPFReader {
-   + DIAGNOSTIC_QUANTITIES: dict
+   + NAMESPACE: (str, str)
+   + {static} DDA_METHODS
+   - {static} _IMPLEMENTATION_QUANTITIES: dict
    - _client: SALClient
    __
    + __init__(pulse: int, tstart: float, tend: float, server: str)
@@ -376,11 +362,20 @@ defined for each data source/format. These return collections of
 Here we see that reader classes contain public methods for getting
 data for each type of diagnostic. It also provides methods for
 authentication and closing a database connection. Each reader should
-feature a dictionary called ``DIAGNOSTIC_QUANTITIES``. This is a
-nested structure of dictionaries indicating which combinations of
-diagnostics, UIDs, instruments/DDAs, and measured quantities are
-available, as well as the :ref:`data type of each one <Data Value Type
-System>`.
+feature a dictionary called ``_IMPLEMENTATION_QUANTITIES``. This is a
+dictionary which maps from instrument names to more dictionaries. This
+second layer of dictionaries maps from the names of available
+quantities for that instrument to the :ref:`data type of each one
+<Data Value Type System>`. Subclasses should also provide a dictionary
+called ``DDA_METHODS`` which maps from instrument names to the
+particular method needed to retrieve the data for that
+instrument. This is needed for the general
+:py:meth:`~indica.readers.DataReader.get` method to work. Finally, the
+``NAMESPACE`` attribute can be overridden for use in :ref:`PROV data
+<Provenance Tracking>`. The first element of the tuple should be a
+short name for the namespace, while the second should be a URL
+associated with the data (e.g., the URL of the server from which is
+fetched).
 
 The methods for getting diagnostic data (e.g.,
 :py:meth:`~indica.readers.DataReader.get_thomson_scattering`) method is
@@ -393,44 +388,55 @@ dependent. Implementations are free to define additional private
 methods if necessary. The form of the constructor for each reader
 class is not defined, as this is likely to vary widely.
 
+Lines of Sight
+``````````````
+
+Note that the PPF reader must read data on line of sight positions
+from a separate datafile, referred to as SURF. This is done using
+:py:func:`~indica.readers.surf_los.read_surf_los`. Currently the PPF
+reader is hardcoded to call this for a version of the SURF database
+file distributed with InDiCA. However, in future it may be extended to
+allow users to specify an alternate version.
+
+Atomic Data
+```````````
+
 In addition to reading in diagnostics, it is necessary to load ADAS
 atomic data. Fortunately, this is much more straightforward. A simple
-abstract :py:class:`~indica.readers.ADASReader` class is defined with a
-:py:meth:`~indica.readers.ADASReader.get` method, taking a filename as
-an argument. Each supported ADAS format will have a subclass which
-implements a ``_get`` method. It is this method which does the actual
-parsing of the file.  When instantiating these objects the user can
-specify the directory which should be used when evaluating relative
-paths. By default this will be an installed location containing ADAS
-files distributed with the code, but this may be overridden. The
-``get`` method returns an :py:class:`xarray.Dataset`, each member of
-which is data for a different charge state. The coordinates of these
-data are density and temperature of the element. All of the usual
-metadata will be available except for ``transform``, which is not
-meaningful in this case.
+:py:class:`~indica.readers.ADASReader` class is defined with method
+for getting different types of atomic data. Currently only ADF11 data
+is supported, via the :py:meth:`~indica.readers.ADASReader.get_adf11`
+method. By default, data is fetched from the `OpenADAS database
+<https://open.adas.ac.uk/>`_ and then cached on the disk for
+reuse. Alternatively, at construction, the user may provide a path to
+a file hierarchy containing proprietary ADAS data.  The ``get...``
+methods returns a :py:class:`xarray.DataArray` objects, with
+properties (e.g., temperature, density, charge state) used as
+coordinates.
 
 .. uml::
 
    abstract class ADASReader {
    + path: str
 
-   + __init__(path: str)
-   + get(filename: str): Dataset
-   - {abstract} _get(filename: str): Tuple[Dict[str, ndarray], ArrayType]
+   + __init__(path: Path)
+   + get_adf11(quantity: str, element: str, year: str): DataArray
    + close()
+   + create_provenance(filename: Path, start_time: datetime): ProvEntity
+   - _get_file(dataclass: str, filename: Path): TextIO
    .. «property» ..
    + requires_authentication(): bool
    }
 
-   class ADF11Reader {
-   - _get(filename: str): Tuple[Dict[str, ndarray], ArrayType]
-   }
-
    BaseIO <|-- ADASReader
-   ADASReader <|-- ADF11Reader
+
 
 Output
 ~~~~~~
+
+.. warning::
+   Data output is not yet implemented and may undergo changes once it
+   has been.
 
 A similar approach of defining an abstract base class
 (:py:class:`indica.writers.DataWriter`) is used for writing out data to
@@ -554,8 +560,8 @@ it expects to receive and return and has a method to confirm that
 these expectations are met. An operation should always specify the
 general datatype(s) and may choose to specify the specific datatype if
 appropriate (otherwise leaving it as ``None``). Each
-:py:class:`xarray.DataArray` and :py:class:`xarray.DataArray` contains
-a type-tuples in its metadata, associated to the key ``"type"`` and
+:py:class:`xarray.DataArray` and :py:class:`xarray.Dataset` contains
+type information in its metadata, associated to the key ``"datatype"`` and
 this always specifies both general and specific type(s).
 
 In principal, this is all the infrastructure that would be needed for
@@ -571,6 +577,8 @@ interface. This is be accomplished using dictionaries::
                          "temperature": ("Temperature of a species", "keV")}
     SPECIFIC_DATATYPES = {"electrons": "Electron gas in plasma",
                           "tungston": "Tungston ions in plasma"}
+
+This information is stored in the :py:mod:`~indica.datatypes` module.
 
 It is expected that many calculations will not specify a specific
 datatype as they can in principle work with any kind of ion. The user
@@ -719,9 +727,68 @@ sort of unique identifier such as an ORCiD ID, but email is also
 acceptable.
 
 
+xarray Extensions
+-----------------
+
+A number of InDiCA-specific utilities are needed in addition to
+standard xarray functionality. For this reason, `"custom accessors"
+<http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_
+were written to provide these methods in the ``indica``
+namespace. Accessors are available for both
+:py:class:`xarray.DataArray` and :py:class:`xarray.Dataset` objects,
+although the functionality varies between them. These accessors are
+available in any scope that has imported the top-level ``indica``
+package.
+
+If you want to convert the coordinates used by a given DataArray into
+a coordinate system given by ``new_transform``, this
+can be done by calling
+:py:meth:`~indica.data.InDiCAArrayAccessor.convert_coords`
+or :py:meth:`~indica.data.InDiCAArrayAccessor.get_coords`.
+
+::
+
+  # Get new spatial coordinates
+  x1, x2 = array.indica.convert_coords(new_transform)
+  # Or, to get t as well:
+  x1, x2, t = array.indica.get_coords(new_transform)
+
+To interpolate data onto the coordinate system used by another
+DataArray, use the
+:py:meth:`~indica.data.InDiCAArrayAccessor.get_coords` method. This
+allows you to do maths with DataArrays using different coordinate
+systems::
+
+  # array1 and array2 are on different coordinate systems.
+
+  # Broadcasting creates a 4D array; probably not what you want
+  array3 = array1 + array2
+
+  # Same coordinate system as array1
+  array4 = array1 + array2.indica.remap_like(array1)
+
+  # Same coordinate system as array2
+  array5 = array1.indica.remap_like(array2) + array2
+
+Other functionality provided by the DataArray accessor includes
+
+- Indicating data which should be dropped/ignored
+- Restoring dropped data
+- Getting/setting the equilibrium object
+- Checking datatype
+- Performing cubic 2D interpolation
+
+For Datasets you can
+
+- convert coordinates (if metadata contains key ``"transform"``)
+- add new data, updating provenance accordingly
+- Get the datatype and check others are compatible
+
+Read the full documentation for :py:mod:`~indica.data` for more details.
+
 Operations on Data
 ------------------
-In the previous two sections I referred to "operations" on data. These
+In the previous sections I referred to "operations" on data. These
 should be seen as something distinct from standard mathematical
 operators, etc. Rather, they should be thought of as representing some
 discreet, physically meaningful calculation which one wishes to

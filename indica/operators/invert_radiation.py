@@ -182,7 +182,7 @@ class InvertRadiation(Operator):
         The number of  spline knots to use when fitting the emissivity data.
     n_intervals : int
         The number of intervals over which to integrate th eemissivity. Should
-        be 2 ** m + 1, where m is an integer.
+        be :math:`2^m + 1`, where m is an integer.
     sess : Session
         An object representing the session being run. Contains information
         such as provenance data.
@@ -228,11 +228,11 @@ class InvertRadiation(Operator):
 
         Parameters
         ----------
-        R : DataArray
+        R
             Major radii on which to return emissivity result.
-        z : DataArray
+        z
             Theta coordinates on which to return emissivity result.
-        t : DataArray
+        t
             Time coordinatse on which to return emissivity result.
         cameras
             The luminosity data being fit to, with each camera passed
@@ -246,9 +246,9 @@ class InvertRadiation(Operator):
             - **emissivity**: The fit emissivity, on the R-z grid
             - **symmetric_emissivity**: The symmetric emissivity
                values which were found during the fit, given along
-               \rho.
+               :math:`\\rho`.
             - **asymmetry_parameter**: The asymmetry of the emissivity
-              which was found during the fit, given along \rho.
+              which was found during the fit, given along :math:`\\rho`.
             - **<camera_name>_binned**: The radiation data for that
               camera, binned in time.
             - **<camera_name>_back_integral**: The integral of the fit

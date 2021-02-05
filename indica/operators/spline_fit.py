@@ -45,6 +45,7 @@ class Spline:
         The transform describing the coordinate system used by `values`.
     bounds : BoundaryType
         The boundary condition to pass to `:class:scipy.interpolate.CubicSpline`.
+
     """
 
     def __init__(
@@ -100,7 +101,7 @@ class Spline:
 
 class SplineFit(Operator):
     """Fit a 1-D spline to data. The spline will be give on poloidal flux
-    surface coordinates, from $\rho = 0$ to $\rho = 1.05$. It is
+    surface coordinates, from :math:`\\rho = 0` to :math:`\\rho = 1.05`. It is
     designed to concentrate knots in the region of the pedastel. It
     can derive a single spline fit for multiple DataArray arguments.
 
@@ -152,9 +153,10 @@ class SplineFit(Operator):
         Returns
         -------
         :
-            The results of the fit on the give \rho and \times values.
+            The results of the fit on the give \\rho and time values.
             It contains the attribute `splines` which can be used to
             interpolate results onto arbitrary coordinates.
+
         """
         knots = coord_array([0.0, 0.3, 0.6, 0.85, 0.95, 1.05], "rho_poloidal")
         n_knots = len(knots)
