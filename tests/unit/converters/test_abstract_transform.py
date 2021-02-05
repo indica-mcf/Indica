@@ -17,6 +17,7 @@ from xarray.testing import assert_allclose
 from indica.converters import CoordinateTransform
 from .test_flux_surfaces import flux_coordinates
 from .test_flux_surfaces import flux_coordinates_and_axes
+from .test_magnetic import magnetic_coordinates
 from .test_magnetic import magnetic_coordinates_and_axes
 from .test_transect import transect_coordinates
 from .test_transect import transect_coordinates_and_axes
@@ -97,7 +98,7 @@ def coordinate_transforms(
             [
                 trivial_transforms(domain),
                 transect_coordinates(domain),
-                #                magnetic_coordinates(domain),
+                magnetic_coordinates(domain),
                 flux_coordinates(domain),
                 # los_coordinates(domain),
             ]
