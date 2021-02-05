@@ -55,11 +55,11 @@ class CalcZeff(Operator):
 
         Parameters
         ----------
-        n_e: DataArray
+        n_e
             Number density of electrons.
-        n_Be: DataArray
+        n_Be
             Number density of Beryllium ions.
-        T_e: DataArray
+        T_e
             Temperature of electrons.
 
         Returns
