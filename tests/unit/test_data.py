@@ -58,7 +58,7 @@ def dropped_dimension(array):
 
 @given(
     data_arrays(
-        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=5)
+        coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=3)
     ),
     coordinate_transforms(),
 )
