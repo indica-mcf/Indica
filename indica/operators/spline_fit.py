@@ -1,11 +1,13 @@
 """Fit 1-D splines to data."""
 
+from builtins import ellipsis
 from itertools import accumulate
 from itertools import chain
 from itertools import repeat
 from itertools import tee
 from typing import cast
 from typing import Hashable
+from typing import List
 from typing import Tuple
 from typing import Union
 import warnings
@@ -20,6 +22,7 @@ from .abstractoperator import Operator
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
 from ..converters import FluxSurfaceCoordinates
+from ..datatypes import DataType
 from ..numpy_typing import ArrayLike
 from ..session import global_session
 from ..session import Session
@@ -100,38 +103,80 @@ class Spline:
 
 
 class SplineFit(Operator):
-    """Fit a 1-D spline to data. The spline will be give on poloidal flux
-    surface coordinates, from :math:`\\rho = 0` to :math:`\\rho = 1.05`. It is
-    designed to concentrate knots in the region of the pedastel. It
-    can derive a single spline fit for multiple DataArray arguments.
+    """Fit a 1-D spline to data. The spline will be given on poloidal flux
+    surface coordinates, as specified by the user. It can derive a
+    single spline fit for multiple DataArray arguments simultaneously.
 
     Parameters
     ----------
-    n_knots : int
-        The number of spline knots to use when fitting the data.
-    positive_definite : bool
-        Whether to explicitely enforce that the fit values for
-        the spline are greater than 0.
+    knots : ArrayLike
+        A 1-D array containing the location of spline knots to use when
+        fitting the data.
+    lower_bound : ArrayLike
+        The lower bounds to use for values at each not. May be either a
+        scalar or an array of the same shape as ``knots``.
+    upper_bound : ArrayLike
+        The upper bounds to use for values at each not. May be either a
+        scalar or an array of the same shape as ``knots``.
     sess : Session
         An object representing the session being run. Contains information
         such as provenance data.
 
     """
 
+    ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = [
+        ("rho_poloidal", "plasma"),
+        ("time", "plasma"),
+        (None, None),
+        ...,
+    ]
+
     def __init__(
         self,
-        n_knots: int = 6,
-        positive_definite: bool = False,
+        knots: ArrayLike = [0.0, 0.3, 0.6, 0.85, 0.95, 1.05],
+        lower_bound: ArrayLike = -np.inf,
+        upper_bound: ArrayLike = np.inf,
         sess: Session = global_session,
     ):
-        self.n_knots = n_knots
-        self.positive_definite = positive_definite
+        self.knots = coord_array(knots, "rho_poloidal")
+        self.lower_bound = lower_bound
+        if isinstance(lower_bound, np.ndarray) and lower_bound.size != self.knots.size:
+            raise ValueError(
+                "lower_bound must be either a scalar or array of same size as knots"
+            )
+        self.upper_bound = upper_bound
+        if isinstance(upper_bound, np.ndarray) and upper_bound.size != self.knots.size:
+            raise ValueError(
+                "lower_bound must be either a scalar or array of same size as knots"
+            )
         self.spline: Spline
+        self.spline_vals: DataArray
         super().__init__(
             sess,
-            n_knots=n_knots,
-            positive_definite=positive_definite,
+            knots=str(knots),
+            lower_bound=str(lower_bound),
+            upper_bound=str(upper_bound),
         )
+
+    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
+        """Indicates the datatypes of the results when calling the operator
+        with arguments of the given types. It is assumed that the
+        argument types are valid.
+
+        Parameters
+        ----------
+        args
+            The datatypes of the parameters which the operator is to be called with.
+
+        Returns
+        -------
+        :
+            The datatype of each result that will be returned if the operator is
+            called with these arguments.
+
+        """
+        input_type = args[-1]
+        return (input_type,) * len(args)
 
     def __call__(  # type: ignore[override]
         self,
@@ -158,8 +203,7 @@ class SplineFit(Operator):
             interpolate results onto arbitrary coordinates.
 
         """
-        knots = coord_array([0.0, 0.3, 0.6, 0.85, 0.95, 1.05], "rho_poloidal")
-        n_knots = len(knots)
+        n_knots = len(self.knots)
         flux_surfaces = FluxSurfaceCoordinates("poloidal")
         flux_surfaces.set_equilibrium(data[0].indica.equilibrium)
         binned_data = [bin_to_time_labels(times.data, d) for d in data]
@@ -188,13 +232,15 @@ class SplineFit(Operator):
             all_knots = np.empty((nt, n_knots))
             all_knots[:, :-1] = knotvals.reshape(nt, n_knots - 1)
             all_knots[:, -1] = 0.0
-            return DataArray(all_knots, coords=[("t", times), ("rho_poloidal", knots)])
+            return DataArray(
+                all_knots, coords=[("t", times), ("rho_poloidal", self.knots)]
+            )
 
         # TODO: Consider how to handle locations outside of interpolation range.
         # For now just setting the interpolated values to 0.0
         def residuals(knotvals):
-            spline_vals = knotvals_to_xarray(knotvals)
-            self.spline = Spline(spline_vals, "rho_poloidal", flux_surfaces)
+            self.spline_vals = knotvals_to_xarray(knotvals)
+            self.spline = Spline(self.spline_vals, "rho_poloidal", flux_surfaces)
             start = 0
             resid = np.empty(rows)
             for d, g in zip(binned_data, good_channels):
@@ -215,13 +261,13 @@ class SplineFit(Operator):
                 for t in times
             )
         )
-        if self.positive_definite:
-            bounds: Tuple[ArrayLike, ArrayLike] = (0, np.inf)
-        else:
-            bounds = (-np.inf, np.inf)
 
         fit = least_squares(
-            residuals, guess, bounds=bounds, jac_sparsity=sparsity, verbose=2
+            residuals,
+            guess,
+            bounds=(self.lower_bound, self.upper_bound),
+            jac_sparsity=sparsity,
+            verbose=2,
         )
 
         if fit.status == -1:
@@ -239,4 +285,4 @@ class SplineFit(Operator):
         result.attrs["splines"] = self.spline
         result.attrs["datatype"] = data[0].attrs["datatype"]
         # result.attrs["provenance"] = self.create_provenance()
-        return result, *binned_data
+        return result, self.spline_vals, *binned_data

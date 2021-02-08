@@ -527,12 +527,9 @@ in an :py:class:`xarray.DataArray` consists of two labels. The first
 indicates the **general type** of quantity (e.g., number density,
 temperature, luminosity, etc.) and the second indicates the **specific
 type** of species (type of ion, electrons, soft X-rays, etc.) which
-this quantity describes. The second label is optional and its absence
-indicates that the specific type is unknown (e.g., when describing
-what quantities can be read-in) or there are no requirements (e.g.,
-when describing arguments for a calculation). This is expressed as a
-2-tuple, where the first element is a string and the second is either
-a string or ``None``. See examples below::
+this quantity describes. These are combined in a
+2-tuple. Either element of the tuple may also be ``None``, indicating
+that the type is unconstrained or unknown. See examples below::
 
     # Describes a generic number density of some particle
     ("number_density", None)
@@ -557,9 +554,8 @@ general type that DataArray stores::
 
 Each operation on data contains information on the types of arguments
 it expects to receive and return and has a method to confirm that
-these expectations are met. An operation should always specify the
-general datatype(s) and may choose to specify the specific datatype if
-appropriate (otherwise leaving it as ``None``). Each
+these expectations are met. An operation may leave the
+general and/oror specific datatype  as ``None``. Each
 :py:class:`xarray.DataArray` and :py:class:`xarray.Dataset` contains
 type information in its metadata, associated to the key ``"datatype"`` and
 this always specifies both general and specific type(s).
@@ -788,13 +784,14 @@ Read the full documentation for :py:mod:`~indica.data` for more details.
 
 Operations on Data
 ------------------
+
 In the previous sections I referred to "operations" on data. These
 should be seen as something distinct from standard mathematical
 operators, etc. Rather, they should be thought of as representing some
 discreet, physically meaningful calculation which one wishes to
 perform on some data. They take physical quantities as arguments and
-return one or more derived physical quantities as a result. It is
-proposed that these be represented by callable objects of class
+return one or more derived physical quantities as a result. They are
+represented by callable objects of class
 :py:class:`indica.operators.Operator`. A base class is provided,
 containing some utility methods, which all operators inherit from. The
 main purpose of these utility methods is to check that types of
@@ -809,8 +806,10 @@ provenance. The class is represented by the following UML:
    - _session: Session
    + agent: ProvAgent
    + entity: ProvEntity
+   + {abstract} ARGUMENT_TYPES: list
 
    + __init__(self, sess: Session, **kwargs: Any)
+   + {abstract} return_types(self, *args: DataType): tuple
    + {abstract} __call__(self, *args: Union[DataArray, Dataset]): Union[DataArray, Dataset]
    + create_provenance()
    + validate_arguments(*args: Union[DataArray, Dataset])
@@ -818,14 +817,39 @@ provenance. The class is represented by the following UML:
    }
 
    class ImplementedOperator {
-   + {static} INPUT_TYPES: list
-   + {static} RESULT_TYPES: list
+   + ARGUMENT_TYPES: list
+   + RESULT_TYPES: list
 
    + __init__(self, ...)
    + __call__(self, ...): Union[DataArray, Dataset]
    }
 
    Operator <|-- ImplementedOperator
+
+Each operator object should have an attribute called ``ARGUMENT_TYPES``,
+which may be either a class or an object attribute, as
+appropriate. This is a list of datatypes. Specific and/or general
+datatypes may be left as ``None``, if they are not constrained. The
+last element in the list may be ellipsis dots. This indicates that
+operator is variadic. The types of the variadic argument must match
+the penultimate item in ``INPUT_TYPES`` (i.e., the one preceding the
+ellipsis). If that item contains a ``None`` field, then the datatype
+of the corresponding argument must also be matched. For example::
+
+  assert operator.ARGUMENT_TYPES == [("luminous_flux", None), ...]
+  assert sxr_h.attrs["datatype"] == ("luminous_flux", "sxr")
+  assert sxr_v.attrs["datatype"] == ("luminous_flux", "sxr")
+  assert bolo_h.attrs["datatype"] == ("luminous_flux", "bolometric")
+  # This would be a valid call
+  operator(sxr_h, sxr_v)
+  # This would not be valid
+  operator(sxr_h, bolo_h)
+
+There is also an abstract method
+:py:meth:`~indica.operators.abstractoperator.Operator.return_types`.
+This takes datatypes as arguments, corresponding to the positional
+arguments with which the operator would be called. It returns a tuple
+of the datatypes which it would produce.
 
 While performing the calculation they should not make reference to any
 global data except for well-established physical constants, for

@@ -1,12 +1,11 @@
 """Inverts soft X-ray data to estimate the emissivity of the plasma."""
 
-from typing import Any
+from builtins import ellipsis
 from typing import cast
-from typing import Dict
-from typing import Hashable
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 import warnings
 
 import numpy as np
@@ -205,10 +204,13 @@ class InvertRadiation(Operator):
         self.last_knot_zero = datatype == "sxr"
         # TODO: Update RETURN_TYPES
         # TODO: Revise to include R, z, t
-        self.ARGUMENT_TYPES: List[DataType] = [
-            ("luminous_flux", datatype)
-        ] * num_cameras
-        self.RETURN_TYPES: List[DataType] = [("emissivity", datatype)]
+        self.ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = [
+            ("major_rad", None),
+            ("z", None),
+            ("time", None),
+            ("luminous_flux", datatype),
+            ...,
+        ]
         super().__init__(
             sess,
             num_cameras=num_cameras,
@@ -217,13 +219,62 @@ class InvertRadiation(Operator):
             n_intervals=n_intervals,
         )
 
+    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
+        """Indicates the datatypes of the results when calling the operator
+        with arguments of the given types. It is assumed that the
+        argument types are valid.
+
+        Parameters
+        ----------
+        args
+            The datatypes of the parameters which the operator is to be called with.
+
+        Returns
+        -------
+        :
+            The datatype of each result that will be returned if the operator is
+            called with these arguments.
+
+        """
+        radiation = cast(DataType, self.ARGUMENT_TYPES[-1])[1]
+        result = (
+            cast(
+                Tuple[DataType, ...],
+                (
+                    ("emissivity", radiation),
+                    (
+                        radiation,
+                        {
+                            "symmetric_emissivity": "emissivity",
+                            "asymmetry_parameter": "asymmetry",
+                        },
+                    ),
+                ),
+            )
+            + cast(
+                Tuple[DataType, ...],
+                (
+                    (
+                        radiation,
+                        {
+                            "camera": "luminous_flux",
+                            "weights": "weighting",
+                            "back_integral": "luminous_flux",
+                        },
+                    ),
+                ),
+            )
+            * (len(args) - 3)
+        )
+        return result
+
     def __call__(  # type: ignore[override]
         self,
         R: DataArray,
         z: DataArray,
         times: DataArray,
         *cameras: DataArray,
-    ) -> Dataset:
+    ) -> Tuple[Union[DataArray, Dataset], ...]:
         """Calculate the emissivity profile for the plasma.
 
         Parameters
@@ -240,32 +291,31 @@ class InvertRadiation(Operator):
 
         Returns
         -------
-        :
-            A dataset containing the following arrays:
-
-            - **emissivity**: The fit emissivity, on the R-z grid
+        : DataArray
+            The fit emissivity, on the R-z grid. Will also contain an
+            attribute "emissivity_model", which is an
+            `:py:class:indica.operators.invert_radiation.EmissivityProfile`
+            object that can interpolate the fit emissivity onto
+            arbitrary coordinates.
+        : Dataset
+            A dataset containing
             - **symmetric_emissivity**: The symmetric emissivity
                values which were found during the fit, given along
                :math:`\\rho`.
             - **asymmetry_parameter**: The asymmetry of the emissivity
               which was found during the fit, given along :math:`\\rho`.
-            - **<camera_name>_binned**: The radiation data for that
-              camera, binned in time.
-            - **<camera_name>_back_integral**: The integral of the fit
-              emissivity along the lines of sight of the camera.
-            - **<camera_name>_weights**: The weights assigned to each
-              line of sight of the camera when fitting emissivity.
-
-            The dataset will also contain an attribute named
-            "emissivity_mode", which is an
-            `:py:class:indica.operators.invert_radiation.EmissivityProfile`
-            object that can interpolate the fit emissivity onto
-            arbitrary coordinates.
+        : Dataset
+            For each camera passed as an argument, a dataset containing
+            - **camera**: The radiation data for that camera, binned in time.
+            - **back_integral**: The integral of the fit emissivity along
+              the lines of sight of the camera.
+            - **weights**: The weights assigned to each line of sight of the
+              camera when fitting emissivity.
 
         """
+        self.validate_arguments(R, z, times, *cameras)
         flux_coords = FluxSurfaceCoordinates("poloidal")
         flux_coords.set_equilibrium(cameras[0].attrs["transform"].equilibrium)
-        self.validate_arguments(*cameras)
         n = self.n_knots
         binned_cameras = [bin_to_time_labels(times.data, c) for c in cameras]
 
@@ -310,6 +360,7 @@ class InvertRadiation(Operator):
             return resid
 
         x2 = np.linspace(0.0, 1.0, self.n_intervals)
+        # TODO: Use aggregate
         unfolded_cameras = [
             Dataset(
                 {"camera": bin_to_time_labels(times.data, c)},
@@ -407,20 +458,16 @@ class InvertRadiation(Operator):
         emissivity = estimate(trivial, R, z, times)
         emissivity.attrs["datatype"] = ("emissivity", self.datatype)
         emissivity.attrs["provenance"] = self.create_provenance()
+        emissivity.attrs["emissivity_model"] = estimate
         emissivity.name = self.datatype + "_emissivity"
-        results: Dict[Hashable, DataArray] = {
-            "emissivity": emissivity,
-            "symmetric_emissivity": symmetric_emissivity,
-            "asymmetry_parameter": asymmetry_parameter,
-        }
-        coords: Dict[Hashable, Any] = {}
-        for inte, c, c_orig in zip(integral, unfolded_cameras, cameras):
-            assert c_orig.name
-            name = str(c_orig.name)
-            coords.update(c.coords)
-            results[name + "_binned"] = c.camera
-            inte.attrs["transform"] = c.camera.attrs["transform"]
-            results[name + "_back_integral"] = inte
-            results[name + "_weights"] = c.weights
-        del coords["R_0"]
-        return Dataset(results, coords, {"emissivity_model": estimate})
+
+        # TODO: Use aggregate...
+        results: Dataset = Dataset(
+            {
+                "symmetric_emissivity": symmetric_emissivity,
+                "asymmetry_parameter": asymmetry_parameter,
+            }
+        )
+        for c in unfolded_cameras:
+            del c["has_data"]
+        return emissivity, results, *cameras

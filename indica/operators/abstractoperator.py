@@ -3,9 +3,12 @@
 
 from abc import ABC
 from abc import abstractmethod
+from builtins import ellipsis
 import datetime
+from itertools import zip_longest
 from typing import Any
 from typing import List
+from typing import Tuple
 from typing import Union
 from warnings import warn
 
@@ -67,8 +70,7 @@ class Operator(ABC):
 
     """
 
-    ARGUMENT_TYPES: List[DataType] = []
-    RETURN_TYPES: List[DataType] = []
+    ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = []
 
     def __init__(self, sess: Session = global_session, **kwargs: Any):
         """Creates a provenance entity/agent for the operator object. Also
@@ -89,6 +91,16 @@ class Operator(ABC):
         self._session.prov.attribution(self.entity, self._session.agent)
         self._input_provenance: List[prov.ProvEntity] = []
         for i, datatype in enumerate(self.ARGUMENT_TYPES):
+            if isinstance(datatype, ellipsis):
+                if i + 1 != len(self.ARGUMENT_TYPES):
+                    raise TypeError(
+                        (
+                            "Operator class {} uses ellipsis dots as a type for"
+                            " argument {}. Only supported in final position."
+                        ).format(self.__class__.__name__, i + 1)
+                    )
+                else:
+                    continue
             if datatype[0] not in GENERAL_DATATYPES:
                 warn(
                     "Operator class {} expects argument {} to have "
@@ -100,23 +112,6 @@ class Operator(ABC):
             if datatype[1] not in SPECIFIC_DATATYPES:
                 warn(
                     "Operator class {} expects argument {} to have "
-                    "unrecognised specific datatype '{}'".format(
-                        self.__class__.__name__, i + 1, datatype[1]
-                    ),
-                    DatatypeWarning,
-                )
-        for i, datatype in enumerate(self.RETURN_TYPES):
-            if datatype[0] not in GENERAL_DATATYPES:
-                warn(
-                    "Operator class {} produces result {} with "
-                    "unrecognised general datatype '{}'".format(
-                        self.__class__.__name__, i + 1, datatype[0]
-                    ),
-                    DatatypeWarning,
-                )
-            if datatype[1] not in SPECIFIC_DATATYPES:
-                warn(
-                    "Operator class {} produces result {} with "
                     "unrecognised specific datatype '{}'".format(
                         self.__class__.__name__, i + 1, datatype[1]
                     ),
@@ -138,18 +133,26 @@ class Operator(ABC):
         self._input_provenance = [arg.attrs["provenance"] for arg in args]
         arg_len = len(args)
         expected_len = len(self.ARGUMENT_TYPES)
-        if arg_len != expected_len:
+        if self.ARGUMENT_TYPES[-1] == Ellipsis:
+            iterator = zip_longest(
+                args,
+                self.ARGUMENT_TYPES[:-1],
+                fillvalue=args[arg_len - 2].attrs["datatype"],
+            )
+        elif arg_len != expected_len:
             message = (
                 "Operator of class {} received {} arguments but "
                 "expected {}".format(self.__class__.__name__, arg_len, expected_len)
             )
             raise OperatorError(message)
-        for i, (arg, expected) in enumerate(zip(args, self.ARGUMENT_TYPES)):
+        else:
+            iterator = zip(args, self.ARGUMENT_TYPES)
+        for i, (arg, expected) in enumerate(iterator):
             datatype = arg.attrs["datatype"]
-            if datatype[0] != expected[0]:
+            if expected[0] and datatype[0] != expected[0]:
                 message = (
                     "Argument {} of wrong data type for operator {}: "
-                    "expected {:r}, received {:r}.".format(
+                    "expected {}, received {}.".format(
                         i + 1,
                         self.__class__.__name__,
                         expected[0],
@@ -169,6 +172,29 @@ class Operator(ABC):
                     )
                 )
                 raise OperatorError(message)
+
+    @abstractmethod
+    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
+        """Indicates the datatypes of the results when calling the operator
+        with arguments of the given types. It is assumed that the
+        argument types are valid.
+
+        Parameters
+        ----------
+        args
+            The datatypes of the parameters which the operator is to be called with.
+
+        Returns
+        -------
+        :
+            The datatype of each result that will be returned if the operator is
+            called with these arguments.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a "
+            "'return_types' method.".format(self.__class__.__name__)
+        )
 
     def create_provenance(self) -> prov.ProvEntity:
         """Create a provenance entity for the result of the operator.
