@@ -123,7 +123,17 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
     coord_name
         The name of the dimension.
     """
-    return DataArray(coord_vals, coords=[(coord_name, coord_vals)])
+    datatype = (
+        "major_rad"
+        if coord_name == "R"
+        else "time"
+        if coord_name == "t"
+        else coord_name,
+        "plasma",
+    )
+    return DataArray(
+        coord_vals, coords=[(coord_name, coord_vals)], attrs={"datatype": datatype}
+    )
 
 
 def broadcast_spline(
