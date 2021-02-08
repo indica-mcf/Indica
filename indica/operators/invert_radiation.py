@@ -468,6 +468,7 @@ class InvertRadiation(Operator):
                 "asymmetry_parameter": asymmetry_parameter,
             }
         )
-        for c in unfolded_cameras:
+        for c, i in zip(unfolded_cameras, integral):
             del c["has_data"]
-        return emissivity, results, *cameras
+            c["back_integral"] = i
+        return emissivity, results, *unfolded_cameras

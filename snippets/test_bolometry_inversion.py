@@ -37,27 +37,26 @@ for data in itertools.chain(bolo.values()):
 
 inverter = InvertRadiation(len(cameras), "bolometric", 6)
 
-results = inverter(R, z, t, *(bolo[c] for c in cameras))
-emissivity = results["emissivity"]
+emissivity, emiss_fit, *result_cams = inverter(R, z, t, *(bolo[c] for c in cameras))
 
 for time in t:
     emissivity.sel(t=time).plot(x="R", y="z", cmap="plasma")
     plt.show()
 
-    for cam, col in zip(cameras, ["r", "g", "b"]):
-        print(f"Plotting bolometry camera {cam}")
+    for cam, cname in zip(result_cams, cameras):
+        print(f"Plotting bolometry camera {cname}")
         print("=======================")
-        data = results["bolo_" + cam + "_binned"].sel(t=time)
+        data = cam["camera"].sel(t=time)
 
-        x1 = results.coords[data.attrs["transform"].x1_name]
-        x2 = results.coords[data.attrs["transform"].x2_name]
-        emissivity_vals = results.attrs["emissivity_model"](
+        x1 = cam.coords[data.attrs["transform"].x1_name]
+        x2 = cam.coords[data.attrs["transform"].x2_name]
+        emissivity_vals = emissivity.attrs["emissivity_model"](
             data.attrs["transform"], x1, x2, time
         )
         emissivity_vals.plot(x="R", y="z", cmap="plasma", vmin=0.0)
         plt.show()
 
         data.plot.line("o", label="From camera")
-        results["bolo_" + cam + "_back_integral"].sel(t=time).plot(label="From model")
+        cam["back_integral"].sel(t=time).plot(label="From model")
         plt.legend()
         plt.show()
