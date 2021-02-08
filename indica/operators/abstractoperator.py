@@ -3,12 +3,12 @@
 
 from abc import ABC
 from abc import abstractmethod
-from builtins import ellipsis
 import datetime
 from itertools import zip_longest
 from typing import Any
 from typing import List
 from typing import Tuple
+from typing import TYPE_CHECKING
 from typing import Union
 from warnings import warn
 
@@ -25,6 +25,11 @@ from ..session import hash_vals
 from ..session import Session
 
 Data = Union[DataArray, Dataset]
+
+if TYPE_CHECKING:
+    from builtins import ellipsis as EllipsisType
+else:
+    EllipsisType = type(Ellipsis)
 
 
 class OperatorError(Exception):
@@ -70,7 +75,7 @@ class Operator(ABC):
 
     """
 
-    ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = []
+    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
     def __init__(self, sess: Session = global_session, **kwargs: Any):
         """Creates a provenance entity/agent for the operator object. Also
@@ -91,7 +96,7 @@ class Operator(ABC):
         self._session.prov.attribution(self.entity, self._session.agent)
         self._input_provenance: List[prov.ProvEntity] = []
         for i, datatype in enumerate(self.ARGUMENT_TYPES):
-            if isinstance(datatype, ellipsis):
+            if isinstance(datatype, EllipsisType):
                 if i + 1 != len(self.ARGUMENT_TYPES):
                     raise TypeError(
                         (
@@ -130,7 +135,9 @@ class Operator(ABC):
 
         """
         self._start_time = datetime.datetime.now()
-        self._input_provenance = [arg.attrs["provenance"] for arg in args]
+        self._input_provenance = [
+            arg.attrs["provenance"] for arg in args if "provenance" in arg.attrs
+        ]
         arg_len = len(args)
         expected_len = len(self.ARGUMENT_TYPES)
         if self.ARGUMENT_TYPES[-1] == Ellipsis:

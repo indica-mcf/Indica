@@ -1,13 +1,13 @@
 """Simple example of an operator calculating $Z_{eff}$.
 """
 
-from builtins import ellipsis
 from typing import List
 from typing import Tuple
 from typing import Union
 
 from xarray import DataArray
 
+from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from ..datatypes import DataType
 from ..session import global_session
@@ -39,7 +39,7 @@ class CalcZeff(Operator):
         Ordered list of the types of data returned by the operator.
     """
 
-    ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = [
+    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("number_desnity", "electrons"),
         ("number_density", "beryllium"),
         ("temperature", "electrons"),

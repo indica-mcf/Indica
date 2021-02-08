@@ -1,6 +1,5 @@
 """Fit 1-D splines to data."""
 
-from builtins import ellipsis
 from itertools import accumulate
 from itertools import chain
 from itertools import repeat
@@ -18,6 +17,7 @@ from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 from xarray import DataArray
 
+from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
@@ -124,7 +124,7 @@ class SplineFit(Operator):
 
     """
 
-    ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = [
+    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("rho_poloidal", "plasma"),
         ("time", "plasma"),
         (None, None),

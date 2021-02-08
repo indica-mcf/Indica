@@ -1252,7 +1252,6 @@ class DataReader(BaseIO):
         for data in data_objects:
             # TODO: Find some way to avoid duplicate records
             data_entity = self.session.prov.entity(self.NAMESPACE[0] + ":" + data)
-            print(data_entity.identifier)
             entity.wasDerivedFrom(data_entity)
             activity.used(data_entity)
         return entity
