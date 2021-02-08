@@ -30,7 +30,7 @@ equilibrium = Equilibrium(equilib_dat)
 for data in itertools.chain(hrts.values(), lidr.values()):
     data.indica.equilibrium = equilibrium
 
-fitter = SplineFit(positive_definite=True)
+fitter = SplineFit(lower_bound=0.0)
 
 Te = [lidr["te"], hrts["te"]]
 results = fitter(rho, t, *Te)
