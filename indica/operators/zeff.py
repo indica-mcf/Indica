@@ -1,7 +1,10 @@
 """Simple example of an operator calculating $Z_{eff}$.
 """
 
+from builtins import ellipsis
 from typing import List
+from typing import Tuple
+from typing import Union
 
 from xarray import DataArray
 
@@ -36,17 +39,35 @@ class CalcZeff(Operator):
         Ordered list of the types of data returned by the operator.
     """
 
-    ARGUMENT_TYPES: List[DataType] = [
+    ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = [
         ("number_desnity", "electrons"),
         ("number_density", "beryllium"),
         ("temperature", "electrons"),
     ]
-    RESULT_TYPES = [("effective_charge", "plasma")]
 
     def __init__(self, adas_data: str, sess: Session = global_session):
         """Creates a provenance entity/agent for the operator object."""
         super().__init__(sess, adas_data=adas_data)
         self.adas_data = adas_data
+
+    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
+        """Indicates the datatypes of the results when calling the operator
+        with arguments of the given types. It is assumed that the
+        argument types are valid.
+
+        Parameters
+        ----------
+        args
+            The datatypes of the parameters which the operator is to be called with.
+
+        Returns
+        -------
+        :
+            The datatype of each result that will be returned if the operator is
+            called with these arguments.
+
+        """
+        return (("effective_charge", "plasma"),)
 
     def __call__(  # type: ignore[override]
         self, n_e: DataArray, n_Be: DataArray, T_e: DataArray
@@ -77,6 +98,6 @@ class CalcZeff(Operator):
         result.attrs["generate_mappers"] = n_e.attrs["generate_mappers"]
         result.attrs["map_to_master"] = n_e.attrs["map_to_master"]
         result.attrs["map_from_master"] = n_e.attrs["map_from_master"]
-        result.attrs["datatype"] = self.RESULT_TYPES[0]
+        result.attrs["datatype"] = ("effective_charge", "plasma")
         result.attrs["provenance"] = self.create_provenance()
         return result

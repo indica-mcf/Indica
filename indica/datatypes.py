@@ -61,6 +61,7 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     ),
     "number_density": ("Number of particles per cubic metre", "m^{-3}"),
     "temperature": ("Thermal temperature of some particals", "eV"),
+    "time": ("Time into the pulse", "s"),
     "toroidal_flux": ("Unnormalised toroidal component of magnetic flux", "Wb"),
     "recomb_coeffs": ("Effective recombination coefficients", "m^3 s^{-1}"),
     "recomb_emissions": ("Emissions from recombination and bremsstrahlung", "W m^3"),
@@ -73,6 +74,7 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Derivative of enclosed volume with respect to normalised poloidal flux",
         "m^3",
     ),
+    "weighting": ("Dimensionless weighting to use when fitting data.", ""),
     "z": ("Vertical position from mid-plane of Tokamak", "m"),
 }
 
@@ -304,7 +306,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
 ELEMENTS = set(SPECIFIC_DATATYPES) - set(COMPATIBLE_DATATYPES)
 
 #: Structure for type information for :py:class:`xarray.DataArray` objects.
-ArrayType = Tuple[GeneralDataType, Optional[SpecificDataType]]
+ArrayType = Tuple[Optional[GeneralDataType], Optional[SpecificDataType]]
 
 #: Structure for type information for :py:class:`xarray.Dataset` objects.
 DatasetType = Tuple[SpecificDataType, Dict[str, GeneralDataType]]
