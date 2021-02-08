@@ -1,6 +1,5 @@
 """Inverts soft X-ray data to estimate the emissivity of the plasma."""
 
-from builtins import ellipsis
 from typing import cast
 from typing import List
 from typing import Optional
@@ -17,6 +16,7 @@ from xarray import DataArray
 from xarray import Dataset
 from xarray import where
 
+from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
@@ -204,7 +204,7 @@ class InvertRadiation(Operator):
         self.last_knot_zero = datatype == "sxr"
         # TODO: Update RETURN_TYPES
         # TODO: Revise to include R, z, t
-        self.ARGUMENT_TYPES: List[Union[DataType, ellipsis]] = [
+        self.ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
             ("major_rad", None),
             ("z", None),
             ("time", None),
