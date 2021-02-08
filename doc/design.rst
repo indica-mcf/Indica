@@ -242,7 +242,7 @@ argument ``force=True``.
 
 .. uml::
 
-   class CoordinateTransform {
+   abstract class CoordinateTransform {
    + x1_name: str
    + x2_name: str
 
@@ -356,6 +356,8 @@ defined for each data source/format. These return collections of
    + {abstract} requires_authentication(): bool
    }
 
+   abstract class BaseIO
+
    BaseIO <|-- DataReader
    DataReader <|-- PPFReader
 
@@ -416,7 +418,7 @@ coordinates.
 
 .. uml::
 
-   abstract class ADASReader {
+   class ADASReader {
    + path: str
 
    + __init__(path: Path)
@@ -427,6 +429,8 @@ coordinates.
    .. «property» ..
    + requires_authentication(): bool
    }
+
+   abstract class BaseIO
 
    BaseIO <|-- ADASReader
 
@@ -456,6 +460,8 @@ different formats.
    .. «property» ..
    + requires_authentication(): bool
    }
+
+   abstract class BaseIO
 
    BaseIO <|-- DataWriter
    DataWriter <|-- NetCDFWriter
