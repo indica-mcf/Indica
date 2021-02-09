@@ -207,11 +207,23 @@ class SplineFit(Operator):
         flux_surfaces = FluxSurfaceCoordinates("poloidal")
         flux_surfaces.set_equilibrium(data[0].indica.equilibrium)
         binned_data = [bin_to_time_labels(times.data, d) for d in data]
+        droppable_dims = [
+            [dim for dim in d.dims if dim != d.attrs["transform"].x1_name] for d in data
+        ]
         good_channels = [
-            np.logical_not(np.isnan(d.isel(t=0))).drop_vars("t") for d in data
+            np.ravel(
+                np.logical_not(
+                    np.isnan(d.isel({dim: 0 for dim in droppable}))
+                ).drop_vars(droppable)
+            )
+            for d, droppable in zip(data, droppable_dims)
         ]
         for d, g in zip(binned_data, good_channels):
-            d.attrs["nchannels"] = int(np.sum(g))
+            d.attrs["nchannels"] = (
+                d.size
+                * int(np.sum(g))
+                // (d.coords[d.attrs["transform"].x1_name].size * times.size)
+            )
         nt = len(times)
         rows = sum(d.attrs["nchannels"] for d in binned_data) * nt
         cols = (n_knots - 1) * nt

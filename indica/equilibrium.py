@@ -2,8 +2,10 @@
 """
 
 import datetime
+from typing import Any
 from typing import cast
 from typing import Dict
+from typing import Hashable
 from typing import Optional
 from typing import Tuple
 
@@ -14,18 +16,21 @@ from xarray import concat
 from xarray import DataArray
 from xarray import where
 
+from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
 from .offset import interactive_offset_choice
 from .offset import OffsetPicker
+from .operators import SplineFit
 from .session import global_session
 from .session import hash_vals
 from .session import Session
+from .utilities import coord_array
 
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
 
-class Equilibrium:
+class Equilibrium(AbstractEquilibrium):
     """Class to hold and interpolate equilibrium data.
 
     At instantiation it will require calibration to select an offset
@@ -46,7 +51,8 @@ class Equilibrium:
         How much to shift the equilibrium profile inwards on the major radius.
         Ignored if `T_e` is also passed as an argument.
     z_shift : flaot
-        How much to shift the equilibrium profile in the vertical coordinate.
+        How much to shift the equilibrium profile downwards in the vertical
+        coordinate.
     sess : Session
         An object representing the session being run. Contains information
         such as provenance data.
@@ -93,18 +99,20 @@ class Equilibrium:
         self.zbnd = equilibrium_data["zbnd"]
         self.zx = self.zbnd.min("arbitrary_index")
         if T_e is not None:
-            offsets = DataArray(np.linspace(0.0, 0.04, 9), dims="offset", name="offset")
-            index = T_e.dims[1]
+            offsets = coord_array(np.linspace(0.0, 0.04, 9), "offset")
+            t = T_e.coords["t"].assign_attrs(datatype=("time", "plasma"))
+            separatrix = DataArray(1.0, attrs={"datatype": ("rho_poloidal", "plasma")})
+            separatrix.coords["rho_poloidal"] = 1.0
+            Rmag = self.rmag.interp(t=T_e.coords["t"], method="nearest") - offsets
+            zmag = self.zmag.interp(t=T_e.coords["t"], method="nearest") - z_shift
             rhos = concat(
                 [
-                    self.rho.interp(
-                        t=T_e.coords["t"], method="nearest"
-                    ).indica.interp2d(
+                    self.rho.interp(t=t, method="nearest").indica.interp2d(
                         R=T_e.coords["R"] - offset,
-                        z=T_e.coords["z"],
+                        z=T_e.coords["z"] - z_shift,
                         zero_coords={
-                            "R": self.rmag.interp(t=T_e.coords["t"], method="nearest"),
-                            "z": self.zmag.interp(t=T_e.coords["t"], method="nearest"),
+                            "R": Rmag.sel(offset=offset),
+                            "z": zmag,
                         },
                         method="cubic",
                         assume_sorted=True,
@@ -113,22 +121,23 @@ class Equilibrium:
                 ],
                 offsets,
             )
-            # separatrix_indices = apply_ufunc(
-            #     find_separatrix_index,
-            #     rhos,
-            #     input_core_dims=[[index]],
-            #     exclude_dims=set((index,))
-            # )
-            separatrix_indices = rhos.indica.invert_root(
-                1.0, index, int(T_e.coords[index][-1]), method="cubic"
+            del rhos.coords[None]
+            thetas = np.arctan2(
+                T_e.coords["z"] + z_shift - zmag, T_e.coords["R"] + offsets - Rmag
+            )
+            T_e_with_rho = T_e.expand_dims(
+                cast(Dict[Hashable, Any], {"offset": offsets})
+            ).assign_coords(rho_poloidal=rhos, theta=thetas)
+            fitter = SplineFit(lower_bound=0.0, sess=sess)
+            T_e_sep = concat(
+                [
+                    fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
+                    for offset in offsets
+                ],
+                offsets,
             )
 
-            square_residuals = (
-                T_e.dropna(index).indica.interp2d(
-                    {index: separatrix_indices}, method="cubic", assume_sorted=True
-                )
-                - 100.0
-            ) ** 2
+            square_residuals = (T_e_sep - 100.0) ** 2
             best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
             overall_best = best_fits.mean()
             fluxes = rhos.sel(offset=overall_best, method="nearest")
@@ -139,7 +148,7 @@ class Equilibrium:
                     t=T_e.coords["t"], method="nearest"
                 ).indica.interp2d(
                     R=T_e.coords["R"] - offset,
-                    z=T_e.coords["z"],
+                    z=T_e.coords["z"] - z_shift,
                     method="cubic",
                     assume_sorted=True,
                 )
@@ -161,10 +170,16 @@ class Equilibrium:
             np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
         ]
 
-        self.prov_id = hash_vals(**equilibrium_data)
+        self.prov_id = hash_vals(
+            **equilibrium_data, R_offset=self.R_offset, z_offset=self.z_offset
+        )
         self.provenance = sess.prov.entity(
             self.prov_id,
-            {prov.PROV_TYPE: "Equilibrium", "offset": self.R_offset},
+            {
+                prov.PROV_TYPE: "Equilibrium",
+                "R_offset": self.R_offset,
+                "z_offset": self.z_offset,
+            },
         )
         sess.prov.generation(
             self.provenance, sess.session, time=datetime.datetime.now()
@@ -236,7 +251,7 @@ class Equilibrium:
         else:
             rmjo = self.rmjo.interp(t=t, method="nearest")
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-        R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") + self.R_offset
+        R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         return R, t
 
     def R_hfs(
@@ -276,7 +291,7 @@ class Equilibrium:
         else:
             rmji = self.rmji.interp(t=t, method="nearest")
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-        R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") + self.R_offset
+        R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         return R, t
 
     def enclosed_volume(
@@ -383,7 +398,7 @@ class Equilibrium:
             corner_angles = [
                 angle.interp(t=t, method="nearest") for angle in self.corner_angles
             ]
-            R0 = self.rmag.interp(t=t, method="nearest") + self.R_offset
+            R0 = self.rmag.interp(t=t, method="nearest")
             z0 = self.zmag.interp(t=t, method="nearest")
             reference_rhos = self.rho.interp(t=t, method="nearest")
             reference_rhos.name = self.rho.name
@@ -478,8 +493,8 @@ class Equilibrium:
             t = self.rho.coords["t"]
             z_x_point = self.zx
         rho_interp = rho.indica.interp2d(
-            R=R - self.R_offset,
-            z=z,
+            R=R + self.R_offset,
+            z=z + self.z_offset,
             zero_coords={"R": R_ax, "z": z_ax},
             method="cubic",
             assume_sorted=True,
@@ -489,7 +504,8 @@ class Equilibrium:
             np.logical_and(rho_interp < 0.0, rho_interp > -1e-12), 0.0, rho_interp
         )
         theta = np.arctan2(
-            z - cast(np.ndarray, z_ax), R - cast(np.ndarray, self.R_offset) - R_ax
+            z + cast(np.ndarray, self.z_offset) - z_ax,
+            R + cast(np.ndarray, self.R_offset) - R_ax,
         )
         if kind != "poloidal":
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
@@ -535,8 +551,8 @@ class Equilibrium:
         minor_rad, t = self.minor_radius(rho, theta, t, kind)
         R0 = self.rmag.interp(t=t, method="nearest")
         z0 = self.zmag.interp(t=t, method="nearest")
-        R = R0 + self.R_offset + minor_rad * np.cos(theta)
-        z = z0 + minor_rad * np.sin(theta)
+        R = R0 - self.R_offset + minor_rad * np.cos(theta)
+        z = z0 - self.z_offset + minor_rad * np.sin(theta)
         return R, z, t
 
     def convert_flux_coords(

@@ -41,6 +41,6 @@ for time in t:
     print(f"Time = {float(time)}")
     Te_smoothed.sel(t=time).plot(label="Spline fit")
     for d in results[1:]:
-        d.sel(t=time).plot.line("o", x="rho_poloidal", label=d.name + " data")
+        d.sel(t=time).plot.line("o", x="rho_poloidal", label=str(d.name) + " data")
     plt.legend()
     plt.show()

@@ -110,6 +110,8 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         Array like the input, but binned onto the time labels.
 
     """
+    if data.coords["t"].shape == tlabels.shape and np.all(data.coords["t"] == tlabels):
+        return data
     npoints = len(tlabels)
     half_interval = 0.5 * (tlabels[1] - tlabels[0])
     tbins = np.empty(npoints + 1)
