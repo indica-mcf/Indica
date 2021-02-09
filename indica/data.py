@@ -12,6 +12,7 @@ objects. These accessors group methods under the namespace
 
 """
 
+import datetime
 from itertools import filterfalse
 from numbers import Number
 from typing import Any
@@ -26,6 +27,7 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
+import prov.model as prov
 from scipy.interpolate import CloughTocher2DInterpolator
 from scipy.interpolate import interp1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -40,6 +42,9 @@ from .datatypes import DatasetType
 from .equilibrium import Equilibrium
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
+from .session import global_session
+from .session import hash_vals
+from .session import Session
 
 
 def _convert_coords(
@@ -758,20 +763,43 @@ class InDiCAArrayAccessor:
         pass
 
     @property
-    def equilibrium(self) -> Equilibrium:
+    def equilibrium(self) -> Optional[Equilibrium]:
         """The equilibrium object currently used by this DataArray (or, more
         accurately, by its
-        :py:class:`~indica.converters.CoordinateTransform` object). When
-        setting this porperty, ensures provenance will be updated
-        accordingly.
+        :py:class:`~indica.converters.CoordinateTransform`
+        object). When setting or deleting this porperty, ensures
+        provenance will be updated accordingly.
 
         """
         return getattr(self._obj.attrs["transform"], "equilibrium", None)
 
     @equilibrium.setter
     def equilibrium(self, value: Equilibrium):
+        start_time = datetime.datetime.now()
         self._obj.attrs["transform"].set_equilibrium(value)
-        # TODO: Update provenance
+        partial_prov = self._obj.attrs["partial_provenance"]
+        hash_id = hash_vals(
+            data=partial_prov.identifier.localpart, equilibrium=value.prov_id
+        )
+        new_prov = value._session.prov.collection(hash_id)
+        value._session.prov.membership(new_prov, partial_prov)
+        value._session.prov.membership(new_prov, value.provenance)
+        self._obj.attrs["provenance"] = new_prov
+        end_time = datetime.datetime.now()
+        activity_id = hash_vals(agent=value._session.agent, date=end_time)
+        activity = value._session.prov.activity(
+            activity_id, start_time, end_time, {prov.PROV_TYPE: "SetEquilibrium"}
+        )
+        activity.wasAssociatedWith(value._session.agent)
+        activity.wasInformedBy(value._session.session)
+        new_prov.wasGeneratedBy(activity, end_time)
+        new_prov.wasAttributedTo(value._session.agent)
+
+    @equilibrium.deleter
+    def equilibrium(self):
+        if hasattr(self._obj.attrs["transform"], "equilibrium"):
+            del self._obj.attrs["transform"].equilibrium
+            self._obj.attrs["provenance"] = self._obj.attrs["partial_provenance"]
 
     @property
     def with_ignored_data(self) -> xr.DataArray:
@@ -928,7 +956,13 @@ class InDiCADatasetAccessor:
             transform = self._obj.attrs["transform"]
         return self.convert_coords(transform) + (self._obj.coords["t"],)
 
-    def attach(self, key: str, array: xr.DataArray, overwrite: bool = False):
+    def attach(
+        self,
+        key: str,
+        array: xr.DataArray,
+        overwrite: bool = False,
+        session: Session = global_session,
+    ):
         """Adds an additional :py:class:`xarray.DataArray` to this
         :py:class:`xarray.Dataset`. This dataset must be used for
         aggregating data with the same specific datatype (see
@@ -953,13 +987,63 @@ class InDiCADatasetAccessor:
         overwrite
             If ``True`` and ``key`` already exists in this Dataset then
             overwrite the old value. Otherwise raise an error.
+        session
+            An object representing the session being run. Contains information
+            such as provenance data.
+
         """
-        pass
+        start_time = datetime.datetime.now()
+        if key in self._obj.data_vars and not overwrite:
+            raise ValueError(
+                f"Dataset already contains a variable associated with key '{key}'."
+            )
+        if key in self._obj.coords:
+            raise ValueError(f"Key '{key}' corresponds to a coordinate in the dataset.")
+        if (
+            array.attrs["transform"]
+            != next(iter(self._obj.data_vars.values())).attrs["transform"]
+        ):
+            raise ValueError(
+                "The array's transform object differs from that of the dataset."
+            )
+        expected_dt = next(iter(self._obj.data_vars.values())).attrs["datatype"][1]
+        actual_dt = array.attrs["datatype"][1]
+        if actual_dt != expected_dt:
+            raise ValueError(
+                f"Array's specific datatype ('{actual_dt}') differs from dataset's "
+                f"('{expected_dt}')."
+            )
+        self._obj.data_vars[key] = array
+        old_prov = self._obj.attrs["provenance"]
+        array_prov = array.attrs["provenance"]
+        hash_id = hash_vals(
+            dataset=old_prov.identifier.localpart, array=array_prov.identifier.localpart
+        )
+        new_prov = session.prov.collection(hash_id)
+        for data in self._obj.data_vars.values():
+            session.prov.membership(new_prov, data.attrs["provenance"])
+        self._obj.attrs["provenance"] = new_prov
+        end_time = datetime.datetime.now()
+        activity_id = hash_vals(agent=session.agent, date=end_time)
+        activity = session.prov.activity(
+            activity_id, start_time, end_time, {prov.PROV_TYPE: "AddToDataset"}
+        )
+        activity.wasAssociatedWith(session.agent)
+        activity.wasInformedBy(session.session)
+        new_prov.wasGeneratedBy(activity, end_time)
+        new_prov.wasAttributedTo(session.agent)
+        new_prov.wasDerivedFrom(old_prov)
+        new_prov.wasDerivedFrom(array_prov)
+        activity.used(old_prov)
+        activity.used(array_prov)
 
     @property
     def datatype(self) -> DatasetType:
         """A structure describing the data contained within this Dataset."""
-        pass
+        return (
+            next(iter(self._obj.data_vars.values())).attrs["datatype"][1],
+            {k: v.attrs["datatype"][0] for k, v in self._obj.data_vars.items()},
+        )
 
     def check_datatype(self, datatype: DatasetType) -> Tuple[bool, Optional[str]]:
         """Checks that the dasta type of this :py:class:`xarray.DataArray`
@@ -986,7 +1070,7 @@ class InDiCADatasetAccessor:
         pass
 
 
-def aggregate(**kwargs: xr.DataArray) -> xr.Dataset:
+def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.Dataset:
     """Combines the key-value pairs in ``kwargs`` into a Dataset,
     performing various checks.
 
@@ -997,10 +1081,52 @@ def aggregate(**kwargs: xr.DataArray) -> xr.Dataset:
     - All arguments must use the same coordinate system (though not all of
       them need to use all of the coordinates).
     - All arguments must use the same :py:class`CoordinateTransform` object
-    - All arguments need to store data on the same grid
+    - All arguments need to store data on the same grid (always the case for datasets)
 
     In addition to performing these checks, this function will create
     the correct provenance.
 
+    Parameters
+    ----------
+    session
+        An object representing the session being run. Contains information
+        such as provenance data.
+    kwargs
+        The DataArrays to be combined into a dataset.
+
     """
-    pass
+    if len(kwargs) == 0:
+        raise ValueError("Can not create empty dataset.")
+    start_time = datetime.datetime.now()
+    first_key = next(iter(kwargs))
+    first_val = kwargs[first_key]
+    specific_type = first_val.attrs["datatype"][1]
+    for k, v in kwargs.items():
+        dt = v.attrs["datatype"]
+        if dt[1] != specific_type:
+            raise ValueError(
+                f"Item '{k}' has specific datatype '{dt}', which differs from "
+                f" that of item '{first_key}' ('{specific_type}')"
+            )
+        if v.attrs["transform"] != first_val.attrs["transform"]:
+            raise ValueError(
+                f"Item '{k}' has different transform class than item '{first_key}'"
+            )
+    dataset = xr.Dataset(kwargs, attrs={"transform": first_val.attrs["transform"]})
+    hash_id = hash_vals(
+        **{k: v.attrs["provenance"].identifier.localpart for k, v in kwargs.items()},
+    )
+    new_prov = session.prov.collection(hash_id)
+    for data in kwargs.values():
+        session.prov.membership(new_prov, data.attrs["provenance"])
+    dataset.attrs["provenance"] = new_prov
+    end_time = datetime.datetime.now()
+    activity_id = hash_vals(agent=session.agent, date=end_time)
+    activity = session.prov.activity(
+        activity_id, start_time, end_time, {prov.PROV_TYPE: "CreateDataset"}
+    )
+    activity.wasAssociatedWith(session.agent)
+    activity.wasInformedBy(session.session)
+    new_prov.wasGeneratedBy(activity, end_time)
+    new_prov.wasAttributedTo(session.agent)
+    return dataset

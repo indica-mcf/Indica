@@ -6,9 +6,11 @@ from abc import abstractmethod
 from typing import Optional
 from typing import Tuple
 
+import prov
 from xarray import DataArray
 
 from .numpy_typing import LabeledArray
+from .session import Session
 
 
 class AbstractEquilibrium(ABC):
@@ -19,6 +21,8 @@ class AbstractEquilibrium(ABC):
 
     rmag: DataArray
     zmag: DataArray
+    provenance: prov.model.ProvEntity
+    _session: Session
 
     @abstractmethod
     def Btot(

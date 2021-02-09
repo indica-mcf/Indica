@@ -289,7 +289,7 @@ class DataReader(BaseIO):
             drop = self._select_channels(
                 "thomson", uid, instrument, quantity, quant_data, transform.x1_name
             )
-            quant_data.attrs["provenance"] = self.create_provenance(
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "thomson_scattering",
                 uid,
                 instrument,
@@ -298,6 +298,7 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 drop,
             )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -452,7 +453,7 @@ class DataReader(BaseIO):
             drop = self._select_channels(
                 "cxrs", uid, instrument, quantity, quant_data, diagnostic_coord
             )
-            quant_data.attrs["provenance"] = self.create_provenance(
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "cxrs",
                 uid,
                 instrument,
@@ -461,6 +462,7 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 drop,
             )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
         return data
 
@@ -630,7 +632,7 @@ class DataReader(BaseIO):
                     t=downsample_ratio, boundary="trim", keep_attrs=True
                 ).mean()
             quant_data.name = calculation + "_" + quantity
-            quant_data.attrs["provenance"] = self.create_provenance(
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "equilibrium",
                 uid,
                 calculation,
@@ -639,6 +641,7 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 [],
             )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             if quantity in {"rmji", "rmjo"}:
                 quant_data.coords["z"] = data["zmag"]
             elif quantity == "faxs":
@@ -790,7 +793,7 @@ class DataReader(BaseIO):
                 transform.x1_name,
                 database_results["bad_channels"],
             )
-            quant_data.attrs["provenance"] = self.create_provenance(
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "cyclotron_emissions",
                 uid,
                 instrument,
@@ -799,6 +802,7 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 drop,
             )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -936,7 +940,7 @@ class DataReader(BaseIO):
             drop = self._select_channels(
                 "radiation", uid, instrument, quantity, quant_data, transform.x1_name
             )
-            quant_data.attrs["provenance"] = self.create_provenance(
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "radiation",
                 uid,
                 instrument,
@@ -945,6 +949,7 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 drop,
             )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1107,7 +1112,7 @@ class DataReader(BaseIO):
                 )
             else:
                 drop = []
-            quant_data.attrs["provenance"] = self.create_provenance(
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "bremsstrahlung_spectroscopy",
                 uid,
                 instrument,
@@ -1116,6 +1121,7 @@ class DataReader(BaseIO):
                 database_results[quantity + "_records"],
                 drop,
             )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
