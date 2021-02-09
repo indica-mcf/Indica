@@ -1013,7 +1013,7 @@ class InDiCADatasetAccessor:
                 f"Array's specific datatype ('{actual_dt}') differs from dataset's "
                 f"('{expected_dt}')."
             )
-        self._obj.data_vars[key] = array
+        self._obj[key] = array
         old_prov = self._obj.attrs["provenance"]
         array_prov = array.attrs["provenance"]
         hash_id = hash_vals(
@@ -1042,7 +1042,7 @@ class InDiCADatasetAccessor:
         """A structure describing the data contained within this Dataset."""
         return (
             next(iter(self._obj.data_vars.values())).attrs["datatype"][1],
-            {k: v.attrs["datatype"][0] for k, v in self._obj.data_vars.items()},
+            {str(k): v.attrs["datatype"][0] for k, v in self._obj.data_vars.items()},
         )
 
     def check_datatype(self, datatype: DatasetType) -> Tuple[bool, Optional[str]]:
@@ -1112,7 +1112,10 @@ def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.D
             raise ValueError(
                 f"Item '{k}' has different transform class than item '{first_key}'"
             )
-    dataset = xr.Dataset(kwargs, attrs={"transform": first_val.attrs["transform"]})
+    dataset = xr.Dataset(
+        cast(Dict[Hashable, xr.DataArray], kwargs),
+        attrs={"transform": first_val.attrs["transform"]},
+    )
     hash_id = hash_vals(
         **{k: v.attrs["provenance"].identifier.localpart for k, v in kwargs.items()},
     )
