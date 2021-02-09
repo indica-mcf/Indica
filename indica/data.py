@@ -766,7 +766,7 @@ class InDiCAArrayAccessor:
         accordingly.
 
         """
-        return self._obj.attrs["transform"].equilibrium
+        return getattr(self._obj.attrs["transform"], "equilibrium", None)
 
     @equilibrium.setter
     def equilibrium(self, value: Equilibrium):
@@ -994,7 +994,8 @@ def aggregate(**kwargs: xr.DataArray) -> xr.Dataset:
 
     - All arguments must have the same specific datatype (see
       :py:data:`SPECIFIC_DATATYPES`).
-    - All arguments must use the same coordinate system.
+    - All arguments must use the same coordinate system (though not all of
+      them need to use all of the coordinates).
     - All arguments must use the same :py:class`CoordinateTransform` object
     - All arguments need to store data on the same grid
 
