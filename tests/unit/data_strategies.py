@@ -263,6 +263,8 @@ def data_arrays_from_coords(
     result.attrs["transform"] = coordinates
     if hasattr(coordinates, "equilibrium"):
         result.indica.equilibrium = coordinates.equilibrium
+    else:
+        result.indica.equilibrium = MagicMock()
     return result
 
 
