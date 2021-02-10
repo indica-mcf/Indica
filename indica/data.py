@@ -775,6 +775,8 @@ class InDiCAArrayAccessor:
 
     @equilibrium.setter
     def equilibrium(self, value: Equilibrium):
+        if value == self.equilibrium:
+            return
         start_time = datetime.datetime.now()
         self._obj.attrs["transform"].set_equilibrium(value)
         partial_prov = self._obj.attrs["partial_provenance"]
@@ -782,8 +784,8 @@ class InDiCAArrayAccessor:
             data=partial_prov.identifier.localpart, equilibrium=value.prov_id
         )
         new_prov = value._session.prov.collection(hash_id)
-        value._session.prov.membership(new_prov, partial_prov)
-        value._session.prov.membership(new_prov, value.provenance)
+        new_prov.hadMember(partial_prov)
+        new_prov.hadMember(value.provenance)
         self._obj.attrs["provenance"] = new_prov
         end_time = datetime.datetime.now()
         activity_id = hash_vals(agent=value._session.agent, date=end_time)

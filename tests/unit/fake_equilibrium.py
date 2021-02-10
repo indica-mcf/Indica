@@ -2,6 +2,7 @@
 the implementation."""
 
 from itertools import product
+from unittest.mock import MagicMock
 
 from hypothesis.strategies import composite
 from hypothesis.strategies import floats
@@ -84,6 +85,9 @@ class FakeEquilibrium(Equilibrium):
             if k not in self.parameters:
                 self.parameters[k] = v
         self.default_t = default_t
+        self.prov_id = MagicMock()
+        self.provenance = MagicMock()
+        self._session = MagicMock()
 
     def Btot(self, R, z, t=None):
         if t is None:

@@ -366,6 +366,13 @@ def test_get_equilibrium(array):
 
 
 @given(data_arrays())
+def test_no_equilibrium(array):
+    """Check getting equilibrium from array without one returns None."""
+    del array.attrs["transform"].equilibrium
+    assert array.indica.equilibrium is None
+
+
+@given(data_arrays())
 def test_set_equilibrium(array):
     """Checking setting of equilibrium is consistent and updates PROV
     accordingly.
@@ -373,15 +380,18 @@ def test_set_equilibrium(array):
     """
     new_equilib = MagicMock()
     assert array.indica.equilibrium
+    del array.attrs["transform"].equilibrium
     old_partial_prov = array.attrs["partial_provenance"]
     old_prov = array.attrs["provenance"]
     array.indica.equilibrium = new_equilib
     assert array.attrs["transform"].equilibrium is new_equilib
     assert array.attrs["partial_provenance"] is old_partial_prov
     assert array.attrs["provenance"] is not old_prov
-    new_equilib._session.prov.entity.assert_called()
+    new_equilib._session.prov.collection.assert_called()
     array.attrs["provenance"].hadMember.assert_any_call(new_equilib.provenance)
-    array.attrs["provenance"].hadMember.assert_any_call(array.attrs["provenance"])
+    array.attrs["provenance"].hadMember.assert_any_call(
+        array.attrs["partial_provenance"]
+    )
 
 
 @given(data_arrays())
@@ -394,6 +404,21 @@ def test_set_same_equilibrium(array):
     assert array.attrs["transform"].equilibrium is equilib
     assert array.attrs["partial_provenance"] is old_partial_prov
     assert array.attrs["provenance"] is old_prov
+
+
+@given(data_arrays())
+def test_del_equilibrium(array):
+    assert array.attrs["provenance"] != array.attrs["partial_provenance"]
+    del array.indica.equilibrium
+    assert array.attrs["provenance"] is array.attrs["partial_provenance"]
+
+
+@given(data_arrays())
+def test_del_no_equilibrium(array):
+    del array.attrs["transform"].equilibrium
+    del array.indica.equilibrium
+    # No action should have been taken to explicitly reset provenance
+    assert array.attrs["provenance"] != array.attrs["partial_provenance"]
 
 
 @given(data_arrays())
