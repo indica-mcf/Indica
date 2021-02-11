@@ -4,7 +4,7 @@ import numpy as np
 from xarray import DataArray
 import snippets.fac_profiles as fac
 
-plt.ion()
+#plt.ion()
 
 reader = ADASReader()
 scd_W = reader.get_adf11("scd", "W", "89")
@@ -43,13 +43,16 @@ plt.figure()
 plt.plot(rhop, fz.transpose())
 plt.xlabel("Rhop")
 plt.ylabel("Fractional abundance")
+plt.show()
 
 plt.figure()
 plt.plot(rhop, tot_rad_loss.transpose())
 plt.xlabel("Rhop")
 plt.ylabel("Total cooling factor")
+plt.show()
 
 plt.figure()
 plt.plot(rhop, temp)
 plt.xlabel("Rhop")
 plt.ylabel("Temperature")
+plt.show()
