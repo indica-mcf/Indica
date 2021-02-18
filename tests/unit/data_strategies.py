@@ -273,7 +273,7 @@ def data_arrays(
     draw,
     data_type=(None, None),
     coordinates_and_axes=coordinate_transforms_and_axes(
-        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4
+        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4, 6
     ),
     data=separable_functions(
         smooth_functions(max_val=1e3),
@@ -409,7 +409,9 @@ def datasets(
     draw,
     data_type=(None, {}),
     coordinates_and_axes=coordinate_transforms_and_axes(
-        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)), 4
+        ((1.83, 3.9), (-1.75, 2.0), (50.0, 120.0)),
+        2,
+        5,
     ),
     data=separable_functions(
         smooth_functions(max_val=1e3),
@@ -432,7 +434,7 @@ def datasets(
         any value in the dictionary is None then it will be drawn from a
         strategy. If the dictionary is empty then its contents will be drawn
         from a strategy.
-    coordinates_andAxes
+    coordinates_and_axes
         A strategy for generating :py:class:`indica.converters.CoordinateTransform`
         objects and the associated axes for the data. If absent, any type of
         transform could be used.
@@ -463,6 +465,7 @@ def datasets(
             ]
         )
 
+    transform, *coords = draw(coordinates_and_axes)
     specific_type = (
         data_type[0] if data_type[0] else draw(specific_datatypes().filter(compatible))
     )
@@ -474,15 +477,21 @@ def datasets(
     else:
         general_type = draw(
             dictionaries(
-                text(), general_datatypes(specific_type), min_size=1, max_size=5
+                text().filter(
+                    lambda x: x not in [transform.x1_name, transform.x2_name, "t"]
+                ),
+                general_datatypes(specific_type),
+                min_size=1,
+                max_size=5,
             )
         )
     data = {}
     for key, gtype in general_type.items():
         data[key] = draw(
-            data_arrays(
+            data_arrays_from_coords(
                 (gtype, specific_type),
-                coordinates_and_axes,
+                transform,
+                coords,
                 rel_sigma=rel_sigma,
                 abs_sigma=abs_sigma,
                 uncertainty=uncertainty,

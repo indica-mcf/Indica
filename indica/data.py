@@ -1023,7 +1023,7 @@ class InDiCADatasetAccessor:
         )
         new_prov = session.prov.collection(hash_id)
         for data in self._obj.data_vars.values():
-            session.prov.membership(new_prov, data.attrs["provenance"])
+            new_prov.hadMember(data.attrs["provenance"])
         self._obj.attrs["provenance"] = new_prov
         end_time = datetime.datetime.now()
         activity_id = hash_vals(agent=session.agent, date=end_time)
@@ -1123,7 +1123,7 @@ def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.D
     )
     new_prov = session.prov.collection(hash_id)
     for data in kwargs.values():
-        session.prov.membership(new_prov, data.attrs["provenance"])
+        new_prov.hadMember(data.attrs["provenance"])
     dataset.attrs["provenance"] = new_prov
     end_time = datetime.datetime.now()
     activity_id = hash_vals(agent=session.agent, date=end_time)
