@@ -1088,6 +1088,11 @@ def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.D
     In addition to performing these checks, this function will create
     the correct provenance.
 
+    .. warning::
+        This should not be used for assembling results of an
+        :py:class:`~indica.operators.Operator`, as it will not provide the
+        necessary derivation provenance.
+
     Parameters
     ----------
     session

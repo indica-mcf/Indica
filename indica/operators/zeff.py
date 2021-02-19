@@ -99,5 +99,5 @@ class CalcZeff(Operator):
         result.attrs["map_to_master"] = n_e.attrs["map_to_master"]
         result.attrs["map_from_master"] = n_e.attrs["map_from_master"]
         result.attrs["datatype"] = ("effective_charge", "plasma")
-        result.attrs["provenance"] = self.create_provenance()
+        self.assign_provenance(result.attrs["provenance"])
         return result

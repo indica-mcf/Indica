@@ -457,7 +457,6 @@ class InvertRadiation(Operator):
         trivial = TrivialTransform()
         emissivity = estimate(trivial, R, z, times)
         emissivity.attrs["datatype"] = ("emissivity", self.datatype)
-        emissivity.attrs["provenance"] = self.create_provenance()
         emissivity.attrs["emissivity_model"] = estimate
         emissivity.name = self.datatype + "_emissivity"
 
@@ -471,4 +470,8 @@ class InvertRadiation(Operator):
         for c, i in zip(unfolded_cameras, integral):
             del c["has_data"]
             c["back_integral"] = i
+        self.assign_provenance(emissivity)
+        self.assign_provenance(results)
+        for cam in unfolded_cameras:
+            self.assign_provenance(cam)
         return emissivity, results, *unfolded_cameras

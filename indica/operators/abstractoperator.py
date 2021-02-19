@@ -95,6 +95,8 @@ class Operator(ABC):
         )
         self._session.prov.attribution(self.entity, self._session.agent)
         self._input_provenance: List[prov.ProvEntity] = []
+        self._prov_count = 0
+        self._end_time: datetime.datetime
         for i, datatype in enumerate(self.ARGUMENT_TYPES):
             if isinstance(datatype, EllipsisType):
                 if i + 1 != len(self.ARGUMENT_TYPES):
@@ -203,16 +205,16 @@ class Operator(ABC):
             "'return_types' method.".format(self.__class__.__name__)
         )
 
-    def create_provenance(self) -> prov.ProvEntity:
-        """Create a provenance entity for the result of the operator.
+    def assign_provenance(self, data: Union[DataArray, Dataset]) -> prov.ProvEntity:
+        """Create and assign a provenance entity to the argument. This argument
+        should be one of the results of the operator.
 
-        This should only be called after :py:meth:`validate_arguments`, as it
-        relies on that routine to collect information about the inputs
-        to the operator.
-
-        Note that the results of successive calls to the same operator
-        will have different provenance data (with a different
-        identifier), as this accounts for the creation-time.
+        This should only be called after
+        :py:meth:`validate_arguments`, as it relies on that routine to
+        collect information about the inputs to the operator. It
+        should not be called until after all calculations are
+        finished, as the first call will be used to determine the
+        end-time of the calculation.
 
         Returns
         -------
@@ -221,35 +223,53 @@ class Operator(ABC):
 
         """
         # TODO: Generate multiple pieces of PROV data for multiple return values
-        end_time = datetime.datetime.now()
+        if self._prov_count == 0:
+            self.end_time = datetime.datetime.now()
         entity_id = hash_vals(
             creator=self.prov_id,
-            date=end_time,
+            date=self.end_time,
+            result_number=self._prov_count,
             **{
                 "arg" + str(i): p.identifier
                 for i, p in enumerate(self._input_provenance)
             }
         )
-        activity_id = hash_vals(agent=self.prov_id, date=end_time)
-        # TODO: Should each subclass specify its own PROV_TYPE?
+        activity_id = hash_vals(
+            agent=self.prov_id, date=self.end_time, activity_number=self._prov_count
+        )
+        self._prov_count += 1
         activity = self._session.prov.activity(
             activity_id,
             self._start_time,
-            end_time,
+            self.end_time,
             {prov.PROV_TYPE: "Calculation"},
         )
         activity.wasAssociatedWith(self._session.agent)
         activity.wasAssociatedWith(self.agent)
         activity.wasInformedBy(self._session.session)
-        # TODO: Should I include any attributes?
-        entity = self._session.prov.entity(entity_id)
-        entity.wasGeneratedBy(activity, end_time)
+        if isinstance(data, Dataset):
+            entity = self._session.prov.collection(entity_id)
+            for array in data.data_vars:
+                if "provenance" not in array.attrs:
+                    self.assign_provenance(array)
+            entity.hadMember(array.attrs["provenance"])
+        else:
+            entity = self._session.prov.entity(entity_id)
+        entity.wasGeneratedBy(activity, self.end_time)
         entity.wasAttributedTo(self._session.agent)
         entity.wasAttributedTo(self.agent)
         for arg in self._input_provenance:
             entity.wasDerivedFrom(arg)
             activity.used(arg)
-        return entity
+        if isinstance(data, Dataset):
+            data.attrs["provenance"] = entity
+        else:
+            data.attrs["partial_provenance"] = entity
+            if data.indica.equilibrium:
+                # Generate appropriate provenance given this equilibrium
+                data.indica.equilibrium = data.attrs["transform"].equilibrium
+            else:
+                data.attrs["provenance"] = entity
 
     @abstractmethod
     def __call__(self, *args: DataArray) -> Union[DataArray, Dataset]:
