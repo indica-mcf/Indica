@@ -13,6 +13,8 @@ from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
 from hypothesis.strategies import integers
 from hypothesis.strategies import lists
+from hypothesis.strategies import none
+from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 import numpy as np
@@ -63,6 +65,55 @@ def specific_datatypes(draw, general_datatype=None):
 
 
 @composite
+def array_datatypes(draw, allow_none=True):
+    """Draws a random array datatype, possibly include None values."""
+    specific_type = draw(
+        one_of(specific_datatypes(), none()) if allow_none else specific_datatypes()
+    )
+    general_type = draw(
+        one_of(general_datatypes(specific_type), none())
+        if allow_none
+        else general_datatypes(specific_type)
+    )
+    return general_type, specific_type
+
+
+@composite
+def incompatible_array_types(draw, datatype):
+    """Strategy to generate a datatype for a data array that is
+    incompatible with the argument. At least one of the general or
+    specific datatype will not match.
+    """
+    errors = draw(lists(integers(0, 1), min_size=1, unique=True))
+    specific_type = draw(
+        specific_datatypes().filter(lambda x: 0 not in errors or x != datatype[1])
+    )
+    general_type = draw(
+        general_datatypes(specific_type).filter(
+            lambda x: 1 not in errors or x != datatype[0]
+        )
+    )
+    return general_type, specific_type
+
+
+@composite
+def dataset_datatypes(draw, min_size=0, max_size=5, allow_none=True):
+    """Draws a random dataset datatype, possibly including None values."""
+    specific_type = draw(
+        one_of(specific_datatypes(), none()) if allow_none else specific_datatypes()
+    )
+    contents = draw(
+        dictionaries(
+            text(),
+            general_datatypes(specific_type),
+            min_size=min_size,
+            max_size=max_size,
+        )
+    )
+    return specific_type, contents
+
+
+@composite
 def compatible_dataset_types(draw, datatype):
     """Strategy to generate a datatype for a dataset that is compatible
     with the argument. This means the result contains no variables not
@@ -90,7 +141,7 @@ def incompatible_dataset_types(draw, datatype):
 
     """
     result_vars = draw(
-        lists(sampled_from(datatype[1]), unique=True).map(
+        lists(sampled_from(sorted(datatype[1].keys())), unique=True).map(
             lambda keys: {k: datatype[1][k] for k in keys}
         )
     )
@@ -107,15 +158,14 @@ def incompatible_dataset_types(draw, datatype):
                 booleans(), min_size=len(result_vars), max_size=len(result_vars)
             ).filter(lambda l: any(l))
         )
-        for k, v in [(k, v) for (k, v), c in zip(result_vars.items(), change) if c]:
+        for k in [k for k, c in zip(result_vars, change) if c]:
+            v = datatype[1][k]
             general_types[k] = draw(
                 general_datatypes(specific_type).filter(lambda d: d != v)
             )
     if 2 in errors:
         for key in draw(
-            lists(
-                text().filter(lambda t: t not in general_types), min_size=1, max_size=5
-            )
+            lists(text().filter(lambda t: t not in datatype[1]), min_size=1, max_size=5)
         ):
             general_types[key] = draw(general_datatypes(specific_type))
     return specific_type, general_types
@@ -482,7 +532,7 @@ def datasets(
                 ),
                 general_datatypes(specific_type),
                 min_size=1,
-                max_size=5,
+                max_size=2,
             )
         )
     data = {}
