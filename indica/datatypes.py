@@ -309,7 +309,7 @@ ELEMENTS = set(SPECIFIC_DATATYPES) - set(COMPATIBLE_DATATYPES)
 ArrayType = Tuple[Optional[GeneralDataType], Optional[SpecificDataType]]
 
 #: Structure for type information for :py:class:`xarray.Dataset` objects.
-DatasetType = Tuple[SpecificDataType, Dict[str, GeneralDataType]]
+DatasetType = Tuple[Optional[SpecificDataType], Dict[str, GeneralDataType]]
 
 DataType = Union[ArrayType, DatasetType]
 

@@ -6,6 +6,7 @@ from abc import abstractmethod
 import datetime
 from itertools import zip_longest
 from typing import Any
+from typing import cast
 from typing import List
 from typing import Tuple
 from typing import TYPE_CHECKING
@@ -16,6 +17,7 @@ import prov.model as prov
 from xarray import DataArray
 from xarray import Dataset
 
+from ..datatypes import DatasetType
 from ..datatypes import DataType
 from ..datatypes import DatatypeWarning
 from ..datatypes import GENERAL_DATATYPES
@@ -125,6 +127,18 @@ class Operator(ABC):
                     DatatypeWarning,
                 )
 
+    def _ellipsis_type(self, arg: Data) -> DataType:
+        """Given the argument corresponding to the penultimate argument type,
+        return the type required for all further variadic arguments.
+        """
+        if isinstance(arg, DataArray):
+            return arg.attrs["datatype"]
+        else:
+            dtype = arg.attrs["datatype"]
+            return dtype[0], {
+                k: dtype[1][k] for k in cast(DatasetType, self.ARGUMENT_TYPES[-2])[1]
+            }
+
     def validate_arguments(self, *args: Data):
         """Checks that arguments to the operator are of the expected types.
 
@@ -142,11 +156,11 @@ class Operator(ABC):
         ]
         arg_len = len(args)
         expected_len = len(self.ARGUMENT_TYPES)
-        if self.ARGUMENT_TYPES[-1] == Ellipsis:
+        if expected_len > 0 and self.ARGUMENT_TYPES[-1] == Ellipsis:
             iterator = zip_longest(
                 args,
                 self.ARGUMENT_TYPES[:-1],
-                fillvalue=args[arg_len - 2].attrs["datatype"],
+                fillvalue=self._ellipsis_type(args[expected_len - 2]),
             )
         elif arg_len != expected_len:
             message = (
@@ -157,30 +171,70 @@ class Operator(ABC):
         else:
             iterator = zip(args, self.ARGUMENT_TYPES)
         for i, (arg, expected) in enumerate(iterator):
-            datatype = arg.attrs["datatype"]
-            if expected[0] and datatype[0] != expected[0]:
-                message = (
-                    "Argument {} of wrong data type for operator {}: "
-                    "expected {}, received {}.".format(
-                        i + 1,
-                        self.__class__.__name__,
-                        expected[0],
-                        datatype[0],
+            if isinstance(arg, DataArray):
+                datatype = arg.attrs["datatype"]
+                if expected[0] and datatype[0] != expected[0]:
+                    message = (
+                        "Argument {} of wrong general data type for operator {}: "
+                        "expected {}, received {}.".format(
+                            i + 1,
+                            self.__class__.__name__,
+                            expected[0],
+                            datatype[0],
+                        )
                     )
-                )
-                raise OperatorError(message)
-            if expected[1] and datatype[1] != expected[1]:
-                message = (
-                    "Argument {} of wrong type of {} for operator {}: "
-                    "expected to be for {}, received {}.".format(
-                        i + 1,
-                        expected[0],
-                        self.__class__.__name__,
-                        expected[1],
-                        datatype[1],
+                    raise OperatorError(message)
+                if expected[1] and datatype[1] != expected[1]:
+                    message = (
+                        "Argument {} of wrong specific data type for operator {}: "
+                        "expected to be for {}, received {}.".format(
+                            i + 1,
+                            self.__class__.__name__,
+                            expected[1],
+                            datatype[1],
+                        )
                     )
+                    raise OperatorError(message)
+            elif isinstance(arg, Dataset):
+                datatype = arg.attrs["datatype"]
+                if expected[0] and datatype[0] != expected[0]:
+                    message = (
+                        "Argument {} of wrong specific data type for operator {}: "
+                        "expected {}, received {}.".format(
+                            i + 1,
+                            self.__class__.__name__,
+                            expected[0],
+                            datatype[0],
+                        )
+                    )
+                    raise OperatorError(message)
+                for key, general_type in expected[1].items():
+                    if key not in datatype[1]:
+                        message = (
+                            "Variable {} required by operator {} is missing from "
+                            "argument {}.".format(
+                                key,
+                                self.__class__.__name__,
+                                i + 1,
+                            )
+                        )
+                        raise OperatorError(message)
+                    if datatype[1][key] != general_type:
+                        message = (
+                            "Variable {} of argument {} of wrong general data type for "
+                            "operator {}: expected {}, received {}.".format(
+                                key,
+                                i + 1,
+                                self.__class__.__name__,
+                                general_type,
+                                datatype[1][key],
+                            )
+                        )
+                        raise OperatorError(message)
+            else:
+                raise OperatorError(
+                    "Argument {} is not a DataArray or Dataset".format(arg)
                 )
-                raise OperatorError(message)
 
     @abstractmethod
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
