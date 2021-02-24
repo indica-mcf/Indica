@@ -35,11 +35,11 @@ class main_plasma_profs:
                ne_0=6.e19,
                vrot_0=0.5e5):
 
-        self.te = self.build_temperature(y_0=te_0, y_ped=te_0/3., x_ped=0.85,
+        self.te = self.build_temperature(y_0=te_0, y_ped=te_0/6., x_ped=0.85,
                                          datatype=("temperature", "electrons"))
-        self.ti = self.build_temperature(y_0=ti_0, y_ped=ti_0/3., x_ped=0.85,
+        self.ti = self.build_temperature(y_0=ti_0, y_ped=ti_0/6., x_ped=0.85,
                                          datatype=("temperature", "ions"))
-        self.ne = self.build_density(y_0=ne_0, y_ped=ne_0/5., x_ped=0.85,
+        self.ne = self.build_density(y_0=ne_0, y_ped=ne_0/2., x_ped=0.85,
                                      datatype=("density", "electrons"))
         self.vrot = self.build_rotation(y_0=vrot_0, y_ped=vrot_0/1.5, x_ped=0.8,
                                         w_edge=0.25,
@@ -85,7 +85,7 @@ class main_plasma_profs:
                             peaked=False) -> DataArray:
 
         x_core = np.linspace(0, x_ped, 30)
-        x_edge = np.linspace(x_ped, 1.05, 7)
+        x_edge = np.linspace(x_ped, 1.05, 15)
         x = np.concatenate([ x_core[:-1], x_edge ])
 
         x_edge = x[np.where(x >= x_ped)[0]]
@@ -98,7 +98,7 @@ class main_plasma_profs:
         if peaked:
             w_core = 0.3
 
-        y_edge = gaussian(x_edge, y_ped, 0.0, x_ped, w_edge)
+        y_edge = gaussian(x_edge, y_ped, 1.0, x_ped, w_edge)
         y_core = gaussian(x_core, y_0, y_ped, 0.0, w_core)
 
         if (np.abs(y_core[-1] - y_edge[0])/y_edge[0]) > 1.e-2:
@@ -106,7 +106,6 @@ class main_plasma_profs:
                        (y_core[0] - y_core[-1]) *
                        (y_core[0] - y_edge[0]) + y_edge[0]
                        )
-
         y = np.concatenate([
             y_core[:-1],
             y_edge

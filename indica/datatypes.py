@@ -108,6 +108,13 @@ ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "prsx": "sxr_recomb_emissions",
 }
 
+ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
+    "ca": "ca",
+    "cl": "cl",
+    "ic": "ic",
+    "ls": "ls",
+    "llu": "llu",
+}
 
 #: A list of the chemical elements, up to Tungston, ordered by atomic
 # number. Can be useful to be able to look up the name.

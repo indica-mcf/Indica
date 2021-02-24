@@ -7,6 +7,7 @@ from typing import Literal
 from typing import TextIO
 from typing import Union
 from urllib.request import urlretrieve
+from urllib.request import pathname2url
 
 import numpy as np
 import prov.model as prov
@@ -14,6 +15,7 @@ from xarray import DataArray
 
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
+from ..datatypes import ADF15_GENERAL_DATATYPES
 from ..datatypes import ORDERED_ELEMENTS
 from ..session import global_session
 from ..session import hash_vals
@@ -143,6 +145,119 @@ class ADASReader(BaseIO):
                 ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
                 ("log_electron_temperature", temperatures),
                 ("log_electron_density", densities + 6),
+            ],
+            name=name,
+            attrs=attrs,
+        )
+
+    def get_adf15(self, quantity: str, element: str, charge: str) -> DataArray:
+        """Read data from the specified ADAS file.
+
+        Parameters
+        ----------
+        quantity
+            The type of data to retrieve. Options: ic, cl, ca, ls, llu.
+        element
+            The atomic symbol for the element which will be retrieved.
+        charge
+            Charge state of the ion (e.g. 16 for Ar 16+).
+
+        Returns
+        -------
+        :
+            The data in the specified file. Dimensions are density and
+            temperature. Each members of the dataset correspond to a
+            different charge state.
+
+        """
+        now = datetime.datetime.now()
+        if quantity.lower()=="llu":
+            file_component = "transport"
+        else:
+            raise NotImplementedError(
+                "{} new format 'pec40' not implemented yet.".format(self.__class__.__name__)
+            )
+            # file_component = f"pec40][{element.lower()}"
+
+        filename = ( Path(pathname2url(file_component)) /
+                     pathname2url(f"{file_component}_{quantity.lower()}][{element.lower()}{charge}.dat")
+                     )
+        with self._get_file("adf15", filename) as f:
+            header = f.readline().split()
+            ntrans = int(header[0])
+            element_name = header[1][1:3].lower()
+            assert element_name==element.lower()
+            charge_state = header[1][4:6].lower()
+            assert charge_state==charge
+
+            date = datetime.date.min
+            for i in range(ntrans):
+                section_header = ""
+                section_header = f.readline()
+                m = re.search(r"ISEL =\s*(\d+)", section_header, re.I)
+                assert isinstance(m, re.Match)
+                assert int(m.group(1))-1 == i
+
+                m = re.search(r"TYPE =\s*(\S+)", section_header, re.I)
+                pec_type = m.group(1)
+
+                section_header = section_header.split()
+                wavelength = float(section_header[0]) / 10. # (nm)
+
+                if i==0:
+                    nd = int(section_header[2])
+                    nt = int(section_header[3])
+
+                    densities = np.fromfile(f, float, nd, " ")
+                    temperatures = np.fromfile(f, float, nt, " ")
+                    data = np.empty((ntrans, nt, nd))
+                    ttype = [""]*ntrans
+                    isel = np.empty(ntrans)
+                    wlng = np.empty(ntrans)
+                else:
+                    densities = np.fromfile(f, float, nd, " ")
+                    temperatures = np.fromfile(f, float, nt, " ")
+
+                isel[i] = i+1
+                ttype[i] = pec_type
+                wlng[i] = wavelength
+                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+
+            transition_header = -1
+            while transition_header<0:
+                section_header = f.readline()
+                transition_header = section_header.find("TRANSITION")
+            f.readline()
+            transition = []
+            for i in isel:
+                tmp = f.readline()
+                m = re.search("C \s+(\d+.)", tmp, re.I)
+                assert isinstance(m, re.Match)
+                assert int(m.group(1)[:-1]) == i
+
+                m = re.search(r"\d+\(\d\)\d\(.+\d.\d\)-.+\d\(\d\)\d\(.+\d.\d\)", tmp, re.I)
+                assert isinstance(m, re.Match)
+                transition.append(m.group(0))
+
+        gen_type = ADF15_GENERAL_DATATYPES[quantity]
+        spec_type = element #ORDERED_ELEMENTS[z]
+        name = f"log_{spec_type}_{gen_type}"
+        attrs = {
+            "datatype": (gen_type, spec_type),
+            "provenance": self.create_provenance(filename, now),
+            "wlng": wlng,
+            "type": ttype,
+            "transition":transition,
+        }
+
+        print("\n {} ADF15: add info on transition (end of file) \n".format(self.__class__.__name__))
+
+        return DataArray(
+            data * 10**6,
+            coords=[
+                ("isel", isel),
+                ("electron_density", densities * 10**6),
+                ("electron_temperature", temperatures),
             ],
             name=name,
             attrs=attrs,
