@@ -16,14 +16,12 @@ from xarray import concat
 from xarray import DataArray
 from xarray import where
 
+from . import session
 from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
 from .offset import interactive_offset_choice
 from .offset import OffsetPicker
 from .operators import SplineFit
-from .session import global_session
-from .session import hash_vals
-from .session import Session
 from .utilities import coord_array
 
 
@@ -53,7 +51,7 @@ class Equilibrium(AbstractEquilibrium):
     z_shift : flaot
         How much to shift the equilibrium profile downwards in the vertical
         coordinate.
-    sess : Session
+    sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
     offset_picker: OffsetPicker
@@ -68,7 +66,7 @@ class Equilibrium(AbstractEquilibrium):
         T_e: Optional[DataArray] = None,
         R_shift: float = 0.0,
         z_shift: float = 0.0,
-        sess: Session = global_session,
+        sess: session.Session = session.global_session,
         offset_picker: OffsetPicker = interactive_offset_choice,
     ):
         # def find_separatrix_index(data):
@@ -170,7 +168,7 @@ class Equilibrium(AbstractEquilibrium):
             np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
         ]
 
-        self.prov_id = hash_vals(
+        self.prov_id = session.hash_vals(
             **equilibrium_data, R_offset=self.R_offset, z_offset=self.z_offset
         )
         self.provenance = sess.prov.entity(

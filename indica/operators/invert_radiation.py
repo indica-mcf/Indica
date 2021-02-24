@@ -18,6 +18,7 @@ from xarray import where
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
+from .. import session
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
 from ..converters import FluxMajorRadCoordinates
@@ -26,8 +27,6 @@ from ..converters import ImpactParameterCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import DataType
 from ..datatypes import SpecificDataType
-from ..session import global_session
-from ..session import Session
 from ..utilities import broadcast_spline
 
 DataArrayCoords = Tuple[DataArray, DataArray]
@@ -182,7 +181,7 @@ class InvertRadiation(Operator):
     n_intervals : int
         The number of intervals over which to integrate th eemissivity. Should
         be :math:`2^m + 1`, where m is an integer.
-    sess : Session
+    sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
 
@@ -194,7 +193,7 @@ class InvertRadiation(Operator):
         datatype: SpecificDataType = "sxr",
         n_knots: int = 6,
         n_intervals: int = 65,
-        sess: Session = global_session,
+        sess: session.Session = session.global_session,
     ):
         self.n_knots = n_knots
         self.n_intervals = n_intervals

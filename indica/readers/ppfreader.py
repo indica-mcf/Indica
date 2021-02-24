@@ -29,9 +29,8 @@ from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
+from .. import session
 from ..datatypes import ELEMENTS_BY_MASS
-from ..session import global_session
-from ..session import Session
 from ..utilities import to_filename
 
 
@@ -71,7 +70,7 @@ class PPFReader(DataReader):
     default_error : float
         Relative uncertainty to use for diagnostics which do not provide a
         value themselves.
-    sess : Session
+    sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
 
@@ -139,7 +138,7 @@ class PPFReader(DataReader):
         default_error: float = 0.05,
         max_freq: float = 1e6,
         selector: DataSelector = choose_on_plot,
-        session: Session = global_session,
+        session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("jet", server)

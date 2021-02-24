@@ -35,6 +35,7 @@ from scipy.interpolate import RectBivariateSpline
 import xarray as xr
 from xarray.core.utils import either_dict_or_kwargs
 
+from . import session
 from .converters import CoordinateTransform
 from .converters.abstractconverter import Coordinates
 from .datatypes import ArrayType
@@ -42,9 +43,6 @@ from .datatypes import DatasetType
 from .equilibrium import Equilibrium
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
-from .session import global_session
-from .session import hash_vals
-from .session import Session
 
 
 def _convert_coords(
@@ -769,7 +767,7 @@ class InDiCAArrayAccessor:
     ):
         """Set the provenance of this object to include the new equilibrium value."""
         partial_prov = self._obj.attrs["partial_provenance"]
-        hash_id = hash_vals(
+        hash_id = session.hash_vals(
             data=partial_prov.identifier.localpart, equilibrium=value.prov_id
         )
         new_prov = value._session.prov.collection(hash_id)
@@ -777,7 +775,7 @@ class InDiCAArrayAccessor:
         new_prov.hadMember(value.provenance)
         self._obj.attrs["provenance"] = new_prov
         end_time = datetime.datetime.now()
-        activity_id = hash_vals(agent=value._session.agent, date=end_time)
+        activity_id = session.hash_vals(agent=value._session.agent, date=end_time)
         activity = value._session.prov.activity(
             activity_id, start_time, end_time, {prov.PROV_TYPE: "SetEquilibrium"}
         )
@@ -976,7 +974,7 @@ class InDiCADatasetAccessor:
         key: str,
         array: xr.DataArray,
         overwrite: bool = False,
-        session: Session = global_session,
+        sess: session.Session = session.global_session,
     ):
         """Adds an additional :py:class:`xarray.DataArray` to this
         :py:class:`xarray.Dataset`. This dataset must be used for
@@ -1002,7 +1000,7 @@ class InDiCADatasetAccessor:
         overwrite
             If ``True`` and ``key`` already exists in this Dataset then
             overwrite the old value. Otherwise raise an error.
-        session
+        sess
             An object representing the session being run. Contains information
             such as provenance data.
 
@@ -1031,22 +1029,22 @@ class InDiCADatasetAccessor:
         self._obj[key] = array
         old_prov = self._obj.attrs["provenance"]
         array_prov = array.attrs["provenance"]
-        hash_id = hash_vals(
+        hash_id = session.hash_vals(
             dataset=old_prov.identifier.localpart, array=array_prov.identifier.localpart
         )
-        new_prov = session.prov.collection(hash_id)
+        new_prov = sess.prov.collection(hash_id)
         for data in self._obj.data_vars.values():
             new_prov.hadMember(data.attrs["provenance"])
         self._obj.attrs["provenance"] = new_prov
         end_time = datetime.datetime.now()
-        activity_id = hash_vals(agent=session.agent, date=end_time)
-        activity = session.prov.activity(
+        activity_id = session.hash_vals(agent=sess.agent, date=end_time)
+        activity = sess.prov.activity(
             activity_id, start_time, end_time, {prov.PROV_TYPE: "AddToDataset"}
         )
-        activity.wasAssociatedWith(session.agent)
-        activity.wasInformedBy(session.session)
+        activity.wasAssociatedWith(sess.agent)
+        activity.wasInformedBy(sess.session)
         new_prov.wasGeneratedBy(activity, end_time)
-        new_prov.wasAttributedTo(session.agent)
+        new_prov.wasAttributedTo(sess.agent)
         new_prov.wasDerivedFrom(old_prov)
         new_prov.wasDerivedFrom(array_prov)
         activity.used(old_prov)
@@ -1085,7 +1083,9 @@ class InDiCADatasetAccessor:
         pass
 
 
-def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.Dataset:
+def aggregate(
+    sess: session.Session = session.global_session, **kwargs: xr.DataArray
+) -> xr.Dataset:
     """Combines the key-value pairs in ``kwargs`` into a Dataset,
     performing various checks.
 
@@ -1108,7 +1108,7 @@ def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.D
 
     Parameters
     ----------
-    session
+    sess
         An object representing the session being run. Contains information
         such as provenance data.
     kwargs
@@ -1136,20 +1136,20 @@ def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.D
         cast(Dict[Hashable, xr.DataArray], kwargs),
         attrs={"transform": first_val.attrs["transform"]},
     )
-    hash_id = hash_vals(
+    hash_id = session.hash_vals(
         **{k: v.attrs["provenance"].identifier.localpart for k, v in kwargs.items()},
     )
-    new_prov = session.prov.collection(hash_id)
+    new_prov = sess.prov.collection(hash_id)
     for data in kwargs.values():
         new_prov.hadMember(data.attrs["provenance"])
     dataset.attrs["provenance"] = new_prov
     end_time = datetime.datetime.now()
-    activity_id = hash_vals(agent=session.agent, date=end_time)
-    activity = session.prov.activity(
+    activity_id = session.hash_vals(agent=sess.agent, date=end_time)
+    activity = sess.prov.activity(
         activity_id, start_time, end_time, {prov.PROV_TYPE: "CreateDataset"}
     )
-    activity.wasAssociatedWith(session.agent)
-    activity.wasInformedBy(session.session)
+    activity.wasAssociatedWith(sess.agent)
+    activity.wasInformedBy(sess.session)
     new_prov.wasGeneratedBy(activity, end_time)
-    new_prov.wasAttributedTo(session.agent)
+    new_prov.wasAttributedTo(sess.agent)
     return dataset
