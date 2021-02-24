@@ -2,9 +2,12 @@
 
 """
 
+from contextlib import contextmanager
 import datetime
 from functools import wraps
 import hashlib
+import os
+import platform
 import re
 import typing
 
@@ -104,7 +107,12 @@ class Session:
         else:
             self._user = [self.prov.agent(user_id)]
         date = datetime.datetime.now()
-        session_properties = {"os": None, "directory": None, "host": None}
+        session_properties = {
+            "os": platform.platform(),
+            "directory": os.getcwd(),
+            "host": platform.node(),
+            "python": platform.python_version(),
+        }
         session_id = hash_vals(startTime=date, **session_properties)
         self.session = self.prov.activity(session_id, date, None, session_properties)
         self.prov.association(self.session, self._user[0])
@@ -165,6 +173,19 @@ class Session:
 
         """
         return self._user.pop()
+
+    @contextmanager
+    def new_agent(self, agent: prov.ProvAgent) -> prov.ProvAgent:
+        """A context manager for temporarily adding an agent to the
+        session. This is useful to ensure the agent will be removed even if
+        there is an exception thrown.
+
+        """
+        self.push_agent(agent)
+        try:
+            yield agent
+        finally:
+            self.pop_agent()
 
     def export(self, filename: str):
         """Write all of the data and operators from this session into a file,
