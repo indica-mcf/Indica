@@ -99,6 +99,7 @@ class Operator(ABC):
         self._input_provenance: List[prov.ProvEntity] = []
         self._prov_count = 0
         self._end_time: datetime.datetime
+        self.activity: prov.ProvActivity
         for i, datatype in enumerate(self.ARGUMENT_TYPES):
             if isinstance(datatype, EllipsisType):
                 if i + 1 != len(self.ARGUMENT_TYPES):
@@ -279,6 +280,18 @@ class Operator(ABC):
         # TODO: Generate multiple pieces of PROV data for multiple return values
         if self._prov_count == 0:
             self.end_time = datetime.datetime.now()
+            activity_id = hash_vals(agent=self.prov_id, date=self.end_time)
+            self.activity = self._session.prov.activity(
+                activity_id,
+                self._start_time,
+                self.end_time,
+                {prov.PROV_TYPE: "Calculation"},
+            )
+            self.activity.wasAssociatedWith(self._session.agent)
+            self.activity.wasAssociatedWith(self.agent)
+            self.activity.wasInformedBy(self._session.session)
+            for arg in self._input_provenance:
+                self.activity.used(arg)
         entity_id = hash_vals(
             creator=self.prov_id,
             date=self.end_time,
@@ -288,40 +301,42 @@ class Operator(ABC):
                 for i, p in enumerate(self._input_provenance)
             }
         )
-        activity_id = hash_vals(
-            agent=self.prov_id, date=self.end_time, activity_number=self._prov_count
-        )
         self._prov_count += 1
-        activity = self._session.prov.activity(
-            activity_id,
-            self._start_time,
-            self.end_time,
-            {prov.PROV_TYPE: "Calculation"},
-        )
-        activity.wasAssociatedWith(self._session.agent)
-        activity.wasAssociatedWith(self.agent)
-        activity.wasInformedBy(self._session.session)
         if isinstance(data, Dataset):
-            entity = self._session.prov.collection(entity_id)
-            for array in data.data_vars:
+            entity = self._session.prov.collection(
+                entity_id, {prov.PROV_TYPE: "Dataset"}
+            )
+            for array in data.data_vars.values():
+                print("----------------------1--------------------")
+                print(array.attrs)
                 if "provenance" not in array.attrs:
+                    print("Creating provenenace")
                     self.assign_provenance(array)
-            entity.hadMember(array.attrs["provenance"])
+                entity.hadMember(array.attrs["provenance"])
+                print("----------------------2--------------------")
         else:
-            entity = self._session.prov.entity(entity_id)
-        entity.wasGeneratedBy(activity, self.end_time)
+            entity = self._session.prov.entity(
+                entity_id,
+                {
+                    prov.PROV_TYPE: "DataArray",
+                    prov.PROV_VALUE: ",".join(data.attrs["datatype"]),
+                },
+            )
+        entity.wasGeneratedBy(self.activity, self.end_time)
         entity.wasAttributedTo(self._session.agent)
         entity.wasAttributedTo(self.agent)
         for arg in self._input_provenance:
             entity.wasDerivedFrom(arg)
-            activity.used(arg)
         if isinstance(data, Dataset):
             data.attrs["provenance"] = entity
         else:
             data.attrs["partial_provenance"] = entity
             if data.indica.equilibrium:
-                # Generate appropriate provenance given this equilibrium
-                data.indica.equilibrium = data.attrs["transform"].equilibrium
+                # print(data)
+                data.indica._update_prov_for_equilibrium(
+                    data.attrs["transform"].equilibrium
+                )
+                # print(data.attrs["provenance"])
             else:
                 data.attrs["provenance"] = entity
 
