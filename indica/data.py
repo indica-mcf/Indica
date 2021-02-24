@@ -762,23 +762,12 @@ class InDiCAArrayAccessor:
         """
         pass
 
-    @property
-    def equilibrium(self) -> Optional[Equilibrium]:
-        """The equilibrium object currently used by this DataArray (or, more
-        accurately, by its
-        :py:class:`~indica.converters.CoordinateTransform`
-        object). When setting or deleting this porperty, ensures
-        provenance will be updated accordingly.
-
-        """
-        return getattr(self._obj.attrs["transform"], "equilibrium", None)
-
-    @equilibrium.setter
-    def equilibrium(self, value: Equilibrium):
-        if value == self.equilibrium:
-            return
-        start_time = datetime.datetime.now()
-        self._obj.attrs["transform"].set_equilibrium(value)
+    def _update_prov_for_equilibrium(
+        self,
+        value: Equilibrium,
+        start_time: datetime.datetime = datetime.datetime.now(),
+    ):
+        """Set the provenance of this object to include the new equilibrium value."""
         partial_prov = self._obj.attrs["partial_provenance"]
         hash_id = hash_vals(
             data=partial_prov.identifier.localpart, equilibrium=value.prov_id
@@ -797,11 +786,35 @@ class InDiCAArrayAccessor:
         new_prov.wasGeneratedBy(activity, end_time)
         new_prov.wasAttributedTo(value._session.agent)
 
+    @property
+    def equilibrium(self) -> Optional[Equilibrium]:
+        """The equilibrium object currently used by this DataArray (or, more
+        accurately, by its
+        :py:class:`~indica.converters.CoordinateTransform`
+        object). When setting or deleting this porperty, ensures
+        provenance will be updated accordingly.
+
+        """
+        if "transform" in self._obj.attrs:
+            return getattr(self._obj.attrs["transform"], "equilibrium", None)
+        else:
+            return None
+
+    @equilibrium.setter
+    def equilibrium(self, value: Equilibrium):
+        if value == self.equilibrium:
+            return
+        start_time = datetime.datetime.now()
+        self._obj.attrs["transform"].set_equilibrium(value)
+        if "partial_provenance" in self._obj.attrs:
+            self._update_prov_for_equilibrium(value, start_time)
+
     @equilibrium.deleter
     def equilibrium(self):
         if hasattr(self._obj.attrs["transform"], "equilibrium"):
             del self._obj.attrs["transform"].equilibrium
-            self._obj.attrs["provenance"] = self._obj.attrs["partial_provenance"]
+            if "provenance" in self._obj.attrs:
+                self._obj.attrs["provenance"] = self._obj.attrs["partial_provenance"]
 
     @property
     def with_ignored_data(self) -> xr.DataArray:

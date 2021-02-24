@@ -11,6 +11,7 @@ from hypothesis.strategies import composite
 from hypothesis.strategies import dates
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import floats
+from hypothesis.strategies import from_regex
 from hypothesis.strategies import integers
 from hypothesis.strategies import lists
 from hypothesis.strategies import none
@@ -104,7 +105,7 @@ def dataset_datatypes(draw, min_size=0, max_size=5, allow_none=True):
     )
     contents = draw(
         dictionaries(
-            text(),
+            from_regex("[a-z0-9]+", fullmatch=True),
             general_datatypes(specific_type),
             min_size=min_size,
             max_size=max_size,
