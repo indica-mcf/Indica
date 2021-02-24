@@ -17,14 +17,12 @@ import prov.model as prov
 from xarray import DataArray
 from xarray import Dataset
 
+from .. import session
 from ..datatypes import DatasetType
 from ..datatypes import DataType
 from ..datatypes import DatatypeWarning
 from ..datatypes import GENERAL_DATATYPES
 from ..datatypes import SPECIFIC_DATATYPES
-from ..session import global_session
-from ..session import hash_vals
-from ..session import Session
 
 Data = Union[DataArray, Dataset]
 
@@ -51,7 +49,7 @@ class Operator(ABC):
 
     Parameters
     ----------
-    sess: Session
+    sess: session.Session
         An object representing the session being run. Contains information
         such as provenance data.
     kwargs: Any
@@ -79,7 +77,7 @@ class Operator(ABC):
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    def __init__(self, sess: Session = global_session, **kwargs: Any):
+    def __init__(self, sess: session.Session = session.global_session, **kwargs: Any):
         """Creates a provenance entity/agent for the operator object. Also
         checks arguments and results are of valid datatypes. Should be
         called by initialisers in subclasses.
@@ -88,7 +86,9 @@ class Operator(ABC):
         self._session = sess
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
-        self.prov_id = hash_vals(operator_type=self.__class__.__name__, **kwargs)
+        self.prov_id = session.hash_vals(
+            operator_type=self.__class__.__name__, **kwargs
+        )
         self.agent = self._session.prov.agent(self.prov_id)
         self._session.prov.actedOnBehalfOf(self.agent, self._session.agent)
         self.entity = self._session.prov.entity(self.prov_id, kwargs)
@@ -280,7 +280,7 @@ class Operator(ABC):
         # TODO: Generate multiple pieces of PROV data for multiple return values
         if self._prov_count == 0:
             self.end_time = datetime.datetime.now()
-            activity_id = hash_vals(agent=self.prov_id, date=self.end_time)
+            activity_id = session.hash_vals(agent=self.prov_id, date=self.end_time)
             self.activity = self._session.prov.activity(
                 activity_id,
                 self._start_time,
@@ -292,7 +292,7 @@ class Operator(ABC):
             self.activity.wasInformedBy(self._session.session)
             for arg in self._input_provenance:
                 self.activity.used(arg)
-        entity_id = hash_vals(
+        entity_id = session.hash_vals(
             creator=self.prov_id,
             date=self.end_time,
             result_number=self._prov_count,

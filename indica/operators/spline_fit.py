@@ -19,13 +19,12 @@ from xarray import DataArray
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
+from .. import session
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
 from ..converters import FluxSurfaceCoordinates
 from ..datatypes import DataType
 from ..numpy_typing import ArrayLike
-from ..session import global_session
-from ..session import Session
 from ..utilities import broadcast_spline
 from ..utilities import coord_array
 
@@ -118,7 +117,7 @@ class SplineFit(Operator):
     upper_bound : ArrayLike
         The upper bounds to use for values at each not. May be either a
         scalar or an array of the same shape as ``knots``.
-    sess : Session
+    sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
 
@@ -136,7 +135,7 @@ class SplineFit(Operator):
         knots: ArrayLike = [0.0, 0.3, 0.6, 0.85, 0.95, 1.05],
         lower_bound: ArrayLike = -np.inf,
         upper_bound: ArrayLike = np.inf,
-        sess: Session = global_session,
+        sess: session.Session = session.global_session,
     ):
         self.knots = coord_array(knots, "rho_poloidal")
         self.lower_bound = lower_bound
@@ -298,6 +297,6 @@ class SplineFit(Operator):
         result.attrs["datatype"] = data[0].attrs["datatype"]
         self.assign_provenance(result)
         self.assign_provenance(self.spline_vals)
-        for data in binned_data:
-            self.assign_provenance(data)
+        for d in binned_data:
+            self.assign_provenance(d)
         return result, self.spline_vals, *binned_data
