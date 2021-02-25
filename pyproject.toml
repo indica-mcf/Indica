@@ -29,9 +29,9 @@ authors = [
     "Chris MacMackin <chris.macmackin@ukaea.uk>"
 ]
 maintainers = [
-    "Chris MacMackin <chris.macmackin@ukaea.uk>",
     "Edward Litherland-Smith <edward.litherland-smith@ukaea.uk>",
     "Shane Scully <shane.scully@ukaea.uk>"
+    "Chris MacMackin <chris.macmackin@ukaea.uk>",
 ]
 repository = "https://github.com/ukaea/Indica"
 documentation = "https://indica-ukaea.readthedocs.io/"
