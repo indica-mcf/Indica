@@ -30,7 +30,7 @@ authors = [
 ]
 maintainers = [
     "Edward Litherland-Smith <edward.litherland-smith@ukaea.uk>",
-    "Shane Scully <shane.scully@ukaea.uk>"
+    "Shane Scully <shane.scully@ukaea.uk>",
     "Chris MacMackin <chris.macmackin@ukaea.uk>",
 ]
 repository = "https://github.com/ukaea/Indica"
