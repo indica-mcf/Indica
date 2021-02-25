@@ -25,9 +25,16 @@ description = "Integrated Diagnostic Composition Analysis"
 license = "GPL-3.0-or-later"
 
 authors = [
-    "Marco Sertoli <marco.sertoli@ukaea.uk>",
+    "Marco Sertoli <marco.sertoli@outlook.com>",
     "Chris MacMackin <chris.macmackin@ukaea.uk>"
 ]
+maintainers = [
+    "Chris MacMackin <chris.macmackin@ukaea.uk>",
+    "Edward Litherland-Smith <edward.litherland-smith@ukaea.uk>",
+    "Shane Scully <shane.scully@ukaea.uk>"
+]
+repository = "https://github.com/ukaea/Indica"
+documentation = "https://indica-ukaea.readthedocs.io/"
 
 readme = 'README.md'  # Markdown files are supported
 include = [".git", "indica/git_version"]
