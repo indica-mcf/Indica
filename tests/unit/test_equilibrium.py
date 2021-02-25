@@ -207,7 +207,7 @@ def test_hfs_rad_consistent(equilib, coords, ftype):
     assert np.all(R_hfs <= R_mag)
 
 
-@settings(deadline=500)
+@settings(deadline=None)
 @given(
     equilibrium_data_and_Te(max_spatial_points=10, max_time_points=5),
     flux_types(),
@@ -227,7 +227,7 @@ def test_lfs_rad_expected(equilib_Te, ftype, offset, use_explicit_t):
     assert R_lfs.values == approx(expected.values)
 
 
-@settings(deadline=500)
+@settings(deadline=None)
 @given(
     equilibrium_data_and_Te(),
     flux_types(),

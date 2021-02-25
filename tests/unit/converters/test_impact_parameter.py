@@ -187,7 +187,7 @@ pytestmark = [
     parallel_impact_parameter_coordinates(),
     arbitrary_coordinates((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), xarray=True),
 )
-@settings(report_multiple_bugs=False, deadline=500)
+@settings(report_multiple_bugs=False, deadline=None)
 def test_parallel_from_Rz(transform_data, coords):
     transform, vertical, Rvals, zvals = transform_data
     R, z, t = coords
@@ -232,7 +232,7 @@ def test_parallel_from_Rz(transform_data, coords):
     parallel_impact_parameter_coordinates(),
     arbitrary_coordinates((0.0, 0.0, 0.0), (1.0, 1.0, 1.0), xarray=True),
 )
-@settings(deadline=500)
+@settings(deadline=None)
 def test_parallel_to_Rz(transform_data, coords):
     transform, vertical, Rvals, zvals = transform_data
     R, z, t = coords
