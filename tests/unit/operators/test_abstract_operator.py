@@ -122,14 +122,14 @@ def variadic_arguments(draw, args):
                 small_data_arrays.map(
                     lambda x: x.assign_attrs(datatype=args[-1].attrs["datatype"])
                 ),
-                max_size=10,
+                max_size=3,
             )
         )
     elif isinstance(args[-1], Dataset):
         return args + draw(
             lists(
                 small_datasets_from_type(args[-1].attrs["datatype"], allow_extra=True),
-                max_size=10,
+                max_size=3,
             )
         )
     else:

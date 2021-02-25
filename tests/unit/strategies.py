@@ -172,7 +172,8 @@ def separable_functions(draw, *args):
 
     def func(*coords):
         assert len(coords) == len(funcs)
-        return reduce(lambda x, y: x * y, [f(c) for f, c in zip(funcs, coords)])
+        tmp = [f(c) for f, c in zip(funcs, coords)]
+        return reduce(lambda x, y: x * y, tmp)
 
     return func
 

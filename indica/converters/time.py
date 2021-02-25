@@ -91,7 +91,9 @@ def interpolate_in_time(
     if "dropped" in data.attrs:
         ddim = data.indica.drop_dim
         result = result.indica.ignore_data(data.attrs["dropped"].coords[ddim], ddim)
-
+    if "provenance" in data.attrs:
+        del result.attrs["partial_provenance"]
+        del result.attrs["provenance"]
     return result
 
 
@@ -156,8 +158,8 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             )
             averaged.attrs["dropped"].attrs["error"] = uncertainty.rename(t_bins="t")
     if "provenance" in data.attrs:
-        del data.attrs["partial_provenance"]
-        del data.attrs["provenance"]
+        del averaged.attrs["partial_provenance"]
+        del averaged.attrs["provenance"]
     return averaged.rename(t_bins="t")
 
 
