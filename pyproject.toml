@@ -30,6 +30,7 @@ authors = [
 ]
 
 readme = 'README.md'  # Markdown files are supported
+include = [".git", "indica/git_version"]
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
@@ -56,3 +57,7 @@ sphinxcontrib-plantuml = "^0.18"
 
 [tool.poetry.extras]
 docs = ["sphinx", "sphinxcontrib-plantuml"]
+
+[tool.poetry.build]
+generate-setup-file = false
+script = ".get_git_commit.py"

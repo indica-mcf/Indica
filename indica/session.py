@@ -7,10 +7,13 @@ import datetime
 from functools import wraps
 import hashlib
 import os
+from pathlib import Path
 import platform
 import re
+import subprocess
 import typing
 
+import pkg_resources
 import prov.model as prov
 from xarray import DataArray
 from xarray import Dataset
@@ -58,6 +61,56 @@ def hash_vals(**kwargs: typing.Any) -> str:
         hash_result.update(bytes(str(val), encoding="utf-8"))
         hash_result.update(b",")
     return hash_result.hexdigest()
+
+
+def package_provenance(
+    doc: prov.ProvDocument, package_name: str
+) -> typing.Tuple[prov.ProvEntity, prov.ProvEntity]:
+    """Returns provenance for the requested package. This provenance will
+    include version information for all dependencies. Returns a tuple
+    of the provenance for the package in general and the specific
+    installation being used here.
+
+    """
+    doc.add_namespace("pypi", "https://pypi.org/project/")
+    doc.add_namespace("local", "file://")
+    package = pkg_resources.working_set.find(
+        pkg_resources.Requirement.parse(package_name)
+    )
+    assert isinstance(package, pkg_resources.Distribution)
+    general_entity = doc.entity(
+        f"pypi:{package.project_name}",
+        {"pypi:package": package.project_name},
+    )
+    version_entity = doc.entity(
+        f"pypi:{package.project_name}/{package.version}",
+        {"pypi:version": package.version},
+    )
+    version_entity.specializationOf(general_entity)
+    path = Path(package.location) / package.project_name
+    realpath = path.with_suffix(".pth")
+    if realpath.exists():
+        with realpath.open() as p:
+            path = Path(p.read())
+    if (path / ".git").exists():
+        git_hash = subprocess.check_output(
+            ["git", "describe", "--tags", "--always", "--dirty"], cwd=path, text=True
+        ).strip()
+
+    installed_entity = doc.entity(
+        f"local:{path}", {"host": platform.node(), "git_description": git_hash}
+    )
+    installed_entity.specializationOf(version_entity)
+    # Deal with case where package not installed at location
+    # - editable install
+    #
+    for dep in package.requires():
+        dep_general_entity, dep_installed_entity = package_provenance(
+            doc, dep.project_name
+        )
+        version_entity.wasDerivedFrom(dep_general_entity)
+        installed_entity.wasDerivedFrom(dep_installed_entity)
+    return general_entity, installed_entity
 
 
 class Session:
@@ -115,6 +168,8 @@ class Session:
         }
         session_id = hash_vals(startTime=date, **session_properties)
         self.session = self.prov.activity(session_id, date, None, session_properties)
+        self.indica_prov = package_provenance(self.prov, "indica")[1]
+        self.session.used(self.indica_prov)
         self.prov.association(self.session, self._user[0])
 
         self.data: typing.Dict[str, typing.Union[DataArray, Dataset]] = {}
@@ -293,7 +348,7 @@ def generate_prov(pass_sess: bool = False):
                             activity=activity_id,
                             position=str(i),
                             name=r.name,
-                            **id_attrs
+                            **id_attrs,
                         )
                         entity = session.prov.entity(entity_id)
                         entity.wasGeneratedBy(activity, end_time)
