@@ -52,7 +52,7 @@ def dropped_dimension(array):
 # TODO: Write tests for inversion routines, interp2d, with_Rz_coords
 
 
-@settings(deadline=300)
+@settings(deadline=None)
 @given(
     data_arrays(
         coordinates_and_axes=coordinate_transforms_and_axes(min_side=2, max_side=3)
