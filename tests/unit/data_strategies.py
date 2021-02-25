@@ -122,7 +122,7 @@ def compatible_dataset_types(draw, datatype):
     same as that for the dataset as a whole, and all variables have either
     the same or unconstrained general datatype."""
     result_vars = draw(
-        lists(sampled_from(datatype[1]), min_size=1, unique=True).map(
+        lists(sampled_from(sorted(datatype[1].keys())), min_size=1, unique=True).map(
             lambda keys: {k: datatype[1][k] for k in keys}
         )
     )

@@ -868,12 +868,16 @@ class InDiCAArrayAccessor:
             along the specified dimension marked as NaN.
 
         """
+        if len(labels) == 0:
+            return self._obj
         ddim = self.drop_dim
         if ddim and ddim != dimension:
             raise ValueError(
                 f"Can not not ignore data along dimension {dimension}; channels "
                 f"have already been ignored in dimension {ddim}."
             )
+        elif dimension not in self._obj.dims:
+            raise ValueError(f"Dimension {dimension} not present in data array.")
         if ddim:
             unique_labels = list(
                 filter(
