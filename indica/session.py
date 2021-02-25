@@ -124,9 +124,6 @@ def package_provenance(
         f"local:{path}", {"host": platform.node(), "git_commit": git_hash}
     )
     installed_entity.specializationOf(version_entity)
-    # Deal with case where package not installed at location
-    # - editable install
-    #
     for dep in package.requires():
         dep_general_entity, dep_installed_entity = package_provenance(
             doc, dep.project_name
