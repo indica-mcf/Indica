@@ -3,9 +3,12 @@
 """
 
 from contextlib import contextmanager
+from contextlib import redirect_stderr
 import datetime
 from functools import wraps
 import hashlib
+import importlib
+import io
 import os
 from pathlib import Path
 import platform
@@ -87,18 +90,38 @@ def package_provenance(
         {"pypi:version": package.version},
     )
     version_entity.specializationOf(general_entity)
-    path = Path(package.location) / package.project_name
-    realpath = path.with_suffix(".pth")
-    if realpath.exists():
-        with realpath.open() as p:
-            path = Path(p.read())
-    if (path / ".git").exists():
-        git_hash = subprocess.check_output(
-            ["git", "describe", "--tags", "--always", "--dirty"], cwd=path, text=True
-        ).strip()
-
+    # Some modules print things when imported, so capture this
+    tmp_output = io.StringIO()
+    try:
+        with redirect_stderr(tmp_output), redirect_stderr(tmp_output):
+            path = Path(importlib.import_module(package.project_name).__file__).parent
+        # Check this directory and the parent directory for git repository
+        # TODO: Check all parent directories, but only if the child directory
+        # is not ignored.
+        # if any((p / ".git").exists() for p in [path] + path.parents):
+        if (path / ".git").exists() or (path.parent / ".git").exists():
+            git_hash = subprocess.check_output(
+                ["git", "describe", "--always"], cwd=path, text=True
+            ).strip()
+            git_diff = subprocess.check_output(
+                ["git", "diff", "HEAD", "--", "indica"], text=True
+            ).strip()
+            if len(git_diff) > 0:
+                git_hash += "-dirty"
+        elif (path / "git_version").exists():
+            with (path / "git_version").open() as f:
+                git_hash = f.read()
+        else:
+            git_hash = "UNKNOWN"
+    except ModuleNotFoundError:
+        path = Path(package.location) / package.project_name
+        git_hash = "UNKNOWN"
+    except Exception:
+        tmp_output.seek(0)
+        print(tmp_output.read())
+        raise
     installed_entity = doc.entity(
-        f"local:{path}", {"host": platform.node(), "git_description": git_hash}
+        f"local:{path}", {"host": platform.node(), "git_commit": git_hash}
     )
     installed_entity.specializationOf(version_entity)
     # Deal with case where package not installed at location
