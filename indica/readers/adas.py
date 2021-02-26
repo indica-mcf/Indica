@@ -190,34 +190,30 @@ class ADASReader(BaseIO):
             charge_state = header[1][4:6].lower()
             assert charge_state==charge
 
+            # Read first section header to build arrays outside of reading loop
+            section_header = f.readline().strip()
+            m = re.search(r"(\d+.\d)\s+\S+\s+(\d+)\s+(\d+).+TYPE\s=\s(\S+).+ISEL.+=\s+(\d+)", section_header, re.I)
+            assert isinstance(m, re.Match)
+
+            nd = int(m.group(2))
+            nt = int(m.group(3))
+            data = np.empty((ntrans, nt, nd))
+            ttype = [""] * ntrans
+            tindex = np.empty(ntrans)
+            wavelength = np.empty(ntrans)
+
             # Read Photon Emissivity Coefficient rates
             for i in range(ntrans):
-                section_header = f.readline()
-                m = re.search(r"ISEL =\s*(\d+)", section_header, re.I)
+                if i>0:
+                    section_header = f.readline().strip()
+                m = re.search(r"(\d+.\d)\s+\S+\s+(\d+)\s+(\d+).+TYPE\s=\s(\S+).+ISEL.+=\s+(\d+)", section_header, re.I)
                 assert isinstance(m, re.Match)
-                assert int(m.group(1))-1 == i
-
-                m = re.search(r"TYPE =\s*(\S+)", section_header, re.I)
-                t_type = m.group(1)
-
-                section_header = section_header.split()
-                if i==0:
-                    nd = int(section_header[2])
-                    nt = int(section_header[3])
-
-                    densities = np.fromfile(f, float, nd, " ")
-                    temperatures = np.fromfile(f, float, nt, " ")
-                    data = np.empty((ntrans, nt, nd))
-                    ttype = [""]*ntrans
-                    tindex = np.empty(ntrans)
-                    wavelength = np.empty(ntrans)
-                else:
-                    _densities = np.fromfile(f, float, nd, " ")
-                    _temperatures = np.fromfile(f, float, nt, " ")
-
+                assert int(m.group(5))-1 == i
                 tindex[i] = i+1
-                ttype[i] = t_type
-                wavelength[i] = float(section_header[0]) / 10. # (nm)
+                ttype[i] = m.group(4)
+                wavelength[i] = float(m.group(1)) / 10.  # (nm)
+                densities = np.fromfile(f, float, nd, " ")
+                temperatures = np.fromfile(f, float, nt, " ")
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
 
             # Read Configuration information
@@ -235,10 +231,10 @@ class ADASReader(BaseIO):
                                                    "energy":float(m.group(4))}
 
             # Read Transition information from end of file
-            transition_header = -1
-            while transition_header<0:
+            trans_header = -1
+            while trans_header<0:
                 section_header = f.readline()
-                transition_header = section_header.lower().find("transition")
+                trans_header = section_header.lower().find("transition")
 
             f.readline()
             config_indices = []
