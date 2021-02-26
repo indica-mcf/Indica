@@ -21,6 +21,7 @@ Contents:
    data
    design
    prov_schema
+   developers
    api
 
 

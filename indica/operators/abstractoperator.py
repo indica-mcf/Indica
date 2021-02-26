@@ -307,13 +307,10 @@ class Operator(ABC):
                 entity_id, {prov.PROV_TYPE: "Dataset"}
             )
             for array in data.data_vars.values():
-                print("----------------------1--------------------")
-                print(array.attrs)
                 if "provenance" not in array.attrs:
                     print("Creating provenenace")
                     self.assign_provenance(array)
                 entity.hadMember(array.attrs["provenance"])
-                print("----------------------2--------------------")
         else:
             entity = self._session.prov.entity(
                 entity_id,

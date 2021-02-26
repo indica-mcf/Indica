@@ -202,6 +202,7 @@ class SplineFit(Operator):
             interpolate results onto arbitrary coordinates.
 
         """
+        self.validate_arguments(rho, times, *data)
         n_knots = len(self.knots)
         flux_surfaces = FluxSurfaceCoordinates("poloidal")
         flux_surfaces.set_equilibrium(data[0].indica.equilibrium)
