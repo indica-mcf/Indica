@@ -172,18 +172,15 @@ class Session:
     """
 
     def __init__(self, user_id: str):
-        # Use an empty ID to short-circuit all of the provenance
-        # calculation. This is useful to prevent provenance being
-        # built whenever this module is imported.
-        if user_id == "":
-            return
         self.prov = prov.ProvDocument()
         self.prov.set_default_namespace("https://ccfe.ukaea.uk/")
         if ORCID_RE.match(user_id):
             self.prov.add_namespace("orcid", "https://orcid.org/")
             self._user = [self.prov.agent("orcid:" + user_id)]
         else:
-            self._user = [self.prov.agent(user_id)]
+            self._user = [
+                self.prov.agent(user_id if user_id else "example@example.com")
+            ]
         date = datetime.datetime.now()
         session_properties = {
             "os": platform.platform(),
@@ -193,8 +190,12 @@ class Session:
         }
         session_id = hash_vals(startTime=date, **session_properties)
         self.session = self.prov.activity(session_id, date, None, session_properties)
-        self.indica_prov = package_provenance(self.prov, "indica")[1]
-        self.session.used(self.indica_prov)
+        # Use an empty ID to short-circuit all of the provenance
+        # calculation. This is useful to prevent provenance being
+        # built whenever this module is imported.
+        if user_id != "":
+            self.indica_prov = package_provenance(self.prov, "indica")[1]
+            self.session.used(self.indica_prov)
         self.prov.association(self.session, self._user[0])
 
         self.data: typing.Dict[str, typing.Union[DataArray, Dataset]] = {}

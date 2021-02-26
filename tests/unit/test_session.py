@@ -5,6 +5,7 @@ from unittest import mock
 
 from hypothesis import assume
 from hypothesis import given
+from hypothesis import settings
 from hypothesis.strategies import composite
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import emails
@@ -33,6 +34,7 @@ def test_hash_vals_unique(inputs):
     assert hash1 != hash2
 
 
+@settings(deadline=None)
 @given(text(), text(), text(), text(), emails())
 def test_session_initialises_prov(os, directory, host, python, email):
     from indica.session import platform
@@ -53,7 +55,6 @@ def test_session_initialises_prov(os, directory, host, python, email):
     assert session.session.get_attribute("directory") == {directory}
     assert session.session.get_attribute("host") == {host}
     assert session.session.get_attribute("python") == {python}
-    # Test dependency data
 
 
 def test_session_initialise_orcid():
