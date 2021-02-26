@@ -143,7 +143,14 @@ class PPFReader(DataReader):
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
         super().__init__(
-            tstart, tend, max_freq, session, selector, pulse=pulse, server=server
+            tstart,
+            tend,
+            max_freq,
+            session,
+            selector,
+            pulse=pulse,
+            server=server,
+            default_error=default_error,
         )
         self.pulse = pulse
         self._client = SALClient(server)

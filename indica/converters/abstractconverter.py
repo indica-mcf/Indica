@@ -247,7 +247,10 @@ class CoordinateTransform(ABC):
         elif not hasattr(other, "equilibrium"):
             return False
         else:
-            return self.equilibrium == other.equilibrium
+            result = self.equilibrium == other.equilibrium
+            result = result and self.x1_name == other.x1_name
+            result = result and self.x2_name == other.x2_name
+            return result
 
     @abstractmethod
     def __eq__(self, other: object) -> bool:
