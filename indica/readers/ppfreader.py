@@ -534,8 +534,6 @@ class PPFReader(DataReader):
 
         Parameters
         ----------
-        category:
-            type of data being fetched (based on name of the reader method used).
         uid
             User ID (i.e., which user created this data).
         instrument

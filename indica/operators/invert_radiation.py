@@ -282,7 +282,7 @@ class InvertRadiation(Operator):
             Major radii on which to return emissivity result.
         z
             Theta coordinates on which to return emissivity result.
-        t
+        times
             Time coordinatse on which to return emissivity result.
         cameras
             The luminosity data being fit to, with each camera passed
@@ -293,18 +293,21 @@ class InvertRadiation(Operator):
         : DataArray
             The fit emissivity, on the R-z grid. Will also contain an
             attribute "emissivity_model", which is an
-            `:py:class:indica.operators.invert_radiation.EmissivityProfile`
+            :py:class:`indica.operators.invert_radiation.EmissivityProfile`
             object that can interpolate the fit emissivity onto
             arbitrary coordinates.
         : Dataset
             A dataset containing
+
             - **symmetric_emissivity**: The symmetric emissivity
                values which were found during the fit, given along
                :math:`\\rho`.
             - **asymmetry_parameter**: The asymmetry of the emissivity
               which was found during the fit, given along :math:`\\rho`.
+
         : Dataset
             For each camera passed as an argument, a dataset containing
+
             - **camera**: The radiation data for that camera, binned in time.
             - **back_integral**: The integral of the fit emissivity along
               the lines of sight of the camera.
@@ -459,7 +462,6 @@ class InvertRadiation(Operator):
         emissivity.attrs["emissivity_model"] = estimate
         emissivity.name = self.datatype + "_emissivity"
 
-        # TODO: Use aggregate...
         results: Dataset = Dataset(
             {
                 "symmetric_emissivity": symmetric_emissivity,

@@ -1350,13 +1350,11 @@ class DataReader(BaseIO):
     ) -> List[Number]:
         """Returns a list of channels which are known to be bad for all pulses
         on this instrument. Typically this would be for reasons of
-        geometriy (e.g., lines of sight facing the diverter). This
+        geometry (e.g., lines of sight facing the diverter). This
         should be overridden with machine-specific information.
 
         Parameters
         ----------
-        category:
-            type of data being fetched (based on name of the reader method used).
         uid
             User ID (i.e., which user created this data).
         instrument

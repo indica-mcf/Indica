@@ -311,7 +311,8 @@ intersphinx_mapping = {
 # Autodoc configurations
 autodoc_mock_imports = [
     "matplotlib",
-    "numpy",
+    # Can't seem to mock -np.inf, so need to import NumPy
+    # "numpy",
     "prov",
     "sal",
     "scipy",
