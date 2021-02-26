@@ -172,6 +172,11 @@ class Session:
     """
 
     def __init__(self, user_id: str):
+        # Use an empty ID to short-circuit all of the provenance
+        # calculation. This is useful to prevent provenance being
+        # built whenever this module is imported.
+        if user_id == "":
+            return
         self.prov = prov.ProvDocument()
         self.prov.set_default_namespace("https://ccfe.ukaea.uk/")
         if ORCID_RE.match(user_id):
@@ -293,7 +298,7 @@ class Session:
         pass
 
 
-global_session = Session("anonymous@example.com")
+global_session = Session("")
 
 
 def generate_prov(pass_sess: bool = False):
