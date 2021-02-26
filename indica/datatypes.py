@@ -109,11 +109,11 @@ ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
 }
 
 ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
-    "ca": "ca",
-    "cl": "cl",
-    "ic": "ic",
-    "ls": "ls",
-    "llu": "llu",
+    "ca": "photon_emissivity_coefficients_ca",
+    "cl": "photon_emissivity_coefficients_cl",
+    "ic": "photon_emissivity_coefficients_ic",
+    "ls": "photon_emissivity_coefficients_ls",
+    "llu": "photon_emissivity_coefficients_llu",
 }
 
 #: A list of the chemical elements, up to Tungston, ordered by atomic

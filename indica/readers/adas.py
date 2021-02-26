@@ -133,7 +133,7 @@ class ADASReader(BaseIO):
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
         gen_type = ADF11_GENERAL_DATATYPES[quantity]
         spec_type = ORDERED_ELEMENTS[z]
-        name = f"log_{spec_type}_{gen_type}"
+        name = f"log10_{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),
             "date": date,
@@ -143,8 +143,8 @@ class ADASReader(BaseIO):
             data - 6,
             coords=[
                 ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
-                ("log_electron_temperature", temperatures),
-                ("log_electron_density", densities + 6),
+                ("log10_electron_temperature", temperatures),
+                ("log10_electron_density", densities + 6),
             ],
             name=name,
             attrs=attrs,
@@ -190,20 +190,17 @@ class ADASReader(BaseIO):
             charge_state = header[1][4:6].lower()
             assert charge_state==charge
 
-            date = datetime.date.min
+            # Read Photon Emissivity Coefficient rates
             for i in range(ntrans):
-                section_header = ""
                 section_header = f.readline()
                 m = re.search(r"ISEL =\s*(\d+)", section_header, re.I)
                 assert isinstance(m, re.Match)
                 assert int(m.group(1))-1 == i
 
                 m = re.search(r"TYPE =\s*(\S+)", section_header, re.I)
-                pec_type = m.group(1)
+                t_type = m.group(1)
 
                 section_header = section_header.split()
-                wavelength = float(section_header[0]) / 10. # (nm)
-
                 if i==0:
                     nd = int(section_header[2])
                     nt = int(section_header[3])
@@ -212,56 +209,76 @@ class ADASReader(BaseIO):
                     temperatures = np.fromfile(f, float, nt, " ")
                     data = np.empty((ntrans, nt, nd))
                     ttype = [""]*ntrans
-                    isel = np.empty(ntrans)
-                    wlng = np.empty(ntrans)
+                    tindex = np.empty(ntrans)
+                    wavelength = np.empty(ntrans)
                 else:
-                    densities = np.fromfile(f, float, nd, " ")
-                    temperatures = np.fromfile(f, float, nt, " ")
+                    _densities = np.fromfile(f, float, nd, " ")
+                    _temperatures = np.fromfile(f, float, nt, " ")
 
-                isel[i] = i+1
-                ttype[i] = pec_type
-                wlng[i] = wavelength
+                tindex[i] = i+1
+                ttype[i] = t_type
+                wavelength[i] = float(section_header[0]) / 10. # (nm)
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
 
+            # Read Configuration information
+            config_header = -1
+            while config_header<0:
+                section_header = f.readline()
+                config_header = section_header.lower().find("configuration")
+            configurations = {}
+            while True:
+                tmp = f.readline()
+                m = re.search(r"C\s+(\d)\s+.+(\(\d\S\))\s+(\(\d\)\d\(.+\d.\d\))\s+(\d+.\d+)", tmp, re.I)
+                if not isinstance(m, re.Match):
+                    break
+                configurations[int(m.group(1))] = {"configuration":m.group(3).replace(" ", ""),
+                                                   "energy":float(m.group(4))}
+
+            # Read Transition information from end of file
             transition_header = -1
             while transition_header<0:
                 section_header = f.readline()
-                transition_header = section_header.find("TRANSITION")
+                transition_header = section_header.lower().find("transition")
+
             f.readline()
+            config_indices = []
             transition = []
-            for i in isel:
+            for i in tindex:
                 tmp = f.readline()
-                m = re.search("C \s+(\d+.)", tmp, re.I)
+                m = re.search(r"C\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))", tmp, re.I)
                 assert isinstance(m, re.Match)
                 assert int(m.group(1)[:-1]) == i
-
-                m = re.search(r"\d+\(\d\)\d\(.+\d.\d\)-.+\d\(\d\)\d\(.+\d.\d\)", tmp, re.I)
-                assert isinstance(m, re.Match)
-                transition.append(m.group(0))
+                config_indices.append(f"{m.group(3)}-{m.group(5)}")
+                transition.append(f"{m.group(4)}-{m.group(6)}".replace(" ", ""))
 
         gen_type = ADF15_GENERAL_DATATYPES[quantity]
-        spec_type = element #ORDERED_ELEMENTS[z]
-        name = f"log_{spec_type}_{gen_type}"
+        spec_type = element
+        name = f"{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),
             "provenance": self.create_provenance(filename, now),
-            "wlng": wlng,
-            "type": ttype,
-            "transition":transition,
+            "configurations": configurations,
         }
 
-        print("\n {} ADF15: add info on transition (end of file) \n".format(self.__class__.__name__))
-
-        return DataArray(
+        pecs = DataArray(
             data * 10**6,
             coords=[
-                ("isel", isel),
-                ("electron_density", densities * 10**6),
-                ("electron_temperature", temperatures),
+                ("index", tindex),
+                ("electron_density", densities * 10**6), # m**-3
+                ("electron_temperature", temperatures), # eV
             ],
+            dims=["index", "electron_density", "electron_temperature"],
             name=name,
             attrs=attrs,
         )
+
+        # Add extra dimensions attached to index
+        pecs = pecs.assign_coords(wavelength =("index", wavelength)) # (nm)
+        pecs = pecs.assign_coords(transition=("index", transition)) # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
+        pecs = pecs.assign_coords(config_indices=("index", config_indices)) # Indices of configurations
+        pecs = pecs.assign_coords(type=("index", ttype)) # (excit, recomb, cx)
+
+        return pecs
 
     def create_provenance(
         self, filename: Path, start_time: datetime.datetime
