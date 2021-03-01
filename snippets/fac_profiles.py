@@ -14,13 +14,10 @@ class main_plasma_profs:
         Results are saved as xarray.DataArray
 
         """
-
         self.h_mode()
 
     def h_mode(self, te_0=3.5e3, ti_0=3.5e3, ne_0=6.0e19, vrot_0=1.5e5):
-
         self.te = self.build_temperature(
-
             y_0=te_0, y_ped=ti_0 / 4.0, x_ped=0.95, datatype=("temperature", "electron")
         )
         self.ti = self.build_temperature(
@@ -38,7 +35,6 @@ class main_plasma_profs:
         )
 
     def l_mode(self, te_0=1.0e3, ti_0=1.0e3, ne_0=6.0e19, vrot_0=0.5e5):
-
         self.te = self.build_temperature(
             y_0=te_0, y_ped=te_0 / 6.0, x_ped=0.85, datatype=("temperature", "electron")
         )
