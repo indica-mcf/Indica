@@ -69,13 +69,6 @@ class Equilibrium(AbstractEquilibrium):
         sess: session.Session = session.global_session,
         offset_picker: OffsetPicker = interactive_offset_choice,
     ):
-        # def find_separatrix_index(data):
-        #     coords = data.coords[data.dims[0]]
-        #     bracket = (coords[0], coords[-1])
-        #     interp = interp1d(
-        #         coords, data.data, "cubic", copy=False, assume_sorted=True
-        #     )
-        #     return root_scalar(lambda x: interp(x) - 1.0, bracket).root
 
         self._session = sess
         self.f = equilibrium_data["f"]
@@ -183,7 +176,11 @@ class Equilibrium(AbstractEquilibrium):
             self.provenance, sess.session, time=datetime.datetime.now()
         )
         sess.prov.attribution(self.provenance, sess.agent)
-        # TODO: Add PROV dependencies to ``equilibrium_data``
+        for val in equilibrium_data.values():
+            if "provenance" in val.attrs:
+                self.provenance.wasDerivedFrom(val.attrs["provenance"])
+        if T_e and "provenance" in T_e.attrs:
+            self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
 
     def Btot(
         self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
