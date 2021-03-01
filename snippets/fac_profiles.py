@@ -1,22 +1,26 @@
-import numpy as np
 import matplotlib.pylab as plt
-from copy import deepcopy
+import numpy as np
 from xarray import DataArray
 
 
 class main_plasma_profs:
     def __init__(self):
-        """Make fake plasma profiles for electron density, electron and ion temperature, toroidal rotation
+        """Make fake plasma profiles for electron density, electron and ion
+        temperature, toroidal rotation
 
-        Initialization already calculates default profiles and saves them as class attributes
+        Initialization already calculates default profiles and saves
+        them as class attributes
 
-        Results are saved as xarray.DataArray"""
+        Results are saved as xarray.DataArray
+
+        """
 
         self.h_mode()
 
     def h_mode(self, te_0=3.5e3, ti_0=3.5e3, ne_0=6.0e19, vrot_0=1.5e5):
 
         self.te = self.build_temperature(
+
             y_0=te_0, y_ped=ti_0 / 4.0, x_ped=0.95, datatype=("temperature", "electron")
         )
         self.ti = self.build_temperature(

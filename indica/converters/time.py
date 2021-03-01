@@ -34,6 +34,7 @@ def convert_in_time(
         Array like the input, but interpolated or binned along the time axis.
 
     """
+    # TODO: Generate PROV information
     original_freq = 1 / (data.coords["t"][1] - data.coords["t"][0])
     if frequency / original_freq <= 0.2:
         return bin_in_time(tstart, tend, frequency, data)
@@ -90,7 +91,9 @@ def interpolate_in_time(
     if "dropped" in data.attrs:
         ddim = data.indica.drop_dim
         result = result.indica.ignore_data(data.attrs["dropped"].coords[ddim], ddim)
-
+    if "provenance" in data.attrs:
+        del result.attrs["partial_provenance"]
+        del result.attrs["provenance"]
     return result
 
 
@@ -154,7 +157,9 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
                 )
             )
             averaged.attrs["dropped"].attrs["error"] = uncertainty.rename(t_bins="t")
-
+    if "provenance" in data.attrs:
+        del averaged.attrs["partial_provenance"]
+        del averaged.attrs["provenance"]
     return averaged.rename(t_bins="t")
 
 

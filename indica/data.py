@@ -35,6 +35,7 @@ from scipy.interpolate import RectBivariateSpline
 import xarray as xr
 from xarray.core.utils import either_dict_or_kwargs
 
+from . import session
 from .converters import CoordinateTransform
 from .converters.abstractconverter import Coordinates
 from .datatypes import ArrayType
@@ -42,9 +43,6 @@ from .datatypes import DatasetType
 from .equilibrium import Equilibrium
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
-from .session import global_session
-from .session import hash_vals
-from .session import Session
 
 
 def _convert_coords(
@@ -762,6 +760,30 @@ class InDiCAArrayAccessor:
         """
         pass
 
+    def _update_prov_for_equilibrium(
+        self,
+        value: Equilibrium,
+        start_time: datetime.datetime = datetime.datetime.now(),
+    ):
+        """Set the provenance of this object to include the new equilibrium value."""
+        partial_prov = self._obj.attrs["partial_provenance"]
+        hash_id = session.hash_vals(
+            data=partial_prov.identifier.localpart, equilibrium=value.prov_id
+        )
+        new_prov = value._session.prov.collection(hash_id)
+        new_prov.hadMember(partial_prov)
+        new_prov.hadMember(value.provenance)
+        self._obj.attrs["provenance"] = new_prov
+        end_time = datetime.datetime.now()
+        activity_id = session.hash_vals(agent=value._session.agent, date=end_time)
+        activity = value._session.prov.activity(
+            activity_id, start_time, end_time, {prov.PROV_TYPE: "SetEquilibrium"}
+        )
+        activity.wasAssociatedWith(value._session.agent)
+        activity.wasInformedBy(value._session.session)
+        new_prov.wasGeneratedBy(activity, end_time)
+        new_prov.wasAttributedTo(value._session.agent)
+
     @property
     def equilibrium(self) -> Optional[Equilibrium]:
         """The equilibrium object currently used by this DataArray (or, more
@@ -771,7 +793,10 @@ class InDiCAArrayAccessor:
         provenance will be updated accordingly.
 
         """
-        return getattr(self._obj.attrs["transform"], "equilibrium", None)
+        if "transform" in self._obj.attrs:
+            return getattr(self._obj.attrs["transform"], "equilibrium", None)
+        else:
+            return None
 
     @equilibrium.setter
     def equilibrium(self, value: Equilibrium):
@@ -779,29 +804,15 @@ class InDiCAArrayAccessor:
             return
         start_time = datetime.datetime.now()
         self._obj.attrs["transform"].set_equilibrium(value)
-        partial_prov = self._obj.attrs["partial_provenance"]
-        hash_id = hash_vals(
-            data=partial_prov.identifier.localpart, equilibrium=value.prov_id
-        )
-        new_prov = value._session.prov.collection(hash_id)
-        new_prov.hadMember(partial_prov)
-        new_prov.hadMember(value.provenance)
-        self._obj.attrs["provenance"] = new_prov
-        end_time = datetime.datetime.now()
-        activity_id = hash_vals(agent=value._session.agent, date=end_time)
-        activity = value._session.prov.activity(
-            activity_id, start_time, end_time, {prov.PROV_TYPE: "SetEquilibrium"}
-        )
-        activity.wasAssociatedWith(value._session.agent)
-        activity.wasInformedBy(value._session.session)
-        new_prov.wasGeneratedBy(activity, end_time)
-        new_prov.wasAttributedTo(value._session.agent)
+        if "partial_provenance" in self._obj.attrs:
+            self._update_prov_for_equilibrium(value, start_time)
 
     @equilibrium.deleter
     def equilibrium(self):
         if hasattr(self._obj.attrs["transform"], "equilibrium"):
             del self._obj.attrs["transform"].equilibrium
-            self._obj.attrs["provenance"] = self._obj.attrs["partial_provenance"]
+            if "provenance" in self._obj.attrs:
+                self._obj.attrs["provenance"] = self._obj.attrs["partial_provenance"]
 
     @property
     def with_ignored_data(self) -> xr.DataArray:
@@ -857,12 +868,16 @@ class InDiCAArrayAccessor:
             along the specified dimension marked as NaN.
 
         """
+        if len(labels) == 0:
+            return self._obj
         ddim = self.drop_dim
         if ddim and ddim != dimension:
             raise ValueError(
                 f"Can not not ignore data along dimension {dimension}; channels "
                 f"have already been ignored in dimension {ddim}."
             )
+        elif dimension not in self._obj.dims:
+            raise ValueError(f"Dimension {dimension} not present in data array.")
         if ddim:
             unique_labels = list(
                 filter(
@@ -963,7 +978,7 @@ class InDiCADatasetAccessor:
         key: str,
         array: xr.DataArray,
         overwrite: bool = False,
-        session: Session = global_session,
+        sess: session.Session = session.global_session,
     ):
         """Adds an additional :py:class:`xarray.DataArray` to this
         :py:class:`xarray.Dataset`. This dataset must be used for
@@ -989,7 +1004,7 @@ class InDiCADatasetAccessor:
         overwrite
             If ``True`` and ``key`` already exists in this Dataset then
             overwrite the old value. Otherwise raise an error.
-        session
+        sess
             An object representing the session being run. Contains information
             such as provenance data.
 
@@ -1018,22 +1033,22 @@ class InDiCADatasetAccessor:
         self._obj[key] = array
         old_prov = self._obj.attrs["provenance"]
         array_prov = array.attrs["provenance"]
-        hash_id = hash_vals(
+        hash_id = session.hash_vals(
             dataset=old_prov.identifier.localpart, array=array_prov.identifier.localpart
         )
-        new_prov = session.prov.collection(hash_id)
+        new_prov = sess.prov.collection(hash_id)
         for data in self._obj.data_vars.values():
             new_prov.hadMember(data.attrs["provenance"])
         self._obj.attrs["provenance"] = new_prov
         end_time = datetime.datetime.now()
-        activity_id = hash_vals(agent=session.agent, date=end_time)
-        activity = session.prov.activity(
+        activity_id = session.hash_vals(agent=sess.agent, date=end_time)
+        activity = sess.prov.activity(
             activity_id, start_time, end_time, {prov.PROV_TYPE: "AddToDataset"}
         )
-        activity.wasAssociatedWith(session.agent)
-        activity.wasInformedBy(session.session)
+        activity.wasAssociatedWith(sess.agent)
+        activity.wasInformedBy(sess.session)
         new_prov.wasGeneratedBy(activity, end_time)
-        new_prov.wasAttributedTo(session.agent)
+        new_prov.wasAttributedTo(sess.agent)
         new_prov.wasDerivedFrom(old_prov)
         new_prov.wasDerivedFrom(array_prov)
         activity.used(old_prov)
@@ -1072,7 +1087,9 @@ class InDiCADatasetAccessor:
         pass
 
 
-def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.Dataset:
+def aggregate(
+    sess: session.Session = session.global_session, **kwargs: xr.DataArray
+) -> xr.Dataset:
     """Combines the key-value pairs in ``kwargs`` into a Dataset,
     performing various checks.
 
@@ -1088,9 +1105,14 @@ def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.D
     In addition to performing these checks, this function will create
     the correct provenance.
 
+    .. warning::
+        This should not be used for assembling results of an
+        :py:class:`~indica.operators.Operator`, as it will not provide the
+        necessary derivation provenance.
+
     Parameters
     ----------
-    session
+    sess
         An object representing the session being run. Contains information
         such as provenance data.
     kwargs
@@ -1118,20 +1140,20 @@ def aggregate(session: Session = global_session, **kwargs: xr.DataArray) -> xr.D
         cast(Dict[Hashable, xr.DataArray], kwargs),
         attrs={"transform": first_val.attrs["transform"]},
     )
-    hash_id = hash_vals(
+    hash_id = session.hash_vals(
         **{k: v.attrs["provenance"].identifier.localpart for k, v in kwargs.items()},
     )
-    new_prov = session.prov.collection(hash_id)
+    new_prov = sess.prov.collection(hash_id)
     for data in kwargs.values():
         new_prov.hadMember(data.attrs["provenance"])
     dataset.attrs["provenance"] = new_prov
     end_time = datetime.datetime.now()
-    activity_id = hash_vals(agent=session.agent, date=end_time)
-    activity = session.prov.activity(
+    activity_id = session.hash_vals(agent=sess.agent, date=end_time)
+    activity = sess.prov.activity(
         activity_id, start_time, end_time, {prov.PROV_TYPE: "CreateDataset"}
     )
-    activity.wasAssociatedWith(session.agent)
-    activity.wasInformedBy(session.session)
+    activity.wasAssociatedWith(sess.agent)
+    activity.wasInformedBy(sess.session)
     new_prov.wasGeneratedBy(activity, end_time)
-    new_prov.wasAttributedTo(session.agent)
+    new_prov.wasAttributedTo(sess.agent)
     return dataset

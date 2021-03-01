@@ -9,9 +9,8 @@ from xarray import DataArray
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
+from .. import session
 from ..datatypes import DataType
-from ..session import global_session
-from ..session import Session
 
 
 class CalcZeff(Operator):
@@ -45,7 +44,7 @@ class CalcZeff(Operator):
         ("temperature", "electrons"),
     ]
 
-    def __init__(self, adas_data: str, sess: Session = global_session):
+    def __init__(self, adas_data: str, sess: session.Session = session.global_session):
         """Creates a provenance entity/agent for the operator object."""
         super().__init__(sess, adas_data=adas_data)
         self.adas_data = adas_data
@@ -99,5 +98,5 @@ class CalcZeff(Operator):
         result.attrs["map_to_master"] = n_e.attrs["map_to_master"]
         result.attrs["map_from_master"] = n_e.attrs["map_from_master"]
         result.attrs["datatype"] = ("effective_charge", "plasma")
-        result.attrs["provenance"] = self.create_provenance()
+        self.assign_provenance(result.attrs["provenance"])
         return result

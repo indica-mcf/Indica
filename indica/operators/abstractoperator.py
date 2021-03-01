@@ -6,6 +6,7 @@ from abc import abstractmethod
 import datetime
 from itertools import zip_longest
 from typing import Any
+from typing import cast
 from typing import List
 from typing import Tuple
 from typing import TYPE_CHECKING
@@ -16,13 +17,12 @@ import prov.model as prov
 from xarray import DataArray
 from xarray import Dataset
 
+from .. import session
+from ..datatypes import DatasetType
 from ..datatypes import DataType
 from ..datatypes import DatatypeWarning
 from ..datatypes import GENERAL_DATATYPES
 from ..datatypes import SPECIFIC_DATATYPES
-from ..session import global_session
-from ..session import hash_vals
-from ..session import Session
 
 Data = Union[DataArray, Dataset]
 
@@ -49,7 +49,7 @@ class Operator(ABC):
 
     Parameters
     ----------
-    sess: Session
+    sess: session.Session
         An object representing the session being run. Contains information
         such as provenance data.
     kwargs: Any
@@ -77,7 +77,7 @@ class Operator(ABC):
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    def __init__(self, sess: Session = global_session, **kwargs: Any):
+    def __init__(self, sess: session.Session = session.global_session, **kwargs: Any):
         """Creates a provenance entity/agent for the operator object. Also
         checks arguments and results are of valid datatypes. Should be
         called by initialisers in subclasses.
@@ -86,7 +86,9 @@ class Operator(ABC):
         self._session = sess
         # TODO: also include library version and, ideally, version of
         # relevent dependency in the hash
-        self.prov_id = hash_vals(operator_type=self.__class__.__name__, **kwargs)
+        self.prov_id = session.hash_vals(
+            operator_type=self.__class__.__name__, **kwargs
+        )
         self.agent = self._session.prov.agent(self.prov_id)
         self._session.prov.actedOnBehalfOf(self.agent, self._session.agent)
         self.entity = self._session.prov.entity(self.prov_id, kwargs)
@@ -95,6 +97,9 @@ class Operator(ABC):
         )
         self._session.prov.attribution(self.entity, self._session.agent)
         self._input_provenance: List[prov.ProvEntity] = []
+        self._prov_count = 0
+        self._end_time: datetime.datetime
+        self.activity: prov.ProvActivity
         for i, datatype in enumerate(self.ARGUMENT_TYPES):
             if isinstance(datatype, EllipsisType):
                 if i + 1 != len(self.ARGUMENT_TYPES):
@@ -123,6 +128,18 @@ class Operator(ABC):
                     DatatypeWarning,
                 )
 
+    def _ellipsis_type(self, arg: Data) -> DataType:
+        """Given the argument corresponding to the penultimate argument type,
+        return the type required for all further variadic arguments.
+        """
+        if isinstance(arg, DataArray):
+            return arg.attrs["datatype"]
+        else:
+            dtype = arg.attrs["datatype"]
+            return dtype[0], {
+                k: dtype[1][k] for k in cast(DatasetType, self.ARGUMENT_TYPES[-2])[1]
+            }
+
     def validate_arguments(self, *args: Data):
         """Checks that arguments to the operator are of the expected types.
 
@@ -140,11 +157,11 @@ class Operator(ABC):
         ]
         arg_len = len(args)
         expected_len = len(self.ARGUMENT_TYPES)
-        if self.ARGUMENT_TYPES[-1] == Ellipsis:
+        if expected_len > 0 and self.ARGUMENT_TYPES[-1] == Ellipsis:
             iterator = zip_longest(
                 args,
                 self.ARGUMENT_TYPES[:-1],
-                fillvalue=args[arg_len - 2].attrs["datatype"],
+                fillvalue=self._ellipsis_type(args[expected_len - 2]),
             )
         elif arg_len != expected_len:
             message = (
@@ -155,30 +172,70 @@ class Operator(ABC):
         else:
             iterator = zip(args, self.ARGUMENT_TYPES)
         for i, (arg, expected) in enumerate(iterator):
-            datatype = arg.attrs["datatype"]
-            if expected[0] and datatype[0] != expected[0]:
-                message = (
-                    "Argument {} of wrong data type for operator {}: "
-                    "expected {}, received {}.".format(
-                        i + 1,
-                        self.__class__.__name__,
-                        expected[0],
-                        datatype[0],
+            if isinstance(arg, DataArray):
+                datatype = arg.attrs["datatype"]
+                if expected[0] and datatype[0] != expected[0]:
+                    message = (
+                        "Argument {} of wrong general data type for operator {}: "
+                        "expected {}, received {}.".format(
+                            i + 1,
+                            self.__class__.__name__,
+                            expected[0],
+                            datatype[0],
+                        )
                     )
-                )
-                raise OperatorError(message)
-            if expected[1] and datatype[1] != expected[1]:
-                message = (
-                    "Argument {} of wrong type of {} for operator {}: "
-                    "expected to be for {}, received {}.".format(
-                        i + 1,
-                        expected[0],
-                        self.__class__.__name__,
-                        expected[1],
-                        datatype[1],
+                    raise OperatorError(message)
+                if expected[1] and datatype[1] != expected[1]:
+                    message = (
+                        "Argument {} of wrong specific data type for operator {}: "
+                        "expected to be for {}, received {}.".format(
+                            i + 1,
+                            self.__class__.__name__,
+                            expected[1],
+                            datatype[1],
+                        )
                     )
+                    raise OperatorError(message)
+            elif isinstance(arg, Dataset):
+                datatype = arg.attrs["datatype"]
+                if expected[0] and datatype[0] != expected[0]:
+                    message = (
+                        "Argument {} of wrong specific data type for operator {}: "
+                        "expected {}, received {}.".format(
+                            i + 1,
+                            self.__class__.__name__,
+                            expected[0],
+                            datatype[0],
+                        )
+                    )
+                    raise OperatorError(message)
+                for key, general_type in expected[1].items():
+                    if key not in datatype[1]:
+                        message = (
+                            "Variable {} required by operator {} is missing from "
+                            "argument {}.".format(
+                                key,
+                                self.__class__.__name__,
+                                i + 1,
+                            )
+                        )
+                        raise OperatorError(message)
+                    if datatype[1][key] != general_type:
+                        message = (
+                            "Variable {} of argument {} of wrong general data type for "
+                            "operator {}: expected {}, received {}.".format(
+                                key,
+                                i + 1,
+                                self.__class__.__name__,
+                                general_type,
+                                datatype[1][key],
+                            )
+                        )
+                        raise OperatorError(message)
+            else:
+                raise OperatorError(
+                    "Argument {} is not a DataArray or Dataset".format(arg)
                 )
-                raise OperatorError(message)
 
     @abstractmethod
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
@@ -203,16 +260,16 @@ class Operator(ABC):
             "'return_types' method.".format(self.__class__.__name__)
         )
 
-    def create_provenance(self) -> prov.ProvEntity:
-        """Create a provenance entity for the result of the operator.
+    def assign_provenance(self, data: Union[DataArray, Dataset]) -> prov.ProvEntity:
+        """Create and assign a provenance entity to the argument. This argument
+        should be one of the results of the operator.
 
-        This should only be called after :py:meth:`validate_arguments`, as it
-        relies on that routine to collect information about the inputs
-        to the operator.
-
-        Note that the results of successive calls to the same operator
-        will have different provenance data (with a different
-        identifier), as this accounts for the creation-time.
+        This should only be called after
+        :py:meth:`validate_arguments`, as it relies on that routine to
+        collect information about the inputs to the operator. It
+        should not be called until after all calculations are
+        finished, as the first call will be used to determine the
+        end-time of the calculation.
 
         Returns
         -------
@@ -221,35 +278,64 @@ class Operator(ABC):
 
         """
         # TODO: Generate multiple pieces of PROV data for multiple return values
-        end_time = datetime.datetime.now()
-        entity_id = hash_vals(
+        if self._prov_count == 0:
+            self.end_time = datetime.datetime.now()
+            activity_id = session.hash_vals(agent=self.prov_id, date=self.end_time)
+            self.activity = self._session.prov.activity(
+                activity_id,
+                self._start_time,
+                self.end_time,
+                {prov.PROV_TYPE: "Calculation"},
+            )
+            self.activity.wasAssociatedWith(self._session.agent)
+            self.activity.wasAssociatedWith(self.agent)
+            self.activity.wasInformedBy(self._session.session)
+            for arg in self._input_provenance:
+                self.activity.used(arg)
+        entity_id = session.hash_vals(
             creator=self.prov_id,
-            date=end_time,
+            date=self.end_time,
+            result_number=self._prov_count,
             **{
                 "arg" + str(i): p.identifier
                 for i, p in enumerate(self._input_provenance)
             }
         )
-        activity_id = hash_vals(agent=self.prov_id, date=end_time)
-        # TODO: Should each subclass specify its own PROV_TYPE?
-        activity = self._session.prov.activity(
-            activity_id,
-            self._start_time,
-            end_time,
-            {prov.PROV_TYPE: "Calculation"},
-        )
-        activity.wasAssociatedWith(self._session.agent)
-        activity.wasAssociatedWith(self.agent)
-        activity.wasInformedBy(self._session.session)
-        # TODO: Should I include any attributes?
-        entity = self._session.prov.entity(entity_id)
-        entity.wasGeneratedBy(activity, end_time)
+        self._prov_count += 1
+        if isinstance(data, Dataset):
+            entity = self._session.prov.collection(
+                entity_id, {prov.PROV_TYPE: "Dataset"}
+            )
+            for array in data.data_vars.values():
+                if "provenance" not in array.attrs:
+                    print("Creating provenenace")
+                    self.assign_provenance(array)
+                entity.hadMember(array.attrs["provenance"])
+        else:
+            entity = self._session.prov.entity(
+                entity_id,
+                {
+                    prov.PROV_TYPE: "DataArray",
+                    prov.PROV_VALUE: ",".join(data.attrs["datatype"]),
+                },
+            )
+        entity.wasGeneratedBy(self.activity, self.end_time)
         entity.wasAttributedTo(self._session.agent)
         entity.wasAttributedTo(self.agent)
         for arg in self._input_provenance:
             entity.wasDerivedFrom(arg)
-            activity.used(arg)
-        return entity
+        if isinstance(data, Dataset):
+            data.attrs["provenance"] = entity
+        else:
+            data.attrs["partial_provenance"] = entity
+            if data.indica.equilibrium:
+                # print(data)
+                data.indica._update_prov_for_equilibrium(
+                    data.attrs["transform"].equilibrium
+                )
+                # print(data.attrs["provenance"])
+            else:
+                data.attrs["provenance"] = entity
 
     @abstractmethod
     def __call__(self, *args: DataArray) -> Union[DataArray, Dataset]:
