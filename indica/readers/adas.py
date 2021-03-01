@@ -6,8 +6,8 @@ import re
 from typing import Literal
 from typing import TextIO
 from typing import Union
-from urllib.request import urlretrieve
 from urllib.request import pathname2url
+from urllib.request import urlretrieve
 
 import numpy as np
 import prov.model as prov
@@ -34,7 +34,7 @@ class ADASReader(BaseIO):
         Location from which relative paths should be evaluated.
         Default is to download files from OpenADAS, storing them
         in your home directory for later use.
-    sesssion: session.Session
+    session: session.Session
         An object representing the session being run. Contains information
         such as provenance data.
 
@@ -243,13 +243,15 @@ class ADASReader(BaseIO):
                 m = re.search(transition_header_match, tmp, re.I)
                 if isinstance(m, re.Match):
                     break
-            tmp = f.readline().strip().lower()
+            f.readline().strip().lower()
 
             tmp = f.readline().strip().lower()
             if len(tmp.split(")")) > 3:
                 orbitals = True
-                trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d" \
-                              r"\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))"
+                trans_match = (
+                    r"c\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d"
+                    r"\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))"
+                )
             else:
                 orbitals = False
                 trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
