@@ -817,7 +817,7 @@ provenance. The class is represented by the following UML:
    + __init__(self, sess: Session, **kwargs: Any)
    + {abstract} return_types(self, *args: DataType): tuple
    + {abstract} __call__(self, *args: Union[DataArray, Dataset]): Union[DataArray, Dataset]
-   + create_provenance()
+   + assign_provenance(data: Union[DataArray, Dataset])
    + validate_arguments(*args: Union[DataArray, Dataset])
    + {static} recreate(provenance: ProvEntity): Operator
    }

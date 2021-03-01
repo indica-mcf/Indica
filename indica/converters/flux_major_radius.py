@@ -15,9 +15,9 @@ from ..numpy_typing import LabeledArray
 
 
 class FluxMajorRadCoordinates(CoordinateTransform):
-    """A coordinate system that uses a flux surface \rho and major radius
-    to determine spatial positions. This is used, e.g., when
-    estimating an emissivity profile of the plasma based on X-ray
+    """A coordinate system that uses a flux surface :math:`\\rho` and
+    major radius to determine spatial positions. This is used, e.g.,
+    when estimating an emissivity profile of the plasma based on X-ray
     data. Note that this coordinate system loses information about
     vertical position. When converting to (R,z) coordinates, the
     results will have ``z >= 0``.
@@ -25,7 +25,7 @@ class FluxMajorRadCoordinates(CoordinateTransform):
     Parameters
     ----------
     flux_surfaces : FluxSurfaceCoordinates
-        The flux surface coordinate system to use for \rho.
+        The flux surface coordinate system to use for :math:`\\rho`.
 
     """
 

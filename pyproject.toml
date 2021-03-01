@@ -25,11 +25,19 @@ description = "Integrated Diagnostic Composition Analysis"
 license = "GPL-3.0-or-later"
 
 authors = [
-    "Marco Sertoli <marco.sertoli@ukaea.uk>",
+    "Marco Sertoli <marco.sertoli@outlook.com>",
     "Chris MacMackin <chris.macmackin@ukaea.uk>"
 ]
+maintainers = [
+    "Edward Litherland-Smith <edward.litherland-smith@ukaea.uk>",
+    "Shane Scully <shane.scully@ukaea.uk>",
+    "Chris MacMackin <chris.macmackin@ukaea.uk>",
+]
+repository = "https://github.com/ukaea/Indica"
+documentation = "https://indica-ukaea.readthedocs.io/"
 
 readme = 'README.md'  # Markdown files are supported
+include = [".git", "indica/git_version"]
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
@@ -56,3 +64,7 @@ sphinxcontrib-plantuml = "^0.18"
 
 [tool.poetry.extras]
 docs = ["sphinx", "sphinxcontrib-plantuml"]
+
+[tool.poetry.build]
+generate-setup-file = false
+script = ".get_git_commit.py"

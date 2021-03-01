@@ -56,7 +56,7 @@ def transect_coordinates_parameters(
     R_vals = R_start + (R_stop - R_start) * ticks
     z_vals = z_start + (z_stop - z_start) * ticks
     if coord_name is None:
-        cname = draw(text(min_size=1))
+        cname = draw(text(min_size=1).filter(lambda x: x != "t"))
     else:
         cname = coord_name
     return DataArray(R_vals, dims=cname), DataArray(z_vals, dims=cname)

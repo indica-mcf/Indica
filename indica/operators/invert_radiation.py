@@ -18,6 +18,7 @@ from xarray import where
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
+from .. import session
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
 from ..converters import FluxMajorRadCoordinates
@@ -26,8 +27,6 @@ from ..converters import ImpactParameterCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import DataType
 from ..datatypes import SpecificDataType
-from ..session import global_session
-from ..session import Session
 from ..utilities import broadcast_spline
 
 DataArrayCoords = Tuple[DataArray, DataArray]
@@ -182,7 +181,7 @@ class InvertRadiation(Operator):
     n_intervals : int
         The number of intervals over which to integrate th eemissivity. Should
         be :math:`2^m + 1`, where m is an integer.
-    sess : Session
+    sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
 
@@ -194,7 +193,7 @@ class InvertRadiation(Operator):
         datatype: SpecificDataType = "sxr",
         n_knots: int = 6,
         n_intervals: int = 65,
-        sess: Session = global_session,
+        sess: session.Session = session.global_session,
     ):
         self.n_knots = n_knots
         self.n_intervals = n_intervals
@@ -283,7 +282,7 @@ class InvertRadiation(Operator):
             Major radii on which to return emissivity result.
         z
             Theta coordinates on which to return emissivity result.
-        t
+        times
             Time coordinatse on which to return emissivity result.
         cameras
             The luminosity data being fit to, with each camera passed
@@ -294,18 +293,21 @@ class InvertRadiation(Operator):
         : DataArray
             The fit emissivity, on the R-z grid. Will also contain an
             attribute "emissivity_model", which is an
-            `:py:class:indica.operators.invert_radiation.EmissivityProfile`
+            :py:class:`indica.operators.invert_radiation.EmissivityProfile`
             object that can interpolate the fit emissivity onto
             arbitrary coordinates.
         : Dataset
             A dataset containing
+
             - **symmetric_emissivity**: The symmetric emissivity
                values which were found during the fit, given along
                :math:`\\rho`.
             - **asymmetry_parameter**: The asymmetry of the emissivity
               which was found during the fit, given along :math:`\\rho`.
+
         : Dataset
             For each camera passed as an argument, a dataset containing
+
             - **camera**: The radiation data for that camera, binned in time.
             - **back_integral**: The integral of the fit emissivity along
               the lines of sight of the camera.
@@ -457,11 +459,9 @@ class InvertRadiation(Operator):
         trivial = TrivialTransform()
         emissivity = estimate(trivial, R, z, times)
         emissivity.attrs["datatype"] = ("emissivity", self.datatype)
-        emissivity.attrs["provenance"] = self.create_provenance()
         emissivity.attrs["emissivity_model"] = estimate
         emissivity.name = self.datatype + "_emissivity"
 
-        # TODO: Use aggregate...
         results: Dataset = Dataset(
             {
                 "symmetric_emissivity": symmetric_emissivity,
@@ -471,4 +471,8 @@ class InvertRadiation(Operator):
         for c, i in zip(unfolded_cameras, integral):
             del c["has_data"]
             c["back_integral"] = i
+        self.assign_provenance(emissivity)
+        self.assign_provenance(results)
+        for cam in unfolded_cameras:
+            self.assign_provenance(cam)
         return emissivity, results, *unfolded_cameras

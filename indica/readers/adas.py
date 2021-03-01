@@ -13,13 +13,11 @@ import numpy as np
 import prov.model as prov
 from xarray import DataArray
 
+from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
 from ..datatypes import ADF15_GENERAL_DATATYPES
 from ..datatypes import ORDERED_ELEMENTS
-from ..session import global_session
-from ..session import hash_vals
-from ..session import Session
 
 
 # TODO: Evaluate this location
@@ -36,14 +34,16 @@ class ADASReader(BaseIO):
         Location from which relative paths should be evaluated.
         Default is to download files from OpenADAS, storing them
         in your home directory for later use.
-    sesssion: Session
+    sesssion: session.Session
         An object representing the session being run. Contains information
         such as provenance data.
 
     """
 
     def __init__(
-        self, path: Union[str, Path] = DEFAULT_PATH, sess: Session = global_session
+        self,
+        path: Union[str, Path] = DEFAULT_PATH,
+        sess: session.Session = session.global_session,
     ):
         path = Path(path)
         self.session = sess
@@ -60,7 +60,7 @@ class ADASReader(BaseIO):
             self.session.prov.add_namespace(
                 self.namespace, "file:/" + str(self.path.resolve())
             )
-        self.prov_id = hash_vals(path=self.path)
+        self.prov_id = session.hash_vals(path=self.path)
         self.agent = self.session.prov.agent(self.prov_id)
         self.session.prov.delegation(self.session.agent, self.agent)
         self.entity = self.session.prov.entity(
@@ -306,10 +306,10 @@ class ADASReader(BaseIO):
         """
         end_time = datetime.datetime.now()
         entity = self.session.prov.entity(
-            hash_vals(filename=filename, start_time=start_time)
+            session.hash_vals(filename=filename, start_time=start_time)
         )
         activity = self.session.prov.activity(
-            hash_vals(agent=self.prov_id, date=start_time),
+            session.hash_vals(agent=self.prov_id, date=start_time),
             start_time,
             end_time,
             {prov.PROV_TYPE: "ReadData"},

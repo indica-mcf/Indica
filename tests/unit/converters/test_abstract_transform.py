@@ -27,6 +27,11 @@ from ..strategies import arbitrary_coordinates
 from ..strategies import domains
 
 
+pytestmark = mark.skip(
+    reason="These tests rely on mathematical identities that do not hold numerically."
+)
+
+
 @composite
 def coordinate_transforms_and_axes(
     draw,
@@ -112,7 +117,6 @@ def equilibria(draw):
     return draw(just(MagicMock()))
 
 
-@mark.skip(reason="Difficult to test for this in a general way")
 @given(coordinate_transforms(), arbitrary_coordinates())
 def test_transform_broadcasting(transform, coords):
     """Test rank/shape of output"""
@@ -153,7 +157,6 @@ def test_inverse_transforms(transform, coords):
     assert np.all(np.isclose(x2new, x2, 1e-4, 1e-7))
 
 
-@mark.xfail
 @given(coordinate_transforms())
 def test_transforms_encoding(transform):
     """Test encode/decode methods are inverses"""

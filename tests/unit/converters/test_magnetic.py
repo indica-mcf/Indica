@@ -118,7 +118,7 @@ def test_magnetic_from_Rz_mock(transform_args, coords, expected_result):
     floats(1e-5, 10.0),
     floats(-9e-4, 9e-4),
 )
-@settings(deadline=500)
+@settings(deadline=None)
 def test_magnetic_to_Rz_fake_on_los(
     transform_args, coords, Rmag, zmag, Btot_a, Btot_b, Btot_alpha
 ):

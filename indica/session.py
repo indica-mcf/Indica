@@ -2,12 +2,21 @@
 
 """
 
+from contextlib import contextmanager
+from contextlib import redirect_stderr
 import datetime
 from functools import wraps
 import hashlib
+import importlib
+import io
+import os
+from pathlib import Path
+import platform
 import re
+import subprocess
 import typing
 
+import pkg_resources
 import prov.model as prov
 from xarray import DataArray
 from xarray import Dataset
@@ -57,6 +66,73 @@ def hash_vals(**kwargs: typing.Any) -> str:
     return hash_result.hexdigest()
 
 
+def package_provenance(
+    doc: prov.ProvDocument, package_name: str
+) -> typing.Tuple[prov.ProvEntity, prov.ProvEntity]:
+    """Returns provenance for the requested package. This provenance will
+    include version information for all dependencies. Returns a tuple
+    of the provenance for the package in general and the specific
+    installation being used here.
+
+    """
+    doc.add_namespace("pypi", "https://pypi.org/project/")
+    doc.add_namespace("local", "file://")
+    package = pkg_resources.working_set.find(
+        pkg_resources.Requirement.parse(package_name)
+    )
+    assert isinstance(package, pkg_resources.Distribution)
+    general_entity = doc.entity(
+        f"pypi:{package.project_name}",
+        {"pypi:package": package.project_name},
+    )
+    version_entity = doc.entity(
+        f"pypi:{package.project_name}/{package.version}",
+        {"pypi:version": package.version},
+    )
+    version_entity.specializationOf(general_entity)
+    # Some modules print things when imported, so capture this
+    tmp_output = io.StringIO()
+    try:
+        with redirect_stderr(tmp_output), redirect_stderr(tmp_output):
+            path = Path(importlib.import_module(package.project_name).__file__).parent
+        # Check this directory and the parent directory for git repository
+        # TODO: Check all parent directories, but only if the child directory
+        # is not ignored.
+        # if any((p / ".git").exists() for p in [path] + path.parents):
+        if (path / ".git").exists() or (path.parent / ".git").exists():
+            git_hash = subprocess.check_output(
+                ["git", "describe", "--always"], cwd=path, text=True
+            ).strip()
+            git_diff = subprocess.check_output(
+                ["git", "diff", "HEAD", "--", "indica"], text=True
+            ).strip()
+            if len(git_diff) > 0:
+                git_hash += "-dirty"
+        elif (path / "git_version").exists():
+            with (path / "git_version").open() as f:
+                git_hash = f.read()
+        else:
+            git_hash = "UNKNOWN"
+    except ModuleNotFoundError:
+        path = Path(package.location) / package.project_name
+        git_hash = "UNKNOWN"
+    except Exception:
+        tmp_output.seek(0)
+        print(tmp_output.read())
+        raise
+    installed_entity = doc.entity(
+        f"local:{path}", {"host": platform.node(), "git_commit": git_hash}
+    )
+    installed_entity.specializationOf(version_entity)
+    for dep in package.requires():
+        dep_general_entity, dep_installed_entity = package_provenance(
+            doc, dep.project_name
+        )
+        version_entity.wasDerivedFrom(dep_general_entity)
+        installed_entity.wasDerivedFrom(dep_installed_entity)
+    return general_entity, installed_entity
+
+
 class Session:
     """Manages the a particular run of the software.
 
@@ -102,11 +178,24 @@ class Session:
             self.prov.add_namespace("orcid", "https://orcid.org/")
             self._user = [self.prov.agent("orcid:" + user_id)]
         else:
-            self._user = [self.prov.agent(user_id)]
+            self._user = [
+                self.prov.agent(user_id if user_id else "example@example.com")
+            ]
         date = datetime.datetime.now()
-        session_properties = {"os": None, "directory": None, "host": None}
+        session_properties = {
+            "os": platform.platform(),
+            "directory": os.getcwd(),
+            "host": platform.node(),
+            "python": platform.python_version(),
+        }
         session_id = hash_vals(startTime=date, **session_properties)
         self.session = self.prov.activity(session_id, date, None, session_properties)
+        # Use an empty ID to short-circuit all of the provenance
+        # calculation. This is useful to prevent provenance being
+        # built whenever this module is imported.
+        if user_id != "":
+            self.indica_prov = package_provenance(self.prov, "indica")[1]
+            self.session.used(self.indica_prov)
         self.prov.association(self.session, self._user[0])
 
         self.data: typing.Dict[str, typing.Union[DataArray, Dataset]] = {}
@@ -166,6 +255,19 @@ class Session:
         """
         return self._user.pop()
 
+    @contextmanager
+    def new_agent(self, agent: prov.ProvAgent) -> prov.ProvAgent:
+        """A context manager for temporarily adding an agent to the
+        session. This is useful to ensure the agent will be removed even if
+        there is an exception thrown.
+
+        """
+        self.push_agent(agent)
+        try:
+            yield agent
+        finally:
+            self.pop_agent()
+
     def export(self, filename: str):
         """Write all of the data and operators from this session into a file,
         for reuse later.
@@ -197,7 +299,7 @@ class Session:
         pass
 
 
-global_session = Session("anonymous@example.com")
+global_session = Session("")
 
 
 def generate_prov(pass_sess: bool = False):
@@ -272,7 +374,7 @@ def generate_prov(pass_sess: bool = False):
                             activity=activity_id,
                             position=str(i),
                             name=r.name,
-                            **id_attrs
+                            **id_attrs,
                         )
                         entity = session.prov.entity(entity_id)
                         entity.wasGeneratedBy(activity, end_time)
