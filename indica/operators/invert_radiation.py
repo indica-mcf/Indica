@@ -392,6 +392,7 @@ class InvertRadiation(Operator):
             impact_param, _ = c.indica.convert_coords(ip_coords)
             c["weights"] = c.camera * (0.02 + 0.18 * np.abs(impact_param))
             c["weights"].attrs["transform"] = c.camera.attrs["transform"]
+            c["weights"].attrs["datatype"] = ("weighting", self.datatype)
             c.coords["R_0"] = c.attrs["transform"].equilibrium.R_hfs(
                 rho, c.coords["t"]
             )[0]
@@ -444,8 +445,10 @@ class InvertRadiation(Operator):
 
         symmetric_emissivity = concat(symmetric_emissivities, dim=times)
         symmetric_emissivity.attrs["transform"] = flux_coords
+        symmetric_emissivity.attrs["datatype"] = ("emissivity", self.datatype)
         asymmetry_parameter = concat(asymmetry_parameters, dim=times)
         asymmetry_parameter.attrs["transform"] = flux_coords
+        asymmetry_parameter.attrs["datatype"] = ("asymmetry", self.datatype)
         integral: List[DataArray] = []
         for data in zip(*integrals):
             integral.append(concat(data, dim=times))
@@ -470,6 +473,7 @@ class InvertRadiation(Operator):
         )
         for c, i in zip(unfolded_cameras, integral):
             del c["has_data"]
+            i.attrs["datatype"] = ("luminous_flux", self.datatype)
             c["back_integral"] = i
         self.assign_provenance(emissivity)
         self.assign_provenance(results)

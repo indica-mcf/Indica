@@ -295,7 +295,10 @@ class SplineFit(Operator):
             )
         result = self.spline(flux_surfaces, rho, DataArray(0.0), times)
         result.attrs["splines"] = self.spline
-        result.attrs["datatype"] = data[0].attrs["datatype"]
+        self.spline_vals.attrs["datatype"] = result.attrs["datatype"] = data[0].attrs[
+            "datatype"
+        ]
+        self.spline_vals.name = "knot_values"
         self.assign_provenance(result)
         self.assign_provenance(self.spline_vals)
         for d in binned_data:

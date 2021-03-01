@@ -278,13 +278,14 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "effective_charge",
         "number_density",
         "temperature",
+        "weighting",
     ],
     {
-        "bolometric": ["luminous_flux"],
-        "electrons": ["angular_freq", "number_density", "temperature"],
-        "hfs": ["major_rad", "z"],
-        "lfs": ["major_rad", "z"],
-        "mag_axis": ["magnetic_flux", "major_rad", "minor_rad", "z"],
+        "bolometric": ["luminous_flux", "weighting"],
+        "electrons": ["angular_freq", "number_density", "temperature", "weighting"],
+        "hfs": ["major_rad", "z", "weighting"],
+        "lfs": ["major_rad", "z", "weighting"],
+        "mag_axis": ["magnetic_flux", "major_rad", "minor_rad", "z", "weighting"],
         "plasma": [
             "angular_freq",
             "effective_charge",
@@ -295,9 +296,10 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "temperature",
             "toroidal_flux",
             "vol_jacobian",
+            "weighting",
         ],
-        "separatrix": ["magnetic_flux", "major_rad", "minor_rad", "z"],
-        "sxr": ["luminous_flux"],
+        "separatrix": ["magnetic_flux", "major_rad", "minor_rad", "z", "weighting"],
+        "sxr": ["luminous_flux", "weighting"],
     },
 )
 
