@@ -187,9 +187,10 @@ class ADASReader(BaseIO):
                      )
         with self._get_file("adf15", filename) as f:
             header = f.readline().strip().lower()
-            header_match = [r"(\d+).+/(\S+).*\:(.*)photon",
-                            r"(\d+).+/(\S+).*\+(.*)photon",
-                            ]
+            header_match = [
+                r"(\d+).+/(\S+).*\:(.*)photon",
+                r"(\d+).+/(\S+).*\+(.*)photon",
+            ]
             for match in header_match:
                 m = re.search(match, header, re.I)
                 if isinstance(m, re.Match):
@@ -202,9 +203,10 @@ class ADASReader(BaseIO):
             assert charge_state==int(charge)
 
             # Read first section header to build arrays outside of reading loop
-            section_header_match = [r"(\d+.\d+)\s+(\d+)\s+(\d+).+type=(\S+)/.+/isel.+=\s+(\d+)",
-                                    r"(\d+.\d)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+).+isel\s?=\s+(\d+)",
-                                    ]
+            section_header_match = [
+                r"(\d+.\d+)\s+(\d+)\s+(\d+).+type=(\S+)/.+/isel.+=\s+(\d+)",
+                r"(\d+.\d)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+).+isel\s?=\s+(\d+)",
+            ]
             section_header = f.readline().strip().lower()
             for match in section_header_match:
                 m = re.search(match, section_header, re.I)
@@ -230,7 +232,7 @@ class ADASReader(BaseIO):
                 wavelength[i] = float(m.group(1))  # (Angstroms)
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
-                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nd, nt))
 
             # Read Transition information from end of file
             transition_header_match = r"c\s+[isel].+\s+[transition].+\s+[type]"
@@ -268,19 +270,11 @@ class ADASReader(BaseIO):
             "provenance": self.create_provenance(filename, now),
         }
 
-        # Problem with reorganising data if nd==nt...
-        if nd == nt:
-            coords = [
-                ("index", tindex),
-                ("electron_density", densities * 10 ** 6),  # m**-3
-                ("electron_temperature", temperatures),  # eV
-            ]
-        else:
-            coords = [
-                ("index", tindex),
-                ("electron_temperature", temperatures),  # eV
-                ("electron_density", densities * 10 ** 6),  # m**-3
-            ]
+        coords = [
+            ("index", tindex),
+            ("electron_density", densities * 10 ** 6),  # m**-3
+            ("electron_temperature", temperatures),  # eV
+        ]
         pecs = DataArray(
             data * 10**-6,
             coords=coords,
@@ -289,7 +283,7 @@ class ADASReader(BaseIO):
         )
 
         # Add extra dimensions attached to index
-        pecs = pecs.assign_coords(wavelength =("index", wavelength)) # (nm)
+        pecs = pecs.assign_coords(wavelength =("index", wavelength)) # (A)
         pecs = pecs.assign_coords(transition=("index", transition)) # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
         pecs = pecs.assign_coords(type=("index", ttype)) # (excit, recomb, cx)
 
