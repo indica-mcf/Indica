@@ -20,14 +20,14 @@ class main_plasma_profs:
                vrot_0=1.5e5):
 
         self.te = self.build_temperature(y_0=te_0, y_ped=ti_0/4., x_ped=0.95,
-                                         datatype=("temperature", "electrons"))
+                                         datatype=("temperature", "electron"))
         self.ti = self.build_temperature(y_0=ti_0, y_ped=ti_0/4., x_ped=0.95,
-                                         datatype=("temperature", "ions"))
+                                         datatype=("temperature", "ion"))
         self.ne = self.build_density(y_0=ne_0, y_ped=ne_0/2., x_ped=0.95,
-                                     datatype=("density", "electrons"))
+                                     datatype=("density", "electron"))
         self.vrot = self.build_rotation(y_0=vrot_0, y_ped=vrot_0/1.5, x_ped=0.8,
                                         w_edge=0.25,
-                                        datatype=("rotation", "ions"))
+                                        datatype=("rotation", "ion"))
 
     def l_mode(self,
                te_0=1.e3,
@@ -36,19 +36,19 @@ class main_plasma_profs:
                vrot_0=0.5e5):
 
         self.te = self.build_temperature(y_0=te_0, y_ped=te_0/6., x_ped=0.85,
-                                         datatype=("temperature", "electrons"))
+                                         datatype=("temperature", "electron"))
         self.ti = self.build_temperature(y_0=ti_0, y_ped=ti_0/6., x_ped=0.85,
-                                         datatype=("temperature", "ions"))
+                                         datatype=("temperature", "ion"))
         self.ne = self.build_density(y_0=ne_0, y_ped=ne_0/2., x_ped=0.85,
-                                     datatype=("density", "electrons"))
+                                     datatype=("density", "electron"))
         self.vrot = self.build_rotation(y_0=vrot_0, y_ped=vrot_0/1.5, x_ped=0.8,
                                         w_edge=0.25,
-                                        datatype=("rotation", "ions"))
+                                        datatype=("rotation", "ion"))
 
     def build_temperature(self,
                           y_0=3.e3, y_ped=700., x_ped=0.95,
                           w_core=None, w_edge=None,
-                          datatype=("temperature", "electrons"),
+                          datatype=("temperature", "electron"),
                           peaked=False) -> DataArray:
 
         return self.build_profile_gauss(y_0, y_ped, x_ped, datatype,
@@ -58,7 +58,7 @@ class main_plasma_profs:
     def build_density(self,
                       y_0=6.e19, y_ped=3.e19, x_ped=0.95,
                       w_core=None, w_edge=None,
-                      datatype=("density", "electrons"),
+                      datatype=("density", "electron"),
                       peaked=False) -> DataArray:
 
         return self.build_profile_gauss(y_0, y_ped, x_ped, datatype,
@@ -68,7 +68,7 @@ class main_plasma_profs:
     def build_rotation(self,
                        y_0=1.5e5, y_ped=1.e5, x_ped=0.8,
                        w_core=None, w_edge=0.25,
-                       datatype=("rotation", "ions"),
+                       datatype=("rotation", "ion"),
                        peaked=False) -> DataArray:
 
         return self.build_profile_gauss(y_0, y_ped, x_ped, datatype,
@@ -114,7 +114,7 @@ class main_plasma_profs:
         coords = [("rho_poloidal", x)]
         dims = ["rho_poloidal"]
         attrs = {"datatype": datatype}
-        name = datatype[0] + "_" + datatype[1]
+        name = datatype[1] + "_" + datatype[0]
         value = DataArray(
             y,
             coords,

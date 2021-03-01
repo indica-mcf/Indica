@@ -150,17 +150,23 @@ class ADASReader(BaseIO):
             attrs=attrs,
         )
 
-    def get_adf15(self, quantity: str, element: str, charge: str) -> DataArray:
-        """Read data from the specified ADAS file.
+    def get_adf15(self, element: str, charge: int, file_type: str, year="") -> DataArray:
+        """Read data from the specified ADAS file. Different files are available, e.g.:
+
+            https: // open.adas.ac.uk / download / adf15 / pec96][ne / pec96][ne_pju][ne9.dat
+            https: // open.adas.ac.uk / download / adf15 / transport / transport_llu][ar16.dat
 
         Parameters
         ----------
-        quantity
-            The type of data to retrieve. Options: ic, cl, ca, ls, llu.
+        file_type
+            The type of data to retrieve. Options: ic, cl, ca, ls, llu, ...
         element
             The atomic symbol for the element which will be retrieved.
         charge
             Charge state of the ion (e.g. 16 for Ar 16+).
+        year
+            The two-digit year label for the data.
+
 
         Returns
         -------
@@ -171,30 +177,40 @@ class ADASReader(BaseIO):
 
         """
         now = datetime.datetime.now()
-        if quantity.lower()=="llu":
+        if file_type.lower()=="llu":
             file_component = "transport"
         else:
-            raise NotImplementedError(
-                "{} new format 'pec40' not implemented yet.".format(self.__class__.__name__)
-            )
-            # file_component = f"pec40][{element.lower()}"
+            file_component = f"pec{year}][{element.lower()}"
 
         filename = ( Path(pathname2url(file_component)) /
-                     pathname2url(f"{file_component}_{quantity.lower()}][{element.lower()}{charge}.dat")
+                     pathname2url(f"{file_component}_{file_type.lower()}][{element.lower()}{charge}.dat")
                      )
         with self._get_file("adf15", filename) as f:
-            header = f.readline().split()
-            ntrans = int(header[0])
-            element_name = header[1][1:3].lower()
-            assert element_name==element.lower()
-            charge_state = header[1][4:6].lower()
-            assert charge_state==charge
+            header = f.readline().strip().lower()
+            header_match = [r"(\d+).+/(\S+).*\:(.*)photon",
+                            r"(\d+).+/(\S+).*\+(.*)photon",
+                            ]
+            for match in header_match:
+                m = re.search(match, header, re.I)
+                if isinstance(m, re.Match):
+                    break
+            assert isinstance(m, re.Match)
+            ntrans = int(m.group(1))
+            element_name = m.group(2).strip().lower()
+            charge_state = int(m.group(3))
+            assert element_name == element.lower()
+            assert charge_state==int(charge)
 
             # Read first section header to build arrays outside of reading loop
-            section_header = f.readline().strip()
-            m = re.search(r"(\d+.\d)\s+\S+\s+(\d+)\s+(\d+).+TYPE\s=\s(\S+).+ISEL.+=\s+(\d+)", section_header, re.I)
+            section_header_match = [r"(\d+.\d+)\s+(\d+)\s+(\d+).+type=(\S+)/.+/isel.+=\s+(\d+)",
+                                    r"(\d+.\d)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+).+isel\s?=\s+(\d+)",
+                                    ]
+            section_header = f.readline().strip().lower()
+            for match in section_header_match:
+                m = re.search(match, section_header, re.I)
+                if isinstance(m, re.Match):
+                    section_header_match = match
             assert isinstance(m, re.Match)
-
             nd = int(m.group(2))
             nt = int(m.group(3))
             data = np.empty((ntrans, nt, nd))
@@ -205,65 +221,69 @@ class ADASReader(BaseIO):
             # Read Photon Emissivity Coefficient rates
             for i in range(ntrans):
                 if i>0:
-                    section_header = f.readline().strip()
-                m = re.search(r"(\d+.\d)\s+\S+\s+(\d+)\s+(\d+).+TYPE\s=\s(\S+).+ISEL.+=\s+(\d+)", section_header, re.I)
+                    section_header = f.readline().strip().lower()
+                m = re.search(section_header_match, section_header, re.I)
                 assert isinstance(m, re.Match)
                 assert int(m.group(5))-1 == i
                 tindex[i] = i+1
                 ttype[i] = m.group(4)
-                wavelength[i] = float(m.group(1)) / 10.  # (nm)
+                wavelength[i] = float(m.group(1))  # (Angstroms)
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
 
-            # Read Configuration information
-            config_header = -1
-            while config_header<0:
-                section_header = f.readline()
-                config_header = section_header.lower().find("configuration")
-            configurations = {}
-            while True:
-                tmp = f.readline()
-                m = re.search(r"C\s+(\d)\s+.+(\(\d\S\))\s+(\(\d\)\d\(.+\d.\d\))\s+(\d+.\d+)", tmp, re.I)
-                if not isinstance(m, re.Match):
-                    break
-                configurations[int(m.group(1))] = {"configuration":m.group(3).replace(" ", ""),
-                                                   "energy":float(m.group(4))}
-
             # Read Transition information from end of file
-            trans_header = -1
-            while trans_header<0:
-                section_header = f.readline()
-                trans_header = section_header.lower().find("transition")
+            transition_header_match = r"c\s+[isel].+\s+[transition].+\s+[type]"
+            while True:
+                tmp = f.readline().strip().lower()
+                m = re.search(transition_header_match, tmp, re.I)
+                if isinstance(m, re.Match):
+                    break
+            tmp = f.readline().strip().lower()
 
-            f.readline()
-            config_indices = []
+            tmp = f.readline().strip().lower()
+            if len(tmp.split(")")) > 3:
+                orbitals = True
+                trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))"
+            else:
+                orbitals = False
+                trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
             transition = []
             for i in tindex:
-                tmp = f.readline()
-                m = re.search(r"C\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))", tmp, re.I)
+                if i>1:
+                    tmp = f.readline().strip().lower()
+                m = re.search(trans_match, tmp, re.I)
                 assert isinstance(m, re.Match)
                 assert int(m.group(1)[:-1]) == i
-                config_indices.append(f"{m.group(3)}-{m.group(5)}")
-                transition.append(f"{m.group(4)}-{m.group(6)}".replace(" ", ""))
+                if orbitals:
+                    transition.append(f"{m.group(4)}-{m.group(6)}".replace(" ", ""))
+                else:
+                    transition.append(m.group(3).replace(" ", ""))
 
-        gen_type = ADF15_GENERAL_DATATYPES[quantity]
+        gen_type = ADF15_GENERAL_DATATYPES[file_type]
         spec_type = element
         name = f"{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),
             "provenance": self.create_provenance(filename, now),
-            "configurations": configurations,
         }
 
-        pecs = DataArray(
-            data * 10**6,
-            coords=[
+        # Problem with reorganising data if nd==nt...
+        if nd == nt:
+            coords = [
                 ("index", tindex),
-                ("electron_density", densities * 10**6), # m**-3
-                ("electron_temperature", temperatures), # eV
-            ],
-            dims=["index", "electron_density", "electron_temperature"],
+                ("electron_density", densities * 10 ** 6),  # m**-3
+                ("electron_temperature", temperatures),  # eV
+            ]
+        else:
+            coords = [
+                ("index", tindex),
+                ("electron_temperature", temperatures),  # eV
+                ("electron_density", densities * 10 ** 6),  # m**-3
+            ]
+        pecs = DataArray(
+            data * 10**-6,
+            coords=coords,
             name=name,
             attrs=attrs,
         )
@@ -271,7 +291,6 @@ class ADASReader(BaseIO):
         # Add extra dimensions attached to index
         pecs = pecs.assign_coords(wavelength =("index", wavelength)) # (nm)
         pecs = pecs.assign_coords(transition=("index", transition)) # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
-        pecs = pecs.assign_coords(config_indices=("index", config_indices)) # Indices of configurations
         pecs = pecs.assign_coords(type=("index", ttype)) # (excit, recomb, cx)
 
         return pecs
