@@ -155,8 +155,8 @@ class ADASReader(BaseIO):
     ) -> DataArray:
         """Read data from the specified ADAS file. Different files are available, e.g.:
 
-            https: // open.adas.ac.uk / download / adf15 / pec96][ne / pec96][ne_pju][ne9.dat
-            https: // open.adas.ac.uk / download / adf15 / transport / transport_llu][ar16.dat
+        pec96][ne / pec96][ne_pju][ne9.dat
+        transport_llu][ar16.dat
 
         Parameters
         ----------
@@ -205,12 +205,12 @@ class ADASReader(BaseIO):
             assert charge_state == int(charge)
 
             # Read first section header to build arrays outside of reading loop
-            section_header_match = [
+            section_header_match_tmp = [
                 r"(\d+.\d+)\s+(\d+)\s+(\d+).+type=(\S+)/.+/isel.+=\s+(\d+)",
                 r"(\d+.\d)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+).+isel\s?=\s+(\d+)",
             ]
             section_header = f.readline().strip().lower()
-            for match in section_header_match:
+            for match in section_header_match_tmp:
                 m = re.search(match, section_header, re.I)
                 if isinstance(m, re.Match):
                     section_header_match = match
@@ -248,7 +248,8 @@ class ADASReader(BaseIO):
             tmp = f.readline().strip().lower()
             if len(tmp.split(")")) > 3:
                 orbitals = True
-                trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))"
+                trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d" \
+                              r"\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))"
             else:
                 orbitals = False
                 trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
