@@ -150,7 +150,9 @@ class ADASReader(BaseIO):
             attrs=attrs,
         )
 
-    def get_adf15(self, element: str, charge: int, file_type: str, year="") -> DataArray:
+    def get_adf15(
+        self, element: str, charge: int, file_type: str, year=""
+    ) -> DataArray:
         """Read data from the specified ADAS file. Different files are available, e.g.:
 
             https: // open.adas.ac.uk / download / adf15 / pec96][ne / pec96][ne_pju][ne9.dat
@@ -177,14 +179,14 @@ class ADASReader(BaseIO):
 
         """
         now = datetime.datetime.now()
-        if file_type.lower()=="llu":
+        if file_type.lower() == "llu":
             file_component = "transport"
         else:
             file_component = f"pec{year}][{element.lower()}"
 
-        filename = ( Path(pathname2url(file_component)) /
-                     pathname2url(f"{file_component}_{file_type.lower()}][{element.lower()}{charge}.dat")
-                     )
+        filename = Path(pathname2url(file_component)) / pathname2url(
+            f"{file_component}_{file_type.lower()}][{element.lower()}{charge}.dat"
+        )
         with self._get_file("adf15", filename) as f:
             header = f.readline().strip().lower()
             header_match = [
@@ -200,7 +202,7 @@ class ADASReader(BaseIO):
             element_name = m.group(2).strip().lower()
             charge_state = int(m.group(3))
             assert element_name == element.lower()
-            assert charge_state==int(charge)
+            assert charge_state == int(charge)
 
             # Read first section header to build arrays outside of reading loop
             section_header_match = [
@@ -222,12 +224,12 @@ class ADASReader(BaseIO):
 
             # Read Photon Emissivity Coefficient rates
             for i in range(ntrans):
-                if i>0:
+                if i > 0:
                     section_header = f.readline().strip().lower()
                 m = re.search(section_header_match, section_header, re.I)
                 assert isinstance(m, re.Match)
-                assert int(m.group(5))-1 == i
-                tindex[i] = i+1
+                assert int(m.group(5)) - 1 == i
+                tindex[i] = i + 1
                 ttype[i] = m.group(4)
                 wavelength[i] = float(m.group(1))  # (Angstroms)
                 densities = np.fromfile(f, float, nd, " ")
@@ -252,7 +254,7 @@ class ADASReader(BaseIO):
                 trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
             transition = []
             for i in tindex:
-                if i>1:
+                if i > 1:
                     tmp = f.readline().strip().lower()
                 m = re.search(trans_match, tmp, re.I)
                 assert isinstance(m, re.Match)
@@ -276,16 +278,18 @@ class ADASReader(BaseIO):
             ("electron_temperature", temperatures),  # eV
         ]
         pecs = DataArray(
-            data * 10**-6,
+            data * 10 ** -6,
             coords=coords,
             name=name,
             attrs=attrs,
         )
 
         # Add extra dimensions attached to index
-        pecs = pecs.assign_coords(wavelength =("index", wavelength)) # (A)
-        pecs = pecs.assign_coords(transition=("index", transition)) # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
-        pecs = pecs.assign_coords(type=("index", ttype)) # (excit, recomb, cx)
+        pecs = pecs.assign_coords(wavelength=("index", wavelength))  # (A)
+        pecs = pecs.assign_coords(
+            transition=("index", transition)
+        )  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
+        pecs = pecs.assign_coords(type=("index", ttype))  # (excit, recomb, cx)
 
         return pecs
 
