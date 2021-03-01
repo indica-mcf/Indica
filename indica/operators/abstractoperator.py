@@ -329,11 +329,9 @@ class Operator(ABC):
         else:
             data.attrs["partial_provenance"] = entity
             if data.indica.equilibrium:
-                # print(data)
                 data.indica._update_prov_for_equilibrium(
                     data.attrs["transform"].equilibrium
                 )
-                # print(data.attrs["provenance"])
             else:
                 data.attrs["provenance"] = entity
 
