@@ -108,6 +108,15 @@ ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "prsx": "sxr_recomb_emissions",
 }
 
+ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
+    "ca": "photon_emissivity_coefficients_ca",
+    "cl": "photon_emissivity_coefficients_cl",
+    "ic": "photon_emissivity_coefficients_ic",
+    "ls": "photon_emissivity_coefficients_ls",
+    "llu": "photon_emissivity_coefficients_llu",
+    "pju": "photon_emissivity_coefficients_pju",
+    "bnd": "photon_emissivity_coefficients_bnd",
+}
 
 #: A list of the chemical elements, up to Tungston, ordered by atomic
 # number. Can be useful to be able to look up the name.
