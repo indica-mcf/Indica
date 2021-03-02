@@ -234,7 +234,7 @@ class ADASReader(BaseIO):
                 wavelength[i] = float(m.group(1))  # (Angstroms)
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
-                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nd, nt))
+                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
 
             # Read Transition information from end of file
             transition_header_match = r"c\s+[isel].+\s+[transition].+\s+[type]"
@@ -275,11 +275,19 @@ class ADASReader(BaseIO):
             "provenance": self.create_provenance(filename, now),
         }
 
-        coords = [
-            ("index", tindex),
-            ("electron_density", densities * 10 ** 6),  # m**-3
-            ("electron_temperature", temperatures),  # eV
-        ]
+        if nd == nt:
+            coords = [
+                ("index", tindex),
+                ("electron_density", densities * 10 ** 6),  # m**-3
+                ("electron_temperature", temperatures),  # eV
+            ]
+        else:
+            coords = [
+                ("index", tindex),
+                ("electron_temperature", temperatures),  # eV
+                ("electron_density", densities * 10 ** 6),  # m**-3
+            ]
+
         pecs = DataArray(
             data * 10 ** -6,
             coords=coords,
