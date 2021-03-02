@@ -143,8 +143,8 @@ class ADASReader(BaseIO):
             data - 6,
             coords=[
                 ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
-                ("log_electron_temperature", temperatures),
-                ("log_electron_density", densities + 6),
+                ("log10_electron_temperature", temperatures),
+                ("log10_electron_density", densities + 6),
             ],
             name=name,
             attrs=attrs,
