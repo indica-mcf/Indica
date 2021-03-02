@@ -115,7 +115,7 @@ class main_plasma_profs:
         if peaked:
             w_core = 0.3
 
-        y_edge = gaussian(x_edge, y_ped, 1.0, x_ped, w_edge)
+        y_edge = gaussian(x_edge, y_ped, 1.0, x_ped - 0.01, w_edge)
         y_core = gaussian(x_core, y_0, y_ped, 0.0, w_core)
 
         if (np.abs(y_core[-1] - y_edge[0]) / y_edge[0]) > 1.0e-2:

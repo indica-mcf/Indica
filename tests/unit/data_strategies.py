@@ -786,12 +786,12 @@ def adf11_data(
     min_dens = draw(integers(3, 12))
     max_dens = draw(integers(min_dens + 1, 17))
     densities = DataArray(
-        np.linspace(min_dens, max_dens, nd) + 6, dims="log_electron_density"
+        np.linspace(min_dens, max_dens, nd) + 6, dims="log10_electron_density"
     )
     min_temp = draw(floats(-2.0, 2.5))
     max_temp = draw(floats(min_temp + 1, 6.0))
     temperatures = DataArray(
-        np.linspace(min_temp, max_temp, nt), dims="log_electron_temperature"
+        np.linspace(min_temp, max_temp, nt), dims="log10_electron_temperature"
     )
     z = draw(integers(1, 74))
     min_z = draw(integers(1, z))
