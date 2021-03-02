@@ -14,51 +14,42 @@ class main_plasma_profs:
         Results are saved as xarray.DataArray
 
         """
-
         self.h_mode()
 
     def h_mode(self, te_0=3.5e3, ti_0=3.5e3, ne_0=6.0e19, vrot_0=1.5e5):
-
         self.te = self.build_temperature(
-            y_0=te_0,
-            y_ped=ti_0 / 4.0,
-            x_ped=0.95,
-            datatype=("temperature", "electrons"),
+            y_0=te_0, y_ped=ti_0 / 4.0, x_ped=0.95, datatype=("temperature", "electron")
         )
         self.ti = self.build_temperature(
-            y_0=ti_0, y_ped=ti_0 / 4.0, x_ped=0.95, datatype=("temperature", "ions")
+            y_0=ti_0, y_ped=ti_0 / 4.0, x_ped=0.95, datatype=("temperature", "ion")
         )
         self.ne = self.build_density(
-            y_0=ne_0, y_ped=ne_0 / 2.0, x_ped=0.95, datatype=("density", "electrons")
+            y_0=ne_0, y_ped=ne_0 / 2.0, x_ped=0.95, datatype=("density", "electron")
         )
         self.vrot = self.build_rotation(
             y_0=vrot_0,
             y_ped=vrot_0 / 1.5,
             x_ped=0.8,
             w_edge=0.25,
-            datatype=("rotation", "ions"),
+            datatype=("rotation", "ion"),
         )
 
     def l_mode(self, te_0=1.0e3, ti_0=1.0e3, ne_0=6.0e19, vrot_0=0.5e5):
-
         self.te = self.build_temperature(
-            y_0=te_0,
-            y_ped=te_0 / 3.0,
-            x_ped=0.85,
-            datatype=("temperature", "electrons"),
+            y_0=te_0, y_ped=te_0 / 6.0, x_ped=0.85, datatype=("temperature", "electron")
         )
         self.ti = self.build_temperature(
-            y_0=ti_0, y_ped=ti_0 / 3.0, x_ped=0.85, datatype=("temperature", "ions")
+            y_0=ti_0, y_ped=ti_0 / 6.0, x_ped=0.85, datatype=("temperature", "ion")
         )
         self.ne = self.build_density(
-            y_0=ne_0, y_ped=ne_0 / 5.0, x_ped=0.85, datatype=("density", "electrons")
+            y_0=ne_0, y_ped=ne_0 / 2.0, x_ped=0.85, datatype=("density", "electron")
         )
         self.vrot = self.build_rotation(
             y_0=vrot_0,
             y_ped=vrot_0 / 1.5,
             x_ped=0.8,
             w_edge=0.25,
-            datatype=("rotation", "ions"),
+            datatype=("rotation", "ion"),
         )
 
     def build_temperature(
@@ -68,7 +59,7 @@ class main_plasma_profs:
         x_ped=0.95,
         w_core=None,
         w_edge=None,
-        datatype=("temperature", "electrons"),
+        datatype=("temperature", "electron"),
         peaked=False,
     ) -> DataArray:
 
@@ -83,7 +74,7 @@ class main_plasma_profs:
         x_ped=0.95,
         w_core=None,
         w_edge=None,
-        datatype=("density", "electrons"),
+        datatype=("density", "electron"),
         peaked=False,
     ) -> DataArray:
 
@@ -98,7 +89,7 @@ class main_plasma_profs:
         x_ped=0.8,
         w_core=None,
         w_edge=0.25,
-        datatype=("rotation", "ions"),
+        datatype=("rotation", "ion"),
         peaked=False,
     ) -> DataArray:
 
@@ -111,7 +102,7 @@ class main_plasma_profs:
     ) -> DataArray:
 
         x_core = np.linspace(0, x_ped, 30)
-        x_edge = np.linspace(x_ped, 1.05, 7)
+        x_edge = np.linspace(x_ped, 1.05, 15)
         x = np.concatenate([x_core[:-1], x_edge])
 
         x_edge = x[np.where(x >= x_ped)[0]]
@@ -124,20 +115,19 @@ class main_plasma_profs:
         if peaked:
             w_core = 0.3
 
-        y_edge = gaussian(x_edge, y_ped, 0.0, x_ped, w_edge)
+        y_edge = gaussian(x_edge, y_ped, 1.0, x_ped - 0.01, w_edge)
         y_core = gaussian(x_core, y_0, y_ped, 0.0, w_core)
 
         if (np.abs(y_core[-1] - y_edge[0]) / y_edge[0]) > 1.0e-2:
             y_core = (y_core - y_core[-1]) / (y_core[0] - y_core[-1]) * (
                 y_core[0] - y_edge[0]
             ) + y_edge[0]
-
         y = np.concatenate([y_core[:-1], y_edge])
 
         coords = [("rho_poloidal", x)]
         dims = ["rho_poloidal"]
         attrs = {"datatype": datatype}
-        name = datatype[0] + "_" + datatype[1]
+        name = datatype[1] + "_" + datatype[0]
         value = DataArray(y, coords, dims, attrs=attrs)
         value.name = name
 
