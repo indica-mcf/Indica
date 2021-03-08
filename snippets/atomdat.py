@@ -189,7 +189,7 @@ def radiated_power(
 
     rad_pow[0, :] = fz[0, :] * 10 ** plt[0, :]
     for i in range(1, nz):
-        rad_pow[i, :] = fz[i, :] * (10 ** plt[i, :] + 10 ** prb[i-1, :])
+        rad_pow[i, :] = fz[i, :] * (10 ** plt[i, :] + 10 ** prb[i - 1, :])
     rad_pow[i + 1, :] = fz[i + 1, :] * 10 ** prb[i, :]
 
     if gen_type and element:
