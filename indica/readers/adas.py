@@ -151,7 +151,11 @@ class ADASReader(BaseIO):
         )
 
     def get_adf15(
-        self, element: str, charge: int, file_type: str, year=""
+        self,
+        element: str,
+        charge: str,
+        file_type: str,
+        year="",
     ) -> DataArray:
         """Read data from the specified ADAS file. Different files are available, e.g.:
 
@@ -165,9 +169,11 @@ class ADASReader(BaseIO):
         element
             The atomic symbol for the element which will be retrieved.
         charge
-            Charge state of the ion (e.g. 16 for Ar 16+).
+            Charge state of the ion (e.g. 16 for Ar 16+), can also include other string for
+            more complicated path (e.g. ... / transport / transport_llu][ar15ic.dat, setting
+            charge to "15ic")
         year
-            The two-digit year label for the data.
+            The two-digit year label for the data. = "transport" if special transport path
 
 
         Returns
@@ -179,13 +185,13 @@ class ADASReader(BaseIO):
 
         """
         now = datetime.datetime.now()
-        if file_type.lower() == "llu":
+        if year == "transport":
             file_component = "transport"
         else:
             file_component = f"pec{year}][{element.lower()}"
 
         filename = Path(pathname2url(file_component)) / pathname2url(
-            f"{file_component}_{file_type.lower()}][{element.lower()}{charge}.dat"
+            f"{file_component}_{file_type.lower()}][{element.lower()}{charge.lower()}.dat"
         )
         with self._get_file("adf15", filename) as f:
             header = f.readline().strip().lower()
@@ -202,18 +208,27 @@ class ADASReader(BaseIO):
             element_name = m.group(2).strip().lower()
             charge_state = int(m.group(3))
             assert element_name == element.lower()
-            assert charge_state == int(charge)
+            try:
+                assert charge_state == int(charge)
+            except:
+                m = re.search(r"(\d+)(\S+)", charge, re.I)
+                charge_state == int(m.group(1))
 
             # Read first section header to build arrays outside of reading loop
             section_header_match_tmp = [
                 r"(\d+.\d+)\s+(\d+)\s+(\d+).+type=(\S+)/.+/isel.+=\s+(\d+)",
                 r"(\d+.\d)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+).+isel\s?=\s+(\d+)",
             ]
-            section_header = f.readline().strip().lower()
-            for match in section_header_match_tmp:
-                m = re.search(match, section_header, re.I)
+            while True:
+                section_header = f.readline().strip().lower()
+                for match in section_header_match_tmp:
+                    m = re.search(match, section_header, re.I)
+                    if isinstance(m, re.Match):
+                        section_header_match = match
+                        break
                 if isinstance(m, re.Match):
-                    section_header_match = match
+                    break
+
             assert isinstance(m, re.Match)
             nd = int(m.group(2))
             nt = int(m.group(3))
@@ -245,16 +260,31 @@ class ADASReader(BaseIO):
                     break
             f.readline().strip().lower()
 
-            tmp = f.readline().strip().lower()
+            trans_match = [
+                (
+                    r"c\s+(\d+.)"  # isel
+                    r"\s+(\d+.\d+)"  # wavelength
+                    r"\s+(\d+)(\(\d\)\d\(.+\d?.\d\))-"  # transition upper level
+                    r".+(\d+)(\(\d\)\d\(.+\d?.\d\))"  # transition lower level
+                ),
+                r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)",
+            ]
+            while True:
+                tmp = f.readline().strip().lower()
+
+                for match in trans_match:
+                    m = re.search(match, tmp, re.I)
+                    if isinstance(m, re.Match):
+                        trans_match = match
+                        break
+                if isinstance(m, re.Match):
+                    break
+
             if len(tmp.split(")")) > 3:
                 orbitals = True
-                trans_match = (
-                    r"c\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d"
-                    r"\(.+.\d\))-.+(\d+)(\(\d\)\d\(.+.\d\))"
-                )
             else:
                 orbitals = False
-                trans_match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
+
             transition = []
             for i in tindex:
                 if i > 1:
