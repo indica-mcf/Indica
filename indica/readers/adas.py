@@ -250,7 +250,7 @@ class ADASReader(BaseIO):
                 orbitals = True
                 trans_match = (
                     r"c\s+(\d+.)\s+(\d+.\d+)\s+(\d+)(\(\d\)\d"
-                    r"\(.+\d+.\d\))-.+(\d+)(\(\d\)\d\(.+\d+.\d\))"
+                    r"\(.+.\d\))-.+(\d+)(\(\d\)\d\(.+.\d\))"
                 )
             else:
                 orbitals = False
