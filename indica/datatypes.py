@@ -116,6 +116,7 @@ ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "llu": "photon_emissivity_coefficients_llu",
     "pju": "photon_emissivity_coefficients_pju",
     "bnd": "photon_emissivity_coefficients_bnd",
+    "pjr": "photon_emissivity_coefficients_pjr",
 }
 
 #: A list of the chemical elements, up to Tungston, ordered by atomic
