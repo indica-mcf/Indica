@@ -14,7 +14,7 @@ def atomdat_files(element: str) -> Dict:
             "acd": "89",
             "plt": "89",
             "prb": "89",
-            "pec": ("llu", "89"),
+            "pec": ("llu", "transport"),  # (file type, year or "transport")
         }
     elif element.lower() == "c":
         file_info = {
@@ -36,7 +36,10 @@ def get_atomdat(reader, element, charge, transition=None, wavelength=None):
     for k in files.keys():
         if k == "pec":
             atomdat[k] = reader.get_adf15(
-                element, charge, files[k][0], year=files[k][1]
+                element,
+                charge,
+                files[k][0],
+                year=files[k][1],
             )
         elif k in ["scd", "acd", "plt", "prb"]:
             atomdat[k] = reader.get_adf11(k, element, files[k])
