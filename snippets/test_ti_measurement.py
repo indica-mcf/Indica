@@ -3,13 +3,11 @@ from copy import deepcopy
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
-from scipy.integrate import trapezoid
 from snippets.atomdat import fractional_abundance
 from snippets.atomdat import radiated_power
 import snippets.fac_profiles as fac
 import snippets.forward_models as forward_models
 import xarray
-from xarray import DataArray
 
 from indica.numpy_typing import ArrayLike
 
@@ -138,13 +136,15 @@ class simulate_spectra:
         return results
 
     def recover_values(self, tau=1):
-        """From the measured Te and Ti values, search for Te that best matches total pressure.
+        """From the measured Te and Ti values, search for Te that best
+        matches total pressure.
 
-        Ti profile shape estimated from passive spectrometer measurements and spectral line
-        emission(Te)
+        Ti profile shape estimated from passive spectrometer measurements
+        and spectral line emission(Te)
 
-        Ne and plasma volume are taken as given, the former from interferometer <Ne> measurements
-        and assuming a fixed profile shape, the latter from equilibrium reconstruction
+        Ne and plasma volume are taken as given, the former from
+        interferometer <Ne> measurements and assuming a fixed profile shape,
+        the latter from equilibrium reconstruction
 
         Treat each time-point independently...
         """
@@ -156,6 +156,8 @@ class simulate_spectra:
             "el_temp_err": {"in": [], "out": []},
             "ion_temp": [],
             "ion_temp_err": {"in": [], "out": []},
+            "pressure": [],
+            "ptot": [],
         }
 
         rho = self.el_dens.coords["rho_poloidal"]
@@ -175,7 +177,8 @@ class simulate_spectra:
             ti_c = self.passive_c5.exp["ion_temp"][i]
 
             const = 1.0
-            for j in range(2):
+            nrounds = 2
+            for j in range(nrounds):
                 self.profs.l_mode(te_0=te_0 * const)
                 el_temp = self.profs.te
 
@@ -217,11 +220,12 @@ class simulate_spectra:
                 # Calculate estimate of total pressure
                 p_el, ptot_el = calc_pressure(el_dens, el_temp, volume=volume)
                 p_ion, ptot_ion = calc_pressure(ion_dens, ion_temp, volume=volume)
+                pressure_recovered = p_el + p_ion
+                ptot_recovered = ptot_ion + ptot_el
 
-                # Compare with experimental value and calculate constant to rescale profiles
-                dpth_tot = ptot - (
-                    ptot_ion + ptot_el
-                )  # missing pressure in estimated value
+                # Compare with experimental value and rescale profiles
+                dpth_tot = ptot - ptot_recovered  # missing pressure in estimated value
+                # const = (1 + dpth_tot / ptot_recovered).values
                 const = (1 + dpth_tot / ptot_el).values
 
             results["pos"].append([pos_avrg_he, pos_avrg_c])
@@ -229,6 +233,9 @@ class simulate_spectra:
             results["pos_err"]["out"].append([pos_err_out_he, pos_err_out_c])
             results["el_temp"].append(el_temp)
             results["ion_temp"].append(ion_temp)
+            results["pressure"].append(pressure_recovered)
+            results["ptot"].append(ptot_recovered)
+        results["ptot"] = xarray.concat(results["ptot"], dim="time")
 
         return results
 
@@ -239,7 +246,7 @@ class simulate_spectra:
                 atomdat[k] = atomdat[k].interp(
                     log10_electron_temperature=np.log10(el_temp), method="quadratic"
                 )
-            except:
+            except ValueError:
                 atomdat[k] = atomdat[k].interp(
                     electron_temperature=el_temp, method="quadratic"
                 )
@@ -269,7 +276,7 @@ class simulate_spectra:
 
         return fz, emiss, tot_rad_pow
 
-    def plot_res(self, name="", save_fig=False):
+    def plot_res(self, name="", savefig=False):
         nt = self.time.size
         colors = cm.rainbow(np.linspace(0, 1, nt))
 
@@ -286,6 +293,10 @@ class simulate_spectra:
             "passive_c5_te": "$T_e$ (Passive C5+)",
             "passive_c5_ti": "$T_i$ (Passive C5+)",
             "passive_c5_ne": "$n_e$ (Passive C5+)",
+            "pressure": "Real value",
+            "pressure_recov": "Recovered",
+            "ptot": "Real value",
+            "ptot_recov": "Recovered",
         }
         labels_tmp = deepcopy(labels)
         for i in range(nt):
@@ -307,22 +318,6 @@ class simulate_spectra:
                 color=colors[i],
             )
 
-            plt.scatter(
-                self.passive_c5.exp["pos"][i],
-                self.passive_c5.exp["el_temp"][i],
-                color=colors[i],
-                marker="x",
-                label=labels_tmp["passive_c5_te"],
-            )
-            plt.hlines(
-                self.passive_c5.exp["el_temp"][i],
-                self.passive_c5.exp["pos"][i] - self.passive_c5.exp["pos_err"]["in"][i],
-                self.passive_c5.exp["pos"][i]
-                + self.passive_c5.exp["pos_err"]["out"][i],
-                alpha=0.5,
-                color=colors[i],
-            )
-
             if hasattr(self, "recovered"):
                 self.recovered["el_temp"][i].plot(
                     color=colors[i], label=labels_tmp["el_temp_recov"], linestyle="--"
@@ -334,7 +329,7 @@ class simulate_spectra:
         plt.legend()
         ylim = plt.ylim()
         plt.ylim(ylim)
-        if save_fig:
+        if savefig:
             save_figure(fig_name=name + "_el_temperature")
 
         # Ion temperature
@@ -380,7 +375,7 @@ class simulate_spectra:
 
             if hasattr(self, "recovered"):
                 self.recovered["ion_temp"][i].plot(
-                    color=colors[i], label=labels_tmp["el_temp_recov"], linestyle="--"
+                    color=colors[i], label=labels_tmp["ion_temp_recov"], linestyle="--"
                 )
 
         plt.title("Ion Temperature")
@@ -388,62 +383,66 @@ class simulate_spectra:
         plt.xlabel(r"$\rho_{pol}$")
         plt.legend()
         plt.ylim(ylim)
-        if save_fig:
+        if savefig:
             save_figure(fig_name=name + "_ion_temperature")
 
+        # Electron density
         plt.figure()
         for i in range(nt):
             self.el_dens[i].plot(color=colors[i])
 
-            plt.scatter(
-                self.he_like.exp["pos"][i],
-                self.he_like.exp["el_dens"][i],
-                color=colors[i],
-                label=labels_tmp["he_like_ne"],
-            )
-            plt.hlines(
-                self.he_like.exp["el_dens"][i],
-                self.he_like.exp["pos"][i] - self.he_like.exp["pos_err"]["in"][i],
-                self.he_like.exp["pos"][i] + self.he_like.exp["pos_err"]["out"][i],
-                alpha=0.5,
-                color=colors[i],
-            )
-
-            plt.scatter(
-                self.passive_c5.exp["pos"][i],
-                self.passive_c5.exp["el_dens"][i],
-                color=colors[i],
-                marker="x",
-                label=labels_tmp["passive_c5_ne"],
-            )
-            plt.hlines(
-                self.passive_c5.exp["el_dens"][i],
-                self.passive_c5.exp["pos"][i] - self.passive_c5.exp["pos_err"]["in"][i],
-                self.passive_c5.exp["pos"][i]
-                + self.passive_c5.exp["pos_err"]["out"][i],
-                alpha=0.5,
-                color=colors[i],
-            )
         plt.title("Electron Density")
         plt.ylabel("($m^{-3}$)")
         plt.xlabel(r"$\rho_{pol}$")
-        if save_fig:
+        if savefig:
             save_figure(fig_name=name + "_density")
 
         plt.figure()
+        labels_tmp = deepcopy(labels)
         for i in range(nt):
-            self.pressure[i].plot(color=colors[i])
+            if i > 0:
+                for k in labels.keys():
+                    labels_tmp[k] = None
+            self.pressure[i].plot(color=colors[i], label=labels_tmp["pressure"])
+            if hasattr(self, "recovered"):
+                self.recovered["pressure"][i].plot(
+                    color=colors[i], label=labels_tmp["pressure_recov"], linestyle="--"
+                )
         plt.title("Thermal pressure (ion + electrons)")
-        plt.ylabel("($Pa$)")
+        plt.ylabel("($Pa$ $m^{-3}$)")
         plt.xlabel(r"$\rho_{pol}$")
-        if save_fig:
+        plt.legend()
+        if savefig:
             save_figure(fig_name=name + "_thermal_pressure")
+
+        plt.figure()
+        labels_tmp = deepcopy(labels)
+        ptot = self.ptot.assign_coords(
+            electron_temperature=("time", self.el_temp.sel(rho_poloidal=0))
+        )
+        ptot = ptot.swap_dims({"time": "electron_temperature"})
+        ptot_recovered = self.recovered["ptot"].assign_coords(
+            electron_temperature=("time", self.el_temp.sel(rho_poloidal=0))
+        )
+        ptot_recovered = ptot_recovered.swap_dims({"time": "electron_temperature"})
+
+        ptot.plot(color="k", linestyle="dashed", label=labels_tmp["ptot"])
+        if hasattr(self, "recovered"):
+            ptot_recovered.plot(label=labels_tmp["ptot_recov"])
+        plt.title("Total thermal pressure (ion + electrons)")
+        plt.ylabel("($Pa$)")
+        plt.xlabel("Te(0) (eV)")
+        plt.legend()
+        if savefig:
+            save_figure(fig_name=name + "_ptot_pressure")
 
         for results in [self.he_like, self.passive_c5]:
             titles = {
                 "fz": f"{results.element}{results.charge}+ fractional abundance",
-                "pec": f"{results.element}{results.charge}+ {results.wavelength}A PEC",
-                "emiss": f"{results.element}{results.charge}+ {results.wavelength}A emission shell",
+                "pec": f"{results.element}{results.charge}+ "
+                f"{results.wavelength}A PEC",
+                "emiss": f"{results.element}{results.charge}+ "
+                f"{results.wavelength}A emission shell",
                 "tot_rad_pow": f"{results.element} total radiated power",
             }
 
@@ -459,7 +458,7 @@ class simulate_spectra:
             plt.title(titles["fz"])
             plt.ylabel("")
             plt.xlabel(r"$\rho_{pol}$")
-            if save_fig:
+            if savefig:
                 save_figure(fig_name=name + f"_{results.element}_fract_abu")
 
             plt.figure()
@@ -468,7 +467,7 @@ class simulate_spectra:
             plt.title(titles["emiss"])
             plt.ylabel("")
             plt.xlabel(r"$\rho_{pol}$")
-            if save_fig:
+            if savefig:
                 save_figure(
                     fig_name=name
                     + f"_{results.element}{results.charge}_emission_ragion"
@@ -480,7 +479,7 @@ class simulate_spectra:
             plt.title(titles["tot_rad_pow"])
             plt.ylabel("(W)")
             plt.xlabel(r"$\rho_{pol}$")
-            if save_fig:
+            if savefig:
                 save_figure(fig_name=name + f"_{results.element}_total_radiated_power")
 
         plt.figure()
@@ -508,8 +507,8 @@ class simulate_spectra:
         plt.ylabel(r"$\rho_{pol}$")
         plt.xlabel("$T_e(0)$ (eV)")
         plt.legend()
-        if save_fig:
-            save_figure(fig_name=name + f"_emission_locations")
+        if savefig:
+            save_figure(fig_name=name + "_emission_locations")
 
         plt.figure()
         plt.plot(self.te_0, self.te_0, "k--", label="$T_e(0)$")
@@ -526,8 +525,8 @@ class simulate_spectra:
         plt.ylabel(r"$T_e$ (eV)")
         plt.xlabel(r"$T_e$ (eV)")
         plt.legend()
-        if save_fig:
-            save_figure(fig_name=name + f"_electron_temperature_center")
+        if savefig:
+            save_figure(fig_name=name + "_electron_temperature_center")
 
 
 def save_figure(fig_name="", orientation="landscape", ext=".jpg"):

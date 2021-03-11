@@ -1,13 +1,15 @@
 """Various miscellaneous functions for handling of atomic data."""
 
+from typing import Dict
+
 import numpy as np
 from xarray import DataArray
+
 from indica.numpy_typing import ArrayLike
-from typing import Dict
 
 
 def atomdat_files(element: str) -> Dict:
-    file_info = None
+    file_info = {}
     if element.lower() == "ar":
         file_info = {
             "scd": "89",
@@ -79,8 +81,9 @@ def fractional_abundance(
     Still to be included:
         * provenance
         * charge-exchange rates
-        * impurity residence time ne_tau for transient equilibrium [L. Casali EPJ 79, 01007 (2014),
-        A. Kallenbach PPCF 55 (2013) 124041]. Current version is not correct.
+        * impurity residence time ne_tau for transient equilibrium
+        [L. Casali EPJ 79, 01007 (2014), A. Kallenbach PPCF 55 (2013) 124041].
+        Current version is not correct.
 
     Parameters
     ----------
@@ -152,8 +155,9 @@ def radiated_power(
     gen_type="radiated_power",
     element="",
 ) -> ArrayLike:
-    """Returns the radiated power coefficients given the fractional abundance, line and recombination rates
-    read from ADAS adf11 files with original file dimensions. Coefficients must be 1d (ion_charges) or
+    """Returns the radiated power coefficients given the fractional abundance,
+    line and recombination rates read from ADAS adf11 files with original
+    file dimensions. Coefficients must be 1d (ion_charges) or
     2d (ion_charges, electron, temperature)
 
     Still to be included:
@@ -164,7 +168,8 @@ def radiated_power(
     plt
         Line power driven by excitation of dominant ions
     prb
-        Continuum and line power driven by recombination and Bremsstrahlung of dominant ions
+        Continuum and line power driven by recombination and Bremsstrahlung of
+        dominant ions
     fz
         Fractional abundance of element ionization stages
 

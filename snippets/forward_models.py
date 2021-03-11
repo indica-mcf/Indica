@@ -1,4 +1,5 @@
-""" Draft for future object containing all info on specific diagnostic. For spectrometers, this includes:
+""" Draft for future object containing all info on specific diagnostic.
+For spectrometers, this includes:
 - element, charge state, transition and wavelength measured
 - LOS geometry
 - instrument function
@@ -12,9 +13,9 @@ and links to functions to:
 """
 
 import numpy as np
+from snippets.atomdat import get_atomdat
 
 from indica.readers import ADASReader
-from snippets.atomdat import get_atomdat
 
 
 class spectrometer_he_like:
@@ -46,7 +47,7 @@ class spectrometer_he_like:
                         electron_density=el_dens, method="nearest"
                     )
                     atomdat[k] = atomdat[k].drop_vars(["electron_density"])
-                except:
+                except ValueError:
                     atomdat[k] = atomdat[k].interp(
                         log10_electron_density=np.log10(el_dens), method="nearest"
                     )
@@ -76,7 +77,6 @@ class spectrometer_passive_c5:
         atomdat["pec"] = atomdat["pec"].swap_dims({"index": "type"}).sel(
             type="excit"
         ) + atomdat["pec"].swap_dims({"index": "type"}).sel(type="recom")
-        # atomdat["pec"] = ( atomdat["pec"].swap_dims({"index": "type"}).sel(type="recom") )
         self.atomdat_files = files
         self.exp = None
         self.sim = None
@@ -88,7 +88,7 @@ class spectrometer_passive_c5:
                         electron_density=el_dens, method="nearest"
                     )
                     atomdat[k] = atomdat[k].drop_vars(["electron_density"])
-                except:
+                except ValueError:
                     atomdat[k] = atomdat[k].interp(
                         log10_electron_density=np.log10(el_dens), method="nearest"
                     )

@@ -154,7 +154,7 @@ class ADASReader(BaseIO):
         self,
         element: str,
         charge: str,
-        file_type: str,
+        filetype: str,
         year="",
     ) -> DataArray:
         """Read data from the specified ADAS file. Different files are available, e.g.:
@@ -164,16 +164,17 @@ class ADASReader(BaseIO):
 
         Parameters
         ----------
-        file_type
+        filetype
             The type of data to retrieve. Options: ic, cl, ca, ls, llu, ...
         element
             The atomic symbol for the element which will be retrieved.
         charge
-            Charge state of the ion (e.g. 16 for Ar 16+), can also include other string for
-            more complicated path (e.g. ... / transport / transport_llu][ar15ic.dat, setting
-            charge to "15ic")
+            Charge state of the ion (e.g. 16 for Ar 16+), can also include
+            other string for more complicated path (transport_llu][ar15ic.dat
+            setting charge to "15ic")
         year
-            The two-digit year label for the data. = "transport" if special transport path
+            The two-digit year label for the data. = "transport" if special
+            transport path
 
 
         Returns
@@ -191,7 +192,8 @@ class ADASReader(BaseIO):
             file_component = f"pec{year}][{element.lower()}"
 
         filename = Path(pathname2url(file_component)) / pathname2url(
-            f"{file_component}_{file_type.lower()}][{element.lower()}{charge.lower()}.dat"
+            f"{file_component}_{filetype.lower()}]"
+            f"[{element.lower()}{charge.lower()}.dat"
         )
         with self._get_file("adf15", filename) as f:
             header = f.readline().strip().lower()
@@ -210,9 +212,10 @@ class ADASReader(BaseIO):
             assert element_name == element.lower()
             try:
                 assert charge_state == int(charge)
-            except:
+            except ValueError:
                 m = re.search(r"(\d+)(\S+)", charge, re.I)
-                charge_state == int(m.group(1))
+                charge_tmp = m.group(1)
+                assert charge_state == int(charge_tmp)
 
             # Read first section header to build arrays outside of reading loop
             section_header_match_tmp = [
@@ -297,7 +300,7 @@ class ADASReader(BaseIO):
                 else:
                     transition.append(m.group(3).replace(" ", ""))
 
-        gen_type = ADF15_GENERAL_DATATYPES[file_type]
+        gen_type = ADF15_GENERAL_DATATYPES[filetype]
         spec_type = element
         name = f"{spec_type}_{gen_type}"
         attrs = {
