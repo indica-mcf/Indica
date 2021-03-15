@@ -208,8 +208,8 @@ def adf11_array_to_str(
 
     element = data.attrs["datatype"][1]
     z = ORDERED_ELEMENTS.index(element)
-    nd = len(data.log10_electron_density)
-    nt = len(data.log10_electron_temperature)
+    nd = len(data.electron_density)
+    nt = len(data.electron_temperature)
     zmin = int(data.ion_charges[0]) + 1
     zmax = int(data.ion_charges[-1]) + 1
     result = (
@@ -218,8 +218,8 @@ def adf11_array_to_str(
         + newline
     )
     result += "-" * 80 + newline
-    result += rows_of_eight(data.log10_electron_density - 6)
-    result += rows_of_eight(data.log10_electron_temperature)
+    result += rows_of_eight(data.electron_density - 6)
+    result += rows_of_eight(data.electron_temperature)
     d = date_divider
     for charge in data.ion_charges:
         if include_metastable_indices:

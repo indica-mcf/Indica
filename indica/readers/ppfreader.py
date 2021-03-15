@@ -160,7 +160,8 @@ class PPFReader(DataReader):
     def get_sal_path(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> str:
-        """Return the path in the PPF database to for the given INSTRUMENT (DDA in JET)."""
+        """Return the path in the PPF database to for the given INSTRUMENT
+        (DDA in JET)."""
         return (
             f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}/"
             f"{quantity}:{revision:d}"
@@ -169,7 +170,8 @@ class PPFReader(DataReader):
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> Tuple[Signal, str]:
-        """Gets the signal for the given INSTRUMENT (DDA in JET), at the given revision."""
+        """Gets the signal for the given INSTRUMENT (DDA in JET), at the
+        given revision."""
         path = self.get_sal_path(uid, instrument, quantity, revision)
         info = self._client.list(path)
         path = self.get_sal_path(
@@ -442,9 +444,9 @@ class PPFReader(DataReader):
                     if qtime not in results:
                         results[qtime] = qval.dimensions[0].data
                 if len(channels) == 0:
-                    # TODO: Try getting information on the INSTRUMENT (DDA in JET), to determine if
-                    # the failure is actually due to requesting an invalid
-                    # INSTRUMENT (DDA in JET) or revision
+                    # TODO: Try getting information on the INSTRUMENT (DDA in JET),
+                    #  to determine if the failure is actually due to requesting
+                    #  an invalid INSTRUMENT (DDA in JET) or revision
                     self._client.list(
                         f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:"
                         f"{revision:d}"

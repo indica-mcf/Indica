@@ -66,8 +66,8 @@ class simulate_spectra:
         self.he_like.exp = self.scan_parameters(self.he_like, tau=tau)
         self.passive_c5.exp = self.scan_parameters(self.passive_c5, tau=tau)
 
-        # Try to recover profiles from experimental measurements
-        self.recovered = self.recover_values()
+        # Try to simulate profiles from experimental measurements
+        self.sim = self.sim_values()
 
     def scan_parameters(self, spectrometer_model, tau=1.0):
         # Forward model of experimental measurements given input profiles
@@ -135,7 +135,7 @@ class simulate_spectra:
 
         return results
 
-    def recover_values(self, tau=1):
+    def sim_values(self, tau=1):
         """From the measured Te and Ti values, search for Te that best
         matches total pressure.
 
@@ -220,12 +220,12 @@ class simulate_spectra:
                 # Calculate estimate of total pressure
                 p_el, ptot_el = calc_pressure(el_dens, el_temp, volume=volume)
                 p_ion, ptot_ion = calc_pressure(ion_dens, ion_temp, volume=volume)
-                pressure_recovered = p_el + p_ion
-                ptot_recovered = ptot_ion + ptot_el
+                pressure_sim = p_el + p_ion
+                ptot_sim = ptot_ion + ptot_el
 
                 # Compare with experimental value and rescale profiles
-                dpth_tot = ptot - ptot_recovered  # missing pressure in estimated value
-                # const = (1 + dpth_tot / ptot_recovered).values
+                dpth_tot = ptot - ptot_sim  # missing pressure in estimated value
+                # const = (1 + dpth_tot / ptot_sim).values
                 const = (1 + dpth_tot / ptot_el).values
 
             results["pos"].append([pos_avrg_he, pos_avrg_c])
@@ -233,8 +233,8 @@ class simulate_spectra:
             results["pos_err"]["out"].append([pos_err_out_he, pos_err_out_c])
             results["el_temp"].append(el_temp)
             results["ion_temp"].append(ion_temp)
-            results["pressure"].append(pressure_recovered)
-            results["ptot"].append(ptot_recovered)
+            results["pressure"].append(pressure_sim)
+            results["ptot"].append(ptot_sim)
         results["ptot"] = xarray.concat(results["ptot"], dim="time")
 
         return results
@@ -242,14 +242,14 @@ class simulate_spectra:
     def radiation_characteristics(self, spectrometer_model, el_temp, el_dens, tau=1.0):
         atomdat = deepcopy(spectrometer_model.atomdat)
         for k in atomdat.keys():
-            try:
-                atomdat[k] = atomdat[k].interp(
-                    log10_electron_temperature=np.log10(el_temp), method="quadratic"
-                )
-            except ValueError:
-                atomdat[k] = atomdat[k].interp(
-                    electron_temperature=el_temp, method="quadratic"
-                )
+            # try:
+            atomdat[k] = atomdat[k].interp(
+                electron_temperature=el_temp, method="quadratic"
+            )
+            # except ValueError:
+            #     atomdat[k] = atomdat[k].interp(
+            #         electron_temperature=el_temp, method="quadratic"
+            #     )
 
         fz = fractional_abundance(
             atomdat["scd"],
@@ -282,33 +282,17 @@ class simulate_spectra:
 
         # Electron temperature
         plt.figure()
-        labels = {
-            "el_temp": "$T_e$",
-            "el_temp_recov": "$T_e (recovered)$",
-            "ion_temp": "$T_i$",
-            "ion_temp_recov": "$T_i (recovered)$",
-            "he_like_te": "$T_e$ (He-like)",
-            "he_like_ti": "$T_i$ (He-like)",
-            "he_like_ne": "$n_e$ (He-like)",
-            "passive_c5_te": "$T_e$ (Passive C5+)",
-            "passive_c5_ti": "$T_i$ (Passive C5+)",
-            "passive_c5_ne": "$n_e$ (Passive C5+)",
-            "pressure": "Real value",
-            "pressure_recov": "Recovered",
-            "ptot": "Real value",
-            "ptot_recov": "Recovered",
-        }
-        labels_tmp = deepcopy(labels)
+        labels = get_labels(set_none=True)
         for i in range(nt):
-            if i > 0:
-                for k in labels_tmp.keys():
-                    labels_tmp[k] = None
-            self.el_temp[i].plot(color=colors[i], label=labels_tmp["el_temp"])
+            if i == (nt - 1):
+                labels = get_labels()
+            self.el_temp[i].plot(color=colors[i], label=labels["el_temp"])
+
             plt.scatter(
                 self.he_like.exp["pos"][i],
                 self.he_like.exp["el_temp"][i],
                 color=colors[i],
-                label=labels_tmp["he_like_te"],
+                label=labels["he_like_te"],
             )
             plt.hlines(
                 self.he_like.exp["el_temp"][i],
@@ -318,9 +302,9 @@ class simulate_spectra:
                 color=colors[i],
             )
 
-            if hasattr(self, "recovered"):
-                self.recovered["el_temp"][i].plot(
-                    color=colors[i], label=labels_tmp["el_temp_recov"], linestyle="--"
+            if hasattr(self, "sim"):
+                self.sim["el_temp"][i].plot(
+                    color=colors[i], label=labels["el_temp_sim"], linestyle="--"
                 )
 
         plt.title("Electron Temperature")
@@ -334,20 +318,20 @@ class simulate_spectra:
 
         # Ion temperature
         plt.figure()
-        labels_tmp = deepcopy(labels)
+        labels = get_labels(set_none=True)
         for i in range(nt):
-            if i > 0:
-                for k in labels.keys():
-                    labels_tmp[k] = None
+            if i == (nt - 1):
+                labels = get_labels()
             self.ion_temp[i].plot(
                 color=colors[i],
-                label=labels_tmp["ion_temp"],
+                label=labels["ion_temp"],
             )
+
             plt.scatter(
                 self.he_like.exp["pos"][i],
                 self.he_like.exp["ion_temp"][i],
                 color=colors[i],
-                label=labels_tmp["he_like_ti"],
+                label=labels["he_like_ti"],
             )
             plt.hlines(
                 self.he_like.exp["ion_temp"][i],
@@ -362,7 +346,7 @@ class simulate_spectra:
                 self.passive_c5.exp["ion_temp"][i],
                 color=colors[i],
                 marker="x",
-                label=labels_tmp["passive_c5_ti"],
+                label=labels["passive_c5_ti"],
             )
             plt.hlines(
                 self.passive_c5.exp["ion_temp"][i],
@@ -373,9 +357,9 @@ class simulate_spectra:
                 color=colors[i],
             )
 
-            if hasattr(self, "recovered"):
-                self.recovered["ion_temp"][i].plot(
-                    color=colors[i], label=labels_tmp["ion_temp_recov"], linestyle="--"
+            if hasattr(self, "sim"):
+                self.sim["ion_temp"][i].plot(
+                    color=colors[i], label=labels["ion_temp_sim"], linestyle="--"
                 )
 
         plt.title("Ion Temperature")
@@ -398,15 +382,14 @@ class simulate_spectra:
             save_figure(fig_name=name + "_density")
 
         plt.figure()
-        labels_tmp = deepcopy(labels)
+        labels = get_labels(set_none=True)
         for i in range(nt):
-            if i > 0:
-                for k in labels.keys():
-                    labels_tmp[k] = None
-            self.pressure[i].plot(color=colors[i], label=labels_tmp["pressure"])
-            if hasattr(self, "recovered"):
-                self.recovered["pressure"][i].plot(
-                    color=colors[i], label=labels_tmp["pressure_recov"], linestyle="--"
+            if i == (nt - 1):
+                labels = get_labels()
+            self.pressure[i].plot(color=colors[i], label=labels["pressure"])
+            if hasattr(self, "sim"):
+                self.sim["pressure"][i].plot(
+                    color=colors[i], label=labels["pressure_sim"], linestyle="--"
                 )
         plt.title("Thermal pressure (ion + electrons)")
         plt.ylabel("($Pa$ $m^{-3}$)")
@@ -416,19 +399,18 @@ class simulate_spectra:
             save_figure(fig_name=name + "_thermal_pressure")
 
         plt.figure()
-        labels_tmp = deepcopy(labels)
         ptot = self.ptot.assign_coords(
             electron_temperature=("time", self.el_temp.sel(rho_poloidal=0))
         )
         ptot = ptot.swap_dims({"time": "electron_temperature"})
-        ptot_recovered = self.recovered["ptot"].assign_coords(
+        ptot_sim = self.sim["ptot"].assign_coords(
             electron_temperature=("time", self.el_temp.sel(rho_poloidal=0))
         )
-        ptot_recovered = ptot_recovered.swap_dims({"time": "electron_temperature"})
+        ptot_sim = ptot_sim.swap_dims({"time": "electron_temperature"})
 
-        ptot.plot(color="k", linestyle="dashed", label=labels_tmp["ptot"])
-        if hasattr(self, "recovered"):
-            ptot_recovered.plot(label=labels_tmp["ptot_recov"])
+        ptot.plot(color="k", linestyle="dashed", label=labels["ptot"])
+        if hasattr(self, "sim"):
+            ptot_sim.plot(label=labels["ptot_sim"])
         plt.title("Total thermal pressure (ion + electrons)")
         plt.ylabel("($Pa$)")
         plt.xlabel("Te(0) (eV)")
@@ -538,13 +520,43 @@ def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
     )
 
 
+def get_labels(set_none=False, lkey=None):
+
+    labels = {
+        "el_temp": "$T_e$",
+        "el_temp_sim": "$T_e (simulated)$",
+        "ion_temp": "$T_i$",
+        "ion_temp_sim": "$T_i (simulated)$",
+        "he_like_te": "$T_e$ (He-like)",
+        "he_like_ti": "$T_i$ (He-like)",
+        "he_like_ne": "$n_e$ (He-like)",
+        "passive_c5_te": "$T_e$ (Passive C5+)",
+        "passive_c5_ti": "$T_i$ (Passive C5+)",
+        "passive_c5_ne": "$n_e$ (Passive C5+)",
+        "pressure": "Real value",
+        "pressure_sim": "Simulated",
+        "ptot": "Real value",
+        "ptot_sim": "Simulated",
+    }
+
+    if lkey is not None:
+        if lkey in labels.keys():
+            labels = labels[lkey]
+
+    if set_none:
+        for k in labels.keys():
+            labels[k] = None
+
+    return labels
+
+
 def calc_moments(y: ArrayLike, x: ArrayLike, ind_in=None, ind_out=None, sim=False):
     x_avrg = np.nansum(y * x) / np.nansum(y)
 
     if (ind_in is None) and (ind_out is None):
         ind_in = x <= x_avrg
         ind_out = x >= x_avrg
-        if sim == True:
+        if sim is True:
             ind_in = ind_in + ind_out
             ind_out = ind_in
 
