@@ -22,17 +22,17 @@ ntemp = profs.te.size
 # temperature (electron density is irrelevant in the case of LTE
 # equilibrium)
 # Density from ADAS files has already been converted to m**-3
-scd_W = scd_W.interp(log10_electron_temperature=np.log10(profs.te)).interp(
-    log10_electron_density=np.mean(np.log10(profs.ne))
+scd_W = scd_W.interp(electron_temperature=profs.te).interp(
+    electron_density=np.mean(profs.ne)
 )
-acd_W = acd_W.interp(log10_electron_temperature=np.log10(profs.te)).interp(
-    log10_electron_density=np.mean(np.log10(profs.ne))
+acd_W = acd_W.interp(electron_temperature=profs.te).interp(
+    electron_density=np.mean(profs.ne)
 )
-lin_rad = plt_W.interp(log10_electron_temperature=np.log10(profs.te)).interp(
-    log10_electron_density=np.mean(np.log10(profs.ne))
+lin_rad = plt_W.interp(electron_temperature=profs.te).interp(
+    electron_density=np.mean(profs.ne)
 )
-rec_rad = prb_W.interp(log10_electron_temperature=np.log10(profs.te)).interp(
-    log10_electron_density=np.mean(np.log10(profs.ne))
+rec_rad = prb_W.interp(electron_temperature=profs.te).interp(
+    electron_density=np.mean(profs.ne)
 )
 
 dim1, dim2 = scd_W.dims

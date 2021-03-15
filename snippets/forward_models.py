@@ -12,10 +12,55 @@ and links to functions to:
 - ...
 """
 
-import numpy as np
 from snippets.atomdat import get_atomdat
 
 from indica.readers import ADASReader
+
+
+class spectrometer:
+    """
+    Data and methods to model spectrometer measurements
+    """
+
+    def __init__(
+        self,
+        element,
+        charge,
+        transition="",
+        wavelength=4.0,
+        el_dens=None,
+        name="",
+    ):
+        self.name = name
+        self.reader = ADASReader()
+        self.element = element
+        self.charge = int(charge)
+        self.transition = transition
+        self.wavelength = wavelength
+
+        # Read all available atomic data
+        files, atomdat = get_atomdat(
+            self.reader, element, charge, transition=transition, wavelength=wavelength
+        )
+        self.atomdat_files = files
+
+        if el_dens:
+            for k in atomdat.keys():
+                # try:
+                atomdat[k] = atomdat[k].interp(
+                    electron_density=el_dens, method="nearest"
+                )
+                atomdat[k] = atomdat[k].drop_vars(["electron_density"])
+                # except ValueError:
+                #     atomdat[k] = atomdat[k].interp(
+                #         log10_electron_density=np.log10(el_dens), method="nearest"
+                #     )
+                #     atomdat[k] = atomdat[k].drop_vars(["log10_electron_density"])
+
+        self.atomdat = atomdat
+
+        self.exp = None
+        self.sim = None
 
 
 class spectrometer_he_like:
@@ -42,16 +87,16 @@ class spectrometer_he_like:
 
         if el_dens:
             for k in atomdat.keys():
-                try:
-                    atomdat[k] = atomdat[k].interp(
-                        electron_density=el_dens, method="nearest"
-                    )
-                    atomdat[k] = atomdat[k].drop_vars(["electron_density"])
-                except ValueError:
-                    atomdat[k] = atomdat[k].interp(
-                        log10_electron_density=np.log10(el_dens), method="nearest"
-                    )
-                    atomdat[k] = atomdat[k].drop_vars(["log10_electron_density"])
+                # try:
+                atomdat[k] = atomdat[k].interp(
+                    electron_density=el_dens, method="nearest"
+                )
+                atomdat[k] = atomdat[k].drop_vars(["electron_density"])
+                # except ValueError:
+                #     atomdat[k] = atomdat[k].interp(
+                #         log10_electron_density=np.log10(el_dens), method="nearest"
+                #     )
+                #     atomdat[k] = atomdat[k].drop_vars(["log10_electron_density"])
 
         self.atomdat = atomdat
 
@@ -83,15 +128,15 @@ class spectrometer_passive_c5:
 
         if el_dens:
             for k in atomdat.keys():
-                try:
-                    atomdat[k] = atomdat[k].interp(
-                        electron_density=el_dens, method="nearest"
-                    )
-                    atomdat[k] = atomdat[k].drop_vars(["electron_density"])
-                except ValueError:
-                    atomdat[k] = atomdat[k].interp(
-                        log10_electron_density=np.log10(el_dens), method="nearest"
-                    )
-                    atomdat[k] = atomdat[k].drop_vars(["log10_electron_density"])
+                # try:
+                atomdat[k] = atomdat[k].interp(
+                    electron_density=el_dens, method="nearest"
+                )
+                atomdat[k] = atomdat[k].drop_vars(["electron_density"])
+                # except ValueError:
+                #     atomdat[k] = atomdat[k].interp(
+                #         log10_electron_density=np.log10(el_dens), method="nearest"
+                #     )
+                #     atomdat[k] = atomdat[k].drop_vars(["log10_electron_density"])
 
         self.atomdat = atomdat

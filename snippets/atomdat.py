@@ -9,6 +9,20 @@ from indica.numpy_typing import ArrayLike
 
 
 def atomdat_files(element: str) -> Dict:
+    """
+    For a specified element, return file parameters for reading ADAS atomic data
+
+    Parameters
+    ----------
+    element
+        Name of element (e.g. Ar, Ne, W, etc.)
+
+    Returns
+    -------
+    file_info
+        Dictionary with information to retrieve atomic ADAS type data-files
+
+    """
     file_info = {}
     if element.lower() == "ar":
         file_info = {
@@ -32,8 +46,36 @@ def atomdat_files(element: str) -> Dict:
     return file_info
 
 
-def get_atomdat(reader, element, charge, transition=None, wavelength=None):
-    files = atomdat_files(element)
+def get_atomdat(reader, element, charge, transition=None, wavelength=None, files=None):
+    """
+    Read atomic data for specified element.
+
+    Parameters
+    ----------
+    reader
+        Class for reading atomic-data files
+    element
+        Element name (e.g. Ar, Ne, W, etc.)
+    charge
+        Charge state of element (not Roman numerals, e.g. 6 for fully stripped C6+)
+    transition
+        Transition details for PEC data (e.g. "(1)1(1.0)-(1)0(0.0)" or "n=8-n=7")
+    wavelength
+        Wavelength of transition (Angstroms)
+    files
+        Dictionary with information to retrieve atomic ADAS type data-files
+        (see atomdat_files function)
+
+    Returns
+    -------
+        Dictionary with atomic data as read from ADAS files, using the same keys
+        as input files
+
+    """
+
+    if files is None:
+        files = atomdat_files(element)
+
     atomdat = {}
     for k in files.keys():
         if k == "pec":
@@ -76,7 +118,7 @@ def fractional_abundance(
 ) -> ArrayLike:
     """Returns the equilibrium fractional abundance given ionization and recombination
     rates as read from ADAS adf11 files with original file dimensions. Rate variables
-    must be 1d (ion_charges) or 2d (ion_charges, electron, temperature)
+    must be 1d (ion_charges) or 2d (ion_charges, electron_temperature)
 
     Still to be included:
         * provenance
@@ -155,9 +197,10 @@ def radiated_power(
     gen_type="radiated_power",
     element="",
 ) -> ArrayLike:
-    """Returns the radiated power coefficients given the fractional abundance,
-    line and recombination rates read from ADAS adf11 files with original
-    file dimensions. Coefficients must be 1d (ion_charges) or
+    """Returns the radiated power (W m**-3) of all ionization stages, given the
+    fractional abundance, line and recombination rates read from ADAS adf11
+    files (with original file dimensions).
+    Input coefficients must be either 1d (ion_charges) or
     2d (ion_charges, electron, temperature)
 
     Still to be included:
