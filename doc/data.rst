@@ -3,10 +3,10 @@ Input Data Details
 
 Traceability
 -----------------
-**Data/parameters read from PPF or file must be traceable to its origin**. Raw data should be stored for future referencing, together with their DDA and UID names and SEQ #, or file name for data contained in ASCII/binary files. This ensures tracking of data origin, the possibility to vary calculation/fitting parameters without re-reading the raw data and enables consistency checks vs. derived data e.g.:
+**Data/parameters read from database or file must be traceable to its origin**. Raw data should be stored for future referencing, together with their INSTRUMENT (DDA in JET) and UID user-ID names (e.g. JETPPF, CHAIN1 or any other private UIDs in JET) and REVISION # (SEQ in JET), or file name for data contained in ASCII/binary files. This ensures tracking of data origin, the possibility to vary calculation/fitting parameters without re-reading the raw data and enables consistency checks vs. derived data e.g.:
 
 
-* Demonstrate the quality of the fits to electron/ion profile data (HRTS, LIDAR, KK3, CXRS, etc.);
+* Demonstrate the quality of the fits to electron/ion profile data (Thomson Scattering, ECE, CXRS, etc.);
 
 * Demonstrate goodness of inversion algorithm or forward calculation for line-of-sight (LOS) integrated data (SXR, bolometry, passive spectroscopy, etc.).
 
@@ -15,7 +15,7 @@ Traceability
 
 Time resolution
 -----------------
-**Time resolution required for the analysis is typically 10-50 ms**. Global time array is built given the time window of analysis [t1, t2] and the desired time resolution. All derived quantities are calculated on this axis, which is different from the time resolution of the raw data of each diagnostic which will have to be interpolated accordingly.
+For JET plasmas, the **time resolution required for the analysis is typically 10-50 ms**. Global time array is built given the time window of analysis [t1, t2] and the desired time resolution. All derived quantities are calculated on this axis, which is different from the time resolution of the raw data of each diagnostic which will have to be interpolated accordingly.
 
 
 Reference radial array
@@ -27,16 +27,16 @@ issues: in view of future upgrades, e.g. the inclusion of fast transport codes i
 
 Equilibrium data
 ----------------------
-As all other PPF data, it is saved to a raw-data variable in its original time resolution. When calling the FLUSH library (currently not working in Python 3) for conversion of equilibrium quantities (e.g. (R,z)↔ψ flux), the data is retrieved for the equilibrium time-point in closest proximity to the requested time-point. This pattern has been kept inside the code as well.
+As all other database data, it is saved to a raw-data variable in its original time resolution. For equilibrium quantities and for conversion of equilibrium quantities (e.g. (R,z)↔ψ flux), the data is retrieved for the equilibrium time-point in closest proximity to the requested time-point. This pattern has been kept inside the code as well.
 
 
-Because of uncertainties in equilibrium-calculated geometrical quantities such as separatrix position (uncertainties in magnetic measurements) or magnetic axis position (uncertainties in the plasma pressure at runtime), a possibility of an (R,z) shift of the whole equilibrium should be included. Since shifting the equilibrium is impossible without re-running the equilibrium code, an alternative solution is to shift ALL diagnostic data of the same amount, but in the opposite direction. The (R,z) shift variables should be time-dependent and included in the equilibrium data since it is a quantity that has to be applied equally to all diagnostics.
+Because of uncertainties in equilibrium-calculated geometrical quantities such as separatrix position (uncertainties in magnetic measurements) or magnetic axis position (uncertainties in the plasma pressure at runtime), a possibility of an (R,z) shift of the whole equilibrium is included. Since shifting the equilibrium is impossible without re-running the equilibrium code, an alternative solution is to shift ALL diagnostic data of the same amount, but in the opposite direction. The (R,z) shift variables should be time-dependent and included in the equilibrium data since it is a quantity that has to be applied equally to all diagnostics. This provides a fast way to check the boundary position of the equilibrium reconstruction, but should be used mainly to provide feedback to improve the equilibrium reconstruction.
 
 
 Conversion between coordinates is required for most diagnostic data and equilibrium quantities:
 
 
-* (R,z)↔(rho,t) diagnostics’ measurement positions. For HRTS, LIDAR, CXRS these are local measurements; for KB5 (bolometry), SXR or other line-of-sight (LOS) integrated measurements these are array of values along the LOS. For LOS coordinates, a fixed number of points along all LOS with a constant linear step between points is used to keep a constant spatial resolution along the LOS. Better ways of doing this?
+* (R,z)↔(rho,t) diagnostics’ measurement positions. For Thomson scattering (HRTS, LIDAR in JET) and CXRS these are local measurements; for Bolometric measurements (KB5 in JET), SXR or other line-of-sight (LOS) integrated measurements these are array of values along the LOS. For LOS coordinates, a fixed number of points along all LOS with a constant linear step between points is used to keep a constant spatial resolution along the LOS. Better ways of doing this?
 
 This transformation is also used to calculate a 2D time-dependent poloidal map of rho over a fixed * (R,z) grid used for the 2D maps.
 
@@ -71,19 +71,19 @@ Other quantities that should be read from the equilibrium reconstruction are:
 
 Basic diagnostic data structure
 -------------------------------------------
-Apart from the measured quantity and its estimated error, specific info varies depending on the diagnostic measurement principle. Since the analysis of the data from all diagnostics is performed in an integrated manner on the same equilibrium reconstruction, the raw data should include the least possible derived quantities relying on other PPFs. As an example, the measurement positions of the ECE diagnostic KK3 given in the PPF rely on a specific equilibrium PPF: instead of using these quantities, the frequency of each channel is read and the radial location self-consistently calculated within the code using the common equilibrium reconstruction data.
+Apart from the measured quantity and its estimated error, specific info varies depending on the diagnostic measurement principle. Since the analysis of the data from all diagnostics is performed in an integrated manner on the same equilibrium reconstruction, the raw data should include the least possible derived quantities relying on other database quantities. As an example, the measurement positions of the ECE diagnostic given in the database rely on a specific equilibrium quantities: instead of using these quantities, the frequency of each channel is read and the radial location self-consistently calculated within the code using the common equilibrium reconstruction data.
 
 
 Below is an initial list of information ordered depending on the source (database/file) and details of the diagnostics.
 
 
-* UID, DDA names and SEQ for PPF data e.g. (JETPPF,HRTS,350)
+* UID, INSTRUMENT names and REVISION for database data (e.g. for JET: JETPPF, HRTS, 350)
 
 * File name, path and origin (e.g. name of originator, publication details if published) for ASCII (e.g. ADAS ionization and recombination files), NetCDF (TRANSP) or other file types. Origin is especially important to trace data-files present on a private repository and not available on a central database.
 
-* (R,z) of all local measurement positions (e.g. HRTS, LIDAR, CXRS, magnetic probes, etc.) or (R,z) array of lines-of-sight (e.g. KB5, SXR, KT7/3, KX1, etc.)
+* (R,z) of all local measurement positions (e.g. Thomson scattering, CXRS, magnetic probes, etc.) or (R,z) array of lines-of-sight (e.g. bolometry, SXR, passive spectroscopy, etc.)
 
-* f_channel = acquisition frequency of each channel of the resonators (reflectometry or radiometry diagnostics e.g. KK3, KG10)
+* f_channel = acquisition frequency of each channel of the resonators (reflectometry or radiometry diagnostics e.g. ECE, reflectometry)
 
 * n_harm = harmonic of cyclotron frequency (reflectometry or radiometry diagnostics)
 
@@ -96,27 +96,27 @@ Below is an initial list of information ordered depending on the source (databas
 
 For JET diagnostics, if the information on the LOS or measurement positions is not available in the PPFs, it is taken from the central database built for SURF (RO is David Taylor). It may not be the most optimized database, but it is a standard and is consistent with what users see on the program SURF. The information therein has been checked for most diagnostics with their ROs.
 
-.. _dtype:
+.. _quantity:
 
 List of Data to Read
 --------------------------------------
-Grouped by measurement quantity, the diagnostics (identified with their DDA names) currently included in the program are:
+Grouped by measurement quantity, the diagnostics (identified with their INSTRUMENT names) currently included in the program are:
 
-* Electron density and temperature diagnostics: **HRTS, LIDR, KK3, KG10**
-* Radiation: **SXR, KB5**
-* Spectroscopy: **KS3, KT7/3**
+* Electron density and temperature diagnostics: **Thomson scattering, ECE, reflectometry** (in JET: HRTS, LIDR, KK3, KG10)
+* Radiation: **Bolometry, SXR** (in JET: SXR, KB5)
+* Passive spectroscopy: **Bremsstrahlung, VUV, X-ray crystal** (in JET: KS3, KT7/3, KX1)
 * Charge exchange recombination spectroscopy: **CXRS**
-* Tomographic reconstruction of total radiation: **BOLT, B5NN, B5ML, B5MF**
-* Other tools/diagnostics: **analysis of MHD activity** through FFT and toroidal mode analysis of Mirnov coils, oscillation amplitudes of fast KK3 and SXR.
+* Tomographic reconstruction of total/SXR radiation: **Bolometry, SXR** (in JET: BOLT, B5NN, B5ML, B5MF)
+* Other tools/diagnostics: **analysis of MHD activity** through FFT and toroidal mode analysis of Mirnov coils, oscillation amplitudes of fast ECE and SXR.
 
-Below are the details of the data that has to be read for each of these and other quantities that have to be read or computed for a correct functioning of the program. Most of the diagnostic variables are stored in PPFs of which DDA and DTYPE are specified. When this is not the case, the source of this information will be specified in the column DDA:
+Below are the details of the data that has to be read for each of these and other quantities that have to be read or computed for a correct functioning of the program. Most of the diagnostic variables are stored in database of which INSTRUMENT and QUANTITY (DTYPE in JET) are specified. When this is not the case, the source of this information will be specified in the column INSTRUMENT:
 
 * **Surf** = external databases to read LOS coordinates
 * **Flush** = libraries for reading specific attributes of the equilibrium of mapping between coordinates
 * **ASCII** = for quantities stored in ASCII files
 * **User** = user-defined quantities
 
-and DTYPE will simply be a variable name.
+and QUANTITY will simply be a variable name.
 
 For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno.viola@ukaea.uk>`_ . The Surf database is a publicly available ASCII file */home/flush/surf/input/overlays_db.dat* and maintained by `David Taylor <David.Taylor@ukaea.uk>`_.
 
@@ -127,8 +127,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	* 	- EFIT
@@ -176,8 +176,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	* 	- HRTS, LIDR
@@ -205,8 +205,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	*	- KK3
@@ -236,8 +236,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	*	- KG10
@@ -258,8 +258,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	* 	- KY6
@@ -274,8 +274,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	*	- SXR
@@ -291,8 +291,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	*	- BOLO
@@ -312,8 +312,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	* 	- KS3
@@ -329,8 +329,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	* 	- XCS
@@ -346,8 +346,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	* 	- KT7D
@@ -367,11 +367,11 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
-	* 	- Many DDAs, e.g. CXG6
+	* 	- Many INSTRUMENTs, e.g. CXG6
 		- TI
 		- x, t
 		- Ion temperature (eV), x_cxrs is an *effective* position of measurement in the torus frame (m), but the correct R is RPOS (see below)
@@ -420,8 +420,8 @@ For Flush there is currently a Python 3 wrapper developed by `Bruno Viola <bruno
 	:widths: 5 15 10 60
 	:header-rows: 1
 
-	* 	- DDA
-		- DTYPE
+	* 	- INSTRUMENT
+		- QUANTITY
 		- Axes
 		- Description
 	*	- C1M- (JPF nodes)

@@ -321,7 +321,7 @@ defined for each data source/format. These return collections of
    abstract class DataReader {
    + {static} NAMESPACE: (str, str)
    - {static} _AVAILABLE_QUANTITIES: dict
-   + {abstract} DDA_METHODS: dict
+   + {abstract} INSTRUMENT_METHODS: dict
    - {abstract} _IMPLEMENTATION_QUANTITIES: dict
    __
    + get(uid: str, instrument: str, revision: int,
@@ -340,7 +340,7 @@ defined for each data source/format. These return collections of
 
    class PPFReader {
    + NAMESPACE: (str, str)
-   + {static} DDA_METHODS
+   + {static} INSTRUMENT_METHODS
    - {static} _IMPLEMENTATION_QUANTITIES: dict
    - _client: SALClient
    __
@@ -369,7 +369,7 @@ dictionary which maps from instrument names to more dictionaries. This
 second layer of dictionaries maps from the names of available
 quantities for that instrument to the :ref:`data type of each one
 <Data Value Type System>`. Subclasses should also provide a dictionary
-called ``DDA_METHODS`` which maps from instrument names to the
+called ``INSTRUMENT_METHODS`` which maps from instrument names to the
 particular method needed to retrieve the data for that
 instrument. This is needed for the general
 :py:meth:`~indica.readers.DataReader.get` method to work. Finally, the
