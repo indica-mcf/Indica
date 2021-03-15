@@ -15,7 +15,7 @@ Traceability
 
 Time resolution
 -----------------
-For JET plasmas, the **time resolution required for the analysis is typically 10-50 ms**. Global time array is built given the time window of analysis [t1, t2] and the desired time resolution. All derived quantities are calculated on this axis, which is different from the time resolution of the raw data of each diagnostic which will have to be interpolated accordingly.
+**For JET plasmas, the time resolution required for the analysis is typically 10-50 ms**. Global time array is built given the time window of analysis [t1, t2] and the desired time resolution. All derived quantities are calculated on this axis, which is different from the time resolution of the raw data of each diagnostic which will have to be interpolated accordingly.
 
 
 Reference radial array
@@ -71,7 +71,7 @@ Other quantities that should be read from the equilibrium reconstruction are:
 
 Basic diagnostic data structure
 -------------------------------------------
-Apart from the measured quantity and its estimated error, specific info varies depending on the diagnostic measurement principle. Since the analysis of the data from all diagnostics is performed in an integrated manner on the same equilibrium reconstruction, the raw data should include the least possible derived quantities relying on other database quantities. As an example, the measurement positions of the ECE diagnostic given in the database rely on a specific equilibrium quantities: instead of using these quantities, the frequency of each channel is read and the radial location self-consistently calculated within the code using the common equilibrium reconstruction data.
+Apart from the measured quantity and its estimated error, specific info varies depending on the diagnostic measurement principle. Since the analysis of the data from all diagnostics is performed in an integrated manner on the same equilibrium reconstruction, the raw data should include the least possible derived quantities relying on other database quantities. As an example, the measurement positions of the ECE diagnostic given in the database rely on specific equilibrium quantities: instead of using these quantities, the frequency of each channel is read and the radial location self-consistently calculated within the code using the common equilibrium reconstruction data.
 
 
 Below is an initial list of information ordered depending on the source (database/file) and details of the diagnostics.
