@@ -50,7 +50,7 @@ The output of the code is the time evolution of:
 * Main ion density profile (dilution)
 * 2D poloidal map of the total radiation
 
-These resuzlts are checked for consistency against various parameters/measurements including:
+These results are checked for consistency against various parameters/measurements including:
 
 * Total radiation vs. bolometry LOS-integrals
 * High-Z poloidal asymmetry vs. measured toroidal rotation
@@ -89,7 +89,7 @@ The inclusion of multiple impurities is performed in a stepwise fashion:
 4.	Re-estimation of Z0 using Z1 and main ion contributions to SXR (changes mainly the shape, not much the absolute value because of the rescaling to the VUV Z0 concentration measurement)
 5.	Consistency-check of:
 
- 	a.	Final estimate of low-Z makes sense (e.g. 10% of Be is way off…)
+	a.	Final estimate of low-Z makes sense (e.g. 10% of Be is way off…)
 	b.	Z0 density asymmetry vs. toroidal rotation or MHD mode frequency
 	c.	Total radiated power (Z0 + Z1 + main ion) vs. LoS-integrals of bolometry
 
