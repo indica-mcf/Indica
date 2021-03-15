@@ -133,7 +133,7 @@ class ADASReader(BaseIO):
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
         gen_type = ADF11_GENERAL_DATATYPES[quantity]
         spec_type = ORDERED_ELEMENTS[z]
-        name = f"log10_{spec_type}_{gen_type}"
+        name = f"{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),
             "date": date,

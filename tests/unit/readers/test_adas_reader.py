@@ -290,6 +290,6 @@ def test_read_adf11(reader, data_file, element, year):
     args, kwargs = reader.create_provenance.call_args
     assert args[0] == expected_file
     assert args[1] >= now
-    assert_allclose(data, result, atol=1e-5)
+    assert_allclose(10 ** data, result, atol=1e-5)
     assert data.attrs["datatype"] == result.attrs["datatype"]
     assert result.attrs["provenance"] == reader.create_provenance.return_value
