@@ -87,7 +87,7 @@ class PPFReader(DataReader):
 
     """
 
-    DDA_METHODS = {
+    INSTRUMENT_METHODS = {
         "hrts": "get_thomson_scattering",
         "lidr": "get_thomson_scattering",
         "efit": "get_equilibrium",
@@ -160,7 +160,7 @@ class PPFReader(DataReader):
     def get_sal_path(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> str:
-        """Return the path in the PPF database to for the given DDA."""
+        """Return the path in the PPF database to for the given INSTRUMENT (DDA in JET)."""
         return (
             f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}/"
             f"{quantity}:{revision:d}"
@@ -169,7 +169,7 @@ class PPFReader(DataReader):
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> Tuple[Signal, str]:
-        """Gets the signal for the given DDA, at the given revision."""
+        """Gets the signal for the given INSTRUMENT (DDA in JET), at the given revision."""
         path = self.get_sal_path(uid, instrument, quantity, revision)
         info = self._client.list(path)
         path = self.get_sal_path(
@@ -442,9 +442,9 @@ class PPFReader(DataReader):
                     if qtime not in results:
                         results[qtime] = qval.dimensions[0].data
                 if len(channels) == 0:
-                    # TODO: Try getting information on the DDA, to determine if
+                    # TODO: Try getting information on the INSTRUMENT (DDA in JET), to determine if
                     # the failure is actually due to requesting an invalid
-                    # DDA or revision
+                    # INSTRUMENT (DDA in JET) or revision
                     self._client.list(
                         f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:"
                         f"{revision:d}"
@@ -476,10 +476,10 @@ class PPFReader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
-        los_dda = self._BREMSSTRAHLUNG_LOS[instrument]
+        los_instrument = self._BREMSSTRAHLUNG_LOS[instrument]
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
-            los, l_path = self._get_signal(uid, los_dda, "los" + q[-1], revision)
+            los, l_path = self._get_signal(uid, los_instrument, "los" + q[-1], revision)
             if "times" not in results:
                 results["times"] = qval.dimensions[0].data
             results["length"][q] = 1
