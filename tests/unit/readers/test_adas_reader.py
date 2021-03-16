@@ -288,16 +288,20 @@ def test_read_adf11(reader, data_file, element, year):
     reader._get_file.assert_called_once_with("adf11", expected_file)
     reader.create_provenance.assert_called_once()
     args, kwargs = reader.create_provenance.call_args
-    # data["electron_density"] = 10 ** data["log10_electron_density"]
-    # data["electron_temperature"] = 10 ** data["log10_electron_temperature"]
-    data.assign_coords(electron_density=(
-        "log10_electron_density", 10 ** data.log10_electron_density)
+    data.assign_coords(
+        electron_density=("log10_electron_density", 10 ** data.log10_electron_density)
     )
-    data.assign_coords(electron_temperature=(
-        "log10_electron_temperature", 10 ** data.log10_electron_temperature)
+    data.assign_coords(
+        electron_temperature=(
+            "log10_electron_temperature",
+            10 ** data.log10_electron_temperature,
+        )
     )
     data.swap_dims({"log10_electron_density": "electron_density"})
     data.swap_dims({"log10_electron_temperature": "electron_temperature"})
+    drop = ["log10_electron_temperature", "log10_electron_density"]
+    data = data.drop_vars(drop)
+
     assert args[0] == expected_file
     assert args[1] >= now
     assert_allclose(10 ** data, result, atol=1e-5)
