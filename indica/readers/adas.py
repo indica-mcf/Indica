@@ -140,7 +140,7 @@ class ADASReader(BaseIO):
             "provenance": self.create_provenance(filename, now),
         }
         return DataArray(
-            data - 6,
+            10 ** (data - 6),
             coords=[
                 ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
                 ("electron_temperature", 10 ** (temperatures)),
