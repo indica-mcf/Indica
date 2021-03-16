@@ -208,8 +208,8 @@ def adf11_array_to_str(
 
     element = data.attrs["datatype"][1]
     z = ORDERED_ELEMENTS.index(element)
-    nd = len(data.electron_density)
-    nt = len(data.electron_temperature)
+    nd = len(data.log10_electron_density)
+    nt = len(data.log10_electron_temperature)
     zmin = int(data.ion_charges[0]) + 1
     zmax = int(data.ion_charges[-1]) + 1
     result = (
@@ -218,8 +218,8 @@ def adf11_array_to_str(
         + newline
     )
     result += "-" * 80 + newline
-    result += rows_of_eight(data.electron_density - 6)
-    result += rows_of_eight(data.electron_temperature)
+    result += rows_of_eight(data.log10_electron_density - 6)
+    result += rows_of_eight(data.log10_electron_temperature)
     d = date_divider
     for charge in data.ion_charges:
         if include_metastable_indices:
@@ -288,6 +288,16 @@ def test_read_adf11(reader, data_file, element, year):
     reader._get_file.assert_called_once_with("adf11", expected_file)
     reader.create_provenance.assert_called_once()
     args, kwargs = reader.create_provenance.call_args
+    # data["electron_density"] = 10 ** data["log10_electron_density"]
+    # data["electron_temperature"] = 10 ** data["log10_electron_temperature"]
+    data.assign_coords(electron_density=(
+        "log10_electron_density", 10 ** data.log10_electron_density)
+    )
+    data.assign_coords(electron_temperature=(
+        "log10_electron_temperature", 10 ** data.log10_electron_temperature)
+    )
+    data.swap_dims({"log10_electron_density": "electron_density"})
+    data.swap_dims({"log10_electron_temperature": "electron_temperature"})
     assert args[0] == expected_file
     assert args[1] >= now
     assert_allclose(10 ** data, result, atol=1e-5)
