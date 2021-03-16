@@ -133,14 +133,14 @@ class ADASReader(BaseIO):
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
         gen_type = ADF11_GENERAL_DATATYPES[quantity]
         spec_type = ORDERED_ELEMENTS[z]
-        name = f"log10_{spec_type}_{gen_type}"
+        name = f"{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),
             "date": date,
             "provenance": self.create_provenance(filename, now),
         }
         return DataArray(
-            data - 6,
+            10 ** (data - 6),
             coords=[
                 ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
                 ("electron_temperature", 10 ** (temperatures)),

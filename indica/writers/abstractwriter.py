@@ -54,7 +54,7 @@ class DataWriter(BaseIO):
         uid
             User ID (i.e., user that created or wrote this data)
         name
-            Name to store this data under, such as a INSTRUMENT
+            Name to store this data under, such as an INSTRUMENT
         data
             The data to be written out. The data will be written as though it
             had been merged into a single :py:class:`xarray.Dataset`
