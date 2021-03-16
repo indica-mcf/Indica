@@ -117,8 +117,8 @@ def fractional_abundance(
     element="",
 ) -> ArrayLike:
     """Returns the equilibrium fractional abundance given ionization and recombination
-    rates as read from ADAS adf11 files with original file dimensions. Rate variables
-    must be 1d (ion_charges) or 2d (ion_charges, electron_temperature)
+    rates as read from ADAS adf11 files. Rate variables must be 1d (ion_charges) or
+    2d (ion_charges, electron_temperature)
 
     Still to be included:
         * provenance
@@ -162,18 +162,18 @@ def fractional_abundance(
         coords=coords,
     )
 
-    fz[0, :] = fz[0, :] * 10 ** (-scd[0, :] + acd[0, :]) * ne_tau
+    fz[0, :] = fz[0, :] * (acd[0, :] / scd[0, :]) * ne_tau
     for i in range(1, nz):
-        fz[i, :] = fz[i - 1, :] * 10 ** (scd[i - 1, :] - acd[i - 1, :]) * ne_tau
-    fz[i + 1, :] = fz[i, :] * 10 ** (scd[i, :] - acd[i, :]) * ne_tau
+        fz[i, :] = fz[i - 1, :] * (scd[i - 1, :] / acd[i - 1, :]) * ne_tau
+    fz[i + 1, :] = fz[i, :] * (scd[i, :] / acd[i, :]) * ne_tau
     for j in range(nother):
         norm = np.nansum(fz[:, j], axis=0)
         fz[:, j] /= norm
 
-    fz[i + 1, :] = fz[i, :] * 10 ** (scd[i, :] - acd[i, :]) * ne_tau
+    fz[i + 1, :] = fz[i, :] * (scd[i, :] / acd[i, :]) * ne_tau
     for i in range(nz - 1, 0, -1):
-        fz[i, :] = fz[i - 1, :] * 10 ** (scd[i - 1, :] - acd[i - 1, :]) * ne_tau
-    fz[0, :] = fz[0, :] * 10 ** (-scd[0, :] + acd[0, :]) * ne_tau
+        fz[i, :] = fz[i - 1, :] * (scd[i - 1, :] / acd[i - 1, :]) * ne_tau
+    fz[0, :] = fz[0, :] * (acd[0, :] / scd[0, :]) * ne_tau
     for j in range(nother):
         norm = np.nansum(fz[:, j], axis=0)
         fz[:, j] /= norm
@@ -199,8 +199,7 @@ def radiated_power(
 ) -> ArrayLike:
     """Returns the radiated power (W m**-3) of all ionization stages, given the
     fractional abundance, line and recombination rates read from ADAS adf11
-    files (with original file dimensions).
-    Input coefficients must be either 1d (ion_charges) or
+    files. Input coefficients must be either 1d (ion_charges) or
     2d (ion_charges, electron, temperature)
 
     Still to be included:
@@ -238,10 +237,10 @@ def radiated_power(
         coords=coords,
     )
 
-    rad_pow[0, :] = fz[0, :] * 10 ** plt[0, :]
+    rad_pow[0, :] = fz[0, :] * plt[0, :]
     for i in range(1, nz):
-        rad_pow[i, :] = fz[i, :] * (10 ** plt[i, :] + 10 ** prb[i - 1, :])
-    rad_pow[i + 1, :] = fz[i + 1, :] * 10 ** prb[i, :]
+        rad_pow[i, :] = fz[i, :] * (plt[i, :] + prb[i - 1, :])
+    rad_pow[i + 1, :] = fz[i + 1, :] * prb[i, :]
 
     if gen_type and element:
         attrs = {

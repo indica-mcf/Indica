@@ -3,8 +3,6 @@ from copy import deepcopy
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
-from snippets.atomdat import fractional_abundance
-from snippets.atomdat import radiated_power
 import snippets.fac_profiles as fac
 import snippets.forward_models as forward_models
 import xarray
@@ -14,7 +12,7 @@ from indica.numpy_typing import ArrayLike
 plt.ion()
 
 
-class simulate_spectra:
+class main_plasma_profiles:
     def __init__(self, te_0=np.arange(0.75, 4, 0.75) * 1.0e3, tau=1):
         self.te_0 = te_0
         self.tau = tau
@@ -60,82 +58,87 @@ class simulate_spectra:
         self.ptot = xarray.concat(ptot, dim="time")
 
         # Calculate what the spectrometers are going to measure scanning parameters
-        self.passive_c5 = forward_models.spectrometer_passive_c5(el_dens=5.0e19)
-        self.he_like = forward_models.spectrometer_he_like(el_dens=5.0e19)
+        self.spectrometers = {}
+        self.spectrometers["passive_c5"] = forward_models.spectrometer(
+            "c", "5", transition="n=8-n=7", wavelength=5292.7, el_dens=5.0e19
+        )
+        self.spectrometers["he_like"] = forward_models.spectrometer(
+            "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0, el_dens=5.0e19
+        )
 
-        self.he_like.exp = self.scan_parameters(self.he_like, tau=tau)
-        self.passive_c5.exp = self.scan_parameters(self.passive_c5, tau=tau)
+        self.experimental_values(tau=tau)
 
         # Try to simulate profiles from experimental measurements
-        self.sim = self.sim_values()
+        self.infer_exp_values()
 
-    def scan_parameters(self, spectrometer_model, tau=1.0):
+    def experimental_values(self, tau=1.0):
         # Forward model of experimental measurements given input profiles
-        results = {
-            "fz": [],
-            "pec": [],
-            "emiss": [],
-            "tot_rad_pow": [],
-            "pos": [],
-            "pos_err": {"in": [], "out": []},
-            "el_temp": [],
-            "el_temp_err": {"in": [], "out": []},
-            "el_dens": [],
-            "el_dens_err": {"in": [], "out": []},
-            "ion_temp": [],
-            "ion_temp_err": {"in": [], "out": []},
-        }
         rho = self.el_dens.coords["rho_poloidal"]
 
-        print(
-            spectrometer_model.element,
-            spectrometer_model.charge,
-            spectrometer_model.wavelength,
-        )
-        for i, t in enumerate(self.time):
-            el_dens = self.el_dens.sel(time=t)
-            el_temp = self.el_temp.sel(time=t)
-            ion_temp = self.ion_temp.sel(time=t)
-            print(f"Te(0) = {el_temp.max().values}")
-
-            fz, emiss, tot_rad_pow = self.radiation_characteristics(
-                spectrometer_model, el_temp, el_dens, tau=tau
+        for k, spectrometer in self.spectrometers.items():
+            print(
+                spectrometer.element,
+                spectrometer.charge,
+                spectrometer.wavelength,
             )
+            results = {
+                "fz": [],
+                "pec": [],
+                "emiss": [],
+                "tot_rad_pow": [],
+                "pos": [],
+                "pos_err": {"in": [], "out": []},
+                "el_temp": [],
+                "el_temp_err": {"in": [], "out": []},
+                "el_dens": [],
+                "el_dens_err": {"in": [], "out": []},
+                "ion_temp": [],
+                "ion_temp_err": {"in": [], "out": []},
+            }
+            for i, t in enumerate(self.time):
+                el_dens = self.el_dens.sel(time=t)
+                el_temp = self.el_temp.sel(time=t)
+                ion_temp = self.ion_temp.sel(time=t)
+                print(f"Te(0) = {el_temp.max().values}")
 
-            # Measurement position average ad "error"
-            pos_avrg, pos_err_in, pos_err_out, ind_in, ind_out = calc_moments(
-                emiss, rho, sim=True
-            )
-            te_avrg, te_err_in, te_err_out, _, _ = calc_moments(
-                emiss, el_temp, ind_in=ind_in, ind_out=ind_out, sim=True
-            )
-            ti_avrg, ti_err_in, ti_err_out, _, _ = calc_moments(
-                emiss, ion_temp, ind_in=ind_in, ind_out=ind_out, sim=True
-            )
+                fz, emiss, tot_rad_pow = spectrometer.radiation_characteristics(
+                    el_temp, el_dens, tau=tau
+                )
 
-            ne_avrg, ne_err_in, ne_err_out, _, _ = calc_moments(
-                emiss, el_dens, ind_in=ind_in, ind_out=ind_out, sim=True
-            )
+                # Measurement position average ad "error"
+                pos_avrg, pos_err_in, pos_err_out, ind_in, ind_out = calc_moments(
+                    emiss, rho, simmetry=True
+                )
+                te_avrg, te_err_in, te_err_out, _, _ = calc_moments(
+                    emiss, el_temp, ind_in=ind_in, ind_out=ind_out, simmetry=True
+                )
+                ti_avrg, ti_err_in, ti_err_out, _, _ = calc_moments(
+                    emiss, ion_temp, ind_in=ind_in, ind_out=ind_out, simmetry=True
+                )
 
-            results["emiss"].append(emiss)
-            results["fz"].append(fz)
-            results["tot_rad_pow"].append(tot_rad_pow)
-            results["pos"].append(pos_avrg)
-            results["pos_err"]["in"].append(pos_err_in)
-            results["pos_err"]["out"].append(pos_err_out)
-            results["el_temp"].append(te_avrg)
-            results["el_temp_err"]["in"].append(te_err_in)
-            results["el_temp_err"]["out"].append(te_err_out)
-            results["ion_temp"].append(ti_avrg)
-            results["ion_temp_err"]["in"].append(ti_err_in)
-            results["ion_temp_err"]["out"].append(ti_err_out)
-            results["el_dens"].append(ne_avrg)
-            results["el_dens_err"]["in"].append(ne_err_in)
-            results["el_dens_err"]["out"].append(ne_err_out)
+                ne_avrg, ne_err_in, ne_err_out, _, _ = calc_moments(
+                    emiss, el_dens, ind_in=ind_in, ind_out=ind_out, simmetry=True
+                )
 
-        return results
+                results["emiss"].append(emiss)
+                results["fz"].append(fz)
+                results["tot_rad_pow"].append(tot_rad_pow)
+                results["pos"].append(pos_avrg)
+                results["pos_err"]["in"].append(pos_err_in)
+                results["pos_err"]["out"].append(pos_err_out)
+                results["el_temp"].append(te_avrg)
+                results["el_temp_err"]["in"].append(te_err_in)
+                results["el_temp_err"]["out"].append(te_err_out)
+                results["ion_temp"].append(ti_avrg)
+                results["ion_temp_err"]["in"].append(ti_err_in)
+                results["ion_temp_err"]["out"].append(ti_err_out)
+                results["el_dens"].append(ne_avrg)
+                results["el_dens_err"]["in"].append(ne_err_in)
+                results["el_dens_err"]["out"].append(ne_err_out)
 
-    def sim_values(self, tau=1):
+            spectrometer.exp = results
+
+    def infer_exp_values(self, tau=1):
         """From the measured Te and Ti values, search for Te that best
         matches total pressure.
 
@@ -162,6 +165,13 @@ class simulate_spectra:
 
         rho = self.el_dens.coords["rho_poloidal"]
         x_ped = 0.85
+        he_like = None
+        passive_c5 = None
+        if "he_like" in self.spectrometers.keys():
+            he_like = self.spectrometers["he_like"]
+        if "passive_c5" in self.spectrometers.keys():
+            passive_c5 = self.spectrometers["passive_c5"]
+
         for i, t in enumerate(self.time):
             print(f"time = {t}")
 
@@ -172,19 +182,21 @@ class simulate_spectra:
             ptot = self.ptot.sel(time=t)
 
             # Start assuming Te(He-like) = Te(0)
-            te_0 = self.he_like.exp["el_temp"][i]
-            ti_he = self.he_like.exp["ion_temp"][i]
-            ti_c = self.passive_c5.exp["ion_temp"][i]
+            te_0 = he_like.exp["el_temp"][i]
+            ti_he = he_like.exp["ion_temp"][i]
+            if passive_c5 is not None:
+                ti_c = passive_c5.exp["ion_temp"][i]
 
             const = 1.0
             nrounds = 2
             for j in range(nrounds):
+                # Electron temperature using XCRS measurement only
                 self.profs.l_mode(te_0=te_0 * const)
                 el_temp = self.profs.te
 
-                # He-like emission characteristics with specified Te profile
-                fz, emiss, tot_rad_pow = self.radiation_characteristics(
-                    self.he_like, el_temp, el_dens, tau=tau
+                # He-like emission characteristics modelled using new Te profile
+                fz, emiss, tot_rad_pow = he_like.radiation_characteristics(
+                    el_temp, el_dens, tau=tau
                 )
                 (
                     pos_avrg_he,
@@ -192,25 +204,35 @@ class simulate_spectra:
                     pos_err_out_he,
                     ind_in,
                     ind_out,
-                ) = calc_moments(emiss, rho, sim=True)
+                ) = calc_moments(emiss, rho, simmetry=True)
+
+                # Calculate emission distribution function and indices for moment analysis
                 te_avrg_he, te_err_in_he, te_err_out_he, _, _ = calc_moments(
-                    emiss, el_temp, ind_in=ind_in, ind_out=ind_out, sim=True
+                    emiss, el_temp, ind_in=ind_in, ind_out=ind_out, simmetry=True
                 )
+
                 # Estimate of central ion temperature from He-like measurement
                 ti_0 = (el_temp * ti_he / te_avrg_he).sel(rho_poloidal=0).values
 
                 # Passive C5+ emission characteristics with specified Te profile
-                fz_c, emiss_c, tot_rad_pow_c = self.radiation_characteristics(
-                    self.passive_c5, el_temp, el_dens, tau=tau
-                )
-                pos_avrg_c, pos_err_in_c, pos_err_out_c, ind_in, ind_out = calc_moments(
-                    emiss_c, rho, sim=True
-                )
-                te_avrg_c, te_err_in_c, te_err_out_c, _, _ = calc_moments(
-                    emiss_c, el_temp, ind_in=ind_in, ind_out=ind_out, sim=True
-                )
-                # Estimate of pedestal ion temperature from passive C5+ measurement
-                ti_ped = (el_temp * ti_c / te_avrg_c).sel(rho_poloidal=x_ped).values
+                if passive_c5 is not None:
+                    fz_c, emiss_c, tot_rad_pow_c = passive_c5.radiation_characteristics(
+                        el_temp, el_dens, tau=tau
+                    )
+                    (
+                        pos_avrg_c,
+                        pos_err_in_c,
+                        pos_err_out_c,
+                        ind_in,
+                        ind_out,
+                    ) = calc_moments(emiss_c, rho, simmetry=True)
+                    te_avrg_c, te_err_in_c, te_err_out_c, _, _ = calc_moments(
+                        emiss_c, el_temp, ind_in=ind_in, ind_out=ind_out, simmetry=True
+                    )
+                    # Estimate of pedestal ion temperature from passive C5+ measurement
+                    ti_ped = (el_temp * ti_c / te_avrg_c).sel(rho_poloidal=x_ped).values
+                else:
+                    ti_ped = el_temp.sel(rho_poloidal=x_ped)
 
                 # Build ion temperature profile estimate using both measurements
                 ion_temp = self.profs.build_temperature(
@@ -220,12 +242,12 @@ class simulate_spectra:
                 # Calculate estimate of total pressure
                 p_el, ptot_el = calc_pressure(el_dens, el_temp, volume=volume)
                 p_ion, ptot_ion = calc_pressure(ion_dens, ion_temp, volume=volume)
-                pressure_sim = p_el + p_ion
-                ptot_sim = ptot_ion + ptot_el
+                pressure_bc = p_el + p_ion
+                ptot_bc = ptot_ion + ptot_el
 
                 # Compare with experimental value and rescale profiles
-                dpth_tot = ptot - ptot_sim  # missing pressure in estimated value
-                # const = (1 + dpth_tot / ptot_sim).values
+                dpth_tot = ptot - ptot_bc  # missing pressure in estimated value
+                # const = (1 + dpth_tot / ptot_bc).values
                 const = (1 + dpth_tot / ptot_el).values
 
             results["pos"].append([pos_avrg_he, pos_avrg_c])
@@ -233,50 +255,14 @@ class simulate_spectra:
             results["pos_err"]["out"].append([pos_err_out_he, pos_err_out_c])
             results["el_temp"].append(el_temp)
             results["ion_temp"].append(ion_temp)
-            results["pressure"].append(pressure_sim)
-            results["ptot"].append(ptot_sim)
+            results["pressure"].append(pressure_bc)
+            results["ptot"].append(ptot_bc)
+
         results["ptot"] = xarray.concat(results["ptot"], dim="time")
 
-        return results
+        self.back_calculated = results
 
-    def radiation_characteristics(self, spectrometer_model, el_temp, el_dens, tau=1.0):
-        atomdat = deepcopy(spectrometer_model.atomdat)
-        for k in atomdat.keys():
-            # try:
-            atomdat[k] = atomdat[k].interp(
-                electron_temperature=el_temp, method="quadratic"
-            )
-            # except ValueError:
-            #     atomdat[k] = atomdat[k].interp(
-            #         electron_temperature=el_temp, method="quadratic"
-            #     )
-
-        fz = fractional_abundance(
-            atomdat["scd"],
-            atomdat["acd"],
-            ne_tau=tau,
-            element=spectrometer_model.element,
-        )
-
-        tot_rad_pow_fz = radiated_power(
-            atomdat["plt"], atomdat["prb"], fz, element=spectrometer_model.element
-        )
-        tot_rad_pow = tot_rad_pow_fz.sum(axis=0)
-
-        emiss = (
-            atomdat["pec"]
-            * fz.sel(ion_charges=spectrometer_model.charge)
-            * el_dens ** 2
-        )
-        emiss.name = (
-            f"{spectrometer_model.element}{spectrometer_model.charge}+ "
-            f"{spectrometer_model.wavelength} A emission region"
-        )
-        emiss[emiss < 0] = 0.0
-
-        return fz, emiss, tot_rad_pow
-
-    def plot_res(self, name="", savefig=False):
+    def plot(self, name="", savefig=False):
         nt = self.time.size
         colors = cm.rainbow(np.linspace(0, 1, nt))
 
@@ -289,22 +275,24 @@ class simulate_spectra:
             self.el_temp[i].plot(color=colors[i], label=labels["el_temp"])
 
             plt.scatter(
-                self.he_like.exp["pos"][i],
-                self.he_like.exp["el_temp"][i],
+                self.spectrometers["he_like"].exp["pos"][i],
+                self.spectrometers["he_like"].exp["el_temp"][i],
                 color=colors[i],
                 label=labels["he_like_te"],
             )
             plt.hlines(
-                self.he_like.exp["el_temp"][i],
-                self.he_like.exp["pos"][i] - self.he_like.exp["pos_err"]["in"][i],
-                self.he_like.exp["pos"][i] + self.he_like.exp["pos_err"]["out"][i],
+                self.spectrometers["he_like"].exp["el_temp"][i],
+                self.spectrometers["he_like"].exp["pos"][i]
+                - self.spectrometers["he_like"].exp["pos_err"]["in"][i],
+                self.spectrometers["he_like"].exp["pos"][i]
+                + self.spectrometers["he_like"].exp["pos_err"]["out"][i],
                 alpha=0.5,
                 color=colors[i],
             )
 
-            if hasattr(self, "sim"):
-                self.sim["el_temp"][i].plot(
-                    color=colors[i], label=labels["el_temp_sim"], linestyle="--"
+            if hasattr(self, "back_calculated"):
+                self.back_calculated["el_temp"][i].plot(
+                    color=colors[i], label=labels["el_temp_bc"], linestyle="--"
                 )
 
         plt.title("Electron Temperature")
@@ -328,38 +316,41 @@ class simulate_spectra:
             )
 
             plt.scatter(
-                self.he_like.exp["pos"][i],
-                self.he_like.exp["ion_temp"][i],
+                self.spectrometers["he_like"].exp["pos"][i],
+                self.spectrometers["he_like"].exp["ion_temp"][i],
                 color=colors[i],
                 label=labels["he_like_ti"],
             )
             plt.hlines(
-                self.he_like.exp["ion_temp"][i],
-                self.he_like.exp["pos"][i] - self.he_like.exp["pos_err"]["in"][i],
-                self.he_like.exp["pos"][i] + self.he_like.exp["pos_err"]["out"][i],
+                self.spectrometers["he_like"].exp["ion_temp"][i],
+                self.spectrometers["he_like"].exp["pos"][i]
+                - self.spectrometers["he_like"].exp["pos_err"]["in"][i],
+                self.spectrometers["he_like"].exp["pos"][i]
+                + self.spectrometers["he_like"].exp["pos_err"]["out"][i],
                 alpha=0.5,
                 color=colors[i],
             )
 
             plt.scatter(
-                self.passive_c5.exp["pos"][i],
-                self.passive_c5.exp["ion_temp"][i],
+                self.spectrometers["passive_c5"].exp["pos"][i],
+                self.spectrometers["passive_c5"].exp["ion_temp"][i],
                 color=colors[i],
                 marker="x",
                 label=labels["passive_c5_ti"],
             )
             plt.hlines(
-                self.passive_c5.exp["ion_temp"][i],
-                self.passive_c5.exp["pos"][i] - self.passive_c5.exp["pos_err"]["in"][i],
-                self.passive_c5.exp["pos"][i]
-                + self.passive_c5.exp["pos_err"]["out"][i],
+                self.spectrometers["passive_c5"].exp["ion_temp"][i],
+                self.spectrometers["passive_c5"].exp["pos"][i]
+                - self.spectrometers["passive_c5"].exp["pos_err"]["in"][i],
+                self.spectrometers["passive_c5"].exp["pos"][i]
+                + self.spectrometers["passive_c5"].exp["pos_err"]["out"][i],
                 alpha=0.5,
                 color=colors[i],
             )
 
-            if hasattr(self, "sim"):
-                self.sim["ion_temp"][i].plot(
-                    color=colors[i], label=labels["ion_temp_sim"], linestyle="--"
+            if hasattr(self, "back_calculated"):
+                self.back_calculated["ion_temp"][i].plot(
+                    color=colors[i], label=labels["ion_temp_bc"], linestyle="--"
                 )
 
         plt.title("Ion Temperature")
@@ -387,9 +378,9 @@ class simulate_spectra:
             if i == (nt - 1):
                 labels = get_labels()
             self.pressure[i].plot(color=colors[i], label=labels["pressure"])
-            if hasattr(self, "sim"):
-                self.sim["pressure"][i].plot(
-                    color=colors[i], label=labels["pressure_sim"], linestyle="--"
+            if hasattr(self, "back_calculated"):
+                self.back_calculated["pressure"][i].plot(
+                    color=colors[i], label=labels["pressure_bc"], linestyle="--"
                 )
         plt.title("Thermal pressure (ion + electrons)")
         plt.ylabel("($Pa$ $m^{-3}$)")
@@ -403,14 +394,14 @@ class simulate_spectra:
             electron_temperature=("time", self.el_temp.sel(rho_poloidal=0))
         )
         ptot = ptot.swap_dims({"time": "electron_temperature"})
-        ptot_sim = self.sim["ptot"].assign_coords(
+        ptot_bc = self.back_calculated["ptot"].assign_coords(
             electron_temperature=("time", self.el_temp.sel(rho_poloidal=0))
         )
-        ptot_sim = ptot_sim.swap_dims({"time": "electron_temperature"})
+        ptot_bc = ptot_bc.swap_dims({"time": "electron_temperature"})
 
         ptot.plot(color="k", linestyle="dashed", label=labels["ptot"])
-        if hasattr(self, "sim"):
-            ptot_sim.plot(label=labels["ptot_sim"])
+        if hasattr(self, "back_calculated"):
+            ptot_bc.plot(label=labels["ptot_bc"])
         plt.title("Total thermal pressure (ion + electrons)")
         plt.ylabel("($Pa$)")
         plt.xlabel("Te(0) (eV)")
@@ -418,7 +409,7 @@ class simulate_spectra:
         if savefig:
             save_figure(fig_name=name + "_ptot_pressure")
 
-        for results in [self.he_like, self.passive_c5]:
+        for k, results in self.spectrometers.items():
             titles = {
                 "fz": f"{results.element}{results.charge}+ fractional abundance",
                 "pec": f"{results.element}{results.charge}+ "
@@ -465,23 +456,33 @@ class simulate_spectra:
                 save_figure(fig_name=name + f"_{results.element}_total_radiated_power")
 
         plt.figure()
-        plt.plot(self.te_0, np.array(self.he_like.exp["pos"]), "k", alpha=0.5)
+        plt.plot(
+            self.te_0,
+            np.array(self.spectrometers["he_like"].exp["pos"]),
+            "k",
+            alpha=0.5,
+        )
         plt.fill_between(
             self.te_0,
-            np.array(self.he_like.exp["pos"])
-            - np.array(self.he_like.exp["pos_err"]["in"]),
-            np.array(self.he_like.exp["pos"])
-            + np.array(self.he_like.exp["pos_err"]["out"]),
+            np.array(self.spectrometers["he_like"].exp["pos"])
+            - np.array(self.spectrometers["he_like"].exp["pos_err"]["in"]),
+            np.array(self.spectrometers["he_like"].exp["pos"])
+            + np.array(self.spectrometers["he_like"].exp["pos_err"]["out"]),
             label="He-like",
             alpha=0.5,
         )
-        plt.plot(self.te_0, np.array(self.passive_c5.exp["pos"]), "k", alpha=0.5)
+        plt.plot(
+            self.te_0,
+            np.array(self.spectrometers["passive_c5"].exp["pos"]),
+            "k",
+            alpha=0.5,
+        )
         plt.fill_between(
             self.te_0,
-            np.array(self.passive_c5.exp["pos"])
-            - np.array(self.passive_c5.exp["pos_err"]["in"]),
-            np.array(self.passive_c5.exp["pos"])
-            + np.array(self.passive_c5.exp["pos_err"]["out"]),
+            np.array(self.spectrometers["passive_c5"].exp["pos"])
+            - np.array(self.spectrometers["passive_c5"].exp["pos_err"]["in"]),
+            np.array(self.spectrometers["passive_c5"].exp["pos"])
+            + np.array(self.spectrometers["passive_c5"].exp["pos_err"]["out"]),
             label="Passive C5+",
             alpha=0.5,
         )
@@ -494,13 +495,13 @@ class simulate_spectra:
 
         plt.figure()
         plt.plot(self.te_0, self.te_0, "k--", label="$T_e(0)$")
-        plt.plot(self.te_0, self.he_like.exp["el_temp"])
+        plt.plot(self.te_0, self.spectrometers["he_like"].exp["el_temp"])
         plt.fill_between(
             self.te_0,
-            np.array(self.he_like.exp["el_temp"])
-            - np.array(self.he_like.exp["el_temp_err"]["in"]),
-            np.array(self.he_like.exp["el_temp"])
-            + np.array(self.he_like.exp["el_temp_err"]["out"]),
+            np.array(self.spectrometers["he_like"].exp["el_temp"])
+            - np.array(self.spectrometers["he_like"].exp["el_temp_err"]["in"]),
+            np.array(self.spectrometers["he_like"].exp["el_temp"])
+            + np.array(self.spectrometers["he_like"].exp["el_temp_err"]["out"]),
             alpha=0.5,
             label="$T_e(He-like)$",
         )
@@ -524,9 +525,9 @@ def get_labels(set_none=False, lkey=None):
 
     labels = {
         "el_temp": "$T_e$",
-        "el_temp_sim": "$T_e (simulated)$",
+        "el_temp_bc": "$T_e (back-calculated)$",
         "ion_temp": "$T_i$",
-        "ion_temp_sim": "$T_i (simulated)$",
+        "ion_temp_bc": "$T_i (back-calculated)$",
         "he_like_te": "$T_e$ (He-like)",
         "he_like_ti": "$T_i$ (He-like)",
         "he_like_ne": "$n_e$ (He-like)",
@@ -534,9 +535,9 @@ def get_labels(set_none=False, lkey=None):
         "passive_c5_ti": "$T_i$ (Passive C5+)",
         "passive_c5_ne": "$n_e$ (Passive C5+)",
         "pressure": "Real value",
-        "pressure_sim": "Simulated",
+        "pressure_bc": "Back-calculated",
         "ptot": "Real value",
-        "ptot_sim": "Simulated",
+        "ptot_bc": "Back-calculated",
     }
 
     if lkey is not None:
@@ -550,13 +551,13 @@ def get_labels(set_none=False, lkey=None):
     return labels
 
 
-def calc_moments(y: ArrayLike, x: ArrayLike, ind_in=None, ind_out=None, sim=False):
+def calc_moments(y: ArrayLike, x: ArrayLike, ind_in=None, ind_out=None, simmetry=False):
     x_avrg = np.nansum(y * x) / np.nansum(y)
 
     if (ind_in is None) and (ind_out is None):
         ind_in = x <= x_avrg
         ind_out = x >= x_avrg
-        if sim is True:
+        if simmetry is True:
             ind_in = ind_in + ind_out
             ind_out = ind_in
 
