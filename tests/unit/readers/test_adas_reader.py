@@ -301,6 +301,7 @@ def test_read_adf11(reader, data_file, element, year):
     data.swap_dims({"log10_electron_temperature": "electron_temperature"})
     drop = ["log10_electron_temperature", "log10_electron_density"]
     data.drop_vars(drop)
+
     assert args[0] == expected_file
     assert args[1] >= now
     assert_allclose(10 ** data, result, atol=1e-5)
