@@ -212,6 +212,7 @@ class ADASReader(BaseIO):
                 assert charge_state == int(charge)
             except ValueError:
                 m = re.search(r"(\d+)(\S+)", charge, re.I)
+                assert isinstance(m, re.Match)
                 charge_tmp = m.group(1)
                 assert charge_state is int(charge_tmp)
 
