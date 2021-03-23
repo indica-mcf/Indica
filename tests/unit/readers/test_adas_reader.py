@@ -21,8 +21,8 @@ from hypothesis.strategies import one_of
 from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 from hypothesis.strategies import times
+import numpy as np
 import prov.model as prov
-from xarray.testing import assert_allclose
 
 from indica.datatypes import ADF11_GENERAL_DATATYPES
 from indica.datatypes import ORDERED_ELEMENTS
@@ -208,8 +208,8 @@ def adf11_array_to_str(
 
     element = data.attrs["datatype"][1]
     z = ORDERED_ELEMENTS.index(element)
-    nd = len(data.log10_electron_density)
-    nt = len(data.log10_electron_temperature)
+    nd = len(data.electron_density)
+    nt = len(data.electron_temperature)
     zmin = int(data.ion_charges[0]) + 1
     zmax = int(data.ion_charges[-1]) + 1
     result = (
@@ -218,8 +218,8 @@ def adf11_array_to_str(
         + newline
     )
     result += "-" * 80 + newline
-    result += rows_of_eight(data.log10_electron_density - 6)
-    result += rows_of_eight(data.log10_electron_temperature)
+    result += rows_of_eight(np.log10(data.electron_density) - 6)
+    result += rows_of_eight(np.log10(data.electron_temperature))
     d = date_divider
     for charge in data.ion_charges:
         if include_metastable_indices:
@@ -229,7 +229,7 @@ def adf11_array_to_str(
         result += (
             f" Z1={int(charge)+1:<5}/ DATE= {data.attrs['date']:%d{d}%m{d}%y}" + newline
         )
-        result += rows_of_eight(data.sel(ion_charges=charge) + 6)
+        result += rows_of_eight(np.log10(data.sel(ion_charges=charge)) + 6)
     return result
 
 
@@ -288,22 +288,17 @@ def test_read_adf11(reader, data_file, element, year):
     reader._get_file.assert_called_once_with("adf11", expected_file)
     reader.create_provenance.assert_called_once()
     args, kwargs = reader.create_provenance.call_args
-    data.assign_coords(
-        electron_density=("log10_electron_density", 10 ** data.log10_electron_density)
-    )
-    data.assign_coords(
-        electron_temperature=(
-            "log10_electron_temperature",
-            10 ** data.log10_electron_temperature,
-        )
-    )
-    data.swap_dims({"log10_electron_density": "electron_density"})
-    data.swap_dims({"log10_electron_temperature": "electron_temperature"})
-    drop = ["log10_electron_temperature", "log10_electron_density"]
-    data = data.drop_vars(drop)
 
     assert args[0] == expected_file
     assert args[1] >= now
-    assert_allclose(10 ** data, result, atol=1e-5)
+    np.testing.assert_allclose(data, result, atol=1e-5, rtol=1e-4)
+    np.testing.assert_allclose(data.ion_charges, result.ion_charges, atol=1e-5)
+    np.testing.assert_allclose(
+        data.electron_temperature, result.electron_temperature, atol=1e-5, rtol=1e-4
+    )
+    np.testing.assert_allclose(
+        data.electron_density, result.electron_density, atol=1e-5, rtol=1e-4
+    )
+    assert data.name == result.name
     assert data.attrs["datatype"] == result.attrs["datatype"]
     assert result.attrs["provenance"] == reader.create_provenance.return_value
