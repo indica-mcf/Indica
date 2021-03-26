@@ -27,9 +27,9 @@ from .fake_equilibrium import flux_types
 from .strategies import arbitrary_coordinates
 
 
-pytestmark = mark.skip(
-    reason="These tests rely on mathematical identities that do not hold numerically."
-)
+# pytestmark = mark.skip(
+#     reason="These tests rely on mathematical identities that do not hold numerically."
+# )
 
 
 @composite
