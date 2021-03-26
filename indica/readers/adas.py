@@ -3,6 +3,7 @@
 import datetime
 from pathlib import Path
 import re
+from typing import List
 from typing import Literal
 from typing import TextIO
 from typing import Union
@@ -197,104 +198,75 @@ class ADASReader(BaseIO):
         )
         with self._get_file("adf15", filename) as f:
             header = f.readline().strip().lower()
-            match = r"(\d+).+/(\S+).*\:(.*)photon"
-            m = re.search(match, header, re.I)
-            if not isinstance(m, re.Match):
-                match = r"(\d+).+/(\S+).*\+(.*)photon"
-                m = re.search(match, header, re.I)
-
+            match = r"(\d+).+/(\S+).*\[:+](.*)photon"
+            m = re.search(match, header)
             assert isinstance(m, re.Match)
             ntrans = int(m.group(1))
             element_name = m.group(2).strip().lower()
             charge_state = int(m.group(3))
             assert element_name == element.lower()
-            try:
-                assert charge_state == int(charge)
-            except ValueError:
-                m = re.search(r"(\d+)(\S+)", charge, re.I)
-                assert isinstance(m, re.Match)
-                charge_tmp = m.group(1)
-                assert charge_state is int(charge_tmp)
+            m = re.search(r"(\d+)(\S*)", charge)
+            assert isinstance(m, re.Match)
+            extracted_charge = m.group(1)
+            if charge_state != int(extracted_charge):
+                raise ValueError(
+                    f"Charge state in ADF15 file ({charge_state}) does not "
+                    f"match argument ({charge})."
+                )
+
+            header_re = re.compile(
+                r"(\d+.\d+)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+?)/?.+isel.*=\s+(\d+)"
+            )
+            m = None
+            while not m:
+                line = f.readline().strip().lower()
+                m = header_re.search(line)
 
             # Read first section header to build arrays outside of reading loop
-            while True:
-                section_header = f.readline().strip().lower()
-                match = r"(\d+.\d+)\s+(\d+)\s+(\d+).+type=(\S+)/.+/isel.+=\s+(\d+)"
-                m = re.search(match, section_header, re.I)
-                if not isinstance(m, re.Match):
-                    match = (
-                        r"(\d+.\d)\s?\S?\s+(\d+)\s+(\d+).+"
-                        r"type\s?=\s?(\S+).+isel\s?=\s+(\d+)"
-                    )
-                    m = re.search(match, section_header, re.I)
-                if isinstance(m, re.Match):
-                    break
-            section_header_match = match
-
             assert isinstance(m, re.Match)
             nd = int(m.group(2))
             nt = int(m.group(3))
             data = np.empty((ntrans, nt, nd))
-            ttype = [""] * ntrans
+            ttype: List[str] = []
             tindex = np.empty(ntrans)
             wavelength = np.empty(ntrans)
 
             # Read Photon Emissivity Coefficient rates
             for i in range(ntrans):
-                if i > 0:
-                    section_header = f.readline().strip().lower()
-                m = re.search(section_header_match, section_header, re.I)
+                m = header_re.search(line)
                 assert isinstance(m, re.Match)
                 assert int(m.group(5)) - 1 == i
                 tindex[i] = i + 1
-                ttype[i] = m.group(4)
+                ttype.append(m.group(4))
                 wavelength[i] = float(m.group(1))  # (Angstroms)
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+                line = f.readline().strip().lower()
 
             # Read Transition information from end of file
-            match = r"c\s+[isel].+\s+[transition].+\s+[type]"
-            while True:
-                tmp = f.readline().strip().lower()
-                m = re.search(match, tmp, re.I)
-                if isinstance(m, re.Match):
-                    break
-            f.readline().strip().lower()
+            file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
+            while not file_end_re.search(line):
+                line = f.readline().strip().lower()
 
-            while True:
-                tmp = f.readline().strip().lower()
-                match = (
-                    r"c\s+(\d+.)"  # isel
-                    r"\s+(\d+.\d+)"  # wavelength
-                    r"\s+(\d+)(\(\d\)\d\(.+\d?.\d\))-"  # transition upper level
-                    r".+(\d+)(\(\d\)\d\(.+\d?.\d\))"  # transition lower level
-                )
-                m = re.search(match, tmp, re.I)
-                if not isinstance(m, re.Match):
-                    match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
-                    m = re.search(match, tmp, re.I)
-
-                if isinstance(m, re.Match):
-                    break
-            trans_match = match
-
-            if len(tmp.split(")")) > 3:
-                orbitals = True
-            else:
-                orbitals = False
+            transition_re = re.compile(
+                r"c\s+(\d+)"  # isel
+                r"\s+(\d+\.\d+)"  # wavelength
+                r"\s+(?:\d+)?(\(\d\)\d\(.+\d?.\d\)|n\=.\d+.)-"  # transition upper level
+                r".+(?:\d+)?(\(\d\)\d\(.+\d?.\d\)|.n\=.\d+)"  # transition lower level
+            )
+            m = None
+            while not m:
+                line = f.readline().strip().lower()
+                m = transition_re.search(line)
 
             transition = []
             for i in tindex:
-                if i > 1:
-                    tmp = f.readline().strip().lower()
-                m = re.search(trans_match, tmp, re.I)
+                m = transition_re.search(line)
                 assert isinstance(m, re.Match)
-                assert int(m.group(1)[:-1]) == i
-                if orbitals:
-                    transition.append(f"{m.group(4)}-{m.group(6)}".replace(" ", ""))
-                else:
-                    transition.append(m.group(3).replace(" ", ""))
+                assert int(m.group(1)) == i
+                transition.append(f"{m.group(3)}-{m.group(4)}".replace(" ", ""))
+                line = f.readline().strip().lower()
 
         gen_type = ADF15_GENERAL_DATATYPES[filetype]
         spec_type = element
@@ -325,11 +297,14 @@ class ADASReader(BaseIO):
         )
 
         # Add extra dimensions attached to index
-        pecs = pecs.assign_coords(wavelength=("index", wavelength))  # (A)
         pecs = pecs.assign_coords(
-            transition=("index", transition)
-        )  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
-        pecs = pecs.assign_coords(type=("index", ttype))  # (excit, recomb, cx)
+            wavelength=("index", wavelength),
+            transition=(
+                "index",
+                transition,
+            ),  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
+        )
+        pecs.attrs["transition_type"] = ttype  # (excit, recomb, cx)
 
         return pecs
 
