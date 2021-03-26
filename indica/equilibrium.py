@@ -317,10 +317,28 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError(
-            "{} does not implement an 'enclosed_volume' "
-            "method.".format(self.__class__.__name__)
-        )
+
+        R, z = np.empty(360), np.empty(360)
+        for i, j in enumerate(R):
+            R[i], z[i], t = self.spatial_coords(rho, (i / 360.0) * 2. * np.pi, t)
+
+        R_zero = np.mean(R)
+
+        minor_radius = np.sqrt(R ** 2 + z ** 2)
+        areas = np.empty(360)
+        for i, j in enumerate(minor_radius):
+            areas[i] = minor_radius[i] * (i / 360.0) * 2. * np.pi
+
+        area = np.sum(areas)
+
+        Vol_enclosed = 2.0 * np.pi * R_zero * area
+
+        return Vol_enclosed, t
+
+        # raise NotImplementedError(
+        #     "{} does not implement an 'enclosed_volume' "
+        #     "method.".format(self.__class__.__name__)
+        # )
 
     def invert_enclosed_volume(
         self,
