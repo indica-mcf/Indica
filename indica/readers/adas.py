@@ -303,8 +303,8 @@ class ADASReader(BaseIO):
                 "index",
                 transition,
             ),  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
+            type=("index", ttype),  # (excit, recomb, cx)
         )
-        pecs.attrs["transition_type"] = ttype  # (excit, recomb, cx)
 
         return pecs
 
