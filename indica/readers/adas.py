@@ -198,7 +198,7 @@ class ADASReader(BaseIO):
         )
         with self._get_file("adf15", filename) as f:
             header = f.readline().strip().lower()
-            match = r"(\d+).+/(\S+).*\[:+](.*)photon"
+            match = r"(\d+).+/(\S+).*[:+](.*)photon"
             m = re.search(match, header)
             assert isinstance(m, re.Match)
             ntrans = int(m.group(1))
