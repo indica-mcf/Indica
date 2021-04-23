@@ -187,7 +187,7 @@ def dropped_channels(draw, size, max_dropped=0.1):
 
     """
     return draw(
-        lists(integers(0, size - 1), max_size=int(max_dropped * size), unique=True)
+        lists(integers(0, size - 1 if size > 0 else 0), max_size=int(max_dropped * size), unique=True)
     )
 
 
@@ -282,14 +282,14 @@ def data_arrays_from_coords(
         x2_scaled = (x2 - min_val) / (width if width else 1.0)
     else:
         x2_scaled = 0.0
-    tmp = func(t_scaled, x1_scaled, x2_scaled)
+    tmp = func(x1_scaled, x2_scaled, t_scaled)  # t_scaled at the end
     result = DataArray(np.reshape(tmp, shape), coords, dims)
     if isinstance(x1, np.ndarray):
         flat_x1 = x1.flatten()
     else:
         flat_x1 = x1
     dropped = (
-        [flat_x1[i] for i in draw(dropped_channels(len(x1), max_dropped))]
+        [flat_x1[i] for i in draw(dropped_channels(len(x1) if x1.ndim else 0, max_dropped))]
         if isinstance(x1, np.ndarray)
         else []
     )
