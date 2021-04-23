@@ -58,35 +58,38 @@ def electron_temperatures(
     zmax = float(zmag.max())
     nspace = draw(integers(min_spatial_points, max_spatial_points))
     R_vals = np.linspace(*machine_dimensions[0], nspace)
+    R_scaled = np.linspace(0.0, 1.0, nspace)
     zstart = draw(floats(machine_dimensions[1][0], zmin))
     zend = draw(floats(zmax, machine_dimensions[1][1]))
     if draw(booleans()):
         zstart, zend = zend, zstart
     z_vals = np.linspace(zstart, zend, nspace)
-    transform = TransectCoordinates(R_vals, z_vals)
+    z_scaled = np.linspace(0.0, 1.0, nspace)
     ntime = draw(integers(min_time_points, max_time_points))
     times = np.linspace(start_time, end_time, ntime)
     times_scaled = np.linspace(0.0, 1.0, ntime)
     R_array = DataArray(R_vals, dims="index")
     z_array = DataArray(z_vals, dims="index")
+    transform = TransectCoordinates(R_array, z_array)
     rhos = rho.interp(R=R_array, z=z_array)
     indices = rhos.indica.invert_root(
         1.0, "index", nspace - 1, method="cubic"
     ).assign_coords(t=(rhos.t - start_time) / (end_time - start_time))
     m = DataArray(
-        draw(arrays(float, ntime, elements=floats(-1e4, -10.0), fill=just(-1e3))),
-        coords=[("t", times_scaled)],
+        draw(arrays(float, (ntime, nspace, nspace), elements=floats(-1e4, -10.0), fill=just(-1e3))),
+        coords=[("t", times_scaled), ("index", R_scaled), ("index_z_offset", z_scaled)],
     )
     b = 1e2 - m * indices.interp(t=times_scaled, method="nearest") / nspace
     return draw(
         data_arrays_from_coords(
             ("temperature", "electrons"),
             transform,
+            [np.expand_dims(R_array, 1), np.expand_dims(z_array, 1), np.expand_dims(times, 1)],
             just(
-                lambda x1, x2, t: np.reshape(m.interp(t=np.ravel(t)).data, t.shape) * x1
-                + np.reshape(b.interp(t=np.ravel(t)).data, t.shape)
+                lambda x1, x2, t:
+                np.reshape(m.interp(t=np.ravel(t), index=np.ravel(x1), index_z_offset=np.ravel(x2)).data, (len(t), len(x1), len(x2))) * x1
+                + np.reshape(b.interp(t=np.ravel(t), index=np.ravel(x1), index_z_offset=np.ravel(x2)).data, (len(t), len(x1), len(x2)))
             ),
-            [None, None, np.expand_dims(times, 1)],
             rel_sigma=0.001,
         )
     )
@@ -385,7 +388,7 @@ def test_volume_derivative(equilib_Te, coords, ftype, offset):
 
 @given(
     equilibrium_data_and_Te(min_spatial_points=10, max_spatial_points=20),
-    floats(0.0, 1.0, exclude_min=True),
+    floats(1.0 * np.finfo(np.float64).resolution, 1.0, exclude_min=True),
     floats(75.0, 80.0),
     flux_types(),
     offset_pickers(),

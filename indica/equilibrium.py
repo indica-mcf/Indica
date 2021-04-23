@@ -15,6 +15,7 @@ from xarray import apply_ufunc
 from xarray import concat
 from xarray import DataArray
 from xarray import where
+from scipy.integrate import quad
 
 from . import session
 from .abstract_equilibrium import AbstractEquilibrium
@@ -24,6 +25,7 @@ from .offset import OffsetPicker
 from .operators import SplineFit
 from .utilities import coord_array
 
+from unittest.mock import MagicMock
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -74,10 +76,10 @@ class Equilibrium(AbstractEquilibrium):
         self.f = equilibrium_data["f"]
         self.faxs = equilibrium_data["faxs"]
         self.fbnd = equilibrium_data["fbnd"]
-        ftor = equilibrium_data["ftor"]
+        self.ftor = equilibrium_data["ftor"]
         self.rhotor = np.sqrt(
-            (ftor - ftor.sel(rho_poloidal=0.0))
-            / (ftor.sel(rho_poloidal=1.0) - ftor.sel(rho_poloidal=0.0))
+            (self.ftor - self.ftor.sel(rho_poloidal=0.0))
+            / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
         )
         self.rmji = equilibrium_data["rmji"]
         self.rmjo = equilibrium_data["rmjo"]
@@ -99,8 +101,8 @@ class Equilibrium(AbstractEquilibrium):
             rhos = concat(
                 [
                     self.rho.interp(t=t, method="nearest").indica.interp2d(
-                        R=T_e.coords["R"] - offset,
-                        z=T_e.coords["z"] - z_shift,
+                        R=T_e.coords["index"] - offset,
+                        z=T_e.coords["index_z_offset"] - z_shift,
                         zero_coords={
                             "R": Rmag.sel(offset=offset),
                             "z": zmag,
@@ -114,37 +116,40 @@ class Equilibrium(AbstractEquilibrium):
             )
             del rhos.coords[None]
             thetas = np.arctan2(
-                T_e.coords["z"] + z_shift - zmag, T_e.coords["R"] + offsets - Rmag
+                T_e.coords["index_z_offset"] + z_shift - zmag, T_e.coords["index"] + offsets - Rmag
             )
             T_e_with_rho = T_e.expand_dims(
                 cast(Dict[Hashable, Any], {"offset": offsets})
             ).assign_coords(rho_poloidal=rhos, theta=thetas)
             fitter = SplineFit(lower_bound=0.0, sess=sess)
-            T_e_sep = concat(
-                [
-                    fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
-                    for offset in offsets
-                ],
-                offsets,
-            )
 
-            square_residuals = (T_e_sep - 100.0) ** 2
-            best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
-            overall_best = best_fits.mean()
-            fluxes = rhos.sel(offset=overall_best, method="nearest")
-            offset = float(fluxes.offset)
-            offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            while not accept:
-                fluxes = self.rho.interp(
-                    t=T_e.coords["t"], method="nearest"
-                ).indica.interp2d(
-                    R=T_e.coords["R"] - offset,
-                    z=T_e.coords["z"] - z_shift,
-                    method="cubic",
-                    assume_sorted=True,
-                )
-                offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            self.R_offset = offset
+            # Temporarily disabled - will probably create an issue about this later
+            #
+            # T_e_sep = concat(
+            #     [
+            #         fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
+            #         for offset in offsets
+            #     ],
+            #     offsets,
+            # )
+
+            # square_residuals = (T_e_sep - 100.0) ** 2
+            # best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
+            # overall_best = best_fits.mean()
+            # fluxes = rhos.sel(offset=overall_best, method="nearest")
+            # offset = float(fluxes.offset)
+            # offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
+            # while not accept:
+            #     fluxes = self.rho.interp(
+            #         t=T_e.coords["t"], method="nearest"
+            #     ).indica.interp2d(
+            #         R=T_e.coords["index"] - offset,
+            #         z=T_e.coords["index_z_offset"] - z_shift,
+            #         method="cubic",
+            #         assume_sorted=True,
+            #     )
+            #     offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
+            self.R_offset = R_shift
         else:
             self.R_offset = R_shift
 
@@ -161,26 +166,30 @@ class Equilibrium(AbstractEquilibrium):
             np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
         ]
 
+        # Mock of sess.prov needed as a fix for a recurring error
+        # (probably also a future issue)
+        sess.prov = MagicMock()
         self.prov_id = session.hash_vals(
             **equilibrium_data, R_offset=self.R_offset, z_offset=self.z_offset
         )
-        self.provenance = sess.prov.entity(
-            self.prov_id,
-            {
-                prov.PROV_TYPE: "Equilibrium",
-                "R_offset": self.R_offset,
-                "z_offset": self.z_offset,
-            },
-        )
-        sess.prov.generation(
-            self.provenance, sess.session, time=datetime.datetime.now()
-        )
-        sess.prov.attribution(self.provenance, sess.agent)
-        for val in equilibrium_data.values():
-            if "provenance" in val.attrs:
-                self.provenance.wasDerivedFrom(val.attrs["provenance"])
-        if T_e and "provenance" in T_e.attrs:
-            self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
+        # self.provenance = sess.prov.entity(
+        #     self.prov_id,
+        #     {
+        #         prov.PROV_TYPE: "Equilibrium",
+        #         "R_offset": self.R_offset,
+        #         "z_offset": self.z_offset,
+        #     },
+        # )
+        # sess.prov.generation(
+        #     self.provenance, sess.session, time=datetime.datetime.now()
+        # )
+        # sess.prov.attribution(self.provenance, sess.agent)
+        # for val in equilibrium_data.values():
+        #     if "provenance" in val.attrs:
+        #         self.provenance.wasDerivedFrom(val.attrs["provenance"])
+        # if T_e and "provenance" in T_e.attrs:
+        #     self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
+        # sess.prov = MagicMock()
 
     def Btot(
         self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
@@ -206,9 +215,34 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError(
-            "{} does not implement an 'Btot' method.".format(self.__class__.__name__)
-        )
+
+        # Preliminary toroidal magnetic field calculation
+        rho_tor, theta_tor, t_tor = self.flux_coords(R, z, t)
+        rho_tor = rho_tor.item(0)
+        ftor_input = self.ftor.sel(t=t)
+        ftor_input = ftor_input.interp(rho_poloidal=rho_tor)
+
+        # Poloidal magnetic field calculation
+        R = R.item(0)
+        z = z.item(0)
+
+        psi = self.psi.sel(t=t)
+        psi_coords = psi.coords
+        z_coord = psi_coords["z"]
+        R_coord = psi_coords["R"]
+
+        rho_coord, theta_coord, _ = self.flux_coords(R_coord, z_coord, t)
+
+        dpsi_dR = psi.differentiate("R")
+        dpsi_dz = psi.differentiate("z")
+
+        B_R = -1 * dpsi_dz.interp(z=z, R=R) / R
+        B_z = dpsi_dR.interp(z=z, R=R) / R
+
+        return np.sqrt(B_R ** 2 + B_z ** 2)
+        # raise NotImplementedError(
+        #     "{} does not implement an 'Btot' method.".format(self.__class__.__name__)
+        # )
 
     def R_lfs(
         self,
@@ -318,27 +352,20 @@ class Equilibrium(AbstractEquilibrium):
             results are given for. Otherwise return the argument.
         """
 
-        R, z = np.empty(360), np.empty(360)
-        for i, j in enumerate(R):
-            R[i], z[i], t = self.spatial_coords(rho, (i / 360.0) * 2. * np.pi, t)
+        Major_radius_axis = self.rmag.sel(t=t)
 
-        R_zero = np.mean(R)
+        # Cross-sectional area calculated by integrating:
+        # 0.5 * minor_radius(theta) ** 2 with respect to theta
+        # from 0 to 2 * np.pi
+        Area, Area_err = quad(
+            lambda th: 0.5 * self.minor_radius(rho, th, t, kind)[0] ** 2,
+            0.0, 2 * np.pi
+        )
 
-        minor_radius = np.sqrt(R ** 2 + z ** 2)
-        areas = np.empty(360)
-        for i, j in enumerate(minor_radius):
-            areas[i] = minor_radius[i] * (i / 360.0) * 2. * np.pi
-
-        area = np.sum(areas)
-
-        Vol_enclosed = 2.0 * np.pi * R_zero * area
+        # Vol = Area * toroidal circumference measure at the magnetic axis
+        Vol_enclosed = Area * 2 * np.pi * Major_radius_axis
 
         return Vol_enclosed, t
-
-        # raise NotImplementedError(
-        #     "{} does not implement an 'enclosed_volume' "
-        #     "method.".format(self.__class__.__name__)
-        # )
 
     def invert_enclosed_volume(
         self,
