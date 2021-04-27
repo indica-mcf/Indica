@@ -6,7 +6,6 @@ import re
 from typing import Literal
 from typing import TextIO
 from typing import Union
-from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
@@ -16,7 +15,6 @@ from xarray import DataArray
 from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
-from ..datatypes import ADF15_GENERAL_DATATYPES
 from ..datatypes import ORDERED_ELEMENTS
 
 
@@ -185,157 +183,7 @@ class ADASReader(BaseIO):
             different charge state.
 
         """
-        now = datetime.datetime.now()
-        if year == "transport":
-            file_component = "transport"
-        else:
-            file_component = f"pec{year}][{element.lower()}"
-
-        filename = Path(pathname2url(file_component)) / pathname2url(
-            f"{file_component}_{filetype.lower()}]"
-            f"[{element.lower()}{charge.lower()}.dat"
-        )
-        with self._get_file("adf15", filename) as f:
-            header = f.readline().strip().lower()
-            header_match = [
-                r"(\d+).+/(\S+).*\:(.*)photon",
-                r"(\d+).+/(\S+).*\+(.*)photon",
-            ]
-            for match in header_match:
-                m = re.search(match, header, re.I)
-                if isinstance(m, re.Match):
-                    break
-            assert isinstance(m, re.Match)
-            ntrans = int(m.group(1))
-            element_name = m.group(2).strip().lower()
-            charge_state = int(m.group(3))
-            assert element_name == element.lower()
-            try:
-                assert charge_state == int(charge)
-            except ValueError:
-                m = re.search(r"(\d+)(\S+)", charge, re.I)
-                charge_tmp = m.group(1)
-                assert charge_state == int(charge_tmp)
-
-            # Read first section header to build arrays outside of reading loop
-            section_header_match_tmp = [
-                r"(\d+.\d+)\s+(\d+)\s+(\d+).+type=(\S+)/.+/isel.+=\s+(\d+)",
-                r"(\d+.\d)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+).+isel\s?=\s+(\d+)",
-            ]
-            while True:
-                section_header = f.readline().strip().lower()
-                for match in section_header_match_tmp:
-                    m = re.search(match, section_header, re.I)
-                    if isinstance(m, re.Match):
-                        section_header_match = match
-                        break
-                if isinstance(m, re.Match):
-                    break
-
-            assert isinstance(m, re.Match)
-            nd = int(m.group(2))
-            nt = int(m.group(3))
-            data = np.empty((ntrans, nt, nd))
-            ttype = [""] * ntrans
-            tindex = np.empty(ntrans)
-            wavelength = np.empty(ntrans)
-
-            # Read Photon Emissivity Coefficient rates
-            for i in range(ntrans):
-                if i > 0:
-                    section_header = f.readline().strip().lower()
-                m = re.search(section_header_match, section_header, re.I)
-                assert isinstance(m, re.Match)
-                assert int(m.group(5)) - 1 == i
-                tindex[i] = i + 1
-                ttype[i] = m.group(4)
-                wavelength[i] = float(m.group(1))  # (Angstroms)
-                densities = np.fromfile(f, float, nd, " ")
-                temperatures = np.fromfile(f, float, nt, " ")
-                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
-
-            # Read Transition information from end of file
-            transition_header_match = r"c\s+[isel].+\s+[transition].+\s+[type]"
-            while True:
-                tmp = f.readline().strip().lower()
-                m = re.search(transition_header_match, tmp, re.I)
-                if isinstance(m, re.Match):
-                    break
-            f.readline().strip().lower()
-
-            trans_match = [
-                (
-                    r"c\s+(\d+.)"  # isel
-                    r"\s+(\d+.\d+)"  # wavelength
-                    r"\s+(\d+)(\(\d\)\d\(.+\d?.\d\))-"  # transition upper level
-                    r".+(\d+)(\(\d\)\d\(.+\d?.\d\))"  # transition lower level
-                ),
-                r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)",
-            ]
-            while True:
-                tmp = f.readline().strip().lower()
-
-                for match in trans_match:
-                    m = re.search(match, tmp, re.I)
-                    if isinstance(m, re.Match):
-                        trans_match = match
-                        break
-                if isinstance(m, re.Match):
-                    break
-
-            if len(tmp.split(")")) > 3:
-                orbitals = True
-            else:
-                orbitals = False
-
-            transition = []
-            for i in tindex:
-                if i > 1:
-                    tmp = f.readline().strip().lower()
-                m = re.search(trans_match, tmp, re.I)
-                assert isinstance(m, re.Match)
-                assert int(m.group(1)[:-1]) == i
-                if orbitals:
-                    transition.append(f"{m.group(4)}-{m.group(6)}".replace(" ", ""))
-                else:
-                    transition.append(m.group(3).replace(" ", ""))
-
-        gen_type = ADF15_GENERAL_DATATYPES[filetype]
-        spec_type = element
-        name = f"{spec_type}_{gen_type}"
-        attrs = {
-            "datatype": (gen_type, spec_type),
-            "provenance": self.create_provenance(filename, now),
-        }
-
-        if nd == nt:
-            coords = [
-                ("index", tindex),
-                ("electron_density", densities * 10 ** 6),  # m**-3
-                ("electron_temperature", temperatures),  # eV
-            ]
-        else:
-            coords = [
-                ("index", tindex),
-                ("electron_temperature", temperatures),  # eV
-                ("electron_density", densities * 10 ** 6),  # m**-3
-            ]
-
-        pecs = DataArray(
-            data * 10 ** -6,
-            coords=coords,
-            name=name,
-            attrs=attrs,
-        )
-
-        # Add extra dimensions attached to index
-        pecs = pecs.assign_coords(wavelength=("index", wavelength))  # (A)
-        pecs = pecs.assign_coords(
-            transition=("index", transition)
-        )  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
-        pecs = pecs.assign_coords(type=("index", ttype))  # (excit, recomb, cx)
-
-        return pecs
+        return DataArray()
 
     def create_provenance(
         self, filename: Path, start_time: datetime.datetime
