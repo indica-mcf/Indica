@@ -5,4 +5,4 @@
 4. Pull from remote `master` to your local `master` branch and merge any updates into your local feature branch before pushing your feature branch to remote. This ensures that any merge conflicts can be handled before the pull request is created. (Remember to push the feature branch regularly to the remote repo to act as a backup and prevent a loss of code locally)
 5. Once the issue has been addressed and the remote version of the feature branch is up-to-date with the local version, create a pull request. Mention the issue number (**with** `#`) in the pull request description to link the pull request to the issue so that the issue can be closed when the pull request is merged.
 6. The options on the pull request will need to be decided on a per-case basis in terms of whether to delete the source branch and/or squash the commits upon merging.
-7. Assign a reviewer(someone other than yourself) to review and merge the pull request. Note that merging will be disabled by default if any tests fail.
+7. Assign a reviewer (someone other than yourself) to review and merge the pull request. Note that merging will be disabled by default if any tests fail.
