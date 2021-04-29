@@ -117,7 +117,7 @@ def equilibrium_dat():
         n_exp = 1
         fdiff_max = Btot_factor * a_coeff
         result["fbnd"] = xr.DataArray(
-            np.vectorize(lambda axs, diff: axs + 0.5*diff)(
+            np.vectorize(lambda axs, diff: axs + 0.03*diff)(
                 result["faxs"], fdiff_max.values
             ),
             coords=[("t", times)],
@@ -154,6 +154,15 @@ def equilibrium_dat():
         (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
         + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
     ) ** (0.5 / n_exp)
+
+    rmax = machine_dims[0][1]
+    rmax = xr.DataArray(
+        [rmax for i in times],
+        coords={"t": times}, dims=["t"], name="rmax"
+    )
+    psin_max_0 = psin.interp(R=rmax, z=result["zmag"], method="nearest")
+    psin = (psin / psin_max_0)
+
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
     psi.attrs["transform"] = attrs["transform"]
@@ -429,7 +438,7 @@ def electron_temp(rho, zmag):
 def equilibrium_dat_and_te():
     data = equilibrium_dat()
 
-    if True:
+    if False:
         rho = \
             np.sqrt(
                 (data["psi"] - data["faxs"]) /
@@ -442,6 +451,7 @@ def equilibrium_dat_and_te():
     else:
         Te = None
     return data, Te
+
 
 def test_volume_enclosed():
     rho = xr.DataArray([0.5])
@@ -460,6 +470,8 @@ def test_volume_enclosed():
 
     equilib = Equilibrium(equilib_dat, Te, offset_picker=offset)
 
+    Rmag = equilib.rmag.sel(t=time)
+
     min_minor_radius = fmin(
         func=lambda th: equilib.minor_radius(rho, th, time)[0],
         x0=0.0,
@@ -475,23 +487,20 @@ def test_volume_enclosed():
     )
     max_minor_radius = -1 * max_minor_radius[1]
 
-    Rmag = equilib.rmag.sel(t=time)
-
     lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
     upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
 
     actual, _ = equilib.enclosed_volume(rho, time)
 
     assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
+
     # tol = 2 * np.pi * np.sqrt(
     #     Rmag ** 2 * a_err ** 2 + area ** 2 * R_err ** 2
     # ) * 1e4
 
-    # print(actual)
-
     # assert actual == approx(expected, rel=tol, abs=tol)
 
-    # Random test data
+    # Arbitrary test data
     R_input = 1.1 * Rmag
     z_input = 1.1 * equilib.zmag.sel(t=time)
 

@@ -1,6 +1,10 @@
 """Contains an abstract base class for reading equilibrium data for a pulse.
 """
 
+import matplotlib.pyplot as plt
+import pandas as pd
+import xarray as xr
+
 import datetime
 from typing import Any
 from typing import cast
@@ -24,6 +28,8 @@ from .offset import interactive_offset_choice
 from .offset import OffsetPicker
 from .operators import SplineFit
 from .utilities import coord_array
+
+from .converters import CoordinateTransform
 
 from unittest.mock import MagicMock
 
@@ -215,31 +221,157 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-
-        # Preliminary toroidal magnetic field calculation
-        rho_tor, theta_tor, t_tor = self.flux_coords(R, z, t)
-        rho_tor = rho_tor.item(0)
-        ftor_input = self.ftor.sel(t=t)
-        ftor_input = ftor_input.interp(rho_poloidal=rho_tor)
-
-        # Poloidal magnetic field calculation
         R = R.item(0)
         z = z.item(0)
+
+        R0 = self.rmag.sel(t=t)
+        z0 = self.zmag.sel(t=t)
+
+        r0 = ((R + self.R_offset - R0) ** 2 + (z + self.z_offset - z0) ** 2) ** 0.5
+        r0 = r0.item(0)
+        theta0 = np.arctan2(z + self.z_offset - z0, R + self.R_offset - R0)
+        theta0 = theta0.item(0)
 
         psi = self.psi.sel(t=t)
         psi_coords = psi.coords
         z_coord = psi_coords["z"]
         R_coord = psi_coords["R"]
 
-        rho_coord, theta_coord, _ = self.flux_coords(R_coord, z_coord, t)
+        minor_radius = np.array([])
+        theta = np.array([])
+        psi_ = np.array([])
 
-        dpsi_dR = psi.differentiate("R")
-        dpsi_dz = psi.differentiate("z")
+        for iR in R_coord:
+            for iz in z_coord:
+                minor_radius_coord = (
+                    (iR + cast(np.ndarray, self.R_offset) - R0) ** 2.0
+                    + (iz + cast(np.ndarray, self.z_offset) - z0) ** 2.0
+                ) ** 0.5
+                theta_coord = np.arctan2(
+                    iz + cast(np.ndarray, self.z_offset) - z0,
+                    iR + cast(np.ndarray, self.R_offset) - R0,
+                )
 
-        B_R = -1 * dpsi_dz.interp(z=z, R=R) / R
-        B_z = dpsi_dR.interp(z=z, R=R) / R
+                minor_radius = np.append(minor_radius, minor_radius_coord)
+                theta = np.append(theta, theta_coord)
 
-        return np.sqrt(B_R ** 2 + B_z ** 2)
+        minor_radius_max = np.amax(minor_radius, axis=0)
+        minor_radius = np.linspace(0, minor_radius_max, len(R_coord))
+        theta = np.linspace(-np.pi, np.pi, len(R_coord))
+        psi_convert = np.zeros((len(minor_radius), len(theta)))
+
+        for i, irad in enumerate(minor_radius):
+            for k, itheta in enumerate(theta):
+                iR = R0 + self.R_offset + irad * np.cos(itheta)
+                iz = z0 + self.z_offset + irad * np.sin(itheta)
+
+                psi_ = psi.indica.interp2d(
+                    R=iR,
+                    z=iz,
+                    zero_coords={"R": R0, "z": z0},
+                    method="cubic",
+                    assume_sorted=True,
+                )
+
+                if np.isnan(psi_):
+                    continue
+                else:
+                    psi_convert[i, k] = psi_
+
+        psi_convert = DataArray(
+            data=[psi_convert],
+            coords={"t": t, "r": minor_radius, "theta": theta},
+            dims=["dim_0", "r", "theta"]
+        )
+
+        ftor = self.ftor.sel(t=t)
+        f_coords = ftor.coords
+        r_coord = f_coords["rho_poloidal"]
+
+        minor_radius = np.array([])
+        ftor_ = np.array([])
+
+        for ir in r_coord:
+            if ir >= 1.0:
+                continue
+            # minor_radius_coord = 0.0
+            minor_radius_coord, _ = self.minor_radius(ir, 0.0, t)
+
+            minor_radius = np.append(minor_radius, minor_radius_coord)
+
+        minor_radius_max = np.amax(minor_radius, axis=0)
+        minor_radius = np.linspace(0, minor_radius_max, len(r_coord))
+        ftor_convert = np.zeros(len(minor_radius))
+
+        for i, irad in enumerate(minor_radius):
+            iR = R0 + self.R_offset + irad
+            iz = z0 + self.z_offset
+
+            irho_, itheta_, _ = self.flux_coords(iR, iz, t)
+            ftor_ = ftor.indica.interp2d(
+                rho_poloidal=irho_,
+                zero_coords={"rho_poloidal": 0.0},
+                method="cubic",
+                assume_sorted=True,
+            )
+
+            if np.isnan(ftor_):
+                continue
+            else:
+                ftor_convert[i] = ftor_
+
+        ftor_convert = DataArray(
+            data=ftor_convert,
+            coords={"r": minor_radius},
+            dims=["r"]
+        )
+
+        dftor_dr = ftor_convert.differentiate("r")
+
+        dpsi_dr = psi_convert.differentiate("r")
+        dpsi_dtheta = psi_convert.differentiate("theta")
+
+        dpsi_rcostheta_dtheta = (psi_convert / r0) * (np.tan(theta0) / np.cos(theta0))
+        dpsi_rcostheta_dtheta += (1.0 / (r0 * np.cos(theta0))) * dpsi_dtheta
+
+        dpsi_rcostheta_dr = -(psi_convert / np.cos(theta0)) * (1.0 / (r0**2))
+        dpsi_rcostheta_dr += (1.0 / (r0 * np.cos(theta0))) * dpsi_dr
+
+        dftor_dr0 = dftor_dr.interp(r=r0)
+
+        dpsi_dr0 = dpsi_dr.interp(r=r0, theta=theta0)
+        dpsi_dtheta0 = dpsi_dtheta.interp(r=r0, theta=theta0)
+
+        dpsi_rcostheta_dtheta0 = dpsi_rcostheta_dtheta.interp(r=r0, theta=theta0)
+        dpsi_rcostheta_dr0 = dpsi_rcostheta_dr.interp(r=r0, theta=theta0)
+
+        B_r = -(R0 / (r0 * (R0 + r0 * np.cos(theta0)))) * dpsi_rcostheta_dtheta0
+        B_r += (1.0 / (r0 * (R0 + r0 * np.cos(theta0)))) * dpsi_dtheta0
+
+        B_phi = (-1.0 / r0) * dftor_dr0
+
+        B_theta = (R0 / (R0 + r0 * np.cos(theta0))) * dpsi_rcostheta_dr0
+        B_theta += (1.0 / (R0 + r0 * np.cos(theta0))) * dpsi_dr0
+
+        B_tot = np.sqrt(B_r ** 2.0 + B_phi ** 2.0 + B_theta ** 2.0)
+
+        print("\n...............TotB_method_0........................")
+        print(B_tot)
+        print("...........................................\n")
+
+        B_theta = psi_convert.interp(r=r0, theta=theta0)
+        B_theta /= np.pi * r0 * (2 * R0 + r0 * np.cos(theta0))
+
+        B_phi = ftor_convert.interp(r=r0)
+        B_phi /= np.pi * (r0 ** 2.0)
+
+        B_tot = np.sqrt(B_theta ** 2.0 + B_phi ** 2.0)
+
+        print("\n...............TotB_method_1........................")
+        print(B_tot)
+        print("...........................................\n")
+
+        return B_tot
         # raise NotImplementedError(
         #     "{} does not implement an 'Btot' method.".format(self.__class__.__name__)
         # )
@@ -481,6 +613,12 @@ class Equilibrium(AbstractEquilibrium):
             assume_sorted=True,
         ).rename("rho_" + kind)
         fluxes_samples.loc[{"r": 0}] = 0.0
+
+        R_coord = reference_rhos.coords["R"]
+        z_coord = reference_rhos.coords["z"]
+        rhos_R_max = np.amax(reference_rhos, axis=(0, 1))
+        rhos_z_max = np.amax(reference_rhos, axis=(0, 2))        
+
         indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="cubic")
         return (
             minor_rads.indica.interp2d(r=indices, method="cubic", assume_sorted=True),
