@@ -454,8 +454,8 @@ def equilibrium_dat_and_te():
 
 
 def test_volume_enclosed():
-    rho = xr.DataArray([0.5])
-    time = xr.DataArray([77.5])
+    rho = np.array([0.5])
+    time = np.array([77.5])
     ftype = "poloidal"
     offset = MagicMock(return_value=0.02)
     """Generate equilibrium data
@@ -500,8 +500,29 @@ def test_volume_enclosed():
 
     # assert actual == approx(expected, rel=tol, abs=tol)
 
+
+def test_Btot():
+    rho = 0.5
+    time = 77.5
+    ftype = "poloidal"
+    offset = MagicMock(return_value=0.02)
+    """Generate equilibrium data
+    """
+
+    equilib_dat, Te = equilibrium_dat_and_te()
+
+    equilib = Equilibrium(equilib_dat, Te, offset_picker=offset)
+
     # Arbitrary test data
-    R_input = 1.1 * Rmag
-    z_input = 1.1 * equilib.zmag.sel(t=time)
+    R_input = 1.1 * equilib.rmag.interp(
+        t=time,
+        method="linear",
+    )
+    z_input = 1.1 * equilib.zmag.interp(
+        t=time,
+        method="linear",
+    )
 
     Total_B = equilib.Btot(R_input, z_input, time)
+
+    assert True
