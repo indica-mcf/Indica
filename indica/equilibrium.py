@@ -174,28 +174,26 @@ class Equilibrium(AbstractEquilibrium):
 
         # Mock of sess.prov needed as a fix for a recurring error
         # (probably also a future issue)
-        sess.prov = MagicMock()
         self.prov_id = session.hash_vals(
             **equilibrium_data, R_offset=self.R_offset, z_offset=self.z_offset
         )
-        # self.provenance = sess.prov.entity(
-        #     self.prov_id,
-        #     {
-        #         prov.PROV_TYPE: "Equilibrium",
-        #         "R_offset": self.R_offset,
-        #         "z_offset": self.z_offset,
-        #     },
-        # )
-        # sess.prov.generation(
-        #     self.provenance, sess.session, time=datetime.datetime.now()
-        # )
-        # sess.prov.attribution(self.provenance, sess.agent)
-        # for val in equilibrium_data.values():
-        #     if "provenance" in val.attrs:
-        #         self.provenance.wasDerivedFrom(val.attrs["provenance"])
-        # if T_e and "provenance" in T_e.attrs:
-        #     self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
-        # sess.prov = MagicMock()
+        self.provenance = sess.prov.entity(
+            self.prov_id,
+            {
+                prov.PROV_TYPE: "Equilibrium",
+                "R_offset": self.R_offset,
+                "z_offset": self.z_offset,
+            },
+        )
+        sess.prov.generation(
+            self.provenance, sess.session, time=datetime.datetime.now()
+        )
+        sess.prov.attribution(self.provenance, sess.agent)
+        for val in equilibrium_data.values():
+            if "provenance" in val.attrs:
+                self.provenance.wasDerivedFrom(val.attrs["provenance"])
+        if T_e and "provenance" in T_e.attrs:
+            self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
 
     def Btot(
         self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
@@ -221,11 +219,25 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        psi = self.psi.interp(
-            t=t,
-            method="linear",
-            assume_sorted=True,
-        )
+        if t is not None:
+            psi = self.psi.interp(
+                t=t,
+                method="linear",
+                assume_sorted=True,
+            )
+
+            f = self.f.interp(
+                t=t,
+                method="linear",
+                assume_sorted=True
+            )
+
+            rho_, theta_, _ = self.flux_coords(R, z, t)
+        else:
+            t = self.rho.coords["t"]
+            psi = self.psi
+            f = self.f
+            rho_, theta_, _ = self.flux_coords(R, z)
 
         dpsi_dR = psi.differentiate("R").indica.interp2d(
             R=R,
@@ -240,35 +252,30 @@ class Equilibrium(AbstractEquilibrium):
             assume_sorted=True,
         )
 
+        # Components of poloidal field
         B_R = - (1.0 / R) * dpsi_dz
         B_z = (1.0 / R) * dpsi_dR
+        B_Pol = (B_R ** 2.0 + B_z ** 2.0) ** 0.5
 
-        rho_, theta_, _ = self.flux_coords(R, z, t)
+        # Need this as the current flux_coords function
+        # returns some negative values for rho
+        rho_ = rho_.where(rho_>0, -1*rho_)
 
-        f = self.f.interp(
-            t=t,
-            method="linear",
-            assume_sorted=True
-        )
-
-        f = f.interp(
+        f = f.indica.interp2d(
             rho_poloidal=rho_,
             method="cubic",
-            assume_sorted=True
+            assume_sorted=True,
         )
+        f.name = self.f.name
 
+        # Toroidal field
         B_T = f / R
 
-        B_tot = (B_R ** 2.0 + B_z ** 2.0 + B_T ** 2.0) ** 0.5
+        B_Tot = (B_Pol ** 2.0 + B_T ** 2.0) ** 0.5
 
-        print("\n...............................................")
-        print(B_tot)
-        print("...............................................\n")
+        B_Tot.name = "Total Magnetic Field (T)"
 
-        return 0
-        # raise NotImplementedError(
-        #     "{} does not implement an 'Btot' method.".format(self.__class__.__name__)
-        # )
+        return B_Tot, t
 
     def R_lfs(
         self,
@@ -303,10 +310,13 @@ class Equilibrium(AbstractEquilibrium):
         if t is None:
             rmjo = self.rmjo
             t = self.rmjo.coords["t"]
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         else:
             rmjo = self.rmjo.interp(t=t, method="nearest")
-        rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-        R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset           
+
         return R, t
 
     def R_hfs(
@@ -343,10 +353,13 @@ class Equilibrium(AbstractEquilibrium):
         if t is None:
             rmji = self.rmji
             t = self.rmji.coords["t"]
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         else:
             rmji = self.rmji.interp(t=t, method="nearest")
-        rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-        R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmji.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+        
         return R, t
 
     def enclosed_volume(

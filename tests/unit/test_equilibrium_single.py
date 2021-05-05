@@ -155,13 +155,6 @@ def equilibrium_dat():
         + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
     ) ** (0.5 / n_exp)
 
-    rmax = machine_dims[0][1]
-    rmax = xr.DataArray(
-        [rmax for i in times],
-        coords={"t": times}, dims=["t"], name="rmax"
-    )
-    psin_max_0 = psin.interp(R=rmax, z=result["zmag"], method="nearest")
-    psin = (psin / psin_max_0)
 
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
@@ -468,7 +461,7 @@ def test_volume_enclosed():
 
     """
 
-    equilib = Equilibrium(equilib_dat, Te, offset_picker=offset)
+    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
 
     Rmag = equilib.rmag.sel(t=time)
 
@@ -502,8 +495,8 @@ def test_volume_enclosed():
 
 
 def test_Btot():
-    rho = 0.5
-    time = 77.5
+    rho = np.array([0.5])
+    time = np.array([76.5])
     ftype = "poloidal"
     offset = MagicMock(return_value=0.02)
     """Generate equilibrium data
@@ -511,18 +504,38 @@ def test_Btot():
 
     equilib_dat, Te = equilibrium_dat_and_te()
 
-    equilib = Equilibrium(equilib_dat, Te, offset_picker=offset)
+    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
 
     # Arbitrary test data
-    R_input = 1.1 * equilib.rmag.interp(
+    R_input = equilib.rmag.interp(
         t=time,
         method="linear",
     )
-    z_input = 1.1 * equilib.zmag.interp(
+    z_input = equilib.zmag.interp(
         t=time,
         method="linear",
     )
 
-    Total_B = equilib.Btot(R_input, z_input, time)
+    max_rho_inboard = 1.0
+    max_rho_outboard = max_rho_inboard
+    
+    max_R_inboard, _ = equilib.R_hfs(max_rho_inboard, time)
+
+    max_R_outboard, _ = equilib.R_lfs(max_rho_outboard, time)
+
+    max_height_R, max_height_z, _ = equilib.spatial_coords(1.0, 0.5*np.pi, time)
+
+    min_height_R, min_height_z, _ = equilib.spatial_coords(1.0, -0.5*np.pi, time)
+
+    R_multi_input = equilib.rmag
+
+    z_multi_input = equilib.zmag
+
+    # Total_B = equilib.Btot(R_multi_input, z_multi_input)
+    # Total_B = equilib.Btot(max_R_inboard, z_input, time)
+    # Total_B = equilib.Btot(max_R_outboard, z_input, time)
+    # Total_B = equilib.Btot(max_height_R, max_height_z, time)
+    # Total_B = equilib.Btot(min_height_R, min_height_z, time)
+    Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"])
 
     assert True
