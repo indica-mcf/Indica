@@ -447,9 +447,6 @@ def equilibrium_dat_and_te():
 
 
 def test_enclosed_volume():
-    rho = np.array([0.5])
-    time = np.array([77.5])
-    ftype = "poloidal"
     offset = MagicMock(return_value=0.02)
     """Generate equilibrium data
     """
@@ -464,7 +461,14 @@ def test_enclosed_volume():
     """
     equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
 
-    Rmag = equilib.rmag.sel(t=time)
+    rho = np.array([0.5])
+    time = np.array([77.5])
+
+    Rmag = equilib.rmag.interp(
+        t=time,
+        method="linear",
+        assume_sorted=True,
+    )
 
     min_minor_radius = fmin(
         func=lambda th: equilib.minor_radius(rho, th, time)[0],
@@ -473,13 +477,12 @@ def test_enclosed_volume():
         full_output=True
     )[1]
 
-    max_minor_radius = fmin(
+    max_minor_radius = -1 * fmin(
         func=lambda th: -1 * equilib.minor_radius(rho, th, time)[0],
         x0=0.5 * np.pi,
         disp=False,
         full_output=True
-    )
-    max_minor_radius = -1 * max_minor_radius[1]
+    )[1]
 
     lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
     upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
@@ -488,6 +491,45 @@ def test_enclosed_volume():
 
     assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
 
+    """Same as above but with multiple time values
+    """
+
+    Rmag = equilib.rmag.interp(
+        t=equilib.rho.coords["t"],
+        method="linear",
+        assume_sorted=True,
+    )
+
+    min_minor_radius = np.array([])
+    max_minor_radius = np.array([])
+    for t_ in equilib.rho.coords["t"].data:
+        t_ = np.array([t_])
+        min_minor_radius = np.append(min_minor_radius,
+            fmin(
+                func=lambda th: equilib.minor_radius(rho, th, t_)[0],
+                x0=0.0,
+                disp=False,
+                full_output=True
+            )[1]
+        )
+        
+        max_minor_radius = np.append(max_minor_radius,
+            -1 * fmin(
+                func=lambda th: -1 * equilib.minor_radius(rho, th, t_)[0],
+                x0=0.5 * np.pi,
+                disp=False,
+                full_output=True
+            )[1]
+        )
+
+    lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
+    upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
+
+    actual, _ = equilib.enclosed_volume(rho)
+
+    assert np.all(actual <= upper_limit_vol) and np.all(actual >= lower_limit_vol)
+
+    
 
 def test_Btot():
     time = np.array([76.5])

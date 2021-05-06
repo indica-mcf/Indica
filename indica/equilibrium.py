@@ -254,14 +254,14 @@ class Equilibrium(AbstractEquilibrium):
 
         """Components of poloidal field
         """
-        B_R = - (1.0 / R) * dpsi_dz
-        B_z = (1.0 / R) * dpsi_dR
-        B_Pol = (B_R ** 2.0 + B_z ** 2.0) ** 0.5
+        B_R = - (np.float64(1.0) / R) * dpsi_dz
+        B_z = (np.float64(1.0) / R) * dpsi_dR
+        B_Pol = np.sqrt(B_R ** np.float64(2.0) + B_z ** np.float64(2.0))
 
         """Need this as the current flux_coords function
         returns some negative values for rho
         """
-        rho_ = rho_.where(rho_>0, -1*rho_)
+        rho_ = rho_.where(rho_>np.float64(0.0), np.float64(-1.0)*rho_)
 
         f = f.indica.interp2d(
             rho_poloidal=rho_,
@@ -274,7 +274,7 @@ class Equilibrium(AbstractEquilibrium):
         """
         B_T = f / R
 
-        B_Tot = (B_Pol ** 2.0 + B_T ** 2.0) ** 0.5
+        B_Tot = np.sqrt(B_Pol ** np.float64(2.0) + B_T ** np.float64(2.0))
 
         B_Tot.name = "Total Magnetic Field (T)"
 
@@ -393,19 +393,32 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
+        if t is None:
+            t = self.rho.coords["t"]
 
-        Major_radius_axis = self.rmag.sel(t=t)
-
-        # Cross-sectional area calculated by integrating:
-        # 0.5 * minor_radius(theta) ** 2 with respect to theta
-        # from 0 to 2 * np.pi
-        Area, Area_err = quad(
-            lambda th: 0.5 * self.minor_radius(rho, th, t, kind)[0] ** 2,
-            0.0, 2 * np.pi
+        Major_radius_axis = self.rmag.interp(
+            t=t,
+            method="linear",
+            assume_sorted=True,
         )
 
-        # Vol = Area * toroidal circumference measure at the magnetic axis
-        Vol_enclosed = Area * 2 * np.pi * Major_radius_axis
+        """Cross-sectional area calculated by integrating:
+        0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
+        """
+        
+        Area_Arr = np.array([])
+        for t_ in t.data:
+            t_ = np.array([t_])
+            Area, Area_err = quad(
+                lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2,
+                0.0, 2 * np.pi
+            )
+            Area_Arr = np.append(Area_Arr, Area)
+
+        """Vol = Area * toroidal circumference measure at the magnetic axis
+        """
+        Vol_enclosed = Area_Arr * 2 * np.pi * Major_radius_axis
+        Vol_enclosed.name = "Enclosed volume (m^3)"
 
         return Vol_enclosed, t
 
