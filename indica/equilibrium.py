@@ -252,13 +252,15 @@ class Equilibrium(AbstractEquilibrium):
             assume_sorted=True,
         )
 
-        # Components of poloidal field
+        """Components of poloidal field
+        """
         B_R = - (1.0 / R) * dpsi_dz
         B_z = (1.0 / R) * dpsi_dR
         B_Pol = (B_R ** 2.0 + B_z ** 2.0) ** 0.5
 
-        # Need this as the current flux_coords function
-        # returns some negative values for rho
+        """Need this as the current flux_coords function
+        returns some negative values for rho
+        """
         rho_ = rho_.where(rho_>0, -1*rho_)
 
         f = f.indica.interp2d(
@@ -268,7 +270,8 @@ class Equilibrium(AbstractEquilibrium):
         )
         f.name = self.f.name
 
-        # Toroidal field
+        """Toroidal field
+        """
         B_T = f / R
 
         B_Tot = (B_Pol ** 2.0 + B_T ** 2.0) ** 0.5
