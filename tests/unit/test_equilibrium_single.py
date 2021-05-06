@@ -446,7 +446,7 @@ def equilibrium_dat_and_te():
     return data, Te
 
 
-def test_volume_enclosed():
+def test_enclosed_volume():
     rho = np.array([0.5])
     time = np.array([77.5])
     ftype = "poloidal"
@@ -455,12 +455,13 @@ def test_volume_enclosed():
     """
 
     equilib_dat, Te = equilibrium_dat_and_te()
-    """Check enclosed volume is actually correct for that flux surface by
-    integrating area within it. It is assumed that the data from which
-    the object is constructed is valid.
+    
+    """Check enclosed volume falls within reasonable bounds for the flux surface
+    chosen. This is done by comparing the result to two different areas which are
+    constructed by assuming circular cross-sections with radii of the minimum
+    minor radius and the maximum minor radius.
 
     """
-
     equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
 
     Rmag = equilib.rmag.sel(t=time)
@@ -487,15 +488,8 @@ def test_volume_enclosed():
 
     assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
 
-    # tol = 2 * np.pi * np.sqrt(
-    #     Rmag ** 2 * a_err ** 2 + area ** 2 * R_err ** 2
-    # ) * 1e4
-
-    # assert actual == approx(expected, rel=tol, abs=tol)
-
 
 def test_Btot():
-    rho = np.array([0.5])
     time = np.array([76.5])
     ftype = "poloidal"
     offset = MagicMock(return_value=0.02)
@@ -506,7 +500,9 @@ def test_Btot():
 
     equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
 
-    # Arbitrary test data
+    """Arbitrary test data
+    """
+
     R_input = equilib.rmag.interp(
         t=time,
         method="linear",
@@ -531,11 +527,65 @@ def test_Btot():
 
     z_multi_input = equilib.zmag
 
-    # Total_B = equilib.Btot(R_multi_input, z_multi_input)
-    # Total_B = equilib.Btot(max_R_inboard, z_input, time)
-    # Total_B = equilib.Btot(max_R_outboard, z_input, time)
-    # Total_B = equilib.Btot(max_height_R, max_height_z, time)
-    # Total_B = equilib.Btot(min_height_R, min_height_z, time)
-    Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"])
+    def test_nan_B(Total_B, rho_):
+        Total_B = Total_B.transpose(*rho_.dims)
+        rho_ = rho_.data.flatten()
+        Total_B = Total_B.data.flatten()
 
-    assert True
+        """Check whether all Total_B values for rho > 1 are NaN
+        """
+        assert np.all(np.isnan(Total_B[np.where(np.abs(rho_)>1)[0]]))
+
+        """Check whether all Total_B values for rho <= 1 are positive
+        """
+        assert np.all(Total_B[np.where(np.abs(rho_)<=1)[0]] >= 0)
+
+    """ Magnetic field strength at magnetic axis
+    """
+    Total_B, _ = equilib.Btot(R_multi_input, z_multi_input)
+
+    rho_, theta_, t_ = equilib.flux_coords(R_multi_input, z_multi_input)
+    test_nan_B(Total_B, rho_)
+
+    """ Magnetic field strength at inboard(high-field) side
+    """
+    Total_B, _ = equilib.Btot(max_R_inboard, z_input, time)
+
+    rho_, theta_, t_ = equilib.flux_coords(max_R_inboard, z_input, time)
+    test_nan_B(Total_B, rho_)
+
+    """ Magnetic field strength at outboard(low-field) side
+    """
+    Total_B, _ = equilib.Btot(max_R_outboard, z_input, time)
+
+    rho_, theta_, t_ = equilib.flux_coords(max_R_outboard, z_input, time)
+    test_nan_B(Total_B, rho_)
+
+    """ Magnetic field strength at maximum height of the device (whilst inside LCFS)
+    """
+    Total_B, _ = equilib.Btot(max_height_R, max_height_z, time)
+
+    rho_, theta_, t_ = equilib.flux_coords(max_height_R, max_height_z, time)
+    test_nan_B(Total_B, rho_)
+
+    """ Magnetic field strength at minimum height of the device (whilst inside LCFS)
+    """
+    Total_B, _ = equilib.Btot(min_height_R, min_height_z, time)
+
+    rho_, theta_, t_ = equilib.flux_coords(min_height_R, min_height_z, time)
+    test_nan_B(Total_B, rho_)
+    
+    """ Magnetic field strength at all locations on the (R, z) grid at a given time
+    """
+    Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"], time)
+
+    rho_, theta_, t_ = equilib.flux_coords(equilib.psi.coords["R"], equilib.psi.coords["z"], time)    
+    test_nan_B(Total_B, rho_)
+
+    """ Magnetic field strength at all locations on the (R, z) grid at all times
+    """
+    Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"])
+    
+    rho_, theta_, t_ = equilib.flux_coords(equilib.psi.coords["R"], equilib.psi.coords["z"])
+    test_nan_B(Total_B, rho_)
+
