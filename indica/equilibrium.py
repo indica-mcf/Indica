@@ -402,20 +402,30 @@ class Equilibrium(AbstractEquilibrium):
         """Cross-sectional area calculated by integrating:
         0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
         """
-        
-        Area_Arr = np.array([])
-        for t_ in t:
-            t_ = np.array([t_])
+        if isinstance(t, DataArray) or isinstance(t, np.ndarray):
+            Area_Arr = np.array([])
+            for t_ in t:
+                t_ = np.array([t_])
+                Area, Area_err = quad(
+                    lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2.0,
+                    0.0, 2 * np.pi
+                )
+                Area_Arr = np.append(Area_Arr, Area)
+
+            """Vol = Area * toroidal circumference measure at the magnetic axis
+            """
+            Vol_enclosed = Area_Arr * 2 * np.pi * Major_radius_axis
+            Vol_enclosed.name = "Enclosed volumes (m^3)"
+        elif isinstance(t, float):
             Area, Area_err = quad(
-                lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2,
+                lambda th: 0.5 * self.minor_radius(rho, th, t, kind)[0] ** 2.0,
                 0.0, 2 * np.pi
             )
-            Area_Arr = np.append(Area_Arr, Area)
 
-        """Vol = Area * toroidal circumference measure at the magnetic axis
-        """
-        Vol_enclosed = Area_Arr * 2 * np.pi * Major_radius_axis
-        Vol_enclosed.name = "Enclosed volume (m^3)"
+            """Vol = Area * toroidal circumference measure at the magnetic axis
+            """
+            Vol_enclosed = Area * 2 * np.pi * Major_radius_axis
+            Vol_enclosed.name = "Enclosed volume (m^3)"
 
         return Vol_enclosed, t
 
