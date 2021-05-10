@@ -2,32 +2,25 @@
 """
 
 import datetime
-from typing import Any
 from typing import cast
 from typing import Dict
-from typing import Hashable
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
 import prov.model as prov
+from scipy.integrate import quad
 from xarray import apply_ufunc
 from xarray import concat
 from xarray import DataArray
 from xarray import where
-from scipy.integrate import quad
 
 from . import session
 from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
 from .offset import interactive_offset_choice
 from .offset import OffsetPicker
-from .operators import SplineFit
 from .utilities import coord_array
-
-from .converters import CoordinateTransform
-
-from unittest.mock import MagicMock
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -118,8 +111,8 @@ class Equilibrium(AbstractEquilibrium):
             )
             del rhos.coords[None]
             # thetas = np.arctan2(
-                # T_e.coords["index_z_offset"] + z_shift - zmag,
-                # T_e.coords["index"] + offsets - Rmag
+            # T_e.coords["index_z_offset"] + z_shift - zmag,
+            # T_e.coords["index"] + offsets - Rmag
             # )
             # T_e_with_rho = T_e.expand_dims(
             #     cast(Dict[Hashable, Any], {"offset": offsets})
@@ -223,11 +216,7 @@ class Equilibrium(AbstractEquilibrium):
                 assume_sorted=True,
             )
 
-            f = self.f.interp(
-                t=t,
-                method="linear",
-                assume_sorted=True
-            )
+            f = self.f.interp(t=t, method="linear", assume_sorted=True)
 
             rho_, theta_, _ = self.flux_coords(R, z, t)
         else:
@@ -251,14 +240,14 @@ class Equilibrium(AbstractEquilibrium):
 
         """Components of poloidal field
         """
-        B_R = - (np.float64(1.0) / R) * dpsi_dz
+        B_R = -(np.float64(1.0) / R) * dpsi_dz
         B_z = (np.float64(1.0) / R) * dpsi_dR
         B_Pol = np.sqrt(B_R ** np.float64(2.0) + B_z ** np.float64(2.0))
 
         """Need this as the current flux_coords function
         returns some negative values for rho
         """
-        rho_ = where(rho_>np.float64(0.0), rho_, np.float64(-1.0)*rho_)
+        rho_ = where(rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_)
 
         f = f.indica.interp2d(
             rho_poloidal=rho_,
@@ -315,7 +304,7 @@ class Equilibrium(AbstractEquilibrium):
         else:
             rmjo = self.rmjo.interp(t=t, method="nearest")
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset           
+            R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset
 
         return R, t
 
@@ -359,7 +348,7 @@ class Equilibrium(AbstractEquilibrium):
             rmji = self.rmji.interp(t=t, method="nearest")
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
             R = rmji.interp(rho_poloidal=rho, method="cubic") - self.R_offset
-        
+
         return R, t
 
     def enclosed_volume(
@@ -408,7 +397,8 @@ class Equilibrium(AbstractEquilibrium):
                 t_ = np.array([t_])
                 Area, Area_err = quad(
                     lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2.0,
-                    0.0, 2 * np.pi
+                    0.0,
+                    2 * np.pi,
                 )
                 Area_Arr = np.append(Area_Arr, Area)
 
@@ -419,7 +409,8 @@ class Equilibrium(AbstractEquilibrium):
         elif isinstance(t, float):
             Area, Area_err = quad(
                 lambda th: 0.5 * self.minor_radius(rho, th, t, kind)[0] ** 2.0,
-                0.0, 2 * np.pi
+                0.0,
+                2 * np.pi,
             )
 
             """Vol = Area * toroidal circumference measure at the magnetic axis
