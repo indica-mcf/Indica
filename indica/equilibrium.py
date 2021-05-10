@@ -1,10 +1,6 @@
 """Contains an abstract base class for reading equilibrium data for a pulse.
 """
 
-import matplotlib.pyplot as plt
-import pandas as pd
-import xarray as xr
-
 import datetime
 from typing import Any
 from typing import cast
@@ -121,13 +117,14 @@ class Equilibrium(AbstractEquilibrium):
                 offsets,
             )
             del rhos.coords[None]
-            thetas = np.arctan2(
-                T_e.coords["index_z_offset"] + z_shift - zmag, T_e.coords["index"] + offsets - Rmag
-            )
-            T_e_with_rho = T_e.expand_dims(
-                cast(Dict[Hashable, Any], {"offset": offsets})
-            ).assign_coords(rho_poloidal=rhos, theta=thetas)
-            fitter = SplineFit(lower_bound=0.0, sess=sess)
+            # thetas = np.arctan2(
+                # T_e.coords["index_z_offset"] + z_shift - zmag,
+                # T_e.coords["index"] + offsets - Rmag
+            # )
+            # T_e_with_rho = T_e.expand_dims(
+            #     cast(Dict[Hashable, Any], {"offset": offsets})
+            # ).assign_coords(rho_poloidal=rhos, theta=thetas)
+            # fitter = SplineFit(lower_bound=0.0, sess=sess)
 
             # Temporarily disabled - will probably create an issue about this later
             #
@@ -261,7 +258,7 @@ class Equilibrium(AbstractEquilibrium):
         """Need this as the current flux_coords function
         returns some negative values for rho
         """
-        rho_ = rho_.where(rho_>np.float64(0.0), np.float64(-1.0)*rho_)
+        rho_ = where(rho_>np.float64(0.0), rho_, np.float64(-1.0)*rho_)
 
         f = f.indica.interp2d(
             rho_poloidal=rho_,
@@ -407,7 +404,7 @@ class Equilibrium(AbstractEquilibrium):
         """
         
         Area_Arr = np.array([])
-        for t_ in t.data:
+        for t_ in t:
             t_ = np.array([t_])
             Area, Area_err = quad(
                 lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2,
@@ -536,11 +533,6 @@ class Equilibrium(AbstractEquilibrium):
             assume_sorted=True,
         ).rename("rho_" + kind)
         fluxes_samples.loc[{"r": 0}] = 0.0
-
-        R_coord = reference_rhos.coords["R"]
-        z_coord = reference_rhos.coords["z"]
-        rhos_R_max = np.amax(reference_rhos, axis=(0, 1))
-        rhos_z_max = np.amax(reference_rhos, axis=(0, 2))
 
         indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="cubic")
         return (
