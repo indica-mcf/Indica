@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from functools import reduce
 
 import numpy as np
 from pytest import approx
@@ -454,7 +455,7 @@ def test_enclosed_volume():
     equilib_dat, Te = equilibrium_dat_and_te()
     
     """Check enclosed volume falls within reasonable bounds for the flux surface
-    chosen. This is done by comparing the result to two different areas which are
+    chosen. This is done by comparing the result to two different volumes which are
     constructed by assuming circular cross-sections with radii of the minimum
     minor radius and the maximum minor radius.
 
@@ -533,7 +534,6 @@ def test_enclosed_volume():
 
 def test_Btot():
     time = np.array([76.5])
-    ftype = "poloidal"
     offset = MagicMock(return_value=0.02)
     """Generate equilibrium data
     """
@@ -582,49 +582,56 @@ def test_Btot():
         """
         assert np.all(Total_B[np.where(np.abs(rho_)<=1)[0]] >= 0)
 
-    """ Magnetic field strength at magnetic axis
+    """Magnetic field strength at magnetic axis
+    """
+    Total_B, _ = equilib.Btot(R_input, z_input, time)
+
+    rho_, theta_, t_ = equilib.flux_coords(R_input, z_input, time)
+    test_nan_B(Total_B, rho_)
+
+    """Magnetic field strength at magnetic axis at all times
     """
     Total_B, _ = equilib.Btot(R_multi_input, z_multi_input)
 
     rho_, theta_, t_ = equilib.flux_coords(R_multi_input, z_multi_input)
     test_nan_B(Total_B, rho_)
 
-    """ Magnetic field strength at inboard(high-field) side
+    """Magnetic field strength at inboard(high-field) side
     """
     Total_B, _ = equilib.Btot(max_R_inboard, z_input, time)
 
     rho_, theta_, t_ = equilib.flux_coords(max_R_inboard, z_input, time)
     test_nan_B(Total_B, rho_)
 
-    """ Magnetic field strength at outboard(low-field) side
+    """Magnetic field strength at outboard(low-field) side
     """
     Total_B, _ = equilib.Btot(max_R_outboard, z_input, time)
 
     rho_, theta_, t_ = equilib.flux_coords(max_R_outboard, z_input, time)
     test_nan_B(Total_B, rho_)
 
-    """ Magnetic field strength at maximum height of the device (whilst inside LCFS)
+    """Magnetic field strength at maximum height of the device (whilst inside LCFS)
     """
     Total_B, _ = equilib.Btot(max_height_R, max_height_z, time)
 
     rho_, theta_, t_ = equilib.flux_coords(max_height_R, max_height_z, time)
     test_nan_B(Total_B, rho_)
 
-    """ Magnetic field strength at minimum height of the device (whilst inside LCFS)
+    """Magnetic field strength at minimum height of the device (whilst inside LCFS)
     """
     Total_B, _ = equilib.Btot(min_height_R, min_height_z, time)
 
     rho_, theta_, t_ = equilib.flux_coords(min_height_R, min_height_z, time)
     test_nan_B(Total_B, rho_)
     
-    """ Magnetic field strength at all locations on the (R, z) grid at a given time
+    """Magnetic field strength at all locations on the (R, z) grid at a given time
     """
     Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"], time)
 
     rho_, theta_, t_ = equilib.flux_coords(equilib.psi.coords["R"], equilib.psi.coords["z"], time)    
     test_nan_B(Total_B, rho_)
 
-    """ Magnetic field strength at all locations on the (R, z) grid at all times
+    """Magnetic field strength at all locations on the (R, z) grid at all times
     """
     Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"])
     
