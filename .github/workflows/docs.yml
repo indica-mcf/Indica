@@ -15,11 +15,6 @@ on:
   pull_request:
     branches:
       - '**'
-    paths:
-      - .github/workflows/docs.yml
-      - indica/**
-      - doc/**
-      - poetry.lock
 
 jobs:
   docs:

@@ -13,11 +13,6 @@ on:
       - master
       - develop
   pull_request:
-    paths:
-      - .github/workflows/*
-      - indica/**
-      - tests/**
-      - poetry.lock
     branches:
       - '**'
 
