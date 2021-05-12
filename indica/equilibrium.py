@@ -110,6 +110,8 @@ class Equilibrium(AbstractEquilibrium):
                 offsets,
             )
             del rhos.coords[None]
+            # Temporarily disabled - will create an issue about this later
+            #
             # thetas = np.arctan2(
             # T_e.coords["index_z_offset"] + z_shift - zmag,
             # T_e.coords["index"] + offsets - Rmag
@@ -118,8 +120,6 @@ class Equilibrium(AbstractEquilibrium):
             #     cast(Dict[Hashable, Any], {"offset": offsets})
             # ).assign_coords(rho_poloidal=rhos, theta=thetas)
             # fitter = SplineFit(lower_bound=0.0, sess=sess)
-
-            # Temporarily disabled - will probably create an issue about this later
             #
             # T_e_sep = concat(
             #     [
@@ -162,8 +162,6 @@ class Equilibrium(AbstractEquilibrium):
             np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
         ]
 
-        # Mock of sess.prov needed as a fix for a recurring error
-        # (probably also a future issue)
         self.prov_id = session.hash_vals(
             **equilibrium_data, R_offset=self.R_offset, z_offset=self.z_offset
         )
@@ -210,13 +208,16 @@ class Equilibrium(AbstractEquilibrium):
             results are given for. Otherwise return the argument.
         """
         if t is not None:
-            psi = self.psi.interp(
-                t=t,
-                method="linear",
-                assume_sorted=True,
-            )
+            interp1d_method = "linear"
+            if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (
+                t.shape[0] > 1
+            ):
+                if t.shape[0] > 3:
+                    interp1d_method = "cubic"
 
-            f = self.f.interp(t=t, method="linear", assume_sorted=True)
+            psi = self.psi.interp(t=t, method=interp1d_method, assume_sorted=True)
+
+            f = self.f.interp(t=t, method=interp1d_method, assume_sorted=True)
 
             rho_, theta_, _ = self.flux_coords(R, z, t)
         else:
@@ -238,15 +239,13 @@ class Equilibrium(AbstractEquilibrium):
             assume_sorted=True,
         )
 
-        """Components of poloidal field
-        """
-        B_R = -(np.float64(1.0) / R) * dpsi_dz
-        B_z = (np.float64(1.0) / R) * dpsi_dR
-        B_Pol = np.sqrt(B_R ** np.float64(2.0) + B_z ** np.float64(2.0))
+        # Components of poloidal field
+        b_R = -(np.float64(1.0) / R) * dpsi_dz
+        b_z = (np.float64(1.0) / R) * dpsi_dR
+        b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
 
-        """Need this as the current flux_coords function
-        returns some negative values for rho
-        """
+        # Need this as the current flux_coords function
+        # returns some negative values for rho
         rho_ = where(rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_)
 
         f = f.indica.interp2d(
@@ -256,15 +255,14 @@ class Equilibrium(AbstractEquilibrium):
         )
         f.name = self.f.name
 
-        """Toroidal field
-        """
-        B_T = f / R
+        # Toroidal field
+        b_T = f / R
 
-        B_Tot = np.sqrt(B_Pol ** np.float64(2.0) + B_T ** np.float64(2.0))
+        b_Tot = np.sqrt(b_Pol ** np.float64(2.0) + b_T ** np.float64(2.0))
 
-        B_Tot.name = "Total Magnetic Field (T)"
+        b_Tot.name = "Total Magnetic Field (T)"
 
-        return B_Tot, t
+        return b_Tot, t
 
     def R_lfs(
         self,
@@ -382,43 +380,45 @@ class Equilibrium(AbstractEquilibrium):
         if t is None:
             t = self.rho.coords["t"]
 
-        Major_radius_axis = self.rmag.interp(
+        interp1d_method = "linear"
+        if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
+            if t.shape[0] > 3:
+                interp1d_method = "cubic"
+
+        major_radius_axis = self.rmag.interp(
             t=t,
-            method="linear",
+            method=interp1d_method,
             assume_sorted=True,
         )
 
-        """Cross-sectional area calculated by integrating:
-        0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
-        """
-        if isinstance(t, DataArray) or isinstance(t, np.ndarray):
-            Area_Arr = np.array([])
+        # Cross-sectional area calculated by integrating:
+        # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
+        if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
+            area_arr = np.array([])
             for t_ in t:
                 t_ = np.array([t_])
-                Area, Area_err = quad(
+                area, area_err = quad(
                     lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2.0,
                     0.0,
                     2 * np.pi,
                 )
-                Area_Arr = np.append(Area_Arr, Area)
+                area_arr = np.append(area_arr, area)
 
-            """Vol = Area * toroidal circumference measure at the magnetic axis
-            """
-            Vol_enclosed = Area_Arr * 2 * np.pi * Major_radius_axis
-            Vol_enclosed.name = "Enclosed volumes (m^3)"
-        elif isinstance(t, float):
-            Area, Area_err = quad(
+            # Vol = area * toroidal circumference measure at the magnetic axis
+            vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
+            vol_enclosed.name = "Enclosed volumes (m^3)"
+        else:
+            area, area_err = quad(
                 lambda th: 0.5 * self.minor_radius(rho, th, t, kind)[0] ** 2.0,
                 0.0,
                 2 * np.pi,
             )
 
-            """Vol = Area * toroidal circumference measure at the magnetic axis
-            """
-            Vol_enclosed = Area * 2 * np.pi * Major_radius_axis
-            Vol_enclosed.name = "Enclosed volume (m^3)"
+            # Vol = area * toroidal circumference measure at the magnetic axis
+            vol_enclosed = area * 2 * np.pi * major_radius_axis
+            vol_enclosed.name = "Enclosed volume (m^3)"
 
-        return Vol_enclosed, t
+        return vol_enclosed, t
 
     def invert_enclosed_volume(
         self,
