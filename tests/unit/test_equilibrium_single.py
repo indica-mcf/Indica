@@ -79,6 +79,7 @@ def equilibrium_dat():
         ),
         coords=[("t", times)],
     )
+
     if Btot_factor is None:
         b_coeff = xr.DataArray(
             np.vectorize(lambda x: 0.8 * x)(
@@ -109,6 +110,7 @@ def equilibrium_dat():
             name="fbnd",
             attrs=attrs,
         )
+
     result["fbnd"].attrs["datatype"] = ("magnetic_flux", "separtrix")
 
     thetas = xr.DataArray(
@@ -182,6 +184,7 @@ def equilibrium_dat():
             np.ones_like(rho),
         )
         f_raw[:, 0] = Btot_factor
+
     result["f"] = xr.DataArray(
         f_raw, coords=[("t", times), ("rho_poloidal", rho)], name="f", attrs=attrs
     )
@@ -223,25 +226,6 @@ def separable_funcs(*args):
     return func
 
 
-def noisy_funcs(func, rel_sigma=0.02, abs_sigma=1e-3):
-    def noisy(*args):
-        y = func(*args)
-        max_std = 5
-        variance = max_std * rel_sigma * np.max(np.abs(y)) + max_std * abs_sigma
-        elements = np.random.random_sample(y.shape)
-        elements = (2.0 * elements) - 1.0
-        elements *= variance
-        return y + elements
-
-    return noisy
-
-
-def dropped_chnls(size, max_dropped=0.1):
-    return np.random.randint(
-        low=0, high=size if size > 0 else 1, size=int(max_dropped * size)
-    ).tolist()
-
-
 def data_arrays_from_coord(
     data_type=(None, None),
     coordinates=TrivialTransform(),
@@ -254,16 +238,14 @@ def data_arrays_from_coord(
     rel_sigma=0.02,
     abs_sigma=1e-3,
     uncertainty=True,
-    max_dropped=0.1,
-    require_dropped=False,
 ):
-    general_type = data_type[0]  # To-do: error-checking
-    specific_type = data_type[1]  # To-do: error-checking
+    general_type = data_type[0]
+    specific_type = data_type[1]
 
     x1, x2, t = axes
-    func = noisy_funcs(data, rel_sigma, abs_sigma) if rel_sigma or abs_sigma else data
     coords = {}
     dims = []
+
     for n, c in [("t", t), (coordinates.x1_name, x1), (coordinates.x2_name, x2)]:
         if isinstance(c, np.ndarray) and c.ndim > 0:
             coords[n] = c.flatten()
@@ -273,62 +255,47 @@ def data_arrays_from_coord(
             dims.append(n)
         elif not isinstance(coordinates, LinesOfSightTransform):
             coords[n] = c if c is not None else 0.0
+
     shape = tuple(len(coords[dim]) for dim in dims)
+
     if isinstance(t, (np.ndarray, xr.DataArray)) and t.ndim > 0:
         min_val = np.min(t)
         width = np.abs(np.max(t) - min_val)
         t_scaled = (t - min_val) / (width if width else 1.0)
     else:
         t_scaled = np.array([0.0])
+
     if isinstance(x1, (np.ndarray, xr.DataArray)) and x1.ndim > 0:
         min_val = np.min(x1)
         width = np.abs(np.max(x1) - min_val)
         x1_scaled = (x1 - min_val) / (width if width else 1.0)
     else:
         x1_scaled = np.array([0.0])
+
     if isinstance(x2, (np.ndarray, xr.DataArray)) and x2.ndim > 0:
         min_val = np.min(x2)
         width = np.abs(np.max(x2) - min_val)
         x2_scaled = (x2 - min_val) / (width if width else 1.0)
     else:
         x2_scaled = np.array([0.0])
-    tmp = func(x1_scaled, x2_scaled, t_scaled)
+
+    tmp = data(x1_scaled, x2_scaled, t_scaled)
     result = xr.DataArray(np.reshape(tmp, shape), coords, dims)
 
-    if isinstance(x1, np.ndarray):
-        flat_x1 = x1.flatten()
-    else:
-        flat_x1 = x1
-    dropped = (
-        [flat_x1[i] for i in dropped_chnls(len(x1) if x1.ndim else 0, max_dropped)]
-        if isinstance(x1, np.ndarray)
-        else []
-    )
-    if require_dropped and len(dropped) == 0:
-        dropped = [flat_x1[0]]
     if uncertainty and (rel_sigma and abs_sigma):
         error = rel_sigma * result + abs_sigma
         result.attrs["error"] = error
-    if dropped and flat_x1[0] != flat_x1[-1]:
-        to_keep = np.logical_not(
-            xr.DataArray(flat_x1, coords=[("x1", flat_x1)]).isin(dropped)
-        )
-        dropped_result = result.sel({coordinates.x1_name: dropped})
-        result = result.where(to_keep)
-        if uncertainty and (rel_sigma or abs_sigma):
-            dropped_result.attrs["error"] = result.attrs["error"].sel(
-                {coordinates.x1_name: dropped}
-            )
-            result.attrs["error"] = result.attrs["error"].where(to_keep)
-        result.attrs["dropped"] = dropped_result
+
     result.attrs["datatype"] = (general_type, specific_type)
     result.attrs["provenance"] = MagicMock()
     result.attrs["partial_provenance"] = MagicMock()
     result.attrs["transform"] = coordinates
+
     if hasattr(coordinates, "equilibrium"):
         result.indica.equilibrium = coordinates.equilibrium
     else:
         result.indica.equilibrium = MagicMock()
+
     return result
 
 
@@ -388,10 +355,13 @@ def electron_temp(rho, zmag):
     )
 
 
-def equilibrium_dat_and_te():
+def equilibrium_dat_and_te(with_Te=False):
     data = equilibrium_dat()
 
-    if False:
+    # This can be toggled but for now is switched of since it intefers
+    # with the initlization of the Equilibrium class. A fix for this
+    # from another issue will allow the code in the if statement below to be tested.
+    if with_Te:
         rho = np.sqrt((data["psi"] - data["faxs"]) / (data["fbnd"] - data["faxs"]))
         Te = electron_temp(
             rho,
@@ -404,25 +374,30 @@ def equilibrium_dat_and_te():
 
 def test_enclosed_volume():
     offset = MagicMock(return_value=0.02)
-    """Generate equilibrium data
-    """
+    # Generate equilibrium data
 
     equilib_dat, Te = equilibrium_dat_and_te()
 
-    """Check enclosed volume falls within reasonable bounds for the flux surface
-    chosen. This is done by comparing the result to two different volumes which are
-    constructed by assuming circular cross-sections with radii of the minimum
-    minor radius and the maximum minor radius.
+    # Check enclosed volume falls within reasonable bounds for the flux surface
+    # chosen. This is done by comparing the result to two different volumes which are
+    # constructed by assuming circular cross-sections with radii of the minimum
+    # minor radius and the maximum minor radius.
 
-    """
     equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
 
     rho = np.array([0.5])
     time = np.array([77.5])
 
+    interp1d_method = "linear"
+    if (isinstance(time, xr.DataArray) or isinstance(time, np.ndarray)) and (
+        time.shape[0] > 1
+    ):
+        if time.shape[0] > 3:
+            interp1d_method = "cubic"
+
     Rmag = equilib.rmag.interp(
         t=time,
-        method="linear",
+        method=interp1d_method,
         assume_sorted=True,
     )
 
@@ -447,18 +422,25 @@ def test_enclosed_volume():
 
     assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
 
-    """Same as above but with multiple time values
-    """
+    # Same as above but with multiple time values
+    time = equilib.rho.coords["t"]
+
+    interp1d_method = "linear"
+    if (isinstance(time, xr.DataArray) or isinstance(time, np.ndarray)) and (
+        time.shape[0] > 1
+    ):
+        if time.shape[0] > 3:
+            interp1d_method = "cubic"
 
     Rmag = equilib.rmag.interp(
-        t=equilib.rho.coords["t"],
-        method="linear",
+        t=time,
+        method=interp1d_method,
         assume_sorted=True,
     )
 
     min_minor_radius = np.array([])
     max_minor_radius = np.array([])
-    for t_ in equilib.rho.coords["t"].data:
+    for t_ in time.data:
         t_ = np.array([t_])
         min_minor_radius = np.append(
             min_minor_radius,
@@ -491,24 +473,30 @@ def test_enclosed_volume():
 
 def test_Btot():
     time = np.array([76.5])
+
+    interp1d_method = "linear"
+    if (isinstance(time, xr.DataArray) or isinstance(time, np.ndarray)) and (
+        time.shape[0] > 1
+    ):
+        if time.shape[0] > 3:
+            interp1d_method = "cubic"
+
     offset = MagicMock(return_value=0.02)
-    """Generate equilibrium data
-    """
+    # Generate equilibrium data
 
     equilib_dat, Te = equilibrium_dat_and_te()
 
     equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
 
-    """Arbitrary test data
-    """
+    # Arbitrary test data
 
     R_input = equilib.rmag.interp(
         t=time,
-        method="linear",
+        method=interp1d_method,
     )
     z_input = equilib.zmag.interp(
         t=time,
-        method="linear",
+        method=interp1d_method,
     )
 
     max_rho_inboard = 1.0
@@ -526,75 +514,65 @@ def test_Btot():
 
     z_multi_input = equilib.zmag
 
-    def test_nan_B(Total_B, rho_):
-        Total_B = Total_B.transpose(*rho_.dims)
+    def test_nan_B(total_B, rho_):
+        total_B = total_B.transpose(*rho_.dims)
         rho_ = rho_.data.flatten()
-        Total_B = Total_B.data.flatten()
+        total_B = total_B.data.flatten()
 
-        """Check whether all Total_B values for rho > 1 are NaN
-        """
-        assert np.all(np.isnan(Total_B[np.where(np.abs(rho_) > 1)[0]]))
+        # Check whether all total_B values for rho > 1 are NaN
+        assert np.all(np.isnan(total_B[np.where(np.abs(rho_) > 1)[0]]))
 
-        """Check whether all Total_B values for rho <= 1 are positive
-        """
-        assert np.all(Total_B[np.where(np.abs(rho_) <= 1)[0]] >= 0)
+        # Check whether all total_B values for rho <= 1 are positive
+        assert np.all(total_B[np.where(np.abs(rho_) <= 1)[0]] >= 0)
 
-    """Magnetic field strength at magnetic axis
-    """
-    Total_B, _ = equilib.Btot(R_input, z_input, time)
+    # Magnetic field strength at magnetic axis
+    total_B, _ = equilib.Btot(R_input, z_input, time)
 
     rho_, theta_, t_ = equilib.flux_coords(R_input, z_input, time)
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
 
-    """Magnetic field strength at magnetic axis at all times
-    """
-    Total_B, _ = equilib.Btot(R_multi_input, z_multi_input)
+    # Magnetic field strength at magnetic axis at all times
+    total_B, _ = equilib.Btot(R_multi_input, z_multi_input)
 
     rho_, theta_, t_ = equilib.flux_coords(R_multi_input, z_multi_input)
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
 
-    """Magnetic field strength at inboard(high-field) side
-    """
-    Total_B, _ = equilib.Btot(max_R_inboard, z_input, time)
+    # Magnetic field strength at inboard(high-field) side
+    total_B, _ = equilib.Btot(max_R_inboard, z_input, time)
 
     rho_, theta_, t_ = equilib.flux_coords(max_R_inboard, z_input, time)
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
 
-    """Magnetic field strength at outboard(low-field) side
-    """
-    Total_B, _ = equilib.Btot(max_R_outboard, z_input, time)
+    # Magnetic field strength at outboard(low-field) side
+    total_B, _ = equilib.Btot(max_R_outboard, z_input, time)
 
     rho_, theta_, t_ = equilib.flux_coords(max_R_outboard, z_input, time)
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
 
-    """Magnetic field strength at maximum height of the device (whilst inside LCFS)
-    """
-    Total_B, _ = equilib.Btot(max_height_R, max_height_z, time)
+    # Magnetic field strength at maximum height of the device (whilst inside LCFS)
+    total_B, _ = equilib.Btot(max_height_R, max_height_z, time)
 
     rho_, theta_, t_ = equilib.flux_coords(max_height_R, max_height_z, time)
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
 
-    """Magnetic field strength at minimum height of the device (whilst inside LCFS)
-    """
-    Total_B, _ = equilib.Btot(min_height_R, min_height_z, time)
+    # Magnetic field strength at minimum height of the device (whilst inside LCFS)
+    total_B, _ = equilib.Btot(min_height_R, min_height_z, time)
 
     rho_, theta_, t_ = equilib.flux_coords(min_height_R, min_height_z, time)
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
 
-    """Magnetic field strength at all locations on the (R, z) grid at a given time
-    """
-    Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"], time)
+    # Magnetic field strength at all locations on the (R, z) grid at a given time
+    total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"], time)
 
     rho_, theta_, t_ = equilib.flux_coords(
         equilib.psi.coords["R"], equilib.psi.coords["z"], time
     )
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
 
-    """Magnetic field strength at all locations on the (R, z) grid at all times
-    """
-    Total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"])
+    # Magnetic field strength at all locations on the (R, z) grid at all times
+    total_B, _ = equilib.Btot(equilib.psi.coords["R"], equilib.psi.coords["z"])
 
     rho_, theta_, t_ = equilib.flux_coords(
         equilib.psi.coords["R"], equilib.psi.coords["z"]
     )
-    test_nan_B(Total_B, rho_)
+    test_nan_B(total_B, rho_)
