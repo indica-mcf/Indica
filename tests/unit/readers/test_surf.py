@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 
 from hypothesis import assume
+from hypothesis import example
 from hypothesis import given
 from hypothesis.strategies import booleans
 from hypothesis.strategies import integers
@@ -469,6 +470,7 @@ INVALID_PULSES = {
 
 
 @given(text(), integers(0, 10000000))
+@example("*", 1)
 def test_invalid_instrument(instrument, pulse):
     """Test an exception is raised when try to read data for an instrument
     that doesn't exist."""
