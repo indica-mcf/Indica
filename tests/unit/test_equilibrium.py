@@ -74,7 +74,14 @@ def electron_temperatures(
         1.0, "index", nspace - 1, method="cubic"
     ).assign_coords(t=(rhos.t - start_time) / (end_time - start_time))
     m = DataArray(
-        draw(arrays(float, ntime, elements=floats(-1e4, -10.0), fill=just(-1e3))),
+        draw(
+            arrays(
+                float,
+                (ntime, nspace, nspace),
+                elements=floats(-1e4, -10.0),
+                fill=just(-1e3),
+            )
+        ),
         coords=[("t", times_scaled)],
     )
     b = 1e2 - m * indices.interp(t=times_scaled, method="nearest") / nspace
@@ -83,8 +90,15 @@ def electron_temperatures(
             ("temperature", "electrons"),
             transform,
             just(
-                lambda x1, x2, t: np.reshape(m.interp(t=np.ravel(t)).data, t.shape) * x1
-                + np.reshape(b.interp(t=np.ravel(t)).data, t.shape)
+                lambda x1, x2, t: np.reshape(
+                    m.interp(t=np.ravel(t)).data,
+                    t.shape,
+                )
+                * x1
+                + np.reshape(
+                    b.interp(t=np.ravel(t)).data,
+                    t.shape,
+                )
             ),
             [None, None, np.expand_dims(times, 1)],
             rel_sigma=0.001,

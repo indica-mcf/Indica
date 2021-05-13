@@ -304,7 +304,7 @@ def _get_text_block(
         if line.startswith("*"):
             split = line.split("/")
             if (
-                instrument_id in line
+                instrument_id in line[1:]
                 and pulse >= int(split[-2])
                 and pulse <= int(split[-1])
             ):

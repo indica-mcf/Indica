@@ -2,15 +2,14 @@
 """
 
 import datetime
-from typing import Any
 from typing import cast
 from typing import Dict
-from typing import Hashable
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
 import prov.model as prov
+from scipy.integrate import quad
 from xarray import apply_ufunc
 from xarray import concat
 from xarray import DataArray
@@ -21,9 +20,7 @@ from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
 from .offset import interactive_offset_choice
 from .offset import OffsetPicker
-from .operators import SplineFit
 from .utilities import coord_array
-
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -74,10 +71,10 @@ class Equilibrium(AbstractEquilibrium):
         self.f = equilibrium_data["f"]
         self.faxs = equilibrium_data["faxs"]
         self.fbnd = equilibrium_data["fbnd"]
-        ftor = equilibrium_data["ftor"]
+        self.ftor = equilibrium_data["ftor"]
         self.rhotor = np.sqrt(
-            (ftor - ftor.sel(rho_poloidal=0.0))
-            / (ftor.sel(rho_poloidal=1.0) - ftor.sel(rho_poloidal=0.0))
+            (self.ftor - self.ftor.sel(rho_poloidal=0.0))
+            / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
         )
         self.rmji = equilibrium_data["rmji"]
         self.rmjo = equilibrium_data["rmjo"]
@@ -99,8 +96,8 @@ class Equilibrium(AbstractEquilibrium):
             rhos = concat(
                 [
                     self.rho.interp(t=t, method="nearest").indica.interp2d(
-                        R=T_e.coords["R"] - offset,
-                        z=T_e.coords["z"] - z_shift,
+                        R=T_e.coords["index"] - offset,
+                        z=T_e.coords["index_z_offset"] - z_shift,
                         zero_coords={
                             "R": Rmag.sel(offset=offset),
                             "z": zmag,
@@ -113,38 +110,42 @@ class Equilibrium(AbstractEquilibrium):
                 offsets,
             )
             del rhos.coords[None]
-            thetas = np.arctan2(
-                T_e.coords["z"] + z_shift - zmag, T_e.coords["R"] + offsets - Rmag
-            )
-            T_e_with_rho = T_e.expand_dims(
-                cast(Dict[Hashable, Any], {"offset": offsets})
-            ).assign_coords(rho_poloidal=rhos, theta=thetas)
-            fitter = SplineFit(lower_bound=0.0, sess=sess)
-            T_e_sep = concat(
-                [
-                    fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
-                    for offset in offsets
-                ],
-                offsets,
-            )
+            # Temporarily disabled - will create an issue about this later
+            #
+            # thetas = np.arctan2(
+            # T_e.coords["index_z_offset"] + z_shift - zmag,
+            # T_e.coords["index"] + offsets - Rmag
+            # )
+            # T_e_with_rho = T_e.expand_dims(
+            #     cast(Dict[Hashable, Any], {"offset": offsets})
+            # ).assign_coords(rho_poloidal=rhos, theta=thetas)
+            # fitter = SplineFit(lower_bound=0.0, sess=sess)
+            #
+            # T_e_sep = concat(
+            #     [
+            #         fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
+            #         for offset in offsets
+            #     ],
+            #     offsets,
+            # )
 
-            square_residuals = (T_e_sep - 100.0) ** 2
-            best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
-            overall_best = best_fits.mean()
-            fluxes = rhos.sel(offset=overall_best, method="nearest")
-            offset = float(fluxes.offset)
-            offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            while not accept:
-                fluxes = self.rho.interp(
-                    t=T_e.coords["t"], method="nearest"
-                ).indica.interp2d(
-                    R=T_e.coords["R"] - offset,
-                    z=T_e.coords["z"] - z_shift,
-                    method="cubic",
-                    assume_sorted=True,
-                )
-                offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            self.R_offset = offset
+            # square_residuals = (T_e_sep - 100.0) ** 2
+            # best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
+            # overall_best = best_fits.mean()
+            # fluxes = rhos.sel(offset=overall_best, method="nearest")
+            # offset = float(fluxes.offset)
+            # offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
+            # while not accept:
+            #     fluxes = self.rho.interp(
+            #         t=T_e.coords["t"], method="nearest"
+            #     ).indica.interp2d(
+            #         R=T_e.coords["index"] - offset,
+            #         z=T_e.coords["index_z_offset"] - z_shift,
+            #         method="cubic",
+            #         assume_sorted=True,
+            #     )
+            #     offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
+            self.R_offset = R_shift
         else:
             self.R_offset = R_shift
 
@@ -206,9 +207,62 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError(
-            "{} does not implement an 'Btot' method.".format(self.__class__.__name__)
+        if t is not None:
+            interp1d_method = "linear"
+            if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (
+                t.shape[0] > 1
+            ):
+                if t.shape[0] > 3:
+                    interp1d_method = "cubic"
+
+            psi = self.psi.interp(t=t, method=interp1d_method, assume_sorted=True)
+
+            f = self.f.interp(t=t, method=interp1d_method, assume_sorted=True)
+
+            rho_, theta_, _ = self.flux_coords(R, z, t)
+        else:
+            t = self.rho.coords["t"]
+            psi = self.psi
+            f = self.f
+            rho_, theta_, _ = self.flux_coords(R, z)
+
+        dpsi_dR = psi.differentiate("R").indica.interp2d(
+            R=R,
+            z=z,
+            method="cubic",
+            assume_sorted=True,
         )
+        dpsi_dz = psi.differentiate("z").indica.interp2d(
+            R=R,
+            z=z,
+            method="cubic",
+            assume_sorted=True,
+        )
+
+        # Components of poloidal field
+        b_R = -(np.float64(1.0) / R) * dpsi_dz
+        b_z = (np.float64(1.0) / R) * dpsi_dR
+        b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
+
+        # Need this as the current flux_coords function
+        # returns some negative values for rho
+        rho_ = where(rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_)
+
+        f = f.indica.interp2d(
+            rho_poloidal=rho_,
+            method="cubic",
+            assume_sorted=True,
+        )
+        f.name = self.f.name
+
+        # Toroidal field
+        b_T = f / R
+
+        b_Tot = np.sqrt(b_Pol ** np.float64(2.0) + b_T ** np.float64(2.0))
+
+        b_Tot.name = "Total Magnetic Field (T)"
+
+        return b_Tot, t
 
     def R_lfs(
         self,
@@ -243,10 +297,13 @@ class Equilibrium(AbstractEquilibrium):
         if t is None:
             rmjo = self.rmjo
             t = self.rmjo.coords["t"]
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         else:
             rmjo = self.rmjo.interp(t=t, method="nearest")
-        rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-        R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+
         return R, t
 
     def R_hfs(
@@ -283,10 +340,13 @@ class Equilibrium(AbstractEquilibrium):
         if t is None:
             rmji = self.rmji
             t = self.rmji.coords["t"]
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         else:
             rmji = self.rmji.interp(t=t, method="nearest")
-        rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-        R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+            R = rmji.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+
         return R, t
 
     def enclosed_volume(
@@ -317,10 +377,48 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        raise NotImplementedError(
-            "{} does not implement an 'enclosed_volume' "
-            "method.".format(self.__class__.__name__)
+        if t is None:
+            t = self.rho.coords["t"]
+
+        interp1d_method = "linear"
+        if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
+            if t.shape[0] > 3:
+                interp1d_method = "cubic"
+
+        major_radius_axis = self.rmag.interp(
+            t=t,
+            method=interp1d_method,
+            assume_sorted=True,
         )
+
+        # Cross-sectional area calculated by integrating:
+        # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
+        if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
+            area_arr = np.array([])
+            for t_ in t:
+                t_ = np.array([t_])
+                area, area_err = quad(
+                    lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2.0,
+                    0.0,
+                    2 * np.pi,
+                )
+                area_arr = np.append(area_arr, area)
+
+            # Vol = area * toroidal circumference measure at the magnetic axis
+            vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
+            vol_enclosed.name = "Enclosed volumes (m^3)"
+        else:
+            area, area_err = quad(
+                lambda th: 0.5 * self.minor_radius(rho, th, t, kind)[0] ** 2.0,
+                0.0,
+                2 * np.pi,
+            )
+
+            # Vol = area * toroidal circumference measure at the magnetic axis
+            vol_enclosed = area * 2 * np.pi * major_radius_axis
+            vol_enclosed.name = "Enclosed volume (m^3)"
+
+        return vol_enclosed, t
 
     def invert_enclosed_volume(
         self,
@@ -436,6 +534,7 @@ class Equilibrium(AbstractEquilibrium):
             assume_sorted=True,
         ).rename("rho_" + kind)
         fluxes_samples.loc[{"r": 0}] = 0.0
+
         indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="cubic")
         return (
             minor_rads.indica.interp2d(r=indices, method="cubic", assume_sorted=True),
