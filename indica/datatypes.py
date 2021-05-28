@@ -102,6 +102,7 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
 ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "scd": "ion_coeff",
     "acd": "recomb_coeffs",
+    "ccd": "charge_exchange_recomb_coeffs",
     "plt": "line_emissions",
     "plsx": "sxr_line_emissions",
     "prb": "recomb_emissions",
