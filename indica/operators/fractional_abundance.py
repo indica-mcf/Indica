@@ -61,10 +61,10 @@ class FractionalAbundance(Operator):
     def __call__(self):
         ADAS_file = ADASReader("/mnt/c/Users/Sanket_Work/Documents/InDiCA_snippets/")
 
-        element = "w"
+        element = "ne"
 
         Ne = 5.0e19
-        Te = 1.0e3
+        Te = 1e3
         SCD = ADAS_file.get_adf11("scd", element, "89")
 
         SCD_spec = SCD
@@ -102,7 +102,7 @@ class FractionalAbundance(Operator):
         CCD = CCD_spec
         SCD = SCD_spec
 
-        NH = 0.1 * Ne
+        NH = 1e-5 * Ne
 
         assert SCD.shape == ACD.shape == CCD.shape
 
@@ -128,32 +128,37 @@ class FractionalAbundance(Operator):
             [Ne * SCD[istage - 1], -Ne * (ACD[istage - 1]) - NH * CCD[istage - 1]]
         )
 
-        print(np.min(np.abs(RHS_matr[np.nonzero(RHS_matr)])))
-        print(".................................................................")
+        # print(np.min(np.abs(RHS_matr[np.nonzero(RHS_matr)])))
+        # print(".................................................................")
 
         RHS_null_space = scipy.linalg.null_space(RHS_matr)
-        N_z_tinf = np.abs(RHS_null_space)
+        N_z_tinf = np.abs(RHS_null_space).astype(dtype=np.complex128)
 
-        test0 = np.dot(RHS_matr, N_z_tinf)
-        print(np.allclose(test0, np.zeros(nz_shape)))
-        print(".................................................................")
+        # test_null = np.dot(RHS_matr, N_z_tinf)
+        # print(np.allclose(test_null, np.zeros(nz_shape)))
+        # print(".................................................................")
 
-        vals, vecs = np.linalg.eig(RHS_matr)
+        num_eig_vals = min(75, num_of_stages)
+        vals, vecs = scipy.sparse.linalg.eigs(RHS_matr, k=num_eig_vals, which="LM")
+        # vals, vecs = np.abs(vals), np.abs(vecs)
+
         print(vals)
         print(".................................................................")
+
         print(vecs)
         print(".................................................................")
 
-        Nz_t0 = np.zeros(N_z_tinf.shape)
-        Nz_t0[0, 0] = 1.0
+        for i in range(num_eig_vals):
+            test_ARPack = np.dot(RHS_matr, vecs[:, i]) - np.dot(vals[i], vecs[:, i])
+            print(np.allclose(test_ARPack, np.zeros(num_of_stages), atol=1e-7))
+
+        # vals, vecs = np.abs(vals), np.abs(vecs)
+
+        Nz_t0 = np.zeros(N_z_tinf.shape, dtype=np.complex128)
+        Nz_t0[0, 0] = 1.0 + 0.0j
 
         eig_vecs = np.transpose(vecs)
-        eig_vecs_inv = np.linalg.inv(eig_vecs)
-
-        print(np.around(np.dot(RHS_matr, eig_vecs[0, :]), 100))
-        print(".................................................................")
-        print(np.around(vals[0] * eig_vecs[0, :], 100))
-        print(".................................................................")
+        eig_vecs_inv = np.linalg.pinv(eig_vecs)
 
         boundary_conds = np.transpose(Nz_t0 - N_z_tinf)
 
@@ -162,27 +167,29 @@ class FractionalAbundance(Operator):
 
         eig_vals = vals
 
-        def N_z_t(N_z_tinf, eig_coeffs, eig_vals, eig_vecs, tau):
+        def N_z_t(N_z_tinf, eig_coeffs, eig_vals, eig_vecs, tau, num_eig_vals):
             result = np.tile(np.transpose(N_z_tinf)[0], (len(tau), 1)).T
             for it, itau in enumerate(tau):
-                for i in range(num_of_stages):
+                for i in range(num_eig_vals):
                     result[:, it] += (
                         eig_coeffs[i] * np.exp(eig_vals[i] * itau) * eig_vecs[i, :]
                     )
 
             return result
 
-        tau = np.linspace(-36, 16, 200)
+        tau = np.linspace(-16, 2, 1000)
         tau = np.power(10.0, tau)
-        # tau = np.insert(tau, 0, 0.0)
+        tau = np.insert(tau, 0, np.power(10.0, -np.inf))
 
-        data = N_z_t(N_z_tinf, eig_coeffs, eig_vals, eig_vecs, tau)
-        # print(Nz_t0)
-        # print(N_z_t(N_z_tinf, eig_coeffs, eig_vals, eig_vecs, np.array([0])))
-        # print(np.allclose(N_z_t(N_z_tinf, eig_coeffs,
-        # eig_vals, eig_vecs, np.array([0])), Nz_t0))
+        print(tau)
+        print(".................................................................")
 
-        for istage in range(5):
+        data = N_z_t(N_z_tinf, eig_coeffs, eig_vals, eig_vecs, tau, num_eig_vals)
+        data = np.around(data, decimals=16)
+
+        print(np.linalg.norm(data[:, 0]))
+
+        for istage in range(num_of_stages):
             plt.loglog(tau, data[istage], label=f"{istage}")
         plt.legend()
         # plt.ylim(1e-19, 2e0)
