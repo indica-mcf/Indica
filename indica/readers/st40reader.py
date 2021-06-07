@@ -87,34 +87,10 @@ class ST40Reader(DataReader):
         "efit": "get_equilibrium",
         "sxr": "get_radiation",
         "xrcs": "get_helike_spectroscopy",
+        "nirh1": "get_interferometry",
     }
-    _IMPLEMENTATION_QUANTITIES = {
-        "kg10": {"ne": ("number_density", "electron")},
-        "sxr": {
-            "h": ("luminous_flux", "sxr"),
-            "t": ("luminous_flux", "sxr"),
-            "v": ("luminous_flux", "sxr"),
-        },
-        "bolo": {
-            "kb5h": ("luminous_flux", "bolometric"),
-            "kb5v": ("luminous_flux", "bolometric"),
-        },
-        "ks3": {
-            "zefh": ("effective_charge", "plasma"),
-            "zefv": ("effective_charge", "plasma"),
-        },
-    }
-
-    _RADIATION_RANGES = {
-        "sxr/h": 17,
-        "sxr/t": 35,
-        "sxr/v": 35,
-        "bolo/kb5h": 24,
-        "bolo/kb5v": 32,
-    }
-    _KK3_RANGE = (1, 96)
     MACHINE_DIMS = ((0.15, 0.9), (-0.9, 0.9))
-    UIDS_MDS = {"efit":"", "xrcs":"sxr"}
+    UIDS_MDS = {"efit":"", "xrcs":"sxr", "nirh1":"interferom"}
     QUANTITIES_MDS = {
         "efit": {
             "f": ".profiles.psi_norm:f",
@@ -129,6 +105,7 @@ class ST40Reader(DataReader):
             "rbnd": ".p_boundary:rbnd",
             "zmag": ".global:zmag",
             "zbnd": ".p_boundary:zbnd",
+            "ipla": ".constraints.ip:cvalue",
         },
         "xrcs":{
             "te_kw":".te_kw:te",
@@ -136,10 +113,11 @@ class ST40Reader(DataReader):
             "ti_w":".ti_w:ti" ,
             "ti_z":".ti_z:ti" ,
         },
+        "nirh1":{
+            "ne":".line_int.ne",
+        },
     }
-# "\\SXR::TOP.XRCS:BEST:BEST_RUN"
-# "\\EFIT::TOP:BEST:BEST_RUN"
-# "\\SPECTROM::TOP.PRINCETON.PASSIVE:BEST:BEST_RUN"
+
     def __init__(
         self,
         pulse: int,
@@ -192,7 +170,6 @@ class ST40Reader(DataReader):
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
-        # print(path)
         data = np.array(self.conn.get(path_check))
         return data, path
 
@@ -306,13 +283,57 @@ class ST40Reader(DataReader):
             if "times" not in results:
                 results["times"] = times
             results[q + "_records"] = q_path
-            results[q] = qval.data
+            results[q] = qval
             qval_err, q_path_err = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_ERR", revision
             )
             if np.array_equal(qval_err, "FAILED"):
                 qval_err = 0.0 * results[q]
                 q_path_err = ""
+            results[q + "_error"] = qval_err
+            results[q + "_error" + "_records"] = q_path_err
+
+        results["length"] = 1
+        results["Rstart"] = np.array([los_start[0]])
+        results["Rstop"] = np.array([los_end[0]])
+        results["zstart"] = np.array([los_start[1]])
+        results["zstop"] = np.array([los_end[1]])
+        results["Tstart"] =np.array([0.]) #los_start[2]])
+        results["Tstop"] = np.array([0.]) #los_end[2]])
+
+        return results
+
+    def _get_interferometry(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        if len(uid) == 0:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        # position_instrument = ""
+        # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
+        # direction, position_path = self._get_signal(uid, position_instrument, "..geometry:direction", -1)
+        position = np.array([-0.9345, 0.355, 0])
+        direction = np.array([-0.1635, 0.062, 0.]) - position
+        los_start, los_end = self.get_los(position, direction)
+        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        # print(f"Times {times}")
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
+            )
+
+            if "times" not in results:
+                results["times"] = times
+            results[q + "_records"] = q_path
+            results[q] = qval
+            qval_err = 0.0 * results[q]
+            q_path_err = ""
             results[q + "_error"] = qval_err
             results[q + "_error" + "_records"] = q_path_err
 
