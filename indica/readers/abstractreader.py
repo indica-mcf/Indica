@@ -50,8 +50,8 @@ class DataReader(BaseIO):
     agent: prov.model.ProvAgent
         An agent representing this object in provenance documents.
         DataArray objects can be attributed to it.
-    DDA_METHODS: Dict[str, str]
-        Mapping between instrument/DDA names and method to use to assemble that
+    INSTRUMENT_METHODS: Dict[str, str]
+        Mapping between instrument (DDA in JET) names and method to use to assemble that
         data. Implementation-specific.
     entity: prov.model.ProvEntity
         An entity representing this object in provenance documents. It is used
@@ -64,9 +64,9 @@ class DataReader(BaseIO):
 
     """
 
-    DDA_METHODS: Dict[str, str] = {}
+    INSTRUMENT_METHODS: Dict[str, str] = {}
     # Mapping between methods for reading data and the quantities which can be
-    # fetched. An implementation may override this for specific DDAs.
+    # fetched. An implementation may override this for specific INSTRUMENTs.
     _AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "get_thomson_scattering": {
             "ne": ("number_density", "electrons"),
@@ -80,6 +80,12 @@ class DataReader(BaseIO):
         "get_bremsstrahlung_spectroscopy": {
             "h": ("effective_charge", "plasma"),
             "v": ("effective_charge", "plasma"),
+        },
+        "get_helike_spectroscopy": {
+            "te_kw": ("temperature", "electrons"),
+            "te_n3w": ("temperature", "electrons"),
+            "ti_w": ("temperature", "ions"),
+            "ti_z": ("temperature", "ions"),
         },
         "get_equilibrium": {
             "f": ("f_value", "plasma"),
@@ -103,7 +109,7 @@ class DataReader(BaseIO):
             "v": ("luminous_flux", None),
         },
     }
-    # Quantities available for specific DDAs in a given
+    # Quantities available for specific INSTRUMENTs in a given
     # implementation. Override values given in _AVAILABLE_QUANTITIES.
     _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
 
@@ -173,7 +179,7 @@ class DataReader(BaseIO):
         revision: int = 0,
         quantities: Set[str] = set(),
     ) -> Dict[str, DataArray]:
-        """Reads data for the requested instrument/DDA. In general this will be
+        """Reads data for the requested instrument. In general this will be
         the method you want to use when reading.
 
         Parameters
@@ -194,13 +200,13 @@ class DataReader(BaseIO):
         :
             A dictionary containing the requested physical quantities.
         """
-        if instrument not in self.DDA_METHODS:
+        if instrument not in self.INSTRUMENT_METHODS:
             raise ValueError(
                 "{} does not support reading for instrument {}".format(
                     self.__class__.__name__, instrument
                 )
             )
-        method = getattr(self, self.DDA_METHODS[instrument])
+        method = getattr(self, self.INSTRUMENT_METHODS[instrument])
         if not quantities:
             quantities = set(self.available_quantities(instrument))
         return method(uid, instrument, revision, quantities)
@@ -872,7 +878,7 @@ class DataReader(BaseIO):
         uid
             User ID (i.e., which user created this data)
         instrument
-            Name of the instrument/DDA which measured this data
+            Name of the instrument which measured this data
         revision
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
@@ -968,7 +974,7 @@ class DataReader(BaseIO):
         uid
             User ID (i.e., which user created this data)
         instrument
-            Name of the instrument/DDA which measured this data
+            Name of the instrument which measured this data
         revision
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
@@ -1186,6 +1192,167 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    def get_helike_spectroscopy(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
+    ) -> Dict[str, DataArray]:
+        """Reads spectroscopic measurements of He-like emission.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        :
+            A dictionary containing the requested data.
+
+        """
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_helike_spectroscopy(
+            uid, instrument, revision, quantities
+        )
+        times = database_results["times"]
+        transform = LinesOfSightTransform(
+            database_results["Rstart"],
+            database_results["zstart"],
+            database_results["Tstart"],
+            database_results["Rstop"],
+            database_results["zstop"],
+            database_results["Tstop"],
+            f"{instrument}",
+            database_results["machine_dims"],
+        )
+        downsample_ratio = int(
+            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+        )
+        coords: Dict[Hashable, Any] = {"t": times}
+        dims = ["t"]
+        if database_results["length"] > 1:
+            dims.append(transform.x1_name)
+            coords[transform.x1_name] = np.arange(
+                database_results["length"]
+            )
+        else:
+            coords[transform.x1_name] = 0
+
+        data = {}
+        drop=[]
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read xrystal spectroscopy data for quantity {}".format(
+                        self.__class__.__name__, quantity
+                    )
+                )
+            meta = {
+                "datatype": available_quantities[quantity],
+                "error": DataArray(
+                    database_results[quantity + "_error"], coords, dims
+                ).sel(t=slice(self._tstart, self._tend)),
+                "transform": transform,
+            }
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                dims,
+                attrs=meta,
+            ).sel(t=slice(self._tstart, self._tend))
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+                quant_data.attrs["error"] = np.sqrt(
+                    (quant_data.attrs["error"] ** 2)
+                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .mean()
+                    / downsample_ratio
+                )
+            quant_data.name = instrument + "_" + quantity
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
+                "crystal_spectroscopy",
+                uid,
+                instrument,
+                revision,
+                quantity,
+                database_results[quantity + "_records"],
+                drop,
+            )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+        return data
+
+    def _get_helike_spectroscopy(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Reads spectroscopic measurements of He-like emission.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        times : ndarray
+            The times at which measurements were taken
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_error : ndarray
+            Uncertainty in the data
+        <quantity>_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for this data.
+        <quantity>_Rstart : ndarray
+            Major radius of start positions for lines of sight for this data.
+        <quantity>_Rstop : ndarray
+            Major radius of stop positions for lines of sight for this data.
+        <quantity>_zstart : ndarray
+            Vertical location of start positions for lines of sight for this data.
+        <quantity>_zstop : ndarray
+            Vertical location of stop positions for lines of sight for this data.
+        <quantity>_Tstart : ndarray
+            Toroidal offset of start positions for lines of sight for this data.
+        <quantity>_Tstop : ndarray
+            Toroidal offset of stop positions for lines of sight for this data.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_spectroscopy' "
+            "method.".format(self.__class__.__name__)
+        )
+
+
     def create_provenance(
         self,
         diagnostic: str,
@@ -1373,10 +1540,10 @@ class DataReader(BaseIO):
 
     def available_quantities(self, instrument):
         """Return the quantities which can be read for the specified
-        instrument/DDA."""
-        if instrument not in self.DDA_METHODS:
+        instrument."""
+        if instrument not in self.INSTRUMENT_METHODS:
             raise ValueError("Can not read data for instrument {}".format(instrument))
         if instrument in self._IMPLEMENTATION_QUANTITIES:
             return self._IMPLEMENTATION_QUANTITIES[instrument]
         else:
-            return self._AVAILABLE_QUANTITIES[self.DDA_METHODS[instrument]]
+            return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
