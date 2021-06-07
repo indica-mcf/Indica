@@ -295,13 +295,15 @@ def _get_wall_intersection_distances(
     factor[mask] *= -1
     x2_trial = (-b + factor * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
     z_trial = z_start + x2_trial * (z_end - z_start)
-
+    x2_opposite = np.zeros_like(x2_trial)
+    if z_start != z_end:
+        x2_opposite = (opposite_z - z_start) / (z_end - z_start)
     x2 = np.where(
         np.logical_and(
             machine_dimensions[1][0] <= z_trial, z_trial <= machine_dimensions[1][1]
         ),
         x2_trial,
-        (opposite_z - z_start) / (z_end - z_start),
+        x2_opposite,
     )
     return x2 * np.sqrt(
         (R_start - R_end) ** 2 + (z_start - z_end) ** 2 + (T_start - T_end) ** 2
