@@ -274,7 +274,6 @@ class ST40Reader(DataReader):
         direction = np.array([0.175, 0, 0]) - position
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
-        # print(f"Times {times}")
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
