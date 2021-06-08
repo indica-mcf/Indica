@@ -565,9 +565,6 @@ class DataReader(BaseIO):
         database_results = self._get_equilibrium(uid, instrument, revision, quantities)
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
-        downsample_ratio = int(
-            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
-        )
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
         dims_1d = ("t",)
         trivial_transform = TrivialTransform()
@@ -637,10 +634,6 @@ class DataReader(BaseIO):
                 attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
 
-            if downsample_ratio > 1:
-                quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
-                ).mean()
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "equilibrium",
