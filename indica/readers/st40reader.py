@@ -90,7 +90,7 @@ class ST40Reader(DataReader):
         "nirh1": "get_interferometry",
     }
     MACHINE_DIMS = ((0.15, 0.9), (-0.9, 0.9))
-    UIDS_MDS = {"efit":"", "xrcs":"sxr", "nirh1":"interferom"}
+    UIDS_MDS = {"efit": "", "xrcs": "sxr", "nirh1": "interferom"}
     QUANTITIES_MDS = {
         "efit": {
             "f": ".profiles.psi_norm:f",
@@ -106,16 +106,15 @@ class ST40Reader(DataReader):
             "zmag": ".global:zmag",
             "zbnd": ".p_boundary:zbnd",
             "ipla": ".constraints.ip:cvalue",
+            "wp": ".virial:wp",
         },
-        "xrcs":{
-            "te_kw":".te_kw:te",
-            "te_n3w":".te_n3w:te" ,
-            "ti_w":".ti_w:ti" ,
-            "ti_z":".ti_z:ti" ,
+        "xrcs": {
+            "te_kw": ".te_kw:te",
+            "te_n3w": ".te_n3w:te",
+            "ti_w": ".ti_w:ti",
+            "ti_z": ".ti_z:ti",
         },
-        "nirh1":{
-            "ne":".line_int.ne",
-        },
+        "nirh1": {"ne": ".line_int.ne",},
     }
 
     def __init__(
@@ -149,7 +148,7 @@ class ST40Reader(DataReader):
 
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: int
-    ) -> str:
+    ) -> Tuple[str, str]:
         """Return the path in the MDS+ database to for the given INSTRUMENT/CODE
 
         uid: currently redundant --> set to empty string ""
@@ -172,6 +171,20 @@ class ST40Reader(DataReader):
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
         data = np.array(self.conn.get(path_check))
         return data, path
+
+    def _get_signal_dims(self, mds_path: str, ndims: int,) -> Tuple[List[np.array], List[str]]:
+        """Gets the dimensions of a signal given the path to the signal
+        and the number of dimensions"""
+
+        dimensions = []
+        paths = []
+        for dim in range(ndims):
+            path = f"dim_of({mds_path},{dim})"
+            dim_tmp = self.conn.get(self.mdsCheck(path)).data()
+
+            paths.append(path)
+            dimensions.append(np.array(dim_tmp))
+        return dimensions, paths
 
     def _read_cached_ppf(self, path: Path) -> Optional[np.array]:
         """Check if the PPF data specified by `sal_path` has been cached and,
@@ -270,7 +283,7 @@ class ST40Reader(DataReader):
         # position_instrument = "raw_sxr"
         # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
-        position = np.array([1., 0, 0])
+        position = np.array([1.0, 0, 0])
         direction = np.array([0.175, 0, 0]) - position
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
@@ -284,7 +297,7 @@ class ST40Reader(DataReader):
             results[q + "_records"] = q_path
             results[q] = qval
             qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_ERR", revision
+                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_ERR", revision
             )
             if np.array_equal(qval_err, "FAILED"):
                 qval_err = 0.0 * results[q]
@@ -297,7 +310,7 @@ class ST40Reader(DataReader):
         results["Rstop"] = np.array([los_end[0]])
         results["zstart"] = np.array([los_start[1]])
         results["zstop"] = np.array([los_end[1]])
-        results["Tstart"] =np.array([los_start[2]])
+        results["Tstart"] = np.array([los_start[2]])
         results["Tstop"] = np.array([los_end[2]])
 
         return results
@@ -318,7 +331,7 @@ class ST40Reader(DataReader):
         # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, "..geometry:direction", -1)
         position = np.array([0.380, -0.925, 0])
-        direction = np.array([0.115, 0.993, 0.]) - position
+        direction = np.array([0.115, 0.993, 0.0]) - position
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
         # print(f"Times {times}")
@@ -341,7 +354,7 @@ class ST40Reader(DataReader):
         results["Rstop"] = np.array([los_end[0]])
         results["zstart"] = np.array([los_start[1]])
         results["zstop"] = np.array([los_end[1]])
-        results["Tstart"] =np.array([los_start[2]])
+        results["Tstart"] = np.array([los_start[2]])
         results["Tstop"] = np.array([los_end[2]])
 
         return results
@@ -434,8 +447,8 @@ class ST40Reader(DataReader):
         x0, y0, z0 = position
         x1, y1, z1 = position + direction
 
-        Rstart = x0 #np.sqrt(x0 ** 2 + y0 ** 2)
-        Rstop = x1 #np.sqrt(x1 ** 2 + y1 ** 2)
+        Rstart = x0  # np.sqrt(x0 ** 2 + y0 ** 2)
+        Rstop = x1  # np.sqrt(x1 ** 2 + y1 ** 2)
         zstart = z0
         zstop = z1
         Tstart = y0
