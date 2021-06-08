@@ -270,8 +270,8 @@ class ST40Reader(DataReader):
         # position_instrument = "raw_sxr"
         # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
-        position = np.array([-0.9345, 0.355, 0])
-        direction = np.array([-0.1635, 0.062, 0]) - position
+        position = np.array([1., 0, 0])
+        direction = np.array([0.175, 0, 0]) - position
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
         # print(f"Times {times}")
@@ -298,8 +298,8 @@ class ST40Reader(DataReader):
         results["Rstop"] = np.array([los_end[0]])
         results["zstart"] = np.array([los_start[1]])
         results["zstop"] = np.array([los_end[1]])
-        results["Tstart"] =np.array([0.]) #los_start[2]])
-        results["Tstop"] = np.array([0.]) #los_end[2]])
+        results["Tstart"] =np.array([los_start[2]])
+        results["Tstop"] = np.array([los_end[2]])
 
         return results
 
@@ -318,8 +318,8 @@ class ST40Reader(DataReader):
         # position_instrument = ""
         # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, "..geometry:direction", -1)
-        position = np.array([-0.9345, 0.355, 0])
-        direction = np.array([-0.1635, 0.062, 0.]) - position
+        position = np.array([0.380, -0.925, 0])
+        direction = np.array([0.115, 0.993, 0.]) - position
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
         # print(f"Times {times}")
@@ -342,8 +342,8 @@ class ST40Reader(DataReader):
         results["Rstop"] = np.array([los_end[0]])
         results["zstart"] = np.array([los_start[1]])
         results["zstop"] = np.array([los_end[1]])
-        results["Tstart"] =np.array([0.]) #los_start[2]])
-        results["Tstop"] = np.array([0.]) #los_end[2]])
+        results["Tstart"] =np.array([los_start[2]])
+        results["Tstop"] = np.array([los_end[2]])
 
         return results
 
@@ -435,8 +435,8 @@ class ST40Reader(DataReader):
         x0, y0, z0 = position
         x1, y1, z1 = position + direction
 
-        Rstart = np.sqrt(x0 ** 2 + y0 ** 2)
-        Rstop = np.sqrt(x1 ** 2 + y1 ** 2)
+        Rstart = x0 #np.sqrt(x0 ** 2 + y0 ** 2)
+        Rstop = x1 #np.sqrt(x1 ** 2 + y1 ** 2)
         zstart = z0
         zstop = z1
         Tstart = y0
