@@ -76,6 +76,44 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     ),
     "weighting": ("Dimensionless weighting to use when fitting data.", ""),
     "z": ("Vertical position from mid-plane of Tokamak", "m"),
+    "ionisation_rate": (
+        "Effective ionisation rate coefficients of all relevant ionisation stages of \
+            given impurity element",
+        "m^3 s^-1",
+    ),
+    "recombination_rate": (
+        "Effective recombination rate of all relevant ionisation stages of \
+            given impurity element",
+        "m^3 s^-1",
+    ),
+    "charge-exchange_rate": (
+        "Charge exchange cross coupling coefficients of all relevant ionisation stages\
+             of given impurity element",
+        "m^3 s^-1",
+    ),
+    "line_power_coeffecient": (
+        "Radiated power of line emission from excitation of all relevant ionisation \
+            stages of given impurity element",
+        "w m^3",
+    ),
+    "charge-exchange_power_coeffecient": (
+        "Radiated power of charge exchange emission of all relevant ionisation stages \
+            of given impurity element",
+        "w m^3",
+    ),
+    "recombination_power_coeffecient": (
+        "Radiated power from recombination and bremsstrahlung",
+        "w m^3",
+    ),
+    "fractional abundance": (
+        "Fractional abundance of all ionisation stages of \
+            given impurity element (normalized)",
+        "",
+    ),
+    "total radiated power loss": (
+        "Total radiated power of all ionisation stages of given impurity element",
+        "W m^3",
+    ),
 }
 
 #: A dictionary containing information on what the general datatype is
@@ -94,6 +132,8 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
     "separatrix": "Sepeparatrix surface for equilibrium in tokamak",
     "sxr": "Soft X-rays",
     "tungston": "Tungston ions in plasma",
+    "impurity_element": "Chosen impurity element in plasma",
+    "thermal_hydrogen": "Thermal hydrogen in plasma",
 }
 
 
@@ -104,6 +144,7 @@ ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "acd": "recomb_coeffs",
     "ccd": "charge_exchange_recomb_coeffs",
     "plt": "line_emissions",
+    "prc": "charge_exchange_emissions",
     "plsx": "sxr_line_emissions",
     "prb": "recomb_emissions",
     "prsx": "sxr_recomb_emissions",
@@ -290,6 +331,14 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "number_density",
         "temperature",
         "weighting",
+        "ionisation_rate",
+        "recombination_rate",
+        "charge-exchange_rate",
+        "line_power_coeffecient",
+        "recombination_power_coeffecient",
+        "charge-exchange_power_coeffecient",
+        "fractional abundance",
+        "total radiated power loss",
     ],
     {
         "bolometric": ["luminous_flux", "weighting"],
@@ -311,6 +360,17 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         ],
         "separatrix": ["magnetic_flux", "major_rad", "minor_rad", "z", "weighting"],
         "sxr": ["luminous_flux", "weighting"],
+        "thermal_hydrogen": ["number_density"],
+        "impurity_element": [
+            "ionisation_rate",
+            "recombination_rate",
+            "charge-exchange_rate",
+            "line_power_coeffecient",
+            "recombination_power_coeffecient",
+            "charge-exchange_power_coeffecient",
+            "fractional abundance",
+            "total radiated power loss",
+        ],
     },
 )
 

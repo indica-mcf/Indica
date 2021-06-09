@@ -1,0 +1,233 @@
+import numpy as np
+import pytest
+from xarray import DataArray
+
+from indica.operators.fractional_abundance import FractionalAbundance
+from indica.readers import ADASReader
+
+
+@pytest.fixture
+def test_init():
+    ADAS_file = ADASReader("/mnt/c/Users/Sanket_Work/Documents/InDiCA_snippets/")
+
+    element = "be"
+
+    SCD = ADAS_file.get_adf11("scd", element, "89")
+    ACD = ADAS_file.get_adf11("acd", element, "89")
+    CCD = ADAS_file.get_adf11("ccd", element, "89")
+
+    PLT = ADAS_file.get_adf11("plt", element, "89")
+    PRC = ADAS_file.get_adf11("prc", element, "89")
+    PRB = ADAS_file.get_adf11("prb", element, "89")
+
+    input_Te = np.power(10.0, np.linspace(4.7, 2, 10))
+    input_Ne = np.power(10.0, np.linspace(19.0, 16.0, 10))
+    input_Nh = 1e-5 * input_Ne
+
+    input_Te = DataArray(
+        data=input_Te, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+    input_Ne = DataArray(
+        data=input_Ne, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+    input_Nh = DataArray(
+        data=input_Nh, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+
+    try:
+        example_frac_abundance = FractionalAbundance(
+            SCD, ACD, CCD, PLT, PRC, PRB, Ne=input_Ne, Nh=input_Nh, Te=input_Te
+        )
+    except Exception:
+        raise Exception("Cannot initialize FractionalAbundance class")
+
+    return example_frac_abundance
+
+
+@pytest.fixture
+def test_interpolate_rates(test_init):
+    try:
+        SCD_spec, ACD_spec, CCD_spec, num_of_stages = test_init.interpolate_rates()
+    except Exception:
+        raise Exception("Cannot interpolate ionisation rates")
+
+    assert num_of_stages == 5
+
+    assert SCD_spec.shape == (4, 10)
+    assert ACD_spec.shape == (4, 10)
+    assert CCD_spec.shape == (4, 10)
+
+    assert np.all(np.logical_not(np.isnan(SCD_spec)))
+    assert np.all(np.logical_not(np.isnan(ACD_spec)))
+    assert np.all(np.logical_not(np.isnan(CCD_spec)))
+
+    assert np.all(np.logical_not(np.isinf(SCD_spec)))
+    assert np.all(np.logical_not(np.isinf(ACD_spec)))
+    assert np.all(np.logical_not(np.isinf(CCD_spec)))
+
+    return test_init
+
+
+@pytest.fixture
+def test_calc_ionisation_balance_matrix(test_interpolate_rates):
+    try:
+        ionisation_balance_matrix = (
+            test_interpolate_rates.calc_ionisation_balance_matrix()
+        )
+    except Exception:
+        raise Exception("Cannot calculate ionisation balance matrix")
+
+    assert ionisation_balance_matrix.shape == (5, 5, 10)
+
+    assert np.all(np.logical_not(np.isnan(ionisation_balance_matrix)))
+
+    assert np.all(np.logical_not(np.isinf(ionisation_balance_matrix)))
+
+    return test_interpolate_rates
+
+
+@pytest.fixture
+def test_calc_N_z_tinf(test_calc_ionisation_balance_matrix):
+    try:
+        N_z_tinf = test_calc_ionisation_balance_matrix.calc_N_z_tinf()
+    except Exception:
+        raise Exception("Cannot calculate N_z_tinf")
+
+    assert N_z_tinf.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(N_z_tinf)))
+
+    assert np.all(np.logical_not(np.isinf(N_z_tinf)))
+
+    rho = test_calc_ionisation_balance_matrix.Ne.coords["rho"]
+    ionisation_balance_matrix = (
+        test_calc_ionisation_balance_matrix.ionisation_balance_matrix
+    )
+
+    for irho in range(rho.size):
+        test_null = np.dot(ionisation_balance_matrix[:, :, irho], N_z_tinf[:, irho])
+        assert np.allclose(test_null, np.zeros(test_null.shape))
+
+        test_normalization = np.linalg.norm(N_z_tinf[:, irho])
+        assert np.allclose(test_normalization, 1.0)
+
+    return test_calc_ionisation_balance_matrix
+
+
+@pytest.fixture
+def test_calc_eigen_vals_and_vecs(test_calc_N_z_tinf):
+    try:
+        eig_vals, eig_vecs = test_calc_N_z_tinf.calc_eigen_vals_and_vecs()
+    except Exception:
+        raise Exception("Cannot calculate eigenvalues and eigenvectors")
+
+    assert eig_vals.shape == (5, 10)
+    assert eig_vecs.shape == (5, 5, 10)
+
+    assert np.all(np.logical_not(np.isnan(eig_vals)))
+    assert np.all(np.logical_not(np.isinf(eig_vals)))
+
+    assert np.all(np.logical_not(np.isnan(eig_vecs)))
+    assert np.all(np.logical_not(np.isinf(eig_vecs)))
+
+    rho = test_calc_N_z_tinf.Ne.coords["rho"]
+    ionisation_balance_matrix = test_calc_N_z_tinf.ionisation_balance_matrix
+
+    for irho in range(rho.size):
+        for ieig in range(test_calc_N_z_tinf.num_of_stages):
+            test_eigen = np.dot(
+                ionisation_balance_matrix[:, :, irho], eig_vecs[:, ieig, irho]
+            ) - np.dot(eig_vals[ieig, irho], eig_vecs[:, ieig, irho])
+
+            assert np.allclose(test_eigen, np.zeros(test_eigen.shape))
+
+    return test_calc_N_z_tinf
+
+
+@pytest.fixture
+def test_calc_eigen_coeffs(test_calc_eigen_vals_and_vecs):
+    try:
+        eig_coeffs, N_z_t0 = test_calc_eigen_vals_and_vecs.calc_eigen_coeffs()
+    except Exception:
+        raise Exception("Cannot calculate coefficients for time evolution equation")
+
+    assert eig_coeffs.shape == (5, 10)
+    assert N_z_t0.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(eig_coeffs)))
+    assert np.all(np.logical_not(np.isinf(eig_coeffs)))
+
+    assert np.all(np.logical_not(np.isnan(N_z_t0)))
+    assert np.all(np.logical_not(np.isinf(N_z_t0)))
+
+    return test_calc_eigen_vals_and_vecs
+
+
+@pytest.fixture
+def test_calc_N_z_t(test_calc_eigen_coeffs):
+    tau = 1e-16
+    try:
+        N_z_t = test_calc_eigen_coeffs.calc_N_z_t(tau)
+    except Exception:
+        raise Exception("Cannot calculate the ionisation balance at time tau")
+
+    assert N_z_t.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(N_z_t)))
+    assert np.all(np.logical_not(np.isinf(N_z_t)))
+
+    assert np.allclose(N_z_t, test_calc_eigen_coeffs.N_z_t0)
+
+    tau = 1e2
+
+    try:
+        N_z_t = test_calc_eigen_coeffs.calc_N_z_t(tau)
+    except Exception:
+        raise Exception("Cannot calculate the ionisation balance at time tau")
+
+    assert np.all(np.logical_not(np.isnan(N_z_t)))
+    assert np.all(np.logical_not(np.isinf(N_z_t)))
+
+    assert np.allclose(N_z_t, test_calc_eigen_coeffs.N_z_tinf, atol=2e-2)
+
+    rho = test_calc_eigen_coeffs.Ne.coords["rho"]
+
+    for irho in range(rho.size):
+        test_normalization = np.linalg.norm(N_z_t[:, irho])
+        assert np.abs(test_normalization - 1.0) <= 2e-2
+
+    return test_calc_eigen_coeffs
+
+
+@pytest.fixture
+def test_interpolate_power(test_calc_N_z_t):
+    try:
+        PLT_spec, PRC_spec, PRB_spec = test_calc_N_z_t.interpolate_power()
+    except Exception:
+        raise Exception("Cannot interpolate power coefficients")
+
+    assert PLT_spec.shape == (4, 10)
+    assert PRC_spec.shape == (4, 10)
+    assert PRB_spec.shape == (4, 10)
+
+    assert np.all(np.logical_not(np.isnan(PLT_spec)))
+    assert np.all(np.logical_not(np.isnan(PRC_spec)))
+    assert np.all(np.logical_not(np.isnan(PRB_spec)))
+
+    assert np.all(np.logical_not(np.isinf(PLT_spec)))
+    assert np.all(np.logical_not(np.isinf(PRC_spec)))
+    assert np.all(np.logical_not(np.isinf(PRB_spec)))
+
+    return test_calc_N_z_t
+
+
+def test_calc_cooling_factor(test_interpolate_power):
+    try:
+        cooling_factor = test_interpolate_power.calc_cooling_factor()
+    except Exception:
+        raise Exception("Cannot calculate cooling factor for given element")
+
+    assert cooling_factor.shape == (10,)
+
+    assert np.all(np.logical_not(np.isnan(cooling_factor)))
+    assert np.all(np.logical_not(np.isinf(cooling_factor)))
