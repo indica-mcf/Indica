@@ -3,12 +3,10 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 from xarray.core.dataarray import DataArray
 
-from indica.readers import ADASReader
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
@@ -18,7 +16,7 @@ np.set_printoptions(edgeitems=10, linewidth=100)
 
 
 class FractionalAbundance(Operator):
-    """Calculate fractional abundance for a given ionisation stage of an ion
+    """Calculate fractional abundance for all ionisation stages of a given element
 
     Parameters
     ----------
@@ -53,12 +51,12 @@ class FractionalAbundance(Operator):
 
     def __init__(
         self,
-        SCD,
-        ACD,
-        CCD,
-        PLT,
-        PRC,
-        PRB,
+        SCD: DataArray,
+        ACD: DataArray,
+        CCD: DataArray,
+        PLT: DataArray,
+        PRC: DataArray,
+        PRB: DataArray,
         Ne: DataArray,
         Nh: DataArray,
         Te: DataArray,
@@ -83,6 +81,109 @@ class FractionalAbundance(Operator):
         self.Ne = Ne
         self.Nh = Nh
         self.Te = Te
+
+        imported_data = {}
+        imported_data["SCD"] = self.SCD
+        imported_data["ACD"] = self.ACD
+        imported_data["CCD"] = self.CCD
+        imported_data["PLT"] = self.PLT
+        imported_data["PRC"] = self.PRC
+        imported_data["PRB"] = self.PRB
+        inputted_data = {}
+        inputted_data["Ne"] = self.Ne
+        inputted_data["Nh"] = self.Nh
+        inputted_data["Te"] = self.Te
+
+        try:
+            for key, val in imported_data.items():
+                assert isinstance(val, DataArray)
+        except AssertionError:
+            raise AssertionError(f"{key} is not an instance of xarray.DataArray")
+
+        try:
+            for key, val in inputted_data.items():
+                assert isinstance(val, DataArray)
+        except AssertionError:
+            raise AssertionError(f"{key} is not an instance of xarray.DataArray")
+
+        try:
+            for key1, val1 in inputted_data.items():
+                for key2, val2 in inputted_data.items():
+                    assert val1.shape == val2.shape
+        except AssertionError:
+            raise AssertionError(f"{key1} and {key2} are not the same shape")
+
+        try:
+            assert np.all(inputted_data["Nh"] != np.nan)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be NaN"
+            )
+
+        try:
+            assert np.all(np.abs(inputted_data["Nh"]) != np.inf)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be +inf or -inf"
+            )
+
+        try:
+            assert np.all(inputted_data["Nh"] >= 0)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be negative"
+            )
+
+        self.input_check(imported_data, inputted_data)
+
+    def input_check(self, imported_data, inputted_data):
+        try:
+            for key, val in imported_data.items():
+                assert np.all(
+                    inputted_data["Ne"]
+                    <= np.max(np.power(10, val.coords["log10_electron_density"]))
+                )
+        except AssertionError:
+            raise AssertionError(
+                f"Inputted electron number density is larger than the \
+                    maximum interpolation range in {key}"
+            )
+
+        try:
+            for key, val in imported_data.items():
+                assert np.all(
+                    inputted_data["Ne"]
+                    >= np.min(np.power(10, val.coords["log10_electron_density"]))
+                )
+        except AssertionError:
+            raise AssertionError(
+                f"Inputted electron number density is smaller than the \
+                    minimum interpolation range in {key}"
+            )
+
+        try:
+            for key, val in imported_data.items():
+                assert np.all(
+                    inputted_data["Te"]
+                    <= np.max(np.power(10, val.coords["log10_electron_temperature"]))
+                )
+        except AssertionError:
+            raise AssertionError(
+                f"Inputted electron temperature is larger than the \
+                    maximum interpolation range in {key}"
+            )
+
+        try:
+            for key, val in imported_data.items():
+                assert np.all(
+                    inputted_data["Te"]
+                    >= np.min(np.power(10, val.coords["log10_electron_temperature"]))
+                )
+        except AssertionError:
+            raise AssertionError(
+                f"Inputted electron temperature is smaller than the \
+                    minimum interpolation range in {key}"
+            )
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return (
@@ -232,6 +333,16 @@ class FractionalAbundance(Operator):
         self,
         tau,
     ):
+        try:
+            assert np.abs(tau) != np.inf
+        except AssertionError:
+            raise AssertionError("Given time value, tau, cannot be infinity")
+
+        try:
+            assert tau >= 0
+        except AssertionError:
+            raise AssertionError("Given time value, tau, cannot be negative")
+
         rho = self.Ne.coords["rho"]
         N_z_t = copy.deepcopy(self.N_z_tinf)
         for irho in range(rho.size):
@@ -326,54 +437,3 @@ class FractionalAbundance(Operator):
         self.calc_cooling_factor()
 
         return self.N_z_t, self.cooling_factor
-
-
-if __name__ == "__main__":
-    ADAS_file = ADASReader("/mnt/c/Users/Sanket_Work/Documents/InDiCA_snippets/")
-
-    element = "c"
-
-    SCD = ADAS_file.get_adf11("scd", element, "89")
-    ACD = ADAS_file.get_adf11("acd", element, "89")
-    CCD = ADAS_file.get_adf11("ccd", element, "89")
-
-    PLT = ADAS_file.get_adf11("plt", element, "89")
-    PRC = ADAS_file.get_adf11("prc", element, "89")
-    PRB = ADAS_file.get_adf11("prb", element, "89")
-
-    input_Te = np.power(10.0, np.linspace(4.7, 2.5, 10))
-    input_Ne = np.power(10.0, np.linspace(19.0, 16.0, 10))
-    input_Nh = 1e-5 * input_Ne
-
-    input_Te = DataArray(
-        data=input_Te, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
-    )
-    input_Ne = DataArray(
-        data=input_Ne, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
-    )
-    input_Nh = DataArray(
-        data=input_Nh, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
-    )
-
-    example_frac_abundance = FractionalAbundance(
-        SCD, ACD, CCD, PLT, PRC, PRB, Ne=input_Ne, Nh=input_Nh, Te=input_Te
-    )
-    example_frac_abundance.ordered_setup()
-
-    tau = np.logspace(-16, 0, 50)
-    N_z_t = np.zeros(
-        (
-            *tau.shape,
-            example_frac_abundance.num_of_stages,
-            *input_Ne.shape,
-        )
-    )
-    for i, itau in enumerate(tau):
-        N_z_t[i], _ = example_frac_abundance(itau)
-
-    test_N_z_t = np.squeeze(N_z_t[:, :, 0])
-
-    for istage in range(example_frac_abundance.num_of_stages):
-        plt.plot(tau, test_N_z_t[:, istage])
-    plt.xscale("log")
-    plt.show()
