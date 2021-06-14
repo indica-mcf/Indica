@@ -9,20 +9,22 @@
 from MDSplus import *
 from numpy import *
 import numpy as np
-import mdsHelpers as mh
+import hda.mdsHelpers as mh
 from importlib import reload
 reload(mh)
 import getpass
 user = getpass.getuser()
-MDSplus_IP_address = '192.168.1.7:8000'  # smaug IP address
+# MDSplus_IP_address = '192.168.1.7:8000'  # smaug IP address
 
 ## look at /home/ops/mds_trees/ for inspiration
-def delete(pulseNo, node):
+def delete(pulseNo, run_name:str):
     t = Tree('HDA', pulseNo, 'edit')
+
+    run_name = run_name.upper().strip()
 
     # get the username of who wrote this run
     try:
-        n = t.getNode(r'\HDA::TOP.' + node + '.CODE_VERSION:USER')
+        n = t.getNode(rf'\HDA::TOP.{run_name}.CODE_VERSION:USER')
         user_already_written = n.data()
     except:
         user_already_written = user
@@ -58,7 +60,7 @@ def delete(pulseNo, node):
     print('#  You are about to delete data                     #')
     nspaces = 49 - len(user_already_written)
     spaces = ' '*nspaces
-    print('#  ' + node + spaces + '#')
+    print('#  ' + run_name + spaces + '#')
     print('#####################################################')
     print(' Proceed yes/no?')
     yes_typed = input(">>  ")
@@ -69,22 +71,26 @@ def delete(pulseNo, node):
         yes_typed = input(">>  ")
 
     # Delete
-    t.deleteNode(node)
+    t.deleteNode(run_name)
     t.write()
     t.close
     print(' Data deleted')
 
 
-def create(pulseNo, node, descr, name="HDA"):
+def create(pulseNo, run_name:str, descr, tree_name="HDA"):
     
     ###############################################################
     ####################    Create the tree    ####################
-    ##############################################################    
+    ##############################################################
+
+    run_name = run_name.upper().strip()
+    tree_name = tree_name.upper().strip()
+
     try:
-        t = Tree( name, pulseNo, 'edit' )
+        t = Tree( tree_name, pulseNo, 'edit' )
         # get the username of who wrote this run
         try:
-            n = t.getNode(rf'\{name}}::TOP.{node}.CODE_VERSION:USER')
+            n = t.getNode(rf'\{tree_name}}::TOP.{run_name}.CODE_VERSION:USER')
             user_already_written = n.data()
         except:
             user_already_written = user
@@ -109,13 +115,13 @@ def create(pulseNo, node, descr, name="HDA"):
                 user_typed = input(">>  ")
             print(' ')
     except:
-        t = Tree( name, pulseNo, 'New' )
+        t = Tree( tree_name, pulseNo, 'New' )
 
     # Second warning to confirm delete
     print('#####################################################')
     print('#  *** WARNING ***                                  #')
     print('#  You are about to overwrite data                  #')
-    print('#  ' + node + '       #')
+    print('#  ' + run_name + '       #')
     print('#####################################################')
     print(' Proceed yes/no?')
     yes_typed = input(">>  ")
@@ -125,7 +131,7 @@ def create(pulseNo, node, descr, name="HDA"):
         print(' Error try again')
         yes_typed = input(">>  ")
 
-    branches = [node]
+    branches = [run_name]
     descriptions = [descr]
     hda = t.getDefault()
     t.deleteNode(branches[0])
@@ -341,7 +347,7 @@ def create(pulseNo, node, descr, name="HDA"):
     n = mh.createNode(t,"VOLUME","SIGNAL","Volume inside magnetic surface,m3");
 
     # t.setDefault(t.getNode('\\TOP.'+branches[0]+'.PROFILES'))
-    # t.setDefault( mh.createNode(t,name,"STRUCTURE",f"Profiles from {name}}") )
+    # t.setDefault( mh.createNode(t,tree_name,"STRUCTURE",f"Profiles from {tree_name}}") )
     n = mh.createNode(t,"RHOT","SIGNAL","rho - toroidal flux coordinate, m");
     n = mh.createNode(t,"TE","SIGNAL","Electron temperature, keV");    
     n = mh.createNode(t,"NE","SIGNAL","Electron density, 10^19 m^-3");    
@@ -424,50 +430,59 @@ def create(pulseNo, node, descr, name="HDA"):
     #
     # t.setDefault(t.getNode('\\TOP.'+branches[0]+".P_BOUNDARY"))
     # t.setDefault( mh.createNode(t,"TARGETS","STRUCTURE","Target geometric parameters") )
-    # n = mh.createNode(t,"RTORX","SIGNAL",f"Geometric axis r-position from {name} exp file,m");
-    # n = mh.createNode(t,"ZX","SIGNAL",f"Geometric axis z-position from {name} exp file,m");
-    # n = mh.createNode(t,"ELONGX","SIGNAL",f"Elongation from {name} exp file");
-    # n = mh.createNode(t,"TRIANX","SIGNAL",f"Triangularity from {name} exp file");
-    # n = mh.createNode(t,"ABCX","SIGNAL",f"Minor radius at midplane from {name} exp file,m");
+    # n = mh.createNode(t,"RTORX","SIGNAL",f"Geometric axis r-position from {tree_name} exp file,m");
+    # n = mh.createNode(t,"ZX","SIGNAL",f"Geometric axis z-position from {tree_name} exp file,m");
+    # n = mh.createNode(t,"ELONGX","SIGNAL",f"Elongation from {tree_name} exp file");
+    # n = mh.createNode(t,"TRIANX","SIGNAL",f"Triangularity from {tree_name} exp file");
+    # n = mh.createNode(t,"ABCX","SIGNAL",f"Minor radius at midplane from {tree_name} exp file,m");
  
     t.write()
     t.close
 
-def modifyhelp(pulseNo,node,descr, name="HDA"):
+def modifyhelp(pulseNo,run_name:str,descr, tree_name="HDA"):
+
+    run_name = run_name.upper().strip()
+    tree_name = tree_name.upper().strip()
     try:
-        t = Tree( name, pulseNo, 'edit' )
+        t = Tree( tree_name, pulseNo, 'edit' )
     except:
-        t = Tree( name, pulseNo, 'New' )
+        t = Tree( tree_name, pulseNo, 'New' )
     hda = t.getDefault()
     t.setDefault(hda)
-    descr0=t.getNode(node+":HELP").getData()
+    descr0=t.getNode(run_name+":HELP").getData()
     print(descr0)
-    t.getNode(node+":HELP").putData(descr)
+    t.getNode(run_name+":HELP").putData(descr)
     t.write()
-    descr1=t.getNode(node+":HELP").getData()
+    descr1=t.getNode(run_name+":HELP").getData()
     print(descr1)
     t.close
 
-def addglobal(pulseNo,runnum,addnode,descr, name="HDA"):
+def addglobal(pulseNo,run_name:str,addnode,descr, tree_name="HDA"):
+    run_name = run_name.upper().strip()
+    tree_name = tree_name.upper().strip()
     try:
-        t = Tree( name, pulseNo, 'edit' )
+        t = Tree( tree_name, pulseNo, 'edit' )
     except:
-        t = Tree( name, pulseNo, 'New' )
-    t.setDefault(t.getNode('\\TOP.'+runnum+".GLOBAL"))
+        t = Tree( tree_name, pulseNo, 'New' )
+    t.setDefault(t.getNode('\\TOP.'+run_name+".GLOBAL"))
     n = mh.createNode(t,addnode,"SIGNAL",descr);
     t.write()
     t.close
 
-def copy_runs(pulseNo_from, run_from, pulseNo_to, run_to, tree):
+def copy_runs(pulseNo_from, run_from, pulseNo_to, run_to, tree_name):
+    run_from = run_from.upper().strip()
+    run_to = run_to.upper().strip()
+    tree_name = tree_name.upper().strip()
+
     # Example usage:
     # move_runs(314, 'RUN1', 1000004, 'RUN1', 'ASTRA')
     
-    path_from = '\\' + tree + '::TOP.' + run_from
-    path_to = '\\' + tree + '::TOP.' + run_to
+    path_from = '\\' + tree_name + '::TOP.' + run_from
+    path_to = '\\' + tree_name + '::TOP.' + run_to
     print(path_from)
 
     # Read what we want to move:
-    t_from = Tree(tree, pulseNo_from)
+    t_from = Tree(tree_name, pulseNo_from)
     command = "GETNCI('\\" + path_from + "***','FULLPATH')"
     fullpaths_from = t_from.tdiExecute(command).data().astype(str, copy=False).tolist()
     command = "GETNCI('\\" + path_from + "***','USAGE')"
@@ -475,10 +490,10 @@ def copy_runs(pulseNo_from, run_from, pulseNo_to, run_to, tree):
 
     # Read where we want to 
     try:
-        t_to = Tree(tree, pulseNo_to, 'EDIT')
+        t_to = Tree(tree_name, pulseNo_to, 'EDIT')
         print('editing...')
     except:
-        t_to = Tree(tree, pulseNo_to, 'NEW')
+        t_to = Tree(tree_name, pulseNo_to, 'NEW')
         print('new...')
 
     # Add the run if needed
@@ -527,14 +542,17 @@ def copy_runs(pulseNo_from, run_from, pulseNo_to, run_to, tree):
     print('Data successfully moved')
 
 
-def warning_message(pulseNo, node):
+def warning_message(pulseNo, run_name):
+    run_name = run_name.upper().strip()
+    # tree_name = tree_name.upper().strip()
+
     pulseNo_str = str(pulseNo)
     print('#####################################################')
     print('#  *** WARNING ***                                  #')
     print('#  You are about to overwrite data                  #')
     spaces = ' '*(41 - len(pulseNo_str))
     print('#  pulseNo=' + pulseNo_str + spaces + '#')
-    spaces = ' '*(49 - len(node))
+    spaces = ' '*(49 - len(run_name))
     print('#  ' + node + spaces + '#')
     print('#####################################################')
     print(' Proceed yes/no?')

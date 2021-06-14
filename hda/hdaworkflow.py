@@ -21,7 +21,7 @@ class HDArun:
         tend=0.1,
         dt=0.01,
         elements=("h", "c", "ar"),
-        ion_conc=(1, 0.02, 0.001),
+        ion_conc=(1, 0.03, 0.001),
         ne_shape=1,
         te_shape=0.8,
         regime="l_mode",
@@ -73,7 +73,7 @@ class HDArun:
         # self.recover_zeff()
 
         self.recover_density()
-        # self.recover_zeff(optimize="density")
+        self.recover_zeff(optimize="density")
 
         # self.plot()
 
@@ -121,7 +121,7 @@ class HDArun:
         name = f"{self.data.pulse}_Wp_NIR_Ti-test"
         self.plot(name=name, savefig=True)
 
-    def test_shape(self):
+    def test_kinetic_profs(self):
         """Trust all measurements, find shape to explain data"""
 
         # L-mode profiles
@@ -154,6 +154,7 @@ class HDArun:
         for t in self.bckc.time:
             te_0 = self.bckc.el_temp.sel(t=t).sel(rho_poloidal=0).values
             self.bckc.el_temp.loc[dict(t=t)] = (self.bckc.profs.te * te_0).values
+            self.bckc.el_temp.loc[dict(t=t)] = (self.bckc.profs.te * te_0).values
         self.recover_density()
         h_mode_both = deepcopy(self.bckc)
 
@@ -173,6 +174,43 @@ class HDArun:
             self.bckc.el_temp.loc[dict(t=t)] = (self.bckc.profs.te * te_0).values
         self.recover_density()
         h_mode_hollow = deepcopy(self.bckc)
+
+        # low temperature edge
+        self.initialize_bckc()
+        te_0 = 1.e3
+        self.bckc.profs.te = self.bckc.profs.build_temperature(
+            y_0=te_0,
+            y_ped=te_0 / 15.0,
+            x_ped=0.9,
+            w_core=0.3,
+            datatype=("temperature", "electron"),
+        )
+        self.bckc.profs.te /= self.bckc.profs.te.max()
+        for t in self.bckc.time:
+            te_0 = self.bckc.el_temp.sel(t=t).sel(rho_poloidal=0).values
+            self.bckc.el_temp.loc[dict(t=t)] = (self.bckc.profs.te * te_0).values
+
+        self.recover_density()
+        self.recover_zeff(optimize="density")
+
+    def test_current_density(self):
+        """Trust all measurements, find shape to explain data"""
+
+        # L-mode profiles
+
+        # Broad current density
+        self.initialize_bckc()
+        self.bckc.build_current_density(sigm=0.8)
+        self.recover_density()
+        self.recover_zeff(optimize="density")
+        broad = deepcopy(self.bckc)
+
+        # Peaked current density
+        self.initialize_bckc()
+        self.bckc.build_current_density(sigm=0.2)
+        self.recover_density()
+        self.recover_zeff(optimize="density")
+        peaked = deepcopy(self.bckc)
 
     def plot(self, savefig=False, name="", correl="t", plot_spectr=False):
         data = self.data
@@ -214,7 +252,7 @@ class HDArun:
             bckc.el_temp.loc[dict(t=t)] = (temp * he_like_data.el_temp.sel(t=t)).values
 
         # Initialize ion temperature variable
-        ion_temp = (temp * he_like_data.ion_temp.sel(t=t)).values
+        ion_temp = (temp * he_like_data.ion_temp.sel(t=t))
 
         for j in range(nrounds):
             print(f"Round {j+1} or {nrounds}")
