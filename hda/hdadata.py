@@ -65,7 +65,7 @@ class HDAdata:
                 pulse, tstart - 2 * dt, tend + 2 * dt, max_freq=1.0e4
             )
 
-            if pulse == 8303:
+            if pulse == 8303 or pulse ==8322 or pulse ==8323 or pulse == 8324:
                 revision = 2
             else:
                 revision = 0
@@ -345,7 +345,7 @@ class HDAdata:
 
     def propagate_parameters(self):
         # Current density, poloidal field, li
-        self.build_current_density()
+        # self.build_current_density()
         self.calc_magnetic_field()
 
         # Mean charge
@@ -468,18 +468,17 @@ class HDAdata:
         Given Zeff, Te and Ne: calculate resistivity and Vloop
         """
 
+        self.conductivity = ph.conductivity_neo(
+            self.el_dens,
+            self.el_temp,
+            self.zeff.sum("element"),
+            self.min_r,
+            self.r_a,
+            self.R_mag,
+            self.q_prof,
+            approx="sauter",
+        )
         for t in self.time:
-            self.conductivity.loc[dict(t=t)] = ph.conductivity_neo(
-                self.el_dens.sel(t=t),
-                self.el_temp.sel(t=t),
-                self.zeff.sum("element").sel(t=t),
-                self.min_r.sel(t=t),
-                self.r_a.sel(t=t),
-                self.R_mag.sel(t=t),
-                self.q_prof.sel(t=t),
-                approx="sauter",
-            )
-
             resistivity = 1.0 / self.conductivity.sel(t=t)
             ir = np.where(np.isfinite(resistivity))
 
@@ -523,7 +522,7 @@ class HDAdata:
                 )
                 self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp
 
-    def build_current_density(self, centr=0.0, sigm=0.4):
+    def build_current_density(self, centr=0.0, sigm=0.3):
         """
         Build current density profile (A/m**2) given the total plasma current,
         plasma geometry and a shape parameter

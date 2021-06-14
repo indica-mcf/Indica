@@ -4,6 +4,7 @@ from matplotlib import cm
 
 plt.ion()
 
+
 def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=False):
     """
 
@@ -32,11 +33,13 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     ldata = None
     ldata_he = None
     lbckc = None
+    lbckc_he = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("el_temp")
             ldata_he = ldata + get_labels("he_like")
             lbckc = ldata + get_labels("bckc")
+            lbckc_he = ldata_he + get_labels("bckc")
         data.el_temp.sel(t=t).plot(color=colors[i], label=ldata)
 
         plt.scatter(
@@ -58,6 +61,23 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
         if has_bckc:
             bckc.el_temp.sel(t=t).plot(color=colors[i], label=lbckc, linestyle="--")
 
+            plt.scatter(
+                bckc.spectrometers["he_like"].pos[i],
+                bckc.spectrometers["he_like"].el_temp[i],
+                color=colors[i],
+                label=lbckc_he,
+                facecolors="none",
+            )
+            plt.hlines(
+                bckc.spectrometers["he_like"].el_temp[i],
+                bckc.spectrometers["he_like"].pos[i]
+                - bckc.spectrometers["he_like"].pos.attrs["err_in"][i],
+                bckc.spectrometers["he_like"].pos[i]
+                + bckc.spectrometers["he_like"].pos.attrs["err_out"][i],
+                alpha=0.5,
+                color=colors[i],
+            )
+
     plt.title("Electron Temperature")
     plt.ylabel("(eV)")
     plt.xlabel(r"$\rho_{pol}$")
@@ -75,12 +95,16 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     lbckc = None
     ldata_he = None
     ldata_c5 = None
+    lbckc_he = None
+    lbckc_c5 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("ion_temp")
             ldata_he = ldata + get_labels("he_like")
             ldata_c5 = ldata + get_labels("passive_c5")
             lbckc = ldata + get_labels("bckc")
+            lbckc_he = ldata_he + get_labels("bckc")
+            lbckc_c5 = ldata_c5 + get_labels("bckc")
         data.ion_temp.sel(t=t).sel(element=data.main_ion).plot(
             color=colors[i], label=ldata,
         )
@@ -106,9 +130,8 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
             plt.scatter(
                 data.spectrometers["passive_c5"].pos[i],
                 data.spectrometers["passive_c5"].ion_temp[i],
-                color=colors[i],
-                marker="x",
                 label=ldata_c5,
+                marker="s",
             )
             plt.hlines(
                 data.spectrometers["passive_c5"].ion_temp[i],
@@ -124,6 +147,42 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
             bckc.ion_temp.sel(t=t).sel(element=data.main_ion).plot(
                 color=colors[i], label=lbckc, linestyle="--"
             )
+
+            plt.scatter(
+                bckc.spectrometers["he_like"].pos[i],
+                bckc.spectrometers["he_like"].ion_temp[i],
+                color=colors[i],
+                facecolors="none",
+                label=lbckc_he,
+            )
+            plt.hlines(
+                bckc.spectrometers["he_like"].ion_temp[i],
+                bckc.spectrometers["he_like"].pos[i]
+                - bckc.spectrometers["he_like"].pos.attrs["err_in"][i],
+                bckc.spectrometers["he_like"].pos[i]
+                + bckc.spectrometers["he_like"].pos.attrs["err_out"][i],
+                alpha=0.5,
+                color=colors[i],
+            )
+
+            if "passive_c5" in bckc.spectrometers.keys():
+                plt.scatter(
+                    bckc.spectrometers["passive_c5"].pos[i],
+                    bckc.spectrometers["passive_c5"].ion_temp[i],
+                    color=colors[i],
+                    marker="s",
+                    facecolors="none",
+                    label=lbckc_c5,
+                )
+                plt.hlines(
+                    bckc.spectrometers["passive_c5"].ion_temp[i],
+                    bckc.spectrometers["passive_c5"].pos[i]
+                    - bckc.spectrometers["passive_c5"].pos.attrs["err_in"][i],
+                    bckc.spectrometers["passive_c5"].pos[i]
+                    + bckc.spectrometers["passive_c5"].pos.attrs["err_out"][i],
+                    alpha=0.5,
+                    color=colors[i],
+                )
 
     plt.title("Ion Temperature")
     plt.ylabel("(eV)")
@@ -294,7 +353,7 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
             plt.scatter(
                 x_val[i].values,
                 wmhd_bckc[i].values / 1.0e3,
-                marker="x",
+                facecolors="none",
                 color=colors[i],
             )
 
@@ -330,7 +389,10 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
         plt.scatter(x_val[i].values, vloop[i].values, marker="o", color=colors[i])
         if has_bckc:
             plt.scatter(
-                x_val[i].values, vloop_bckc[i].values, marker="x", color=colors[i]
+                x_val[i].values,
+                vloop_bckc[i].values,
+                facecolors="none",
+                color=colors[i],
             )
     plt.title("$V_{loop}$")
     plt.ylabel("($V$)")
@@ -368,12 +430,13 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
         plt.scatter(x_val[i].values, ne_l[i].values, marker="o", color=colors[i])
         if has_bckc:
             plt.scatter(
-                x_val[i].values, ne_l_bckc[i].values, marker="x", color=colors[i]
+                x_val[i].values, ne_l_bckc[i].values, facecolors="none", color=colors[i]
             )
     plt.title("$N_{e}$ LOS-integrated")
     plt.ylabel("($m^{-2}$)")
     plt.xlabel(correl_label(correl))
     plt.legend()
+    # plt.ylim(ylim)
     if savefig:
         save_figure(fig_name=name + "_ne_l")
 
