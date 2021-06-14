@@ -88,9 +88,10 @@ class ST40Reader(DataReader):
         "sxr": "get_radiation",
         "xrcs": "get_helike_spectroscopy",
         "nirh1": "get_interferometry",
+        "smmh1": "get_interferometry",
     }
-    MACHINE_DIMS = ((0.15, 0.9), (-0.9, 0.9))
-    UIDS_MDS = {"efit": "", "xrcs": "sxr", "nirh1": "interferom"}
+    MACHINE_DIMS = ((0.15, 0.8), (-0.8, 0.8))
+    UIDS_MDS = {"efit": "", "xrcs": "sxr", "nirh1": "interferom", "smmh1": "interferom"}
     QUANTITIES_MDS = {
         "efit": {
             "f": ".profiles.psi_norm:f",
@@ -102,6 +103,7 @@ class ST40Reader(DataReader):
             "psi": ".psi2d:psi",
             "vjac": ".profiles.psi_norm:vjac",
             "rmag": ".global:rmag",
+            "rgeo": ".global:rgeo",
             "rbnd": ".p_boundary:rbnd",
             "zmag": ".global:zmag",
             "zbnd": ".p_boundary:zbnd",
@@ -115,6 +117,7 @@ class ST40Reader(DataReader):
             "ti_z": ".ti_z:ti",
         },
         "nirh1": {"ne": ".line_int.ne",},
+        "smmh1": {"ne": ".line_int.ne",},
     }
 
     def __init__(
@@ -160,7 +163,7 @@ class ST40Reader(DataReader):
         mds_path = ""
         if len(uid) > 0:
             mds_path += f".{uid}".upper()
-        mds_path += f".{instrument}.{revision_name}{quantity}".upper()
+        mds_path += f".{instrument}{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)
 
     def _get_signal(
@@ -169,6 +172,7 @@ class ST40Reader(DataReader):
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
+        # print(path)
         data = np.array(self.conn.get(path_check))
         return data, path
 
@@ -419,11 +423,11 @@ class ST40Reader(DataReader):
         if revision < 0:
             rev_str = ""
         elif revision == 0:
-            rev_str = "best"
+            rev_str = ".best"
         elif revision < 10:
-            rev_str = f"run0{int(revision)}"
+            rev_str = f".run0{int(revision)}"
         elif revision > 9:
-            rev_str = f"run{int(revision)}"
+            rev_str = f".run{int(revision)}"
 
         return rev_str
 

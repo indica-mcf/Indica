@@ -100,6 +100,7 @@ class DataReader(BaseIO):
             "psi": ("magnetic_flux", "plasma"),
             "vjac": ("volume_jacobian", "plasma"),
             "rmag": ("major_rad", "mag_axis"),
+            "rgeo": ("major_rad", "geometric"),
             "rbnd": ("major_rad", "separatrix"),
             "zmag": ("z", "mag_axis"),
             "zbnd": ("z", "separatrix"),
@@ -555,7 +556,7 @@ class DataReader(BaseIO):
             A dictionary containing the requested physical quantities.
 
         """
-        dims_1d_quantities = {"psi", "rmag", "zmag", "faxs", "fbnd", "ipla", "wp"}
+        dims_1d_quantities = {"psi", "rmag", "zmag", "rgeo", "faxs", "fbnd", "ipla", "wp"}
         separatrix_quantities = {"rbnd", "zbnd"}
         flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(instrument)
