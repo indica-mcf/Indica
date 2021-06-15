@@ -102,15 +102,22 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "w m^3",
     ),
     "recombination_power_coeffecient": (
-        "Radiated power from recombination and bremsstrahlung",
+        "Radiated power from recombination and bremsstrahlung of given impurity \
+            element",
         "w m^3",
     ),
-    "fractional abundance": (
+    "initial_fractional_abundance": (
+        "Initial fractional abundance for given impurity element, not normalized\
+            , as in the sum of all stages should equal the total number density\
+                for the given impurity element",
+        "m^-3",
+    ),
+    "fractional_abundance": (
         "Fractional abundance of all ionisation stages of \
             given impurity element (normalized)",
         "",
     ),
-    "total radiated power loss": (
+    "total_radiated_power_loss": (
         "Total radiated power of all ionisation stages of given impurity element",
         "W m^3",
     ),
@@ -337,6 +344,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "line_power_coeffecient",
         "recombination_power_coeffecient",
         "charge-exchange_power_coeffecient",
+        "initial_fractional_abundance",
         "fractional abundance",
         "total radiated power loss",
     ],
@@ -368,6 +376,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "line_power_coeffecient",
             "recombination_power_coeffecient",
             "charge-exchange_power_coeffecient",
+            "initial_fractional_abundance",
             "fractional abundance",
             "total radiated power loss",
         ],
