@@ -340,11 +340,12 @@ class Equilibrium(AbstractEquilibrium):
         if t is None:
             rmji = self.rmji
             t = self.rmji.coords["t"]
-            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         else:
             rmji = self.rmji.interp(t=t, method="nearest")
-            rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+        rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
+        try:
+            R = rmji.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+        except ValueError:
             R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
 
         return R, t
