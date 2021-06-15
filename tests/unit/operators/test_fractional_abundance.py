@@ -9,9 +9,9 @@ from indica.readers import ADASReader
 
 
 class Assertion_Test_Case(unittest.TestCase):
-    def init_assert_check(self, SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te):
+    def init_assert_check(self, SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te, N_z_t0=None):
         with self.assertRaises(AssertionError):
-            FractionalAbundance(SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te)
+            FractionalAbundance(SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te, N_z_t0)
 
     def tau_check(self, FracAbundObj: FractionalAbundance, tau):
         with self.assertRaises(AssertionError):
@@ -54,6 +54,90 @@ def test_init():
         raise e
 
     test_case = Assertion_Test_Case()
+
+    N_z_t0_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
+    test_case.init_assert_check(
+        SCD,
+        ACD,
+        CCD,
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t0=N_z_t0_invalid,
+    )
+
+    N_z_t0_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
+    test_case.init_assert_check(
+        SCD,
+        ACD,
+        CCD,
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t0=N_z_t0_invalid,
+    )
+
+    N_z_t0_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
+    test_case.init_assert_check(
+        SCD,
+        ACD,
+        CCD,
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t0=N_z_t0_invalid,
+    )
+
+    N_z_t0_invalid = np.zeros(5) + np.nan
+    test_case.init_assert_check(
+        SCD,
+        ACD,
+        CCD,
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t0=N_z_t0_invalid,
+    )
+
+    N_z_t0_invalid = np.zeros(5) + np.inf
+    test_case.init_assert_check(
+        SCD,
+        ACD,
+        CCD,
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t0=N_z_t0_invalid,
+    )
+
+    N_z_t0_invalid = np.zeros(5) - np.inf
+    test_case.init_assert_check(
+        SCD,
+        ACD,
+        CCD,
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t0=N_z_t0_invalid,
+    )
 
     input_Ne_invalid = np.logspace(30.0, 16.0, 10)
     input_Ne_invalid = DataArray(

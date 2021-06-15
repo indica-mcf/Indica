@@ -16,10 +16,34 @@ np.set_printoptions(edgeitems=10, linewidth=100)
 
 
 class FractionalAbundance(Operator):
-    """Calculate fractional abundance for all ionisation stages of a given element
+    """Calculate fractional abundance for all ionisation stages of a given element.
 
     Parameters
     ----------
+    SCD
+        xarray.DataArray of effective ionisation rate coefficients of all relevant
+        ionisation stages of given impurity element.
+    ACD
+        xarray.DataArray of effective recombination rate coefficients of all relevant
+        ionisation stages of given impurity element.
+    CCD
+        xarray.DataArray of charge exchange cross coupling coefficients of all relevant
+        ionisation stages of given impurity element.
+    PLT
+        xarray.DataArray of radiated power of line emission from excitation of all
+        relevant ionisation stages of given impurity element.
+    PRC
+        xarray.DataArray of radiated power of charge exchange emission of all relevant
+        ionisation stages of given impurity element.
+    PRB
+        xarray.DataArray of radiated power from recombination and bremsstrahlung of
+        given impurity element.
+    Ne
+        xarray.DataArray of electron density as a profile of rho
+    Nh
+        xarray.DataArray of thermal hydrogen as a profile of rho
+    Te
+        xarray.DataArray of electron temperature as a profile of rho
     sess
         Object representing this session of calculations with the library.
         Holds and communicates provenance information.
@@ -31,6 +55,47 @@ class FractionalAbundance(Operator):
         operator.
     RESULT_TYPES: List[DataType]
         Ordered list of the types of data returned by the operator.
+
+    Returns
+    -------
+    N_z_t
+        xarray.DataArray of fractional abundance of all ionisation stages of given
+        impurity element.
+    cooling_factor
+        xarray.DataArray of total radiated power loss of all ionisation stages of given
+        impurity element.
+
+    Methods
+    -------
+    N_z_t0_check(N_z_t0)
+        Checks that inputted initial fractional abundance has valid values.
+    input_check(imported_data, inputted_data)
+        Checks that inputted data (Ne and Te) has values that are within the
+        interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
+    interpolate_rates()
+        Interpolates rates based on inputted Ne and Te, also determines the number
+        of ionisation stages for a given element.
+    calc_ionisation_balance_matrix()
+        Calculates the ionisation balance matrix that defines the differential equation
+        that defines the time evolution of the fractional abundance of all of the
+        ionisation stages.
+    calc_N_z_tinf()
+        Calculates the equilibrium fractional abundance of all ionisation stages,
+        N_z(t=infinity) used for the final time evolution equation.
+    calc_eigen_vals_and_vecs()
+        Calculates the eigenvalues and eigenvectors of the ionisation balance matrix.
+    calc_eigen_coeffs()
+        Calculates the coefficients from the eigenvalues and eigenvectors for the time
+        evolution equation.
+    calc_N_z_t(tau)
+        Calculates the fractional abundance of all ionisation stages at time tau.
+    interpolate_power()
+        Interpolates the various powers based on inputted Ne and Te.
+    calc_cooling_factor()
+        Calculates total radiated power of all ionisation stages of a given
+        impurity element.
+    ordered_setup()
+        Sets up data for calculation in correct order.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
@@ -43,10 +108,11 @@ class FractionalAbundance(Operator):
         ("number_density", "electrons"),
         ("temperature", "electrons"),
         ("number_density", "thermal_hydrogen"),
+        ("initial_fractional_abundance", "impurity_element"),
     ]
     RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("fractional abundance", "impurity_element"),
-        ("total radiated power loss", "impurity_element"),
+        ("fractional_abundance", "impurity_element"),
+        ("total_radiated power loss", "impurity_element"),
     ]
 
     def __init__(
@@ -60,8 +126,12 @@ class FractionalAbundance(Operator):
         Ne: DataArray,
         Nh: DataArray,
         Te: DataArray,
+        N_z_t0: np.ndarray = None,
         sess: session.Session = session.global_session,
     ):
+        """Initialises FractionalAbundance class and additionally performs error
+        checking on inputs.
+        """
         super().__init__(sess)
         self.SCD = SCD
         self.ACD = ACD
@@ -93,6 +163,10 @@ class FractionalAbundance(Operator):
         inputted_data["Ne"] = self.Ne
         inputted_data["Nh"] = self.Nh
         inputted_data["Te"] = self.Te
+
+        if N_z_t0 is not None:
+            self.N_z_t0_check(N_z_t0)
+        self.N_z_t0 = N_z_t0
 
         try:
             for key, val in imported_data.items():
@@ -136,7 +210,62 @@ class FractionalAbundance(Operator):
 
         self.input_check(imported_data, inputted_data)
 
+    def N_z_t0_check(self, N_z_t0):
+        """Checks that inputted initial fractional abundance has valid values.
+
+        Parameters
+        ----------
+        N_z_t0
+            Initial fractional abundance to check.
+        """
+        try:
+            assert isinstance(N_z_t0, np.ndarray)
+        except AssertionError:
+            raise AssertionError(
+                "Initial fractional abundance must be a numpy array\
+                (numpy.ndarray)."
+            )
+
+        try:
+            assert np.all(N_z_t0 >= 0)
+        except AssertionError:
+            raise AssertionError(
+                "Cannot have any negative values in the initial \
+                fractional abundance data."
+            )
+
+        try:
+            assert N_z_t0.ndim == 1
+        except AssertionError:
+            raise AssertionError("Initial fractional abundance must be 1-dimensional.")
+
+        try:
+            assert np.all(N_z_t0 != np.nan)
+        except AssertionError:
+            raise AssertionError(
+                "Initial fractional abundance cannot contain any \
+                NaNs."
+            )
+
+        try:
+            assert np.all(np.abs(N_z_t0) != np.inf)
+        except AssertionError:
+            raise AssertionError(
+                "Initial fractional abundance cannot contain any \
+                infinities."
+            )
+
     def input_check(self, imported_data, inputted_data):
+        """Checks that inputted data (Ne and Te) has values that are within the
+        interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
+
+        Parameters
+        ----------
+        imported_data
+            Imported data (SCD, ACD, CCD, PLT, PRC, PRB)
+        inputted_data
+            Inputted data (Ne, Nh, Te) (Nh is tested in self.__init__())
+        """
         try:
             for key, val in imported_data.items():
                 assert np.all(
@@ -186,6 +315,22 @@ class FractionalAbundance(Operator):
             )
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
+        """Indicates the datatypes of the results when calling the operator
+        with arguments of the given types. It is assumed that the
+        argument types are valid.
+
+        Parameters
+        ----------
+        args
+            The datatypes of the parameters which the operator is to be called with.
+
+        Returns
+        -------
+        :
+            The datatype of each result that will be returned if the operator is
+            called with these arguments.
+
+        """
         return (
             ("fractional abundance", "impurity_element"),
             ("total radiated power loss", "impurity_element"),
@@ -194,6 +339,20 @@ class FractionalAbundance(Operator):
     def interpolate_rates(
         self,
     ):
+        """Interpolates rates based on inputted Ne and Te, also determines the number
+        of ionisation stages for a given element.
+
+        Returns
+        -------
+        SCD_spec
+            Interpolated effective ionisation rate coefficients.
+        ACD_spec
+            Interpolated effective recombination rate coefficients.
+        CCD_spec
+            Interpolated charge exchange cross coupling coefficients.
+        num_of_stages
+            Number of ionisation stages.
+        """
         Ne, Te = np.log10(self.Ne), np.log10(self.Te)
 
         SCD_spec = self.SCD.indica.interp2d(
@@ -228,6 +387,16 @@ class FractionalAbundance(Operator):
     def calc_ionisation_balance_matrix(
         self,
     ):
+        """Calculates the ionisation balance matrix that defines the differential equation
+        that defines the time evolution of the fractional abundance of all of the
+        ionisation stages.
+
+        Returns
+        -------
+        ionisation_balance_matrix
+            Matrix representing coefficients of the differential equation governing
+            the time evolution of the ionisation balance.
+        """
         Ne, Nh = self.Ne, self.Nh
 
         num_of_stages = self.num_of_stages
@@ -266,6 +435,14 @@ class FractionalAbundance(Operator):
     def calc_N_z_tinf(
         self,
     ):
+        """Calculates the equilibrium fractional abundance of all ionisation stages,
+        N_z(t=infinity) used for the final time evolution equation.
+
+        Returns
+        -------
+        N_z_tinf
+            Fractional abundance at equilibrium.
+        """
         rho = self.Ne.coords["rho"]
         ionisation_balance_matrix = self.ionisation_balance_matrix
 
@@ -277,6 +454,7 @@ class FractionalAbundance(Operator):
                 ionisation_balance_matrix[:, :, irho]
             )
 
+        # Complex type casting for compatibility with eigen calculation results later.
         N_z_tinf = np.abs(null_space).astype(dtype=np.complex128)
         self.N_z_tinf = N_z_tinf
 
@@ -285,6 +463,16 @@ class FractionalAbundance(Operator):
     def calc_eigen_vals_and_vecs(
         self,
     ):
+        """Calculates the eigenvalues and eigenvectors of the ionisation balance
+        matrix.
+
+        Returns
+        -------
+        eig_vals
+            Eigenvalues of the ionisation balance matrix.
+        eig_vecs
+            Eigenvectors of the ionisation balance matrix.
+        """
         rho = self.Ne.coords["rho"]
         eig_vals = np.zeros((self.num_of_stages, rho.size), dtype=np.complex128)
         eig_vecs = np.zeros(
@@ -304,10 +492,26 @@ class FractionalAbundance(Operator):
     def calc_eigen_coeffs(
         self,
     ):
+        """Calculates the coefficients from the eigenvalues and eigenvectors for the
+        time evolution equation.
 
+        Returns
+        -------
+        eig_coeffs
+            Coefficients calculated from the eigenvalues and eigenvectors needed
+            for the time evolution equation.
+        N_z_t0
+            Initial fractional abundance, either user-provided or fully neutral
+            eg. [1.0, 0.0, 0.0, 0.0, 0.0] for Beryllium.
+        """
         rho = self.Ne.coords["rho"]
-        N_z_t0 = np.zeros(self.N_z_tinf.shape, dtype=np.complex128)
-        N_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(rho.size)])
+
+        if self.N_z_t0 is None:
+            N_z_t0 = np.zeros(self.N_z_tinf.shape, dtype=np.complex128)
+            N_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(rho.size)])
+        else:
+            N_z_t0 = self.N_z_t0 / np.linalg.norm(self.N_z_t0)
+            N_z_t0 = N_z_t0.as_type(dtype=np.complex128)
 
         eig_vals = self.eig_vals
         eig_vecs_inv = np.zeros(self.eig_vecs.shape, dtype=np.complex128)
@@ -333,6 +537,18 @@ class FractionalAbundance(Operator):
         self,
         tau,
     ):
+        """Calculates the fractional abundance of all ionisation stages at time tau.
+
+        Parameters
+        ----------
+        tau
+            Time after t0 (t0 is defined as the time at which N_z_t0 is taken).
+
+        Returns
+        -------
+        N_z_t
+            Fractional abundance at tau.
+        """
         try:
             assert np.abs(tau) != np.inf
         except AssertionError:
@@ -360,6 +576,19 @@ class FractionalAbundance(Operator):
     def interpolate_power(
         self,
     ):
+        """Interpolates the various powers based on inputted Ne and Te.
+
+        Returns
+        -------
+        PLT_spec
+            Interpolated radiated power of line emission from excitation of all
+            relevant ionisation stages.
+        PRC_spec
+            Interpolated radiated power of charge exchange emission of all relevant
+            ionisation stages.
+        PRB_spec
+            Interpolated radiated power from recombination and bremsstrahlung.
+        """
         Ne, Te = np.log10(self.Ne), np.log10(self.Te)
 
         PLT_spec = self.PLT.indica.interp2d(
@@ -393,6 +622,14 @@ class FractionalAbundance(Operator):
     def calc_cooling_factor(
         self,
     ):
+        """Calculates total radiated power of all ionisation stages of a given
+        impurity element.
+
+        Returns
+        -------
+        cooling_factor
+            Total radiated power of all ionisation stages.
+        """
         Ne, Nh = self.Ne, self.Nh
 
         N_z_t = self.N_z_t
@@ -419,6 +656,7 @@ class FractionalAbundance(Operator):
         return cooling_factor
 
     def ordered_setup(self):
+        """Sets up data for calculation in correct order."""
         self.interpolate_rates()
 
         self.calc_ionisation_balance_matrix()
@@ -432,6 +670,20 @@ class FractionalAbundance(Operator):
         self.interpolate_power()
 
     def __call__(self, tau):
+        """Performs the calculations for fractional abundance and total radiated power.
+
+        Parameters
+        ----------
+        tau
+            Time after t0 (t0 is defined as the time at which N_z_t0 is taken).
+
+        Returns
+        -------
+        N_z_t
+            Fractional abundance at tau.
+        cooling_factor
+            Total radiated power of all ionisation stages.
+        """
         self.calc_N_z_t(tau)
 
         self.calc_cooling_factor()
