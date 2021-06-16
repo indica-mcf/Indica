@@ -2,6 +2,7 @@ from copy import deepcopy
 
 import matplotlib.pylab as plt
 import numpy as np
+import pickle
 
 from hda.hdadata import HDAdata
 from hda.hdaplot import HDAplot
@@ -68,12 +69,13 @@ class HDArun:
 
     def __call__(self, use_c5=True, debug=False):
 
-        self.initialize_bckc()
+        # self.initialize_bckc()
         # self.recover_temperature(use_c5=use_c5, debug=debug)
         # self.recover_zeff()
 
+        self.initialize_bckc()
         self.recover_density()
-        self.recover_zeff(optimize="density")
+        # self.recover_zeff(optimize="density")
 
         # self.plot()
 
@@ -175,9 +177,16 @@ class HDArun:
         self.recover_density()
         h_mode_hollow = deepcopy(self.bckc)
 
+    def test_low_edge_temperature(self):
+        self.initialize_bckc()
+        self.recover_density()
+        self.recover_zeff(optimize="density")
+        self.bckc.simulate_spectrometers()
+        broad = self.bckc
+
         # low temperature edge
         self.initialize_bckc()
-        te_0 = 1.e3
+        te_0 = 1.0e3
         self.bckc.profs.te = self.bckc.profs.build_temperature(
             y_0=te_0,
             y_ped=te_0 / 15.0,
@@ -192,6 +201,10 @@ class HDArun:
 
         self.recover_density()
         self.recover_zeff(optimize="density")
+        self.bckc.simulate_spectrometers()
+        peaked = self.bckc
+
+        HDAplot(broad, peaked)
 
     def test_current_density(self):
         """Trust all measurements, find shape to explain data"""
@@ -211,6 +224,8 @@ class HDArun:
         self.recover_density()
         self.recover_zeff(optimize="density")
         peaked = deepcopy(self.bckc)
+
+        HDAplot(broad, peaked)
 
     def plot(self, savefig=False, name="", correl="t", plot_spectr=False):
         data = self.data
@@ -252,7 +267,7 @@ class HDArun:
             bckc.el_temp.loc[dict(t=t)] = (temp * he_like_data.el_temp.sel(t=t)).values
 
         # Initialize ion temperature variable
-        ion_temp = (temp * he_like_data.ion_temp.sel(t=t))
+        ion_temp = temp * he_like_data.ion_temp.sel(t=t)
 
         for j in range(nrounds):
             print(f"Round {j+1} or {nrounds}")
@@ -442,9 +457,9 @@ class HDArun:
             elif optimize == "density":
                 self.recover_density()
 
-    def test_temperatures(self):
-        """
-        Test parameter sensitivity to changes in electron and ion temperatures
-        """
+    def write_to_pickle(self):
 
-        self.data.profs
+        with open(f"data_{self.pulse}.pkl", "wb") as f:
+            pickle.dump(
+                self, f,
+            )

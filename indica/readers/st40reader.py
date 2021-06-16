@@ -172,8 +172,12 @@ class ST40Reader(DataReader):
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
-        # print(path)
-        data = np.array(self.conn.get(path_check))
+        if quantity.lower()==":best_run":
+            path_check = path
+            data = str(self.conn.get(path_check))
+        else:
+            data = np.array(self.conn.get(path_check))
+
         return data, path
 
     def _get_signal_dims(self, mds_path: str, ndims: int,) -> Tuple[List[np.array], List[str]]:
