@@ -576,3 +576,38 @@ def test_Btot():
         equilib.psi.coords["R"], equilib.psi.coords["z"]
     )
     test_nan_B(total_B, rho_)
+
+
+def test_R_hfs_1d():
+    t = np.linspace(70, 75, 5)
+    time = xr.DataArray(data=t, coords={"t": t}, dims=("t",))
+    rho = np.random.random(5)
+
+    offset = MagicMock(return_value=0.02)
+
+    # Generate equilibrium data
+    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+
+    rhfs, t_new = equilib.R_hfs(rho, time)
+    assert np.all(t_new == t)
+    assert np.all(rhfs.coords["rho_poloidal"] == rho)
+
+
+def test_R_hfs_2d():
+    t = np.linspace(70, 75, 5)
+    time = xr.DataArray(data=t, coords={"t": t}, dims=("t",))
+    x = np.linspace(0, 1, 5)
+    rho = xr.DataArray(
+        data=np.random.random((5, 5)), coords={"t": t, "x": x}, dims=("t", "x")
+    )
+
+    offset = MagicMock(return_value=0.02)
+
+    # Generate equilibrium data
+    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+
+    rhfs, t_new = equilib.R_hfs(rho, time)
+    assert np.all(t_new == t)
+    assert np.all(rhfs.coords["rho_poloidal"] == rho)
