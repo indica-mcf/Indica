@@ -20,7 +20,7 @@ class Assertion_Test_Case(unittest.TestCase):
 
 @pytest.fixture
 def test_init():
-    ADAS_file = ADASReader("/mnt/c/Users/Sanket_Work/Documents/InDiCA_snippets/")
+    ADAS_file = ADASReader()
 
     element = "be"
 
