@@ -127,6 +127,7 @@ class FractionalAbundance(Operator):
         Nh: DataArray,
         Te: DataArray,
         N_z_t0: np.ndarray = None,
+        unit_testing: bool = False,
         sess: session.Session = session.global_session,
     ):
         """Initialises FractionalAbundance class and additionally performs error
@@ -164,8 +165,7 @@ class FractionalAbundance(Operator):
         inputted_data["Nh"] = self.Nh
         inputted_data["Te"] = self.Te
 
-        if N_z_t0 is not None:
-            self.N_z_t0_check(N_z_t0)
+        self.N_z_t0_check(N_z_t0)
         self.N_z_t0 = N_z_t0
 
         try:
@@ -210,6 +210,9 @@ class FractionalAbundance(Operator):
 
         self.input_check(imported_data, inputted_data)
 
+        if not unit_testing:
+            self.ordered_setup()
+
     def N_z_t0_check(self, N_z_t0):
         """Checks that inputted initial fractional abundance has valid values.
 
@@ -218,6 +221,9 @@ class FractionalAbundance(Operator):
         N_z_t0
             Initial fractional abundance to check.
         """
+        if N_z_t0 is None:
+            return
+
         try:
             assert isinstance(N_z_t0, np.ndarray)
         except AssertionError:

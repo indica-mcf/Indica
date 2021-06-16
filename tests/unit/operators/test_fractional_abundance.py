@@ -11,7 +11,7 @@ from indica.readers import ADASReader
 class Assertion_Test_Case(unittest.TestCase):
     def init_assert_check(self, SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te, N_z_t0=None):
         with self.assertRaises(AssertionError):
-            FractionalAbundance(SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te, N_z_t0)
+            FractionalAbundance(SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te, N_z_t0, True)
 
     def tau_check(self, FracAbundObj: FractionalAbundance, tau):
         with self.assertRaises(AssertionError):
@@ -48,7 +48,16 @@ def test_init():
 
     try:
         example_frac_abundance = FractionalAbundance(
-            SCD, ACD, CCD, PLT, PRC, PRB, Ne=input_Ne, Nh=input_Nh, Te=input_Te
+            SCD,
+            ACD,
+            CCD,
+            PLT,
+            PRC,
+            PRB,
+            Ne=input_Ne,
+            Nh=input_Nh,
+            Te=input_Te,
+            unit_testing=True,
         )
     except Exception as e:
         raise e
