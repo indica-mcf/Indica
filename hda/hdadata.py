@@ -65,14 +65,27 @@ class HDAdata:
                 pulse, tstart - 2 * dt, tend + 2 * dt, max_freq=1.0e4
             )
 
-            if pulse == 8303 or pulse ==8322 or pulse ==8323 or pulse == 8324:
+            if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
                 revision = 2
             else:
                 revision = 0
             efit = self.reader.get("", "efit", revision)
+
+            if revision ==0:
+                whichRun, _ = self.reader._get_signal("", "efit", ":best_run", revision)
+                whichRun = whichRun[-2:]
+                if whichRun[0] == "0":
+                    whichRun = whichRun[-1]
+                revision = int(whichRun)
+            else:
+                whichRun = self.reader.get_revision_name(revision)[1:].upper()
+
             self.equilibrium = Equilibrium(efit)
             self.flux_coords = FluxSurfaceCoordinates("poloidal")
             self.flux_coords.set_equilibrium(self.equilibrium)
+
+            efit["revision"] = revision
+            efit["run"] = whichRun
             self.raw_data["efit"] = efit
 
             rho_ped = 0.85
@@ -884,16 +897,7 @@ class HDAdata:
 
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                [
-                    self.raw_data["efit"],
-                    self.equilibrium,
-                    self.flux_coords,
-                    self.raw_data["xrcs"],
-                    self.raw_data["nirh1"],
-                    self.raw_data["smmh1"],
-                    self.raw_data["vloop"],
-                ],
-                f,
+                self, f,
             )
 
 
