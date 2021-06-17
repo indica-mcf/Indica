@@ -2,6 +2,7 @@ from functools import reduce
 from unittest.mock import MagicMock
 
 import numpy as np
+from scipy.integrate import quad
 from scipy.optimize import fmin
 import xarray as xr
 
@@ -370,6 +371,27 @@ def equilibrium_dat_and_te(with_Te=False):
     else:
         Te = None
     return data, Te
+
+
+def test_cross_sectional_area():
+    offset = MagicMock(return_value=0.02)
+
+    equilib_dat, Te = equilibrium_dat_and_te()
+
+    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+
+    rho = np.array([0.5])
+    time = np.array([77.5])
+
+    # Compare trapezoidal integration with definite integral calculated using
+    # scipy.integrate.quad
+    trapz_area = equilib.cross_sectional_area(rho, time)
+
+    quad_area, _ = quad(
+        lambda th: 0.5 * equilib.minor_radius(rho, th, time)[0] ** 2, 0.0, 2.0 * np.pi
+    )
+
+    assert np.isclose(trapz_area, quad_area, rtol=1e-2)
 
 
 def test_enclosed_volume():
