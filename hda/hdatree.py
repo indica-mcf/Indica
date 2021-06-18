@@ -25,7 +25,7 @@ def test():
     descr = "HDA test tree"
     create(pulseNo, run_name, descr, tree_name)
 
-def create(pulseNo, run_name: str, descr, tree_name="HDA"):
+def create(pulseNo, run_name: str, descr, tree_name="HDA", subtree_name=""):
 
     ###############################################################
     ####################    Create the tree    ####################
@@ -38,7 +38,7 @@ def create(pulseNo, run_name: str, descr, tree_name="HDA"):
         t = Tree(tree_name, pulseNo, "edit")
         # get the username of who wrote this run
         try:
-            n = t.getNode(rf"\{tree_name}::TOP.{run_name}.CODE_VERSION:USER")
+            n = t.getNode(rf"\{tree_name}::TOP.{run_name}.METADATA:USER")
             user_already_written = n.data()
         except:
             user_already_written = user
@@ -301,7 +301,7 @@ def create(pulseNo, run_name: str, descr, tree_name="HDA"):
 
     # t.setDefault(t.getNode('\\TOP.'+branches[0]+'.PROFILES'))
     # t.setDefault( mh.createNode(t,tree_name,"STRUCTURE",f"Profiles from {tree_name}}") )
-    # n = mh.createNode(t, "RHOT", "SIGNAL", "Sqrt of normalised toroidal flux, rhop")
+    n = mh.createNode(t, "RHOT", "SIGNAL", "Sqrt of normalised toroidal flux, xpsn")
     n = mh.createNode(t, "TE", "SIGNAL", "Electron temperature, eV")
     n = mh.createNode(t, "NE", "SIGNAL", "Electron density, m^-3")
     n = mh.createNode(t, "NI", "SIGNAL", "Main ion density, m^-3")

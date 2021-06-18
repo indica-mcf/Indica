@@ -109,6 +109,10 @@ def write_to_mdsplus(pulseNo: int, hdadata: HDAdata, whichRun="RUN01", whichTree
     n.putData(Float32(data).setUnits(""))
 
     build_str = f"build_signal(build_with_units($1,$2), *, {rhop_node}, {time_node})"
+    n = t.getNode(prefix + "PROFILES.PSI_NORM.RHOT")
+    data = hdadata.rhot.values
+    n.putData(t.tdiCompile(build_str, data, ""))
+
     n = t.getNode(prefix + "PROFILES.PSI_NORM.CC")
     data = hdadata.conductivity.values
     n.putData(t.tdiCompile(build_str, data, "1/(Ohm*m)"))

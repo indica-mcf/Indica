@@ -172,7 +172,7 @@ class ST40Reader(DataReader):
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
-        if quantity.lower()==":best_run":
+        if quantity.lower() == ":best_run":
             path_check = path
             data = str(self.conn.get(path_check))
         else:
@@ -180,7 +180,9 @@ class ST40Reader(DataReader):
 
         return data, path
 
-    def _get_signal_dims(self, mds_path: str, ndims: int,) -> Tuple[List[np.array], List[str]]:
+    def _get_signal_dims(
+        self, mds_path: str, ndims: int,
+    ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
 
@@ -295,11 +297,16 @@ class ST40Reader(DataReader):
         direction = np.array([0.175, 0, 0]) - position
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
+        print("\n ********************************** "
+              "\n Adding half exposure time to XRCS"
+              "\n ********************************** \n")
+        times += (times[1] - times[0]) / 2.0
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
-            # print(f"{q} {qval}")
+            times, _ = self._get_signal_dims(q_path, len(qval.shape))
+            times = times[0]
             if "times" not in results:
                 results["times"] = times
             results[q + "_records"] = q_path
