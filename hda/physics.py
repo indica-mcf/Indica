@@ -6,6 +6,7 @@ import numpy as np
 import scipy.constants as constants
 from scipy.interpolate import interp1d
 import math
+from copy import deepcopy
 
 
 def conductivity_spitzer(el_dens, el_temp, zeff, approx="sauter"):
@@ -467,7 +468,7 @@ def coul_log_ii(ion_temp, ion_dens, charge):
     return 30 - np.log(charge ** 3 * np.sqrt(ion_dens) / ion_temp ** (3 / 2))
 
 
-def current_density(ipla, rho, a, area, centr=0, sigm=0.3):
+def current_density(ipla, rho, a, area, prof_shape):
     """
     Build synthetic current density profile (A/m**2) given the
     total plasma current, plasma geometry and a shape parameter
@@ -491,8 +492,7 @@ def current_density(ipla, rho, a, area, centr=0, sigm=0.3):
     """
     ir = np.where(rho >= 1)[0]
 
-    j_phi = gaussian(rho, 1, 0, centr, sigm)
-    j_phi -= j_phi[ir[0]]
+    j_phi = deepcopy(prof_shape)
     j_phi[ir] = 0.0
 
     j_phi = ipla * j_phi / np.trapz(j_phi, area)

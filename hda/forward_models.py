@@ -26,6 +26,7 @@ from hda.atomdat import radiated_power
 
 from indica.numpy_typing import ArrayLike
 
+
 class Spectrometer:
     """
     Data and methods to model spectrometer measurements
@@ -174,6 +175,9 @@ class Spectrometer:
         ion_temp_los = ion_temperature.interp(rho_poloidal=rho_los)
         ion_temp_los = xr.where(rho_los <= 1, ion_temp_los, 0)
 
+        fz = self.atomdat["fz"].interp(
+            electron_temperature=el_temp_los, method="quadratic"
+        )
         emiss = (
             self.atomdat["emiss"].interp(
                 electron_temperature=el_temp_los, method="quadratic"
@@ -181,6 +185,9 @@ class Spectrometer:
             * el_dens_los ** 2
         )
         emiss = xr.where((rho_los <= 1) * np.isfinite(emiss), emiss, 0)
+
+        self.fz = fz
+        self.emiss = emiss
 
         # Position of emission, and values of plasma profiles at those positions
         vals = np.full((len(time)), np.nan)
@@ -198,12 +205,16 @@ class Spectrometer:
             avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
 
             self.pos[i] = rho_tmp[int(avrg)]
-            self.pos.attrs["err_in"][i] = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg-dlo)])
+            self.pos.attrs["err_in"][i] = np.abs(
+                rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)]
+            )
             if self.pos[i] == rho_min:
-                self.pos.attrs["err_in"][i] = 0.
+                self.pos.attrs["err_in"][i] = 0.0
             if self.pos.attrs["err_in"][i] > self.pos[i]:
-                self.pos.attrs["err_in"][i] = (self.pos[i] - rho_min)
-            self.pos.attrs["err_out"][i] = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg+dhi)])
+                self.pos.attrs["err_in"][i] = self.pos[i] - rho_min
+            self.pos.attrs["err_out"][i] = np.abs(
+                rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)]
+            )
 
             x = emiss.sel(t=t)
             y = el_temp_los.sel(t=t)

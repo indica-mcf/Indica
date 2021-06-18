@@ -1,7 +1,6 @@
 """Various miscellaneous functions for handling of atomic data."""
 
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 from indica.readers import ST40Reader
 import matplotlib.pylab as plt
@@ -195,7 +194,7 @@ def plot_trends(results, savefig=False):
 
 def save_figure(path_name="/home/marco.sertoli/", fig_name="", orientation="landscape", ext=".jpg"):
     plt.savefig(
-        path_name + "python/figures/" + fig_name + ext,
+        path_name + "python/figures/Avantes_trends/" + fig_name + ext,
         orientation=orientation,
         dpi=600,
         pil_kwargs={"quality": 95},

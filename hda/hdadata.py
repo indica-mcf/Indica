@@ -36,6 +36,8 @@ class HDAdata:
         tend=0.1,
         dt=0.01,
         ntheta=5,
+        nrho=21,
+        pedestal=False,
         machine_dimensions=((0.15, 0.9), (-0.8, 0.8)),
         R_bt_0=0.4,
         elements=("h", "c", "ar"),
@@ -62,7 +64,7 @@ class HDAdata:
             self.tend = tend
 
             self.reader = ST40Reader(
-                pulse, tstart - 2 * dt, tend + 2 * dt, max_freq=1.0e4
+                pulse, tstart - dt/2, tend + dt/2, max_freq=1.0e4
             )
 
             if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
@@ -71,7 +73,7 @@ class HDAdata:
                 revision = 0
             efit = self.reader.get("", "efit", revision)
 
-            if revision ==0:
+            if revision == 0:
                 whichRun, _ = self.reader._get_signal("", "efit", ":best_run", revision)
                 whichRun = whichRun[-2:]
                 if whichRun[0] == "0":
@@ -81,12 +83,23 @@ class HDAdata:
                 whichRun = self.reader.get_revision_name(revision)[1:].upper()
 
             self.equilibrium = Equilibrium(efit)
+
             self.flux_coords = FluxSurfaceCoordinates("poloidal")
             self.flux_coords.set_equilibrium(self.equilibrium)
 
             efit["revision"] = revision
             efit["run"] = whichRun
             self.raw_data["efit"] = efit
+
+            # if pedestal == True:
+            #     nrho_core = np.floor(nrho * 4 / 3)
+            #     nrho_edge = np.floor(nrho * 1 / 3)
+            #     rho_ped = 0.85
+            #     rho_core = np.linspace(0, rho_ped, nrho_core)[:-1]
+            #     rho_edge = np.linspace(rho_ped, 1.0, nrho_edge)  # [:-1]
+            #     rho = np.concatenate([rho_core, rho_edge])
+            # else:
+            #     rho = np.linspace(0, 1.0, nrho)
 
             rho_ped = 0.85
             rho_core = np.linspace(0, rho_ped, 30)[:-1]
@@ -213,6 +226,7 @@ class HDAdata:
         self.ti_xrcs.attrs["x2"] = x2
         self.te_xrcs.attrs["dl"] = dl
         self.ti_xrcs.attrs["dl"] = dl
+
         self.te_xrcs.attrs["R"], self.te_xrcs.attrs["z"] = trans_xrcs.convert_to_Rz(
             x1, x2, 0
         )
@@ -353,36 +367,62 @@ class HDAdata:
         self.impose_flat_zeff()
         self.calc_zeff()
         self.calc_rad_power()
-        # self.calc_pressure()
+        self.calc_pressure()
         # self.calc_beta_poloidal()
+        # self.calc_vloop()
+
+    def match_xrcs(self, niter=3):
+        """
+        Rescale temperature profiles to match the XRCS spectrometer measurements
+
+        Parameters
+        ----------
+        niter
+            Number of iterations
+
+        Returns
+        -------
+
+        """
+        print("\n Re-calculating temperature profiles to match XRCSs values \n")
+
+        nt = len(self.time)
+
+        he_like = self.spectrometers["he_like"]
+
+        const_te = DataArray([1.0] * nt, coords=[("t", self.time)])
+        const_ti = DataArray([1.0] * nt, coords=[("t", self.time)])
+
+        el_temp = self.el_temp
+        ion_temp = self.ion_temp.sel(element="h")
+
+        for j in range(niter):
+            print(f"Iteration {j+1} or {niter}")
+            el_temp *= const_te
+            ion_temp *= const_ti
+
+            # Calculate Ti(0) from He-like spectrometer
+            he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
+            const_te = self.te_xrcs/he_like.el_temp
+            const_ti = self.ti_xrcs/he_like.ion_temp
+
+        self.el_temp = el_temp
+        for elem in self.elements:
+            self.ion_temp.loc[dict(element=elem)] = ion_temp
 
     def propagate_parameters(self):
-        # Current density, poloidal field, li
-        # self.build_current_density()
+        """
+        Propagate all parameters to maintain parameter consistency
+        """
+        self.build_current_density()
         self.calc_magnetic_field()
-
-        # Mean charge
         self.calc_meanz()
-
-        # Main ion density
         self.calc_main_ion_dens(fast_dens=False)
-
-        # Adapt impurity concentration to flatten Zeff contribution from each element
         self.impose_flat_zeff()
-
-        # Calculate Zeff with final impurity density profiles
         self.calc_zeff()
-
-        # Add SXR radiation when data becomes available
         self.calc_rad_power()
-
-        # Pressure profile
         self.calc_pressure()
-
-        # Beta poloidal
         self.calc_beta_poloidal()
-
-        # Resistivity and Vloop
         self.calc_vloop()
 
     def calc_ne_los_int(self):
@@ -535,7 +575,7 @@ class HDAdata:
                 )
                 self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp
 
-    def build_current_density(self, centr=0.0, sigm=0.3):
+    def build_current_density(self):
         """
         Build current density profile (A/m**2) given the total plasma current,
         plasma geometry and a shape parameter
@@ -546,8 +586,9 @@ class HDAdata:
             ipla = self.ipla.sel(t=t).values
             r_a = self.r_a.sel(t=t).values
             area = self.area.sel(t=t).values
+            prof_shape = self.el_temp.sel(t=t)/self.el_temp.sel(t=t).max()
 
-            j_phi = ph.current_density(ipla, rho, r_a, area, centr=centr, sigm=sigm)
+            j_phi = ph.current_density(ipla, rho, r_a, area, prof_shape)
 
             self.j_phi.loc[dict(t=t)] = j_phi
 
@@ -762,6 +803,13 @@ class HDAdata:
         self.rho.values = inputs["rho"]
         assign_datatype(self.rho, ("rho", "poloidal"))
         self.profs = fac.Plasma_profs(self.rho.values)
+
+        self.rhot = deepcopy(data2d)
+        rhot, _ = self.equilibrium.convert_flux_coords(self.rho)
+        self.rhot.values = bin_in_time(self.tstart, self.tend, self.freq, rhot).interp(
+            t=self.time
+        )
+        assign_datatype(self.rho, ("rho", "poloidal"))
 
         self.theta = deepcopy(data1d_theta)
         self.theta.values = inputs["theta"]
