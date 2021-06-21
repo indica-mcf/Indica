@@ -158,10 +158,10 @@ class ADASReader(BaseIO):
         filetype: str,
         year="",
     ) -> DataArray:
-        """Read data from the specified ADAS file. Different files are available, e.g.:
+        """Read data from the specified ADF15 ADAS file.
 
-        pec96][ne / pec96][ne_pju][ne9.dat
-        transport_llu][ar16.dat
+        Implementation is capable of reading files with compact and expanded formatting
+        e.g. pec96][ne_pju][ne9.dat and pec40][ar_cl][ar16.dat respectively
 
         Parameters
         ----------
@@ -186,20 +186,68 @@ class ADASReader(BaseIO):
             different charge state.
 
         """
-        now = datetime.datetime.now()
-        if year == "transport":
-            file_component = "transport"
-        else:
-            file_component = f"pec{year}][{element.lower()}"
 
+        def build_file_component(year, element):
+            if year == "transport":
+                file_component = "transport"
+            else:
+                file_component = f"pec{year}][{element.lower()}"
+
+            return file_component
+
+        def file_type(identifier):
+            if identifier == "+":
+                file_type = "compact"
+            elif identifier == ":":
+                file_type = "expanded"
+            else:
+                raise ValueError(f"Unknown file header identified ({identifier}).")
+
+            return file_type
+
+        def transition_match(transition_line):
+            transition_type = "orbitals"
+            match = (
+                r"c\s+(\d+.)"  # isel
+                r"\s+(\d+.\d+)"  # wavelength
+                r"\s+(\d+)(\(\d\)\d\(.+\d?.\d\))-"  # transition upper level
+                r".+(\d+)(\(\d\)\d\(.+\d?.\d\))"  # transition lower level
+            )
+            header_re = re.compile(match)
+            m = header_re.search(transition_line)
+            if not m:
+                transition_type = "n_levels"
+                match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
+                header_re = re.compile(match)
+                m = header_re.search(transition_line)
+                if not m:
+                    raise ValueError(f"Unknown transition formatting ({identifier}).")
+
+            return transition_type, match
+
+        now = datetime.datetime.now()
+        file_component = build_file_component(year, element)
         filename = Path(pathname2url(file_component)) / pathname2url(
             f"{file_component}_{filetype.lower()}]"
             f"[{element.lower()}{charge.lower()}.dat"
         )
+
+        header_match = {
+            "compact": r"(\d+).+/(\S+).*\+(.*)photon",
+            "expanded": r"(\d+).+/(\S+).*\:(.*)photon",
+        }
+        section_header_match = {
+            "compact": r"(\d+.\d+).+\s+(\d+)\s+(\d+).+type\s?"
+            r"=\s?(\S+).+isel.+\s+(\d+)",
+            "expanded": r"(\d+.\d)\s+(\d+)\s+(\d+).+type\s?="
+            r"\s?(\S+).+isel\s+?=\s+?(\d+)",
+        }
         with self._get_file("adf15", filename) as f:
             header = f.readline().strip().lower()
-            match = r"(\d+).+/(\S+).*[:+](.*)photon"
-            m = re.search(match, header)
+            identifier = file_type(header.split("/")[1][2])
+
+            match = header_match[identifier]
+            m = re.search(match, header, re.I)
             assert isinstance(m, re.Match)
             ntrans = int(m.group(1))
             element_name = m.group(2).strip().lower()
@@ -214,15 +262,13 @@ class ADASReader(BaseIO):
                     f"match argument ({charge})."
                 )
 
-            header_re = re.compile(
-                r"(\d+.\d+)\s?\S?\s+(\d+)\s+(\d+).+type\s?=\s?(\S+?)/?.+isel.*=\s+(\d+)"
-            )
+            # Read first section header to build arrays outside of reading loop
+            match = section_header_match[identifier]
+            header_re = re.compile(match)
             m = None
             while not m:
                 line = f.readline().strip().lower()
                 m = header_re.search(line)
-
-            # Read first section header to build arrays outside of reading loop
             assert isinstance(m, re.Match)
             nd = int(m.group(2))
             nt = int(m.group(3))
@@ -248,24 +294,25 @@ class ADASReader(BaseIO):
             file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
             while not file_end_re.search(line):
                 line = f.readline().strip().lower()
+            _ = f.readline()
+            if identifier == "expanded":
+                _ = f.readline()
 
-            transition_re = re.compile(
-                r"c\s+(\d+)"  # isel
-                r"\s+(\d+\.\d+)"  # wavelength
-                r"\s+(?:\d+)?(\(\d\)\d\(.+\d?.\d\)|n\=.\d+.)-"  # transition upper level
-                r".+(?:\d+)?(\(\d\)\d\(.+\d?.\d\)|.n\=.\d+)"  # transition lower level
-            )
-            m = None
-            while not m:
-                line = f.readline().strip().lower()
-                m = transition_re.search(line)
+            line = f.readline().strip().lower()
+            transition_type, match = transition_match(line)
+            transition_re = re.compile(match)
 
+            format_transition = {
+                "orbitals": lambda m: f"{m.group(4)}-{m.group(6)}".replace(" ", ""),
+                "n_levels": lambda m: m.group(3).replace(" ", ""),
+            }
             transition = []
             for i in tindex:
                 m = transition_re.search(line)
                 assert isinstance(m, re.Match)
-                assert int(m.group(1)) == i
-                transition.append(f"{m.group(3)}-{m.group(4)}".replace(" ", ""))
+                assert int(m.group(1)[:-1]) == i
+                transition_tmp = format_transition[transition_type](m)
+                transition.append(transition_tmp)
                 line = f.readline().strip().lower()
 
         gen_type = ADF15_GENERAL_DATATYPES[filetype]
@@ -297,14 +344,11 @@ class ADASReader(BaseIO):
         )
 
         # Add extra dimensions attached to index
+        pecs = pecs.assign_coords(wavelength=("index", wavelength))  # (A)
         pecs = pecs.assign_coords(
-            wavelength=("index", wavelength),
-            transition=(
-                "index",
-                transition,
-            ),  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
-            type=("index", ttype),  # (excit, recomb, cx)
-        )
+            transition=("index", transition)
+        )  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
+        pecs = pecs.assign_coords(type=("index", ttype))  # (excit, recomb, cx)
 
         return pecs
 
