@@ -187,7 +187,11 @@ def dropped_channels(draw, size, max_dropped=0.1):
 
     """
     return draw(
-        lists(integers(0, size - 1), max_size=int(max_dropped * size), unique=True)
+        lists(
+            integers(0, size - 1 if size > 0 else 0),
+            max_size=int(max_dropped * size),
+            unique=True,
+        )
     )
 
 
