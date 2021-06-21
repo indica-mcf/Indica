@@ -318,9 +318,9 @@ class InDiCAArrayAccessor:
             if len(roots) == 0:
                 start = target_coords.argmin()
                 end = target_coords.argmax()
-                if data[start] == value:
+                if np.isclose(data[start], value):
                     roots = np.concatenate((roots, [target_coords[start]]))
-                if data[end] == value:
+                if np.isclose(data[end], value):
                     roots = np.concatenate((roots, [target_coords[end]]))
                 if len(roots) == 0:
                     raise ValueError(f"Provided data is not available at {value}.")

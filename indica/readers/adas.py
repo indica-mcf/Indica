@@ -7,7 +7,6 @@ from typing import List
 from typing import Literal
 from typing import TextIO
 from typing import Union
-from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
@@ -17,7 +16,6 @@ from xarray import DataArray
 from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
-from ..datatypes import ADF15_GENERAL_DATATYPES
 from ..datatypes import ORDERED_ELEMENTS
 
 
