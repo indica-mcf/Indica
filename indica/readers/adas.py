@@ -20,6 +20,7 @@ from ..datatypes import ADF11_GENERAL_DATATYPES
 from ..datatypes import ADF15_GENERAL_DATATYPES
 from ..datatypes import ORDERED_ELEMENTS
 
+
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")
 CACHE_DIR = ".indica"
