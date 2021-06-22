@@ -22,3 +22,5 @@ except ImportError:
 LabeledArray = typing.Union[
     float, int, xarray.DataArray, xarray.Dataset, xarray.Variable
 ]
+
+OnlyXarray = typing.Union[xarray.DataArray, xarray.Dataset, xarray.Variable]
