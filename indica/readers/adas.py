@@ -268,8 +268,6 @@ class ADASReader(BaseIO):
             m = None
             while not m:
                 line = f.readline().strip().lower()
-                if not line:
-                    break
                 m = header_re.search(line)
             assert isinstance(m, re.Match)
             nd = int(m.group(2))
@@ -296,12 +294,9 @@ class ADASReader(BaseIO):
             file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
             while not file_end_re.search(line):
                 line = f.readline().strip().lower()
-                if not line:
-                    break
             _ = f.readline()
             if identifier == "expanded":
                 _ = f.readline()
-
             line = f.readline().strip().lower()
             transition_type, match = transition_match(line)
             transition_re = re.compile(match)

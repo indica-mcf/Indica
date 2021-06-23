@@ -197,3 +197,10 @@ class Testadf15_transport(Testadf15):
 
 if __name__ == "__main__":
     unittest.main()
+
+reader = ADASReader()
+element = "ar"
+charge = "10"
+file_type = "ic"
+year = "40"
+data = reader.get_adf15(element, charge, file_type, year=year)
