@@ -5,21 +5,28 @@ import pytest
 from xarray import DataArray
 
 from indica.operators.fractional_abundance import FractionalAbundance
+from indica.operators.fractional_abundance import PowerLoss
 from indica.readers import ADASReader
 
 
 class Assertion_Test_Case(unittest.TestCase):
-    def init_assert_check(self, SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te, N_z_t0=None):
+    def init_fractional_abundance_assert_check(
+        self, SCD, ACD, CCD, Ne, Nh, Te, N_z_t0=None
+    ):
         with self.assertRaises(AssertionError):
-            FractionalAbundance(SCD, ACD, CCD, PLT, PRC, PRB, Ne, Nh, Te, N_z_t0, True)
+            FractionalAbundance(SCD, ACD, CCD, Ne, Nh, Te, N_z_t0, True)
+
+    def init_power_loss_assert_check(self, PLT, PRC, PRB, Ne, Nh, Te, N_z_t=None):
+        with self.assertRaises(AssertionError):
+            PowerLoss(PLT, PRC, PRB, Ne, Nh, Te, N_z_t, True)
 
     def tau_check(self, FracAbundObj: FractionalAbundance, tau):
         with self.assertRaises(AssertionError):
-            FracAbundObj.calc_N_z_t(tau)
+            FracAbundObj(tau)
 
 
 @pytest.fixture
-def test_init():
+def test_fractional_abundance_init():
     ADAS_file = ADASReader()
 
     element = "be"
@@ -27,10 +34,6 @@ def test_init():
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")
     CCD = ADAS_file.get_adf11("ccd", element, "89")
-
-    PLT = ADAS_file.get_adf11("plt", element, "89")
-    PRC = ADAS_file.get_adf11("prc", element, "89")
-    PRB = ADAS_file.get_adf11("prb", element, "89")
 
     input_Ne = np.logspace(19.0, 16.0, 10)
     input_Nh = 1e-5 * input_Ne
@@ -51,9 +54,6 @@ def test_init():
             SCD,
             ACD,
             CCD,
-            PLT,
-            PRC,
-            PRB,
             Ne=input_Ne,
             Nh=input_Nh,
             Te=input_Te,
@@ -65,13 +65,10 @@ def test_init():
     test_case = Assertion_Test_Case()
 
     N_z_t0_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
@@ -79,13 +76,10 @@ def test_init():
     )
 
     N_z_t0_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
@@ -93,13 +87,10 @@ def test_init():
     )
 
     N_z_t0_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
@@ -107,13 +98,10 @@ def test_init():
     )
 
     N_z_t0_invalid = np.zeros(5) + np.nan
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
@@ -121,13 +109,10 @@ def test_init():
     )
 
     N_z_t0_invalid = np.zeros(5) + np.inf
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
@@ -135,13 +120,10 @@ def test_init():
     )
 
     N_z_t0_invalid = np.zeros(5) - np.inf
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
@@ -153,13 +135,13 @@ def test_init():
         data=input_Ne_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
     )
 
-    test_case.init_assert_check(
-        SCD, ACD, CCD, PLT, PRC, PRB, Ne=input_Ne_invalid, Nh=input_Nh, Te=input_Te
+    test_case.init_fractional_abundance_assert_check(
+        SCD, ACD, CCD, Ne=input_Ne_invalid, Nh=input_Nh, Te=input_Te
     )
 
     input_Ne_invalid.data = np.logspace(19.0, 5.0, 10)
-    test_case.init_assert_check(
-        SCD, ACD, CCD, PLT, PRC, PRB, Ne=input_Ne_invalid, Nh=input_Nh, Te=input_Te
+    test_case.init_fractional_abundance_assert_check(
+        SCD, ACD, CCD, Ne=input_Ne_invalid, Nh=input_Nh, Te=input_Te
     )
 
     input_Ne_invalid.data = np.logspace(19.0, 16.0, 10)
@@ -168,52 +150,40 @@ def test_init():
         data=input_Nh_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
     )
 
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne_invalid,
         Nh=input_Nh_invalid,
         Te=input_Te,
     )
 
     input_Nh_invalid.data = -np.inf + np.zeros(input_Ne_invalid.data.shape)
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne_invalid,
         Nh=input_Nh_invalid,
         Te=input_Te,
     )
 
     input_Nh_invalid.data = -1 + np.zeros(input_Ne_invalid.data.shape)
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne_invalid,
         Nh=input_Nh_invalid,
         Te=input_Te,
     )
 
     input_Nh_invalid.data = np.nan + np.zeros(input_Ne_invalid.data.shape)
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne_invalid,
         Nh=input_Nh_invalid,
         Te=input_Te,
@@ -226,26 +196,20 @@ def test_init():
         data=input_Te_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
     )
 
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne_invalid,
         Nh=input_Nh,
         Te=input_Te_invalid,
     )
 
     input_Te_invalid.data = np.logspace(4.6, -1, 10)
-    test_case.init_assert_check(
+    test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
         CCD,
-        PLT,
-        PRC,
-        PRB,
         Ne=input_Ne_invalid,
         Nh=input_Nh,
         Te=input_Te_invalid,
@@ -255,9 +219,14 @@ def test_init():
 
 
 @pytest.fixture
-def test_interpolate_rates(test_init):
+def test_interpolate_rates(test_fractional_abundance_init):
     try:
-        SCD_spec, ACD_spec, CCD_spec, num_of_stages = test_init.interpolate_rates()
+        (
+            SCD_spec,
+            ACD_spec,
+            CCD_spec,
+            num_of_stages,
+        ) = test_fractional_abundance_init.interpolate_rates()
     except Exception as e:
         raise e
 
@@ -275,7 +244,7 @@ def test_interpolate_rates(test_init):
     assert np.all(np.logical_not(np.isinf(ACD_spec)))
     assert np.all(np.logical_not(np.isinf(CCD_spec)))
 
-    return test_init
+    return test_fractional_abundance_init
 
 
 @pytest.fixture
@@ -373,8 +342,7 @@ def test_calc_eigen_coeffs(test_calc_eigen_vals_and_vecs):
     return test_calc_eigen_vals_and_vecs
 
 
-@pytest.fixture
-def test_calc_N_z_t(test_calc_eigen_coeffs):
+def test_fractional_abundance_call(test_calc_eigen_coeffs):
     test_case = Assertion_Test_Case()
 
     tau = -1
@@ -388,7 +356,7 @@ def test_calc_N_z_t(test_calc_eigen_coeffs):
 
     tau = 1e-16
     try:
-        N_z_t = test_calc_eigen_coeffs.calc_N_z_t(tau)
+        N_z_t = test_calc_eigen_coeffs(tau)
     except Exception as e:
         raise e
 
@@ -402,7 +370,7 @@ def test_calc_N_z_t(test_calc_eigen_coeffs):
     tau = 1e2
 
     try:
-        N_z_t = test_calc_eigen_coeffs.calc_N_z_t(tau)
+        N_z_t = test_calc_eigen_coeffs(tau)
     except Exception as e:
         raise e
 
@@ -421,9 +389,202 @@ def test_calc_N_z_t(test_calc_eigen_coeffs):
 
 
 @pytest.fixture
-def test_interpolate_power(test_calc_N_z_t):
+def test_power_loss_init():
+    ADAS_file = ADASReader()
+
+    element = "be"
+
+    PLT = ADAS_file.get_adf11("plt", element, "89")
+    PRC = ADAS_file.get_adf11("prc", element, "89")
+    PRB = ADAS_file.get_adf11("prb", element, "89")
+
+    input_Ne = np.logspace(19.0, 16.0, 10)
+    input_Nh = 1e-5 * input_Ne
+    input_Te = np.logspace(4.6, 2, 10)
+
+    input_Te = DataArray(
+        data=input_Te, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+    input_Ne = DataArray(
+        data=input_Ne, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+    input_Nh = DataArray(
+        data=input_Nh, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+
     try:
-        PLT_spec, PRC_spec, PRB_spec = test_calc_N_z_t.interpolate_power()
+        example_power_loss = PowerLoss(
+            PLT,
+            PRC,
+            PRB,
+            Ne=input_Ne,
+            Nh=input_Nh,
+            Te=input_Te,
+            unit_testing=True,
+        )
+    except Exception as e:
+        raise e
+
+    test_case = Assertion_Test_Case()
+
+    N_z_t_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t=N_z_t_invalid,
+    )
+
+    N_z_t_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t=N_z_t_invalid,
+    )
+
+    N_z_t_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t=N_z_t_invalid,
+    )
+
+    N_z_t_invalid = np.zeros(5) + np.nan
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t=N_z_t_invalid,
+    )
+
+    N_z_t_invalid = np.zeros(5) + np.inf
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t=N_z_t_invalid,
+    )
+
+    N_z_t_invalid = np.zeros(5) - np.inf
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne,
+        Nh=input_Nh,
+        Te=input_Te,
+        N_z_t=N_z_t_invalid,
+    )
+
+    input_Ne_invalid = np.logspace(30.0, 16.0, 10)
+    input_Ne_invalid = DataArray(
+        data=input_Ne_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+
+    test_case.init_power_loss_assert_check(
+        PLT, PRC, PRB, Ne=input_Ne_invalid, Nh=input_Nh, Te=input_Te
+    )
+
+    input_Ne_invalid.data = np.logspace(19.0, 5.0, 10)
+    test_case.init_power_loss_assert_check(
+        PLT, PRC, PRB, Ne=input_Ne_invalid, Nh=input_Nh, Te=input_Te
+    )
+
+    input_Ne_invalid.data = np.logspace(19.0, 16.0, 10)
+    input_Nh_invalid = np.inf + np.zeros(input_Ne_invalid.data.shape)
+    input_Nh_invalid = DataArray(
+        data=input_Nh_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne_invalid,
+        Nh=input_Nh_invalid,
+        Te=input_Te,
+    )
+
+    input_Nh_invalid.data = -np.inf + np.zeros(input_Ne_invalid.data.shape)
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne_invalid,
+        Nh=input_Nh_invalid,
+        Te=input_Te,
+    )
+
+    input_Nh_invalid.data = -1 + np.zeros(input_Ne_invalid.data.shape)
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne_invalid,
+        Nh=input_Nh_invalid,
+        Te=input_Te,
+    )
+
+    input_Nh_invalid.data = np.nan + np.zeros(input_Ne_invalid.data.shape)
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne_invalid,
+        Nh=input_Nh_invalid,
+        Te=input_Te,
+    )
+
+    input_Nh_invalid.data = 1e-5 * np.copy(input_Ne)
+
+    input_Te_invalid = np.logspace(5, 2, 10)
+    input_Te_invalid = DataArray(
+        data=input_Te_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+    )
+
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne_invalid,
+        Nh=input_Nh,
+        Te=input_Te_invalid,
+    )
+
+    input_Te_invalid.data = np.logspace(4.6, -1, 10)
+    test_case.init_power_loss_assert_check(
+        PLT,
+        PRC,
+        PRB,
+        Ne=input_Ne_invalid,
+        Nh=input_Nh,
+        Te=input_Te_invalid,
+    )
+
+    return example_power_loss
+
+
+@pytest.fixture
+def test_interpolate_power(test_power_loss_init):
+    try:
+        PLT_spec, PRC_spec, PRB_spec, _ = test_power_loss_init.interpolate_power()
     except Exception as e:
         raise e
 
@@ -439,12 +600,12 @@ def test_interpolate_power(test_calc_N_z_t):
     assert np.all(np.logical_not(np.isinf(PRC_spec)))
     assert np.all(np.logical_not(np.isinf(PRB_spec)))
 
-    return test_calc_N_z_t
+    return test_power_loss_init
 
 
-def test_calc_cooling_factor(test_interpolate_power):
+def test_power_loss_call(test_interpolate_power):
     try:
-        cooling_factor = test_interpolate_power.calc_cooling_factor()
+        cooling_factor = test_interpolate_power()
     except Exception as e:
         raise e
 
