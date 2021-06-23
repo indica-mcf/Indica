@@ -1,23 +1,19 @@
 """Unit tests for the functions in routines.py
 """
-import unittest
-
 import numpy as np
 from prov.model import ProvEntity
 
 from indica.readers import ADASReader
 
 
-class Testadf15(unittest.TestCase):
-    """Provides unit tests for the reverse() function"""
+class Testadf15:
+    """Provides unit tests for the ADF15 reader"""
 
-    def setUp(self):
-        """Setup list for testing"""
-        self.reader = ADASReader()
-        self.element = "ne"
-        self.charge = "9"
-        self.file_type = "pju"
-        self.year = "96"
+    reader = ADASReader()
+    element = "ne"
+    charge = "9"
+    file_type = "pju"
+    year = "96"
 
     def test_read(self):
         """Checks reading does not give exceptions"""
@@ -136,71 +132,60 @@ class Testadf15(unittest.TestCase):
 
 
 class Testadf15_c5(Testadf15):
-    def setUp(self):
-        """Setup list for testing"""
-        self.reader = ADASReader()
-        self.element = "c"
-        self.charge = "5"
-        self.file_type = "bnd"
-        self.year = "96"
+    """Provides unit tests for the ADF15 reader"""
+
+    reader = ADASReader()
+    element = "c"
+    charge = "5"
+    file_type = "bnd"
+    year = "96"
 
 
 class Testadf15_he0(Testadf15):
-    def setUp(self):
-        """Setup list for testing"""
-        self.reader = ADASReader()
-        self.element = "he"
-        self.charge = "0"
-        self.file_type = "pju"
-        self.year = "93"
+    """Provides unit tests for the ADF15 reader"""
+
+    reader = ADASReader()
+    element = "he"
+    charge = "0"
+    file_type = "pju"
+    year = "93"
 
 
 class Testadf15_b2(Testadf15):
-    def setUp(self):
-        """Setup list for testing"""
-        self.reader = ADASReader()
-        self.element = "b"
-        self.charge = "2"
-        self.file_type = "llu"
-        self.year = "93"
+    """Provides unit tests for the ADF15 reader"""
+
+    reader = ADASReader()
+    element = "b"
+    charge = "2"
+    file_type = "llu"
+    year = "93"
 
 
 class Testadf15_o5(Testadf15):
-    def setUp(self):
-        """Setup list for testing"""
-        self.reader = ADASReader()
-        self.element = "o"
-        self.charge = "5"
-        self.file_type = "pjr"
-        self.year = "96"
+    """Provides unit tests for the ADF15 reader"""
+
+    reader = ADASReader()
+    element = "o"
+    charge = "5"
+    file_type = "pjr"
+    year = "96"
 
 
 class Testadf15_ar10(Testadf15):
-    def setUp(self):
-        """Setup list for testing"""
-        self.reader = ADASReader()
-        self.element = "ar"
-        self.charge = "10"
-        self.file_type = "ic"
-        self.year = "40"
+    """Provides unit tests for the ADF15 reader"""
+
+    reader = ADASReader()
+    element = "ar"
+    charge = "10"
+    file_type = "ic"
+    year = "40"
 
 
 class Testadf15_transport(Testadf15):
-    def setUp(self):
-        """Setup list for testing"""
-        self.reader = ADASReader()
-        self.element = "ar"
-        self.charge = "16"
-        self.file_type = "llu"
-        self.year = "transport"
+    """Provides unit tests for the ADF15 reader"""
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-reader = ADASReader()
-element = "ar"
-charge = "10"
-file_type = "ic"
-year = "40"
-data = reader.get_adf15(element, charge, file_type, year=year)
+    reader = ADASReader()
+    element = "ar"
+    charge = "16"
+    file_type = "llu"
+    year = "transport"
