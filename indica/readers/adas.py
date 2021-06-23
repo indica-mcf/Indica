@@ -188,19 +188,19 @@ class ADASReader(BaseIO):
         """
 
         def build_file_component(year, element):
-            if year == "transport":
-                file_component = "transport"
-            else:
+            file_component = "transport"
+            if year != "transport":
                 file_component = f"pec{year}][{element.lower()}"
 
             return file_component
 
         def file_type(identifier):
-            if identifier == "+":
-                file_type = "compact"
-            elif identifier == ":":
-                file_type = "expanded"
-            else:
+            identifier_dict = {
+                "+": "compact",
+                ":": "expanded",
+            }
+            file_type = identifier_dict.get(identifier)
+            if file_type is None:
                 raise ValueError(f"Unknown file header identified ({identifier}).")
 
             return file_type
@@ -239,7 +239,7 @@ class ADASReader(BaseIO):
         section_header_match = {
             "compact": r"(\d+.\d+).+\s+(\d+)\s+(\d+).+type\s?"
             r"=\s?(\S+).+isel.+\s+(\d+)",
-            "expanded": r"(\d+.\d)\s+(\d+)\s+(\d+).+type\s?="
+            "expanded": r"(\d+.\d+)\s+(\d+)\s+(\d+).+type\s?="
             r"\s?(\S+).+isel\s+?=\s+?(\d+)",
         }
         with self._get_file("adf15", filename) as f:
@@ -268,6 +268,8 @@ class ADASReader(BaseIO):
             m = None
             while not m:
                 line = f.readline().strip().lower()
+                if not line:
+                    break
                 m = header_re.search(line)
             assert isinstance(m, re.Match)
             nd = int(m.group(2))
@@ -294,6 +296,8 @@ class ADASReader(BaseIO):
             file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
             while not file_end_re.search(line):
                 line = f.readline().strip().lower()
+                if not line:
+                    break
             _ = f.readline()
             if identifier == "expanded":
                 _ = f.readline()
