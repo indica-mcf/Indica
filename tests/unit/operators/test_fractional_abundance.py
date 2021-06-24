@@ -15,16 +15,16 @@ class Assertion_Test_Case(unittest.TestCase):
     """
 
     def init_fractional_abundance_assert_check(
-        self, SCD, ACD, CCD, Ne, Nh, Te, N_z_t0=None
+        self, SCD, ACD, CCD, Ne, Nh, Te, F_z_t0=None
     ):
         """Test assert errors are raised for FractionalAbundance initialization."""
         with self.assertRaises(AssertionError):
-            FractionalAbundance(SCD, ACD, Ne, Te, N_z_t0, Nh, CCD, True)
+            FractionalAbundance(SCD, ACD, Ne, Te, F_z_t0, Nh, CCD, True)
 
-    def init_power_loss_assert_check(self, PLT, PRC, PRB, Ne, Nh, Te, N_z_t=None):
+    def init_power_loss_assert_check(self, PLT, PRC, PRB, Ne, Nh, Te, F_z_t=None):
         """Test assert errors are raised for PowerLoss initialization."""
         with self.assertRaises(AssertionError):
-            PowerLoss(PLT, PRB, Ne, Nh, Te, PRC, N_z_t, True)
+            PowerLoss(PLT, PRB, Ne, Nh, Te, PRC, F_z_t, True)
 
     def tau_check(self, FracAbundObj: FractionalAbundance, tau):
         """Test assert errors are raised for FractionalAbundance call
@@ -87,7 +87,7 @@ def test_fractional_abundance_init():
 
     test_case = Assertion_Test_Case()
 
-    N_z_t0_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
+    F_z_t0_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
     test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
@@ -95,10 +95,10 @@ def test_fractional_abundance_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t0=N_z_t0_invalid,
+        F_z_t0=F_z_t0_invalid,
     )
 
-    N_z_t0_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
+    F_z_t0_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
     test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
@@ -106,10 +106,10 @@ def test_fractional_abundance_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t0=N_z_t0_invalid,
+        F_z_t0=F_z_t0_invalid,
     )
 
-    N_z_t0_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
+    F_z_t0_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
     test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
@@ -117,10 +117,10 @@ def test_fractional_abundance_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t0=N_z_t0_invalid,
+        F_z_t0=F_z_t0_invalid,
     )
 
-    N_z_t0_invalid = np.zeros(5) + np.nan
+    F_z_t0_invalid = np.zeros(5) + np.nan
     test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
@@ -128,10 +128,10 @@ def test_fractional_abundance_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t0=N_z_t0_invalid,
+        F_z_t0=F_z_t0_invalid,
     )
 
-    N_z_t0_invalid = np.zeros(5) + np.inf
+    F_z_t0_invalid = np.zeros(5) + np.inf
     test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
@@ -139,10 +139,10 @@ def test_fractional_abundance_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t0=N_z_t0_invalid,
+        F_z_t0=F_z_t0_invalid,
     )
 
-    N_z_t0_invalid = np.zeros(5) - np.inf
+    F_z_t0_invalid = np.zeros(5) - np.inf
     test_case.init_fractional_abundance_assert_check(
         SCD,
         ACD,
@@ -150,7 +150,7 @@ def test_fractional_abundance_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t0=N_z_t0_invalid,
+        F_z_t0=F_z_t0_invalid,
     )
 
     input_Ne_invalid = np.logspace(30.0, 16.0, 10)
@@ -331,23 +331,23 @@ def test_calc_ionisation_balance_matrix(test_interpolate_rates):
 
 
 @pytest.fixture
-def test_calc_N_z_tinf(test_calc_ionisation_balance_matrix):
-    """Test calc_N_z_tinf function in in FractionalAbundance class."""
+def test_calc_F_z_tinf(test_calc_ionisation_balance_matrix):
+    """Test calc_F_z_tinf function in in FractionalAbundance class."""
     (
         example_frac_abundance,
         example_frac_abundance_no_optional,
     ) = test_calc_ionisation_balance_matrix
 
     try:
-        N_z_tinf = example_frac_abundance_no_optional.calc_N_z_tinf()
+        F_z_tinf = example_frac_abundance_no_optional.calc_F_z_tinf()
     except Exception as e:
         raise e
 
-    assert N_z_tinf.shape == (5, 10)
+    assert F_z_tinf.shape == (5, 10)
 
-    assert np.all(np.logical_not(np.isnan(N_z_tinf)))
+    assert np.all(np.logical_not(np.isnan(F_z_tinf)))
 
-    assert np.all(np.logical_not(np.isinf(N_z_tinf)))
+    assert np.all(np.logical_not(np.isinf(F_z_tinf)))
 
     rho = example_frac_abundance_no_optional.Ne.coords["rho"]
     ionisation_balance_matrix = (
@@ -355,40 +355,40 @@ def test_calc_N_z_tinf(test_calc_ionisation_balance_matrix):
     )
 
     for irho in range(rho.size):
-        test_null = np.dot(ionisation_balance_matrix[:, :, irho], N_z_tinf[:, irho])
+        test_null = np.dot(ionisation_balance_matrix[:, :, irho], F_z_tinf[:, irho])
         assert np.allclose(test_null, np.zeros(test_null.shape))
 
-        test_normalization = np.linalg.norm(N_z_tinf[:, irho])
+        test_normalization = np.linalg.norm(F_z_tinf[:, irho])
         assert np.allclose(test_normalization, 1.0)
 
     try:
-        N_z_tinf = example_frac_abundance.calc_N_z_tinf()
+        F_z_tinf = example_frac_abundance.calc_F_z_tinf()
     except Exception as e:
         raise e
 
-    assert N_z_tinf.shape == (5, 10)
+    assert F_z_tinf.shape == (5, 10)
 
-    assert np.all(np.logical_not(np.isnan(N_z_tinf)))
+    assert np.all(np.logical_not(np.isnan(F_z_tinf)))
 
-    assert np.all(np.logical_not(np.isinf(N_z_tinf)))
+    assert np.all(np.logical_not(np.isinf(F_z_tinf)))
 
     rho = example_frac_abundance.Ne.coords["rho"]
     ionisation_balance_matrix = example_frac_abundance.ionisation_balance_matrix
 
     for irho in range(rho.size):
-        test_null = np.dot(ionisation_balance_matrix[:, :, irho], N_z_tinf[:, irho])
+        test_null = np.dot(ionisation_balance_matrix[:, :, irho], F_z_tinf[:, irho])
         assert np.allclose(test_null, np.zeros(test_null.shape))
 
-        test_normalization = np.linalg.norm(N_z_tinf[:, irho])
+        test_normalization = np.linalg.norm(F_z_tinf[:, irho])
         assert np.allclose(test_normalization, 1.0)
 
     return example_frac_abundance, example_frac_abundance_no_optional
 
 
 @pytest.fixture
-def test_calc_eigen_vals_and_vecs(test_calc_N_z_tinf):
+def test_calc_eigen_vals_and_vecs(test_calc_F_z_tinf):
     """Test calc_eigen_vals_and_vecs() function in FractionalAbundance class."""
-    example_frac_abundance, example_frac_abundance_no_optional = test_calc_N_z_tinf
+    example_frac_abundance, example_frac_abundance_no_optional = test_calc_F_z_tinf
 
     try:
         (
@@ -457,32 +457,32 @@ def test_calc_eigen_coeffs(test_calc_eigen_vals_and_vecs):
     ) = test_calc_eigen_vals_and_vecs
 
     try:
-        eig_coeffs, N_z_t0 = example_frac_abundance_no_optional.calc_eigen_coeffs()
+        eig_coeffs, F_z_t0 = example_frac_abundance_no_optional.calc_eigen_coeffs()
     except Exception as e:
         raise e
 
     assert eig_coeffs.shape == (5, 10)
-    assert N_z_t0.shape == (5, 10)
+    assert F_z_t0.shape == (5, 10)
 
     assert np.all(np.logical_not(np.isnan(eig_coeffs)))
     assert np.all(np.logical_not(np.isinf(eig_coeffs)))
 
-    assert np.all(np.logical_not(np.isnan(N_z_t0)))
-    assert np.all(np.logical_not(np.isinf(N_z_t0)))
+    assert np.all(np.logical_not(np.isnan(F_z_t0)))
+    assert np.all(np.logical_not(np.isinf(F_z_t0)))
 
     try:
-        eig_coeffs, N_z_t0 = example_frac_abundance.calc_eigen_coeffs()
+        eig_coeffs, F_z_t0 = example_frac_abundance.calc_eigen_coeffs()
     except Exception as e:
         raise e
 
     assert eig_coeffs.shape == (5, 10)
-    assert N_z_t0.shape == (5, 10)
+    assert F_z_t0.shape == (5, 10)
 
     assert np.all(np.logical_not(np.isnan(eig_coeffs)))
     assert np.all(np.logical_not(np.isinf(eig_coeffs)))
 
-    assert np.all(np.logical_not(np.isnan(N_z_t0)))
-    assert np.all(np.logical_not(np.isinf(N_z_t0)))
+    assert np.all(np.logical_not(np.isnan(F_z_t0)))
+    assert np.all(np.logical_not(np.isinf(F_z_t0)))
 
     return example_frac_abundance, example_frac_abundance_no_optional
 
@@ -504,33 +504,33 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
 
     tau = 1e-16
     try:
-        N_z_t = example_frac_abundance_no_optional(tau)
+        F_z_t = example_frac_abundance_no_optional(tau)
     except Exception as e:
         raise e
 
-    assert N_z_t.shape == (5, 10)
+    assert F_z_t.shape == (5, 10)
 
-    assert np.all(np.logical_not(np.isnan(N_z_t)))
-    assert np.all(np.logical_not(np.isinf(N_z_t)))
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
 
-    assert np.allclose(N_z_t, example_frac_abundance_no_optional.N_z_t0)
+    assert np.allclose(F_z_t, example_frac_abundance_no_optional.F_z_t0)
 
     tau = 1e2
 
     try:
-        N_z_t = example_frac_abundance_no_optional(tau)
+        F_z_t = example_frac_abundance_no_optional(tau)
     except Exception as e:
         raise e
 
-    assert np.all(np.logical_not(np.isnan(N_z_t)))
-    assert np.all(np.logical_not(np.isinf(N_z_t)))
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
 
-    assert np.allclose(N_z_t, example_frac_abundance_no_optional.N_z_tinf, atol=2e-2)
+    assert np.allclose(F_z_t, example_frac_abundance_no_optional.F_z_tinf, atol=2e-2)
 
     rho = example_frac_abundance_no_optional.Ne.coords["rho"]
 
     for irho in range(rho.size):
-        test_normalization = np.linalg.norm(N_z_t[:, irho])
+        test_normalization = np.linalg.norm(F_z_t[:, irho])
         assert np.abs(test_normalization - 1.0) <= 2e-2
 
     test_case = Assertion_Test_Case()
@@ -546,33 +546,33 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
 
     tau = 1e-16
     try:
-        N_z_t = example_frac_abundance(tau)
+        F_z_t = example_frac_abundance(tau)
     except Exception as e:
         raise e
 
-    assert N_z_t.shape == (5, 10)
+    assert F_z_t.shape == (5, 10)
 
-    assert np.all(np.logical_not(np.isnan(N_z_t)))
-    assert np.all(np.logical_not(np.isinf(N_z_t)))
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
 
-    assert np.allclose(N_z_t, example_frac_abundance.N_z_t0)
+    assert np.allclose(F_z_t, example_frac_abundance.F_z_t0)
 
     tau = 1e2
 
     try:
-        N_z_t = example_frac_abundance(tau)
+        F_z_t = example_frac_abundance(tau)
     except Exception as e:
         raise e
 
-    assert np.all(np.logical_not(np.isnan(N_z_t)))
-    assert np.all(np.logical_not(np.isinf(N_z_t)))
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
 
-    assert np.allclose(N_z_t, example_frac_abundance.N_z_tinf, atol=2e-2)
+    assert np.allclose(F_z_t, example_frac_abundance.F_z_tinf, atol=2e-2)
 
     rho = example_frac_abundance.Ne.coords["rho"]
 
     for irho in range(rho.size):
-        test_normalization = np.linalg.norm(N_z_t[:, irho])
+        test_normalization = np.linalg.norm(F_z_t[:, irho])
         assert np.abs(test_normalization - 1.0) <= 2e-2
 
 
@@ -629,7 +629,7 @@ def test_power_loss_init():
 
     test_case = Assertion_Test_Case()
 
-    N_z_t_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
+    F_z_t_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
     test_case.init_power_loss_assert_check(
         PLT,
         PRC,
@@ -637,10 +637,10 @@ def test_power_loss_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t=N_z_t_invalid,
+        F_z_t=F_z_t_invalid,
     )
 
-    N_z_t_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
+    F_z_t_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
     test_case.init_power_loss_assert_check(
         PLT,
         PRC,
@@ -648,10 +648,10 @@ def test_power_loss_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t=N_z_t_invalid,
+        F_z_t=F_z_t_invalid,
     )
 
-    N_z_t_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
+    F_z_t_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
     test_case.init_power_loss_assert_check(
         PLT,
         PRC,
@@ -659,10 +659,10 @@ def test_power_loss_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t=N_z_t_invalid,
+        F_z_t=F_z_t_invalid,
     )
 
-    N_z_t_invalid = np.zeros(5) + np.nan
+    F_z_t_invalid = np.zeros(5) + np.nan
     test_case.init_power_loss_assert_check(
         PLT,
         PRC,
@@ -670,10 +670,10 @@ def test_power_loss_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t=N_z_t_invalid,
+        F_z_t=F_z_t_invalid,
     )
 
-    N_z_t_invalid = np.zeros(5) + np.inf
+    F_z_t_invalid = np.zeros(5) + np.inf
     test_case.init_power_loss_assert_check(
         PLT,
         PRC,
@@ -681,10 +681,10 @@ def test_power_loss_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t=N_z_t_invalid,
+        F_z_t=F_z_t_invalid,
     )
 
-    N_z_t_invalid = np.zeros(5) - np.inf
+    F_z_t_invalid = np.zeros(5) - np.inf
     test_case.init_power_loss_assert_check(
         PLT,
         PRC,
@@ -692,7 +692,7 @@ def test_power_loss_init():
         Ne=input_Ne,
         Nh=input_Nh,
         Te=input_Te,
-        N_z_t=N_z_t_invalid,
+        F_z_t=F_z_t_invalid,
     )
 
     input_Ne_invalid = np.logspace(30.0, 16.0, 10)

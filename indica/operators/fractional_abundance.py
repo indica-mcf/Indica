@@ -35,7 +35,7 @@ class FractionalAbundance(Operator):
     CCD
         xarray.DataArray of charge exchange cross coupling coefficients of all relevant
         ionisation stages of given impurity element. (Optional)
-    N_z_t0
+    F_z_t0
         Optional initial fractional abundance for given impurity element. (Optional)
     unit_testing
         Boolean for unit testing purposes
@@ -54,13 +54,13 @@ class FractionalAbundance(Operator):
 
     Returns
     -------
-    N_z_t
+    F_z_t
         xarray.DataArray of fractional abundance of all ionisation stages of given
         impurity element.
 
     Methods
     -------
-    N_z_t0_check(N_z_t0)
+    F_z_t0_check(F_z_t0)
         Checks that inputted initial fractional abundance has valid values.
     Nh_check(Nh)
         Checks that the inputted thermal hydrogen number density has valid values.
@@ -74,9 +74,9 @@ class FractionalAbundance(Operator):
         Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
         ionisation stages.
-    calc_N_z_tinf()
+    calc_F_z_tinf()
         Calculates the equilibrium fractional abundance of all ionisation stages,
-        N_z(t=infinity) used for the final time evolution equation.
+        F_z(t=infinity) used for the final time evolution equation.
     calc_eigen_vals_and_vecs()
         Calculates the eigenvalues and eigenvectors of the ionisation balance matrix.
     calc_eigen_coeffs()
@@ -107,7 +107,7 @@ class FractionalAbundance(Operator):
         ACD: DataArray,
         Ne: DataArray,
         Te: DataArray,
-        N_z_t0: np.ndarray = None,
+        F_z_t0: np.ndarray = None,
         Nh: DataArray = None,
         CCD: DataArray = None,
         unit_testing: bool = False,
@@ -122,9 +122,9 @@ class FractionalAbundance(Operator):
         self.CCD = CCD
         self.num_of_stages = 0
         self.ionisation_balance_matrix = None
-        self.N_z_tinf = None
-        self.N_z_t0 = None
-        self.N_z_t = None
+        self.F_z_tinf = None
+        self.F_z_t0 = None
+        self.F_z_t = None
         self.eig_vals = None
         self.eig_vecs = None
         self.eig_coeffs = None
@@ -144,8 +144,8 @@ class FractionalAbundance(Operator):
             inputted_data["Nh"] = self.Nh
         inputted_data["Te"] = self.Te
 
-        self.N_z_t0_check(N_z_t0)
-        self.N_z_t0 = N_z_t0
+        self.F_z_t0_check(F_z_t0)
+        self.F_z_t0 = F_z_t0
 
         self.Nh_check(self.Nh)
         self.Nh = Nh
@@ -174,19 +174,19 @@ class FractionalAbundance(Operator):
         if not unit_testing:
             self.ordered_setup()
 
-    def N_z_t0_check(self, N_z_t0):
+    def F_z_t0_check(self, F_z_t0):
         """Checks that inputted initial fractional abundance has valid values.
 
         Parameters
         ----------
-        N_z_t0
+        F_z_t0
             Initial fractional abundance to check.
         """
-        if N_z_t0 is None:
+        if F_z_t0 is None:
             return
 
         try:
-            assert isinstance(N_z_t0, np.ndarray)
+            assert isinstance(F_z_t0, np.ndarray)
         except AssertionError:
             raise AssertionError(
                 "Initial fractional abundance must be a numpy array\
@@ -194,7 +194,7 @@ class FractionalAbundance(Operator):
             )
 
         try:
-            assert np.all(N_z_t0 >= 0)
+            assert np.all(F_z_t0 >= 0)
         except AssertionError:
             raise AssertionError(
                 "Cannot have any negative values in the initial \
@@ -202,12 +202,12 @@ class FractionalAbundance(Operator):
             )
 
         try:
-            assert N_z_t0.ndim == 1
+            assert F_z_t0.ndim == 1
         except AssertionError:
             raise AssertionError("Initial fractional abundance must be 1-dimensional.")
 
         try:
-            assert np.all(N_z_t0 != np.nan)
+            assert np.all(F_z_t0 != np.nan)
         except AssertionError:
             raise AssertionError(
                 "Initial fractional abundance cannot contain any \
@@ -215,7 +215,7 @@ class FractionalAbundance(Operator):
             )
 
         try:
-            assert np.all(np.abs(N_z_t0) != np.inf)
+            assert np.all(np.abs(F_z_t0) != np.inf)
         except AssertionError:
             raise AssertionError(
                 "Initial fractional abundance cannot contain any \
@@ -445,22 +445,22 @@ class FractionalAbundance(Operator):
 
         return ionisation_balance_matrix
 
-    def calc_N_z_tinf(
+    def calc_F_z_tinf(
         self,
     ):
         """Calculates the equilibrium fractional abundance of all ionisation stages,
-        N_z(t=infinity) used for the final time evolution equation.
+        F_z(t=infinity) used for the final time evolution equation.
 
         Returns
         -------
-        N_z_tinf
+        F_z_tinf
             Fractional abundance at equilibrium.
         """
         rho = self.Ne.coords["rho"]
         ionisation_balance_matrix = self.ionisation_balance_matrix
 
         null_space = np.zeros((self.num_of_stages, rho.size))
-        N_z_tinf = np.zeros((self.num_of_stages, rho.size))
+        F_z_tinf = np.zeros((self.num_of_stages, rho.size))
 
         for irho in range(rho.size):
             null_space[:, irho, np.newaxis] = scipy.linalg.null_space(
@@ -468,10 +468,10 @@ class FractionalAbundance(Operator):
             )
 
         # Complex type casting for compatibility with eigen calculation results later.
-        N_z_tinf = np.abs(null_space).astype(dtype=np.complex128)
-        self.N_z_tinf = N_z_tinf
+        F_z_tinf = np.abs(null_space).astype(dtype=np.complex128)
+        self.F_z_tinf = F_z_tinf
 
-        return N_z_tinf
+        return F_z_tinf
 
     def calc_eigen_vals_and_vecs(
         self,
@@ -513,18 +513,18 @@ class FractionalAbundance(Operator):
         eig_coeffs
             Coefficients calculated from the eigenvalues and eigenvectors needed
             for the time evolution equation.
-        N_z_t0
+        F_z_t0
             Initial fractional abundance, either user-provided or fully neutral
             eg. [1.0, 0.0, 0.0, 0.0, 0.0] for Beryllium.
         """
         rho = self.Ne.coords["rho"]
 
-        if self.N_z_t0 is None:
-            N_z_t0 = np.zeros(self.N_z_tinf.shape, dtype=np.complex128)
-            N_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(rho.size)])
+        if self.F_z_t0 is None:
+            F_z_t0 = np.zeros(self.F_z_tinf.shape, dtype=np.complex128)
+            F_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(rho.size)])
         else:
-            N_z_t0 = self.N_z_t0 / np.linalg.norm(self.N_z_t0)
-            N_z_t0 = N_z_t0.as_type(dtype=np.complex128)
+            F_z_t0 = self.F_z_t0 / np.linalg.norm(self.F_z_t0)
+            F_z_t0 = F_z_t0.as_type(dtype=np.complex128)
 
         eig_vals = self.eig_vals
         eig_vecs_inv = np.zeros(self.eig_vecs.shape, dtype=np.complex128)
@@ -533,7 +533,7 @@ class FractionalAbundance(Operator):
                 np.transpose(self.eig_vecs[:, :, irho])
             )
 
-        boundary_conds = N_z_t0 - self.N_z_tinf
+        boundary_conds = F_z_t0 - self.F_z_tinf
 
         eig_coeffs = np.zeros(eig_vals.shape, dtype=np.complex128)
         for irho in range(rho.size):
@@ -542,9 +542,9 @@ class FractionalAbundance(Operator):
             )
 
         self.eig_coeffs = eig_coeffs
-        self.N_z_t0 = N_z_t0
+        self.F_z_t0 = F_z_t0
 
-        return eig_coeffs, N_z_t0
+        return eig_coeffs, F_z_t0
 
     def __call__(
         self,
@@ -555,11 +555,11 @@ class FractionalAbundance(Operator):
         Parameters
         ----------
         tau
-            Time after t0 (t0 is defined as the time at which N_z_t0 is taken).
+            Time after t0 (t0 is defined as the time at which F_z_t0 is taken).
 
         Returns
         -------
-        N_z_t
+        F_z_t
             Fractional abundance at tau.
         """
         try:
@@ -573,18 +573,18 @@ class FractionalAbundance(Operator):
             raise AssertionError("Given time value, tau, cannot be negative")
 
         rho = self.Ne.coords["rho"]
-        N_z_t = copy.deepcopy(self.N_z_tinf)
+        F_z_t = copy.deepcopy(self.F_z_tinf)
         for irho in range(rho.size):
             for istage in range(self.num_of_stages):
-                N_z_t[:, irho] += (
+                F_z_t[:, irho] += (
                     self.eig_coeffs[istage, irho]
                     * np.exp(self.eig_vals[istage, irho] * tau)
                     * self.eig_vecs[:, istage, irho]
                 )
 
-        self.N_z_t = np.real(N_z_t)
+        self.F_z_t = np.real(F_z_t)
 
-        return np.real(N_z_t)
+        return np.real(F_z_t)
 
     def ordered_setup(self):
         """Sets up data for calculation in correct order."""
@@ -592,7 +592,7 @@ class FractionalAbundance(Operator):
 
         self.calc_ionisation_balance_matrix()
 
-        self.calc_N_z_tinf()
+        self.calc_F_z_tinf()
 
         self.calc_eigen_vals_and_vecs()
 
@@ -619,7 +619,7 @@ class PowerLoss(Operator):
     PRC
         xarray.DataArray of radiated power of charge exchange emission of all relevant
         ionisation stages of given impurity element. (Optional)
-    N_z_t
+    F_z_t
         xarray.DataArray of fractional abundance of all ionisation stages of given
         impurity element. (Optional)
     unit_testing
@@ -645,7 +645,7 @@ class PowerLoss(Operator):
 
     Methods
     -------
-    N_z_t_check(self, N_z_t)
+    F_z_t_check(self, F_z_t)
         Checks that inputted fractional abundance has valid values.
     Nh_check(Nh)
         Checks that the inputted thermal hydrogen number density has valid values.
@@ -680,7 +680,7 @@ class PowerLoss(Operator):
         Nh: DataArray,
         Te: DataArray,
         PRC: DataArray = None,
-        N_z_t: DataArray = None,
+        F_z_t: DataArray = None,
         unit_testing: bool = False,
         sess: session.Session = session.global_session,
     ):
@@ -703,11 +703,8 @@ class PowerLoss(Operator):
         inputted_data["Nh"] = self.Nh
         inputted_data["Te"] = self.Te
 
-        self.N_z_t_check(N_z_t)
-        self.N_z_t = N_z_t
-
-        external_calc_data = {}
-        external_calc_data["N_z_t"] = self.N_z_t
+        self.F_z_t_check(F_z_t)
+        self.F_z_t = F_z_t
 
         try:
             for key, val in imported_data.items():
@@ -754,43 +751,43 @@ class PowerLoss(Operator):
         """
         return (("total_radiated power loss", "impurity_element"),)
 
-    def N_z_t_check(self, N_z_t):
+    def F_z_t_check(self, F_z_t):
         """Checks that initial fractional abundance has valid values.
 
         Parameters
         ----------
-        N_z_t
+        F_z_t
             Fractional abundance to check.
         """
-        if N_z_t is None:
+        if F_z_t is None:
             return
 
         try:
-            assert isinstance(N_z_t, DataArray)
+            assert isinstance(F_z_t, DataArray)
         except AssertionError:
             raise AssertionError("Fractional abundance must be a xarray DataArray.")
 
         try:
-            assert np.all(N_z_t >= 0)
+            assert np.all(F_z_t >= 0)
         except AssertionError:
             raise AssertionError(
                 "Cannot have any negative values in the fractional abundance data."
             )
 
         try:
-            assert N_z_t.ndim == 1
+            assert F_z_t.ndim == 1
         except AssertionError:
             raise AssertionError("Fractional abundance must be 1-dimensional.")
 
         try:
-            assert np.all(N_z_t != np.nan)
+            assert np.all(F_z_t != np.nan)
         except AssertionError:
             raise AssertionError(
                 "Fractional abundance cannot contain any NaNs (invalid numbers)."
             )
 
         try:
-            assert np.all(np.abs(N_z_t) != np.inf)
+            assert np.all(np.abs(F_z_t) != np.inf)
         except AssertionError:
             raise AssertionError("Fractional abundance cannot contain any infinities.")
 
@@ -940,7 +937,7 @@ class PowerLoss(Operator):
         -------
         cooling_factor
             Total radiated power of all ionisation stages.
-        N_z_t
+        F_z_t
             Fractional abundance, either user-provided or fully stripped
             eg. [0.0, 0.0, 0.0, 0.0, 1.0] for Beryllium.
         """
@@ -949,18 +946,18 @@ class PowerLoss(Operator):
 
         rho = self.Ne.coords["rho"]
 
-        if self.N_z_t is None:
-            N_z_t = np.zeros((self.num_of_stages, rho.size))
-            N_z_t[-1, :] = np.array([1.0 for i in range(rho.size)])
+        if self.F_z_t is None:
+            F_z_t = np.zeros((self.num_of_stages, rho.size))
+            F_z_t[-1, :] = np.array([1.0 for i in range(rho.size)])
         else:
-            N_z_t = self.N_z_t / np.linalg.norm(self.N_z_t)
+            F_z_t = self.F_z_t / np.linalg.norm(self.F_z_t)
 
         rho = Ne.coords["rho"]
 
         cooling_factor = np.zeros(rho.size)
         for irho in range(rho.size):
             istage = 0
-            cooling_factor[irho] = (self.PLT[istage, irho]) * N_z_t[istage, irho]
+            cooling_factor[irho] = (self.PLT[istage, irho]) * F_z_t[istage, irho]
             for istage in range(1, self.num_of_stages - 1):
                 cooling_factor[irho] += (
                     self.PLT[istage, irho]
@@ -970,7 +967,7 @@ class PowerLoss(Operator):
                         else 0.0
                     )
                     + self.PRB[istage - 1, irho]
-                ) * N_z_t[istage, irho]
+                ) * F_z_t[istage, irho]
             istage = self.num_of_stages - 1
             cooling_factor[irho] += (
                 (
@@ -979,7 +976,7 @@ class PowerLoss(Operator):
                     else 0.0
                 )
                 + self.PRB[istage - 1, irho]
-            ) * N_z_t[istage, irho]
+            ) * F_z_t[istage, irho]
 
         self.cooling_factor = cooling_factor
 
