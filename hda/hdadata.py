@@ -64,7 +64,7 @@ class HDAdata:
             self.tend = tend
 
             self.reader = ST40Reader(
-                pulse, tstart - dt/2, tend + dt/2, max_freq=1.0e4
+                pulse, tstart - dt / 2, tend + dt / 2, max_freq=1.0e4
             )
 
             if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
@@ -91,21 +91,10 @@ class HDAdata:
             efit["run"] = whichRun
             self.raw_data["efit"] = efit
 
-            # if pedestal == True:
-            #     nrho_core = np.floor(nrho * 4 / 3)
-            #     nrho_edge = np.floor(nrho * 1 / 3)
-            #     rho_ped = 0.85
-            #     rho_core = np.linspace(0, rho_ped, nrho_core)[:-1]
-            #     rho_edge = np.linspace(rho_ped, 1.0, nrho_edge)  # [:-1]
-            #     rho = np.concatenate([rho_core, rho_edge])
-            # else:
-            #     rho = np.linspace(0, 1.0, nrho)
-
             rho_ped = 0.85
             rho_core = np.linspace(0, rho_ped, 30)[:-1]
-            rho_edge = np.linspace(rho_ped, 1.0, 15)  # [:-1]
-            # rho_sep = np.linspace(1.0, 1.05, 5)
-            rho = np.concatenate([rho_core, rho_edge])  # , rho_sep])
+            rho_edge = np.linspace(rho_ped, 1.0, 15)
+            rho = np.concatenate([rho_core, rho_edge])
 
             inputs = {
                 "t": t,
@@ -119,6 +108,7 @@ class HDAdata:
             }
             self.initialize_variables(inputs)
 
+            # Read XRCS Ti and Te
             xrcs = self.reader.get("sxr", "xrcs", 0)
             for k in xrcs.keys():
                 xrcs[k].attrs["transform"].set_equilibrium(self.equilibrium)
@@ -130,26 +120,26 @@ class HDAdata:
                 t=self.time
             )
 
+            # Read interferometer Ne
             nirh1 = self.reader.get("", "nirh1", 0)
             for k in nirh1.keys():
                 nirh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
             self.raw_data["nirh1"] = nirh1
+            self.nirh1 = bin_in_time(tstart, tend, self.freq, nirh1["ne"]).interp(
+                t=self.time
+            )
+            self.nirh1.attrs = nirh1["ne"].attrs
 
             smmh1 = self.reader.get("", "smmh1", 0)
             for k in smmh1.keys():
                 smmh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
             self.raw_data["smmh1"] = smmh1
-
-            self.ne_l = bin_in_time(tstart, tend, self.freq, nirh1["ne"]).interp(
+            self.smmh1 = bin_in_time(tstart, tend, self.freq, smmh1["ne"]).interp(
                 t=self.time
             )
-            self.ne_l.attrs = nirh1["ne"].attrs
+            self.smmh1.attrs = smmh1["ne"].attrs
 
-            # self.ne_l = bin_in_time(tstart, tend, self.freq, smmh1["ne"]).interp(
-            #     t=self.time
-            # )
-            # self.ne_l.attrs = smmh1["ne"].attrs
-
+            # Read Vloop and toroidal field
             # TODO temporary MAG reader --> : insert in reader class !!!
             vloop, vloop_path = self.reader._get_signal("", "mag", ".floop.l026:v", 0)
             vloop, vloop_path = self.reader._get_signal("", "mag", ".floop.l016:v", 0)
@@ -190,16 +180,10 @@ class HDAdata:
             self.wmhd = bin_in_time(tstart, tend, self.freq, efit["wp"]).interp(
                 t=self.time
             )
-
-            # if pkl:
-            #     self.write_to_pickle()
-
         else:
             print("\n Setting default synthetic plasma data no longer enabled\n")
 
-    def build_data(
-        self, ne_shape=0.9, te_shape=0.6, regime="l_mode",
-    ):
+    def build_data(self, ne_shape=0.9, te_shape=0.6, regime="l_mode", ne_l="nirh1"):
         """
         Create plasma data give information in inputs dictionary
         """
@@ -209,6 +193,7 @@ class HDAdata:
         self.ne_shape = ne_shape
         self.te_shape = te_shape
         self.regime = regime
+        self.ne_l = ne_l
 
         if self.regime == "l_mode":
             self.profs.l_mode(ne_shape=self.ne_shape, te_shape=self.te_shape)
@@ -216,48 +201,15 @@ class HDAdata:
             self.profs.h_mode(ne_shape=self.ne_shape, te_shape=self.te_shape)
 
         print(" Calculating LOS info of all diagnostics")
-        rho_xrcs = []
-        trans_xrcs = self.te_xrcs.attrs["transform"]
-        x1 = self.te_xrcs.coords[trans_xrcs.x1_name]
-        x2_arr = np.linspace(0, 1, 300)
-        x2 = DataArray(x2_arr, dims=trans_xrcs.x2_name)
-        dl = trans_xrcs.distance(trans_xrcs.x2_name, DataArray(0), x2[0:2], 0)[1]
-        self.te_xrcs.attrs["x2"] = x2
-        self.ti_xrcs.attrs["x2"] = x2
-        self.te_xrcs.attrs["dl"] = dl
-        self.ti_xrcs.attrs["dl"] = dl
+        self.remap_diagnostic("nirh1")
+        self.remap_diagnostic("smmh1")
 
-        self.te_xrcs.attrs["R"], self.te_xrcs.attrs["z"] = trans_xrcs.convert_to_Rz(
-            x1, x2, 0
-        )
-        self.ti_xrcs.attrs["R"], self.ti_xrcs.attrs["z"] = trans_xrcs.convert_to_Rz(
-            x1, x2, 0
-        )
-        for t in self.te_xrcs.t:
-            rho_tmp, _ = self.flux_coords.convert_from_Rz(
-                self.te_xrcs.attrs["R"], self.te_xrcs.attrs["z"], t
-            )
-            rho_xrcs.append(rho_tmp)
-        rho_xrcs = xr.concat(rho_xrcs, "t")
-        rho_xrcs = xr.where(rho_xrcs >= 0, rho_xrcs, 0.0)
-        self.te_xrcs.attrs["rho"] = rho_xrcs
-        self.ti_xrcs.attrs["rho"] = rho_xrcs
-
-        rho_ne_l = []
-        trans_ne_l = self.ne_l.attrs["transform"]
-        x1 = self.ne_l.coords[trans_ne_l.x1_name]
-        x2 = DataArray(x2_arr, dims=trans_ne_l.x2_name)
-        dl = trans_ne_l.distance(trans_ne_l.x2_name, DataArray(0), x2[0:2], 0)[1]
-        self.ne_l.attrs["dl"] = dl
-        self.ne_l.attrs["R"], self.ne_l.attrs["z"] = trans_ne_l.convert_to_Rz(x1, x2, 0)
-        for t in self.ne_l.t:
-            rho_tmp, _ = self.flux_coords.convert_from_Rz(
-                self.ne_l.attrs["R"], self.ne_l.attrs["z"], t
-            )
-            rho_ne_l.append(rho_tmp)
-        rho_ne_l = xr.concat(rho_ne_l, "t")
-        rho_ne_l = xr.where(rho_ne_l >= 0, rho_ne_l, 0.0)
-        self.ne_l.attrs["rho"] = rho_ne_l
+        self.remap_diagnostic("te_xrcs")
+        self.ti_xrcs.attrs["x2"] = self.te_xrcs.attrs["x2"]
+        self.ti_xrcs.attrs["dl"] = self.te_xrcs.attrs["dl"]
+        self.ti_xrcs.attrs["R"] = self.te_xrcs.attrs["R"]
+        self.ti_xrcs.attrs["z"] = self.te_xrcs.attrs["z"]
+        self.ti_xrcs.attrs["rho"] = self.te_xrcs.attrs["rho"]
 
         # Minor radius (flux-surface averaged)
         for ith, th in enumerate(self.theta):
@@ -324,8 +276,7 @@ class HDAdata:
 
         # Rescale density to match LOS-integrated value (radial view across midplane,
         # crossing the plasma twice, to the inner column and back)
-        el_dens_int = self.calc_ne_los_int()
-        self.el_dens *= self.ne_l / (el_dens_int)
+        self.match_interferometer(self.ne_l)
 
         for elem in self.elements:
             self.ion_dens.loc[dict(element=elem)] = self.el_dens * self.ion_conc.sel(
@@ -403,12 +354,37 @@ class HDAdata:
 
             # Calculate Ti(0) from He-like spectrometer
             he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
-            const_te = self.te_xrcs/he_like.el_temp
-            const_ti = self.ti_xrcs/he_like.ion_temp
+            const_te = self.te_xrcs / he_like.el_temp
+            const_ti = self.ti_xrcs / he_like.ion_temp
 
         self.el_temp = el_temp
         for elem in self.elements:
             self.ion_temp.loc[dict(element=elem)] = ion_temp
+
+    def match_interferometer(self, ne_l:str):
+        """
+        Rescale density profiles to match the interferometer measurements
+
+        Parameters
+        ----------
+        ne_l
+            Name of interferometer to be used
+
+        Returns
+        -------
+
+        """
+        print(f"\n Re-calculating density profiles to match {ne_l} values \n")
+
+        self.el_dens *= getattr(self, ne_l) / self.calc_ne_los_int(ne_l)
+        self.el_dens = self.el_dens
+
+        # Recalculate interferometer data
+        if hasattr(self, "nirh1"):
+            self.nirh1.values = self.calc_ne_los_int("nirh1").values
+        if hasattr(self, "smmh1"):
+            self.smmh1.values = self.calc_ne_los_int("smmh1").values
+
 
     def propagate_parameters(self):
         """
@@ -425,7 +401,39 @@ class HDAdata:
         self.calc_beta_poloidal()
         self.calc_vloop()
 
-    def calc_ne_los_int(self):
+    def remap_diagnostic(self, diag, npts=300):
+        """
+        Calculate maping on equilibrium for speccified diagnostic
+
+        Returns
+        -------
+
+        """
+        diag_var = getattr(self, diag)
+
+        rho = []
+        trans = diag_var.attrs["transform"]
+        x1 = diag_var.coords[trans.x1_name]
+        x2_arr = np.linspace(0, 1, npts)
+        x2 = DataArray(x2_arr, dims=trans.x2_name)
+        dl = trans.distance(trans.x2_name, DataArray(0), x2[0:2], 0)[1]
+        diag_var.attrs["x2"] = x2
+        diag_var.attrs["dl"] = dl
+        diag_var.attrs["R"], diag_var.attrs["z"] = trans.convert_to_Rz(
+            x1, x2, 0
+        )
+        for t in diag_var.t:
+            rho_tmp, _ = self.flux_coords.convert_from_Rz(
+                diag_var.attrs["R"], diag_var.attrs["z"], t
+            )
+            rho.append(rho_tmp)
+        rho = xr.concat(rho, "t")
+        rho = xr.where(rho >= 0, rho, 0.0)
+        diag_var.attrs["rho"] = rho
+
+        setattr(self, diag, diag_var)
+
+    def calc_ne_los_int(self, ne_l):
         """
         Calculate line of sight integral assuming only one pass across the plasma
 
@@ -433,14 +441,21 @@ class HDAdata:
         -------
 
         """
-        x2_name = self.ne_l.attrs["transform"].x2_name
+        ne_l_var = getattr(self, ne_l)
+
+        x2_name = ne_l_var.attrs["transform"].x2_name
 
         el_dens = xr.where(
-            self.ne_l.attrs["rho"] <= 1,
-            self.el_dens.interp(rho_poloidal=self.ne_l.attrs["rho"]),
+            ne_l_var.attrs["rho"] <= 1,
+            self.el_dens.interp(rho_poloidal=ne_l_var.attrs["rho"]),
             0,
         )
-        el_dens_int = el_dens.sum(x2_name) * self.ne_l.attrs["dl"]
+        print(
+            "\n ********************************************"
+            "\n Interferometer: two passess across the plasma"
+            "\n ******************************************** \n"
+        )
+        el_dens_int = 2 * el_dens.sum(x2_name) * ne_l_var.attrs["dl"]
 
         return el_dens_int
 
@@ -586,7 +601,7 @@ class HDAdata:
             ipla = self.ipla.sel(t=t).values
             r_a = self.r_a.sel(t=t).values
             area = self.area.sel(t=t).values
-            prof_shape = self.el_temp.sel(t=t)/self.el_temp.sel(t=t).max()
+            prof_shape = self.el_temp.sel(t=t) / self.el_temp.sel(t=t).max()
 
             j_phi = ph.current_density(ipla, rho, r_a, area, prof_shape)
 

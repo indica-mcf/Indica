@@ -26,6 +26,7 @@ class HDArun:
         ne_shape=1,
         te_shape=0.8,
         regime="l_mode",
+        ne_l="smmh1",
     ):
         """From the measured Te and Ti values, search for Te profile that best
         matches total pressure.
@@ -63,7 +64,7 @@ class HDArun:
         )
 
         self.data.build_data(
-            ne_shape=self.ne_shape, te_shape=self.te_shape, regime=self.regime
+            ne_shape=self.ne_shape, te_shape=self.te_shape, regime=self.regime, ne_l=ne_l
         )
         self.data.simulate_spectrometers()
         self.data.match_xrcs()
@@ -234,7 +235,10 @@ class HDArun:
         bckc.propagate_parameters()
 
         # Recalculate the interferometer measurement
-        bckc.ne_l.values = bckc.calc_ne_los_int()
+        if hasattr(bckc, "nirh1"):
+            bckc.nirh1.values = bckc.calc_ne_los_int("nirh1").values
+        if hasattr(bckc, "smmh1"):
+            bckc.smmh1.values = bckc.calc_ne_los_int("smmh1").values
 
         self.bckc = bckc
         if debug:

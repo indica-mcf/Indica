@@ -5,7 +5,7 @@ from matplotlib import cm
 plt.ion()
 
 
-def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=False):
+def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr=False, name="", savefig=False):
     """
 
     Parameters
@@ -18,13 +18,13 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
         set to True if figures to be saved to file
 
     """
-    data.ne_0.values = data.el_dens.sel(rho_poloidal=0)
-    has_bckc = False
-    if bckc is not None:
-        bckc.ne_0.values = bckc.el_dens.sel(rho_poloidal=0)
-        has_bckc = True
+    data1.ne_0.values = data1.el_dens.sel(rho_poloidal=0)
+    has_data2 = False
+    if data2 is not None:
+        data2.ne_0.values = data2.el_dens.sel(rho_poloidal=0)
+        has_data2 = True
 
-    time = data.time
+    time = data1.time
     nt = len(time)
     colors = cm.rainbow(np.linspace(0, 1, nt))
 
@@ -32,48 +32,48 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     plt.figure()
     ldata = None
     ldata_he = None
-    lbckc = None
-    lbckc_he = None
+    ldata2 = None
+    ldata2_he = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("el_temp")
             ldata_he = ldata + get_labels("he_like")
-            lbckc = ldata + get_labels("bckc")
-            lbckc_he = ldata_he + get_labels("bckc")
-        data.el_temp.sel(t=t).plot(color=colors[i], label=ldata)
+            ldata2 = ldata + get_labels(label2)
+            ldata2_he = ldata_he + get_labels(label2)
+        data1.el_temp.sel(t=t).plot(color=colors[i], label=ldata)
 
         plt.scatter(
-            data.spectrometers["he_like"].pos[i],
-            data.spectrometers["he_like"].el_temp[i],
+            data1.spectrometers["he_like"].pos[i],
+            data1.spectrometers["he_like"].el_temp[i],
             color=colors[i],
             label=ldata_he,
         )
         plt.hlines(
-            data.spectrometers["he_like"].el_temp[i],
-            data.spectrometers["he_like"].pos[i]
-            - data.spectrometers["he_like"].pos.attrs["err_in"][i],
-            data.spectrometers["he_like"].pos[i]
-            + data.spectrometers["he_like"].pos.attrs["err_out"][i],
+            data1.spectrometers["he_like"].el_temp[i],
+            data1.spectrometers["he_like"].pos[i]
+            - data1.spectrometers["he_like"].pos.attrs["err_in"][i],
+            data1.spectrometers["he_like"].pos[i]
+            + data1.spectrometers["he_like"].pos.attrs["err_out"][i],
             alpha=0.5,
             color=colors[i],
         )
 
-        if has_bckc:
-            bckc.el_temp.sel(t=t).plot(color=colors[i], label=lbckc, linestyle="--")
+        if has_data2:
+            data2.el_temp.sel(t=t).plot(color=colors[i], label=ldata2, linestyle="--")
 
             plt.scatter(
-                bckc.spectrometers["he_like"].pos[i],
-                bckc.spectrometers["he_like"].el_temp[i],
+                data2.spectrometers["he_like"].pos[i],
+                data2.spectrometers["he_like"].el_temp[i],
                 color=colors[i],
-                label=lbckc_he,
+                label=ldata2_he,
                 facecolors="none",
             )
             plt.hlines(
-                bckc.spectrometers["he_like"].el_temp[i],
-                bckc.spectrometers["he_like"].pos[i]
-                - bckc.spectrometers["he_like"].pos.attrs["err_in"][i],
-                bckc.spectrometers["he_like"].pos[i]
-                + bckc.spectrometers["he_like"].pos.attrs["err_out"][i],
+                data2.spectrometers["he_like"].el_temp[i],
+                data2.spectrometers["he_like"].pos[i]
+                - data2.spectrometers["he_like"].pos.attrs["err_in"][i],
+                data2.spectrometers["he_like"].pos[i]
+                + data2.spectrometers["he_like"].pos.attrs["err_out"][i],
                 alpha=0.5,
                 color=colors[i],
             )
@@ -82,9 +82,9 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     plt.ylabel("(eV)")
     plt.xlabel(r"$\rho_{pol}$")
     plt.legend()
-    ylim = (0, np.max([data.el_temp.max(), data.ion_temp.max()]))
-    if has_bckc:
-        ylim = (0, np.max([ylim[1], bckc.el_temp.max(), bckc.ion_temp.max()]))
+    ylim = (0, np.max([data1.el_temp.max(), data1.ion_temp.max()]))
+    if has_data2:
+        ylim = (0, np.max([ylim[1], data2.el_temp.max(), data2.ion_temp.max()]))
     plt.ylim(ylim)
     if savefig:
         save_figure(fig_name=name + "_electron_temperature")
@@ -92,94 +92,94 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # Ion temperature
     plt.figure()
     ldata = None
-    lbckc = None
+    ldata2 = None
     ldata_he = None
     ldata_c5 = None
-    lbckc_he = None
-    lbckc_c5 = None
+    ldata2_he = None
+    ldata2_c5 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("ion_temp")
             ldata_he = ldata + get_labels("he_like")
             ldata_c5 = ldata + get_labels("passive_c5")
-            lbckc = ldata + get_labels("bckc")
-            lbckc_he = ldata_he + get_labels("bckc")
-            lbckc_c5 = ldata_c5 + get_labels("bckc")
-        data.ion_temp.sel(t=t).sel(element=data.main_ion).plot(
+            ldata2 = ldata + get_labels(label2)
+            ldata2_he = ldata_he + get_labels(label2)
+            ldata2_c5 = ldata_c5 + get_labels(label2)
+        data1.ion_temp.sel(t=t).sel(element=data1.main_ion).plot(
             color=colors[i], label=ldata,
         )
 
-        if "he_like" in data.spectrometers.keys():
+        if "he_like" in data1.spectrometers.keys():
             plt.scatter(
-                data.spectrometers["he_like"].pos[i],
-                data.spectrometers["he_like"].ion_temp[i],
+                data1.spectrometers["he_like"].pos[i],
+                data1.spectrometers["he_like"].ion_temp[i],
                 color=colors[i],
                 label=ldata_he,
             )
             plt.hlines(
-                data.spectrometers["he_like"].ion_temp[i],
-                data.spectrometers["he_like"].pos[i]
-                - data.spectrometers["he_like"].pos.attrs["err_in"][i],
-                data.spectrometers["he_like"].pos[i]
-                + data.spectrometers["he_like"].pos.attrs["err_out"][i],
+                data1.spectrometers["he_like"].ion_temp[i],
+                data1.spectrometers["he_like"].pos[i]
+                - data1.spectrometers["he_like"].pos.attrs["err_in"][i],
+                data1.spectrometers["he_like"].pos[i]
+                + data1.spectrometers["he_like"].pos.attrs["err_out"][i],
                 alpha=0.5,
                 color=colors[i],
             )
 
-        if "passive_c5" in data.spectrometers.keys():
+        if "passive_c5" in data1.spectrometers.keys():
             plt.scatter(
-                data.spectrometers["passive_c5"].pos[i],
-                data.spectrometers["passive_c5"].ion_temp[i],
+                data1.spectrometers["passive_c5"].pos[i],
+                data1.spectrometers["passive_c5"].ion_temp[i],
                 label=ldata_c5,
                 marker="s",
             )
             plt.hlines(
-                data.spectrometers["passive_c5"].ion_temp[i],
-                data.spectrometers["passive_c5"].pos[i]
-                - data.spectrometers["passive_c5"].pos.attrs["err_in"][i],
-                data.spectrometers["passive_c5"].pos[i]
-                + data.spectrometers["passive_c5"].pos.attrs["err_out"][i],
+                data1.spectrometers["passive_c5"].ion_temp[i],
+                data1.spectrometers["passive_c5"].pos[i]
+                - data1.spectrometers["passive_c5"].pos.attrs["err_in"][i],
+                data1.spectrometers["passive_c5"].pos[i]
+                + data1.spectrometers["passive_c5"].pos.attrs["err_out"][i],
                 alpha=0.5,
                 color=colors[i],
             )
 
-        if has_bckc:
-            bckc.ion_temp.sel(t=t).sel(element=data.main_ion).plot(
-                color=colors[i], label=lbckc, linestyle="--"
+        if has_data2:
+            data2.ion_temp.sel(t=t).sel(element=data1.main_ion).plot(
+                color=colors[i], label=ldata2, linestyle="--"
             )
 
             plt.scatter(
-                bckc.spectrometers["he_like"].pos[i],
-                bckc.spectrometers["he_like"].ion_temp[i],
+                data2.spectrometers["he_like"].pos[i],
+                data2.spectrometers["he_like"].ion_temp[i],
                 color=colors[i],
                 facecolors="none",
-                label=lbckc_he,
+                label=ldata2_he,
             )
             plt.hlines(
-                bckc.spectrometers["he_like"].ion_temp[i],
-                bckc.spectrometers["he_like"].pos[i]
-                - bckc.spectrometers["he_like"].pos.attrs["err_in"][i],
-                bckc.spectrometers["he_like"].pos[i]
-                + bckc.spectrometers["he_like"].pos.attrs["err_out"][i],
+                data2.spectrometers["he_like"].ion_temp[i],
+                data2.spectrometers["he_like"].pos[i]
+                - data2.spectrometers["he_like"].pos.attrs["err_in"][i],
+                data2.spectrometers["he_like"].pos[i]
+                + data2.spectrometers["he_like"].pos.attrs["err_out"][i],
                 alpha=0.5,
                 color=colors[i],
             )
 
-            if "passive_c5" in bckc.spectrometers.keys():
+            if "passive_c5" in data2.spectrometers.keys():
                 plt.scatter(
-                    bckc.spectrometers["passive_c5"].pos[i],
-                    bckc.spectrometers["passive_c5"].ion_temp[i],
+                    data2.spectrometers["passive_c5"].pos[i],
+                    data2.spectrometers["passive_c5"].ion_temp[i],
                     color=colors[i],
                     marker="s",
                     facecolors="none",
-                    label=lbckc_c5,
+                    label=ldata2_c5,
                 )
                 plt.hlines(
-                    bckc.spectrometers["passive_c5"].ion_temp[i],
-                    bckc.spectrometers["passive_c5"].pos[i]
-                    - bckc.spectrometers["passive_c5"].pos.attrs["err_in"][i],
-                    bckc.spectrometers["passive_c5"].pos[i]
-                    + bckc.spectrometers["passive_c5"].pos.attrs["err_out"][i],
+                    data2.spectrometers["passive_c5"].ion_temp[i],
+                    data2.spectrometers["passive_c5"].pos[i]
+                    - data2.spectrometers["passive_c5"].pos.attrs["err_in"][i],
+                    data2.spectrometers["passive_c5"].pos[i]
+                    + data2.spectrometers["passive_c5"].pos.attrs["err_out"][i],
                     alpha=0.5,
                     color=colors[i],
                 )
@@ -195,15 +195,15 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # Electron density
     plt.figure()
     ldata = None
-    lbckc = None
+    ldata2 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("el_dens")
-            lbckc = ldata + get_labels("bckc")
-        data.el_dens.sel(t=t).plot(color=colors[i], label=ldata)
+            ldata2 = ldata + get_labels(label2)
+        data1.el_dens.sel(t=t).plot(color=colors[i], label=ldata)
 
-        if has_bckc:
-            bckc.el_dens.sel(t=t).plot(color=colors[i], linestyle="--", label=lbckc)
+        if has_data2:
+            data2.el_dens.sel(t=t).plot(color=colors[i], linestyle="--", label=ldata2)
 
     plt.title("Electron Density")
     plt.ylabel("($m^{-3}$)")
@@ -214,18 +214,18 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # Main ion density
     plt.figure()
     ldata = None
-    lbckc = None
+    ldata2 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("ion_dens")
-            lbckc = ldata + get_labels("bckc")
-        data.ion_dens.sel(t=t).sel(element=data.main_ion).plot(
+            ldata2 = ldata + get_labels(label2)
+        data1.ion_dens.sel(t=t).sel(element=data1.main_ion).plot(
             color=colors[i], label=ldata
         )
 
-        if has_bckc:
-            bckc.ion_dens.sel(t=t).sel(element=data.main_ion).plot(
-                color=colors[i], linestyle="--", label=lbckc
+        if has_data2:
+            data2.ion_dens.sel(t=t).sel(element=data1.main_ion).plot(
+                color=colors[i], linestyle="--", label=ldata2
             )
 
     plt.title("Main ion Density")
@@ -239,15 +239,15 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # --------------------------------------------
     plt.figure()
     ldata = None
-    lbckc = None
+    ldata2 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("zeff")
-            lbckc = ldata + get_labels("bckc")
-        data.zeff.sel(t=t).sum("element").plot(color=colors[i], label=ldata)
-        if has_bckc:
-            bckc.zeff.sel(t=t).sum("element").plot(
-                color=colors[i], label=lbckc, linestyle="--"
+            ldata2 = ldata + get_labels(label2)
+        data1.zeff.sel(t=t).sum("element").plot(color=colors[i], label=ldata)
+        if has_data2:
+            data2.zeff.sel(t=t).sum("element").plot(
+                color=colors[i], label=ldata2, linestyle="--"
             )
     plt.title("Effective charge")
     plt.ylabel("$Z_{eff}$")
@@ -260,17 +260,17 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # --------------------------------------------
     plt.figure()
     ldata = None
-    lbckc = None
+    ldata2 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("tot_rad")
-            lbckc = ldata + get_labels("bckc")
-        (data.tot_rad.sel(t=t).sum("element") / 1.0e3).plot(
+            ldata2 = ldata + get_labels(label2)
+        (data1.tot_rad.sel(t=t).sum("element") / 1.0e3).plot(
             color=colors[i], label=ldata
         )
-        if has_bckc:
-            (bckc.tot_rad.sel(t=t).sum("element") / 1.0e3).plot(
-                color=colors[i], label=lbckc, linestyle="--"
+        if has_data2:
+            (data2.tot_rad.sel(t=t).sum("element") / 1.0e3).plot(
+                color=colors[i], label=ldata2, linestyle="--"
             )
     plt.title("Total radiated power")
     plt.ylabel("(kW)")
@@ -283,15 +283,15 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # --------------------------------------------
     plt.figure()
     ldata = None
-    lbckc = None
+    ldata2 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("pressure")
-            lbckc = ldata + get_labels("bckc")
-        (data.pressure_th / 1.0e3).sel(t=t).plot(color=colors[i], label=ldata)
-        if has_bckc:
-            (bckc.pressure_th / 1.0e3).sel(t=t).plot(
-                color=colors[i], label=lbckc, linestyle="--"
+            ldata2 = ldata + get_labels(label2)
+        (data1.pressure_th / 1.0e3).sel(t=t).plot(color=colors[i], label=ldata)
+        if has_data2:
+            (data2.pressure_th / 1.0e3).sel(t=t).plot(
+                color=colors[i], label=ldata2, linestyle="--"
             )
     plt.title("Thermal pressure (ion + electrons)")
     plt.ylabel("($kPa$ $m^{-3}$)")
@@ -304,15 +304,15 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # --------------------------------------------
     plt.figure()
     ldata = None
-    lbckc = None
+    ldata2 = None
     for i, t in enumerate(time):
         if i == (nt - 1):
             ldata = get_labels("j_phi")
-            lbckc = ldata + get_labels("bckc")
-        (data.j_phi / 1.0e3).sel(t=t).plot(color=colors[i], label=ldata)
-        if has_bckc:
-            (bckc.j_phi / 1.0e3).sel(t=t).plot(
-                color=colors[i], label=lbckc, linestyle="--"
+            ldata2 = ldata + get_labels(label2)
+        (data1.j_phi / 1.0e3).sel(t=t).plot(color=colors[i], label=ldata)
+        if has_data2:
+            (data2.j_phi / 1.0e3).sel(t=t).plot(
+                color=colors[i], label=ldata2, linestyle="--"
             )
     plt.title("Current density")
     plt.ylabel("($kA$ $m^{-2}$)")
@@ -324,35 +324,35 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # Plasma energy
     # --------------------------------------------
     plt.figure()
-    wmhd = data.wmhd
-    x_val = getattr(data, "time")
+    wmhd = data1.wmhd
+    x_val = getattr(data1, "time")
     if correl != "t":
-        x_val = getattr(data, correl)
+        x_val = getattr(data1, correl)
     if correl != "t":
         wmhd.assign_coords(correl=("t", x_val))
         wmhd = wmhd.swap_dims({"t": "correl"})
 
     ldata = get_labels("wmhd")
-    lbckc = ldata + get_labels("bckc")
+    ldata2 = ldata + get_labels(label2)
     (wmhd / 1.0e3).plot(label=ldata)
-    if has_bckc:
-        wmhd_bckc = bckc.wmhd
+    if has_data2:
+        wmhd_data2 = data2.wmhd
         if correl != "t":
-            wmhd_bckc = wmhd_bckc.assign_coords(correl=("t", x_val))
-            wmhd_bckc = wmhd_bckc.swap_dims({"t": "correl"})
-        (wmhd_bckc / 1.0e3).plot(color="k", linestyle="dashed", label=lbckc)
+            wmhd_data2 = wmhd_data2.assign_coords(correl=("t", x_val))
+            wmhd_data2 = wmhd_data2.swap_dims({"t": "correl"})
+        (wmhd_data2 / 1.0e3).plot(color="k", linestyle="dashed", label=ldata2)
 
-    if hasattr(data, "raw_data") and correl == "t":
-        (data.raw_data["efit"]["wp"] / 1.0e3).plot()
+    if hasattr(data1, "raw_data") and correl == "t":
+        (data1.raw_data["efit"]["wp"] / 1.0e3).plot()
 
     for i in range(len(x_val)):
         plt.scatter(
             x_val[i].values, wmhd[i].values / 1.0e3, marker="o", color=colors[i]
         )
-        if has_bckc:
+        if has_data2:
             plt.scatter(
                 x_val[i].values,
-                wmhd_bckc[i].values / 1.0e3,
+                wmhd_data2[i].values / 1.0e3,
                 facecolors="none",
                 color=colors[i],
             )
@@ -367,30 +367,30 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # Vloop
     # --------------------------------------------
     plt.figure()
-    vloop = data.vloop
+    vloop = data1.vloop
     if correl != "t":
         vloop = vloop.assign_coords(correl=("t", x_val))
         vloop = vloop.swap_dims({"t": "correl"})
 
     ldata = get_labels("vloop")
-    lbckc = ldata + get_labels("bckc")
+    ldata2 = ldata + get_labels(label2)
     vloop.plot(label=ldata)
-    if has_bckc:
-        vloop_bckc = bckc.vloop
+    if has_data2:
+        vloop_data2 = data2.vloop
         if correl != "t":
-            vloop_bckc = vloop_bckc.assign_coords(correl=("t", x_val))
-            vloop_bckc = vloop_bckc.swap_dims({"t": "correl"})
-        vloop_bckc.plot(color="k", linestyle="dashed", label=lbckc)
+            vloop_data2 = vloop_data2.assign_coords(correl=("t", x_val))
+            vloop_data2 = vloop_data2.swap_dims({"t": "correl"})
+        vloop_data2.plot(color="k", linestyle="dashed", label=ldata2)
 
-    if hasattr(data, "raw_data") and correl == "t":
-        (data.raw_data["vloop"]).plot()
+    if hasattr(data1, "raw_data") and correl == "t":
+        (data1.raw_data["vloop"]).plot()
 
     for i in range(len(x_val)):
         plt.scatter(x_val[i].values, vloop[i].values, marker="o", color=colors[i])
-        if has_bckc:
+        if has_data2:
             plt.scatter(
                 x_val[i].values,
-                vloop_bckc[i].values,
+                vloop_data2[i].values,
                 facecolors="none",
                 color=colors[i],
             )
@@ -404,39 +404,51 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # LOS-integrated electron density
     # --------------------------------------------
     plt.figure()
-    ne_l = data.ne_l
-    if correl != "t":
-        ne_l.assign_coords(correl=("t", x_val))
-        ne_l = ne_l.swap_dims({"t": "correl"})
-
-    ldata = get_labels("ne_l")
-    lbckc = ldata + get_labels("bckc")
-    ne_l.plot(label=ldata)
-    if has_bckc:
-        ne_l_bckc = bckc.ne_l
+    interferom = ["nirh1", "smmh1"]
+    marker = ["o", "s"]
+    ylim = [0, 0]
+    for isys, system in enumerate(interferom):
+        if not hasattr(data1, system):
+            continue
+        ne_l_data1 = getattr(data1, system)
+        ylim[1] = np.max([ylim[1], ne_l_data1.max()])
         if correl != "t":
-            ne_l_bckc.assign_coords(correl=("t", x_val))
-            ne_l_bckc = ne_l_bckc.swap_dims({"t": "correl"})
-        ne_l_bckc.plot(color="k", linestyle="dashed", label=lbckc)
+            ne_l_data1.assign_coords(correl=("t", x_val))
+            ne_l_data1 = ne_l_data1.swap_dims({"t": "correl"})
 
-    if hasattr(data, "raw_data") and correl == "t":
+        ldata = get_labels(system)
+        ldata2 = ldata + get_labels(label2)
+        ne_l_data1.plot(label=ldata)
+        if has_data2:
+            ne_l_data2 = getattr(data2, system)
+            ylim[1] = np.max([ylim[1], ne_l_data2.max()])
+            if correl != "t":
+                ne_l_data2.assign_coords(correl=("t", x_val))
+                ne_l_data2 = ne_l_data2.swap_dims({"t": "correl"})
+            ne_l_data2.plot(color="k", linestyle="dashed", label=ldata2)
 
-        if ne_l.name.split("_")[0] == "smmh1":
-            (data.raw_data["smmh1"]["ne"]).plot()
-        if ne_l.name.split("_")[0] == "nirh1":
-            (data.raw_data["nirh1"]["ne"]).plot()
+        if hasattr(data1, "raw_data") and correl == "t":
+            (data1.raw_data[system]["ne"]).plot()
+            ylim[1] = np.max([ylim[1], data1.raw_data[system]["ne"].max()])
 
-    for i in range(len(x_val)):
-        plt.scatter(x_val[i].values, ne_l[i].values, marker="o", color=colors[i])
-        if has_bckc:
+        for i in range(len(x_val)):
             plt.scatter(
-                x_val[i].values, ne_l_bckc[i].values, facecolors="none", color=colors[i]
+                x_val[i].values, ne_l_data1[i].values, color=colors[i], marker=marker[isys]
             )
+            if has_data2:
+                plt.scatter(
+                    x_val[i].values,
+                    ne_l_data2[i].values,
+                    color=colors[i],
+                    marker=marker[isys],
+                    facecolors="none",
+                )
+    ylim[1] *= 1.05
     plt.title("$N_{e}$ LOS-integrated")
     plt.ylabel("($m^{-2}$)")
     plt.xlabel(correl_label(correl))
     plt.legend()
-    # plt.ylim(ylim)
+    plt.ylim(ylim)
     if savefig:
         save_figure(fig_name=name + "_ne_l")
 
@@ -446,7 +458,7 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     if plot_spectr is not True:
         return
 
-    for k, results in data.spectrometers.items():
+    for k, results in data1.spectrometers.items():
         titles = {
             "fz": f"{results.element}{results.charge}+ fractional abundance",
             "pec": f"{results.element}{results.charge}+ " f"{results.wavelength}A PEC",
@@ -480,29 +492,29 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
     # Spectrometer integration region
     # --------------------------------------------
     plt.figure()
-    if "he_like" in data.spectrometers.keys():
+    if "he_like" in data1.spectrometers.keys():
         plt.plot(
-            data.te_0, np.array(data.spectrometers["he_like"].pos), "k", alpha=0.5,
+            data1.te_0, np.array(data1.spectrometers["he_like"].pos), "k", alpha=0.5,
         )
         plt.fill_between(
-            data.te_0,
-            np.array(data.spectrometers["he_like"].pos)
-            - np.array(data.spectrometers["he_like"].pos.attrs["err_in"]),
-            np.array(data.spectrometers["he_like"].pos)
-            + np.array(data.spectrometers["he_like"].pos.attrs["err_out"]),
+            data1.te_0,
+            np.array(data1.spectrometers["he_like"].pos)
+            - np.array(data1.spectrometers["he_like"].pos.attrs["err_in"]),
+            np.array(data1.spectrometers["he_like"].pos)
+            + np.array(data1.spectrometers["he_like"].pos.attrs["err_out"]),
             label="He-like",
             alpha=0.5,
         )
-    if "passive_c5" in data.spectrometers.keys():
+    if "passive_c5" in data1.spectrometers.keys():
         plt.plot(
-            data.te_0, np.array(data.spectrometers["passive_c5"].pos), "k", alpha=0.5,
+            data1.te_0, np.array(data1.spectrometers["passive_c5"].pos), "k", alpha=0.5,
         )
         plt.fill_between(
-            data.te_0,
-            np.array(data.spectrometers["passive_c5"].pos)
-            - np.array(data.spectrometers["passive_c5"].pos.attrs["err_in"]),
-            np.array(data.spectrometers["passive_c5"].pos)
-            + np.array(data.spectrometers["passive_c5"].pos.attrs["err_out"]),
+            data1.te_0,
+            np.array(data1.spectrometers["passive_c5"].pos)
+            - np.array(data1.spectrometers["passive_c5"].pos.attrs["err_in"]),
+            np.array(data1.spectrometers["passive_c5"].pos)
+            + np.array(data1.spectrometers["passive_c5"].pos.attrs["err_out"]),
             label="Passive C5+",
             alpha=0.5,
         )
@@ -514,20 +526,20 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
         save_figure(fig_name=name + "_emission_locations")
 
     plt.figure()
-    plt.plot(data.te_0, data.te_0, label="$T_e(0)$")
-    if "he_like" in data.spectrometers.keys():
+    plt.plot(data1.te_0, data1.te_0, label="$T_e(0)$")
+    if "he_like" in data1.spectrometers.keys():
         plt.plot(
-            data.te_0,
-            data.spectrometers["he_like"].el_temp,
+            data1.te_0,
+            data1.spectrometers["he_like"].el_temp,
             color="k",
             linestyle="dashed",
         )
         plt.fill_between(
-            data.te_0,
-            np.array(data.spectrometers["he_like"].el_temp)
-            - np.array(data.spectrometers["he_like"].el_temp.attrs["err_in"]),
-            np.array(data.spectrometers["he_like"].el_temp)
-            + np.array(data.spectrometers["he_like"].el_temp.attrs["err_out"]),
+            data1.te_0,
+            np.array(data1.spectrometers["he_like"].el_temp)
+            - np.array(data1.spectrometers["he_like"].el_temp.attrs["err_in"]),
+            np.array(data1.spectrometers["he_like"].el_temp)
+            + np.array(data1.spectrometers["he_like"].el_temp.attrs["err_out"]),
             alpha=0.5,
             label="$T_e(He-like)$",
         )
@@ -540,7 +552,7 @@ def HDAplot(data, bckc=None, correl="t", plot_spectr=False, name="", savefig=Fal
 
 def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
     plt.savefig(
-        "figures/" + fig_name + ext,
+        "/home/marco.sertoli/python/figures/Indica/" + fig_name + ext,
         orientation=orientation,
         dpi=600,
         pil_kwargs={"quality": 95},
@@ -559,7 +571,9 @@ def get_labels(lkey=None):
         "wdia": "3/2$ \int P_{th} dV$",
         "wmhd": "3/2$ \int P_{tot} dV$",
         "zeff": "$Z_{eff}$",
-        "ne_l": "$N_e LOS-int$",
+        "ne_l": "$N_e$ LOS-int",
+        "nirh1": "$N_e$ LOS-int (NIRH1)",
+        "smmh1": "$N_e$ LOS-int (SMMH1)",
         "tot_rad": "$P_{rad}$",
         "vloop": "$V_{loop}$",
         "bckc": " (back-calculated)",
@@ -578,8 +592,9 @@ def get_labels(lkey=None):
 
 def correl_label(key):
     correl_label = {
-        "te_0": "Te(0) (eV)",
-        "ne_l": "Ne LOS-int. midplane ($m^{-2}$)",
+        "te_0": "Te(0)",
+        "nirh1": "$N_e$ LOS-int NIRH1",
+        "smmh1": "$N_e$ LOS-int SMMH1",
         "t": "Time (s)",
     }
     if key in correl_label:

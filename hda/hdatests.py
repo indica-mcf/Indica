@@ -40,7 +40,35 @@ def trust3(hdarun):
     hdarun.plot(name=name, savefig=True)
 
 
-def test_flat_density(hdarun):
+def test_interferometry(hdarun, ne_l="smmh1", name="NIRH1_vs_SMMH1", savefig=False):
+    """Test effects of different electron density shapes on interferometer measurements"""
+    hdarun.initialize_bckc()
+    hdarun.bckc.match_interferometer(ne_l)
+    if hasattr(hdarun.bckc, "nirh1"):
+        hdarun.bckc.nirh1.values = hdarun.bckc.calc_ne_los_int("nirh1").values
+    if hasattr(hdarun.bckc, "smmh1"):
+        hdarun.bckc.smmh1.values = hdarun.bckc.calc_ne_los_int("smmh1").values
+    standard = deepcopy(hdarun.bckc)
+
+    # H-mode density, L-mode temperature
+    ne_0 = hdarun.bckc.profs.ne.sel(rho_poloidal=0).values
+    hdarun.bckc.profs.ne = hdarun.bckc.profs.build_density(
+        y_0=ne_0,
+        y_ped=ne_0 / 1.0,
+        x_ped=0.85,
+        w_core=0.8,
+        w_edge=0.2,
+        datatype=("density", "electron"),
+    )
+    for t in hdarun.bckc.time:
+        hdarun.bckc.el_dens.loc[dict(t=t)] = hdarun.bckc.profs.ne.values
+    hdarun.bckc.match_interferometer(ne_l)
+    flat_dens = deepcopy(hdarun.bckc)
+
+    HDAplot(flat_dens, standard, name=name, savefig=savefig)
+
+
+def test_flat_density(hdarun, ne_l="nirh1"):
     """Trust all measurements, find shape to explain data"""
 
     # L-mode profiles
@@ -61,8 +89,8 @@ def test_flat_density(hdarun):
     )
     for t in hdarun.bckc.time:
         hdarun.bckc.el_dens.loc[dict(t=t)] = hdarun.bckc.profs.ne.values
-    el_dens_int = hdarun.bckc.calc_ne_los_int()
-    hdarun.bckc.el_dens *= hdarun.bckc.ne_l / (el_dens_int)
+    el_dens_int = hdarun.bckc.calc_ne_los_int(ne_l)
+    hdarun.bckc.el_dens *= getattr(hdarun.bckc, ne_l) / (el_dens_int)
 
     te_0 = hdarun.bckc.profs.te.sel(rho_poloidal=0).values
     hdarun.bckc.profs.te = hdarun.bckc.profs.build_temperature(
@@ -84,7 +112,7 @@ def test_flat_density(hdarun):
     hdarun.recover_density()
     flat_dens = deepcopy(hdarun.bckc)
 
-    print((standard.ne_l / flat_dens.ne_l).values)
+    print((getattr(standard, ne_l) / getattr(flat_dens, ne_l)).values)
 
     HDAplot(flat_dens, standard)
 
