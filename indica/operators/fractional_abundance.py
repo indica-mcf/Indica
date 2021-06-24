@@ -26,20 +26,23 @@ class FractionalAbundance(Operator):
     ACD
         xarray.DataArray of effective recombination rate coefficients of all relevant
         ionisation stages of given impurity element.
+    Ne
+        xarray.DataArray of electron density as a profile of rho.
+    Te
+        xarray.DataArray of electron temperature as a profile of rho.
+    Nh
+        xarray.DataArray of thermal hydrogen as a profile of rho. (Optional)
     CCD
         xarray.DataArray of charge exchange cross coupling coefficients of all relevant
-        ionisation stages of given impurity element.
-    Ne
-        xarray.DataArray of electron density as a profile of rho
-    Nh
-        xarray.DataArray of thermal hydrogen as a profile of rho
-    Te
-        xarray.DataArray of electron temperature as a profile of rho
+        ionisation stages of given impurity element. (Optional)
     N_z_t0
-        Optional initial fractional abundance for given impurity element.
+        Optional initial fractional abundance for given impurity element. (Optional)
+    unit_testing
+        Boolean for unit testing purposes
+        (whether to call ordered_setup in __init__ or not) (Optional)
     sess
         Object representing this session of calculations with the library.
-        Holds and communicates provenance information.
+        Holds and communicates provenance information. (Optional)
 
     Attributes
     ----------
@@ -59,6 +62,8 @@ class FractionalAbundance(Operator):
     -------
     N_z_t0_check(N_z_t0)
         Checks that inputted initial fractional abundance has valid values.
+    Nh_check(Nh)
+        Checks that the inputted thermal hydrogen number density has valid values.
     input_check(imported_data, inputted_data)
         Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
@@ -100,11 +105,11 @@ class FractionalAbundance(Operator):
         self,
         SCD: DataArray,
         ACD: DataArray,
-        CCD: DataArray,
         Ne: DataArray,
-        Nh: DataArray,
         Te: DataArray,
         N_z_t0: np.ndarray = None,
+        Nh: DataArray = None,
+        CCD: DataArray = None,
         unit_testing: bool = False,
         sess: session.Session = session.global_session,
     ):
@@ -130,14 +135,20 @@ class FractionalAbundance(Operator):
         imported_data = {}
         imported_data["SCD"] = self.SCD
         imported_data["ACD"] = self.ACD
-        imported_data["CCD"] = self.CCD
+        if self.CCD is not None:
+            imported_data["CCD"] = self.CCD
+
         inputted_data = {}
         inputted_data["Ne"] = self.Ne
-        inputted_data["Nh"] = self.Nh
+        if self.Nh is not None:
+            inputted_data["Nh"] = self.Nh
         inputted_data["Te"] = self.Te
 
         self.N_z_t0_check(N_z_t0)
         self.N_z_t0 = N_z_t0
+
+        self.Nh_check(self.Nh)
+        self.Nh = Nh
 
         try:
             for key, val in imported_data.items():
@@ -157,27 +168,6 @@ class FractionalAbundance(Operator):
                     assert val1.shape == val2.shape
         except AssertionError:
             raise AssertionError(f"{key1} and {key2} are not the same shape")
-
-        try:
-            assert np.all(inputted_data["Nh"] != np.nan)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be NaN"
-            )
-
-        try:
-            assert np.all(np.abs(inputted_data["Nh"]) != np.inf)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be +inf or -inf"
-            )
-
-        try:
-            assert np.all(inputted_data["Nh"] >= 0)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be negative"
-            )
 
         self.input_check(imported_data, inputted_data)
 
@@ -230,6 +220,38 @@ class FractionalAbundance(Operator):
             raise AssertionError(
                 "Initial fractional abundance cannot contain any \
                 infinities."
+            )
+
+    def Nh_check(self, Nh):
+        """Checks that the inputted thermal hydrogen number density has valid values.
+
+        Parameters
+        ----------
+        Nh
+            Thermal hydrogen number density.
+        """
+        if Nh is None:
+            return
+
+        try:
+            assert np.all(Nh != np.nan)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be NaN"
+            )
+
+        try:
+            assert np.all(np.abs(Nh) != np.inf)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be +inf or -inf"
+            )
+
+        try:
+            assert np.all(Nh >= 0)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be negative"
             )
 
     def input_check(self, imported_data, inputted_data):
@@ -337,13 +359,16 @@ class FractionalAbundance(Operator):
         )
         SCD_spec = np.power(10.0, SCD_spec)
 
-        CCD_spec = self.CCD.indica.interp2d(
-            log10_electron_temperature=Te,
-            log10_electron_density=Ne,
-            method="cubic",
-            assume_sorted=True,
-        )
-        CCD_spec = np.power(10.0, CCD_spec)
+        if self.CCD is not None:
+            CCD_spec = self.CCD.indica.interp2d(
+                log10_electron_temperature=Te,
+                log10_electron_density=Ne,
+                method="cubic",
+                assume_sorted=True,
+            )
+            CCD_spec = np.power(10.0, CCD_spec)
+        else:
+            CCD_spec = None
 
         ACD_spec = self.ACD.indica.interp2d(
             log10_electron_temperature=Te,
@@ -386,19 +411,33 @@ class FractionalAbundance(Operator):
 
         istage = 0
         ionisation_balance_matrix[istage, istage : istage + 2] = np.array(
-            [-Ne * SCD[istage], Ne * ACD[istage] + Nh * CCD[istage]]
+            [
+                -Ne * SCD[istage],
+                Ne * ACD[istage]
+                + (Nh * CCD[istage] if Nh is not None and CCD is not None else 0.0),
+            ]
         )
         for istage in range(1, num_of_stages - 1):
             ionisation_balance_matrix[istage, istage - 1 : istage + 2] = np.array(
                 [
                     Ne * SCD[istage - 1],
-                    -Ne * (SCD[istage] + ACD[istage - 1]) - Nh * CCD[istage - 1],
-                    Ne * ACD[istage] + Nh * CCD[istage],
+                    -Ne * (SCD[istage] + ACD[istage - 1])
+                    - (
+                        Nh * CCD[istage - 1]
+                        if Nh is not None and CCD is not None
+                        else 0.0
+                    ),
+                    Ne * ACD[istage]
+                    + (Nh * CCD[istage] if Nh is not None and CCD is not None else 0.0),
                 ]
             )
         istage = num_of_stages - 1
         ionisation_balance_matrix[istage, istage - 1 : istage + 1] = np.array(
-            [Ne * SCD[istage - 1], -Ne * (ACD[istage - 1]) - Nh * CCD[istage - 1]]
+            [
+                Ne * SCD[istage - 1],
+                -Ne * (ACD[istage - 1])
+                - (Nh * CCD[istage - 1] if Nh is not None and CCD is not None else 0.0),
+            ]
         )
 
         ionisation_balance_matrix = np.squeeze(ionisation_balance_matrix)
@@ -559,23 +598,6 @@ class FractionalAbundance(Operator):
 
         self.calc_eigen_coeffs()
 
-    # def __call__(self, tau):
-    #     """Performs the calculations for fractional abundance.
-
-    #     Parameters
-    #     ----------
-    #     tau
-    #         Time after t0 (t0 is defined as the time at which N_z_t0 is taken).
-
-    #     Returns
-    #     -------
-    #     N_z_t
-    #         Fractional abundance at tau.
-    #     """
-    #     self.calc_N_z_t(tau)
-
-    #     return self.N_z_t
-
 
 class PowerLoss(Operator):
     """Calculate the total power loss associated with a given impurity element
@@ -585,21 +607,27 @@ class PowerLoss(Operator):
     PLT
         xarray.DataArray of radiated power of line emission from excitation of all
         relevant ionisation stages of given impurity element.
-    PRC
-        xarray.DataArray of radiated power of charge exchange emission of all relevant
-        ionisation stages of given impurity element.
     PRB
         xarray.DataArray of radiated power from recombination and bremsstrahlung of
         given impurity element.
     Ne
         xarray.DataArray of electron density as a profile of rho
     Nh
-        xarray.DataArray of thermal hydrogen as a profile of rho
+        xarray.DataArray of thermal hydrogen number density as a profile of rho
     Te
         xarray.DataArray of electron temperature as a profile of rho
+    PRC
+        xarray.DataArray of radiated power of charge exchange emission of all relevant
+        ionisation stages of given impurity element. (Optional)
     N_z_t
         xarray.DataArray of fractional abundance of all ionisation stages of given
-        impurity element.
+        impurity element. (Optional)
+    unit_testing
+        Boolean for unit testing purposes
+        (whether to call ordered_setup in __init__ or not) (Optional)
+    sess
+        Object representing this session of calculations with the library.
+        Holds and communicates provenance information. (Optional)
 
     Attributes
     ----------
@@ -619,6 +647,8 @@ class PowerLoss(Operator):
     -------
     N_z_t_check(self, N_z_t)
         Checks that inputted fractional abundance has valid values.
+    Nh_check(Nh)
+        Checks that the inputted thermal hydrogen number density has valid values.
     input_check(inputted_data, imported_data)
         Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(PLT,PRC,PRB).
@@ -632,10 +662,10 @@ class PowerLoss(Operator):
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("line_power_coeffecient", "impurity_element"),
         ("recombination_power_coeffecient", "impurity_element"),
-        ("charge-exchange_power_coeffecient", "impurity_element"),
         ("number_density", "electrons"),
-        ("temperature", "electrons"),
         ("number_density", "thermal_hydrogen"),
+        ("temperature", "electrons"),
+        ("charge-exchange_power_coeffecient", "impurity_element"),
         ("fractional_abundance", "impurity_element"),
     ]
     RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
@@ -645,11 +675,11 @@ class PowerLoss(Operator):
     def __init__(
         self,
         PLT: DataArray,
-        PRC: DataArray,
         PRB: DataArray,
         Ne: DataArray,
         Nh: DataArray,
         Te: DataArray,
+        PRC: DataArray = None,
         N_z_t: DataArray = None,
         unit_testing: bool = False,
         sess: session.Session = session.global_session,
@@ -665,8 +695,9 @@ class PowerLoss(Operator):
 
         imported_data = {}
         imported_data["PLT"] = self.PLT
-        imported_data["PRC"] = self.PRC
         imported_data["PRB"] = self.PRB
+        if self.PRC is not None:
+            imported_data["PRC"] = self.PRC
         inputted_data = {}
         inputted_data["Ne"] = self.Ne
         inputted_data["Nh"] = self.Nh
@@ -697,26 +728,7 @@ class PowerLoss(Operator):
         except AssertionError:
             raise AssertionError(f"{key1} and {key2} are not the same shape")
 
-        try:
-            assert np.all(inputted_data["Nh"] != np.nan)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be NaN"
-            )
-
-        try:
-            assert np.all(np.abs(inputted_data["Nh"]) != np.inf)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be +inf or -inf"
-            )
-
-        try:
-            assert np.all(inputted_data["Nh"] >= 0)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be negative"
-            )
+        self.Nh_check(self.Nh)
 
         self.input_check(imported_data, inputted_data)
 
@@ -781,6 +793,35 @@ class PowerLoss(Operator):
             assert np.all(np.abs(N_z_t) != np.inf)
         except AssertionError:
             raise AssertionError("Fractional abundance cannot contain any infinities.")
+
+    def Nh_check(self, Nh):
+        """Checks that the inputted thermal hydrogen number density has valid values.
+
+        Parameters
+        ----------
+        Nh
+            Thermal hydrogen number density.
+        """
+        try:
+            assert np.all(Nh != np.nan)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be NaN"
+            )
+
+        try:
+            assert np.all(np.abs(Nh) != np.inf)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be +inf or -inf"
+            )
+
+        try:
+            assert np.all(Nh >= 0)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted thermal hydrogen number density cannot be negative"
+            )
 
     def input_check(self, imported_data, inputted_data):
         """Checks that inputted data (Ne and Te) has values that are within the
@@ -867,13 +908,16 @@ class PowerLoss(Operator):
         )
         PLT_spec = np.power(10, PLT_spec)
 
-        PRC_spec = self.PRC.indica.interp2d(
-            log10_electron_temperature=Te,
-            log10_electron_density=Ne,
-            method="cubic",
-            assume_sorted=True,
-        )
-        PRC_spec = np.power(10, PRC_spec)
+        if self.PRC is not None:
+            PRC_spec = self.PRC.indica.interp2d(
+                log10_electron_temperature=Te,
+                log10_electron_density=Ne,
+                method="cubic",
+                assume_sorted=True,
+            )
+            PRC_spec = np.power(10, PRC_spec)
+        else:
+            PRC_spec = None
 
         PRB_spec = self.PRB.indica.interp2d(
             log10_electron_temperature=Te,
@@ -920,13 +964,21 @@ class PowerLoss(Operator):
             for istage in range(1, self.num_of_stages - 1):
                 cooling_factor[irho] += (
                     self.PLT[istage, irho]
-                    + self.PRC[istage - 1, irho]
-                    + (Nh[irho] / Ne[irho]) * self.PRB[istage - 1, irho]
+                    + (
+                        (Nh[irho] / Ne[irho]) * self.PRC[istage - 1, irho]
+                        if self.PRC is not None
+                        else 0.0
+                    )
+                    + self.PRB[istage - 1, irho]
                 ) * N_z_t[istage, irho]
             istage = self.num_of_stages - 1
             cooling_factor[irho] += (
-                self.PRC[istage - 1, irho]
-                + (Nh[irho] / Ne[irho]) * self.PRB[istage - 1, irho]
+                (
+                    (Nh[irho] / Ne[irho]) * self.PRC[istage - 1, irho]
+                    if self.PRC is not None
+                    else 0.0
+                )
+                + self.PRB[istage - 1, irho]
             ) * N_z_t[istage, irho]
 
         self.cooling_factor = cooling_factor
@@ -936,16 +988,3 @@ class PowerLoss(Operator):
     def ordered_setup(self):
         """Sets up data for calculation in correct order."""
         self.interpolate_power()
-
-    # def __call__(self):
-    #     """Performs the calculations for total radiated power loss.
-
-    #     Returns
-    #     -------
-    #     cooling_factor
-    #         Total radiated power loss of all ionisation stages of
-    #         given impurity element.
-    #     """
-    #     self.calc_cooling_factor()
-
-    #     return self.cooling_factor
