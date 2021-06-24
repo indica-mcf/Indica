@@ -7,8 +7,8 @@ import matplotlib.pylab as plt
 
 plt.ion()
 
-def run_default(pulse_start, pulse_end):
-    plot_trends(read_data(pulse_start, pulse_end))
+def run_default(pulse_start, pulse_end, savefig=False):
+    plot_trends(read_data(pulse_start, pulse_end), savefig=savefig)
 
 def read_data(
     pulse_start, pulse_end, t=0.03, dt=0.01, debug=False,
@@ -41,9 +41,9 @@ def read_data(
         "h_i_656",
         "he_i_588",
         "he_ii_469",
-        "b_II_207",
-        "b_IV_449",
-        "b_V_494",
+        "b_ii_207",
+        "b_iv_449",
+        "b_v_494",
         "o_iii_305",
         "o_iii_327",
         "o_iv_306",
@@ -92,33 +92,30 @@ def read_data(
         if np.array_equal(time_line, "FAILED"):
             continue
         for line in lines:
+            avrg = np.nan
+            stdev = np.nan
             data_line, _ = reader._get_signal(
                 "spectrom", "avantes.line_mon", f".line_evol.{line}:intensity", 0,
             )
             if (
-                np.array_equal(data_line, "FAILED")
-                or not all(np.isfinite(data_line))
-                or np.min(time_line) > tend
-                or np.max(time_line) < tstart
+                (not np.array_equal(data_line, "FAILED"))
+                and all(np.isfinite(data_line))
+                and (np.min(time_line) < tend)
+                and (np.max(time_line) > tstart)
             ):
-                continue
+                tmp = DataArray(data_line, dims=("t",), coords={"t": time_line}).sel(
+                    t=slice(tstart, tend)
+                )
+                if debug:
+                    plt.figure()
+                    tmp.plot()
+                    plt.title(line)
+                    input("...continue...")
 
-            tmp = DataArray(data_line, dims=("t",), coords={"t": time_line}).sel(
-                t=slice(tstart, tend)
-            )
-            if debug:
-                plt.figure()
-                tmp.plot()
-                plt.title(line)
-                input("...continue...")
-
-            innul = np.where(tmp > 0)[0]
-            if len(innul) > 1:
-                avrg = tmp.mean().values
-                stdev = tmp.std().values
-            else:
-                avrg = np.nan
-                stdev = np.nan
+                innul = np.where(tmp > 0)[0]
+                if len(innul) > 1:
+                    avrg = tmp.mean().values
+                    stdev = tmp.std().values
 
             lines_avrg.append(avrg)
             lines_stdev.append(stdev)
@@ -154,7 +151,7 @@ def plot_trends(results, savefig=False, xlim=()):
     elements = np.unique([l.split("_")[0] for l in lines])
 
     if len(xlim)==0:
-        xlim = (results['pulse_start'], results['pulse_end'])
+        xlim = (results['pulse_start']-2, results['pulse_end']+2)
     pulse_range = f"{xlim[0]}-{xlim[1]}"
     time_range = f"{results['tstart']:1.3f}-{results['tend']:1.3f}"
     time_tit = f"t=[{time_range}]"
@@ -174,11 +171,14 @@ def plot_trends(results, savefig=False, xlim=()):
         save_figure(fig_name=name + "_ipla")
 
     for elem in elements:
+        print(elem)
         plt.figure()
         elem_name = elem.upper()
         if len(elem) > 1:
             elem_name = elem_name[0] + elem_name[1].lower()
+        ymax = 0.
         for i, l in enumerate(lines):
+            print(i, l)
             lsplit = l.split("_")
             if elem != lsplit[0]:
                 continue
@@ -186,10 +186,12 @@ def plot_trends(results, savefig=False, xlim=()):
             label = f"{elem_name}{lsplit[1].upper()} {lsplit[2]} nm"
             y = results["lines"]["avrg"][:, i]
             yerr = results["lines"]["stdev"][:, i]
+            ymax = np.max([ymax, np.max(y+yerr)])
             plt.errorbar(
                 results["pulses"], y, yerr=yerr, fmt="o", label=label,
             )
         plt.xlim(xlim)
+        plt.ylim(0, )
         plt.legend()
         plt.xlabel("Pulse #")
         plt.ylabel("Intensity")
