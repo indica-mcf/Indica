@@ -7,6 +7,8 @@ import matplotlib.pylab as plt
 
 plt.ion()
 
+def run_default(pulse_start, pulse_end):
+    plot_trends(read_data(pulse_start, pulse_end))
 
 def read_data(
     pulse_start, pulse_end, t=0.03, dt=0.01, debug=False,
@@ -33,12 +35,15 @@ def read_data(
 
     tstart = t - dt
     tend = t + dt
-    pulses = np.arange(pulse_start, pulse_end)
+    pulses = np.arange(pulse_start, pulse_end+1)
 
     lines = [
         "h_i_656",
         "he_i_588",
         "he_ii_469",
+        "b_II_207",
+        "b_IV_449",
+        "b_V_494",
         "o_iii_305",
         "o_iii_327",
         "o_iv_306",
@@ -62,12 +67,11 @@ def read_data(
         reader = ST40Reader(pulse, 0.0, 0.1)
         time_ip, _ = reader._get_signal("", "efit", ":time", 0)
         data_ip, _ = reader._get_signal("", "efit", ".constraints.ip:cvalue", 0)
-        if (
-            np.array_equal(time_ip, "FAILED")
-            or not all(np.isfinite(data_ip))
-            or np.min(time_ip) > tend
-            or np.max(time_ip) < tstart
-        ):
+        if np.array_equal(time_ip, "FAILED"):
+            print("no Ip")
+            continue
+        if np.min(time_ip) > tend or np.max(time_ip) < tstart:
+            print("no Ip in time range")
             continue
         tmp = DataArray(data_ip, dims=("t",), coords={"t": time_ip}).sel(
             t=slice(tstart, tend)
@@ -144,12 +148,13 @@ def read_data(
     return results
 
 
-def plot_trends(results, savefig=False):
+def plot_trends(results, savefig=False, xlim=()):
 
     lines = results["lines"]["labels"]
     elements = np.unique([l.split("_")[0] for l in lines])
 
-    xlim = (results['pulse_start'], results['pulse_end'])
+    if len(xlim)==0:
+        xlim = (results['pulse_start'], results['pulse_end'])
     pulse_range = f"{xlim[0]}-{xlim[1]}"
     time_range = f"{results['tstart']:1.3f}-{results['tend']:1.3f}"
     time_tit = f"t=[{time_range}]"

@@ -293,8 +293,11 @@ class ST40Reader(DataReader):
         # position_instrument = "raw_sxr"
         # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
-        position = np.array([1.0, 0, 0])
-        direction = np.array([0.175, 0, 0]) - position
+        if instrument == "xrcs":
+            position = np.array([1.0, 0, 0])
+            direction = np.array([0.175, 0, 0]) - position
+        else:
+            raise ValueError(f"No geometry available for {instrument}")
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
         print("\n ********************************** "
@@ -345,11 +348,18 @@ class ST40Reader(DataReader):
         # position_instrument = ""
         # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, "..geometry:direction", -1)
-        position = np.array([0.380, -0.925, 0])
-        direction = np.array([0.115, 0.993, 0.0]) - position
+        if instrument == "nirh1":
+            # position = np.array([0.380, -0.925, 0])
+            # direction = np.array([0.115, 0.993, 0.0]) - position
+            position = np.array([0.380, -0.925, 0])
+            direction = np.array([0.0, 1.0, 0.0]) - position
+        elif instrument == "smmh1":
+            position = np.array([1.0, 0, 0])
+            direction = np.array([0.175, 0, 0]) - position
+        else:
+            raise ValueError(f"No geometry available for {instrument}")
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
-        # print(f"Times {times}")
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -359,7 +369,7 @@ class ST40Reader(DataReader):
                 results["times"] = times
             results[q + "_records"] = q_path
             results[q] = qval
-            qval_err = 0.0 * results[q]
+            qval_err = np.zeros_like(qval)
             q_path_err = ""
             results[q + "_error"] = qval_err
             results[q + "_error" + "_records"] = q_path_err
