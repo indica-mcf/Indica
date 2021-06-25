@@ -26,7 +26,7 @@ class HDArun:
         ne_shape=1,
         te_shape=0.8,
         regime="l_mode",
-        ne_l="smmh1",
+        ne_l="nirh1",
     ):
         """From the measured Te and Ti values, search for Te profile that best
         matches total pressure.

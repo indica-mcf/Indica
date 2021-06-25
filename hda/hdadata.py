@@ -200,6 +200,15 @@ class HDAdata:
         else:
             self.profs.h_mode(ne_shape=self.ne_shape, te_shape=self.te_shape)
 
+        self.profs.ne = self.profs.build_density(
+            y_0=5.e19,
+            y_ped=5.e19 / 1.0,
+            x_ped=0.85,
+            w_core=0.8,
+            w_edge=0.2,
+            datatype=("density", "electron"),
+        )
+
         print(" Calculating LOS info of all diagnostics")
         self.remap_diagnostic("nirh1")
         self.remap_diagnostic("smmh1")
@@ -318,7 +327,7 @@ class HDAdata:
         self.impose_flat_zeff()
         self.calc_zeff()
         self.calc_rad_power()
-        self.calc_pressure()
+        # self.calc_pressure()
         # self.calc_beta_poloidal()
         # self.calc_vloop()
 
@@ -452,7 +461,7 @@ class HDAdata:
         )
         print(
             "\n ********************************************"
-            "\n Interferometer: two passess across the plasma"
+            "\n Interferometer: two passes across the plasma"
             "\n ******************************************** \n"
         )
         el_dens_int = 2 * el_dens.sum(x2_name) * ne_l_var.attrs["dl"]
