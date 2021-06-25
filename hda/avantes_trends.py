@@ -1,5 +1,6 @@
 """Various miscellaneous functions for handling of atomic data."""
 
+import getpass
 import numpy as np
 from xarray import DataArray
 from indica.readers import ST40Reader
@@ -7,8 +8,8 @@ import matplotlib.pylab as plt
 
 plt.ion()
 
-def run_default(pulse_start, pulse_end, savefig=False):
-    plot_trends(read_data(pulse_start, pulse_end), savefig=savefig)
+def run_default(pulse_start, pulse_end, t=0.03, dt=0.01, savefig=False):
+    plot_trends(read_data(pulse_start, pulse_end, t=t, dt=dt), savefig=savefig)
 
 def read_data(
     pulse_start, pulse_end, t=0.03, dt=0.01, debug=False,
@@ -60,6 +61,7 @@ def read_data(
     pulse_list = []
     ipla_avrg = []
     ipla_stdev = []
+    puff_total = []
     lines_all_avrg = []
     lines_all_stdev = []
     for pulse in pulses:
@@ -120,20 +122,36 @@ def read_data(
             lines_avrg.append(avrg)
             lines_stdev.append(stdev)
 
+        puff, puff_path = reader._get_signal("", "gas", ".puff_valve:gas_total", -1)
+        puff_time, _ = reader._get_signal_dims(puff_path, 1)
+        puff_time = puff_time[0]
+        it = np.where(puff_time < t + dt)[0]
+        puff_sum = np.sum(puff[it]) * (puff_time[1] - puff_time[0])
+
+        nirh1, nirh1_path = reader._get_signal("interferom", "nirh1", ":ne_", 0)
+        nirh1_time, _ = reader._get_signal_dims(puff_path, 1)
+        nirh1_time = nirh1_time[0]
+        it = np.where(nirh1_time < t + dt)[0]
+        nirh1_avrg = np.sum(nirh1[it]) * (puff_time[1] - puff_time[0])
+
         if len(lines_avrg) > 0:
             print("  Ok")
             pulse_list.append(pulse)
             ipla_avrg.append(avrg_ip)
             ipla_stdev.append(stdev_ip)
+            puff_total.append(puff_sum)
             lines_all_avrg.append(lines_avrg)
             lines_all_stdev.append(lines_stdev)
 
     results = {
+        "t":t,
+        "dt":dt,
         "pulse_start": pulse_start,
         "pulse_end": pulse_end,
         "tstart": tstart,
         "tend": tend,
         "pulses": np.array(pulse_list),
+        "puff": puff_total,
         "ipla": {"avrg": np.array(ipla_avrg), "stdev": np.array(ipla_stdev)},
         "lines": {
             "avrg": np.array(lines_all_avrg),
@@ -156,6 +174,7 @@ def plot_trends(results, savefig=False, xlim=()):
     time_range = f"{results['tstart']:1.3f}-{results['tend']:1.3f}"
     time_tit = f"t=[{time_range}]"
     name = f"Avantes_trends_{pulse_range}_t_{time_range}"
+
     plt.figure()
     plt.errorbar(
         results["pulses"],
@@ -170,6 +189,19 @@ def plot_trends(results, savefig=False, xlim=()):
     if savefig:
         save_figure(fig_name=name + "_ipla")
 
+    plt.figure()
+    plt.scatter(
+        results["pulses"],
+        results["puff"],
+        marker="o",
+    )
+    plt.xlim(xlim)
+    plt.xlabel("Pulse #")
+    plt.ylabel("Total puff $(V * s)$")
+    plt.title(f"Total gas puff until t < {results['t'] + results['dt']:1.3f}")
+    if savefig:
+        save_figure(fig_name=name + "_puff")
+
     for elem in elements:
         print(elem)
         plt.figure()
@@ -178,7 +210,6 @@ def plot_trends(results, savefig=False, xlim=()):
             elem_name = elem_name[0] + elem_name[1].lower()
         ymax = 0.
         for i, l in enumerate(lines):
-            print(i, l)
             lsplit = l.split("_")
             if elem != lsplit[0]:
                 continue
@@ -199,9 +230,9 @@ def plot_trends(results, savefig=False, xlim=()):
         if savefig:
             save_figure(fig_name=name + f"_{elem_name}_lines")
 
-def save_figure(path_name="/home/marco.sertoli/", fig_name="", orientation="landscape", ext=".jpg"):
+def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
     plt.savefig(
-        path_name + "python/figures/Avantes_trends/" + fig_name + ext,
+        f"/home/{getpass.getuser()}/python/figures/Avantes_trends/" + fig_name + ext,
         orientation=orientation,
         dpi=600,
         pil_kwargs={"quality": 95},
