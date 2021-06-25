@@ -790,12 +790,12 @@ def adf11_data(
     min_dens = draw(integers(3, 12))
     max_dens = draw(integers(min_dens + 1, 17))
     densities = DataArray(
-        np.linspace(min_dens, max_dens, nd) + 6, dims="log10_electron_density"
+        np.logspace(min_dens + 6, max_dens + 6, nd), dims="electron_density"
     )
     min_temp = draw(floats(-2.0, 2.5))
     max_temp = draw(floats(min_temp + 1, 6.0))
     temperatures = DataArray(
-        np.linspace(min_temp, max_temp, nt), dims="log10_electron_temperature"
+        np.logspace(min_temp, max_temp, nt), dims="electron_temperature"
     )
     z = draw(integers(1, 74))
     min_z = draw(integers(1, z))
@@ -808,7 +808,7 @@ def adf11_data(
             smooth_functions((min_dens, max_dens), max_val=0.1),
         )
     )
-    data = np.clip(func(ion_states, temperatures, densities) - 6, -99, 99)
+    data = 10 ** np.clip(func(ion_states, temperatures, densities) - 6, -99, 99)
     result = DataArray(data, coords=[ion_states, temperatures, densities])
     q = draw(sampled_from(quantities))
     result.attrs["datatype"] = (dt.ADF11_GENERAL_DATATYPES[q], dt.ORDERED_ELEMENTS[z])
@@ -816,5 +816,5 @@ def adf11_data(
     result.attrs["date"] = draw(
         dates(datetime.date(1940, 1, 1), datetime.date(2020, 12, 31))
     )
-    result.name = f"log_{dt.ORDERED_ELEMENTS[z]}_{dt.ADF11_GENERAL_DATATYPES[q]}"
+    result.name = f"{dt.ORDERED_ELEMENTS[z]}_{dt.ADF11_GENERAL_DATATYPES[q]}"
     return result

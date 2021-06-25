@@ -14,8 +14,8 @@ import sal.dataclass
 QUANTITIES = itertools.chain(
     # Equilibrium data
     [
-        f"{dda}/{dtype}"
-        for dda, dtype in itertools.product(
+        f"{instrument}/{dtype}"
+        for instrument, dtype in itertools.product(
             ["efit", "eftp"],
             [
                 "f",
@@ -37,15 +37,15 @@ QUANTITIES = itertools.chain(
     ],
     # Thomson scattering
     [
-        f"{dda}/{dtype}"
-        for dda, dtype in itertools.product(
+        f"{instrument}/{dtype}"
+        for instrument, dtype in itertools.product(
             ["hrts"],
             ["ne", "dne", "te", "dte", "z"],
         )
     ],
     [
-        f"{dda}/{dtype}"
-        for dda, dtype in itertools.product(
+        f"{instrument}/{dtype}"
+        for instrument, dtype in itertools.product(
             ["lidr"],
             ["ne", "neu", "te", "teu", "z"],
         )
@@ -62,8 +62,8 @@ QUANTITIES = itertools.chain(
     ["xcs/cnc"],
     # Charge exchange recombination spectroscopy
     [
-        f"{dda}/{dtype}"
-        for dda, dtype in itertools.product(
+        f"{instrument}/{dtype}"
+        for instrument, dtype in itertools.product(
             ["cxg6"],
             [
                 "ti",

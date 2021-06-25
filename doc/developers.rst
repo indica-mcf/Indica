@@ -138,8 +138,8 @@ return. Not all reader classes need to implement all diagnostics.
 
 For each diagnostic you implement, you must provide some information
 on the sort of data it can return. First, you should define a
-static/class-level attribute ``DDA_METHODS``, which is a dictionary
-mapping between DDA names (in the JET parlance; they are the
+static/class-level attribute ``INSTRUMENT_METHODS``, which is a dictionary
+mapping between INSTRUMENT names (in the JET parlance; they are the
 "instrument" argument to the getter methods) and the specific
 get-method used to read that data. In effect, this is defining what
 type of diagnostic each supported instrument provides.
