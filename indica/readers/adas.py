@@ -3,9 +3,11 @@
 import datetime
 from pathlib import Path
 import re
+from typing import List
 from typing import Literal
 from typing import TextIO
 from typing import Union
+from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
@@ -15,6 +17,7 @@ from xarray import DataArray
 from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
+from ..datatypes import ADF15_GENERAL_DATATYPES
 from ..datatypes import ORDERED_ELEMENTS
 
 
@@ -131,18 +134,18 @@ class ADASReader(BaseIO):
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
         gen_type = ADF11_GENERAL_DATATYPES[quantity]
         spec_type = ORDERED_ELEMENTS[z]
-        name = f"log10_{spec_type}_{gen_type}"
+        name = f"{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),
             "date": date,
             "provenance": self.create_provenance(filename, now),
         }
         return DataArray(
-            data - 6,
+            10 ** (data - 6),
             coords=[
                 ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
-                ("log10_electron_temperature", temperatures),
-                ("log10_electron_density", densities + 6),
+                ("electron_temperature", 10 ** (temperatures)),
+                ("electron_density", 10 ** (densities + 6)),
             ],
             name=name,
             attrs=attrs,
@@ -155,21 +158,21 @@ class ADASReader(BaseIO):
         filetype: str,
         year="",
     ) -> DataArray:
-        """Read data from the specified ADAS file. Different files are available, e.g.:
+        """Read data from the specified ADF15 ADAS file.
 
-        pec96][ne / pec96][ne_pju][ne9.dat
-        transport_llu][ar16.dat
+        Implementation is capable of reading files with compact and expanded formatting
+        e.g. pec96][ne_pju][ne9.dat and pec40][ar_cl][ar16.dat respectively
 
         Parameters
         ----------
-        filetype
-            The type of data to retrieve. Options: ic, cl, ca, ls, llu, ...
         element
             The atomic symbol for the element which will be retrieved.
         charge
             Charge state of the ion (e.g. 16 for Ar 16+), can also include
             other string for more complicated path (transport_llu][ar15ic.dat
             setting charge to "15ic")
+        filetype
+            The type of data to retrieve. Options: ic, cl, ca, ls, llu, ...
         year
             The two-digit year label for the data. = "transport" if special
             transport path
@@ -183,7 +186,170 @@ class ADASReader(BaseIO):
             different charge state.
 
         """
-        return DataArray()
+
+        def build_file_component(year, element):
+            file_component = "transport"
+            if year != "transport":
+                file_component = f"pec{year}][{element.lower()}"
+
+            return file_component
+
+        def file_type(identifier):
+            identifier_dict = {
+                "+": "compact",
+                ":": "expanded",
+            }
+            file_type = identifier_dict.get(identifier)
+            if file_type is None:
+                raise ValueError(f"Unknown file header identified ({identifier}).")
+
+            return file_type
+
+        def transition_match(transition_line):
+            transition_type = "orbitals"
+            match = (
+                r"c\s+(\d+.)"  # isel
+                r"\s+(\d+.\d+)"  # wavelength
+                r"\s+(\d+)(\(\d\)\d\(.+\d?.\d\))-"  # transition upper level
+                r".+(\d+)(\(\d\)\d\(.+\d?.\d\))"  # transition lower level
+            )
+            header_re = re.compile(match)
+            m = header_re.search(transition_line)
+            if not m:
+                transition_type = "n_levels"
+                match = r"c\s+(\d+.)\s+(\d+.\d+)\s+([n]\=.\d+.-.[n]\=.\d+)"
+                header_re = re.compile(match)
+                m = header_re.search(transition_line)
+                if not m:
+                    raise ValueError(f"Unknown transition formatting ({identifier}).")
+
+            return transition_type, match
+
+        now = datetime.datetime.now()
+        file_component = build_file_component(year, element)
+        filename = Path(pathname2url(file_component)) / pathname2url(
+            f"{file_component}_{filetype.lower()}]"
+            f"[{element.lower()}{charge.lower()}.dat"
+        )
+
+        header_match = {
+            "compact": r"(\d+).+/(\S+).*\+(.*)photon",
+            "expanded": r"(\d+).+/(\S+).*\:(.*)photon",
+        }
+        section_header_match = {
+            "compact": r"(\d+.\d+).+\s+(\d+)\s+(\d+).+type\s?"
+            r"=\s?(\S+).+isel.+\s+(\d+)",
+            "expanded": r"(\d+.\d+)\s+(\d+)\s+(\d+).+type\s?="
+            r"\s?(\S+).+isel\s+?=\s+?(\d+)",
+        }
+        with self._get_file("adf15", filename) as f:
+            header = f.readline().strip().lower()
+            identifier = file_type(header.split("/")[1][2])
+
+            match = header_match[identifier]
+            m = re.search(match, header, re.I)
+            assert isinstance(m, re.Match)
+            ntrans = int(m.group(1))
+            element_name = m.group(2).strip().lower()
+            charge_state = int(m.group(3))
+            assert element_name == element.lower()
+            m = re.search(r"(\d+)(\S*)", charge)
+            assert isinstance(m, re.Match)
+            extracted_charge = m.group(1)
+            if charge_state != int(extracted_charge):
+                raise ValueError(
+                    f"Charge state in ADF15 file ({charge_state}) does not "
+                    f"match argument ({charge})."
+                )
+
+            # Read first section header to build arrays outside of reading loop
+            match = section_header_match[identifier]
+            header_re = re.compile(match)
+            m = None
+            while not m:
+                line = f.readline().strip().lower()
+                m = header_re.search(line)
+            assert isinstance(m, re.Match)
+            nd = int(m.group(2))
+            nt = int(m.group(3))
+            data = np.empty((ntrans, nt, nd))
+            ttype: List[str] = []
+            tindex = np.empty(ntrans)
+            wavelength = np.empty(ntrans)
+
+            # Read Photon Emissivity Coefficient rates
+            for i in range(ntrans):
+                m = header_re.search(line)
+                assert isinstance(m, re.Match)
+                assert int(m.group(5)) - 1 == i
+                tindex[i] = i + 1
+                ttype.append(m.group(4))
+                wavelength[i] = float(m.group(1))  # (Angstroms)
+                densities = np.fromfile(f, float, nd, " ")
+                temperatures = np.fromfile(f, float, nt, " ")
+                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+                line = f.readline().strip().lower()
+
+            # Read Transition information from end of file
+            file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
+            while not file_end_re.search(line):
+                line = f.readline().strip().lower()
+            _ = f.readline()
+            if identifier == "expanded":
+                _ = f.readline()
+            line = f.readline().strip().lower()
+            transition_type, match = transition_match(line)
+            transition_re = re.compile(match)
+
+            format_transition = {
+                "orbitals": lambda m: f"{m.group(4)}-{m.group(6)}".replace(" ", ""),
+                "n_levels": lambda m: m.group(3).replace(" ", ""),
+            }
+            transition = []
+            for i in tindex:
+                m = transition_re.search(line)
+                assert isinstance(m, re.Match)
+                assert int(m.group(1)[:-1]) == i
+                transition_tmp = format_transition[transition_type](m)
+                transition.append(transition_tmp)
+                line = f.readline().strip().lower()
+
+        gen_type = ADF15_GENERAL_DATATYPES[filetype]
+        spec_type = element
+        name = f"{spec_type}_{gen_type}"
+        attrs = {
+            "datatype": (gen_type, spec_type),
+            "provenance": self.create_provenance(filename, now),
+        }
+
+        if nd == nt:
+            coords = [
+                ("index", tindex),
+                ("electron_density", densities * 10 ** 6),  # m**-3
+                ("electron_temperature", temperatures),  # eV
+            ]
+        else:
+            coords = [
+                ("index", tindex),
+                ("electron_temperature", temperatures),  # eV
+                ("electron_density", densities * 10 ** 6),  # m**-3
+            ]
+
+        pecs = DataArray(
+            data * 10 ** -6,
+            coords=coords,
+            name=name,
+            attrs=attrs,
+        )
+
+        # Add extra dimensions attached to index
+        pecs = pecs.assign_coords(wavelength=("index", wavelength))  # (A)
+        pecs = pecs.assign_coords(
+            transition=("index", transition)
+        )  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
+        pecs = pecs.assign_coords(type=("index", ttype))  # (excit, recomb, cx)
+
+        return pecs
 
     def create_provenance(
         self, filename: Path, start_time: datetime.datetime
