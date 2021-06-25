@@ -2,6 +2,7 @@
 """
 
 import datetime
+import typing
 from typing import cast
 from typing import Dict
 from typing import Optional
@@ -9,7 +10,7 @@ from typing import Tuple
 
 import numpy as np
 import prov.model as prov
-from scipy.integrate import quad
+from scipy.integrate import trapz
 from xarray import apply_ufunc
 from xarray import concat
 from xarray import DataArray
@@ -18,6 +19,7 @@ from xarray import where
 from . import session
 from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
+from .numpy_typing import OnlyXarray
 from .offset import interactive_offset_choice
 from .offset import OffsetPicker
 from .utilities import coord_array
@@ -350,6 +352,74 @@ class Equilibrium(AbstractEquilibrium):
 
         return R, t
 
+    def cross_sectional_area(
+        self, rho: LabeledArray, t: LabeledArray, kind: str = "poloidal"
+    ) -> float:
+        """Calculates the cross-sectional area inside the flux surface rho and at
+        given time t.
+
+        Parameters
+        ----------
+        rho
+            Values of rho at which to calculate the cross-sectional area.
+        t
+            Values of time at which to calculate the cross-sectional area.
+        kind
+            The type of flux surface to use. May be "toroidal", "poloidal",
+            plus optional extras depending on implementation.
+
+        Returns
+        -------
+        area
+            Cross-sectional areas calculated at rho and t.
+        """
+        if not isinstance(rho, typing.get_args(OnlyXarray)):
+            rho = DataArray(
+                data=rho if isinstance(rho, np.ndarray) else [rho],
+                coords={"rho": rho} if isinstance(rho, np.ndarray) else {"rho": [rho]},
+                dims=["rho"],
+            )
+        if not isinstance(t, typing.get_args(OnlyXarray)):
+            t = DataArray(
+                data=t if isinstance(t, np.ndarray) else [t],
+                coords={"t": t} if isinstance(t, np.ndarray) else {"t": [t]},
+                dims=["t"],
+            )
+
+        # Sub-divisions of theta, a reasonable compromise between speed and accuracy.
+        ntheta = 12
+
+        theta = np.linspace(0.0, 2.0 * np.pi, ntheta)
+        theta = DataArray(
+            data=theta,
+            coords={"theta": theta},
+            dims=[
+                "theta",
+            ],
+        )
+
+        minor_radii, _ = self.minor_radius(rho, theta, t, kind)
+
+        if not isinstance(minor_radii, typing.get_args(OnlyXarray)):
+            minor_radii = DataArray(
+                data=minor_radii
+                if isinstance(minor_radii, np.ndarray)
+                else [minor_radii],
+                coords={"theta": theta, "t": t, "rho": rho},
+                dims=["theta", "t", "rho"],
+            )
+
+        # mypy type checking ignored since minor_radii should be of type OnlyXarray
+        # (see indica/numpy_typing.py for definition of OnlyXarray)
+        minor_radii = minor_radii.squeeze()  # type: ignore
+
+        minor_radii = minor_radii ** 2
+        minor_radii *= 0.5
+
+        area = trapz(minor_radii, theta, axis=0)
+
+        return area
+
     def enclosed_volume(
         self,
         rho: LabeledArray,
@@ -394,30 +464,11 @@ class Equilibrium(AbstractEquilibrium):
 
         # Cross-sectional area calculated by integrating:
         # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
-        if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
-            area_arr = np.array([])
-            for t_ in t:
-                t_ = np.array([t_])
-                area, area_err = quad(
-                    lambda th: 0.5 * self.minor_radius(rho, th, t_, kind)[0] ** 2.0,
-                    0.0,
-                    2 * np.pi,
-                )
-                area_arr = np.append(area_arr, area)
+        area_arr = self.cross_sectional_area(rho, t, kind)
 
-            # Vol = area * toroidal circumference measure at the magnetic axis
-            vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
-            vol_enclosed.name = "Enclosed volumes (m^3)"
-        else:
-            area, area_err = quad(
-                lambda th: 0.5 * self.minor_radius(rho, th, t, kind)[0] ** 2.0,
-                0.0,
-                2 * np.pi,
-            )
-
-            # Vol = area * toroidal circumference measure at the magnetic axis
-            vol_enclosed = area * 2 * np.pi * major_radius_axis
-            vol_enclosed.name = "Enclosed volume (m^3)"
+        # Vol = area * toroidal circumference measure at the magnetic axis
+        vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
+        vol_enclosed.name = "Enclosed volumes (m^3)"
 
         return vol_enclosed, t
 

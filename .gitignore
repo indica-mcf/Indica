@@ -10,3 +10,4 @@ htmlcov/
 .dir-locals.el
 *.pkl
 indica/git_version
+.vscode/
