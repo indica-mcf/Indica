@@ -1,14 +1,16 @@
-.. conspire documentation master file, created by
+.. InDiCA documentation master file, created by
    sphinx-quickstart on Tue Apr 14 18:20:53 2020.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-InDiCA
+InDicA
 ======
 
-The Integrated Diagnostic Composition Analysis tool is a library for
-iteratively determining what species are present in the plasma of a
-fusion reactor.
+The Integrated DiagnostiC Analysis tool is a library for analysing multiple
+diagnostics from fusion experiments in an integrated manner. The first application
+of the framework is the determination of the core plasma composition including up to
+four different impurities, returning 2D poloidal maps of the impurity density profiles,
+radiation, Zeff and dilution in the plasma core.
 
 Contents:
 
@@ -17,7 +19,7 @@ Contents:
 
    installation
    tutorial
-   original
+   composition
    data
    design
    prov_schema
