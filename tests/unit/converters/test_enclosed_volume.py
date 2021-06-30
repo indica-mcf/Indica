@@ -57,7 +57,7 @@ def test_convert_from_Rz(flux_transform, coords, flux_coords, expected_coords):
     equilib = Mock()
     flux_transform.set_equilibrium(equilib, force=True)
     equilib.flux_coords.return_value = flux_coords
-    equilib.enclosed_volume.return_value = (expected_coords[0], expected_coords[2])
+    equilib.enclosed_volume.return_value = (expected_coords[0], expected_coords[2], 0.0)
     transform = EnclosedVolumeCoordinates(flux_transform)
     vol, theta = transform.convert_from_Rz(*coords)
     equilib.flux_coords.assert_called_with(*coords, flux_transform.flux_kind)
