@@ -9,9 +9,15 @@ from hypothesis.extra.numpy import array_shapes
 from hypothesis.extra.numpy import arrays
 from hypothesis.strategies import dictionaries
 from hypothesis.strategies import from_regex
+from hypothesis.strategies import integers
 from hypothesis.strategies import none
 from hypothesis.strategies import sampled_from
+from hypothesis.strategies import text
 import numpy as np
+import pytest
+import scipy
+from xarray import DataArray
+from xarray.testing import assert_allclose
 
 from indica import utilities
 
@@ -83,3 +89,67 @@ def test_to_filename(name_in):
 
 def test_to_filename_known_result():
     assert utilities.to_filename("a/b/C\\d-e(f, g)") == "a-b-C-d-e(f_g)"
+
+
+@given(arrays(float, integers(0, 100)), text())
+def test_coord_array(vals, name):
+    coords = utilities.coord_array(vals, name)
+    np.testing.assert_array_equal(coords.data, vals)
+    np.testing.assert_array_equal(coords.coords[name], vals)
+    assert len(coords.dims) == 1
+    datatype = coords.attrs["datatype"]
+    if name == "R":
+        assert datatype[0] == "major_rad"
+    elif name == "t":
+        assert datatype[0] == "time"
+    else:
+        assert datatype[0] == name
+    assert datatype[1] == "plasma"
+
+
+def func_3d(x, y, t):
+    return 2 * x + 3 * y - 0.5 * t
+
+
+x = utilities.coord_array(np.linspace(0.0, 1.0, 5), "x")
+y = utilities.coord_array(np.linspace(0.0, 10.0, 4), "y")
+t = utilities.coord_array(np.linspace(50.0, 55.0, 6), "t")
+spline_dims = ("y", "t")
+spline_coords = {"y": y, "t": t}
+interp_data = func_3d(x, y, t)
+spline = scipy.interpolate.CubicSpline(x, interp_data, 0, "natural")
+
+
+def test_broadcast_spline_new_coord():
+    x_interp = utilities.coord_array(np.linspace(0.1, 0.4, 4), "x_new")
+    result = utilities.broadcast_spline(spline, spline_dims, spline_coords, x_interp)
+    assert_allclose(result, func_3d(x_interp, y, t))
+    assert result.dims == ("x_new", "y", "t")
+
+
+def test_broadcast_spline_t():
+    x_interp = DataArray(
+        np.linspace(0.1, 0.4, 4), coords=[("t", np.linspace(52.0, 53.0, 4))]
+    )
+    result = utilities.broadcast_spline(spline, spline_dims, spline_coords, x_interp)
+    assert_allclose(result, func_3d(x_interp, y, x_interp.t))
+    assert result.dims == "t", "y"
+
+
+def test_broadcast_spline_2d():
+    x_interp = utilities.coord_array(
+        np.linspace(0.2, 0.5, 3), "alpha"
+    ) * utilities.coord_array(np.linspace(0.5, 1.0, 4), "beta")
+    result = utilities.broadcast_spline(spline, spline_dims, spline_coords, x_interp)
+    assert_allclose(result, func_3d(x_interp, y, t))
+    assert result.dims == ("alpha", "beta", "y", "t")
+
+
+@pytest.mark.xfail(reason="Feature not implemented.")
+def test_broadcast_spline_old_coord():
+    x_interp = DataArray(
+        np.linspace(0.1, 0.4, 4), coords=[("y", np.linspace(2.5, 7.5, 4))]
+    )
+    result = utilities.broadcast_spline(spline, spline_dims, spline_coords, x_interp)
+    assert_allclose(result, func_3d(x_interp, x_interp.y, t))
+    assert result.dims == ("y", "t")
