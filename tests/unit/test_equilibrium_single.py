@@ -499,7 +499,7 @@ def test_enclosed_volume():
 
 
 def test_Btot():
-    time = np.array([76.5])
+    time = np.array([76.50])
 
     interp1d_method = "linear"
     if (isinstance(time, xr.DataArray) or isinstance(time, np.ndarray)) and (

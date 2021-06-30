@@ -412,13 +412,14 @@ class Equilibrium(AbstractEquilibrium):
 
         area = trapz(minor_radii, theta, axis=0)
 
-        area = DataArray(
-            data=area,
-            coords={"t": t, "rho": rho},
-            dims=["t", "rho"],
+        return (
+            DataArray(
+                data=area,
+                coords={"t": t, "rho": rho},
+                dims=["t", "rho"],
+            ),
+            cast(LabeledArray, t),
         )
-
-        return area, t
 
     def enclosed_volume(
         self,
