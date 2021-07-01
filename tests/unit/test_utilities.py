@@ -102,6 +102,10 @@ def test_coord_array(vals, name):
         assert datatype[0] == "major_rad"
     elif name == "t":
         assert datatype[0] == "time"
+    elif name == "rho_poloidal":
+        assert datatype[0] == "norm_flux_pol"
+    elif name == "rho_toroidal":
+        assert datatype[0] == "norm_flux_tor"
     else:
         assert datatype[0] == name
     assert datatype[1] == "plasma"
@@ -133,7 +137,7 @@ def test_broadcast_spline_t():
     )
     result = utilities.broadcast_spline(spline, spline_dims, spline_coords, x_interp)
     assert_allclose(result, func_3d(x_interp, y, x_interp.t))
-    assert result.dims == "t", "y"
+    assert result.dims == ("t", "y")
 
 
 def test_broadcast_spline_2d():
