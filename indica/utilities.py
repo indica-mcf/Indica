@@ -128,6 +128,10 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
         if coord_name == "R"
         else "time"
         if coord_name == "t"
+        else "norm_flux_pol"
+        if coord_name == "rho_poloidal"
+        else "norm_flux_tor"
+        if coord_name == "rho_toroidal"
         else coord_name,
         "plasma",
     )

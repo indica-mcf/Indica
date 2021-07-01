@@ -124,7 +124,7 @@ class SplineFit(Operator):
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("rho_poloidal", "plasma"),
+        ("norm_flux_pol", "plasma"),
         ("time", "plasma"),
         (None, None),
         ...,
