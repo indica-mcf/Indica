@@ -6,124 +6,322 @@
 # Marco Sertoli -- Modified to write HDA tree  -- Jun / 2021
 
 from MDSplus import *
-from numpy import *
-import numpy as np
-import hda.mdsHelpers as mh
+from MDSplus.mdsExceptions import TreeALREADY_THERE
 from importlib import reload
-
-reload(mh)
+import numpy as np
+from MDSplus import Tree, Float32, Int32, String
+import hda.mdsHelpers as mh
+from indica.readers import ST40Reader
+from hda import HDAdata
 import getpass
 
 user = getpass.getuser()
 # MDSplus_IP_address = '192.168.1.7:8000'  # smaug IP address
 
 
-def test():
-    pulseNo = 18999999
+def test_create():
+    pulseNo = 25000000
     run_name = "RUN01"
-    tree_name = "HDA"
-    descr = "HDA test tree"
-    create(pulseNo, run_name, descr, tree_name)
+    tree_name = "ST40"
+    subtree_name = "HDA"
+    descr = "Writing to MDS+ test"
+    create(pulseNo, run_name, tree_name=tree_name, subtree_name=subtree_name, descr=descr)
 
-def create(pulseNo, run_name: str, descr, tree_name="HDA", subtree_name=""):
 
-    ###############################################################
-    ####################    Create the tree    ####################
-    ##############################################################
+def create(
+    pulseNo: int,
+    run_name: str,
+    tree_name="ST40",
+    subtree_name="HDA",
+    descr="",
+    close=True,
+):
 
+    t, tree_path, full_path = build_tree_path(pulseNo, tree_name, subtree_name, run_name)
+
+    if len(subtree_name) > 0:
+        try:
+            t.addNode(tree_path, "SUBTREE")
+            n = t.getNode(t.addNode(tree_path, "TEXT"))
+            n.putData("Hierarchical Diagnostic Analysis")
+        except TreeALREADY_THERE:
+            print(f"Subtree already there, skipping creation.")
+
+    # Define full path of tree structure and get node-names
+    nodes = get_tree_structure()
+
+    # Create nodes
+    create_nodes(t, full_path, nodes, descr=descr)
+
+    # Write and close Tree
+    t.write()
+    if close:
+        t.close()
+
+    return t, full_path
+
+def write(
+    hdadata: HDAdata,
+    pulseNo: int,
+    run_name=None,
+    tree_name="ST40",
+    subtree_name="HDA",
+    descr="",
+    modelling=True,
+):
+    if run_name is None:
+        run_name = "RUN01"
+
+    text = "Saving data to "
+    pulseNo_to_save = pulseNo
+    if modelling:
+        pulseNo_to_save += 25000000
+    text += f"{pulseNo_to_save}? (yes)/no   "
+
+    answer = input(text)
+    if answer.lower().strip()=="no":
+        print("...writing aborted...")
+        return
+    t, full_path = create(
+        pulseNo_to_save,
+        run_name,
+        tree_name=tree_name,
+        subtree_name=subtree_name,
+        descr=descr,
+        close=False,
+    )
+
+    print(f"HDA: Writing results for {pulseNo} to {full_path}")
+
+    data = organise_data(hdadata)
+    write_data(t, full_path, data)
+    t.close()
+
+def organise_data(hdadata:HDAdata):
+
+    tev = []
+    tiv = []
+    nev = []
+    for tt in hdadata.time.values:
+        tev.append(
+            np.trapz(hdadata.el_temp.sel(t=tt).values, hdadata.volume.sel(t=tt).values)
+            / hdadata.volume.sel(t=tt).sel(rho_poloidal=1).values,
+        )
+        tiv.append(
+            np.trapz(
+                hdadata.ion_temp.sel(element=hdadata.main_ion).sel(t=tt).values,
+                hdadata.volume.sel(t=tt).values,
+            )
+            / hdadata.volume.sel(t=tt).sel(rho_poloidal=1).values,
+        )
+        nev.append(
+            np.trapz(hdadata.el_dens.sel(t=tt).values, hdadata.volume.sel(t=tt).values)
+            / hdadata.volume.sel(t=tt).sel(rho_poloidal=1).values,
+        )
+    tev = np.array(tev)
+    tiv = np.array(tiv)
+    nev = np.array(nev)
+
+    equil = f"{hdadata.equil}:{hdadata.raw_data[hdadata.equil]['rmag'].attrs['revision']}"
+    interf = f"{hdadata.interf}:{hdadata.raw_data[hdadata.interf]['ne'].attrs['revision']}"
+
+    nodes = {
+        "": {"TIME": (Float32(hdadata.time.values), "s", []),},   # (values, units, coordinate node name)
+        ".METADATA": {
+            "PULSE": (Float32(hdadata.pulse), "", []),
+            "EQUIL": (String(equil), "", []),
+            "INTERF": (String(interf), "", []),
+        },
+        ".GLOBAL": {
+            "TE0": (Float32(hdadata.el_temp.sel(rho_poloidal=0).values), "eV", ["TIME"]),
+            "TI0": (Float32(hdadata.ion_temp.sel(element=hdadata.main_ion).sel(rho_poloidal=0).values), "eV", ["TIME"]),
+            "NE0": (Float32(hdadata.el_dens.sel(rho_poloidal=0).values), "m^-3 ", ["TIME"]),
+            "TEV": (Float32(tev), "eV", ["TIME"]),
+            "TIV": (Float32(tiv), "eV", ["TIME"]),
+            "NEV": (Float32(nev), "m^-3", ["TIME"]),
+            "WTH": (Float32(hdadata.wmhd.values), "J", ["TIME"]),
+            "ZEFF": (Float32(hdadata.zeff.sum("element").sel(rho_poloidal=0).values), "", ["TIME"]),
+        },
+        ".PROFILES.PSI_NORM": {
+            "RHOP": (Float32(hdadata.rho.values), "", ()),
+            "XPSN": (Float32(hdadata.rho.values ** 2), "", ()),
+            "P": (Float32(hdadata.pressure_th.values), "Pa", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+            "VOLUME": (Float32(hdadata.volume.values), "m^3", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+            "RHOT": (Float32(hdadata.rhot.values), "", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+            "NE": (Float32(hdadata.el_dens.values), "m^-3", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+            "NI": (Float32(hdadata.ion_dens.sel(element=hdadata.main_ion).values), "m^-3", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+            "TE": (Float32(hdadata.el_temp.values), "eV", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+            "TI": (Float32(hdadata.ion_temp.sel(element=hdadata.main_ion).values), "eV", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+            "ZEFF": (Float32(hdadata.zeff.sum("element").values), "", ["PROFILES.PSI_NORM.RHOP", "TIME"]),
+        },
+    }
+
+    return nodes
+
+def write_data(t, full_path, data):
+
+    print(f"HDA: writing data to {full_path}...")
+    for sub_path, quantities in data.items():
+        for node_name, node_info in quantities.items():
+            node_path = f"{full_path}{sub_path}:{node_name}"
+            build_str = "build_signal(build_with_units($1,$2), * "
+
+            print(node_path)
+            n = t.getNode(node_path)
+
+            node_data, node_units, node_dims = node_info
+
+            # No dimensions
+            if len(node_dims) == 0:
+                n.putData(node_data.setUnits(node_units))
+                continue
+
+            # Yes Dimensions
+            if len(node_dims) !=0:
+                for dim in node_dims:
+                    build_str += f", {dim}"
+                build_str += ")"
+                n.putData(t.tdiCompile(build_str, node_data, node_units))
+    print("HDA: writing completed")
+
+
+def build_tree_path(pulseNo, tree_name, subtree_name, run_name):
     run_name = run_name.upper().strip()
+    next_run = str(int(run_name[3:]) + 1)
+    if len(next_run) == 1:
+        next_run = "0" + next_run
+    next_run = "RUN" + next_run
     tree_name = tree_name.upper().strip()
     subtree_name = subtree_name.upper().strip()
-    if len(subtree_name) == 0:
-        print(f"\n # Writing to {tree_name} requires subtree_name != "" # \n")
-        tree_path = f"\{tree_name}::TOP:{subtree_name}"
+
+    if (len(subtree_name) == 0) and (tree_name == "ST40"):
+        print(f"\n # Writing to {tree_name} requires subtree_name != " " # \n")
+        return
+
+    if len(subtree_name) != 0:
+        tree_path = rf"\{tree_name}::TOP.{subtree_name}"
     else:
-        tree_path = f"\{tree_name}::TOP"
+        tree_path = rf"\{tree_name}::TOP"
 
     try:
         mode = "EDIT"
         t = Tree(tree_name, pulseNo, mode)
 
         try:
-            n = t.getNode(rf"{tree_name_full}.{run_name}.METADATA:USER")
-            user_already_written = n.data()
-        except:
-            user_already_written = user
+            full_path = f"{tree_path}.{run_name}"
+            n = t.getNode(rf"{full_path}.METADATA:USER")
+            _user = n.data()
 
-        if not (user_already_written == user):
-            print(f"\n #  You are about to overwrite {run_name}! # \n")
-            print(" Proceed yes/(no)? ")
-            yes_typed = input(">>  ")
-            if not(yes_typed.lower() == "yes"):
-                return
+            print(f"{pulseNo}: {full_path} tree written by {_user} already exists \n")
+            answer = input(f"\n # Overwrite {run_name} * yes/(no) * ?  ")
+            if answer.lower() == "yes":
+                delete(t, full_path)
+            else:
+                print(f"\n #  Increase run by +1 ? # \n")
+                answer = input(f"\n # Write to {next_run} * yes/(no) * ?  ")
+                if answer.lower() == "no":
+                    return
+                run_name = next_run
+
+        except:
+            _user = user
+
     except:
         mode = "NEW"
-        if tree_name=="ST40":
-            if pulseNo<1.e6:
-                print(f"\n # Creating new ST40 tree enabled only for modelling pulses ! # \n")
+        if tree_name == "ST40":
+            if pulseNo < 1.0e6:
+                print(
+                    f"\n # Creating new ST40 tree enabled only for modelling pulses ! # \n"
+                )
                 return
         t = Tree(tree_name, pulseNo, mode)
 
-    if len(subtree_name) > 0:
-        t.addNode(tpath, "SUBTREE")
+    full_path = f"{tree_path}"
+    if len(run_name) > 0:
+        full_path += f".{run_name}"
 
-    t.setDefault(mh.createNode(t, branches[0], "STRUCTURE", "Metadata of analysis"))
-    t.addNode(f"{tree_path}.METADATA", "STRUCTURE")
-    n = t.addNode(f"{tree_path}.METADATA:USER", "TEXT")
-    n.putData(user)
-    n = t.addNode(f"{tree_path}.METADATA:PULSE", "TEXT")
-    n = t.addNode(f"{tree_path}.METADATA:EFIT_RUN", "TEXT")
+    return t, tree_path, full_path
 
-    n = mh.createNode(t, f"{tree_path}.TIME", "NUMERIC", "time vector, s")
-    n = mh.createNode(t, f"{tree_path}.GLOBAL.TE0 ", "SIGNAL", "Central electron temp, eV")
-    n = mh.createNode(t, f"{tree_path}.GLOBAL.TI0 ", "SIGNAL", "Central ion temp, eV")
-    n = mh.createNode(t, f"{tree_path}.GLOBAL.NE0 ", "SIGNAL", "Central electron density, m^-3 ")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.NEL ","SIGNAL","Line aver electron density m^-3 ");
-    n = mh.createNode(t, f"{tree_path}.GLOBAL.NEV ", "SIGNAL", "Volume aver electron density m^-3 ")
-    n = mh.createNode(t, f"{tree_path}.GLOBAL.TEV ", "SIGNAL", "Volume aver electron temp, eV")
-    n = mh.createNode(t, f"{tree_path}.GLOBAL.TIV ", "SIGNAL", "Volume aver ion temp, eV")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.VLOOP ", "SIGNAL", "Loop voltage, V")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.P_OH","SIGNAL","Total Ohmic power, M");
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.UPL ","SIGNAL","Loop Voltage,V          ");
-    n = mh.createNode(t, f"{tree_path}.GLOBAL.WTH ", "SIGNAL", "Thermal energy, J       ")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.Li3 ","SIGNAL","Internal inductance     ");
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.BetP","SIGNAL","Poloidal beta           ");
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.BetT","SIGNAL","Toroidal beta           ");
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.BetN","SIGNAL","Beta normalized  ");
-    n = mh.createNode(t,  f"{tree_path}.GLOBAL.ZEFF", "SIGNAL", "Z effective at the plasma center")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.Res',"SIGNAL","Total plasma resistance Qj/Ipl^2, Ohm");
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.I_BS","SIGNAL","Total bootstrap current,A")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.F_BS","SIGNAL","Bootstrap current fraction")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.I_OH","SIGNAL","Total Ohmic current,A")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.F_NI","SIGNAL","Non-inductive current fraction")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.P_AUX","SIGNAL","Total external heating power,W")
-    # n = mh.createNode(t, f"{tree_path}.GLOBAL.VTOR0","SIGNAL","Central toroidal velocity, m/s")
 
-    n = mh.createNode(
-        t,  f"{tree_path}.PROFILES.PSI_NORM.RHOP", "NUMERIC", "radial vector, Sqrt of normalised poloidal flux"
-    )
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.XPSN", "NUMERIC", "x vector - fi_normalized")
-    # n = mh.createNode(t,f"{tree_path}.PROFILES.PSI_NORM.Q","SIGNAL","Q_PROFILE(PSI_NORM)");
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.P", "SIGNAL", "Pressure,Pa")
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.VOLUME", "SIGNAL", "Volume inside magnetic surface,m^3")
+def get_tree_structure():
 
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.RHOT", "SIGNAL", "Sqrt of normalised toroidal flux, xpsn")
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.TE", "SIGNAL", "Electron temperature, eV")
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.NE", "SIGNAL", "Electron density, m^-3")
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.NI", "SIGNAL", "Main ion density, m^-3")
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.TI", "SIGNAL", "Ion temperature, eV")
-    n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.ZEFF", "SIGNAL", "Effective ion charge")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.CC","SIGNAL","Parallel current conductivity, 1/(Ohm*m)");
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.N_D","SIGNAL","Deuterium density,1/m^3")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.N_T","SIGNAL","Tritium density	,1/m^3")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.T_D","SIGNAL","Deuterium temperature,eV")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.T_T","SIGNAL","Tritium temperature,eV")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.J_BS","SIGNAL","Bootstrap current density,M/m2")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.J_OH","SIGNAL","Ohmic current density,A/m2")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.J_TOT","SIGNAL","Total current density,A/m2")
-    # n = mh.createNode(t, f"{tree_path}.PROFILES.PSI_NORM.OMEGA_TOR","SIGNAL","Toroidal rotation frequency, 1/s");
+    nodes = {
+        "": {"TIME": ("NUMERIC", "time vector, s"),}, # (type, description)
+        ".METADATA": {
+            "USER": ("TEXT", "Username of owner", user),
+            "PULSE": ("NUMERIC", "Pulse number analysed"),
+            "EQUIL": ("TEXT", "Equilibrium used"),
+            "INTERF": ("TEXT", "Interferometer diagnostic used for optimization"),
+        },
+        ".GLOBAL": {
+            "TE0": ("SIGNAL", "Central electron temp, eV"),
+            "TI0": ("SIGNAL", "Central ion temp, eV"),
+            "NE0": ("SIGNAL", "Central electron density, m^-3 "),
+            "TEV": ("SIGNAL", "Volume aver electron temp, eV"),
+            "TIV": ("SIGNAL", "Volume aver ion temp, eV"),
+            "NEV": ("SIGNAL", "Volume aver electron density m^-3"),
+            "WTH": ("SIGNAL", "Thermal energy, J"),
+            "UPL": ("SIGNAL", "Loop Voltage, V"),
+            "P_OH": ("SIGNAL", "Total Ohmic power, W"),
+            "ZEFF": ("SIGNAL", "Effective charge at the plasma center"),
+        },
+        ".PROFILES.PSI_NORM": {
+            "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
+            "XPSN": ("NUMERIC", "x vector - fi_normalized"),
+            "P": ("SIGNAL", "Pressure,Pa"),
+            "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
+            "RHOT": ("SIGNAL", "Sqrt of normalised toroidal flux, xpsn"),
+            "NE": ("SIGNAL", "Electron density, m^-3"),
+            "NI": ("SIGNAL", "Ion density, m^-3"),
+            "TE": ("SIGNAL", "Electron temperature, eV"),
+            "TI": ("SIGNAL", "Ion temperature, eV"),
+            "ZEFF": ("SIGNAL", "Effective charge, "),
+        },
+    }
+
+    return nodes
+
+
+def create_nodes(t, full_path, nodes, descr=""):
+
+    if len(descr) > 1:
+        mh.createNode(t, f"{full_path}", "STRUCTURE", descr)
+    else:
+        t.addNode(f"{full_path}", "STRUCTURE")
+    t.addNode(f"{full_path}.METADATA", "STRUCTURE")
+    t.addNode(f"{full_path}.GLOBAL", "STRUCTURE")
+    t.addNode(f"{full_path}.PROFILES", "STRUCTURE")
+    t.addNode(f"{full_path}.PROFILES.PSI_NORM", "STRUCTURE")
+
+    for sub_path, quantities in nodes.items():
+        for node_name, node_info in quantities.items():
+            node_path = f"{full_path}{sub_path}:{node_name}"
+            print(node_path, node_info[0], node_info[1])
+            n = mh.createNode(
+                t, node_path, node_info[0], node_info[1]
+            )
+            if len(node_info) == 3:
+                print(f"   {node_info[2]}")
+                n.putData(node_info[2])
+
+
+def delete(t, full_path):
+    # Second warning to confirm delete
+    print("#####################################################")
+    print("#  *** WARNING ***                                  #")
+    print("   You are about to delete data   ")
+    print(f"{full_path}")
+    print("#####################################################")
+
+    answer = input("Confirm delete ? * yes/(no) *  ")
+    if answer.lower() != "yes":
+        return
+
+    # Delete
+    t.deleteNode(full_path)
     t.write()
-    t.close
+    print(" Data deleted")
+
 
 def warning_message(pulseNo, run_name):
     run_name = run_name.upper().strip()
@@ -144,6 +342,7 @@ def warning_message(pulseNo, run_name):
     while not (not (yes_typed.lower() == "yes") or not (yes_typed.lower() == "y")):
         print(" Error try again")
         yes_typed = input(">>  ")
+
 
 # def modifyhelp(pulseNo, run_name: str, descr, tree_name="HDA"):
 #
@@ -247,65 +446,4 @@ def warning_message(pulseNo, run_name):
 #     t_from.close()
 #
 #     print("Data successfully moved")
-#
-
-## look at /home/ops/mds_trees/ for inspiration
-# def delete(pulseNo, run_name: str):
-#     t = Tree("HDA", pulseNo, "edit")
-#
-#     run_name = run_name.upper().strip()
-#
-#     # get the username of who wrote this run
-#     try:
-#         n = t.getNode(rf"\HDA::TOP.{run_name}.CODE_VERSION:USER")
-#         user_already_written = n.data()
-#     except:
-#         user_already_written = user
-#
-#     # First warning if you are going to delete someone else' run
-#     if not (user_already_written == user):
-#         print("#####################################################")
-#         print("#  *** WARNING ***                                  #")
-#         print("#  You are about to delete a different user's run!  #")
-#         nspaces = 49 - len(user_already_written)
-#         spaces = " " * nspaces
-#         print("#  " + user_already_written + spaces + "#")
-#         print("#####################################################")
-#
-#         print(" Proceed yes/no?")
-#         yes_typed = input(">>  ")
-#         if (yes_typed.lower() == "no") or (yes_typed.lower() == "n"):
-#             return
-#         while not (not (yes_typed.lower() == "yes") or not (yes_typed.lower() == "y")):
-#             print(" Error try again")
-#             yes_typed = input(">>  ")
-#
-#         print(' To confirm type in: "' + user_already_written + '"')
-#         user_typed = input(">>  ")
-#         while not (user_already_written == user_typed):
-#             print(" Error try again")
-#             user_typed = input(">>  ")
-#         print(" ")
-#
-#     # Second warning to confirm delete
-#     print("#####################################################")
-#     print("#  *** WARNING ***                                  #")
-#     print("#  You are about to delete data                     #")
-#     nspaces = 49 - len(user_already_written)
-#     spaces = " " * nspaces
-#     print(f"# {pulseNo} {tree_name} {run_name}" + spaces + "#")
-#     print("#####################################################")
-#     print(" Proceed yes/no?")
-#     yes_typed = input(">>  ")
-#     if (yes_typed.lower() == "no") or (yes_typed.lower() == "n"):
-#         return
-#     while not (not (yes_typed.lower() == "yes") or not (yes_typed.lower() == "y")):
-#         print(" Error try again")
-#         yes_typed = input(">>  ")
-#
-#     # Delete
-#     t.deleteNode(run_name)
-#     t.write()
-#     t.close
-#     print(" Data deleted")
 #

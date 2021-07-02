@@ -40,10 +40,10 @@ def trust3(hdarun):
     hdarun.plot(name=name, savefig=True)
 
 
-def test_interferometry(hdarun, ne_l="smmh1", name="NIRH1_vs_SMMH1", savefig=False):
+def test_interferometry(hdarun, interf="smmh1", name="NIRH1_vs_SMMH1", savefig=False):
     """Test effects of different electron density shapes on interferometer measurements"""
     hdarun.initialize_bckc()
-    hdarun.bckc.match_interferometer(ne_l)
+    hdarun.bckc.match_interferometer(interf)
     if hasattr(hdarun.bckc, "nirh1"):
         hdarun.bckc.nirh1.values = hdarun.bckc.calc_ne_los_int("nirh1").values
     if hasattr(hdarun.bckc, "smmh1"):
@@ -62,13 +62,13 @@ def test_interferometry(hdarun, ne_l="smmh1", name="NIRH1_vs_SMMH1", savefig=Fal
     )
     for t in hdarun.bckc.time:
         hdarun.bckc.el_dens.loc[dict(t=t)] = hdarun.bckc.profs.ne.values
-    hdarun.bckc.match_interferometer(ne_l)
+    hdarun.bckc.match_interferometer(interf)
     flat_dens = deepcopy(hdarun.bckc)
 
     HDAplot(flat_dens, standard, name=name, savefig=savefig)
 
 
-def test_flat_density(hdarun, ne_l="nirh1"):
+def test_flat_density(hdarun, interf="nirh1"):
     """Trust all measurements, find shape to explain data"""
 
     # L-mode profiles
@@ -89,8 +89,8 @@ def test_flat_density(hdarun, ne_l="nirh1"):
     )
     for t in hdarun.bckc.time:
         hdarun.bckc.el_dens.loc[dict(t=t)] = hdarun.bckc.profs.ne.values
-    el_dens_int = hdarun.bckc.calc_ne_los_int(ne_l)
-    hdarun.bckc.el_dens *= getattr(hdarun.bckc, ne_l) / (el_dens_int)
+    el_dens_int = hdarun.bckc.calc_ne_los_int(interf)
+    hdarun.bckc.el_dens *= getattr(hdarun.bckc, interf) / (el_dens_int)
 
     te_0 = hdarun.bckc.profs.te.sel(rho_poloidal=0).values
     hdarun.bckc.profs.te = hdarun.bckc.profs.build_temperature(
@@ -112,7 +112,7 @@ def test_flat_density(hdarun, ne_l="nirh1"):
     hdarun.recover_density()
     flat_dens = deepcopy(hdarun.bckc)
 
-    print((getattr(standard, ne_l) / getattr(flat_dens, ne_l)).values)
+    print((getattr(standard, interf) / getattr(flat_dens, interf)).values)
 
     HDAplot(flat_dens, standard)
 

@@ -249,6 +249,7 @@ def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr
             data2.zeff.sel(t=t).sum("element").plot(
                 color=colors[i], label=ldata2, linestyle="--"
             )
+        plt.ylim(0, )
     plt.title("Effective charge")
     plt.ylabel("$Z_{eff}$")
     plt.xlabel(r"$\rho_{pol}$")
@@ -410,22 +411,22 @@ def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr
     for isys, system in enumerate(interferom):
         if not hasattr(data1, system):
             continue
-        ne_l_data1 = getattr(data1, system)
-        ylim[1] = np.max([ylim[1], ne_l_data1.max()])
+        interf_data1 = getattr(data1, system)
+        ylim[1] = np.max([ylim[1], interf_data1.max()])
         if correl != "t":
-            ne_l_data1.assign_coords(correl=("t", x_val))
-            ne_l_data1 = ne_l_data1.swap_dims({"t": "correl"})
+            interf_data1.assign_coords(correl=("t", x_val))
+            interf_data1 = interf_data1.swap_dims({"t": "correl"})
 
         ldata = get_labels(system)
         ldata2 = ldata + get_labels(label2)
-        ne_l_data1.plot(label=ldata)
+        interf_data1.plot(label=ldata)
         if has_data2:
-            ne_l_data2 = getattr(data2, system)
-            ylim[1] = np.max([ylim[1], ne_l_data2.max()])
+            interf_data2 = getattr(data2, system)
+            ylim[1] = np.max([ylim[1], interf_data2.max()])
             if correl != "t":
-                ne_l_data2.assign_coords(correl=("t", x_val))
-                ne_l_data2 = ne_l_data2.swap_dims({"t": "correl"})
-            ne_l_data2.plot(color="k", linestyle="dashed", label=ldata2)
+                interf_data2.assign_coords(correl=("t", x_val))
+                interf_data2 = interf_data2.swap_dims({"t": "correl"})
+            interf_data2.plot(color="k", linestyle="dashed", label=ldata2)
 
         if hasattr(data1, "raw_data") and correl == "t":
             (data1.raw_data[system]["ne"]).plot()
@@ -433,12 +434,12 @@ def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr
 
         for i in range(len(x_val)):
             plt.scatter(
-                x_val[i].values, ne_l_data1[i].values, color=colors[i], marker=marker[isys]
+                x_val[i].values, interf_data1[i].values, color=colors[i], marker=marker[isys]
             )
             if has_data2:
                 plt.scatter(
                     x_val[i].values,
-                    ne_l_data2[i].values,
+                    interf_data2[i].values,
                     color=colors[i],
                     marker=marker[isys],
                     facecolors="none",
@@ -450,7 +451,7 @@ def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr
     plt.legend()
     plt.ylim(ylim)
     if savefig:
-        save_figure(fig_name=name + "_ne_l")
+        save_figure(fig_name=name + "_interf")
 
     # Spectrometer emission characteristics and
     # element ionization balance
@@ -571,7 +572,7 @@ def get_labels(lkey=None):
         "wdia": "3/2$ \int P_{th} dV$",
         "wmhd": "3/2$ \int P_{tot} dV$",
         "zeff": "$Z_{eff}$",
-        "ne_l": "$N_e$ LOS-int",
+        "interf": "$N_e$ LOS-int",
         "nirh1": "$N_e$ LOS-int (NIRH1)",
         "smmh1": "$N_e$ LOS-int (SMMH1)",
         "tot_rad": "$P_{rad}$",

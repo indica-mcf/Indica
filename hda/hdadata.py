@@ -13,8 +13,10 @@ import hda.physics as ph
 from hda.atomdat import fractional_abundance
 from hda.atomdat import get_atomdat
 from hda.atomdat import radiated_power
-from hda.hdaadas import ADASReader
 
+# from hda.hdaadas import ADASReader
+
+from indica.readers import ADASReader
 from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
 from indica.converters import FluxSurfaceCoordinates
@@ -59,7 +61,7 @@ class HDAdata:
             print(f"Reading data for pulse {pulse}")
             self.raw_data = {}
 
-            self.pulse = pulse
+            self.pulse = int(pulse)
             self.tstart = tstart
             self.tend = tend
 
@@ -73,22 +75,12 @@ class HDAdata:
                 revision = 0
             efit = self.reader.get("", "efit", revision)
 
-            if revision == 0:
-                whichRun, _ = self.reader._get_signal("", "efit", ":best_run", revision)
-                whichRun = whichRun[-2:]
-                if whichRun[0] == "0":
-                    whichRun = whichRun[-1]
-                revision = int(whichRun)
-            else:
-                whichRun = self.reader.get_revision_name(revision)[1:].upper()
-
             self.equilibrium = Equilibrium(efit)
 
             self.flux_coords = FluxSurfaceCoordinates("poloidal")
             self.flux_coords.set_equilibrium(self.equilibrium)
 
             efit["revision"] = revision
-            efit["run"] = whichRun
             self.raw_data["efit"] = efit
 
             rho_ped = 0.85
@@ -183,7 +175,9 @@ class HDAdata:
         else:
             print("\n Setting default synthetic plasma data no longer enabled\n")
 
-    def build_data(self, ne_shape=0.9, te_shape=0.6, regime="l_mode", ne_l="nirh1"):
+    def build_data(
+        self, ne_shape=0.9, te_shape=0.6, regime="l_mode", interf="nirh1", equil="efit"
+    ):
         """
         Create plasma data give information in inputs dictionary
         """
@@ -193,7 +187,8 @@ class HDAdata:
         self.ne_shape = ne_shape
         self.te_shape = te_shape
         self.regime = regime
-        self.ne_l = ne_l
+        self.interf = interf
+        self.equil = equil
 
         if self.regime == "l_mode":
             self.profs.l_mode(ne_shape=self.ne_shape, te_shape=self.te_shape)
@@ -201,8 +196,8 @@ class HDAdata:
             self.profs.h_mode(ne_shape=self.ne_shape, te_shape=self.te_shape)
 
         self.profs.ne = self.profs.build_density(
-            y_0=5.e19,
-            y_ped=5.e19 / 1.0,
+            y_0=5.0e19,
+            y_ped=5.0e19 / 1.0,
             x_ped=0.85,
             w_core=0.8,
             w_edge=0.2,
@@ -239,6 +234,10 @@ class HDAdata:
 
         # approximate area and volume for quasi-circular geometry
         # with minor radius = flux-surface averaged value
+        # area, _ = self.equilibrium.cross_sectional_area(
+        #         self.equilibrium.rmji.rho_poloidal,
+        #     )
+
         self.area.values = (math.pi * self.min_r ** 2).values
         self.volume.values = (self.area * 2 * math.pi * self.R_0).values
 
@@ -285,7 +284,7 @@ class HDAdata:
 
         # Rescale density to match LOS-integrated value (radial view across midplane,
         # crossing the plasma twice, to the inner column and back)
-        self.match_interferometer(self.ne_l)
+        self.match_interferometer(self.interf)
 
         for elem in self.elements:
             self.ion_dens.loc[dict(element=elem)] = self.el_dens * self.ion_conc.sel(
@@ -370,22 +369,22 @@ class HDAdata:
         for elem in self.elements:
             self.ion_temp.loc[dict(element=elem)] = ion_temp
 
-    def match_interferometer(self, ne_l:str):
+    def match_interferometer(self, interf: str):
         """
         Rescale density profiles to match the interferometer measurements
 
         Parameters
         ----------
-        ne_l
+        interf
             Name of interferometer to be used
 
         Returns
         -------
 
         """
-        print(f"\n Re-calculating density profiles to match {ne_l} values \n")
+        print(f"\n Re-calculating density profiles to match {interf} values \n")
 
-        self.el_dens *= getattr(self, ne_l) / self.calc_ne_los_int(ne_l)
+        self.el_dens *= getattr(self, interf) / self.calc_ne_los_int(interf)
         self.el_dens = self.el_dens
 
         # Recalculate interferometer data
@@ -393,7 +392,6 @@ class HDAdata:
             self.nirh1.values = self.calc_ne_los_int("nirh1").values
         if hasattr(self, "smmh1"):
             self.smmh1.values = self.calc_ne_los_int("smmh1").values
-
 
     def propagate_parameters(self):
         """
@@ -428,9 +426,7 @@ class HDAdata:
         dl = trans.distance(trans.x2_name, DataArray(0), x2[0:2], 0)[1]
         diag_var.attrs["x2"] = x2
         diag_var.attrs["dl"] = dl
-        diag_var.attrs["R"], diag_var.attrs["z"] = trans.convert_to_Rz(
-            x1, x2, 0
-        )
+        diag_var.attrs["R"], diag_var.attrs["z"] = trans.convert_to_Rz(x1, x2, 0)
         for t in diag_var.t:
             rho_tmp, _ = self.flux_coords.convert_from_Rz(
                 diag_var.attrs["R"], diag_var.attrs["z"], t
@@ -442,7 +438,7 @@ class HDAdata:
 
         setattr(self, diag, diag_var)
 
-    def calc_ne_los_int(self, ne_l):
+    def calc_ne_los_int(self, interf):
         """
         Calculate line of sight integral assuming only one pass across the plasma
 
@@ -450,13 +446,13 @@ class HDAdata:
         -------
 
         """
-        ne_l_var = getattr(self, ne_l)
+        interf_var = getattr(self, interf)
 
-        x2_name = ne_l_var.attrs["transform"].x2_name
+        x2_name = interf_var.attrs["transform"].x2_name
 
         el_dens = xr.where(
-            ne_l_var.attrs["rho"] <= 1,
-            self.el_dens.interp(rho_poloidal=ne_l_var.attrs["rho"]),
+            interf_var.attrs["rho"] <= 1,
+            self.el_dens.interp(rho_poloidal=interf_var.attrs["rho"]),
             0,
         )
         print(
@@ -464,7 +460,7 @@ class HDAdata:
             "\n Interferometer: two passes across the plasma"
             "\n ******************************************** \n"
         )
-        el_dens_int = 2 * el_dens.sum(x2_name) * ne_l_var.attrs["dl"]
+        el_dens_int = 2 * el_dens.sum(x2_name) * interf_var.attrs["dl"]
 
         return el_dens_int
 
