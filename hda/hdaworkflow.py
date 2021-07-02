@@ -6,6 +6,7 @@ import pickle
 
 from hda.hdadata import HDAdata
 from hda.hdaplot import HDAplot
+from hda.hdatree import write as write_to_mds
 
 import xarray as xr
 from xarray import DataArray
@@ -26,7 +27,7 @@ class HDArun:
         ne_shape=1,
         te_shape=0.8,
         regime="l_mode",
-        ne_l="nirh1",
+        interf="nirh1",
     ):
         """From the measured Te and Ti values, search for Te profile that best
         matches total pressure.
@@ -64,10 +65,12 @@ class HDArun:
         )
 
         self.data.build_data(
-            ne_shape=self.ne_shape, te_shape=self.te_shape, regime=self.regime, ne_l=ne_l
+            ne_shape=self.ne_shape, te_shape=self.te_shape, regime=self.regime, interf=interf
         )
+        # return
         self.data.simulate_spectrometers()
         self.data.match_xrcs()
+        self.data.propagate_parameters()
 
     def __call__(self, use_c5=True, debug=False):
 
@@ -81,6 +84,11 @@ class HDArun:
         # self.recover_zeff(optimize="density")
 
         # self.plot()
+
+    def write_to_mds(self, data:HDAdata, modelling=True, descr="", pulseNo=None):
+        if pulseNo is None:
+            pulseNo = data.pulse
+        write_to_mds(data, pulseNo, modelling=modelling, descr=descr)
 
     def initialize_bckc(self):
         # Initialize back-calculated values
