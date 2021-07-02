@@ -88,7 +88,7 @@ class EmissivityProfile:
             for k, v in asymmetry_parameter.coords.items()
             if k != self._dim
         }
-        transpose_order = (self._dim,) + self.sym_dims
+        transpose_order = (self._dim,) + self.asym_dims
         self.asymmetry_parameter = CubicSpline(
             asymmetry_parameter.coords[self._dim],
             asymmetry_parameter.transpose(*transpose_order),
@@ -146,19 +146,27 @@ class EmissivityProfile:
         R_0: Optional[DataArray] = None,
     ) -> DataArray:
         """Evaluate the function at a location defined using (R, z) coordinates"""
+        if t is None:
+            if "t" in rho.coords:
+                t = rho.coords["t"]
+            elif self.time is not None:
+                t = self.time
+        elif "t" not in rho.coords and (
+            "t" in self.sym_coords or "t" in self.asym_coords
+        ):
+            rho = rho.expand_dims(t=t)
         symmetric = broadcast_spline(
             self.symmetric_emissivity, self.sym_dims, self.sym_coords, rho
         )
         asymmetric = broadcast_spline(
             self.asymmetry_parameter, self.asym_dims, self.asym_coords, rho
         )
-        if t is None:
-            if "t" in rho.coords:
-                t = rho.coords["t"]
-            elif self.time is not None:
-                t = self.time
         if R_0 is None:
             R_0 = cast(DataArray, self.transform.equilibrium.R_hfs(rho, t)[0])
+        print("Asymmetric", asymmetric)
+        print("R_0", R_0)
+        print(R)
+        print(rho)
         result = symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))
         # Ensure round-off error doesn't result in any values below 0
         return where(result < 0.0, 0.0, result).fillna(0.0)
