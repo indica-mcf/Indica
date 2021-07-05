@@ -50,8 +50,8 @@ class DataReader(BaseIO):
     agent: prov.model.ProvAgent
         An agent representing this object in provenance documents.
         DataArray objects can be attributed to it.
-    DDA_METHODS: Dict[str, str]
-        Mapping between instrument/DDA names and method to use to assemble that
+    INSTRUMENT_METHODS: Dict[str, str]
+        Mapping between instrument (DDA in JET) names and method to use to assemble that
         data. Implementation-specific.
     entity: prov.model.ProvEntity
         An entity representing this object in provenance documents. It is used
@@ -64,9 +64,9 @@ class DataReader(BaseIO):
 
     """
 
-    DDA_METHODS: Dict[str, str] = {}
+    INSTRUMENT_METHODS: Dict[str, str] = {}
     # Mapping between methods for reading data and the quantities which can be
-    # fetched. An implementation may override this for specific DDAs.
+    # fetched. An implementation may override this for specific INSTRUMENTs.
     _AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "get_thomson_scattering": {
             "ne": ("number_density", "electrons"),
@@ -103,7 +103,7 @@ class DataReader(BaseIO):
             "v": ("luminous_flux", None),
         },
     }
-    # Quantities available for specific DDAs in a given
+    # Quantities available for specific INSTRUMENTs in a given
     # implementation. Override values given in _AVAILABLE_QUANTITIES.
     _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
 
@@ -173,7 +173,7 @@ class DataReader(BaseIO):
         revision: int = 0,
         quantities: Set[str] = set(),
     ) -> Dict[str, DataArray]:
-        """Reads data for the requested instrument/DDA. In general this will be
+        """Reads data for the requested instrument. In general this will be
         the method you want to use when reading.
 
         Parameters
@@ -194,13 +194,13 @@ class DataReader(BaseIO):
         :
             A dictionary containing the requested physical quantities.
         """
-        if instrument not in self.DDA_METHODS:
+        if instrument not in self.INSTRUMENT_METHODS:
             raise ValueError(
                 "{} does not support reading for instrument {}".format(
                     self.__class__.__name__, instrument
                 )
             )
-        method = getattr(self, self.DDA_METHODS[instrument])
+        method = getattr(self, self.INSTRUMENT_METHODS[instrument])
         if not quantities:
             quantities = set(self.available_quantities(instrument))
         return method(uid, instrument, revision, quantities)
@@ -872,7 +872,7 @@ class DataReader(BaseIO):
         uid
             User ID (i.e., which user created this data)
         instrument
-            Name of the instrument/DDA which measured this data
+            Name of the instrument which measured this data
         revision
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
@@ -968,7 +968,7 @@ class DataReader(BaseIO):
         uid
             User ID (i.e., which user created this data)
         instrument
-            Name of the instrument/DDA which measured this data
+            Name of the instrument which measured this data
         revision
             An object (of implementation-dependent type) specifying what
             version of data to get. Default is the most recent.
@@ -1373,10 +1373,10 @@ class DataReader(BaseIO):
 
     def available_quantities(self, instrument):
         """Return the quantities which can be read for the specified
-        instrument/DDA."""
-        if instrument not in self.DDA_METHODS:
+        instrument."""
+        if instrument not in self.INSTRUMENT_METHODS:
             raise ValueError("Can not read data for instrument {}".format(instrument))
         if instrument in self._IMPLEMENTATION_QUANTITIES:
             return self._IMPLEMENTATION_QUANTITIES[instrument]
         else:
-            return self._AVAILABLE_QUANTITIES[self.DDA_METHODS[instrument]]
+            return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
