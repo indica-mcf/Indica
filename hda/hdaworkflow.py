@@ -85,10 +85,14 @@ class HDArun:
 
         # self.plot()
 
-    def write_to_mds(self, data:HDAdata, modelling=True, descr="", pulseNo=None):
+    def write(self, data:HDAdata, modelling=True, descr="", pulseNo=None):
         if pulseNo is None:
             pulseNo = data.pulse
-        write_to_mds(data, pulseNo, modelling=modelling, descr=descr)
+
+        if modelling:
+            pulseNo += 25000000
+
+        write_to_mds(data, pulseNo, "HDA", descr=descr)
 
     def initialize_bckc(self):
         # Initialize back-calculated values
