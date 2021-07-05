@@ -106,7 +106,7 @@ In this section, the steps of code execution are outlined in detail. The names u
 
 2. Create reference time axis **t_unfold** with desired resolution dt in range tr.
 
-3. **Equilibrium UID and DDA** : define equilibrium diagnostic and read diagnostic-independent geometric quantities often used throughout the code (DTYPES details given in section :ref:`dtype`):
+3. **Equilibrium UID and INSTRUMENT** : define equilibrium diagnostic and read diagnostic-independent geometric quantities often used throughout the code (DTYPES details given in section :ref:`dtype`):
 
 	* **rho(nx)**: define reference time-independent normalized radial coordinate array (currently rho-poloidal, radial resolution nx=101 points)
 	* **R_2D(nx_Rz), z_2D(nx_Rz)**: define time-independent R and z arrays for mapping quantities in 2D on the poloidal plane (currently spatial resolution nRz = 100)
@@ -172,7 +172,7 @@ In this section, the steps of code execution are outlined in detail. The names u
 		c) **Fit all LOS using equation 1** of | `M. Sertoli et al. Review of Scientific Instruments 89, 113501 (2018) <https://doi.org/10.1063/1.5046562>`_ searching for the best profiles of **ϵ_SXR(ρ,R_0;t)** and **λ_SXR(ρ;t)**. The local emissivity calculated in b) is used as starting point for ϵ_SXR, while λ_SXR is set to zero across the full radius. More details of the current fitting method can be found in :ref:`computation`
 
 7. **Define parameters to calculate the plasma composition**
-	* **Choose electron density and temperature diagnostics** with independent input of UID and DDA names for Ne and Te
+	* **Choose electron density and temperature diagnostics** with independent input of UID and INSTRUMENT names for Ne and Te
 	* **Force non-hollow Ne or Te profiles** (bool, default = False) to avoid hollow spline fits of Ne and Te data that could arise simply from sparse central data.
 	* **SXR detection limit** (float, default = 1500): defined as a minimum Te (eV) roughtly coincident with the photon energy of the filter function edge. This limit depends on the thickness of the Be-filter and on the quality of atomic data, so is machine dependent. (*A default is provided and usually works fine, but the user must have the possibility to choose a different radius or temperature limit*)
 	* **Account for Zeff** (bool, default = True): calculate a low-Z impurity density to account for missing contributions to the Zeff measurement (*possible only if a Zeff measurement is available*)
