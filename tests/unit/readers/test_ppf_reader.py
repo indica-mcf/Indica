@@ -671,7 +671,7 @@ def test_get_bremsstrahlung_spectroscopy(
     errors,
     max_freqs,
     text(min_size=1),
-    sampled_from(sorted(PPFReader.DDA_METHODS.keys())),
+    sampled_from(sorted(PPFReader.INSTRUMENT_METHODS.keys())),
     revisions,
     lists(text(), min_size=1, unique=True).map(set),
 )
@@ -698,7 +698,7 @@ def test_general_get(
         )
         results = reader.get(uid, instrument, revision, quantities)
         assert isinstance(results, MagicMock)
-        getattr(reader, reader.DDA_METHODS[instrument]).assert_called_once_with(
+        getattr(reader, reader.INSTRUMENT_METHODS[instrument]).assert_called_once_with(
             uid, instrument, revision, quantities
         )
 
