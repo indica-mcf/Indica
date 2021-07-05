@@ -268,8 +268,7 @@ class FractionalAbundance(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Ne"]
-                    <= np.max(np.power(10, val.coords["log10_electron_density"]))
+                    inputted_data["Ne"] <= np.max(val.coords["electron_density"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -280,8 +279,7 @@ class FractionalAbundance(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Ne"]
-                    >= np.min(np.power(10, val.coords["log10_electron_density"]))
+                    inputted_data["Ne"] >= np.min(val.coords["electron_density"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -292,8 +290,7 @@ class FractionalAbundance(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Te"]
-                    <= np.max(np.power(10, val.coords["log10_electron_temperature"]))
+                    inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -304,8 +301,7 @@ class FractionalAbundance(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Te"]
-                    >= np.min(np.power(10, val.coords["log10_electron_temperature"]))
+                    inputted_data["Te"] >= np.min(val.coords["electron_temperature"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -349,34 +345,35 @@ class FractionalAbundance(Operator):
         num_of_stages
             Number of ionisation stages.
         """
-        Ne, Te = np.log10(self.Ne), np.log10(self.Te)
+        # Ne, Te = np.log10(self.Ne), np.log10(self.Te)
+        Ne, Te = self.Ne, self.Te
 
         SCD_spec = self.SCD.indica.interp2d(
-            log10_electron_temperature=Te,
-            log10_electron_density=Ne,
+            electron_temperature=Te,
+            electron_density=Ne,
             method="cubic",
             assume_sorted=True,
         )
-        SCD_spec = np.power(10.0, SCD_spec)
+        SCD_spec = SCD_spec
 
         if self.CCD is not None:
             CCD_spec = self.CCD.indica.interp2d(
-                log10_electron_temperature=Te,
-                log10_electron_density=Ne,
+                electron_temperature=Te,
+                electron_density=Ne,
                 method="cubic",
                 assume_sorted=True,
             )
-            CCD_spec = np.power(10.0, CCD_spec)
+            CCD_spec = CCD_spec
         else:
             CCD_spec = None
 
         ACD_spec = self.ACD.indica.interp2d(
-            log10_electron_temperature=Te,
-            log10_electron_density=Ne,
+            electron_temperature=Te,
+            electron_density=Ne,
             method="cubic",
             assume_sorted=True,
         )
-        ACD_spec = np.power(10.0, ACD_spec)
+        ACD_spec = ACD_spec
 
         self.SCD, self.ACD, self.CCD = SCD_spec, ACD_spec, CCD_spec
         self.num_of_stages = self.SCD.shape[0] + 1
@@ -835,8 +832,7 @@ class PowerLoss(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Ne"]
-                    <= np.max(np.power(10, val.coords["log10_electron_density"]))
+                    inputted_data["Ne"] <= np.max(val.coords["electron_density"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -847,8 +843,7 @@ class PowerLoss(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Ne"]
-                    >= np.min(np.power(10, val.coords["log10_electron_density"]))
+                    inputted_data["Ne"] >= np.min(val.coords["electron_density"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -859,8 +854,7 @@ class PowerLoss(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Te"]
-                    <= np.max(np.power(10, val.coords["log10_electron_temperature"]))
+                    inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -871,8 +865,7 @@ class PowerLoss(Operator):
         try:
             for key, val in imported_data.items():
                 assert np.all(
-                    inputted_data["Te"]
-                    >= np.min(np.power(10, val.coords["log10_electron_temperature"]))
+                    inputted_data["Te"] >= np.min(val.coords["electron_temperature"])
                 )
         except AssertionError:
             raise AssertionError(
@@ -895,34 +888,35 @@ class PowerLoss(Operator):
             Interpolated radiated power from recombination and bremsstrahlung.
         """
 
-        Ne, Te = np.log10(self.Ne), np.log10(self.Te)
+        # Ne, Te = np.log10(self.Ne), np.log10(self.Te)
+        Ne, Te = self.Ne, self.Te
 
         PLT_spec = self.PLT.indica.interp2d(
-            log10_electron_temperature=Te,
-            log10_electron_density=Ne,
+            electron_temperature=Te,
+            electron_density=Ne,
             method="cubic",
             assume_sorted=True,
         )
-        PLT_spec = np.power(10, PLT_spec)
+        PLT_spec = PLT_spec
 
         if self.PRC is not None:
             PRC_spec = self.PRC.indica.interp2d(
-                log10_electron_temperature=Te,
-                log10_electron_density=Ne,
+                electron_temperature=Te,
+                electron_density=Ne,
                 method="cubic",
                 assume_sorted=True,
             )
-            PRC_spec = np.power(10, PRC_spec)
+            PRC_spec = PRC_spec
         else:
             PRC_spec = None
 
         PRB_spec = self.PRB.indica.interp2d(
-            log10_electron_temperature=Te,
-            log10_electron_density=Ne,
+            electron_temperature=Te,
+            electron_density=Ne,
             method="cubic",
             assume_sorted=True,
         )
-        PRB_spec = np.power(10, PRB_spec)
+        PRB_spec = PRB_spec
 
         self.PLT, self.PRC, self.PRB = PLT_spec, PRC_spec, PRB_spec
         self.num_of_stages = self.PLT.shape[0] + 1
