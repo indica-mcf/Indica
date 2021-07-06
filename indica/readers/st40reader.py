@@ -16,6 +16,7 @@ from typing import Set
 from typing import Tuple
 from typing import Union
 import warnings
+from xarray import DataArray
 
 import numpy as np
 from MDSplus import Connection
@@ -166,6 +167,19 @@ class ST40Reader(DataReader):
         mds_path += f".{instrument}{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)
 
+    def _get_data(
+        self, uid: str, instrument: str, quantity: str, revision: int
+    ) -> DataArray:
+        """Gets the signal for the given INSTRUMENT, at the
+        given revision."""
+        data, _path = self._get_signal(uid, instrument, quantity, revision)
+        dims, _ = self._get_signal_dims(_path, len(data.shape))
+
+        if len(dims) == 1:
+            dims = dims[0]
+
+        return data, dims
+
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> Tuple[np.array, str]:
@@ -188,7 +202,7 @@ class ST40Reader(DataReader):
 
         dimensions = []
         paths = []
-        for dim in range(ndims):
+        for dim in (range(ndims)):
             path = f"dim_of({mds_path},{dim})"
             dim_tmp = self.conn.get(self.mdsCheck(path)).data()
 
@@ -252,6 +266,11 @@ class ST40Reader(DataReader):
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {}
+        if revision==0:
+            run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
+            revision = int(run_name[4:])
+        results["revision"] = revision
+
         times, _ = self._get_signal(uid, instrument, ":time", revision)
         psin, _ = self._get_signal(uid, instrument, ".profiles.psi_norm:xpsn", revision)
         for q in quantities:
@@ -289,6 +308,11 @@ class ST40Reader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
+
+        if revision==0:
+            run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
+            revision = int(run_name[3:])
+        results["revision"] = revision
 
         # position_instrument = "raw_sxr"
         # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
@@ -344,6 +368,11 @@ class ST40Reader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
+
+        if revision==0:
+            run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
+            revision = int(run_name[3:])
+        results["revision"] = revision
 
         # position_instrument = ""
         # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
