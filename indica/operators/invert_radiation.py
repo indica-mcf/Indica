@@ -163,10 +163,6 @@ class EmissivityProfile:
         )
         if R_0 is None:
             R_0 = cast(DataArray, self.transform.equilibrium.R_hfs(rho, t)[0])
-        print("Asymmetric", asymmetric)
-        print("R_0", R_0)
-        print(R)
-        print(rho)
         result = symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))
         # Ensure round-off error doesn't result in any values below 0
         return where(result < 0.0, 0.0, result).fillna(0.0)
@@ -274,6 +270,25 @@ class InvertRadiation(Operator):
             * (len(args) - 3)
         )
         return result
+
+    @staticmethod
+    def knot_positions(n: int, rho_max: float):
+        """Calculates location of knots in magnetic flux coordinates.
+
+        Parameters
+        ----------
+        n
+            The number of knots needed.
+        rho_max
+            The normalised magnetic flux of the final knot location.
+        """
+        knots = np.empty(n)
+        if float(rho_max) > 1.0:
+            knots[:] = np.linspace(0, 1.0, n) ** 1.2 * float(rho_max)
+        else:
+            knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
+            knots[-1] = 1.0
+        return knots
 
     def __call__(  # type: ignore[override]
         self,
@@ -405,12 +420,7 @@ class InvertRadiation(Operator):
                 rho, c.coords["t"]
             )[0]
 
-        knots = np.empty(n)
-        if float(rho_max) > 1.0:
-            knots[:] = np.linspace(0, 1.0, n) ** 1.2 * float(rho_max)
-        else:
-            knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
-            knots[-1] = 1.0
+        knots = self.knot_positions(n, rho_max)
         dim_name = "rho_" + flux_coords.flux_kind
 
         symmetric_emissivities: List[DataArray] = []
