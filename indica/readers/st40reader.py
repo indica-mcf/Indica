@@ -169,14 +169,11 @@ class ST40Reader(DataReader):
 
     def _get_data(
         self, uid: str, instrument: str, quantity: str, revision: int
-    ) -> DataArray:
-        """Gets the signal for the given INSTRUMENT, at the
+    ) -> Tuple[np.array, List[np.array]]:
+        """Gets the signal and its coordinates for the given INSTRUMENT, at the
         given revision."""
         data, _path = self._get_signal(uid, instrument, quantity, revision)
         dims, _ = self._get_signal_dims(_path, len(data.shape))
-
-        if len(dims) == 1:
-            dims = dims[0]
 
         return data, dims
 
