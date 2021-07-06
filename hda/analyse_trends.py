@@ -16,7 +16,7 @@ from copy import deepcopy
 
 # First pulse after Boronisation
 BORONISATION = [8440.5, 8536.5]
-GDC = [8544.5, 8546.5, 8547.5, 8548.5, 8549.5]
+GDC = [8544.5, 8546.5, 8547.5, 8548.5, 8549.5, 8550.5]
 
 plt.ion()
 
@@ -73,6 +73,9 @@ class correlations:
             "puff_total": [],
             "ipla": {"avrg": [], "stdev": []},
             "wp": {"avrg": [], "stdev": []},
+            "rip": {"avrg": [], "stdev": []},
+            "imc": {"max": [], "time": []},
+            "imc_rip": {"avrg": [], "stdev": []},
             "nirh1": {"avrg": [], "stdev": []},
             "smmh1": {"avrg": [], "stdev": []},
             "brems_pi": {"avrg": [], "stdev": []},
@@ -109,15 +112,17 @@ class correlations:
         for pulse in np.arange(pulse_start, pulse_end + 1):
             print(pulse)
             reader = ST40Reader(
-                pulse,
+                int(pulse),
                 np.min(self.tstart - self.dt * 2),
                 np.max(self.tend + self.dt * 2),
             )
+            pfit = self.get_pfit(reader)
             magnetics = self.get_efit(reader)
             if magnetics["time"][0] == None:
-                magnetics = self.get_pfit(reader)
+                magnetics = pfit
                 if magnetics["time"][0] == None:
                     continue
+            mc = self.get_imc(reader)
             nirh1 = self.get_nirh1(reader)
             smmh1 = self.get_smmh1(reader)
             gas = self.get_gas(reader)
@@ -149,6 +154,24 @@ class correlations:
                 )
                 tmp["wp"]["avrg"].append(avrg)
                 tmp["wp"]["stdev"].append(std)
+
+                avrg, std = calc_mean_std(
+                    magnetics["time"],
+                    magnetics["rip"],
+                    self.tstart[tind],
+                    self.tend[tind],
+                    upper=2.0e6,
+                )
+
+                ind = np.argmax(mc["imc"])
+                tmp["imc"]["max"].append(mc["imc"][ind])
+                tmp["imc"]["time"].append(mc["time"][ind])
+
+                tmp["rip"]["avrg"].append(avrg)
+                tmp["rip"]["stdev"].append(std)
+
+                tmp["imc_rip"]["avrg"].append(mc["imc"][ind] * avrg)
+                tmp["imc_rip"]["stdev"].append(mc["imc"][ind] * std)
 
                 puff_total = np.nan
                 puff_prefill = np.nan
@@ -313,6 +336,7 @@ class correlations:
 
         ipla, _ = reader._get_signal("", "pfit", ".post_best.results.global:ip", -1)
         wp, _ = reader._get_signal("", "pfit", ".post_best.results.global:wmhd", -1)
+        rip, _ = reader._get_signal("", "pfit", ".post_best.results.global:rip", -1)
         return {"time": time, "ipla": ipla, "wp": wp}
 
     def get_nirh1(self, reader):
@@ -339,7 +363,7 @@ class correlations:
             gas = {"time": time[0], "puff": puff}
         return gas
 
-    def get_mc(self, reader):
+    def get_imc(self, reader):
         mc = {"time": [None]}
         imc, _path = reader._get_signal("", "psu", "mc:i", -1)
         time, _ = reader._get_signal_dims(_path, 1)
@@ -667,8 +691,8 @@ def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None)
     offset = 0
     if (
         not np.array_equal(data, "FAILED")
-        and (data.size == time.size)
-        and data.size > 1
+        and (np.size(data) == np.size(time))
+        and np.size(data) > 1
     ):
         it = (time >= tstart) * (time <= tend)
         if lower is not None:
