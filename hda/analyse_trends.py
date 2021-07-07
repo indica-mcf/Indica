@@ -156,8 +156,8 @@ class correlations:
                 tmp["wp"]["stdev"].append(std)
 
                 avrg, std = calc_mean_std(
-                    magnetics["time"],
-                    magnetics["rip"],
+                    pfit["time"],
+                    pfit["rip"],
                     self.tstart[tind],
                     self.tend[tind],
                     upper=2.0e6,
@@ -337,7 +337,7 @@ class correlations:
         ipla, _ = reader._get_signal("", "pfit", ".post_best.results.global:ip", -1)
         wp, _ = reader._get_signal("", "pfit", ".post_best.results.global:wmhd", -1)
         rip, _ = reader._get_signal("", "pfit", ".post_best.results.global:rip", -1)
-        return {"time": time, "ipla": ipla, "wp": wp}
+        return {"time": time, "ipla": ipla, "wp": wp, "rip":rip}
 
     def get_nirh1(self, reader):
         nirh1 = {"time": [None]}
@@ -365,7 +365,7 @@ class correlations:
 
     def get_imc(self, reader):
         mc = {"time": [None]}
-        imc, _path = reader._get_signal("", "psu", "mc:i", -1)
+        imc, _path = reader._get_signal("", "psu", ".mc:i", -1)
         time, _ = reader._get_signal_dims(_path, 1)
         if not np.array_equal(time, "FAILED"):
             mc = {"time": time[0], "imc": imc}
@@ -455,6 +455,14 @@ class correlations:
         add_vlines(GDC, color="r")
         if savefig:
             save_figure(fig_name=name + "_ipla")
+
+        ylab, tit = ("$(a.u.)$", "$I_{MC} * RIP$" + add_tit)
+        self.plot_evol("imc_rip", 1., lab, xlab, ylab, tit)
+        plt.ylim(0,)
+        add_vlines(BORONISATION)
+        add_vlines(GDC, color="r")
+        if savefig:
+            save_figure(fig_name=name + "_imc_rip")
 
         ylab, tit = ("$(kJ)$", "Plasma energy" + add_tit)
         self.plot_evol("wp", 1.0e-3, lab, xlab, ylab, tit)
