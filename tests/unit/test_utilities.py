@@ -93,7 +93,7 @@ def test_to_filename_known_result():
 
 # There appears to be a bug in the Hypothesis type annotation for the
 # arrays() strategy
-@given(arrays(float, integers(0, 100)), text())  # typing: ignore
+@given(arrays(float, integers(0, 100)), text())  # type: ignore
 def test_coord_array(vals, name):
     coords = utilities.coord_array(vals, name)
     np.testing.assert_array_equal(coords.data, vals)
