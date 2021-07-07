@@ -91,7 +91,9 @@ def test_to_filename_known_result():
     assert utilities.to_filename("a/b/C\\d-e(f, g)") == "a-b-C-d-e(f_g)"
 
 
-@given(arrays(float, integers(0, 100)), text())
+# There appears to be a bug in the Hypothesis type annotation for the
+# arrays() strategy
+@given(arrays(float, integers(0, 100)), text())  # typing: ignore
 def test_coord_array(vals, name):
     coords = utilities.coord_array(vals, name)
     np.testing.assert_array_equal(coords.data, vals)
