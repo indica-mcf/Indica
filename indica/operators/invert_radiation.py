@@ -492,6 +492,7 @@ class InvertRadiation(Operator):
         for c, i in zip(unfolded_cameras, integral):
             del c["has_data"]
             i.attrs["datatype"] = ("luminous_flux", self.datatype)
+            i.attrs["transform"] = c.camera.attrs["transform"]
             c["back_integral"] = i
         self.assign_provenance(emissivity)
         self.assign_provenance(results)

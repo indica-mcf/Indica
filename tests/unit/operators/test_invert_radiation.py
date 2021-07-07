@@ -1,15 +1,23 @@
+from unittest.mock import MagicMock
+
 import numpy as np
+from pytest import mark
+from scipy.integrate import romb
 from xarray import DataArray
 from xarray.testing import assert_allclose
 
 from indica.converters import FluxSurfaceCoordinates
+from indica.converters import LinesOfSightTransform
 from indica.converters import TransectCoordinates
+from indica.converters import TrivialTransform
 from indica.operators.invert_radiation import EmissivityProfile
+from indica.operators.invert_radiation import InvertRadiation
 from indica.utilities import coord_array
 from ..fake_equilibrium import FakeEquilibrium
 
+pytestmark = mark.filterwarnings("ignore:invalid value encountered in true_divide")
 
-fake_equilib = FakeEquilibrium(0.6, 0.0)
+fake_equilib = FakeEquilibrium(0.6, 0.0, poloidal_alpha=0.002)
 flux_coords = FluxSurfaceCoordinates("poloidal")
 flux_coords.set_equilibrium(fake_equilib)
 
@@ -91,3 +99,90 @@ def test_emissivity_profile_evaluate2():
     )
     result = profile.evaluate(rho_grid, R_grid, R_0=np.sqrt(R_grid ** 2 - 0.01))
     assert_allclose(result, expected_emissiv.transpose(*result.dims))
+
+
+# TODO: Consider placing checks of metadata in separate test and only
+# checking numerics in this one
+def test_invert_radiation():
+    n_los = 15
+    n_int = 33
+    times = coord_array(np.linspace(50.0, 53.0, 4), "t")
+    los_transform = LinesOfSightTransform(
+        np.linspace(1.0, 0.2, n_los),
+        np.ones(n_los),
+        np.zeros(n_los),
+        np.linspace(1.0, 0.2, n_los),
+        -np.ones(n_los),
+        np.zeros(n_los),
+        "alpha",
+        ((0.1, 1.2), (-1.5, 1.5)),
+    )
+    los_transform.set_equilibrium(fake_equilib)
+    rho_max, _, _ = fake_equilib.flux_coords(1.0, 0.0, times, "poloidal")
+    knot_locs = coord_array(
+        InvertRadiation.knot_positions(6, rho_max.mean("t")), "rho_poloidal"
+    )
+    expected_sym = (
+        DataArray([1.0, 0.9, 0.8, 0.2, 0.1, 0.0], coords=[("rho_poloidal", knot_locs)])
+        * (1 + 0.01 * times)
+        * 3e3
+    )
+    expected_asym = DataArray(
+        [0.0, 0.1, 0.2, 0.22, 0.05, 0.0], coords=[("rho_poloidal", knot_locs)]
+    ) * (1 - 0.002 * times)
+    expected_profile = EmissivityProfile(expected_sym, expected_asym, flux_coords)
+    los_x1_grid = coord_array(np.arange(n_los), "alpha_coords")
+    los_x2_grid = coord_array(np.linspace(0.0, 1.0, n_int), "alpha_los_position")
+    x2 = "alpha_los_position"
+    expected_emiss = expected_profile(los_transform, los_x1_grid, los_x2_grid, times)
+    flux = DataArray(
+        romb(expected_emiss, 2.5 / (n_int - 1), expected_emiss.dims.index(x2)),
+        dims=[d for d in expected_emiss.dims if d != x2],
+        coords={k: v for k, v in expected_emiss.coords.items() if k != x2},
+    )
+    flux.attrs["datatype"] = ("luminous_flux", "sxr")
+    flux.attrs["partial_provenance"] = MagicMock()
+    flux.attrs["provenance"] = MagicMock()
+    flux.attrs["transform"] = los_transform
+    inverter = InvertRadiation(1, "sxr", len(knot_locs), n_int, MagicMock())
+    R_grid = coord_array(np.linspace(0.1, 1.1, 6), "R")
+    z_grid = coord_array(np.linspace(-1.0, 1.0, 5), "z")
+    emissivity, fit_params, cam_data = inverter(R_grid, z_grid, times, flux)
+    assert_allclose(
+        cam_data.camera.drop_vars("alpha_rho_poloidal").transpose(*flux.dims), flux
+    )
+    assert_allclose(
+        cam_data.back_integral.drop_vars("alpha_rho_poloidal").transpose(*flux.dims),
+        flux,
+        rtol=1e-3,
+    )
+    assert_allclose(
+        emissivity,
+        expected_profile(TrivialTransform(), R_grid, z_grid, times),
+        rtol=2e-2,
+    )
+    assert isinstance(emissivity.attrs["emissivity_model"], EmissivityProfile)
+    assert_allclose(
+        emissivity,
+        emissivity.attrs["emissivity_model"](TrivialTransform(), R_grid, z_grid, times),
+    )
+    assert_allclose(
+        fit_params.symmetric_emissivity.transpose(*expected_sym.dims),
+        expected_sym,
+        rtol=2e-3,
+    )
+    assert_allclose(
+        fit_params.asymmetry_parameter.transpose(*expected_asym.dims),
+        expected_asym,
+        rtol=0.1,
+        atol=0.05,
+    )
+    assert isinstance(cam_data.weights, DataArray)
+    assert "provenance" in emissivity.attrs
+    assert "provenance" in fit_params.attrs
+    assert "provenance" in cam_data.attrs
+    assert fit_params.symmetric_emissivity.attrs["transform"] == flux_coords
+    assert fit_params.asymmetry_parameter.attrs["transform"] == flux_coords
+    assert cam_data.camera.attrs["transform"] == los_transform
+    assert cam_data.back_integral.attrs["transform"] == los_transform
+    assert cam_data.weights.attrs["transform"] == los_transform
