@@ -1,5 +1,9 @@
 """Inverts soft X-ray data to estimate the emissivity of the plasma."""
 
+from itertools import accumulate
+from itertools import chain
+from itertools import repeat
+from itertools import tee
 from typing import cast
 from typing import List
 from typing import Optional
@@ -11,7 +15,7 @@ import numpy as np
 from scipy.integrate import romb
 from scipy.interpolate import CubicSpline
 from scipy.optimize import least_squares
-from xarray import concat
+from scipy.sparse import lil_matrix
 from xarray import DataArray
 from xarray import Dataset
 from xarray import where
@@ -342,17 +346,25 @@ class InvertRadiation(Operator):
         flux_coords = FluxSurfaceCoordinates("poloidal")
         flux_coords.set_equilibrium(cameras[0].attrs["transform"].equilibrium)
         n = self.n_knots
+        nt = len(times)
         binned_cameras = [bin_to_time_labels(times.data, c) for c in cameras]
 
         def knotvals_to_xarray(knotvals):
-            symmetric_emissivity = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            symmetric_emissivity[0:m] = knotvals[0:m]
+            symmetric_emissivity = DataArray(
+                np.empty((nt, n)), coords=[("t", times), (dim_name, knots)]
+            )
+            asymmetry_parameter = DataArray(
+                np.empty((nt, n)), coords=[("t", times), (dim_name, knots)]
+            )
+            for i in range(nt):
+                start = i * (m + n - 2)
+                symmetric_emissivity[i, 0:m] = knotvals[start : start + m]
+                start = start + m
+                asymmetry_parameter[i, 0] = 0.5 * knotvals[start]
+                asymmetry_parameter[i, 1:-1] = knotvals[start : start + n - 2]
+                asymmetry_parameter[i, -1] = 0.5 * knotvals[start + n - 3]
             if self.last_knot_zero:
-                symmetric_emissivity[-1] = 0.0
-            asymmetry_parameter = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            asymmetry_parameter[0] = 0.5 * knotvals[m]
-            asymmetry_parameter[1:-1] = knotvals[m:]
-            asymmetry_parameter[-1] = 0.5 * knotvals[-1]
+                symmetric_emissivity[:, -1] = 0.0
             return symmetric_emissivity, asymmetry_parameter
 
         def residuals(
@@ -364,23 +376,27 @@ class InvertRadiation(Operator):
                 symmetric_emissivity, asymmetry_parameter, flux_coords
             )
             start = 0
-            resid = np.empty(sum(c.attrs["nlos"] for c in unfolded_cameras))
+            resid = np.empty(sum(c.attrs["nlos"] for c in unfolded_cameras) * nt)
             self.integral = []
             for c in unfolded_cameras:
-                end = start + c.attrs["nlos"]
+                end = start + c.attrs["nlos"] * nt
                 rho, R = c.indica.convert_coords(rho_maj_rad)
                 rho_min, x2 = c.indica.convert_coords(c.attrs["impact_parameters"])
-                emissivity_vals = estimate.evaluate(rho, R, R_0=c.coords["R_0"])
-                axis = emissivity_vals.dims.index(c.attrs["transform"].x2_name)
-                integral = romb(emissivity_vals, c.attrs["dl"], axis)
-                resid[start:end] = ((c.camera - integral) / c.weights)[
-                    c["has_data"]
-                ].data
-                start = end
                 x1_name = c.attrs["transform"].x1_name
-                self.integral.append(
-                    DataArray(integral, coords=[(x1_name, c.coords[x1_name])])
+                x2_name = c.attrs["transform"].x2_name
+                emissivity_vals = estimate.evaluate(rho, R, R_0=c.coords["R_0"])
+                axis = emissivity_vals.dims.index(x2_name)
+                integral = DataArray(
+                    romb(emissivity_vals, c.attrs["dl"], axis),
+                    coords=[(d, c.coords[d]) for d in c.dims if d != x2_name],
                 )
+                resid[start:end] = np.ravel(
+                    ((c.camera - integral) / c.weights)[c["has_data"]]
+                    .transpose("t", x1_name)
+                    .data
+                )
+                start = end
+                self.integral.append(integral)
             assert np.all(np.isfinite(resid))
             return resid
 
@@ -405,6 +421,7 @@ class InvertRadiation(Operator):
                 trans.x2_name, DataArray(0), c.coords[trans.x2_name][0:2], 0.0
             )[1]
             c.attrs["dl"] = dl
+            print("dl", dl)
             c.attrs["nlos"] = int(np.sum(c["has_data"]))
             rho, _ = c.indica.convert_coords(rho_maj_rad)
             ip_coords = ImpactParameterCoordinates(
@@ -423,57 +440,63 @@ class InvertRadiation(Operator):
         knots = self.knot_positions(n, rho_max)
         dim_name = "rho_" + flux_coords.flux_kind
 
-        symmetric_emissivities: List[DataArray] = []
-        asymmetry_parameters: List[DataArray] = []
-        integrals: List[List[DataArray]] = []
         m = n - 1 if self.last_knot_zero else n
+        rows = sum(d.attrs["nlos"] for d in unfolded_cameras) * nt
+        cols = (m + n - 2) * nt
+        sparsity = lil_matrix((rows, cols), dtype=int)
+        nc1, nc2 = tee(d.attrs["nlos"] for d in unfolded_cameras)
+
+        for nc, data_row_start in zip(
+            nc1, accumulate(map(lambda x: x * nt, chain(repeat(0, 1), nc2)))
+        ):
+            for i in range(nt):
+                rstart = data_row_start + i * nc
+                rend = rstart + nc
+                cstart = i * (m + n - 2)
+                cend = cstart + (m + n - 2)
+                sparsity[rstart:rend, cstart:cend] = 1
+
         abel_inversion = np.linspace(3e3, 0.0, m)
-        guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
+        guess = np.tile(np.concatenate((abel_inversion, np.zeros(n - 2))), nt)
         bounds = (
-            np.concatenate((np.zeros(m), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
-            np.concatenate((1e12 * np.ones(m), np.ones(n - 2))),
+            np.tile(
+                np.concatenate((np.zeros(m), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
+                nt,
+            ),
+            np.tile(np.concatenate((1e12 * np.ones(m), np.ones(n - 2))), nt),
         )
 
-        for t in np.asarray(times):
-            print(f"\nSolving for t={t}")
-            print("------------------\n")
-            fit = least_squares(
-                residuals,
-                guess,
-                bounds=bounds,
-                args=([c.sel(t=t) for c in unfolded_cameras],),
-                verbose=2,
+        # print(f"\nSolving for t={t}")
+        # print("------------------\n")
+        fit = least_squares(
+            residuals,
+            guess,
+            bounds=bounds,
+            args=(unfolded_cameras,),
+            jac_sparsity=sparsity,
+            tr_solver="lsmr",
+            verbose=2,
+        )
+        if fit.status == -1:
+            raise RuntimeError(
+                "Improper input to `least_squares` function when trying to "
+                "fit emissivity to radiation data."
             )
-            if fit.status == -1:
-                raise RuntimeError(
-                    "Improper input to `least_squares` function when trying to "
-                    "fit emissivity to radiation data."
-                )
-            elif fit.status == 0:
-                warnings.warn(
-                    f"Attempt to fit emissivity to radiation data at time t={t} "
-                    "reached maximum number of function evaluations.",
-                    RuntimeWarning,
-                )
-            sym, asym = knotvals_to_xarray(fit.x)
-            symmetric_emissivities.append(sym)
-            asymmetry_parameters.append(asym)
-            integrals.append(self.integral)
-            guess = fit.x
+        elif fit.status == 0:
+            warnings.warn(
+                "Attempt to fit emissivity to radiation data "
+                "reached maximum number of function evaluations.",
+                RuntimeWarning,
+            )
+        symmetric_emissivity, asymmetry_parameter = knotvals_to_xarray(fit.x)
 
-        symmetric_emissivity = concat(symmetric_emissivities, dim=times)
         symmetric_emissivity.attrs["transform"] = flux_coords
         symmetric_emissivity.attrs["datatype"] = ("emissivity", self.datatype)
-        asymmetry_parameter = concat(asymmetry_parameters, dim=times)
         asymmetry_parameter.attrs["transform"] = flux_coords
         asymmetry_parameter.attrs["datatype"] = ("asymmetry", self.datatype)
-        integral: List[DataArray] = []
-        for data in zip(*integrals):
-            integral.append(concat(data, dim=times))
-            del integral[-1].coords[None]  # type: ignore
         # For some reason concat adds a `None` coordinate
-        del symmetric_emissivity.coords[None]
-        del asymmetry_parameter.coords[None]
+        # del symmetric_emissivity.coords[None]
+        # del asymmetry_parameter.coords[None]
         estimate = EmissivityProfile(
             symmetric_emissivity, asymmetry_parameter, flux_coords
         )
@@ -489,7 +512,7 @@ class InvertRadiation(Operator):
                 "asymmetry_parameter": asymmetry_parameter,
             }
         )
-        for c, i in zip(unfolded_cameras, integral):
+        for c, i in zip(unfolded_cameras, self.integral):
             del c["has_data"]
             i.attrs["datatype"] = ("luminous_flux", self.datatype)
             c["back_integral"] = i
