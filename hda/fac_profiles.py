@@ -218,11 +218,22 @@ def build_profile_gauss(
     y_edge = ph.gaussian(x_edge, y_ped, 1.0, x_ped - 0.01, w_edge)
     y_core = ph.gaussian(x_core, y_0, y_ped, x_0, w_core)
 
-    if (np.abs(y_core[-1] - y_edge[0]) / y_edge[0]) > 1.0e-2:
-        y_core = (y_core - y_core[-1]) / (y_core[0] - y_core[-1]) * (
-            y_core[0] - y_edge[0]
-        ) + y_edge[0]
+    # plt.plot(x_edge, y_edge)
+    # plt.plot(x_core, y_core)
+
+    if (np.abs(y_core[-1] - y_edge[0]) / y_edge[0]) > 1.e-2:
+        if y_core[-1] < y_core[0]:
+            # print("Standard")
+            y_core = (y_core - y_core[-1]) / (y_core[0] - y_core[-1]) * (
+                y_core[0] - y_edge[0]
+            ) + y_edge[0]
+        else:
+            # print("Hollow")
+            y_core = (y_core - y_core[-1]) + y_edge[0]
+
     y = np.concatenate([y_core[:-1], y_edge])
+
+    # plt.plot(x, y, "*")
 
     coords = [(x_coord, x)]
     dims = [x_coord]
