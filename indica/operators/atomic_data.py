@@ -1,18 +1,97 @@
 import copy
+from typing import get_args
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import Union
 
 import numpy as np
 import scipy
-from xarray.core.dataarray import DataArray
+from xarray import DataArray
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
+from ..numpy_typing import LabeledArray
 
 np.set_printoptions(edgeitems=10, linewidth=100)
+
+
+def input_check(
+    var_name: str,
+    var_to_check,
+    var_type: type,
+    greater_than_or_equal_zero: Optional[bool] = False,
+):
+    """Check validity of inputted variable - type check and
+    various value checks(no infinities, greather than (or equal to) 0 or NaNs)
+
+    Parameters
+    ----------
+    var_name
+        Name of variable to check.
+    var_to_check
+        Variable to check.
+    var_type
+        Type to check variable against, eg. DataArray
+    greater_than_or_equal_zero
+        Boolean to check values in variable > 0 or >= 0.
+    """
+
+    try:
+        assert var_type in (*get_args(LabeledArray), np.ndarray)
+    except AssertionError:
+        raise AssertionError(
+            f"{var_type} is not a compatible type.\
+Please choose one of the following:\
+\n{get_args(LabeledArray)}"
+        )
+
+    try:
+        assert isinstance(var_to_check, var_type)
+    except AssertionError:
+        raise TypeError(f"{var_name} must be a {var_type}.")
+
+    try:
+        if not greater_than_or_equal_zero:
+            # Mypy will ignore this line since even though var_to_check is type checked
+            # earlier it still doesn't explicitly know what type var_to_check
+            assert np.all(var_to_check > 0)  # type: ignore
+        else:
+            # Mypy will ignore this line since even though var_to_check is type checked
+            # earlier it still doesn't explicitly know what type var_to_check
+            assert np.all(var_to_check >= 0)  # type:ignore
+    except AssertionError:
+        raise ValueError(f"Cannot have any negative values in {var_name}")
+
+    try:
+        assert np.all(var_to_check != np.nan)
+    except AssertionError:
+        raise ValueError(f"{var_name} cannot contain any NaNs.")
+
+    try:
+        assert np.all(np.abs(var_to_check) != np.inf)
+    except AssertionError:
+        raise ValueError(f"{var_name} cannot contain any infinities.")
+
+
+def shape_check(
+    data_to_check: dict,
+):
+    """Check to make sure all items in a given dictionary
+    have the same dimensions as each other.
+    Parameters
+    ----------
+    data_to_check
+        Dictionary containing data to check.
+    """
+    try:
+        for key1, val1 in data_to_check.items():
+            for key2, val2 in data_to_check.items():
+                assert val1.shape == val2.shape
+    except AssertionError:
+        raise AssertionError(f"{key1} and {key2} are not the same shape")
 
 
 class FractionalAbundance(Operator):
@@ -60,11 +139,7 @@ class FractionalAbundance(Operator):
 
     Methods
     -------
-    F_z_t0_check(F_z_t0)
-        Checks that inputted initial fractional abundance has valid values.
-    Nh_check(Nh)
-        Checks that the inputted thermal hydrogen number density has valid values.
-    input_check(imported_data, inputted_data)
+    interpolation_bounds_check(imported_data, inputted_data)
         Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
     interpolate_rates()
@@ -110,16 +185,13 @@ class FractionalAbundance(Operator):
         F_z_t0: np.ndarray = None,
         Nh: DataArray = None,
         CCD: DataArray = None,
-        unit_testing: bool = False,
+        unit_testing: Optional[bool] = False,
         sess: session.Session = session.global_session,
     ):
         """Initialises FractionalAbundance class and additionally performs error
         checking on inputs.
         """
         super().__init__(sess)
-        self.SCD = SCD
-        self.ACD = ACD
-        self.CCD = CCD
         self.num_of_stages = 0
         self.ionisation_balance_matrix = None
         self.F_z_tinf = None
@@ -128,6 +200,11 @@ class FractionalAbundance(Operator):
         self.eig_vals = None
         self.eig_vecs = None
         self.eig_coeffs = None
+
+        self.SCD = SCD
+        self.ACD = ACD
+        self.CCD = CCD
+
         self.Ne = Ne
         self.Nh = Nh
         self.Te = Te
@@ -144,117 +221,27 @@ class FractionalAbundance(Operator):
             inputted_data["Nh"] = self.Nh
         inputted_data["Te"] = self.Te
 
-        self.F_z_t0_check(F_z_t0)
+        for ikey, ival in dict(inputted_data, **imported_data).items():
+            input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
+
+        if F_z_t0 is not None:
+            input_check("F_z_t0", F_z_t0, np.ndarray, greater_than_or_equal_zero=True)
+
+            try:
+                assert F_z_t0.ndim == 1
+            except AssertionError:
+                raise AssertionError("F_z_t0 must be 1-dimensional.")
         self.F_z_t0 = F_z_t0
 
-        self.Nh_check(self.Nh)
-        self.Nh = Nh
+        self.interpolation_bounds_check(imported_data, inputted_data)
 
-        try:
-            for key, val in imported_data.items():
-                assert isinstance(val, DataArray)
-        except AssertionError:
-            raise AssertionError(f"{key} is not an instance of xarray.DataArray")
-
-        try:
-            for key, val in inputted_data.items():
-                assert isinstance(val, DataArray)
-        except AssertionError:
-            raise AssertionError(f"{key} is not an instance of xarray.DataArray")
-
-        try:
-            for key1, val1 in inputted_data.items():
-                for key2, val2 in inputted_data.items():
-                    assert val1.shape == val2.shape
-        except AssertionError:
-            raise AssertionError(f"{key1} and {key2} are not the same shape")
-
-        self.input_check(imported_data, inputted_data)
+        shape_check(inputted_data)
+        shape_check(imported_data)
 
         if not unit_testing:
             self.ordered_setup()
 
-    def F_z_t0_check(self, F_z_t0):
-        """Checks that inputted initial fractional abundance has valid values.
-
-        Parameters
-        ----------
-        F_z_t0
-            Initial fractional abundance to check.
-        """
-        if F_z_t0 is None:
-            return
-
-        try:
-            assert isinstance(F_z_t0, np.ndarray)
-        except AssertionError:
-            raise AssertionError(
-                "Initial fractional abundance must be a numpy array\
-                (numpy.ndarray)."
-            )
-
-        try:
-            assert np.all(F_z_t0 >= 0)
-        except AssertionError:
-            raise AssertionError(
-                "Cannot have any negative values in the initial \
-                fractional abundance data."
-            )
-
-        try:
-            assert F_z_t0.ndim == 1
-        except AssertionError:
-            raise AssertionError("Initial fractional abundance must be 1-dimensional.")
-
-        try:
-            assert np.all(F_z_t0 != np.nan)
-        except AssertionError:
-            raise AssertionError(
-                "Initial fractional abundance cannot contain any \
-                NaNs."
-            )
-
-        try:
-            assert np.all(np.abs(F_z_t0) != np.inf)
-        except AssertionError:
-            raise AssertionError(
-                "Initial fractional abundance cannot contain any \
-                infinities."
-            )
-
-    def Nh_check(self, Nh):
-        """Checks that the inputted thermal hydrogen number density has valid values.
-
-        Parameters
-        ----------
-        Nh
-            Thermal hydrogen number density.
-        """
-        if Nh is None:
-            return
-
-        try:
-            assert np.all(Nh != np.nan)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be NaN"
-            )
-
-        try:
-            assert np.all(np.abs(Nh) != np.inf)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be +inf or -inf"
-            )
-
-        try:
-            assert np.all(Nh >= 0)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be negative"
-            )
-
-    def input_check(self, imported_data, inputted_data):
+    def interpolation_bounds_check(self, imported_data, inputted_data):
         """Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
 
@@ -674,11 +661,11 @@ class PowerLoss(Operator):
         PLT: DataArray,
         PRB: DataArray,
         Ne: DataArray,
-        Nh: DataArray,
         Te: DataArray,
-        PRC: DataArray = None,
-        F_z_t: DataArray = None,
-        unit_testing: bool = False,
+        PRC: Optional[DataArray] = None,
+        F_z_t: Optional[DataArray] = None,
+        unit_testing: Optional[bool] = False,
+        Nh: Optional[DataArray] = None,
         sess: session.Session = session.global_session,
     ):
         super().__init__(sess)
@@ -697,127 +684,31 @@ class PowerLoss(Operator):
             imported_data["PRC"] = self.PRC
         inputted_data = {}
         inputted_data["Ne"] = self.Ne
-        inputted_data["Nh"] = self.Nh
+        if self.Nh is not None:
+            inputted_data["Nh"] = self.Nh
         inputted_data["Te"] = self.Te
 
-        self.F_z_t_check(F_z_t)
+        for ikey, ival in dict(inputted_data, **imported_data).items():
+            input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
+
+        if F_z_t is not None:
+            input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
+
+            try:
+                assert F_z_t.ndim == 1
+            except AssertionError:
+                raise AssertionError("Fractional abundance must be 1-dimensional.")
         self.F_z_t = F_z_t
 
-        try:
-            for key, val in imported_data.items():
-                assert isinstance(val, DataArray)
-        except AssertionError:
-            raise AssertionError(f"{key} is not an instance of xarray.DataArray")
+        self.interpolation_bounds_check(imported_data, inputted_data)
 
-        try:
-            for key, val in inputted_data.items():
-                assert isinstance(val, DataArray)
-        except AssertionError:
-            raise AssertionError(f"{key} is not an instance of xarray.DataArray")
-
-        try:
-            for key1, val1 in inputted_data.items():
-                for key2, val2 in inputted_data.items():
-                    assert val1.shape == val2.shape
-        except AssertionError:
-            raise AssertionError(f"{key1} and {key2} are not the same shape")
-
-        self.Nh_check(self.Nh)
-
-        self.input_check(imported_data, inputted_data)
+        shape_check(inputted_data)
+        shape_check(imported_data)
 
         if not unit_testing:
             self.ordered_setup()
 
-    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        """Indicates the datatypes of the results when calling the operator
-        with arguments of the given types. It is assumed that the
-        argument types are valid.
-
-        Parameters
-        ----------
-        args
-            The datatypes of the parameters which the operator is to be called with.
-
-        Returns
-        -------
-        :
-            The datatype of each result that will be returned if the operator is
-            called with these arguments.
-
-        """
-        return (("total_radiated power loss", "impurity_element"),)
-
-    def F_z_t_check(self, F_z_t):
-        """Checks that initial fractional abundance has valid values.
-
-        Parameters
-        ----------
-        F_z_t
-            Fractional abundance to check.
-        """
-        if F_z_t is None:
-            return
-
-        try:
-            assert isinstance(F_z_t, DataArray)
-        except AssertionError:
-            raise AssertionError("Fractional abundance must be a xarray DataArray.")
-
-        try:
-            assert np.all(F_z_t >= 0)
-        except AssertionError:
-            raise AssertionError(
-                "Cannot have any negative values in the fractional abundance data."
-            )
-
-        try:
-            assert F_z_t.ndim == 1
-        except AssertionError:
-            raise AssertionError("Fractional abundance must be 1-dimensional.")
-
-        try:
-            assert np.all(F_z_t != np.nan)
-        except AssertionError:
-            raise AssertionError(
-                "Fractional abundance cannot contain any NaNs (invalid numbers)."
-            )
-
-        try:
-            assert np.all(np.abs(F_z_t) != np.inf)
-        except AssertionError:
-            raise AssertionError("Fractional abundance cannot contain any infinities.")
-
-    def Nh_check(self, Nh):
-        """Checks that the inputted thermal hydrogen number density has valid values.
-
-        Parameters
-        ----------
-        Nh
-            Thermal hydrogen number density.
-        """
-        try:
-            assert np.all(Nh != np.nan)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be NaN"
-            )
-
-        try:
-            assert np.all(np.abs(Nh) != np.inf)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be +inf or -inf"
-            )
-
-        try:
-            assert np.all(Nh >= 0)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted thermal hydrogen number density cannot be negative"
-            )
-
-    def input_check(self, imported_data, inputted_data):
+    def interpolation_bounds_check(self, imported_data, inputted_data):
         """Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(PLT,PRC,PRB).
 
@@ -872,6 +763,25 @@ class PowerLoss(Operator):
                 f"Inputted electron temperature is smaller than the \
                     minimum interpolation range in {key}"
             )
+
+    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
+        """Indicates the datatypes of the results when calling the operator
+        with arguments of the given types. It is assumed that the
+        argument types are valid.
+
+        Parameters
+        ----------
+        args
+            The datatypes of the parameters which the operator is to be called with.
+
+        Returns
+        -------
+        :
+            The datatype of each result that will be returned if the operator is
+            called with these arguments.
+
+        """
+        return (("total_radiated power loss", "impurity_element"),)
 
     def interpolate_power(self):
         """Interpolates the various powers based on inputted Ne and Te.
@@ -957,7 +867,7 @@ class PowerLoss(Operator):
                     self.PLT[istage, irho]
                     + (
                         (Nh[irho] / Ne[irho]) * self.PRC[istage - 1, irho]
-                        if self.PRC is not None
+                        if (self.PRC is not None) and (Nh is not None)
                         else 0.0
                     )
                     + self.PRB[istage - 1, irho]
@@ -966,7 +876,7 @@ class PowerLoss(Operator):
             cooling_factor[irho] += (
                 (
                     (Nh[irho] / Ne[irho]) * self.PRC[istage - 1, irho]
-                    if self.PRC is not None
+                    if (self.PRC is not None) and (Nh is not None)
                     else 0.0
                 )
                 + self.PRB[istage - 1, irho]
