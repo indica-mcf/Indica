@@ -14,15 +14,18 @@ from indica.readers import ST40Reader
 import matplotlib.pylab as plt
 from copy import deepcopy
 
-# First pulse after Boronisation
-BORONISATION = [8440.5, 8536.5]
-GDC = [8544.5, 8546.5, 8547.5, 8548.5, 8549.5, 8550.5]
+# First pulse after Boronisation / GDC
+BORONISATION = [8441, 8537]
+GDC = [8545, 8547]
+# for p in np.arange(8547, 8560+1):
+#     GDC.append(p)
+GDC = np.array(GDC) - 0.5
 
 plt.ion()
 
 
 class correlations:
-    def __init__(self, pulse_start, pulse_end, t=[0.03, 0.08], dt=0.01):
+    def __init__(self, pulse_start, pulse_end, t=[0.01, 0.08], dt=0.01):
         if type(t) is not list:
             t = [t]
         self.t = np.array(t)
@@ -30,6 +33,7 @@ class correlations:
 
         self.tstart = self.t - self.dt
         self.tend = self.t + self.dt
+        # self.time = np.arange(self.tstart, self.tend, self.dt)
         self.results = self.read_data(pulse_start, pulse_end)
         # self.plot_trends()
 
@@ -325,7 +329,6 @@ class correlations:
         return {"time": time, "ipla": ipla, "wp": wp}
 
     def get_pfit(self, reader):
-        print("Reading PFIT instead of EFIT")
         time, _ = reader._get_signal("", "pfit", ".post_best.results:time", -1)
         if np.array_equal(time, "FAILED"):
             print("no Ip from PFIT")
@@ -337,7 +340,7 @@ class correlations:
         ipla, _ = reader._get_signal("", "pfit", ".post_best.results.global:ip", -1)
         wp, _ = reader._get_signal("", "pfit", ".post_best.results.global:wmhd", -1)
         rip, _ = reader._get_signal("", "pfit", ".post_best.results.global:rip", -1)
-        return {"time": time, "ipla": ipla, "wp": wp, "rip":rip}
+        return {"time": time, "ipla": ipla, "wp": wp, "rip": rip}
 
     def get_nirh1(self, reader):
         nirh1 = {"time": [None]}
@@ -457,7 +460,7 @@ class correlations:
             save_figure(fig_name=name + "_ipla")
 
         ylab, tit = ("$(a.u.)$", "$I_{MC} * RIP$" + add_tit)
-        self.plot_evol("imc_rip", 1., lab, xlab, ylab, tit)
+        self.plot_evol("imc_rip", 1.0, lab, xlab, ylab, tit)
         plt.ylim(0,)
         add_vlines(BORONISATION)
         add_vlines(GDC, color="r")
@@ -489,9 +492,10 @@ class correlations:
             save_figure(fig_name=name + "_smmh1")
 
         self.results["brems_pi_nirh1"] = deepcopy(self.results["brems_pi"])
-        self.results["brems_pi_nirh1"]["avrg"] /= (
-            np.array(self.results["nirh1"]["avrg"]) * 1.0e9
-        ) ** 2
+        self.results["brems_pi_nirh1"]["avrg"] = (
+            np.array(self.results["brems_pi_nirh1"]["avrg"])
+            / (np.array(self.results["nirh1"]["avrg"]) * 1.0e-9) ** 2
+        )
         self.results["brems_pi_nirh1"]["stdev"] = (
             np.array(self.results["brems_pi_nirh1"]["stdev"]) * 0.0
         )
@@ -504,9 +508,10 @@ class correlations:
             save_figure(fig_name=name + "_brems_pi_norm")
 
         self.results["brems_mp_nirh1"] = deepcopy(self.results["brems_mp"])
-        self.results["brems_mp_nirh1"]["avrg"] /= (
-            np.array(self.results["nirh1"]["avrg"]) * 1.0e9
-        ) ** 2
+        self.results["brems_mp_nirh1"]["avrg"] = (
+            np.array(self.results["brems_mp_nirh1"]["avrg"])
+            / (np.array(self.results["nirh1"]["avrg"]) * 1.0e-9) ** 2
+        )
         self.results["brems_pi_nirh1"]["stdev"] = (
             np.array(self.results["brems_pi_nirh1"]["stdev"]) * 0.0
         )
@@ -580,7 +585,6 @@ class correlations:
         elements = np.unique([l.split("_")[0] for l in lines])
         ylab = "$(a.u.)$"
         for elem in elements:
-            print(elem)
             elem_name = elem.upper()
             if len(elem) > 1:
                 elem_name = elem_name[0] + elem_name[1].lower()
@@ -695,7 +699,7 @@ def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
 
 def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None):
     avrg = np.nan
-    std = np.nan
+    std = 0.0
     offset = 0
     if (
         not np.array_equal(data, "FAILED")

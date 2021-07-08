@@ -6,7 +6,8 @@ import pickle
 
 from hda.hdadata import HDAdata
 from hda.hdaplot import HDAplot
-from hda.hdatree import write as write_to_mds
+import hda.hda_tree as hda_tree
+# from st40_mds_trees.trees import hda_tree
 
 import xarray as xr
 from xarray import DataArray
@@ -23,7 +24,7 @@ class HDArun:
         tend=0.1,
         dt=0.01,
         elements=("h", "c", "ar"),
-        ion_conc=(1, 0.03, 0.001),
+        ion_conc=(1, 0.03, 0),
         ne_shape=1,
         te_shape=0.8,
         regime="l_mode",
@@ -54,6 +55,7 @@ class HDArun:
         self.ne_shape = ne_shape
         self.te_shape = te_shape
         self.regime = regime
+        self.interf = interf
 
         self.data = HDAdata(
             pulse=self.pulse,
@@ -67,34 +69,59 @@ class HDArun:
         self.data.build_data(
             ne_shape=self.ne_shape, te_shape=self.te_shape, regime=self.regime, interf=interf
         )
-        # return
+
         self.data.simulate_spectrometers()
         self.data.match_xrcs()
-        self.data.propagate_parameters()
+        self.data.match_interferometer(interf)
+        self.data.build_current_density()
+        self.data.calc_magnetic_field()
+        self.data.calc_meanz()
+        self.data.calc_main_ion_dens(fast_dens=False)
+        self.data.impose_flat_zeff()
+        self.data.calc_zeff()
+        self.data.calc_rad_power()
+        # self.data.calc_pressure()
+        # self.data.calc_beta_poloidal()
+        # self.data.calc_vloop()
 
-    def __call__(self, use_c5=True, debug=False):
+        # self.data.propagate_parameters()
 
-        # self.initialize_bckc()
-        # self.recover_temperature(use_c5=use_c5, debug=debug)
-        # self.recover_zeff()
+    def write_for_astra(self):
+        # For BCKC: don't trust Ne, look for match with stored energy
+        self.match_energy()
 
-        self.initialize_bckc()
+        # For DATA: trust Ne, recover stored energy
+        self.kinetic_profiles()
+
+        self.write(self.data, descr=self.descr_data, run_name="RUN01")
+        self.write(self.bckc, descr=self.descr_bckc, run_name="RUN03")
+
+    def kinetic_profiles(self):
+        """
+        Recover only kinetic profiles, not Wp
+        """
+        self.descr_data = "Standard profiles, match kinetic measurements, c_C=3%"
+        self.data.calc_pressure()
+
+    def match_energy(self):
+        """
+        Recover only kinetic profiles, not Wp
+        """
+        self.descr_bckc = "Standard profiles, adapt Ne to match Wmhd, c_C=3%"
+        self.initialize_bckc(pure=False)
         # self.match_xrcs()
         self.recover_density()
-        # self.recover_zeff(optimize="density")
 
-        # self.plot()
-
-    def write(self, data:HDAdata, modelling=True, descr="", pulseNo=None):
+    def write(self, data:HDAdata, modelling=True, descr="", pulseNo=None, run_name="RUN01"):
         if pulseNo is None:
             pulseNo = data.pulse
 
         if modelling:
             pulseNo += 25000000
 
-        write_to_mds(data, pulseNo, "HDA", descr=descr)
+        hda_tree.write(data, pulseNo, "HDA", descr=descr, run_name=run_name)
 
-    def initialize_bckc(self):
+    def initialize_bckc(self, pure=True):
         # Initialize back-calculated values
         self.bckc = deepcopy(self.data)
 
@@ -103,16 +130,17 @@ class HDArun:
         self.bckc.fast_dens.values = xr.zeros_like(self.bckc.el_dens).values
 
         # Impurity concentrations = 0, propagate new ion density across all measurements
-        self.bckc.ion_conc.loc[dict(element=self.bckc.main_ion)] = 1.0
-        self.bckc.ion_dens.loc[
-            dict(element=self.bckc.main_ion)
-        ] = self.bckc.el_dens.values
-        for elem in self.bckc.impurities:
-            self.bckc.ion_conc.loc[dict(element=elem)] = 0.0
-            self.bckc.ion_dens.loc[dict(element=elem)] = np.zeros_like(
-                self.bckc.el_dens.values
-            )
-        self.bckc.propagate_ion_dens()
+        if pure:
+            self.bckc.ion_conc.loc[dict(element=self.bckc.main_ion)] = 1.0
+            self.bckc.ion_dens.loc[
+                dict(element=self.bckc.main_ion)
+            ] = self.bckc.el_dens.values
+            for elem in self.bckc.impurities:
+                self.bckc.ion_conc.loc[dict(element=elem)] = 0.0
+                self.bckc.ion_dens.loc[dict(element=elem)] = np.zeros_like(
+                    self.bckc.el_dens.values
+                )
+            self.bckc.propagate_ion_dens()
 
     def plot(self, savefig=False, name="", correl="t", plot_spectr=False):
         data = self.data
@@ -210,7 +238,7 @@ class HDArun:
         self.bckc = bckc
         return bckc
 
-    def recover_density(self, debug=False, niter=7):
+    def recover_density(self, debug=False, niter=7, const_conc=True):
         print("\n Re-calculating density to match plasma energy \n")
 
         data = self.data
@@ -229,6 +257,8 @@ class HDArun:
         for j in range(niter):
             print(f"Iteration {j+1} or {niter}")
             bckc.el_dens *= const
+            if const_conc:
+                bckc.calc_imp_dens()
             bckc.calc_main_ion_dens(fast_dens=False)
             bckc.impose_flat_zeff()
             bckc.calc_zeff()
@@ -298,7 +328,7 @@ class HDArun:
         elem_zeff = bckc.impurities[0]
         zeff = xr.ones_like(bckc.time).values * 1.5
         bounds = (
-            xr.full_like(bckc.time, 1.0).values,
+            xr.full_like(bckc.time, 1.5).values,
             xr.full_like(bckc.time, 4.0).values,
         )
 

@@ -311,6 +311,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -475,6 +476,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
         return data
 
@@ -646,6 +648,7 @@ class DataReader(BaseIO):
                 [],
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             if quantity in {"rmji", "rmjo"}:
                 quant_data.coords["z"] = data["zmag"]
             elif quantity == "faxs":
@@ -807,6 +810,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -954,6 +958,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1126,6 +1131,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1288,6 +1294,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1449,6 +1456,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1610,6 +1618,7 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 

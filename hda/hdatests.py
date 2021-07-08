@@ -13,7 +13,6 @@ from scipy.optimize import least_squares
 
 plt.ion()
 
-
 def trust1(hdarun: HDArun):
     """ Conclusion: don't trust SMM!!! """
     print("\n Trust Wp(EFIT), Te(XRCS), Ti(XRCS), test density estimation")
@@ -118,12 +117,6 @@ def test_flat_density(hdarun, interf="nirh1"):
 
 
 def test_low_edge_temperature(hdarun, zeff=False):
-    hdarun.initialize_bckc()
-    hdarun.recover_density()
-    if zeff:
-        hdarun.recover_zeff(optimize="density")
-    hdarun.bckc.simulate_spectrometers()
-    broad = hdarun.bckc
 
     # low temperature edge
     hdarun.initialize_bckc()
@@ -132,22 +125,48 @@ def test_low_edge_temperature(hdarun, zeff=False):
         y_0=te_0,
         y_ped=te_0 / 15.0,
         x_ped=0.9,
-        w_core=0.3,
+        w_core=0.2,
         datatype=("temperature", "electron"),
     )
     hdarun.bckc.profs.te /= hdarun.bckc.profs.te.max()
+    elements = hdarun.bckc.elements
+    main_ion = hdarun.bckc.main_ion
     for t in hdarun.bckc.time:
         te_0 = hdarun.bckc.el_temp.sel(t=t).sel(rho_poloidal=0).values
         hdarun.bckc.el_temp.loc[dict(t=t)] = (hdarun.bckc.profs.te * te_0).values
+        ti_0 = hdarun.bckc.ion_temp.sel(element=main_ion).sel(t=t).sel(rho_poloidal=0).values
+        for elem in elements:
+            hdarun.bckc.ion_temp.loc[dict(t=t, element=elem)] = (hdarun.bckc.profs.te * ti_0).values
 
-    hdarun.recover_density()
-    if zeff:
-        hdarun.recover_zeff(optimize="density")
+    hdarun.bckc.match_xrcs()
     hdarun.bckc.simulate_spectrometers()
-    peaked = hdarun.bckc
 
-    HDAplot(broad, peaked)
+    # hdarun.recover_zeff(optimize="density")
 
+    hdarun.bckc.propagate_parameters()
+    # hdarun.recover_density()
+
+    hdarun.plot()
+def rabbit_ears(hdarun: HDArun):
+
+    hdarun.initialize_bckc()
+    ne_0 = hdarun.bckc.profs.ne.sel(rho_poloidal=0).values
+    hdarun.bckc.profs.ne  = hdarun.bckc.profs.build_density(
+        x_0=0.7,
+        y_0=ne_0,
+        y_ped=ne_0 / 4.0,
+        x_ped=0.95,
+        w_core=0.1,
+        datatype=("density", "electron"),
+    )
+
+    for t in hdarun.bckc.time:
+        hdarun.bckc.el_dens.loc[dict(t=t)] = hdarun.bckc.profs.ne.values
+    hdarun.bckc.match_interferometer(interf)
+
+    # hdarun.recover_density()
+
+    hdarun.plot()
 
 def test_peaked_profiles(hdarun, zeff=False):
     hdarun.initialize_bckc()
@@ -185,6 +204,7 @@ def test_peaked_profiles(hdarun, zeff=False):
         ne_0 = hdarun.bckc.el_dens.sel(t=t).sel(rho_poloidal=0).values
         hdarun.bckc.el_dens.loc[dict(t=t)] = (hdarun.bckc.profs.ne * ne_0).values
 
+    hdarun.bckc.build_current_density()
     hdarun.recover_density()
     if zeff:
         hdarun.recover_zeff(optimize="density")

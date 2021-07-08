@@ -484,6 +484,16 @@ class HDAdata:
 
         self.ion_dens.loc[dict(element=self.main_ion)] = main_ion_dens
 
+    def calc_imp_dens(self):
+        """
+        Calculate impurity density from concentration
+        """
+
+        for elem in self.impurities:
+            self.ion_dens.loc[dict(element=elem)] = self.el_dens * self.ion_conc.sel(
+                element=elem
+            )
+
     def calc_meanz(self):
         """
         Calculate mean charge
@@ -654,7 +664,6 @@ class HDAdata:
 
         for t in self.time:
             rho = self.rho.values
-            ir = np.where(rho <= 1)
             b_pol = self.b_pol.sel(t=t).values
             pressure = self.pressure_tot.sel(t=t).values
             volume = self.volume.sel(t=t).values
