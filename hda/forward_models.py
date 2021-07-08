@@ -13,6 +13,7 @@ and links to functions to:
 - ...
 """
 
+import scipy.constants as constants
 from copy import deepcopy
 import re
 import numpy as np
@@ -166,7 +167,7 @@ class Spectrometer:
         # Initialize variables
         time = electron_temperature.coords["t"]
 
-        # TODO: calculate rho along LOS here so to be sure the timing is correct!
+        # TODO: calculate rho along LOS here if not given in input
         rho_los = self.geometry["rho"]
         el_dens_los = electron_density.interp(rho_poloidal=rho_los)
         el_dens_los = xr.where(rho_los <= 1, el_dens_los, 0)
@@ -232,6 +233,64 @@ class Spectrometer:
             self.ion_temp[i] = ti_avrg
             self.ion_temp.attrs["err_in"][i] = ti_err_in
             self.ion_temp.attrs["err_out"][i] = ti_err_out
+
+    def bremsstrahlung(
+        self,
+        electron_temperature,
+        electron_density,
+        wavelength,
+        zeff,
+        gaunt_approx="callahan",
+    ):
+        """
+        Calculate Bremsstrahlung along LOS
+
+        Parameters
+        ----------
+        electron_temperature
+            electron temperature (eV) for calculation
+        wavelength
+            wavelength (nm) at which Bremsstrahlung should be calculated
+        zeff
+            effective charge
+        gaunt_approx
+            approximation for free-free gaunt factors:
+                "callahan" see citation in KJ Callahan 2019 JINST 14 C10002
+
+        Returns
+        -------
+
+        """
+
+        def gaunt(self, electron_temperature, approx="callahan"):
+            gaunt_funct = {
+                "callahan": lambda electron_temperature: 1.35
+                * electron_temperature ** 0.15
+            }
+
+            return gaunt_funct[approx]
+
+        const = constants.e / (
+            np.sqrt(2)
+            * (3 * np.pi * constants.m_e) ** 1.5
+            * constants.epsilon_0 ** 3
+            * constants.c ** 2
+        )
+        gaunt = gaunt(electron_temperature, approx=gaunt_approx)
+        ev_to_k = constants.physical_constants["electron volt-kelvin relationship"][0]
+        wlenght = wavelength * 1.0e-9  # nm to m
+        exponent = exp(
+            -(constants.h * constants.c)
+            / (wlenght * constants.k * ev_to_k * electron_temperature)
+        )
+        bremss = (
+            const
+            * (electron_density ** 2 * zeff / np.sqrt(constants.k * temperature))
+            * (exponent / wlenght ** 2)
+            * gaunt
+        )
+
+        return bremss
 
 
 def calc_moments(y: ArrayLike, x: ArrayLike, ind_in=None, ind_out=None, simmetry=False):
