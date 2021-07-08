@@ -242,7 +242,7 @@ def write(
     """
 
     text = "Saving data to "
-    text += f"{pulse}? (yes)/no   "
+    text += f"{pulse} {run_name}? (yes)/no   "
 
     answer = input(text)
     if answer.lower().strip() == "no":
