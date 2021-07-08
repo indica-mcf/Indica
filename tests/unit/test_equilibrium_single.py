@@ -387,20 +387,23 @@ def test_cross_sectional_area():
     # scipy.integrate.quad
 
     # Testing single input to cross_sectional_area()
-    single_trapz_area = equilib.cross_sectional_area(rho[2], t[1])
+    single_trapz_area, _ = equilib.cross_sectional_area(rho[2], t[1])
 
     # Testing multiple inputs to cross_sectional_area()
-    multi_trapz_area = equilib.cross_sectional_area(rho, t)
+    multi_trapz_area, _ = equilib.cross_sectional_area(rho, t)
 
     quad_area = np.zeros((*rho.shape, *t.shape))
     for i, irho in enumerate(rho):
         for k, it in enumerate(t):
-            quad_area[i, k] = quad(
-                lambda th: 0.5 * equilib.minor_radius(irho, th, it)[0] ** 2,
-                0.0,
-                2.0 * np.pi,
-                full_output=True,
-            )[0]
+            if irho > 0:
+                quad_area[i, k] = quad(
+                    lambda th: 0.5 * equilib.minor_radius(irho, th, it)[0] ** 2,
+                    0.0,
+                    2.0 * np.pi,
+                    full_output=True,
+                )[0]
+            else:
+                quad_area[i, k] = 0.0
 
     quad_area = np.transpose(quad_area)
 
@@ -426,11 +429,6 @@ def test_enclosed_volume():
     time = np.array([77.5])
 
     interp1d_method = "linear"
-    if (isinstance(time, xr.DataArray) or isinstance(time, np.ndarray)) and (
-        time.shape[0] > 1
-    ):
-        if time.shape[0] > 3:
-            interp1d_method = "cubic"
 
     Rmag = equilib.rmag.interp(
         t=time,
@@ -455,19 +453,13 @@ def test_enclosed_volume():
     lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
     upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
 
-    actual, _ = equilib.enclosed_volume(rho, time)
+    actual, _, area_ = equilib.enclosed_volume(rho, time)
 
     assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
 
-    # Same as above but with multiple time values
+    # Same as above but with multiple rho and time values
+    rho = np.linspace(0, 1, 10)
     time = equilib.rho.coords["t"]
-
-    interp1d_method = "linear"
-    if (isinstance(time, xr.DataArray) or isinstance(time, np.ndarray)) and (
-        time.shape[0] > 1
-    ):
-        if time.shape[0] > 3:
-            interp1d_method = "cubic"
 
     Rmag = equilib.rmag.interp(
         t=time,
@@ -475,41 +467,39 @@ def test_enclosed_volume():
         assume_sorted=True,
     )
 
-    min_minor_radius = np.array([])
-    max_minor_radius = np.array([])
-    for t_ in time.data:
-        t_ = np.array([t_])
-        min_minor_radius = np.append(
-            min_minor_radius,
-            fmin(
-                func=lambda th: equilib.minor_radius(rho, th, t_)[0],
-                x0=0.0,
-                disp=False,
-                full_output=True,
-            )[1],
-        )
+    # min_minor_radius is always zero
+    min_minor_radius = np.zeros((rho.size, time.data.size))
+    max_minor_radius = np.zeros((rho.size, time.data.size))
+    for i, irho in enumerate(rho):
+        for k, it in enumerate(time.data):
+            irho = np.array([irho])
+            it = np.array([it])
 
-        max_minor_radius = np.append(
-            max_minor_radius,
-            -1
-            * fmin(
-                func=lambda th: -1 * equilib.minor_radius(rho, th, t_)[0],
+            max_minor_radius[i, k] = -1 * fmin(
+                func=lambda th: -1 * equilib.minor_radius(irho, th, it)[0],
                 x0=0.5 * np.pi,
                 disp=False,
                 full_output=True,
-            )[1],
+            )[1]
+
+    lower_limit_vol = np.zeros((time.data.size, rho.size))
+    upper_limit_vol = np.zeros((time.data.size, rho.size))
+
+    for k, it in enumerate(time.data):
+        lower_limit_vol[k, :] = (np.pi * min_minor_radius[:, k] ** 2) * (
+            2.0 * np.pi * Rmag[k].data
+        )
+        upper_limit_vol[k, :] = (np.pi * max_minor_radius[:, k] ** 2) * (
+            2.0 * np.pi * Rmag[k].data
         )
 
-    lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
-    upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
-
-    actual, _ = equilib.enclosed_volume(rho)
+    actual, _, area_ = equilib.enclosed_volume(rho)
 
     assert np.all(actual <= upper_limit_vol) and np.all(actual >= lower_limit_vol)
 
 
 def test_Btot():
-    time = np.array([76.5])
+    time = np.array([76.50])
 
     interp1d_method = "linear"
     if (isinstance(time, xr.DataArray) or isinstance(time, np.ndarray)) and (

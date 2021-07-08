@@ -101,7 +101,7 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             Poloidal angle coordinate
 
         """
-        vol, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
+        vol, t, _ = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
         return vol, theta
 
     def __eq__(self, other: object) -> bool:

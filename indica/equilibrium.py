@@ -2,7 +2,6 @@
 """
 
 import datetime
-import typing
 from typing import cast
 from typing import Dict
 from typing import Optional
@@ -19,7 +18,6 @@ from xarray import where
 from . import session
 from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
-from .numpy_typing import OnlyXarray
 from .offset import interactive_offset_choice
 from .offset import OffsetPicker
 from .utilities import coord_array
@@ -353,8 +351,12 @@ class Equilibrium(AbstractEquilibrium):
         return R, t
 
     def cross_sectional_area(
-        self, rho: LabeledArray, t: LabeledArray, kind: str = "poloidal"
-    ) -> float:
+        self,
+        rho: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        ntheta: Optional[int] = 12,
+        kind: str = "poloidal",
+    ) -> Tuple[DataArray, LabeledArray]:
         """Calculates the cross-sectional area inside the flux surface rho and at
         given time t.
 
@@ -373,21 +375,14 @@ class Equilibrium(AbstractEquilibrium):
         area
             Cross-sectional areas calculated at rho and t.
         """
-        if not isinstance(rho, typing.get_args(OnlyXarray)):
-            rho = DataArray(
-                data=rho if isinstance(rho, np.ndarray) else [rho],
-                coords={"rho": rho} if isinstance(rho, np.ndarray) else {"rho": [rho]},
-                dims=["rho"],
-            )
-        if not isinstance(t, typing.get_args(OnlyXarray)):
-            t = DataArray(
-                data=t if isinstance(t, np.ndarray) else [t],
-                coords={"t": t} if isinstance(t, np.ndarray) else {"t": [t]},
-                dims=["t"],
-            )
+        if t is None:
+            t = self.rho.coords["t"]
 
-        # Sub-divisions of theta, a reasonable compromise between speed and accuracy.
-        ntheta = 12
+        if np.isscalar(rho):
+            rho = np.array([rho])
+
+        if np.isscalar(t):
+            t = np.array([t])
 
         theta = np.linspace(0.0, 2.0 * np.pi, ntheta)
         theta = DataArray(
@@ -398,34 +393,40 @@ class Equilibrium(AbstractEquilibrium):
             ],
         )
 
-        minor_radii, _ = self.minor_radius(rho, theta, t, kind)
+        minor_radii = np.empty(ntheta, dtype=DataArray)
 
-        if not isinstance(minor_radii, typing.get_args(OnlyXarray)):
-            minor_radii = DataArray(
-                data=minor_radii
-                if isinstance(minor_radii, np.ndarray)
-                else [minor_radii],
-                coords={"theta": theta, "t": t, "rho": rho},
-                dims=["theta", "t", "rho"],
-            )
+        for i, itheta in enumerate(theta):
+            minor_radii[i], _ = self.minor_radius(rho, itheta, t, kind)
 
-        # mypy type checking ignored since minor_radii should be of type OnlyXarray
-        # (see indica/numpy_typing.py for definition of OnlyXarray)
-        minor_radii = minor_radii.squeeze()  # type: ignore
+        # This sets minor_radii to zero in the rho positions (in the minor_radii array)
+        # where the rho value is below the precision possible through
+        # the trapz() function.
+        zero_check = np.where(rho < 1e-18)[0]
+        if zero_check.size > 0:
+            for i in zero_check:
+                for k, itheta in enumerate(theta):
+                    minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
 
         minor_radii = minor_radii ** 2
         minor_radii *= 0.5
 
         area = trapz(minor_radii, theta, axis=0)
 
-        return area
+        return (
+            DataArray(
+                data=area,
+                coords={"t": t, "rho": rho},
+                dims=["t", "rho"],
+            ),
+            cast(LabeledArray, t),
+        )
 
     def enclosed_volume(
         self,
         rho: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[LabeledArray, LabeledArray]:
+    ) -> Tuple[DataArray, LabeledArray, DataArray]:
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
@@ -464,13 +465,13 @@ class Equilibrium(AbstractEquilibrium):
 
         # Cross-sectional area calculated by integrating:
         # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
-        area_arr = self.cross_sectional_area(rho, t, kind)
+        area_arr, _ = self.cross_sectional_area(rho, t, kind=kind)
 
         # Vol = area * toroidal circumference measure at the magnetic axis
         vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
         vol_enclosed.name = "Enclosed volumes (m^3)"
 
-        return vol_enclosed, t
+        return vol_enclosed, t, area_arr  # return area
 
     def invert_enclosed_volume(
         self,
@@ -511,7 +512,7 @@ class Equilibrium(AbstractEquilibrium):
         theta: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[LabeledArray, LabeledArray]:
+    ) -> Tuple[DataArray, LabeledArray]:
         """Minor radius at the given locations in the tokamak.
 
         Parameters

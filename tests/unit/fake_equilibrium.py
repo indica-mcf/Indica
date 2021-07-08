@@ -119,7 +119,10 @@ class FakeEquilibrium(Equilibrium):
         n = self.parameters[kind + "_n"]
         alpha = self.parameters[kind + "_alpha"]
         vol = 2 * np.pi ** 2 * a * b * rho ** (2 * n) * (1 + alpha * t) ** 2 * rmag
-        return vol, t
+
+        # blank area variable to return so that tests pass
+        area = 0
+        return vol, t, area
 
     def invert_enclosed_volume(self, vol, t=None, kind="poloidal"):
         if t is None:
