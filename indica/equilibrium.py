@@ -412,12 +412,14 @@ class Equilibrium(AbstractEquilibrium):
 
         area = trapz(minor_radii, theta, axis=0)
 
+        result = DataArray(
+            data=area,
+            coords=[("t", t), ("rho", rho)],
+            dims=["t", "rho"],
+        )
+
         return (
-            DataArray(
-                data=area,
-                coords={"t": t, "rho": rho},
-                dims=["t", "rho"],
-            ),
+            result,
             cast(LabeledArray, t),
         )
 
@@ -426,7 +428,7 @@ class Equilibrium(AbstractEquilibrium):
         rho: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[DataArray, LabeledArray, DataArray]:
+    ) -> Tuple[DataArray, DataArray, LabeledArray]:
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
@@ -471,7 +473,7 @@ class Equilibrium(AbstractEquilibrium):
         vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
         vol_enclosed.name = "Enclosed volumes (m^3)"
 
-        return vol_enclosed, t, area_arr  # return area
+        return vol_enclosed, area_arr, t
 
     def invert_enclosed_volume(
         self,

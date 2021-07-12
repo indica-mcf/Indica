@@ -130,7 +130,7 @@ class AbstractEquilibrium(ABC):
         rho: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[DataArray, LabeledArray, DataArray]:
+    ) -> Tuple[DataArray, DataArray, LabeledArray]:
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
