@@ -5,6 +5,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import fmin
 import xarray as xr
+from xarray.core.dataarray import DataArray
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import LinesOfSightTransform
@@ -453,7 +454,20 @@ def test_enclosed_volume():
     lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
     upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
 
-    actual, _, area_ = equilib.enclosed_volume(rho, time)
+    actual, area_, _ = equilib.enclosed_volume(rho, time)
+
+    assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
+
+    # Testing Datarray as input
+
+    rho = np.array([0.5])
+    time = np.array([77.5])
+
+    rho = DataArray(data=rho, coords={"rho_poloidal": rho}, dims=["rho_poloidal"])
+
+    time = DataArray(data=time, coords={"t": time}, dims=["t"])
+
+    actual, area_, _ = equilib.enclosed_volume(rho, time)
 
     assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
 
@@ -493,7 +507,7 @@ def test_enclosed_volume():
             2.0 * np.pi * Rmag[k].data
         )
 
-    actual, _, area_ = equilib.enclosed_volume(rho)
+    actual, area_, _ = equilib.enclosed_volume(rho)
 
     assert np.all(actual <= upper_limit_vol) and np.all(actual >= lower_limit_vol)
 
