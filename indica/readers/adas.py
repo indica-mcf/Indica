@@ -139,6 +139,8 @@ class ADASReader(BaseIO):
             "datatype": (gen_type, spec_type),
             "date": date,
             "provenance": self.create_provenance(filename, now),
+            "element_symbol": element,
+            "year": year,
         }
         return DataArray(
             10 ** (data - 6),

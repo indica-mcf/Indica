@@ -9,6 +9,7 @@ import numpy as np
 import scipy
 from xarray import DataArray
 
+from indica.readers.adas import ADASReader
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
@@ -663,7 +664,7 @@ class PowerLoss(Operator):
         Ne: DataArray,
         Te: DataArray,
         PRC: Optional[DataArray] = None,
-        F_z_t: Optional[DataArray] = None,
+        F_z_t: Optional[np.ndarray] = None,
         unit_testing: Optional[bool] = False,
         Nh: Optional[DataArray] = None,
         sess: session.Session = session.global_session,
@@ -698,6 +699,19 @@ class PowerLoss(Operator):
                 assert F_z_t.ndim == 1
             except AssertionError:
                 raise AssertionError("Fractional abundance must be 1-dimensional.")
+        else:
+            element_symbol = PLT.attrs["element_symbol"]
+            year = PLT.attrs["year"]
+
+            ADAS_file = ADASReader()
+
+            SCD = ADAS_file.get_adf11("scd", element_symbol, year)
+            ACD = ADAS_file.get_adf11("acd", element_symbol, year)
+            CCD = ADAS_file.get_adf11("ccd", element_symbol, year)
+
+            FracAbundanceObj = FractionalAbundance(SCD, ACD, Ne, Te, Nh=Nh, CCD=CCD)
+            F_z_t = np.real(FracAbundanceObj.F_z_tinf)
+
         self.F_z_t = F_z_t
 
         self.interpolation_bounds_check(imported_data, inputted_data)
