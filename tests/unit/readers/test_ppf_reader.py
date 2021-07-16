@@ -40,9 +40,6 @@ from ..strategies import sane_floats
 
 
 FAKE_DATA_PATH = pathlib.Path(__file__).parent.absolute() / "ppf_samples.pkl"
-data_available = pytest.mark.skipif(
-    not FAKE_DATA_PATH.exists(), reason="Fake PPF data not found."
-)
 
 
 @pytest.fixture(scope="module")
@@ -119,7 +116,6 @@ def test_needs_authentication():
         reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
 
 
-@data_available
 @given(pulses, times, errors, max_freqs, text(), text())
 def test_authentication(fake_sal, pulse, time_range, error, freq, user, password):
     """Test authentication method on client get called."""
@@ -136,7 +132,6 @@ def test_authentication(fake_sal, pulse, time_range, error, freq, user, password
         reader._client.authenticate.assert_called_once_with(user, password)
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -205,7 +200,6 @@ def test_get_thomson_scattering(
         assert sorted(results[q + "_records"]) == expected
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -272,7 +266,6 @@ def test_get_charge_exchange(
         )
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -351,7 +344,6 @@ def test_get_equilibrium(
             ]
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -441,7 +433,6 @@ def test_get_cyclotron_emissions(
         )
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -522,7 +513,6 @@ def test_get_sxr(
         )
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -589,7 +579,6 @@ def test_get_radiation(
         )
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -664,7 +653,6 @@ def test_get_bremsstrahlung_spectroscopy(
         )
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -703,7 +691,6 @@ def test_general_get(
         )
 
 
-@data_available
 @given(
     pulses,
     times,
@@ -761,7 +748,6 @@ def cachedir():
             ppfreader.CACHE_DIR = old_cache
 
 
-@data_available
 @given(
     pulses,
     times,
