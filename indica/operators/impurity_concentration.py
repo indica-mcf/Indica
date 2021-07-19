@@ -237,6 +237,7 @@ class ImpurityConcentration(Operator):
         term_2 = zeros_like(term_1)
         for k, kdens in enumerate(impurity_densities.coords["elements"]):
             if element == kdens:
+                term_3 = (mean_charge[k] ** 2 - mean_charge[k]).sum(x2_name) * dl
                 continue
 
             term2_integrand = (impurity_densities[k] / electron_density) * (
@@ -244,8 +245,6 @@ class ImpurityConcentration(Operator):
             )
 
             term_2 += term2_integrand.sum(x2_name) * dl
-
-        term_3 = (mean_charge[k - 1] ** 2 - mean_charge[k - 1]).sum(x2_name) * dl
 
         concentration = (term_1 - term_2) / term_3
 
