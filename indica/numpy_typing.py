@@ -6,8 +6,9 @@ labeled dimensions and to scalar.
 """
 
 import typing
-
+import numbers
 import xarray
+import numpy as np
 
 try:
     from numpy.typing import ArrayLike
