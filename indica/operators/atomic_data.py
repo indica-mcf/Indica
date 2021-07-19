@@ -167,11 +167,11 @@ class FractionalAbundance(Operator):
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("ionisation_rate", "impurity_element"),
         ("recombination_rate", "impurity_element"),
-        ("charge-exchange_rate", "impurity_element"),
         ("number_density", "electrons"),
         ("temperature", "electrons"),
-        ("number_density", "thermal_hydrogen"),
         ("initial_fractional_abundance", "impurity_element"),
+        ("number_density", "thermal_hydrogen"),
+        ("charge-exchange_rate", "impurity_element"),
     ]
     RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("fractional_abundance", "impurity_element"),
@@ -183,7 +183,7 @@ class FractionalAbundance(Operator):
         ACD: DataArray,
         Ne: DataArray,
         Te: DataArray,
-        F_z_t0: np.ndarray = None,
+        F_z_t0: DataArray = None,
         Nh: DataArray = None,
         CCD: DataArray = None,
         unit_testing: Optional[bool] = False,
@@ -226,12 +226,12 @@ class FractionalAbundance(Operator):
             input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
 
         if F_z_t0 is not None:
-            input_check("F_z_t0", F_z_t0, np.ndarray, greater_than_or_equal_zero=True)
+            input_check("F_z_t0", F_z_t0, DataArray, greater_than_or_equal_zero=True)
 
             try:
-                assert F_z_t0.ndim == 1
+                assert F_z_t0.ndim < 3
             except AssertionError:
-                raise AssertionError("F_z_t0 must be 1-dimensional.")
+                raise AssertionError("F_z_t0 must be at most 2-dimensional.")
         self.F_z_t0 = F_z_t0
 
         self.interpolation_bounds_check(imported_data, inputted_data)
@@ -454,9 +454,22 @@ class FractionalAbundance(Operator):
 
         # Complex type casting for compatibility with eigen calculation results later.
         F_z_tinf = np.abs(null_space).astype(dtype=np.complex128)
+
+        # normalization needed for high-z elements
+        F_z_tinf = F_z_tinf / np.sum(F_z_tinf, axis=0)
+
+        F_z_tinf = DataArray(
+            data=F_z_tinf,
+            coords=[
+                ("stages", np.linspace(0, self.num_of_stages - 1, self.num_of_stages)),
+                self.SCD.coords["rho"],
+            ],
+            dims=["stages", "rho"],
+        )
+
         self.F_z_tinf = F_z_tinf
 
-        return F_z_tinf
+        return np.real(F_z_tinf)
 
     def calc_eigen_vals_and_vecs(
         self,
@@ -507,9 +520,33 @@ class FractionalAbundance(Operator):
         if self.F_z_t0 is None:
             F_z_t0 = np.zeros(self.F_z_tinf.shape, dtype=np.complex128)
             F_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(rho.size)])
+
+            F_z_t0 = DataArray(
+                data=F_z_t0,
+                coords=[
+                    (
+                        "stages",
+                        np.linspace(0, self.num_of_stages - 1, self.num_of_stages),
+                    ),
+                    self.SCD.coords["rho"],
+                ],
+                dims=["stages", "rho"],
+            )
         else:
-            F_z_t0 = self.F_z_t0 / np.linalg.norm(self.F_z_t0)
+            F_z_t0 = self.F_z_t0 / np.sum(self.F_z_t0, axis=0)
             F_z_t0 = F_z_t0.as_type(dtype=np.complex128)
+
+            F_z_t0 = DataArray(
+                data=F_z_t0.values,
+                coords=[
+                    (
+                        "stages",
+                        np.linspace(0, self.num_of_stages - 1, self.num_of_stages),
+                    ),
+                    self.SCD.coords["rho"],
+                ],
+                dims=["stages", "rho"],
+            )
 
         eig_vals = self.eig_vals
         eig_vecs_inv = np.zeros(self.eig_vecs.shape, dtype=np.complex128)
@@ -527,6 +564,9 @@ class FractionalAbundance(Operator):
             )
 
         self.eig_coeffs = eig_coeffs
+
+        F_z_t0 = np.abs(np.real(F_z_t0))
+
         self.F_z_t0 = F_z_t0
 
         return eig_coeffs, F_z_t0
@@ -567,9 +607,11 @@ class FractionalAbundance(Operator):
                     * self.eig_vecs[:, istage, irho]
                 )
 
-        self.F_z_t = np.real(F_z_t)
+        F_z_t = np.abs(np.real(F_z_t))
 
-        return np.real(F_z_t)
+        self.F_z_t = F_z_t
+
+        return F_z_t
 
     def ordered_setup(self):
         """Sets up data for calculation in correct order."""

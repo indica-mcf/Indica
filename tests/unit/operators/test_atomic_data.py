@@ -311,20 +311,31 @@ def test_fractional_abundance_init():
     F_z_t0_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
     input_error_check("F_z_t0", F_z_t0_invalid, TypeError, test_case)
 
-    F_z_t0_invalid = np.array([-1.0, 0.0, 0.0, 0.0, 0.0])
+    F_z_t0_invalid = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+    input_error_check("F_z_t0", F_z_t0_invalid, TypeError, test_case)
+
+    F_z_t0_invalid = DataArray(
+        data=np.array([[-1.0, 0.0, 0.0, 0.0, 0.0]]).T,
+        coords=[("stages", np.linspace(0, 4, 5)), ("rho", [0.5])],
+        dims=["stages", "rho"],
+    )
     input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
 
-    F_z_t0_invalid = np.array([[1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0]])
+    F_z_t0_invalid.data = np.array([np.zeros(5) + np.nan]).T
+    input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
+
+    F_z_t0_invalid.data = np.array([np.zeros(5) + np.inf]).T
+    input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
+
+    F_z_t0_invalid.data = np.array([np.zeros(5) - np.inf]).T
+    input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
+
+    F_z_t0_invalid = DataArray(
+        data=np.array([[[1.0, 0.0, 0.0, 0.0, 0.0]]]).T,
+        coords=[("stages", np.linspace(0, 4, 5)), ("rho", [0.5]), ("t", [77.5])],
+        dims=["stages", "rho", "t"],
+    )
     input_error_check("F_z_t0", F_z_t0_invalid, AssertionError, test_case)
-
-    F_z_t0_invalid = np.zeros(5) + np.nan
-    input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
-
-    F_z_t0_invalid = np.zeros(5) + np.inf
-    input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
-
-    F_z_t0_invalid = np.zeros(5) - np.inf
-    input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
 
     # Electron density checks
 
@@ -530,8 +541,8 @@ def test_calc_F_z_tinf(test_calc_ionisation_balance_matrix):
         test_null = np.dot(ionisation_balance_matrix[:, :, irho], F_z_tinf[:, irho])
         assert np.allclose(test_null, np.zeros(test_null.shape))
 
-        test_normalization = np.linalg.norm(F_z_tinf[:, irho])
-        assert np.allclose(test_normalization, 1.0)
+        test_normalization = np.sum(F_z_tinf[:, irho])
+        assert np.allclose(test_normalization, 1.0, rtol=1e-2)
 
     try:
         F_z_tinf = example_frac_abundance.calc_F_z_tinf()
@@ -551,7 +562,7 @@ def test_calc_F_z_tinf(test_calc_ionisation_balance_matrix):
         test_null = np.dot(ionisation_balance_matrix[:, :, irho], F_z_tinf[:, irho])
         assert np.allclose(test_null, np.zeros(test_null.shape))
 
-        test_normalization = np.linalg.norm(F_z_tinf[:, irho])
+        test_normalization = np.sum(F_z_tinf[:, irho])
         assert np.allclose(test_normalization, 1.0)
 
     return example_frac_abundance, example_frac_abundance_no_optional
@@ -692,7 +703,7 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
     assert np.all(np.logical_not(np.isnan(F_z_t)))
     assert np.all(np.logical_not(np.isinf(F_z_t)))
 
-    assert np.allclose(F_z_t, example_frac_abundance_no_optional.F_z_t0)
+    assert np.allclose(F_z_t, example_frac_abundance_no_optional.F_z_t0, atol=1e-4)
 
     tau = 1e2
 
@@ -709,7 +720,7 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
     rho = example_frac_abundance_no_optional.Ne.coords["rho"]
 
     for irho in range(rho.size):
-        test_normalization = np.linalg.norm(F_z_t[:, irho])
+        test_normalization = np.sum(F_z_t[:, irho])
         assert np.abs(test_normalization - 1.0) <= 2e-2
 
     test_case = Exception_Frac_Abund_Test_Case(
@@ -741,7 +752,7 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
     assert np.all(np.logical_not(np.isnan(F_z_t)))
     assert np.all(np.logical_not(np.isinf(F_z_t)))
 
-    assert np.allclose(F_z_t, example_frac_abundance.F_z_t0)
+    assert np.allclose(F_z_t, example_frac_abundance.F_z_t0, atol=1e-5)
 
     tau = 1e2
 
@@ -758,7 +769,7 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
     rho = example_frac_abundance.Ne.coords["rho"]
 
     for irho in range(rho.size):
-        test_normalization = np.linalg.norm(F_z_t[:, irho])
+        test_normalization = np.sum(F_z_t[:, irho])
         assert np.abs(test_normalization - 1.0) <= 2e-2
 
 
