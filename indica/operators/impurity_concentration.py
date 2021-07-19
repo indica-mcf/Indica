@@ -2,7 +2,9 @@
 of a given element.
 """
 
+from typing import get_args
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import Union
 
@@ -11,6 +13,7 @@ from xarray import DataArray
 from xarray.core.common import zeros_like
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
+from indica.numpy_typing import LabeledArray
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
@@ -27,6 +30,24 @@ class ImpurityConcentration(Operator):
         operator.
     RESULT_TYPES: List[DataType]
         Ordered list of the types of data returned by the operator.
+
+    Returns
+    -------
+    concentration
+        xarray.DataArray containing the impurity concentration for the
+        given impurity element.
+    t
+        If ``t`` was not specified as an argument for the __call__ function,
+        return the time the results are given for.
+        Otherwise return the argument.
+
+    Methods
+    -------
+    __call__(
+        element, Zeff_diag, impurity_densities, electron_density,
+        mean_charge, flux_surfaces, t
+    )
+        Calculates the impurity concentration for the inputted element.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
@@ -42,6 +63,54 @@ class ImpurityConcentration(Operator):
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
 
+    def input_check(
+        self,
+        var_name: str,
+        var_to_check,
+        var_type: type,
+        ndim_to_check: Optional[int] = None,
+        greater_than_or_equal_zero: Optional[bool] = None,
+    ):
+        try:
+            assert isinstance(var_to_check, var_type)
+        except AssertionError:
+            raise TypeError(f"{var_name} must be of type {var_type}.")
+
+        if greater_than_or_equal_zero is not None:
+            try:
+                if not greater_than_or_equal_zero:
+                    # Mypy will ignore this line since even though var_to_check
+                    # is type checked earlier it still doesn't explicitly
+                    # know what type var_to_check
+                    assert np.all(var_to_check > 0)  # type: ignore
+                else:
+                    # Mypy will ignore this line since even though var_to_check
+                    # is type checked earlier it still doesn't explicitly
+                    # know what type var_to_check
+                    assert np.all(var_to_check >= 0)  # type: ignore
+            except AssertionError:
+                raise ValueError(f"Cannot have any negative values in {var_name}")
+
+        if var_type in get_args(LabeledArray):
+            try:
+                assert np.all(var_to_check != np.nan)
+            except AssertionError:
+                raise ValueError(f"{var_name} cannot contain any NaNs.")
+
+            try:
+                assert np.all(np.abs(var_to_check) != np.inf)
+            except AssertionError:
+                raise ValueError(f"{var_name} cannot contain any infinities.")
+
+        if ndim_to_check is not None and var_type in [np.ndarray, DataArray]:
+            try:
+                # Mypy will ignore this line since even though var_to_check
+                # is type checked earlier it still doesn't explicitly
+                # know what type var_to_check
+                assert var_to_check.ndim == ndim_to_check  # type: ignore
+            except AssertionError:
+                raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
+
     def __call__(  # type: ignore
         self,
         element: str,
@@ -52,14 +121,42 @@ class ImpurityConcentration(Operator):
         flux_surfaces: FluxSurfaceCoordinates,
         t: DataArray = None,
     ):
+        """Calculates the impurity concentration for the inputted element.
 
-        try:
-            assert isinstance(element, str)
-        except AssertionError:
-            raise TypeError(
-                "Please ensure that the inputted element \
-                argument is of type string."
-            )
+        Parameters
+        ----------
+        element
+            String specifying the element for which the impurity concentration
+            is desired. It should be given in full lower-case, eg. "beryllium"
+        Zeff_diag
+            xarray.DataArray containing the Zeff value/s from a diagnostic such as,
+            Bremsstrahlung (ZEFH/KS3)
+        impurity_densities
+            xarray.DataArray of impurity densities for all impurity elements
+            of interest.
+        electron_density
+            xarray.DataArray of electron density
+        mean_charge
+            xarray.DataArray of mean charge of all impurity elements of interest.
+            This can be provided manually (with dimensions of ["elements", "rho", "t]),
+            or can be passed as the results of MeanCharge.__call__
+        flux_surfaces
+            FluxSurfaceCoordinates object that defines the flux surface geometry
+            of the equilibrium of interest.
+        t
+            Optional, time at which the impurity concentration is to be calculated at.
+
+        Returns
+        -------
+        concentration
+            xarray.DataArray containing the impurity concentration for the
+            given impurity element.
+        t
+            If ``t`` was not specified as an argument for the __call__ function,
+            return the time the results are given for.
+            Otherwise return the argument.
+        """
+        self.input_check("element", element, str)
 
         elements_list = impurity_densities.coords["elements"]
 
@@ -73,6 +170,14 @@ class ImpurityConcentration(Operator):
 
         if t is None:
             t = Zeff_diag.t
+        else:
+            self.input_check("t", t, DataArray, 1, True)
+
+        self.input_check("Zeff_diag", Zeff_diag, DataArray, 1, True)
+        self.input_check("impurity_densities", impurity_densities, DataArray, 4, True)
+        self.input_check("electron_density", electron_density, DataArray, 2, False)
+        self.input_check("mean_charge", mean_charge, DataArray, 3, True)
+        self.input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 
         Zeff_diag = Zeff_diag.interp(t=t, method="nearest")
 
@@ -108,13 +213,6 @@ class ImpurityConcentration(Operator):
         impurity_densities = impurity_densities.interp(
             t=t, method="nearest", assume_sorted=True
         )
-
-        # impurity_densities = impurity_densities.indica.interp2d(
-        #     rho=rho.data,
-        #     R=R_arr.data,
-        #     method="cubic",
-        #     assume_sorted=True
-        # )
 
         electron_density = electron_density.interp(
             rho=rho, method="cubic", assume_sorted=True

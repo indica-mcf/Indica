@@ -1,3 +1,4 @@
+import unittest
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -15,6 +16,122 @@ from indica.operators.impurity_concentration import ImpurityConcentration
 from indica.operators.mean_charge import MeanCharge
 from indica.readers.adas import ADASReader
 from ..test_equilibrium_single import equilibrium_dat_and_te
+
+
+class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
+    def __init__(
+        self,
+        element,
+        Zeff_diag,
+        impurity_densities,
+        electron_density,
+        mean_charge,
+        flux_surfaces,
+        t,
+    ):
+        self.element = element
+        self.Zeff_diag = Zeff_diag
+        self.impurity_densities = impurity_densities
+        self.electron_density = electron_density
+        self.mean_charge = mean_charge
+        self.flux_surfaces = flux_surfaces
+        self.t = t
+
+        self.nominal_inputs = [
+            self.element,
+            self.Zeff_diag,
+            self.impurity_densities,
+            self.electron_density,
+            self.mean_charge,
+            self.flux_surfaces,
+            self.t,
+        ]
+
+    def call_type_check(
+        self,
+        element=None,
+        Zeff_diag=None,
+        impurity_densities=None,
+        electron_density=None,
+        mean_charge=None,
+        flux_surfaces=None,
+        t=None,
+    ):
+        inputs = [
+            element,
+            Zeff_diag,
+            impurity_densities,
+            electron_density,
+            mean_charge,
+            flux_surfaces,
+            t,
+        ]
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        element,
+        Zeff_diag,
+        impurity_densities,
+        electron_density,
+        mean_charge,
+        flux_surfaces,
+        t = inputs
+
+        with self.assertRaises(TypeError):
+            example_ = ImpurityConcentration()
+            example_(
+                element,
+                Zeff_diag,
+                impurity_densities,
+                electron_density,
+                mean_charge,
+                flux_surfaces,
+                t,
+            )
+
+    def call_value_check(
+        self,
+        element=None,
+        Zeff_diag=None,
+        impurity_densities=None,
+        electron_density=None,
+        mean_charge=None,
+        flux_surfaces=None,
+        t=None,
+    ):
+        inputs = [
+            element,
+            Zeff_diag,
+            impurity_densities,
+            electron_density,
+            mean_charge,
+            flux_surfaces,
+            t,
+        ]
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        element,
+        Zeff_diag,
+        impurity_densities,
+        electron_density,
+        mean_charge,
+        flux_surfaces,
+        t = inputs
+
+        with self.assertRaises(ValueError):
+            example_ = ImpurityConcentration()
+            example_(
+                element,
+                Zeff_diag,
+                impurity_densities,
+                electron_density,
+                mean_charge,
+                flux_surfaces,
+                t,
+            )
 
 
 def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
@@ -81,7 +198,7 @@ def test_impurity_concentration():
     elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in elements]
 
     impurity_densities = DataArray(
-        data=np.ones((len(elements), *R_arr.shape, *rho.shape, *t.shape)),
+        data=np.ones((len(elements), *R_arr.shape, *rho.shape, *t.shape)) * 1e19,
         coords=[("elements", elements), ("R", R_arr), ("rho", rho), ("t", t)],
         dims=["elements", "R", "rho", "t"],
     )
@@ -132,12 +249,124 @@ def test_impurity_concentration():
 
     flux_surfs.set_equilibrium(equilib)
 
-    concentration, t = example_(
-        element="beryllium",
-        Zeff_diag=Zeff_diag,
-        impurity_densities=impurity_densities,
-        electron_density=electron_density,
-        mean_charge=mean_charge,
-        flux_surfaces=flux_surfs,
-        t=80.0,
-    )
+    nominal_inputs = {
+        "element": "beryllium",
+        "Zeff_diag": Zeff_diag,
+        "impurity_densities": impurity_densities,
+        "electron_density": electron_density,
+        "mean_charge": mean_charge,
+        "flux_surfaces": flux_surfs,
+        "t": DataArray(data=[80.0], coords={"t": [80.0]}, dims=["t"]),
+    }
+
+    try:
+        concentration, t = example_(**nominal_inputs)
+    except Exception as e:
+        raise e
+
+    test_case_impurity = Exception_Impurity_Concentration_Test_Case(**nominal_inputs)
+
+    erroneous_input = {"element": 4}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"t": nominal_inputs["t"].data}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"t": nominal_inputs["t"] * -1}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"t": nominal_inputs["t"] * np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"t": nominal_inputs["t"] * -np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"t": nominal_inputs["t"] * np.nan}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"t": nominal_inputs["t"].expand_dims("blank")}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"].data}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * -1}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * -np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * np.nan}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"].expand_dims("blank")}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"impurity_densities": nominal_inputs["impurity_densities"].data}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"impurity_densities": nominal_inputs["impurity_densities"] * -1}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {
+        "impurity_densities": nominal_inputs["impurity_densities"] * np.inf
+    }
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {
+        "impurity_densities": nominal_inputs["impurity_densities"] * -np.inf
+    }
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {
+        "impurity_densities": nominal_inputs["impurity_densities"] * np.nan
+    }
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {
+        "impurity_densities": nominal_inputs["impurity_densities"].expand_dims("blank")
+    }
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"electron_density": nominal_inputs["electron_density"].data}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"electron_density": nominal_inputs["electron_density"] * -1}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"electron_density": nominal_inputs["electron_density"] * np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"electron_density": nominal_inputs["electron_density"] * -np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"electron_density": nominal_inputs["electron_density"] * np.nan}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {
+        "electron_density": nominal_inputs["electron_density"].expand_dims("blank")
+    }
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"mean_charge": nominal_inputs["mean_charge"].data}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"mean_charge": nominal_inputs["mean_charge"] * -1}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"mean_charge": nominal_inputs["mean_charge"] * np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"mean_charge": nominal_inputs["mean_charge"] * -np.inf}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {"mean_charge": nominal_inputs["mean_charge"] * np.nan}
+    test_case_impurity.call_type_check(**erroneous_input)
+
+    erroneous_input = {
+        "mean_charge": nominal_inputs["mean_charge"].expand_dims("blank")
+    }
+    test_case_impurity.call_type_check(**erroneous_input)
