@@ -25,17 +25,16 @@ plt.ion()
 
 
 class correlations:
-    def __init__(self, pulse_start, pulse_end, t=[0.01, 0.08], dt=0.01):
+    def __init__(self, pulse_start, pulse_end, t=[0.01, 0.1], dt=0.01):
         if type(t) is not list:
             t = [t]
         self.t = np.array(t)
-        self.dt = dt
 
-        self.tstart = self.t - self.dt
-        self.tend = self.t + self.dt
-        # self.time = np.arange(self.tstart, self.tend, self.dt)
+        self.dt = dt
+        self.tstart = self.t - self.dt/2
+        self.tend = self.t + self.dt/2
+
         self.results = self.read_data(pulse_start, pulse_end)
-        # self.plot_trends()
 
     def init_avantes(self):
 
@@ -76,10 +75,12 @@ class correlations:
             "puff_prefill": [],
             "puff_total": [],
             "ipla": {"avrg": [], "stdev": []},
+            "ipla_max": [],
+            "wp_max": [],
             "wp": {"avrg": [], "stdev": []},
             "rip": {"avrg": [], "stdev": []},
-            "imc": {"max": [], "time": []},
-            "imc_rip": {"avrg": [], "stdev": []},
+            "imc": [],
+            "imc_rip_20": {"avrg": [], "stdev": []},
             "nirh1": {"avrg": [], "stdev": []},
             "smmh1": {"avrg": [], "stdev": []},
             "brems_pi": {"avrg": [], "stdev": []},
@@ -126,6 +127,14 @@ class correlations:
                 magnetics = pfit
                 if magnetics["time"][0] == None:
                     continue
+
+            if np.max(magnetics["ipla"]) < 0.1e6:
+                continue
+
+            ind = np.where(magnetics["ipla"] > 0)[0]
+            if magnetics["time"][ind].max() < 0.03:
+                continue
+
             mc = self.get_imc(reader)
             nirh1 = self.get_nirh1(reader)
             smmh1 = self.get_smmh1(reader)
@@ -133,17 +142,28 @@ class correlations:
             brems_pi, brems_mp = self.get_brems(reader)
             xrcs = self.get_xrcs(reader)
             nbi = self.get_nbi(reader)
-            # mc = self.get_mc(reader)
 
             results["pulses"].append(pulse)
 
             tmp = self.init_results_dict()
+
+            tmp["ipla_max"].append(np.max(magnetics["ipla"]))
+            tmp["wp_max"].append(np.max(magnetics["wp"]))
+            tmp["imc"].append(np.max(mc["imc"]))
+
+            avrg, std = calc_mean_std(
+                pfit["time"], pfit["rip"], 0.015, 0.025, upper=2.0e6,
+            )
+            tmp["imc_rip_20"]["avrg"].append(np.max(mc["imc"]) * avrg)
+            tmp["imc_rip_20"]["stdev"].append(np.max(mc["imc"]) * std)
+
             for tind in range(np.size(self.tstart)):
                 avrg, std = calc_mean_std(
                     magnetics["time"],
                     magnetics["ipla"],
                     self.tstart[tind],
                     self.tend[tind],
+                    lower=0.1e6,
                     upper=2.0e6,
                 )
                 tmp["ipla"]["avrg"].append(avrg)
@@ -166,16 +186,8 @@ class correlations:
                     self.tend[tind],
                     upper=2.0e6,
                 )
-
-                ind = np.argmax(mc["imc"])
-                tmp["imc"]["max"].append(mc["imc"][ind])
-                tmp["imc"]["time"].append(mc["time"][ind])
-
                 tmp["rip"]["avrg"].append(avrg)
                 tmp["rip"]["stdev"].append(std)
-
-                tmp["imc_rip"]["avrg"].append(mc["imc"][ind] * avrg)
-                tmp["imc_rip"]["stdev"].append(mc["imc"][ind] * std)
 
                 puff_total = np.nan
                 puff_prefill = np.nan
@@ -199,6 +211,8 @@ class correlations:
                     self.tend[tind],
                     upper=1.0e21,
                 )
+                if std / avrg > 0.1:
+                    avrg = np.nan
                 tmp["nirh1"]["avrg"].append(avrg)
                 tmp["nirh1"]["stdev"].append(std)
 
@@ -209,6 +223,8 @@ class correlations:
                     self.tend[tind],
                     upper=1.0e21,
                 )
+                if std / avrg > 0.1:
+                    avrg = np.nan
                 tmp["smmh1"]["avrg"].append(avrg)
                 tmp["smmh1"]["stdev"].append(std)
 
@@ -218,6 +234,8 @@ class correlations:
                     self.tstart[tind],
                     self.tend[tind],
                 )
+                if std / avrg > 0.1:
+                    avrg = np.nan
                 tmp["brems_pi"]["avrg"].append(avrg)
                 tmp["brems_pi"]["stdev"].append(std)
 
@@ -227,18 +245,24 @@ class correlations:
                     self.tstart[tind],
                     self.tend[tind],
                 )
+                if std / avrg > 0.1:
+                    avrg = np.nan
                 tmp["brems_mp"]["avrg"].append(avrg)
                 tmp["brems_mp"]["stdev"].append(std)
 
                 avrg, std = calc_mean_std(
                     xrcs["time"], xrcs["te"], self.tstart[tind], self.tend[tind]
                 )
+                if std / avrg > 0.1:
+                    avrg = np.nan
                 tmp["xrcs_te"]["avrg"].append(avrg)
                 tmp["xrcs_te"]["stdev"].append(std)
 
                 avrg, std = calc_mean_std(
                     xrcs["time"], xrcs["ti"], self.tstart[tind], self.tend[tind]
                 )
+                if std / avrg > 0.1:
+                    avrg = np.nan
                 tmp["xrcs_ti"]["avrg"].append(avrg)
                 tmp["xrcs_ti"]["stdev"].append(std)
 
@@ -270,6 +294,8 @@ class correlations:
                     avrg, std = calc_mean_std(
                         line_time, line_data, self.tstart[tind], self.tend[tind]
                     )
+                    if std / avrg > 0.1:
+                        avrg = np.nan
                     lines_avrg.append(avrg)
                     lines_stdev.append(std)
 
@@ -459,8 +485,24 @@ class correlations:
         if savefig:
             save_figure(fig_name=name + "_ipla")
 
-        ylab, tit = ("$(a.u.)$", "$I_{MC} * RIP$" + add_tit)
-        self.plot_evol("imc_rip", 1.0, lab, xlab, ylab, tit)
+        ylab, tit = ("$(MA)$", "Max Plasma Current" + add_tit)
+        self.plot_evol("ipla_max", 1.0e-6, [""], xlab, ylab, tit, tind=[0])
+        plt.ylim(0,)
+        add_vlines(BORONISATION)
+        add_vlines(GDC, color="r")
+        if savefig:
+            save_figure(fig_name=name + "_ipla_max")
+
+        ylab, tit = ("$(kJ)$", "Max Stored Energy" + add_tit)
+        self.plot_evol("wp_max", 1.0e-3, [""], xlab, ylab, tit, tind=[0])
+        plt.ylim(0,)
+        add_vlines(BORONISATION)
+        add_vlines(GDC, color="r")
+        if savefig:
+            save_figure(fig_name=name + "_wp_max")
+
+        ylab, tit = ("$(a.u.)$", "$Max(I_{MC}) * RIP$(t=20 ms)" + add_tit)
+        self.plot_evol("imc_rip_20", 1.0, [""], xlab, ylab, tit, tind=[0])
         plt.ylim(0,)
         add_vlines(BORONISATION)
         add_vlines(GDC, color="r")
@@ -555,7 +597,7 @@ class correlations:
         if savefig:
             save_figure(fig_name=name + "_xrcs_ti")
 
-        ylab, tit = ("$(a.u.)$", "NBI Power" + add_tit)
+        ylab, tit = ("$(V * I)$", "NBI Power" + add_tit)
         self.plot_evol("nbi", 1.0, lab, xlab, ylab, tit)
         plt.ylim(0,)
         add_vlines(BORONISATION)
@@ -641,11 +683,23 @@ class correlations:
         return temporary
 
     def plot_evol(
-        self, key, const, label, xlabel, ylabel, title, fig=True, iline=None, xlim=None
+        self,
+        key,
+        const,
+        label,
+        xlabel,
+        ylabel,
+        title,
+        fig=True,
+        iline=None,
+        xlim=None,
+        tind=None,
     ):
         if fig:
             plt.figure()
-        for it, t in enumerate(self.t):
+        if tind is None:
+            tind = list(range(len(self.t)))
+        for it in tind:
             if iline is not None:
                 plt.errorbar(
                     np.array(self.results["pulses"]),
@@ -698,6 +752,7 @@ def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
 
 
 def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None):
+
     avrg = np.nan
     std = 0.0
     offset = 0
@@ -713,14 +768,44 @@ def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None)
             it *= data < upper
 
         it = np.where(it)[0]
+        if len(it) > 1:
+            if toffset is not None:
+                it_offset = np.where(time <= toffset)[0]
+                if len(it_offset) > 1:
+                    offset = np.mean(data[it_offset])
 
-        if toffset is not None:
-            it_offset = np.where(time <= toffset)[0]
-            if len(it_offset) > 1:
-                offset = np.mean(data[it_offset])
-
-        avrg = np.mean(data[it] + offset)
-        if len(it) >= 2:
-            std = np.std(data[it] + offset)
+            avrg = np.mean(data[it] + offset)
+            if len(it) >= 2:
+                std = np.std(data[it] + offset)
 
     return avrg, std
+
+
+def bin_in_time(data, time, dt, tstart=None, tend=None, overlap=0.5):
+
+    if dt < 2 * (time[1] - time[0]):
+        return data, time
+
+    if tstart is None:
+        tstart = time.min()
+    if tend is None:
+        tend = time.max()
+    time_new = []
+    data_new = []
+    err_new = []
+
+    tstart_new = tstart
+    while tstart_new < (tend - dt):
+        tend_new = tstart_new + dt
+
+        tind = (time >= tstart_new) * (time < tend_new)
+        time_new.append(tstart + dt / 2.0)
+        data_new.append(np.mean(data[tind]))
+        err_new.append(np.std(data[tind]))
+
+        tstart_new += dt * overlap
+
+    data = data_new
+    time = time_new
+
+    return data, time
