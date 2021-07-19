@@ -322,7 +322,7 @@ def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr
     if savefig:
         save_figure(fig_name=name + "_thermal_pressure")
 
-    # Plasma energy
+    # Stored energy
     # --------------------------------------------
     plt.figure()
     wmhd = data1.wmhd
@@ -404,15 +404,15 @@ def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr
 
     # LOS-integrated electron density
     # --------------------------------------------
-    plt.figure()
     interferom = ["nirh1", "smmh1"]
     marker = ["o", "s"]
-    ylim = [0, 0]
     for isys, system in enumerate(interferom):
         if not hasattr(data1, system):
             continue
+
+        plt.figure()
         interf_data1 = getattr(data1, system)
-        ylim[1] = np.max([ylim[1], interf_data1.max()])
+        ylim = [0, interf_data1.max()]
         if correl != "t":
             interf_data1.assign_coords(correl=("t", x_val))
             interf_data1 = interf_data1.swap_dims({"t": "correl"})
@@ -444,14 +444,14 @@ def HDAplot(data1, data2=None, label1="", label2="bckc", correl="t", plot_spectr
                     marker=marker[isys],
                     facecolors="none",
                 )
-    ylim[1] *= 1.05
-    plt.title("$N_{e}$ LOS-integrated")
-    plt.ylabel("($m^{-2}$)")
-    plt.xlabel(correl_label(correl))
-    plt.legend()
-    plt.ylim(ylim)
-    if savefig:
-        save_figure(fig_name=name + "_interf")
+        ylim[1] *= 1.05
+        plt.title("$N_{e}$ LOS-integrated")
+        plt.ylabel("($m^{-2}$)")
+        plt.xlabel(correl_label(correl))
+        plt.legend()
+        plt.ylim(ylim)
+        if savefig:
+            save_figure(fig_name=name + f"_interf_{system}")
 
     # Spectrometer emission characteristics and
     # element ionization balance
