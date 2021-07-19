@@ -415,7 +415,7 @@ class Equilibrium(AbstractEquilibrium):
         return (
             DataArray(
                 data=area,
-                coords={"t": t, "rho": rho},
+                coords=[("t", t), ("rho", rho)],
                 dims=["t", "rho"],
             ),
             cast(LabeledArray, t),
@@ -426,7 +426,7 @@ class Equilibrium(AbstractEquilibrium):
         rho: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[DataArray, LabeledArray, DataArray]:
+    ) -> Tuple[DataArray, DataArray, LabeledArray]:
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
@@ -465,13 +465,13 @@ class Equilibrium(AbstractEquilibrium):
 
         # Cross-sectional area calculated by integrating:
         # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
-        area_arr, _ = self.cross_sectional_area(rho, t, kind=kind)
+        area, _ = self.cross_sectional_area(rho, t, kind=kind)
 
         # Vol = area * toroidal circumference measure at the magnetic axis
-        vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
+        vol_enclosed = area * 2 * np.pi * major_radius_axis
         vol_enclosed.name = "Enclosed volumes (m^3)"
 
-        return vol_enclosed, t, area_arr  # return area
+        return vol_enclosed, area, t
 
     def invert_enclosed_volume(
         self,
