@@ -17,29 +17,21 @@ class Exception_Mean_Charge_Test_Case(unittest.TestCase):
     def __init__(self):
         pass
 
-    def frac_abund_obj_type_check(self, F_z_t, element):
-        """Test type error for MeanCharge call"""
+    def call_type_check(self, F_z_t, element):
         with self.assertRaises(TypeError):
-            example_check = MeanCharge()
-            example_check(F_z_t, element)
+            example_mean_charge = MeanCharge()
+            example_mean_charge(F_z_t, element)
 
-    def element_type_check(self, F_z_t, element):
-        """Test type error for MeanCharge call"""
-        with self.assertRaises(TypeError):
-            example_check = MeanCharge()
-            example_check(F_z_t, element)
-
-    def element_value_check(self, F_z_t, element):
-        """Test value error for MeanCharge call"""
+    def call_value_check(self, F_z_t, element):
         with self.assertRaises(ValueError):
-            example_check = MeanCharge()
-            example_check(F_z_t, element)
+            example_mean_charge = MeanCharge()
+            example_mean_charge(F_z_t, element)
 
-    def ionisation_assertion_check(self, F_z_t, element):
+    def call_assertion_check(self, F_z_t, element):
         """Test assertion error for MeanCharge call"""
         with self.assertRaises(AssertionError):
-            example_check = MeanCharge()
-            example_check(F_z_t, element)
+            example_mean_charge = MeanCharge()
+            example_mean_charge(F_z_t, element)
 
 
 def test_mean_charge():
@@ -70,13 +62,17 @@ def test_mean_charge():
 
     input_check = Exception_Mean_Charge_Test_Case()
 
-    input_check.frac_abund_obj_type_check(F_z_t0.data, element_name)
+    input_check.call_type_check(F_z_t0.data, element_name)
+    input_check.call_value_check(F_z_t0 * -1, element_name)
+    input_check.call_value_check(F_z_t0 * -np.inf, element_name)
+    input_check.call_value_check(F_z_t0 * np.inf, element_name)
+    input_check.call_value_check(F_z_t0 * np.nan, element_name)
 
-    input_check.element_type_check(F_z_t0, 4)
+    input_check.call_type_check(F_z_t0, 4)
 
-    input_check.element_value_check(F_z_t0, "xy")
+    input_check.call_value_check(F_z_t0, "xy")
 
-    input_check.ionisation_assertion_check(F_z_t0[0:3], element_name)
+    input_check.call_assertion_check(F_z_t0[0:3], element_name)
 
     example_mean_charge = MeanCharge()
 
