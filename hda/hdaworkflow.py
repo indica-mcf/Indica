@@ -86,15 +86,100 @@ class HDArun:
 
         # self.data.propagate_parameters()
 
-    def write_for_astra(self):
-        # For BCKC: don't trust Ne, look for match with stored energy
+    def __call__(self, *args, **kwargs):
         self.match_energy()
+        # self.kinetic_profiles()
+        self.plot()
 
-        # For DATA: trust Ne, recover stored energy
-        self.kinetic_profiles()
+    def profiles_ohmic(self):
 
-        self.write(self.data, descr=self.descr_data, run_name="RUN01")
-        self.write(self.bckc, descr=self.descr_bckc, run_name="RUN03")
+        ne_0 = 5.e19
+        self.data.profs.ne = self.data.profs.build_density(
+            y_0=ne_0,
+            y_ped=ne_0,
+            x_ped=0.88,
+            w_core=4.0,
+            w_edge=0.1,
+            datatype=("density", "electron"),
+        )
+        te_0 = 1.e3
+        self.data.profs.te = self.data.profs.build_temperature(
+            y_0=te_0,
+            y_ped=50,
+            x_ped=1.,
+            w_core=0.6,
+            w_edge=0.05,
+            datatype=("temperature", "electron"),
+        )
+        ti_0 = 1.e3
+        self.data.profs.ti = self.data.profs.build_temperature(
+            y_0=ti_0,
+            y_ped=50,
+            x_ped=1.,
+            w_core=7,
+            w_edge=0.05,
+            datatype=("temperature", "ion"),
+        )
+
+        for t in self.data.time:
+            self.data.el_dens.loc[dict(t=t)] = self.data.profs.ne.values
+            self.data.el_temp.loc[dict(t=t)] = self.data.profs.te.values
+            for elem in self.data.elements:
+                self.data.ion_temp.loc[dict(t=t, element=elem)] = self.data.profs.ti.values
+        self.data.match_interferometer(self.interf)
+        self.data.simulate_spectrometers()
+        self.data.match_xrcs()
+
+        self.data.calc_main_ion_dens(fast_dens=False)
+
+    def profiles_nbi(self):
+        # slight central peaking and lower separatrix
+        ne_0 = 5.e19
+        self.data.profs.ne = self.data.profs.build_density(
+            y_0=ne_0,
+            y_ped=ne_0 / 1.25,
+            x_ped=0.85,
+            w_core=4.0,
+            w_edge=0.1,
+            datatype=("density", "electron"),
+        )
+        te_0 = 1.e3
+        self.data.profs.te = self.data.profs.build_temperature(
+            y_0=te_0,
+            y_ped=50,
+            x_ped=1.,
+            w_core=0.6,
+            w_edge=0.05,
+            datatype=("temperature", "electron"),
+        )
+        ti_0 = 1.e3
+        self.data.profs.ti = self.data.profs.build_temperature(
+            y_0=ti_0,
+            y_ped=50,
+            x_ped=1.,
+            w_core=7,
+            w_edge=0.05,
+            datatype=("temperature", "ion"),
+        )
+
+        for t in self.data.time:
+            self.data.el_dens.loc[dict(t=t)] = self.data.profs.ne.values
+            self.data.el_temp.loc[dict(t=t)] = self.data.profs.te.values
+            for elem in self.data.elements:
+                self.data.ion_temp.loc[dict(t=t, element=elem)] = self.data.profs.ti.values
+        self.data.match_interferometer(self.interf)
+        self.data.simulate_spectrometers()
+        self.data.match_xrcs()
+
+        self.data.calc_main_ion_dens(fast_dens=False)
+
+    def write_for_astra(self, run_name, descr, bckc=True):
+        if bckc:
+            to_write = self.bckc
+        else:
+            to_write = self.data
+        self.write(to_write, descr=descr, run_name=run_name)
+        # self.write(self.bckc, descr=self.descr_bckc, run_name=run_name)
 
     def kinetic_profiles(self):
         """
@@ -107,10 +192,12 @@ class HDArun:
         """
         Recover only kinetic profiles, not Wp
         """
-        self.descr_bckc = "Standard profiles, adapt Ne to match Wmhd, c_C=3%"
         self.initialize_bckc(pure=False)
+        self.descr_bckc = f"Standard profiles, adapt Ne to match Wmhd, c_C={int(self.bckc.ion_conc[1]*100)}%"
         # self.match_xrcs()
         self.recover_density()
+        self.data.simulate_spectrometers()
+        self.data.propagate_parameters()
 
     def write(self, data:HDAdata, modelling=True, descr="", pulseNo=None, run_name="RUN01"):
         if pulseNo is None:
@@ -147,11 +234,14 @@ class HDArun:
         bckc = None
         if hasattr(self, "bckc"):
             bckc = self.bckc
+        name_tmp = str(self.pulse)
+        if len(name) > 0:
+            name_tmp += f"_{name}"
         HDAplot(
             data,
             bckc,
             savefig=savefig,
-            name=name,
+            name=name_tmp,
             correl=correl,
             plot_spectr=plot_spectr,
         )

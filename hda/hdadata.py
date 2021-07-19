@@ -232,14 +232,14 @@ class HDAdata:
         )
         self.min_r = min_r
 
-        # approximate area and volume for quasi-circular geometry
-        # with minor radius = flux-surface averaged value
-        # area, _ = self.equilibrium.cross_sectional_area(
-        #         self.equilibrium.rmji.rho_poloidal,
-        #     )
+        volume, area, _ = self.equilibrium.enclosed_volume(
+            self.rho, t=self.time,
+        )
+        # area = (math.pi * self.min_r ** 2).values
+        # volume = (self.area * 2 * math.pi * self.R_0).values
 
-        self.area.values = (math.pi * self.min_r ** 2).values
-        self.volume.values = (self.area * 2 * math.pi * self.R_0).values
+        self.area.values = area.values
+        self.volume.values = volume.values
 
         self.r_a.values = self.min_r.sel(rho_poloidal=1.0)
         self.r_b.values = self.r_a.values
@@ -385,7 +385,7 @@ class HDAdata:
         print(f"\n Re-calculating density profiles to match {interf} values \n")
 
         self.el_dens *= getattr(self, interf) / self.calc_ne_los_int(interf)
-        self.el_dens = self.el_dens
+        # self.el_dens = self.el_dens
 
         # Recalculate interferometer data
         if hasattr(self, "nirh1"):
@@ -397,6 +397,7 @@ class HDAdata:
         """
         Propagate all parameters to maintain parameter consistency
         """
+        self.match_xrcs()
         self.build_current_density()
         self.calc_magnetic_field()
         self.calc_meanz()

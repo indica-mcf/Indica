@@ -336,6 +336,7 @@ def organise_data(data):
             "TIV": (Float32(tiv), "eV", ["TIME"]),
             "NEV": (Float32(nev), "m^-3", ["TIME"]),
             "WTH": (Float32(data.wmhd.values), "J", ["TIME"]),
+            "UPL": (Float32(data.vloop.values), "V", ["TIME"]),
             "ZEFF": (
                 Float32(data.zeff.sum("element").sel(rho_poloidal=0).values),
                 "",
