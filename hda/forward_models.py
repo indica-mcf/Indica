@@ -20,6 +20,8 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+import matplotlib.pylab as plt
+
 from hda.hdaadas import ADASReader
 from hda.atomdat import fractional_abundance
 from hda.atomdat import get_atomdat
@@ -168,13 +170,19 @@ class Spectrometer:
         time = electron_temperature.coords["t"]
 
         # TODO: calculate rho along LOS here if not given in input
-        rho_los = self.geometry["rho"]
-        el_dens_los = electron_density.interp(rho_poloidal=rho_los)
-        el_dens_los = xr.where(rho_los <= 1, el_dens_los, 0)
-        el_temp_los = electron_temperature.interp(rho_poloidal=rho_los)
-        el_temp_los = xr.where(rho_los <= 1, el_temp_los, 0)
-        ion_temp_los = ion_temperature.interp(rho_poloidal=rho_los)
-        ion_temp_los = xr.where(rho_los <= 1, ion_temp_los, 0)
+        if self.geometry is not None:
+            rho_los = self.geometry["rho"]
+            el_dens_los = electron_density.interp(rho_poloidal=rho_los)
+            el_dens_los = xr.where(rho_los <= 1, el_dens_los, 0)
+            el_temp_los = electron_temperature.interp(rho_poloidal=rho_los)
+            el_temp_los = xr.where(rho_los <= 1, el_temp_los, 0)
+            ion_temp_los = ion_temperature.interp(rho_poloidal=rho_los)
+            ion_temp_los = xr.where(rho_los <= 1, ion_temp_los, 0)
+        else:
+            rho_los = electron_temperature.coords["rho_poloidal"]
+            el_dens_los = electron_density
+            el_temp_los = electron_temperature
+            ion_temp_los = ion_temperature
 
         fz = self.atomdat["fz"].interp(
             electron_temperature=el_temp_los, method="quadratic"
@@ -185,7 +193,8 @@ class Spectrometer:
             )
             * el_dens_los ** 2
         )
-        emiss = xr.where((rho_los <= 1) * np.isfinite(emiss), emiss, 0)
+        if self.geometry is not None:
+            emiss = xr.where((rho_los <= 1) * np.isfinite(emiss), emiss, 0)
 
         self.fz = fz
         self.emiss = emiss
@@ -199,7 +208,10 @@ class Spectrometer:
         self.ion_temp = DataArray(deepcopy(vals), coords=coords, attrs=deepcopy(attrs))
 
         for i, t in enumerate(time):
-            rho_tmp = rho_los.sel(t=t).values
+            if self.geometry is not None:
+                rho_tmp = rho_los.sel(t=t).values
+            else:
+                rho_tmp = rho_los
             rho_min = np.min(rho_tmp)
             x = np.array(range(len(emiss.sel(t=t))))
             y = emiss.sel(t=t)
