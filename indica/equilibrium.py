@@ -366,6 +366,9 @@ class Equilibrium(AbstractEquilibrium):
             Values of rho at which to calculate the cross-sectional area.
         t
             Values of time at which to calculate the cross-sectional area.
+        ntheta
+            Number subdivisions of 2 * pi to integrate over for the cross-
+            sectional area.
         kind
             The type of flux surface to use. May be "toroidal", "poloidal",
             plus optional extras depending on implementation.
@@ -374,6 +377,9 @@ class Equilibrium(AbstractEquilibrium):
         -------
         area
             Cross-sectional areas calculated at rho and t.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
         """
         if t is None:
             t = self.rho.coords["t"]
