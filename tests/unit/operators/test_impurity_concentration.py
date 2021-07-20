@@ -168,7 +168,7 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
 def test_impurity_concentration():
     example_ = ImpurityConcentration()
 
-    R_arr = np.linspace(1.83, 3.9, 20)
+    # R_arr = np.linspace(1.83, 3.9, 20)
     rho = np.linspace(0.0, 1.5, 10)
     t = np.linspace(77.5, 82.5, 5)
     # t = np.array([80.0])
@@ -193,21 +193,32 @@ def test_impurity_concentration():
         },
     )
 
+    rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0, 1.05])
+
+    electron_density = DataArray(
+        data=np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3, 0.0]),
+        coords={"rho": rho_profile},
+        dims=["rho"],
+    )
+
+    beryllium_impurity_conc = 0.03 * electron_density
+    neon_impurity_conc = 0.02 * electron_density
+    nickel_impurity_conc = 0.0002 * electron_density
+    tungsten_impurity_conc = 0.00005 * electron_density
+
     # be, c, ne, w
-    elements = [4, 6, 10, 74]
+    elements = [4, 10, 28, 74]
     elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in elements]
 
     impurity_densities = DataArray(
-        data=np.ones((len(elements), *R_arr.shape, *rho.shape, *t.shape)) * 1e19,
-        coords=[("elements", elements), ("R", R_arr), ("rho", rho), ("t", t)],
-        dims=["elements", "R", "rho", "t"],
+        data=np.ones((len(elements), *rho.shape, *t.shape)),
+        coords=[("elements", elements), ("rho", rho), ("t", t)],
+        dims=["elements", "rho", "t"],
     )
-
-    electron_density = DataArray(
-        data=np.ones((*rho.shape, *t.shape)) * 5e19,
-        coords={"rho": rho, "t": t},
-        dims=["rho", "t"],
-    )
+    impurity_densities.data[0] = beryllium_impurity_conc
+    impurity_densities.data[1] = neon_impurity_conc
+    impurity_densities.data[2] = nickel_impurity_conc
+    impurity_densities.data[3] = tungsten_impurity_conc
 
     mean_charge = zeros_like(impurity_densities)
     mean_charge = mean_charge.isel(R=0)
