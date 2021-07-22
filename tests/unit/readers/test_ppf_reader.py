@@ -143,7 +143,6 @@ def test_authentication(fake_sal, pulse, time_range, error, freq, user, password
     edited_revisions,
     lists(sampled_from(["te", "ne"]), min_size=1, unique=True).map(set),
 )
-@settings(report_multiple_bugs=False)
 def test_get_thomson_scattering(
     fake_sal,
     pulse,
@@ -356,6 +355,7 @@ def test_get_equilibrium(
     edited_revisions,
     sane_floats(),
 )
+@settings(deadline=500)
 def test_get_cyclotron_emissions(
     fake_sal,
     pulse,
@@ -445,7 +445,6 @@ def test_get_cyclotron_emissions(
     lists(sampled_from(["h", "t", "v"]), min_size=1, unique=True).map(set),
     lines_of_sight,
 )
-@settings(report_multiple_bugs=False)
 def test_get_sxr(
     fake_sal,
     pulse,
