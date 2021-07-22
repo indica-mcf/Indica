@@ -125,6 +125,7 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Impurity concentration of given element",
         "",
     ),
+    "toroidal_rotation": ("Toroidal rotation speed of the plasma", ""),
 }
 
 #: A dictionary containing information on what the general datatype is
@@ -523,6 +524,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "toroidal_flux",
             "vol_jacobian",
             "weighting",
+            "toroidal_rotation",
         ],
         "separatrix": ["magnetic_flux", "major_rad", "minor_rad", "z", "weighting"],
         "sxr": ["luminous_flux", "weighting"],
