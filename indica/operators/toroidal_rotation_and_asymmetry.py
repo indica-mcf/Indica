@@ -43,7 +43,7 @@ class ToroidalRotation(Operator):
         main_ion_mass,
         impurity_masses,
         mean_charges,
-        Zeff_diag,
+        Zeff,
         electron_temp,
         impurity_element,
     )
@@ -133,7 +133,7 @@ class ToroidalRotation(Operator):
         main_ion_mass: float,
         impurity_masses: DataArray,
         mean_charges: DataArray,
-        Zeff_diag: DataArray,
+        Zeff: DataArray,
         electron_temp: DataArray,
         impurity_element: str,
     ):
@@ -152,7 +152,7 @@ class ToroidalRotation(Operator):
         mean_charges
             xarray.DataArray containing data of the mean chgarges of all
             impurity elements.
-        Zeff_diag
+        Zeff
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data.
@@ -179,7 +179,7 @@ class ToroidalRotation(Operator):
 
         self.input_check("mean_charges", mean_charges, DataArray, 3, True)
 
-        self.input_check("Zeff_diag", Zeff_diag, DataArray, 2, True)
+        self.input_check("Zeff", Zeff, DataArray, 2, True)
 
         self.input_check("electron_temp", electron_temp, DataArray, 2, False)
 
@@ -193,8 +193,8 @@ class ToroidalRotation(Operator):
         toroidal_rotation = 2.0 * ion_temperature * asymmetry_parameter
         toroidal_rotation /= impurity_mass * (
             1.0
-            - (mean_charge * main_ion_mass * Zeff_diag * electron_temp)
-            / (impurity_mass * (ion_temperature + Zeff_diag * electron_temp))
+            - (mean_charge * main_ion_mass * Zeff * electron_temp)
+            / (impurity_mass * (ion_temperature + Zeff * electron_temp))
         )
 
         toroidal_rotation = toroidal_rotation ** 0.5
@@ -230,7 +230,7 @@ class AsymmetryParameter(Operator):
         main_ion_mass,
         impurity_masses,
         mean_charges,
-        Zeff_diag,
+        Zeff,
         electron_temp,
         impurity_element,
     )
@@ -316,7 +316,7 @@ class AsymmetryParameter(Operator):
         main_ion_mass: float,
         impurity_masses: DataArray,
         mean_charges: DataArray,
-        Zeff_diag: DataArray,
+        Zeff: DataArray,
         electron_temp: DataArray,
         impurity_element: str,
     ):
@@ -335,7 +335,7 @@ class AsymmetryParameter(Operator):
         mean_charges
             xarray.DataArray containing data of the mean chgarges of all
             impurity elements.
-        Zeff_diag
+        Zeff
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data.
@@ -360,7 +360,7 @@ class AsymmetryParameter(Operator):
 
         self.input_check("mean_charges", mean_charges, DataArray, 3, True)
 
-        self.input_check("Zeff_diag", Zeff_diag, DataArray, 2, True)
+        self.input_check("Zeff", Zeff, DataArray, 2, True)
 
         self.input_check("electron_temp", electron_temp, DataArray, 2, False)
 
@@ -375,7 +375,7 @@ class AsymmetryParameter(Operator):
             impurity_mass * (toroidal_rotations ** 2) / (2.0 * ion_temperature)
         )
         asymmetry_parameter *= 1.0 - (
-            mean_charge * main_ion_mass * Zeff_diag * electron_temp
-        ) / (impurity_mass * (ion_temperature + Zeff_diag * electron_temp))
+            mean_charge * main_ion_mass * Zeff * electron_temp
+        ) / (impurity_mass * (ion_temperature + Zeff * electron_temp))
 
         return asymmetry_parameter
