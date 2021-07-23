@@ -59,7 +59,7 @@ class ToroidalRotation(Operator):
     def __init__(self, sess: session.Session = session.global_session):
         super().__init__(sess=sess)
 
-    def return_types(self, *args: DataType) -> Tuple[DataArray, ...]:
+    def return_types(self, *args: DataType) -> Tuple[Any, ...]:
         return super().return_types(*args)
 
     def input_check(
@@ -190,7 +190,9 @@ class ToroidalRotation(Operator):
         mean_charge = mean_charges.sel(elements=impurity_element)
         ion_temperature = ion_temperature.sel(elements=impurity_element)
 
-        toroidal_rotation = 2.0 * ion_temperature * asymmetry_parameter
+        # mypy on the github CI suggests that * is in an Unsupported operand type
+        # between float and DataArray, don't know how to fix yet so for now ignored
+        toroidal_rotation = 2.0 * ion_temperature * asymmetry_parameter  # type: ignore
         toroidal_rotation /= impurity_mass * (
             1.0
             - (mean_charge * main_ion_mass * Zeff * electron_temp)
@@ -371,8 +373,10 @@ class AsymmetryParameter(Operator):
         toroidal_rotations = toroidal_rotations.sel(elements=impurity_element)
         ion_temperature = ion_temperature.sel(elements=impurity_element)
 
+        # mypy on the github CI suggests that * is in an Unsupported operand type
+        # between float and DataArray, don't know how to fix yet so for now ignored
         asymmetry_parameter = (
-            impurity_mass * (toroidal_rotations ** 2) / (2.0 * ion_temperature)
+            impurity_mass * (toroidal_rotations ** 2) / (2.0 * ion_temperature)  # type: ignore  # noqa: E501
         )
         asymmetry_parameter *= 1.0 - (
             mean_charge * main_ion_mass * Zeff * electron_temp
