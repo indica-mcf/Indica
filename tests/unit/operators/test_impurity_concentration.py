@@ -89,15 +89,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             example_ = ImpurityConcentration()
-            example_(
-                element,
-                Zeff_diag,
-                impurity_densities,
-                electron_density,
-                mean_charge,
-                flux_surfaces,
-                t,
-            )
+            example_(*inputs)
 
     def call_value_check(
         self,
@@ -135,15 +127,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             example_ = ImpurityConcentration()
-            example_(
-                element,
-                Zeff_diag,
-                impurity_densities,
-                electron_density,
-                mean_charge,
-                flux_surfaces,
-                t,
-            )
+            example_(*inputs)
 
 
 def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
