@@ -27,7 +27,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
     def __init__(
         self,
         element,
-        Zeff_diag,
+        Zeff_LoS,
         impurity_densities,
         electron_density,
         mean_charge,
@@ -36,7 +36,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
     ):
         """Initialise the test case with a set of nominal inputs."""
         self.element = element
-        self.Zeff_diag = Zeff_diag
+        self.Zeff_LoS = Zeff_LoS
         self.impurity_densities = impurity_densities
         self.electron_density = electron_density
         self.mean_charge = mean_charge
@@ -45,7 +45,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
 
         self.nominal_inputs = [
             self.element,
-            self.Zeff_diag,
+            self.Zeff_LoS,
             self.impurity_densities,
             self.electron_density,
             self.mean_charge,
@@ -56,7 +56,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
     def call_type_check(
         self,
         element=None,
-        Zeff_diag=None,
+        Zeff_LoS=None,
         impurity_densities=None,
         electron_density=None,
         mean_charge=None,
@@ -66,7 +66,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
         """Test TypeError for ImpurityConcentration call."""
         inputs = [
             element,
-            Zeff_diag,
+            Zeff_LoS,
             impurity_densities,
             electron_density,
             mean_charge,
@@ -79,7 +79,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
 
         (
             element,
-            Zeff_diag,
+            Zeff_LoS,
             impurity_densities,
             electron_density,
             mean_charge,
@@ -94,7 +94,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
     def call_value_check(
         self,
         element=None,
-        Zeff_diag=None,
+        Zeff_LoS=None,
         impurity_densities=None,
         electron_density=None,
         mean_charge=None,
@@ -104,7 +104,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
         """Test ValueError for ImpurityConcentration call."""
         inputs = [
             element,
-            Zeff_diag,
+            Zeff_LoS,
             impurity_densities,
             electron_density,
             mean_charge,
@@ -117,7 +117,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
 
         (
             element,
-            Zeff_diag,
+            Zeff_LoS,
             impurity_densities,
             electron_density,
             mean_charge,
@@ -258,7 +258,7 @@ def test_impurity_concentration():
 
     t = np.linspace(75.0, 80.0, 5)
 
-    Zeff_diag = DataArray(
+    Zeff_LoS = DataArray(
         data=np.ones(*t.shape) * 1.85,
         coords={"t": t},
         dims=["t"],
@@ -270,11 +270,9 @@ def test_impurity_concentration():
                 R_end=np.array([3.8]),
                 z_end=np.array([0.3]),
                 T_end=np.array([0.0]),
-                name="Zeff_diag",
+                name="Zeff_LoS",
             ),
-            "Zeff_diag_coords": DataArray(
-                data=np.array([0]), dims=["Zeff_diag_coords"]
-            ),
+            "Zeff_LoS_coords": DataArray(data=np.array([0]), dims=["Zeff_LoS_coords"]),
         },
     )
 
@@ -370,7 +368,7 @@ def test_impurity_concentration():
 
     nominal_inputs = {
         "element": "beryllium",
-        "Zeff_diag": Zeff_diag,
+        "Zeff_LoS": Zeff_LoS,
         "impurity_densities": impurity_densities,
         "electron_density": electron_density,
         "mean_charge": mean_charge,
@@ -416,22 +414,22 @@ def test_impurity_concentration():
     erroneous_input = {"t": nominal_inputs["t"].expand_dims("blank")}
     test_case_impurity.call_value_check(**erroneous_input)
 
-    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"].data}
+    erroneous_input = {"Zeff_LoS": nominal_inputs["Zeff_LoS"].data}
     test_case_impurity.call_type_check(**erroneous_input)
 
-    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * -1}
+    erroneous_input = {"Zeff_LoS": nominal_inputs["Zeff_LoS"] * -1}
     test_case_impurity.call_value_check(**erroneous_input)
 
-    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * np.inf}
+    erroneous_input = {"Zeff_LoS": nominal_inputs["Zeff_LoS"] * np.inf}
     test_case_impurity.call_value_check(**erroneous_input)
 
-    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * -np.inf}
+    erroneous_input = {"Zeff_LoS": nominal_inputs["Zeff_LoS"] * -np.inf}
     test_case_impurity.call_value_check(**erroneous_input)
 
-    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"] * np.nan}
+    erroneous_input = {"Zeff_LoS": nominal_inputs["Zeff_LoS"] * np.nan}
     test_case_impurity.call_value_check(**erroneous_input)
 
-    erroneous_input = {"Zeff_diag": nominal_inputs["Zeff_diag"].expand_dims("blank")}
+    erroneous_input = {"Zeff_LoS": nominal_inputs["Zeff_LoS"].expand_dims("blank")}
     test_case_impurity.call_value_check(**erroneous_input)
 
     erroneous_input = {"impurity_densities": nominal_inputs["impurity_densities"].data}
