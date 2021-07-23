@@ -39,6 +39,22 @@ class MainIonDensity(Operator):
         ndim_to_check: Optional[int] = None,
         greater_than_or_equal_zero: Optional[bool] = None,
     ):
+        """Check validity of inputted variable - type check and
+        various value checks(no infinities, greather than (or equal to) 0 or NaNs)
+
+        Parameters
+        ----------
+        var_name
+            Name of variable to check.
+        var_to_check
+            Variable to check.
+        var_type
+            Type to check variable against, eg. DataArray
+        ndim_to_check
+            Integer to check the number of dimensions of the variable.
+        greater_than_or_equal_zero
+            Boolean to check values in variable > 0 or >= 0.
+        """
         try:
             assert isinstance(var_to_check, var_type)
         except AssertionError:
@@ -85,6 +101,26 @@ class MainIonDensity(Operator):
         electron_density: DataArray,
         mean_charge: DataArray,
     ):
+        """Calculates the main ion density from given impurity densities
+        and mean charge.
+
+        Parameters
+        ----------
+        impurity_densities
+            xarray.DataArray of impurity densities for all impurity elements
+            of interest.
+        electron_density
+            xarray.DataArray of electron density
+        mean_charge
+            xarray.DataArray of mean charge of all impurity elements of interest.
+            This can be provided manually (with dimensions of ["elements", "rho", "t]),
+            or can be passed as the results of MeanCharge.__call__
+
+        Returns
+        -------
+        main_ion_density
+            xarray.DataArray of the main ion density.
+        """
         # no ndim check since impurity densities can have coords:
         # [elements, rho, t] or [elements, R, z, t]
         self.input_check(
