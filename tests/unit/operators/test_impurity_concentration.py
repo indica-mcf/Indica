@@ -1,3 +1,4 @@
+from typing import Dict
 import unittest
 from unittest.mock import MagicMock
 
@@ -21,6 +22,8 @@ from ..test_equilibrium_single import equilibrium_dat_and_te
 
 
 class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
+    """Test case for testing type and value errors in ImpurityConcentration call."""
+
     def __init__(
         self,
         element,
@@ -31,6 +34,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
         flux_surfaces,
         t,
     ):
+        """Initialise the test case with a set of nominal inputs."""
         self.element = element
         self.Zeff_diag = Zeff_diag
         self.impurity_densities = impurity_densities
@@ -59,6 +63,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
         flux_surfaces=None,
         t=None,
     ):
+        """Test TypeError for ImpurityConcentration call."""
         inputs = [
             element,
             Zeff_diag,
@@ -104,6 +109,7 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
         flux_surfaces=None,
         t=None,
     ):
+        """Test ValueError for ImpurityConcentration call."""
         inputs = [
             element,
             Zeff_diag,
@@ -141,6 +147,9 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
 
 
 def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
+    """Calculate and output Fractional abundance at t=infinity for calculating
+    the mean charge in test_impurity_concentration()
+    """
     if not isinstance(t, DataArray):
         if isinstance(t, np.ndarray):
             t = DataArray(data=t, coords={"t": t}, dims=["t"])
@@ -205,13 +214,55 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     return F_z_tinf
 
 
+def nominal_output_checks(
+    example_impurity_concetration: ImpurityConcentration,
+    nominal_inputs: Dict,
+    upper_limit: float,
+):
+    """Tests the output of nominal inputs for beryllium, neon, nickel and tungsten.
+
+    Parameters
+    ----------
+    example_impurity_concentration
+        Callable ImpurityConcentration object.
+    nominal_inputs
+        Dictionary of keyword arguments to pass to the ImpurityConcentration object.
+    upper_limit
+        Upper limit of concentration for the given element. (In fractional units)
+        eg. 0.04 for beryllium (which translates to 4%%)
+    """
+
+    try:
+        concentration, t = example_impurity_concetration(**nominal_inputs)
+    except Exception as e:
+        raise e
+
+    element_name = nominal_inputs["element"]
+
+    try:
+        assert np.all(concentration > 0.0)
+    except AssertionError:
+        raise ValueError(
+            f"Some concentration values for {element_name} are less than zero."
+        )
+
+    try:
+        assert np.all(concentration <= upper_limit)
+    except AssertionError:
+        raise ValueError(
+            f"Some concentration values for {element_name} are \
+                more than {upper_limit * 100}%%."
+        )
+
+
 def test_impurity_concentration():
+    """Test ImpurityConcentration.__call__."""
     example_ = ImpurityConcentration()
 
     t = np.linspace(75.0, 80.0, 5)
 
     Zeff_diag = DataArray(
-        data=np.ones(*t.shape) * 1.5,
+        data=np.ones(*t.shape) * 1.85,
         coords={"t": t},
         dims=["t"],
         attrs={
@@ -243,7 +294,7 @@ def test_impurity_concentration():
     nickel_impurity_conc = 0.0002 * electron_density
     tungsten_impurity_conc = 0.00005 * electron_density
 
-    # be, c, ne, w
+    # be, ne, ni, w
     elements = [4, 10, 28, 74]
     elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in elements]
 
@@ -330,11 +381,21 @@ def test_impurity_concentration():
         "t": DataArray(data=t, coords={"t": t}, dims=["t"]),
     }
 
-    try:
-        concentration, t = example_(**nominal_inputs)
-    except Exception as e:
-        raise e
+    nominal_output_checks(example_, nominal_inputs, 0.04)
 
+    nominal_inputs["element"] = "neon"
+
+    nominal_output_checks(example_, nominal_inputs, 0.04)
+
+    nominal_inputs["element"] = "nickel"
+
+    nominal_output_checks(example_, nominal_inputs, 1e-3)
+
+    nominal_inputs["element"] = "tungsten"
+
+    nominal_output_checks(example_, nominal_inputs, 1e-4)
+
+    # Input type and value checks
     test_case_impurity = Exception_Impurity_Concentration_Test_Case(**nominal_inputs)
 
     erroneous_input = {"element": 4}
