@@ -126,6 +126,10 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "",
     ),
     "toroidal_rotation": ("Toroidal rotation speed of the plasma", ""),
+    "mean_charge": (
+        "Mean charge of given element, in units of electron charge",
+        "",
+    ),
 }
 
 #: A dictionary containing information on what the general datatype is
@@ -540,6 +544,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "fractional_abundance",
             "total radiated power loss",
             "impurity_concentration",
+            "mean_charge",
             "time",
         ],
     },
