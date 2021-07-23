@@ -567,6 +567,9 @@ class DataReader(BaseIO):
         if "faxs" in quantities:
             quantities |= {"rmag", "zmag"}
         database_results = self._get_equilibrium(uid, instrument, revision, quantities)
+        if len(database_results.keys()) == 0:
+            print(f"No data from Equilibrium {instrument}")
+            return None
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
@@ -1551,6 +1554,10 @@ class DataReader(BaseIO):
         database_results = self._get_interferometry(
             uid, instrument, revision, quantities
         )
+        if len(database_results.keys()) == 0:
+            print(f"No data from Interferometer {instrument}")
+            return None
+
         times = database_results["times"]
         transform = LinesOfSightTransform(
             database_results["Rstart"],
