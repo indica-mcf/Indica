@@ -156,6 +156,13 @@ class ImpurityConcentration(Operator):
             return the time the results are given for.
             Otherwise return the argument.
         """
+        self.input_check(
+            "impurity_densities",
+            impurity_densities,
+            DataArray,
+            greater_than_or_equal_zero=True,
+        )
+
         self.input_check("element", element, str)
 
         elements_list = impurity_densities.coords["elements"]
@@ -174,7 +181,6 @@ class ImpurityConcentration(Operator):
             self.input_check("t", t, DataArray, 1, True)
 
         self.input_check("Zeff_diag", Zeff_diag, DataArray, 1, True)
-        self.input_check("impurity_densities", impurity_densities, DataArray, 4, True)
         self.input_check("electron_density", electron_density, DataArray, 2, False)
         self.input_check("mean_charge", mean_charge, DataArray, 3, True)
         self.input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
@@ -203,28 +209,38 @@ class ImpurityConcentration(Operator):
                 rho = rho.drop_vars("R")
                 rho = rho.drop_vars("z")
 
-        impurity_densities = impurity_densities.indica.interp2d(
-            rho=rho,
-            R=R_arr,
-            method="cubic",
-            assume_sorted=True,
-        )
+        if set(["R", "z"]).issubset(set(list(impurity_densities.coords.keys()))):
+            impurity_densities = impurity_densities.indica.interp2d(
+                z=z_arr,
+                R=R_arr,
+                method="cubic",
+                assume_sorted=True,
+            )
+        elif set(["rho"]).issubset(set(list(impurity_densities.coords.keys()))):
+            impurity_densities = impurity_densities.interp(
+                rho=rho, method="linear", assume_sorted=True
+            )
+        else:
+            raise ValueError(
+                'Inputted impurity densities does not have any compatible\
+                    coordinates: ["rho"] or ["R", "z"]'
+            )
 
         impurity_densities = impurity_densities.interp(
-            t=t, method="nearest", assume_sorted=True
+            t=t, method="linear", assume_sorted=True
         )
 
         electron_density = electron_density.interp(
-            rho=rho, method="cubic", assume_sorted=True
+            rho=rho, method="linear", assume_sorted=True
         )
 
         electron_density = electron_density.interp(
-            t=t, method="nearest", assume_sorted=True
+            t=t, method="linear", assume_sorted=True
         )
 
-        mean_charge = mean_charge.interp(rho=rho, method="cubic", assume_sorted=True)
+        mean_charge = mean_charge.interp(rho=rho, method="linear", assume_sorted=True)
 
-        mean_charge = mean_charge.interp(t=t, method="nearest", assume_sorted=True)
+        mean_charge = mean_charge.interp(t=t, method="linear", assume_sorted=True)
 
         dl = transform.distance(x2_name, DataArray(0), x2[0:2], 0)
         dl = dl[1]
