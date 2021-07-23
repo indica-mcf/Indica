@@ -1,3 +1,5 @@
+import unittest
+
 import numpy as np
 from xarray import DataArray
 from xarray.core.common import zeros_like
@@ -13,10 +15,28 @@ from indica.operators.spline_fit import Spline
 from indica.readers.adas import ADASReader
 from indica.utilities import broadcast_spline
 
-# import unittest
+
+class Exception_Main_Ion_Density_Test_Case(unittest.TestCase):
+    """Test case for testing type and value errors in MainIonDensity call"""
 
 
 def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
+    """Calculate and output Fractional abundance at t=infinity for calculating
+    the mean charge in test_impurity_concentration()
+
+    Parameters
+    ----------
+    element
+        String of the symbol of the element per ADAS notation
+        e.g be for Beryllium
+    t
+        Times at which to define input_Ne and input_Te (also used for the output)
+
+    Returns
+    -------
+    F_z_tinf
+        Fractional abundance of the ionisation stages of the element at t=infinity.
+    """
     if not isinstance(t, DataArray):
         if isinstance(t, np.ndarray):
             t = DataArray(data=t, coords={"t": t}, dims=["t"])
@@ -42,7 +62,7 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
 
     rho = DataArray(
         data=np.linspace(0.0, 1.0, 20),
-        coords=[("rho", np.linspace(0.0, 1.05, 20))],
+        coords=[("rho", np.linspace(0.0, 1.0, 20))],
         dims=["rho"],
     )
 
@@ -80,13 +100,14 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
 
 
 def test_main_ion_density():
+    """Test MainIonDensity.__call__."""
     example_main_ion_density = MainIonDensity()
 
     rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
     t = np.linspace(77.5, 82.5, 6)
     rho = DataArray(
         data=np.linspace(0.0, 1.0, 20),
-        coords=[("rho", np.linspace(0.0, 1.05, 20))],
+        coords=[("rho", np.linspace(0.0, 1.00, 20))],
         dims=["rho"],
     )
 
@@ -162,9 +183,20 @@ def test_main_ion_density():
         "mean_charge": mean_charge,
     }
 
+    # Checking output of MainIonDensity()
     try:
         main_ion_density = example_main_ion_density(**nominal_inputs)
     except Exception as e:
         raise e
 
-    assert main_ion_density is not None
+    try:
+        assert np.all(main_ion_density >= 0)
+    except AssertionError:
+        raise ValueError("Some values in main_ion_density are less than zero.")
+
+    try:
+        assert np.all(main_ion_density <= electron_density)
+    except AssertionError:
+        raise ValueError("Some values in main_ion_density are less than zero.")
+
+    # Testing input checks of MainIonDensity()
