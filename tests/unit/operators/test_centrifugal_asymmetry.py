@@ -9,8 +9,8 @@ from xarray.core.dataarray import DataArray
 from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
-from indica.operators.toroidal_rotation_and_asymmetry import AsymmetryParameter
-from indica.operators.toroidal_rotation_and_asymmetry import ToroidalRotation
+from indica.operators.centrifugal_asymmetry import AsymmetryParameter
+from indica.operators.centrifugal_asymmetry import ToroidalRotation
 from indica.readers.adas import ADASReader
 
 
@@ -350,7 +350,7 @@ def input_checking(
         test_case.call_value_check(**erroneous_input)
 
 
-def test_toroidal_rotation_and_asymmetry():
+def test_centrifugal_asymmetry():
     """Test AsymmetryParameter.__call__ and ToroidalRotation.__call__."""
     example_asymmetry = AsymmetryParameter()
 
