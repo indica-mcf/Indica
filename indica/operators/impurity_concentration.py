@@ -44,7 +44,7 @@ class ImpurityConcentration(Operator):
     Methods
     -------
     __call__(
-        element, Zeff_diag, impurity_densities, electron_density,
+        element, Zeff_LoS, impurity_densities, electron_density,
         mean_charge, flux_surfaces, t
     )
         Calculates the impurity concentration for the inputted element.
@@ -130,7 +130,7 @@ class ImpurityConcentration(Operator):
     def __call__(  # type: ignore
         self,
         element: str,
-        Zeff_diag: DataArray,
+        Zeff_LoS: DataArray,
         impurity_densities: DataArray,
         electron_density: DataArray,
         mean_charge: DataArray,
@@ -144,9 +144,8 @@ class ImpurityConcentration(Operator):
         element
             String specifying the element for which the impurity concentration
             is desired. It should be given in full lower-case, eg. "beryllium"
-        Zeff_diag
-            xarray.DataArray containing the Zeff value/s from a diagnostic such as,
-            Bremsstrahlung (ZEFH/KS3)
+        Zeff_LoS
+            xarray.DataArray containing the Zeff value/s from Bremsstrahlung (ZEFH/KS3)
         impurity_densities
             xarray.DataArray of impurity densities for all impurity elements
             of interest.
@@ -192,22 +191,22 @@ class ImpurityConcentration(Operator):
             )
 
         if t is None:
-            t = Zeff_diag.t
+            t = Zeff_LoS.t
         else:
             self.input_check("t", t, DataArray, 1, True)
 
-        self.input_check("Zeff_diag", Zeff_diag, DataArray, 1, True)
+        self.input_check("Zeff_LoS", Zeff_LoS, DataArray, 1, True)
         self.input_check("electron_density", electron_density, DataArray, 2, False)
         self.input_check("mean_charge", mean_charge, DataArray, 3, True)
         self.input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 
-        Zeff_diag = Zeff_diag.interp(t=t, method="nearest")
+        Zeff_LoS = Zeff_LoS.interp(t=t, method="nearest")
 
-        transform = Zeff_diag.attrs["transform"]
+        transform = Zeff_LoS.attrs["transform"]
         x1_name = transform.x1_name
         x2_name = transform.x2_name
 
-        x1 = Zeff_diag.attrs[x1_name]
+        x1 = Zeff_LoS.attrs[x1_name]
         x2_arr = np.linspace(0, 1, 300)
         x2 = DataArray(data=x2_arr, dims=[x2_name])
 
@@ -262,9 +261,9 @@ class ImpurityConcentration(Operator):
         dl = dl[1]
         LoS_length = dl * 300
 
-        concentration = zeros_like(Zeff_diag)
+        concentration = zeros_like(Zeff_LoS)
 
-        term_1 = LoS_length * (Zeff_diag - 1)
+        term_1 = LoS_length * (Zeff_LoS - 1)
 
         term_2 = zeros_like(term_1)
         for k, kdens in enumerate(impurity_densities.coords["elements"]):
