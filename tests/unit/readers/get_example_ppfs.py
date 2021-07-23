@@ -108,7 +108,7 @@ QUANTITIES = itertools.chain(
     "-c",
     "--channel-stride",
     default=1,
-    help="The inverse of the fractions channels to keep in the data.",
+    help="The inverse of the fractions of channels to keep in the data.",
 )
 @click.option(
     "-t",
@@ -131,9 +131,24 @@ QUANTITIES = itertools.chain(
     help="A pickle file with which initially to populate the dictionary. Only "
     "data not already present in this file will be downloaded.",
 )
+@click.option(
+    "-f",
+    "--fake-data",
+    default=True,
+    help="Whether to overwrite the PPF data with random fake values. This avoids "
+    "sharing proprietary PPF data.",
+)
 @click.argument("output", type=click.File("wb"))
 def get_example_ppfs(
-    pulse, uid, url, channel_stride, max_times, single_precision, sourcefile, output
+    pulse,
+    uid,
+    url,
+    channel_stride,
+    max_times,
+    single_precision,
+    sourcefile,
+    fake_data,
+    output,
 ):
     """Script ot download some PPF data. This is done using the SAL
     interface. SAL Signal objects will be pickled and stored in
@@ -175,6 +190,8 @@ def get_example_ppfs(
             values[q] = thin_data(
                 client.get(path), channel_stride, max_times, single_precision
             )
+            if fake_data:
+                values[q].data = np.random.rand(*values[q].data.shape)
         except sal.core.exception.NodeNotFound:
             print("FAILED! Skipping...")
     # Get data for cyclotron emissions
@@ -189,6 +206,8 @@ def get_example_ppfs(
                 values[key] = thin_data(
                     client.get(path), channel_stride, max_times, single_precision
                 )
+                if fake_data:
+                    values[key].data = np.random.rand(*values[key].data.shape)
             except sal.core.exception.NodeNotFound:
                 print("FAILED! Skipping...")
     pickle.dump(values, output)
