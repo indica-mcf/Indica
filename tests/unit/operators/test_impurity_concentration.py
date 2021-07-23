@@ -149,6 +149,19 @@ class Exception_Impurity_Concentration_Test_Case(unittest.TestCase):
 def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     """Calculate and output Fractional abundance at t=infinity for calculating
     the mean charge in test_impurity_concentration()
+
+    Parameters
+    ----------
+    element
+        String of the symbol of the element per ADAS notation
+        e.g be for Beryllium
+    t
+        Times at which to define input_Ne and input_Te (also used for the output)
+
+    Returns
+    -------
+    F_z_tinf
+        Fractional abundance of the ionisation stages of the element at t=infinity.
     """
     if not isinstance(t, DataArray):
         if isinstance(t, np.ndarray):
