@@ -3,10 +3,13 @@ import unittest
 import numpy as np
 from xarray import DataArray
 
+from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from indica.datatypes import ELEMENTS_BY_SYMBOL
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.mean_charge import MeanCharge
+from indica.operators.spline_fit import Spline
 from indica.readers.adas import ADASReader
+from indica.utilities import broadcast_spline
 
 
 class Exception_Mean_Charge_Test_Case(unittest.TestCase):
@@ -45,17 +48,48 @@ def test_mean_charge():
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")
 
-    input_Ne = np.logspace(19.0, 16.0, 10)
-    input_Te = np.logspace(4.6, 2.0, 10)
+    t = np.linspace(75.0, 80.0, 5)
+    rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
+
+    input_Ne = DataArray(
+        data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
+        coords=[("rho", rho_profile), ("t", t)],
+        dims=["rho", "t"],
+    )
 
     input_Te = DataArray(
-        data=input_Te, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
-    )
-    input_Ne = DataArray(
-        data=input_Ne, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(t), 1)).T,
+        coords=[("rho", rho_profile), ("t", t)],
+        dims=["rho", "t"],
     )
 
-    example_frac_abundance = FractionalAbundance(SCD, ACD, input_Ne, input_Te)
+    rho = DataArray(
+        data=np.linspace(0.0, 1.0, 20),
+        coords=[("rho", np.linspace(0.0, 1.05, 20))],
+        dims=["rho"],
+    )
+
+    dummy_coordinates = FluxSurfaceCoordinates("poloidal")
+
+    input_Ne_spline = Spline(input_Ne, "rho", dummy_coordinates)
+    input_Ne = broadcast_spline(
+        input_Ne_spline.spline,
+        input_Ne_spline.spline_dims,
+        input_Ne_spline.spline_coords,
+        rho,
+    )
+
+    input_Te_spline = Spline(input_Te, "rho", dummy_coordinates)
+    input_Te = broadcast_spline(
+        input_Te_spline.spline,
+        input_Te_spline.spline_dims,
+        input_Te_spline.spline_coords,
+        rho,
+    )
+
+    example_frac_abundance = FractionalAbundance(
+        SCD, ACD, input_Ne.isel(t=0), input_Te.isel(t=0)
+    )
 
     F_z_t0 = np.real(example_frac_abundance.F_z_t0)
     F_z_t0 = F_z_t0.expand_dims("t", axis=-1)
