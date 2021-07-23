@@ -57,6 +57,22 @@ class MeanCharge(Operator):
         ndim_to_check: Optional[int] = None,
         greater_than_or_equal_zero: Optional[bool] = None,
     ):
+        """Check validity of inputted variable - type check and
+        various value checks(no infinities, greather than (or equal to) 0 or NaNs)
+
+        Parameters
+        ----------
+        var_name
+            Name of variable to check.
+        var_to_check
+            Variable to check.
+        var_type
+            Type to check variable against, eg. DataArray
+        ndim_to_check
+            Integer to check the number of dimensions of the variable.
+        greater_than_or_equal_zero
+            Boolean to check values in variable > 0 or >= 0.
+        """
         try:
             assert isinstance(var_to_check, var_type)
         except AssertionError:

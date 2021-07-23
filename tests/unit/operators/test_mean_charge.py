@@ -18,17 +18,19 @@ class Exception_Mean_Charge_Test_Case(unittest.TestCase):
         pass
 
     def call_type_check(self, F_z_t, element):
+        """Test TypeError for MeanCharge call."""
         with self.assertRaises(TypeError):
             example_mean_charge = MeanCharge()
             example_mean_charge(F_z_t, element)
 
     def call_value_check(self, F_z_t, element):
+        """Test ValueError for MeanCharge call."""
         with self.assertRaises(ValueError):
             example_mean_charge = MeanCharge()
             example_mean_charge(F_z_t, element)
 
     def call_assertion_check(self, F_z_t, element):
-        """Test assertion error for MeanCharge call"""
+        """Test AssertionError for MeanCharge call."""
         with self.assertRaises(AssertionError):
             example_mean_charge = MeanCharge()
             example_mean_charge(F_z_t, element)
