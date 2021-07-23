@@ -24,7 +24,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         main_ion_mass,
         impurity_masses,
         mean_charges,
-        Zeff_diag,
+        Zeff,
         electron_temp,
         impurity_element,
     ):
@@ -33,7 +33,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         self.main_ion_mass = main_ion_mass
         self.impurity_masses = impurity_masses
         self.mean_charges = mean_charges
-        self.Zeff_diag = Zeff_diag
+        self.Zeff = Zeff
         self.electron_temp = electron_temp
         self.impurity_element = impurity_element
 
@@ -43,7 +43,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             self.main_ion_mass,
             self.impurity_masses,
             self.mean_charges,
-            self.Zeff_diag,
+            self.Zeff,
             self.electron_temp,
             self.impurity_element,
         ]
@@ -55,7 +55,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         main_ion_mass=None,
         impurity_masses=None,
         mean_charges=None,
-        Zeff_diag=None,
+        Zeff=None,
         electron_temp=None,
         impurity_element=None,
     ):
@@ -66,7 +66,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ]
@@ -81,7 +81,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ) = inputs
@@ -97,7 +97,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         main_ion_mass=None,
         impurity_masses=None,
         mean_charges=None,
-        Zeff_diag=None,
+        Zeff=None,
         electron_temp=None,
         impurity_element=None,
     ):
@@ -108,7 +108,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ]
@@ -123,7 +123,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ) = inputs
@@ -143,7 +143,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         main_ion_mass,
         impurity_masses,
         mean_charges,
-        Zeff_diag,
+        Zeff,
         electron_temp,
         impurity_element,
     ):
@@ -152,7 +152,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         self.main_ion_mass = main_ion_mass
         self.impurity_masses = impurity_masses
         self.mean_charges = mean_charges
-        self.Zeff_diag = Zeff_diag
+        self.Zeff = Zeff
         self.electron_temp = electron_temp
         self.impurity_element = impurity_element
 
@@ -162,7 +162,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             self.main_ion_mass,
             self.impurity_masses,
             self.mean_charges,
-            self.Zeff_diag,
+            self.Zeff,
             self.electron_temp,
             self.impurity_element,
         ]
@@ -174,7 +174,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         main_ion_mass=None,
         impurity_masses=None,
         mean_charges=None,
-        Zeff_diag=None,
+        Zeff=None,
         electron_temp=None,
         impurity_element=None,
     ):
@@ -185,7 +185,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ]
@@ -200,7 +200,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ) = inputs
@@ -216,7 +216,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         main_ion_mass=None,
         impurity_masses=None,
         mean_charges=None,
-        Zeff_diag=None,
+        Zeff=None,
         electron_temp=None,
         impurity_element=None,
     ):
@@ -227,7 +227,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ]
@@ -242,7 +242,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             main_ion_mass,
             impurity_masses,
             mean_charges,
-            Zeff_diag,
+            Zeff,
             electron_temp,
             impurity_element,
         ) = inputs
@@ -402,7 +402,7 @@ def test_toroidal_rotation_and_asymmetry():
         dims=["elements", "rho", "t"],
     )
 
-    Zeff_diag = DataArray(
+    Zeff = DataArray(
         data=1.85 * np.ones((*rho_profile.shape, len(t))),
         coords=[("rho", rho_profile), ("t", t)],
         dims=["rho", "t"],
@@ -416,7 +416,7 @@ def test_toroidal_rotation_and_asymmetry():
         "main_ion_mass": main_ion_mass,
         "impurity_masses": impurity_masses,
         "mean_charges": mean_charges,
-        "Zeff_diag": Zeff_diag,
+        "Zeff": Zeff,
         "electron_temp": electron_temp,
         "impurity_element": impurity_element,
     }
@@ -472,7 +472,7 @@ def test_toroidal_rotation_and_asymmetry():
         "main_ion_mass": main_ion_mass,
         "impurity_masses": impurity_masses,
         "mean_charges": mean_charges,
-        "Zeff_diag": Zeff_diag,
+        "Zeff": Zeff,
         "electron_temp": electron_temp,
         "impurity_element": impurity_element,
     }
@@ -510,7 +510,7 @@ def test_toroidal_rotation_and_asymmetry():
         "main_ion_mass": main_ion_mass,
         "impurity_masses": impurity_masses,
         "mean_charges": mean_charges,
-        "Zeff_diag": Zeff_diag,
+        "Zeff": Zeff,
         "electron_temp": electron_temp,
         "impurity_element": impurity_element,
     }
