@@ -3,6 +3,7 @@ reading MDS+ data produced by ST40.
 
 """
 
+import re
 from numbers import Number
 from pathlib import Path
 import pickle
@@ -199,13 +200,25 @@ class ST40Reader(DataReader):
 
         dimensions = []
         paths = []
-        for dim in (range(ndims)):
+        for dim in range(ndims):
             path = f"dim_of({mds_path},{dim})"
             dim_tmp = self.conn.get(self.mdsCheck(path)).data()
 
             paths.append(path)
             dimensions.append(np.array(dim_tmp))
         return dimensions, paths
+
+    def _get_revision(self, uid: str, instrument: str, revision: int) -> int:
+        """
+        Gets the effective revision name if latest/best is given in input
+        """
+        if revision == 0:
+            run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
+            m = re.search(r"\s??RUN(\d+)", run_name, re.I)
+            if isinstance(m, re.Match):
+                revision = int(m.group(1))
+
+        return revision
 
     def _read_cached_ppf(self, path: Path) -> Optional[np.array]:
         """Check if the PPF data specified by `sal_path` has been cached and,
@@ -263,12 +276,12 @@ class ST40Reader(DataReader):
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {}
-        if revision==0:
-            run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
-            revision = int(run_name[4:])
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
 
         times, _ = self._get_signal(uid, instrument, ":time", revision)
+        if np.array_equal(times, "FAILED"):
+            return {}
+
         psin, _ = self._get_signal(uid, instrument, ".profiles.psi_norm:xpsn", revision)
         for q in quantities:
             qval, q_path = self._get_signal(
@@ -306,10 +319,12 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        if revision==0:
-            run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
-            revision = int(run_name[3:])
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        #
+        # if revision == 0:
+        #     run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
+        #     revision = int(run_name[3:])
+        # results["revision"] = revision
 
         # position_instrument = "raw_sxr"
         # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
@@ -321,9 +336,11 @@ class ST40Reader(DataReader):
             raise ValueError(f"No geometry available for {instrument}")
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
-        print("\n ********************************** "
-              "\n Adding half exposure time to XRCS"
-              "\n ********************************** \n")
+        print(
+            "\n ********************************** "
+            "\n Adding half exposure time to XRCS"
+            "\n ********************************** \n"
+        )
         times += (times[1] - times[0]) / 2.0
         for q in quantities:
             qval, q_path = self._get_signal(
@@ -366,17 +383,16 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        if revision==0:
-            run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
-            revision = int(run_name[3:])
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
+
+        # if revision == 0:
+        #     run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
+        #     revision = int(run_name[3:])
 
         # position_instrument = ""
         # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, "..geometry:direction", -1)
         if instrument == "nirh1":
-            # position = np.array([0.380, -0.925, 0])
-            # direction = np.array([0.115, 0.993, 0.0]) - position
             position = np.array([0.380, -0.925, 0])
             direction = np.array([0.0, 1.0, 0.0]) - position
         elif instrument == "smmh1":
@@ -386,6 +402,10 @@ class ST40Reader(DataReader):
             raise ValueError(f"No geometry available for {instrument}")
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
+
+        if np.array_equal(times, "FAILED"):
+            return {}
+
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
