@@ -416,7 +416,7 @@ class DataReader(BaseIO):
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
         texp = DataArray(database_results["texp"], coords=[("t", times)]).sel(
-            t=slice(self._tstart, self._tend)
+            t=slice(self._tstart, self._tend), method="ffill"
         )
         if downsample_ratio > 1:
             # Seems to be some sort of bug setting the coordinate when
@@ -928,7 +928,7 @@ class DataReader(BaseIO):
             meta = {
                 "datatype": available_quantities[quantity],
                 "error": DataArray(database_results[quantity + "_error"], coords).sel(
-                    t=slice(self._tstart, self._tend)
+                    t=slice(self._tstart, self._tend), method="ffill"
                 ),
                 "transform": transform,
             }

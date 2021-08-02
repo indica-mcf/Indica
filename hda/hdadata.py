@@ -65,9 +65,7 @@ class HDAdata:
             self.tstart = tstart
             self.tend = tend
 
-            self.reader = ST40Reader(
-                pulse, tstart - dt / 2, tend + dt / 2, max_freq=1.0e4
-            )
+            self.reader = ST40Reader(pulse, tstart-0.02, tend+0.02)
 
             if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
                 revision = 2
@@ -106,28 +104,29 @@ class HDAdata:
                 xrcs[k].attrs["transform"].set_equilibrium(self.equilibrium)
             self.raw_data["xrcs"] = xrcs
             self.ti_xrcs = bin_in_time(tstart, tend, self.freq, xrcs["ti_w"]).interp(
-                t=self.time
+                t=self.time, method="linear"
             )
             self.te_xrcs = bin_in_time(tstart, tend, self.freq, xrcs["te_kw"]).interp(
-                t=self.time
+                t=self.time, method="linear"
             )
 
             # Read interferometer Ne
             nirh1 = self.reader.get("", "nirh1", 0)
-            for k in nirh1.keys():
-                nirh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
-            self.raw_data["nirh1"] = nirh1
-            self.nirh1 = bin_in_time(tstart, tend, self.freq, nirh1["ne"]).interp(
-                t=self.time
-            )
-            self.nirh1.attrs = nirh1["ne"].attrs
+            if nirh1 is not None:
+                for k in nirh1.keys():
+                    nirh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
+                self.raw_data["nirh1"] = nirh1
+                self.nirh1 = bin_in_time(tstart, tend, self.freq, nirh1["ne"]).interp(
+                    t=self.time, method="linear"
+                )
+                self.nirh1.attrs = nirh1["ne"].attrs
 
             smmh1 = self.reader.get("", "smmh1", 0)
             for k in smmh1.keys():
                 smmh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
             self.raw_data["smmh1"] = smmh1
             self.smmh1 = bin_in_time(tstart, tend, self.freq, smmh1["ne"]).interp(
-                t=self.time
+                t=self.time, method="linear"
             )
             self.smmh1.attrs = smmh1["ne"].attrs
 
@@ -144,7 +143,9 @@ class HDAdata:
             }
             vloop.attrs = meta
             self.raw_data["vloop"] = vloop
-            self.vloop = bin_in_time(tstart, tend, self.freq, vloop).interp(t=self.time)
+            self.vloop = bin_in_time(tstart, tend, self.freq, vloop).interp(
+                t=self.time, method="linear"
+            )
 
             # TODO temporary BT reader --> to be calculated using equilibrium class
             tf_i, tf_i_path = self.reader._get_signal("", "psu", ".tf:i", -1)
@@ -158,19 +159,21 @@ class HDAdata:
             }
             bt_0.attrs = meta
             self.raw_data["bt_0"] = bt_0
-            self.bt_0 = bin_in_time(tstart, tend, self.freq, bt_0).interp(t=self.time)
+            self.bt_0 = bin_in_time(tstart, tend, self.freq, bt_0).interp(
+                t=self.time, method="linear"
+            )
 
             self.ipla = bin_in_time(tstart, tend, self.freq, efit["ipla"]).interp(
-                t=self.time
+                t=self.time, method="linear"
             )
             self.R_mag = bin_in_time(
                 tstart, tend, self.freq, self.equilibrium.rmag
-            ).interp(t=self.time)
+            ).interp(t=self.time, method="linear")
             self.R_0 = bin_in_time(tstart, tend, self.freq, efit["rmag"]).interp(
-                t=self.time
+                t=self.time, method="linear"
             )
             self.wmhd = bin_in_time(tstart, tend, self.freq, efit["wp"]).interp(
-                t=self.time
+                t=self.time, method="linear"
             )
         else:
             print("\n Setting default synthetic plasma data no longer enabled\n")
@@ -205,8 +208,11 @@ class HDAdata:
         )
 
         print(" Calculating LOS info of all diagnostics")
-        self.remap_diagnostic("nirh1")
-        self.remap_diagnostic("smmh1")
+
+        if hasattr(self, "nirh1"):
+            self.remap_diagnostic("nirh1")
+        if hasattr(self, "smmh1"):
+            self.remap_diagnostic("smmh1")
 
         self.remap_diagnostic("te_xrcs")
         self.ti_xrcs.attrs["x2"] = self.te_xrcs.attrs["x2"]
@@ -228,15 +234,17 @@ class HDAdata:
         min_r /= len(self.theta)
         min_r = min_r.interp(rho_poloidal=self.rho.values, method="cubic")
         min_r = bin_in_time(self.tstart, self.tend, self.freq, min_r,).interp(
-            t=self.time
+            t=self.time, method="linear"
         )
         self.min_r = min_r
 
-        volume, area, _ = self.equilibrium.enclosed_volume(
-            self.rho, t=self.time,
+        volume, area, _ = self.equilibrium.enclosed_volume(self.rho)
+        volume = bin_in_time(self.tstart, self.tend, self.freq, volume,).interp(
+            t=self.time, method="linear"
         )
-        # area = (math.pi * self.min_r ** 2).values
-        # volume = (self.area * 2 * math.pi * self.R_0).values
+        area = bin_in_time(self.tstart, self.tend, self.freq, area,)
+        self.area.values = area
+        self.volume.values = volume
 
         self.area.values = area.values
         self.volume.values = volume.values
@@ -248,20 +256,18 @@ class HDAdata:
         self.kappa.values = (self.r_b / self.r_a).values
         self.delta.values = ((self.r_c + self.r_d) / (2 * self.r_a)).values
 
-        maj_r_lfs = bin_in_time(
+        self.maj_r_lfs = bin_in_time(
             self.tstart,
             self.tend,
             self.freq,
             self.equilibrium.rmjo.interp(rho_poloidal=self.rho),
-        )
-        self.maj_r_lfs.values = maj_r_lfs.interp(t=self.time)
-        maj_r_hfs = bin_in_time(
+        ).interp(t=self.time, method="linear")
+        self.maj_r_hfs = bin_in_time(
             self.tstart,
             self.tend,
             self.freq,
             self.equilibrium.rmji.interp(rho_poloidal=self.rho),
-        )
-        self.maj_r_hfs.values = maj_r_hfs.interp(t=self.time)
+        ).interp(t=self.time, method="linear")
 
         dens = self.profs.ne.interp(rho_poloidal=self.rho)
         temp = self.profs.te.interp(rho_poloidal=self.rho)
@@ -319,18 +325,19 @@ class HDAdata:
 
             self.atomic_data[elem] = atomdat
 
-        self.build_current_density()
-        self.calc_magnetic_field()
-        self.calc_meanz()
-        self.calc_main_ion_dens(fast_dens=False)
-        self.impose_flat_zeff()
-        self.calc_zeff()
-        self.calc_rad_power()
+        # self.build_current_density()
+        # self.calc_magnetic_field()
+        # self.calc_meanz()
+        # self.calc_main_ion_dens(fast_dens=False)
+        # self.impose_flat_zeff()
+        # self.calc_zeff()
+        # self.calc_rad_power()
+
         # self.calc_pressure()
         # self.calc_beta_poloidal()
         # self.calc_vloop()
 
-    def match_xrcs(self, niter=3):
+    def match_xrcs(self, niter=3, profs_spl=None, rho_lim=(0, 0.8)):
         """
         Rescale temperature profiles to match the XRCS spectrometer measurements
 
@@ -338,6 +345,10 @@ class HDAdata:
         ----------
         niter
             Number of iterations
+        spl
+            spline object if to be used for optimization
+        rho_max
+            maximum rho to scale if spline object in use
 
         Returns
         -------
@@ -352,13 +363,24 @@ class HDAdata:
         const_te = DataArray([1.0] * nt, coords=[("t", self.time)])
         const_ti = DataArray([1.0] * nt, coords=[("t", self.time)])
 
-        el_temp = self.el_temp
-        ion_temp = self.ion_temp.sel(element="h")
+        if profs_spl is not None:
+            el_temp = profs_spl.el_temp(self.rho)
+            ion_temp = profs_spl.ion_temp(self.rho)
+        else:
+            el_temp = self.el_temp
+            ion_temp = self.ion_temp.sel(element="h")
 
         for j in range(niter):
             print(f"Iteration {j+1} or {niter}")
-            el_temp *= const_te
-            ion_temp *= const_ti
+            if profs_spl is not None:
+                profs_spl.el_temp.scale(const_te, dim_lim=rho_lim)
+                profs_spl.ion_temp.scale(const_ti, dim_lim=rho_lim)
+
+                el_temp = profs_spl.el_temp(self.rho)
+                ion_temp = profs_spl.ion_temp(self.rho)
+            else:
+                el_temp *= const_te
+                ion_temp *= const_ti
 
             # Calculate Ti(0) from He-like spectrometer
             he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
@@ -369,7 +391,9 @@ class HDAdata:
         for elem in self.elements:
             self.ion_temp.loc[dict(element=elem)] = ion_temp
 
-    def match_interferometer(self, interf: str):
+    def match_interferometer(
+        self, interf: str, niter=3, profs_spl=None, rho_lim=(0, 0.98)
+    ):
         """
         Rescale density profiles to match the interferometer measurements
 
@@ -384,10 +408,17 @@ class HDAdata:
         """
         print(f"\n Re-calculating density profiles to match {interf} values \n")
 
-        self.el_dens *= getattr(self, interf) / self.calc_ne_los_int(interf)
-        # self.el_dens = self.el_dens
+        if profs_spl is not None:
+            nt = len(self.time)
+            const_ne = DataArray([1.0] * nt, coords=[("t", self.time)])
+            for j in range(niter):
+                print(f"Iteration {j+1} or {niter}")
+                profs_spl.el_dens.scale(const_ne, dim_lim=rho_lim)
+                self.el_dens = profs_spl.el_dens(self.rho)
+                const_ne = getattr(self, interf) / self.calc_ne_los_int(interf)
+        else:
+            self.el_dens *= getattr(self, interf) / self.calc_ne_los_int(interf)
 
-        # Recalculate interferometer data
         if hasattr(self, "nirh1"):
             self.nirh1.values = self.calc_ne_los_int("nirh1").values
         if hasattr(self, "smmh1"):
@@ -428,12 +459,16 @@ class HDAdata:
         diag_var.attrs["x2"] = x2
         diag_var.attrs["dl"] = dl
         diag_var.attrs["R"], diag_var.attrs["z"] = trans.convert_to_Rz(x1, x2, 0)
-        for t in diag_var.t:
-            rho_tmp, _ = self.flux_coords.convert_from_Rz(
-                diag_var.attrs["R"], diag_var.attrs["z"], t
-            )
-            rho.append(rho_tmp)
-        rho = xr.concat(rho, "t")
+        rho_equil, _ = self.flux_coords.convert_from_Rz(
+            diag_var.attrs["R"], diag_var.attrs["z"]
+        )
+        rho = rho_equil.interp(t=diag_var.t, method="linear")
+        # for t in diag_var.t:
+        #     rho_tmp, _ = self.flux_coords.convert_from_Rz(
+        #         diag_var.attrs["R"], diag_var.attrs["z"], t
+        #     )
+        #     rho.append(rho_tmp)
+        # rho = xr.concat(rho, "t")
         rho = xr.where(rho >= 0, rho, 0.0)
         diag_var.attrs["rho"] = rho
 
@@ -586,6 +621,19 @@ class HDAdata:
                 * self.ion_dens.sel(element=elem)
             )
             self.tot_rad.loc[dict(element=elem)] = tot_rad_tmp
+
+            self.tot_rad.loc[dict(element=elem)] = xr.where(
+                self.tot_rad.loc[dict(element=elem)] >= 0,
+                self.tot_rad.loc[dict(element=elem)],
+                0.0,
+            )
+            for t in self.time:
+                self.pth.loc[dict(t=t)] = np.trapz(
+                    self.pressure_th.sel(t=t), self.volume.sel(t=t)
+                )
+                self.prad.loc[dict(element=elem, t=t)] = np.trapz(
+                    self.prad.sel(element=elem, t=t), self.volume.sel(t=t)
+                )
 
     def impose_flat_zeff(self):
         """
@@ -837,7 +885,7 @@ class HDAdata:
         self.rhot = deepcopy(data2d)
         rhot, _ = self.equilibrium.convert_flux_coords(self.rho)
         self.rhot.values = bin_in_time(self.tstart, self.tend, self.freq, rhot).interp(
-            t=self.time
+            t=self.time, method="linear"
         )
         assign_datatype(self.rho, ("rho", "poloidal"))
 
@@ -950,9 +998,12 @@ class HDAdata:
         assign_datatype(self.zeff, ("charge", "effective"))
 
         self.tot_rad = deepcopy(data3d)
-        assign_datatype(self.tot_rad, ("emission", "total"))
+        assign_datatype(self.tot_rad, ("radiation_emission", "total"))
         self.sxr_rad = deepcopy(data3d)
-        assign_datatype(self.sxr_rad, ("emission", "sxr"))
+        assign_datatype(self.sxr_rad, ("radiation_emission", "sxr"))
+
+        self.prad = deepcopy(data1d_time)
+        assign_datatype(self.tot_rad, ("radiation", "total"))
 
         self.pressure_th = deepcopy(data2d)
         assign_datatype(self.pressure_th, ("pressure", "thermal"))
