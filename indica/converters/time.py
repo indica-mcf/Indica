@@ -189,17 +189,22 @@ def bin_in_time(
     npoints = round(abs(tend - tstart) * frequency) + 1
     half_interval = 0.5 * (tend - tstart) / (npoints - 1)
     tcoords = data.coords["t"]
-    if tcoords[0] > tstart + half_interval:
-        raise ValueError(
-            "No data falls within first bin {}.".format(
-                (tstart - half_interval, tstart + half_interval)
-            )
-        )
-    if tcoords[-1] < tend - half_interval:
-        raise ValueError(
-            "No data falls within last bin {}.".format(
-                (tend - half_interval, tend + half_interval)
-            )
-        )
+    data_frequency = 1/(tcoords[1] - tcoords[0])
     tlabels = np.linspace(tstart, tend, npoints)
-    return bin_to_time_labels(tlabels, data)
+    if data_frequency > frequency:
+        if tcoords[0] > tstart + half_interval:
+            raise ValueError(
+                "No data falls within first bin {}.".format(
+                    (tstart - half_interval, tstart + half_interval)
+                )
+            )
+        if tcoords[-1] < tend - half_interval:
+            raise ValueError(
+                "No data falls within last bin {}.".format(
+                    (tend - half_interval, tend + half_interval)
+                )
+            )
+
+        return bin_to_time_labels(tlabels, data)
+    else:
+        return data.interp(t=tlabels, method="linear")

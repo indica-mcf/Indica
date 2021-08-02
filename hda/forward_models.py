@@ -185,11 +185,11 @@ class Spectrometer:
             ion_temp_los = ion_temperature
 
         fz = self.atomdat["fz"].interp(
-            electron_temperature=el_temp_los, method="quadratic"
+            electron_temperature=el_temp_los, method="linear"
         )
         emiss = (
             self.atomdat["emiss"].interp(
-                electron_temperature=el_temp_los, method="quadratic"
+                electron_temperature=el_temp_los, method="linear"
             )
             * el_dens_los ** 2
         )
@@ -215,6 +215,7 @@ class Spectrometer:
             rho_min = np.min(rho_tmp)
             x = np.array(range(len(emiss.sel(t=t))))
             y = emiss.sel(t=t)
+
             avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
 
             self.pos[i] = rho_tmp[int(avrg)]
@@ -271,36 +272,38 @@ class Spectrometer:
 
         Returns
         -------
+        Bremsstrahlung emissing per unit time and volume
+        --> to be integrated along the LOS and multiplied by spectrometer t_exp
 
         """
 
-        def gaunt(self, electron_temperature, approx="callahan"):
-            gaunt_funct = {
-                "callahan": lambda electron_temperature: 1.35
-                * electron_temperature ** 0.15
-            }
+        gaunt_funct = {
+            "callahan": lambda electron_temperature: 1.35 * electron_temperature ** 0.15
+        }
 
-            return gaunt_funct[approx]
-
-        const = constants.e / (
+        const = constants.e ** 6 / (
             np.sqrt(2)
             * (3 * np.pi * constants.m_e) ** 1.5
             * constants.epsilon_0 ** 3
             * constants.c ** 2
         )
-        gaunt = gaunt(electron_temperature, approx=gaunt_approx)
+        gaunt = gaunt_funct[gaunt_approx](electron_temperature)
         ev_to_k = constants.physical_constants["electron volt-kelvin relationship"][0]
         wlenght = wavelength * 1.0e-9  # nm to m
-        exponent = exp(
+        exponent = np.exp(
             -(constants.h * constants.c)
             / (wlenght * constants.k * ev_to_k * electron_temperature)
         )
         bremss = (
             const
-            * (electron_density ** 2 * zeff / np.sqrt(constants.k * temperature))
+            * (
+                electron_density ** 2
+                * zeff
+                / np.sqrt(constants.k * electron_temperature)
+            )
             * (exponent / wlenght ** 2)
             * gaunt
-        )
+        ) * wlenght
 
         return bremss
 
