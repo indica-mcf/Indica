@@ -11,20 +11,22 @@ TODO: add the following quantities
 Ti/Te, Vloop, all NBI, li, betaP, geometry (volm, elongation, ..)
 """
 
-import getpass
-import numpy as np
-from indica.readers import ST40Reader
-import matplotlib.pylab as plt
-import matplotlib.cm as cm
 from copy import deepcopy
-from xarray import DataArray, Dataset
-import xarray as xr
+import getpass
 import pickle
 
-import pandas as pd
 import hda.fac_profiles as fac
 from hda.forward_models import Spectrometer
+import matplotlib.cm as cm
+import matplotlib.pylab as plt
+import numpy as np
+import pandas as pd
+import xarray as xr
+from xarray import DataArray
+from xarray import Dataset
+
 from indica.readers import ADASReader
+from indica.readers import ST40Reader
 
 # First pulse after Boronisation / GDC
 BORONISATION = [8441, 8537]
@@ -48,7 +50,11 @@ class Database:
         reload=False,
     ):
 
-        self.path = f"/home/{getpass.getuser()}/python/"
+        self.info = get_data_info()
+        if getpass.getuser() == "lavoro":
+            self.path = "/Users/lavoro/Work/Python/Indica_github/data/"
+        else:
+            self.path = f"/home/{getpass.getuser()}/python/"
         self.filename = f"{pulse_start}_{pulse_end}_regression_database.pkl"
         if reload:
             regr_data = pickle.load(open(self.path + self.filename, "rb"))
@@ -62,6 +68,7 @@ class Database:
             self.binned = regr_data.binned
             self.max_val = regr_data.max_val
             self.pulses = regr_data.pulses
+            self.t_max = regr_data.t_max
         else:
             self.pulse_start = pulse_start
             self.pulse_end = pulse_end
@@ -100,6 +107,9 @@ class Database:
         # Apply general filters
         self.max_val = general_filters(self.max_val)
 
+        # Apply defult selection criteria
+        self.filtered = apply_selection(self.binned)
+
     def initialize_structures(self):
         value = DataArray(np.full(self.time.shape, np.nan), coords=[("t", self.time)])
         error = xr.full_like(value, 0)
@@ -130,8 +140,6 @@ class Database:
 
         """
 
-        self.info = get_data_info()
-
         binned = {}
         max_val = {}
         for k in self.info.keys():
@@ -141,7 +149,11 @@ class Database:
         pulses_all = []
         for pulse in np.arange(pulse_start, pulse_end + 1):
             print(pulse)
-            reader = ST40Reader(int(pulse), self.tlim[0], self.tlim[1],)
+            reader = ST40Reader(
+                int(pulse),
+                self.tlim[0],
+                self.tlim[1],
+            )
 
             time, _ = reader._get_signal("", "pfit", ".post_best.results:time", -1)
             if np.array_equal(time, "FAILED"):
@@ -298,30 +310,81 @@ def general_filters(results):
     """
     Apply general filters to data read e.g. NBI power 0 where not positive
     """
-    to_zero = ["nbi_power"]
-    for k in to_zero:
+    print("Applying general data filters")
+
+    # Set all negative values to 0
+    neg_to_zero = ["nbi_power"]
+    for k in neg_to_zero:
         results[k] = xr.where(
-            (results[k] > 0) * np.isfinite(results[k]), results[k], 0,
+            (results[k] > 0) * np.isfinite(results[k]),
+            results[k],
+            0,
         )
 
-    to_nan = ["te_xrcs", "ti_xrcs", "ti0", "te0", "ipla_efit", "ipla_pfit", "wp_efit"]
-    for k in to_nan:
+    # Set all negative values to Nan
+    neg_to_nan = [
+        "te_xrcs",
+        "ti_xrcs",
+        "ti0",
+        "te0",
+        "ipla_efit",
+        "ipla_pfit",
+        "wp_efit",
+        "ne_nirh1",
+        "ne_smmh1",
+        "gas_press",
+    ]
+    for k in neg_to_nan:
         results[k] = xr.where(
-            (results[k] > 0) * (np.isfinite(results[k])), results[k], np.nan,
+            (results[k] > 0) * (np.isfinite(results[k])),
+            results[k],
+            np.nan,
         )
+
+    # Set to Nan if values outside specific ranges
+    err_perc_cond = {"var": "error", "lim": (np.nan, 0.2)}
+    keys = [
+        "te_xrcs",
+        "ti_xrcs",
+        "te0",
+        "ti0",
+        "brems_pi",
+        "brems_mp",
+        "h_i_6563",
+        "he_ii_4686",
+        "b_ii_3451",
+        "o_iv_3063",
+        "ar_ii_4348",
+        "ne_smmh1",
+        "wp_efit",
+    ]
+
+    for k in keys:
+        cond = {k: err_perc_cond}
+        selection = selection_criteria(results, cond)
+        results[k] = xr.where(selection, results[k], np.nan)
 
     return results
 
 
 def calc_central_temperature(binned, temp_ratio):
+    print("Calculating central temperature from parameterization")
 
     # Central temperatures from XRCS parametrization
     mult_binned = []
     profs = np.arange(len(temp_ratio))
     for i in range(len(temp_ratio)):
-        mult_binned.append(
-            temp_ratio[i].interp(te_xrcs=binned["te_xrcs"].value, method="linear")
-        )
+        ratio_tmp = xr.full_like(binned["te_xrcs"].value, np.nan)
+        # TODO: DataArray interp crashing if all nans (@ home only)
+        for p in binned["te_xrcs"].pulse:
+            te_xrcs = binned["te_xrcs"].value.sel(pulse=p)
+            if any(np.isfinite(te_xrcs)):
+                ratio_tmp.loc[dict(pulse=p)] = np.interp(
+                    te_xrcs.values,
+                    temp_ratio[i].te_xrcs,
+                    temp_ratio[i].values,
+                )
+        mult_binned.append(ratio_tmp)
     mult_binned = xr.concat(mult_binned, "prof")
     mult_binned = mult_binned.assign_coords({"prof": profs})
 
@@ -353,11 +416,14 @@ def calc_max_val(binned, max_val, info, t_max=0.02):
         Time above which the max search should start
 
     """
+    print("Calculating maximum values from binned data")
+
     # Calculate max values for those quantities where binned data is to be used
-    for k, v in info.items():
-        if v["max"] == True:
-            continue
-        for p in binned[k].pulse:
+    k = list(binned.keys())[0]
+    for p in binned[k].pulse:
+        for k, v in info.items():
+            if v["max"]:
+                continue
             max_search = xr.where(
                 binned[k].t > t_max, binned[k].value.sel(pulse=p), np.nan
             )
@@ -394,18 +460,21 @@ def selection_criteria(binned, cond):
 
     Returns
     -------
-        Flattened array of Indices of elements satisfying the conditions
+        Boolean Dataarray of the same shape as the binned data with
+        items == True if satisfying the selection criteria
 
     """
 
     k = list(cond.keys())[0]
-    selection = np.where(np.ones_like(flat(binned[k].value)) == 1, True, False)
+    selection = xr.where(xr.ones_like(binned[k].value) == 1, True, False)
     for k, c in cond.items():
         item = binned[k]
         if c["var"] == "error":  # percentage error
-            val = flat(item["error"] / item["value"])
+            val = item["error"] / item["value"]
         else:
-            val = flat(item[c["var"]])
+            # val = flat(item[c["var"]])
+            val = item[c["var"]]
+
         lim = c["lim"]
         if len(lim) == 1:
             selection *= val == lim
@@ -424,35 +493,73 @@ def flat(data: DataArray):
     return data.values.flatten()
 
 
-def plot_time_evol(regr_data, tplot=None, savefig=False):
+def apply_selection(
+    binned,
+    cond=None,
+    default=True,
+):
+    """
+    Apply selection criteria as defined in the cond dictionary
 
-    to_plot = {
-        "Electron Temperature": ("te_xrcs", "te0"),
-        "Ion Temperature": ("ti_xrcs", "ti0"),
-        "Bremsstrahlung PI": ("brems_pi",),
-        "Bremsstrahlung MP": ("brems_mp",),
-        "Stored Energy": ("wp_efit",),
-        "Plasma Current": ("ipla_efit",),
-        "MC Current": ("ipla_efit",),
-        "TF Current": ("itf",),
-        "Gas pressure": ("gas_press",),
-        "H-alpha": ("h_i_6563",),
-        "Helium": ("he_ii_4686",),
-        "Boron": ("b_ii_3451",),
-        "Oxygen": ("o_iv_3063",),
-        "Argon": ("ar_ii_4348",),
-    }
+    Parameters
+    ----------
+    binned
+        Database class result dictionary of binned quantities
+    cond
+        Dictionary of selection criteria (see default defined below)
+        Different elements in list give different selection, elements
+        in sub-dictionary are applied together (&)
+    default
+        set selection criteria conditions to default defined below
 
-    info = regr_data.info
-    if tplot is not None:
-        result = regr_data.binned
-        to_add = ""
+    Returns
+    -------
+
+    """
+    # TODO: max_val calculation too time-consuming...is it worth it?
+    if default:
+        cond = {
+            "Ohmic": {
+                "nbi_power": {"var": "value", "lim": (0,)},
+                "te0": {"var": "error", "lim": (np.nan, 0.2)},
+                "ti0": {"var": "error", "lim": (np.nan, 0.2)},
+            },
+            "NBI": {
+                "nbi_power": {"var": "value", "lim": (20, np.nan)},
+                "te0": {"var": "error", "lim": (np.nan, 0.2)},
+                "ti0": {"var": "error", "lim": (np.nan, 0.2)},
+            },
+        }
+
+    # Apply selection criteria
+    if cond is not None:
+        filtered = deepcopy(cond)
+        for kcond, c in cond.items():
+            binned_tmp = deepcopy(binned)
+            selection_tmp = selection_criteria(binned_tmp, c)
+            for kbinned in binned_tmp.keys():
+                binned_tmp[kbinned] = xr.where(
+                    selection_tmp, binned_tmp[kbinned], np.nan
+                )
+            filtered[kcond]["binned"] = binned_tmp
+            filtered[kcond]["selection"] = selection_tmp
     else:
+        filtered = {"All": {"selection": None, "binned": binned}}
+
+    return filtered
+
+
+def plot_time_evol(regr_data, info, to_plot, tplot=None, savefig=False, vlines=True):
+    if tplot is None:
+        tit_front = "Maximum of "
+        tit_end = ""
         result = regr_data.max_val
-        to_add = "Maximum "
+    else:
+        tit_front = ""
+        tit_end = f" @ t={tplot:.3f} s"
+        result = regr_data.binned
 
     for title, ykey in to_plot.items():
-        # TODO: add selection criteria to be applied to binned values and calculate max_val
         y = []
         for k in ykey:
             res = result[k] * info[k]["const"]
@@ -466,21 +573,76 @@ def plot_time_evol(regr_data, tplot=None, savefig=False):
             yval = flat(y[i].value)
             yerr = flat(y[i].error)
 
-            label = None
             if len(ykey) > 1:
                 label = info[k]["label"]
+            else:
+                label = ""
 
-            # ind = np.where(isel[i] == True)[0]
-            ind = np.where(np.ones_like(yval) == 1)[0]
             plt.errorbar(
-                x[ind], yval[ind], yerr=yerr[ind], fmt="o", label=label, alpha=0.5,
+                x,
+                yval,
+                yerr=yerr,
+                fmt="o",
+                label=label,
+                alpha=0.5,
             )
         plt.xlabel("Pulse #")
         plt.ylabel(info[k]["units"])
-        plt.title(f"{to_add}{title}")
-        plt.ylim(0, )
+        plt.title(f"{tit_front}{title}{tit_end}")
+        plt.ylim(
+            0,
+        )
+        if len(ykey) > 1:
+            plt.legend()
+        if vlines:
+            add_vlines(BORONISATION)
+            add_vlines(GDC, color="r")
+        if savefig:
+            print("Saving to file still not enabled")
+            # save_figure(fig_name=name)
+
+
+def plot_bivariate(
+    filtered,
+    info,
+    to_plot,
+    label=None,
+    savefig=False,
+):
+
+    for title, keys in to_plot.items():
+        xkey, ykey = keys
+        name = f"{ykey}_vs_{xkey}"
+        xinfo = info[xkey]
+        yinfo = info[ykey]
+
+        plt.figure()
+        for label, data in filtered.items():
+            binned = data["binned"]
+            x = binned[xkey] * xinfo["const"]
+            y = binned[ykey] * yinfo["const"]
+            xval = flat(x.value)
+            xerr = flat(x.error)
+            yval = flat(y.value)
+            yerr = flat(y.error)
+
+            plt.errorbar(
+                xval,
+                yval,
+                xerr=xerr,
+                yerr=yerr,
+                fmt="o",
+                label=label,
+                alpha=0.5,
+            )
+            plt.xlabel(xinfo["label"] + " " + xinfo["units"])
+            plt.ylabel(yinfo["label"] + " " + yinfo["units"])
+            plt.title(title)
         if label is not None:
             plt.legend()
+
+        if savefig:
+            save_figure(fig_name=name)
 
 
 def plot_trivariate(
@@ -510,15 +672,14 @@ def plot_trivariate(
         z = binned[zkey].value.values.flatten() * zinfo["const"]
         xerr = binned[xkey].error.values.flatten() * xinfo["const"]
         yerr = binned[ykey].error.values.flatten() * yinfo["const"]
-        zerr = binned[zkey].error.values.flatten() * zinfo["const"]
 
         plt.figure()
-        xhist = plt.hist(x, bins=xbins)
+        plt.hist(x, bins=xbins)
         plt.title(xinfo["label"])
         plt.xlabel(xinfo["units"])
 
         plt.figure()
-        yhist = plt.hist(y, bins=ybins)
+        plt.hist(y, bins=ybins)
         plt.title(yinfo["label"])
         plt.xlabel(yinfo["units"])
 
@@ -548,87 +709,18 @@ def plot_trivariate(
         plt.ylabel(yinfo["label"] + " " + yinfo["units"])
         plt.title(f"{zinfo['label']} {zinfo['units']}")
         plt.legend()
+        if savefig:
+            print("Saving to file still not enabled")
+            # save_figure(fig_name=name)
 
 
-def plot_bivariate_binned(
-    regr_data,
-    savefig=False,
-    cond=None,
-    plot_max=False,
-):
+def plot(regr_data, filtered=None, tplot=None, default=True, savefig=False):
 
-    to_plot = {
-        "Plasma Current": ("ipla_efit", "te0"),
-    }
-
-    binned = regr_data.binned
     info = regr_data.info
 
-    for title, keys in to_plot.items():
-        xkey, ykey, zkey = keys
-        xinfo = info[xkey]
-        yinfo = info[ykey]
-
-        x = binned[xkey] * xinfo["const"]
-        y = binned[ykey] * yinfo["const"]
-        xval = flat(x.value)
-        xerr = flat(x.error)
-        yval = flat(y.value)
-        yerr = flat(y.error)
-
-        # isel = []
-        # if cond is not None:
-        #     for c in cond:
-        #         isel.append(selection_criteria(binned, c))
-        # else:
-        #     isel.append(np.where(np.ones_like(xval) == 1, True, False))
-        #
-        # if label is None:
-        #     label = [""] * len(isel)
-
-        # Plot (filtered) binned data
-        plt.figure()
-        for i in range(len(isel)):
-            # ind = np.where(isel[i] == True)[0]
-            ind = np.where(np.ones_like(yval) == 1)[0]
-            plt.errorbar(
-                xval[ind],
-                yval[ind],
-                xerr=xerr[ind],
-                yerr=yerr[ind],
-                fmt="o",
-                label=label[i],
-                alpha=0.5,
-            )
-        plt.xlabel(xinfo["label"] + " " + xinfo["units"])
-        plt.ylabel(yinfo["label"] + " " + yinfo["units"])
-        plt.title(title)
-        if label is not None:
-            plt.legend()
-
-
-def plot_evol(
-    result,
-    info,
-    tplot=None,
-    ylim_lo=None,
-    ykey=("te0"),
-    title="",
-    label=None,
-    savefig=False,
-):
-
-    if type(ykey) is str:
-        ykey = (ykey,)
-
-
-
-def plot(regr_data, tplot=0.03, savefig=False, xlim=()):
-
-    binned = regr_data.binned
-    max_val = regr_data.max_val
-
-    # Simulate measurements
+    ###################################
+    # Simulated XRCS measurements
+    ###################################
     plt.figure()
     temp_ratio = regr_data.temp_ratio
     for i in range(len(temp_ratio)):
@@ -639,9 +731,9 @@ def plot(regr_data, tplot=0.03, savefig=False, xlim=()):
         "T$_e$(0)",
         "T$_{e,i}$(XRCS)",
         "XRCS measurement vs. Central Te",
-        savefig=savefig,
-        name="XRCS_Te0_parametrization",
     )
+    if savefig:
+        save_figure(fig_name="XRCS_Te0_parametrization")
 
     plt.figure()
     for i in range(len(temp_ratio)):
@@ -655,9 +747,9 @@ def plot(regr_data, tplot=0.03, savefig=False, xlim=()):
         "rho_poloidal",
         "T$_e$ (keV)",
         "Temperature profiles",
-        savefig=savefig,
-        name="XRCS_parametrization_temperatures",
     )
+    if savefig:
+        save_figure(fig_name="XRCS_parametrization_temperatures")
 
     plt.figure()
     for i in range(len(temp_ratio)):
@@ -671,122 +763,50 @@ def plot(regr_data, tplot=0.03, savefig=False, xlim=()):
         "rho_poloidal",
         "T$_e$ (keV)",
         "Temperature profiles",
-        savefig=savefig,
-        name="XRCS_parametrization_densities",
     )
+    if savefig:
+        save_figure(fig_name="XRCS_parametrization_densities")
 
-    if len(xlim) == 0:
-        xlim = (
-            regr_data.pulses.min() - 2,
-            regr_data.pulses.max() + 2,
-        )
-    pulse_range = f"{xlim[0]}-{xlim[1]}"
+    ###################################
+    # Time evolution of maximum quantities
+    ###################################
+    to_plot = {
+        "Electron Temperature": ("te_xrcs", "te0"),
+        "Ion Temperature": ("ti_xrcs", "ti0"),
+        "Stored Energy": ("wp_efit",),
+        "Plasma Current": ("ipla_efit",),
+        "MC Current": ("imc",),
+        "Gas pressure": ("gas_press",),
+    }
+    plot_time_evol(regr_data, info, to_plot, savefig=savefig)
 
-    trange = f"t=[{regr_data.tlim[0]:1.3f}, {regr_data.tlim[1]:1.3f}] s"
-    prange = f"pulses={pulse_range}"
-    tplot = regr_data.time[np.argmin(np.abs(regr_data.time - tplot))]
-    tplot_tit = f"t={tplot}"
-    name = f"ST40_trends_{pulse_range}"
+    ###################################
+    # Time evolution of quantities at specified tplot
+    ###################################
+    to_plot = {
+        "Bremsstrahlung PI": ("brems_pi",),
+        "Bremsstrahlung MP": ("brems_mp",),
+        "Plasma Current": ("ipla_efit",),
+        "Gas pressure": ("gas_press",),
+        "H-alpha": ("h_i_6563",),
+        "Helium": ("he_ii_4686",),
+        "Boron": ("b_ii_3451",),
+        "Oxygen": ("o_iv_3063",),
+        "Argon": ("ar_ii_4348",),
+    }
+    plot_time_evol(regr_data, info, to_plot, tplot=tplot, savefig=savefig)
 
-    plt.figure()
-    key = "ipla_efit"
-    if key in binned.keys():
-        const = 1.0e-6
-        xlab, ylab, lab, tit = ("Pulse #", "$(MA)$", "", f"Max I$_P$(EFIT)")
-        val, err = (flat(max_val[key].value), flat(max_val[key].error))
-        plt.errorbar(
-            regr_data.pulses, val * const, yerr=err * const, fmt="o", label=lab
-        )
-        plt.ylim(0,)
-        plt.xlim(xlim[0], xlim[1])
-        add_to_plot(
-            xlab,
-            ylab,
-            tit,
-            legend=True,
-            savefig=savefig,
-            name=f"{name}_{key}",
-            vlines=True,
-        )
+    ###################################
+    # Bivariate distributions for data-points which satisfy selection criteria
+    ###################################
+    to_plot = {
+        "T$_e$(0) vs. I$_P$": ("ipla_efit", "te0"),
+        "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
+        "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
+    }
 
-    plt.figure()
-    key = "ipla_pfit"
-    if key in binned.keys():
-        const = 1.0e-6
-        xlab, ylab, tit = ("Pulse #", "$(MA)$", f"Max I$_P$(PFIT)")
-        val, err = (flat(max_val[key].value), flat(max_val[key].error))
-        plt.errorbar(regr_data.pulses, val * const, yerr=err * const, fmt="*", label="")
-        plt.ylim(0,)
-        plt.xlim(xlim[0], xlim[1])
-        add_to_plot(xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}", vlines=True)
-
-    plt.figure()
-    key = "te_xrcs"
-    if key in binned.keys():
-        xlab, ylab, tit = (
-            "Pulse #",
-            "(keV)",
-            "Electron Temperature",
-        )
-        val, err = (flat(max_val[key].value), flat(max_val[key].error))
-        const = 1.0e-3
-        plt.errorbar(
-            regr_data.pulses,
-            val * const,
-            yerr=err * const,
-            fmt="o",
-            label="T$_e$(XRCS)",
-        )
-        if "te0" in binned.keys():
-            val, err = flat(max_val["te0"].value), flat(max_val["te0"].error)
-            plt.errorbar(
-                regr_data.pulses,
-                val * const,
-                yerr=err * const,
-                fmt="o",
-                label="T$_e$(0)",
-            )
-        plt.ylim(0,)
-        plt.xlim(xlim[0], xlim[1])
-        add_to_plot(xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}", vlines=True)
-
-    plt.figure()
-    key = "ti_xrcs"
-    if key in binned.keys():
-        xlab, ylab, tit = ("Pulse #", "$(keV)$", "Ion Temperature")
-        val, err = flat(max_val[key].value), flat(max_val[key].error)
-        const = 1.0e-3
-        plt.errorbar(
-            regr_data.pulses,
-            val * const,
-            yerr=err * const,
-            fmt="o",
-            label="T$_i$(XRCS)",
-        )
-        if "te0" in binned.keys():
-            val, err = flat(max_val["ti0"].value), flat(max_val["ti0"].error)
-            plt.errorbar(
-                regr_data.pulses,
-                val * const,
-                yerr=err * const,
-                fmt="o",
-                label="T$_i$(0)",
-            )
-        plt.ylim(0,)
-        plt.xlim(xlim[0], xlim[1])
-        add_to_plot(xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}", vlines=True)
-
-    plt.figure()
-    key = "wp_efit"
-    const = 1.0e-3
-    xlab, ylab, tit = ("Pulse #", "$(kJ)$", "Stored Energy")
-    val, err = flat(max_val[key].value), flat(max_val[key].error)
-    plt.errorbar(
-        regr_data.pulses, val * const, yerr=err * const, fmt="o", label="W$_P$(EFIT)"
-    )
-    plt.ylim(0,)
-    plt.xlim(xlim[0], xlim[1])
-    add_to_plot(xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}", vlines=True)
+    if hasattr(regr_data, "filtered"):
+        plot_bivariate(regr_data.filtered, info, to_plot, savefig=savefig)
 
     # (IP * RP) / (IMC * 0.75 * 11) at 10 ms vs. pulse #
     # plt.figure()
@@ -820,170 +840,10 @@ def plot(regr_data, tplot=0.03, savefig=False, xlim=()):
     #     xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}_itf",
     # )
 
-    # Indices for Ohmic and NBI phases
-
-    binned = regr_data.binned
-    info = regr_data.info
-    cond = [
-        {"nbi_power": {"var": "value", "lim": (0,)}},
-        {"nbi_power": {"var": "value", "lim": (20, np.nan)}},
-    ]
-    label = ["Ohmic phases", "NBI phases"]
-    plot_bivariate_binned(
-        regr_data,
-        xkey="ipla_efit",
-        ykey="te0",
-        savefig=False,
-        title="",
-        cond=cond,
-        label=label,
-    )
-
-    return
-
-    cond = {"nbi_power": {"var": "value", "lim": (0,)}}
-    sel_bin_ohm, sel_max_ohm = self.selection_criteria(cond)
-    ipla_val_ohm = (
-        flat(xr.where(sel_bin_ohm, binned["ipla_efit"], np.nan).value) / 1.0e6
-    )
-    ipla_err_ohm = (
-        flat(xr.where(sel_bin_ohm, binned["ipla_efit"], np.nan).error) / 1.0e6
-    )
-    te0_val_ohm = flat(xr.where(sel_bin_ohm, binned["te0"], np.nan).value) / 1.0e3
-    te0_err_ohm = flat(xr.where(sel_bin_ohm, binned["te0"], np.nan).error) / 1.0e3
-
-    cond = {"nbi_power": {"var": "value", "lim": (1, 1.0e6)}}
-    sel_bin_nbi, sel_max_nbi = selection_criteria(cond)
-    ipla_val_nbi = (
-        flat(xr.where(sel_bin_nbi, binned["ipla_efit"], np.nan).value) / 1.0e6
-    )
-    ipla_err_nbi = (
-        flat(xr.where(sel_bin_nbi, binned["ipla_efit"], np.nan).error) / 1.0e6
-    )
-    te0_val_nbi = flat(xr.where(sel_bin_nbi, binned["te0"], np.nan).value) / 1.0e3
-    te0_err_nbi = flat(xr.where(sel_bin_nbi, binned["te0"], np.nan).error) / 1.0e3
-
-    plt.figure()
-    key = "te0_ipla"
-    const = 1.0e-3
-    xlab, ylab, tit = ("I$_{P}$ (MA)", "(keV)", "Central Electron Temperature")
-    plt.errorbar(
-        ipla_val_ohm,
-        te0_val_ohm,
-        yerr=te0_err_ohm,
-        xerr=ipla_err_ohm,
-        fmt="x",
-        label=f"Ohmic phases",
-    )
-    plt.errorbar(
-        ipla_val_nbi,
-        te0_val_nbi,
-        yerr=te0_err_nbi,
-        xerr=ipla_err_nbi,
-        fmt="o",
-        label=f"NBI phases",
-    )
-    add_to_plot(
-        xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}",
-    )
-
-    ti0_val_ohm = flat(xr.where(sel_bin_ohm, binned["ti0"], np.nan).value) / 1.0e3
-    ti0_err_ohm = flat(xr.where(sel_bin_ohm, binned["ti0"], np.nan).error) / 1.0e3
-    ti0_val_nbi = flat(xr.where(sel_bin_nbi, binned["ti0"], np.nan).value) / 1.0e3
-    ti0_err_nbi = flat(xr.where(sel_bin_nbi, binned["ti0"], np.nan).error) / 1.0e3
-
-    plt.figure()
-    key = "ti0_ipla"
-    const = 1.0e-3
-    xlab, ylab, tit = ("I$_{P}$ (MA)", "(keV)", "Central Ion Temperature")
-    plt.errorbar(
-        ipla_val_ohm,
-        ti0_val_ohm,
-        yerr=ti0_err_ohm,
-        xerr=ipla_err_ohm,
-        fmt="x",
-        label=f"Ohmic phases",
-    )
-    plt.errorbar(
-        ipla_val_nbi,
-        ti0_val_nbi,
-        yerr=ti0_err_nbi,
-        xerr=ipla_err_nbi,
-        fmt="o",
-        label=f"NBI phases",
-    )
-    add_to_plot(
-        xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}",
-    )
-
-    # Temperature vs density
-    nirh1_val = flat(binned["ne_nirh1"].value) / 1.0e19
-    nirh1_err = flat(binned["ne_nirh1"].error) / 1.0e19
-
-    val = flat(binned["te0"].value)
-    err = flat(binned["te0"].error)
-    plt.figure()
-    key = "te0_nirh1_rescaled"
-    const = 1.0e-3
-    xlab, ylab, tit = (
-        "N$_{e}$-int (10$^{19}$)",
-        "(keV)",
-        "Central Electron Temperature vs Density NIR",
-    )
-    plt.errorbar(
-        nirh1_val[ind_ohm],
-        (val * const)[ind_ohm],
-        yerr=(err * const)[ind_ohm],
-        xerr=nirh1_err[ind_ohm],
-        fmt="x",
-        label=f"Ohmic phases",
-    )
-    plt.errorbar(
-        nirh1_val[ind_nbi],
-        (val * const)[ind_nbi],
-        yerr=(err * const)[ind_nbi],
-        xerr=nirh1_err[ind_nbi],
-        fmt="o",
-        label=f"NBI phases",
-    )
-    add_to_plot(
-        xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}",
-    )
-
-    val = flat(binned["ti0"].value)
-    err = flat(binned["ti0"].error)
-    plt.figure()
-    key = "ti0_nirh1_rescaled"
-    const = 1.0e-3
-    xlab, ylab, tit = (
-        "N$_{e}$-int (10$^{19}$)",
-        "(keV)",
-        "Central Ion Temperature vs Density NIR",
-    )
-    plt.errorbar(
-        nirh1_val[ind_ohm],
-        (val * const)[ind_ohm],
-        yerr=(err * const)[ind_ohm],
-        xerr=nirh1_err[ind_ohm],
-        fmt="x",
-        label=f"Ohmic phases",
-    )
-    plt.errorbar(
-        nirh1_val[ind_nbi],
-        (val * const)[ind_nbi],
-        yerr=(err * const)[ind_nbi],
-        xerr=nirh1_err[ind_nbi],
-        fmt="o",
-        label=f"NBI phases",
-    )
-    add_to_plot(
-        xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}",
-    )
-
 
 def write_to_csv(regr_data):
 
-    results = regr_data.filtered_data
+    results = regr_data.filtered
     ipla_max = results["ipla_efit_max"].value.values
     ipla_max_time = results["ipla_efit_max"].time.values
     ti_max = results["ti_xrcs_max"].value.values
@@ -1042,10 +902,15 @@ def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
 
 
 def simulate_xrcs():
+    print("Simulating XRCS measurement for Te(0) re-scaling")
 
     adasreader = ADASReader()
     xrcs = Spectrometer(
-        adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
+        adasreader,
+        "ar",
+        "16",
+        transition="(1)1(1.0)-(1)0(0.0)",
+        wavelength=4.0,
     )
 
     time = np.linspace(0, 1, 50)
@@ -1199,19 +1064,6 @@ def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None)
                 std = np.std(data[it] + offset)
 
     return avrg, std
-
-
-def add_to_plot(xlab, ylab, tit, legend=True, name="", savefig=False, vlines=False):
-    if vlines:
-        add_vlines(BORONISATION)
-        add_vlines(GDC, color="r")
-    plt.xlabel(xlab)
-    plt.ylabel(ylab)
-    plt.title(tit)
-    if legend:
-        plt.legend()
-    if savefig:
-        save_figure(fig_name=name)
 
 
 def write_to_pickle(regr_data):
@@ -1394,7 +1246,7 @@ def get_data_info():
             "seq": 0,
             "err": ".ti_w:ti_err",
             "max": False,
-            "label": "T$_e$ XRCS",
+            "label": "T$_i$ XRCS",
             "units": "(keV)",
             "const": 1.0e-3,
         },
@@ -1434,7 +1286,7 @@ def get_data_info():
         "b_ii_3451": {
             "uid": "spectrom",
             "diag": "avantes.line_mon",
-            "node": ".line_evol.b_v_494:intensity",
+            "node": ".line_evol.b_ii_3451:intensity",
             "seq": 0,
             "err": None,
             "max": False,
@@ -1445,7 +1297,7 @@ def get_data_info():
         "o_iv_3063": {
             "uid": "spectrom",
             "diag": "avantes.line_mon",
-            "node": ".line_evol.o_iv_306:intensity",
+            "node": ".line_evol.o_iv_3063:intensity",
             "seq": 0,
             "err": None,
             "max": False,
@@ -1456,7 +1308,7 @@ def get_data_info():
         "ar_ii_4348": {
             "uid": "spectrom",
             "diag": "avantes.line_mon",
-            "node": ".line_evol.ar_ii_443:intensity",
+            "node": ".line_evol.ar_ii_4348:intensity",
             "seq": 0,
             "err": None,
             "max": False,
@@ -1487,3 +1339,14 @@ def get_data_info():
     }
 
     return info
+
+
+def add_to_plot(xlab, ylab, tit, legend=True, vlines=False):
+    if vlines:
+        add_vlines(BORONISATION)
+        add_vlines(GDC, color="r")
+    plt.xlabel(xlab)
+    plt.ylabel(ylab)
+    plt.title(tit)
+    if legend:
+        plt.legend()
