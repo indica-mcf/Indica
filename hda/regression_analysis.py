@@ -650,12 +650,14 @@ def plot_bivariate(
 
 
 def plot_trivariate(
-    binned,
+    filtered,
     info,
     to_plot,
     nbins=10,
     savefig=False,
 ):
+
+    markers = ["o", "d", "x"]
 
     for title, keys in to_plot.items():
         xkey, ykey, zkey = keys
@@ -664,51 +666,61 @@ def plot_trivariate(
         yinfo = info[ykey]
         zinfo = info[zkey]
 
-        x = binned[xkey].value.values.flatten() * xinfo["const"]
-        y = binned[ykey].value.values.flatten() * yinfo["const"]
-        z = binned[zkey].value.values.flatten() * zinfo["const"]
-        xerr = binned[xkey].error.values.flatten() * xinfo["const"]
-        yerr = binned[ykey].error.values.flatten() * yinfo["const"]
+        for i, label in enumerate(filtered.keys()):
+            plt.figure()
+            binned = filtered[label]["binned"]
+            x = binned[xkey].value.values.flatten() * xinfo["const"]
+            y = binned[ykey].value.values.flatten() * yinfo["const"]
+            z = binned[zkey].value.values.flatten() * zinfo["const"]
+            xerr = binned[xkey].error.values.flatten() * xinfo["const"]
+            yerr = binned[ykey].error.values.flatten() * yinfo["const"]
 
-        zhist = np.histogram(z[np.where(np.isfinite(z))[0]], bins=nbins)
-        bins = zhist[1]
-        bins_str = [f"{b:.1f}" for b in bins]
-        nbins = len(bins) - 1
-        cols = cm.rainbow(np.linspace(0, 1, nbins))
-        plt.figure()
-        for ib in range(nbins):
-            ind = np.where((z >= bins[ib]) * (z < bins[ib + 1]))
-            plt.errorbar(
-                x[ind],
-                y[ind],
-                xerr=xerr[ind],
-                yerr=yerr[ind],
-                fmt="o",
-                color=cols[ib],
-                label=f"[{bins_str[ib]}, {bins_str[ib+1]}]",
-                alpha=0.5,
-            )
-        plt.xlabel(xinfo["label"] + " " + xinfo["units"])
-        plt.ylabel(yinfo["label"] + " " + yinfo["units"])
-        plt.title(f"{zinfo['label']} {zinfo['units']}")
-        plt.legend()
-        if savefig:
-            save_figure(fig_name=name)
+            zhist = np.histogram(z[np.where(np.isfinite(z))[0]], bins=nbins)
+            bins = zhist[1]
+            bins_str = [f"{b:.1f}" for b in bins]
+            nbins = len(bins) - 1
+            cols = cm.rainbow(np.linspace(0, 1, nbins))
+            for ib in range(nbins):
+                ind = np.where((z >= bins[ib]) * (z < bins[ib + 1]))
+                plt.errorbar(
+                    x[ind],
+                    y[ind],
+                    xerr=xerr[ind],
+                    yerr=yerr[ind],
+                    fmt=markers[i],
+                    color=cols[ib],
+                    label=f"[{bins_str[ib]}, {bins_str[ib+1]}]",
+                    alpha=0.5,
+                )
+            plt.xlabel(xinfo["label"] + " " + xinfo["units"])
+            plt.ylabel(yinfo["label"] + " " + yinfo["units"])
+            plt.title(f"{label} {zinfo['label']} {zinfo['units']}")
+            plt.legend()
+            name += f"_{label}"
+            if savefig:
+                save_figure(fig_name=name)
 
 
-def plot_hist(binned, info, to_plot, tplot=None, bins=None, savefig=False):
+def plot_hist(filtered, info, to_plot, tplot=None, bins=None, savefig=False):
     for title, ykey in to_plot.items():
         plt.figure()
         for i, key in enumerate(ykey):
+            res = []
+            labels = []
+            for label, data in filtered.items():
+                res_tmp = data["binned"][key] * info[key]["const"]
+                if tplot is not None:
+                    res_tmp = res_tmp.sel(t=tplot, method="nearest")
+                res_tmp = flat(res_tmp.value)
+                res.append(res_tmp)
+                labels.append(label)
+
             plt.figure()
             name = f"hist_{key}"
-            res = binned[key] * info[key]["const"]
-            if tplot is not None:
-                res = res.sel(t=tplot, method="nearest")
-            res = flat(res.value)
-            plt.hist(res, bins=bins)
-            plt.title(info[key]["label"])
+            plt.hist(res, bins=bins, label=labels)
+            plt.title(f"{info[key]['label']}")
             plt.xlabel(info[key]["units"])
+            plt.legend()
             if tplot is not None:
                 name += f"_t_{tplot:.3f}s"
             if savefig:
@@ -813,9 +825,10 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
         "Electron Density": ("te0", "ti0", "ne_nirh1"),
     }
 
-    plot_trivariate(regr_data.binned, info, to_plot, savefig=savefig)
-
-    plot_hist(regr_data.binned, info, to_plot, tplot=None, bins=None, savefig=savefig)
+    filtered = {"All": {"selection": None, "binned": regr_data.binned}}
+    filtered = regr_data.filtered
+    plot_trivariate(filtered, info, to_plot, savefig=savefig)
+    plot_hist(filtered, info, to_plot, tplot=None, bins=None, savefig=savefig)
 
     # (IP * RP) / (IMC * 0.75 * 11) at 10 ms vs. pulse #
     # plt.figure()
