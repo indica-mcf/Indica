@@ -666,6 +666,18 @@ def plot_trivariate(
         yinfo = info[ykey]
         zinfo = info[zkey]
 
+        ylim = []
+        xlim = []
+        for i, label in enumerate(filtered.keys()):
+            binned = filtered[label]["binned"]
+            x = binned[xkey].value.values.flatten() * xinfo["const"]
+            y = binned[ykey].value.values.flatten() * yinfo["const"]
+            xlim.append([np.nanmin(x), np.nanmax(x)])
+            ylim.append([np.nanmin(y), np.nanmax(y)])
+        xlim = np.array(xlim)
+        ylim = np.array(ylim)
+        xlim = (np.min(xlim)*0.95, np.max(xlim)*1.05)
+        ylim = (np.min(ylim)*0.95, np.max(ylim)*1.05)
         for i, label in enumerate(filtered.keys()):
             plt.figure()
             binned = filtered[label]["binned"]
@@ -696,6 +708,8 @@ def plot_trivariate(
             plt.ylabel(yinfo["label"] + " " + yinfo["units"])
             plt.title(f"{label} {zinfo['label']} {zinfo['units']}")
             plt.legend()
+            plt.xlim(xlim)
+            plt.ylim(ylim)
             name += f"_{label}"
             if savefig:
                 save_figure(fig_name=name)
