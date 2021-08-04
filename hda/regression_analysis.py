@@ -560,18 +560,17 @@ def plot_time_evol(regr_data, info, to_plot, tplot=None, savefig=False, vlines=T
         result = regr_data.binned
 
     for title, ykey in to_plot.items():
-        y = []
-        for k in ykey:
-            res = result[k] * info[k]["const"]
-            if tplot is not None:
-                res = res.sel(t=tplot)
-            y.append(res)
-
+        name = "time_evol"
         plt.figure()
         for i, k in enumerate(ykey):
-            x = y[i].pulse
-            yval = flat(y[i].value)
-            yerr = flat(y[i].error)
+            name += f"_{k}"
+            res = result[k] * info[k]["const"]
+            if tplot is not None:
+                res = res.sel(t=tplot, method="nearest")
+
+            x = res.pulse
+            yval = flat(res.value)
+            yerr = flat(res.error)
 
             if len(ykey) > 1:
                 label = info[k]["label"]
@@ -597,9 +596,14 @@ def plot_time_evol(regr_data, info, to_plot, tplot=None, savefig=False, vlines=T
         if vlines:
             add_vlines(BORONISATION)
             add_vlines(GDC, color="r")
+
+        if tplot is None:
+            name += "_max"
+        else:
+            name += f"_t_{tplot:.3f}s"
+
         if savefig:
-            print("Saving to file still not enabled")
-            # save_figure(fig_name=name)
+            save_figure(fig_name=name)
 
 
 def plot_bivariate(
@@ -646,23 +650,16 @@ def plot_bivariate(
 
 
 def plot_trivariate(
-    regr_data,
-    xbins=None,
-    ybins=None,
-    zbins=None,
+    binned,
+    info,
+    to_plot,
+    nbins=10,
     savefig=False,
 ):
 
-    to_plot = {
-        "Plasma Current": ("te0", "ti0", "ipla_efit"),
-        "Electron Density": ("te0", "ti0", "ne_nirh1"),
-    }
-
-    info = regr_data.info
-    binned = regr_data.binned
-
     for title, keys in to_plot.items():
         xkey, ykey, zkey = keys
+        name = f"{zkey}_vs_{ykey}_and_{xkey}"
         xinfo = info[xkey]
         yinfo = info[ykey]
         zinfo = info[zkey]
@@ -673,21 +670,7 @@ def plot_trivariate(
         xerr = binned[xkey].error.values.flatten() * xinfo["const"]
         yerr = binned[ykey].error.values.flatten() * yinfo["const"]
 
-        plt.figure()
-        plt.hist(x, bins=xbins)
-        plt.title(xinfo["label"])
-        plt.xlabel(xinfo["units"])
-
-        plt.figure()
-        plt.hist(y, bins=ybins)
-        plt.title(yinfo["label"])
-        plt.xlabel(yinfo["units"])
-
-        plt.figure()
-        zhist = plt.hist(z, bins=zbins)
-        plt.title(zinfo["label"])
-        plt.xlabel(zinfo["units"])
-
+        zhist = np.histogram(z[np.where(np.isfinite(z))[0]], bins=nbins)
         bins = zhist[1]
         bins_str = [f"{b:.1f}" for b in bins]
         nbins = len(bins) - 1
@@ -710,11 +693,29 @@ def plot_trivariate(
         plt.title(f"{zinfo['label']} {zinfo['units']}")
         plt.legend()
         if savefig:
-            print("Saving to file still not enabled")
-            # save_figure(fig_name=name)
+            save_figure(fig_name=name)
 
 
-def plot(regr_data, filtered=None, tplot=None, default=True, savefig=False):
+def plot_hist(binned, info, to_plot, tplot=None, bins=None, savefig=False):
+    for title, ykey in to_plot.items():
+        plt.figure()
+        for i, key in enumerate(ykey):
+            plt.figure()
+            name = f"hist_{key}"
+            res = binned[key] * info[key]["const"]
+            if tplot is not None:
+                res = res.sel(t=tplot, method="nearest")
+            res = flat(res.value)
+            plt.hist(res, bins=bins)
+            plt.title(info[key]["label"])
+            plt.xlabel(info[key]["units"])
+            if tplot is not None:
+                name += f"_t_{tplot:.3f}s"
+            if savefig:
+                save_figure(fig_name=name)
+
+
+def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
 
     info = regr_data.info
 
@@ -799,14 +800,22 @@ def plot(regr_data, filtered=None, tplot=None, default=True, savefig=False):
     ###################################
     # Bivariate distributions for data-points which satisfy selection criteria
     ###################################
+    if hasattr(regr_data, "filtered"):
+        to_plot = {
+            "T$_e$(0) vs. I$_P$": ("ipla_efit", "te0"),
+            "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
+            "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
+        }
+        plot_bivariate(regr_data.filtered, info, to_plot, savefig=savefig)
+
     to_plot = {
-        "T$_e$(0) vs. I$_P$": ("ipla_efit", "te0"),
-        "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
-        "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
+        "Plasma Current": ("te0", "ti0", "ipla_efit"),
+        "Electron Density": ("te0", "ti0", "ne_nirh1"),
     }
 
-    if hasattr(regr_data, "filtered"):
-        plot_bivariate(regr_data.filtered, info, to_plot, savefig=savefig)
+    plot_trivariate(regr_data.binned, info, to_plot, savefig=savefig)
+
+    plot_hist(regr_data.binned, info, to_plot, tplot=None, bins=None, savefig=savefig)
 
     # (IP * RP) / (IMC * 0.75 * 11) at 10 ms vs. pulse #
     # plt.figure()
@@ -893,8 +902,12 @@ def add_vlines(xvalues, color="k"):
 
 
 def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
+    if getpass.getuser() == "lavoro":
+        path = "/Users/lavoro/Work/Python/figures/regr_trends/"
+    else:
+        path = f"/home/{getpass.getuser()}/python/figures/regr_trends/"
     plt.savefig(
-        f"/home/{getpass.getuser()}/python/figures/regr_trends/" + fig_name + ext,
+        path + fig_name + ext,
         orientation=orientation,
         dpi=600,
         pil_kwargs={"quality": 95},
