@@ -18,6 +18,7 @@ import pickle
 import hda.fac_profiles as fac
 from hda.forward_models import Spectrometer
 import matplotlib.cm as cm
+import matplotlib as mpl
 import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
@@ -357,6 +358,8 @@ def general_filters(results):
         "ar_ii_4348",
         "ne_smmh1",
         "wp_efit",
+        "rip_pfit",
+        "imc",
     ]
 
     for k in keys:
@@ -422,7 +425,7 @@ def calc_max_val(binned, max_val, info, t_max=0.02):
     k = list(binned.keys())[0]
     for p in binned[k].pulse:
         for k, v in info.items():
-            if v["max"]:
+            if v["max"] is None:
                 continue
             max_search = xr.where(
                 binned[k].t > t_max, binned[k].value.sel(pulse=p), np.nan
@@ -470,7 +473,7 @@ def selection_criteria(binned, cond):
     for k, c in cond.items():
         item = binned[k]
         if c["var"] == "error":  # percentage error
-            val = item["error"] / item["value"]
+            val = np.abs(item["error"] / item["value"])
         else:
             # val = flat(item[c["var"]])
             val = item[c["var"]]
@@ -588,9 +591,8 @@ def plot_time_evol(regr_data, info, to_plot, tplot=None, savefig=False, vlines=T
         plt.xlabel("Pulse #")
         plt.ylabel(info[k]["units"])
         plt.title(f"{tit_front}{title}{tit_end}")
-        plt.ylim(
-            0,
-        )
+        plt.xlim(np.min(regr_data.pulses)-5, np.max(regr_data.pulses)+5)
+        plt.ylim(0,)
         if len(ykey) > 1:
             plt.legend()
         if vlines:
@@ -657,11 +659,8 @@ def plot_trivariate(
     savefig=False,
 ):
 
-    markers = ["o", "d", "x"]
-
     for title, keys in to_plot.items():
         xkey, ykey, zkey = keys
-        name = f"{zkey}_vs_{ykey}_and_{xkey}"
         xinfo = info[xkey]
         yinfo = info[ykey]
         zinfo = info[zkey]
@@ -676,10 +675,11 @@ def plot_trivariate(
             ylim.append([np.nanmin(y), np.nanmax(y)])
         xlim = np.array(xlim)
         ylim = np.array(ylim)
-        xlim = (np.min(xlim)*0.95, np.max(xlim)*1.05)
-        ylim = (np.min(ylim)*0.95, np.max(ylim)*1.05)
+        xlim = (np.min(xlim) * 0.95, np.max(xlim) * 1.05)
+        ylim = (np.min(ylim) * 0.95, np.max(ylim) * 1.05)
         for i, label in enumerate(filtered.keys()):
             plt.figure()
+            name = f"{zkey}_vs_{ykey}_and_{xkey}"
             binned = filtered[label]["binned"]
             x = binned[xkey].value.values.flatten() * xinfo["const"]
             y = binned[ykey].value.values.flatten() * yinfo["const"]
@@ -691,6 +691,22 @@ def plot_trivariate(
             bins = zhist[1]
             bins_str = [f"{b:.1f}" for b in bins]
             nbins = len(bins) - 1
+
+            ind = np.argsort(z)
+            cmap = plt.cm.get_cmap("rainbow", nbins)
+            sc = plt.scatter(
+                x[ind],
+                y[ind],
+                c=z[ind],
+                s=40,
+                vmin=np.nanmin(z),
+                vmax=np.nanmax(z),
+                cmap=cmap,
+                marker="o",
+                alpha=0.5,
+            )
+            plt.colorbar(sc, label=f"{zinfo['label']} {zinfo['units']}")
+
             cols = cm.rainbow(np.linspace(0, 1, nbins))
             for ib in range(nbins):
                 ind = np.where((z >= bins[ib]) * (z < bins[ib + 1]))
@@ -699,15 +715,15 @@ def plot_trivariate(
                     y[ind],
                     xerr=xerr[ind],
                     yerr=yerr[ind],
-                    fmt=markers[i],
+                    fmt="o",
                     color=cols[ib],
                     label=f"[{bins_str[ib]}, {bins_str[ib+1]}]",
-                    alpha=0.5,
+                    alpha=0.2,
                 )
+
             plt.xlabel(xinfo["label"] + " " + xinfo["units"])
             plt.ylabel(yinfo["label"] + " " + yinfo["units"])
-            plt.title(f"{label} {zinfo['label']} {zinfo['units']}")
-            plt.legend()
+            plt.title(f"{label}")
             plt.xlim(xlim)
             plt.ylim(ylim)
             name += f"_{label}"
@@ -788,8 +804,8 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
     plt.legend()
     add_to_plot(
         "rho_poloidal",
-        "T$_e$ (keV)",
-        "Temperature profiles",
+        "n$_e$ (10$^{19}$)",
+        "Density profiles",
     )
     if savefig:
         save_figure(fig_name="XRCS_parametrization_densities")
@@ -797,14 +813,21 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
     ###################################
     # Time evolution of maximum quantities
     ###################################
+    # Calculate RIP/IMC and add to values to be plotted
+
+    # rip = regr_data.binned["rip_pfit"].sel(t=0.01, method="nearest").value
+    # regr_data.max_val["rip_imc"] = deepcopy(regr_data.max_val["rip_pfit"])
+    # regr_data.max_val["rip_imc"].value.values = (rip / (-regr_data.max_val["imc"] * 0.75 * 11).value).values
     to_plot = {
         "Electron Temperature": ("te_xrcs", "te0"),
         "Ion Temperature": ("ti_xrcs", "ti0"),
+        "Electron Density": ("ne_nirh1",),
         "Stored Energy": ("wp_efit",),
         "Plasma Current": ("ipla_efit",),
         "MC Current": ("imc",),
         "Gas pressure": ("gas_press",),
     }
+        # "Plasma current / MC current ": ("rip_imc",),
     plot_time_evol(regr_data, info, to_plot, savefig=savefig)
 
     ###################################
@@ -831,18 +854,21 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
             "T$_e$(0) vs. I$_P$": ("ipla_efit", "te0"),
             "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
             "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
+            "T$_i$(0) vs. gas pressure": ("gas_press", "ti0"),
         }
         plot_bivariate(regr_data.filtered, info, to_plot, savefig=savefig)
 
     to_plot = {
         "Plasma Current": ("te0", "ti0", "ipla_efit"),
         "Electron Density": ("te0", "ti0", "ne_nirh1"),
+        "Gas pressure": ("te0", "ti0", "gas_press"),
     }
 
-    filtered = {"All": {"selection": None, "binned": regr_data.binned}}
-    filtered = regr_data.filtered
+    plot_hist(regr_data.filtered, info, to_plot, tplot=None, bins=None, savefig=savefig)
+
+    filtered = deepcopy(regr_data.filtered)
+    filtered["All"] = {"selection": None, "binned": regr_data.binned}
     plot_trivariate(filtered, info, to_plot, savefig=savefig)
-    plot_hist(filtered, info, to_plot, tplot=None, bins=None, savefig=savefig)
 
     # (IP * RP) / (IMC * 0.75 * 11) at 10 ms vs. pulse #
     # plt.figure()
@@ -1374,6 +1400,12 @@ def get_data_info():
             "max": True,
             "label": "Total gas",
             "units": "(V * s)",
+            "const": 1.0,
+        },
+        "rip_imc": {
+            "max": None,
+            "label": "(R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
+            "units": " ",
             "const": 1.0,
         },
     }
