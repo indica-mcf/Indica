@@ -58,6 +58,7 @@ class Database:
             self.path = f"/home/{getpass.getuser()}/python/"
         self.filename = f"{pulse_start}_{pulse_end}_regression_database.pkl"
         if reload:
+            print(f"Reloading data from {self.path + self.filename}")
             regr_data = pickle.load(open(self.path + self.filename, "rb"))
             self.pulse_start = regr_data.pulse_start
             self.pulse_end = regr_data.pulse_end
@@ -83,11 +84,10 @@ class Database:
             self.initialize_structures()
 
             # Read all data
-            binned, max_val, pulses_all = self.read_data(pulse_start, pulse_end)
+            binned, max_val, pulses = self.read_data(pulse_start, pulse_end)
             self.binned = binned
             self.max_val = max_val
-            self.pulses_all = pulses_all
-            self.pulses = np.unique(np.array(pulses_all).flatten())
+            self.pulses = pulses
 
     def __call__(self, *args, **kwargs):
         """
@@ -222,7 +222,7 @@ class Database:
 
         binned["nbi_power"] = deepcopy(binned["hnbi"])
 
-        return binned, max_val, pulses_all
+        return binned, max_val, pulses
 
     def bin_in_time(self, data, time, err=None, tlim=(0, 0.5)):
         """
@@ -283,7 +283,7 @@ class Database:
 
         return binned, max_val
 
-def add_pulses(regr_data, pulse_end):
+def add_pulses(regr_data, pulse_end, reload=False):
     """
     Add data from newer pulses to binned dictionary
 
@@ -296,21 +296,29 @@ def add_pulses(regr_data, pulse_end):
     if pulse_end < pulse_start:
         print("Only newer pulses can be added (...for the time being...)")
         return
-    regr_data_new = Database(pulse_start, pulse_end)
+    old = regr_data
+    new = Database(pulse_start, pulse_end, reload=reload)
 
-    return regr_data_new
+    # Check data-set consistency
+    assert old.info == new.info
+    assert old.t_max == new.t_max
+    assert old.tlim == new.tlim
+    assert all(old.time == new.time)
 
-    for i, pulse in enumerate(new_binned["pulses"]):
-        for k1, res in new.items():
-            if k1 == "pulses":
-                continue
-            if type(res) != dict:
-                self.results[k1].append(res[i])
-                continue
+    # Generate new merged database
+    merged = deepcopy(old)
+    merged.pulses = np.append(old.pulses, new.pulses)
+    merged.filename = f"{old.pulse_start}_{new.pulse_end}_regression_database.pkl"
 
-            for k2, res2 in res.items():
-                self.results[k1][k2].append(res2[i])
+    for k in regr_data.info:
+        if k in list(old.binned) and k in list(new.binned):
+            merged.binned[k] = [old.binned[k], new.binned[k]]
+            merged.binned[k] = xr.concat(merged.binned[k], "pulse")
+        if k in list(old.max_val) and k in list(new.max_val):
+            merged.max_val[k] = [old.max_val[k], new.max_val[k]]
+            merged.max_val[k] = xr.concat(merged.max_val[k], "pulse")
 
+    return merged
 
 def general_filters(results):
     """
