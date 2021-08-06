@@ -83,7 +83,11 @@ class Database:
             self.initialize_structures()
 
             # Read all data
-            self.read_data(pulse_start, pulse_end)
+            binned, max_val, pulses_all = self.read_data(pulse_start, pulse_end)
+            self.binned = binned
+            self.max_val = max_val
+            self.pulses_all = pulses_all
+            self.pulses = np.unique(np.array(pulses_all).flatten())
 
     def __call__(self, *args, **kwargs):
         """
@@ -138,7 +142,7 @@ class Database:
 
         Returns
         -------
-
+        Saves binned data and maximum values
         """
 
         binned = {}
@@ -207,19 +211,18 @@ class Database:
                 binned[k].append(binned_tmp)
                 max_val[k].append(max_val_tmp)
 
-        self.pulses_all = np.array(pulses_all)
-        self.pulses = np.unique(np.array(self.pulses_all).flatten())
+        pulses_all = np.array(pulses_all)
+        pulses = np.unique(np.array(pulses_all).flatten())
 
         for k in binned.keys():
             binned[k] = xr.concat(binned[k], "pulse")
-            binned[k] = binned[k].assign_coords({"pulse": self.pulses})
+            binned[k] = binned[k].assign_coords({"pulse": pulses})
             max_val[k] = xr.concat(max_val[k], "pulse")
-            max_val[k] = max_val[k].assign_coords({"pulse": self.pulses})
+            max_val[k] = max_val[k].assign_coords({"pulse": pulses})
 
         binned["nbi_power"] = deepcopy(binned["hnbi"])
 
-        self.binned = binned
-        self.max_val = max_val
+        return binned, max_val, pulses_all
 
     def bin_in_time(self, data, time, err=None, tlim=(0, 0.5)):
         """
@@ -280,31 +283,33 @@ class Database:
 
         return binned, max_val
 
-    # def add_data(self, pulse_end):
-    #     """
-    #     Add data from newer pulses to binned dictionary
-    #
-    #     Parameters
-    #     ----------
-    #     pulse_end
-    #         Last pulse to include in the analysis
-    #     """
-    #     pulse_start = np.array(self.results["pulses"]).max() + 1
-    #     if pulse_end < pulse_start:
-    #         print("Newer pulses only (for the time being...)")
-    #         return
-    #     new = self.read_data(pulse_start, pulse_end)
-    #
-    #     for i, pulse in enumerate(new["pulses"]):
-    #         for k1, res in new.items():
-    #             if k1 == "pulses":
-    #                 continue
-    #             if type(res) != dict:
-    #                 self.results[k1].append(res[i])
-    #                 continue
-    #
-    #             for k2, res2 in res.items():
-    #                 self.results[k1][k2].append(res2[i])
+def add_pulses(regr_data, pulse_end):
+    """
+    Add data from newer pulses to binned dictionary
+
+    Parameters
+    ----------
+    pulse_end
+        Last pulse to include in the analysis
+    """
+    pulse_start = np.array(regr_data.pulses).max() + 1
+    if pulse_end < pulse_start:
+        print("Only newer pulses can be added (...for the time being...)")
+        return
+    regr_data_new = Database(pulse_start, pulse_end)
+
+    return regr_data_new
+
+    for i, pulse in enumerate(new_binned["pulses"]):
+        for k1, res in new.items():
+            if k1 == "pulses":
+                continue
+            if type(res) != dict:
+                self.results[k1].append(res[i])
+                continue
+
+            for k2, res2 in res.items():
+                self.results[k1][k2].append(res2[i])
 
 
 def general_filters(results):
@@ -817,7 +822,7 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
 
     # rip = regr_data.binned["rip_pfit"].sel(t=0.01, method="nearest").value
     # regr_data.max_val["rip_imc"] = deepcopy(regr_data.max_val["rip_pfit"])
-    # regr_data.max_val["rip_imc"].value.values = (rip / (-regr_data.max_val["imc"] * 0.75 * 11).value).values
+    # regr_data.max_val["rip_imc"].value.values =read_ (rip / (-regr_data.max_val["imc"] * 0.75 * 11).value).values
     to_plot = {
         "Electron Temperature": ("te_xrcs", "te0"),
         "Ion Temperature": ("ti_xrcs", "ti0"),
