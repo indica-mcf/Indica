@@ -9,7 +9,6 @@ import numpy as np
 import scipy
 from xarray import DataArray
 
-from indica.readers.adas import ADASReader
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
@@ -643,12 +642,12 @@ class PowerLoss(Operator):
         xarray.DataArray of thermal hydrogen number density as a profile of rho
     Te
         xarray.DataArray of electron temperature as a profile of rho
+    F_z_t
+        xarray.DataArray of fractional abundance of all ionisation stages of given
+        impurity element
     PRC
         xarray.DataArray of radiated power of charge exchange emission of all relevant
         ionisation stages of given impurity element. (Optional)
-    F_z_t
-        xarray.DataArray of fractional abundance of all ionisation stages of given
-        impurity element. (Optional)
     unit_testing
         Boolean for unit testing purposes
         (whether to call ordered_setup in __init__ or not) (Optional)
@@ -705,8 +704,8 @@ class PowerLoss(Operator):
         PRB: DataArray,
         Ne: DataArray,
         Te: DataArray,
+        F_z_t: DataArray,
         PRC: Optional[DataArray] = None,
-        F_z_t: Optional[np.ndarray] = None,
         unit_testing: Optional[bool] = False,
         Nh: Optional[DataArray] = None,
         sess: session.Session = session.global_session,
@@ -734,26 +733,14 @@ class PowerLoss(Operator):
         for ikey, ival in dict(inputted_data, **imported_data).items():
             input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
 
-        if F_z_t is not None:
-            input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
-
-            try:
-                assert F_z_t.ndim == 1
-            except AssertionError:
-                raise AssertionError("Fractional abundance must be 1-dimensional.")
-        else:
-            element_symbol = PLT.attrs["element_symbol"]
-            year = PLT.attrs["year"]
-
-            ADAS_file = ADASReader()
-
-            SCD = ADAS_file.get_adf11("scd", element_symbol, year)
-            ACD = ADAS_file.get_adf11("acd", element_symbol, year)
-            CCD = ADAS_file.get_adf11("ccd", element_symbol, year)
-
-            FracAbundanceObj = FractionalAbundance(SCD, ACD, Ne, Te, Nh=Nh, CCD=CCD)
-            F_z_t = np.real(FracAbundanceObj.F_z_tinf)
-
+        input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
+        try:
+            assert not np.iscomplexobj(F_z_t)
+        except AssertionError:
+            raise AssertionError(
+                "Inputted F_z_t is a complex type or array of complex numbers, \
+                    must be real"
+            )
         self.F_z_t = F_z_t
 
         self.interpolation_bounds_check(imported_data, inputted_data)
