@@ -97,6 +97,7 @@ class Exception_Power_Loss_Test_Case(unittest.TestCase):
         Ne,
         Nh,
         Te,
+        F_z_t,
     ):
         self.PLT = PLT
         self.PRC = PRC
@@ -104,50 +105,59 @@ class Exception_Power_Loss_Test_Case(unittest.TestCase):
         self.Ne = Ne
         self.Nh = Nh
         self.Te = Te
+        self.F_z_t = F_z_t
 
-        self.nominal_inputs = [self.PRC, self.PRC, self.PRB, self.Ne, self.Nh, self.Te]
+        self.nominal_inputs = [
+            self.PRC,
+            self.PRC,
+            self.PRB,
+            self.Ne,
+            self.Nh,
+            self.Te,
+            self.F_z_t,
+        ]
 
     def init_assert_check(
         self, PLT=None, PRC=None, PRB=None, Ne=None, Te=None, Nh=None, F_z_t=None
     ):
-        inputs = [PLT, PRC, PRB, Ne, Nh, Te]
+        inputs = [PLT, PRC, PRB, Ne, Nh, Te, F_z_t]
         for i, iinput in enumerate(inputs):
             if iinput is None:
                 inputs[i] = self.nominal_inputs[i]
 
-        PLT, PRC, PRB, Ne, Nh, Te = inputs
+        PLT, PRC, PRB, Ne, Nh, Te, F_z_t = inputs
 
         """Test assert errors are raised for PowerLoss initialization."""
         with self.assertRaises(AssertionError):
-            PowerLoss(PLT, PRB, Ne, Te, PRC, F_z_t, True, Nh)
+            PowerLoss(PLT, PRB, Ne, Te, F_z_t, PRC, True, Nh)
 
     def init_type_check(
         self, PLT=None, PRC=None, PRB=None, Ne=None, Te=None, Nh=None, F_z_t=None
     ):
-        inputs = [PLT, PRC, PRB, Ne, Nh, Te]
+        inputs = [PLT, PRC, PRB, Ne, Nh, Te, F_z_t]
         for i, iinput in enumerate(inputs):
             if iinput is None:
                 inputs[i] = self.nominal_inputs[i]
 
-        PLT, PRC, PRB, Ne, Nh, Te = inputs
+        PLT, PRC, PRB, Ne, Nh, Te, F_z_t = inputs
 
         """Test assert errors are raised for PowerLoss initialization."""
         with self.assertRaises(TypeError):
-            PowerLoss(PLT, PRB, Ne, Te, PRC, F_z_t, True, Nh)
+            PowerLoss(PLT, PRB, Ne, Te, F_z_t, PRC, True, Nh)
 
     def init_value_error_check(
         self, PLT=None, PRC=None, PRB=None, Ne=None, Te=None, Nh=None, F_z_t=None
     ):
-        inputs = [PLT, PRC, PRB, Ne, Nh, Te]
+        inputs = [PLT, PRC, PRB, Ne, Nh, Te, F_z_t]
         for i, iinput in enumerate(inputs):
             if iinput is None:
                 inputs[i] = self.nominal_inputs[i]
 
-        PLT, PRC, PRB, Ne, Nh, Te = inputs
+        PLT, PRC, PRB, Ne, Nh, Te, F_z_t = inputs
 
         """Test assert errors are raised for PowerLoss initialization."""
         with self.assertRaises(ValueError):
-            PowerLoss(PLT, PRB, Ne, Te, PRC, F_z_t, True, Nh)
+            PowerLoss(PLT, PRB, Ne, Te, F_z_t, PRC, True, Nh)
 
 
 def input_error_check(invalid_input_name, invalid_input, error_check, test_case):
@@ -798,10 +808,27 @@ def test_power_loss_init():
         data=input_Nh, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
     )
 
+    SCD = ADAS_file.get_adf11("scd", element, "89")
+    ACD = ADAS_file.get_adf11("acd", element, "89")
+    CCD = ADAS_file.get_adf11("ccd", element, "89")
+    try:
+        example_frac_abundance = FractionalAbundance(
+            SCD,
+            ACD,
+            Ne=input_Ne,
+            Te=input_Te,
+            Nh=input_Nh,
+            CCD=CCD,
+            unit_testing=False,
+        )
+    except Exception as e:
+        raise e
+
     try:
         example_power_loss = PowerLoss(
             PLT,
             PRB,
+            F_z_t=np.real(example_frac_abundance.F_z_tinf),
             Ne=input_Ne,
             Nh=input_Nh,
             Te=input_Te,
@@ -816,6 +843,7 @@ def test_power_loss_init():
         example_power_loss_no_optional = PowerLoss(
             PLT,
             PRB,
+            F_z_t=np.real(example_frac_abundance.F_z_tinf),
             Ne=input_Ne,
             Te=input_Te,
             unit_testing=True,
@@ -824,7 +852,13 @@ def test_power_loss_init():
         raise e
 
     test_case = Exception_Power_Loss_Test_Case(
-        PLT, PRC, PRB, input_Ne, input_Nh, input_Te
+        PLT,
+        PRC,
+        PRB,
+        input_Ne,
+        input_Nh,
+        input_Te,
+        F_z_t=np.real(example_frac_abundance.F_z_tinf),
     )
 
     # PLT checks
@@ -930,11 +964,10 @@ def test_power_loss_init():
     input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
 
     F_z_t_invalid = DataArray(
-        data=np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
+        data=np.array([1.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j]),
         coords={"stages": np.linspace(0, 4, 5, dtype=int)},
         dims=["stages"],
     )
-    F_z_t_invalid = F_z_t_invalid.expand_dims("blank")
     input_error_check("F_z_t", F_z_t_invalid, AssertionError, test_case)
 
     # Electron density checks
