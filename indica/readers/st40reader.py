@@ -165,7 +165,9 @@ class ST40Reader(DataReader):
         mds_path = ""
         if len(uid) > 0:
             mds_path += f".{uid}".upper()
-        mds_path += f".{instrument}{revision_name}{quantity}".upper()
+        if len(instrument) > 0:
+            mds_path += f".{instrument}".upper()
+        mds_path += f"{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)
 
     def _get_data(
@@ -185,8 +187,7 @@ class ST40Reader(DataReader):
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
         if quantity.lower() == ":best_run":
-            path_check = path
-            data = str(self.conn.get(path_check))
+            data = str(self.conn.get(path))
         else:
             data = np.array(self.conn.get(path_check))
 
@@ -335,13 +336,13 @@ class ST40Reader(DataReader):
         else:
             raise ValueError(f"No geometry available for {instrument}")
         los_start, los_end = self.get_los(position, direction)
-        times, _ = self._get_signal(uid, instrument, ":time", revision)
-        print(
-            "\n ********************************** "
-            "\n Adding half exposure time to XRCS"
-            "\n ********************************** \n"
-        )
-        times += (times[1] - times[0]) / 2.0
+        times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
+        # print(
+        #     "\n ********************************** "
+        #     "\n Adding half exposure time to XRCS"
+        #     "\n ********************************** \n"
+        # )
+        # times += (times[1] - times[0]) / 2.0
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
