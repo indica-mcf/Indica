@@ -25,6 +25,7 @@ import pandas as pd
 import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
+import os
 
 from indica.readers import ADASReader
 from indica.readers import ST40Reader
@@ -43,7 +44,7 @@ class Database:
     def __init__(
         self,
         pulse_start=8207,
-        pulse_end=8626,
+        pulse_end=8753,
         tlim=(-0.03, 0.3),
         dt=0.01,
         overlap=0.5,
@@ -52,14 +53,14 @@ class Database:
     ):
 
         self.info = get_data_info()
-        if getpass.getuser() == "lavoro":
-            self.path = "/Users/lavoro/Work/Python/Indica_github/data/"
-        else:
-            self.path = f"/home/{getpass.getuser()}/python/"
-        self.filename = f"{pulse_start}_{pulse_end}_regression_database.pkl"
+        self.data_path = f"{os.path.expanduser('~')}/data/"
+        self.data_file = f"{pulse_start}_{pulse_end}_regression_database.pkl"
+        self.fig_path = f"{os.path.expanduser('~')}/figures/regr_trends/"
+        self.fig_file = f"{pulse_start}_{pulse_end}"
         if reload:
-            print(f"Reloading data from {self.path + self.filename}")
-            regr_data = pickle.load(open(self.path + self.filename, "rb"))
+            filename = self.data_path + self.data_file
+            print(f"Reloading data from {filename}")
+            regr_data = pickle.load(open(filename, "rb"))
             self.pulse_start = regr_data.pulse_start
             self.pulse_end = regr_data.pulse_end
             self.tlim = regr_data.tlim
@@ -224,7 +225,7 @@ class Database:
 
         return binned, max_val, pulses
 
-    def bin_in_time(self, data, time, err=None, tlim=(0, 0.5)):
+    def bin_in_time(self, data, time, err=None):
         """
         Bin data in time, calculate maximum value in specified time range,
         create datasets for binned data and maximum values
@@ -256,7 +257,7 @@ class Database:
         time_binning = time_new[np.where((time_new >= tlim[0]) * (time_new < tlim[1]))]
         for t in time_binning:
             tind = (time >= t - dt / 2.0) * (time < t + dt / 2.0)
-            tind_lt = time <= t
+            tind_lt = (time <= t)
 
             if len(tind) > 0:
                 data_tmp = data[tind]
@@ -297,6 +298,7 @@ def add_pulses(regr_data, pulse_end, reload=False):
     if pulse_end < pulse_start:
         print("Only newer pulses can be added (...for the time being...)")
         return
+
     old = regr_data
     new = Database(pulse_start, pulse_end, reload=reload)
 
@@ -309,7 +311,8 @@ def add_pulses(regr_data, pulse_end, reload=False):
     # Generate new merged database
     merged = deepcopy(old)
     merged.pulses = np.append(old.pulses, new.pulses)
-    merged.filename = f"{old.pulse_start}_{new.pulse_end}"
+    merged.fig_file = f"{old.pulse_start}_{new.pulse_end}"
+    merged.data_file = f"{merged.fig_file}_regression_database.pkl"
 
     for k in regr_data.info:
         if k in list(old.binned) and k in list(new.binned):
@@ -327,15 +330,18 @@ def general_filters(results):
     Apply general filters to data read e.g. NBI power 0 where not positive
     """
     print("Applying general data filters")
+    keys = results.keys()
 
     # Set all negative values to 0
     neg_to_zero = ["nbi_power"]
     for k in neg_to_zero:
-        results[k] = xr.where(
-            (results[k] > 0) * np.isfinite(results[k]),
-            results[k],
-            0,
-        )
+        if k in keys:
+            cond = (results[k].value > 0) * np.isfinite(results[k].value)
+            results[k] = xr.where(
+                cond,
+                results[k],
+                0,
+            )
 
     # Set all negative values to Nan
     neg_to_nan = [
@@ -349,17 +355,20 @@ def general_filters(results):
         "ne_nirh1",
         "ne_smmh1",
         "gas_press",
+        "rip_imc",
     ]
     for k in neg_to_nan:
-        results[k] = xr.where(
-            (results[k] > 0) * (np.isfinite(results[k])),
-            results[k],
-            np.nan,
-        )
+        if k in keys:
+            cond = (results[k].value > 0) * (np.isfinite(results[k].value))
+            results[k] = xr.where(
+                cond,
+                results[k],
+                np.nan,
+            )
 
     # Set to Nan if values outside specific ranges
     err_perc_cond = {"var": "error", "lim": (np.nan, 0.2)}
-    keys = [
+    err_perc_keys = [
         "te_xrcs",
         "ti_xrcs",
         "te0",
@@ -377,10 +386,11 @@ def general_filters(results):
         "imc",
     ]
 
-    for k in keys:
-        cond = {k: err_perc_cond}
-        selection = selection_criteria(results, cond)
-        results[k] = xr.where(selection, results[k], np.nan)
+    for k in err_perc_keys:
+        if k in keys:
+            cond = {k: err_perc_cond}
+            selection = selection_criteria(results, cond)
+            results[k] = xr.where(selection, results[k], np.nan)
 
     return results
 
@@ -559,8 +569,16 @@ def apply_selection(
                 binned_tmp[kbinned] = xr.where(
                     selection_tmp, binned_tmp[kbinned], np.nan
                 )
+
+            pulses = []
+            for p in binned_tmp[kbinned].pulse:
+                if any(selection_tmp.sel(pulse=p)):
+                    pulses.append(p)
+            pulses = np.array(pulses)
+
             filtered[kcond]["binned"] = binned_tmp
             filtered[kcond]["selection"] = selection_tmp
+            filtered[kcond]["pulses"] = pulses
     else:
         filtered = {"All": {"selection": None, "binned": binned}}
 
@@ -568,7 +586,14 @@ def apply_selection(
 
 
 def plot_time_evol(
-    regr_data, info, to_plot, tplot=None, savefig=False, vlines=True, filename=""
+    regr_data,
+    info,
+    to_plot,
+    tplot=None,
+    savefig=False,
+    vlines=True,
+    fig_path="",
+    fig_name="",
 ):
     if tplot is None:
         tit_front = "Maximum of "
@@ -624,7 +649,7 @@ def plot_time_evol(
             name += f"_t_{tplot:.3f}s"
 
         if savefig:
-            save_figure(fig_name=f"{filename}_{name}")
+            save_figure(fig_path, f"{fig_name}_{name}")
 
 
 def plot_bivariate(
@@ -633,7 +658,8 @@ def plot_bivariate(
     to_plot,
     label=None,
     savefig=False,
-    filename="",
+    fig_path="",
+    fig_name="",
 ):
 
     for title, keys in to_plot.items():
@@ -668,16 +694,11 @@ def plot_bivariate(
             plt.legend()
 
         if savefig:
-            save_figure(fig_name=f"{filename}_{name}")
+            save_figure(fig_path, f"{fig_name}_{name}")
 
 
 def plot_trivariate(
-    filtered,
-    info,
-    to_plot,
-    nbins=10,
-    savefig=False,
-    filename="",
+    filtered, info, to_plot, nbins=10, savefig=False, fig_path="", fig_name=""
 ):
 
     for title, keys in to_plot.items():
@@ -749,196 +770,260 @@ def plot_trivariate(
             plt.ylim(ylim)
             name += f"_{label}"
             if savefig:
-                save_figure(fig_name=f"{filename}_{name}")
+                save_figure(fig_path, f"{fig_name}_{name}")
 
 
 def plot_hist(
-    filtered, info, to_plot, tplot=None, bins=None, savefig=False, filename=""
+    filtered,
+    info,
+    to_plot,
+    tplot=None,
+    bins=None,
+    savefig=False,
+    fig_path="",
+    fig_name="",
 ):
-    for title, ykey in to_plot.items():
-        plt.figure()
-        for i, key in enumerate(ykey):
-            res = []
-            labels = []
-            for label, data in filtered.items():
-                res_tmp = data["binned"][key] * info[key]["const"]
-                if tplot is not None:
-                    res_tmp = res_tmp.sel(t=tplot, method="nearest")
-                res_tmp = flat(res_tmp.value)
-                res.append(res_tmp)
-                labels.append(label)
-
-            plt.figure()
-            name = f"hist_{key}"
-            plt.hist(res, bins=bins, label=labels)
-            plt.title(f"{info[key]['label']}")
-            plt.xlabel(info[key]["units"])
-            plt.legend()
+    for title, key in to_plot.items():
+        res = []
+        labels = []
+        for label, data in filtered.items():
+            res_tmp = data["binned"][key] * info[key]["const"]
             if tplot is not None:
-                name += f"_t_{tplot:.3f}s"
-            if savefig:
-                save_figure(fig_name=f"{filename}_{name}")
+                res_tmp = res_tmp.sel(t=tplot, method="nearest")
+            res_tmp = flat(res_tmp.value)
+            res.append(res_tmp)
+            labels.append(label)
+
+        plt.figure()
+        name = f"hist_{key}"
+        plt.hist(res, bins=bins, label=labels, density=True)
+        plt.title(f"{info[key]['label']}")
+        plt.xlabel(info[key]["units"])
+        plt.legend()
+        if tplot is not None:
+            name += f"_t_{tplot:.3f}s"
+        if savefig:
+            save_figure(fig_path, f"{fig_name}_{name}")
 
 
-def plot(
-    regr_data, filtered=None, tplot=0.03, default=True, savefig=False, filename=""
-):
+def max_ti_pulses(regr_data, savefig=False, plot_results=False):
+    cond_general = {
+        "nbi_power": {"var": "value", "lim": (20, np.nan)},
+        "te0": {"var": "error", "lim": (np.nan, 0.2)},
+        "ti0": {"var": "error", "lim": (np.nan, 0.2)},
+        "ipla_efit": {"var": "gradient", "lim": (-1, np.nan)},
+    }
+    cond_special = deepcopy(cond_general)
+    cond_special["ti0"] = {"var": "value", "lim": (1.5e3, np.nan)}
+    cond = {
+        "NBI": cond_general,
+        "NBI & Ti > 1.5 keV": cond_special,
+    }
+    filtered = apply_selection(regr_data.binned, cond, default=False)
+    if plot_results or savefig:
+        plot(regr_data, filtered, savefig=savefig)
+
+    print("\n Pulses in selection")
+    for k in filtered.keys():
+        print(f"\n {k}", filtered[k]["pulses"])
+
+    return filtered
+
+
+def ip_400_500(regr_data, savefig=False, plot_results=False):
+    cond_general = {
+        "nbi_power": {"var": "value", "lim": (20, np.nan)},
+        "te0": {"var": "error", "lim": (np.nan, 0.2)},
+        "ti0": {"var": "error", "lim": (np.nan, 0.2)},
+        "ipla_efit": {"var": "gradient", "lim": (-1.0, np.nan)},
+    }
+    cond_special = deepcopy(cond_general)
+    cond_special["ipla_efit"] = {"var": "value", "lim": (0.4e6, 0.5e6)}
+    cond = {
+        "NBI": cond_general,
+        "NBI & Ip = [400, 500] kA": cond_special,
+    }
+    filtered = apply_selection(regr_data.binned, cond, default=False)
+    if plot_results or savefig:
+        plot(regr_data, filtered, savefig=savefig, plot_time=False)
+
+    print("Pulses in selection")
+    for k in filtered.keys():
+        print(k, filtered[k]["pulses"])
+
+    return filtered
+
+
+def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
+    if filtered is None:
+        if hasattr(regr_data, "filtered"):
+            filtered = regr_data.filtered
+
+    fig_path = regr_data.fig_path
+    fig_name = regr_data.fig_file
 
     info = regr_data.info
-    filename = regr_data.filename
 
     ###################################
     # Simulated XRCS measurements
     ###################################
-    plt.figure()
-    temp_ratio = regr_data.temp_ratio
-    for i in range(len(temp_ratio)):
-        plt.plot(temp_ratio[i].te0, temp_ratio[i].te_xrcs)
-    plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
-    plt.legend()
-    add_to_plot(
-        "T$_e$(0)",
-        "T$_{e,i}$(XRCS)",
-        "XRCS measurement vs. Central Te",
-    )
-    if savefig:
-        save_figure(fig_name=f"{filename}_XRCS_Te0_parametrization")
-
-    plt.figure()
-    for i in range(len(temp_ratio)):
-        el_temp = temp_ratio[i].attrs["el_temp"]
-        plt.plot(
-            el_temp.rho_poloidal,
-            el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
+    if plot_time == True:
+        plt.figure()
+        temp_ratio = regr_data.temp_ratio
+        for i in range(len(temp_ratio)):
+            plt.plot(temp_ratio[i].te0, temp_ratio[i].te_xrcs)
+        plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
+        plt.legend()
+        add_to_plot(
+            "T$_e$(0)",
+            "T$_{e,i}$(XRCS)",
+            "XRCS measurement vs. Central Te",
         )
-    plt.legend()
-    add_to_plot(
-        "rho_poloidal",
-        "T$_e$ (keV)",
-        "Temperature profiles",
-    )
-    if savefig:
-        save_figure(fig_name=f"{filename}_XRCS_parametrization_temperatures")
+        if savefig:
+            save_figure(fig_path, f"{fig_name}_XRCS_Te0_parametrization")
 
-    plt.figure()
-    for i in range(len(temp_ratio)):
-        el_dens = temp_ratio[i].attrs["el_dens"]
-        plt.plot(
-            el_dens.rho_poloidal,
-            el_dens.sel(t=el_dens.t.mean(), method="nearest") / 1.0e3,
+        plt.figure()
+        for i in range(len(temp_ratio)):
+            el_temp = temp_ratio[i].attrs["el_temp"]
+            plt.plot(
+                el_temp.rho_poloidal,
+                el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
+            )
+        plt.legend()
+        add_to_plot(
+            "rho_poloidal",
+            "T$_e$ (keV)",
+            "Temperature profiles",
         )
-    plt.legend()
-    add_to_plot(
-        "rho_poloidal",
-        "n$_e$ (10$^{19}$)",
-        "Density profiles",
-    )
-    if savefig:
-        save_figure(fig_name=f"{filename}_XRCS_parametrization_densities")
+        if savefig:
+            save_figure(fig_path, f"{fig_name}_XRCS_parametrization_temperatures")
 
-    ###################################
-    # Time evolution of maximum quantities
-    ###################################
-    # Calculate RIP/IMC and add to values to be plotted
+        plt.figure()
+        for i in range(len(temp_ratio)):
+            el_dens = temp_ratio[i].attrs["el_dens"]
+            plt.plot(
+                el_dens.rho_poloidal,
+                el_dens.sel(t=el_dens.t.mean(), method="nearest") / 1.0e3,
+            )
+        plt.legend()
+        add_to_plot(
+            "rho_poloidal",
+            "n$_e$ (10$^{19}$)",
+            "Density profiles",
+        )
+        if savefig:
+            save_figure(fig_path, f"{fig_name}_XRCS_parametrization_densities")
 
-    # rip = regr_data.binned["rip_pfit"].sel(t=0.01, method="nearest").value
-    # regr_data.max_val["rip_imc"] = deepcopy(regr_data.max_val["rip_pfit"])
-    # regr_data.max_val["rip_imc"].value.values =read_ (rip / (-regr_data.max_val["imc"] * 0.75 * 11).value).values
-    to_plot = {
-        "Electron Temperature": ("te_xrcs", "te0"),
-        "Ion Temperature": ("ti_xrcs", "ti0"),
-        "Electron Density": ("ne_nirh1",),
-        "Stored Energy": ("wp_efit",),
-        "Plasma Current": ("ipla_efit",),
-        "MC Current": ("imc",),
-        "Gas pressure": ("gas_press",),
-    }
-    # "Plasma current / MC current ": ("rip_imc",),
-    plot_time_evol(regr_data, info, to_plot, savefig=savefig, filename=filename)
+        # Calculate RIP/IMC and add to values to be plotted
+        rip = regr_data.binned["rip_pfit"].sel(t=0.01, method="nearest").drop("t")
+        regr_data.max_val["rip_imc"] = deepcopy(regr_data.max_val["imc"])
+        regr_data.max_val["rip_imc"] = rip / (-regr_data.max_val["imc"] * 0.75 * 22)
+        regr_data.max_val["rip_imc"].error.values = rip.error.values / (
+            -regr_data.max_val["imc"].value.values * 0.75 * 22
+        )
+        regr_data.max_val = general_filters(regr_data.max_val)
 
-    ###################################
-    # Time evolution of quantities at specified tplot
-    ###################################
-    to_plot = {
-        "Bremsstrahlung PI": ("brems_pi",),
-        "Bremsstrahlung MP": ("brems_mp",),
-        "Plasma Current": ("ipla_efit",),
-        "Gas pressure": ("gas_press",),
-        "H-alpha": ("h_i_6563",),
-        "Helium": ("he_ii_4686",),
-        "Boron": ("b_ii_3451",),
-        "Oxygen": ("o_iv_3063",),
-        "Argon": ("ar_ii_4348",),
-    }
-    plot_time_evol(
-        regr_data, info, to_plot, tplot=tplot, savefig=savefig, filename=filename
-    )
+        ###################################
+        # Time evolution of maximum quantities
+        ###################################
+        to_plot = {
+            "Electron Temperature": ("te_xrcs", "te0"),
+            "Ion Temperature": ("ti_xrcs", "ti0"),
+            "Electron Density": ("ne_nirh1",),
+            "Stored Energy": ("wp_efit",),
+            "Plasma Current": ("ipla_efit",),
+            "MC Current": ("imc",),
+            "Gas pressure": ("gas_press",),
+            "Plasma current / MC current ": ("rip_imc",),
+        }
+        plot_time_evol(
+            regr_data,
+            info,
+            to_plot,
+            savefig=savefig,
+            fig_path=fig_path,
+            fig_name=fig_name,
+        )
+
+        ###################################
+        # Time evolution of quantities at specified tplot
+        ###################################
+        to_plot = {
+            "Bremsstrahlung PI": ("brems_pi",),
+            "Bremsstrahlung MP": ("brems_mp",),
+            "Plasma Current": ("ipla_efit",),
+            "Gas pressure": ("gas_press",),
+            "H-alpha": ("h_i_6563",),
+            "Helium": ("he_ii_4686",),
+            "Boron": ("b_ii_3451",),
+            "Oxygen": ("o_iv_3063",),
+            "Argon": ("ar_ii_4348",),
+        }
+        plot_time_evol(
+            regr_data,
+            info,
+            to_plot,
+            tplot=tplot,
+            savefig=savefig,
+            fig_path=fig_path,
+            fig_name=fig_name,
+        )
 
     ###################################
     # Bivariate distributions for data-points which satisfy selection criteria
     ###################################
-    if hasattr(regr_data, "filtered"):
+    if filtered is not None:
         to_plot = {
             "T$_e$(0) vs. I$_P$": ("ipla_efit", "te0"),
             "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
             "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
             "T$_i$(0) vs. gas pressure": ("gas_press", "ti0"),
         }
+
         plot_bivariate(
-            regr_data.filtered, info, to_plot, savefig=savefig, filename=filename
+            filtered,
+            info,
+            to_plot,
+            savefig=savefig,
+            fig_path=fig_path,
+            fig_name=fig_name,
         )
 
-    to_plot = {
-        "Plasma Current": ("te0", "ti0", "ipla_efit"),
-        "Electron Density": ("te0", "ti0", "ne_nirh1"),
-        "Gas pressure": ("te0", "ti0", "gas_press"),
-    }
+        to_plot = {
+            "Plasma Current": "ipla_efit",
+            "Electron Density": "ne_nirh1",
+            "Central Electron Temperature": "te0",
+            "Central Ion Temperature": "ti0",
+            "Gas Pressure": "gas_press",
+        }
 
-    plot_hist(
-        regr_data.filtered,
-        info,
-        to_plot,
-        tplot=None,
-        bins=None,
-        savefig=savefig,
-        filename=filename,
-    )
+        plot_hist(
+            filtered,
+            info,
+            to_plot,
+            tplot=None,
+            bins=None,
+            savefig=savefig,
+            fig_path=fig_path,
+            fig_name=fig_name,
+        )
 
-    filtered = deepcopy(regr_data.filtered)
-    filtered["All"] = {"selection": None, "binned": regr_data.binned}
-    plot_trivariate(filtered, info, to_plot, savefig=savefig, filename=filename)
+        to_plot = {
+            "Plasma Current": ("te0", "ti0", "ipla_efit"),
+            "Electron Density": ("te0", "ti0", "ne_nirh1"),
+            "Gas Pressure": ("te0", "ti0", "gas_press"),
+            "Gas Pressure": ("ne_nirh1", "ti0", "gas_press"),
+        }
 
-    # (IP * RP) / (IMC * 0.75 * 11) at 10 ms vs. pulse #
-    # plt.figure()
-    # key = "imc_rip"
-    # t_rip = binned[key].t.values
-    # tr = np.int_((t_rip + [-regr_data.dt / 2, regr_data.dt / 2]) * 1.0e3)
-    # xlab, ylab, tit = (
-    #     "Pulse #",
-    #     "RIP/IMC",
-    #     f"(R*I$_P$ @ t={tr[0]}-{tr[1]} ms)" + " / (max(I$_{MC}$) * R$_{MC}$)",
-    # )
-    # val, err = flat(binned[key].value), flat(binned[key].error)
-    # plt.errorbar(regr_data.pulses, val, yerr=err, fmt="o", label="")
-    # plt.xlim(xlim[0], xlim[1])
-    # add_to_plot(
-    #     xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}_pulse", vlines=True
-    # )
-
-    # (IP * RP) / (IMC * 0.75 * 11) at 10 ms vs ITF
-    # plt.figure()
-    # key = "imc_rip"
-    # itf = binned["itf"].sel(t=t_rip).value / 1.0e3
-    # xlab, ylab, tit = (
-    #     "I$_{TF}$ (kA)",
-    #     "RIP/IMC",
-    #     f"(R*I$_P$ @ t={tr[0]}-{tr[1]} ms)" + " / (max(I$_{MC}$) * R$_{MC}$)",
-    # )
-    # val, err = flat(binned[key].value), flat(binned[key].error)
-    # plt.errorbar(itf, val, yerr=err, fmt="o", label="")
-    # add_to_plot(
-    #     xlab, ylab, tit, savefig=savefig, name=f"{name}_{key}_itf",
-    # )
+        # filtered["All"] = {"selection": None, "binned": regr_data.binned}
+        plot_trivariate(
+            filtered,
+            info,
+            to_plot,
+            savefig=savefig,
+            fig_path=fig_path,
+            fig_name=fig_name,
+        )
 
 
 def write_to_csv(regr_data):
@@ -992,13 +1077,9 @@ def add_vlines(xvalues, color="k"):
         plt.vlines(b, ylim[0], ylim[1], linestyles="dashed", colors=color, alpha=0.5)
 
 
-def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
-    if getpass.getuser() == "lavoro":
-        path = "/Users/lavoro/Work/Python/figures/regr_trends/"
-    else:
-        path = f"/home/{getpass.getuser()}/python/figures/regr_trends/"
+def save_figure(fig_path, fig_name, orientation="landscape", ext=".jpg"):
     plt.savefig(
-        path + fig_name + ext,
+        fig_path + fig_name + ext,
         orientation=orientation,
         dpi=600,
         pil_kwargs={"quality": 95},
@@ -1171,7 +1252,7 @@ def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None)
 
 
 def write_to_pickle(regr_data):
-    picklefile = f"{regr_data.path}{regr_data.filename}_regression_database.pkl"
+    picklefile = f"{regr_data.path}data/{regr_data.filename}_regression_database.pkl"
     print(f"Saving regression database to \n {picklefile}")
     pickle.dump(regr_data, open(picklefile, "wb"))
 
@@ -1209,6 +1290,61 @@ def get_data_info():
             "err": None,
             "max": True,
             "label": "q$_{95}$ EFIT",
+            "units": "",
+            "const": 1.0,
+        },
+        "volm_efit": {
+            "uid": "",
+            "diag": "efit",
+            "node": ".global:volm",
+            "seq": 0,
+            "err": None,
+            "max": True,
+            "label": "V$_p$ EFIT",
+            "units": "",
+            "const": 1.0,
+        },
+        "elon_efit": {
+            "uid": "",
+            "diag": "efit",
+            "node": ".global:elon",
+            "seq": 0,
+            "err": None,
+            "max": True,
+            "label": "Elongation EFIT",
+            "units": "",
+            "const": 1.0,
+        },
+        "zmag_efit": {
+            "uid": "",
+            "diag": "efit",
+            "node": ".global:zmag",
+            "seq": 0,
+            "err": None,
+            "max": True,
+            "label": "R$_{mag}$ EFIT",
+            "units": "",
+            "const": 1.0,
+        },
+        "rmag_efit": {
+            "uid": "",
+            "diag": "efit",
+            "node": ".global:rmag",
+            "seq": 0,
+            "err": None,
+            "max": True,
+            "label": "R$_{mag}$ EFIT",
+            "units": "",
+            "const": 1.0,
+        },
+        "rmin_efit": {
+            "uid": "",
+            "diag": "efit",
+            "node": ".global:cr0",
+            "seq": 0,
+            "err": None,
+            "max": True,
+            "label": "R$_{min}$ EFIT",
             "units": "",
             "const": 1.0,
         },
@@ -1355,16 +1491,27 @@ def get_data_info():
             "units": "(keV)",
             "const": 1.0e-3,
         },
-        "hnbi": {
+        "i_hnbi": {
             "uid": "raw_nbi",
             "diag": "hnbi1",
             "node": ".hv_ps:i_jema",
             "seq": -1,
             "err": None,
             "max": False,
-            "label": "P$_{HNBI}$",
+            "label": "I$_{HNBI}$",
             "units": "(a.u.)",
-            "const": 1.0e-6,
+            "const": 1.,
+        },
+        "v_hnbi": {
+            "uid": "raw_nbi",
+            "diag": "hnbi1",
+            "node": ".hv_ps:v_jema",
+            "seq": -1,
+            "err": None,
+            "max": False,
+            "label": "V$_{HNBI}$",
+            "units": "(a.u.)",
+            "const": 1.0e-3,
         },
         "h_i_6563": {
             "uid": "spectrom",
