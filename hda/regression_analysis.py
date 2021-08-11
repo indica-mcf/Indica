@@ -52,6 +52,8 @@ class Database:
         reload=False,
     ):
 
+        print(f"\n Building database for pulse range {pulse_start}-{pulse_end}")
+
         self.info = get_data_info()
         self.data_path = f"{os.path.expanduser('~')}/data/"
         self.data_file = f"{pulse_start}_{pulse_end}_regression_database.pkl"
@@ -155,11 +157,7 @@ class Database:
         pulses_all = []
         for pulse in np.arange(pulse_start, pulse_end + 1):
             print(pulse)
-            reader = ST40Reader(
-                int(pulse),
-                self.tlim[0],
-                self.tlim[1],
-            )
+            reader = ST40Reader(int(pulse), self.tlim[0], self.tlim[1],)
 
             time, _ = reader._get_signal("", "pfit", ".post_best.results:time", -1)
             if np.array_equal(time, "FAILED"):
@@ -205,9 +203,7 @@ class Database:
                     max_val[k].append(self.empty_max_val)
                     continue
 
-                binned_tmp, max_val_tmp = self.bin_in_time(
-                    data, time, err, tlim=tlim_pulse
-                )
+                binned_tmp, max_val_tmp = self.bin_in_time(data, time, err,)
 
                 binned[k].append(binned_tmp)
                 max_val[k].append(max_val_tmp)
@@ -221,7 +217,7 @@ class Database:
             max_val[k] = xr.concat(max_val[k], "pulse")
             max_val[k] = max_val[k].assign_coords({"pulse": pulses})
 
-        binned["nbi_power"] = deepcopy(binned["hnbi"])
+        binned["nbi_power"] = deepcopy(binned["i_hnbi"] * binned["v_hnbi"])
 
         return binned, max_val, pulses
 
@@ -238,8 +234,6 @@ class Database:
             time axis of data to be binned
         err
             error of data to be binned
-        tlim
-            time limits to apply binnning and to search for maximum value
 
         Returns
         -------
@@ -254,10 +248,12 @@ class Database:
         if len(ifin) < 2:
             return binned, max_val
 
-        time_binning = time_new[np.where((time_new >= tlim[0]) * (time_new < tlim[1]))]
+        time_binning = time_new[
+            np.where((time_new >= np.nanmin(time)) * (time_new <= np.nanmax(time)))
+        ]
         for t in time_binning:
             tind = (time >= t - dt / 2.0) * (time < t + dt / 2.0)
-            tind_lt = (time <= t)
+            tind_lt = time <= t
 
             if len(tind) > 0:
                 data_tmp = data[tind]
@@ -275,12 +271,11 @@ class Database:
         binned.gradient.values = binned.value.differentiate("t")
         binned.cumul.values = xr.where(np.isfinite(binned.value), binned.cumul, np.nan)
 
-        tind = np.where((time >= tlim[0]) * (time < tlim[1]))[0]
-        max_ind = np.nanargmax(data[tind])
-        max_val.value.values = data[tind[max_ind]]
-        max_val.time.values = time[tind[max_ind]]
+        max_ind = np.nanargmax(data)
+        max_val.value.values = data[max_ind]
+        max_val.time.values = time[max_ind]
         if err is not None:
-            max_val.error.values = err[tind[max_ind]]
+            max_val.error.values = err[max_ind]
 
         return binned, max_val
 
@@ -337,11 +332,7 @@ def general_filters(results):
     for k in neg_to_zero:
         if k in keys:
             cond = (results[k].value > 0) * np.isfinite(results[k].value)
-            results[k] = xr.where(
-                cond,
-                results[k],
-                0,
-            )
+            results[k] = xr.where(cond, results[k], 0,)
 
     # Set all negative values to Nan
     neg_to_nan = [
@@ -360,11 +351,7 @@ def general_filters(results):
     for k in neg_to_nan:
         if k in keys:
             cond = (results[k].value > 0) * (np.isfinite(results[k].value))
-            results[k] = xr.where(
-                cond,
-                results[k],
-                np.nan,
-            )
+            results[k] = xr.where(cond, results[k], np.nan,)
 
     # Set to Nan if values outside specific ranges
     err_perc_cond = {"var": "error", "lim": (np.nan, 0.2)}
@@ -408,9 +395,7 @@ def calc_central_temperature(binned, temp_ratio):
             te_xrcs = binned["te_xrcs"].value.sel(pulse=p)
             if any(np.isfinite(te_xrcs)):
                 ratio_tmp.loc[dict(pulse=p)] = np.interp(
-                    te_xrcs.values,
-                    temp_ratio[i].te_xrcs,
-                    temp_ratio[i].values,
+                    te_xrcs.values, temp_ratio[i].te_xrcs, temp_ratio[i].values,
                 )
         mult_binned.append(ratio_tmp)
     mult_binned = xr.concat(mult_binned, "prof")
@@ -522,9 +507,7 @@ def flat(data: DataArray):
 
 
 def apply_selection(
-    binned,
-    cond=None,
-    default=True,
+    binned, cond=None, default=True,
 ):
     """
     Apply selection criteria as defined in the cond dictionary
@@ -623,20 +606,13 @@ def plot_time_evol(
                 label = ""
 
             plt.errorbar(
-                x,
-                yval,
-                yerr=yerr,
-                fmt="o",
-                label=label,
-                alpha=0.5,
+                x, yval, yerr=yerr, fmt="o", label=label, alpha=0.5,
             )
         plt.xlabel("Pulse #")
         plt.ylabel(info[k]["units"])
         plt.title(f"{tit_front}{title}{tit_end}")
         plt.xlim(np.min(regr_data.pulses) - 5, np.max(regr_data.pulses) + 5)
-        plt.ylim(
-            0,
-        )
+        plt.ylim(0,)
         if len(ykey) > 1:
             plt.legend()
         if vlines:
@@ -653,13 +629,7 @@ def plot_time_evol(
 
 
 def plot_bivariate(
-    filtered,
-    info,
-    to_plot,
-    label=None,
-    savefig=False,
-    fig_path="",
-    fig_name="",
+    filtered, info, to_plot, label=None, savefig=False, fig_path="", fig_name="",
 ):
 
     for title, keys in to_plot.items():
@@ -679,13 +649,7 @@ def plot_bivariate(
             yerr = flat(y.error)
 
             plt.errorbar(
-                xval,
-                yval,
-                xerr=xerr,
-                yerr=yerr,
-                fmt="o",
-                label=label,
-                alpha=0.5,
+                xval, yval, xerr=xerr, yerr=yerr, fmt="o", label=label, alpha=0.5,
             )
             plt.xlabel(xinfo["label"] + " " + xinfo["units"])
             plt.ylabel(yinfo["label"] + " " + yinfo["units"])
@@ -875,9 +839,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
         plt.legend()
         add_to_plot(
-            "T$_e$(0)",
-            "T$_{e,i}$(XRCS)",
-            "XRCS measurement vs. Central Te",
+            "T$_e$(0)", "T$_{e,i}$(XRCS)", "XRCS measurement vs. Central Te",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_Te0_parametrization")
@@ -891,9 +853,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             )
         plt.legend()
         add_to_plot(
-            "rho_poloidal",
-            "T$_e$ (keV)",
-            "Temperature profiles",
+            "rho_poloidal", "T$_e$ (keV)", "Temperature profiles",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_parametrization_temperatures")
@@ -907,9 +867,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             )
         plt.legend()
         add_to_plot(
-            "rho_poloidal",
-            "n$_e$ (10$^{19}$)",
-            "Density profiles",
+            "rho_poloidal", "n$_e$ (10$^{19}$)", "Density profiles",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_parametrization_densities")
@@ -1091,11 +1049,7 @@ def simulate_xrcs():
 
     adasreader = ADASReader()
     xrcs = Spectrometer(
-        adasreader,
-        "ar",
-        "16",
-        transition="(1)1(1.0)-(1)0(0.0)",
-        wavelength=4.0,
+        adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
     )
 
     time = np.linspace(0, 1, 50)
@@ -1252,7 +1206,7 @@ def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None)
 
 
 def write_to_pickle(regr_data):
-    picklefile = f"{regr_data.path}data/{regr_data.filename}_regression_database.pkl"
+    picklefile = f"{regr_data.data_path}{regr_data.data_file}"
     print(f"Saving regression database to \n {picklefile}")
     pickle.dump(regr_data, open(picklefile, "wb"))
 
@@ -1500,7 +1454,7 @@ def get_data_info():
             "max": False,
             "label": "I$_{HNBI}$",
             "units": "(a.u.)",
-            "const": 1.,
+            "const": 1.0,
         },
         "v_hnbi": {
             "uid": "raw_nbi",
