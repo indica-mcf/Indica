@@ -65,7 +65,7 @@ class HDAdata:
             self.tstart = tstart
             self.tend = tend
 
-            self.reader = ST40Reader(pulse, tstart-0.02, tend+0.02)
+            self.reader = ST40Reader(pulse, tstart - 0.02, tend + 0.02)
 
             if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
                 revision = 2
@@ -242,7 +242,9 @@ class HDAdata:
         volume = bin_in_time(self.tstart, self.tend, self.freq, volume,).interp(
             t=self.time, method="linear"
         )
-        area = bin_in_time(self.tstart, self.tend, self.freq, area,)
+        area = bin_in_time(self.tstart, self.tend, self.freq, area,).interp(
+            t=self.time, method="linear"
+        )
         self.area.values = area
         self.volume.values = volume
 
@@ -337,7 +339,7 @@ class HDAdata:
         # self.calc_beta_poloidal()
         # self.calc_vloop()
 
-    def match_xrcs(self, niter=3, profs_spl=None, rho_lim=(0, 0.8)):
+    def match_xrcs(self, niter=3, profs_spl=None, rho_lim=(0, 0.98)):
         """
         Rescale temperature profiles to match the XRCS spectrometer measurements
 
@@ -360,9 +362,8 @@ class HDAdata:
 
         he_like = self.spectrometers["he_like"]
 
-        const_te = DataArray([1.0] * nt, coords=[("t", self.time)])
-        const_ti = DataArray([1.0] * nt, coords=[("t", self.time)])
-
+        const_te_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
+        const_ti_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
         if profs_spl is not None:
             el_temp = profs_spl.el_temp(self.rho)
             ion_temp = profs_spl.ion_temp(self.rho)
@@ -372,20 +373,27 @@ class HDAdata:
 
         for j in range(niter):
             print(f"Iteration {j+1} or {niter}")
-            if profs_spl is not None:
-                profs_spl.el_temp.scale(const_te, dim_lim=rho_lim)
-                profs_spl.ion_temp.scale(const_ti, dim_lim=rho_lim)
-
-                el_temp = profs_spl.el_temp(self.rho)
-                ion_temp = profs_spl.ion_temp(self.rho)
-            else:
-                el_temp *= const_te
-                ion_temp *= const_ti
+            if profs_spl is None:
+                el_temp *= const_te_xrcs
+                ion_temp *= const_ti_xrcs
 
             # Calculate Ti(0) from He-like spectrometer
             he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
-            const_te = self.te_xrcs / he_like.el_temp
-            const_ti = self.ti_xrcs / he_like.ion_temp
+            const_te_xrcs = self.te_xrcs / he_like.el_temp
+            const_ti_xrcs = self.ti_xrcs / he_like.ion_temp
+
+            if profs_spl is not None:
+                profs_spl.el_temp.values *= const_te_xrcs
+                profs_spl.el_temp.prepare()
+                el_temp = profs_spl.el_temp(self.rho)
+
+                profs_spl.ion_temp.values = xr.where(
+                    (profs_spl.ion_temp.coord >= rho_lim[0]) * (profs_spl.ion_temp.coord <= rho_lim[1]),
+                    profs_spl.ion_temp.values * const_ti_xrcs,
+                    profs_spl.el_temp.values,
+                ).transpose(*profs_spl.ion_temp.values.dims)
+                profs_spl.ion_temp.prepare()
+                ion_temp = profs_spl.ion_temp(self.rho)
 
         self.el_temp = el_temp
         for elem in self.elements:
