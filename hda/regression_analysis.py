@@ -58,6 +58,7 @@ class Database:
             self.path = f"/home/{getpass.getuser()}/python/"
         self.filename = f"{pulse_start}_{pulse_end}_regression_database.pkl"
         if reload:
+            print(f"Reloading data from {self.path + self.filename}")
             regr_data = pickle.load(open(self.path + self.filename, "rb"))
             self.pulse_start = regr_data.pulse_start
             self.pulse_end = regr_data.pulse_end
@@ -83,11 +84,10 @@ class Database:
             self.initialize_structures()
 
             # Read all data
-            binned, max_val, pulses_all = self.read_data(pulse_start, pulse_end)
+            binned, max_val, pulses = self.read_data(pulse_start, pulse_end)
             self.binned = binned
             self.max_val = max_val
-            self.pulses_all = pulses_all
-            self.pulses = np.unique(np.array(pulses_all).flatten())
+            self.pulses = pulses
 
     def __call__(self, *args, **kwargs):
         """
@@ -222,7 +222,7 @@ class Database:
 
         binned["nbi_power"] = deepcopy(binned["hnbi"])
 
-        return binned, max_val, pulses_all
+        return binned, max_val, pulses
 
     def bin_in_time(self, data, time, err=None, tlim=(0, 0.5)):
         """
@@ -283,7 +283,8 @@ class Database:
 
         return binned, max_val
 
-def add_pulses(regr_data, pulse_end):
+
+def add_pulses(regr_data, pulse_end, reload=False):
     """
     Add data from newer pulses to binned dictionary
 
@@ -296,20 +297,29 @@ def add_pulses(regr_data, pulse_end):
     if pulse_end < pulse_start:
         print("Only newer pulses can be added (...for the time being...)")
         return
-    regr_data_new = Database(pulse_start, pulse_end)
+    old = regr_data
+    new = Database(pulse_start, pulse_end, reload=reload)
 
-    return regr_data_new
+    # Check data-set consistency
+    assert old.info == new.info
+    assert old.t_max == new.t_max
+    assert old.tlim == new.tlim
+    assert all(old.time == new.time)
 
-    for i, pulse in enumerate(new_binned["pulses"]):
-        for k1, res in new.items():
-            if k1 == "pulses":
-                continue
-            if type(res) != dict:
-                self.results[k1].append(res[i])
-                continue
+    # Generate new merged database
+    merged = deepcopy(old)
+    merged.pulses = np.append(old.pulses, new.pulses)
+    merged.filename = f"{old.pulse_start}_{new.pulse_end}"
 
-            for k2, res2 in res.items():
-                self.results[k1][k2].append(res2[i])
+    for k in regr_data.info:
+        if k in list(old.binned) and k in list(new.binned):
+            merged.binned[k] = [old.binned[k], new.binned[k]]
+            merged.binned[k] = xr.concat(merged.binned[k], "pulse")
+        if k in list(old.max_val) and k in list(new.max_val):
+            merged.max_val[k] = [old.max_val[k], new.max_val[k]]
+            merged.max_val[k] = xr.concat(merged.max_val[k], "pulse")
+
+    return merged
 
 
 def general_filters(results):
@@ -557,7 +567,9 @@ def apply_selection(
     return filtered
 
 
-def plot_time_evol(regr_data, info, to_plot, tplot=None, savefig=False, vlines=True):
+def plot_time_evol(
+    regr_data, info, to_plot, tplot=None, savefig=False, vlines=True, filename=""
+):
     if tplot is None:
         tit_front = "Maximum of "
         tit_end = ""
@@ -596,8 +608,10 @@ def plot_time_evol(regr_data, info, to_plot, tplot=None, savefig=False, vlines=T
         plt.xlabel("Pulse #")
         plt.ylabel(info[k]["units"])
         plt.title(f"{tit_front}{title}{tit_end}")
-        plt.xlim(np.min(regr_data.pulses)-5, np.max(regr_data.pulses)+5)
-        plt.ylim(0,)
+        plt.xlim(np.min(regr_data.pulses) - 5, np.max(regr_data.pulses) + 5)
+        plt.ylim(
+            0,
+        )
         if len(ykey) > 1:
             plt.legend()
         if vlines:
@@ -610,7 +624,7 @@ def plot_time_evol(regr_data, info, to_plot, tplot=None, savefig=False, vlines=T
             name += f"_t_{tplot:.3f}s"
 
         if savefig:
-            save_figure(fig_name=name)
+            save_figure(fig_name=f"{filename}_{name}")
 
 
 def plot_bivariate(
@@ -619,6 +633,7 @@ def plot_bivariate(
     to_plot,
     label=None,
     savefig=False,
+    filename="",
 ):
 
     for title, keys in to_plot.items():
@@ -653,7 +668,7 @@ def plot_bivariate(
             plt.legend()
 
         if savefig:
-            save_figure(fig_name=name)
+            save_figure(fig_name=f"{filename}_{name}")
 
 
 def plot_trivariate(
@@ -662,6 +677,7 @@ def plot_trivariate(
     to_plot,
     nbins=10,
     savefig=False,
+    filename="",
 ):
 
     for title, keys in to_plot.items():
@@ -733,10 +749,12 @@ def plot_trivariate(
             plt.ylim(ylim)
             name += f"_{label}"
             if savefig:
-                save_figure(fig_name=name)
+                save_figure(fig_name=f"{filename}_{name}")
 
 
-def plot_hist(filtered, info, to_plot, tplot=None, bins=None, savefig=False):
+def plot_hist(
+    filtered, info, to_plot, tplot=None, bins=None, savefig=False, filename=""
+):
     for title, ykey in to_plot.items():
         plt.figure()
         for i, key in enumerate(ykey):
@@ -759,12 +777,15 @@ def plot_hist(filtered, info, to_plot, tplot=None, bins=None, savefig=False):
             if tplot is not None:
                 name += f"_t_{tplot:.3f}s"
             if savefig:
-                save_figure(fig_name=name)
+                save_figure(fig_name=f"{filename}_{name}")
 
 
-def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
+def plot(
+    regr_data, filtered=None, tplot=0.03, default=True, savefig=False, filename=""
+):
 
     info = regr_data.info
+    filename = regr_data.filename
 
     ###################################
     # Simulated XRCS measurements
@@ -781,7 +802,7 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
         "XRCS measurement vs. Central Te",
     )
     if savefig:
-        save_figure(fig_name="XRCS_Te0_parametrization")
+        save_figure(fig_name=f"{filename}_XRCS_Te0_parametrization")
 
     plt.figure()
     for i in range(len(temp_ratio)):
@@ -797,7 +818,7 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
         "Temperature profiles",
     )
     if savefig:
-        save_figure(fig_name="XRCS_parametrization_temperatures")
+        save_figure(fig_name=f"{filename}_XRCS_parametrization_temperatures")
 
     plt.figure()
     for i in range(len(temp_ratio)):
@@ -813,7 +834,7 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
         "Density profiles",
     )
     if savefig:
-        save_figure(fig_name="XRCS_parametrization_densities")
+        save_figure(fig_name=f"{filename}_XRCS_parametrization_densities")
 
     ###################################
     # Time evolution of maximum quantities
@@ -832,8 +853,8 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
         "MC Current": ("imc",),
         "Gas pressure": ("gas_press",),
     }
-        # "Plasma current / MC current ": ("rip_imc",),
-    plot_time_evol(regr_data, info, to_plot, savefig=savefig)
+    # "Plasma current / MC current ": ("rip_imc",),
+    plot_time_evol(regr_data, info, to_plot, savefig=savefig, filename=filename)
 
     ###################################
     # Time evolution of quantities at specified tplot
@@ -849,7 +870,9 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
         "Oxygen": ("o_iv_3063",),
         "Argon": ("ar_ii_4348",),
     }
-    plot_time_evol(regr_data, info, to_plot, tplot=tplot, savefig=savefig)
+    plot_time_evol(
+        regr_data, info, to_plot, tplot=tplot, savefig=savefig, filename=filename
+    )
 
     ###################################
     # Bivariate distributions for data-points which satisfy selection criteria
@@ -861,7 +884,9 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
             "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
             "T$_i$(0) vs. gas pressure": ("gas_press", "ti0"),
         }
-        plot_bivariate(regr_data.filtered, info, to_plot, savefig=savefig)
+        plot_bivariate(
+            regr_data.filtered, info, to_plot, savefig=savefig, filename=filename
+        )
 
     to_plot = {
         "Plasma Current": ("te0", "ti0", "ipla_efit"),
@@ -869,11 +894,19 @@ def plot(regr_data, filtered=None, tplot=0.03, default=True, savefig=False):
         "Gas pressure": ("te0", "ti0", "gas_press"),
     }
 
-    plot_hist(regr_data.filtered, info, to_plot, tplot=None, bins=None, savefig=savefig)
+    plot_hist(
+        regr_data.filtered,
+        info,
+        to_plot,
+        tplot=None,
+        bins=None,
+        savefig=savefig,
+        filename=filename,
+    )
 
     filtered = deepcopy(regr_data.filtered)
     filtered["All"] = {"selection": None, "binned": regr_data.binned}
-    plot_trivariate(filtered, info, to_plot, savefig=savefig)
+    plot_trivariate(filtered, info, to_plot, savefig=savefig, filename=filename)
 
     # (IP * RP) / (IMC * 0.75 * 11) at 10 ms vs. pulse #
     # plt.figure()
@@ -1138,8 +1171,9 @@ def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None)
 
 
 def write_to_pickle(regr_data):
-    print(f"Saving regression database to \n {regr_data.path + regr_data.filename}")
-    pickle.dump(regr_data, open(regr_data.path + regr_data.filename, "wb"))
+    picklefile = f"{regr_data.path}{regr_data.filename}_regression_database.pkl"
+    print(f"Saving regression database to \n {picklefile}")
+    pickle.dump(regr_data, open(picklefile, "wb"))
 
 
 def get_data_info():
