@@ -14,42 +14,40 @@ from scipy.optimize import least_squares
 
 plt.ion()
 
-pulse = 8616
-interf = "smmh1"
-# if hdarun is None:
-# hdarun = HDArun(pulse=pulse, interf=interf, tstart=0.02, tend=0.14)
-hdarun = HDArun(pulse=pulse, interf=interf, tstart=0.04, tend=0.07, dt=0.0005)
-
-
-def sawteeth(hdarun=None, write=False):
+def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False):
     """
-    Fix edge plasma parameters (rho > 0.8) and scan profile shapes
+    Best profile shapes from ASTRA runs of 8383 applied to database
     """
-    pulse = 8616
-    interf="smmh1"
-    # if hdarun is None:
-    # hdarun = HDArun(pulse=pulse, interf=interf, tstart=0.02, tend=0.14)
-    hdarun = HDArun(pulse=pulse, interf=interf, tstart=0.04, tend=0.07, dt=0.0005)
+    ohmic_pulses = [8385, 8386, 8387, 8390, 8405, 8458] #8401
+    nbi_pulses = [8338, 8373, 8374, 8574, 8575, 8582, 8583, 8597, 8598, 8599] #
 
-    # Temperature profile shape scan, flat density
-    hdarun.profiles_ohmic()
+    pulses = np.sort(np.concatenate((np.array(ohmic_pulses), np.array(nbi_pulses))))
+    if pulse is not None:
+        pulses = [pulse]
+    for pulse in pulses:
+        interf="nirh1"
+        hdarun = HDArun(pulse=pulse, interf=interf, tstart=tstart, tend=tend)
 
-    profs_spl = Plasma_profs(hdarun.data.time)
-    te_flat.data.match_xrcs(profs_spl=profs_spl)
-    te_flat.data.calc_pressure()
-    descr = "Flat density, flat temperature, c_C=3%"
-    run_name = "RUN10"
-    if write == True:
-        te_flat.write(te_flat.data, descr=descr, run_name=run_name)
+        # Peaked density broad temperatures
+        hdarun.profiles_nbi()
 
-    if not write:
-        return flat_dens, peaked_dens
-
+        profs_spl = Plasma_profs(hdarun.data.time)
+        hdarun.data.match_xrcs(profs_spl=profs_spl)
+        hdarun.data.calc_pressure()
+        descr = f"Best profile shapes from ASTRA {pulse}, c_C=3%"
+        run_name = "RUN30"
+        plt.close("all")
+        hdarun.plot()
+        if write:
+            hdarun.write(hdarun.data, descr=descr, run_name=run_name)
+        else:
+            return hdarun
 
 def scan_profile_shape(pulse=8383, hdarun=None, write=False):
     """
     Fix edge plasma parameters (rho > 0.8) and scan profile shapes
     """
+
     interf="nirh1"
     if hdarun is None:
         hdarun = HDArun(pulse=pulse, interf=interf, tstart=0.02, tend=0.1)

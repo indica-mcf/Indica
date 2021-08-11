@@ -87,7 +87,7 @@ class Spline:
         return result
 
     def prepare(self):
-        rho_quad = np.unique(np.sort(np.append(np.linspace(self.coord[1]/3, self.coord[-1]))))
+        rho_quad = np.unique(np.sort(np.append(self.coord, np.linspace(self.coord[1]/3, self.coord[-1]))))
         values_quad = self.values.interp(rho_poloidal=rho_quad, method="quadratic")
         rho_lin = np.unique(np.sort(np.append(rho_quad, [0, 1.05])))
         values = self.values.interp(rho_poloidal=rho_lin, method="linear")
@@ -149,7 +149,7 @@ class Plasma_profs:
         nt = len(time)
         dims = ("rho_poloidal", "t")
         el_temp = DataArray(
-            [[2.0e3, 1.2e3, 0.2e3, 0.06e3, 0.02e3]] * nt,
+            [[2.5e3, 1.5e3, 0.7e3, 0.3e3, 0.02e3]] * nt,
             coords=[("t", time), ("rho_poloidal", rho)],
         ).transpose(*dims)
         ion_temp = deepcopy(el_temp)
