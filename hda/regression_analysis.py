@@ -100,23 +100,24 @@ class Database:
         """
         Apply general filters to data
         """
-
-        # Conversion factor to calculate central temperatures
-        temp_ratio = simulate_xrcs()
-        self.temp_ratio = temp_ratio
+        # Mult factor for calculation of Te,i(0)
+        self.temp_ratio = simulate_xrcs()
 
         # Apply general filters
         self.binned = general_filters(self.binned)
 
-        # Estimate central temperature from parameterization
-        self.binned = calc_central_temperature(self.binned, self.temp_ratio)
+        # Calculate additional quantities and filter again
+        self.binned, self.max_val, self.info = calc_additional_quantities(
+            self.binned, self.max_val, self.info, self.temp_ratio
+        )
+        self.binned = general_filters(self.binned)
 
         # Calculate max values of binned data
         self.max_val = calc_max_val(
             self.binned, self.max_val, self.info, t_max=self.t_max
         )
 
-        # Apply general filters
+        # Apply general filters and calculate additional quantities
         self.max_val = general_filters(self.max_val)
 
         # Apply defult selection criteria
@@ -161,7 +162,11 @@ class Database:
         pulses_all = []
         for pulse in np.arange(pulse_start, pulse_end + 1):
             print(pulse)
-            reader = ST40Reader(int(pulse), self.tlim[0], self.tlim[1],)
+            reader = ST40Reader(
+                int(pulse),
+                self.tlim[0],
+                self.tlim[1],
+            )
 
             time, _ = reader._get_signal("", "pfit", ".post_best.results:time", -1)
             if np.array_equal(time, "FAILED"):
@@ -207,7 +212,11 @@ class Database:
                     max_val[k].append(self.empty_max_val)
                     continue
 
-                binned_tmp, max_val_tmp = self.bin_in_time(data, time, err,)
+                binned_tmp, max_val_tmp = self.bin_in_time(
+                    data,
+                    time,
+                    err,
+                )
 
                 binned[k].append(binned_tmp)
                 max_val[k].append(max_val_tmp)
@@ -220,8 +229,6 @@ class Database:
             binned[k] = binned[k].assign_coords({"pulse": pulses})
             max_val[k] = xr.concat(max_val[k], "pulse")
             max_val[k] = max_val[k].assign_coords({"pulse": pulses})
-
-        binned["nbi_power"] = deepcopy(binned["i_hnbi"] * binned["v_hnbi"])
 
         return binned, max_val, pulses
 
@@ -324,6 +331,135 @@ def add_pulses(regr_data, pulse_end, reload=False):
     return merged
 
 
+def calc_additional_quantities(binned, max_val, info, temp_ratio):
+    # Estimate central temperature from parameterization
+    binned = calc_central_temperature(binned, temp_ratio)
+
+    pulses = binned["ipla_efit"].pulse
+    time = binned["ipla_efit"].t
+
+    # NBI power
+    # TODO: propagation of gradient of V and I...
+    info["nbi_power"] = {
+        "max": False,
+        "label": "P$_{NBI}$",
+        "units": "(V * A)",
+        "const": 1.0,
+    }
+    binned["nbi_power"] = deepcopy(binned["i_hnbi"] * binned["v_hnbi"])
+    binned["nbi_power"].error.values = np.sqrt(
+        (binned["i_hnbi"].error.values * binned["v_hnbi"].value.values) ** 2
+        + (binned["i_hnbi"].value.values * binned["v_hnbi"].error.values) ** 2
+    )
+
+    # Pulse length
+    # Ip > 50 kA & up to end of flat-top
+    info["pulse_length"] = {
+        "max": False,
+        "label": "Pulse length",
+        "units": "(s)",
+        "const": 1.0,
+    }
+
+    cond = {
+        "Flattop": {
+            "ipla_efit": {"var": "value", "lim": (50.0e3, np.nan)},
+            "ipla_efit": {"var": "gradient", "lim": (-1e6, np.nan)},
+        }
+    }
+    filtered = apply_selection(binned, cond, default=False)
+
+    max_val["pulse_length"] = deepcopy(max_val["ipla_efit"])
+    max_val["pulse_length"].error.values = np.zeros_like(pulses)
+    max_val["pulse_length"].time.values = np.zeros_like(pulses)
+    pulse_length = []
+    for pulse in pulses:
+        tind = np.where(filtered["Flattop"]["selection"].sel(pulse=pulse) == True)[0]
+        if len(tind) > 0:
+            pulse_length.append(time[tind.max()])
+        else:
+            pulse_length.append(0)
+    max_val["pulse_length"].value.values = np.array(pulse_length)
+
+    # Calculate RIP/IMC and add to values to be plotted
+    info["rip_efit"] = {
+        "max": True,
+        "label": "(R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
+        "units": " ",
+        "const": 1.0,
+    }
+    info["rip_imc"] = {
+        "max": True,
+        "label": "(EFIT R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
+        "units": " ",
+        "const": 1.0,
+    }
+    binned["rip_efit"] = deepcopy(binned["ipla_efit"])
+    binned["rip_efit"].value.values = (
+        binned["rmag_efit"].value * binned["ipla_efit"].value.values
+    )
+    rip_efit = binned["rip_efit"].sel(t=0.015, method="nearest").drop("t")
+    max_val["rip_imc"] = deepcopy(max_val["imc"])
+    max_val["rip_imc"] = rip_efit / (max_val["imc"] * 0.75 * 22)
+    max_val["rip_imc"].error.values = rip_efit.error.values / (
+        max_val["imc"].value.values * 0.75 * 22
+    )
+    # Calculate total gas puff = cumulative gas_puff & its max value
+    info["gas_cumulative"] = {
+        "max": True,
+        "label": "Cumulative gas",
+        "units": "(V * s)",
+        "const": 1.0,
+    }
+    binned["gas_cumulative"] = deepcopy(binned["gas_puff"])
+    binned["gas_cumulative"].value.values = binned["gas_cumulative"].cumul.values
+    max_val["gas_cumulative"] = deepcopy(max_val["gas_puff"])
+    pulse_length = xr.where(
+        max_val["pulse_length"].value > 0.04, max_val["pulse_length"].value, np.nan
+    )
+    max_val["gas_cumulative"].value.values = (
+        binned["gas_cumulative"].value.max("t").values / pulse_length.values
+    )
+
+    # Gas prefill
+    info["gas_prefill"] = {
+        "max": True,
+        "label": "Gas prefill",
+        "units": "(V * s)",
+        "const": 1.0,
+    }
+    max_val["gas_prefill"] = deepcopy(max_val["gas_puff"])
+    max_val["gas_prefill"].value.values = (
+        binned["gas_puff"].cumul.sel(t=0, method="nearest").values
+    )
+
+    # Gas for t > 0
+    info["gas_fuelling"] = {
+        "max": True,
+        "label": "Gas fuelling t > 0",
+        "units": "(V * s)",
+        "const": 1.0,
+    }
+    max_val["gas_fuelling"] = deepcopy(max_val["gas_puff"])
+    max_val["gas_fuelling"].value.values = (
+        binned["gas_cumulative"].cumul.max("t")
+        - binned["gas_puff"].cumul.sel(t=0, method="nearest")
+    ).values
+
+    # Calculate total gas puff = cumulative gas_puff & its max value
+    info["total_nbi"] = {
+        "max": False,
+        "label": "Cumulative NBI power",
+        "units": "(kV * A * s)",
+        "const": 1.0e-3,
+    }
+    binned["total_nbi"] = deepcopy(binned["nbi_power"])
+    binned["total_nbi"].value.values = binned["nbi_power"].cumul.values
+    max_val["total_nbi"] = deepcopy(max_val["nbi_power"])
+
+    return binned, max_val, info
+
+
 def general_filters(results):
     """
     Apply general filters to data read e.g. NBI power 0 where not positive
@@ -336,7 +472,11 @@ def general_filters(results):
     for k in neg_to_zero:
         if k in keys:
             cond = (results[k].value > 0) * np.isfinite(results[k].value)
-            results[k] = xr.where(cond, results[k], 0,)
+            results[k] = xr.where(
+                cond,
+                results[k],
+                0,
+            )
 
     # Set all negative values to Nan
     neg_to_nan = [
@@ -355,7 +495,11 @@ def general_filters(results):
     for k in neg_to_nan:
         if k in keys:
             cond = (results[k].value > 0) * (np.isfinite(results[k].value))
-            results[k] = xr.where(cond, results[k], np.nan,)
+            results[k] = xr.where(
+                cond,
+                results[k],
+                np.nan,
+            )
 
     # Set to Nan if values outside specific ranges
     err_perc_cond = {"var": "error", "lim": (np.nan, 0.2)}
@@ -399,7 +543,9 @@ def calc_central_temperature(binned, temp_ratio):
             te_xrcs = binned["te_xrcs"].value.sel(pulse=p)
             if any(np.isfinite(te_xrcs)):
                 ratio_tmp.loc[dict(pulse=p)] = np.interp(
-                    te_xrcs.values, temp_ratio[i].te_xrcs, temp_ratio[i].values,
+                    te_xrcs.values,
+                    temp_ratio[i].te_xrcs,
+                    temp_ratio[i].values,
                 )
         mult_binned.append(ratio_tmp)
     mult_binned = xr.concat(mult_binned, "prof")
@@ -442,12 +588,12 @@ def calc_max_val(binned, max_val, info, t_max=0.02, keys=None):
         if type(keys) != list:
             keys = [keys]
 
-    for p in binned[keys[0]].pulse:
-        for k in keys:
-            if k not in info.keys():
-                print("\n Max val: binned key not in info...")
-                continue
+    for k in keys:
+        if k not in info.keys():
+            print(f"\n Max val: key {k} not in info dictionary...")
+            continue
 
+        for p in binned[keys[0]].pulse:
             v = info[k]
             if v["max"] is True:
                 continue
@@ -521,7 +667,9 @@ def flat(data: DataArray):
 
 
 def apply_selection(
-    binned, cond=None, default=True,
+    binned,
+    cond=None,
+    default=True,
 ):
     """
     Apply selection criteria as defined in the cond dictionary
@@ -592,6 +740,8 @@ def plot_time_evol(
     fig_path="",
     fig_name="",
 ):
+    if savefig:
+        plt.ioff()
     if tplot is None:
         tit_front = "Maximum of "
         tit_end = ""
@@ -620,13 +770,20 @@ def plot_time_evol(
                 label = ""
 
             plt.errorbar(
-                x, yval, yerr=yerr, fmt="o", label=label, alpha=0.5,
+                x,
+                yval,
+                yerr=yerr,
+                fmt="o",
+                label=label,
+                alpha=0.5,
             )
         plt.xlabel("Pulse #")
         plt.ylabel(info[k]["units"])
         plt.title(f"{tit_front}{title}{tit_end}")
         plt.xlim(np.min(regr_data.pulses) - 5, np.max(regr_data.pulses) + 5)
-        plt.ylim(0,)
+        plt.ylim(
+            0,
+        )
         if len(ykey) > 1:
             plt.legend()
         if vlines:
@@ -640,11 +797,21 @@ def plot_time_evol(
 
         if savefig:
             save_figure(fig_path, f"{fig_name}_{name}")
+    if savefig:
+        plt.ion()
 
 
 def plot_bivariate(
-    filtered, info, to_plot, label=None, savefig=False, fig_path="", fig_name="",
+    filtered,
+    info,
+    to_plot,
+    label=None,
+    savefig=False,
+    fig_path="",
+    fig_name="",
 ):
+    if savefig:
+        plt.ioff()
 
     for title, keys in to_plot.items():
         xkey, ykey = keys
@@ -663,7 +830,13 @@ def plot_bivariate(
             yerr = flat(y.error)
 
             plt.errorbar(
-                xval, yval, xerr=xerr, yerr=yerr, fmt="o", label=label, alpha=0.5,
+                xval,
+                yval,
+                xerr=xerr,
+                yerr=yerr,
+                fmt="o",
+                label=label,
+                alpha=0.5,
             )
             plt.xlabel(xinfo["label"] + " " + xinfo["units"])
             plt.ylabel(yinfo["label"] + " " + yinfo["units"])
@@ -673,11 +846,15 @@ def plot_bivariate(
 
         if savefig:
             save_figure(fig_path, f"{fig_name}_{name}")
+    if savefig:
+        plt.ion()
 
 
 def plot_trivariate(
     filtered, info, to_plot, nbins=10, savefig=False, fig_path="", fig_name=""
 ):
+    if savefig:
+        plt.ioff()
 
     for title, keys in to_plot.items():
         xkey, ykey, zkey = keys
@@ -749,6 +926,8 @@ def plot_trivariate(
             name += f"_{label}"
             if savefig:
                 save_figure(fig_path, f"{fig_name}_{name}")
+    if savefig:
+        plt.ion()
 
 
 def plot_hist(
@@ -761,6 +940,9 @@ def plot_hist(
     fig_path="",
     fig_name="",
 ):
+    if savefig:
+        plt.ioff()
+
     for title, key in to_plot.items():
         res = []
         labels = []
@@ -782,6 +964,8 @@ def plot_hist(
             name += f"_t_{tplot:.3f}s"
         if savefig:
             save_figure(fig_path, f"{fig_name}_{name}")
+    if savefig:
+        plt.ion()
 
 
 def max_ti_pulses(regr_data, savefig=False, plot_results=False):
@@ -789,7 +973,7 @@ def max_ti_pulses(regr_data, savefig=False, plot_results=False):
         "nbi_power": {"var": "value", "lim": (20, np.nan)},
         "te0": {"var": "error", "lim": (np.nan, 0.2)},
         "ti0": {"var": "error", "lim": (np.nan, 0.2)},
-        "ipla_efit": {"var": "gradient", "lim": (-1, np.nan)},
+        "ipla_efit": {"var": "gradient", "lim": (-1.0e6, np.nan)},
     }
     cond_special = deepcopy(cond_general)
     cond_special["ti0"] = {"var": "value", "lim": (1.5e3, np.nan)}
@@ -813,7 +997,7 @@ def ip_400_500(regr_data, savefig=False, plot_results=False):
         "nbi_power": {"var": "value", "lim": (20, np.nan)},
         "te0": {"var": "error", "lim": (np.nan, 0.2)},
         "ti0": {"var": "error", "lim": (np.nan, 0.2)},
-        "ipla_efit": {"var": "gradient", "lim": (-1.0, np.nan)},
+        "ipla_efit": {"var": "gradient", "lim": (-1.0e6, np.nan)},
     }
     cond_special = deepcopy(cond_general)
     cond_special["ipla_efit"] = {"var": "value", "lim": (0.4e6, 0.5e6)}
@@ -833,6 +1017,9 @@ def ip_400_500(regr_data, savefig=False, plot_results=False):
 
 
 def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
+    if savefig:
+        plt.ioff()
+
     if filtered is None:
         if hasattr(regr_data, "filtered"):
             filtered = regr_data.filtered
@@ -853,7 +1040,9 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
         plt.legend()
         add_to_plot(
-            "T$_e$(0)", "T$_{e,i}$(XRCS)", "XRCS measurement vs. Central Te",
+            "T$_e$(0)",
+            "T$_{e,i}$(XRCS)",
+            "XRCS measurement vs. Central Te",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_Te0_parametrization")
@@ -867,7 +1056,9 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             )
         plt.legend()
         add_to_plot(
-            "rho_poloidal", "T$_e$ (keV)", "Temperature profiles",
+            "rho_poloidal",
+            "T$_e$ (keV)",
+            "Temperature profiles",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_parametrization_temperatures")
@@ -881,42 +1072,29 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             )
         plt.legend()
         add_to_plot(
-            "rho_poloidal", "n$_e$ (10$^{19}$)", "Density profiles",
+            "rho_poloidal",
+            "n$_e$ (10$^{19}$)",
+            "Density profiles",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_parametrization_densities")
-
-        # Calculate RIP/IMC and add to values to be plotted
-        rip = regr_data.binned["rip_pfit"].sel(t=0.01, method="nearest").drop("t")
-        regr_data.max_val["rip_imc"] = deepcopy(regr_data.max_val["imc"])
-        regr_data.max_val["rip_imc"] = rip / (regr_data.max_val["imc"] * 0.75 * 22)
-        regr_data.max_val["rip_imc"].error.values = rip.error.values / (
-            regr_data.max_val["imc"].value.values * 0.75 * 22
-        )
-        # Calculate total gas puff = cumulative gas_puff & its max value
-        regr_data.binned["total_puff"] = deepcopy(regr_data.binned["gas_puff"])
-        regr_data.binned["total_puff"].value.values = regr_data.binned["total_puff"].cumul.values
-        regr_data.max_val["total_puff"] = deepcopy(regr_data.max_val["gas_puff"])
-        regr_data.max_val = calc_max_val(
-            regr_data.binned, regr_data.max_val, info, t_max=regr_data.t_max, keys="total_puff"
-        )
-        # Re-apply general filters to all data again
-        regr_data.filtered = apply_selection(regr_data.binned)
-        regr_data.max_val = general_filters(regr_data.max_val)
 
         ###################################
         # Time evolution of maximum quantities
         ###################################
         to_plot = {
+            "Plasma Current": ("ipla_efit",),
+            "Pulse Length": ("pulse_length",),
+            "Stored Energy": ("wp_efit",),
             "Electron Temperature": ("te_xrcs", "te0"),
             "Ion Temperature": ("ti_xrcs", "ti0"),
             "Electron Density": ("ne_nirh1",),
-            "Stored Energy": ("wp_efit",),
-            "Plasma Current": ("ipla_efit",),
             "MC Current": ("imc",),
             "Gas pressure": ("gas_press",),
-            "Cumulative gas puff": ("total_puff",),
-            "Plasma current / MC current ": ("rip_imc",),
+            "Gas prefill": ("gas_prefill",),
+            "Cumulative gas puff": ("gas_cumulative",),
+            "Cumulative NBI power": ("total_nbi",),
+            "Plasma current @ 15 ms / MC current ": ("rip_imc",),
         }
         plot_time_evol(
             regr_data,
@@ -935,7 +1113,9 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Bremsstrahlung MP": ("brems_mp",),
             "Plasma Current": ("ipla_efit",),
             "Gas pressure": ("gas_press",),
-            "Total gas puff": ("total_puff",),
+            "Gas prefill": ("gas_prefill",),
+            "Total gas puff": ("gas_cumulative",),
+            "Electron Density": ("ne_nirh1",),
             "H-alpha": ("h_i_6563",),
             "Helium": ("he_ii_4686",),
             "Boron": ("b_ii_3451",),
@@ -961,7 +1141,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
             "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
             "T$_i$(0) vs. gas pressure": ("gas_press", "ti0"),
-            "T$_i$(0) vs. Cumulative gas puff": ("total_puff", "ti0"),
+            "T$_i$(0) vs. Cumulative gas puff": ("gas_cumulative", "ti0"),
         }
 
         plot_bivariate(
@@ -979,7 +1159,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Central Electron Temperature": "te0",
             "Central Ion Temperature": "ti0",
             "Gas Pressure": "gas_press",
-            "Cumulative Gas Puff": "total_puff",
+            "Cumulative Gas Puff": "gas_cumulative",
         }
 
         plot_hist(
@@ -998,8 +1178,8 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Electron Density": ("te0", "ti0", "ne_nirh1"),
             "Gas Pressure, Te, Ti": ("te0", "ti0", "gas_press"),
             "Gas Pressure, Ne, Ti": ("ne_nirh1", "ti0", "gas_press"),
-            "Cumulative Gas Puff, Te, Ti": ("te0", "ti0", "total_puff"),
-            "Cumulative Gas Puff, Ne, Ti": ("ne_nirh1", "ti0", "total_puff"),
+            "Cumulative Gas Puff, Te, Ti": ("te0", "ti0", "gas_cumulative"),
+            "Cumulative Gas Puff, Ne, Ti": ("ne_nirh1", "ti0", "gas_cumulative"),
         }
 
         # filtered["All"] = {"selection": None, "binned": regr_data.binned}
@@ -1012,6 +1192,8 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             fig_name=fig_name,
         )
 
+    if savefig:
+        plt.ion()
 
 def write_to_csv(regr_data):
 
@@ -1078,7 +1260,11 @@ def simulate_xrcs():
 
     adasreader = ADASReader()
     xrcs = Spectrometer(
-        adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
+        adasreader,
+        "ar",
+        "16",
+        transition="(1)1(1.0)-(1)0(0.0)",
+        wavelength=4.0,
     )
 
     time = np.linspace(0, 1, 50)
@@ -1553,36 +1739,6 @@ def get_data_info():
         },
         "te0": {"max": False, "label": "T$_e$(0)", "units": "(keV)", "const": 1.0e-3},
         "ti0": {"max": False, "label": "T$_i$(0)", "units": "(keV)", "const": 1.0e-3},
-        "nbi_power": {
-            "max": False,
-            "label": "P$_{NBI}$",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "gas_prefill": {
-            "max": True,
-            "label": "Gas prefill",
-            "units": "(V * s)",
-            "const": 1.0,
-        },
-        "gas_total": {
-            "max": True,
-            "label": "Total gas",
-            "units": "(V * s)",
-            "const": 1.0,
-        },
-        "rip_imc": {
-            "max": True,
-            "label": "(R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
-            "units": " ",
-            "const": 1.0,
-        },
-        "total_puff": {
-            "max": False,
-            "label": "Cumulative gas puff",
-            "units": "(V * s)",
-            "const": 1.0,
-        },
     }
 
     return info
