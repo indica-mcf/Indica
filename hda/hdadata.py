@@ -38,8 +38,6 @@ class HDAdata:
         tend=0.1,
         dt=0.01,
         ntheta=5,
-        nrho=21,
-        pedestal=False,
         machine_dimensions=((0.15, 0.9), (-0.8, 0.8)),
         R_bt_0=0.4,
         elements=("h", "c", "ar"),
@@ -329,10 +327,10 @@ class HDAdata:
 
         # self.build_current_density()
         # self.calc_magnetic_field()
-        # self.calc_meanz()
-        # self.calc_main_ion_dens(fast_dens=False)
-        # self.impose_flat_zeff()
-        # self.calc_zeff()
+        self.calc_meanz()
+        self.calc_main_ion_dens(fast_dens=False)
+        self.impose_flat_zeff()
+        self.calc_zeff()
         # self.calc_rad_power()
 
         # self.calc_pressure()
