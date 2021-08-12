@@ -14,7 +14,7 @@ from scipy.optimize import least_squares
 
 plt.ion()
 
-def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False):
+def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, force=False):
     """
     Best profile shapes from ASTRA runs of 8383 applied to database
     """
@@ -28,18 +28,27 @@ def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False):
         interf="nirh1"
         hdarun = HDArun(pulse=pulse, interf=interf, tstart=tstart, tend=tend)
 
-        # Peaked density broad temperatures
+        # Rebuild temperature profiles
         hdarun.profiles_nbi()
-
         profs_spl = Plasma_profs(hdarun.data.time)
+
+        # Rescale to match XRCS measurements
         hdarun.data.match_xrcs(profs_spl=profs_spl)
+
+        # Recalculate average charge, dilution, Zeff, total pressure
+        hdarun.data.calc_meanz()
+        hdarun.data.calc_main_ion_dens(fast_dens=False)
+        hdarun.data.impose_flat_zeff()
+        hdarun.data.calc_main_ion_dens(fast_dens=False)
+        hdarun.data.calc_zeff()
         hdarun.data.calc_pressure()
+
         descr = f"Best profile shapes from ASTRA {pulse}, c_C=3%"
         run_name = "RUN30"
         plt.close("all")
         hdarun.plot()
         if write:
-            hdarun.write(hdarun.data, descr=descr, run_name=run_name)
+            hdarun.write(hdarun.data, descr=descr, run_name=run_name, force=force)
         else:
             return hdarun
 

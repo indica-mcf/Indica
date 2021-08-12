@@ -70,15 +70,15 @@ class HDArun:
             ne_shape=self.ne_shape, te_shape=self.te_shape, regime=self.regime, interf=interf
         )
 
-        # self.data.simulate_spectrometers()
-        # self.data.match_xrcs()
-        # self.data.match_interferometer(interf)
+        self.data.simulate_spectrometers()
+        self.data.match_xrcs()
+        self.data.match_interferometer(interf)
         # self.data.build_current_density()
         # self.data.calc_magnetic_field()
-        # self.data.calc_meanz()
-        # self.data.calc_main_ion_dens(fast_dens=False)
-        # self.data.impose_flat_zeff()
-        # self.data.calc_zeff()
+        self.data.calc_meanz()
+        self.data.calc_main_ion_dens(fast_dens=False)
+        self.data.impose_flat_zeff()
+        self.data.calc_zeff()
         # self.data.calc_rad_power()
 
         # self.data.calc_pressure()
@@ -199,7 +199,7 @@ class HDArun:
         self.data.simulate_spectrometers()
         self.data.propagate_parameters()
 
-    def write(self, data:HDAdata, modelling=True, descr="", pulseNo=None, run_name="RUN01"):
+    def write(self, data:HDAdata, modelling=True, descr="", pulseNo=None, run_name="RUN01", force=False):
         if pulseNo is None:
             pulseNo = data.pulse
 
