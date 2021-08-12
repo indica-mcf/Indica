@@ -52,14 +52,15 @@ class Database:
         reload=False,
     ):
 
-        print(f"\n Building database for pulse range {pulse_start}-{pulse_end}")
-
         self.info = get_data_info()
         self.data_path = f"{os.path.expanduser('~')}/data/"
         self.data_file = f"{pulse_start}_{pulse_end}_regression_database.pkl"
         self.fig_path = f"{os.path.expanduser('~')}/figures/regr_trends/"
         self.fig_file = f"{pulse_start}_{pulse_end}"
         if reload:
+
+            print(f"\n Reading database for pulse range {pulse_start}-{pulse_end}")
+
             filename = self.data_path + self.data_file
             print(f"Reloading data from {filename}")
             regr_data = pickle.load(open(filename, "rb"))
@@ -75,6 +76,9 @@ class Database:
             self.pulses = regr_data.pulses
             self.t_max = regr_data.t_max
         else:
+
+            print(f"\n Building database for pulse range {pulse_start}-{pulse_end}")
+
             self.pulse_start = pulse_start
             self.pulse_end = pulse_end
             self.tlim = tlim
@@ -419,7 +423,7 @@ def calc_central_temperature(binned, temp_ratio):
     return binned
 
 
-def calc_max_val(binned, max_val, info, t_max=0.02):
+def calc_max_val(binned, max_val, info, t_max=0.02, keys=None):
     """
     Calculate maximum value in a pulse using the binned data
 
@@ -432,10 +436,20 @@ def calc_max_val(binned, max_val, info, t_max=0.02):
     print("Calculating maximum values from binned data")
 
     # Calculate max values for those quantities where binned data is to be used
-    k = list(binned.keys())[0]
-    for p in binned[k].pulse:
-        for k, v in info.items():
-            if v["max"] is None:
+    if keys is None:
+        keys = list(binned.keys())
+    else:
+        if type(keys) != list:
+            keys = [keys]
+
+    for p in binned[keys[0]].pulse:
+        for k in keys:
+            if k not in info.keys():
+                print("\n Max val: binned key not in info...")
+                continue
+
+            v = info[k]
+            if v["max"] is True:
                 continue
             max_search = xr.where(
                 binned[k].t > t_max, binned[k].value.sel(pulse=p), np.nan
@@ -875,10 +889,19 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         # Calculate RIP/IMC and add to values to be plotted
         rip = regr_data.binned["rip_pfit"].sel(t=0.01, method="nearest").drop("t")
         regr_data.max_val["rip_imc"] = deepcopy(regr_data.max_val["imc"])
-        regr_data.max_val["rip_imc"] = rip / (-regr_data.max_val["imc"] * 0.75 * 22)
+        regr_data.max_val["rip_imc"] = rip / (regr_data.max_val["imc"] * 0.75 * 22)
         regr_data.max_val["rip_imc"].error.values = rip.error.values / (
-            -regr_data.max_val["imc"].value.values * 0.75 * 22
+            regr_data.max_val["imc"].value.values * 0.75 * 22
         )
+        # Calculate total gas puff = cumulative gas_puff & its max value
+        regr_data.binned["total_puff"] = deepcopy(regr_data.binned["gas_puff"])
+        regr_data.binned["total_puff"].value.values = regr_data.binned["total_puff"].cumul.values
+        regr_data.max_val["total_puff"] = deepcopy(regr_data.max_val["gas_puff"])
+        regr_data.max_val = calc_max_val(
+            regr_data.binned, regr_data.max_val, info, t_max=regr_data.t_max, keys="total_puff"
+        )
+        # Re-apply general filters to all data again
+        regr_data.filtered = apply_selection(regr_data.binned)
         regr_data.max_val = general_filters(regr_data.max_val)
 
         ###################################
@@ -892,6 +915,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Plasma Current": ("ipla_efit",),
             "MC Current": ("imc",),
             "Gas pressure": ("gas_press",),
+            "Cumulative gas puff": ("total_puff",),
             "Plasma current / MC current ": ("rip_imc",),
         }
         plot_time_evol(
@@ -911,6 +935,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Bremsstrahlung MP": ("brems_mp",),
             "Plasma Current": ("ipla_efit",),
             "Gas pressure": ("gas_press",),
+            "Total gas puff": ("total_puff",),
             "H-alpha": ("h_i_6563",),
             "Helium": ("he_ii_4686",),
             "Boron": ("b_ii_3451",),
@@ -936,6 +961,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
             "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
             "T$_i$(0) vs. gas pressure": ("gas_press", "ti0"),
+            "T$_i$(0) vs. Cumulative gas puff": ("total_puff", "ti0"),
         }
 
         plot_bivariate(
@@ -953,6 +979,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Central Electron Temperature": "te0",
             "Central Ion Temperature": "ti0",
             "Gas Pressure": "gas_press",
+            "Cumulative Gas Puff": "total_puff",
         }
 
         plot_hist(
@@ -969,8 +996,10 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         to_plot = {
             "Plasma Current": ("te0", "ti0", "ipla_efit"),
             "Electron Density": ("te0", "ti0", "ne_nirh1"),
-            "Gas Pressure": ("te0", "ti0", "gas_press"),
-            "Gas Pressure": ("ne_nirh1", "ti0", "gas_press"),
+            "Gas Pressure, Te, Ti": ("te0", "ti0", "gas_press"),
+            "Gas Pressure, Ne, Ti": ("ne_nirh1", "ti0", "gas_press"),
+            "Cumulative Gas Puff, Te, Ti": ("te0", "ti0", "total_puff"),
+            "Cumulative Gas Puff, Ne, Ti": ("ne_nirh1", "ti0", "total_puff"),
         }
 
         # filtered["All"] = {"selection": None, "binned": regr_data.binned}
@@ -1543,9 +1572,15 @@ def get_data_info():
             "const": 1.0,
         },
         "rip_imc": {
-            "max": None,
+            "max": True,
             "label": "(R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
             "units": " ",
+            "const": 1.0,
+        },
+        "total_puff": {
+            "max": False,
+            "label": "Cumulative gas puff",
+            "units": "(V * s)",
             "const": 1.0,
         },
     }
