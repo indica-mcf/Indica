@@ -141,6 +141,14 @@ class FakeEquilibrium(Equilibrium):
         )
         return rho, t
 
+    def R_hfs(self, rho, t=None, kind="poloidal"):
+        R, _, t = self.spatial_coords(rho, np.pi, t, kind)
+        return R, t
+
+    def R_lfs(self, rho, t=None, kind="poloidal"):
+        R, _, t = self.spatial_coords(rho, 0.0, t, kind)
+        return R, t
+
     def minor_radius(self, rho, theta, t=None, kind="poloidal"):
         if t is None:
             t = self.default_t

@@ -21,7 +21,10 @@ from indica.converters.time import convert_in_time
 from indica.utilities import coord_array
 from .test_abstract_transform import coordinate_transforms_and_axes
 from ..data_strategies import data_arrays_from_coords
+from ..strategies import polynomial_functions
 from ..strategies import sane_floats
+from ..strategies import separable_functions
+from ..strategies import smooth_functions
 
 start_times = floats(50.0, 120.0)
 end_times = start_times.map(lambda t: 120.0 - (t - 50.0))
@@ -33,7 +36,16 @@ t_axes = builds(np.linspace, just(50.0), just(120.0), integers(4, 50)).map(
 
 
 @composite
-def useful_data_arrays(draw, rel_sigma=0.02, abs_sigma=1e-3):
+def useful_data_arrays(
+    draw,
+    rel_sigma=0.02,
+    abs_sigma=1e-3,
+    data_strategy=separable_functions(
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
+        smooth_functions(max_val=1e3),
+    ),
+):
     times = draw(t_axes)
     transform, x1, x2, _ = draw(coordinate_transforms_and_axes(min_side=2))
     return draw(
@@ -185,7 +197,21 @@ def test_invalid_end_time(tstart, tend, n, data, method):
         convert_in_time(tstart, tend, frequency, data, method)
 
 
-@given(start_times, end_times, integers(400, 1000), useful_smooth_data, methods)
+@given(
+    start_times,
+    end_times,
+    integers(400, 1000),
+    useful_data_arrays(
+        0.0,
+        0.0,
+        separable_functions(
+            polynomial_functions(max_val=1e3, max_terms=4),
+            polynomial_functions(max_val=1e3, max_terms=4),
+            polynomial_functions(max_val=1e3, max_terms=4),
+        ),
+    ),
+    sampled_from(["cubic"]),
+)
 def test_interpolate_downsample(tstart, tend, n, data, method):
     """Check interpolate then downsamples gives sensible results"""
     dmax = data.max()
