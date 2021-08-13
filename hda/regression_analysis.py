@@ -291,7 +291,7 @@ class Database:
         return binned, max_val
 
 
-def add_pulses(regr_data, pulse_end, reload=False):
+def add_pulses(regr_data, pulse_end, reload=False, write=True):
     """
     Add data from newer pulses to binned dictionary
 
@@ -328,7 +328,10 @@ def add_pulses(regr_data, pulse_end, reload=False):
             merged.max_val[k] = [old.max_val[k], new.max_val[k]]
             merged.max_val[k] = xr.concat(merged.max_val[k], "pulse")
 
-    return merged
+    if write:
+        write_to_pickle(merged)
+    else:
+        return merged
 
 
 def calc_additional_quantities(binned, max_val, info, temp_ratio):
