@@ -44,7 +44,7 @@ class Database:
     def __init__(
         self,
         pulse_start=8207,
-        pulse_end=8753,
+        pulse_end=8807,
         tlim=(-0.03, 0.3),
         dt=0.01,
         overlap=0.5,
@@ -349,6 +349,7 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
         "units": "(V * A)",
         "const": 1.0,
     }
+    max_val["nbi_power"] = deepcopy(max_val["i_hnbi"] * max_val["v_hnbi"])
     binned["nbi_power"] = deepcopy(binned["i_hnbi"] * binned["v_hnbi"])
     binned["nbi_power"].error.values = np.sqrt(
         (binned["i_hnbi"].error.values * binned["v_hnbi"].value.values) ** 2
@@ -456,9 +457,9 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
         "units": "(kV * A * s)",
         "const": 1.0e-3,
     }
+    max_val["total_nbi"] = deepcopy(max_val["nbi_power"])
     binned["total_nbi"] = deepcopy(binned["nbi_power"])
     binned["total_nbi"].value.values = binned["nbi_power"].cumul.values
-    max_val["total_nbi"] = deepcopy(max_val["nbi_power"])
 
     return binned, max_val, info
 
@@ -1116,7 +1117,6 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Bremsstrahlung MP": ("brems_mp",),
             "Plasma Current": ("ipla_efit",),
             "Gas pressure": ("gas_press",),
-            "Gas prefill": ("gas_prefill",),
             "Total gas puff": ("gas_cumulative",),
             "Electron Density": ("ne_nirh1",),
             "H-alpha": ("h_i_6563",),
