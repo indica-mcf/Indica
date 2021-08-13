@@ -8,6 +8,9 @@ from typing import Union
 import numpy as np
 from xarray.core.dataarray import DataArray
 
+from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
+from indica.datatypes import ELEMENTS_BY_MASS
+from indica.datatypes import ELEMENTS_BY_SYMBOL
 from indica.numpy_typing import LabeledArray
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
@@ -40,12 +43,10 @@ class ToroidalRotation(Operator):
     __call__(
         asymmetry_parameters,
         ion_temperature,
-        main_ion_mass,
-        impurity_masses,
-        mean_charges,
+        main_ion,
+        impurity,
         Zeff,
         electron_temp,
-        impurity_element,
     )
         Calculates the toroidal_rotation from the asymmetry_parameter.
     """
@@ -130,12 +131,10 @@ class ToroidalRotation(Operator):
         self,
         asymmetry_parameters: DataArray,
         ion_temperature: DataArray,
-        main_ion_mass: float,
-        impurity_masses: DataArray,
-        mean_charges: DataArray,
+        main_ion: str,
+        impurity: str,
         Zeff: DataArray,
         electron_temp: DataArray,
-        impurity_element: str,
     ):
         """Calculates the toroidal rotation from the asymmetry parameter.
 
@@ -145,19 +144,14 @@ class ToroidalRotation(Operator):
             xarray.DataArray containing asymmetry parameters data.
         ion_temperature
             xarray.DataArray containing ion temperature data.
-        main_ion_mass
-            xarray.DataArray containing main ion mass data.
-        impurity_masses
-            xarray.DataArray containing data of the masses of all impurity elements.
-        mean_charges
-            xarray.DataArray containing data of the mean chgarges of all
-            impurity elements.
+        main_ion
+            Element symbol of main ion.
+        impurity
+            Element symbol of chosen impurity element.
         Zeff
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data.
-        impurity_element
-            Full name of the impurity element.
 
         Returns
         -------
@@ -171,31 +165,58 @@ class ToroidalRotation(Operator):
 
         self.input_check("ion_temperature", ion_temperature, DataArray, 3, False)
 
-        self.input_check(
-            "main_ion_mass", main_ion_mass, float, greater_than_or_equal_zero=False
-        )
+        self.input_check("main_ion", main_ion, str)
 
-        self.input_check("impurity_masses", impurity_masses, DataArray, 1, False)
+        try:
+            assert main_ion in list(ELEMENTS_BY_SYMBOL.keys())
+        except AssertionError:
+            raise ValueError(
+                f"main_ion must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
+            )
 
-        self.input_check("mean_charges", mean_charges, DataArray, 3, True)
+        self.input_check("impurity", impurity, str)
+
+        try:
+            assert impurity in list(ELEMENTS_BY_SYMBOL.keys())
+        except AssertionError:
+            raise ValueError(
+                f"impurity must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
+            )
 
         self.input_check("Zeff", Zeff, DataArray, 2, True)
 
         self.input_check("electron_temp", electron_temp, DataArray, 2, False)
 
-        self.input_check("impurity_element", impurity_element, str)
+        asymmetry_parameter = asymmetry_parameters.sel(elements=impurity)
 
-        asymmetry_parameter = asymmetry_parameters.sel(elements=impurity_element)
-        impurity_mass = impurity_masses.sel(elements=impurity_element)
-        mean_charge = mean_charges.sel(elements=impurity_element)
-        ion_temperature = ion_temperature.sel(elements=impurity_element)
+        impurity_name = ELEMENTS_BY_SYMBOL[impurity]
+        main_ion_name = ELEMENTS_BY_SYMBOL[main_ion]
 
-        # mypy on the github CI suggests that * is in an Unsupported operand type
+        impurity_mass_int = list(ELEMENTS_BY_MASS.keys())[
+            list(ELEMENTS_BY_MASS.values()).index(impurity_name)
+        ]
+
+        unified_atomic_mass_unit = 1.660539066e-27
+        impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
+
+        mean_charge = list(ELEMENTS_BY_ATOMIC_NUMBER.keys())[
+            list(ELEMENTS_BY_ATOMIC_NUMBER.values()).index(impurity_name)
+        ]
+
+        main_ion_mass_int = list(ELEMENTS_BY_MASS.keys())[
+            list(ELEMENTS_BY_MASS.values()).index(main_ion_name)
+        ]
+
+        main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
+
+        ion_temperature = ion_temperature.sel(elements=impurity)
+
+        # mypy on the github CI suggests that * is an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
         toroidal_rotation = 2.0 * ion_temperature * asymmetry_parameter  # type: ignore
         toroidal_rotation /= impurity_mass * (
             1.0
-            - (mean_charge * main_ion_mass * Zeff * electron_temp)
+            - (mean_charge * main_ion_mass * Zeff * electron_temp)  # type: ignore
             / (impurity_mass * (ion_temperature + Zeff * electron_temp))
         )
 
@@ -229,12 +250,10 @@ class AsymmetryParameter(Operator):
     __call__(
         toroidal_rotation,
         ion_temperature,
-        main_ion_mass,
-        impurity_masses,
-        mean_charges,
+        main_ion,
+        impurity,
         Zeff,
         electron_temp,
-        impurity_element,
     )
         Calculates the asymmetry parameter from the toroidal rotation.
     """
@@ -315,12 +334,10 @@ class AsymmetryParameter(Operator):
         self,
         toroidal_rotations: DataArray,
         ion_temperature: DataArray,
-        main_ion_mass: float,
-        impurity_masses: DataArray,
-        mean_charges: DataArray,
+        main_ion: str,
+        impurity: str,
         Zeff: DataArray,
         electron_temp: DataArray,
-        impurity_element: str,
     ):
         """Calculates the asymmetry parameter from the toroidal rotation.
 
@@ -330,19 +347,14 @@ class AsymmetryParameter(Operator):
             xarray.DataArray containing toroidal rotations data.
         ion_temperature
             xarray.DataArray containing ion temperature data.
-        main_ion_mass
-            xarray.DataArray containing main ion mass data.
-        impurity_masses
-            xarray.DataArray containing data of the masses of all impurity elements.
-        mean_charges
-            xarray.DataArray containing data of the mean chgarges of all
-            impurity elements.
+        main_ion
+            Element symbol of main ion.
+        impurity
+            Element symbol of chosen impurity element.
         Zeff
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data.
-        impurity_element
-            Full name of the impurity element.
 
         Returns
         -------
@@ -354,24 +366,51 @@ class AsymmetryParameter(Operator):
 
         self.input_check("ion_temperature", ion_temperature, DataArray, 3, False)
 
-        self.input_check(
-            "main_ion_mass", main_ion_mass, float, greater_than_or_equal_zero=False
-        )
+        self.input_check("main_ion", main_ion, str)
 
-        self.input_check("impurity_masses", impurity_masses, DataArray, 1, False)
+        try:
+            assert main_ion in list(ELEMENTS_BY_SYMBOL.keys())
+        except AssertionError:
+            raise ValueError(
+                f"main_ion must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
+            )
 
-        self.input_check("mean_charges", mean_charges, DataArray, 3, True)
+        self.input_check("impurity", impurity, str)
+
+        try:
+            assert impurity in list(ELEMENTS_BY_SYMBOL.keys())
+        except AssertionError:
+            raise ValueError(
+                f"impurity must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
+            )
 
         self.input_check("Zeff", Zeff, DataArray, 2, True)
 
         self.input_check("electron_temp", electron_temp, DataArray, 2, False)
 
-        self.input_check("impurity_element", impurity_element, str)
+        toroidal_rotations = toroidal_rotations.sel(elements=impurity)
 
-        impurity_mass = impurity_masses.sel(elements=impurity_element)
-        mean_charge = mean_charges.sel(elements=impurity_element)
-        toroidal_rotations = toroidal_rotations.sel(elements=impurity_element)
-        ion_temperature = ion_temperature.sel(elements=impurity_element)
+        impurity_name = ELEMENTS_BY_SYMBOL[impurity]
+        main_ion_name = ELEMENTS_BY_SYMBOL[main_ion]
+
+        impurity_mass_int = list(ELEMENTS_BY_MASS.keys())[
+            list(ELEMENTS_BY_MASS.values()).index(impurity_name)
+        ]
+
+        unified_atomic_mass_unit = 1.660539066e-27
+        impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
+
+        mean_charge = list(ELEMENTS_BY_ATOMIC_NUMBER.keys())[
+            list(ELEMENTS_BY_ATOMIC_NUMBER.values()).index(impurity_name)
+        ]
+
+        main_ion_mass_int = list(ELEMENTS_BY_MASS.keys())[
+            list(ELEMENTS_BY_MASS.values()).index(main_ion_name)
+        ]
+
+        main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
+
+        ion_temperature = ion_temperature.sel(elements=impurity)
 
         # mypy on the github CI suggests that * is in an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
@@ -379,7 +418,7 @@ class AsymmetryParameter(Operator):
             impurity_mass * (toroidal_rotations ** 2) / (2.0 * ion_temperature)  # type: ignore  # noqa: E501
         )
         asymmetry_parameter *= 1.0 - (
-            mean_charge * main_ion_mass * Zeff * electron_temp
+            mean_charge * main_ion_mass * Zeff * electron_temp  # type: ignore
         ) / (impurity_mass * (ion_temperature + Zeff * electron_temp))
 
         return asymmetry_parameter
