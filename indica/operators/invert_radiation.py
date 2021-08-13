@@ -88,7 +88,7 @@ class EmissivityProfile:
             for k, v in asymmetry_parameter.coords.items()
             if k != self._dim
         }
-        transpose_order = (self._dim,) + self.sym_dims
+        transpose_order = (self._dim,) + self.asym_dims
         self.asymmetry_parameter = CubicSpline(
             asymmetry_parameter.coords[self._dim],
             asymmetry_parameter.transpose(*transpose_order),
@@ -146,17 +146,21 @@ class EmissivityProfile:
         R_0: Optional[DataArray] = None,
     ) -> DataArray:
         """Evaluate the function at a location defined using (R, z) coordinates"""
+        if t is None:
+            if "t" in rho.coords:
+                t = rho.coords["t"]
+            elif self.time is not None:
+                t = self.time
+        elif "t" not in rho.coords and (
+            "t" in self.sym_coords or "t" in self.asym_coords
+        ):
+            rho = rho.expand_dims(t=t)
         symmetric = broadcast_spline(
             self.symmetric_emissivity, self.sym_dims, self.sym_coords, rho
         )
         asymmetric = broadcast_spline(
             self.asymmetry_parameter, self.asym_dims, self.asym_coords, rho
         )
-        if t is None:
-            if "t" in rho.coords:
-                t = rho.coords["t"]
-            elif self.time is not None:
-                t = self.time
         if R_0 is None:
             R_0 = cast(DataArray, self.transform.equilibrium.R_hfs(rho, t)[0])
         result = symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))
@@ -266,6 +270,25 @@ class InvertRadiation(Operator):
             * (len(args) - 3)
         )
         return result
+
+    @staticmethod
+    def knot_positions(n: int, rho_max: float):
+        """Calculates location of knots in magnetic flux coordinates.
+
+        Parameters
+        ----------
+        n
+            The number of knots needed.
+        rho_max
+            The normalised magnetic flux of the final knot location.
+        """
+        knots = np.empty(n)
+        if float(rho_max) > 1.0:
+            knots[:] = np.linspace(0, 1.0, n) ** 1.2 * float(rho_max)
+        else:
+            knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
+            knots[-1] = 1.0
+        return knots
 
     def __call__(  # type: ignore[override]
         self,
@@ -397,12 +420,7 @@ class InvertRadiation(Operator):
                 rho, c.coords["t"]
             )[0]
 
-        knots = np.empty(n)
-        if float(rho_max) > 1.0:
-            knots[:] = np.linspace(0, 1.0, n) ** 1.2 * float(rho_max)
-        else:
-            knots[0 : n - 1] = np.linspace(0, 1.0, n - 1) ** 1.2 * float(rho_max)
-            knots[-1] = 1.0
+        knots = self.knot_positions(n, rho_max)
         dim_name = "rho_" + flux_coords.flux_kind
 
         symmetric_emissivities: List[DataArray] = []
@@ -474,6 +492,7 @@ class InvertRadiation(Operator):
         for c, i in zip(unfolded_cameras, integral):
             del c["has_data"]
             i.attrs["datatype"] = ("luminous_flux", self.datatype)
+            i.attrs["transform"] = c.camera.attrs["transform"]
             c["back_integral"] = i
         self.assign_provenance(emissivity)
         self.assign_provenance(results)
