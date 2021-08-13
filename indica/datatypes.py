@@ -182,8 +182,6 @@ ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
 ORDERED_ELEMENTS: List[SpecificDataType] = [
     "",
     "hydrogen",
-    "deuterium",
-    "tritium",
     "helium",
     "lithium",
     "beryllium",
