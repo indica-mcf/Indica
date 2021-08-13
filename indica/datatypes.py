@@ -182,6 +182,8 @@ ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
 ORDERED_ELEMENTS: List[SpecificDataType] = [
     "",
     "hydrogen",
+    "deuterium",
+    "tritium",
     "helium",
     "lithium",
     "beryllium",
@@ -261,6 +263,8 @@ ORDERED_ELEMENTS: List[SpecificDataType] = [
 # elements had to be left out as they would be duplicates.
 ELEMENTS_BY_MASS: Dict[int, SpecificDataType] = {
     1: "hydrogen",
+    2: "deuterium",
+    3: "tritium",
     4: "helium",
     7: "lithium",
     9: "beryllium",
@@ -339,6 +343,8 @@ ELEMENTS_BY_MASS: Dict[int, SpecificDataType] = {
 # Symbols in lower case due to OpenADAS file naming convention
 ELEMENTS_BY_SYMBOL: Dict[SpecificDataType, SpecificDataType] = {
     "h": "hydrogen",
+    "d": "deuterium",
+    "t": "tritium",
     "he": "helium",
     "li": "lithium",
     "be": "beryllium",

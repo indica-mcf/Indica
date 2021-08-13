@@ -7,6 +7,7 @@ from xarray.core.common import zeros_like
 from xarray.core.dataarray import DataArray
 
 from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
+from indica.datatypes import ELEMENTS_BY_SYMBOL
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
@@ -21,54 +22,44 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         self,
         toroidal_rotations,
         ion_temperature,
-        main_ion_mass,
-        impurity_masses,
-        mean_charges,
+        main_ion,
+        impurity,
         Zeff,
         electron_temp,
-        impurity_element,
     ):
         self.toroidal_rotations = toroidal_rotations
         self.ion_temperature = ion_temperature
-        self.main_ion_mass = main_ion_mass
-        self.impurity_masses = impurity_masses
-        self.mean_charges = mean_charges
+        self.main_ion = main_ion
+        self.impurity = impurity
         self.Zeff = Zeff
         self.electron_temp = electron_temp
-        self.impurity_element = impurity_element
 
         self.nominal_inputs = [
             self.toroidal_rotations,
             self.ion_temperature,
-            self.main_ion_mass,
-            self.impurity_masses,
-            self.mean_charges,
+            self.main_ion,
+            self.impurity,
             self.Zeff,
             self.electron_temp,
-            self.impurity_element,
         ]
 
     def call_type_check(
         self,
         toroidal_rotations=None,
         ion_temperature=None,
-        main_ion_mass=None,
-        impurity_masses=None,
-        mean_charges=None,
+        main_ion=None,
+        impurity=None,
         Zeff=None,
         electron_temp=None,
-        impurity_element=None,
     ):
         """Test TypeError for AsymmetryParameter call."""
         inputs = [
             toroidal_rotations,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -78,12 +69,10 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         (
             toroidal_rotations,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ) = inputs
 
         with self.assertRaises(TypeError):
@@ -94,23 +83,19 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         self,
         toroidal_rotations=None,
         ion_temperature=None,
-        main_ion_mass=None,
-        impurity_masses=None,
-        mean_charges=None,
+        main_ion=None,
+        impurity=None,
         Zeff=None,
         electron_temp=None,
-        impurity_element=None,
     ):
         """Test ValueError for AsymmetryParameter call."""
         inputs = [
             toroidal_rotations,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -120,12 +105,10 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         (
             toroidal_rotations,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ) = inputs
 
         with self.assertRaises(ValueError):
@@ -140,54 +123,44 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         self,
         asymmetry_parameters,
         ion_temperature,
-        main_ion_mass,
-        impurity_masses,
-        mean_charges,
+        main_ion,
+        impurity,
         Zeff,
         electron_temp,
-        impurity_element,
     ):
         self.asymmetry_parameters = asymmetry_parameters
         self.ion_temperature = ion_temperature
-        self.main_ion_mass = main_ion_mass
-        self.impurity_masses = impurity_masses
-        self.mean_charges = mean_charges
+        self.main_ion = main_ion
+        self.impurity = impurity
         self.Zeff = Zeff
         self.electron_temp = electron_temp
-        self.impurity_element = impurity_element
 
         self.nominal_inputs = [
             self.asymmetry_parameters,
             self.ion_temperature,
-            self.main_ion_mass,
-            self.impurity_masses,
-            self.mean_charges,
+            self.main_ion,
+            self.impurity,
             self.Zeff,
             self.electron_temp,
-            self.impurity_element,
         ]
 
     def call_type_check(
         self,
         asymmetry_parameters=None,
         ion_temperature=None,
-        main_ion_mass=None,
-        impurity_masses=None,
-        mean_charges=None,
+        main_ion=None,
+        impurity=None,
         Zeff=None,
         electron_temp=None,
-        impurity_element=None,
     ):
         """Test TypeError for ToroidalRotation call."""
         inputs = [
             asymmetry_parameters,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -197,12 +170,10 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         (
             asymmetry_parameters,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ) = inputs
 
         with self.assertRaises(TypeError):
@@ -213,23 +184,19 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         self,
         asymmetry_parameters=None,
         ion_temperature=None,
-        main_ion_mass=None,
-        impurity_masses=None,
-        mean_charges=None,
+        main_ion=None,
+        impurity=None,
         Zeff=None,
         electron_temp=None,
-        impurity_element=None,
     ):
         """Test ValueError for ToroidalRotation call."""
         inputs = [
             asymmetry_parameters,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -239,12 +206,10 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         (
             asymmetry_parameters,
             ion_temperature,
-            main_ion_mass,
-            impurity_masses,
-            mean_charges,
+            main_ion,
+            impurity,
             Zeff,
             electron_temp,
-            impurity_element,
         ) = inputs
 
         with self.assertRaises(ValueError):
@@ -366,6 +331,10 @@ def test_centrifugal_asymmetry():
     # be, c, ne, w
     element_atomic_numbers = [4, 10, 28, 74]
     elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in element_atomic_numbers]
+    elements = [
+        list(ELEMENTS_BY_SYMBOL.keys())[list(ELEMENTS_BY_SYMBOL.values()).index(i)]
+        for i in elements
+    ]
 
     toroidal_rotations = np.array([200.0e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
     toroidal_rotations = np.tile(toroidal_rotations, (len(elements), len(t), 1))
@@ -387,38 +356,22 @@ def test_centrifugal_asymmetry():
         dims=["elements", "rho", "t"],
     )
 
-    unified_atomic_mass_unit = 1.660539066e-27
-    main_ion_mass = 2.014 * unified_atomic_mass_unit
-
-    impurity_masses = DataArray(
-        data=np.array([7.014, 20.1797, 58.6934, 183.84]) * unified_atomic_mass_unit,
-        coords={"elements": elements},
-        dims=["elements"],
-    )
-
-    mean_charges = DataArray(
-        data=np.tile(np.array(element_atomic_numbers), (t.size, rho_profile.size, 1)).T,
-        coords=[("elements", elements), ("rho", rho_profile), ("t", t)],
-        dims=["elements", "rho", "t"],
-    )
-
     Zeff = DataArray(
         data=1.85 * np.ones((*rho_profile.shape, len(t))),
         coords=[("rho", rho_profile), ("t", t)],
         dims=["rho", "t"],
     )
 
-    impurity_element = "beryllium"
+    main_ion = "d"
+    impurity = "be"
 
     nominal_inputs = {
         "toroidal_rotations": toroidal_rotations,
         "ion_temperature": ion_temperature,
-        "main_ion_mass": main_ion_mass,
-        "impurity_masses": impurity_masses,
-        "mean_charges": mean_charges,
+        "main_ion": main_ion,
+        "impurity": impurity,
         "Zeff": Zeff,
         "electron_temp": electron_temp,
-        "impurity_element": impurity_element,
     }
 
     # Checking outputs of AsymmetryParameter() and ToroidalRotation()
@@ -429,21 +382,21 @@ def test_centrifugal_asymmetry():
     except Exception as e:
         raise e
 
-    nominal_inputs["impurity_element"] = "neon"
+    nominal_inputs["impurity"] = "ne"
 
     try:
         asymmetry_parameters.data[1] = example_asymmetry(**nominal_inputs)
     except Exception as e:
         raise e
 
-    nominal_inputs["impurity_element"] = "nickel"
+    nominal_inputs["impurity"] = "ni"
 
     try:
         asymmetry_parameters.data[2] = example_asymmetry(**nominal_inputs)
     except Exception as e:
         raise e
 
-    nominal_inputs["impurity_element"] = "tungsten"
+    nominal_inputs["impurity"] = "w"
 
     try:
         asymmetry_parameters.data[3] = example_asymmetry(**nominal_inputs)
@@ -461,7 +414,7 @@ def test_centrifugal_asymmetry():
     except Exception as e:
         raise e
 
-    expected_toroidal_rotation = toroidal_rotations.sel(elements="tungsten")
+    expected_toroidal_rotation = toroidal_rotations.sel(elements="w")
 
     assert np.allclose(output_toroidal_rotation, expected_toroidal_rotation)
 
@@ -469,74 +422,58 @@ def test_centrifugal_asymmetry():
     nominal_inputs = {
         "toroidal_rotations": toroidal_rotations,
         "ion_temperature": ion_temperature,
-        "main_ion_mass": main_ion_mass,
-        "impurity_masses": impurity_masses,
-        "mean_charges": mean_charges,
+        "main_ion": main_ion,
+        "impurity": impurity,
         "Zeff": Zeff,
         "electron_temp": electron_temp,
-        "impurity_element": impurity_element,
     }
 
     test_case_asymmetry = Exception_Asymmetry_Parameter_Test_Case(**nominal_inputs)
 
     for k, v in nominal_inputs.items():
-        if k == "main_ion_mass" or k == "impurity_element":
+        if k == "impurity" or k == "main_ion":
             continue
 
         input_checking(k, test_case_asymmetry, nominal_inputs)
 
-    erroneous_input = {"main_ion_mass": "one"}
+    erroneous_input = {"impurity": 4}
     test_case_asymmetry.call_type_check(**erroneous_input)
 
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * -1}
+    erroneous_input = {"impurity": "u"}
     test_case_asymmetry.call_value_check(**erroneous_input)
 
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * np.inf}
-    test_case_asymmetry.call_value_check(**erroneous_input)
-
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * -np.inf}
-    test_case_asymmetry.call_value_check(**erroneous_input)
-
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * np.nan}
-    test_case_asymmetry.call_value_check(**erroneous_input)
-
-    erroneous_input = {"impurity_element": 4}
+    erroneous_input = {"main_ion": 4}
     test_case_asymmetry.call_type_check(**erroneous_input)
+
+    erroneous_input = {"main_ion": "u"}
+    test_case_asymmetry.call_value_check(**erroneous_input)
 
     # Checking inputs for ToroidalRotation
     nominal_inputs = {
         "asymmetry_parameters": asymmetry_parameters,
         "ion_temperature": ion_temperature,
-        "main_ion_mass": main_ion_mass,
-        "impurity_masses": impurity_masses,
-        "mean_charges": mean_charges,
+        "main_ion": main_ion,
+        "impurity": impurity,
         "Zeff": Zeff,
         "electron_temp": electron_temp,
-        "impurity_element": impurity_element,
     }
 
     test_case_toroidal = Exception_Toroidal_Rotation_Test_Case(**nominal_inputs)
 
     for k, v in nominal_inputs.items():
-        if k == "main_ion_mass" or k == "impurity_element":
+        if k == "impurity" or k == "main_ion":
             continue
 
         input_checking(k, test_case_toroidal, nominal_inputs)
 
-    erroneous_input = {"main_ion_mass": "one"}
+    erroneous_input = {"impurity": 4}
     test_case_toroidal.call_type_check(**erroneous_input)
 
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * -1}
+    erroneous_input = {"impurity": "u"}
     test_case_toroidal.call_value_check(**erroneous_input)
 
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * np.inf}
-    test_case_toroidal.call_value_check(**erroneous_input)
-
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * -np.inf}
-    test_case_toroidal.call_value_check(**erroneous_input)
-
-    erroneous_input = {"main_ion_mass": nominal_inputs["main_ion_mass"] * np.nan}
-    test_case_toroidal.call_value_check(**erroneous_input)
-
-    erroneous_input = {"impurity_element": 4}
+    erroneous_input = {"main_ion": 4}
     test_case_toroidal.call_type_check(**erroneous_input)
+
+    erroneous_input = {"main_ion": "u"}
+    test_case_toroidal.call_value_check(**erroneous_input)
