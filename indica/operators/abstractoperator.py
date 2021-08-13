@@ -111,7 +111,7 @@ class Operator(ABC):
                     )
                 else:
                     continue
-            if datatype[0] not in GENERAL_DATATYPES:
+            if datatype[0] and datatype[0] not in GENERAL_DATATYPES:
                 warn(
                     "Operator class {} expects argument {} to have "
                     "unrecognised general datatype '{}'".format(
@@ -119,7 +119,7 @@ class Operator(ABC):
                     ),
                     DatatypeWarning,
                 )
-            if datatype[1] not in SPECIFIC_DATATYPES:
+            if datatype[1] and datatype[1] not in SPECIFIC_DATATYPES:
                 warn(
                     "Operator class {} expects argument {} to have "
                     "unrecognised specific datatype '{}'".format(
