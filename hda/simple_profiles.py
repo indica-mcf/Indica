@@ -1,6 +1,7 @@
 import numpy as np
 from xarray import DataArray
 from scipy.interpolate import CubicSpline
+import matplotlib.pylab as plt
 
 
 def build_profile(
