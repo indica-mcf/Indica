@@ -211,13 +211,19 @@ def test_fractional_abundance_init():
     input_Te = np.logspace(4.6, 2, 10)
 
     input_Te = DataArray(
-        data=input_Te, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Te,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_Ne = DataArray(
-        data=input_Ne, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Ne,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_Nh = DataArray(
-        data=input_Nh, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Nh,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
 
     try:
@@ -326,8 +332,8 @@ def test_fractional_abundance_init():
 
     F_z_t0_invalid = DataArray(
         data=np.array([[-1.0, 0.0, 0.0, 0.0, 0.0]]).T,
-        coords=[("stages", np.linspace(0, 4, 5)), ("rho", [0.5])],
-        dims=["stages", "rho"],
+        coords=[("ion_charges", np.linspace(0, 4, 5)), ("rho_poloidal", [0.5])],
+        dims=["ion_charges", "rho_poloidal"],
     )
     input_error_check("F_z_t0", F_z_t0_invalid, ValueError, test_case)
 
@@ -342,8 +348,12 @@ def test_fractional_abundance_init():
 
     F_z_t0_invalid = DataArray(
         data=np.array([[[1.0, 0.0, 0.0, 0.0, 0.0]]]).T,
-        coords=[("stages", np.linspace(0, 4, 5)), ("rho", [0.5]), ("t", [77.5])],
-        dims=["stages", "rho", "t"],
+        coords=[
+            ("ion_charges", np.linspace(0, 4, 5)),
+            ("rho_poloidal", [0.5]),
+            ("t", [77.5]),
+        ],
+        dims=["ion_charges", "rho_poloidal", "t"],
     )
     input_error_check("F_z_t0", F_z_t0_invalid, AssertionError, test_case)
 
@@ -354,7 +364,9 @@ def test_fractional_abundance_init():
 
     input_Ne_invalid = np.logspace(30.0, 16.0, 10)
     input_Ne_invalid = DataArray(
-        data=input_Ne_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Ne_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_error_check("Ne", input_Ne_invalid, AssertionError, test_case)
 
@@ -384,7 +396,9 @@ def test_fractional_abundance_init():
 
     input_Nh_invalid = np.inf + np.zeros(input_Nh_invalid.data.shape)
     input_Nh_invalid = DataArray(
-        data=input_Nh_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Nh_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_error_check("Nh", input_Nh_invalid, ValueError, test_case)
 
@@ -408,7 +422,9 @@ def test_fractional_abundance_init():
 
     input_Te_invalid = np.logspace(5, 2, 10)
     input_Te_invalid = DataArray(
-        data=input_Te_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Te_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_error_check("Te", input_Te_invalid, AssertionError, test_case)
 
@@ -447,7 +463,7 @@ def test_interpolate_rates(test_fractional_abundance_init):
             SCD_spec,
             ACD_spec,
             CCD_spec,
-            num_of_stages,
+            num_of_ion_charges,
         ) = example_frac_abundance_no_optional.interpolate_rates()
     except Exception as e:
         raise e
@@ -467,12 +483,12 @@ def test_interpolate_rates(test_fractional_abundance_init):
             SCD_spec,
             ACD_spec,
             CCD_spec,
-            num_of_stages,
+            num_of_ion_charges,
         ) = example_frac_abundance.interpolate_rates()
     except Exception as e:
         raise e
 
-    assert num_of_stages == 5
+    assert num_of_ion_charges == 5
 
     assert SCD_spec.shape == (4, 10)
     assert ACD_spec.shape == (4, 10)
@@ -542,7 +558,7 @@ def test_calc_F_z_tinf(test_calc_ionisation_balance_matrix):
 
     assert np.all(np.logical_not(np.isinf(F_z_tinf)))
 
-    rho = example_frac_abundance_no_optional.Ne.coords["rho"]
+    rho = example_frac_abundance_no_optional.x1_coord
     ionisation_balance_matrix = (
         example_frac_abundance_no_optional.ionisation_balance_matrix
     )
@@ -565,7 +581,7 @@ def test_calc_F_z_tinf(test_calc_ionisation_balance_matrix):
 
     assert np.all(np.logical_not(np.isinf(F_z_tinf)))
 
-    rho = example_frac_abundance.Ne.coords["rho"]
+    rho = example_frac_abundance.x1_coord
     ionisation_balance_matrix = example_frac_abundance.ionisation_balance_matrix
 
     for irho in range(rho.size):
@@ -600,13 +616,13 @@ def test_calc_eigen_vals_and_vecs(test_calc_F_z_tinf):
     assert np.all(np.logical_not(np.isnan(eig_vecs)))
     assert np.all(np.logical_not(np.isinf(eig_vecs)))
 
-    rho = example_frac_abundance_no_optional.Ne.coords["rho"]
+    rho = example_frac_abundance_no_optional.x1_coord
     ionisation_balance_matrix = (
         example_frac_abundance_no_optional.ionisation_balance_matrix
     )
 
     for irho in range(rho.size):
-        for ieig in range(example_frac_abundance_no_optional.num_of_stages):
+        for ieig in range(example_frac_abundance_no_optional.num_of_ion_charges):
             test_eigen = np.dot(
                 ionisation_balance_matrix[:, :, irho], eig_vecs[:, ieig, irho]
             ) - np.dot(eig_vals[ieig, irho], eig_vecs[:, ieig, irho])
@@ -627,11 +643,11 @@ def test_calc_eigen_vals_and_vecs(test_calc_F_z_tinf):
     assert np.all(np.logical_not(np.isnan(eig_vecs)))
     assert np.all(np.logical_not(np.isinf(eig_vecs)))
 
-    rho = example_frac_abundance.Ne.coords["rho"]
+    rho = example_frac_abundance.x1_coord
     ionisation_balance_matrix = example_frac_abundance.ionisation_balance_matrix
 
     for irho in range(rho.size):
-        for ieig in range(example_frac_abundance.num_of_stages):
+        for ieig in range(example_frac_abundance.num_of_ion_charges):
             test_eigen = np.dot(
                 ionisation_balance_matrix[:, :, irho], eig_vecs[:, ieig, irho]
             ) - np.dot(eig_vals[ieig, irho], eig_vecs[:, ieig, irho])
@@ -727,7 +743,34 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
 
     assert np.allclose(F_z_t, example_frac_abundance_no_optional.F_z_tinf, atol=2e-2)
 
-    rho = example_frac_abundance_no_optional.Ne.coords["rho"]
+    rho = example_frac_abundance_no_optional.x1_coord
+
+    for irho in range(rho.size):
+        test_normalization = np.sum(F_z_t[:, irho])
+        assert np.abs(test_normalization - 1.0) <= 2e-2
+
+    # Testing tau as a profile of rho_poloidal.
+    tau = np.linspace(1.0, 1.0e-10, 10)
+    tau = DataArray(
+        data=tau,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    try:
+        F_z_t = example_frac_abundance_no_optional(tau)
+    except Exception as e:
+        raise e
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(
+        F_z_t[:, 0], example_frac_abundance_no_optional.F_z_tinf[:, 0], atol=2e-2
+    )
+    assert np.allclose(
+        F_z_t[:, -1], example_frac_abundance_no_optional.F_z_t0[:, -1], atol=1e-4
+    )
 
     for irho in range(rho.size):
         test_normalization = np.sum(F_z_t[:, irho])
@@ -776,7 +819,30 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
 
     assert np.allclose(F_z_t, example_frac_abundance.F_z_tinf, atol=2e-2)
 
-    rho = example_frac_abundance.Ne.coords["rho"]
+    rho = example_frac_abundance.x1_coord
+
+    for irho in range(rho.size):
+        test_normalization = np.sum(F_z_t[:, irho])
+        assert np.abs(test_normalization - 1.0) <= 2e-2
+
+    # Testing tau as a profile of rho_poloidal.
+    tau = np.linspace(1.0, 1.0e-10, 10)
+    tau = DataArray(
+        data=tau,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    try:
+        F_z_t = example_frac_abundance(tau)
+    except Exception as e:
+        raise e
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(F_z_t[:, 0], example_frac_abundance.F_z_tinf[:, 0], atol=2e-2)
+    assert np.allclose(F_z_t[:, -1], example_frac_abundance.F_z_t0[:, -1], atol=1e-4)
 
     for irho in range(rho.size):
         test_normalization = np.sum(F_z_t[:, irho])
@@ -799,13 +865,19 @@ def test_power_loss_init():
     input_Te = np.logspace(4.6, 2, 10)
 
     input_Te = DataArray(
-        data=input_Te, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Te,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_Ne = DataArray(
-        data=input_Ne, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Ne,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_Nh = DataArray(
-        data=input_Nh, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Nh,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
 
     SCD = ADAS_file.get_adf11("scd", element, "89")
@@ -937,36 +1009,36 @@ def test_power_loss_init():
 
     F_z_t_invalid = DataArray(
         data=-1.0 * np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"stages": np.linspace(0, 4, 5, dtype=int)},
-        dims=["stages"],
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
     )
     input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
 
     F_z_t_invalid = DataArray(
         data=np.nan + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"stages": np.linspace(0, 4, 5, dtype=int)},
-        dims=["stages"],
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
     )
     input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
 
     F_z_t_invalid = DataArray(
         data=np.inf + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"stages": np.linspace(0, 4, 5, dtype=int)},
-        dims=["stages"],
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
     )
     input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
 
     F_z_t_invalid = DataArray(
         data=-np.inf + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"stages": np.linspace(0, 4, 5, dtype=int)},
-        dims=["stages"],
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
     )
     input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
 
     F_z_t_invalid = DataArray(
         data=np.array([1.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j]),
-        coords={"stages": np.linspace(0, 4, 5, dtype=int)},
-        dims=["stages"],
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
     )
     input_error_check("F_z_t", F_z_t_invalid, AssertionError, test_case)
 
@@ -977,7 +1049,9 @@ def test_power_loss_init():
 
     input_Ne_invalid = np.logspace(30.0, 16.0, 10)
     input_Ne_invalid = DataArray(
-        data=input_Ne_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Ne_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_error_check("Ne", input_Ne_invalid, AssertionError, test_case)
 
@@ -1007,7 +1081,9 @@ def test_power_loss_init():
 
     input_Nh_invalid = np.inf + np.zeros(input_Nh_invalid.data.shape)
     input_Nh_invalid = DataArray(
-        data=input_Nh_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Nh_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_error_check("Nh", input_Nh_invalid, ValueError, test_case)
 
@@ -1031,7 +1107,9 @@ def test_power_loss_init():
 
     input_Te_invalid = np.logspace(5, 2, 10)
     input_Te_invalid = DataArray(
-        data=input_Te_invalid, coords={"rho": np.linspace(0.0, 1.0, 10)}, dims=["rho"]
+        data=input_Te_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
     )
     input_error_check("Te", input_Te_invalid, AssertionError, test_case)
 
