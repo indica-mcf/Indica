@@ -19,6 +19,27 @@ from indica.utilities import broadcast_spline
 class Exception_Main_Ion_Density_Test_Case(unittest.TestCase):
     """Test case for testing type and value errors in MainIonDensity call"""
 
+    def __init__(self):
+        pass
+
+    def call_type_check(self, impurity_densities, electron_density, mean_charge):
+        """Test TypeError for MainIonDensity call."""
+        with self.assertRaises(TypeError):
+            example_main_ion_density = MainIonDensity()
+            example_main_ion_density(impurity_densities, electron_density, mean_charge)
+
+    def call_value_check(self, impurity_densities, electron_density, mean_charge):
+        """Test ValueError for MainIonDensity call."""
+        with self.assertRaises(ValueError):
+            example_main_ion_density = MainIonDensity()
+            example_main_ion_density(impurity_densities, electron_density, mean_charge)
+
+    def call_assertion_check(self, impurity_densities, electron_density, mean_charge):
+        """Test AssertionError for MainIonDensity call."""
+        with self.assertRaises(AssertionError):
+            example_main_ion_density = MainIonDensity()
+            example_main_ion_density(impurity_densities, electron_density, mean_charge)
+
 
 def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     """Calculate and output Fractional abundance at t=infinity for calculating
@@ -200,3 +221,109 @@ def test_main_ion_density():
         raise ValueError("Some values in main_ion_density are less than zero.")
 
     # Testing input checks of MainIonDensity()
+
+    input_check = Exception_Main_Ion_Density_Test_Case()
+
+    # impurity_densities checks
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["impurity_densities"] = erroneous_inputs["impurity_densities"].data
+    input_check.call_type_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["impurity_densities"] = -1 * erroneous_inputs["impurity_densities"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["impurity_densities"] = (
+        np.inf * erroneous_inputs["impurity_densities"]
+    )
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["impurity_densities"] = (
+        -np.inf * erroneous_inputs["impurity_densities"]
+    )
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["impurity_densities"] = (
+        np.nan * erroneous_inputs["impurity_densities"]
+    )
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    # electron_density checks
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["electron_density"] = erroneous_inputs["electron_density"].data
+    input_check.call_type_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["electron_density"] = -1 * erroneous_inputs["electron_density"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["electron_density"] = np.inf * erroneous_inputs["electron_density"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["electron_density"] = (
+        -np.inf * erroneous_inputs["electron_density"]
+    )
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["electron_density"] = np.nan * erroneous_inputs["electron_density"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["electron_density"] = erroneous_inputs["electron_density"].isel(
+        {"rho": 0}
+    )
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    # mean_charge checks
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["mean_charge"] = erroneous_inputs["mean_charge"].data
+    input_check.call_type_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["mean_charge"] = -1 * erroneous_inputs["mean_charge"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["mean_charge"] = np.inf * erroneous_inputs["mean_charge"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["mean_charge"] = -np.inf * erroneous_inputs["mean_charge"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["mean_charge"] = np.nan * erroneous_inputs["mean_charge"]
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
+
+    erroneous_inputs["mean_charge"] = erroneous_inputs["mean_charge"].isel({"rho": 0})
+    input_check.call_value_check(**erroneous_inputs)
+
+    erroneous_inputs = nominal_inputs.copy()
