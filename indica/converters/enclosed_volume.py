@@ -65,6 +65,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
                 return cast(FluxSurfaceCoordinates, other)._convert_to_vol
             else:
                 return None
+        # TODO: _convert_to_rho calls invert_enclosed_volume which has
+        # not been implemented yet.
         if other == self.flux_transform:
             return self._convert_to_rho
         else:

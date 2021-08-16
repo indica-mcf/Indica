@@ -97,12 +97,21 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         -------
         vol
             Volume enclosed by the flux surface rho.
-        theta
-            Poloidal angle coordinate
 
         """
-        vol, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
-        return vol, theta
+        vol, area, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
+        # extra output(area) included to satisfy mypy type checking with
+        # Coordinates = Tuple[LabeledArray, LabeledArray]
+        return vol, area
+
+    def _convert_to_area(
+        self, rho: LabeledArray, theta: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Coordinates:
+
+        area, t = self.equilibrium.cross_sectional_area(rho, t, kind=self.flux_kind)
+        # extra output(area) included to satisfy mypy type checking with
+        # Coordinates = Tuple[LabeledArray, LabeledArray]
+        return area, t
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
