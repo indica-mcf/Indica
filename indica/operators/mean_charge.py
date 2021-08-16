@@ -1,5 +1,5 @@
 """Operator calculating the mean charge from the fractional abundance of all
-ionisation stages of a given element.
+ionisation charges of a given element.
 """
 
 from typing import get_args
@@ -120,7 +120,7 @@ class MeanCharge(Operator):
         ----------
         FracAbundObj
             numpy.ndarray describing the fractional abundance of the given element.
-            The first axis must correspond to the ionisation stages of the element.
+            The first axis must correspond to the ionisation charges of the element.
         element
             Name of the element for which the mean charge is desired.
 
@@ -146,15 +146,15 @@ class MeanCharge(Operator):
 
         element_atomic_number = element_atomic_number_tmp[0]
 
-        ionisation_stages = np.linspace(
+        ionisation_charges = np.linspace(
             0, element_atomic_number, element_atomic_number + 1, dtype=int
         )
 
         try:
-            assert ionisation_stages.shape[0] == FracAbundObj.shape[0]
+            assert ionisation_charges.shape[0] == FracAbundObj.shape[0]
         except AssertionError:
             raise AssertionError(
-                f"Number of ionisation stages in the \
+                f"Number of ionisation charges in the \
                 FractionalAbundance object do not match the expected number for the \
                     element provided, {element}"
             )
@@ -164,7 +164,7 @@ class MeanCharge(Operator):
         mean_charge.drop_vars("ion_charges")
 
         mean_charge = np.sum(
-            ionisation_stages[:, np.newaxis, np.newaxis] * FracAbundObj, axis=0
+            ionisation_charges[:, np.newaxis, np.newaxis] * FracAbundObj, axis=0
         )
 
         return mean_charge
