@@ -160,8 +160,8 @@ class MeanCharge(Operator):
             )
 
         mean_charge = zeros_like(FracAbundObj)
-        mean_charge = mean_charge.isel(stages=0)
-        mean_charge.drop_vars("stages")
+        mean_charge = mean_charge.isel(ion_charges=0)
+        mean_charge.drop_vars("ion_charges")
 
         mean_charge = np.sum(
             ionisation_stages[:, np.newaxis, np.newaxis] * FracAbundObj, axis=0
