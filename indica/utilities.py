@@ -165,7 +165,10 @@ def broadcast_spline(
             output_core_dims=[tuple(d if d != "t" else "__old_t" for d in spline_dims)],
         ).assign_coords(__old_t=coord_array(spline_coords["t"].data, "__old_t"))
         result = time_outer_product.indica.interp2d(
-            __old_t=interp_coord.coords["t"], method="cubic"
+            __old_t=interp_coord.coords["t"],
+            method="cubic"
+            if time_outer_product.coords["__old_t"].size > 3
+            else "linear",
         ).assign_coords({k: v for k, v in spline_coords.items() if k != "t"})
         del result.coords["__old_t"]
         return result

@@ -130,7 +130,7 @@ class SplineFit(Operator):
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("norm_flux_pol", "plasma"),
         ("time", "plasma"),
-        (None, None),
+        ("temperature", "electrons"),
         ...,
     ]
 
@@ -265,7 +265,9 @@ class SplineFit(Operator):
                 resid[start:end] = np.ravel(
                     (self.spline(flux_surfaces, rho, theta, times).fillna(0.0) - d)
                     .isel({d.attrs["transform"].x1_name: g})
-                    .transpose("t", d.attrs["transform"].x1_name)
+                    .transpose(
+                        "t", d.attrs["transform"].x1_name, d.attrs["transform"].x2_name
+                    )
                 )
                 start = end
             # assert np.all(np.isfinite(resid))
