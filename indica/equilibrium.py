@@ -68,7 +68,6 @@ class Equilibrium(AbstractEquilibrium):
         z_shift: float = 0.0,
         sess: session.Session = session.global_session,
         offset_picker: OffsetPicker = interactive_offset_choice,
-        unit_testing: bool = False,
     ):
 
         self._session = sess
@@ -149,11 +148,6 @@ class Equilibrium(AbstractEquilibrium):
                 )
                 offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
 
-                # For escaping the while loop while unit testing. Otherwise
-                # with offset_picker = MagicMock(return_value=(0.02, False)),
-                # then this while loop will not end.
-                if unit_testing:
-                    accept = True
             self.R_offset = offset
         else:
             self.R_offset = R_shift
