@@ -262,13 +262,21 @@ class SplineFit(Operator):
             for d, g in zip(binned_data, good_channels):
                 end = start + d.attrs["nchannels"] * nt
                 rho, theta = d.indica.convert_coords(flux_surfaces)
-                resid[start:end] = np.ravel(
-                    (self.spline(flux_surfaces, rho, theta, times).fillna(0.0) - d)
-                    .isel({d.attrs["transform"].x1_name: g})
-                    .transpose(
-                        "t", d.attrs["transform"].x1_name, d.attrs["transform"].x2_name
+                temp_resid = (
+                    self.spline(flux_surfaces, rho, theta, times).fillna(0.0) - d
+                ).isel({d.attrs["transform"].x1_name: g})
+                if d.ndim == 2:
+                    resid[start:end] = np.ravel(
+                        temp_resid.transpose("t", d.attrs["transform"].x1_name)
                     )
-                )
+                elif d.ndim == 3:
+                    resid[start:end] = np.ravel(
+                        temp_resid.transpose(
+                            "t",
+                            d.attrs["transform"].x1_name,
+                            d.attrs["transform"].x2_name,
+                        )
+                    )
                 start = end
             # assert np.all(np.isfinite(resid))
             return resid

@@ -84,7 +84,7 @@ def test_spline_fit():
     input_vals = expected_spline(
         coords, R_positions.coords["alpha"], 0.0, t_grid
     ).assign_coords(alpha_z_offset=0)
-    input_vals.attrs["datatype"] = ("temperature", "electron")
+    input_vals.attrs["datatype"] = ("temperature", "electrons")
     fitter = SplineFit(knot_locations, sess=MagicMock())
     result_locations = coord_array(np.linspace(0, 1.05, 10), "rho_poloidal")
     result, spline_fit, binned_input = fitter(result_locations, t_grid, input_vals)

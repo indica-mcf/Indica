@@ -114,8 +114,7 @@ class Equilibrium(AbstractEquilibrium):
                 offsets,
             )
             del rhos.coords[None]
-            # Temporarily disabled - will create an issue about this later
-            #
+
             thetas = np.arctan2(
                 T_e.coords["index_z_offset"] + z_shift - zmag,
                 T_e.coords["index"] + offsets - Rmag,
