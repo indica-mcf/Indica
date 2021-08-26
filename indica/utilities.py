@@ -213,26 +213,31 @@ def input_check(
         raise TypeError(f"{var_name} must be of type {var_type}.")
 
     # For some reason passing get_args(LabeledArray) to isinstance causes
-    # mypy to complain but giving it the constituent types solves this.
+    # mypy to complain but giving it the constituent types(and np.ndarray) solves this.
     # Guessing this is because LabeledArray isn't resolved/evaluated by mypy.
-    if isinstance(var_to_check, (float, int, DataArray, Dataset, Variable)):
+    if isinstance(var_to_check, (float, int, DataArray, Dataset, Variable, np.ndarray)):
         try:
-            if not greater_than_or_equal_zero:
-                assert np.all(var_to_check > 0)
-            else:
-                assert np.all(var_to_check >= 0)
-        except AssertionError:
-            raise ValueError(f"Cannot have any negative values in {var_name}")
-
-        try:
-            assert np.all(var_to_check != np.nan)
+            assert np.all(np.logical_not(np.isnan(var_to_check)))
         except AssertionError:
             raise ValueError(f"{var_name} cannot contain any NaNs.")
 
         try:
-            assert np.all(np.abs(var_to_check) != np.inf)
+            assert np.all(np.logical_not(np.isinf(np.abs(var_to_check))))
         except AssertionError:
             raise ValueError(f"{var_name} cannot contain any infinities.")
+
+        if not greater_than_or_equal_zero:
+            try:
+                assert np.all(var_to_check > 0)
+            except AssertionError:
+                raise ValueError(
+                    f"Cannot have any negative or zero values in {var_name}"
+                )
+        else:
+            try:
+                assert np.all(var_to_check >= 0)
+            except AssertionError:
+                raise ValueError(f"Cannot have any negative values in {var_name}")
 
     if ndim_to_check is not None and isinstance(var_to_check, (np.ndarray, DataArray)):
         try:
