@@ -193,6 +193,10 @@ class Compatible_Input_Type_Test_Case(unittest.TestCase):
         with self.assertRaises(ValueError):
             utilities.input_check("Ne", Ne, np.ndarray)
 
+        Ne = self.Ne[:, np.newaxis]
+        with self.assertRaises(ValueError):
+            utilities.input_check("Ne", Ne, np.ndarray, ndim_to_check=True)
+
 
 def test_compatible_input_type():
     compatible_input_type = Compatible_Input_Type_Test_Case()
