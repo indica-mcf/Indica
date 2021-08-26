@@ -1,23 +1,40 @@
 """Operator calculating the main ion density given the densities of impurities.
 """
 
-from typing import get_args
 from typing import List
-from typing import Optional
 from typing import Tuple
 from typing import Union
 
-import numpy as np
 from xarray.core.dataarray import DataArray
 
 from indica.datatypes import DataType
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
-from ..numpy_typing import LabeledArray
+from ..utilities import input_check
 
 
 class MainIonDensity(Operator):
+    """Calculates the main ion density from given impurity densities and mean charge.
+
+    Attributes
+    ----------
+    ARGUMENT_TYPES: List[DataType]
+        Ordered list of the types of data expected for each argument of the
+        operator.
+    RESULT_TYPES: List[DataType]
+        Ordered list of the types of data returned by the operator.
+
+    Returns
+    -------
+    main_ion_density
+        xarray.DataArray of the main ion density.
+
+    Methods
+    -------
+    __call__(impurity_densities, electron_density, mean_charge)
+        Calculates the main ion density from given impurity densities and mean charge.
+    """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
@@ -30,70 +47,6 @@ class MainIonDensity(Operator):
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
-
-    def input_check(
-        self,
-        var_name: str,
-        var_to_check,
-        var_type: type,
-        ndim_to_check: Optional[int] = None,
-        greater_than_or_equal_zero: Optional[bool] = None,
-    ):
-        """Check validity of inputted variable - type check and
-        various value checks(no infinities, greather than (or equal to) 0 or NaNs)
-
-        Parameters
-        ----------
-        var_name
-            Name of variable to check.
-        var_to_check
-            Variable to check.
-        var_type
-            Type to check variable against, eg. DataArray
-        ndim_to_check
-            Integer to check the number of dimensions of the variable.
-        greater_than_or_equal_zero
-            Boolean to check values in variable > 0 or >= 0.
-        """
-        try:
-            assert isinstance(var_to_check, var_type)
-        except AssertionError:
-            raise TypeError(f"{var_name} must be of type {var_type}.")
-
-        if greater_than_or_equal_zero is not None:
-            try:
-                if not greater_than_or_equal_zero:
-                    # Mypy will ignore this line since even though var_to_check
-                    # is type checked earlier it still doesn't explicitly
-                    # know what type var_to_check
-                    assert np.all(var_to_check > 0)  # type: ignore
-                else:
-                    # Mypy will ignore this line since even though var_to_check
-                    # is type checked earlier it still doesn't explicitly
-                    # know what type var_to_check
-                    assert np.all(var_to_check >= 0)  # type: ignore
-            except AssertionError:
-                raise ValueError(f"Cannot have any negative values in {var_name}")
-
-        if var_type in get_args(LabeledArray):
-            try:
-                assert np.all(var_to_check != np.nan)
-            except AssertionError:
-                raise ValueError(f"{var_name} cannot contain any NaNs.")
-
-            try:
-                assert np.all(np.abs(var_to_check) != np.inf)
-            except AssertionError:
-                raise ValueError(f"{var_name} cannot contain any infinities.")
-
-        if ndim_to_check is not None and var_type in [np.ndarray, DataArray]:
-            try:
-                # Mypy will ignore this line since even though var_to_check
-                # is type checked earlier it still doesn't explicitly
-                # know what type var_to_check
-                assert var_to_check.ndim == ndim_to_check  # type: ignore
-            except AssertionError:
-                raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
 
     def __call__(  # type: ignore
         self,
@@ -123,16 +76,28 @@ class MainIonDensity(Operator):
         """
         # no ndim check since impurity densities can have coords:
         # [elements, rho, t] or [elements, R, z, t]
-        self.input_check(
+        input_check(
             "impurity_densities",
             impurity_densities,
             DataArray,
             greater_than_or_equal_zero=True,
         )
 
-        self.input_check("electron_density", electron_density, DataArray, 2, True)
+        input_check(
+            "electron_density",
+            electron_density,
+            DataArray,
+            ndim_to_check=2,
+            greater_than_or_equal_zero=True,
+        )
 
-        self.input_check("mean_charge", mean_charge, DataArray, 3, True)
+        input_check(
+            "mean_charge",
+            mean_charge,
+            DataArray,
+            ndim_to_check=3,
+            greater_than_or_equal_zero=True,
+        )
 
         main_ion_density = electron_density - (mean_charge * impurity_densities).sum(
             "elements"
