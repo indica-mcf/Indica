@@ -5,9 +5,9 @@ import pytest
 from xarray import DataArray
 
 from indica.operators.atomic_data import FractionalAbundance
-from indica.operators.atomic_data import input_check
 from indica.operators.atomic_data import PowerLoss
 from indica.readers import ADASReader
+from indica.utilities import input_check
 
 
 class Exception_Frac_Abund_Test_Case(unittest.TestCase):
@@ -186,7 +186,7 @@ def input_error_check(invalid_input_name, invalid_input, error_check, test_case)
 class Compatible_Input_Type_Test_Case(unittest.TestCase):
     def init_type(self):
         input_Ne = np.logspace(19.0, 16.0, 10)
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(TypeError):
             input_check("Ne", input_Ne, str)
 
 
