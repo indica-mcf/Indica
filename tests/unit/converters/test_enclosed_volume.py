@@ -59,10 +59,9 @@ def test_convert_from_Rz(flux_transform, coords, flux_coords, expected_coords):
     equilib.flux_coords.return_value = flux_coords
     equilib.enclosed_volume.return_value = (expected_coords[0], expected_coords[2], 0.0)
     transform = EnclosedVolumeCoordinates(flux_transform)
-    vol, theta = transform.convert_from_Rz(*coords)
+    vol, _ = transform.convert_from_Rz(*coords)
     equilib.flux_coords.assert_called_with(*coords, flux_transform.flux_kind)
     equilib.enclosed_volume.assert_called_with(
         flux_coords[0], coords[2], flux_transform.flux_kind
     )
     assert vol is expected_coords[0]
-    assert theta is flux_coords[1]
