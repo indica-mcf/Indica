@@ -35,7 +35,8 @@ BoundaryType = Union[str, Tuple[SingleBoundaryType, SingleBoundaryType]]
 
 class Spline:
     """Callable class wrapping a `:class:scipy.interpolate.CubicSpline`
-    object so it will work with DataArrays.
+    object so it will work with DataArrays. It performs interpolation
+    over one dimension, but can do this onto a multidimensional grid.
 
     Parameters
     ----------
@@ -75,7 +76,10 @@ class Spline:
         x2: DataArray,
         t: DataArray,
     ) -> DataArray:
-        """Get the spline values at the locations given by the coordinates.
+        """Get the spline values at the locations given by the
+        coordinates. Although it takes multiple coordinates as
+        arguments, the actual interpolation will only be done along
+        the `dim` specified at instantiation.
 
         Parameters
         ----------
@@ -124,9 +128,9 @@ class SplineFit(Operator):
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("rho_poloidal", "plasma"),
+        ("norm_flux_pol", "plasma"),
         ("time", "plasma"),
-        (None, None),
+        ("temperature", "electrons"),
         ...,
     ]
 
@@ -258,11 +262,21 @@ class SplineFit(Operator):
             for d, g in zip(binned_data, good_channels):
                 end = start + d.attrs["nchannels"] * nt
                 rho, theta = d.indica.convert_coords(flux_surfaces)
-                resid[start:end] = np.ravel(
-                    (
-                        self.spline(flux_surfaces, rho, theta, times).fillna(0.0) - d
-                    ).isel({d.attrs["transform"].x1_name: g})
-                )
+                temp_resid = (
+                    self.spline(flux_surfaces, rho, theta, times).fillna(0.0) - d
+                ).isel({d.attrs["transform"].x1_name: g})
+                if d.ndim == 2:
+                    resid[start:end] = np.ravel(
+                        temp_resid.transpose("t", d.attrs["transform"].x1_name)
+                    )
+                elif d.ndim == 3:
+                    resid[start:end] = np.ravel(
+                        temp_resid.transpose(
+                            "t",
+                            d.attrs["transform"].x1_name,
+                            d.attrs["transform"].x2_name,
+                        )
+                    )
                 start = end
             # assert np.all(np.isfinite(resid))
             return resid

@@ -125,12 +125,49 @@ class AbstractEquilibrium(ABC):
         )
 
     @abstractmethod
+    def cross_sectional_area(
+        self,
+        rho: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        ntheta: Optional[int] = 12,
+        kind: str = "poloidal",
+    ) -> Tuple[DataArray, LabeledArray]:
+        """Calculates the cross-sectional area inside the flux surface rho and at
+        given time t.
+
+        Parameters
+        ----------
+        rho
+            Values of rho at which to calculate the cross-sectional area.
+        t
+            Values of time at which to calculate the cross-sectional area.
+        ntheta
+            Number subdivisions of 2 * pi to integrate over for the cross-
+            sectional area.
+        kind
+            The type of flux surface to use. May be "toroidal", "poloidal",
+            plus optional extras depending on implementation.
+
+        Returns
+        -------
+        area
+            Cross-sectional areas calculated at rho and t.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        raise NotImplementedError(
+            "{} does not implement an 'enclosed_volume' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    @abstractmethod
     def enclosed_volume(
         self,
         rho: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[DataArray, LabeledArray, DataArray]:
+    ) -> Tuple[DataArray, DataArray, LabeledArray]:
         """Returns the volume enclosed by the specified flux surface.
 
         Parameters
@@ -149,6 +186,8 @@ class AbstractEquilibrium(ABC):
         -------
         vol
             Volumes of space enclosed by the flux surfaces.
+        area
+            Cross sectional area enclosed by the flux surfaces.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.

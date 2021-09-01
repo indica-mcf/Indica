@@ -2,8 +2,10 @@
 """
 
 import datetime
+from typing import Any
 from typing import cast
 from typing import Dict
+from typing import Hashable
 from typing import Optional
 from typing import Tuple
 
@@ -20,6 +22,7 @@ from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
 from .offset import interactive_offset_choice
 from .offset import OffsetPicker
+from .operators import SplineFit
 from .utilities import coord_array
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
@@ -89,8 +92,8 @@ class Equilibrium(AbstractEquilibrium):
         if T_e is not None:
             offsets = coord_array(np.linspace(0.0, 0.04, 9), "offset")
             t = T_e.coords["t"].assign_attrs(datatype=("time", "plasma"))
-            separatrix = DataArray(1.0, attrs={"datatype": ("rho_poloidal", "plasma")})
-            separatrix.coords["rho_poloidal"] = 1.0
+            separatrix = DataArray(1.0, attrs={"datatype": ("norm_flux_pol", "plasma")})
+            separatrix.coords["norm_flux_pol"] = 1.0
             Rmag = self.rmag.interp(t=T_e.coords["t"], method="nearest") - offsets
             zmag = self.zmag.interp(t=T_e.coords["t"], method="nearest") - z_shift
             rhos = concat(
@@ -110,42 +113,42 @@ class Equilibrium(AbstractEquilibrium):
                 offsets,
             )
             del rhos.coords[None]
-            # Temporarily disabled - will create an issue about this later
-            #
-            # thetas = np.arctan2(
-            # T_e.coords["index_z_offset"] + z_shift - zmag,
-            # T_e.coords["index"] + offsets - Rmag
-            # )
-            # T_e_with_rho = T_e.expand_dims(
-            #     cast(Dict[Hashable, Any], {"offset": offsets})
-            # ).assign_coords(rho_poloidal=rhos, theta=thetas)
-            # fitter = SplineFit(lower_bound=0.0, sess=sess)
-            #
-            # T_e_sep = concat(
-            #     [
-            #         fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
-            #         for offset in offsets
-            #     ],
-            #     offsets,
-            # )
 
-            # square_residuals = (T_e_sep - 100.0) ** 2
-            # best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
-            # overall_best = best_fits.mean()
-            # fluxes = rhos.sel(offset=overall_best, method="nearest")
-            # offset = float(fluxes.offset)
-            # offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            # while not accept:
-            #     fluxes = self.rho.interp(
-            #         t=T_e.coords["t"], method="nearest"
-            #     ).indica.interp2d(
-            #         R=T_e.coords["index"] - offset,
-            #         z=T_e.coords["index_z_offset"] - z_shift,
-            #         method="cubic",
-            #         assume_sorted=True,
-            #     )
-            #     offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            self.R_offset = R_shift
+            thetas = np.arctan2(
+                T_e.coords["index_z_offset"] + z_shift - zmag,
+                T_e.coords["index"] + offsets - Rmag,
+            )
+            T_e_with_rho = T_e.expand_dims(
+                cast(Dict[Hashable, Any], {"offset": offsets})
+            ).assign_coords(rho_poloidal=rhos, theta=thetas)
+            fitter = SplineFit(lower_bound=0.0, sess=sess)
+
+            T_e_sep = concat(
+                [
+                    fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
+                    for offset in offsets
+                ],
+                offsets,
+            )
+
+            square_residuals = (T_e_sep - 100.0) ** 2
+            best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
+            overall_best = best_fits.mean()
+            fluxes = rhos.sel(offset=overall_best, method="nearest")
+            offset = float(fluxes.offset)
+            offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
+            while not accept:
+                fluxes = self.rho.interp(
+                    t=T_e.coords["t"], method="nearest"
+                ).indica.interp2d(
+                    R=T_e.coords["index"] - offset,
+                    z=T_e.coords["index_z_offset"] - z_shift,
+                    method="cubic",
+                    assume_sorted=True,
+                )
+                offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
+
+            self.R_offset = offset
         else:
             self.R_offset = R_shift
 
@@ -180,7 +183,7 @@ class Equilibrium(AbstractEquilibrium):
         for val in equilibrium_data.values():
             if "provenance" in val.attrs:
                 self.provenance.wasDerivedFrom(val.attrs["provenance"])
-        if T_e and "provenance" in T_e.attrs:
+        if (T_e is not None) and ("provenance" in T_e.attrs):
             self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
 
     def Btot(
@@ -366,6 +369,9 @@ class Equilibrium(AbstractEquilibrium):
             Values of rho at which to calculate the cross-sectional area.
         t
             Values of time at which to calculate the cross-sectional area.
+        ntheta
+            Number subdivisions of 2 * pi to integrate over for the cross-
+            sectional area.
         kind
             The type of flux surface to use. May be "toroidal", "poloidal",
             plus optional extras depending on implementation.
@@ -374,6 +380,9 @@ class Equilibrium(AbstractEquilibrium):
         -------
         area
             Cross-sectional areas calculated at rho and t.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
         """
         if t is None:
             t = self.rho.coords["t"]
@@ -412,12 +421,14 @@ class Equilibrium(AbstractEquilibrium):
 
         area = trapz(minor_radii, theta, axis=0)
 
+        result = DataArray(
+            data=area,
+            coords=[("t", t), ("rho", rho)],
+            dims=["t", "rho"],
+        )
+
         return (
-            DataArray(
-                data=area,
-                coords=[("t", t), ("rho", rho)],
-                dims=["t", "rho"],
-            ),
+            result,
             cast(LabeledArray, t),
         )
 
@@ -465,13 +476,13 @@ class Equilibrium(AbstractEquilibrium):
 
         # Cross-sectional area calculated by integrating:
         # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
-        area, _ = self.cross_sectional_area(rho, t, kind=kind)
+        area_arr, _ = self.cross_sectional_area(rho, t, kind=kind)
 
         # Vol = area * toroidal circumference measure at the magnetic axis
-        vol_enclosed = area * 2 * np.pi * major_radius_axis
+        vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
         vol_enclosed.name = "Enclosed volumes (m^3)"
 
-        return vol_enclosed, area, t
+        return vol_enclosed, area_arr, t
 
     def invert_enclosed_volume(
         self,

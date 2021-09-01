@@ -5,6 +5,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import fmin
 import xarray as xr
+from xarray.core.dataarray import DataArray
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import LinesOfSightTransform
@@ -374,11 +375,16 @@ def equilibrium_dat_and_te(with_Te=False):
 
 
 def test_cross_sectional_area():
-    offset = MagicMock(return_value=0.02)
+    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
 
     equilib_dat, Te = equilibrium_dat_and_te()
 
-    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+    equilib = Equilibrium(
+        equilib_dat,
+        Te,
+        sess=MagicMock(),
+        offset_picker=offset,
+    )
 
     rho = np.linspace(0.0, 1.0, 5)
     t = np.array([75.0, 77.5, 80.0])
@@ -413,17 +419,22 @@ def test_cross_sectional_area():
 
 
 def test_enclosed_volume():
-    offset = MagicMock(return_value=0.02)
+    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
     # Generate equilibrium data
 
-    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib_dat, Te = equilibrium_dat_and_te(with_Te=True)
 
     # Check enclosed volume falls within reasonable bounds for the flux surface
     # chosen. This is done by comparing the result to two different volumes which are
     # constructed by assuming circular cross-sections with radii of the minimum
     # minor radius and the maximum minor radius.
 
-    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+    equilib = Equilibrium(
+        equilib_dat,
+        Te,
+        sess=MagicMock(),
+        offset_picker=offset,
+    )
 
     rho = np.array([0.5])
     time = np.array([77.5])
@@ -453,7 +464,20 @@ def test_enclosed_volume():
     lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
     upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
 
-    actual, _, area_ = equilib.enclosed_volume(rho, time)
+    actual, area_, _ = equilib.enclosed_volume(rho, time)
+
+    assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
+
+    # Testing Datarray as input
+
+    rho = np.array([0.5])
+    time = np.array([77.5])
+
+    rho = DataArray(data=rho, coords={"rho_poloidal": rho}, dims=["rho_poloidal"])
+
+    time = DataArray(data=time, coords={"t": time}, dims=["t"])
+
+    actual, area_, _ = equilib.enclosed_volume(rho, time)
 
     assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
 
@@ -493,7 +517,7 @@ def test_enclosed_volume():
             2.0 * np.pi * Rmag[k].data
         )
 
-    actual, _, area_ = equilib.enclosed_volume(rho)
+    actual, area_, _ = equilib.enclosed_volume(rho)
 
     assert np.all(actual <= upper_limit_vol) and np.all(actual >= lower_limit_vol)
 
@@ -508,12 +532,17 @@ def test_Btot():
         if time.shape[0] > 3:
             interp1d_method = "cubic"
 
-    offset = MagicMock(return_value=0.02)
+    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
     # Generate equilibrium data
 
     equilib_dat, Te = equilibrium_dat_and_te()
 
-    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+    equilib = Equilibrium(
+        equilib_dat,
+        Te,
+        sess=MagicMock(),
+        offset_picker=offset,
+    )
 
     # Arbitrary test data
 
@@ -610,11 +639,16 @@ def test_R_hfs_1d():
     time = xr.DataArray(data=t, coords={"t": t}, dims=("t",))
     rho = np.random.random(5)
 
-    offset = MagicMock(return_value=0.02)
+    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
 
     # Generate equilibrium data
     equilib_dat, Te = equilibrium_dat_and_te()
-    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+    equilib = Equilibrium(
+        equilib_dat,
+        Te,
+        sess=MagicMock(),
+        offset_picker=offset,
+    )
 
     rhfs, t_new = equilib.R_hfs(rho, time)
     assert np.all(t_new == t)
@@ -629,11 +663,16 @@ def test_R_hfs_2d():
         data=np.random.random((5, 5)), coords={"t": t, "x": x}, dims=("t", "x")
     )
 
-    offset = MagicMock(return_value=0.02)
+    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
 
     # Generate equilibrium data
     equilib_dat, Te = equilibrium_dat_and_te()
-    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+    equilib = Equilibrium(
+        equilib_dat,
+        Te,
+        sess=MagicMock(),
+        offset_picker=offset,
+    )
 
     rhfs, t_new = equilib.R_hfs(rho, time)
     assert np.all(t_new == t)
