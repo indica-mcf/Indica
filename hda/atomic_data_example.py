@@ -6,7 +6,6 @@ from indica.readers import ADASReader
 import hda.simple_profiles as profiles
 
 from copy import deepcopy
-import xarray as xr
 import numpy as np
 import matplotlib.pylab as plt
 import matplotlib.cm as cm
@@ -32,13 +31,17 @@ TAU += tau1
 TAU.name = "tau (s)"
 TAU_MAX = f"{TAU.max().values*1.e3:.1f}"
 
-def fractional_abundance(element="ar"):
+def fz_lz(element="ar"):
     """Test initialization of FractionalAbundance class."""
     ADAS_file = ADASReader()
 
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")
     CCD = ADAS_file.get_adf11("ccd", element, "89")
+
+    PLT = ADAS_file.get_adf11("plt", element, "89")
+    PRC = ADAS_file.get_adf11("prc", element, "89")
+    PRB = ADAS_file.get_adf11("prb", element, "89")
 
     frac_abundance = FractionalAbundance(
         SCD,
@@ -47,7 +50,29 @@ def fractional_abundance(element="ar"):
         Te=INPUT_TE,
     )
     F_z = frac_abundance.calc_F_z_tinf()
+
+    power_loss = PowerLoss(
+        PLT,
+        PRB,
+        F_z_t=F_z,
+        Ne=INPUT_NE,
+        Nh=INPUT_NH,
+        Te=INPUT_TE,
+        PRC=PRC,
+    )
+    L_z = power_loss()
+
     F_z_tau = frac_abundance(tau=TAU)
+    power_loss = PowerLoss(
+        PLT,
+        PRB,
+        F_z_t=F_z_tau,
+        Ne=INPUT_NE,
+        Nh=INPUT_NH,
+        Te=INPUT_TE,
+        PRC=PRC,
+    )
+    L_z_tau = power_loss()
 
     frac_abundance = FractionalAbundance(
         SCD,
@@ -58,6 +83,16 @@ def fractional_abundance(element="ar"):
         CCD=CCD,
     )
     F_z_nh = frac_abundance.calc_F_z_tinf()
+    power_loss = PowerLoss(
+        PLT,
+        PRB,
+        F_z_t=F_z_nh,
+        Ne=INPUT_NE,
+        Nh=INPUT_NH,
+        Te=INPUT_TE,
+        PRC=PRC,
+    )
+    L_z_nh = power_loss()
 
     plt.figure()
     INPUT_TE.plot()
@@ -76,8 +111,8 @@ def fractional_abundance(element="ar"):
     ne_tau.name = "Ne * Tau (m$^{-3}$ ms)"
     ne_tau.plot()
 
-    plt.figure()
     cols = cm.rainbow(np.linspace(0, 1, len(F_z.ion_charges)))
+    plt.figure()
     for i, q in enumerate(F_z.ion_charges):
         label, label_tau, label_nh = None, None, None
         if q==F_z.ion_charges.max():
@@ -88,28 +123,18 @@ def fractional_abundance(element="ar"):
     plt.ylabel(f"{element} fractional abundance")
     plt.legend()
 
-    return F_z
+    plt.figure()
+    label, label_tau, label_nh = "tau -> inf", f"tau < {TAU_MAX} ms", "Nh > 0"
+    L_z.sum("ion_charges").plot(label=label, color=cols[i])
+    L_z_tau.sum("ion_charges").plot(label=label_tau, linestyle="dashed", color=cols[i])
+    L_z_nh.sum("ion_charges").plot(label=label_nh, linestyle="dotted", color=cols[i])
+    plt.ylabel(f"{element} total cooling factor")
+    plt.yscale("log")
+    plt.legend()
 
-def power_loss(element="ar"):
+def power_loss(F_z, element="ar"):
     """Test initialization of PowerLoss class."""
     ADAS_file = ADASReader()
 
-    F_z = test_fractional_abundance(tau, element)
-
-    PLT = ADAS_file.get_adf11("plt", element, "89")
-    PRC = ADAS_file.get_adf11("prc", element, "89")
-    PRB = ADAS_file.get_adf11("prb", element, "89")
-
-    power_loss = PowerLoss(
-        PLT,
-        PRB,
-        F_z_t=F_z,
-        Ne=INPUT_NE,
-        Nh=INPUT_NH,
-        Te=INPUT_TE,
-        PRC=PRC,
-    )
-
-    L_z = power_loss()
 
     return L_z

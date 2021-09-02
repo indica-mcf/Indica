@@ -8,6 +8,7 @@ from typing import Union
 import numpy as np
 import scipy
 from xarray import DataArray
+import xarray as xr
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
@@ -866,7 +867,6 @@ class PowerLoss(Operator):
             Interpolated radiated power from recombination and bremsstrahlung.
         """
 
-        # Ne, Te = np.log10(self.Ne), np.log10(self.Te)
         Ne, Te = self.Ne, self.Te
 
         PLT_spec = self.PLT.indica.interp2d(
@@ -909,9 +909,6 @@ class PowerLoss(Operator):
         -------
         cooling_factor
             Total radiated power of all ionisation charges.
-        F_z_t
-            Fractional abundance, either user-provided or fully stripped
-            eg. [0.0, 0.0, 0.0, 0.0, 1.0] for Beryllium.
         """
 
         Ne, Nh = self.Ne, self.Nh
@@ -922,18 +919,13 @@ class PowerLoss(Operator):
 
         x1_coord = self.x1_coord
 
-        if self.F_z_t is None:
-            F_z_t = np.zeros((self.num_of_ion_charges, x1_coord.size))
-            F_z_t[-1, :] = np.array([1.0 for i in range(x1_coord.size)])
-        else:
-            F_z_t = self.F_z_t / np.linalg.norm(self.F_z_t)
-
-        cooling_factor = np.zeros(x1_coord.size)
+        cooling_factor = xr.zeros_like(self.F_z_t)
         for ix1 in range(x1_coord.size):
             icharge = 0
-            cooling_factor[ix1] = (self.PLT[icharge, ix1]) * F_z_t[icharge, ix1]
+            cooling_factor[icharge, ix1] = (self.PLT[icharge, ix1]) * self.F_z_t[icharge, ix1]
+
             for icharge in range(1, self.num_of_ion_charges - 1):
-                cooling_factor[ix1] += (
+                cooling_factor[icharge, ix1] += (
                     self.PLT[icharge, ix1]
                     + (
                         (Nh[ix1] / Ne[ix1]) * self.PRC[icharge - 1, ix1]
@@ -941,16 +933,17 @@ class PowerLoss(Operator):
                         else 0.0
                     )
                     + self.PRB[icharge - 1, ix1]
-                ) * F_z_t[icharge, ix1]
+                ) * self.F_z_t[icharge, ix1]
+
             icharge = self.num_of_ion_charges - 1
-            cooling_factor[ix1] += (
+            cooling_factor[icharge, ix1] += (
                 (
                     (Nh[ix1] / Ne[ix1]) * self.PRC[icharge - 1, ix1]
                     if (self.PRC is not None) and (Nh is not None)
                     else 0.0
                 )
                 + self.PRB[icharge - 1, ix1]
-            ) * F_z_t[icharge, ix1]
+            ) * self.F_z_t[icharge, ix1]
 
         self.cooling_factor = cooling_factor
 
