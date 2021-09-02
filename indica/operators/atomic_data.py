@@ -101,10 +101,10 @@ class FractionalAbundance(Operator):
     calc_eigen_coeffs()
         Calculates the coefficients from the eigenvalues and eigenvectors for the time
         evolution equation.
-    ordered_setup()
-        Sets up data for calculation in correct order.
     __call__(tau)
         Calculates the fractional abundance of all ionisation charges at time tau.
+    ordered_setup()
+        Sets up data for calculation in correct order.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
@@ -650,6 +650,8 @@ class PowerLoss(Operator):
     __call__()
         Calculates total radiated power of all ionisation charges of a given
         impurity element.
+    ordered_setup()
+        Sets up data for calculation in correct order.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
