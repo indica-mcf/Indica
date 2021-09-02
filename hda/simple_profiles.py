@@ -1,11 +1,27 @@
-import numpy as np
-from xarray import DataArray
-from scipy.interpolate import CubicSpline
 import matplotlib.pylab as plt
+import numpy as np
+from scipy.interpolate import CubicSpline
+from xarray import DataArray
+
+
+def default_profiles():
+    el_temp = build_profile(1.5e3, 50, default="temperature")
+    el_dens = build_profile(5.0e19, 1.0e19, default="density")
+    vrot = build_profile(150.0e3, 10.0e3, default="rotation")
+
+    return el_temp, el_dens, vrot
 
 
 def build_profile(
-    y0, y1, wped=4, wcenter=0.4, peaking=1.5, y0_fix=False, default=None, plot=False, coord="rho_poloidal"
+    y0,
+    y1,
+    wped=4,
+    wcenter=0.4,
+    peaking=1.5,
+    y0_fix=False,
+    default=None,
+    plot=False,
+    coord="rho_poloidal",
 ):
     """
 
@@ -32,7 +48,11 @@ def build_profile(
     def gaussian(x, A, B, x_0, w):
         return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
 
-    parameters = {"density": (15, 0.5, 1.5), "temperature": (4, 0.4, 1.5)}
+    parameters = {
+        "density": (12, 0.5, 1.3),
+        "temperature": (4, 0.4, 1.5),
+        "rotation": (4, 0.4, 1.4),
+    }
     if default is not None:
         wped, wcenter, peaking = parameters[default]
 
