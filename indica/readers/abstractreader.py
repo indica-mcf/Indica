@@ -87,9 +87,7 @@ class DataReader(BaseIO):
             "ti_w": ("temperature", "ions"),
             "ti_z": ("temperature", "ions"),
         },
-        "get_interferometry": {
-            "ne": ("density", "electrons"),
-        },
+        "get_interferometry": {"ne": ("density", "electrons"),},
         "get_equilibrium": {
             "f": ("f_value", "plasma"),
             "faxs": ("magnetic_flux", "mag_axis"),
@@ -107,12 +105,66 @@ class DataReader(BaseIO):
             "ipla": ("current", "plasma"),
             "wp": ("energy", "plasma"),
         },
-        "get_cyclotron_emissions": {
-            "te": ("temperature", "electrons"),
-        },
-        "get_radiation": {
-            "h": ("luminous_flux", None),
-            "v": ("luminous_flux", None),
+        "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
+        "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
+        "get_astra": {
+            "cc": (
+                "conductivity",
+                "total_current",
+            ),  # Parallel current conductivity, 1/(Ohm*m)
+            "chi_e": (
+                "conductivity",
+                "electron_heat",
+            ),  # Total electron heat conductivity, m^2/s
+            "chi_i": ("conductivity", "ion_heat"),  # Total ion heat conductivity, m^2/s
+            "chi_phi": (
+                "conductivity",
+                "momentum",
+            ),  # Momentum transport coefficient, m2/s
+            "cn": ("convection", "particle_transport"),  # Particle pinch velocity , m/s
+            "diff": ("diffusion", "particle_transport"),  # diffusion coefficient, m^2/s
+            "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
+            "j_nbi": (
+                "current_density",
+                "neutral_beam",
+            ),  # NB driven current density,MA/m2
+            "j_oh": ("current_density", "ohmic"),  # Ohmic current density,MA/m2
+            "j_rf": ("current_density", "rf"),  # EC driven current density,MA/m2
+            "j_tot": ("current_density", "total"),  # Total current density,MA/m2
+            "ne": ("density", "electron"),  # Electron density, 10^19 m^-3
+            "ni": ("density", "main_ion"),  # Main ion density, 10^19 m^-3
+            "omega_tor": (
+                "rotation_frequency",
+                "toroidal",
+            ),  # Toroidal rotation frequency, 1/s
+            "qe": ("heat_flux", "electron"),  # electron power flux, MW
+            "qi": ("heat_flux", "ion"),  # ion power flux, MW
+            "qn": ("heat_flux", "total"),  # total electron flux, 10^19/s
+            "qnbe": (
+                "power_density_nbi",
+                "electron",
+            ),  # Beam power density to electrons, MW/m3
+            "qnbi": ("power_density_nbi", "ion"),  # Beam power density to ions, MW/m3
+            "q_oh": (
+                "power_density_ohm",
+                "total",
+            ),  # Ohmic heating power profile, MW/m3
+            "q_rf": (
+                "power_density_rf",
+                "electron",
+            ),  # RF power density to electron,MW/m3
+            "sbm": ("particle_source", "nbi"),  # Particle source from beam, 10^19/m^3/s
+            "swall": (
+                "particle_source",
+                "wall_neutrals",
+            ),  # Particle source from wall neutrals, 10^19/m^3/s
+            "stot": ("particle_source", "total"),  # Total electron source,10^19/s/m3
+            "te": ("temperature", "electron"),  # Electron temperature, keV
+            "ti": ("temperature", "ion"),  # Ion temperature, keV
+            "zeff": ("effective_charge", "plasma"),  # Effective ion charge
+            "p": ("pressure", "total"),  # PRESSURE(PSI_NORM)
+            "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
+            "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
         },
     }
     # Quantities available for specific INSTRUMENTs in a given
@@ -218,11 +270,7 @@ class DataReader(BaseIO):
         return method(uid, instrument, revision, quantities)
 
     def get_thomson_scattering(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads data based on Thomson Scattering.
 
@@ -282,10 +330,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -316,11 +361,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_thomson_scattering(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Gets raw data for Thomson scattering from the database. Data outside
         the desired time range will be discarded.
@@ -367,11 +408,7 @@ class DataReader(BaseIO):
         )
 
     def get_charge_exchange(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads charge exchange data.
 
@@ -447,10 +484,7 @@ class DataReader(BaseIO):
                 "exposure_time": texp,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -481,11 +515,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_charge_exchange(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Gets raw data for charge exchange from the database. Data outside
         the desired time range will be discarded.
@@ -576,6 +606,7 @@ class DataReader(BaseIO):
         if "faxs" in quantities:
             quantities |= {"rmag", "zmag"}
         database_results = self._get_equilibrium(uid, instrument, revision, quantities)
+
         if len(database_results.keys()) == 0:
             print(f"No data from Equilibrium {instrument}")
             return None
@@ -590,9 +621,7 @@ class DataReader(BaseIO):
         else:
             rho = None
             coords_2d = {}
-        flux_transform = FluxSurfaceCoordinates(
-            "poloidal",
-        )
+        flux_transform = FluxSurfaceCoordinates("poloidal",)
         dims_2d = ("t", diagnostic_coord)
         if len(separatrix_quantities & quantities):
             coords_sep: Dict[Hashable, ArrayLike] = {"t": times}
@@ -643,10 +672,7 @@ class DataReader(BaseIO):
                 coords = coords_2d
                 dims = dims_2d
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
 
             quant_data.name = instrument + "_" + quantity
@@ -670,11 +696,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_equilibrium(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Gets raw data for equilibrium from the database. Data outside
         the desired time range will be discarded.
@@ -726,11 +748,7 @@ class DataReader(BaseIO):
         )
 
     def get_cyclotron_emissions(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads electron temperature measurements from cyclotron data.
 
@@ -787,10 +805,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -879,11 +894,7 @@ class DataReader(BaseIO):
         )
 
     def get_radiation(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads data on irradiance.
 
@@ -941,11 +952,9 @@ class DataReader(BaseIO):
                 ),
                 "transform": transform,
             }
-            quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
+                t=slice(self._tstart, self._tend)
+            )
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -975,11 +984,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_radiation(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Gets raw data for irradiance from the database. Data outside
         the desired time range will be discarded.
@@ -1037,11 +1042,7 @@ class DataReader(BaseIO):
         )
 
     def get_bremsstrahlung_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads spectroscopic measurements of effective charge.
 
@@ -1106,10 +1107,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1148,11 +1146,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_bremsstrahlung_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Gets raw spectroscopic data for effective charge from the
         database. Data outside the desired time range will be
@@ -1209,11 +1203,7 @@ class DataReader(BaseIO):
         )
 
     def get_helike_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads spectroscopic measurements of He-like emission.
 
@@ -1278,10 +1268,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1309,11 +1296,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_helike_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Reads spectroscopic measurements of He-like emission.
 
@@ -1368,11 +1351,7 @@ class DataReader(BaseIO):
         )
 
     def get_interferometry(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
         """Reads interferometer electron density.
 
@@ -1437,10 +1416,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1468,11 +1444,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_interferometry(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Reads interferometer electron density
 
@@ -1554,6 +1526,13 @@ class DataReader(BaseIO):
 
         data: Dict[str, DataArray] = {}
 
+        rhop = np.sqrt(database_results["psin"])
+        rhot = np.sqrt(
+            (database_results["ftor"] - np.min(database_results["ftor"]))
+            / (np.max(database_results["ftor"]) - np.min(database_results["ftor"]))
+        )
+        radial_coords = {"rho_toroidal": rhot, "rho_poloidal": rhop}
+
         sorted_quantities = sorted(quantities)
         for quantity in sorted_quantities:
             if quantity not in available_quantities:
@@ -1562,17 +1541,18 @@ class DataReader(BaseIO):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            if "PROFILES.ASTRA" in results[f"{quantity}_records"][0]:
+            if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
                 name_coord = "rho_toroidal"
-                coords = {"t": database_results["times"], name_coord: database_results["rho"]}
-                dims = ["t", name_coord]
-            elif "PROFILES.PSI_NORM" in results[f"{quantity}_records"][0]:
+            elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
                 name_coord = "rho_poloidal"
-                coords = {"t": database_results["times"], name_coord: np.sqrt(database_results["xpsn"])}
-                dims = ["t", name_coord]
             else:
-                coords = {"t": database_results["times"]}
-                dims = ["t"]
+                name_coord = ""
+
+            coords = {"t": database_results["times"]}
+            dims = ["t"]
+            if len(name_coord) > 0:
+                coords[name_coord] = radial_coords[name_coord]
+                dims.append(name_coord)
 
             trivial_transform = TrivialTransform()
             meta = {
@@ -1581,10 +1561,7 @@ class DataReader(BaseIO):
             }
 
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
 
             quant_data.name = instrument + "_" + quantity
@@ -1606,11 +1583,7 @@ class DataReader(BaseIO):
         return data
 
     def _get_astra(
-        self,
-        uid: str,
-        instrument: str,
-        revision: int,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
         """Reads ASTRA data
 
@@ -1707,10 +1680,7 @@ class DataReader(BaseIO):
         }
         activity_id = hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(
-            activity_id,
-            self._start_time,
-            end_time,
-            {prov.PROV_TYPE: "ReadData"},
+            activity_id, self._start_time, end_time, {prov.PROV_TYPE: "ReadData"},
         )
         activity.wasAssociatedWith(self.session.agent)
         activity.wasAssociatedWith(self.agent)
@@ -1798,9 +1768,7 @@ class DataReader(BaseIO):
         return ignored
 
     def _set_times_item(
-        self,
-        results: Dict[str, Any],
-        times: np.ndarray,
+        self, results: Dict[str, Any], times: np.ndarray,
     ):
         """Add the "times" data to the dictionary, if not already
         present.

@@ -219,8 +219,9 @@ class ST40Reader(DataReader):
             default_error=default_error,
         )
         self.pulse = pulse
+        self.tree = tree
         self.conn = Connection(server)
-        self.conn.openTree(tree, self.pulse)
+        self.conn.openTree(self.tree, self.pulse)
         self._default_error = default_error
 
     def get_mds_path(
@@ -237,7 +238,7 @@ class ST40Reader(DataReader):
         mds_path = ""
         if len(uid) > 0:
             mds_path += f".{uid}".upper()
-        if len(instrument) > 0:
+        if len(instrument) > 0 and instrument.upper() != self.tree.upper():
             mds_path += f".{instrument}".upper()
         mds_path += f"{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)
@@ -402,13 +403,13 @@ class ST40Reader(DataReader):
         psin, psin_path = self._get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
-        rho, rho_path = self._get_signal(
+        ftor, rho_path = self._get_signal(
             uid, instrument, ".profiles.astra:rho", revision
         )
         times, t_path = self._get_signal(uid, instrument, ":time", revision)
         results["psin"] = psin
-        results["rho"] = rho
-        results["time"] = times
+        results["ftor"] = ftor
+        self._set_times_item(results, times)
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
