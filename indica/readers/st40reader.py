@@ -85,15 +85,21 @@ class ST40Reader(DataReader):
 
     """
 
+    MACHINE_DIMS = ((0.15, 0.8), (-0.8, 0.8))
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
-        "sxr": "get_radiation",
         "xrcs": "get_helike_spectroscopy",
         "nirh1": "get_interferometry",
         "smmh1": "get_interferometry",
+        "astra": "get_astra",
     }
-    MACHINE_DIMS = ((0.15, 0.8), (-0.8, 0.8))
-    UIDS_MDS = {"efit": "", "xrcs": "sxr", "nirh1": "interferom", "smmh1": "interferom"}
+    UIDS_MDS = {
+        "efit": "",
+        "xrcs": "sxr",
+        "nirh1": "interferom",
+        "smmh1": "interferom",
+        "astra": "",
+    }
     QUANTITIES_MDS = {
         "efit": {
             "f": ".profiles.psi_norm:f",
@@ -118,8 +124,74 @@ class ST40Reader(DataReader):
             "ti_w": ".ti_w:ti",
             "ti_z": ".ti_z:ti",
         },
-        "nirh1": {"ne": ".line_int.ne",},
-        "smmh1": {"ne": ".line_int.ne",},
+        "nirh1": {
+            "ne": ".line_int.ne",
+        },
+        "smmh1": {
+            "ne": ".line_int.ne",
+        },
+        "astra": {
+            "cc": ".profiles.astra:cc",  # Parallel current conductivity, 1/(Ohm*m)
+            "chi_e": ".profiles.astra:chi_e",  # Total electron heat conductivity, m^2/s
+            "chi_e_anom": ".profiles.astra:chi_e_anom",  # anomalous electron heat conductivity, m^2/s
+            "chi_e_neo": ".profiles.astra:chi_e_neo",  # neoclassical electron heat conductivity, m^2/s
+            "chi_i": ".profiles.astra:chi_i",  # Total ion heat conductivity, m^2/s
+            "chi_i_anom": ".profiles.astra:chi_i_anom",  # anomalous ion heat conductivity, m^2/s
+            "chi_i_neo": ".profiles.astra:chi_i_neo",  # neoclassical ion heat conductivity, m^2/s
+            "chi_phi": ".profiles.astra:chi_phi",  # Momentum transport coefficient, m2/s
+            "cn": ".profiles.astra:cn",  # Particle pinch velocity , m/s
+            "diff": ".profiles.astra:diff",  # diffusion coefficient, m^2/s
+            "elon": ".profiles.astra:elon",  # Elongation profile
+            "j_bs": ".profiles.astra:j_bs",  # Bootstrap current density,MA/m2
+            "j_nbi": ".profiles.astra:j_nbi",  # NB driven current density,MA/m2
+            "j_oh": ".profiles.astra:j_oh",  # Ohmic current density,MA/m2
+            "j_rf": ".profiles.astra:j_rf",  # EC driven current density,MA/m2
+            "j_tot": ".profiles.astra:j_tot",  # Total current density,MA/m2
+            "ne": ".profiles.astra:ne",  # Electron density, 10^19 m^-3
+            "ni": ".profiles.astra:ni",  # Main ion density, 10^19 m^-3
+            "n_d": ".profiles.astra:n_d",  # Deuterium density,10E19/m3
+            "n_t": ".profiles.astra:n_t",  # Tritium density	,10E19/m3
+            "omega_tor": ".profiles.astra:omega_tor",  # Toroidal rotation frequency, 1/s
+            "pegn": ".profiles.astra:pegn",  # electron convective heat flux, MW
+            "pign": ".profiles.astra:pign",  # ion convective heat flux, MW
+            "psin": ".profiles.astra:psin",  # Normalized poloidal flux -
+            "qe": ".profiles.astra:qe",  # electron power flux, MW
+            "qi": ".profiles.astra:qi",  # ion power flux, MW
+            "qn": ".profiles.astra:qn",  # total electron flux, 10^19/s
+            "qnbe": ".profiles.astra:qnbe",  # Beam power density to electrons, MW/m3
+            "qnbi": ".profiles.astra:qnbi",  # Beam power density to ions, MW/m3
+            "q_alpha_e": ".profiles.astra:q_alpha_e",  # Alpha power density to electrons,MW/m3
+            "q_alpha_i": ".profiles.astra:q_alpha_i",  # Alpha power density to ions,MW/m3
+            "q_oh": ".profiles.astra:q_oh",  # Ohmic heating power profile, MW/m3
+            "q_rf": ".profiles.astra:q_rf",  # RF power density to electron,MW/m3
+            "rmid": ".profiles.astra:rmid",  # Centre of flux surfaces, m
+            "rminor": ".profiles.astra:rminor",  # minor radius, m
+            "sbm": ".profiles.astra:sbm",  # Particle source from beam, 10^19/m^3/s
+            "spel": ".profiles.astra:spel",  # Particle source from pellets, 10^19/m^3/s
+            "stot": ".profiles.astra:stot",  # Total electron source,10^19/s/m3
+            "swall": ".profiles.astra:swall",  # Particle source from wall neutrals, 10^19/m^3/s
+            "te": ".profiles.astra:te",  # Electron temperature, keV
+            "ti": ".profiles.astra:ti",  # Ion temperature, keV
+            "torq_den": ".profiles.astra:torq_den",  # Total torque density from NB, N*m/m3
+            "torq_den_bcx": ".profiles.astra:torq_den_bcx",  # CX losses torque density from NB, N*m/m3
+            "torq_den_be": ".profiles.astra:torq_den_be",  # Collisional to electron torque density from NB, N*m/m3
+            "torq_den_bi": ".profiles.astra:torq_den_bi",  # Collisional to ions torque density from NB, N*m/m3
+            "torq_den_bth": ".profiles.astra:torq_den_bth",  # Beam thermalisation torque density from NB, N*m/m3
+            "torq_den_jxb": ".profiles.astra:torq_den_jxb",  # JXB torque density from NB, N*m/m3
+            "tri": ".profiles.astra:tri",  # Triangularity (up/down symmetrized) profile
+            "t_d": ".profiles.astra:t_d",  # Deuterium temperature,keV
+            "t_t": ".profiles.astra:t_t",  # Tritium temperature,keV
+            "zeff": ".profiles.astra:zeff",  # Effective ion charge
+            "areat": ".profiles.psi_norm:areat",  # Toroidal cross section,m2
+            "ffprime": ".profiles.psi_norm:ffprime",  # FFPRIME
+            "ftor": ".profiles.psi_norm:ftor",  # Toroidal flux, Wb
+            "p": ".profiles.psi_norm:p",  # PRESSURE(PSI_NORM)
+            "pprime": ".profiles.psi_norm:pprime",  # PPRIME
+            "psi": ".profiles.psi_norm:psi",  # PSI
+            "q": ".profiles.psi_norm:q",  # Q_PROFILE(PSI_NORM)
+            "sigmapar": ".profiles.psi_norm:sigmapar",  # Parallel conductivity,1/(Ohm*m)
+            "volume": ".profiles.psi_norm:volume",  # Volume inside magnetic surface,m3
+        },
     }
 
     def __init__(
@@ -194,7 +266,9 @@ class ST40Reader(DataReader):
         return data, path
 
     def _get_signal_dims(
-        self, mds_path: str, ndims: int,
+        self,
+        mds_path: str,
+        ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
@@ -269,7 +343,11 @@ class ST40Reader(DataReader):
         )
 
     def _get_equilibrium(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
 
@@ -308,8 +386,50 @@ class ST40Reader(DataReader):
 
         return results
 
+    def _get_astra(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch data from ASTRA run."""
+
+        results: Dict[str, Any] = {}
+        results["revision"] = self._get_revision(uid, instrument, revision)
+
+        # Read time and radial dimensions
+        psin, psin_path = self._get_signal(
+            uid, instrument, ".profiles.psi_norm:xpsn", revision
+        )
+        rho, rho_path = self._get_signal(
+            uid, instrument, ".profiles.astra:rho", revision
+        )
+        times, t_path = self._get_signal(uid, instrument, ":time", revision)
+        results["psin"] = psin
+        results["rho"] = rho
+        results["time"] = times
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
+            )
+
+            results[q] = qval
+            if "PROFILES.PSI_NORM" in q_path.upper():
+                results[q + "_records"] = [q_path, t_path, psin_path]
+            elif "PROFILES.ASTRA" in q_path.upper():
+                results[q + "_records"] = [q_path, t_path, rho_path]
+            else:
+                results[q + "_records"] = [q_path, t_path]
+
+        return results
+
     def _get_helike_spectroscopy(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -321,12 +441,6 @@ class ST40Reader(DataReader):
         }
 
         results["revision"] = self._get_revision(uid, instrument, revision)
-        #
-        # if revision == 0:
-        #     run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
-        #     revision = int(run_name[3:])
-        # results["revision"] = revision
-
         # position_instrument = "raw_sxr"
         # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
@@ -337,12 +451,6 @@ class ST40Reader(DataReader):
             raise ValueError(f"No geometry available for {instrument}")
         los_start, los_end = self.get_los(position, direction)
         times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
-        # print(
-        #     "\n ********************************** "
-        #     "\n Adding half exposure time to XRCS"
-        #     "\n ********************************** \n"
-        # )
-        # times += (times[1] - times[0]) / 2.0
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -373,7 +481,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_interferometry(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -385,10 +497,6 @@ class ST40Reader(DataReader):
         }
 
         results["revision"] = self._get_revision(uid, instrument, revision)
-
-        # if revision == 0:
-        #     run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
-        #     revision = int(run_name[3:])
 
         # position_instrument = ""
         # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
