@@ -6,6 +6,7 @@ from typing import Union
 
 import numpy as np
 import scipy
+import xarray as xr
 from xarray import DataArray
 
 from .abstractoperator import EllipsisType
@@ -274,7 +275,7 @@ class FractionalAbundance(Operator):
         CCD_spec
             Interpolated charge exchange cross coupling coefficients.
         num_of_ion_charges
-            Number of ionisation charges.
+            Number of ionisation charges(stages) for the given impurity element.
         """
         Ne, Te = self.Ne, self.Te
 
@@ -603,9 +604,6 @@ class PowerLoss(Operator):
         given impurity element.
     Ne
         xarray.DataArray of electron density as a profile of a user-chosen coordinate.
-    Nh
-        xarray.DataArray of thermal hydrogen number density as a profile of a
-        user-chosen coordinate.
     Te
         xarray.DataArray of electron temperature as a profile of a user-chosen
         coordinate.
@@ -618,6 +616,9 @@ class PowerLoss(Operator):
     unit_testing
         Boolean for unit testing purposes
         (whether to call ordered_setup in __init__ or not) (Optional)
+    Nh
+        xarray.DataArray of thermal hydrogen number density as a profile of a
+        user-chosen coordinate.
     sess
         Object representing this session of calculations with the library.
         Holds and communicates provenance information. (Optional)
@@ -638,10 +639,6 @@ class PowerLoss(Operator):
 
     Methods
     -------
-    F_z_t_check(self, F_z_t)
-        Checks that inputted fractional abundance has valid values.
-    Nh_check(Nh)
-        Checks that the inputted thermal hydrogen number density has valid values.
     interpolation_bounds_check(inputted_data, imported_data)
         Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(PLT,PRC,PRB).
@@ -806,9 +803,10 @@ class PowerLoss(Operator):
             ionisation charges.
         PRB_spec
             Interpolated radiated power from recombination and bremsstrahlung.
+        num_of_ion_charges
+            Number of ionisation charges(stages) for the given impurity element.
         """
 
-        # Ne, Te = np.log10(self.Ne), np.log10(self.Te)
         Ne, Te = self.Ne, self.Te
 
         PLT_spec = self.PLT.indica.interp2d(
@@ -851,9 +849,6 @@ class PowerLoss(Operator):
         -------
         cooling_factor
             Total radiated power of all ionisation charges.
-        F_z_t
-            Fractional abundance, either user-provided or fully stripped
-            eg. [0.0, 0.0, 0.0, 0.0, 1.0] for Beryllium.
         """
 
         Ne, Nh = self.Ne, self.Nh
@@ -864,18 +859,15 @@ class PowerLoss(Operator):
 
         x1_coord = self.x1_coord
 
-        if self.F_z_t is None:
-            F_z_t = np.zeros((self.num_of_ion_charges, x1_coord.size))
-            F_z_t[-1, :] = np.array([1.0 for i in range(x1_coord.size)])
-        else:
-            F_z_t = self.F_z_t / np.linalg.norm(self.F_z_t)
-
-        cooling_factor = np.zeros(x1_coord.size)
+        cooling_factor = xr.zeros_like(self.F_z_t)
         for ix1 in range(x1_coord.size):
             icharge = 0
-            cooling_factor[ix1] = (self.PLT[icharge, ix1]) * F_z_t[icharge, ix1]
+            cooling_factor[icharge, ix1] = (self.PLT[icharge, ix1]) * self.F_z_t[
+                icharge, ix1
+            ]
+
             for icharge in range(1, self.num_of_ion_charges - 1):
-                cooling_factor[ix1] += (
+                cooling_factor[icharge, ix1] += (
                     self.PLT[icharge, ix1]
                     + (
                         (Nh[ix1] / Ne[ix1]) * self.PRC[icharge - 1, ix1]
@@ -883,16 +875,17 @@ class PowerLoss(Operator):
                         else 0.0
                     )
                     + self.PRB[icharge - 1, ix1]
-                ) * F_z_t[icharge, ix1]
+                ) * self.F_z_t[icharge, ix1]
+
             icharge = self.num_of_ion_charges - 1
-            cooling_factor[ix1] += (
+            cooling_factor[icharge, ix1] += (
                 (
                     (Nh[ix1] / Ne[ix1]) * self.PRC[icharge - 1, ix1]
                     if (self.PRC is not None) and (Nh is not None)
                     else 0.0
                 )
                 + self.PRB[icharge - 1, ix1]
-            ) * F_z_t[icharge, ix1]
+            ) * self.F_z_t[icharge, ix1]
 
         self.cooling_factor = cooling_factor
 

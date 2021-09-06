@@ -1176,7 +1176,7 @@ def test_power_loss_call(test_interpolate_power):
     except Exception as e:
         raise e
 
-    assert cooling_factor.shape == (10,)
+    assert cooling_factor.shape == (5, 10)
 
     assert np.all(np.logical_not(np.isnan(cooling_factor)))
     assert np.all(np.logical_not(np.isinf(cooling_factor)))
@@ -1186,7 +1186,7 @@ def test_power_loss_call(test_interpolate_power):
     except Exception as e:
         raise e
 
-    assert cooling_factor.shape == (10,)
+    assert cooling_factor.shape == (5, 10)
 
     assert np.all(np.logical_not(np.isnan(cooling_factor)))
     assert np.all(np.logical_not(np.isinf(cooling_factor)))
