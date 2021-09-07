@@ -1,5 +1,4 @@
 import copy
-from typing import get_args
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -14,67 +13,10 @@ from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
-from ..numpy_typing import LabeledArray
+from ..utilities import input_check
+
 
 np.set_printoptions(edgeitems=10, linewidth=100)
-
-
-def input_check(
-    var_name: str,
-    var_to_check,
-    var_type: type,
-    greater_than_or_equal_zero: Optional[bool] = False,
-):
-    """Check validity of inputted variable - type check and
-    various value checks(no infinities, greather than (or equal to) 0 or NaNs)
-
-    Parameters
-    ----------
-    var_name
-        Name of variable to check.
-    var_to_check
-        Variable to check.
-    var_type
-        Type to check variable against, eg. DataArray
-    greater_than_or_equal_zero
-        Boolean to check values in variable > 0 or >= 0.
-    """
-
-    try:
-        assert var_type in (*get_args(LabeledArray), np.ndarray)
-    except AssertionError:
-        raise AssertionError(
-            f"{var_type} is not a compatible type.\
-Please choose one of the following:\
-\n{get_args(LabeledArray)}"
-        )
-
-    try:
-        assert isinstance(var_to_check, var_type)
-    except AssertionError:
-        raise TypeError(f"{var_name} must be of type {var_type}.")
-
-    try:
-        if not greater_than_or_equal_zero:
-            # Mypy will ignore this line since even though var_to_check is type checked
-            # earlier it still doesn't explicitly know what type var_to_check
-            assert np.all(var_to_check > 0)  # type: ignore
-        else:
-            # Mypy will ignore this line since even though var_to_check is type checked
-            # earlier it still doesn't explicitly know what type var_to_check
-            assert np.all(var_to_check >= 0)  # type:ignore
-    except AssertionError:
-        raise ValueError(f"Cannot have any negative values in {var_name}")
-
-    try:
-        assert np.all(var_to_check != np.nan)
-    except AssertionError:
-        raise ValueError(f"{var_name} cannot contain any NaNs.")
-
-    try:
-        assert np.all(np.abs(var_to_check) != np.inf)
-    except AssertionError:
-        raise ValueError(f"{var_name} cannot contain any infinities.")
 
 
 def shape_check(
