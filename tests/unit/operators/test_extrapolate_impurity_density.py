@@ -6,35 +6,20 @@ from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDen
 class Exception_Impurity_Density_Test_Case(unittest.TestCase):
     def __init__(
         self,
-        element,
-        ion_radiation_loss,
-        impurity_radiation_losses,
-        sxr_emissivity,
-        main_ion_density,
-        impurity_densities,
+        impurity_density_sxr,
         electron_density,
         electron_temperature,
         truncation_threshold,
         t,
     ):
-        self.element = element
-        self.ion_radiation_loss = ion_radiation_loss
-        self.impurity_radiation_losses = impurity_radiation_losses
-        self.sxr_emissivity = sxr_emissivity
-        self.main_ion_density = main_ion_density
-        self.impurity_densities = impurity_densities
+        self.impurity_density_sxr = impurity_density_sxr
         self.electron_density = electron_density
         self.electron_temperature = electron_temperature
         self.truncation_threshold = truncation_threshold
         self.t = t
 
         self.nominal_inputs = [
-            self.element,
-            self.ion_radiation_loss,
-            self.impurity_radiation_losses,
-            self.sxr_emissivity,
-            self.main_ion_density,
-            self.impurity_densities,
+            self.impurity_density_sxr,
             self.electron_density,
             self.electron_temperature,
             self.truncation_threshold,
@@ -43,24 +28,14 @@ class Exception_Impurity_Density_Test_Case(unittest.TestCase):
 
     def call_type_check(
         self,
-        element=None,
-        ion_radiation_loss=None,
-        impurity_radiation_losses=None,
-        sxr_emissivity=None,
-        main_ion_density=None,
-        impurity_densities=None,
+        impurity_density_sxr=None,
         electron_density=None,
         electron_temperature=None,
         truncation_threshold=None,
         t=None,
     ):
         inputs = [
-            element,
-            ion_radiation_loss,
-            impurity_radiation_losses,
-            sxr_emissivity,
-            main_ion_density,
-            impurity_densities,
+            impurity_density_sxr,
             electron_density,
             electron_temperature,
             truncation_threshold,
@@ -72,12 +47,7 @@ class Exception_Impurity_Density_Test_Case(unittest.TestCase):
                 inputs[i] = self.nominal_inputs[i]
 
         (
-            element,
-            ion_radiation_loss,
-            impurity_radiation_losses,
-            sxr_emissivity,
-            main_ion_density,
-            impurity_densities,
+            impurity_density_sxr,
             electron_density,
             electron_temperature,
             truncation_threshold,
@@ -90,24 +60,14 @@ class Exception_Impurity_Density_Test_Case(unittest.TestCase):
 
     def call_value_check(
         self,
-        element=None,
-        ion_radiation_loss=None,
-        impurity_radiation_losses=None,
-        sxr_emissivity=None,
-        main_ion_density=None,
-        impurity_densities=None,
+        impurity_density_sxr=None,
         electron_density=None,
         electron_temperature=None,
         truncation_threshold=None,
         t=None,
     ):
         inputs = [
-            element,
-            ion_radiation_loss,
-            impurity_radiation_losses,
-            sxr_emissivity,
-            main_ion_density,
-            impurity_densities,
+            impurity_density_sxr,
             electron_density,
             electron_temperature,
             truncation_threshold,
@@ -119,12 +79,7 @@ class Exception_Impurity_Density_Test_Case(unittest.TestCase):
                 inputs[i] = self.nominal_inputs[i]
 
         (
-            element,
-            ion_radiation_loss,
-            impurity_radiation_losses,
-            sxr_emissivity,
-            main_ion_density,
-            impurity_densities,
+            impurity_density_sxr,
             electron_density,
             electron_temperature,
             truncation_threshold,

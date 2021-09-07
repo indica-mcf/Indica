@@ -97,12 +97,7 @@ class ExtrapolateImpurityDensity(Operator):
 
     def __call__(  # type: ignore
         self,
-        element: str,
-        ion_radiation_loss: DataArray,
-        impurity_radiation_losses: DataArray,
-        sxr_emissivity: DataArray,
-        main_ion_density: DataArray,
-        impurity_densities: DataArray,
+        impurity_density_sxr: DataArray,
         electron_density: DataArray,
         electron_temperature: DataArray,
         truncation_threshold: float,
@@ -112,22 +107,14 @@ class ExtrapolateImpurityDensity(Operator):
 
         Parameters
         ----------
-        element
-            String specifying the element for which the impurity concentration
-            is desired. It should be given in full lower-case, eg. "beryllium"
-        ion_radiation_loss
-
-        impurity_radiation_losses
-
-        sxr_emissivity
-
-        main_ion_density
-            xarray.DataArray of the main ion density.
-        impurity_densities
-            xarray.DataArray of impurity densities for all impurity elements
-            of interest.
+        impurity_density_sxr
+            xarray.DataArray of impurity density derived from soft X-ray emissivity.
         electron_density
             xarray.DataArray of electron density
+        electron_temperature
+            xarray.DataArray of electron temperature
+        truncation_threshold
+            Truncation threshold for the electron temperature
         t
             Optional, time at which the impurity concentration is to be calculated at.
 
@@ -141,42 +128,11 @@ class ExtrapolateImpurityDensity(Operator):
             Otherwise return the argument.
         """
 
-        input_check("element", element, str)
-
         input_check(
-            "ion_radiation_loss",
-            ion_radiation_loss,
+            "impurity_density_sxr",
+            impurity_density_sxr,
             DataArray,
-            greater_than_or_equal_zero=True,
-        )
-
-        input_check(
-            "impurity_radiation_losses",
-            impurity_radiation_losses,
-            DataArray,
-            greater_than_or_equal_zero=True,
-        )
-
-        input_check(
-            "sxr_emissivity",
-            sxr_emissivity,
-            DataArray,
-            ndim_to_check=2,
-            greater_than_or_equal_zero=True,
-        )
-
-        input_check(
-            "main_ion_density",
-            main_ion_density,
-            DataArray,
-            ndim_to_check=2,
-            greater_than_or_equal_zero=False,
-        )
-
-        input_check(
-            "impurity_densities",
-            impurity_densities,
-            DataArray,
+            ndim_to_check=3,
             greater_than_or_equal_zero=True,
         )
 
@@ -185,34 +141,28 @@ class ExtrapolateImpurityDensity(Operator):
             electron_density,
             DataArray,
             ndim_to_check=2,
+            greater_than_or_equal_zero=True,
+        )
+
+        input_check(
+            "electron_temperature",
+            electron_temperature,
+            DataArray,
+            ndim_to_check=2,
+            greater_than_or_equal_zero=False,
+        )
+
+        input_check(
+            "truncation_threshold",
+            truncation_threshold,
+            float,
             greater_than_or_equal_zero=False,
         )
 
         if t is None:
-            t = sxr_emissivity.t
+            t = electron_density.t
         else:
             input_check("t", t, DataArray, greater_than_or_equal_zero=True)
-
-        # Following eq 2.1 from https://doi.org/10.1017/S0022377819000618
-        M_const = 1.0
-
-        impurity_densities_excl_chosen = impurity_densities.drop_sel(
-            {"element": element}
-        )
-
-        impurity_radiation_losses_excl_chosen = impurity_radiation_losses.drop_sel(
-            {"element": element}
-        )
-
-        impurity_density_sxr = M_const * sxr_emissivity
-
-        impurity_density_sxr += -electron_density * (
-            impurity_densities_excl_chosen * impurity_radiation_losses_excl_chosen
-        ).sum("element")
-
-        impurity_density_sxr /= electron_density * impurity_radiation_losses.sel(
-            {"element": element}
-        )
 
         threshold_rho = self.recover_rho(truncation_threshold, electron_temperature)
 
