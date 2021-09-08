@@ -154,3 +154,15 @@ def choose_on_plot(
     print("---------------------------------------------------------------------\n")
     del p
     return channels_to_drop
+
+
+def use_cached_ignore_channels(
+    data: DataArray,
+    channel_dim: str,
+    bad_channels: Collection[Number],
+    unselected_channels: Iterable[Number] = [],
+) -> Iterable[Number]:
+    """
+    Return channels from cache with no modification/input.
+    """
+    return list(unselected_channels)
