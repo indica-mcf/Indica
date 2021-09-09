@@ -1,8 +1,10 @@
 """Callback functions for choosing which channels of data should be kept."""
 
+import json
 from numbers import Number
 from typing import Callable
 from typing import Collection
+from typing import Dict
 from typing import Hashable
 from typing import Iterable
 from typing import List
@@ -166,3 +168,39 @@ def use_cached_ignore_channels(
     Return channels from cache with no modification/input.
     """
     return list(unselected_channels)
+
+
+def ignore_channels_from_dict(ignore_dict: Dict[str, List[Number]]) -> Callable:
+    """
+    Ignore channels from dictionary of {instrument: list of channel} pairs
+
+    :param ignore_dict: Dictionary of channels to ignore per instrument
+                        Use keys of {instrument}_{quantity}
+    :return: Channel selection function to pass to reader
+    """
+
+    def ignore_channels(
+        data: DataArray,
+        channel_dim: str,
+        bad_channels: Collection[Number],
+        unselected_channels: Iterable[Number] = [],
+    ) -> Iterable[Number]:
+        channels = list(unselected_channels)
+        if hasattr(data, "name"):
+            channels += list(ignore_dict.get(str(data.name), []))
+        return list(set(channels))
+
+    return ignore_channels
+
+
+def ignore_channels_from_file(filename: str) -> Callable:
+    """
+    Load channels to ignore from JSON. Assume file contains dict-like structure with
+    instruments as keys and list of channels as values
+
+    :param filename: Path to JSON file containing channels to ignore
+    :return: Channel selection function to pass to reader
+    """
+    with open(file=filename, mode="r") as f:
+        channels = json.load(f)
+    return ignore_channels_from_dict(ignore_dict=channels)
