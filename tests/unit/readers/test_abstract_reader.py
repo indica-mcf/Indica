@@ -4,10 +4,13 @@ from collections import defaultdict
 from contextlib import contextmanager
 from copy import copy
 import datetime
+import json
 import os
 from tempfile import TemporaryDirectory
 from time import sleep
+from unittest import mock
 from unittest.mock import MagicMock
+from unittest.mock import mock_open
 from unittest.mock import patch
 
 from hypothesis import given
@@ -35,6 +38,9 @@ from indica.converters import LinesOfSightTransform
 from indica.converters import MagneticCoordinates
 from indica.converters import TransectCoordinates
 from indica.datatypes import ELEMENTS
+from indica.readers.selectors import ignore_channels_from_dict
+from indica.readers.selectors import ignore_channels_from_file
+from indica.readers.selectors import use_cached_ignore_channels
 from indica.utilities import coord_array
 from .mock_reader import ConcreteReader
 from .mock_reader import MockReader
@@ -950,3 +956,219 @@ def test_select_channels(category, uid, instrument, quantity, dim, channel_args)
         )
         mod_time2 = os.path.getmtime(cachefile)
         assert mod_time1 < mod_time2
+
+
+@mark.filterwarnings("ignore:loadtxt")
+@given(
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    text(),
+    sampled_from(
+        [
+            integers(-2147483647, 2147483647),
+            floats(allow_nan=False, allow_infinity=False),
+        ]
+    ).flatmap(
+        lambda strat: tuples(
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+        )
+    ),
+)
+def test_use_cached_ignore_channels(
+    category, uid, instrument, quantity, dim, channel_args
+):
+    bad_channels, intrinsic_bad_channels = channel_args
+    data = MagicMock()
+    selector = use_cached_ignore_channels
+    data.coords[dim].dtype = (
+        type(bad_channels[0])
+        if len(bad_channels) > 0
+        else type(intrinsic_bad_channels[0])
+        if len(intrinsic_bad_channels) > 0
+        else float
+    )
+    data.name = f"{instrument}_{quantity}"
+    with cachedir() as cdir, patch.object(
+        ConcreteReader, "_get_bad_channels"
+    ) as get_bad:
+        reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector)
+        get_bad.return_value = intrinsic_bad_channels
+        cache_key = reader._RECORD_TEMPLATE.format(
+            reader._reader_cache_id, category, instrument, uid, quantity
+        )
+        cachefile = os.path.expanduser(
+            os.path.join("~", cdir, reader.__class__.__name__, cache_key)
+        )
+        if os.path.isfile(cachefile):
+            os.remove(cachefile)
+        # Test when no cache file is present, should return nothing
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
+        assert np.all(channels == intrinsic_bad_channels)
+        assert os.path.isfile(cachefile)
+        # Check when cache file present
+        creation_time = os.path.getctime(cachefile)
+        reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector)
+        sleep(1e-2)
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
+        assert np.all(channels == intrinsic_bad_channels)
+        mod_time1 = os.path.getmtime(cachefile)
+        assert creation_time < mod_time1
+
+
+@mark.filterwarnings("ignore:loadtxt")
+@given(
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    text(),
+    sampled_from(
+        [
+            integers(-2147483647, 2147483647),
+            floats(allow_nan=False, allow_infinity=False),
+        ]
+    ).flatmap(
+        lambda strat: tuples(
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+        )
+    ),
+)
+def test_ignore_channels_from_dict(
+    category, uid, instrument, quantity, dim, channel_args
+):
+    bad_channels, intrinsic_bad_channels, expected1, expected2 = channel_args
+    data = MagicMock()
+    channel_dict1 = {f"{instrument}_{quantity}": expected1}
+    channel_dict2 = {f"{instrument}_{quantity}": expected2}
+    selector1 = ignore_channels_from_dict(ignore_dict=channel_dict1)
+    selector2 = ignore_channels_from_dict(ignore_dict=channel_dict2)
+    data.coords[dim].dtype = (
+        type(expected1[0])
+        if len(expected1) > 0
+        else type(expected2[0])
+        if len(expected2) > 0
+        else type(bad_channels[0])
+        if len(bad_channels) > 0
+        else type(intrinsic_bad_channels[0])
+        if len(intrinsic_bad_channels) > 0
+        else float
+    )
+    data.name = f"{instrument}_{quantity}"
+    with cachedir() as cdir, patch.object(
+        ConcreteReader, "_get_bad_channels"
+    ) as get_bad:
+        reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector1)
+        get_bad.return_value = intrinsic_bad_channels
+        cache_key = reader._RECORD_TEMPLATE.format(
+            reader._reader_cache_id, category, instrument, uid, quantity
+        )
+        cachefile = os.path.expanduser(
+            os.path.join("~", cdir, reader.__class__.__name__, cache_key)
+        )
+        if os.path.isfile(cachefile):
+            os.remove(cachefile)
+        # Test when no cache file is present
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
+        assert np.all(channels == expected1)
+        assert os.path.isfile(cachefile)
+        # Check when cache file present but select different channels
+        creation_time = os.path.getctime(cachefile)
+        reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector2)
+        sleep(1e-2)
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
+        assert np.all(channels == expected2)
+        mod_time1 = os.path.getmtime(cachefile)
+        assert creation_time < mod_time1
+
+
+@mark.filterwarnings("ignore:loadtxt")
+@given(
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    from_regex(r"[a-zA-Z0-9_]+", fullmatch=True),
+    text(),
+    sampled_from(
+        [
+            integers(-2147483647, 2147483647),
+            floats(allow_nan=False, allow_infinity=False),
+        ]
+    ).flatmap(
+        lambda strat: tuples(
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+            lists(strat, unique=True),
+        )
+    ),
+)
+def test_ignore_channels_from_json(
+    category, uid, instrument, quantity, dim, channel_args
+):
+    bad_channels, intrinsic_bad_channels, expected1, expected2 = channel_args
+    data = MagicMock()
+    with mock.patch(
+        "builtins.open",
+        mock_open(read_data=json.dumps({f"{instrument}_{quantity}": expected1})),
+    ):
+        selector1 = ignore_channels_from_file(filename="/dev/null")
+    with mock.patch(
+        "builtins.open",
+        mock_open(read_data=json.dumps({f"{instrument}_{quantity}": expected2})),
+    ):
+        selector2 = ignore_channels_from_file(filename="/dev/null")
+    data.coords[dim].dtype = (
+        type(expected1[0])
+        if len(expected1) > 0
+        else type(expected2[0])
+        if len(expected2) > 0
+        else type(bad_channels[0])
+        if len(bad_channels) > 0
+        else type(intrinsic_bad_channels[0])
+        if len(intrinsic_bad_channels) > 0
+        else float
+    )
+    data.name = f"{instrument}_{quantity}"
+    with cachedir() as cdir, patch.object(
+        ConcreteReader, "_get_bad_channels"
+    ) as get_bad:
+        reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector1)
+        get_bad.return_value = intrinsic_bad_channels
+        cache_key = reader._RECORD_TEMPLATE.format(
+            reader._reader_cache_id, category, instrument, uid, quantity
+        )
+        cachefile = os.path.expanduser(
+            os.path.join("~", cdir, reader.__class__.__name__, cache_key)
+        )
+        if os.path.isfile(cachefile):
+            os.remove(cachefile)
+        # Test when no cache file is present
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
+        assert np.all(channels == expected1)
+        assert os.path.isfile(cachefile)
+        # Check when cache file present but select different channels
+        creation_time = os.path.getctime(cachefile)
+        reader = ConcreteReader(0.0, 1.0, 100.0, MagicMock(), selector2)
+        sleep(1e-2)
+        channels = reader._select_channels(
+            category, uid, instrument, quantity, data, dim, bad_channels
+        )
+        assert np.all(channels == expected2)
+        mod_time1 = os.path.getmtime(cachefile)
+        assert creation_time < mod_time1

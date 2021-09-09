@@ -185,10 +185,7 @@ def ignore_channels_from_dict(ignore_dict: Dict[str, List[Number]]) -> Callable:
         bad_channels: Collection[Number],
         unselected_channels: Iterable[Number] = [],
     ) -> Iterable[Number]:
-        channels = list(unselected_channels)
-        if hasattr(data, "name"):
-            channels += list(ignore_dict.get(str(data.name), []))
-        return list(set(channels))
+        return ignore_dict.get(str(data.name), [])
 
     return ignore_channels
 
