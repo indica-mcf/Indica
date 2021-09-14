@@ -61,6 +61,12 @@ class Exception_Frac_Abund_Test_Case(unittest.TestCase):
         with self.assertRaises(TypeError):
             FractionalAbundance(SCD, ACD, Ne, Te, F_z_t0, Nh, CCD, True)
 
+    def init_partial_input_value_check(
+        self, SCD=None, ACD=None, CCD=None, Ne=None, Nh=None, Te=None, F_z_t0=None
+    ):
+        with self.assertRaises(ValueError):
+            FractionalAbundance(SCD, ACD, Ne, Te, F_z_t0, Nh, CCD, True)
+
     def init_value_error_check(
         self, SCD=None, ACD=None, CCD=None, Ne=None, Nh=None, Te=None, F_z_t0=None
     ):
@@ -75,12 +81,19 @@ class Exception_Frac_Abund_Test_Case(unittest.TestCase):
         with self.assertRaises(ValueError):
             FractionalAbundance(SCD, ACD, Ne, Te, F_z_t0, Nh, CCD, True)
 
-    def tau_check(self, FracAbundObj: FractionalAbundance, tau):
-        """Test assert errors are raised for FractionalAbundance call
-        (concerning user input tau).
-        """
-        with self.assertRaises(AssertionError):
-            FracAbundObj(tau)
+    # def tau_type_check(self, FracAbundObj: FractionalAbundance, tau):
+    #     """Test type errors are raised for FractionalAbundance call
+    #     (concerning user input tau).
+    #     """
+    #     with self.assertRaises(TypeError):
+    #         FracAbundObj(tau)
+
+    # def tau_value_check(self, FracAbundObj: FractionalAbundance, tau):
+    #     """Test value errors are raised for FractionalAbundance call
+    #     (concerning user input tau).
+    #     """
+    #     with self.assertRaises(ValueError):
+    #         FracAbundObj(tau)
 
 
 class Exception_Power_Loss_Test_Case(unittest.TestCase):
@@ -241,6 +254,15 @@ def test_fractional_abundance_init():
 
     test_case = Exception_Frac_Abund_Test_Case(
         SCD, ACD, CCD, input_Ne, input_Nh, input_Te
+    )
+
+    # Tests for correct raising of ValueError when CCD is provided without Nh.
+    test_case.init_partial_input_value_check(
+        SCD,
+        ACD,
+        CCD,
+        input_Ne,
+        Te=input_Te,
     )
 
     # SCD checks
@@ -697,13 +719,19 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
     )
 
     tau = -1
-    test_case.tau_check(example_frac_abundance_no_optional, tau)
+    test_case.tau_value_check(example_frac_abundance_no_optional, tau)
 
     tau = np.inf
-    test_case.tau_check(example_frac_abundance_no_optional, tau)
+    test_case.tau_value_check(example_frac_abundance_no_optional, tau)
 
     tau = -np.inf
-    test_case.tau_check(example_frac_abundance_no_optional, tau)
+    test_case.tau_value_check(example_frac_abundance_no_optional, tau)
+
+    tau = np.nan
+    test_case.tau_value_check(example_frac_abundance_no_optional, tau)
+
+    tau = "tau"
+    test_case.tau_type_check(example_frac_abundance_no_optional, tau)
 
     tau = 1e-16
     try:
@@ -773,13 +801,19 @@ def test_fractional_abundance_call(test_calc_eigen_coeffs):
     )
 
     tau = -1
-    test_case.tau_check(example_frac_abundance, tau)
+    test_case.tau_value_check(example_frac_abundance, tau)
 
     tau = np.inf
-    test_case.tau_check(example_frac_abundance, tau)
+    test_case.tau_value_check(example_frac_abundance, tau)
 
     tau = -np.inf
-    test_case.tau_check(example_frac_abundance, tau)
+    test_case.tau_value_check(example_frac_abundance, tau)
+
+    tau = np.nan
+    test_case.tau_value_check(example_frac_abundance, tau)
+
+    tau = "tau"
+    test_case.tau_type_check(example_frac_abundance, tau)
 
     tau = 1e-16
     try:
