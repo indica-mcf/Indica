@@ -1,4 +1,5 @@
 import copy
+from typing import get_args
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -9,6 +10,7 @@ import scipy
 import xarray as xr
 from xarray import DataArray
 
+from indica.numpy_typing import LabeledArray
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
@@ -125,34 +127,25 @@ class FractionalAbundance(Operator):
         self,
         SCD: DataArray,
         ACD: DataArray,
-        Ne: DataArray,
-        Te: DataArray,
-        F_z_t0: DataArray = None,
-        Nh: DataArray = None,
         CCD: DataArray = None,
-        unit_testing: bool = False,
         sess: session.Session = session.global_session,
     ):
         """Initialises FractionalAbundance class and additionally performs error
         checking on inputs.
         """
         super().__init__(sess)
-        self.num_of_ion_charges = 0
-        self.ionisation_balance_matrix = None
-        self.F_z_tinf = None
-        self.F_z_t0 = None
-        self.F_z_t = None
-        self.eig_vals = None
-        self.eig_vecs = None
-        self.eig_coeffs = None
+        # self.num_of_ion_charges = 0
+        # self.ionisation_balance_matrix = None
+        # self.F_z_tinf = None
+        # self.F_z_t0 = None
+        # self.F_z_t = None
+        # self.eig_vals = None
+        # self.eig_vecs = None
+        # self.eig_coeffs = None
 
         self.SCD = SCD
         self.ACD = ACD
         self.CCD = CCD
-
-        self.Ne = Ne
-        self.Nh = Nh
-        self.Te = Te
 
         imported_data = {}
         imported_data["SCD"] = self.SCD
@@ -160,33 +153,16 @@ class FractionalAbundance(Operator):
         if self.CCD is not None:
             imported_data["CCD"] = self.CCD
 
-        inputted_data = {}
-        inputted_data["Ne"] = self.Ne
-        if self.Nh is not None:
-            inputted_data["Nh"] = self.Nh
-        inputted_data["Te"] = self.Te
-
-        for ikey, ival in dict(inputted_data, **imported_data).items():
+        for ikey, ival in imported_data.items():
             input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
 
-        if F_z_t0 is not None:
-            input_check("F_z_t0", F_z_t0, DataArray, greater_than_or_equal_zero=True)
-
-            try:
-                assert F_z_t0.ndim < 3
-            except AssertionError:
-                raise AssertionError("F_z_t0 must be at most 2-dimensional.")
-        self.F_z_t0 = F_z_t0
-
-        self.interpolation_bounds_check(imported_data, inputted_data)
-
-        shape_check(inputted_data)
         shape_check(imported_data)
 
-        if not unit_testing:
-            self.ordered_setup()
-
-    def interpolation_bounds_check(self, imported_data, inputted_data):
+    def interpolation_bounds_check(
+        self,
+        Ne: DataArray,
+        Te: DataArray,
+    ):
         """Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
 
@@ -197,6 +173,22 @@ class FractionalAbundance(Operator):
         inputted_data
             Inputted data (Ne, Nh, Te) (Nh is tested in self.__init__())
         """
+        imported_data = {}
+        imported_data["SCD"] = self.SCD
+        imported_data["ACD"] = self.ACD
+        if self.CCD is not None:
+            imported_data["CCD"] = self.CCD
+
+        inputted_data = {}
+
+        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+        inputted_data["Ne"] = Ne
+
+        input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
+        inputted_data["Te"] = Te
+
+        shape_check(inputted_data)
+
         try:
             for key, val in imported_data.items():
                 assert np.all(
@@ -262,6 +254,8 @@ class FractionalAbundance(Operator):
 
     def interpolate_rates(
         self,
+        Ne: DataArray,
+        Te: DataArray,
     ):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
@@ -277,7 +271,10 @@ class FractionalAbundance(Operator):
         num_of_ion_charges
             Number of ionisation charges(stages) for the given impurity element.
         """
-        Ne, Te = self.Ne, self.Te
+        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+        input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
+
+        # Ne, Te = self.Ne, self.Te
 
         SCD_spec = self.SCD.indica.interp2d(
             electron_temperature=Te,
@@ -313,6 +310,8 @@ class FractionalAbundance(Operator):
 
     def calc_ionisation_balance_matrix(
         self,
+        Ne: DataArray,
+        Nh: DataArray,
     ):
         """Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
@@ -324,7 +323,21 @@ class FractionalAbundance(Operator):
             Matrix representing coefficients of the differential equation governing
             the time evolution of the ionisation balance.
         """
-        Ne, Nh = self.Ne, self.Nh
+        inputted_data = {}
+
+        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+        inputted_data["Ne"] = Ne
+
+        if Nh is not None:
+            input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
+            inputted_data["Nh"] = Nh
+        elif self.CCD is not None:
+            raise ValueError(
+                "Nh (Thermal hydrogen density) cannot be None when\
+                CCD (charge coupling coefficients) is not None."
+            )
+
+        shape_check(inputted_data)
 
         num_of_ion_charges = self.num_of_ion_charges
         SCD, ACD, CCD = self.SCD, self.ACD, self.CCD
@@ -460,6 +473,7 @@ class FractionalAbundance(Operator):
 
     def calc_eigen_coeffs(
         self,
+        F_z_t0: DataArray = None,
     ):
         """Calculates the coefficients from the eigenvalues and eigenvectors for the
         time evolution equation.
@@ -475,7 +489,7 @@ class FractionalAbundance(Operator):
         """
         x1_coord = self.x1_coord
 
-        if self.F_z_t0 is None:
+        if F_z_t0 is None:
             F_z_t0 = np.zeros(self.F_z_tinf.shape, dtype=np.complex128)
             F_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(x1_coord.size)])
 
@@ -493,7 +507,14 @@ class FractionalAbundance(Operator):
                 dims=["ion_charges", x1_coord.dims[0]],
             )
         else:
-            F_z_t0 = self.F_z_t0 / np.sum(self.F_z_t0, axis=0)
+            input_check("F_z_t0", F_z_t0, DataArray, greater_than_or_equal_zero=True)
+
+            try:
+                assert F_z_t0.ndim < 3
+            except AssertionError:
+                raise AssertionError("F_z_t0 must be at most 2-dimensional.")
+
+            F_z_t0 = F_z_t0 / np.sum(F_z_t0, axis=0)
             F_z_t0 = F_z_t0.as_type(dtype=np.complex128)
 
             F_z_t0 = DataArray(
@@ -531,10 +552,7 @@ class FractionalAbundance(Operator):
 
         return eig_coeffs, F_z_t0
 
-    def __call__(
-        self,
-        tau,
-    ):
+    def calculate_abundance(self, tau: LabeledArray):
         """Calculates the fractional abundance of all ionisation charges at time tau.
 
         Parameters
@@ -547,15 +565,6 @@ class FractionalAbundance(Operator):
         F_z_t
             Fractional abundance at tau.
         """
-        try:
-            assert np.any(np.abs(tau) != np.inf)
-        except AssertionError:
-            raise AssertionError("Given time value, tau, cannot be infinity")
-
-        try:
-            assert np.all(tau >= 0)
-        except AssertionError:
-            raise AssertionError("Given time value, tau, cannot be negative")
 
         x1_coord = self.x1_coord
         F_z_t = copy.deepcopy(self.F_z_tinf)
@@ -578,17 +587,58 @@ class FractionalAbundance(Operator):
 
         return F_z_t
 
-    def ordered_setup(self):
-        """Sets up data for calculation in correct order."""
-        self.interpolate_rates()
+    def __call__(  # type: ignore
+        self,
+        Ne: DataArray,
+        Te: DataArray,
+        Nh: DataArray = None,
+        tau: LabeledArray = 1e3,  # tinf = 1e3
+    ) -> DataArray:
+        """
+        Sets up data for calculation in correct order. Allows changing of the inputted
+        """
+        inputted_data = {}
+        if Ne is not None:
+            input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+            inputted_data["Ne"] = Ne
+        if Nh is not None:
+            input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
+            inputted_data["Nh"] = Nh
+        if Te is not None:
+            input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
+            inputted_data["Te"] = Te
 
-        self.calc_ionisation_balance_matrix()
+        shape_check(inputted_data)
+
+        imported_data = {}
+        imported_data["SCD"] = self.SCD
+        imported_data["ACD"] = self.ACD
+        if self.CCD is not None:
+            imported_data["CCD"] = self.CCD
+
+        # Check interpolation bounds with inputted_data.
+        self.interpolation_bounds_check(imported_data, inputted_data)
+
+        self.interpolate_rates(Ne, Te)
+
+        self.calc_ionisation_balance_matrix(Ne, Nh)
 
         self.calc_F_z_tinf()
 
         self.calc_eigen_vals_and_vecs()
 
         self.calc_eigen_coeffs()
+
+        input_check(
+            "tau",
+            tau,
+            get_args(LabeledArray),
+            greater_than_or_equal_zero=True,
+        )
+
+        F_z_t = self.calculate_abundance(tau)
+
+        return F_z_t
 
 
 class PowerLoss(Operator):
