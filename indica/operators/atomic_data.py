@@ -1,7 +1,6 @@
 import copy
 from typing import get_args
 from typing import List
-from typing import Optional
 from typing import Tuple
 from typing import Union
 import warnings
@@ -329,14 +328,16 @@ class FractionalAbundance(Operator):
             if self.CCD is None:
                 raise ValueError(
                     "Nh (Thermal hydrogen density) cannot be given when \
-                        CCD (charge coupling coefficients) at initialisation is None."
+                    CCD (effective charge exchange recombination) at initialisation \
+                    is None."
                 )
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
         elif self.CCD is not None:
             raise ValueError(
                 "Nh (Thermal hydrogen density) cannot be None when\
-                CCD (charge coupling coefficients) is not None."
+                CCD (effective charge exchange recombination) at initialisation \
+                is not None."
             )
 
         shape_check(inputted_data)
@@ -577,6 +578,13 @@ class FractionalAbundance(Operator):
             Fractional abundance at tau.
         """
 
+        input_check(
+            "tau",
+            tau,
+            get_args(LabeledArray),
+            greater_than_or_equal_zero=True,
+        )
+
         x1_coord = self.x1_coord
         F_z_t = copy.deepcopy(self.F_z_tinf)
         for ix1 in range(x1_coord.size):
@@ -608,31 +616,13 @@ class FractionalAbundance(Operator):
         Te: DataArray,
         Nh: DataArray = None,
         tau: LabeledArray = 1e3,
+        F_z_t0: DataArray = None,
         full_run: bool = True,
     ) -> DataArray:
         """
         Sets up data for calculation in correct order. Allows changing of the inputted
         """
         if full_run:
-            inputted_data = {}
-            if Ne is not None:
-                input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
-                inputted_data["Ne"] = Ne
-            if Nh is not None:
-                input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
-                inputted_data["Nh"] = Nh
-            if Te is not None:
-                input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
-                inputted_data["Te"] = Te
-
-            shape_check(inputted_data)
-
-            imported_data = {}
-            imported_data["SCD"] = self.SCD
-            imported_data["ACD"] = self.ACD
-            if self.CCD is not None:
-                imported_data["CCD"] = self.CCD
-
             self.interpolate_rates(Ne, Te)
 
             self.calc_ionisation_balance_matrix(Ne, Nh)
@@ -641,14 +631,7 @@ class FractionalAbundance(Operator):
 
             self.calc_eigen_vals_and_vecs()
 
-            self.calc_eigen_coeffs()
-
-        input_check(
-            "tau",
-            tau,
-            get_args(LabeledArray),
-            greater_than_or_equal_zero=True,
-        )
+            self.calc_eigen_coeffs(F_z_t0)
 
         F_z_t = self.calculate_abundance(tau)
 
@@ -732,56 +715,38 @@ class PowerLoss(Operator):
         self,
         PLT: DataArray,
         PRB: DataArray,
-        Ne: DataArray,
-        Te: DataArray,
-        F_z_t: DataArray,
-        PRC: Optional[DataArray] = None,
-        unit_testing: Optional[bool] = False,
-        Nh: Optional[DataArray] = None,
+        # Ne: DataArray,
+        # Te: DataArray,
+        # F_z_t: DataArray,
+        PRC: DataArray = None,
+        # Nh: Optional[DataArray] = None,
         sess: session.Session = session.global_session,
     ):
         super().__init__(sess)
         self.PLT = PLT
         self.PRC = PRC
         self.PRB = PRB
-        self.Ne = Ne
-        self.Nh = Nh
-        self.Te = Te
-        self.num_of_ion_charges = 0
+        self.Ne = None
+        self.Nh = None
+        self.Te = None
+        self.F_z_t = None
 
         imported_data = {}
         imported_data["PLT"] = self.PLT
         imported_data["PRB"] = self.PRB
         if self.PRC is not None:
             imported_data["PRC"] = self.PRC
-        inputted_data = {}
-        inputted_data["Ne"] = self.Ne
-        if self.Nh is not None:
-            inputted_data["Nh"] = self.Nh
-        inputted_data["Te"] = self.Te
 
-        for ikey, ival in dict(inputted_data, **imported_data).items():
+        for ikey, ival in imported_data.items():
             input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
 
-        input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
-        try:
-            assert not np.iscomplexobj(F_z_t)
-        except AssertionError:
-            raise AssertionError(
-                "Inputted F_z_t is a complex type or array of complex numbers, \
-                    must be real"
-            )
-        self.F_z_t = F_z_t
-
-        self.interpolation_bounds_check(imported_data, inputted_data)
-
-        shape_check(inputted_data)
         shape_check(imported_data)
 
-        if not unit_testing:
-            self.ordered_setup()
-
-    def interpolation_bounds_check(self, imported_data, inputted_data):
+    def interpolation_bounds_check(
+        self,
+        Ne: DataArray,
+        Te: DataArray,
+    ):
         """Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(PLT,PRC,PRB).
 
@@ -793,13 +758,29 @@ class PowerLoss(Operator):
             Inputted data (Ne, Nh, Te) (Nh is tested in self.__init__())
         """
 
+        imported_data = {}
+        imported_data["PLT"] = self.PLT
+        imported_data["PRB"] = self.PRB
+        if self.PRC is not None:
+            imported_data["PRC"] = self.PRC
+
+        inputted_data = {}
+
+        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+        inputted_data["Ne"] = Ne
+
+        input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
+        inputted_data["Te"] = Te
+
+        shape_check(inputted_data)
+
         try:
             for key, val in imported_data.items():
                 assert np.all(
                     inputted_data["Ne"] <= np.max(val.coords["electron_density"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron number density is larger than the \
                     maximum interpolation range in {key}"
             )
@@ -810,7 +791,7 @@ class PowerLoss(Operator):
                     inputted_data["Ne"] >= np.min(val.coords["electron_density"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron number density is smaller than the \
                     minimum interpolation range in {key}"
             )
@@ -821,7 +802,7 @@ class PowerLoss(Operator):
                     inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron temperature is larger than the \
                     maximum interpolation range in {key}"
             )
@@ -832,7 +813,7 @@ class PowerLoss(Operator):
                     inputted_data["Te"] >= np.min(val.coords["electron_temperature"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron temperature is smaller than the \
                     minimum interpolation range in {key}"
             )
@@ -856,7 +837,11 @@ class PowerLoss(Operator):
         """
         return (("total_radiated power loss", "impurity_element"),)
 
-    def interpolate_power(self):
+    def interpolate_power(
+        self,
+        Ne: DataArray,
+        Te: DataArray,
+    ):
         """Interpolates the various powers based on inputted Ne and Te.
 
         Returns
@@ -873,7 +858,9 @@ class PowerLoss(Operator):
             Number of ionisation charges(stages) for the given impurity element.
         """
 
-        Ne, Te = self.Ne, self.Te
+        self.interpolation_bounds_check(Ne, Te)
+
+        self.Ne, self.Te = Ne, Te
 
         PLT_spec = self.PLT.indica.interp2d(
             electron_temperature=Te,
@@ -907,17 +894,39 @@ class PowerLoss(Operator):
 
         return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
 
-    def __call__(self):
-        """Calculates total radiated power of all ionisation charges of a given
-        impurity element.
+    def calculate_power_loss(self, Ne: DataArray, Nh: DataArray, F_z_t: DataArray):
+        inputted_data = {}
+        inputted_data["Ne"] = Ne
 
-        Returns
-        -------
-        cooling_factor
-            Total radiated power of all ionisation charges.
-        """
+        if Nh is not None:
+            if self.PRC is None:
+                raise ValueError(
+                    "Nh (Thermal hydrogen density) cannot be given when \
+                    PRC (effective charge exchange power) at initialisation \
+                    is None."
+                )
+            input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
+            inputted_data["Nh"] = Nh
+            self.Nh = Nh
+        elif self.PRC is not None:
+            raise ValueError(
+                "Nh (Thermal hydrogen density) cannot be None when\
+                CCD (effective charge exchange power) at initialisation \
+                is not None."
+            )
 
-        Ne, Nh = self.Ne, self.Nh
+        if len(inputted_data) > 1:
+            shape_check(inputted_data)
+
+        input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
+        try:
+            assert not np.iscomplexobj(F_z_t)
+        except AssertionError:
+            raise ValueError(
+                "Inputted F_z_t is a complex type or array of complex numbers, \
+                    must be real"
+            )
+        self.F_z_t = F_z_t
 
         self.x1_coord = self.PLT.coords[
             [k for k in self.PLT.dims if k != "ion_charges"][0]
@@ -925,13 +934,17 @@ class PowerLoss(Operator):
 
         x1_coord = self.x1_coord
 
+        # Mypy complaints about F_z_t not being subscriptable since it thinks
+        # it's a NoneType have been suppresed. This is because F_z_t is tested
+        # to be a DataArray with elements greater than zero.
+        # (in the input_check() above)
+
         cooling_factor = xr.zeros_like(self.F_z_t)
         for ix1 in range(x1_coord.size):
             icharge = 0
-            cooling_factor[icharge, ix1] = (self.PLT[icharge, ix1]) * self.F_z_t[
-                icharge, ix1
-            ]
-
+            cooling_factor[icharge, ix1] = (
+                self.PLT[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
+            )
             for icharge in range(1, self.num_of_ion_charges - 1):
                 cooling_factor[icharge, ix1] += (
                     self.PLT[icharge, ix1]
@@ -941,7 +954,9 @@ class PowerLoss(Operator):
                         else 0.0
                     )
                     + self.PRB[icharge - 1, ix1]
-                ) * self.F_z_t[icharge, ix1]
+                ) * self.F_z_t[
+                    icharge, ix1
+                ]  # type: ignore
 
             icharge = self.num_of_ion_charges - 1
             cooling_factor[icharge, ix1] += (
@@ -951,12 +966,34 @@ class PowerLoss(Operator):
                     else 0.0
                 )
                 + self.PRB[icharge - 1, ix1]
-            ) * self.F_z_t[icharge, ix1]
+            ) * self.F_z_t[
+                icharge, ix1
+            ]  # type: ignore
 
         self.cooling_factor = cooling_factor
 
         return cooling_factor
 
-    def ordered_setup(self):
-        """Sets up data for calculation in correct order."""
-        self.interpolate_power()
+    def __call__(  # type: ignore
+        self,
+        Ne: DataArray,
+        Te: DataArray,
+        Nh: DataArray = None,
+        F_z_t: DataArray = None,
+        full_run: bool = True,
+    ):
+        """Calculates total radiated power of all ionisation charges of a given
+        impurity element.
+
+        Returns
+        -------
+        cooling_factor
+            Total radiated power of all ionisation charges.
+        """
+
+        if full_run:
+            self.interpolate_power(Ne, Te)
+
+        cooling_factor = self.calculate_power_loss(Ne, Nh, F_z_t)
+
+        return cooling_factor

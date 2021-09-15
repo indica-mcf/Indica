@@ -13,7 +13,7 @@ from indica.readers import ADASReader
 
 class Exception_Frac_Abund_Test_Case(unittest.TestCase):
     """Test case for testing assertion and value errors in
-    FractionalAbundance initializations and FractionalAbundance
+    FractionalAbundance initialisations and FractionalAbundance
     functions.
     """
 
@@ -62,7 +62,7 @@ class Exception_Frac_Abund_Test_Case(unittest.TestCase):
 
         SCD, ACD, CCD = inputs
 
-        """Test type errors are raised for FractionalAbundance initialization."""
+        """Test type errors are raised for FractionalAbundance initialisation."""
         with self.assertRaises(TypeError):
             FractionalAbundance(SCD, ACD, CCD)
 
@@ -79,7 +79,7 @@ class Exception_Frac_Abund_Test_Case(unittest.TestCase):
 
         SCD, ACD, CCD = inputs
 
-        """Test value errors are raised for FractionalAbundance initialization."""
+        """Test value errors are raised for FractionalAbundance initialisation."""
         with self.assertRaises(ValueError):
             FractionalAbundance(SCD, ACD, CCD)
 
@@ -191,78 +191,122 @@ class Exception_Frac_Abund_Test_Case(unittest.TestCase):
 
 class Exception_Power_Loss_Test_Case(unittest.TestCase):
     """Test case for testing assertion and value errors in
-    PowerLoss initializations.
+    PowerLoss initialisations.
     """
 
     def __init__(
         self,
-        PLT,
-        PRC,
-        PRB,
-        Ne,
-        Nh,
-        Te,
-        F_z_t,
+        PowerLossObj: PowerLoss,
+        Ne: DataArray = None,
+        Te: DataArray = None,
+        Nh: DataArray = None,
+        F_z_t: DataArray = None,
     ):
-        self.PLT = PLT
-        self.PRC = PRC
-        self.PRB = PRB
-        self.Ne = Ne
-        self.Nh = Nh
-        self.Te = Te
-        self.F_z_t = F_z_t
+        self.PLT = PowerLossObj.PLT
+        self.PRB = PowerLossObj.PRB
+        self.PRC = PowerLossObj.PRC
+
+        self.Ne = PowerLossObj.Ne if Ne is None else Ne
+        self.Te = PowerLossObj.Te if Te is None else Te
+        self.Nh = PowerLossObj.Nh if Nh is None else Nh
+        self.F_z_t = PowerLossObj.F_z_t if F_z_t is None else F_z_t
+
+        self.PowerLossObj = PowerLossObj
 
         self.nominal_inputs = [
-            self.PRC,
-            self.PRC,
+            self.PLT,
             self.PRB,
+            self.PRC,
             self.Ne,
-            self.Nh,
             self.Te,
+            self.Nh,
             self.F_z_t,
         ]
 
-    def init_assert_check(
-        self, PLT=None, PRC=None, PRB=None, Ne=None, Te=None, Nh=None, F_z_t=None
-    ):
-        inputs = [PLT, PRC, PRB, Ne, Nh, Te, F_z_t]
+    def init_type_check(self, PLT=None, PRB=None, PRC=None):
+        inputs = [PLT, PRB, PRC]
         for i, iinput in enumerate(inputs):
             if iinput is None:
                 inputs[i] = self.nominal_inputs[i]
 
-        PLT, PRC, PRB, Ne, Nh, Te, F_z_t = inputs
+        PLT, PRB, PRC = inputs
 
-        """Test assert errors are raised for PowerLoss initialization."""
-        with self.assertRaises(AssertionError):
-            PowerLoss(PLT, PRB, Ne, Te, F_z_t, PRC, True, Nh)
-
-    def init_type_check(
-        self, PLT=None, PRC=None, PRB=None, Ne=None, Te=None, Nh=None, F_z_t=None
-    ):
-        inputs = [PLT, PRC, PRB, Ne, Nh, Te, F_z_t]
-        for i, iinput in enumerate(inputs):
-            if iinput is None:
-                inputs[i] = self.nominal_inputs[i]
-
-        PLT, PRC, PRB, Ne, Nh, Te, F_z_t = inputs
-
-        """Test assert errors are raised for PowerLoss initialization."""
+        """Test type errors are raised for PowerLoss initialisation."""
         with self.assertRaises(TypeError):
-            PowerLoss(PLT, PRB, Ne, Te, F_z_t, PRC, True, Nh)
+            PowerLoss(PLT, PRB, PRC)
 
-    def init_value_error_check(
-        self, PLT=None, PRC=None, PRB=None, Ne=None, Te=None, Nh=None, F_z_t=None
-    ):
-        inputs = [PLT, PRC, PRB, Ne, Nh, Te, F_z_t]
+    def init_value_error_check(self, PLT=None, PRB=None, PRC=None):
+        inputs = [PLT, PRB, PRC]
         for i, iinput in enumerate(inputs):
             if iinput is None:
                 inputs[i] = self.nominal_inputs[i]
 
-        PLT, PRC, PRB, Ne, Nh, Te, F_z_t = inputs
+        PLT, PRB, PRC = inputs
 
-        """Test assert errors are raised for PowerLoss initialization."""
+        """Test value errors are raised for PowerLoss initialisation."""
         with self.assertRaises(ValueError):
-            PowerLoss(PLT, PRB, Ne, Te, F_z_t, PRC, True, Nh)
+            PowerLoss(PLT, PRB, PRC)
+
+    def interpolation_type_check(self, Ne=None, Te=None):
+        """Test type errors are raise for interpolation_power function"""
+        inputs = [Ne, Te]
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i + 3]
+
+        Ne, Te = inputs
+
+        with self.assertRaises(TypeError):
+            self.PowerLossObj.interpolate_power(Ne, Te)
+
+    def interpolation_value_check(self, Ne=None, Te=None):
+        """Test value errors are raised for interpolation_power function."""
+        inputs = [Ne, Te]
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i + 3]
+
+        Ne, Te = inputs
+
+        with self.assertRaises(ValueError):
+            self.PowerLossObj.interpolate_power(Ne, Te)
+
+    def call_type_check(self, Ne=None, Te=None, Nh=None, F_z_t=None):
+        """Test type errors are raised for PowerLoss call."""
+        inputs = [Ne, Te, Nh, F_z_t]
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i + 3]
+
+        Ne, Te, Nh, F_z_t = inputs
+
+        with self.assertRaises(TypeError):
+            self.PowerLossObj(Ne, Te, Nh, F_z_t, full_run=False)
+
+    def call_value_check(self, Ne=None, Te=None, Nh=None, F_z_t=None):
+        """Test value errors are raised for PowerLoss call."""
+        inputs = [Ne, Te, Nh, F_z_t]
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i + 3]
+
+        Ne, Te, Nh, F_z_t = inputs
+
+        with self.assertRaises(ValueError):
+            self.PowerLossObj(Ne, Te, Nh, F_z_t, full_run=False)
+
+    def partial_input_value_check(self, Ne=None, Nh=None, F_z_t=None):
+        nominal_inputs = [self.Ne, self.Nh, self.F_z_t]
+
+        inputs = [Ne, Nh, F_z_t]
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = nominal_inputs[i]
+
+        Ne, Nh, F_z_t = inputs
+
+        with self.assertRaises(ValueError):
+            self.PowerLossObj.calculate_power_loss(Ne, Nh, F_z_t)
 
 
 def input_error_check(
@@ -279,18 +323,16 @@ def input_error_check(
             "PLT": {"PLT": invalid_input},
             "PRC": {"PRC": invalid_input},
             "PRB": {"PRB": invalid_input},
-            "F_z_t": {"F_z_t": invalid_input},
         }.get(invalid_input_name)
 
         if invalid_input_dict:
             {
                 TypeError: test_case.init_type_check,
-                # AssertionError: test_case.init_assert_check,
                 ValueError: test_case.init_value_error_check,
             }.get(error_check)(**invalid_input_dict)
 
-    # interpolation_rates invalid input checks
-    if func_name == "interpolate_rates":
+    # interpolate_rates invalid input checks
+    if func_name == "interpolate_rates" or func_name == "interpolate_power":
         invalid_input_dict = {
             "Ne": {"Ne": invalid_input},
             "Te": {"Te": invalid_input},
@@ -326,6 +368,18 @@ def input_error_check(
                 ValueError: test_case.calc_ionisation_balance_partial_input_value_check
             }.get(error_check)(**invalid_input_dict)
 
+    if func_name == "partial_powerloss_inputs":
+        invalid_input_dict = {
+            "Ne": {"Ne": invalid_input},
+            "Nh": {"Nh": invalid_input},
+            "F_z_t": {"F_z_t": invalid_input},
+        }.get(invalid_input_name)
+
+        if invalid_input_dict:
+            {ValueError: test_case.partial_input_value_check}.get(error_check)(
+                **invalid_input_dict
+            )
+
     # calc_eigen_coeffs invalid input checks
     if func_name == "calc_eigen_coeffs":
         invalid_input_dict = {
@@ -339,7 +393,7 @@ def input_error_check(
             }.get(error_check)(**invalid_input_dict)
 
     # FractionalAbundance call invalid input checks
-    if func_name == "__call__":
+    if func_name == "FracAbund__call__":
         invalid_input_dict = {
             "Ne": {"Ne": invalid_input},
             "Te": {"Te": invalid_input},
@@ -353,10 +407,24 @@ def input_error_check(
                 ValueError: test_case.call_value_check,
             }.get(error_check)(**invalid_input_dict)
 
+    if func_name == "PowerLoss__call__":
+        invalid_input_dict = {
+            "Ne": {"Ne": invalid_input},
+            "Te": {"Te": invalid_input},
+            "Nh": {"Nh": invalid_input},
+            "F_z_t": {"F_z_t": invalid_input},
+        }.get(invalid_input_name)
+
+        if invalid_input_dict:
+            {
+                TypeError: test_case.call_type_check,
+                ValueError: test_case.call_value_check,
+            }.get(error_check)(**invalid_input_dict)
+
 
 @pytest.fixture
 def test_fractional_abundance_init():
-    """Test initialization of FractionalAbundance class."""
+    """Test initialisation of FractionalAbundance class."""
     ADAS_file = ADASReader()
 
     element = "be"
@@ -968,7 +1036,7 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
 
     test_case = Exception_Frac_Abund_Test_Case(example_frac_abundance, tau=tau)
 
-    call_func_name = test_case.FracAbundObj.__call__.__name__
+    call_func_name = "FracAbund" + test_case.FracAbundObj.__call__.__name__
 
     invalid_tau = "tau"
     input_error_check("tau", invalid_tau, TypeError, test_case, call_func_name)
@@ -1153,7 +1221,7 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
 
 @pytest.fixture
 def test_power_loss_init():
-    """Test initialization of PowerLoss class."""
+    """Test initialisation of PowerLoss class."""
     ADAS_file = ADASReader()
 
     element = "be"
@@ -1162,277 +1230,86 @@ def test_power_loss_init():
     PRC = ADAS_file.get_adf11("prc", element, "89")
     PRB = ADAS_file.get_adf11("prb", element, "89")
 
-    input_Ne = np.logspace(19.0, 16.0, 10)
-    input_Nh = 1e-5 * input_Ne
-    input_Te = np.logspace(4.6, 2, 10)
-
-    input_Te = DataArray(
-        data=input_Te,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
-    )
-    input_Ne = DataArray(
-        data=input_Ne,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
-    )
-    input_Nh = DataArray(
-        data=input_Nh,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
-    )
-
-    SCD = ADAS_file.get_adf11("scd", element, "89")
-    ACD = ADAS_file.get_adf11("acd", element, "89")
-    CCD = ADAS_file.get_adf11("ccd", element, "89")
     try:
-        example_frac_abundance = FractionalAbundance(
-            SCD,
-            ACD,
-            Ne=input_Ne,
-            Te=input_Te,
-            Nh=input_Nh,
-            CCD=CCD,
-            unit_testing=False,
-        )
-    except Exception as e:
-        raise e
-
-    try:
-        example_power_loss = PowerLoss(
-            PLT,
-            PRB,
-            F_z_t=np.real(example_frac_abundance.F_z_tinf),
-            Ne=input_Ne,
-            Nh=input_Nh,
-            Te=input_Te,
-            PRC=PRC,
-            unit_testing=True,
-        )
+        example_power_loss = PowerLoss(PLT, PRB, PRC=PRC)
     except Exception as e:
         raise e
 
     # Test omission of optional inputs, PRC and Nh
     try:
-        example_power_loss_no_optional = PowerLoss(
-            PLT,
-            PRB,
-            F_z_t=np.real(example_frac_abundance.F_z_tinf),
-            Ne=input_Ne,
-            Te=input_Te,
-            unit_testing=True,
-        )
+        example_power_loss_no_optional = PowerLoss(PLT, PRB)
     except Exception as e:
         raise e
 
-    test_case = Exception_Power_Loss_Test_Case(
-        PLT,
-        PRC,
-        PRB,
-        input_Ne,
-        input_Nh,
-        input_Te,
-        F_z_t=np.real(example_frac_abundance.F_z_tinf),
-    )
+    test_case = Exception_Power_Loss_Test_Case(example_power_loss)
+
+    init_func_name = example_power_loss.__init__.__name__
 
     # PLT checks
 
     PLT_invalid = copy.deepcopy(PLT.data)
-    input_error_check("PLT", PLT_invalid, TypeError, test_case)
+    input_error_check("PLT", PLT_invalid, TypeError, test_case, init_func_name)
 
     PLT_invalid = PLT.copy(deep=True)
     PLT_invalid.data = -1 * copy.deepcopy(PLT_invalid.data)
-    input_error_check("PLT", PLT_invalid, ValueError, test_case)
+    input_error_check("PLT", PLT_invalid, ValueError, test_case, init_func_name)
 
     PLT_invalid.data = np.nan * copy.deepcopy(PLT_invalid)
-    input_error_check("PLT", PLT_invalid, ValueError, test_case)
+    input_error_check("PLT", PLT_invalid, ValueError, test_case, init_func_name)
 
     PLT_invalid.data = np.inf * copy.deepcopy(PLT_invalid)
-    input_error_check("PLT", PLT_invalid, ValueError, test_case)
+    input_error_check("PLT", PLT_invalid, ValueError, test_case, init_func_name)
 
     PLT_invalid.data = -np.inf * copy.deepcopy(PLT_invalid)
-    input_error_check("PLT", PLT_invalid, ValueError, test_case)
+    input_error_check("PLT", PLT_invalid, ValueError, test_case, init_func_name)
 
     PLT_invalid = PLT.copy(deep=True)
     PLT_invalid = PLT_invalid.expand_dims("blank")
-    input_error_check("PLT", PLT_invalid, AssertionError, test_case)
-
-    # PRC checks
-
-    PRC_invalid = copy.deepcopy(PRC.data)
-    input_error_check("PRC", PRC_invalid, TypeError, test_case)
-
-    PRC_invalid = PRC.copy(deep=True)
-    PRC_invalid.data = -1 * copy.deepcopy(PRC_invalid.data)
-    input_error_check("PRC", PRC_invalid, ValueError, test_case)
-
-    PRC_invalid.data = np.nan * copy.deepcopy(PRC_invalid)
-    input_error_check("PRC", PRC_invalid, ValueError, test_case)
-
-    PRC_invalid.data = np.inf * copy.deepcopy(PRC_invalid)
-    input_error_check("PRC", PRC_invalid, ValueError, test_case)
-
-    PRC_invalid.data = -np.inf * copy.deepcopy(PRC_invalid)
-    input_error_check("PRC", PRC_invalid, ValueError, test_case)
-
-    PRC_invalid = PRC.copy(deep=True)
-    PRC_invalid = PRC_invalid.expand_dims("blank")
-    input_error_check("PRC", PRC_invalid, AssertionError, test_case)
+    input_error_check("PLT", PLT_invalid, ValueError, test_case, init_func_name)
 
     # PRB checks
 
     PRB_invalid = copy.deepcopy(PRB.data)
-    input_error_check("PRB", PRB_invalid, TypeError, test_case)
+    input_error_check("PRB", PRB_invalid, TypeError, test_case, init_func_name)
 
     PRB_invalid = PRB.copy(deep=True)
     PRB_invalid.data = -1 * copy.deepcopy(PRB_invalid.data)
-    input_error_check("PRB", PRB_invalid, ValueError, test_case)
+    input_error_check("PRB", PRB_invalid, ValueError, test_case, init_func_name)
 
     PRB_invalid.data = np.nan * copy.deepcopy(PRB_invalid)
-    input_error_check("PRB", PRB_invalid, ValueError, test_case)
+    input_error_check("PRB", PRB_invalid, ValueError, test_case, init_func_name)
 
     PRB_invalid.data = np.inf * copy.deepcopy(PRB_invalid)
-    input_error_check("PRB", PRB_invalid, ValueError, test_case)
+    input_error_check("PRB", PRB_invalid, ValueError, test_case, init_func_name)
 
     PRB_invalid.data = -np.inf * copy.deepcopy(PRB_invalid)
-    input_error_check("PRB", PRB_invalid, ValueError, test_case)
+    input_error_check("PRB", PRB_invalid, ValueError, test_case, init_func_name)
 
     PRB_invalid = PRB.copy(deep=True)
     PRB_invalid = PRB_invalid.expand_dims("blank")
-    input_error_check("PRB", PRB_invalid, AssertionError, test_case)
+    input_error_check("PRB", PRB_invalid, ValueError, test_case, init_func_name)
 
-    # Inputted fractional abundance checks
+    # PRC checks
 
-    F_z_t_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
-    input_error_check("F_z_t", F_z_t_invalid, TypeError, test_case)
+    PRC_invalid = copy.deepcopy(PRC.data)
+    input_error_check("PRC", PRC_invalid, TypeError, test_case, init_func_name)
 
-    F_z_t_invalid = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
-    input_error_check("F_z_t", F_z_t_invalid, TypeError, test_case)
+    PRC_invalid = PRC.copy(deep=True)
+    PRC_invalid.data = -1 * copy.deepcopy(PRC_invalid.data)
+    input_error_check("PRC", PRC_invalid, ValueError, test_case, init_func_name)
 
-    F_z_t_invalid = DataArray(
-        data=-1.0 * np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
-        dims=["ion_charges"],
-    )
-    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
+    PRC_invalid.data = np.nan * copy.deepcopy(PRC_invalid)
+    input_error_check("PRC", PRC_invalid, ValueError, test_case, init_func_name)
 
-    F_z_t_invalid = DataArray(
-        data=np.nan + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
-        dims=["ion_charges"],
-    )
-    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
+    PRC_invalid.data = np.inf * copy.deepcopy(PRC_invalid)
+    input_error_check("PRC", PRC_invalid, ValueError, test_case, init_func_name)
 
-    F_z_t_invalid = DataArray(
-        data=np.inf + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
-        dims=["ion_charges"],
-    )
-    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
+    PRC_invalid.data = -np.inf * copy.deepcopy(PRC_invalid)
+    input_error_check("PRC", PRC_invalid, ValueError, test_case, init_func_name)
 
-    F_z_t_invalid = DataArray(
-        data=-np.inf + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
-        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
-        dims=["ion_charges"],
-    )
-    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case)
-
-    F_z_t_invalid = DataArray(
-        data=np.array([1.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j]),
-        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
-        dims=["ion_charges"],
-    )
-    input_error_check("F_z_t", F_z_t_invalid, AssertionError, test_case)
-
-    # Electron density checks
-
-    input_Ne_invalid = copy.deepcopy(input_Ne.data)
-    input_error_check("Ne", input_Ne_invalid, TypeError, test_case)
-
-    input_Ne_invalid = np.logspace(30.0, 16.0, 10)
-    input_Ne_invalid = DataArray(
-        data=input_Ne_invalid,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
-    )
-    input_error_check("Ne", input_Ne_invalid, AssertionError, test_case)
-
-    input_Ne_invalid.data = np.logspace(19.0, 5.0, 10)
-    input_error_check("Ne", input_Ne_invalid, AssertionError, test_case)
-
-    input_Ne_invalid.data = np.inf + np.zeros(input_Ne_invalid.data.shape)
-    input_error_check("Ne", input_Ne_invalid, ValueError, test_case)
-
-    input_Ne_invalid.data = -np.inf + np.zeros(input_Ne_invalid.data.shape)
-    input_error_check("Ne", input_Ne_invalid, ValueError, test_case)
-
-    input_Ne_invalid.data = -1 + np.zeros(input_Ne_invalid.data.shape)
-    input_error_check("Ne", input_Ne_invalid, ValueError, test_case)
-
-    input_Ne_invalid.data = np.nan + np.zeros(input_Ne_invalid.data.shape)
-    input_error_check("Ne", input_Ne_invalid, ValueError, test_case)
-
-    input_Ne_invalid = input_Ne.copy(deep=True)
-    input_Ne_invalid = input_Ne_invalid.expand_dims("blank")
-    input_error_check("Ne", input_Ne_invalid, AssertionError, test_case)
-
-    # Thermal hydrogen density check
-
-    input_Nh_invalid = copy.deepcopy(input_Nh.data)
-    input_error_check("Nh", input_Nh_invalid, TypeError, test_case)
-
-    input_Nh_invalid = np.inf + np.zeros(input_Nh_invalid.data.shape)
-    input_Nh_invalid = DataArray(
-        data=input_Nh_invalid,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
-    )
-    input_error_check("Nh", input_Nh_invalid, ValueError, test_case)
-
-    input_Nh_invalid.data = -np.inf + np.zeros(input_Nh_invalid.data.shape)
-    input_error_check("Nh", input_Nh_invalid, ValueError, test_case)
-
-    input_Nh_invalid.data = -1 + np.zeros(input_Nh_invalid.data.shape)
-    input_error_check("Nh", input_Nh_invalid, ValueError, test_case)
-
-    input_Nh_invalid.data = np.nan + np.zeros(input_Nh_invalid.data.shape)
-    input_error_check("Nh", input_Nh_invalid, ValueError, test_case)
-
-    input_Nh_invalid = input_Nh.copy(deep=True)
-    input_Nh_invalid = input_Nh_invalid.expand_dims("blank")
-    input_error_check("Nh", input_Nh_invalid, AssertionError, test_case)
-
-    # Electron temperature check
-
-    input_Te_invalid = copy.deepcopy(input_Te.data)
-    input_error_check("Te", input_Te_invalid, TypeError, test_case)
-
-    input_Te_invalid = np.logspace(5, 2, 10)
-    input_Te_invalid = DataArray(
-        data=input_Te_invalid,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
-    )
-    input_error_check("Te", input_Te_invalid, AssertionError, test_case)
-
-    input_Te_invalid.data = np.logspace(4.6, -1, 10)
-    input_error_check("Te", input_Te_invalid, AssertionError, test_case)
-
-    input_Te_invalid.data = np.inf + np.zeros(input_Te_invalid.data.shape)
-    input_error_check("Te", input_Te_invalid, ValueError, test_case)
-
-    input_Te_invalid.data = -np.inf + np.zeros(input_Te_invalid.data.shape)
-    input_error_check("Te", input_Te_invalid, ValueError, test_case)
-
-    input_Te_invalid.data = -1 + np.zeros(input_Te_invalid.data.shape)
-    input_error_check("Te", input_Te_invalid, ValueError, test_case)
-
-    input_Te_invalid.data = np.nan + np.zeros(input_Te_invalid.data.shape)
-    input_error_check("Te", input_Te_invalid, ValueError, test_case)
-
-    input_Te_invalid = input_Te.copy(deep=True)
-    input_Te_invalid = input_Te_invalid.expand_dims("blank")
-    input_error_check("Te", input_Te_invalid, AssertionError, test_case)
+    PRC_invalid = PRC.copy(deep=True)
+    PRC_invalid = PRC_invalid.expand_dims("blank")
+    input_error_check("PRC", PRC_invalid, ValueError, test_case, init_func_name)
 
     return example_power_loss, example_power_loss_no_optional
 
@@ -1442,13 +1319,131 @@ def test_interpolate_power(test_power_loss_init):
     """Test interpolate_power() function in PowerLoss class."""
     example_power_loss, example_power_loss_no_optional = test_power_loss_init
 
+    input_Ne = np.logspace(19.0, 16.0, 10)
+
+    input_Ne = DataArray(
+        data=input_Ne,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    input_Te = np.logspace(4.6, 2, 10)
+
+    input_Te = DataArray(
+        data=input_Te,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    test_case = Exception_Power_Loss_Test_Case(
+        example_power_loss, Ne=input_Ne, Te=input_Te
+    )
+
+    interpolate_func_name = example_power_loss.interpolate_power.__name__
+
+    # Electron density checks
+
+    input_Ne_invalid = copy.deepcopy(input_Ne.data)
+    input_error_check(
+        "Ne", input_Ne_invalid, TypeError, test_case, interpolate_func_name
+    )
+
+    input_Ne_invalid = np.logspace(30.0, 16.0, 10)
+    input_Ne_invalid = DataArray(
+        data=input_Ne_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+    input_error_check(
+        "Ne", input_Ne_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Ne_invalid.data = np.logspace(19.0, 5.0, 10)
+    input_error_check(
+        "Ne", input_Ne_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Ne_invalid.data = np.inf + np.zeros(input_Ne_invalid.data.shape)
+    input_error_check(
+        "Ne", input_Ne_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Ne_invalid.data = -np.inf + np.zeros(input_Ne_invalid.data.shape)
+    input_error_check(
+        "Ne", input_Ne_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Ne_invalid.data = -1 + np.zeros(input_Ne_invalid.data.shape)
+    input_error_check(
+        "Ne", input_Ne_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Ne_invalid.data = np.nan + np.zeros(input_Ne_invalid.data.shape)
+    input_error_check(
+        "Ne", input_Ne_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Ne_invalid = input_Ne.copy(deep=True)
+    input_Ne_invalid = input_Ne_invalid.expand_dims("blank")
+    input_error_check(
+        "Ne", input_Ne_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    # Electron temperature check
+
+    input_Te_invalid = copy.deepcopy(input_Te.data)
+    input_error_check(
+        "Te", input_Te_invalid, TypeError, test_case, interpolate_func_name
+    )
+
+    input_Te_invalid = np.logspace(5, 2, 10)
+    input_Te_invalid = DataArray(
+        data=input_Te_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+    input_error_check(
+        "Te", input_Te_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Te_invalid.data = np.logspace(4.6, -1, 10)
+    input_error_check(
+        "Te", input_Te_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Te_invalid.data = np.inf + np.zeros(input_Te_invalid.data.shape)
+    input_error_check(
+        "Te", input_Te_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Te_invalid.data = -np.inf + np.zeros(input_Te_invalid.data.shape)
+    input_error_check(
+        "Te", input_Te_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Te_invalid.data = -1 + np.zeros(input_Te_invalid.data.shape)
+    input_error_check(
+        "Te", input_Te_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Te_invalid.data = np.nan + np.zeros(input_Te_invalid.data.shape)
+    input_error_check(
+        "Te", input_Te_invalid, ValueError, test_case, interpolate_func_name
+    )
+
+    input_Te_invalid = input_Te.copy(deep=True)
+    input_Te_invalid = input_Te_invalid.expand_dims("blank")
+    input_error_check(
+        "Te", input_Te_invalid, ValueError, test_case, interpolate_func_name
+    )
+
     try:
         (
             PLT_spec,
             PRC_spec,
             PRB_spec,
             _,
-        ) = example_power_loss_no_optional.interpolate_power()
+        ) = example_power_loss_no_optional.interpolate_power(Ne=input_Ne, Te=input_Te)
     except Exception as e:
         raise e
 
@@ -1463,7 +1458,9 @@ def test_interpolate_power(test_power_loss_init):
     assert np.all(np.logical_not(np.isinf(PRB_spec)))
 
     try:
-        PLT_spec, PRC_spec, PRB_spec, _ = example_power_loss.interpolate_power()
+        PLT_spec, PRC_spec, PRB_spec, _ = example_power_loss.interpolate_power(
+            Ne=input_Ne, Te=input_Te
+        )
     except Exception as e:
         raise e
 
@@ -1486,8 +1483,127 @@ def test_power_loss_call(test_interpolate_power):
     """Test PowerLoss class __call__()."""
     example_power_loss, example_power_loss_no_optional = test_interpolate_power
 
+    ADAS_file = ADASReader()
+
+    element = "be"
+
+    input_Ne = example_power_loss.Ne
+    input_Te = example_power_loss.Te
+    input_Nh = 1e-5 * input_Ne
+
+    input_Nh = DataArray(
+        data=input_Nh,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    SCD = ADAS_file.get_adf11("scd", element, "89")
+    ACD = ADAS_file.get_adf11("acd", element, "89")
+    CCD = ADAS_file.get_adf11("ccd", element, "89")
     try:
-        cooling_factor = example_power_loss_no_optional()
+        example_frac_abundance = FractionalAbundance(
+            SCD,
+            ACD,
+            CCD=CCD,
+        )
+
+        example_frac_abundance.interpolate_rates(Ne=input_Ne, Te=input_Te)
+        example_frac_abundance.calc_ionisation_balance_matrix(Ne=input_Ne, Nh=input_Nh)
+        F_z_tinf = np.real(example_frac_abundance.calc_F_z_tinf())
+    except Exception as e:
+        raise e
+
+    test_case = Exception_Power_Loss_Test_Case(example_power_loss, F_z_t=F_z_tinf)
+
+    partial_input_func_name = "partial_powerloss_inputs"
+
+    input_error_check("Nh", None, ValueError, test_case, partial_input_func_name)
+
+    test_case = Exception_Power_Loss_Test_Case(
+        example_power_loss_no_optional, Nh=input_Nh, F_z_t=F_z_tinf
+    )
+
+    input_error_check("Nh", input_Nh, ValueError, test_case, partial_input_func_name)
+
+    test_case = Exception_Power_Loss_Test_Case(
+        example_power_loss, Nh=input_Nh, F_z_t=F_z_tinf
+    )
+
+    call_func_name = "PowerLoss" + example_power_loss.__call__.__name__
+
+    # Thermal hydrogen density check
+
+    input_Nh_invalid = copy.deepcopy(input_Nh.data)
+    input_error_check("Nh", input_Nh_invalid, TypeError, test_case, call_func_name)
+
+    input_Nh_invalid = np.inf + np.zeros(input_Nh_invalid.data.shape)
+    input_Nh_invalid = DataArray(
+        data=input_Nh_invalid,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+    input_error_check("Nh", input_Nh_invalid, ValueError, test_case, call_func_name)
+
+    input_Nh_invalid.data = -np.inf + np.zeros(input_Nh_invalid.data.shape)
+    input_error_check("Nh", input_Nh_invalid, ValueError, test_case, call_func_name)
+
+    input_Nh_invalid.data = -1 + np.zeros(input_Nh_invalid.data.shape)
+    input_error_check("Nh", input_Nh_invalid, ValueError, test_case, call_func_name)
+
+    input_Nh_invalid.data = np.nan + np.zeros(input_Nh_invalid.data.shape)
+    input_error_check("Nh", input_Nh_invalid, ValueError, test_case, call_func_name)
+
+    input_Nh_invalid = input_Nh.copy(deep=True)
+    input_Nh_invalid = input_Nh_invalid.expand_dims("blank")
+    input_error_check("Nh", input_Nh_invalid, ValueError, test_case, call_func_name)
+
+    # Inputted fractional abundance checks
+
+    F_z_t_invalid = [1.0, 0.0, 0.0, 0.0, 0.0]
+    input_error_check("F_z_t", F_z_t_invalid, TypeError, test_case, call_func_name)
+
+    F_z_t_invalid = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+    input_error_check("F_z_t", F_z_t_invalid, TypeError, test_case, call_func_name)
+
+    F_z_t_invalid = DataArray(
+        data=-1.0 * np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
+    )
+    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case, call_func_name)
+
+    F_z_t_invalid = DataArray(
+        data=np.nan + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
+    )
+    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case, call_func_name)
+
+    F_z_t_invalid = DataArray(
+        data=np.inf + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
+    )
+    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case, call_func_name)
+
+    F_z_t_invalid = DataArray(
+        data=-np.inf + np.array([1.0, 0.0, 0.0, 0.0, 0.0]),
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
+    )
+    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case, call_func_name)
+
+    F_z_t_invalid = DataArray(
+        data=np.array([1.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j]),
+        coords={"ion_charges": np.linspace(0, 4, 5, dtype=int)},
+        dims=["ion_charges"],
+    )
+    input_error_check("F_z_t", F_z_t_invalid, ValueError, test_case, call_func_name)
+
+    try:
+        cooling_factor = example_power_loss_no_optional(
+            Ne=input_Ne, Te=input_Te, F_z_t=F_z_tinf, full_run=False
+        )
     except Exception as e:
         raise e
 
@@ -1497,7 +1613,9 @@ def test_power_loss_call(test_interpolate_power):
     assert np.all(np.logical_not(np.isinf(cooling_factor)))
 
     try:
-        cooling_factor = example_power_loss()
+        cooling_factor = example_power_loss(
+            Ne=input_Ne, Te=input_Te, Nh=input_Nh, F_z_t=F_z_tinf, full_run=False
+        )
     except Exception as e:
         raise e
 
