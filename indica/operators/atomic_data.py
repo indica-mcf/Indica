@@ -4,6 +4,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
+import warnings
 
 import numpy as np
 import scipy
@@ -36,7 +37,7 @@ def shape_check(
             for key2, val2 in data_to_check.items():
                 assert val1.shape == val2.shape
     except AssertionError:
-        raise AssertionError(f"{key1} and {key2} are not the same shape")
+        raise ValueError(f"{key1} and {key2} are not the same shape")
 
 
 class FractionalAbundance(Operator):
@@ -134,15 +135,11 @@ class FractionalAbundance(Operator):
         checking on inputs.
         """
         super().__init__(sess)
-        # self.num_of_ion_charges = 0
-        # self.ionisation_balance_matrix = None
-        # self.F_z_tinf = None
-        # self.F_z_t0 = None
-        # self.F_z_t = None
-        # self.eig_vals = None
-        # self.eig_vecs = None
-        # self.eig_coeffs = None
-
+        self.Ne = None
+        self.Te = None
+        self.Nh = None
+        self.tau = None
+        self.F_z_t0 = None
         self.SCD = SCD
         self.ACD = ACD
         self.CCD = CCD
@@ -195,7 +192,7 @@ class FractionalAbundance(Operator):
                     inputted_data["Ne"] <= np.max(val.coords["electron_density"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron number density is larger than the \
                     maximum interpolation range in {key}"
             )
@@ -206,7 +203,7 @@ class FractionalAbundance(Operator):
                     inputted_data["Ne"] >= np.min(val.coords["electron_density"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron number density is smaller than the \
                     minimum interpolation range in {key}"
             )
@@ -217,7 +214,7 @@ class FractionalAbundance(Operator):
                     inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron temperature is larger than the \
                     maximum interpolation range in {key}"
             )
@@ -228,7 +225,7 @@ class FractionalAbundance(Operator):
                     inputted_data["Te"] >= np.min(val.coords["electron_temperature"])
                 )
         except AssertionError:
-            raise AssertionError(
+            raise ValueError(
                 f"Inputted electron temperature is smaller than the \
                     minimum interpolation range in {key}"
             )
@@ -271,10 +268,10 @@ class FractionalAbundance(Operator):
         num_of_ion_charges
             Number of ionisation charges(stages) for the given impurity element.
         """
-        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
-        input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
 
-        # Ne, Te = self.Ne, self.Te
+        self.interpolation_bounds_check(Ne, Te)
+
+        self.Ne, self.Te = Ne, Te
 
         SCD_spec = self.SCD.indica.interp2d(
             electron_temperature=Te,
@@ -311,7 +308,7 @@ class FractionalAbundance(Operator):
     def calc_ionisation_balance_matrix(
         self,
         Ne: DataArray,
-        Nh: DataArray,
+        Nh: DataArray = None,
     ):
         """Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
@@ -329,6 +326,11 @@ class FractionalAbundance(Operator):
         inputted_data["Ne"] = Ne
 
         if Nh is not None:
+            if self.CCD is None:
+                raise ValueError(
+                    "Nh (Thermal hydrogen density) cannot be given when \
+                        CCD (charge coupling coefficients) at initialisation is None."
+                )
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
         elif self.CCD is not None:
@@ -338,6 +340,15 @@ class FractionalAbundance(Operator):
             )
 
         shape_check(inputted_data)
+
+        if self.Ne is not None:
+            if np.logical_not(np.all(Ne == self.Ne)):
+                warnings.warn(
+                    "Ne given to calc_ionisation_balance_matrix is different from \
+                        the internal Ne known to FractionalAbundance object."
+                )
+
+        self.Ne, self.Nh = Ne, Nh
 
         num_of_ion_charges = self.num_of_ion_charges
         SCD, ACD, CCD = self.SCD, self.ACD, self.CCD
@@ -512,7 +523,7 @@ class FractionalAbundance(Operator):
             try:
                 assert F_z_t0.ndim < 3
             except AssertionError:
-                raise AssertionError("F_z_t0 must be at most 2-dimensional.")
+                raise ValueError("F_z_t0 must be at most 2-dimensional.")
 
             F_z_t0 = F_z_t0 / np.sum(F_z_t0, axis=0)
             F_z_t0 = F_z_t0.as_type(dtype=np.complex128)
@@ -584,6 +595,10 @@ class FractionalAbundance(Operator):
         F_z_t = np.abs(np.real(F_z_t))
 
         self.F_z_t = F_z_t
+        # Mypy complains about assigning a LabeledArray to an object that was type None.
+        # Can't really fix incompatibility without eliminating LabeledArray since mypy
+        # seems to have an issue with type aliases.
+        self.tau = tau  # type: ignore
 
         return F_z_t
 
@@ -592,42 +607,41 @@ class FractionalAbundance(Operator):
         Ne: DataArray,
         Te: DataArray,
         Nh: DataArray = None,
-        tau: LabeledArray = 1e3,  # tinf = 1e3
+        tau: LabeledArray = 1e3,
+        full_run: bool = True,
     ) -> DataArray:
         """
         Sets up data for calculation in correct order. Allows changing of the inputted
         """
-        inputted_data = {}
-        if Ne is not None:
-            input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
-            inputted_data["Ne"] = Ne
-        if Nh is not None:
-            input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
-            inputted_data["Nh"] = Nh
-        if Te is not None:
-            input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
-            inputted_data["Te"] = Te
+        if full_run:
+            inputted_data = {}
+            if Ne is not None:
+                input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+                inputted_data["Ne"] = Ne
+            if Nh is not None:
+                input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
+                inputted_data["Nh"] = Nh
+            if Te is not None:
+                input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
+                inputted_data["Te"] = Te
 
-        shape_check(inputted_data)
+            shape_check(inputted_data)
 
-        imported_data = {}
-        imported_data["SCD"] = self.SCD
-        imported_data["ACD"] = self.ACD
-        if self.CCD is not None:
-            imported_data["CCD"] = self.CCD
+            imported_data = {}
+            imported_data["SCD"] = self.SCD
+            imported_data["ACD"] = self.ACD
+            if self.CCD is not None:
+                imported_data["CCD"] = self.CCD
 
-        # Check interpolation bounds with inputted_data.
-        self.interpolation_bounds_check(imported_data, inputted_data)
+            self.interpolate_rates(Ne, Te)
 
-        self.interpolate_rates(Ne, Te)
+            self.calc_ionisation_balance_matrix(Ne, Nh)
 
-        self.calc_ionisation_balance_matrix(Ne, Nh)
+            self.calc_F_z_tinf()
 
-        self.calc_F_z_tinf()
+            self.calc_eigen_vals_and_vecs()
 
-        self.calc_eigen_vals_and_vecs()
-
-        self.calc_eigen_coeffs()
+            self.calc_eigen_coeffs()
 
         input_check(
             "tau",
@@ -637,6 +651,8 @@ class FractionalAbundance(Operator):
         )
 
         F_z_t = self.calculate_abundance(tau)
+
+        self.F_z_t = F_z_t
 
         return F_z_t
 
