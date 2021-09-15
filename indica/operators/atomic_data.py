@@ -270,7 +270,7 @@ class FractionalAbundance(Operator):
 
         self.interpolation_bounds_check(Ne, Te)
 
-        self.Ne, self.Te = Ne, Te
+        self.Ne, self.Te = Ne, Te  # type: ignore
 
         SCD_spec = self.SCD.indica.interp2d(
             electron_temperature=Te,
@@ -349,7 +349,7 @@ class FractionalAbundance(Operator):
                         the internal Ne known to FractionalAbundance object."
                 )
 
-        self.Ne, self.Nh = Ne, Nh
+        self.Ne, self.Nh = Ne, Nh  # type: ignore
 
         num_of_ion_charges = self.num_of_ion_charges
         SCD, ACD, CCD = self.SCD, self.ACD, self.CCD
@@ -368,7 +368,7 @@ class FractionalAbundance(Operator):
         icharge = 0
         ionisation_balance_matrix[icharge, icharge : icharge + 2] = np.array(
             [
-                -Ne * SCD[icharge],
+                -Ne * SCD[icharge],  # type: ignore
                 Ne * ACD[icharge]
                 + (Nh * CCD[icharge] if Nh is not None and CCD is not None else 0.0),
             ]
@@ -377,7 +377,7 @@ class FractionalAbundance(Operator):
             ionisation_balance_matrix[icharge, icharge - 1 : icharge + 2] = np.array(
                 [
                     Ne * SCD[icharge - 1],
-                    -Ne * (SCD[icharge] + ACD[icharge - 1])
+                    -Ne * (SCD[icharge] + ACD[icharge - 1])  # type: ignore
                     - (
                         Nh * CCD[icharge - 1]
                         if Nh is not None and CCD is not None
@@ -393,7 +393,7 @@ class FractionalAbundance(Operator):
         ionisation_balance_matrix[icharge, icharge - 1 : icharge + 1] = np.array(
             [
                 Ne * SCD[icharge - 1],
-                -Ne * (ACD[icharge - 1])
+                -Ne * (ACD[icharge - 1])  # type: ignore
                 - (
                     Nh * CCD[icharge - 1] if Nh is not None and CCD is not None else 0.0
                 ),
@@ -514,7 +514,7 @@ class FractionalAbundance(Operator):
                             0, self.num_of_ion_charges - 1, self.num_of_ion_charges
                         ),
                     ),
-                    x1_coord,
+                    x1_coord,  # type: ignore
                 ],
                 dims=["ion_charges", x1_coord.dims[0]],
             )
@@ -527,10 +527,10 @@ class FractionalAbundance(Operator):
                 raise ValueError("F_z_t0 must be at most 2-dimensional.")
 
             F_z_t0 = F_z_t0 / np.sum(F_z_t0, axis=0)
-            F_z_t0 = F_z_t0.as_type(dtype=np.complex128)
+            F_z_t0 = F_z_t0.as_type(dtype=np.complex128)  # type: ignore
 
             F_z_t0 = DataArray(
-                data=F_z_t0.values,
+                data=F_z_t0.values,  # type: ignore
                 coords=[
                     (
                         "ion_charges",
@@ -538,7 +538,7 @@ class FractionalAbundance(Operator):
                             0, self.num_of_ion_charges - 1, self.num_of_ion_charges
                         ),
                     ),
-                    x1_coord,
+                    x1_coord,  # type: ignore
                 ],
                 dims=["ion_charges", x1_coord.dims[0]],
             )
@@ -560,7 +560,7 @@ class FractionalAbundance(Operator):
 
         F_z_t0 = np.abs(np.real(F_z_t0))
 
-        self.F_z_t0 = F_z_t0
+        self.F_z_t0 = F_z_t0  # type: ignore
 
         return eig_coeffs, F_z_t0
 
@@ -860,7 +860,7 @@ class PowerLoss(Operator):
 
         self.interpolation_bounds_check(Ne, Te)
 
-        self.Ne, self.Te = Ne, Te
+        self.Ne, self.Te = Ne, Te  # type: ignore
 
         PLT_spec = self.PLT.indica.interp2d(
             electron_temperature=Te,
@@ -907,7 +907,7 @@ class PowerLoss(Operator):
                 )
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
-            self.Nh = Nh
+            self.Nh = Nh  # type: ignore
         elif self.PRC is not None:
             raise ValueError(
                 "Nh (Thermal hydrogen density) cannot be None when\
@@ -926,7 +926,7 @@ class PowerLoss(Operator):
                 "Inputted F_z_t is a complex type or array of complex numbers, \
                     must be real"
             )
-        self.F_z_t = F_z_t
+        self.F_z_t = F_z_t  # type: ignore
 
         self.x1_coord = self.PLT.coords[
             [k for k in self.PLT.dims if k != "ion_charges"][0]
@@ -994,6 +994,6 @@ class PowerLoss(Operator):
         if full_run:
             self.interpolate_power(Ne, Te)
 
-        cooling_factor = self.calculate_power_loss(Ne, Nh, F_z_t)
+        cooling_factor = self.calculate_power_loss(Ne, Nh, F_z_t)  # type: ignore
 
         return cooling_factor
