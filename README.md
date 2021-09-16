@@ -6,7 +6,7 @@ Status](https://readthedocs.org/projects/indica-ukaea/badge/?version=latest)](ht
 [![linting](https://github.com/ukaea/Indica/workflows/linting/badge.svg)](https://github.com/ukaea/Indica/actions?query=workflow%3Alinting)
 [![codecov](https://codecov.io/gh/ukaea/Indica/branch/master/graph/badge.svg?token=6VJ5J4JRA2)](https://codecov.io/gh/ukaea/Indica)
 
-InDiCA (**In**tegrated **Di**agnosti**C** **A**nalysis) is a tool which allows to perform and combine the analysis of a large number of different diagnostics from Magnetic Confined Fusion (MCF) plasma devices. It will consist of a library of functions to analyse different diagnostic systems under a common framework, and a set of workflows to combine these measurements.
+InDiCA (**In**tegrated **Di**agnosti**C** **A**nalysis) is a tool which allows to perform and combine the analysis of a large number of different diagnostics from Magnetic Confined Fusion (MCF) plasma devices. It will consist of a library of functions to analyse different diagnostic systems under a common framework, and a set of workflows to combine these measurements.  <!--- Test for pre-commit -->
 
 Currently under active development are workflows for the calculation of the plasma composition following the methodologies explained in [M. Sertoli et al., J. Plasma Phys. (2019), vol. 85, 905850504](https://doi.org/10.1017/S0022377819000618), and for constrining the shape of the kinetic profiles given LOS and volume integrated measurements only. Diagnostic forward models presently under development are: SXR and bolometer cameras, passive spectrometers, interferometers and magnetic measurements.
 
