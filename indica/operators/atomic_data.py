@@ -6,6 +6,7 @@ from typing import Union
 import warnings
 
 import numpy as np
+from numpy.core.numeric import zeros_like
 import scipy
 import xarray as xr
 from xarray import DataArray
@@ -50,22 +51,9 @@ class FractionalAbundance(Operator):
     ACD
         xarray.DataArray of effective recombination rate coefficients of all relevant
         ionisation charges of given impurity element.
-    Ne
-        xarray.DataArray of electron density as a profile of a user-chosen coordinate.
-    Te
-        xarray.DataArray of electron temperature as a profile of a user-chosen
-        coordinate.
-    Nh
-        xarray.DataArray of thermal hydrogen as a profile of a user-chosen coordinate.
-        (Optional)
     CCD
         xarray.DataArray of charge exchange cross coupling coefficients of all relevant
         ionisation charges of given impurity element. (Optional)
-    F_z_t0
-        Optional initial fractional abundance for given impurity element. (Optional)
-    unit_testing
-        Boolean for unit testing purposes
-        (whether to call ordered_setup in __init__ or not) (Optional)
     sess
         Object representing this session of calculations with the library.
         Holds and communicates provenance information. (Optional)
@@ -86,13 +74,13 @@ class FractionalAbundance(Operator):
 
     Methods
     -------
-    interpolation_bounds_check(imported_data, inputted_data)
+    interpolation_bounds_check(Ne, Te)
         Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
-    interpolate_rates()
+        interpolation ranges specified inside SCD, ACD and CCD.
+    interpolate_rates(Ne, Te)
         Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
-    calc_ionisation_balance_matrix()
+    calc_ionisation_balance_matrix(Ne, Nh)
         Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
         ionisation charges.
@@ -101,23 +89,23 @@ class FractionalAbundance(Operator):
         F_z(t=infinity) used for the final time evolution equation.
     calc_eigen_vals_and_vecs()
         Calculates the eigenvalues and eigenvectors of the ionisation balance matrix.
-    calc_eigen_coeffs()
+    calc_eigen_coeffs(F_z_t0)
         Calculates the coefficients from the eigenvalues and eigenvectors for the time
         evolution equation.
-    ordered_setup()
-        Sets up data for calculation in correct order.
-    __call__(tau)
+    calculate_abundance(tau)
         Calculates the fractional abundance of all ionisation charges at time tau.
+    __call__(Ne, Te, Nh, tau, F_z_t0, full_run)
+        Executes all functions in correct order to calculate the fractional abundance.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("ionisation_rate", "impurity_element"),
         ("recombination_rate", "impurity_element"),
+        ("charge-exchange_rate", "impurity_element"),
         ("number_density", "electrons"),
         ("temperature", "electrons"),
-        ("initial_fractional_abundance", "impurity_element"),
         ("number_density", "thermal_hydrogen"),
-        ("charge-exchange_rate", "impurity_element"),
+        ("initial_fractional_abundance", "impurity_element"),
     ]
     RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("fractional_abundance", "impurity_element"),
@@ -131,7 +119,7 @@ class FractionalAbundance(Operator):
         sess: session.Session = session.global_session,
     ):
         """Initialises FractionalAbundance class and additionally performs error
-        checking on inputs.
+        checking on imported data (SCD, ACD and CCD).
         """
         super().__init__(sess)
         self.Ne = None
@@ -164,10 +152,12 @@ class FractionalAbundance(Operator):
 
         Parameters
         ----------
-        imported_data
-            Imported data (SCD, ACD, CCD, PLT, PRC, PRB)
-        inputted_data
-            Inputted data (Ne, Nh, Te) (Nh is tested in self.__init__())
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        Te
+            xarray.DataArray of electron temperature as a profile of a user-chosen
+            coordinate.
         """
         imported_data = {}
         imported_data["SCD"] = self.SCD
@@ -256,6 +246,15 @@ class FractionalAbundance(Operator):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
 
+        Parameters
+        ----------
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        Te
+            xarray.DataArray of electron temperature as a profile of a user-chosen
+            coordinate.
+
         Returns
         -------
         SCD_spec
@@ -270,6 +269,13 @@ class FractionalAbundance(Operator):
 
         self.interpolation_bounds_check(Ne, Te)
 
+        if self.Ne is not None:
+            if np.logical_not(np.all(Ne == self.Ne)):
+                warnings.warn(
+                    "Ne given to calc_ionisation_balance_matrix is different from \
+                        the internal Ne known to FractionalAbundance object."
+                )
+
         self.Ne, self.Te = Ne, Te  # type: ignore
 
         SCD_spec = self.SCD.indica.interp2d(
@@ -278,7 +284,6 @@ class FractionalAbundance(Operator):
             method="cubic",
             assume_sorted=True,
         )
-        SCD_spec = SCD_spec
 
         if self.CCD is not None:
             CCD_spec = self.CCD.indica.interp2d(
@@ -287,7 +292,6 @@ class FractionalAbundance(Operator):
                 method="cubic",
                 assume_sorted=True,
             )
-            CCD_spec = CCD_spec
         else:
             CCD_spec = None
 
@@ -297,10 +301,9 @@ class FractionalAbundance(Operator):
             method="cubic",
             assume_sorted=True,
         )
-        ACD_spec = ACD_spec
 
-        self.SCD, self.ACD, self.CCD = SCD_spec, ACD_spec, CCD_spec
-        self.num_of_ion_charges = self.SCD.shape[0] + 1
+        self.SCD_spec, self.ACD_spec, self.CCD_spec = SCD_spec, ACD_spec, CCD_spec
+        self.num_of_ion_charges = self.SCD_spec.shape[0] + 1
 
         return SCD_spec, ACD_spec, CCD_spec, self.num_of_ion_charges
 
@@ -312,6 +315,13 @@ class FractionalAbundance(Operator):
         """Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
         ionisation charges.
+
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        Nh
+            xarray.DataArray of thermal hydrogen as a profile of a user-chosen
+            coordinate. (Optional)
 
         Returns
         -------
@@ -334,11 +344,8 @@ class FractionalAbundance(Operator):
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
         elif self.CCD is not None:
-            raise ValueError(
-                "Nh (Thermal hydrogen density) cannot be None when\
-                CCD (effective charge exchange recombination) at initialisation \
-                is not None."
-            )
+            Nh = zeros_like(Ne)
+            inputted_data["Nh"] = Nh
 
         shape_check(inputted_data)
 
@@ -352,7 +359,7 @@ class FractionalAbundance(Operator):
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
         num_of_ion_charges = self.num_of_ion_charges
-        SCD, ACD, CCD = self.SCD, self.ACD, self.CCD
+        SCD, ACD, CCD = self.SCD_spec, self.ACD_spec, self.CCD_spec
 
         x1_coord = SCD.coords[[k for k in SCD.dims if k != "ion_charges"][0]]
         self.x1_coord = x1_coord
@@ -490,6 +497,11 @@ class FractionalAbundance(Operator):
         """Calculates the coefficients from the eigenvalues and eigenvectors for the
         time evolution equation.
 
+        Parameters
+        ----------
+        F_z_t0
+            Initial fractional abundance for given impurity element. (Optional)
+
         Returns
         -------
         eig_coeffs
@@ -619,8 +631,35 @@ class FractionalAbundance(Operator):
         F_z_t0: DataArray = None,
         full_run: bool = True,
     ) -> DataArray:
-        """
-        Sets up data for calculation in correct order. Allows changing of the inputted
+        """Executes all functions in correct order to calculate the fractional
+        abundance.
+
+        Parameters
+        ----------
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        Te
+            xarray.DataArray of electron temperature as a profile of a user-chosen
+            coordinate.
+        Nh
+            xarray.DataArray of thermal hydrogen as a profile of a user-chosen
+            coordinate. (Optional)
+        tau
+            Time after t0 (t0 is defined as the time at which F_z_t0 is taken).
+            (Optional)
+        F_z_t0
+            Initial fractional abundance for given impurity element. (Optional)
+        full_run
+            Boolean specifying whether to only run calculate_abundance(False) or to run
+            the entire ordered workflow(True) for calculating abundance from the start.
+            This is mostly only useful for unit testing and is set to True by default.
+            (Optional)
+
+        Returns
+        -------
+        F_z_t
+            Fractional abundance at tau.
         """
         if full_run:
             self.interpolate_rates(Ne, Te)
@@ -651,23 +690,9 @@ class PowerLoss(Operator):
     PRB
         xarray.DataArray of radiated power from recombination and bremsstrahlung of
         given impurity element.
-    Ne
-        xarray.DataArray of electron density as a profile of a user-chosen coordinate.
-    Te
-        xarray.DataArray of electron temperature as a profile of a user-chosen
-        coordinate.
-    F_z_t
-        xarray.DataArray of fractional abundance of all ionisation charges of given
-        impurity element.
     PRC
         xarray.DataArray of radiated power of charge exchange emission of all relevant
         ionisation charges of given impurity element. (Optional)
-    unit_testing
-        Boolean for unit testing purposes
-        (whether to call ordered_setup in __init__ or not) (Optional)
-    Nh
-        xarray.DataArray of thermal hydrogen number density as a profile of a
-        user-chosen coordinate.
     sess
         Object representing this session of calculations with the library.
         Holds and communicates provenance information. (Optional)
@@ -688,24 +713,26 @@ class PowerLoss(Operator):
 
     Methods
     -------
-    interpolation_bounds_check(inputted_data, imported_data)
+    interpolation_bounds_check(Ne, Te)
         Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside imported_data(PLT,PRC,PRB).
-    interpolate_power()
+        interpolation ranges specified inside PLT, PRB and PRC).
+    interpolate_power(Ne, Te)
         Interpolates the various powers based on inputted Ne and Te.
-    __call__()
+    calculate_power_loss(Ne, F_z_t, Nh)
         Calculates total radiated power of all ionisation charges of a given
         impurity element.
+    __call__(Ne, Te, Nh, F_z_t, full_run)
+        Executes all functions in correct order to calculate the total radiated power.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("line_power_coeffecient", "impurity_element"),
         ("recombination_power_coeffecient", "impurity_element"),
-        ("number_density", "electrons"),
-        ("number_density", "thermal_hydrogen"),
-        ("temperature", "electrons"),
         ("charge-exchange_power_coeffecient", "impurity_element"),
+        ("number_density", "electrons"),
+        ("temperature", "electrons"),
         ("fractional_abundance", "impurity_element"),
+        ("number_density", "thermal_hydrogen"),
     ]
     RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
         ("total_radiated power loss", "impurity_element"),
@@ -715,11 +742,7 @@ class PowerLoss(Operator):
         self,
         PLT: DataArray,
         PRB: DataArray,
-        # Ne: DataArray,
-        # Te: DataArray,
-        # F_z_t: DataArray,
         PRC: DataArray = None,
-        # Nh: Optional[DataArray] = None,
         sess: session.Session = session.global_session,
     ):
         super().__init__(sess)
@@ -752,10 +775,12 @@ class PowerLoss(Operator):
 
         Parameters
         ----------
-        imported_data
-            Imported data (PLT, PRC, PRB)
-        inputted_data
-            Inputted data (Ne, Nh, Te) (Nh is tested in self.__init__())
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        Te
+            xarray.DataArray of electron temperature as a profile of a user-chosen
+            coordinate.
         """
 
         imported_data = {}
@@ -844,6 +869,15 @@ class PowerLoss(Operator):
     ):
         """Interpolates the various powers based on inputted Ne and Te.
 
+        Parameters
+        ----------
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        Te
+            xarray.DataArray of electron temperature as a profile of a user-chosen
+            coordinate.
+
         Returns
         -------
         PLT_spec
@@ -868,7 +902,6 @@ class PowerLoss(Operator):
             method="cubic",
             assume_sorted=True,
         )
-        PLT_spec = PLT_spec
 
         if self.PRC is not None:
             PRC_spec = self.PRC.indica.interp2d(
@@ -877,7 +910,6 @@ class PowerLoss(Operator):
                 method="cubic",
                 assume_sorted=True,
             )
-            PRC_spec = PRC_spec
         else:
             PRC_spec = None
 
@@ -887,14 +919,35 @@ class PowerLoss(Operator):
             method="cubic",
             assume_sorted=True,
         )
-        PRB_spec = PRB_spec
 
-        self.PLT, self.PRC, self.PRB = PLT_spec, PRC_spec, PRB_spec
-        self.num_of_ion_charges = self.PLT.shape[0] + 1
+        self.PLT_spec, self.PRC_spec, self.PRB_spec = PLT_spec, PRC_spec, PRB_spec
+        self.num_of_ion_charges = self.PLT_spec.shape[0] + 1
 
         return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
 
-    def calculate_power_loss(self, Ne: DataArray, Nh: DataArray, F_z_t: DataArray):
+    def calculate_power_loss(
+        self, Ne: DataArray, F_z_t: DataArray, Nh: DataArray = None
+    ):
+        """Calculates total radiated power of all ionisation charges of a given
+        impurity element.
+
+        Parameters
+        ----------
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        F_z_t
+            xarray.DataArray of fractional abundance of all ionisation charges of given
+            impurity element.
+        Nh
+            xarray.DataArray of thermal hydrogen number density as a profile of a
+            user-chosen coordinate. (Optional)
+
+        Returns
+        -------
+        cooling_factor
+            Total radiated power of all ionisation charges.
+        """
         inputted_data = {}
         inputted_data["Ne"] = Ne
 
@@ -907,32 +960,42 @@ class PowerLoss(Operator):
                 )
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
-            self.Nh = Nh  # type: ignore
         elif self.PRC is not None:
-            raise ValueError(
-                "Nh (Thermal hydrogen density) cannot be None when\
-                CCD (effective charge exchange power) at initialisation \
-                is not None."
-            )
+            Nh = zeros_like(Ne)
+            inputted_data["Nh"] = Nh
+
+        if self.Ne is not None:
+            if np.logical_not(np.all(Ne == self.Ne)):
+                warnings.warn(
+                    "Ne given to calc_ionisation_balance_matrix is different from \
+                        the internal Ne known to FractionalAbundance object."
+                )
+
+        self.Ne, self.Nh = Ne, Nh  # type: ignore
 
         if len(inputted_data) > 1:
             shape_check(inputted_data)
 
-        input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
-        try:
-            assert not np.iscomplexobj(F_z_t)
-        except AssertionError:
-            raise ValueError(
-                "Inputted F_z_t is a complex type or array of complex numbers, \
-                    must be real"
-            )
-        self.F_z_t = F_z_t  # type: ignore
+        if F_z_t is not None:
+            input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
+            try:
+                assert not np.iscomplexobj(F_z_t)
+            except AssertionError:
+                raise ValueError(
+                    "Inputted F_z_t is a complex type or array of complex numbers, \
+                        must be real"
+                )
+            self.F_z_t = F_z_t  # type: ignore
+        elif self.F_z_t is None:
+            raise ValueError("Please provide a valid F_z_t (Fractional Abundance).")
 
-        self.x1_coord = self.PLT.coords[
-            [k for k in self.PLT.dims if k != "ion_charges"][0]
+        self.x1_coord = self.PLT_spec.coords[
+            [k for k in self.PLT_spec.dims if k != "ion_charges"][0]
         ]
 
         x1_coord = self.x1_coord
+
+        PLT, PRB, PRC = self.PLT_spec, self.PRB_spec, self.PRC_spec
 
         # Mypy complaints about F_z_t not being subscriptable since it thinks
         # it's a NoneType have been suppresed. This is because F_z_t is tested
@@ -943,17 +1006,17 @@ class PowerLoss(Operator):
         for ix1 in range(x1_coord.size):
             icharge = 0
             cooling_factor[icharge, ix1] = (
-                self.PLT[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
+                PLT[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
             )
             for icharge in range(1, self.num_of_ion_charges - 1):
                 cooling_factor[icharge, ix1] += (
-                    self.PLT[icharge, ix1]
+                    PLT[icharge, ix1]
                     + (
-                        (Nh[ix1] / Ne[ix1]) * self.PRC[icharge - 1, ix1]
-                        if (self.PRC is not None) and (Nh is not None)
+                        (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
+                        if (PRC is not None) and (Nh is not None)
                         else 0.0
                     )
-                    + self.PRB[icharge - 1, ix1]
+                    + PRB[icharge - 1, ix1]
                 ) * self.F_z_t[
                     icharge, ix1
                 ]  # type: ignore
@@ -961,11 +1024,11 @@ class PowerLoss(Operator):
             icharge = self.num_of_ion_charges - 1
             cooling_factor[icharge, ix1] += (
                 (
-                    (Nh[ix1] / Ne[ix1]) * self.PRC[icharge - 1, ix1]
-                    if (self.PRC is not None) and (Nh is not None)
+                    (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
+                    if (PRC is not None) and (Nh is not None)
                     else 0.0
                 )
-                + self.PRB[icharge - 1, ix1]
+                + PRB[icharge - 1, ix1]
             ) * self.F_z_t[
                 icharge, ix1
             ]  # type: ignore
@@ -982,8 +1045,28 @@ class PowerLoss(Operator):
         F_z_t: DataArray = None,
         full_run: bool = True,
     ):
-        """Calculates total radiated power of all ionisation charges of a given
-        impurity element.
+        """Executes all functions in correct order to calculate the total radiated
+        power.
+
+        Parameters
+        ----------
+        Ne
+            xarray.DataArray of electron density as a profile of a user-chosen
+            coordinate.
+        Te
+            xarray.DataArray of electron temperature as a profile of a user-chosen
+            coordinate.
+        Nh
+            xarray.DataArray of thermal hydrogen number density as a profile of a
+            user-chosen coordinate. (Optional)
+        F_z_t
+            xarray.DataArray of fractional abundance of all ionisation charges of given
+            impurity element. (Optional)
+        full_run
+            Boolean specifying whether to only run calculate_power_loss(False) or to
+            run the entire ordered workflow(True) for calculating power loss from the
+            start. This is mostly only useful for unit testing and is set to True by
+            default. (Optional)
 
         Returns
         -------
@@ -994,6 +1077,6 @@ class PowerLoss(Operator):
         if full_run:
             self.interpolate_power(Ne, Te)
 
-        cooling_factor = self.calculate_power_loss(Ne, Nh, F_z_t)  # type: ignore
+        cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
 
         return cooling_factor
