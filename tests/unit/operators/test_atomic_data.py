@@ -306,7 +306,7 @@ class Exception_Power_Loss_Test_Case(unittest.TestCase):
         Ne, Nh, F_z_t = inputs
 
         with self.assertRaises(ValueError):
-            self.PowerLossObj.calculate_power_loss(Ne, Nh, F_z_t)
+            self.PowerLossObj.calculate_power_loss(Ne, F_z_t, Nh)
 
 
 def input_error_check(
@@ -691,11 +691,11 @@ def test_calc_ionisation_balance_matrix(test_interpolate_rates):
         dims=["rho_poloidal"],
     )
 
-    test_case = Exception_Frac_Abund_Test_Case(example_frac_abundance, Ne=input_Ne)
+    example_frac_abundance.calc_ionisation_balance_matrix(Ne=input_Ne)
+
+    assert np.all(example_frac_abundance.Nh == 0)
 
     partial_input_func_name = "partial_calc_ionisation_balance_matrix"
-
-    input_error_check("Nh", None, ValueError, test_case, partial_input_func_name)
 
     test_case = Exception_Frac_Abund_Test_Case(
         example_frac_abundance_no_optional, Ne=input_Ne, Nh=input_Nh
@@ -1219,6 +1219,176 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
         assert np.abs(test_normalization - 1.0) <= 2e-2
 
 
+def test_frac_abund_full_run(test_fractional_abundance_init):
+    (
+        example_frac_abundance,
+        example_frac_abundance_no_optional,
+    ) = test_fractional_abundance_init
+
+    input_Ne = np.logspace(19.0, 16.0, 10)
+    input_Ne = DataArray(
+        data=input_Ne,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    input_Te = np.logspace(4.6, 2, 10)
+    input_Te = DataArray(
+        data=input_Te,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    tau = 1e-16
+
+    try:
+        F_z_t = example_frac_abundance_no_optional(
+            Ne=input_Ne, Te=input_Te, tau=tau, full_run=True
+        )
+    except Exception as e:
+        raise e
+
+    assert F_z_t.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(F_z_t, example_frac_abundance_no_optional.F_z_t0, atol=1e-4)
+
+    tau = 1e2
+
+    try:
+        F_z_t = example_frac_abundance_no_optional(
+            Ne=input_Ne, Te=input_Te, tau=tau, full_run=True
+        )
+    except Exception as e:
+        raise e
+
+    assert F_z_t.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(F_z_t, example_frac_abundance_no_optional.F_z_tinf, atol=2e-2)
+
+    rho = example_frac_abundance_no_optional.x1_coord
+
+    for irho in range(rho.size):
+        test_normalization = np.sum(F_z_t[:, irho])
+        assert np.abs(test_normalization - 1.0) <= 2e-2
+
+    # Testing tau as a profile of rho_poloidal.
+    tau = np.linspace(1.0, 1.0e-10, 10)
+    tau = DataArray(
+        data=tau,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    try:
+        F_z_t = example_frac_abundance_no_optional(
+            input_Ne,
+            input_Te,
+            tau=tau,
+            full_run=True,
+        )
+    except Exception as e:
+        raise e
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(
+        F_z_t[:, 0], example_frac_abundance_no_optional.F_z_tinf[:, 0], atol=2e-2
+    )
+    assert np.allclose(
+        F_z_t[:, -1], example_frac_abundance_no_optional.F_z_t0[:, -1], atol=1e-4
+    )
+
+    for irho in range(rho.size):
+        test_normalization = np.sum(F_z_t[:, irho])
+        assert np.abs(test_normalization - 1.0) <= 2e-2
+
+    input_Nh = 1e-5 * input_Ne
+    input_Nh = DataArray(
+        data=input_Nh,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    tau = 1e-16
+    try:
+        F_z_t = example_frac_abundance(
+            input_Ne,
+            input_Te,
+            input_Nh,
+            tau=tau,
+            full_run=True,
+        )
+    except Exception as e:
+        raise e
+
+    assert F_z_t.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(F_z_t, example_frac_abundance.F_z_t0, atol=1e-5)
+
+    tau = 1e2
+
+    try:
+        F_z_t = example_frac_abundance(
+            input_Ne,
+            input_Te,
+            input_Nh,
+            tau=tau,
+            full_run=True,
+        )
+    except Exception as e:
+        raise e
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(F_z_t, example_frac_abundance.F_z_tinf, atol=2e-2)
+
+    rho = example_frac_abundance.x1_coord
+
+    for irho in range(rho.size):
+        test_normalization = np.sum(F_z_t[:, irho])
+        assert np.abs(test_normalization - 1.0) <= 2e-2
+
+    # Testing tau as a profile of rho_poloidal.
+    tau = np.linspace(1.0, 1.0e-10, 10)
+    tau = DataArray(
+        data=tau,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    try:
+        F_z_t = example_frac_abundance(
+            input_Ne,
+            input_Te,
+            input_Nh,
+            tau=tau,
+            full_run=True,
+        )
+    except Exception as e:
+        raise e
+
+    assert np.all(np.logical_not(np.isnan(F_z_t)))
+    assert np.all(np.logical_not(np.isinf(F_z_t)))
+
+    assert np.allclose(F_z_t[:, 0], example_frac_abundance.F_z_tinf[:, 0], atol=2e-2)
+    assert np.allclose(F_z_t[:, -1], example_frac_abundance.F_z_t0[:, -1], atol=1e-4)
+
+    for irho in range(rho.size):
+        test_normalization = np.sum(F_z_t[:, irho])
+        assert np.abs(test_normalization - 1.0) <= 2e-2
+
+
 @pytest.fixture
 def test_power_loss_init():
     """Test initialisation of PowerLoss class."""
@@ -1513,11 +1683,11 @@ def test_power_loss_call(test_interpolate_power):
     except Exception as e:
         raise e
 
-    test_case = Exception_Power_Loss_Test_Case(example_power_loss, F_z_t=F_z_tinf)
+    example_power_loss.calculate_power_loss(Ne=input_Ne, F_z_t=F_z_tinf)
+
+    assert np.all(example_power_loss.Nh == 0)
 
     partial_input_func_name = "partial_powerloss_inputs"
-
-    input_error_check("Nh", None, ValueError, test_case, partial_input_func_name)
 
     test_case = Exception_Power_Loss_Test_Case(
         example_power_loss_no_optional, Nh=input_Nh, F_z_t=F_z_tinf
@@ -1615,6 +1785,78 @@ def test_power_loss_call(test_interpolate_power):
     try:
         cooling_factor = example_power_loss(
             Ne=input_Ne, Te=input_Te, Nh=input_Nh, F_z_t=F_z_tinf, full_run=False
+        )
+    except Exception as e:
+        raise e
+
+    assert cooling_factor.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(cooling_factor)))
+    assert np.all(np.logical_not(np.isinf(cooling_factor)))
+
+
+def test_power_loss_full_run(test_power_loss_init):
+    example_power_loss, example_power_loss_no_optional = test_power_loss_init
+
+    ADAS_file = ADASReader()
+
+    element = "be"
+
+    input_Ne = np.logspace(19.0, 16.0, 10)
+
+    input_Ne = DataArray(
+        data=input_Ne,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    input_Te = np.logspace(4.6, 2, 10)
+
+    input_Te = DataArray(
+        data=input_Te,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    input_Nh = 1e-5 * input_Ne
+
+    input_Nh = DataArray(
+        data=input_Nh,
+        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
+        dims=["rho_poloidal"],
+    )
+
+    SCD = ADAS_file.get_adf11("scd", element, "89")
+    ACD = ADAS_file.get_adf11("acd", element, "89")
+    CCD = ADAS_file.get_adf11("ccd", element, "89")
+    try:
+        example_frac_abundance = FractionalAbundance(
+            SCD,
+            ACD,
+            CCD=CCD,
+        )
+
+        example_frac_abundance.interpolate_rates(Ne=input_Ne, Te=input_Te)
+        example_frac_abundance.calc_ionisation_balance_matrix(Ne=input_Ne, Nh=input_Nh)
+        F_z_tinf = np.real(example_frac_abundance.calc_F_z_tinf())
+    except Exception as e:
+        raise e
+
+    try:
+        cooling_factor = example_power_loss_no_optional(
+            Ne=input_Ne, Te=input_Te, F_z_t=F_z_tinf, full_run=True
+        )
+    except Exception as e:
+        raise e
+
+    assert cooling_factor.shape == (5, 10)
+
+    assert np.all(np.logical_not(np.isnan(cooling_factor)))
+    assert np.all(np.logical_not(np.isinf(cooling_factor)))
+
+    try:
+        cooling_factor = example_power_loss(
+            Ne=input_Ne, Te=input_Te, Nh=input_Nh, F_z_t=F_z_tinf, full_run=True
         )
     except Exception as e:
         raise e
