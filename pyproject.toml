@@ -55,13 +55,12 @@ sphinxcontrib-plantuml = {version = "^0.18", optional = true}
 click = "^7.1.2"
 coverage = {extras = ["toml"], version = "^5.2.1"}
 hypothesis = {extras = ["numpy"], version = "^5.24.2"}
-mypy = "^0.910"
+mypy = "^0.782"
 pre-commit = "^2.6.0"
 pytest = "^6.0.1"
 pytest-cov = "^2.10.0"
 sphinx = "^3.2.0"
 sphinxcontrib-plantuml = "^0.18"
-types-setuptools = "^57.0.2"
 
 [tool.poetry.extras]
 docs = ["sphinx", "sphinxcontrib-plantuml"]
