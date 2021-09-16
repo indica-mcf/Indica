@@ -27,8 +27,8 @@ from xarray import DataArray
 from xarray import Dataset
 import os
 
-from indica.readers import ADASReader
 from indica.readers import ST40Reader
+from indica.readers import ADASReader
 
 # First pulse after Boronisation / GDC
 BORONISATION = [8441, 8537]
@@ -44,7 +44,7 @@ class Database:
     def __init__(
         self,
         pulse_start=8207,
-        pulse_end=8807,
+        pulse_end=9129,
         tlim=(-0.03, 0.3),
         dt=0.01,
         overlap=0.5,
