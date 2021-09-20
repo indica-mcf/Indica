@@ -20,25 +20,27 @@ def atomdat_files(element: str):
 
     """
     all_files = {
-        "h": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96"},
-        "he": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96"},
-        "li": {"scd": "96", "acd": "96", "ccd": "89", "plt": "96", "prb": "96"},
-        "b": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
+        "h": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96", "prc": "96"},
+        "he": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96", "prc": "96"},
+        "li": {"scd": "96", "acd": "96", "ccd": "89", "plt": "96", "prb": "96", "prc": "96"},
+        "b": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89", "prc": "89"},
         "c": {
             "scd": "96",
             "acd": "96",
             "ccd": "96",
             "plt": "96",
             "prb": "96",
+            "prc": "96",
             "pec": {"5": ("bnd", "96")},  # charge, file_type, year_identifier
         },
-        "n": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96"},
+        "n": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96", "prc": "96"},
         "o": {
             "scd": "96",
             "acd": "96",
             "ccd": "89",
             "plt": "96",
             "prb": "96",
+            "prc": "96",
             "pec": {"4": ("pju", "93")},
         },  # charge, file_type, year_identifier},
         "f": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
@@ -112,7 +114,7 @@ def get_atomdat(
                     files[k][charge][0],
                     year=files[k][charge][1],
                 )
-        elif k in ["scd", "acd", "plt", "prb"]:
+        elif k in ["scd", "acd", "ccd", "plt", "prb", "prc"]:
             atomdat[k] = reader.get_adf11(k, element, files[k])
         else:
             "\n File format not supported... \n"
