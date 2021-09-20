@@ -4,7 +4,7 @@ import numpy as np
 from xarray import DataArray
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
-from indica.datatypes import ELEMENTS_BY_SYMBOL
+from indica.datatypes import ELEMENTS
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.mean_charge import MeanCharge
 from indica.operators.spline_fit import Spline
@@ -94,7 +94,7 @@ def test_mean_charge():
     F_z_t0 = np.real(example_frac_abundance.F_z_t0)
     F_z_t0 = F_z_t0.expand_dims("t", axis=-1)
 
-    element_name = ELEMENTS_BY_SYMBOL.get(element)
+    element_name = ELEMENTS[element][2]
 
     input_check = Exception_Mean_Charge_Test_Case()
 

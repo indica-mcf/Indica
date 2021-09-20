@@ -8,8 +8,7 @@ from xarray.core.common import zeros_like
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.lines_of_sight import LinesOfSightTransform
-from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
-from indica.datatypes import ELEMENTS_BY_SYMBOL
+from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
@@ -290,8 +289,8 @@ def test_impurity_concentration():
     tungsten_impurity_conc = 0.00005 * electron_density
 
     # be, ne, ni, w
-    elements = [4, 10, 28, 74]
-    elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in elements]
+    elements = ["be", "ne", "ni", "w"]
+    elements = [ELEMENTS[ielement][2] for ielement in elements]
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho_profile.shape, *t.shape)),
@@ -331,28 +330,28 @@ def test_impurity_concentration():
     mean_charge = zeros_like(impurity_densities)
 
     F_z_tinf = fractional_abundance_setup("be", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("be")
+    element_name = ELEMENTS["be"][2]
 
     mean_charge_obj = MeanCharge()
     result = mean_charge_obj(F_z_tinf, element_name)
     mean_charge.data[0] = result
 
     F_z_tinf = fractional_abundance_setup("c", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("c")
+    element_name = ELEMENTS["c"][2]
 
     mean_charge_obj = MeanCharge()
     result = mean_charge_obj(F_z_tinf, element_name)
     mean_charge.data[1] = result
 
     F_z_tinf = fractional_abundance_setup("ne", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("ne")
+    element_name = ELEMENTS["ne"][2]
 
     mean_charge_obj = MeanCharge()
     result = mean_charge_obj(F_z_tinf, element_name)
     mean_charge.data[2] = result
 
     F_z_tinf = fractional_abundance_setup("w", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("w")
+    element_name = ELEMENTS["w"][2]
 
     mean_charge_obj = MeanCharge()
     result = mean_charge_obj(F_z_tinf, element_name)
