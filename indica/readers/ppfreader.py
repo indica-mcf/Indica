@@ -30,7 +30,7 @@ from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from .. import session
-from ..datatypes import ELEMENTS_BY_MASS
+from ..datatypes import ELEMENTS
 from ..utilities import to_filename
 
 
@@ -255,7 +255,11 @@ class PPFReader(DataReader):
         results["R"] = R.data[0, :]
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
-        results["element"] = ELEMENTS_BY_MASS[int(round(mass.data[0]))]
+        results["element"] = [
+            value[2]
+            for value in ELEMENTS.values()
+            if value[1] == int(round(mass.data[0]))
+        ]
         results["texp"] = texp.data
         results["times"] = None
         paths = [R_path, z_path, m_path, t_path]

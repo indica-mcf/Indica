@@ -10,11 +10,11 @@ import numpy as np
 from xarray.core.common import zeros_like
 from xarray.core.dataarray import DataArray
 
-from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
+from ..datatypes import ELEMENTS
 from ..utilities import input_check
 
 
@@ -74,20 +74,23 @@ class MeanCharge(Operator):
         input_check("element", element, str)
 
         element_atomic_number_tmp = [
-            k for k, v in ELEMENTS_BY_ATOMIC_NUMBER.items() if v == element
+            value[0] for value in ELEMENTS.values() if value[2] == element
         ]
         try:
             assert len(element_atomic_number_tmp) == 1
         except AssertionError:
             raise ValueError(
                 f"Please input a single valid element from list:\
-                {list(ELEMENTS_BY_ATOMIC_NUMBER.values())}"
+                {list(value[2] for value in ELEMENTS.values())}"
             )
 
         element_atomic_number = element_atomic_number_tmp[0]
 
         ionisation_charges = np.linspace(
-            0, element_atomic_number, element_atomic_number + 1, dtype=int
+            0,
+            element_atomic_number,
+            element_atomic_number + 1,  # type: ignore
+            dtype=int,
         )
 
         try:

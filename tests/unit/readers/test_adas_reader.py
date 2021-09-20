@@ -25,7 +25,7 @@ import numpy as np
 import prov.model as prov
 
 from indica.datatypes import ADF11_GENERAL_DATATYPES
-from indica.datatypes import ORDERED_ELEMENTS
+from indica.datatypes import ELEMENTS
 from indica.readers import ADASReader
 import indica.readers.adas as adas
 from indica.session import hash_vals
@@ -207,7 +207,7 @@ def adf11_array_to_str(
             raise ValueError("Only accepts 1d and 2d arrays.")
 
     element = data.attrs["datatype"][1]
-    z = ORDERED_ELEMENTS.index(element)
+    z = [value[0] for value in ELEMENTS.values() if value[2] == element][0]
     nd = len(data.electron_density)
     nt = len(data.electron_temperature)
     zmin = int(data.ion_charges[0]) + 1
