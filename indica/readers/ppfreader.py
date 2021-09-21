@@ -259,7 +259,7 @@ class PPFReader(DataReader):
             value[2]
             for value in ELEMENTS.values()
             if value[1] == int(round(mass.data[0]))
-        ]
+        ][0]
         results["texp"] = texp.data
         results["times"] = None
         paths = [R_path, z_path, m_path, t_path]
