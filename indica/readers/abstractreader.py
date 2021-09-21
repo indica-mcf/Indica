@@ -947,9 +947,12 @@ class DataReader(BaseIO):
             ]
             meta = {
                 "datatype": available_quantities[quantity],
+                # "error": DataArray(database_results[quantity + "_error"], coords).sel(
+                #     t=slice(self._tstart, self._tend), method="ffill"
+                # ),
                 "error": DataArray(database_results[quantity + "_error"], coords).sel(
-                    t=slice(self._tstart, self._tend), method="ffill"
-                ),
+                    t=slice(self._tstart, self._tend), method=None
+                ), #doesn't work : NotImplementedError: cannot use ``method`` argument if any indexers are slice objects, method changed to None by Sundaresan Sridhar, 21-09-2021
                 "transform": transform,
             }
             quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(

@@ -296,7 +296,8 @@ def _get_wall_intersection_distances(
     x2_trial = (-b + factor * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
     z_trial = z_start + x2_trial * (z_end - z_start)
     x2_opposite = np.zeros_like(x2_trial)
-    if z_start != z_end:
+    # if z_start != z_end:
+    if not np.array_equal(z_start,z_end):
         x2_opposite = (opposite_z - z_start) / (z_end - z_start)
     x2 = np.where(
         np.logical_and(

@@ -92,6 +92,7 @@ class ST40Reader(DataReader):
         "nirh1": "get_interferometry",
         "smmh1": "get_interferometry",
         "astra": "get_astra",
+        "diode_arrays" : "get_radiation",
     }
     UIDS_MDS = {
         "efit": "",
@@ -99,6 +100,7 @@ class ST40Reader(DataReader):
         "nirh1": "interferom",
         "smmh1": "interferom",
         "astra": "",
+        "diode_arrays": "sxr",
     }
     QUANTITIES_MDS = {
         "efit": {
@@ -192,6 +194,42 @@ class ST40Reader(DataReader):
             "sigmapar": ".profiles.psi_norm:sigmapar",  # Parallel conductivity,1/(Ohm*m)
             "volume": ".profiles.psi_norm:volume",  # Volume inside magnetic surface,m3
         },
+       	
+        	'diode_arrays' :{ #GETTING THE DATA OF THE SXR CAMERA 
+			'filter_1'         : '.middle_head.filter_1:'          ,
+			'filter_1_time'    : '.middle_head.filter_1:time'      ,
+			'filter_1_average' : '.middle_head.filter_1:average'   ,
+			'filter_2'         : '.middle_head.filter_2:'          ,
+			'filter_2_time'    : '.middle_head.filter_2:time'      ,
+			'filter_2_average' : '.middle_head.filter_2:average'   ,
+			'filter_3'         : '.middle_head.filter_3:'          ,
+			'filter_3_time'    : '.middle_head.filter_3:time'      ,
+			'filter_3_average' : '.middle_head.filter_3:average'   ,
+			'filter_4'         : '.middle_head.filter_4:'          ,
+			'filter_4_time'    : '.middle_head.filter_4:time'      ,
+			'filter_4_average' : '.middle_head.filter_4:average'   ,
+			'location'         : '.middle_head.geometry:location'  ,
+			'direction'        : '.middle_head.geometry:direction' ,
+            'extension'        : '.middle_head.geometry:dir_ext'   ,
+		},
+
+        
+    }
+    
+    _IMPLEMENTATION_QUANTITIES = {        
+        'diode_arrays' :{ #GETTING THE DATA OF THE SXR CAMERA 			
+            "filter_1": ("total_radiation", "no_filter"),
+            "filter_2": ("total_radiation", "50_Al"),
+            "filter_3": ("total_radiation", "250_Be"),
+            "filter_4": ("total_radiation", "10_Be"),
+        },
+    }
+    
+    _RADIATION_RANGES = {
+        "filter_1" : ( 1,20),
+        "filter_2" : (21,40),
+        "filter_3" : (41,60),
+        "filter_4" : (61,80),
     }
 
     def __init__(
@@ -423,6 +461,95 @@ class ST40Reader(DataReader):
             else:
                 results[q + "_records"] = [q_path, t_path]
 
+        return results
+    
+    def _get_radiation(
+        self,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch data from SXR camera."""
+        results: Dict[str, Any] = {}
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        
+        #getting the location and direction data
+        location, location_path = self._get_signal(
+                    uid, instrument, self.QUANTITIES_MDS[instrument]['location'], revision)
+        direction, direction_path = self._get_signal(
+                    uid, instrument, self.QUANTITIES_MDS[instrument]['direction'], revision)
+        extension, extension_path = self._get_signal(
+                    uid, instrument, self.QUANTITIES_MDS[instrument]['extension'], revision)
+        #filters and channels
+        for q in quantities:
+            #Read time dimension
+            times, t_path = self._get_signal(uid, instrument, self.QUANTITIES_MDS['diode_arrays'][q+'_time'], revision)
+            results[q+'_times'] = times
+            #START AND END CHANNELS
+            ch_start,ch_end = self._RADIATION_RANGES[q]
+            no_channels = ch_end - ch_start + 1
+            #RADIATION DATA 
+            results[q] = np.nan * np.ones((len(times),no_channels))
+            results[q+"_records"] = np.zeros(no_channels,dtype='<U32')
+            for ch_no in range(ch_start,ch_end+1):
+                qval, q_path = self._get_signal(
+                    uid, instrument, self.QUANTITIES_MDS[instrument][q]+'ch'+str(ch_no).zfill(3), revision
+                )
+                results[q][:,ch_no-ch_start] = qval
+                results[q+'_records'][ch_no-ch_start] = q_path
+            #LINE OF SIGHT DATA
+            fields = ['R','z','T']
+            ends = ['start','stop']
+            for ch_no in range(ch_start,ch_end+1):
+                #LINE OF SIGHT INFORMATION - CENTER LINE OF SIGHT
+                D_center = self.get_los(location[ch_no-ch_start],direction[ch_no-ch_start])
+                # #LINE OF SIGHT INFORMATION - EXTENSIONS
+                # D_ext = () 
+                # for i_ext in range(0,4):
+                #     temp_D_ext = self.get_los(location[ch_no-ch_start],extension[i_ext,ch_no-ch_start])
+                #     D_ext += (temp_D_ext,)                    
+                #APPENDING THE LINE OF SIGHT INFORMATION
+                #SWEEP OF FIELDS
+                for i_field,field in enumerate(fields):
+                    #SWEEP OF ENDS
+                    for i_end,end in enumerate(ends):
+                        #KEY
+                        key = q+'_'+field+end
+                        #DECLARATION
+                        if ch_no==ch_start:
+                            results[key] = np.nan * np.ones(no_channels)
+                            # results[key+'_ext'] = np.nan * np.ones((no_channels,4))
+                        #RESULTS
+                        results[key][ch_no-ch_start] = D_center[i_end][i_field]
+                        # for i_ext in range(0,4):
+                        #     results[key+'_ext'][ch_no-ch_start,i_ext] = D_ext[i_ext][i_end][i_field]  
+            #LINE OF SIGHT OF EXTENSIONS
+            #LENGTHS
+            results['length'] = {q:no_channels}
+            #ERROR VALUE
+            results[q+'_error'] = self._default_error * results[q]
+            #LOCATION, DIRECTION AND EXTENSION
+            results[q+'_location'] = location[ch_start-1:ch_end]
+            results[q+'_direction'] = direction[ch_start-1:ch_end]
+            results[q+'_extension'] = extension[:,ch_start-1:ch_end,:]
+        #QUANTITIES
+        results['quantities'] = quantities
+        #machine dimensions
+        results['machine_dims'] = self.MACHINE_DIMS
+
+        #filters and channels
+        no_filters = 4
+        no_channels = 20
+
+        # # Read time dimension
+        # times, t_path = self._get_signal(uid, instrument, self.QUANTITIES_MDS['diode_arrays'][q+'_time'], revision)
+        # results['time'] = times
+        # for q in quantities:
+        #     qval, q_path = self._get_signal(
+        #         uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
+        #     )
+        #     results[q] = qval
         return results
 
     def _get_helike_spectroscopy(
