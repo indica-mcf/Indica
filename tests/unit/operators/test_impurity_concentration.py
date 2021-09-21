@@ -233,20 +233,20 @@ def nominal_output_checks(
     except Exception as e:
         raise e
 
-    element_name = nominal_inputs["element"]
+    element_symbol = nominal_inputs["element"]
 
     try:
         assert np.all(concentration > 0.0)
     except AssertionError:
         raise ValueError(
-            f"Some concentration values for {element_name} are less than zero."
+            f"Some concentration values for {element_symbol} are less than zero."
         )
 
     try:
         assert np.all(concentration <= upper_limit)
     except AssertionError:
         raise ValueError(
-            f"Some concentration values for {element_name} are \
+            f"Some concentration values for {element_symbol} are \
                 more than {upper_limit * 100}%%."
         )
 
@@ -329,32 +329,32 @@ def test_impurity_concentration():
 
     mean_charge = zeros_like(impurity_densities)
 
-    F_z_tinf = fractional_abundance_setup("be", t)
-    element_name = ELEMENTS["be"][2]
+    element_symbol = "be"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[0] = result
 
-    F_z_tinf = fractional_abundance_setup("c", t)
-    element_name = ELEMENTS["c"][2]
+    element_symbol = "c"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[1] = result
 
-    F_z_tinf = fractional_abundance_setup("ne", t)
-    element_name = ELEMENTS["ne"][2]
+    element_symbol = "ne"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[2] = result
 
-    F_z_tinf = fractional_abundance_setup("w", t)
-    element_name = ELEMENTS["w"][2]
+    element_symbol = "w"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[3] = result
 
     flux_surfs = FluxSurfaceCoordinates("poloidal")

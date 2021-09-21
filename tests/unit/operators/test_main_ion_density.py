@@ -169,32 +169,32 @@ def test_main_ion_density():
 
     mean_charge = zeros_like(impurity_densities)
 
-    F_z_tinf = fractional_abundance_setup("be", t)
-    element_name = ELEMENTS["be"][2]
+    element_symbol = "be"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[0] = result
 
-    F_z_tinf = fractional_abundance_setup("ne", t)
-    element_name = ELEMENTS["ne"][2]
+    element_symbol = "ne"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[1] = result
 
-    F_z_tinf = fractional_abundance_setup("ni", t)
-    element_name = ELEMENTS["ni"][2]
+    element_symbol = "ni"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[2] = result
 
-    F_z_tinf = fractional_abundance_setup("w", t)
-    element_name = ELEMENTS["w"][2]
+    element_symbol = "w"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[3] = result
 
     nominal_inputs = {
