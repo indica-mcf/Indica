@@ -132,7 +132,11 @@ class ADASReader(BaseIO):
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
         gen_type = ADF11_GENERAL_DATATYPES[quantity]
         spec_type_tmp = [value[2] for value in ELEMENTS.values() if value[0] == z]
-        assert len(spec_type_tmp) == 1
+        # This is basically only needed for hydrogen, deuterium and tritium,
+        # where z=1 for all of them. Other elements in the datatypes.py have a
+        # unique atomic number.
+        if len(spec_type_tmp) > 1:
+            spec_type_tmp = [ispec for ispec in spec_type_tmp if ispec == element_name]
         spec_type = spec_type_tmp[0]
         assert spec_type == element_name
         name = f"{spec_type}_{gen_type}"
