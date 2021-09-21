@@ -56,7 +56,7 @@ class MeanCharge(Operator):
             numpy.ndarray describing the fractional abundance of the given element.
             The first axis must correspond to the ionisation charges of the element.
         element
-            Name of the element for which the mean charge is desired.
+            Symbol of the element for which the mean charge is desired.
 
         Returns
         -------
@@ -73,18 +73,15 @@ class MeanCharge(Operator):
         )
         input_check("element", element, str)
 
-        element_atomic_number_tmp = [
-            value[0] for value in ELEMENTS.values() if value[2] == element
-        ]
         try:
-            assert len(element_atomic_number_tmp) == 1
+            assert element in ELEMENTS.keys()
         except AssertionError:
             raise ValueError(
                 f"Please input a single valid element from list:\
-                {list(value[2] for value in ELEMENTS.values())}"
+                {list(ELEMENTS.keys())}"
             )
 
-        element_atomic_number = element_atomic_number_tmp[0]
+        element_atomic_number = ELEMENTS[element][0]
 
         ionisation_charges = np.linspace(
             0,
