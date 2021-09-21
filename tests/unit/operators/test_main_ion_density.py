@@ -5,7 +5,6 @@ from xarray import DataArray
 from xarray.core.common import zeros_like
 
 from indica.converters import FluxSurfaceCoordinates
-from indica.datatypes import ELEMENTS
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.main_ion_density import MainIonDensity
@@ -154,7 +153,6 @@ def test_main_ion_density():
 
     # be, ne, ni, w
     elements = ["be", "ne", "ni", "w"]
-    elements = [ELEMENTS[ielement][2] for ielement in elements]
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho.shape, *t.shape)),
