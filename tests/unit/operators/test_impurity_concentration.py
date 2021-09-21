@@ -8,7 +8,6 @@ from xarray.core.common import zeros_like
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.lines_of_sight import LinesOfSightTransform
-from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
@@ -290,7 +289,6 @@ def test_impurity_concentration():
 
     # be, ne, ni, w
     elements = ["be", "ne", "ni", "w"]
-    elements = [ELEMENTS[ielement][2] for ielement in elements]
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho_profile.shape, *t.shape)),
@@ -366,7 +364,7 @@ def test_impurity_concentration():
     flux_surfs.set_equilibrium(equilib)
 
     nominal_inputs = {
-        "element": "beryllium",
+        "element": "be",
         "Zeff_LoS": Zeff_LoS,
         "impurity_densities": impurity_densities,
         "electron_density": electron_density,
@@ -377,15 +375,15 @@ def test_impurity_concentration():
 
     nominal_output_checks(example_, nominal_inputs, 0.04)
 
-    nominal_inputs["element"] = "neon"
+    nominal_inputs["element"] = "ne"
 
     nominal_output_checks(example_, nominal_inputs, 0.04)
 
-    nominal_inputs["element"] = "nickel"
+    nominal_inputs["element"] = "ni"
 
     nominal_output_checks(example_, nominal_inputs, 1e-3)
 
-    nominal_inputs["element"] = "tungsten"
+    nominal_inputs["element"] = "w"
 
     nominal_output_checks(example_, nominal_inputs, 1e-4)
 
