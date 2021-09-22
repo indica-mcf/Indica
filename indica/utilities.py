@@ -9,6 +9,7 @@ from typing import Hashable
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -186,7 +187,7 @@ def broadcast_spline(
 def input_check(
     var_name: str,
     var_to_check,
-    var_type: type,
+    var_type: Union[type, Tuple[type, ...]],
     ndim_to_check: Optional[int] = None,
     greater_than_or_equal_zero: Optional[bool] = False,
 ):

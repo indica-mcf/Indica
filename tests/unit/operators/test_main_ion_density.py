@@ -105,14 +105,15 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
         rho,
     )
 
-    example_frac_abundance = FractionalAbundance(
-        SCD,
-        ACD,
-        input_Ne.isel(t=0),
-        input_Te.isel(t=0),
+    example_frac_abundance = FractionalAbundance(SCD, ACD)
+
+    example_frac_abundance.interpolate_rates(
+        Ne=input_Ne.isel(t=0), Te=input_Te.isel(t=0)
     )
 
-    F_z_tinf = example_frac_abundance.F_z_tinf
+    example_frac_abundance.calc_ionisation_balance_matrix(Ne=input_Ne.isel(t=0))
+
+    F_z_tinf = example_frac_abundance.calc_F_z_tinf()
 
     # ignore with mypy since this is testing and inputs are known
     F_z_tinf = F_z_tinf.expand_dims({"t": t.size}, axis=-1)  # type: ignore
