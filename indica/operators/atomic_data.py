@@ -1009,7 +1009,7 @@ class PowerLoss(Operator):
                 PLT[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
             )
             for icharge in range(1, self.num_of_ion_charges - 1):
-                cooling_factor[icharge, ix1] += (
+                cooling_factor[icharge, ix1] = (
                     PLT[icharge, ix1]
                     + (
                         (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
@@ -1022,7 +1022,7 @@ class PowerLoss(Operator):
                 ]  # type: ignore
 
             icharge = self.num_of_ion_charges - 1
-            cooling_factor[icharge, ix1] += (
+            cooling_factor[icharge, ix1] = (
                 (
                     (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
                     if (PRC is not None) and (Nh is not None)
@@ -1041,8 +1041,8 @@ class PowerLoss(Operator):
         self,
         Ne: DataArray,
         Te: DataArray,
+        F_z_t: DataArray,
         Nh: DataArray = None,
-        F_z_t: DataArray = None,
         full_run: bool = True,
     ):
         """Executes all functions in correct order to calculate the total radiated

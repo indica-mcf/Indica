@@ -281,7 +281,7 @@ class Exception_Power_Loss_Test_Case(unittest.TestCase):
         Ne, Te, Nh, F_z_t = inputs
 
         with self.assertRaises(TypeError):
-            self.PowerLossObj(Ne, Te, Nh, F_z_t, full_run=False)
+            self.PowerLossObj(Ne, Te, F_z_t, Nh, full_run=False)
 
     def call_value_check(self, Ne=None, Te=None, Nh=None, F_z_t=None):
         """Test value errors are raised for PowerLoss call."""
@@ -293,7 +293,7 @@ class Exception_Power_Loss_Test_Case(unittest.TestCase):
         Ne, Te, Nh, F_z_t = inputs
 
         with self.assertRaises(ValueError):
-            self.PowerLossObj(Ne, Te, Nh, F_z_t, full_run=False)
+            self.PowerLossObj(Ne, Te, F_z_t, Nh, full_run=False)
 
     def partial_input_value_check(self, Ne=None, Nh=None, F_z_t=None):
         nominal_inputs = [self.Ne, self.Nh, self.F_z_t]
@@ -371,8 +371,8 @@ def input_error_check(
     if func_name == "partial_powerloss_inputs":
         invalid_input_dict = {
             "Ne": {"Ne": invalid_input},
-            "Nh": {"Nh": invalid_input},
             "F_z_t": {"F_z_t": invalid_input},
+            "Nh": {"Nh": invalid_input},
         }.get(invalid_input_name)
 
         if invalid_input_dict:
@@ -411,8 +411,8 @@ def input_error_check(
         invalid_input_dict = {
             "Ne": {"Ne": invalid_input},
             "Te": {"Te": invalid_input},
-            "Nh": {"Nh": invalid_input},
             "F_z_t": {"F_z_t": invalid_input},
+            "Nh": {"Nh": invalid_input},
         }.get(invalid_input_name)
 
         if invalid_input_dict:
