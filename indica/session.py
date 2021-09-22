@@ -24,9 +24,9 @@ from xarray import Dataset
 from .utilities import positional_parameters
 
 if typing.TYPE_CHECKING:
-    from .readers import DataReader
     from .equilibrium import Equilibrium
     from .operators import Operator
+    from .readers import DataReader
 
 __author__ = "Marco Sertoli"
 __credits__ = ["Chris MacMackin", "Marco Sertoli"]
