@@ -251,6 +251,9 @@ class PPFReader(DataReader):
         z, z_path = self._get_signal(uid, instrument, "pos", revision)
         mass, m_path = self._get_signal(uid, instrument, "mass", revision)
         texp, t_path = self._get_signal(uid, instrument, "texp", revision)
+        atomic_num, atomic_num_path = self._get_signal(
+            uid, instrument, "zqnn", revision
+        )
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
         results["z"] = z.data[0, :]
@@ -258,7 +261,10 @@ class PPFReader(DataReader):
         results["element"] = [
             value[2]
             for value in ELEMENTS.values()
-            if value[1] == int(round(mass.data[0]))
+            if (
+                value[0] == int(atomic_num.data[0])
+                and value[1] == int(round(mass.data[0]))
+            )
         ][0]
         results["texp"] = texp.data
         results["times"] = None
