@@ -83,12 +83,7 @@ class MeanCharge(Operator):
 
         element_atomic_number = ELEMENTS[element][0]
 
-        ionisation_charges = np.linspace(
-            0,
-            element_atomic_number,
-            element_atomic_number + 1,  # type: ignore
-            dtype=int,
-        )
+        ionisation_charges = np.arange(0, element_atomic_number + 1)  # type: ignore
 
         try:
             assert ionisation_charges.shape[0] == FracAbundObj.shape[0]
