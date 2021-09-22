@@ -14,7 +14,8 @@ from hda.hdaworkflow import HDArun
 from hda.spline_profiles import Plasma_profs
 import hda.simple_profiles as profiles
 from hda.hdaadas import ADASReader
-from hda.forward_models import Spectrometer
+from hda.forward_models import Spectrometer as Spectrometer_old
+from hda.diagnostics.passive_spectrometer import Spectrometer as Spectrometer_new
 
 import xarray as xr
 from xarray import DataArray
@@ -24,14 +25,19 @@ plt.ion()
 
 
 class xrcs_tests:
-    def __init__(self):
+    def __init__(self, new=False):
         """
         Initialise forward models and profiles
         """
         adasreader = ADASReader()
-        self.xrcs = Spectrometer(
-            adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
-        )
+        if new:
+            self.xrcs = Spectrometer_new(
+                adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
+            )
+        else:
+            self.xrcs = Spectrometer_old(
+                adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
+            )
 
         t = np.linspace(0, 1, 50)
         te_0 = np.linspace(0.5e3, 5.0e3, 50)  # central temperature

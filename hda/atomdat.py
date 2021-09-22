@@ -57,6 +57,7 @@ def atomdat_files(element: str):
             "ccd": "89",
             "plt": "89",
             "prb": "89",
+            "prc": "89",
             "pec": {"16": ("llu", "transport")},
         },
         "mo": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
