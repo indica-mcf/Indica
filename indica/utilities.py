@@ -9,11 +9,14 @@ from typing import Hashable
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import numpy as np
 from scipy.interpolate import CubicSpline
 from xarray import apply_ufunc
 from xarray import DataArray
+from xarray.core.dataset import Dataset
+from xarray.core.variable import Variable
 
 from .numpy_typing import ArrayLike
 
@@ -179,3 +182,66 @@ def broadcast_spline(
             input_core_dims=[[]],
             output_core_dims=[spline_dims],
         ).assign_coords({k: v for k, v in spline_coords.items()})
+
+
+def input_check(
+    var_name: str,
+    var_to_check,
+    var_type: Union[type, Tuple[type, ...]],
+    ndim_to_check: Optional[int] = None,
+    greater_than_or_equal_zero: Optional[bool] = False,
+):
+    """Check validity of inputted variable - type check and
+    various value checks(no infinities, greather than (or equal to) 0 or NaNs)
+
+    Parameters
+    ----------
+    var_name
+        Name of variable to check.
+    var_to_check
+        Variable to check.
+    var_type
+        Type to check variable against, eg. DataArray
+    ndim_to_check
+            Integer to check the number of dimensions of the variable.
+    greater_than_or_equal_zero
+        Boolean to check values in variable > 0 or >= 0.
+    """
+
+    try:
+        assert isinstance(var_to_check, var_type)
+    except AssertionError:
+        raise TypeError(f"{var_name} must be of type {var_type}.")
+
+    # For some reason passing get_args(LabeledArray) to isinstance causes
+    # mypy to complain but giving it the constituent types(and np.ndarray) solves this.
+    # Guessing this is because LabeledArray isn't resolved/evaluated by mypy.
+    if isinstance(var_to_check, (float, int, DataArray, Dataset, Variable, np.ndarray)):
+        try:
+            assert np.all(np.logical_not(np.isnan(var_to_check)))
+        except AssertionError:
+            raise ValueError(f"{var_name} cannot contain any NaNs.")
+
+        try:
+            assert np.all(np.logical_not(np.isinf(np.abs(var_to_check))))
+        except AssertionError:
+            raise ValueError(f"{var_name} cannot contain any infinities.")
+
+        if not greater_than_or_equal_zero:
+            try:
+                assert np.all(var_to_check > 0)
+            except AssertionError:
+                raise ValueError(
+                    f"Cannot have any negative or zero values in {var_name}"
+                )
+        else:
+            try:
+                assert np.all(var_to_check >= 0)
+            except AssertionError:
+                raise ValueError(f"Cannot have any negative values in {var_name}")
+
+    if ndim_to_check is not None and isinstance(var_to_check, (np.ndarray, DataArray)):
+        try:
+            assert var_to_check.ndim == ndim_to_check
+        except AssertionError:
+            raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")

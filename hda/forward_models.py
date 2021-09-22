@@ -167,7 +167,7 @@ class Spectrometer:
         """
 
         # Initialize variables
-        time = electron_temperature.coords["t"]
+        time = electron_temperature.coords["t"].values
 
         # TODO: calculate rho along LOS here if not given in input
         if self.geometry is not None:

@@ -23,6 +23,7 @@ def build_profile(
     default=None,
     plot=False,
     coord="rho_poloidal",
+    name="",
 ):
     """
 
@@ -98,7 +99,10 @@ def build_profile(
 
     result = DataArray(yspl, coords=[(coord, xspl)])
 
+    result.name = name
+
     return result, params
+
 
 def get_defaults(default):
 
