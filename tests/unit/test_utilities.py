@@ -1,6 +1,7 @@
 """Test the contents of the utilities module."""
 
 import re
+import unittest
 
 from hypothesis import assume
 from hypothesis import example
@@ -159,3 +160,45 @@ def test_broadcast_spline_old_coord():
     result = utilities.broadcast_spline(spline, spline_dims, spline_coords, x_interp)
     assert_allclose(result, func_3d(x_interp, x_interp.y, t))
     assert result.dims == ("y", "t")
+
+
+class Compatible_Input_Type_Test_Case(unittest.TestCase):
+    def __init__(self):
+        self.Ne = np.logspace(19.0, 16.0, 10)
+
+    def type_check(self):
+        with self.assertRaises(TypeError):
+            utilities.input_check("Ne", self.Ne, str)
+
+    def value_check(self):
+        Ne = 0 * self.Ne
+        with self.assertRaises(ValueError):
+            utilities.input_check(
+                "Ne", Ne, np.ndarray, greater_than_or_equal_zero=False
+            )
+
+        Ne = -1 * self.Ne
+        with self.assertRaises(ValueError):
+            utilities.input_check("Ne", Ne, np.ndarray, greater_than_or_equal_zero=True)
+
+        Ne = np.nan * self.Ne
+        with self.assertRaises(ValueError):
+            utilities.input_check("Ne", Ne, np.ndarray)
+
+        Ne = np.inf * self.Ne
+        with self.assertRaises(ValueError):
+            utilities.input_check("Ne", Ne, np.ndarray)
+
+        Ne = -np.inf * self.Ne
+        with self.assertRaises(ValueError):
+            utilities.input_check("Ne", Ne, np.ndarray)
+
+        Ne = self.Ne[:, np.newaxis]
+        with self.assertRaises(ValueError):
+            utilities.input_check("Ne", Ne, np.ndarray, ndim_to_check=True)
+
+
+def test_compatible_input_type():
+    compatible_input_type = Compatible_Input_Type_Test_Case()
+    compatible_input_type.type_check()
+    compatible_input_type.value_check()
