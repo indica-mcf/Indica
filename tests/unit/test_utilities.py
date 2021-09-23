@@ -195,7 +195,32 @@ class Compatible_Input_Type_Test_Case(unittest.TestCase):
 
         Ne = self.Ne[:, np.newaxis]
         with self.assertRaises(ValueError):
-            utilities.input_check("Ne", Ne, np.ndarray, ndim_to_check=True)
+            utilities.input_check("Ne", Ne, np.ndarray, ndim_to_check=1)
+
+        # Check dropped channel handling
+        t = np.array([78.5, 80.5, 82.5])
+        rho = np.linspace(0, 1, 11)
+        Ne = np.logspace(19.0, 16.0, 11)
+        Ne = np.tile(Ne, [3, 1])
+        Ne[1, :] /= 10.0
+        Ne[2, :] *= 10.0
+
+        dropped_t_coord = np.array([80.5])
+        dropped_rho_coord = np.array([rho[3], rho[7]])
+
+        Ne = DataArray(data=Ne, coords=[("t", t), ("rho", rho)], dims=["t", "rho"])
+
+        dropped = Ne.sel({"t": dropped_t_coord})
+        dropped = dropped.sel({"rho": dropped_rho_coord})
+
+        Ne.loc[{"t": dropped_t_coord, "rho": dropped_rho_coord}] = np.nan
+
+        Ne.attrs["dropped"] = dropped
+
+        try:
+            utilities.input_check("Ne", Ne, DataArray, ndim_to_check=2)
+        except Exception as e:
+            raise e
 
 
 def test_compatible_input_type():
