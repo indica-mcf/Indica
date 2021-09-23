@@ -1,5 +1,6 @@
 """Various miscellanious helper functions."""
 
+from copy import deepcopy
 import inspect
 import string
 from typing import Any
@@ -217,31 +218,45 @@ def input_check(
     # mypy to complain but giving it the constituent types(and np.ndarray) solves this.
     # Guessing this is because LabeledArray isn't resolved/evaluated by mypy.
     if isinstance(var_to_check, (float, int, DataArray, Dataset, Variable, np.ndarray)):
+
+        # Handles dropped channels, if present
+        sliced_var_to_check = deepcopy(var_to_check)
+        if (
+            isinstance(var_to_check, (DataArray, Dataset))
+            and "dropped" in var_to_check.attrs
+        ):
+            dropped_coords = var_to_check.attrs["dropped"].coords
+            for icoord in dropped_coords.keys():
+                dropped_coord = dropped_coords[icoord]
+                sliced_var_to_check = var_to_check.drop_sel({icoord: dropped_coord})
+
         try:
-            assert np.all(np.logical_not(np.isnan(var_to_check)))
+            assert np.all(np.logical_not(np.isnan(sliced_var_to_check)))
         except AssertionError:
             raise ValueError(f"{var_name} cannot contain any NaNs.")
 
         try:
-            assert np.all(np.logical_not(np.isinf(np.abs(var_to_check))))
+            assert np.all(np.logical_not(np.isinf(np.abs(sliced_var_to_check))))
         except AssertionError:
             raise ValueError(f"{var_name} cannot contain any infinities.")
 
         if not greater_than_or_equal_zero:
             try:
-                assert np.all(var_to_check > 0)
+                assert np.all(sliced_var_to_check > 0)
             except AssertionError:
                 raise ValueError(
                     f"Cannot have any negative or zero values in {var_name}"
                 )
         else:
             try:
-                assert np.all(var_to_check >= 0)
+                assert np.all(sliced_var_to_check >= 0)
             except AssertionError:
                 raise ValueError(f"Cannot have any negative values in {var_name}")
 
-    if ndim_to_check is not None and isinstance(var_to_check, (np.ndarray, DataArray)):
+    if ndim_to_check is not None and isinstance(
+        sliced_var_to_check, (np.ndarray, DataArray)
+    ):
         try:
-            assert var_to_check.ndim == ndim_to_check
+            assert sliced_var_to_check.ndim == ndim_to_check
         except AssertionError:
             raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
