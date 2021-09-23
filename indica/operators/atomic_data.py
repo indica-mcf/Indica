@@ -117,6 +117,7 @@ class FractionalAbundance(Operator):
         ACD: DataArray,
         CCD: DataArray = None,
         sess: session.Session = session.global_session,
+        check_input=True,
     ):
         """Initialises FractionalAbundance class and additionally performs error
         checking on imported data (SCD, ACD and CCD).
@@ -137,10 +138,10 @@ class FractionalAbundance(Operator):
         if self.CCD is not None:
             imported_data["CCD"] = self.CCD
 
-        for ikey, ival in imported_data.items():
-            input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
-
-        shape_check(imported_data)
+        if check_input:
+            for ikey, ival in imported_data.items():
+                input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
+            shape_check(imported_data)
 
     def interpolation_bounds_check(
         self,
@@ -627,7 +628,7 @@ class FractionalAbundance(Operator):
         Ne: DataArray,
         Te: DataArray,
         Nh: DataArray = None,
-        tau: LabeledArray = 1e3,
+        tau: LabeledArray = None,
         F_z_t0: DataArray = None,
         full_run: bool = True,
     ) -> DataArray:
@@ -667,6 +668,10 @@ class FractionalAbundance(Operator):
             self.calc_ionisation_balance_matrix(Ne, Nh)
 
             self.calc_F_z_tinf()
+
+            if tau is None:
+                self.F_z_t = np.real(self.F_z_tinf)
+                return self.F_z_t
 
             self.calc_eigen_vals_and_vecs()
 
