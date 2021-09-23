@@ -170,7 +170,11 @@ class Operator(ABC):
             )
             raise OperatorError(message)
         else:
-            iterator = zip(args, self.ARGUMENT_TYPES)
+            # MyPy complaining since iterator is set to type zip_longest earlier in the
+            # code, and is set to type zip here even though the two assignments are in
+            # two mutually exclusive branches!(if-else branches not git branches)
+            # Ignoring for now.
+            iterator = zip(args, self.ARGUMENT_TYPES)  # type: ignore
         for i, (arg, expected) in enumerate(iterator):
             if isinstance(arg, DataArray):
                 datatype = arg.attrs["datatype"]
