@@ -255,11 +255,12 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     example_frac_abundance = FractionalAbundance(
         SCD,
         ACD,
-        input_Ne,
-        input_Te,
     )
 
-    F_z_tinf = example_frac_abundance.F_z_tinf
+    example_frac_abundance.interpolate_rates(Ne=input_Ne, Te=input_Te)
+    example_frac_abundance.calc_ionisation_balance_matrix(Ne=input_Ne)
+
+    F_z_tinf = example_frac_abundance.calc_F_z_tinf()
 
     # ignore with mypy since this is testing and inputs are known
     F_z_tinf = F_z_tinf.expand_dims({"t": t.size}, axis=-1)  # type: ignore

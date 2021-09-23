@@ -86,9 +86,19 @@ def test_mean_charge():
         rho,
     )
 
-    example_frac_abundance = FractionalAbundance(
-        SCD, ACD, input_Ne.isel(t=0), input_Te.isel(t=0)
+    example_frac_abundance = FractionalAbundance(SCD, ACD)
+
+    example_frac_abundance.interpolate_rates(
+        Ne=input_Ne.isel(t=0), Te=input_Te.isel(t=0)
     )
+
+    example_frac_abundance.calc_ionisation_balance_matrix(Ne=input_Ne.isel(t=0))
+
+    example_frac_abundance.calc_F_z_tinf()
+
+    example_frac_abundance.calc_eigen_vals_and_vecs()
+
+    example_frac_abundance.calc_eigen_coeffs()
 
     F_z_t0 = np.real(example_frac_abundance.F_z_t0)
     F_z_t0 = F_z_t0.expand_dims("t", axis=-1)
