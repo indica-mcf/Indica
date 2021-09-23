@@ -22,6 +22,7 @@ from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 from hypothesis.strategies import times
 import numpy as np
+from numpy.testing._private.utils import assert_raises
 import prov.model as prov
 
 from indica.datatypes import ADF11_GENERAL_DATATYPES
@@ -302,3 +303,22 @@ def test_read_adf11(reader, data_file, element, year):
     assert data.name == result.name
     assert data.attrs["datatype"] == result.attrs["datatype"]
     assert result.attrs["provenance"] == reader.create_provenance.return_value
+
+
+def test_read_invalid_adf11():
+    reader = ADASReader(Path("tests/unit/readers/invalid_adf11_file.dat"), MagicMock())
+
+    quantity = "scd"
+
+    # The following check is not strictly necessary but is included in case
+    # ADF11_GENERAL_DATATYPES is changed in the future to exclude "scd" for some reason.
+    try:
+        _ = ADF11_GENERAL_DATATYPES[quantity]
+    except Exception as e:
+        raise e
+
+    with assert_raises(AssertionError):
+        invalid_file_name = Path("tests/unit/readers/invalid_adf11_file.dat")
+        with open(invalid_file_name, "r") as invalid_file:
+            reader._get_file = MagicMock(return_value=invalid_file)
+            _ = reader.get_adf11(quantity, "he", "89", invalid_file_name)
