@@ -20,10 +20,38 @@ def atomdat_files(element: str):
 
     """
     all_files = {
-        "h": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96", "prc": "96"},
-        "he": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96", "prc": "96"},
-        "li": {"scd": "96", "acd": "96", "ccd": "89", "plt": "96", "prb": "96", "prc": "96"},
-        "b": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89", "prc": "89"},
+        "h": {
+            "scd": "96",
+            "acd": "96",
+            "ccd": "96",
+            "plt": "96",
+            "prb": "96",
+            "prc": "96",
+        },
+        "he": {
+            "scd": "96",
+            "acd": "96",
+            "ccd": "96",
+            "plt": "96",
+            "prb": "96",
+            "prc": "96",
+        },
+        "li": {
+            "scd": "96",
+            "acd": "96",
+            "ccd": "89",
+            "plt": "96",
+            "prb": "96",
+            "prc": "96",
+        },
+        "b": {
+            "scd": "89",
+            "acd": "89",
+            "ccd": "89",
+            "plt": "89",
+            "prb": "89",
+            "prc": "89",
+        },
         "c": {
             "scd": "96",
             "acd": "96",
@@ -33,7 +61,14 @@ def atomdat_files(element: str):
             "prc": "96",
             "pec": {"5": ("bnd", "96")},  # charge, file_type, year_identifier
         },
-        "n": {"scd": "96", "acd": "96", "ccd": "96", "plt": "96", "prb": "96", "prc": "96"},
+        "n": {
+            "scd": "96",
+            "acd": "96",
+            "ccd": "96",
+            "plt": "96",
+            "prb": "96",
+            "prc": "96",
+        },
         "o": {
             "scd": "96",
             "acd": "96",
@@ -48,9 +83,6 @@ def atomdat_files(element: str):
         "na": {"scd": "85", "acd": "85"},
         "al": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
         "cl": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
-        "cr": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
-        "fe": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
-        "ni": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
         "ar": {
             "scd": "89",
             "acd": "89",
@@ -58,8 +90,19 @@ def atomdat_files(element: str):
             "plt": "89",
             "prb": "89",
             "prc": "89",
-            "pec": {"16": ("llu", "transport")},
+            "pec": {"16": ("llu", "transport"), "17": ("ic", "40")},
         },
+        "cr": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
+        "fe": {
+            "scd": "89",
+            "acd": "89",
+            "ccd": "89",
+            "plt": "89",
+            "prb": "89",
+            "prc": "89",
+            "pec": {"24": ("llu", "transport")},
+        },
+        "ni": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
         "mo": {"scd": "89", "acd": "89", "ccd": "89", "plt": "89", "prb": "89"},
     }
 
@@ -147,7 +190,7 @@ def fractional_abundance(
     h_dens=[None],
     gen_type="fractional_abundance",
     element="",
-) :
+):
     """Returns the equilibrium fractional abundance given ionization, recombination
     and charge exchange rates from ADAS adf11 files. Rate variables must be 1d (ion_charges) or
     2d (ion_charges, electron_temperature)
@@ -251,7 +294,7 @@ def radiated_power(
     fz,
     gen_type="radiated_power",
     element="",
-) :
+):
     """Returns the radiated power (W m**-3) of all ionization stages, given the
     fractional abundance, line and recombination rates read from ADAS adf11
     files. Input coefficients must be either 1d (ion_charges) or
