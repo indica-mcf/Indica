@@ -11,7 +11,7 @@ from xarray import DataArray
 import matplotlib.cm as cm
 
 import hda.simple_profiles as profiles
-from hda.hdaadas import ADASReader
+from indica.readers import ADASReader
 from hda.diagnostics.passive_spectrometer import Spectrometer
 
 plt.ion()
@@ -36,13 +36,23 @@ class xrcs_tests:
 
     def h_like_ar(self):
         self.name = "H-like Ar"
+        # Lyman alpha 1
         self.xrcs = Spectrometer(
             self.adasreader,
             "ar",
             "17",
-            transition="4(2)1(1.5)-1(2)0(0.5)",
+            transition="(2)1(1.5)-(2)0(0.5)",
             wavelength=3.73003,
         )
+
+        # Lyman alpha 2
+        # self.xrcs = Spectrometer(
+        #     self.adasreader,
+        #     "ar",
+        #     "17",
+        #     transition="(2)1(0.5)-(2)0(0.5)",
+        #     wavelength=3.73518,
+        # )
 
     def he_like_fe(self):
         self.name = "He-like Fe"
@@ -50,7 +60,7 @@ class xrcs_tests:
             self.adasreader,
             "fe",
             "24",
-            transition="7(1)1(1.0)-1(1)0(0.0)",
+            transition="(1)1(1.0)-(1)0(0.0)",
             wavelength=1.8,
         )
 
@@ -58,6 +68,9 @@ class xrcs_tests:
         self,
         plot=False,
     ):
+
+        # self.he_like_ar()
+        self.he_like_fe()
 
         self.set_parameters()
         Ne, Te, Ti, Nh = self.set_profiles(plot=plot)
@@ -220,7 +233,6 @@ class xrcs_tests:
         # Set of possible electron density profiles
         wped, wcenter, Ne_peaking = profiles.get_defaults("density")
         Ne_peaking *= Ne_peaking_mult
-
         Ne, _ = profiles.build_profile(
             Ne_0 / Ne_peaking,
             Ne_1,
@@ -233,7 +245,6 @@ class xrcs_tests:
         # Set of possible electron temperature profile shapes
         wped, wcenter, Te_peaking = profiles.get_defaults("temperature")
         Te_peaking *= Te_peaking_mult
-
         Te_tmp = []
         for Te0 in Te_0:
             tmp, _ = profiles.build_profile(
@@ -292,11 +303,16 @@ class xrcs_tests:
             plt.yscale("log")
 
             plt.figure()
+            alpha = [1, 0.5]
             Te.sel(Te_0=500.0, method="nearest").plot(
-                marker="o", linestyle="solid", color="black", label="electrons"
+                marker="o",
+                linestyle="solid",
+                color="black",
+                label="electrons",
+                alpha=alpha,
             )
             Te.sel(Te_0=1500.0, method="nearest").plot(
-                marker="o", linestyle="dashed", color="red"
+                marker="o", linestyle="dashed", color="red", alpha=alpha
             )
             plt.plot(
                 Ti.rho_poloidal,

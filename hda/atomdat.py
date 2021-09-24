@@ -164,20 +164,18 @@ def get_atomdat(
             "\n File format not supported... \n"
 
     if "pec" in atomdat.keys() and transition is not None:
-        atomdat["pec"] = (
-            atomdat["pec"]
-            .swap_dims({"index": "transition"})
-            .sel(transition=transition, drop=True)
-        )
-        if "transition" in atomdat["pec"].dims:
-            atomdat["pec"] = atomdat["pec"].swap_dims({"transition": "index"})
+        dim = [d for d in atomdat["pec"].dims if d != 'electron_temperature' and d != 'electron_density'][0]
+        if dim != "transition":
+            atomdat["pec"] = atomdat["pec"].swap_dims({dim:"transition"})
+        atomdat["pec"] = atomdat["pec"].sel(transition=transition, drop=True)
+
     if wavelength is not None:
+        dim = [d for d in atomdat["pec"].dims if d != 'electron_temperature' and d != 'electron_density'][0]
+        if dim != "wavelength":
+            atomdat["pec"] = atomdat["pec"].swap_dims({dim: "wavelength"})
+
         if len(np.unique(atomdat["pec"].coords["wavelength"].values)) > 1:
-            atomdat["pec"] = (
-                atomdat["pec"]
-                .swap_dims({"index": "wavelength"})
-                .sel(wavelength=wavelength, method="nearest", drop=True)
-            )
+            atomdat["pec"] = atomdat["pec"].sel(wavelength=wavelength, drop=True)
 
     return files, atomdat
 
