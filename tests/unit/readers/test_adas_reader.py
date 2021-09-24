@@ -306,7 +306,7 @@ def test_read_adf11(reader, data_file, element, year):
 
 
 def test_read_invalid_adf11():
-    reader = ADASReader(Path("tests/unit/readers/invalid_adf11_file.dat"), MagicMock())
+    reader = ADASReader("", MagicMock())
 
     quantity = "scd"
 
@@ -321,4 +321,4 @@ def test_read_invalid_adf11():
         invalid_file_name = Path("tests/unit/readers/invalid_adf11_file.dat")
         with open(invalid_file_name, "r") as invalid_file:
             reader._get_file = MagicMock(return_value=invalid_file)
-            _ = reader.get_adf11(quantity, "he", "89", invalid_file_name)
+            _ = reader.get_adf11(quantity, "he", "89")

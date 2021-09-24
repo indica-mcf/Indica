@@ -76,9 +76,7 @@ class ADASReader(BaseIO):
         need to do anything."""
         pass
 
-    def get_adf11(
-        self, quantity: str, element: str, year: str, filename: Path = None
-    ) -> DataArray:
+    def get_adf11(self, quantity: str, element: str, year: str) -> DataArray:
         """Read data from the specified ADAS file.
 
         Parameters
@@ -90,8 +88,6 @@ class ADASReader(BaseIO):
             The atomic symbol for the element which will be retrieved.
         year
             The two-digit year label for the data.
-        filename
-            Name of file to retrieve. (Optional)
 
         Returns
         -------
@@ -103,11 +99,8 @@ class ADASReader(BaseIO):
         """
         now = datetime.datetime.now()
         file_component = f"{quantity}{year}"
-        if filename is None:
-            filename = Path(file_component) / f"{file_component}_{element.lower()}.dat"
-
-        # Need to re-cast filename to Path() due to mypy complaints.
-        with self._get_file("adf11", Path(filename)) as f:
+        filename = Path(file_component) / f"{file_component}_{element.lower()}.dat"
+        with self._get_file("adf11", filename) as f:
             header = f.readline().split()
             z = int(header[0])
             nd = int(header[1])
