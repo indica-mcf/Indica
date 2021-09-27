@@ -70,7 +70,8 @@ class xrcs_tests:
     ):
 
         # self.he_like_ar()
-        self.he_like_fe()
+        self.h_like_ar()
+        # self.he_like_fe()
 
         self.set_parameters()
         Ne, Te, Ti, Nh = self.set_profiles(plot=plot)
@@ -157,7 +158,7 @@ class xrcs_tests:
             name="Ionisation balance",
         )
 
-        niter = Nh.Nh_1.size * Te.Te_0.size
+        niter = Nh.Nh_1.size * Te.Te_0.size * Ti.Ti_0.size
         iteration = 0
         for inh, nh1 in enumerate(Nh.Nh_1):
             iteration += inh
@@ -303,16 +304,14 @@ class xrcs_tests:
             plt.yscale("log")
 
             plt.figure()
-            alpha = [1, 0.5]
             Te.sel(Te_0=500.0, method="nearest").plot(
                 marker="o",
                 linestyle="solid",
                 color="black",
                 label="electrons",
-                alpha=alpha,
             )
             Te.sel(Te_0=1500.0, method="nearest").plot(
-                marker="o", linestyle="dashed", color="red", alpha=alpha
+                marker="o", linestyle="dashed", color="red"
             )
             plt.plot(
                 Ti.rho_poloidal,

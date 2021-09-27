@@ -280,6 +280,7 @@ class ADASReader(BaseIO):
             wavelength = np.empty(ntrans)
 
             # Read Photon Emissivity Coefficient rates
+            data = []
             for i in range(ntrans):
                 m = header_re.search(line)
                 assert isinstance(m, re.Match)
@@ -287,10 +288,15 @@ class ADASReader(BaseIO):
                 tindex[i] = i + 1
                 ttype.append(m.group(4))
                 wavelength[i] = float(m.group(1))  # (Angstroms)
+
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
-                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+                data.append(read_lines(f, nd, nt))
+                # data[i, ...] = read_lines(f, nd, nt).reshape((nt, nd))
+                # data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
                 line = f.readline().strip().lower()
+
+            data = np.transpose(np.array(data), (0, 2, 1))
 
             # Read Transition information from end of file
             file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
@@ -412,3 +418,15 @@ class ADASReader(BaseIO):
     def requires_authentication(self) -> Literal[False]:
         """Reading ADAS data never requires authentication."""
         return False
+
+
+def read_lines(f, nd, nt):
+    data = np.empty((nd, nt))
+    for id in range(nd):
+        data_tmp = []
+        while len(data_tmp) < nt:
+            line = list(map(float, f.readline().split()))
+            data_tmp.extend(line)
+        data[id, :] = np.array(data_tmp)
+
+    return data
