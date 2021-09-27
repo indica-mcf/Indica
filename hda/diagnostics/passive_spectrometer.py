@@ -69,8 +69,7 @@ class Spectrometer:
         wavelength=None,
         name="",
         recom=False,
-        geometry=None,
-        calc_defaults=False
+        defaults=False
     ):
         self.reader = reader
         self.name = name
@@ -80,7 +79,6 @@ class Spectrometer:
         self.charge = int(m.group(1))
         self.transition = transition
         self.wavelength = wavelength
-        self.geometry = geometry
 
         # Read all available atomic data
         files, atomdat = get_atomdat(
@@ -104,34 +102,49 @@ class Spectrometer:
 
         # Calculate ionization balance end emission characteristics
         # in local ionization equilibrium using standard Te
-        if calc_defaults:
-            Te = 50 + np.linspace(1, 0, 50)**1.5 * (10.0e3 - 50)
-            rho = np.linspace(0.0, 1.0, Te.size)
-            Te = DataArray(
-                Te,
-                coords={"rho_poloidal": rho},
-                dims=["rho_poloidal"],
-            )
-            Ne = DataArray(
-                xr.full_like(Te, 5.0e19).values,
-                coords={"rho_poloidal": rho},
-                dims=["rho_poloidal"],
-            )
-            Nh = DataArray(
-                rho ** 6 * (1.e15 - 1.e11) + 1.e11,
-                coords={"rho_poloidal": rho},
-                dims=["rho_poloidal"],
-            )
+        if defaults:
+           calc_defaults()
 
-            fz, emiss, lz_tot = self.radiation_characteristics(
-                Te, Ne, Nh=Nh, recom=recom
-            )
-            self.atomdat["fz"] = xr.where(np.isnan(fz), 0, fz)
-            self.atomdat["emiss"] = xr.where(np.isnan(emiss), 0, emiss)
-            self.atomdat["lz_tot"] = xr.where(np.isnan(lz_tot), 0, lz_tot)
+    def calc_defaults(self):
+        Te = 50 + np.linspace(1, 0, 50)**1.5 * (10.0e3 - 50)
+        rho = np.linspace(0.0, 1.0, Te.size)
+        Te = DataArray(
+            Te,
+            coords={"rho_poloidal": rho},
+            dims=["rho_poloidal"],
+        )
+        Ne = DataArray(
+            xr.full_like(Te, 5.0e19).values,
+            coords={"rho_poloidal": rho},
+            dims=["rho_poloidal"],
+        )
+        Nh = DataArray(
+            rho ** 6 * (1.e15 - 1.e11) + 1.e11,
+            coords={"rho_poloidal": rho},
+            dims=["rho_poloidal"],
+        )
+
+        fz, emiss, lz_tot = self.radiation_characteristics(
+            Te, Ne, Nh=Nh, recom=recom
+        )
+        fz = fz.assign_coords(electron_temperature=("rho_poloidal", Te))
+        fz = fz.assign_coords(electron_density=("rho_poloidal", Ne))
+        fz = fz.assign_coords(neutral_density=("rho_poloidal", Nh))
+
+        emiss = emiss.assign_coords(electron_temperature=("rho_poloidal", Te))
+        emiss = emiss.assign_coords(electron_density=("rho_poloidal", Ne))
+        emiss = emiss.assign_coords(neutral_density=("rho_poloidal", Nh))
+
+        lz_tot = lz_tot.assign_coords(electron_temperature=("rho_poloidal", Te))
+        lz_tot = lz_tot.assign_coords(electron_density=("rho_poloidal", Ne))
+        lz_tot = lz_tot.assign_coords(neutral_density=("rho_poloidal", Nh))
+
+        self.atomdat["fz"] = xr.where(np.isnan(fz), 0, fz)
+        self.atomdat["emiss"] = xr.where(np.isnan(emiss), 0, emiss)
+        self.atomdat["lz_tot"] = xr.where(np.isnan(lz_tot), 0, lz_tot)
 
     def radiation_characteristics(
-        self, Te, Ne, Nh=None, tau=None, recom=False, attrs=False,
+        self, Te, Ne, Nh=None, tau=None, recom=False,
     ):
         """
 
@@ -210,6 +223,10 @@ class Spectrometer:
             f"{self.element}{self.charge}+ " f"{self.wavelength} A emission region"
         )
         emiss = xr.where(emiss >= 0, emiss, 0)
+
+        emiss = emiss.assign_coords(electron_temperature=("rho_poloidal", Te))
+        emiss = emiss.assign_coords(electron_density=("rho_poloidal", Ne))
+        emiss = emiss.assign_coords(neutral_density=("rho_poloidal", Nh))
 
         return fz, emiss, lz_tot
 
