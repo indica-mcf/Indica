@@ -189,6 +189,17 @@ class ADASReader(BaseIO):
 
         """
 
+        def read_lines(f, nd, nt):
+            data = np.empty((nd, nt))
+            for id in range(nd):
+                data_tmp = []
+                while len(data_tmp) < nt:
+                    line = list(map(float, f.readline().split()))
+                    data_tmp.extend(line)
+                data[id, :] = np.array(data_tmp)
+
+            return data
+
         def build_file_component(year, element):
             file_component = "transport"
             if year != "transport":
@@ -274,12 +285,12 @@ class ADASReader(BaseIO):
             assert isinstance(m, re.Match)
             nd = int(m.group(2))
             nt = int(m.group(3))
-            data = np.empty((ntrans, nt, nd))
             ttype: List[str] = []
             tindex = np.empty(ntrans)
             wavelength = np.empty(ntrans)
 
             # Read Photon Emissivity Coefficient rates
+            data = []
             for i in range(ntrans):
                 m = header_re.search(line)
                 assert isinstance(m, re.Match)
@@ -287,10 +298,13 @@ class ADASReader(BaseIO):
                 tindex[i] = i + 1
                 ttype.append(m.group(4))
                 wavelength[i] = float(m.group(1))  # (Angstroms)
+
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
-                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+                data.append(read_lines(f, nd, nt))
                 line = f.readline().strip().lower()
+
+            data = np.transpose(np.array(data), (0, 2, 1))
 
             # Read Transition information from end of file
             file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
@@ -324,21 +338,14 @@ class ADASReader(BaseIO):
             "provenance": self.create_provenance(filename, now),
         }
 
-        if nd == nt:
-            coords = [
-                ("index", tindex),
-                ("electron_density", densities * 10 ** 6),  # m**-3
-                ("electron_temperature", temperatures),  # eV
-            ]
-        else:
-            coords = [
-                ("index", tindex),
-                ("electron_temperature", temperatures),  # eV
-                ("electron_density", densities * 10 ** 6),  # m**-3
-            ]
+        coords = [
+            ("index", tindex),
+            ("electron_temperature", temperatures),  # eV
+            ("electron_density", densities * 10 ** 6),  # m**-3
+        ]
 
         pecs = DataArray(
-            data * 10 ** -6,
+            np.array(data) * 10 ** -6,
             coords=coords,
             name=name,
             attrs=attrs,
