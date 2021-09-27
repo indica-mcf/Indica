@@ -69,16 +69,19 @@ class xrcs_tests:
         plot=False,
     ):
 
-        # self.he_like_ar()
-        self.h_like_ar()
+        self.he_like_ar()
+        # self.h_like_ar()
         # self.he_like_fe()
 
         self.set_parameters()
         Ne, Te, Ti, Nh = self.set_profiles(plot=plot)
+        result_broad = self.simulate_measurements(Ne, Te, Ti, Nh)
 
-        result = self.simulate_measurements(Ne, Te, Ti, Nh)
+        self.set_parameters(Te_peaking_mult=1.5)
+        Ne, Te, Ti, Nh = self.set_profiles(plot=plot)
+        result_peaked = self.simulate_measurements(Ne, Te, Ti, Nh)
 
-        return result
+        return result_broad, result_peaked
 
     def set_parameters(
         self,
