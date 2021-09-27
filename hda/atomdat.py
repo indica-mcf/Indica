@@ -169,13 +169,15 @@ def get_atomdat(
             atomdat["pec"] = atomdat["pec"].swap_dims({dim:"transition"})
         atomdat["pec"] = atomdat["pec"].sel(transition=transition, drop=True)
 
-    if wavelength is not None:
+    if wavelength is not None and len(np.unique(atomdat["pec"].coords["wavelength"].values)) > 1:
         dim = [d for d in atomdat["pec"].dims if d != 'electron_temperature' and d != 'electron_density'][0]
         if dim != "wavelength":
             atomdat["pec"] = atomdat["pec"].swap_dims({dim: "wavelength"})
 
-        if len(np.unique(atomdat["pec"].coords["wavelength"].values)) > 1:
+        try:
             atomdat["pec"] = atomdat["pec"].sel(wavelength=wavelength, drop=True)
+        except KeyError:
+            atomdat["pec"] = atomdat["pec"].sel(wavelength=wavelength, method="nearest", drop=True)
 
     return files, atomdat
 
