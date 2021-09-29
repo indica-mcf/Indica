@@ -189,14 +189,11 @@ class ADASReader(BaseIO):
 
         """
 
-        def read_lines(f, nd, nt):
+        def explicit_reshape(data_to_reshape, nd, nt):
             data = np.empty((nd, nt))
             for id in range(nd):
-                data_tmp = []
-                while len(data_tmp) < nt:
-                    line = list(map(float, f.readline().split()))
-                    data_tmp.extend(line)
-                data[id, :] = np.array(data_tmp)
+                for it in range(nt):
+                    data[id, it] = data_to_reshape[id * nt + it]
 
             return data
 
@@ -290,7 +287,7 @@ class ADASReader(BaseIO):
             wavelength = np.empty(ntrans)
 
             # Read Photon Emissivity Coefficient rates
-            data = []
+            data = np.empty((ntrans, nd, nt))
             for i in range(ntrans):
                 m = header_re.search(line)
                 assert isinstance(m, re.Match)
@@ -301,7 +298,8 @@ class ADASReader(BaseIO):
 
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
-                data.append(read_lines(f, nd, nt))
+                data_tmp = np.fromfile(f, float, nd * nt, " ")
+                data[i, :, :] = explicit_reshape(data_tmp, nd, nt)
                 line = f.readline().strip().lower()
 
             data = np.transpose(np.array(data), (0, 2, 1))
@@ -345,7 +343,7 @@ class ADASReader(BaseIO):
         ]
 
         pecs = DataArray(
-            np.array(data) * 10 ** -6,
+            data * 10 ** -6,
             coords=coords,
             name=name,
             attrs=attrs,
