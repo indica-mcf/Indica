@@ -132,7 +132,7 @@ class ExtrapolateImpurityDensity(Operator):
             "impurity_density_sxr",
             impurity_density_sxr,
             DataArray,
-            ndim_to_check=3,
+            ndim_to_check=2,
             greater_than_or_equal_zero=True,
         )
 
@@ -170,7 +170,7 @@ class ExtrapolateImpurityDensity(Operator):
         boundary_electron_density = electron_density.sel({"rho": threshold_rho})
         boundary_impurity_density_sxr = impurity_density_sxr.sel({"rho": threshold_rho})
 
-        discontinuity_scale = boundary_impurity_density_sxr - boundary_electron_density
+        discontinuity_scale = boundary_impurity_density_sxr / boundary_electron_density
         discontinuity_scale = discontinuity_scale.data[0, 0]
 
         # Continue impurity_density_sxr following the shape of the electron density
@@ -186,7 +186,7 @@ class ExtrapolateImpurityDensity(Operator):
         extrapolated_impurity_density = concat(
             (
                 bounded_impurity_density_sxr,
-                bounded_electron_density + discontinuity_scale,
+                bounded_electron_density * discontinuity_scale,
             ),
             dim="rho",
         )
