@@ -18,8 +18,7 @@ from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
 from ..datatypes import ADF15_GENERAL_DATATYPES
-from ..datatypes import ORDERED_ELEMENTS
-
+from ..datatypes import ELEMENTS
 
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")
@@ -109,7 +108,6 @@ class ADASReader(BaseIO):
             zmin = int(header[3]) - 1
             zmax = int(header[4]) - 1
             element_name = header[5][1:].lower()
-            assert ORDERED_ELEMENTS.index(element_name) == z
             f.readline()
             densities = np.fromfile(f, float, nd, " ")
             temperatures = np.fromfile(f, float, nt, " ")
@@ -133,7 +131,17 @@ class ADASReader(BaseIO):
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
         gen_type = ADF11_GENERAL_DATATYPES[quantity]
-        spec_type = ORDERED_ELEMENTS[z]
+        spec_type = element_name
+        try:
+            assert (
+                z
+                == [value[0] for value in ELEMENTS.values() if value[2] == spec_type][0]
+            )
+        except AssertionError:
+            raise AssertionError(
+                "There is a mismatch between atomic number(z)\
+                and element name(element_name) imported from the ADF11 file."
+            )
         name = f"{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),

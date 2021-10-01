@@ -30,7 +30,7 @@ from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from .. import session
-from ..datatypes import ELEMENTS_BY_MASS
+from ..datatypes import ELEMENTS
 from ..utilities import to_filename
 
 
@@ -251,11 +251,31 @@ class PPFReader(DataReader):
         z, z_path = self._get_signal(uid, instrument, "pos", revision)
         mass, m_path = self._get_signal(uid, instrument, "mass", revision)
         texp, t_path = self._get_signal(uid, instrument, "texp", revision)
+        atomic_num, atomic_num_path = self._get_signal(
+            uid, instrument, "zqnn", revision
+        )
+
+        mass_data = mass.data[0]
+        mass_int = (
+            int(mass_data) if (mass_data % int(mass_data)) < 0.5 else int(mass_data) + 1
+        )
+
+        atomic_num_data = atomic_num.data[0]
+        atomic_num_int = (
+            int(atomic_num_data)
+            if (atomic_num_data % int(atomic_num_data)) < 0.5
+            else int(atomic_num_data) + 1
+        )
+
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
-        results["element"] = ELEMENTS_BY_MASS[int(round(mass.data[0]))]
+        results["element"] = [
+            value[2]
+            for value in ELEMENTS.values()
+            if (value[0] == atomic_num_int and value[1] == mass_int)
+        ][0]
         results["texp"] = texp.data
         results["times"] = None
         paths = [R_path, z_path, m_path, t_path]
