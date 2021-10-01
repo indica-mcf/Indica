@@ -76,8 +76,8 @@ class ImpurityConcentration(Operator):
         Parameters
         ----------
         element
-            String specifying the element for which the impurity concentration
-            is desired. It should be given in full lower-case, eg. "beryllium"
+            String specifying the symbol of the element for which the impurity
+            concentration is desired.
         Zeff_LoS
             xarray.DataArray containing the Zeff value/s from Bremsstrahlung (ZEFH/KS3)
         impurity_densities

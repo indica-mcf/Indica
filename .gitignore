@@ -12,3 +12,4 @@ htmlcov/
 indica/git_version
 .vscode/
 !tests/unit/readers/ppf_samples.pkl
+!tests/unit/readers/invalid_adf11_file.dat
