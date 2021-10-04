@@ -191,7 +191,7 @@ def bin_in_time(
     tcoords = data.coords["t"]
     data_frequency = 1/(tcoords[1] - tcoords[0])
     tlabels = np.linspace(tstart, tend, npoints)
-    if data_frequency > frequency:
+    if data_frequency > frequency * 2:
         if tcoords[0] > tstart + half_interval:
             raise ValueError(
                 "No data falls within first bin {}.".format(
