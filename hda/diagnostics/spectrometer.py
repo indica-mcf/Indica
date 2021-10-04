@@ -49,38 +49,37 @@ class XRCSpectrometer:
     """
 
     def __init__(
-        self,
-        name="",
-        recom=False,
-        defaults=False,
-        fract_abu: FractionalAbundance = None,
+        self, name="", recom=False, fract_abu: FractionalAbundance = None,
     ):
         self.ADASReader = ADASReader()
         self.name = name
         self.recom = recom
         self.fract_abu = fract_abu
+        self.adf11 = None
+        self.adf15 = None
 
+    def __call__(self, adf11=None, adf15=None):
+        self.set_ion_data()
+        self.set_pec_data()
 
-    def run_default(self):
-        self.get_ion_data()
-        self.get_pec_data()
-
-        rho = np.linspace(0 1, 100)
-        yspl = DataArray(yspl, coords=[(coord, self.xspl)])
-        attrs = {"datatype": self.datatype}
-
-        Te = Profiles(datatype=("temperature", "electron"))
-        Te.build_profile(5.e3, 50.)
-        Ti = Profiles(datatype=("temperature", "ion")).yspl
+    def test_flow(self):
+        self.set_ion_data()
+        self.set_pec_data()
         Ne = Profiles(datatype=("density", "electron")).yspl
-        Nh = Profiles(datatype=("density", "neutral_h")).yspl
-        Nh_0 = 1.e13
-        Nh_1 = 1.e15
-        Nh.values = (Nh.rho_poloidal ** 5 * (Nh_1 - Nh_0) + Nh_0)
+        Te = Profiles(datatype=("temperature", "electron")).yspl
+        Ti = Profiles(datatype=("temperature", "electron")).yspl
+        Ti /= 2.0
 
-        self.radiation_characteristics(Te, Ne, Nh=Nh)
+        Nh_1 = 1.0e15
+        Nh_0 = Nh_1 / 10
+        Nh = Ne.rho_poloidal ** 5 * (Nh_1 - Nh_0) + Nh_0
 
-    def get_ion_data(self, adf11=None):
+        fz0, emiss0 = self.radiation_characteristics(Te, Ne)
+        fz1, emiss1 = self.radiation_characteristics(Te, Ne, Nh=Nh)
+
+        return (fz0, fz1), (emiss0, emiss1)
+
+    def set_ion_data(self, adf11=None):
         """
         Read adf11 data and build fractional abundance objects
 
@@ -92,6 +91,7 @@ class XRCSpectrometer:
         -------
 
         """
+
         fract_abu = {}
         if adf11 is None:
             adf11 = ADF11
@@ -102,18 +102,15 @@ class XRCSpectrometer:
             acd[elem] = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
             ccd[elem] = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
 
-            if self.fract_abu is None:
-                fract_abu[elem] = FractionalAbundance(
-                    scd[elem], acd[elem], CCD=ccd[elem],
-                )
+            fract_abu[elem] = FractionalAbundance(scd[elem], acd[elem], CCD=ccd[elem],)
 
+        self.adf11 = adf11
         self.scd = scd
         self.acd = acd
         self.ccd = ccd
-        if self.fract_abu is None:
-            self.fract_abu = fract_abu
+        self.fract_abu = fract_abu
 
-    def get_pec_data(self, adf15=None):
+    def set_pec_data(self, adf15=None):
         """
         Read af15 data and extract PECs of desired lines
 
@@ -154,7 +151,7 @@ class XRCSpectrometer:
         self.elements = elements
 
     def radiation_characteristics(
-        self, Te, Ne, Nh=None, Nimp=None, tau=None, recom=False,
+        self, Te, Ne, Nh=None, tau=None, recom=False,
     ):
         """
 
@@ -175,7 +172,10 @@ class XRCSpectrometer:
         """
 
         if Nh is None:
-            Nh = xr.full_like(Ne, 1.0)
+            Nh = xr.full_like(Ne, 0.0)
+        self.Ne = Ne
+        self.Nh = Nh
+        self.Te = Te
 
         fz = {}
         emiss = {}
@@ -183,9 +183,6 @@ class XRCSpectrometer:
             if pec["element"] not in fz.keys():
                 _fz = self.fract_abu[pec["element"]](Ne, Te, Nh, tau=tau)
                 _fz = xr.where(_fz >= 0, _fz, 0)
-                _fz = _fz.assign_coords(electron_temperature=("rho_poloidal", Te))
-                _fz = _fz.assign_coords(electron_density=("rho_poloidal", Ne))
-                _fz = _fz.assign_coords(neutral_density=("rho_poloidal", Nh))
                 fz[pec["element"]] = _fz
 
             if "index" in pec["emiss_coeff"].coords:
@@ -206,7 +203,9 @@ class XRCSpectrometer:
                         method="cubic",
                         assume_sorted=True,
                     )
-                    _emiss += emiss_coeff * fz[pec["element"]].sel(ion_charges=pec["charge"] + 1)
+                    _emiss += emiss_coeff * fz[pec["element"]].sel(
+                        ion_charges=pec["charge"] + 1
+                    )
             else:
                 emiss_coeff = pec["emiss_coeff"].indica.interp2d(
                     electron_temperature=Te,
@@ -216,15 +215,7 @@ class XRCSpectrometer:
                 )
                 _emiss = emiss_coeff * fz[pec["element"]].sel(ion_charges=pec["charge"])
 
-            if Nimp is not None:
-                _emiss *= Nimp[pec["element"]]
-
-            _emiss = xr.where(_emiss >= 0, _emiss, 0)
-            _emiss = _emiss.assign_coords(electron_temperature=("rho_poloidal", Te))
-            _emiss = _emiss.assign_coords(electron_density=("rho_poloidal", Ne))
-            _emiss = _emiss.assign_coords(neutral_density=("rho_poloidal", Nh))
-
-            emiss[line] = _emiss
+            emiss[line] = xr.where(_emiss >= 0, _emiss, 0)
 
         self.fz = fz
         self.emiss = emiss
@@ -232,71 +223,93 @@ class XRCSpectrometer:
         return fz, emiss
 
     def simulate_measurements(
-        self, rho_los, Ne, Te, Ti, Nh=None, recom=False, calc_emiss=True,
+        self, Ti:ArrayLike, rho_los:ArrayLike=None, Cimp:dict=None,
     ):
         """
-        Initialize data variables given time and radial coordinates, perform
-        forward model of measurement given input plasma profiles
+        Infer the spectrometer measurement of electron and ion temperatures
+
+        Parameters
+        ----------
+        Ti
+            Ion temperature profile
+        Ne
+            Electron density profiles (close to the values used for the interpolation
+            of the atomic data)
+        rho_los
+            rho_poloidal for interpolation along the LOS
+        Cimp
+            impurity concentration profile (dictionary)
 
         Returns
         -------
 
         """
+        Te = self.Te
+        Ne = self.Ne
+        elements = self.elements
+        w_emiss = xr.where(np.isnan(self.emiss["w"]), 0, self.emiss["w"])
+        # k_emiss = xr.where(np.isnan(self.emiss["k"]), 0, self.emiss["k"])
 
-        if Nh is None:
-            Nh = xr.full_like(Ne, 1.0)
-
-        vals = np.nan
-        attrs = {"err_in": deepcopy(vals), "err_out": deepcopy(vals)}
-        self.pos = DataArray(deepcopy(vals), attrs=deepcopy(attrs))
-        self.el_temp = DataArray(deepcopy(vals), attrs=deepcopy(attrs))
-        self.ion_temp = DataArray(deepcopy(vals), attrs=deepcopy(attrs))
-
-        if calc_emiss:
-            fz, emiss = self.radiation_characteristics(Te, Ne=Ne, Nh=Nh, recom=recom,)
-            self.fz = fz
-            self.emiss = emiss
-        else:
-            fz = self.fz
-            emiss = self.emiss
-
-        emiss = xr.where(np.isnan(emiss), 0, emiss) * Ne ** 2
-        emiss = xr.where((rho_los <= 1) * np.isfinite(emiss), emiss, 0)
-
+        if rho_los is None:
+            rho_los = Te.rho_poloidal
         rho_tmp = rho_los.values
         rho_min = np.min(rho_tmp)
 
-        x = np.array(range(len(emiss)))
-        y = emiss
+        if Cimp is None:
+            Cimp = {}
+            for elem in elements:
+                Cimp[elem] = xr.full_like(Ne, 1.0)
 
+        vals = np.nan
+        attrs = {"err_in": deepcopy(vals), "err_out": deepcopy(vals)}
+        pos = DataArray(deepcopy(vals), attrs=deepcopy(attrs))
+        te_kw = xr.full_like(pos, np.nan)
+        ti_w = xr.full_like(pos, np.nan)
+
+        # TODO: currently using emission shape for both Te and Ti, change to account for shape of k-like
+        w_emiss *= Cimp["ar"] * Ne ** 2
+        w_emiss = xr.where((rho_los <= 1) * np.isfinite(w_emiss), w_emiss, 0)
+
+        # Position of emissivity
+        x = np.array(range(len(w_emiss)))
+        y = w_emiss
         avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
 
-        self.pos.values = rho_tmp[int(avrg)]
-        self.pos.attrs["err_in"] = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
-        if self.pos.values == rho_min:
-            self.pos.attrs["err_in"] = 0.0
-        if self.pos.attrs["err_in"] > self.pos:
-            self.pos.attrs["err_in"] = self.pos - rho_min
-        self.pos.attrs["err_out"] = np.abs(
-            rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)]
-        )
+        pos.values = rho_tmp[int(avrg)]
+        pos.attrs["err_in"] = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
+        if pos.values == rho_min:
+            pos.attrs["err_in"] = 0.0
+        if pos.attrs["err_in"] > pos:
+            pos.attrs["err_in"] = pos - rho_min
+        pos.attrs["err_out"] = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
 
-        x = emiss
+        # Measured electron temperature
+        x = w_emiss
         y = Te
         te_avrg, te_err_in, te_err_out, _, _ = calc_moments(
             x, y, ind_in=ind_in, ind_out=ind_out, simmetry=True
         )
-        self.el_temp.values = te_avrg
-        self.el_temp.attrs["err_in"] = te_err_in
-        self.el_temp.attrs["err_out"] = te_err_out
+        te_kw.values = te_avrg
+        te_kw.attrs["err_in"] = te_err_in
+        te_kw.attrs["err_out"] = te_err_out
 
+        # Measured ion temperature
+        x = w_emiss
         y = Ti
         ti_avrg, ti_err_in, ti_err_out, _, _ = calc_moments(
             x, y, ind_in=ind_in, ind_out=ind_out, simmetry=True
         )
-        self.ion_temp.values = ti_avrg
-        self.ion_temp.attrs["err_in"] = ti_err_in
-        self.ion_temp.attrs["err_out"] = ti_err_out
+        ti_w.values = ti_avrg
+        ti_w.attrs["err_in"] = ti_err_in
+        ti_w.attrs["err_out"] = ti_err_out
+
+        self.rho_los = rho_los
+        self.Cimp = Cimp
+        self.Ti = Ti
+
+        self.pos = pos
+        self.te_kw = te_kw
+        self.ti_w = ti_w
 
     def bremsstrahlung(
         self, Te, Ne, wavelength, zeff, gaunt_approx="callahan",
