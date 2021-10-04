@@ -13,6 +13,7 @@ import hda.physics as ph
 from hda.atomdat import fractional_abundance
 from hda.atomdat import get_atomdat
 from hda.atomdat import radiated_power
+from numpy.testing import assert_almost_equal
 
 # from hda.hdaadas import ADASReader
 
@@ -32,10 +33,7 @@ plt.ion()
 
 class ST40data:
     def __init__(
-        self,
-        pulse: int = 8256,
-        tstart: float = 0.01,
-        tend: float = 0.1,
+        self, pulse: int = 8256, tstart: float = -0.03, tend: float = 0.3,
     ):
         """
 
@@ -48,80 +46,110 @@ class ST40data:
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
+        self.reader = ST40Reader(pulse, tstart, tend)
+        self.data = {}
 
-        self.reader = ST40Reader(pulse, tstart - 0.02, tend + 0.02)
+    def get_all(self):
+        self.get_efit()
+        self.get_xrcs()
+        self.get_nirh1()
+        self.get_smmh1()
+        self.get_other_data()
 
-        # EFIT
-        if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
-            revision = 2
-        else:
-            revision = 0
+    def get_efit(self, revision=0):
+
+        if (
+            self.pulse == 8303
+            or self.pulse == 8322
+            or self.pulse == 8323
+            or self.pulse == 8324
+        ):
+            if revision != 2:
+                print(f"\nRecommended revision for pulse {self.pulse} = {2}\n")
+
         efit = self.reader.get("", "efit", revision)
 
         if efit is not None:
-            efit["revision"] = revision
-            self.efit = efit
-            equilibrium = Equilibrium(efit)
-            self.equilibrium = equilibrium
+            self.data["efit"] = efit
+            self.data["ipla"] = efit["ipla"]
+            self.data["R_0"] = efit["rmag"]
+            self.data["wmhd"] = efit["wp"]
 
-            self.ipla = efit["ipla"]
-            self.R_mag = self.equilibrium.rmag
-            self.R_0 = efit["rmag"]
-            self.wmhd = efit["wp"]
+    def get_xrcs(self, revision=0):
+        xrcs = self.reader.get("sxr", "xrcs", revision)
+        self.data["xrcs"] = xrcs
 
-    def get_xrcs(self):
-        xrcs = self.reader.get("sxr", "xrcs", 0)
-        if xrcs is not None and hasattr(self, "equilibrium"):
-            for k in xrcs.keys():
-                xrcs[k].attrs["transform"].set_equilibrium(self.equilibrium)
-        self.xrcs = xrcs
+    def get_nirh1(self, revision=0):
+        nirh1 = self.reader.get("", "nirh1", revision)
+        value, dims = self.reader._get_data(
+            "interferom", "nirh1", ".line_int.ne_bin", nirh1["ne"].attrs["revision"]
+        )
+        times = dims[0]
+        error, _ = self.reader._get_data(
+            "interferom", "nirh1", ".line_int.ne_bin_err", nirh1["ne"].attrs["revision"]
+        )
+        error_sys, _ = self.reader._get_data(
+            "interferom", "nirh1", ".line_int.ne_syserr", nirh1["ne"].attrs["revision"]
+        )
 
-    def get_nirh1(self):
-        nirh1 = self.reader.get("", "nirh1", 0)
-        if nirh1 is not None and hasattr(self, "equilibrium"):
-            for k in nirh1.keys():
-                nirh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
-        self.nirh1 = nirh1
+        transform = nirh1["ne"].attrs["transform"]
+        coords = {"t": times}
+        dims = ["t"]
+        length = len(nirh1["ne"].shape)
+        if length > 1:
+            dims.append(transform.x1_name)
+            coords[transform.x1_name] = np.arange(length)
+        else:
+            coords[transform.x1_name] = 0
+        meta = deepcopy(nirh1["ne"].attrs)
 
-    def get_smmh1(self):
-        smmh1 = self.reader.get("", "smmh1", 0)
-        if smmh1 is not None and hasattr(self, "equilibrium"):
-            for k in smmh1.keys():
-                smmh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
-        self.smmh1 = smmh1
+        error = DataArray(
+            error, coords, dims,
+        ).sel(t=slice(self.reader._tstart, self.reader._tend))
+        meta["error"] = error
+
+        error_sys = DataArray(
+            error_sys, coords, dims,
+        ).sel(t=slice(self.reader._tstart, self.reader._tend))
+        meta["error_sys"] = error_sys
+
+        ne_bin = DataArray(
+            value, coords, dims, attrs=meta, name="nirh1_ne_bin"
+        ).sel(t=slice(self.reader._tstart, self.reader._tend))
+
+        nirh1["ne_bin"] = ne_bin
+
+        self.data["nirh1"] = nirh1
+
+    def get_smmh1(self, revision=0):
+        smmh1 = self.reader.get("", "smmh1", revision)
+        self.data["smmh1"] = smmh1
 
     def get_other_data(self):
         # Read Vloop and toroidal field
         # TODO temporary MAG reader --> : insert in reader class !!!
         # vloop, vloop_path = self.reader._get_signal("", "mag", ".floop.l026:v", 0)
-        vloop, vloop_path = self.reader._get_signal("", "mag", ".floop.l016:v", 0)
-        vloop_dims, _ = self.reader._get_signal_dims(vloop_path, len(vloop.shape))
-        vloop = DataArray(
-            vloop,
-            dims=("t",),
-            coords={"t": vloop_dims[0]},
-        )
+        vloop, vloop_dims = self.reader._get_data("", "mag", ".floop.l016:v", 0)
+        # vloop_dims, _ = self.reader._get_signal_dims(vloop_path, len(vloop.shape))
+        vloop = DataArray(vloop, dims=("t",), coords={"t": vloop_dims[0]},)
         vloop = vloop.sel(t=slice(self.reader._tstart, self.reader._tend))
         meta = {
             "datatype": ("voltage", "loop"),
             "error": xr.zeros_like(vloop),
         }
         vloop.attrs = meta
-        self.vloop = vloop
+        self.data["vloop"] = vloop
 
         # TODO temporary BT reader --> to be calculated using equilibrium class
-        tf_i, tf_i_path = self.reader._get_signal("", "psu", ".tf:i", -1)
-        tf_i_dims, _ = self.reader._get_signal_dims(tf_i_path, len(tf_i.shape))
+        tf_i, tf_i_dims = self.reader._get_data("", "psu", ".tf:i", -1)
+        # tf_i_dims, _ = self.reader._get_signal_dims(tf_i_path, len(tf_i.shape))
         bt_0 = tf_i * 24.0 * constants.mu_0 / (2 * np.pi * 0.4)
-        bt_0 = DataArray(
-            bt_0,
-            dims=("t",),
-            coords={"t": tf_i_dims[0]},
-        )
+        bt_0 = DataArray(bt_0, dims=("t",), coords={"t": tf_i_dims[0]},)
         bt_0 = bt_0.sel(t=slice(self.reader._tstart, self.reader._tend))
         meta = {
             "datatype": ("field", "toroidal"),
             "error": xr.zeros_like(bt_0),
         }
         bt_0.attrs = meta
-        self.bt_0 = bt_0
+        self.data["bt_0"] = bt_0
+        self.data["R_bt_0"] = 0.4
