@@ -12,7 +12,7 @@ import matplotlib.cm as cm
 
 import hda.simple_profiles as profiles
 from indica.readers import ADASReader
-from hda.diagnostics.passive_spectrometer import Spectrometer
+from hda.diagnostics.spectrometer import Spectrometer
 
 plt.ion()
 
@@ -90,7 +90,7 @@ class xrcs_tests:
         Ne_peaking_mult=1.0,
         Te_peaking_mult=1.0,
         Nh_1=[1.0e10, 1.0e15],
-        Nh_0_mult=1.0e-4,
+        Nh_0_mult=1.0e-1,
         Nh_decay=5,
         wcenter_exp=0.05,
     ):
