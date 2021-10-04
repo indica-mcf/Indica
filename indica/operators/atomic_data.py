@@ -670,8 +670,9 @@ class FractionalAbundance(Operator):
             self.calc_F_z_tinf()
 
             if tau is None:
-                self.F_z_t = np.real(self.F_z_tinf)
-                return self.F_z_t
+                F_z_t = np.real(self.F_z_tinf)
+                self.F_z_t = F_z_t
+                return F_z_t
 
             self.calc_eigen_vals_and_vecs()
 
