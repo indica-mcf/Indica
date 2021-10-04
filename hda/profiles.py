@@ -6,13 +6,16 @@ from copy import deepcopy
 
 
 class Profiles:
-    def __init__(self, identifier="temperature", datatype:tuple=("", "")):
+    def __init__(self, datatype=("temperature", "electron"), xspl=None):
         # Radial arrays for building profiles and smoothing using splines
         self.x = np.linspace(0, 1, 15) ** 0.7
-        self.xspl = np.linspace(0, 1.0, 30)
+        if xspl is None:
+            xspl = np.linspace(0, 1.0, 30)
+        self.xspl = xspl
 
-        self.params = get_defaults(prof_type)
-        self.build_profile(1.5e3, 50, datatype=datatype)
+        self.datatype = datatype
+        self.params, values = get_defaults(datatype[0])
+        self.build_profile(values[0], values[1])
 
     def set_parameters(self, wped, wcenter, peaking, peaking2=1):
         """
@@ -42,9 +45,10 @@ class Profiles:
         y0,
         y1,
         y0_fix=False,
+        y0_ref=None,
+        wcenter_exp=0.05,
         plot=False,
         coord="rho_poloidal",
-        datatype=None,
     ):
         """
         Builds the profiles using the parameters set
@@ -63,25 +67,42 @@ class Profiles:
 
         """
 
+        centre = deepcopy(y0)
+        edge = deepcopy(y1)
+        wcenter = deepcopy(self.params["wcenter"])
+        wped = deepcopy(self.params["wped"])
+        peaking = deepcopy(self.params["peaking"])
+
         def gaussian(x, A, B, x_0, w):
             return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
+
+        peaking2 = 1.
+        if y0_ref is not None:
+            if y0_ref > y0:
+                print("\n Reference central value must be y0_ref < y0 ")
+            else:
+                peaking2 = y0 / y0_ref
+
+        if peaking2 > 1:
+            centre = y0_ref
+            wcenter = wcenter - (peaking2 ** wcenter_exp - 1)
+
+        centre = centre/peaking
 
         x = self.x[np.where(self.x <= 1.0)[0]]
 
         # baseline profile shape
-        y = (y0 - y1) * (1 - x ** self.params["wped"]) + y1
+        y = (centre - edge) * (1 - x ** wped) + y1
 
         # add central peaking
-        if self.params["peaking"] > 1:
-            sigma = self.params["wcenter"] / (np.sqrt(2 * np.log(2)))
-            ycenter = gaussian(x, y0 * (self.params["peaking"] - 1), 0, 0, sigma)
-            y += ycenter
+        if peaking > 1:
+            sigma = wcenter / (np.sqrt(2 * np.log(2)))
+            y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
 
         # add additional peaking
-        if self.params["peaking2"] > 1:
-            sigma = self.params["wcenter"] / (np.sqrt(2 * np.log(2)))
-            ycenter = gaussian(x, y[0] * (self.params["peaking2"] - 1), 0, 0, sigma)
-            y += ycenter
+        if peaking2 > 1:
+            sigma = wcenter / (np.sqrt(2 * np.log(2)))
+            y += gaussian(x, y[0] * (peaking2 - 1), 0, 0, sigma)
 
         if y0_fix:
             y -= y1
@@ -101,19 +122,16 @@ class Profiles:
         )
         yspl = cubicspline(self.xspl)
 
+        yspl = DataArray(yspl, coords=[(coord, self.xspl)])
+        attrs = {"datatype": self.datatype}
+        name = self.datatype[1] + "_" + self.datatype[0]
+        yspl.name = name
+        yspl.attrs = attrs
+
         if plot:
-            plt.plot(x, y, "o")
-            plt.plot(xspl, yspl)
+            yspl.plot()
 
-        result = DataArray(yspl, coords=[(coord, self.xspl)])
-
-        if datatype is not None:
-            attrs = {"datatype": datatype}
-            name = datatype[1] + "_" + datatype[0]
-            result.name = name
-            result.attrs = attrs
-
-        self.profile = result
+        self.yspl = yspl
 
 def get_defaults(identifier):
 
@@ -123,6 +141,12 @@ def get_defaults(identifier):
         "rotation": (4, 0.4, 1.4),
     }
 
+    values = {
+        "density": (5.e19, 1.e19),
+        "temperature": (1.5e3, 50),
+        "rotation": (200.e3, 10.e3),
+    }
+
     if identifier not in parameters.keys():
         print(
             f"\n {prof_type} not in parameters' keys \n Using 'temperature' as default \n"
@@ -130,4 +154,7 @@ def get_defaults(identifier):
         identifier = "temperature"
 
     params = parameters[identifier]
-    return {"wped": params[0], "wcenter": params[1], "peaking": params[2], "peaking2": 1.0}
+    params = {"wped": params[0], "wcenter": params[1], "peaking": params[2], "peaking2": 1.0}
+
+    vals = values[identifier]
+    return params, vals
