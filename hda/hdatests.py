@@ -7,12 +7,33 @@ import pickle
 from hda.hdaplot import HDAplot
 from hda.hdaworkflow import HDArun
 from hda.spline_profiles import Plasma_profs
+from hda.read_st40 import ST40data
+import hda.plasma as plasma
 
 import xarray as xr
 from xarray import DataArray
 from scipy.optimize import least_squares
 
 plt.ion()
+
+pulse = 8383
+raw_data = ST40data(pulse)
+raw_data.get_all()
+
+pl = plasma.Plasma()
+pl.build_data(raw_data.data)
+
+
+def new_profiles(pulse=8383, tstart=0.02, tend=0.12):
+    """
+    New workflow structure with new profiles and forward models
+    """
+    pulse = 8383
+    raw_data = ST40data(pulse)
+    raw_data.get_all()
+
+    plasma = Plasma()
+    plasma.build_data(raw_data.data)
 
 def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, force=False):
     """
