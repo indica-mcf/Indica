@@ -99,16 +99,18 @@ class XRCSpectrometer:
         te_kw1, ti_w1 = self.moment_analysis(Ti)
 
         plt.figure()
-        emiss0["w"].plot(label="Nh = 0")
-        emiss1["w"].plot(label="Nh != 0")
+        emiss0["w"].plot(label="Nh = 0", marker="o")
+        emiss1["w"].plot(label="Nh != 0", marker="x")
         plt.title("w-line PEC * fz")
         plt.legend()
 
         plt.figure()
-        self.Te.plot(label="Te")
-        # plt.scatter(te_kw0)
-        self.Ti.plot(label="Ti")
-        # plt.scatter()
+        self.Te.plot(label="Te", color="red")
+        plt.plot(te_kw0.rho_poloidal, te_kw0.values, marker="o", color="red")
+        plt.plot(te_kw1.rho_poloidal, te_kw1.values, marker="x", color="red")
+        self.Ti.plot(label="Ti", color="black")
+        plt.plot(ti_w0.rho_poloidal, ti_w0.values, marker="o", color="black")
+        plt.plot(ti_w1.rho_poloidal, ti_w1.values, marker="x", color="black")
         plt.title("w-line PEC * fz")
         plt.legend()
 
@@ -318,12 +320,10 @@ class XRCSpectrometer:
         datatype = ("temperature", "ion")
         attrs = {
             "datatype": datatype,
-            "pos":{"avrg":pos, "err_in": err_in, "err_out": err_out},
-            "err_in": err_in,
-            "err_out": err_out,
+            "pos_err":{"in": err_in, "out": err_out},
             f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
         }
-        ti_w = DataArray(ti_w, attrs=attrs)
+        ti_w = DataArray([ti_w], coords=[(coord, [pos])], attrs=attrs)
 
         # Position of w/k-lines emissivity and the measured electron temperature
         # x = np.array(range(len(w_emiss)))
@@ -347,12 +347,10 @@ class XRCSpectrometer:
         datatype = ("temperature", "electron")
         attrs = {
             "datatype": datatype,
-            "pos":{"avrg":pos, "err_in": err_in, "err_out": err_out},
-            "err_in": err_in,
-            "err_out": err_out,
+            "pos_err":{"in": err_in, "out": err_out},
             f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
         }
-        te_kw = DataArray(te_kw, attrs=attrs)
+        te_kw = DataArray([te_kw], coords=[(coord, [pos])], attrs=attrs)
 
         self.rho_los = rho_los
         self.Cimp = Cimp
