@@ -143,7 +143,7 @@ def get_defaults(identifier):
 
     values = {
         "density": (5.e19, 1.e19),
-        "temperature": (1.5e3, 50),
+        "temperature": (3.e3, 50),
         "rotation": (200.e3, 10.e3),
     }
 
