@@ -41,9 +41,9 @@ class DataReader(BaseIO):
 
     This defines the interface used by all concrete objects which read
     data from the disc, a database, etc. It is a `context manager
-    <https://docs.python.org/3/library/stdtypes.html#typecontextmanager>`_
+    <https://protect-eu.mimecast.com/s/f7vJCpzxoFzjOpcPXjtX?domain=docs.python.org>`_
     and can be used in a `with statement
-    <https://docs.python.org/3/reference/compound_stmts.html#with>`_.
+    <https://protect-eu.mimecast.com/s/ITLqCq2ypIOpkJuX7qUj?domain=docs.python.org>`_.
 
     Attributes
     ----------
@@ -918,6 +918,7 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_radiation(uid, instrument, revision, quantities)
+
         data = {}
         for quantity in quantities:
             if quantity not in available_quantities:
@@ -941,6 +942,7 @@ class DataReader(BaseIO):
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
             )
+            # print(transform.x1_name, quantity)
             coords = [
                 ("t", times),
                 (transform.x1_name, np.arange(database_results["length"][quantity])),
@@ -948,7 +950,7 @@ class DataReader(BaseIO):
             meta = {
                 "datatype": available_quantities[quantity],
                 "error": DataArray(database_results[quantity + "_error"], coords).sel(
-                    t=slice(self._tstart, self._tend), method="ffill"
+                    t=slice(self._tstart, self._tend),
                 ),
                 "transform": transform,
             }
@@ -1812,3 +1814,4 @@ class DataReader(BaseIO):
             return self._IMPLEMENTATION_QUANTITIES[instrument]
         else:
             return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
+
