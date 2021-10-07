@@ -8,8 +8,8 @@ import matplotlib.pylab as plt
 import numpy as np
 import math
 import hda.fac_profiles as fac
-from hda.profiles import Profiles
-from hda.forward_models import Spectrometer
+from hda.simple_profiles import Profiles
+from hda.diagnostics.spectrometer import XRCSpectrometer
 import hda.physics as ph
 from hda.atomdat import fractional_abundance
 from hda.atomdat import get_atomdat
@@ -49,6 +49,7 @@ class Plasma:
         pulse
 
         """
+
         self.ADASReader = ADASReader()
         self.elements = elements
         self.ion_conc = ion_conc
@@ -80,6 +81,14 @@ class Plasma:
 
         """
         print_like("Building data class")
+
+        t_ip = data["efit"]["ipla"].t
+        if self.tstart < t_ip.min():
+            print_like("Start time changed to stay inside Ip limit")
+            self.tstart = t_ip.min().values
+        if self.tend > t_ip.max():
+            print_like("End time changed to stay inside Ip limit")
+            self.tend = t_ip.max().values
 
         self.equil = equil
 
@@ -138,21 +147,14 @@ class Plasma:
 
         self.data = binned_data
 
-        spectrometers = {}
+        forward_models = {}
         if "xrcs" in binned_data.keys():
             print_like("Adding XRCS spectrometer model")
-            spectrometers["xrcs"] = Spectrometer(
-                self.ADASReader,
-                "ar",
-                "16",
-                transition="(1)1(1.0)-(1)0(0.0)",
-                wavelength=4.0,
-                name="XRCS",
-            )
+            forward_models["xrcs"] = XRCSpectrometer()
 
         if "princeton" in binned_data.keys():
             print_like("Adding Princeton spectrometer model")
-            spectrometers["princeton"] = Spectrometer(
+            forward_models["princeton"] = Spectrometer(
                 self.ADASReader,
                 "c",
                 "5",
@@ -161,7 +163,7 @@ class Plasma:
                 name="Princeton",
             )
 
-        self.spectrometers = spectrometers
+        self.forward_models = forward_models
 
         if hasattr(self, "equilibrium"):
             print_like("Calculate geometric quantities")
@@ -239,134 +241,78 @@ class Plasma:
         #
         #     self.atomic_data[elem] = atomdat
 
-    #
-    # def match_xrcs(self, quantity_te="te_kw", quantity_ti="ti_w", niter=3,, rho_lim=(0, 0.98)):
-    #     """
-    #     Rescale temperature profiles to match the XRCS spectrometer measurements
-    #
-    #     Parameters
-    #     ----------
-    #     quantity_te
-    #         Measurement to be used for the electron temperature optimisation
-    #     quantity_ti
-    #         Measurement to be used for the ion temperature optimisation
-    #     niter
-    #         Number of iterations
-    #     spl
-    #         spline object if to be used for optimization
-    #     rho_max
-    #         maximum rho to scale if spline object in use
-    #
-    #     Returns
-    #     -------
-    #
-    #     """
-    #
-    #     # self.el_temp.loc[dict(t=t)] = self.Te_prof.build_profile(
-    #     #     te_0, te_1
-    #     # ).yspl.values
-    #     if "xrcs" not in self.data.keys():
-    #         print_like("No XRCS data available")
-    #         return
-    #
-    #     print_like("Re-calculating temperature profiles to match XRCSs values")
-    #
-    #     nt = len(self.time)
-    #
-    #     const_te_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
-    #     const_ti_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
-    #     if profs_spl is not None:
-    #         el_temp = profs_spl.el_temp(self.rho)
-    #         ion_temp = profs_spl.ion_temp(self.rho)
-    #     else:
-    #         el_temp = self.el_temp
-    #         ion_temp = self.ion_temp.sel(element="h")
-    #
-    #     for j in range(niter):
-    #         print_like(f"Iteration {j+1} or {niter}")
-    #         if profs_spl is None:
-    #             el_temp *= const_te_xrcs
-    #             ion_temp *= const_ti_xrcs
-    #
-    #         # Calculate Ti(0) from He-like spectrometer
-    #         he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
-    #         const_te_xrcs = self.te_xrcs / he_like.el_temp
-    #         const_ti_xrcs = self.ti_xrcs / he_like.ion_temp
-    #
-    #         if profs_spl is not None:
-    #             profs_spl.el_temp.values *= const_te_xrcs
-    #             profs_spl.el_temp.prepare()
-    #             el_temp = profs_spl.el_temp(self.rho)
-    #
-    #             profs_spl.ion_temp.values = xr.where(
-    #                 (profs_spl.ion_temp.coord >= rho_lim[0])
-    #                 * (profs_spl.ion_temp.coord <= rho_lim[1]),
-    #                 profs_spl.ion_temp.values * const_ti_xrcs,
-    #                 profs_spl.el_temp.values,
-    #             ).transpose(*profs_spl.ion_temp.values.dims)
-    #             profs_spl.ion_temp.prepare()
-    #             ion_temp = profs_spl.ion_temp(self.rho)
-    #
-    #     self.el_temp = el_temp
-    #     for elem in self.elements:
-    #         self.ion_temp.loc[dict(element=elem)] = ion_temp
-
-    def match_ti_xrcs(self, niter=3, profs_spl=None, rho_lim=(0, 0.98)):
+    def match_xrcs(self, quantity_te="te_kw", quantity_ti="ti_w", niter=3):
         """
         Rescale temperature profiles to match the XRCS spectrometer measurements
 
         Parameters
         ----------
+        quantity_te
+            Measurement to be used for the electron temperature optimisation
+        quantity_ti
+            Measurement to be used for the ion temperature optimisation
         niter
             Number of iterations
-        spl
-            spline object if to be used for optimization
-        rho_max
-            maximum rho to scale if spline object in use
 
         Returns
         -------
 
         """
+
+        # self.el_temp.loc[dict(t=t)] = self.Te_prof.build_profile(
+        #     te_0, te_1
+        # ).yspl.values
+
+        if "xrcs" not in self.data.keys():
+            print_like("No XRCS data available")
+            return
+
         print_like("Re-calculating temperature profiles to match XRCSs values")
 
         nt = len(self.time)
 
-        he_like = self.spectrometers["he_like"]
-
         const_te_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
         const_ti_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
-        if profs_spl is not None:
-            el_temp = profs_spl.el_temp(self.rho)
-            ion_temp = profs_spl.ion_temp(self.rho)
-        else:
-            el_temp = self.el_temp
-            ion_temp = self.ion_temp.sel(element="h")
 
-        for j in range(niter):
-            print(f"Iteration {j+1} or {niter}")
-            if profs_spl is None:
-                el_temp *= const_te_xrcs
-                ion_temp *= const_ti_xrcs
+        Ne_prof = self.Ne_prof
+        Te_prof = self.Te_prof
+        Ti_prof = self.Ti_prof
 
-            # Calculate Ti(0) from He-like spectrometer
-            he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
-            const_te_xrcs = self.te_xrcs / he_like.el_temp
-            const_ti_xrcs = self.ti_xrcs / he_like.ion_temp
+        te_data = self.data["xrcs"][quantity_te]
+        ti_data = self.data["xrcs"][quantity_ti]
 
-            if profs_spl is not None:
-                profs_spl.el_temp.values *= const_te_xrcs
-                profs_spl.el_temp.prepare()
-                el_temp = profs_spl.el_temp(self.rho)
+        te_bckc = initialize_bckc(te_data)
+        ti_bckc = initialize_bckc(ti_data)
+        for t in self.t:
+            print(f"t = {int(t*1.e3) ms}")
 
-                profs_spl.ion_temp.values = xr.where(
-                    (profs_spl.ion_temp.coord >= rho_lim[0])
-                    * (profs_spl.ion_temp.coord <= rho_lim[1]),
-                    profs_spl.ion_temp.values * const_ti_xrcs,
-                    profs_spl.el_temp.values,
-                ).transpose(*profs_spl.ion_temp.values.dims)
-                profs_spl.ion_temp.prepare()
-                ion_temp = profs_spl.ion_temp(self.rho)
+            # Start assumption: central temperature == XRCS measured value
+            te0 = te_data.sel(t=t)
+            ti0 = ti_data.sel(t=t)
+
+            for j in range(niter):
+                if profs_spl is None:
+                    el_temp *= const_te_xrcs
+                    ion_temp *= const_ti_xrcs
+
+                # Calculate Ti(0) from He-like spectrometer
+                he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
+                const_te_xrcs = self.te_xrcs / he_like.el_temp
+                const_ti_xrcs = self.ti_xrcs / he_like.ion_temp
+
+                if profs_spl is not None:
+                    profs_spl.el_temp.values *= const_te_xrcs
+                    profs_spl.el_temp.prepare()
+                    el_temp = profs_spl.el_temp(self.rho)
+
+                    profs_spl.ion_temp.values = xr.where(
+                        (profs_spl.ion_temp.coord >= rho_lim[0])
+                        * (profs_spl.ion_temp.coord <= rho_lim[1]),
+                        profs_spl.ion_temp.values * const_ti_xrcs,
+                        profs_spl.el_temp.values,
+                    ).transpose(*profs_spl.ion_temp.values.dims)
+                    profs_spl.ion_temp.prepare()
+                    ion_temp = profs_spl.ion_temp(self.rho)
 
         self.el_temp = el_temp
         for elem in self.elements:
@@ -976,6 +922,35 @@ class Plasma:
             pickle.dump(
                 self, f,
             )
+
+
+def initialize_bckc(data):
+    """
+    Initialise back-calculated data with all info as original data, apart
+    from provenance and revision attributes
+
+    Parameters
+    ----------
+    data
+        DataArray of original data to be "cloned"
+
+    Returns
+    -------
+
+    """
+    bckc = xr.full_like(data, np.nan)
+    attrs = bckc.attrs
+    if type(bckc) == DataArray:
+        if "error" in attrs.keys():
+            attrs["error"] = xr.full_like(attrs["error"], np.nan)
+        if "partial_provenance" in attrs.keys():
+            attrs.pop("partial_provenance")
+            attrs.pop("provenance")
+        if "revision" in attrs.keys():
+            attrs.pop("revision")
+    bckc.attrs = attrs
+
+    return bckc
 
 
 def remap_diagnostic(diag_data, flux_transform, npts=300):
