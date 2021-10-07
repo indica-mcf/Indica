@@ -39,7 +39,7 @@ def equilibrium_dat():
     Btot_factor = None
 
     result = {}
-    nspace = 8
+    nspace = 100
     ntime = 3
     times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
 
