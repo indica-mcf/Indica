@@ -23,6 +23,14 @@ raw_data.get_all()
 pl = plasma.Plasma()
 pl.build_data(raw_data.data)
 
+def plasma_workflow(pulse=8383, tstart=0.02, tend=0.12):
+    pulse = 8383
+    raw_data = ST40data(pulse)
+    raw_data.get_all()
+
+    pl = plasma.Plasma()
+    pl.build_data(raw_data.data)
+
 
 def new_profiles(pulse=8383, tstart=0.02, tend=0.12):
     """
