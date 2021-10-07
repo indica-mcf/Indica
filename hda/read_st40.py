@@ -36,13 +36,17 @@ class ST40data:
         self, pulse: int = 8256, tstart: float = -0.03, tend: float = 0.3,
     ):
         """
+        Read experimental data and save to dictionary
 
         Parameters
         ----------
         pulse
-
+            Plasma pulse
+        tstart
+            Start time for reading raw data
+        tend
+            End time for reading raw data
         """
-
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend

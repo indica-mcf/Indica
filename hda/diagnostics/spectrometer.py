@@ -52,19 +52,18 @@ class XRCSpectrometer:
         self,
         name="",
         recom=False,
+        adf11:dict=None,
+        adf15:dict=None,
     ):
-        self.ADASReader = ADASReader()
-        self.name = name
-        self.recom = recom
-        self.adf11 = None
-        self.adf15 = None
-
-    def __call__(self, adf11: dict = None, adf15: dict = None):
         """
         Read all atomic data and initialise objects
 
         Parameters
         ----------
+        name
+            Identifier for the spectrometer
+        recom
+            Set to True if
         adf11
             Dictionary with details of ionisation balance data (see ADF11 class var)
         adf15
@@ -74,6 +73,10 @@ class XRCSpectrometer:
         -------
 
         """
+
+        self.ADASReader = ADASReader()
+        self.name = name
+        self.recom = recom
         self.set_ion_data(adf11=adf11)
         self.set_pec_data(adf15=adf15)
 
@@ -108,13 +111,29 @@ class XRCSpectrometer:
         self.Te.plot(label="Te", color="red")
         plt.plot(te_kw0.rho_poloidal, te_kw0.values, marker="o", color="red")
         plt.plot(te_kw1.rho_poloidal, te_kw1.values, marker="x", color="red")
+        plt.hlines(te_kw0.values,
+                   te_kw0.rho_poloidal - te_kw0.rho_poloidal_err["in"],
+                   te_kw0.rho_poloidal + te_kw0.rho_poloidal_err["out"],
+                   color="red")
+        plt.hlines(te_kw1.values,
+                   te_kw1.rho_poloidal - te_kw1.rho_poloidal_err["in"],
+                   te_kw1.rho_poloidal + te_kw1.rho_poloidal_err["out"],
+                   color="red")
         self.Ti.plot(label="Ti", color="black")
         plt.plot(ti_w0.rho_poloidal, ti_w0.values, marker="o", color="black")
         plt.plot(ti_w1.rho_poloidal, ti_w1.values, marker="x", color="black")
+        plt.hlines(ti_w0.values,
+                   ti_w0.rho_poloidal - ti_w0.rho_poloidal_err["in"],
+                   ti_w0.rho_poloidal + ti_w0.rho_poloidal_err["out"],
+                   color="black")
+        plt.hlines(ti_w1.values,
+                   ti_w1.rho_poloidal - ti_w1.rho_poloidal_err["in"],
+                   ti_w1.rho_poloidal + ti_w1.rho_poloidal_err["out"],
+                   color="black")
         plt.title("w-line PEC * fz")
         plt.legend()
 
-        return (fz0, fz1), (emiss0, emiss1)
+        # return (fz0, fz1), (emiss0, emiss1)
 
     def set_ion_data(self, adf11: dict = None):
         """
@@ -305,9 +324,10 @@ class XRCSpectrometer:
 
         pos = rho_tmp[int(avrg)]
         pos_err_in = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
-        if pos == rho_min:
+        if pos <= rho_min:
+            pos = rho_min
             pos_err_in = 0.0
-        if pos_err_in > pos:
+        if (pos_err_in > pos) and (pos_err_in > (pos - rho_min)):
             pos_err_in = pos - rho_min
         pos_err_out = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
 
@@ -315,12 +335,12 @@ class XRCSpectrometer:
         x = w_emiss
         y = Ti
         ti_w, err_in, err_out, _, _ = calc_moments(
-            x, y, ind_in=ind_in, ind_out=ind_out, simmetry=True
+            x, y, ind_in=ind_in, ind_out=ind_out, simmetry=False
         )
         datatype = ("temperature", "ion")
         attrs = {
             "datatype": datatype,
-            "pos_err":{"in": err_in, "out": err_out},
+            "err":{"in": err_in, "out": err_out},
             f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
         }
         ti_w = DataArray([ti_w], coords=[(coord, [pos])], attrs=attrs)
@@ -332,9 +352,10 @@ class XRCSpectrometer:
         #
         # pos = rho_tmp[int(avrg)]
         # pos_err_in = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
-        # if pos == rho_min:
+        # if pos <= rho_min:
+        #     pos = rho_min
         #     pos_err_in = 0.0
-        # if pos_err_in > pos:
+        # if (pos_err_in > pos) and (pos_err_in > (pos - rho_min)):
         #     pos_err_in = pos - rho_min
         # pos_err_out = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
 
@@ -342,12 +363,12 @@ class XRCSpectrometer:
         x = w_emiss
         y = Te
         te_kw, err_in, err_out, _, _ = calc_moments(
-            x, y, ind_in=ind_in, ind_out=ind_out, simmetry=True
+            x, y, ind_in=ind_in, ind_out=ind_out, simmetry=False
         )
         datatype = ("temperature", "electron")
         attrs = {
             "datatype": datatype,
-            "pos_err":{"in": err_in, "out": err_out},
+            "err":{"in": err_in, "out": err_out},
             f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
         }
         te_kw = DataArray([te_kw], coords=[(coord, [pos])], attrs=attrs)
