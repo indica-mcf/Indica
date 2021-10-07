@@ -37,7 +37,7 @@ from xarray import ones_like
 from indica.converters import LinesOfSightTransform
 from indica.converters import MagneticCoordinates
 from indica.converters import TransectCoordinates
-from indica.datatypes import ELEMENTS
+from indica.datatypes import SPECIFIC_ELEMENTS
 from indica.readers.selectors import ignore_channels_from_dict
 from indica.readers.selectors import ignore_channels_from_file
 from indica.readers.selectors import use_cached_ignore_channels
@@ -365,7 +365,7 @@ def test_thomson_scattering(data_instrument, uid, revision, time_range, max_freq
 
 
 @given(
-    tuples(sampled_from(sorted(ELEMENTS)), text()).flatmap(
+    tuples(sampled_from(sorted(SPECIFIC_ELEMENTS)), text()).flatmap(
         lambda elem_instrument: tuples(
             expected_data(
                 transect_coordinates_and_axes(coord_name=elem_instrument[1] + "_coord"),

@@ -22,10 +22,11 @@ from hypothesis.strategies import sampled_from
 from hypothesis.strategies import text
 from hypothesis.strategies import times
 import numpy as np
+from numpy.testing._private.utils import assert_raises
 import prov.model as prov
 
 from indica.datatypes import ADF11_GENERAL_DATATYPES
-from indica.datatypes import ORDERED_ELEMENTS
+from indica.datatypes import ELEMENTS
 from indica.readers import ADASReader
 import indica.readers.adas as adas
 from indica.session import hash_vals
@@ -207,7 +208,7 @@ def adf11_array_to_str(
             raise ValueError("Only accepts 1d and 2d arrays.")
 
     element = data.attrs["datatype"][1]
-    z = ORDERED_ELEMENTS.index(element)
+    z = [value[0] for value in ELEMENTS.values() if value[2] == element][0]
     nd = len(data.electron_density)
     nt = len(data.electron_temperature)
     zmin = int(data.ion_charges[0]) + 1
@@ -302,3 +303,22 @@ def test_read_adf11(reader, data_file, element, year):
     assert data.name == result.name
     assert data.attrs["datatype"] == result.attrs["datatype"]
     assert result.attrs["provenance"] == reader.create_provenance.return_value
+
+
+def test_read_invalid_adf11():
+    reader = ADASReader("", MagicMock())
+
+    quantity = "scd"
+
+    # The following check is not strictly necessary but is included in case
+    # ADF11_GENERAL_DATATYPES is changed in the future to exclude "scd" for some reason.
+    try:
+        _ = ADF11_GENERAL_DATATYPES[quantity]
+    except Exception as e:
+        raise e
+
+    with assert_raises(AssertionError):
+        invalid_file_name = Path("tests/unit/readers/invalid_adf11_file.dat")
+        with open(invalid_file_name, "r") as invalid_file:
+            reader._get_file = MagicMock(return_value=invalid_file)
+            _ = reader.get_adf11(quantity, "he", "89")
