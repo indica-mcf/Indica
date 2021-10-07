@@ -1,9 +1,15 @@
+import copy
 import unittest
+from unittest.mock import MagicMock
 
+import matplotlib.pyplot as plt
 import numpy as np
-from xarray.core.dataarray import DataArray
+from xarray import DataArray
 
+from indica.converters.flux_surfaces import FluxSurfaceCoordinates
+from indica.equilibrium import Equilibrium
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
+from ..test_equilibrium_single import equilibrium_dat_and_te
 
 
 class Exception_Impurity_Density_Test_Case(unittest.TestCase):
@@ -116,20 +122,251 @@ def test_extrapolate_impurity_density_call():
 
     expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 100)
 
-    input_Te = input_Te.interp(rho=expanded_rho)
-    input_Ne = input_Ne.interp(rho=expanded_rho)
+    input_Te = input_Te.interp(rho=expanded_rho, method="cubic")
+    input_Ne = input_Ne.interp(rho=expanded_rho, method="cubic")
 
-    input_sxr_density = DataArray(
-        data=np.tile(12.0 * np.exp(-expanded_rho), (len(base_t), 1)).T,
-        coords={"rho": expanded_rho, "t": base_t},
-        dims=["rho", "t"],
-    )
+    R_arr = np.linspace(1.83, 3.9, 100)
+    # R_arr = np.linspace(2.715, 3.05, 100)
+    z_arr = np.linspace(-1.75, 2.0, 100)
+
+    R_arr = DataArray(data=R_arr, coords={"R": R_arr}, dims=["R"])
+    z_arr = DataArray(data=z_arr, coords={"z": z_arr}, dims=["z"])
+
+    flux_surfs = FluxSurfaceCoordinates("poloidal")
+
+    offset = MagicMock(return_value=0.02)
+    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+
+    flux_surfs.set_equilibrium(equilib)
 
     example_extrapolate_impurity_density = ExtrapolateImpurityDensity()
 
+    sxr_rho, sxr_theta = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
+    sxr_rho = np.abs(sxr_rho)
+    sxr_rho = sxr_rho.transpose("R", "z", "t")
+
+    sxr_theta = sxr_theta.transpose("R", "z", "t")
+    rho_arr = np.linspace(0.0, 2.0, 50)
+    theta_arr = np.linspace(np.min(sxr_theta), np.max(sxr_theta), 25)
+
+    rho_arr = DataArray(data=rho_arr, coords={"rho": rho_arr}, dims=["rho"])
+    theta_arr = DataArray(data=theta_arr, coords={"theta": theta_arr}, dims=["theta"])
+
+    sxr_density_data = 25.0e15 * np.exp(-rho_arr)
+
+    sxr_density_data = np.tile(sxr_density_data, (len(base_t), len(theta_arr), 1))
+
+    sxr_density_data = np.transpose(sxr_density_data, [2, 1, 0])
+
+    input_sxr_density = DataArray(
+        data=sxr_density_data,
+        coords={"rho": rho_arr, "theta": theta_arr, "t": base_t},
+        dims=["rho", "theta", "t"],
+    )
+
+    input_sxr_density.isel({"theta": 0, "t": 0}).plot()
+    # plt.show()
+
+    rho_derived, theta_derived = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
+    rho_derived = np.abs(rho_derived)
+    # rho_derived = rho_derived.where(rho_derived <= 1.0)
+
+    rho_derived = rho_derived.transpose("R", "z", "t")
+    theta_derived = theta_derived.transpose("R", "z", "t")
+
+    _ = rho_derived.isel({"t": 0, "z": 49})
+
+    rho_derived.isel({"t": 0, "z": 49}).plot()
+    plt.show()
+
+    input_sxr_density = input_sxr_density.indica.interp2d(
+        {"rho": rho_derived, "theta": theta_derived}, method="cubic"
+    )
+    input_sxr_density = input_sxr_density.transpose("R", "z", "t")
+
+    _ = input_sxr_density.isel({"t": 0, "z": 49})
+
+    input_sxr_density.isel({"t": 0, "z": 49}).plot()
+    # plt.show()
+
     try:
-        example_result, t = example_extrapolate_impurity_density(
-            input_sxr_density, input_Ne, input_Te, valid_truncation_threshold
+        example_result, example_threshold_rho, t = example_extrapolate_impurity_density(
+            input_sxr_density,
+            input_Ne,
+            input_Te,
+            valid_truncation_threshold,
+            flux_surfs,
         )
     except Exception as e:
         raise e
+
+    assert np.all(t == base_t)
+
+    example_extrapolate_test_case = Exception_Impurity_Density_Test_Case(
+        input_sxr_density, input_Ne, input_Te, valid_truncation_threshold, base_t
+    )
+
+    # Invalid SXR derived density checks
+
+    invalid_sxr_density = "invalid_test"
+
+    example_extrapolate_test_case.call_type_check(
+        impurity_density_sxr=invalid_sxr_density
+    )
+
+    invalid_sxr_density = DataArray(
+        data=input_sxr_density[:, 0, :],
+        coords={"R": R_arr, "t": base_t},
+        dims=["R", "t"],
+    )
+
+    example_extrapolate_test_case.call_value_check(
+        impurity_density_sxr=invalid_sxr_density
+    )
+
+    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = invalid_sxr_density * -1
+
+    example_extrapolate_test_case.call_value_check(
+        impurity_density_sxr=invalid_sxr_density
+    )
+
+    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = invalid_sxr_density * np.inf
+
+    example_extrapolate_test_case.call_value_check(
+        impurity_density_sxr=invalid_sxr_density
+    )
+
+    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = invalid_sxr_density * -np.inf
+
+    example_extrapolate_test_case.call_value_check(
+        impurity_density_sxr=invalid_sxr_density
+    )
+
+    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = invalid_sxr_density * np.nan
+
+    example_extrapolate_test_case.call_value_check(
+        impurity_density_sxr=invalid_sxr_density
+    )
+
+    # Invalid electron density checks
+
+    invalid_Ne = "invalid_test"
+
+    example_extrapolate_test_case.call_type_check(electron_density=invalid_Ne)
+
+    invalid_Ne = DataArray(
+        data=input_Ne[:, 0], coords={"rho": expanded_rho}, dims=["rho"]
+    )
+
+    example_extrapolate_test_case.call_value_check(electron_density=invalid_Ne)
+
+    invalid_Ne = input_Ne.copy(deep=True)
+    invalid_Ne = invalid_Ne * -1
+
+    example_extrapolate_test_case.call_value_check(electron_density=invalid_Ne)
+
+    invalid_Ne = input_Ne.copy(deep=True)
+    invalid_Ne = invalid_Ne * np.inf
+
+    example_extrapolate_test_case.call_value_check(electron_density=invalid_Ne)
+
+    invalid_Ne = input_Ne.copy(deep=True)
+    invalid_Ne = invalid_Ne * -np.inf
+
+    example_extrapolate_test_case.call_value_check(electron_density=invalid_Ne)
+
+    invalid_Ne = input_Ne.copy(deep=True)
+    invalid_Ne = invalid_Ne * np.nan
+
+    example_extrapolate_test_case.call_value_check(electron_density=invalid_Ne)
+
+    # Invalid electron temperature checks
+
+    invalid_Te = "invalid_test"
+
+    example_extrapolate_test_case.call_type_check(electron_temperature=invalid_Te)
+
+    invalid_Te = DataArray(
+        data=input_Te[:, 0], coords={"rho": expanded_rho}, dims=["rho"]
+    )
+
+    example_extrapolate_test_case.call_value_check(electron_temperature=invalid_Te)
+
+    invalid_Te = input_Te.copy(deep=True)
+    invalid_Te = invalid_Te * 0
+
+    example_extrapolate_test_case.call_value_check(electron_temperature=invalid_Te)
+
+    invalid_Te = input_Te.copy(deep=True)
+    invalid_Te = invalid_Te * -1
+
+    example_extrapolate_test_case.call_value_check(electron_temperature=invalid_Te)
+
+    invalid_Te = input_Te.copy(deep=True)
+    invalid_Te = invalid_Te * np.inf
+
+    example_extrapolate_test_case.call_value_check(electron_temperature=invalid_Te)
+
+    invalid_Te = input_Te.copy(deep=True)
+    invalid_Te = invalid_Te * -np.inf
+
+    example_extrapolate_test_case.call_value_check(electron_temperature=invalid_Te)
+
+    invalid_Te = input_Te.copy(deep=True)
+    invalid_Te = invalid_Te * np.nan
+
+    example_extrapolate_test_case.call_value_check(electron_temperature=invalid_Te)
+
+    # Invalid truncation threshold check
+
+    invalid_truncation_threshold = "invalid_test"
+
+    example_extrapolate_test_case.call_type_check(
+        truncation_threshold=invalid_truncation_threshold
+    )
+
+    invalid_truncation_threshold = valid_truncation_threshold * 0
+
+    example_extrapolate_test_case.call_value_check(
+        truncation_threshold=invalid_truncation_threshold
+    )
+
+    invalid_truncation_threshold = copy.deepcopy(valid_truncation_threshold)
+    invalid_truncation_threshold = invalid_truncation_threshold * 0
+
+    example_extrapolate_test_case.call_value_check(
+        truncation_threshold=invalid_truncation_threshold
+    )
+
+    invalid_truncation_threshold = copy.deepcopy(valid_truncation_threshold)
+    invalid_truncation_threshold = invalid_truncation_threshold * -1
+
+    example_extrapolate_test_case.call_value_check(
+        truncation_threshold=invalid_truncation_threshold
+    )
+
+    invalid_truncation_threshold = copy.deepcopy(valid_truncation_threshold)
+    invalid_truncation_threshold = invalid_truncation_threshold * np.inf
+
+    example_extrapolate_test_case.call_value_check(
+        truncation_threshold=invalid_truncation_threshold
+    )
+
+    invalid_truncation_threshold = copy.deepcopy(valid_truncation_threshold)
+    invalid_truncation_threshold = invalid_truncation_threshold * -np.inf
+
+    example_extrapolate_test_case.call_value_check(
+        truncation_threshold=invalid_truncation_threshold
+    )
+
+    invalid_truncation_threshold = copy.deepcopy(valid_truncation_threshold)
+    invalid_truncation_threshold = invalid_truncation_threshold * np.nan
+
+    example_extrapolate_test_case.call_value_check(
+        truncation_threshold=invalid_truncation_threshold
+    )

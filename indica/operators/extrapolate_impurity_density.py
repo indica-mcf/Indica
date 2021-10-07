@@ -2,14 +2,20 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate.fitpack2 import UnivariateSpline
 from xarray import concat
 from xarray import DataArray
 
+from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
 from ..utilities import input_check
+
+# import numpy as np
 
 
 class ExtrapolateImpurityDensity(Operator):
@@ -85,13 +91,17 @@ class ExtrapolateImpurityDensity(Operator):
         except AssertionError:
             raise AssertionError("Electron temperature must be a profile of rho.")
 
-        threshold_rho = electron_temperature.where(
+        threshold_temp = electron_temperature.where(
             (electron_temperature - truncation_threshold >= 0), drop=True
         ).min("rho")
 
-        threshold_rho = electron_temperature.where(
-            electron_temperature == threshold_rho, drop=True
-        ).coords["rho"]
+        threshold_rho = (
+            electron_temperature.where(
+                electron_temperature == threshold_temp, drop=True
+            )
+            .coords["rho"]
+            .data
+        )
 
         return threshold_rho
 
@@ -101,6 +111,7 @@ class ExtrapolateImpurityDensity(Operator):
         electron_density: DataArray,
         electron_temperature: DataArray,
         truncation_threshold: float,
+        flux_surfaces: FluxSurfaceCoordinates,
         t: DataArray = None,
     ):
         """Extrapolates the impurity density beyond the limits of SXR (Soft X-ray)
@@ -132,7 +143,7 @@ class ExtrapolateImpurityDensity(Operator):
             "impurity_density_sxr",
             impurity_density_sxr,
             DataArray,
-            ndim_to_check=2,
+            ndim_to_check=3,
             greater_than_or_equal_zero=True,
         )
 
@@ -166,12 +177,67 @@ class ExtrapolateImpurityDensity(Operator):
 
         threshold_rho = self.recover_rho(truncation_threshold, electron_temperature)
 
+        # Transform impurity_density_sxr to rho, theta coordinates
+        R_arr = impurity_density_sxr.coords["R"]
+        z_arr = impurity_density_sxr.coords["z"]
+
+        sxr_rho, sxr_theta = flux_surfaces.convert_from_Rz(
+            R_arr,
+            z_arr,
+            t.data,
+        )
+
+        if isinstance(sxr_rho, DataArray):
+            sxr_rho = np.abs(sxr_rho)
+            sxr_rho = sxr_rho.transpose("R", "z", "t")
+
+        if isinstance(sxr_theta, DataArray):
+            sxr_theta = sxr_theta.transpose("R", "z", "t")
+
+        # sxr_rho_theta_t = np.array((sxr_rho.data, sxr_theta.data)).T
+        # sxr_rho_theta_t = np.transpose(sxr_rho_theta_t, (2, 1, 0, 3))
+
+        # rho_theta_labels = np.array(["rho", "theta"])
+        # sxr_rho_theta_t = DataArray(
+        #     data=sxr_rho_theta_t,
+        #     coords={"R": R_arr, "z": z_arr, "t": t, "coord_label": rho_theta_labels},
+        #     dims=["R", "z", "t", "coord_label"],
+        # )
+
+        rho_arr = electron_density.coords["rho"].values
+        theta_arr = np.linspace(np.min(sxr_theta), np.max(sxr_theta), 25)
+        t_arr = t.values
+
+        rho_arr = DataArray(data=rho_arr, coords={"rho": rho_arr}, dims=["rho"])
+        theta_arr = DataArray(
+            data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
+        )
+
+        R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr, t_arr)
+
+        if isinstance(R_deriv, DataArray):
+            R_deriv = R_deriv.transpose("rho", "theta", "t")
+        if isinstance(z_deriv, DataArray):
+            z_deriv = z_deriv.transpose("rho", "theta", "t")
+
+        test_scatter = impurity_density_sxr.isel({"t": 0}).interp(
+            {"z": 0.1}, method="cubic"
+        )
+        plt.scatter(test_scatter.coords["R"], test_scatter.data)
+        plt.show()
+
+        impurity_density_sxr = impurity_density_sxr.indica.interp2d(
+            {"R": R_deriv, "z": z_deriv}, method="cubic"
+        )
+        impurity_density_sxr = impurity_density_sxr.transpose("rho", "theta", "t")
+
         # Discontinuity mitigation
         boundary_electron_density = electron_density.sel({"rho": threshold_rho})
         boundary_impurity_density_sxr = impurity_density_sxr.sel({"rho": threshold_rho})
 
         discontinuity_scale = boundary_impurity_density_sxr / boundary_electron_density
-        discontinuity_scale = discontinuity_scale.data[0, 0]
+        discontinuity_scale = discontinuity_scale.isel(rho=0)
+        # discontinuity_scale = discontinuity_scale.data[0, 0, 0]
 
         # Continue impurity_density_sxr following the shape of the electron density
         # profile.
@@ -180,7 +246,18 @@ class ExtrapolateImpurityDensity(Operator):
         )
 
         bounded_electron_density = electron_density.where(
-            electron_density.rho > threshold_rho, drop=True
+            electron_density.rho >= threshold_rho, drop=True
+        )
+
+        impurity_density_sxr.isel({"t": 0}).plot()
+        plt.show()
+
+        index_to_drop = np.where(
+            bounded_impurity_density_sxr.coords["rho"].data == threshold_rho
+        )[0][0]
+
+        bounded_impurity_density_sxr = bounded_impurity_density_sxr.drop_isel(
+            rho=index_to_drop
         )
 
         extrapolated_impurity_density = concat(
@@ -191,4 +268,41 @@ class ExtrapolateImpurityDensity(Operator):
             dim="rho",
         )
 
-        return extrapolated_impurity_density, t
+        assert np.all(np.logical_not(np.isnan(extrapolated_impurity_density)))
+
+        rho_array = extrapolated_impurity_density.coords["rho"]
+
+        extrapolated_spline = UnivariateSpline(
+            rho_array, extrapolated_impurity_density[:, 0, 0], k=5
+        )
+
+        variance_extrapolated_impurity_density = extrapolated_impurity_density.var(
+            "rho"
+        )
+
+        extrapolated_spline.set_smoothing_factor(
+            0.01 * variance_extrapolated_impurity_density.isel({"theta": 0, "t": 0})
+        )
+
+        # first_derivative_comb = \
+        #     extrapolated_impurity_density.differentiate(coord="rho")
+
+        # drho = np.mean(np.diff(rho_array.data))
+
+        # first_derivative_spline = np.gradient(extrapolated_spline(rho_array), drho)
+
+        plt.plot(
+            rho_array,
+            # first_derivative_comb[:, 0, 0],
+            extrapolated_impurity_density[:, 0, 0],
+            c="b",
+        )
+        plt.plot(
+            rho_array,
+            # first_derivative_spline,
+            extrapolated_spline(rho_array),
+            c="r",
+        )
+        plt.show()
+
+        return extrapolated_impurity_density, threshold_rho, t
