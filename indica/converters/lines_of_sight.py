@@ -124,7 +124,23 @@ class LinesOfSightTransform(CoordinateTransform):
         R0 = Rs + (Re - Rs) * x2
         T0 = Ts + (Te - Ts) * x2
         z = zs + (ze - zs) * x2
-        return np.sign(R0) * np.sqrt(R0 ** 2 + T0 ** 2), z
+        return np.sqrt(R0 ** 2 + T0 ** 2), z
+
+    def convert_to_xyz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
+        c = np.ceil(x1).astype(int)
+        f = np.floor(x1).astype(int)
+        Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
+        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
+        zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
+        Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
+        R0 = Rs + (Re - Rs) * x2
+        T0 = Ts + (Te - Ts) * x2
+        z = zs + (ze - zs) * x2
+        return R0, T0, z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -202,11 +218,7 @@ class LinesOfSightTransform(CoordinateTransform):
         # return x1, x2
 
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> LabeledArray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -296,7 +308,7 @@ def _get_wall_intersection_distances(
     x2_trial = (-b + factor * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
     z_trial = z_start + x2_trial * (z_end - z_start)
     x2_opposite = np.zeros_like(x2_trial)
-    if z_start != z_end:
+    if not np.array_equal(z_start, z_end):
         x2_opposite = (opposite_z - z_start) / (z_end - z_start)
     x2 = np.where(
         np.logical_and(
