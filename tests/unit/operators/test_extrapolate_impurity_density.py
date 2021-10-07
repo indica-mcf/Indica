@@ -2,7 +2,6 @@ import copy
 import unittest
 from unittest.mock import MagicMock
 
-import matplotlib.pyplot as plt
 import numpy as np
 from xarray import DataArray
 
@@ -165,9 +164,6 @@ def test_extrapolate_impurity_density_call():
         dims=["rho", "theta", "t"],
     )
 
-    input_sxr_density.isel({"theta": 0, "t": 0}).plot()
-    # plt.show()
-
     rho_derived, theta_derived = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
     rho_derived = np.abs(rho_derived)
     # rho_derived = rho_derived.where(rho_derived <= 1.0)
@@ -175,20 +171,10 @@ def test_extrapolate_impurity_density_call():
     rho_derived = rho_derived.transpose("R", "z", "t")
     theta_derived = theta_derived.transpose("R", "z", "t")
 
-    _ = rho_derived.isel({"t": 0, "z": 49})
-
-    rho_derived.isel({"t": 0, "z": 49}).plot()
-    plt.show()
-
     input_sxr_density = input_sxr_density.indica.interp2d(
         {"rho": rho_derived, "theta": theta_derived}, method="cubic"
     )
     input_sxr_density = input_sxr_density.transpose("R", "z", "t")
-
-    _ = input_sxr_density.isel({"t": 0, "z": 49})
-
-    input_sxr_density.isel({"t": 0, "z": 49}).plot()
-    # plt.show()
 
     try:
         example_result, example_threshold_rho, t = example_extrapolate_impurity_density(
