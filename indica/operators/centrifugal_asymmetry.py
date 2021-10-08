@@ -5,13 +5,11 @@ from typing import Union
 
 from xarray.core.dataarray import DataArray
 
-from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
-from indica.datatypes import ELEMENTS_BY_MASS
-from indica.datatypes import ELEMENTS_BY_SYMBOL
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
+from ..datatypes import ELEMENTS
 from ..utilities import input_check
 
 
@@ -102,20 +100,16 @@ class ToroidalRotation(Operator):
         input_check("main_ion", main_ion, str)
 
         try:
-            assert main_ion in list(ELEMENTS_BY_SYMBOL.keys())
+            assert main_ion in list(ELEMENTS.keys())
         except AssertionError:
-            raise ValueError(
-                f"main_ion must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
-            )
+            raise ValueError(f"main_ion must be one of {list(ELEMENTS.keys())}")
 
         input_check("impurity", impurity, str)
 
         try:
-            assert impurity in list(ELEMENTS_BY_SYMBOL.keys())
+            assert impurity in list(ELEMENTS.keys())
         except AssertionError:
-            raise ValueError(
-                f"impurity must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
-            )
+            raise ValueError(f"impurity must be one of {list(ELEMENTS.keys())}")
 
         input_check(
             "Zeff", Zeff, DataArray, ndim_to_check=2, greater_than_or_equal_zero=True
@@ -131,23 +125,14 @@ class ToroidalRotation(Operator):
 
         asymmetry_parameter = asymmetry_parameters.sel(elements=impurity)
 
-        impurity_name = ELEMENTS_BY_SYMBOL[impurity]
-        main_ion_name = ELEMENTS_BY_SYMBOL[main_ion]
-
-        impurity_mass_int = list(ELEMENTS_BY_MASS.keys())[
-            list(ELEMENTS_BY_MASS.values()).index(impurity_name)
-        ]
+        impurity_mass_int = ELEMENTS[impurity][1]
 
         unified_atomic_mass_unit = 1.660539066e-27
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
-        mean_charge = list(ELEMENTS_BY_ATOMIC_NUMBER.keys())[
-            list(ELEMENTS_BY_ATOMIC_NUMBER.values()).index(impurity_name)
-        ]
+        mean_charge = ELEMENTS[impurity][0]
 
-        main_ion_mass_int = list(ELEMENTS_BY_MASS.keys())[
-            list(ELEMENTS_BY_MASS.values()).index(main_ion_name)
-        ]
+        main_ion_mass_int = ELEMENTS[main_ion][1]
 
         main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
 
@@ -250,20 +235,16 @@ class AsymmetryParameter(Operator):
         input_check("main_ion", main_ion, str)
 
         try:
-            assert main_ion in list(ELEMENTS_BY_SYMBOL.keys())
+            assert main_ion in list(ELEMENTS.keys())
         except AssertionError:
-            raise ValueError(
-                f"main_ion must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
-            )
+            raise ValueError(f"main_ion must be one of {list(ELEMENTS.keys())}")
 
         input_check("impurity", impurity, str)
 
         try:
-            assert impurity in list(ELEMENTS_BY_SYMBOL.keys())
+            assert impurity in list(ELEMENTS.keys())
         except AssertionError:
-            raise ValueError(
-                f"impurity must be one of {list(ELEMENTS_BY_SYMBOL.keys())}"
-            )
+            raise ValueError(f"impurity must be one of {list(ELEMENTS.keys())}")
 
         input_check(
             "Zeff", Zeff, DataArray, ndim_to_check=2, greater_than_or_equal_zero=True
@@ -279,23 +260,14 @@ class AsymmetryParameter(Operator):
 
         toroidal_rotations = toroidal_rotations.sel(elements=impurity)
 
-        impurity_name = ELEMENTS_BY_SYMBOL[impurity]
-        main_ion_name = ELEMENTS_BY_SYMBOL[main_ion]
-
-        impurity_mass_int = list(ELEMENTS_BY_MASS.keys())[
-            list(ELEMENTS_BY_MASS.values()).index(impurity_name)
-        ]
+        impurity_mass_int = ELEMENTS[impurity][1]
 
         unified_atomic_mass_unit = 1.660539066e-27
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
-        mean_charge = list(ELEMENTS_BY_ATOMIC_NUMBER.keys())[
-            list(ELEMENTS_BY_ATOMIC_NUMBER.values()).index(impurity_name)
-        ]
+        mean_charge = ELEMENTS[impurity][0]
 
-        main_ion_mass_int = list(ELEMENTS_BY_MASS.keys())[
-            list(ELEMENTS_BY_MASS.values()).index(main_ion_name)
-        ]
+        main_ion_mass_int = ELEMENTS[main_ion][1]
 
         main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
 
