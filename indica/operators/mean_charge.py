@@ -10,11 +10,11 @@ import numpy as np
 from xarray.core.common import zeros_like
 from xarray.core.dataarray import DataArray
 
-from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
+from ..datatypes import ELEMENTS
 from ..utilities import input_check
 
 
@@ -56,7 +56,7 @@ class MeanCharge(Operator):
             numpy.ndarray describing the fractional abundance of the given element.
             The first axis must correspond to the ionisation charges of the element.
         element
-            Name of the element for which the mean charge is desired.
+            Symbol of the element for which the mean charge is desired.
 
         Returns
         -------
@@ -73,22 +73,17 @@ class MeanCharge(Operator):
         )
         input_check("element", element, str)
 
-        element_atomic_number_tmp = [
-            k for k, v in ELEMENTS_BY_ATOMIC_NUMBER.items() if v == element
-        ]
         try:
-            assert len(element_atomic_number_tmp) == 1
+            assert element in ELEMENTS.keys()
         except AssertionError:
             raise ValueError(
                 f"Please input a single valid element from list:\
-                {list(ELEMENTS_BY_ATOMIC_NUMBER.values())}"
+                {list(ELEMENTS.keys())}"
             )
 
-        element_atomic_number = element_atomic_number_tmp[0]
+        element_atomic_number = ELEMENTS[element][0]
 
-        ionisation_charges = np.linspace(
-            0, element_atomic_number, element_atomic_number + 1, dtype=int
-        )
+        ionisation_charges = np.arange(0, element_atomic_number + 1)  # type: ignore
 
         try:
             assert ionisation_charges.shape[0] == FracAbundObj.shape[0]

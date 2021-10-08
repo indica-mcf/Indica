@@ -18,8 +18,7 @@ from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
 from ..datatypes import ADF15_GENERAL_DATATYPES
-from ..datatypes import ORDERED_ELEMENTS
-
+from ..datatypes import ELEMENTS
 
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")
@@ -109,7 +108,6 @@ class ADASReader(BaseIO):
             zmin = int(header[3]) - 1
             zmax = int(header[4]) - 1
             element_name = header[5][1:].lower()
-            assert ORDERED_ELEMENTS.index(element_name) == z
             f.readline()
             densities = np.fromfile(f, float, nd, " ")
             temperatures = np.fromfile(f, float, nt, " ")
@@ -133,7 +131,17 @@ class ADASReader(BaseIO):
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
         gen_type = ADF11_GENERAL_DATATYPES[quantity]
-        spec_type = ORDERED_ELEMENTS[z]
+        spec_type = element_name
+        try:
+            assert (
+                z
+                == [value[0] for value in ELEMENTS.values() if value[2] == spec_type][0]
+            )
+        except AssertionError:
+            raise AssertionError(
+                "There is a mismatch between atomic number(z)\
+                and element name(element_name) imported from the ADF11 file."
+            )
         name = f"{spec_type}_{gen_type}"
         attrs = {
             "datatype": (gen_type, spec_type),
@@ -188,6 +196,14 @@ class ADASReader(BaseIO):
             different charge state.
 
         """
+
+        def explicit_reshape(data_to_reshape, nd, nt):
+            data = np.empty((nd, nt))
+            for id in range(nd):
+                for it in range(nt):
+                    data[id, it] = data_to_reshape[id * nt + it]
+
+            return data
 
         def build_file_component(year, element):
             file_component = "transport"
@@ -274,12 +290,12 @@ class ADASReader(BaseIO):
             assert isinstance(m, re.Match)
             nd = int(m.group(2))
             nt = int(m.group(3))
-            data = np.empty((ntrans, nt, nd))
             ttype: List[str] = []
             tindex = np.empty(ntrans)
             wavelength = np.empty(ntrans)
 
             # Read Photon Emissivity Coefficient rates
+            data = np.empty((ntrans, nd, nt))
             for i in range(ntrans):
                 m = header_re.search(line)
                 assert isinstance(m, re.Match)
@@ -287,10 +303,14 @@ class ADASReader(BaseIO):
                 tindex[i] = i + 1
                 ttype.append(m.group(4))
                 wavelength[i] = float(m.group(1))  # (Angstroms)
+
                 densities = np.fromfile(f, float, nd, " ")
                 temperatures = np.fromfile(f, float, nt, " ")
-                data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
+                data_tmp = np.fromfile(f, float, nd * nt, " ")
+                data[i, :, :] = explicit_reshape(data_tmp, nd, nt)
                 line = f.readline().strip().lower()
+
+            data = np.transpose(np.array(data), (0, 2, 1))
 
             # Read Transition information from end of file
             file_end_re = re.compile(r"c\s+[isel].+\s+[transition].+\s+[type]")
@@ -324,18 +344,11 @@ class ADASReader(BaseIO):
             "provenance": self.create_provenance(filename, now),
         }
 
-        if nd == nt:
-            coords = [
-                ("index", tindex),
-                ("electron_density", densities * 10 ** 6),  # m**-3
-                ("electron_temperature", temperatures),  # eV
-            ]
-        else:
-            coords = [
-                ("index", tindex),
-                ("electron_temperature", temperatures),  # eV
-                ("electron_density", densities * 10 ** 6),  # m**-3
-            ]
+        coords = [
+            ("index", tindex),
+            ("electron_temperature", temperatures),  # eV
+            ("electron_density", densities * 10 ** 6),  # m**-3
+        ]
 
         pecs = DataArray(
             data * 10 ** -6,
