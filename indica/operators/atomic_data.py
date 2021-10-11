@@ -270,13 +270,6 @@ class FractionalAbundance(Operator):
 
         self.interpolation_bounds_check(Ne, Te)
 
-        if self.Ne is not None:
-            if np.logical_not(np.all(Ne == self.Ne)):
-                warnings.warn(
-                    "Ne given to calc_ionisation_balance_matrix is different from \
-                        the internal Ne known to FractionalAbundance object."
-                )
-
         self.Ne, self.Te = Ne, Te  # type: ignore
 
         SCD_spec = self.SCD.indica.interp2d(
@@ -349,13 +342,6 @@ class FractionalAbundance(Operator):
             inputted_data["Nh"] = Nh
 
         shape_check(inputted_data)
-
-        if self.Ne is not None:
-            if np.logical_not(np.all(Ne == self.Ne)):
-                warnings.warn(
-                    "Ne given to calc_ionisation_balance_matrix is different from \
-                        the internal Ne known to FractionalAbundance object."
-                )
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
@@ -969,13 +955,6 @@ class PowerLoss(Operator):
         elif self.PRC is not None:
             Nh = zeros_like(Ne)
             inputted_data["Nh"] = Nh
-
-        if self.Ne is not None:
-            if np.logical_not(np.all(Ne == self.Ne)):
-                warnings.warn(
-                    "Ne given to calc_ionisation_balance_matrix is different from \
-                        the internal Ne known to FractionalAbundance object."
-                )
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
