@@ -718,20 +718,10 @@ def internal_inductance(b_pol, ipla, volume, approx=2, **kwargs):
         )
 
     if approx == 2 and "R_mag" in kwargs.keys():
-        return li2(
-            b_pol,
-            ipla,
-            volume,
-            kwargs["R_mag"],
-        )
+        return li2(b_pol, ipla, volume, kwargs["R_mag"],)
 
     if approx == 3 and "R_geo" in kwargs.keys():
-        return li3(
-            b_pol,
-            ipla,
-            volume,
-            kwargs["R_geo"],
-        )
+        return li3(b_pol, ipla, volume, kwargs["R_geo"],)
 
     return l_i
 
@@ -929,6 +919,68 @@ def ev_doppler(temperature, mass: float, fwhm=False):
         dl_l *= 2 * np.sqrt(2 * np.log(2))
 
     return dl_l
+
+
+def zeff_bremsstrahlung(
+    Te,
+    Ne,
+    wavelength,
+    zeff: float = None,
+    brems: float = None,
+    gaunt_approx="callahan",
+):
+    """
+    Calculate Bremsstrahlung or Zeff along LOS
+
+    Parameters
+    ----------
+    Te
+        electron temperature (eV) for calculation
+    wavelength
+        wavelength (nm) at which Bremsstrahlung should be calculated
+    zeff
+        effective charge
+    gaunt_approx
+        approximation for free-free gaunt factors:
+            "callahan" see citation in KJ Callahan 2019 JINST 14 C10002
+
+    Returns
+    -------
+    Bremsstrahlung emissing per unit time and volume
+    --> to be integrated along the LOS and multiplied by spectrometer t_exp
+
+    """
+
+    assert np.isnan(zeff) == (not np.isnan(brems))
+
+    gaunt_funct = {"callahan": lambda Te: 1.35 * Te ** 0.15}
+
+    const = constants.e ** 6 / (
+        np.sqrt(2)
+        * (3 * np.pi * constants.m_e) ** 1.5
+        * constants.epsilon_0 ** 3
+        * constants.c ** 2
+    )
+    gaunt = gaunt_funct[gaunt_approx](Te)
+    ev_to_k = constants.physical_constants["electron volt-kelvin relationship"][0]
+    wlenght = wavelength * 1.0e-9  # nm to m
+    exponent = np.exp(
+        -(constants.h * constants.c) / (wlenght * constants.k * ev_to_k * Te)
+    )
+
+    factor = (
+        const
+        * (Ne ** 2 / np.sqrt(constants.k * Te))
+        * (exponent / wlenght ** 2)
+        * gaunt
+    ) * wlenght
+
+    if zeff is None:
+        result = brems / factor
+    else:
+        result = zeff * factor
+
+    return result
 
 
 def derivative(y, x):
