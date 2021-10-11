@@ -8,15 +8,13 @@ import matplotlib.pylab as plt
 import numpy as np
 import math
 import hda.fac_profiles as fac
-from hda.simple_profiles import Profiles
+from hda.profiles import Profiles
 from hda.diagnostics.spectrometer import XRCSpectrometer
 import hda.physics as ph
 from hda.atomdat import fractional_abundance
 from hda.atomdat import get_atomdat
 from hda.atomdat import radiated_power
-
-# from hda.hdaadas import ADASReader
-
+from scipy.optimize import least_squares
 from indica.readers import ADASReader
 from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
@@ -24,7 +22,7 @@ from indica.converters import FluxSurfaceCoordinates
 from indica.converters.time import bin_in_time
 
 import xarray as xr
-from xarray import DataArray
+from xarray import DataArray, Dataset
 
 plt.ion()
 
@@ -107,7 +105,7 @@ class Plasma:
 
             print(kinstr)
             if type(data[kinstr]) != dict:
-                value = data[kinstr]
+                value = deepcopy(data[kinstr])
                 if np.size(value) > 1:
                     value = bin_in_time(
                         self.tstart, self.tend, self.freq, value
@@ -125,13 +123,16 @@ class Plasma:
 
                 if "error" in value.attrs.keys():
                     error = bin_in_time(
-                        self.tstart, self.tend, self.freq, data[kinstr][kquant].attrs["error"]
+                        self.tstart,
+                        self.tend,
+                        self.freq,
+                        data[kinstr][kquant].attrs["error"],
                     ).interp(t=self.time, method="linear")
                     value.attrs["error"] = error
 
                 if "transform" in value.attrs and transform is None:
                     transform = value.attrs["transform"]
-                    transform.set_equilibrium(self.equilibrium)
+                    transform.set_equilibrium(self.equilibrium, force=True)
                     if "LinesOfSightTransform" in str(transform):
                         geom_attrs = remap_diagnostic(value, self.flux_coords)
 
@@ -146,6 +147,7 @@ class Plasma:
             binned_data[kinstr] = instrument_data
 
         self.data = binned_data
+        self.bckc = {}
 
         forward_models = {}
         if "xrcs" in binned_data.keys():
@@ -241,12 +243,24 @@ class Plasma:
         #
         #     self.atomic_data[elem] = atomdat
 
-    def match_xrcs(self, quantity_te="te_kw", quantity_ti="ti_w", niter=3):
+    def match_xrcs(
+        self,
+        diagnostic: str = "xrcs",
+        quantity_te="te_kw",
+        quantity_ti="ti_w",
+        y1=50,
+        wped=4,
+        wcenter=0.4,
+        peaking=1.5,
+        niter=3,
+    ):
         """
         Rescale temperature profiles to match the XRCS spectrometer measurements
 
         Parameters
         ----------
+        diagnostic
+            diagnostic name corresponding to xrcs
         quantity_te
             Measurement to be used for the electron temperature optimisation
         quantity_ti
@@ -259,67 +273,112 @@ class Plasma:
 
         """
 
-        # self.el_temp.loc[dict(t=t)] = self.Te_prof.build_profile(
-        #     te_0, te_1
-        # ).yspl.values
-
-        if "xrcs" not in self.data.keys():
-            print_like("No XRCS data available")
+        if diagnostic not in self.data.keys():
+            print_like(f"No {diagnostic.upper()} data available")
             return
 
-        print_like("Re-calculating temperature profiles to match XRCSs values")
+        print_like(
+            f"Re-calculating temperature profiles to match {diagnostic.upper()} values"
+        )
 
-        nt = len(self.time)
-
-        const_te_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
-        const_ti_xrcs = DataArray([1.0] * nt, coords=[("t", self.time)])
-
-        Ne_prof = self.Ne_prof
+        forward_model = self.forward_models[diagnostic]
         Te_prof = self.Te_prof
         Ti_prof = self.Ti_prof
 
-        te_data = self.data["xrcs"][quantity_te]
-        ti_data = self.data["xrcs"][quantity_ti]
+        Te_prof.y1 = y1
+        Te_prof.wped = wped
+        Te_prof.wcenter = wcenter
+        Te_prof.peaking = peaking
 
-        te_bckc = initialize_bckc(te_data)
-        ti_bckc = initialize_bckc(ti_data)
+        Ti_prof.y1 = y1
+        Ti_prof.wped = wped
+        Ti_prof.wcenter = wcenter
+        Ti_prof.peaking = peaking
+
+        # Initialize back calculated values of diagnostic quantities
+        if diagnostic not in self.bckc.keys():
+            bckc = deepcopy(self.data[diagnostic])
+            self.bckc[diagnostic] = bckc
+        bckc = self.bckc[diagnostic]
+        for k in bckc.keys():
+            bckc[k] = initialize_bckc(bckc[k])
+
+        data = self.data[diagnostic]
+
+        pos = xr.full_like(data[quantity_te].t, np.nan)
+        err_in = deepcopy(pos)
+        err_out = deepcopy(pos)
+        te_pos = Dataset(
+            {"value": pos, "err_in": err_in, "err_out": err_out}
+        )
+        ti_pos = deepcopy(te_pos)
+
         for t in self.t:
-            print(f"t = {int(t*1.e3) ms}")
+            print(f"t = {int(t*1.e3)} ms")
 
-            # Start assumption: central temperature == XRCS measured value
-            te0 = te_data.sel(t=t)
-            ti0 = ti_data.sel(t=t)
+            te_data = data[quantity_te].sel(t=t)
+            ti_data = data[quantity_ti].sel(t=t)
 
+            if np.isnan(te_data) or np.isnan(ti_data):
+                tmp = xr.full_like(self.el_temp.sel(t=t), np.nan)
+                self.el_temp.loc[dict(t=t)] = tmp
+                for elem in self.elements:
+                    self.ion_temp.loc[dict(t=t, element=elem)] = tmp
+                continue
+
+            el_dens = self.el_dens.sel(t=t)
+
+            const_te, const_ti = 1, 1
+            Te_prof.y0 = deepcopy(te_data.values)
+            Ti_prof.y0 = deepcopy(ti_data.values)
             for j in range(niter):
-                if profs_spl is None:
-                    el_temp *= const_te_xrcs
-                    ion_temp *= const_ti_xrcs
+                Te_prof.y0 *= const_te
+                Te_prof.build_profile()
+                el_temp = Te_prof.yspl
 
-                # Calculate Ti(0) from He-like spectrometer
-                he_like.simulate_measurements(self.el_dens, el_temp, ion_temp)
-                const_te_xrcs = self.te_xrcs / he_like.el_temp
-                const_ti_xrcs = self.ti_xrcs / he_like.ion_temp
+                Ti_prof.y0 *= const_ti
+                Ti_prof.build_profile(y0_ref=Te_prof.y0)
+                ion_temp = Ti_prof.yspl
 
-                if profs_spl is not None:
-                    profs_spl.el_temp.values *= const_te_xrcs
-                    profs_spl.el_temp.prepare()
-                    el_temp = profs_spl.el_temp(self.rho)
+                forward_model.radiation_characteristics(el_temp, el_dens)
+                te_bckc, ti_bckc = forward_model.moment_analysis(ion_temp)
 
-                    profs_spl.ion_temp.values = xr.where(
-                        (profs_spl.ion_temp.coord >= rho_lim[0])
-                        * (profs_spl.ion_temp.coord <= rho_lim[1]),
-                        profs_spl.ion_temp.values * const_ti_xrcs,
-                        profs_spl.el_temp.values,
-                    ).transpose(*profs_spl.ion_temp.values.dims)
-                    profs_spl.ion_temp.prepare()
-                    ion_temp = profs_spl.ion_temp(self.rho)
+                const_te = (
+                    te_data
+                    / el_temp.sel(rho_poloidal=te_bckc.rho_poloidal, method="nearest")
+                ).values[0]
+                const_ti = (
+                    ti_data
+                    / ion_temp.sel(rho_poloidal=ti_bckc.rho_poloidal, method="nearest")
+                ).values[0]
 
-        self.el_temp = el_temp
-        for elem in self.elements:
-            self.ion_temp.loc[dict(element=elem)] = ion_temp
+                print(const_te, const_ti)
+                if (const_te < 1.0001) and (const_ti < 1.0001):
+                    continue
+
+            te_pos.value.loc[dict(t=t)] = te_bckc.rho_poloidal.values[0]
+            te_pos.err_in.loc[dict(t=t)] = te_bckc.attrs["rho_poloidal_err"]["in"]
+            te_pos.err_out.loc[dict(t=t)] = te_bckc.attrs["rho_poloidal_err"]["out"]
+
+            ti_pos.value.loc[dict(t=t)] = ti_bckc.rho_poloidal.values[0]
+            ti_pos.err_in.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["in"]
+            ti_pos.err_out.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["out"]
+
+            bckc[quantity_te].loc[dict(t=t)] = te_bckc.values[0]
+            bckc[quantity_ti].loc[dict(t=t)] = ti_bckc.values[0]
+
+            bckc[quantity_te].attrs["pos"] = te_pos
+            bckc[quantity_ti].attrs["pos"] = ti_pos
+
+            self.el_temp.loc[dict(t=t)] = el_temp.values
+            for elem in self.elements:
+                self.ion_temp.loc[dict(t=t, element=elem)] = ion_temp.values
+
+        self.bckc[diagnostic] = bckc
+
 
     def match_interferometer(
-        self, interf: str, niter=3, profs_spl=None, rho_lim=(0, 0.98)
+        self, diagnostic: str = "nirh1", quantity: str = "ne_bin", niter=3
     ):
         """
         Rescale density profiles to match the interferometer measurements
@@ -333,23 +392,36 @@ class Plasma:
         -------
 
         """
-        print_like(f"Re-calculating density profiles to match {interf} values")
+        print_like(
+            f"Re-calculating density profiles to match {diagnostic}.{quantity} values"
+        )
 
-        if profs_spl is not None:
-            nt = len(self.time)
-            const_ne = DataArray([1.0] * nt, coords=[("t", self.time)])
+        # TODO: make more elegant optimisation
+
+        data = self.data[diagnostic]
+        if diagnostic not in self.bckc.keys():
+            bckc = deepcopy(self.data[diagnostic])
+            for k in bckc.keys():
+                bckc[k] = initialize_bckc(bckc[k])
+            self.bckc[diagnostic] = bckc
+        bckc = self.bckc[diagnostic]
+
+        Ne_prof = self.Ne_prof
+        for t in self.t:
+            const = 1.
+            ne_data = data[quantity].sel(t=t)
             for j in range(niter):
-                print(f"Iteration {j+1} or {niter}")
-                profs_spl.el_dens.scale(const_ne, dim_lim=rho_lim)
-                self.el_dens = profs_spl.el_dens(self.rho)
-                const_ne = getattr(self, interf) / self.calc_ne_los_int(interf)
-        else:
-            self.el_dens *= getattr(self, interf) / self.calc_ne_los_int(interf)
+                ne0 = self.el_dens.sel(t=t, rho_poloidal=0) * const
+                ne0 = xr.where(ne0 <= 0, 5.0e19, ne0)
+                Ne_prof.y0 = ne0.values
+                Ne_prof.build_profile()
+                self.el_dens.loc[dict(t=t)] = Ne_prof.yspl.values
+                ne_bckc = self.calc_ne_los_int(diagnostic, quantity, t=t)
+                const = (ne_data / ne_bckc).values
 
-        if hasattr(self, "nirh1"):
-            self.nirh1.values = self.calc_ne_los_int("nirh1").values
-        if hasattr(self, "smmh1"):
-            self.smmh1.values = self.calc_ne_los_int("smmh1").values
+            bckc[quantity].loc[dict(t=t)] = ne_bckc
+
+        self.bckc[diagnostic] = bckc
 
     def propagate_parameters(self):
         """
@@ -367,7 +439,7 @@ class Plasma:
         self.calc_beta_poloidal()
         self.calc_vloop()
 
-    def calc_ne_los_int(self, interf):
+    def calc_ne_los_int(self, diagnostic, quantity, t=None):
         """
         Calculate line of sight integral assuming only one pass across the plasma
 
@@ -375,16 +447,18 @@ class Plasma:
         -------
 
         """
-        interf_var = getattr(self, interf)
+        dl = self.data[diagnostic][quantity].attrs["dl"]
+        rho = self.data[diagnostic][quantity].attrs["rho"]
+        transform = self.data[diagnostic][quantity].attrs["transform"]
 
-        x2_name = interf_var.attrs["transform"].x2_name
+        x2_name = transform.x2_name
 
-        el_dens = xr.where(
-            interf_var.attrs["rho"] <= 1,
-            self.el_dens.interp(rho_poloidal=interf_var.attrs["rho"]),
-            0,
-        )
-        el_dens_int = 2 * el_dens.sum(x2_name) * interf_var.attrs["dl"]
+        el_dens = self.el_dens.interp(rho_poloidal=rho)
+        if t is not None:
+            el_dens = el_dens.sel(t=t)
+            rho = rho.sel(t=t)
+        el_dens = xr.where(rho <= 1, el_dens, 0,)
+        el_dens_int = 2 * el_dens.sum(x2_name) * dl
 
         return el_dens_int
 
@@ -981,6 +1055,7 @@ def remap_diagnostic(diag_data, flux_transform, npts=300):
 def assign_datatype(data_array: DataArray, datatype: tuple):
     data_array.name = f"{datatype[1]}_{datatype[0]}"
     data_array.attrs["datatype"] = datatype
+
 
 def print_like(string):
     print(f"\n {string}")
