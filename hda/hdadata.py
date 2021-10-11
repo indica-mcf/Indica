@@ -14,8 +14,6 @@ from hda.atomdat import fractional_abundance
 from hda.atomdat import get_atomdat
 from hda.atomdat import radiated_power
 
-# from hda.hdaadas import ADASReader
-
 from indica.readers import ADASReader
 from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
