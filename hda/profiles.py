@@ -14,36 +14,17 @@ class Profiles:
         self.xspl = xspl
 
         self.datatype = datatype
-        self.params, values = get_defaults(datatype[0])
-        self.build_profile(values[0], values[1])
 
-    def set_parameters(self, wped, wcenter, peaking, peaking2=1):
-        """
+        params, vals = get_defaults(datatype[0])
+        for k,p in params.items():
+            setattr(self, k, p)
+        for k,p in vals.items():
+            setattr(self, k, p)
 
-        Parameters
-        ----------
-        wped
-            parameter governing the pedestal peaking [2, 20]
-        wcenter
-            HFHM of gaussian used for central peaking
-        peaking
-            peaking factor: new central value = y0 * peaking
-        peaking2
-            additional peaking factor for modification of peaked profile
-            new central value = y0 * peaking * peaking2
-
-        """
-        self.params = {
-            "wped": wped,
-            "wcenter": wcenter,
-            "peaking": peaking,
-            "peaking2": peaking2,
-        }
+        self.build_profile()
 
     def build_profile(
         self,
-        y0,
-        y1,
         y0_fix=False,
         y0_ref=None,
         wcenter_exp=0.05,
@@ -55,33 +36,33 @@ class Profiles:
 
         Parameters
         ----------
-        y0
-            value at the centre
-        y1
-            value at separatrix
         y0_fix
             re-scale new profile to have central value = y0
+        y0_ref
+            reference y0 value
 
         Returns
         -------
 
         """
 
-        centre = deepcopy(y0)
-        edge = deepcopy(y1)
-        wcenter = deepcopy(self.params["wcenter"])
-        wped = deepcopy(self.params["wped"])
-        peaking = deepcopy(self.params["peaking"])
-
         def gaussian(x, A, B, x_0, w):
             return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
 
+        self.y0_ref = y0_ref
+
+        centre = deepcopy(self.y0)
+        edge = deepcopy(self.y1)
+        wcenter = deepcopy(self.wcenter)
+        wped = deepcopy(self.wped)
+        peaking = deepcopy(self.peaking)
+
+        # Add additional peaking with respect to reference shape
         peaking2 = 1.
         if y0_ref is not None:
-            if y0_ref > y0:
-                print("\n Reference central value must be y0_ref < y0 ")
-            else:
-                peaking2 = y0 / y0_ref
+            if y0_ref < centre:
+                peaking2 = centre / y0_ref
+        self.peaking2 = peaking2
 
         if peaking2 > 1:
             centre = y0_ref
@@ -92,7 +73,7 @@ class Profiles:
         x = self.x[np.where(self.x <= 1.0)[0]]
 
         # baseline profile shape
-        y = (centre - edge) * (1 - x ** wped) + y1
+        y = (centre - edge) * (1 - x ** wped) + edge
 
         # add central peaking
         if peaking > 1:
@@ -133,6 +114,11 @@ class Profiles:
 
         self.yspl = yspl
 
+    def plot(self, fig=True):
+        if fig:
+            plt.figure()
+        self.yspl.plot()
+
 def get_defaults(identifier):
 
     parameters = {
@@ -154,7 +140,7 @@ def get_defaults(identifier):
         identifier = "temperature"
 
     params = parameters[identifier]
-    params = {"wped": params[0], "wcenter": params[1], "peaking": params[2], "peaking2": 1.0}
+    params = {"wped": params[0], "wcenter": params[1], "peaking": params[2]}
+    vals = {"y0":values[identifier][0], "y1":values[identifier][1]}
 
-    vals = values[identifier]
     return params, vals
