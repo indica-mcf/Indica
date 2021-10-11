@@ -9,39 +9,35 @@ from hda.hdaworkflow import HDArun
 from hda.spline_profiles import Plasma_profs
 from hda.read_st40 import ST40data
 import hda.plasma as plasma
-
-import xarray as xr
-from xarray import DataArray
-from scipy.optimize import least_squares
+import hda.hda_tree as hda_tree
 
 plt.ion()
 
-pulse = 8383
-raw_data = ST40data(pulse)
-raw_data.get_all()
-
-pl = plasma.Plasma()
-pl.build_data(raw_data.data)
-
-def plasma_workflow(pulse=8383, tstart=0.02, tend=0.12):
-    pulse = 8383
+def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14):
+    pulse = 9229
+    tstart = 0.02
+    tend = 0.14
     raw_data = ST40data(pulse)
     raw_data.get_all()
 
-    pl = plasma.Plasma()
+    pl = plasma.Plasma(tstart=tstart, tend=tend)
     pl.build_data(raw_data.data)
+    pl.match_interferometer()
+    pl.match_xrcs()
+    #
+    # pl.calc_meanz()
+    # pl.calc_main_ion_dens(fast_dens=False)
+    # pl.impose_flat_zeff()
+    # pl.calc_main_ion_dens(fast_dens=False)
+    # pl.calc_zeff()
+    pl.calc_pressure()
+    run_name = "RUN40"
+    descr = f"New profile shapes and ionisation balance, pure plasma"
+    if write:
+        hda_tree.write(data, pulse, "HDA", descr=descr, run_name=run_name)
+    else:
+        return hdarun
 
-
-def new_profiles(pulse=8383, tstart=0.02, tend=0.12):
-    """
-    New workflow structure with new profiles and forward models
-    """
-    pulse = 8383
-    raw_data = ST40data(pulse)
-    raw_data.get_all()
-
-    plasma = Plasma()
-    plasma.build_data(raw_data.data)
 
 def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, force=False):
     """
