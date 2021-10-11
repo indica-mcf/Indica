@@ -3,8 +3,13 @@ at identical times in a discharge over a defined pulse range
 
 Example call:
 
-    import hda.analyse_trends as trends
-    corr = trends.correlations(8400, 8534, t=[0.03, 0.08])
+    import hda.regression_analysis as regr
+    regr_data = regr.Database(reload=True, pulse_start=8207, pulse_end=9229)
+    regr_data()
+    regr.plot(regr_data)
+
+    latest_pulse = ...
+    regr.add_pulses(regr_data, latest_pulse)
 
 
 TODO: add the following quantities
@@ -197,7 +202,7 @@ class Database:
 
                 err = None
                 data, dims = reader._get_data(v["uid"], v["diag"], v["node"], v["seq"])
-                if np.array_equal(data, "FAILED"):
+                if np.array_equal(data, "FAILED") or np.array_equal(dims[0], "FAILED"):
                     binned[k].append(self.empty_binned)
                     max_val[k].append(self.empty_max_val)
                     continue
