@@ -50,11 +50,11 @@ class ST40data:
         self.reader = ST40Reader(pulse, tstart, tend)
         self.data = {}
 
-    def get_all(self):
-        self.get_efit()
-        self.get_xrcs()
-        self.get_nirh1()
-        self.get_smmh1()
+    def get_all(self, efit_rev=0, xrcs_rev=0, nirh1_rev=0, smmh1_rev=0):
+        self.get_efit(revision=efit_rev)
+        self.get_xrcs(revision=xrcs_rev)
+        self.get_nirh1(revision=nirh1_rev)
+        self.get_smmh1(revision=smmh1_rev)
         self.get_other_data()
 
     def get_efit(self, revision=0):
