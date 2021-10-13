@@ -15,6 +15,7 @@ from indica.readers import ADASReader
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.operators.atomic_data import FractionalAbundance
+from indica.operators.atomic_data import PowerLoss
 from indica.converters.time import bin_in_time
 
 import xarray as xr
@@ -25,9 +26,30 @@ plt.ion()
 # TODO: add elongation and triangularity in all equations
 
 ADF11 = {
-    "h": {"scd": "96", "acd": "96", "ccd": "96"},
-    "c": {"scd": "96", "acd": "96", "ccd": "96"},
-    "ar": {"scd": "89", "acd": "89", "ccd": "89"},
+    "h": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+    },
+    "c": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+    },
+    "ar": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+    },
 }
 
 
@@ -61,7 +83,7 @@ class Plasma:
 
         self.initialize_variables()
 
-    def build_data(self, data, equil="efit", adf11: dict = None):
+    def build_data(self, data, pulse=None, equil="efit", adf11: dict = None):
         """
         Reorganise raw data on new time axis and generate geometry information
 
@@ -77,6 +99,9 @@ class Plasma:
 
         """
         print_like("Building data class")
+
+        self.pulse = pulse
+        self.optimisation["equil"] = f"{equil}:{data[equil]['rmag'].revision}"
 
         t_ip = data["efit"]["ipla"].t
         if self.tstart < t_ip.min():
@@ -114,7 +139,7 @@ class Plasma:
             transform = None
             geom_attrs = None
             for kquant in data[kinstr].keys():
-                print("   " + kquant)
+                # print("   " + kquant)
                 value = bin_in_time(
                     self.tstart, self.tend, self.freq, data[kinstr][kquant]
                 ).interp(t=self.time, method="linear")
@@ -207,7 +232,7 @@ class Plasma:
             ).interp(t=self.time, method="linear")
 
         print_like("Initialize fractional abundance objects")
-        fract_abu = {}
+        fract_abu, power_loss = {}, {}
         for elem in self.elements:
             if adf11 is None:
                 adf11 = ADF11
@@ -215,10 +240,16 @@ class Plasma:
             scd = self.ADASReader.get_adf11("scd", elem, adf11[elem]["scd"])
             acd = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
             ccd = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
+            fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
 
-            fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd,)
+            plt = self.ADASReader.get_adf11("plt", elem, adf11[elem]["plt"])
+            prb = self.ADASReader.get_adf11("prb", elem, adf11[elem]["prb"])
+            prc = self.ADASReader.get_adf11("prc", elem, adf11[elem]["prc"])
+            power_loss[elem] = PowerLoss(plt, prb, PRC=prc)
+
         self.adf11 = adf11
         self.fract_abu = fract_abu
+        self.power_loss = power_loss
 
     def interferometer(self, diagnostic=None, quantity=None):
         """
@@ -376,7 +407,9 @@ class Plasma:
                 ion_temp = Ti_prof.yspl
 
                 forward_model.radiation_characteristics(el_temp, el_dens)
-                te_bckc, ti_bckc = forward_model.moment_analysis(ion_temp)
+                bckc_tmp = forward_model.moment_analysis(ion_temp)
+                te_bckc = bckc_tmp[quantity_te]
+                ti_bckc = bckc_tmp[quantity_ti]
 
                 const_te = (
                     te_data
@@ -408,6 +441,12 @@ class Plasma:
             for elem in self.elements:
                 self.ion_temp.loc[dict(t=t, element=elem)] = ion_temp.values
 
+        self.optimisation[
+            "el_temp"
+        ] = f"{diagnostic}.{quantity_te}:{data[quantity_te].revision}"
+        self.optimisation[
+            "ion_temp"
+        ] = f"{diagnostic}.{quantity_ti}:{data[quantity_te].revision}"
         self.bckc[diagnostic] = bckc
 
     def match_interferometer(
@@ -454,6 +493,9 @@ class Plasma:
 
             bckc[quantity].loc[dict(t=t)] = ne_bckc
 
+        self.optimisation[
+            "el_dens"
+        ] = f"{diagnostic}.{quantity}:{data[quantity].revision}"
         self.bckc[diagnostic] = bckc
 
     def propagate_parameters(self):
@@ -525,21 +567,65 @@ class Plasma:
                 element=elem
             )
 
-    def calc_meanz(self, use_tau=False):
+    def calc_fz_lz(self, use_tau=False):
         """
-        Calculate mean charge
+        Calculate fractional abundance and cooling factors
         """
         tau = None
+        fz = {}
+        lz = {}
         for elem in self.elements:
+            fz_tmp = []
+            lz_tmp = []
             for t in self.t:
                 Ne = self.el_dens.sel(t=t)
                 Nh = self.neutral_dens.sel(t=t)
                 Te = self.el_temp.sel(t=t)
                 if use_tau:
                     tau = self.tau.sel(t=t)
-                fz = self.fract_abu[elem](Ne, Te, Nh, tau=tau)
-                meanz = (fz * fz.ion_charges).sum("ion_charges")
-                self.meanz.loc[dict(element=elem, t=t)] = meanz
+                fz_tmp.append(self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau))
+                lz_tmp.append(self.power_loss[elem](Ne, Te, fz_tmp[-1], Nh=Nh))
+
+            fz[elem] = xr.concat(fz_tmp, "t").assign_coords(t=self.t)
+            lz[elem] = xr.concat(lz_tmp, "t").assign_coords(t=self.t)
+
+        self.fz = fz
+        self.lz = lz
+
+    def calc_meanz(self):
+        """
+        Calculate mean charge
+        """
+        if not hasattr(self, "fz") or not hasattr(self, "lz"):
+            self.calc_fz_lz()
+
+        for elem in self.elements:
+            fz = self.fz[elem]
+            self.meanz.loc[dict(element=elem)] = (fz * fz.ion_charges).sum(
+                "ion_charges"
+            )
+
+    def calc_rad_power(self):
+        """
+        Calculate total and SXR filtered radiated power
+        """
+        for elem in self.elements:
+            self.tot_rad.loc[dict(element=elem)] = (
+                self.lz[elem].sum("ion_charges")
+                * self.el_dens
+                * self.ion_dens.sel(element=elem)
+            )
+
+            self.tot_rad.loc[dict(element=elem)] = xr.where(
+                self.tot_rad.sel(element=elem) >= 0,
+                self.tot_rad.sel(element=elem),
+                0.0,
+            )
+
+            for t in self.t:
+                self.prad.loc[dict(element=elem, t=t)] = np.trapz(
+                    self.tot_rad.sel(element=elem, t=t), self.volume.sel(t=t)
+                )
 
     def calc_pressure(self):
         """
@@ -607,51 +693,20 @@ class Plasma:
 
             self.vloop.loc[dict(t=t)] = vloop
 
-    def calc_rad_power(self):
+    def impose_flat_imp_dens(self):
         """
-        Calculate total and SXR filtered radiated power
-        """
-        for elem in self.elements:
-            tot_rad_tmp = (
-                self.atomic_data[elem]["lz_tot"]
-                .sum("ion_charges")
-                .interp(electron_temperature=self.el_temp, method="cubic")
-                * self.el_dens
-                * self.ion_dens.sel(element=elem)
-            )
-            self.tot_rad.loc[dict(element=elem)] = tot_rad_tmp
-
-            self.tot_rad.loc[dict(element=elem)] = xr.where(
-                self.tot_rad.loc[dict(element=elem)] >= 0,
-                self.tot_rad.loc[dict(element=elem)],
-                0.0,
-            )
-            for t in self.time:
-                self.pth.loc[dict(t=t)] = np.trapz(
-                    self.pressure_th.sel(t=t), self.volume.sel(t=t)
-                )
-                self.prad.loc[dict(element=elem, t=t)] = np.trapz(
-                    self.prad.sel(element=elem, t=t), self.volume.sel(t=t)
-                )
-
-    def impose_flat_zeff(self):
-        """
-        Adapt impurity concentration to generate flat Zeff contribution
+        Adapt impurity concentration to flatten profile at edge
         """
 
         for elem in self.impurities:
-            if np.count_nonzero(self.ion_dens.sel(element=elem)) != 0:
-                zeff_tmp = (
-                    self.ion_dens.sel(element=elem)
-                    * self.meanz.sel(element=elem) ** 2
-                    / self.el_dens
+            imp_dens = self.ion_dens.sel(element=elem)
+            if np.count_nonzero(imp_dens) != 0:
+                value = xr.where(
+                    imp_dens.rho_poloidal < 0.85,
+                    imp_dens,
+                    imp_dens.sel(rho_poloidal=0.85, method="nearest"),
                 )
-                value = zeff_tmp.where(zeff_tmp.rho_poloidal < 0.2).mean("rho_poloidal")
-                zeff_tmp = zeff_tmp / zeff_tmp * value
-                ion_dens_tmp = zeff_tmp / (
-                    self.meanz.sel(element=elem) ** 2 / self.el_dens
-                )
-                self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp
+                self.ion_dens.loc[dict(element=elem)] = value
 
         self.calc_zeff()
 
@@ -805,6 +860,9 @@ class Plasma:
             self.machine_dimensions[1][0], self.machine_dimensions[1][1], 100
         )
 
+        self.optimisation = {"equil": "", "el_dens": "", "el_temp": "", "ion_temp": ""}
+        self.pulse = None
+
         nt = len(self.t)
         nr = len(self.radial_coordinate)
         nel = len(self.elements)
@@ -820,6 +878,7 @@ class Plasma:
         data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
         data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
         data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
+        data2d_elem = DataArray(np.zeros((nel, nt)), coords=[coords_elem, coords_time])
         data3d = DataArray(
             np.zeros((nel, nt, nr)), coords=[coords_elem, coords_time, coords_radius]
         )
@@ -967,7 +1026,7 @@ class Plasma:
         self.sxr_rad = deepcopy(data3d)
         assign_datatype(self.sxr_rad, ("radiation_emission", "sxr"))
 
-        self.prad = deepcopy(data1d_time)
+        self.prad = deepcopy(data2d_elem)
         assign_datatype(self.tot_rad, ("radiation", "total"))
 
         self.pressure_th = deepcopy(data2d)

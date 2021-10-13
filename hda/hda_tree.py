@@ -164,7 +164,9 @@ def get_tree_structure():
             "USER": ("TEXT", "Username of owner", user),
             "PULSE": ("NUMERIC", "Pulse number analysed"),
             "EQUIL": ("TEXT", "Equilibrium used"),
-            "INTERF": ("TEXT", "Interferometer diagnostic used for optimization"),
+            "EL_DENS": ("TEXT", "Electron density diagnostic used for optimization"),
+            "EL_TEMP": ("TEXT", "Electron temperature diagnostic used for optimization"),
+            "ION_TEMP": ("TEXT", "Ion temperature diagnostic used for optimization"),
         },
         ".GLOBAL": {
             "TE0": ("SIGNAL", "Central electron temp, eV"),
@@ -183,7 +185,6 @@ def get_tree_structure():
             "XPSN": ("NUMERIC", "x vector - fi_normalized"),
             "P": ("SIGNAL", "Pressure,Pa"),
             "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
-            "RHOT": ("SIGNAL", "Sqrt of normalised toroidal flux, xpsn"),
             "NE": ("SIGNAL", "Electron density, m^-3"),
             "NI": ("SIGNAL", "Ion density, m^-3"),
             "TE": ("SIGNAL", "Electron temperature, eV"),
@@ -191,6 +192,7 @@ def get_tree_structure():
             "ZEFF": ("SIGNAL", "Effective charge, "),
         },
     }
+    # "RHOT": ("SIGNAL", "Sqrt of normalised toroidal flux, xpsn"),
 
     return nodes
 
@@ -213,7 +215,7 @@ def create_nodes(t, run_path, nodes):
 
 
 def write(
-    data,
+    plasma,
     pulse: int,
     code_name: str,
     run_name="RUN01",
@@ -261,21 +263,21 @@ def write(
 
     print(f"\n {code_name}: Writing results for {pulse} to {write_path}")
 
-    data_to_write = organise_data(data)
+    data_to_write = organise_data(plasma)
 
     write_data(t, write_path, data_to_write)
 
     t.close()
 
 
-def organise_data(data):
+def organise_data(plasma):
     """
     Organise HDA data in a dictionary ready to be written to MDS+
 
     Parameters
     ----------
-    data
-        HDA data in format of HDAdata class (hda/hdadata.py)
+    plasma
+        HDA plasma object
 
     Returns
     -------
@@ -286,108 +288,112 @@ def organise_data(data):
     tev = []
     tiv = []
     nev = []
-    for tt in data.time.values:
+    for t in plasma.time.values:
         tev.append(
-            np.trapz(data.el_temp.sel(t=tt).values, data.volume.sel(t=tt).values)
-            / data.volume.sel(t=tt).sel(rho_poloidal=1).values,
+            np.trapz(plasma.el_temp.sel(t=t).values, plasma.volume.sel(t=t).values)
+            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
         )
         tiv.append(
             np.trapz(
-                data.ion_temp.sel(element=data.main_ion).sel(t=tt).values,
-                data.volume.sel(t=tt).values,
+                plasma.ion_temp.sel(element=plasma.main_ion).sel(t=t).values,
+                plasma.volume.sel(t=t).values,
             )
-            / data.volume.sel(t=tt).sel(rho_poloidal=1).values,
+            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
         )
         nev.append(
-            np.trapz(data.el_dens.sel(t=tt).values, data.volume.sel(t=tt).values)
-            / data.volume.sel(t=tt).sel(rho_poloidal=1).values,
+            np.trapz(plasma.el_dens.sel(t=t).values, plasma.volume.sel(t=t).values)
+            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
         )
     tev = np.array(tev)
     tiv = np.array(tiv)
     nev = np.array(nev)
 
-    equil = f"{data.equil}:{data.raw_data[data.equil]['rmag'].attrs['revision']}"
-    interf = f"{data.interf}:{data.raw_data[data.interf]['ne'].attrs['revision']}"
+    equil = plasma.optimisation["equil"]
+    el_dens = plasma.optimisation["el_dens"]
+    el_temp = plasma.optimisation["el_temp"]
+    ion_temp = plasma.optimisation["ion_temp"]
 
     nodes = {
         "": {
-            "TIME": (Float32(data.time.values), "s", []),
+            "TIME": (Float32(plasma.time.values), "s", []),
         },  # (values, units, coordinate node name)
         ".METADATA": {
-            "PULSE": (Float32(data.pulse), "", []),
+            "PULSE": (Float32(plasma.pulse), "", []),
             "EQUIL": (String(equil), "", []),
-            "INTERF": (String(interf), "", []),
+            "EL_DENS": (String(el_dens), "", []),
+            "EL_TEMP": (String(el_temp), "", []),
+            "ION_TEMP": (String(ion_temp), "", []),
         },
         ".GLOBAL": {
-            "TE0": (Float32(data.el_temp.sel(rho_poloidal=0).values), "eV", ["TIME"],),
+            "TE0": (Float32(plasma.el_temp.sel(rho_poloidal=0).values), "eV", ["TIME"],),
             "TI0": (
                 Float32(
-                    data.ion_temp.sel(element=data.main_ion).sel(rho_poloidal=0).values
+                    plasma.ion_temp.sel(element=plasma.main_ion).sel(rho_poloidal=0).values
                 ),
                 "eV",
                 ["TIME"],
             ),
             "NE0": (
-                Float32(data.el_dens.sel(rho_poloidal=0).values),
+                Float32(plasma.el_dens.sel(rho_poloidal=0).values),
                 "m^-3 ",
                 ["TIME"],
             ),
             "TEV": (Float32(tev), "eV", ["TIME"]),
             "TIV": (Float32(tiv), "eV", ["TIME"]),
             "NEV": (Float32(nev), "m^-3", ["TIME"]),
-            "WTH": (Float32(data.wmhd.values), "J", ["TIME"]),
-            "UPL": (Float32(data.vloop.values), "V", ["TIME"]),
+            "WTH": (Float32(plasma.wmhd.values), "J", ["TIME"]),
+            "UPL": (Float32(plasma.vloop.values), "V", ["TIME"]),
             "ZEFF": (
-                Float32(data.zeff.sum("element").sel(rho_poloidal=0).values),
+                Float32(plasma.zeff.sum("element").sel(rho_poloidal=0).values),
                 "",
                 ["TIME"],
             ),
         },
         ".PROFILES.PSI_NORM": {
-            "RHOP": (Float32(data.rho.values), "", ()),
-            "XPSN": (Float32(data.rho.values ** 2), "", ()),
+            "RHOP": (Float32(plasma.rho.values), "", ()),
+            "XPSN": (Float32(plasma.rho.values ** 2), "", ()),
             "P": (
-                Float32(data.pressure_th.values),
+                Float32(plasma.pressure_th.values),
                 "Pa",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
             "VOLUME": (
-                Float32(data.volume.values),
+                Float32(plasma.volume.values),
                 "m^3",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
-            "RHOT": (
-                Float32(data.rhot.values),
-                "",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
             "NE": (
-                Float32(data.el_dens.values),
+                Float32(plasma.el_dens.values),
                 "m^-3",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
             "NI": (
-                Float32(data.ion_dens.sel(element=data.main_ion).values),
+                Float32(plasma.ion_dens.sel(element=plasma.main_ion).values),
                 "m^-3",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
             "TE": (
-                Float32(data.el_temp.values),
+                Float32(plasma.el_temp.values),
                 "eV",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
             "TI": (
-                Float32(data.ion_temp.sel(element=data.main_ion).values),
+                Float32(plasma.ion_temp.sel(element=plasma.main_ion).values),
                 "eV",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
             "ZEFF": (
-                Float32(data.zeff.sum("element").values),
+                Float32(plasma.zeff.sum("element").values),
                 "",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
         },
     }
+    # "RHOT": (
+    #     Float32(plasma.rhot.values),
+    #     "",
+    #     ["PROFILES.PSI_NORM.RHOP", "TIME"],
+    # ),
 
     return nodes
 

@@ -380,7 +380,7 @@ class XRCSpectrometer:
 
         self.data = data
 
-        return te_kw, ti_w
+        return data
 
 
 def bremsstrahlung(
