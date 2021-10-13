@@ -2,9 +2,7 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
-import matplotlib.pyplot as plt
 import numpy as np
-from scipy.interpolate.fitpack2 import UnivariateSpline
 from xarray import concat
 from xarray import DataArray
 
@@ -14,6 +12,9 @@ from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
 from ..utilities import input_check
+
+# import matplotlib.pyplot as plt
+# from scipy.interpolate.fitpack2 import UnivariateSpline
 
 
 class ExtrapolateImpurityDensity(Operator):
@@ -248,59 +249,60 @@ class ExtrapolateImpurityDensity(Operator):
 
         assert np.all(np.logical_not(np.isnan(extrapolated_impurity_density)))
 
-        rho_array = extrapolated_impurity_density.coords["rho"]
+        # rho_array = extrapolated_impurity_density.coords["rho"]
 
-        variance_extrapolated_impurity_density_lfs = extrapolated_impurity_density.isel(
-            {"t": 0, "theta": 0}
-        ).var("rho")
+        # variance_extrapolated_impurity_density_lfs = \
+        #     extrapolated_impurity_density.isel(
+        #         {"t": 0, "theta": 0}
+        #     ).var("rho")
 
         # variance_extrapolated_impurity_density_hfs = \
         #     extrapolated_impurity_density.isel({"t": 0, "theta": 1}).var("rho")
 
-        extrapolated_spline_lfs = UnivariateSpline(
-            rho_array,
-            extrapolated_impurity_density[:, 0, 0],
-            k=5,
-            s=0.001 * variance_extrapolated_impurity_density_lfs,
-        )
+        # extrapolated_spline_lfs = UnivariateSpline(
+        #     rho_array,
+        #     extrapolated_impurity_density[:, 0, 0],
+        #     k=5,
+        #     s=0.001 * variance_extrapolated_impurity_density_lfs,
+        # )
 
         # extrapolated_spline_hfs = UnivariateSpline(
         #     rho_array, extrapolated_impurity_density[:, 1, 0], k=5,
         #     s=0.001 * variance_extrapolated_impurity_density_hfs
         # )
 
-        first_derivative_comb_lfs = extrapolated_impurity_density.isel(
-            {"t": 0, "theta": 0}
-        ).differentiate(coord="rho")
+        # first_derivative_comb_lfs = extrapolated_impurity_density.isel(
+        #     {"t": 0, "theta": 0}
+        # ).differentiate(coord="rho")
 
-        drho = np.mean(np.diff(rho_array.data))
+        # drho = np.mean(np.diff(rho_array.data))
 
-        first_derivative_spline_lfs = np.gradient(
-            extrapolated_spline_lfs(rho_array, 0), drho
-        )
+        # first_derivative_spline_lfs = np.gradient(
+        #     extrapolated_spline_lfs(rho_array, 0), drho
+        # )
 
-        plt.plot(
-            rho_array,
-            extrapolated_impurity_density[:, 0, 0],
-            c="b",
-        )
-        plt.plot(
-            rho_array,
-            extrapolated_spline_lfs(rho_array, 0),
-            c="r",
-        )
-        plt.show()
+        # plt.plot(
+        #     rho_array,
+        #     extrapolated_impurity_density[:, 0, 0],
+        #     c="b",
+        # )
+        # plt.plot(
+        #     rho_array,
+        #     extrapolated_spline_lfs(rho_array, 0),
+        #     c="r",
+        # )
+        # plt.show()
 
-        plt.plot(
-            rho_array,
-            first_derivative_comb_lfs,
-            c="b",
-        )
-        plt.plot(
-            rho_array,
-            first_derivative_spline_lfs,
-            c="r",
-        )
-        plt.show()
+        # plt.plot(
+        #     rho_array,
+        #     first_derivative_comb_lfs,
+        #     c="b",
+        # )
+        # plt.plot(
+        #     rho_array,
+        #     first_derivative_spline_lfs,
+        #     c="r",
+        # )
+        # plt.show()
 
         return extrapolated_impurity_density, threshold_rho, t

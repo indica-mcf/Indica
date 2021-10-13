@@ -7,8 +7,11 @@ from xarray import DataArray
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
+from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
 from ..test_equilibrium_single import equilibrium_dat_and_te
+
+# import matplotlib.pyplot as plt
 
 
 class Exception_Impurity_Density_Test_Case(unittest.TestCase):
@@ -119,14 +122,13 @@ def test_extrapolate_impurity_density_call():
 
     valid_truncation_threshold = 1.0e3
 
-    expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 100)
+    expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 20)
 
     input_Te = input_Te.interp(rho=expanded_rho, method="cubic")
     input_Ne = input_Ne.interp(rho=expanded_rho, method="cubic")
 
-    R_arr = np.linspace(1.83, 3.9, 100)
-    # R_arr = np.linspace(2.715, 3.05, 100)
-    z_arr = np.linspace(-1.75, 2.0, 100)
+    R_arr = np.linspace(1.83, 3.9, 40)
+    z_arr = np.linspace(-1.75, 2.0, 40)
 
     R_arr = DataArray(data=R_arr, coords={"R": R_arr}, dims=["R"])
     z_arr = DataArray(data=z_arr, coords={"z": z_arr}, dims=["z"])
@@ -142,12 +144,11 @@ def test_extrapolate_impurity_density_call():
     example_extrapolate_impurity_density = ExtrapolateImpurityDensity()
 
     sxr_rho, sxr_theta = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
-    sxr_rho = np.abs(sxr_rho)
     sxr_rho = sxr_rho.transpose("R", "z", "t")
 
     sxr_theta = sxr_theta.transpose("R", "z", "t")
-    rho_arr = np.linspace(0.0, 2.0, 50)
-    theta_arr = np.linspace(np.min(sxr_theta), np.max(sxr_theta), 25)
+    rho_arr = np.linspace(0.0, 2.0, 40)
+    theta_arr = np.linspace(np.min(sxr_theta), np.max(sxr_theta), 9)
 
     rho_arr = DataArray(data=rho_arr, coords={"rho": rho_arr}, dims=["rho"])
     theta_arr = DataArray(data=theta_arr, coords={"theta": theta_arr}, dims=["theta"])
@@ -164,21 +165,119 @@ def test_extrapolate_impurity_density_call():
         dims=["rho", "theta", "t"],
     )
 
+    elements = ["be", "ne", "ni", "w"]
+
+    input_Ti = np.array([2.0e3, 1.2e3, 0.5e3, 0.2e3, 0.1e3])
+    input_Ti = np.tile(input_Ti, (len(elements), len(base_t), 1))
+    input_Ti = np.swapaxes(input_Ti, 1, 2)
+
+    input_Ti = DataArray(
+        data=input_Ti,
+        coords={"elements": elements, "rho": base_rho_profile, "t": base_t},
+        dims=["elements", "rho", "t"],
+    )
+    input_Ti = input_Ti.interp({"rho": expanded_rho}, method="cubic")
+
+    toroidal_rotations = np.array([200.0e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
+
+    xr_rho_profile = DataArray(
+        data=base_rho_profile, coords={"rho": base_rho_profile}, dims=["rho"]
+    )
+
+    R_lfs_values, _ = equilib.R_lfs(xr_rho_profile)
+
+    toroidal_rotations /= R_lfs_values.data[0, :]  # re-scale from velocity to frequency
+
+    toroidal_rotations = np.tile(toroidal_rotations, (len(elements), len(base_t), 1))
+    toroidal_rotations = np.swapaxes(toroidal_rotations, 1, 2)
+
+    toroidal_rotations = DataArray(
+        data=toroidal_rotations,
+        coords=[("elements", elements), ("rho", base_rho_profile), ("t", base_t)],
+        dims=["elements", "rho", "t"],
+    )
+
+    toroidal_rotations = toroidal_rotations.interp(
+        {"rho": expanded_rho}, method="cubic"
+    )
+
+    Zeff = DataArray(
+        data=1.85 * np.ones((*base_rho_profile.shape, len(base_t))),
+        coords=[("rho", base_rho_profile), ("t", base_t)],
+        dims=["rho", "t"],
+    )
+    Zeff = Zeff.interp({"rho": expanded_rho}, method="cubic")
+
+    example_asymmetry_obj = AsymmetryParameter()
+    example_asymmetry = example_asymmetry_obj(
+        toroidal_rotations.copy(deep=True), input_Ti, "d", "w", Zeff, input_Te
+    )
+
+    R_lfs_values = R_lfs_values.interp({"rho": expanded_rho}, method="cubic")
+    R_lfs_values = R_lfs_values.interp({"t": base_t}, method="linear")
+
     rho_derived, theta_derived = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
     rho_derived = np.abs(rho_derived)
-    # rho_derived = rho_derived.where(rho_derived <= 1.0)
 
     rho_derived = rho_derived.transpose("R", "z", "t")
     theta_derived = theta_derived.transpose("R", "z", "t")
 
-    input_sxr_density = input_sxr_density.indica.interp2d(
+    input_sxr_density_Rz = input_sxr_density.indica.interp2d(
         {"rho": rho_derived, "theta": theta_derived}, method="cubic"
     )
-    input_sxr_density = input_sxr_density.transpose("R", "z", "t")
+    input_sxr_density_Rz = input_sxr_density_Rz.transpose("R", "z", "t")
+
+    input_sxr_density_lfs = input_sxr_density_Rz.indica.interp2d(
+        R=R_lfs_values,
+        z=R_lfs_values.coords["z"],
+        method="cubic",
+        assume_sorted=True,
+    )
+
+    R_derived, z_derived = flux_surfs.convert_to_Rz(
+        DataArray(expanded_rho, {"rho": expanded_rho}, dims=["rho"]), theta_arr, base_t
+    )
+
+    R_lfs_values.transpose("rho", "t")
+    R_derived = R_derived.transpose("rho", "theta", "t")
+    example_asymmetry = example_asymmetry.transpose("rho", "t")
+
+    asymmetry_modifier = np.exp(
+        example_asymmetry * (R_derived ** 2 - R_lfs_values ** 2)
+    )
+    asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
+
+    input_sxr_density_asym = input_sxr_density_lfs * asymmetry_modifier
+    input_sxr_density_asym = input_sxr_density_asym.transpose("rho", "theta", "t")
+
+    input_sxr_density_asym = input_sxr_density_asym.indica.interp2d(
+        {"rho": rho_derived, "theta": theta_derived}, method="linear"
+    )
+    input_sxr_density_asym = input_sxr_density_asym.fillna(0.0)
+    input_sxr_density_asym = input_sxr_density_asym.transpose("R", "z", "t")
+
+    # Interpolation only for diagnostic purposes, will be deleted in the the future
+    # input_sxr_density_asym = input_sxr_density_asym.interp(
+    #     R=DataArray(
+    #         np.linspace(1.83, 3.9, 400), {"R": np.linspace(1.83, 3.9, 400)}, ["R"]
+    #     ),
+    #     method="cubic"
+    # )
+    # input_sxr_density_asym = input_sxr_density_asym.interp(
+    #     z=DataArray(
+    #         np.linspace(-1.75, 2.0, 400), {"z": np.linspace(-1.75, 2.0, 400)}, ["z"]
+    #     ),
+    #     method="cubic"
+    # )
+
+    # input_sxr_density_asym.isel(t=0).transpose("z", "R").plot()
+    # plt.axis("scaled")
+    # plt.tight_layout()
+    # plt.show()
 
     try:
         example_result, example_threshold_rho, t = example_extrapolate_impurity_density(
-            input_sxr_density,
+            input_sxr_density_asym,
             input_Ne,
             input_Te,
             valid_truncation_threshold,
@@ -190,7 +289,7 @@ def test_extrapolate_impurity_density_call():
     assert np.all(t == base_t)
 
     example_extrapolate_test_case = Exception_Impurity_Density_Test_Case(
-        input_sxr_density, input_Ne, input_Te, valid_truncation_threshold, base_t
+        input_sxr_density_asym, input_Ne, input_Te, valid_truncation_threshold, base_t
     )
 
     # Invalid SXR derived density checks
@@ -202,7 +301,7 @@ def test_extrapolate_impurity_density_call():
     )
 
     invalid_sxr_density = DataArray(
-        data=input_sxr_density[:, 0, :],
+        data=input_sxr_density_asym[:, 0, :],
         coords={"R": R_arr, "t": base_t},
         dims=["R", "t"],
     )
@@ -211,28 +310,28 @@ def test_extrapolate_impurity_density_call():
         impurity_density_sxr=invalid_sxr_density
     )
 
-    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = input_sxr_density_asym.copy(deep=True)
     invalid_sxr_density = invalid_sxr_density * -1
 
     example_extrapolate_test_case.call_value_check(
         impurity_density_sxr=invalid_sxr_density
     )
 
-    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = input_sxr_density_asym.copy(deep=True)
     invalid_sxr_density = invalid_sxr_density * np.inf
 
     example_extrapolate_test_case.call_value_check(
         impurity_density_sxr=invalid_sxr_density
     )
 
-    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = input_sxr_density_asym.copy(deep=True)
     invalid_sxr_density = invalid_sxr_density * -np.inf
 
     example_extrapolate_test_case.call_value_check(
         impurity_density_sxr=invalid_sxr_density
     )
 
-    invalid_sxr_density = input_sxr_density.copy(deep=True)
+    invalid_sxr_density = input_sxr_density_asym.copy(deep=True)
     invalid_sxr_density = invalid_sxr_density * np.nan
 
     example_extrapolate_test_case.call_value_check(
