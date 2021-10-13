@@ -13,18 +13,17 @@ import hda.hda_tree as hda_tree
 
 plt.ion()
 
-def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False):
-    pulse = 9229
-    tstart = 0.02
-    tend = 0.14
+def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False, modelling=True):
+    # pulse = 9229
+    # tstart = 0.02
+    # tend = 0.14
     raw_data = ST40data(pulse)
     raw_data.get_all(smmh1_rev=1)
 
     pl = plasma.Plasma(tstart=tstart, tend=tend)
-    pl.build_data(raw_data.data)
+    pl.build_data(raw_data.data, pulse=pulse)
 
     # Rescale density to match interferometer
-    # pl.match_interferometer()
     pl.match_interferometer(diagnostic="smmh1", quantity="ne")
 
     # Build temperature profiles to match XRCS
@@ -39,7 +38,7 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False):
         if elem in pl.ion_conc.element:
             pl.ion_conc.loc[dict(element=elem)] = imp_conc[elem]
     pl.calc_imp_dens()
-    pl.impose_flat_zeff()
+    pl.impose_flat_imp_dens()
     pl.calc_main_ion_dens()
 
     # Calculate total thermal pressure
@@ -48,9 +47,9 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False):
     # Back-calculate all diagnostic measurements
     pl.interferometer()
 
-    colors = ("black", "blue", "red")
+    colors = ("black", "blue", "cyan", "orange", "red")
     plt.figure()
-    for quant in pl.data["xrcs"].keys():
+    for i, quant in enumerate(pl.data["xrcs"].keys()):
         marker = "o"
         if "ti" in quant:
             marker = "x"
@@ -72,9 +71,11 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False):
     run_name = "RUN40"
     descr = f"New profile shapes and ionisation balance"
     if write:
-        hda_tree.write(data, pulse, "HDA", descr=descr, run_name=run_name)
-    else:
-        return pl
+        if modelling:
+            pulse = pl.pulse + 25000000
+        hda_tree.write(pl, pulse, "HDA", descr=descr, run_name=run_name)
+
+    return pl
 
 
 def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, force=False):
