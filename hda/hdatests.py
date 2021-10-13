@@ -13,7 +13,7 @@ import hda.hda_tree as hda_tree
 
 plt.ion()
 
-def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14):
+def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False):
     pulse = 9229
     tstart = 0.02
     tend = 0.14
@@ -22,21 +22,59 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14):
 
     pl = plasma.Plasma(tstart=tstart, tend=tend)
     pl.build_data(raw_data.data)
-    pl.match_interferometer()
+
+    # Rescale density to match interferometer
+    # pl.match_interferometer()
+    pl.match_interferometer(diagnostic="smmh1", quantity="ne")
+
+    # Build temperature profiles to match XRCS
     pl.match_xrcs()
-    #
-    # pl.calc_meanz()
-    # pl.calc_main_ion_dens(fast_dens=False)
-    # pl.impose_flat_zeff()
-    # pl.calc_main_ion_dens(fast_dens=False)
-    # pl.calc_zeff()
+
+    # Having calculated Te, estimate mean charge of all ions
+    pl.calc_meanz()
+
+    # Impose impurity concentration and calculate dilution
+    imp_conc = {"c":0.02, "ar":0.0005}
+    for elem in imp_conc:
+        if elem in pl.ion_conc.element:
+            pl.ion_conc.loc[dict(element=elem)] = imp_conc[elem]
+    pl.calc_imp_dens()
+    pl.impose_flat_zeff()
+    pl.calc_main_ion_dens()
+
+    # Calculate total thermal pressure
     pl.calc_pressure()
+
+    # Back-calculate all diagnostic measurements
+    pl.interferometer()
+
+    colors = ("black", "blue", "red")
+    plt.figure()
+    for quant in pl.data["xrcs"].keys():
+        marker = "o"
+        if "ti" in quant:
+            marker = "x"
+        pl.data["xrcs"][quant].plot(marker=marker, color=colors[i], label=f"{quant.upper()} XRCS", alpha=0.5)
+        if quant in pl.bckc["xrcs"]:
+            pl.bckc["xrcs"][quant].plot(color=colors[i])
+    plt.title("Electron and ion temperature")
+    plt.legend()
+
+    plt.figure()
+    for i, diag in enumerate(("nirh1", "smmh1")):
+        if diag in pl.data.keys():
+            pl.data[diag]["ne"].plot(marker="o", color=colors[i], label=f"Ne {diag.upper()}", alpha=0.5)
+        if diag in pl.bckc.keys():
+            pl.bckc[diag]["ne"].plot(color=colors[i])
+    plt.title("Electron density")
+    plt.legend()
+
     run_name = "RUN40"
-    descr = f"New profile shapes and ionisation balance, pure plasma"
+    descr = f"New profile shapes and ionisation balance"
     if write:
         hda_tree.write(data, pulse, "HDA", descr=descr, run_name=run_name)
     else:
-        return hdarun
+        return pl
 
 
 def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, force=False):
