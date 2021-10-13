@@ -18,7 +18,7 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14):
     tstart = 0.02
     tend = 0.14
     raw_data = ST40data(pulse)
-    raw_data.get_all()
+    raw_data.get_all(smmh1_rev=1)
 
     pl = plasma.Plasma(tstart=tstart, tend=tend)
     pl.build_data(raw_data.data)

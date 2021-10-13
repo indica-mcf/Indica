@@ -28,6 +28,8 @@ plt.ion()
 
 # TODO: add elongation and triangularity in all equations
 
+ADF11 = {"ar": {"scd": "89", "acd": "89", "ccd": "89"},
+         "c": {"scd": "96", "acd": "96", "ccd": "96"}}
 
 class Plasma:
     def __init__(
@@ -62,7 +64,7 @@ class Plasma:
         self.initialize_variables()
 
     def build_data(
-        self, data, equil="efit",
+        self, data, equil="efit", adf11:dict=None
     ):
         """
         Reorganise raw data on new time axis and generate geometry information
@@ -156,14 +158,7 @@ class Plasma:
 
         if "princeton" in binned_data.keys():
             print_like("Adding Princeton spectrometer model")
-            forward_models["princeton"] = Spectrometer(
-                self.ADASReader,
-                "c",
-                "5",
-                transition="n=8-n=7",
-                wavelength=5292.7,
-                name="Princeton",
-            )
+            forward_models["princeton"] = PISpectrometer()
 
         self.forward_models = forward_models
 
@@ -215,33 +210,23 @@ class Plasma:
                 self.equilibrium.rmji.interp(rho_poloidal=self.rho),
             ).interp(t=self.time, method="linear")
 
-        # print_like("Calculate Atomic data")
-        # self.atomic_data = {}
-        # for elem in self.elements:
-        #     # Read atomic data
-        #     _, atomdat = get_atomdat(self.ADASReader, elem, charge="")
-        #
-        #     # Interpolate on electron density and drop coordinate
-        #     for k in atomdat.keys():
-        #         atomdat[k] = (
-        #             atomdat[k]
-        #             .interp(electron_density=5.0e19, method="nearest")
-        #             .drop_vars(["electron_density"])
-        #         )
-        #
-        #     # Calculate fractional abundance, meanz and cooling factor
-        #     # Add SXR when atomic data becomes available
-        #     atomdat["fz"] = fractional_abundance(
-        #         atomdat["scd"], atomdat["acd"], element=elem
-        #     )
-        #     atomdat["meanz"] = (atomdat["fz"] * atomdat["fz"].ion_charges).sum(
-        #         "ion_charges"
-        #     )
-        #     atomdat["lz_tot"] = radiated_power(
-        #         atomdat["plt"], atomdat["prb"], atomdat["fz"], element=elem
-        #     )
-        #
-        #     self.atomic_data[elem] = atomdat
+        print_like("Initialize fractional abundance objects")
+        fract_abu = {}
+        for elem in self.elements:
+            if adf11 is None:
+                adf11 = ADF11
+
+            scd = self.ADASReader.get_adf11("scd", elem, adf11[elem]["scd"])
+            acd = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
+            ccd = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
+
+            fract_abu[elem] = FractionalAbundance(
+                scd,
+                acd,
+                CCD=ccd,
+            )
+        self.adf11 = adf11
+        self.fract_abu = fract_abu
 
     def match_xrcs(
         self,
@@ -314,8 +299,6 @@ class Plasma:
         ti_pos = deepcopy(te_pos)
 
         for t in self.t:
-            print(f"t = {int(t*1.e3)} ms")
-
             te_data = data[quantity_te].sel(t=t)
             ti_data = data[quantity_ti].sel(t=t)
 
@@ -352,7 +335,6 @@ class Plasma:
                     / ion_temp.sel(rho_poloidal=ti_bckc.rho_poloidal, method="nearest")
                 ).values[0]
 
-                print(const_te, const_ti)
                 if (const_te < 1.0001) and (const_ti < 1.0001):
                     continue
 
@@ -492,11 +474,18 @@ class Plasma:
                 element=elem
             )
 
-    def calc_meanz(self):
+    def calc_meanz(self, tau):
         """
         Calculate mean charge
         """
         for elem in self.elements:
+            for t in self.t:
+                Ne = self.el_dens.sel(t=t)
+                Nh = self.neutral_dens.sel(t=t)
+                Te = self.el_temp.sel(t=t)
+                tau = self.tau.sel(t=t)
+                fz = self.fract_abu[elem](Ne, Te, Nh, tau=tau)
+
             meanz_tmp = (
                 self.atomic_data[elem]["meanz"]
                 .interp(electron_temperature=self.el_temp, method="cubic",)
@@ -898,6 +887,11 @@ class Plasma:
         assign_datatype(self.el_temp, ("temperature", "electron"))
         self.el_dens = deepcopy(data2d)
         assign_datatype(self.el_dens, ("density", "electron"))
+        self.neutral_dens = deepcopy(data2d)
+        assign_datatype(self.neutral_dens, ("density", "neutral"))
+
+        self.tau = deepcopy(data2d)
+        assign_datatype(self.tau, ("time", "transient"))
 
         # Other geometrical quantities
         self.min_r = deepcopy(data2d)
