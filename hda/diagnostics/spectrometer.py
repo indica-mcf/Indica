@@ -8,7 +8,6 @@ from xarray import DataArray
 from indica.readers import ADASReader
 from indica.operators.atomic_data import FractionalAbundance
 
-
 from hda.profiles import Profiles
 
 from indica.numpy_typing import ArrayLike
@@ -296,6 +295,7 @@ class XRCSpectrometer:
 
         """
         coord = "rho_poloidal"
+        data = {}
 
         Te = self.Te
         Ne = self.Ne
@@ -343,7 +343,7 @@ class XRCSpectrometer:
             "err":{"in": err_in, "out": err_out},
             f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
         }
-        ti_w = DataArray([ti_w], coords=[(coord, [pos])], attrs=attrs)
+        data["ti_w"] = DataArray([ti_w], coords=[(coord, [pos])], attrs=attrs)
 
         # Position of w/k-lines emissivity and the measured electron temperature
         # x = np.array(range(len(w_emiss)))
@@ -371,14 +371,14 @@ class XRCSpectrometer:
             "err":{"in": err_in, "out": err_out},
             f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
         }
-        te_kw = DataArray([te_kw], coords=[(coord, [pos])], attrs=attrs)
+        data["te_kw"] = DataArray([te_kw], coords=[(coord, [pos])], attrs=attrs)
+
 
         self.rho_los = rho_los
         self.Cimp = Cimp
         self.Ti = Ti
 
-        self.te_kw = te_kw
-        self.ti_w = ti_w
+        self.data = data
 
         return te_kw, ti_w
 

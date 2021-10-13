@@ -2,23 +2,19 @@ from copy import deepcopy
 
 import pickle
 
-from scipy import constants
 from matplotlib import cm
 import matplotlib.pylab as plt
+
 import numpy as np
-import math
-import hda.fac_profiles as fac
+
 from hda.profiles import Profiles
 from hda.diagnostics.spectrometer import XRCSpectrometer
 import hda.physics as ph
-from hda.atomdat import fractional_abundance
-from hda.atomdat import get_atomdat
-from hda.atomdat import radiated_power
-from scipy.optimize import least_squares
+
 from indica.readers import ADASReader
 from indica.equilibrium import Equilibrium
-from indica.readers import ST40Reader
 from indica.converters import FluxSurfaceCoordinates
+from indica.operators.atomic_data import FractionalAbundance
 from indica.converters.time import bin_in_time
 
 import xarray as xr
@@ -28,8 +24,12 @@ plt.ion()
 
 # TODO: add elongation and triangularity in all equations
 
-ADF11 = {"ar": {"scd": "89", "acd": "89", "ccd": "89"},
-         "c": {"scd": "96", "acd": "96", "ccd": "96"}}
+ADF11 = {
+    "h": {"scd": "96", "acd": "96", "ccd": "96"},
+    "c": {"scd": "96", "acd": "96", "ccd": "96"},
+    "ar": {"scd": "89", "acd": "89", "ccd": "89"},
+}
+
 
 class Plasma:
     def __init__(
@@ -40,7 +40,6 @@ class Plasma:
         ntheta=5,
         machine_dimensions=((0.15, 0.9), (-0.8, 0.8)),
         elements=("h", "c", "ar"),
-        ion_conc=(1, 0.02, 0.001),
     ):
         """
 
@@ -52,7 +51,6 @@ class Plasma:
 
         self.ADASReader = ADASReader()
         self.elements = elements
-        self.ion_conc = ion_conc
         self.tstart = tstart
         self.tend = tend
         self.t = np.arange(tstart, tend, dt)
@@ -63,9 +61,7 @@ class Plasma:
 
         self.initialize_variables()
 
-    def build_data(
-        self, data, equil="efit", adf11:dict=None
-    ):
+    def build_data(self, data, equil="efit", adf11: dict = None):
         """
         Reorganise raw data on new time axis and generate geometry information
 
@@ -93,7 +89,7 @@ class Plasma:
         self.equil = equil
 
         if equil in data.keys():
-            print("Initialise equilibrium object")
+            print_like("Initialise equilibrium object")
             self.equilibrium = Equilibrium(data[equil])
             self.flux_coords = FluxSurfaceCoordinates("poloidal")
             self.flux_coords.set_equilibrium(self.equilibrium)
@@ -220,13 +216,69 @@ class Plasma:
             acd = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
             ccd = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
 
-            fract_abu[elem] = FractionalAbundance(
-                scd,
-                acd,
-                CCD=ccd,
-            )
+            fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd,)
         self.adf11 = adf11
         self.fract_abu = fract_abu
+
+    def interferometer(self, diagnostic=None, quantity=None):
+        """
+        Calculate expected diagnostic measurement given plasma profile
+        """
+
+        if diagnostic is None:
+            diagnostic = ["nirh1", "smmh1"]
+        if quantity is None:
+            quantity = ["ne", "ne_bin"]
+        diagnostic = list(diagnostic)
+        quantity = list(quantity)
+
+        for diag in diagnostic:
+            if diag not in self.data.keys():
+                continue
+
+            if diag not in self.bckc.keys():
+                bckc = deepcopy(self.data[diag])
+                self.bckc[diag] = bckc
+            bckc = self.bckc[diag]
+            for k in bckc.keys():
+                bckc[k] = initialize_bckc(bckc[k])
+
+            for quant in quantity:
+                if quant not in bckc.keys():
+                    continue
+                bckc[quant].values = self.calc_ne_los_int(diag, quant).values
+
+            self.bckc[diag] = bckc
+
+    def xrcs(self, diagnostic=None, quantity=None):
+        """
+        Calculate expected diagnostic measurement given plasma profile
+        """
+
+        if diagnostic is None:
+            diagnostic = ["xrcs"]
+        if quantity is None:
+            quantity = ["ne", "ne_bin"]
+        diagnostic = list(diagnostic)
+        quantity = list(quantity)
+
+        for diag in diagnostic:
+            if diag not in self.data.keys():
+                continue
+
+            if diag not in self.bckc.keys():
+                bckc = deepcopy(self.data[diag])
+                self.bckc[diag] = bckc
+            bckc = self.bckc[diag]
+            for k in bckc.keys():
+                bckc[k] = initialize_bckc(bckc[k])
+
+            for quant in quantity:
+                if quant not in bckc.keys():
+                    continue
+                bckc[quant].values = self.calc_ne_los_int(diag, quant).values
+
+            self.bckc[diag] = bckc
 
     def match_xrcs(
         self,
@@ -250,6 +302,8 @@ class Plasma:
             Measurement to be used for the electron temperature optimisation
         quantity_ti
             Measurement to be used for the ion temperature optimisation
+        y1,  wped, wcenter, peaking
+            Parameters of the profiler object
         niter
             Number of iterations
 
@@ -293,9 +347,7 @@ class Plasma:
         pos = xr.full_like(data[quantity_te].t, np.nan)
         err_in = deepcopy(pos)
         err_out = deepcopy(pos)
-        te_pos = Dataset(
-            {"value": pos, "err_in": err_in, "err_out": err_out}
-        )
+        te_pos = Dataset({"value": pos, "err_in": err_in, "err_out": err_out})
         ti_pos = deepcopy(te_pos)
 
         for t in self.t:
@@ -358,7 +410,6 @@ class Plasma:
 
         self.bckc[diagnostic] = bckc
 
-
     def match_interferometer(
         self, diagnostic: str = "nirh1", quantity: str = "ne_bin", niter=3
     ):
@@ -390,7 +441,7 @@ class Plasma:
 
         Ne_prof = self.Ne_prof
         for t in self.t:
-            const = 1.
+            const = 1.0
             ne_data = data[quantity].sel(t=t)
             for j in range(niter):
                 ne0 = self.el_dens.sel(t=t, rho_poloidal=0) * const
@@ -474,24 +525,21 @@ class Plasma:
                 element=elem
             )
 
-    def calc_meanz(self, tau):
+    def calc_meanz(self, use_tau=False):
         """
         Calculate mean charge
         """
+        tau = None
         for elem in self.elements:
             for t in self.t:
                 Ne = self.el_dens.sel(t=t)
                 Nh = self.neutral_dens.sel(t=t)
                 Te = self.el_temp.sel(t=t)
-                tau = self.tau.sel(t=t)
+                if use_tau:
+                    tau = self.tau.sel(t=t)
                 fz = self.fract_abu[elem](Ne, Te, Nh, tau=tau)
-
-            meanz_tmp = (
-                self.atomic_data[elem]["meanz"]
-                .interp(electron_temperature=self.el_temp, method="cubic",)
-                .drop_vars(["electron_temperature"])
-            )
-            self.meanz.loc[dict(element=elem)] = meanz_tmp
+                meanz = (fz * fz.ion_charges).sum("ion_charges")
+                self.meanz.loc[dict(element=elem, t=t)] = meanz
 
     def calc_pressure(self):
         """
@@ -604,6 +652,8 @@ class Plasma:
                     self.meanz.sel(element=elem) ** 2 / self.el_dens
                 )
                 self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp
+
+        self.calc_zeff()
 
     def build_current_density(self):
         """
@@ -737,53 +787,6 @@ class Plasma:
                     )
                 plt.title(f"Time = {t}")
 
-    def simulate_spectrometers(self):
-        self.spectrometers = {}
-        if "princeton" in self.raw_data.keys():
-            geometry = deepcopy(self.ti_princeton.attrs)
-            del geometry["datatype"]
-            del geometry["error"]
-
-            self.spectrometers["passive_c5"] = Spectrometer(
-                self.ADASReader,
-                "c",
-                "5",
-                transition="n=8-n=7",
-                wavelength=5292.7,
-                geometry=geometry,
-            )
-            for te in (
-                self.spectrometers["passive_c5"].atomdat["pec"].electron_temperature
-            ):
-                if te < 150 or te > 3000:
-                    self.spectrometers["passive_c5"].atomdat["pec"].loc[
-                        {"electron_temperature": te}
-                    ] = 0
-
-        if "xrcs" in self.raw_data.keys():
-            geometry = deepcopy(self.te_xrcs.attrs)
-            del geometry["datatype"]
-            del geometry["error"]
-
-            self.spectrometers["he_like"] = Spectrometer(
-                self.ADASReader,
-                "ar",
-                "16",
-                transition="(1)1(1.0)-(1)0(0.0)",
-                wavelength=4.0,
-                geometry=geometry,
-            )
-
-        for k in self.spectrometers.keys():
-            print(
-                self.spectrometers[k].element,
-                self.spectrometers[k].charge,
-                self.spectrometers[k].wavelength,
-            )
-            self.spectrometers[k].simulate_measurements(
-                self.el_dens, self.el_temp, self.ion_temp.sel(element=self.main_ion),
-            )
-
     def initialize_variables(self):
         """
         Initialize all class attributes
@@ -891,7 +894,7 @@ class Plasma:
         assign_datatype(self.neutral_dens, ("density", "neutral"))
 
         self.tau = deepcopy(data2d)
-        assign_datatype(self.tau, ("time", "transient"))
+        assign_datatype(self.tau, ("time", "residence"))
 
         # Other geometrical quantities
         self.min_r = deepcopy(data2d)
@@ -946,7 +949,7 @@ class Plasma:
 
         self.ion_conc = DataArray(np.zeros(len(self.elements)), coords=[coords_elem])
         assign_datatype(self.ion_conc, ("concentration", "ion"))
-        self.ion_conc.values = np.array(self.ion_conc)
+
         self.ion_dens = deepcopy(data3d)
         assign_datatype(self.ion_dens, ("density", "ion"))
         self.ion_temp = deepcopy(data3d)
