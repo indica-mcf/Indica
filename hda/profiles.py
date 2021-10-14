@@ -27,9 +27,11 @@ class Profiles:
         self,
         y0_fix=False,
         y0_ref=None,
+        yend=0,
         wcenter_exp=0.05,
         plot=False,
         coord="rho_poloidal",
+        debug=False,
     ):
         """
         Builds the profiles using the parameters set
@@ -75,15 +77,25 @@ class Profiles:
         # baseline profile shape
         y = (centre - edge) * (1 - x ** wped) + edge
 
+        if debug:
+            plt.figure()
+            plt.plot(x, y, label="first")
+
         # add central peaking
         if peaking > 1:
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
             y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
 
+        if debug:
+            plt.plot(x, y, label="peaking")
+
         # add additional peaking
         if peaking2 > 1:
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
             y += gaussian(x, y[0] * (peaking2 - 1), 0, 0, sigma)
+
+        if debug:
+            plt.plot(x, y, label="peaking2")
 
         if y0_fix:
             y -= y1
@@ -91,8 +103,14 @@ class Profiles:
             y *= y0 - y1
             y += y1
 
+        if debug:
+            plt.plot(x, y, label="y0_fix", marker="o")
+
         x = np.append(x, 1.05)
-        y = np.append(y, 0.0)
+        y = np.append(y,yend)
+
+        if debug:
+            plt.plot(x, y, label="0 point at 1.05")
 
         cubicspline = CubicSpline(
             x,
@@ -102,6 +120,10 @@ class Profiles:
             False,
         )
         yspl = cubicspline(self.xspl)
+
+        if debug:
+            plt.plot(self.xspl, yspl, label="spline")
+            plt.legend()
 
         yspl = DataArray(yspl, coords=[(coord, self.xspl)])
         attrs = {"datatype": self.datatype}
