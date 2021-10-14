@@ -562,10 +562,13 @@ class Plasma:
         Calculate impurity density from concentration
         """
 
+        imp_dens = self.Nimp_prof.yspl / self.Nimp_prof.yspl.sel(rho_poloidal=0)
         for elem in self.impurities:
-            self.ion_dens.loc[dict(element=elem)] = self.el_dens * self.ion_conc.sel(
+            imp_dens_0 = self.el_dens.sel(rho_poloidal=0) * self.ion_conc.sel(
                 element=elem
             )
+            for t in self.t:
+                self.ion_dens.loc[dict(t=t, element=elem)] = imp_dens * imp_dens_0.sel(t=t)
 
     def calc_fz_lz(self, use_tau=False):
         """
@@ -693,20 +696,24 @@ class Plasma:
 
             self.vloop.loc[dict(t=t)] = vloop
 
-    def impose_flat_imp_dens(self):
+    def impose_flat_zeff(self):
         """
-        Adapt impurity concentration to flatten profile at edge
+        Adapt impurity concentration to generate flat Zeff contribution
         """
 
         for elem in self.impurities:
-            imp_dens = self.ion_dens.sel(element=elem)
-            if np.count_nonzero(imp_dens) != 0:
-                value = xr.where(
-                    imp_dens.rho_poloidal < 0.85,
-                    imp_dens,
-                    imp_dens.sel(rho_poloidal=0.85, method="nearest"),
+            if np.count_nonzero(self.ion_dens.sel(element=elem)) != 0:
+                zeff_tmp = (
+                    self.ion_dens.sel(element=elem)
+                    * self.meanz.sel(element=elem) ** 2
+                    / self.el_dens
                 )
-                self.ion_dens.loc[dict(element=elem)] = value
+                value = zeff_tmp.where(zeff_tmp.rho_poloidal < 0.2).mean("rho_poloidal")
+                zeff_tmp = zeff_tmp / zeff_tmp * value
+                ion_dens_tmp = zeff_tmp / (
+                    self.meanz.sel(element=elem) ** 2 / self.el_dens
+                )
+                self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp
 
         self.calc_zeff()
 
@@ -899,6 +906,9 @@ class Plasma:
         self.Te_prof = Profiles(datatype=("temperature", "electron"), xspl=self.rho)
         self.Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=self.rho)
         self.Ne_prof = Profiles(datatype=("density", "electron"), xspl=self.rho)
+        self.Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
+        self.Nimp_prof.y1 = 3.0e19
+        self.Nimp_prof.build_profile(yend=self.Nimp_prof.y1)
         self.Vrot_prof = Profiles(datatype=("rotation", "ion"), xspl=self.rho)
 
         # self.rhot = deepcopy(data2d)
