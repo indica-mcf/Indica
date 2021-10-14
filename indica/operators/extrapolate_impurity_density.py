@@ -1,8 +1,10 @@
+from typing import cast
 from typing import List
 from typing import Tuple
 from typing import Union
 
 import numpy as np
+from scipy.interpolate import UnivariateSpline
 from xarray import concat
 from xarray import DataArray
 
@@ -14,7 +16,6 @@ from ..datatypes import DataType
 from ..utilities import input_check
 
 # import matplotlib.pyplot as plt
-# from scipy.interpolate.fitpack2 import UnivariateSpline
 
 
 class ExtrapolateImpurityDensity(Operator):
@@ -195,12 +196,14 @@ class ExtrapolateImpurityDensity(Operator):
 
         rho_arr = electron_density.coords["rho"].values
         theta_arr = np.array([0, np.max(sxr_theta)])
+        # theta_arr = np.linspace(np.min(sxr_theta), np.max(sxr_theta), 40)
         t_arr = t.values
 
         rho_arr = DataArray(data=rho_arr, coords={"rho": rho_arr}, dims=["rho"])
         theta_arr = DataArray(
             data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
         )
+        t_arr = DataArray(data=t_arr, coords={"t": t_arr}, dims=["t"])
 
         R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr, t_arr)
 
@@ -210,9 +213,24 @@ class ExtrapolateImpurityDensity(Operator):
             z_deriv = z_deriv.transpose("rho", "theta", "t")
 
         impurity_density_sxr = impurity_density_sxr.indica.interp2d(
-            {"R": R_deriv, "z": z_deriv}, method="cubic"
+            {"R": R_deriv, "z": z_deriv}, method="linear"
         )
         impurity_density_sxr = impurity_density_sxr.transpose("rho", "theta", "t")
+
+        # theta_plot_arr = np.linspace(np.min(impurity_density_sxr.coords["theta"]),
+        # np.max(impurity_density_sxr.coords["theta"]), 100)
+        # impurity_density_sxr_plot = impurity_density_sxr.interp(theta=theta_plot_arr,
+        # method="linear")
+
+        # impurity_density_sxr_plot["theta"] = (impurity_density_sxr_plot["theta"] %
+        # (2.0 * np.pi))
+        # impurity_density_sxr_plot = impurity_density_sxr_plot.sortby("theta")
+
+        # impurity_density_sxr_plot = np.abs(impurity_density_sxr_plot)
+
+        # impurity_density_sxr_plot.isel(t=0).plot.pcolormesh("theta", "rho",
+        # subplot_kws=dict(projection="polar"))
+        # plt.show()
 
         # Discontinuity mitigation
         boundary_electron_density = electron_density.sel({"rho": threshold_rho})
@@ -249,37 +267,86 @@ class ExtrapolateImpurityDensity(Operator):
 
         assert np.all(np.logical_not(np.isnan(extrapolated_impurity_density)))
 
-        # rho_array = extrapolated_impurity_density.coords["rho"]
+        rho_array = extrapolated_impurity_density.coords["rho"]
 
-        # variance_extrapolated_impurity_density_lfs = \
-        #     extrapolated_impurity_density.isel(
-        #         {"t": 0, "theta": 0}
-        #     ).var("rho")
+        extrapolated_smooth_lfs = []
+        extrapolated_smooth_hfs = []
 
-        # variance_extrapolated_impurity_density_hfs = \
-        #     extrapolated_impurity_density.isel({"t": 0, "theta": 1}).var("rho")
+        for ind_t, it in enumerate(extrapolated_impurity_density.coords["t"]):
+            variance_extrapolated_impurity_density_lfs = (
+                extrapolated_impurity_density.isel({"t": ind_t, "theta": 0}).var("rho")
+            )
 
-        # extrapolated_spline_lfs = UnivariateSpline(
-        #     rho_array,
-        #     extrapolated_impurity_density[:, 0, 0],
-        #     k=5,
-        #     s=0.001 * variance_extrapolated_impurity_density_lfs,
-        # )
+            variance_extrapolated_impurity_density_hfs = (
+                extrapolated_impurity_density.isel({"t": ind_t, "theta": 1}).var("rho")
+            )
 
-        # extrapolated_spline_hfs = UnivariateSpline(
-        #     rho_array, extrapolated_impurity_density[:, 1, 0], k=5,
-        #     s=0.001 * variance_extrapolated_impurity_density_hfs
-        # )
+            extrapolated_spline_lfs = UnivariateSpline(
+                rho_array,
+                extrapolated_impurity_density[:, 0, ind_t],
+                k=5,
+                s=0.001 * variance_extrapolated_impurity_density_lfs,
+            )
 
-        # first_derivative_comb_lfs = extrapolated_impurity_density.isel(
-        #     {"t": 0, "theta": 0}
-        # ).differentiate(coord="rho")
+            extrapolated_spline_hfs = UnivariateSpline(
+                rho_array,
+                extrapolated_impurity_density[:, 1, ind_t],
+                k=5,
+                s=0.001 * variance_extrapolated_impurity_density_hfs,
+            )
 
-        # drho = np.mean(np.diff(rho_array.data))
+            extrapolated_smooth_lfs.append(extrapolated_spline_lfs(rho_array, 0))
+            extrapolated_smooth_hfs.append(extrapolated_spline_hfs(rho_array, 0))
 
-        # first_derivative_spline_lfs = np.gradient(
-        #     extrapolated_spline_lfs(rho_array, 0), drho
-        # )
+            # first_derivative_comb_lfs = extrapolated_impurity_density.isel(
+            #     {"t": ind_t, "theta": 0}
+            # ).differentiate(coord="rho")
+
+            # drho = np.mean(np.diff(rho_array.data))
+
+            # first_derivative_spline_lfs = np.gradient(
+            #     extrapolated_smooth_lfs, drho
+            # )
+
+        extrapolated_smooth_lfs = DataArray(
+            data=extrapolated_smooth_lfs,
+            coords={"t": t, "rho": rho_array},
+            dims=["t", "rho"],
+        )
+
+        extrapolated_smooth_hfs = DataArray(
+            data=extrapolated_smooth_hfs,
+            coords={"t": t, "rho": rho_array},
+            dims=["t", "rho"],
+        )
+
+        extrapolated_smooth_lfs = cast(DataArray, extrapolated_smooth_lfs).transpose(
+            "rho", "t"
+        )
+        extrapolated_smooth_hfs = cast(DataArray, extrapolated_smooth_hfs).transpose(
+            "rho", "t"
+        )
+
+        R_lfs_midplane = cast(DataArray, R_deriv).isel(theta=0)  # theta = 0.0
+        R_hfs_midplane = cast(DataArray, R_deriv).isel(theta=1)  # theta = np.pi
+
+        derived_asymmetry_parameter = np.log(
+            cast(DataArray, extrapolated_smooth_hfs)
+            / cast(DataArray, extrapolated_smooth_lfs)
+        )
+
+        R_lfs_midplane.loc[0, :] = np.sqrt(
+            np.abs(derived_asymmetry_parameter.loc[0, :])
+        )
+
+        R_hfs_midplane.loc[0, :] = 0.0
+
+        sign_modifier = -1 * np.sign(derived_asymmetry_parameter.loc[0, :])
+
+        asym_denominator = R_hfs_midplane ** 2 - R_lfs_midplane ** 2
+        asym_denominator.loc[0, :] *= sign_modifier
+
+        derived_asymmetry_parameter /= asym_denominator
 
         # plt.plot(
         #     rho_array,
@@ -288,7 +355,19 @@ class ExtrapolateImpurityDensity(Operator):
         # )
         # plt.plot(
         #     rho_array,
-        #     extrapolated_spline_lfs(rho_array, 0),
+        #     extrapolated_smooth_lfs[0],
+        #     c="r",
+        # )
+        # plt.show()
+
+        # plt.plot(
+        #     rho_array,
+        #     extrapolated_impurity_density[:, 1, 0],
+        #     c="b",
+        # )
+        # plt.plot(
+        #     rho_array,
+        #     extrapolated_spline_hfs(rho_array, 0),
         #     c="r",
         # )
         # plt.show()
@@ -305,4 +384,51 @@ class ExtrapolateImpurityDensity(Operator):
         # )
         # plt.show()
 
-        return extrapolated_impurity_density, threshold_rho, t
+        theta_arr = np.linspace(np.min(sxr_theta), np.max(sxr_theta), 40)
+        theta_arr = DataArray(theta_arr, {"theta": theta_arr}, ["theta"])
+        R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr, t_arr)
+        R_deriv = cast(DataArray, R_deriv).transpose("rho", "theta", "t")
+        z_deriv = cast(DataArray, z_deriv).transpose("rho", "theta", "t")
+
+        R_deriv.loc[0, :, :] = 0.0
+
+        asymmetry_modifier = np.exp(
+            derived_asymmetry_parameter * (R_deriv ** 2 - R_lfs_midplane ** 2)
+        )
+
+        asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
+
+        extrapolated_smooth_density = extrapolated_smooth_lfs * asymmetry_modifier
+        extrapolated_smooth_density = extrapolated_smooth_density.transpose(
+            "rho", "theta", "t"
+        )
+
+        # impurity_density_sxr_plot = extrapolated_smooth_density
+
+        # impurity_density_sxr_plot["theta"] = (impurity_density_sxr_plot["theta"] %
+        # (2.0 * np.pi))
+        # impurity_density_sxr_plot = impurity_density_sxr_plot.sortby("theta")
+
+        # impurity_density_sxr_plot = np.abs(impurity_density_sxr_plot)
+
+        # impurity_density_sxr_plot[:, :, 0].plot.pcolormesh("theta", "rho",
+        # subplot_kws=dict(projection="polar"))
+        # plt.show()
+
+        R_arr = np.linspace(np.min(R_deriv), np.max(R_deriv), 40)
+        z_arr = np.linspace(np.min(z_deriv), np.max(z_deriv), 40)
+
+        R_arr = DataArray(R_arr, {"R": R_arr}, ["R"])
+        z_arr = DataArray(z_arr, {"z": z_arr}, ["z"])
+
+        rho_derived, theta_derived = flux_surfaces.convert_from_Rz(R_arr, z_arr, t_arr)
+        rho_derived = cast(DataArray, rho_derived).transpose("R", "z", "t")
+        theta_derived = cast(DataArray, theta_derived).transpose("R", "z", "t")
+
+        extrapolated_smooth_density = extrapolated_smooth_density.indica.interp2d(
+            {"rho": rho_derived, "theta": theta_derived}, method="linear"
+        )
+
+        extrapolated_smooth_density = extrapolated_smooth_density.fillna(0.0)
+
+        return extrapolated_smooth_density, threshold_rho, t
