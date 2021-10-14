@@ -8,7 +8,8 @@ from hda.hdaplot import HDAplot
 from hda.hdaworkflow import HDArun
 from hda.spline_profiles import Plasma_profs
 from hda.read_st40 import ST40data
-import hda.plasma as plasma
+from hda.plasma import Plasma
+import hda.plots as plots
 import hda.hda_tree as hda_tree
 
 plt.ion()
@@ -33,12 +34,13 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False, modelling=T
     pl.calc_meanz()
 
     # Impose impurity concentration and calculate dilution
-    imp_conc = {"c":0.02, "ar":0.0005}
+    imp_conc = {"c":0.03, "ar":0.0005}
     for elem in imp_conc:
         if elem in pl.ion_conc.element:
             pl.ion_conc.loc[dict(element=elem)] = imp_conc[elem]
+
     pl.calc_imp_dens()
-    pl.impose_flat_imp_dens()
+    pl.impose_flat_zeff()
     pl.calc_main_ion_dens()
 
     # Calculate total thermal pressure
@@ -47,26 +49,7 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False, modelling=T
     # Back-calculate all diagnostic measurements
     pl.interferometer()
 
-    colors = ("black", "blue", "cyan", "orange", "red")
-    plt.figure()
-    for i, quant in enumerate(pl.data["xrcs"].keys()):
-        marker = "o"
-        if "ti" in quant:
-            marker = "x"
-        pl.data["xrcs"][quant].plot(marker=marker, color=colors[i], label=f"{quant.upper()} XRCS", alpha=0.5)
-        if quant in pl.bckc["xrcs"]:
-            pl.bckc["xrcs"][quant].plot(color=colors[i])
-    plt.title("Electron and ion temperature")
-    plt.legend()
-
-    plt.figure()
-    for i, diag in enumerate(("nirh1", "smmh1")):
-        if diag in pl.data.keys():
-            pl.data[diag]["ne"].plot(marker="o", color=colors[i], label=f"Ne {diag.upper()}", alpha=0.5)
-        if diag in pl.bckc.keys():
-            pl.bckc[diag]["ne"].plot(color=colors[i])
-    plt.title("Electron density")
-    plt.legend()
+    plots.compare_data_bckc(pl)
 
     run_name = "RUN40"
     descr = f"New profile shapes and ionisation balance"
