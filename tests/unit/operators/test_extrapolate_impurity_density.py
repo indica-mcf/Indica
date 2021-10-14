@@ -122,10 +122,10 @@ def test_extrapolate_impurity_density_call():
 
     valid_truncation_threshold = 1.0e3
 
-    expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 20)
+    expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 40)
 
-    input_Te = input_Te.interp(rho=expanded_rho, method="cubic")
-    input_Ne = input_Ne.interp(rho=expanded_rho, method="cubic")
+    input_Te = input_Te.interp(rho=expanded_rho, method="linear")
+    input_Ne = input_Ne.interp(rho=expanded_rho, method="linear")
 
     R_arr = np.linspace(1.83, 3.9, 40)
     z_arr = np.linspace(-1.75, 2.0, 40)
@@ -176,7 +176,7 @@ def test_extrapolate_impurity_density_call():
         coords={"elements": elements, "rho": base_rho_profile, "t": base_t},
         dims=["elements", "rho", "t"],
     )
-    input_Ti = input_Ti.interp({"rho": expanded_rho}, method="cubic")
+    input_Ti = input_Ti.interp({"rho": expanded_rho}, method="linear")
 
     toroidal_rotations = np.array([200.0e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
 
@@ -198,7 +198,7 @@ def test_extrapolate_impurity_density_call():
     )
 
     toroidal_rotations = toroidal_rotations.interp(
-        {"rho": expanded_rho}, method="cubic"
+        {"rho": expanded_rho}, method="linear"
     )
 
     Zeff = DataArray(
@@ -206,15 +206,27 @@ def test_extrapolate_impurity_density_call():
         coords=[("rho", base_rho_profile), ("t", base_t)],
         dims=["rho", "t"],
     )
-    Zeff = Zeff.interp({"rho": expanded_rho}, method="cubic")
+    Zeff = Zeff.interp({"rho": expanded_rho}, method="linear")
 
     example_asymmetry_obj = AsymmetryParameter()
     example_asymmetry = example_asymmetry_obj(
         toroidal_rotations.copy(deep=True), input_Ti, "d", "w", Zeff, input_Te
     )
 
-    R_lfs_values = R_lfs_values.interp({"rho": expanded_rho}, method="cubic")
+    R_lfs_values = R_lfs_values.interp({"rho": expanded_rho}, method="linear")
     R_lfs_values = R_lfs_values.interp({"t": base_t}, method="linear")
+
+    # theta_arr = np.linspace(np.min(input_sxr_density.coords["theta"]),
+    # np.max(input_sxr_density.coords["theta"]), 100)
+
+    # input_sxr_density = input_sxr_density.interp(theta=theta_arr, method="linear")
+
+    # input_sxr_density["theta"] = (input_sxr_density["theta"] % (2.0 * np.pi))
+    # input_sxr_density = input_sxr_density.sortby("theta")
+
+    # input_sxr_density.isel(t=0).plot.pcolormesh("theta", "rho",
+    # subplot_kws=dict(projection="polar"))
+    # plt.show()
 
     rho_derived, theta_derived = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
     rho_derived = np.abs(rho_derived)
@@ -223,14 +235,14 @@ def test_extrapolate_impurity_density_call():
     theta_derived = theta_derived.transpose("R", "z", "t")
 
     input_sxr_density_Rz = input_sxr_density.indica.interp2d(
-        {"rho": rho_derived, "theta": theta_derived}, method="cubic"
+        {"rho": rho_derived, "theta": theta_derived}, method="linear"
     )
     input_sxr_density_Rz = input_sxr_density_Rz.transpose("R", "z", "t")
 
     input_sxr_density_lfs = input_sxr_density_Rz.indica.interp2d(
         R=R_lfs_values,
         z=R_lfs_values.coords["z"],
-        method="cubic",
+        method="linear",
         assume_sorted=True,
     )
 
@@ -261,13 +273,13 @@ def test_extrapolate_impurity_density_call():
     #     R=DataArray(
     #         np.linspace(1.83, 3.9, 400), {"R": np.linspace(1.83, 3.9, 400)}, ["R"]
     #     ),
-    #     method="cubic"
+    #     method="linear"
     # )
     # input_sxr_density_asym = input_sxr_density_asym.interp(
     #     z=DataArray(
     #         np.linspace(-1.75, 2.0, 400), {"z": np.linspace(-1.75, 2.0, 400)}, ["z"]
     #     ),
-    #     method="cubic"
+    #     method="linear"
     # )
 
     # input_sxr_density_asym.isel(t=0).transpose("z", "R").plot()
