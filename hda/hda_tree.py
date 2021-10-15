@@ -135,6 +135,7 @@ def delete(t, full_path):
     t.write()
     print("\n Data deleted")
 
+
 def next_run(t, code_path, run_name):
     """
     Find next available run
@@ -165,10 +166,18 @@ def get_tree_structure():
             "PULSE": ("NUMERIC", "Pulse number analysed"),
             "EQUIL": ("TEXT", "Equilibrium used"),
             "EL_DENS": ("TEXT", "Electron density diagnostic used for optimization"),
-            "EL_TEMP": ("TEXT", "Electron temperature diagnostic used for optimization"),
+            "EL_TEMP": (
+                "TEXT",
+                "Electron temperature diagnostic used for optimization",
+            ),
             "ION_TEMP": ("TEXT", "Ion temperature diagnostic used for optimization"),
         },
         ".GLOBAL": {
+            "CR0": ("SIGNAL", "Minor radius = (R_LFS - R_HFS)/2 at midplane, m"),
+            "RMAG": ("SIGNAL", "Magnetic axis R, m"),
+            "ZMAG": ("SIGNAL", "Magnetic axis z, m"),
+            "VOLM": ("SIGNAL", "Plasma volume z, m^3"),
+            "IP": ("SIGNAL", "Plasma current, A"),
             "TE0": ("SIGNAL", "Central electron temp, eV"),
             "TI0": ("SIGNAL", "Central ion temp, eV"),
             "NE0": ("SIGNAL", "Central electron density, m^-3 "),
@@ -218,6 +227,8 @@ def write(
     plasma,
     pulse: int,
     code_name: str,
+    data: dict = None,
+    bckc: dict = None,
     run_name="RUN01",
     descr="",
     tree_name="ST40",
@@ -233,6 +244,10 @@ def write(
     code_name
         Name of code used for analysis
         (e.g. "HDA")
+    data
+        diagnostic data dictionary
+    bckc
+        diagnostic back-calculated data dictionary
     run_name
         Name of run under which data should be saved
         (e.g. "RUN01")
@@ -263,14 +278,14 @@ def write(
 
     print(f"\n {code_name}: Writing results for {pulse} to {write_path}")
 
-    data_to_write = organise_data(plasma)
+    data_to_write = organise_data(plasma, data=data, bckc=bckc)
 
     write_data(t, write_path, data_to_write)
 
     t.close()
 
 
-def organise_data(plasma):
+def organise_data(plasma, data={}, bckc={}):
     """
     Organise HDA data in a dictionary ready to be written to MDS+
 
@@ -308,6 +323,12 @@ def organise_data(plasma):
     tiv = np.array(tiv)
     nev = np.array(nev)
 
+    cr0 = plasma.cr0
+    rmag = plasma.rmag
+    zmag = plasma.zmag
+    volm = plasma.volume.sel(rho_poloidal=1)
+    ipla = plasma.ipla
+
     equil = plasma.optimisation["equil"]
     el_dens = plasma.optimisation["el_dens"]
     el_temp = plasma.optimisation["el_temp"]
@@ -325,10 +346,21 @@ def organise_data(plasma):
             "ION_TEMP": (String(ion_temp), "", []),
         },
         ".GLOBAL": {
-            "TE0": (Float32(plasma.el_temp.sel(rho_poloidal=0).values), "eV", ["TIME"],),
+            "CR0": (Float32(cr0.values), "m", ["TIME"],),
+            "RMAG": (Float32(rmag.values), "m", ["TIME"],),
+            "ZMAG": (Float32(zmag.values), "m", ["TIME"],),
+            "VOLM": (Float32(volm.values), "m^3", ["TIME"],),
+            "IP": (Float32(ipla.values), "A", ["TIME"],),
+            "TE0": (
+                Float32(plasma.el_temp.sel(rho_poloidal=0).values),
+                "eV",
+                ["TIME"],
+            ),
             "TI0": (
                 Float32(
-                    plasma.ion_temp.sel(element=plasma.main_ion).sel(rho_poloidal=0).values
+                    plasma.ion_temp.sel(element=plasma.main_ion)
+                    .sel(rho_poloidal=0)
+                    .values
                 ),
                 "eV",
                 ["TIME"],
