@@ -12,29 +12,60 @@ from hda.plasma import Plasma
 import hda.plots as plots
 import hda.hda_tree as hda_tree
 
+from hda.diagnostics.spectrometer import XRCSpectrometer
+from hda.diagnostics.PISpectrometer import PISpectrometer
+
 plt.ion()
 
-def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False, modelling=True):
+
+def plasma_workflow(
+    pulse=9229, tstart=0.02, tend=0.14, interf="smmh1", write=False, modelling=True
+):
     # pulse = 9229
     # tstart = 0.02
     # tend = 0.14
+
+    bckc = {}
+
+    # Read raw data
     raw_data = ST40data(pulse)
     raw_data.get_all(smmh1_rev=1)
 
-    pl = plasma.Plasma(tstart=tstart, tend=tend)
-    pl.build_data(raw_data.data, pulse=pulse)
+    # Plasma class
+    pl = Plasma(tstart=tstart, tend=tend)
+    data = pl.build_data(raw_data.data, pulse=pulse)
+
+    pl.build_atomic_data()
+    pl.calculate_geometry()
+    if "xrcs" in raw_data.data:
+        pl.forward_models["xrcs"] = XRCSpectrometer()
+    if "princeton" in raw_data.data:
+        pl.forward_models["princeton"] = PISpectrometer()
 
     # Rescale density to match interferometer
-    pl.match_interferometer(diagnostic="smmh1", quantity="ne")
+    diagnostic = interf
+    quantity = "ne"
+    bckc = pl.match_interferometer(
+        data, bckc=bckc, diagnostic=diagnostic, quantity=quantity
+    )
 
     # Build temperature profiles to match XRCS
-    pl.match_xrcs()
+    diagnostic = "xrcs"
+    quantity_te = "te_kw"
+    quantity_ti = "ti_w"
+    bckc = pl.match_xrcs(
+        data,
+        bckc=bckc,
+        diagnostic=diagnostic,
+        quantity_te=quantity_te,
+        quantity_ti=quantity_ti,
+    )
 
     # Having calculated Te, estimate mean charge of all ions
     pl.calc_meanz()
 
     # Impose impurity concentration and calculate dilution
-    imp_conc = {"c":0.03, "ar":0.0005}
+    imp_conc = {"c": 0.03, "ar": 0.0005}
     for elem in imp_conc:
         if elem in pl.ion_conc.element:
             pl.ion_conc.loc[dict(element=elem)] = imp_conc[elem]
@@ -42,37 +73,42 @@ def plasma_workflow(pulse=9229, tstart=0.02, tend=0.14, write=False, modelling=T
     pl.calc_imp_dens()
     pl.impose_flat_zeff()
     pl.calc_main_ion_dens()
+    pl.calc_zeff()
 
     # Calculate total thermal pressure
     pl.calc_pressure()
 
     # Back-calculate all diagnostic measurements
-    pl.interferometer()
+    pl.interferometer(data, bckc=bckc)
 
-    plots.compare_data_bckc(pl)
+    plots.compare_data_bckc(data, bckc, pulse=pulse)
 
-    run_name = "RUN40"
+    run_name = "RUN30"
     descr = f"New profile shapes and ionisation balance"
     if write:
         if modelling:
             pulse = pl.pulse + 25000000
-        hda_tree.write(pl, pulse, "HDA", descr=descr, run_name=run_name)
+        hda_tree.write(
+            pl, pulse, "HDA", data=data, bckc=bckc, descr=descr, run_name=run_name
+        )
 
-    return pl
+    return pl, data, bckc
 
 
-def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, force=False):
+def best_astra(
+    pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, force=False
+):
     """
     Best profile shapes from ASTRA runs of 8383 applied to database
     """
-    ohmic_pulses = [8385, 8386, 8387, 8390, 8405, 8458] #8401
-    nbi_pulses = [8338, 8373, 8374, 8574, 8575, 8582, 8583, 8597, 8598, 8599] #
+    ohmic_pulses = [8385, 8386, 8387, 8390, 8405, 8458]  # 8401
+    nbi_pulses = [8338, 8373, 8374, 8574, 8575, 8582, 8583, 8597, 8598, 8599]  #
 
     pulses = np.sort(np.concatenate((np.array(ohmic_pulses), np.array(nbi_pulses))))
     if pulse is not None:
         pulses = [pulse]
     for pulse in pulses:
-        interf="nirh1"
+        interf = "nirh1"
         hdarun = HDArun(pulse=pulse, interf=interf, tstart=tstart, tend=tend)
 
         # Rebuild temperature profiles
@@ -99,12 +135,13 @@ def best_astra(pulse=8383, tstart=0.02, tend=0.12, hdarun=None, write=False, for
         else:
             return hdarun
 
+
 def scan_profile_shape(pulse=8383, hdarun=None, write=False):
     """
     Fix edge plasma parameters (rho > 0.8) and scan profile shapes
     """
 
-    interf="nirh1"
+    interf = "nirh1"
     if hdarun is None:
         hdarun = HDArun(pulse=pulse, interf=interf, tstart=0.02, tend=0.1)
 
@@ -141,7 +178,7 @@ def scan_profile_shape(pulse=8383, hdarun=None, write=False):
     if write == True:
         te_peak2.write(te_peak2.data, descr=descr, run_name=run_name)
 
-    flat_dens = {"te_flat":te_flat, "te_peak1":te_peak1, "te_peak2":te_peak2}
+    flat_dens = {"te_flat": te_flat, "te_peak1": te_peak1, "te_peak2": te_peak2}
 
     # Peaked density
     hdarun.profiles_nbi()
@@ -176,10 +213,11 @@ def scan_profile_shape(pulse=8383, hdarun=None, write=False):
     if write == True:
         te_peak2.write(te_peak2.data, descr=descr, run_name=run_name)
 
-    peaked_dens = {"te_flat":te_flat, "te_peak1":te_peak1, "te_peak2":te_peak2}
+    peaked_dens = {"te_flat": te_flat, "te_peak1": te_peak1, "te_peak2": te_peak2}
 
     if not write:
         return flat_dens, peaked_dens
+
 
 def ohmic_pulses(write=False, interf="smmh1", match_kinetic=False):
     # pulses = [8385, 8386, 8387, 8390, 8401, 8405, 8458]
@@ -207,7 +245,9 @@ def NBI_pulses(write=False, interf="smmh1", match_kinetic=False):
     interf = ["nirh1"] * len(pulses)
     for i, pulse in enumerate(pulses):
         plt.close("all")
-        hdarun = HDArun(pulse=pulse, interf=interf[i], tstart=0.015, tend=0.14, dt=0.015)
+        hdarun = HDArun(
+            pulse=pulse, interf=interf[i], tstart=0.015, tend=0.14, dt=0.015
+        )
         hdarun.profiles_nbi()
         if match_kinetic:
             hdarun.data.calc_pressure()
@@ -224,6 +264,7 @@ def NBI_pulses(write=False, interf="smmh1", match_kinetic=False):
             _ = input("press...")
 
     return hdarun
+
 
 def test_low_edge_temperature(hdarun, zeff=False):
 
