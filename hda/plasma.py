@@ -8,7 +8,6 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from hda.profiles import Profiles
-from hda.diagnostics.spectrometer import XRCSpectrometer
 import hda.physics as ph
 
 from indica.readers import ADASReader
@@ -81,9 +80,11 @@ class Plasma:
         self.radial_coordinate_type = "rho_poloidal"
         self.machine_dimensions = machine_dimensions
 
+        self.forward_models = {}
+
         self.initialize_variables()
 
-    def build_data(self, data, pulse=None, equil="efit", adf11: dict = None):
+    def build_data(self, data, pulse=None, equil="efit"):
         """
         Reorganise raw data on new time axis and generate geometry information
 
@@ -99,6 +100,8 @@ class Plasma:
 
         """
         print_like("Building data class")
+
+        self.initialize_variables()
 
         self.pulse = pulse
         self.optimisation["equil"] = f"{equil}:{data[equil]['rmag'].revision}"
@@ -169,20 +172,17 @@ class Plasma:
 
             binned_data[kinstr] = instrument_data
 
-        self.data = binned_data
-        self.bckc = {}
+        self.ipla.values = binned_data["efit"]["ipla"]
+        self.cr0.values = (
+            binned_data["efit"]["rmjo"] - binned_data["efit"]["rmji"]
+        ).sel(rho_poloidal=1) / 2.0
 
-        forward_models = {}
-        if "xrcs" in binned_data.keys():
-            print_like("Adding XRCS spectrometer model")
-            forward_models["xrcs"] = XRCSpectrometer()
+        self.rmag = binned_data["efit"]["rmag"]
+        self.zmag = binned_data["efit"]["zmag"]
 
-        if "princeton" in binned_data.keys():
-            print_like("Adding Princeton spectrometer model")
-            forward_models["princeton"] = PISpectrometer()
+        return binned_data
 
-        self.forward_models = forward_models
-
+    def calculate_geometry(self):
         if hasattr(self, "equilibrium"):
             print_like("Calculate geometric quantities")
             for ith, th in enumerate(self.theta):
@@ -231,6 +231,7 @@ class Plasma:
                 self.equilibrium.rmji.interp(rho_poloidal=self.rho),
             ).interp(t=self.time, method="linear")
 
+    def build_atomic_data(self, adf11: dict = None):
         print_like("Initialize fractional abundance objects")
         fract_abu, power_loss = {}, {}
         for elem in self.elements:
@@ -251,7 +252,7 @@ class Plasma:
         self.fract_abu = fract_abu
         self.power_loss = power_loss
 
-    def interferometer(self, diagnostic=None, quantity=None):
+    def interferometer(self, data, bckc={}, diagnostic=None, quantity=None):
         """
         Calculate expected diagnostic measurement given plasma profile
         """
@@ -264,55 +265,25 @@ class Plasma:
         quantity = list(quantity)
 
         for diag in diagnostic:
-            if diag not in self.data.keys():
+            if diag not in data.keys():
                 continue
 
-            if diag not in self.bckc.keys():
-                bckc = deepcopy(self.data[diag])
-                self.bckc[diag] = bckc
-            bckc = self.bckc[diag]
-            for k in bckc.keys():
-                bckc[k] = initialize_bckc(bckc[k])
-
+            if diag not in bckc:
+                bckc[diag] = {}
             for quant in quantity:
-                if quant not in bckc.keys():
+                if quant not in data[diag].keys():
                     continue
-                bckc[quant].values = self.calc_ne_los_int(diag, quant).values
 
-            self.bckc[diag] = bckc
+                bckc_tmp = initialize_bckc(data[diag][quant])
+                bckc_tmp.values = self.calc_ne_los_int(data[diag][quant]).values
+                bckc[diag][quant] = bckc_tmp
 
-    def xrcs(self, diagnostic=None, quantity=None):
-        """
-        Calculate expected diagnostic measurement given plasma profile
-        """
-
-        if diagnostic is None:
-            diagnostic = ["xrcs"]
-        if quantity is None:
-            quantity = ["ne", "ne_bin"]
-        diagnostic = list(diagnostic)
-        quantity = list(quantity)
-
-        for diag in diagnostic:
-            if diag not in self.data.keys():
-                continue
-
-            if diag not in self.bckc.keys():
-                bckc = deepcopy(self.data[diag])
-                self.bckc[diag] = bckc
-            bckc = self.bckc[diag]
-            for k in bckc.keys():
-                bckc[k] = initialize_bckc(bckc[k])
-
-            for quant in quantity:
-                if quant not in bckc.keys():
-                    continue
-                bckc[quant].values = self.calc_ne_los_int(diag, quant).values
-
-            self.bckc[diag] = bckc
+        return bckc
 
     def match_xrcs(
         self,
+        data,
+        bckc={},
         diagnostic: str = "xrcs",
         quantity_te="te_kw",
         quantity_ti="ti_w",
@@ -327,6 +298,10 @@ class Plasma:
 
         Parameters
         ----------
+        data
+            diagnostic data as returned by self.build_data()
+        bckc
+            back-calculated data
         diagnostic
             diagnostic name corresponding to xrcs
         quantity_te
@@ -343,7 +318,7 @@ class Plasma:
 
         """
 
-        if diagnostic not in self.data.keys():
+        if diagnostic not in data.keys():
             print_like(f"No {diagnostic.upper()} data available")
             return
 
@@ -351,6 +326,12 @@ class Plasma:
             f"Re-calculating temperature profiles to match {diagnostic.upper()} values"
         )
 
+        if diagnostic not in bckc:
+            bckc[diagnostic] = {}
+        bckc[diagnostic][quantity_te] = initialize_bckc(data[diagnostic][quantity_te])
+        bckc[diagnostic][quantity_ti] = initialize_bckc(data[diagnostic][quantity_ti])
+
+        # Initialize back calculated values of diagnostic quantities
         forward_model = self.forward_models[diagnostic]
         Te_prof = self.Te_prof
         Ti_prof = self.Ti_prof
@@ -365,25 +346,15 @@ class Plasma:
         Ti_prof.wcenter = wcenter
         Ti_prof.peaking = peaking
 
-        # Initialize back calculated values of diagnostic quantities
-        if diagnostic not in self.bckc.keys():
-            bckc = deepcopy(self.data[diagnostic])
-            self.bckc[diagnostic] = bckc
-        bckc = self.bckc[diagnostic]
-        for k in bckc.keys():
-            bckc[k] = initialize_bckc(bckc[k])
-
-        data = self.data[diagnostic]
-
-        pos = xr.full_like(data[quantity_te].t, np.nan)
+        pos = xr.full_like(data[diagnostic][quantity_te].t, np.nan)
         err_in = deepcopy(pos)
         err_out = deepcopy(pos)
         te_pos = Dataset({"value": pos, "err_in": err_in, "err_out": err_out})
         ti_pos = deepcopy(te_pos)
 
         for t in self.t:
-            te_data = data[quantity_te].sel(t=t)
-            ti_data = data[quantity_ti].sel(t=t)
+            te_data = data[diagnostic][quantity_te].sel(t=t)
+            ti_data = data[diagnostic][quantity_ti].sel(t=t)
 
             if np.isnan(te_data) or np.isnan(ti_data):
                 tmp = xr.full_like(self.el_temp.sel(t=t), np.nan)
@@ -407,9 +378,9 @@ class Plasma:
                 ion_temp = Ti_prof.yspl
 
                 forward_model.radiation_characteristics(el_temp, el_dens)
-                bckc_tmp = forward_model.moment_analysis(ion_temp)
-                te_bckc = bckc_tmp[quantity_te]
-                ti_bckc = bckc_tmp[quantity_ti]
+                _bckc = forward_model.moment_analysis(ion_temp)
+                te_bckc = _bckc[quantity_te]
+                ti_bckc = _bckc[quantity_ti]
 
                 const_te = (
                     te_data
@@ -431,11 +402,11 @@ class Plasma:
             ti_pos.err_in.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["in"]
             ti_pos.err_out.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["out"]
 
-            bckc[quantity_te].loc[dict(t=t)] = te_bckc.values[0]
-            bckc[quantity_ti].loc[dict(t=t)] = ti_bckc.values[0]
+            bckc[diagnostic][quantity_te].loc[dict(t=t)] = te_bckc.values[0]
+            bckc[diagnostic][quantity_te].attrs["pos"] = te_pos
 
-            bckc[quantity_te].attrs["pos"] = te_pos
-            bckc[quantity_ti].attrs["pos"] = ti_pos
+            bckc[diagnostic][quantity_te].loc[dict(t=t)] = ti_bckc.values[0]
+            bckc[diagnostic][quantity_te].attrs["pos"] = ti_pos
 
             self.el_temp.loc[dict(t=t)] = el_temp.values
             for elem in self.elements:
@@ -443,20 +414,30 @@ class Plasma:
 
         self.optimisation[
             "el_temp"
-        ] = f"{diagnostic}.{quantity_te}:{data[quantity_te].revision}"
+        ] = f"{diagnostic}.{quantity_te}:{data[diagnostic][quantity_te].revision}"
         self.optimisation[
             "ion_temp"
-        ] = f"{diagnostic}.{quantity_ti}:{data[quantity_te].revision}"
-        self.bckc[diagnostic] = bckc
+        ] = f"{diagnostic}.{quantity_ti}:{data[diagnostic][quantity_ti].revision}"
+
+        return bckc
 
     def match_interferometer(
-        self, diagnostic: str = "nirh1", quantity: str = "ne_bin", niter=3
+        self,
+        data,
+        bckc={},
+        diagnostic: str = "nirh1",
+        quantity: str = "ne_bin",
+        niter=3,
     ):
         """
         Rescale density profiles to match the interferometer measurements
 
         Parameters
         ----------
+        data
+            diagnostic data as returned by self.build_data()
+        bckc
+            back calculated data dictionary
         interf
             Name of interferometer to be used
 
@@ -470,33 +451,29 @@ class Plasma:
 
         # TODO: make more elegant optimisation
 
-        data = self.data[diagnostic]
-        if diagnostic not in self.bckc.keys():
-            bckc = deepcopy(self.data[diagnostic])
-            for k in bckc.keys():
-                bckc[k] = initialize_bckc(bckc[k])
-            self.bckc[diagnostic] = bckc
-        bckc = self.bckc[diagnostic]
+        if diagnostic not in bckc:
+            bckc[diagnostic] = {}
+        bckc[diagnostic][quantity] = initialize_bckc(data[diagnostic][quantity])
 
         Ne_prof = self.Ne_prof
         for t in self.t:
             const = 1.0
-            ne_data = data[quantity].sel(t=t)
             for j in range(niter):
                 ne0 = self.el_dens.sel(t=t, rho_poloidal=0) * const
                 ne0 = xr.where(ne0 <= 0, 5.0e19, ne0)
                 Ne_prof.y0 = ne0.values
                 Ne_prof.build_profile()
                 self.el_dens.loc[dict(t=t)] = Ne_prof.yspl.values
-                ne_bckc = self.calc_ne_los_int(diagnostic, quantity, t=t)
-                const = (ne_data / ne_bckc).values
+                ne_bckc = self.calc_ne_los_int(data[diagnostic][quantity], t=t)
+                const = (data[diagnostic][quantity].sel(t=t) / ne_bckc).values
 
-            bckc[quantity].loc[dict(t=t)] = ne_bckc
+            bckc[diagnostic][quantity].loc[dict(t=t)] = ne_bckc
 
         self.optimisation[
             "el_dens"
-        ] = f"{diagnostic}.{quantity}:{data[quantity].revision}"
-        self.bckc[diagnostic] = bckc
+        ] = f"{diagnostic}.{quantity}:{data[diagnostic][quantity].revision}"
+
+        return bckc
 
     def propagate_parameters(self):
         """
@@ -514,7 +491,7 @@ class Plasma:
         self.calc_beta_poloidal()
         self.calc_vloop()
 
-    def calc_ne_los_int(self, diagnostic, quantity, t=None):
+    def calc_ne_los_int(self, data, t=None):
         """
         Calculate line of sight integral assuming only one pass across the plasma
 
@@ -522,9 +499,9 @@ class Plasma:
         -------
 
         """
-        dl = self.data[diagnostic][quantity].attrs["dl"]
-        rho = self.data[diagnostic][quantity].attrs["rho"]
-        transform = self.data[diagnostic][quantity].attrs["transform"]
+        dl = data.attrs["dl"]
+        rho = data.attrs["rho"]
+        transform = data.attrs["transform"]
 
         x2_name = transform.x2_name
 
@@ -568,7 +545,9 @@ class Plasma:
                 element=elem
             )
             for t in self.t:
-                self.ion_dens.loc[dict(t=t, element=elem)] = imp_dens * imp_dens_0.sel(t=t)
+                self.ion_dens.loc[dict(t=t, element=elem)] = imp_dens * imp_dens_0.sel(
+                    t=t
+                )
 
     def calc_fz_lz(self, use_tau=False):
         """
@@ -967,20 +946,26 @@ class Plasma:
 
         # Other geometrical quantities
         self.min_r = deepcopy(data2d)
-        assign_datatype(self.min_r, ("radius", "minor"))
+        assign_datatype(self.min_r, ("minor_radius", "plasma"))
+        self.cr0 = deepcopy(data1d_time)
+        assign_datatype(self.cr0, ("minor_radius", "separatrizx"))
+        self.rmag = deepcopy(data1d_time)
+        assign_datatype(self.rmag, ("major_radius", "magnetic_axis"))
+        self.zmag = deepcopy(data1d_time)
+        assign_datatype(self.rmag, ("z", "magnetic_axis"))
         self.volume = deepcopy(data2d)
         assign_datatype(self.volume, ("volume", "plasma"))
         self.area = deepcopy(data2d)
         assign_datatype(self.area, ("area", "plasma"))
 
         self.r_a = deepcopy(data1d_time)
-        assign_datatype(self.r_a, ("radius", "minor"))
+        assign_datatype(self.r_a, ("minor_radius", "LFS"))
         self.r_b = deepcopy(data1d_time)
-        assign_datatype(self.r_b, ("radius", "minor"))
+        assign_datatype(self.r_b, ("minor_radius", "top"))
         self.r_c = deepcopy(data1d_time)
-        assign_datatype(self.r_c, ("radius", "minor"))
+        assign_datatype(self.r_c, ("minor_radius", "HFS"))
         self.r_d = deepcopy(data1d_time)
-        assign_datatype(self.r_d, ("radius", "minor"))
+        assign_datatype(self.r_d, ("minor_radius", "bottom"))
 
         self.kappa = deepcopy(data1d_time)
         assign_datatype(self.kappa, ("elongation", "plasma"))
