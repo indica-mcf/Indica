@@ -171,6 +171,7 @@ def get_tree_structure():
                 "Electron temperature diagnostic used for optimization",
             ),
             "ION_TEMP": ("TEXT", "Ion temperature diagnostic used for optimization"),
+            "STORED_EN": ("TEXT", "Stored energy diagnostic used for optimization"),
         },
         ".GLOBAL": {
             "CR0": ("SIGNAL", "Minor radius = (R_LFS - R_HFS)/2 at midplane, m"),
@@ -184,7 +185,8 @@ def get_tree_structure():
             "TEV": ("SIGNAL", "Volume aver electron temp, eV"),
             "TIV": ("SIGNAL", "Volume aver ion temp, eV"),
             "NEV": ("SIGNAL", "Volume aver electron density m^-3"),
-            "WTH": ("SIGNAL", "Thermal energy, J"),
+            "WP": ("SIGNAL", "Total stored energy, J"),
+            "WTH": ("SIGNAL", "Thermal stored energy, J"),
             "UPL": ("SIGNAL", "Loop Voltage, V"),
             "P_OH": ("SIGNAL", "Total Ohmic power, W"),
             "ZEFF": ("SIGNAL", "Effective charge at the plasma center"),
@@ -196,6 +198,7 @@ def get_tree_structure():
             "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
             "NE": ("SIGNAL", "Electron density, m^-3"),
             "NI": ("SIGNAL", "Ion density, m^-3"),
+            "NH": ("SIGNAL", "Neutral density, m^-3"),
             "TE": ("SIGNAL", "Electron temperature, eV"),
             "TI": ("SIGNAL", "Ion temperature, eV"),
             "ZEFF": ("SIGNAL", "Effective charge, "),
@@ -333,6 +336,7 @@ def organise_data(plasma, data={}, bckc={}):
     el_dens = plasma.optimisation["el_dens"]
     el_temp = plasma.optimisation["el_temp"]
     ion_temp = plasma.optimisation["ion_temp"]
+    stored_en = plasma.optimisation["stored_en"]
 
     nodes = {
         "": {
@@ -344,6 +348,7 @@ def organise_data(plasma, data={}, bckc={}):
             "EL_DENS": (String(el_dens), "", []),
             "EL_TEMP": (String(el_temp), "", []),
             "ION_TEMP": (String(ion_temp), "", []),
+            "STORED_EN": (String(stored_en), "", []),
         },
         ".GLOBAL": {
             "CR0": (Float32(cr0.values), "m", ["TIME"],),
@@ -373,7 +378,8 @@ def organise_data(plasma, data={}, bckc={}):
             "TEV": (Float32(tev), "eV", ["TIME"]),
             "TIV": (Float32(tiv), "eV", ["TIME"]),
             "NEV": (Float32(nev), "m^-3", ["TIME"]),
-            "WTH": (Float32(plasma.wmhd.values), "J", ["TIME"]),
+            "WTH": (Float32(plasma.wth.values), "J", ["TIME"]),
+            "WP": (Float32(plasma.wp.values), "J", ["TIME"]),
             "UPL": (Float32(plasma.vloop.values), "V", ["TIME"]),
             "ZEFF": (
                 Float32(plasma.zeff.sum("element").sel(rho_poloidal=0).values),
@@ -401,6 +407,11 @@ def organise_data(plasma, data={}, bckc={}):
             ),
             "NI": (
                 Float32(plasma.ion_dens.sel(element=plasma.main_ion).values),
+                "m^-3",
+                ["PROFILES.PSI_NORM.RHOP", "TIME"],
+            ),
+            "NH": (
+                Float32(plasma.neutral_dens.values),
                 "m^-3",
                 ["PROFILES.PSI_NORM.RHOP", "TIME"],
             ),
