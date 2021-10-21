@@ -108,6 +108,8 @@ class DataReader(BaseIO):
         "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
         "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
         "get_astra": {
+            "upl": ("voltage", "loop",),  # Loop voltage V
+            "wth": ("stored_energy", "thermal",),  # Thermal stored energy
             "cc": (
                 "conductivity",
                 "total_current",
@@ -165,6 +167,7 @@ class DataReader(BaseIO):
             "p": ("pressure", "total"),  # PRESSURE(PSI_NORM)
             "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
             "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
+            "volume": ("volume", "plasma"),  # Parallel conductivity,1/(Ohm*m)
         },
     }
     # Quantities available for specific INSTRUMENTs in a given
@@ -295,6 +298,11 @@ class DataReader(BaseIO):
         database_results = self._get_thomson_scattering(
             uid, instrument, revision, quantities
         )
+
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
         times = database_results["times"]
@@ -434,6 +442,10 @@ class DataReader(BaseIO):
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
         data = {}
@@ -606,10 +618,10 @@ class DataReader(BaseIO):
         if "faxs" in quantities:
             quantities |= {"rmag", "zmag"}
         database_results = self._get_equilibrium(uid, instrument, revision, quantities)
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
 
-        if len(database_results.keys()) == 0:
-            print(f"No data from Equilibrium {instrument}")
-            return None
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
@@ -781,6 +793,10 @@ class DataReader(BaseIO):
         database_results = self._get_cyclotron_emissions(
             uid, instrument, revision, quantities
         )
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+
         times = database_results["times"]
         transform = MagneticCoordinates(
             database_results["z"], instrument, database_results["machine_dims"]
@@ -918,6 +934,9 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_radiation(uid, instrument, revision, quantities)
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
 
         data = {}
         for quantity in quantities:
@@ -1070,6 +1089,10 @@ class DataReader(BaseIO):
         database_results = self._get_bremsstrahlung_spectroscopy(
             uid, instrument, revision, quantities
         )
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+
         times = database_results["times"]
         data = {}
         for quantity in quantities:
@@ -1231,6 +1254,10 @@ class DataReader(BaseIO):
         database_results = self._get_helike_spectroscopy(
             uid, instrument, revision, quantities
         )
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+
         times = database_results["times"]
         transform = LinesOfSightTransform(
             database_results["Rstart"],
@@ -1379,6 +1406,13 @@ class DataReader(BaseIO):
         database_results = self._get_interferometry(
             uid, instrument, revision, quantities
         )
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+
+        if len(database_results) == 0:
+            return database_results
+
         times = database_results["times"]
         transform = LinesOfSightTransform(
             database_results["Rstart"],
@@ -1417,6 +1451,12 @@ class DataReader(BaseIO):
                 ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
+            if (quantity + "_syserror") in database_results:
+                meta["syserror"] = DataArray(
+                    database_results[quantity + "_syserror"], coords, dims
+                ).sel(t=slice(self._tstart, self._tend))
+                meta["error"] = np.sqrt(meta["error"]**2 + meta["error"]**2)
+
             quant_data = DataArray(
                 database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
@@ -1525,6 +1565,10 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_astra(uid, instrument, revision, quantities)
+
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
 
         data: Dict[str, DataArray] = {}
 
@@ -1814,4 +1858,3 @@ class DataReader(BaseIO):
             return self._IMPLEMENTATION_QUANTITIES[instrument]
         else:
             return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
-
