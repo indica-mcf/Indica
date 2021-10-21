@@ -11,58 +11,83 @@ from hda.read_st40 import ST40data
 from hda.plasma import Plasma
 import hda.plots as plots
 import hda.hda_tree as hda_tree
+from indica.readers import ST40Reader
 
 from hda.diagnostics.spectrometer import XRCSpectrometer
 from hda.diagnostics.PISpectrometer import PISpectrometer
 
 plt.ion()
 
+def compare_astra(pulse=8574, tstart=0.02, tend=0.14, revision=105, interf="nirh1"):
+    pulse=8574
+    tstart=0.02
+    tend=0.14
+    revision=105
+    reader = ST40Reader(int(pulse+25.e6), tstart, tend, tree="astra")
+    astra = reader.get("", "astra", revision)
+    astra["ne"] *= 1.e19
+    astra["ni"] *= 1.e19
+    astra["te"] *= 1.e3
+    astra["ti"] *= 1.e3
+    # rho_poloidal = astra["p"].rho_poloidal
+    # rho_toroidal = astra["ne"].rho_toroidal
+
+    time = astra["te"].t
+    tstart, tend = time[0], time[-1]
+    dt = time[1] - time[0]
+    pl, raw_data, data, bckc = plasma_workflow(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
 
 def plasma_workflow(
-    pulse=9229, tstart=0.02, tend=0.14, interf="smmh1", write=False, modelling=True
+    pulse=9229,
+    tstart=0.025,
+    tend=0.14,
+    dt=0.015,
+    diagn_ne="smmh1",
+    write=False,
+    modelling=True,
+    recover_dens=False,
 ):
-    # pulse = 9229
-    # tstart = 0.02
-    # tend = 0.14
+    """
+    New framework for running HDA
 
-    bckc = {}
+    Pulses analysed up to now
+    NBI [8338, 8373, 8374, 8574, 8575, 8582, 8583, 8597, 8598, 8599, 9184, 9219, 9229]
+        9229 [0.025, 0.12]
+        res = tests.plasma_workflow(pulse=9229, tstart=0.025, tend=0.12, dt=0.015, diagn_ne="smmh1", write=True)
+
+        9221 []
+        res = tests.plasma_workflow(pulse=9221, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin", write=True)
+
+        9219 []
+        res = tests.plasma_workflow(pulse=9219, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin", write=True)
+
+    Ohmic [8385, 8386, 8387, 8390, 8405, 8458]
+        8387 [0.035, 0.12]
+        res = tests.plasma_workflow(pulse=8387, tstart=0.035, tend=0.12, dt=0.015, diagn_ne="nirh1_bin", recover_dens=True, write=True)
+
+        9184 [0.025, 0.18]
+        res = tests.plasma_workflow(pulse=9184, tstart=0.025, tend=0.118, dt=0.015, diagn_ne="nirh1_bin", recover_dens=True, write=True)
+
+        8909 [0.025, 0.13]
+        res = tests.plasma_workflow(pulse=8909, tstart=0.025, tend=0.13, dt=0.01, diagn_ne="nirh1_bin", recover_dens=True, write=True)
+
+
+    """
+
+    quant_ne = "ne"
+    diagn_te = "xrcs"
+    quant_te = "te_kw"
+    quant_ti = "ti_w"
 
     # Read raw data
-    raw_data = ST40data(pulse)
-    raw_data.get_all(smmh1_rev=1)
+    raw = ST40data(pulse, tstart-0.02, tend+0.02)
+    raw.get_all()  # smmh1_rev=1)
+    raw_data = raw.data
 
     # Plasma class
-    pl = Plasma(tstart=tstart, tend=tend)
-    data = pl.build_data(raw_data.data, pulse=pulse)
-
-    pl.build_atomic_data()
-    pl.calculate_geometry()
-    if "xrcs" in raw_data.data:
-        pl.forward_models["xrcs"] = XRCSpectrometer()
-    if "princeton" in raw_data.data:
-        pl.forward_models["princeton"] = PISpectrometer()
-
-    # Rescale density to match interferometer
-    diagnostic = interf
-    quantity = "ne"
-    bckc = pl.match_interferometer(
-        data, bckc=bckc, diagnostic=diagnostic, quantity=quantity
-    )
-
-    # Build temperature profiles to match XRCS
-    diagnostic = "xrcs"
-    quantity_te = "te_kw"
-    quantity_ti = "ti_w"
-    bckc = pl.match_xrcs(
-        data,
-        bckc=bckc,
-        diagnostic=diagnostic,
-        quantity_te=quantity_te,
-        quantity_ti=quantity_ti,
-    )
-
-    # Having calculated Te, estimate mean charge of all ions
-    pl.calc_meanz()
+    bckc = {}
+    pl = Plasma(tstart=tstart, tend=tend, dt=dt)
+    data = pl.build_data(raw_data, pulse=pulse)
 
     # Impose impurity concentration and calculate dilution
     imp_conc = {"c": 0.03, "ar": 0.0005}
@@ -70,29 +95,63 @@ def plasma_workflow(
         if elem in pl.ion_conc.element:
             pl.ion_conc.loc[dict(element=elem)] = imp_conc[elem]
 
+    pl.build_atomic_data()
+    pl.calculate_geometry()
+    if "xrcs" in raw_data:
+        pl.forward_models["xrcs"] = XRCSpectrometer()
+    if "princeton" in raw_data:
+        pl.forward_models["princeton"] = PISpectrometer()
+
+    # Rescale density to match interferometer
+    bckc = pl.match_interferometer(
+        data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
+    )
+
+    # Build temperature profiles to match XRCS
+    bckc = pl.match_xrcs(
+        data,
+        bckc=bckc,
+        diagnostic=diagn_te,
+        quantity_te=quant_te,
+        quantity_ti=quant_ti,
+    )
+
+    # Go through the rest of the computation
+    pl.calc_meanz()
     pl.calc_imp_dens()
-    pl.impose_flat_zeff()
     pl.calc_main_ion_dens()
     pl.calc_zeff()
+    bckc = pl.calc_pressure(data=data, bckc=bckc)
 
-    # Calculate total thermal pressure
-    pl.calc_pressure()
+    # Recover density to match stored energy
+    if recover_dens:
+        pl.recover_density(data)
 
-    # Back-calculate all diagnostic measurements
-    pl.interferometer(data, bckc=bckc)
+        # Back-calculate all diagnostic measurements
+        pl.calc_meanz()
+        pl.calc_imp_dens()
+        pl.calc_main_ion_dens()
+        pl.calc_zeff()
+        bckc = pl.calc_pressure(data=data, bckc=bckc)
 
-    plots.compare_data_bckc(data, bckc, pulse=pulse)
+    bckc = pl.interferometer(data, bckc=bckc)
 
-    run_name = "RUN30"
+    # Compare diagnostic data with back-calculated data
+    plots.compare_data_bckc(data, bckc, raw_data=raw_data, pulse=pl.pulse)
+    plots.profiles(pl)
+
+    run_name = "RUN40"
     descr = f"New profile shapes and ionisation balance"
     if write:
         if modelling:
             pulse = pl.pulse + 25000000
+        else:
+            pulse = pl.pulse
         hda_tree.write(
             pl, pulse, "HDA", data=data, bckc=bckc, descr=descr, run_name=run_name
         )
 
-    return pl, data, bckc
+    return pl, raw_data, data, bckc
 
 
 def best_astra(
