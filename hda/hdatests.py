@@ -51,26 +51,17 @@ def plasma_workflow(
     New framework for running HDA
 
     Pulses analysed up to now
-    NBI [8338, 8373, 8374, 8574, 8575, 8582, 8583, 8597, 8598, 8599, 9184, 9219, 9229]
-        9229 [0.025, 0.12]
+    NBI [8338, 8373, 8374, 8574, 8575, 8582, 8583, 8597, 8598, 8599, 9184, 9219, 9221, 9229]
+        res = tests.plasma_workflow(pulse=8374, tstart=0.02, tend=0.17, dt=0.01, diagn_ne="nirh1_bin", write=True)
+        res = tests.plasma_workflow(pulse=9219, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin", write=True)
+        res = tests.plasma_workflow(pulse=9221, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin", write=True)
         res = tests.plasma_workflow(pulse=9229, tstart=0.025, tend=0.12, dt=0.015, diagn_ne="smmh1", write=True)
 
-        9221 []
-        res = tests.plasma_workflow(pulse=9221, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin", write=True)
-
-        9219 []
-        res = tests.plasma_workflow(pulse=9219, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin", write=True)
-
-    Ohmic [8385, 8386, 8387, 8390, 8405, 8458]
-        8387 [0.035, 0.12]
+    Ohmic [8385, 8386, 8387, 8390, 8405, 8458, 8909, 9184]
         res = tests.plasma_workflow(pulse=8387, tstart=0.035, tend=0.12, dt=0.015, diagn_ne="nirh1_bin", recover_dens=True, write=True)
-
-        9184 [0.025, 0.18]
+        res = tests.plasma_workflow(pulse=8458, tstart=0.025, tend=0.12, dt=0.015, diagn_ne="nirh1_bin", recover_dens=True, write=True)
+        res = tests.plasma_workflow(pulse=8909, tstart=0.025, tend=0.13, dt=0.01, diagn_ne="nirh1_bin", write=True)
         res = tests.plasma_workflow(pulse=9184, tstart=0.025, tend=0.118, dt=0.015, diagn_ne="nirh1_bin", recover_dens=True, write=True)
-
-        8909 [0.025, 0.13]
-        res = tests.plasma_workflow(pulse=8909, tstart=0.025, tend=0.13, dt=0.01, diagn_ne="nirh1_bin", recover_dens=True, write=True)
-
 
     """
 
