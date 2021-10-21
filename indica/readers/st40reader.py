@@ -85,11 +85,12 @@ class ST40Reader(DataReader):
 
     """
 
-    MACHINE_DIMS = ((0.15, 0.8), (-0.8, 0.8))
+    MACHINE_DIMS = ((0.15, 0.8), (-0.75, 0.75))
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
         "nirh1": "get_interferometry",
+        "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
         "astra": "get_astra",
         "diode_arrays": "get_radiation",
@@ -98,6 +99,7 @@ class ST40Reader(DataReader):
         "efit": "",
         "xrcs": "sxr",
         "nirh1": "interferom",
+        "nirh1_bin": "interferom",
         "smmh1": "interferom",
         "astra": "",
         "diode_arrays": "sxr",
@@ -126,9 +128,12 @@ class ST40Reader(DataReader):
             "ti_w": ".ti_w:ti",
             "ti_z": ".ti_z:ti",
         },
-        "nirh1": {"ne": ".line_int.ne",},
-        "smmh1": {"ne": ".line_int.ne",},
+        "nirh1": {"ne": ".line_int:ne",},
+        "nirh1_bin": {"ne": ".line_int:ne",},
+        "smmh1": {"ne": ".line_int:ne",},
         "astra": {
+            "upl":".global:upl",
+            "wth":".global:wth",
             "cc": ".profiles.astra:cc",  # Parallel current conductivity, 1/(Ohm*m)
             "chi_e": ".profiles.astra:chi_e",  # Total electron heat conductivity, m^2/s
             "chi_e_anom": ".profiles.astra:chi_e_anom",  # anomalous electron heat conductivity, m^2/s
@@ -203,7 +208,7 @@ class ST40Reader(DataReader):
             "direction": ".middle_head.geometry:direction",
         },
     }
-            # "extension": ".middle_head.geometry:dir_ext",
+    # "extension": ".middle_head.geometry:dir_ext",
 
     _IMPLEMENTATION_QUANTITIES = {
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
@@ -538,11 +543,11 @@ class ST40Reader(DataReader):
         # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
         # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
         if instrument == "xrcs":
-            position = np.array([1.0, 0, 0])
-            direction = np.array([0.175, 0, 0]) - position
+            location = np.array([1.0, 0, 0])
+            direction = np.array([0.17, 0, 0]) - location
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_end = self.get_los(position, direction)
+        los_start, los_end = self.get_los(location, direction)
         times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
         for q in quantities:
             qval, q_path = self._get_signal(
@@ -588,18 +593,26 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        # position_instrument = ""
-        # position, position_path = self._get_signal(uid, position_instrument, "..geometry:position", -1)
-        # direction, position_path = self._get_signal(uid, position_instrument, "..geometry:direction", -1)
-        if instrument == "nirh1":
-            position = np.array([0.380, -0.925, 0])
-            direction = np.array([0.0, 1.0, 0.0]) - position
-        elif instrument == "smmh1":
-            position = np.array([1.0, 0, 0])
-            direction = np.array([0.175, 0, 0]) - position
+        # location, location_path = self._get_signal(
+        #     uid, instrument, ".geometry:location", revision
+        # )
+        # direction, direction_path = self._get_signal(
+        #     uid, instrument, ".geometry:direction", revision
+        # )
+        # if len(np.shape(location)) == 2:
+        #     location = location[0]
+        # if len(np.shape(direction)) == 2:
+        #     direction = direction[0]
+
+        if instrument == "smmh1":
+            location = np.array([1.0, 0, 0])
+            direction = np.array([0.17, 0, 0]) - location
+        elif instrument == "nirh1" or instrument == "nirh1_bin":
+            location = np.array([-0.07, 0.9, 0])
+            direction = np.array([0.37, -0.75, 0]) - location
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_end = self.get_los(position, direction)
+        los_start, los_end = self.get_los(location, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
 
         if np.array_equal(times, "FAILED"):
@@ -614,10 +627,29 @@ class ST40Reader(DataReader):
                 results["times"] = times
             results[q + "_records"] = q_path
             results[q] = qval
-            qval_err = np.zeros_like(qval)
-            q_path_err = ""
+
+            qval_err, q_path_err = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_err", revision
+            )
+            if np.array_equal(qval_err, "FAILED"):
+                qval_err = np.zeros_like(qval)
+                q_path_err = ""
             results[q + "_error"] = qval_err
             results[q + "_error" + "_records"] = q_path_err
+
+            qval_syserr, q_path_syserr = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_syserr", revision
+            )
+
+            if np.array_equal(qval_syserr, "FAILED"):
+                qval_syserr = np.zeros_like(qval)
+                q_path_syserr = ""
+            results[q + "_syserror"] = qval_syserr
+            results[q + "_syserror" + "_records"] = q_path_syserr
+
+            qval, q_path = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
+            )
 
         results["length"] = 1
         results["Rstart"] = np.array([los_start[0]])
@@ -714,14 +746,16 @@ class ST40Reader(DataReader):
 
         """
 
-        x0, y0, z0 = position
-        x1, y1, z1 = position + direction
+        # L = 2*np.abs(np.array(self.MACHINE_DIMS)).max()
+        # l_array = np.linspace(-L, L, 100)
+        # Rline = position[0] + l_array * direction[0]
+        # Tline = position[1] + l_array * direction[1]
+        # zline = position[2] + l_array * direction[2]
+        #
+        # Rstart, Tstart, zstart = Rline[0], Tline[0], zline[0]
+        # Rstop, Tstop, zstop = Rline[-1], Tline[-1], zline[-1]
 
-        Rstart = x0
-        Rstop = x1
-        zstart = z0
-        zstop = z1
-        Tstart = y0
-        Tstop = y1
+        Rstart, Tstart, zstart = position
+        Rstop, Tstop, zstop = position + direction
 
         return (Rstart, zstart, Tstart), (Rstop, zstop, Tstop)
