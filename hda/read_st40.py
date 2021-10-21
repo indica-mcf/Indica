@@ -1,24 +1,9 @@
 from copy import deepcopy
 
-import pickle
-
 from scipy import constants
-from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
-import math
-import hda.fac_profiles as fac
-import hda.physics as ph
-from hda.atomdat import fractional_abundance
-from hda.atomdat import get_atomdat
-from hda.atomdat import radiated_power
-from numpy.testing import assert_almost_equal
-
-from indica.readers import ADASReader
-from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
-from indica.converters import FluxSurfaceCoordinates
-from indica.converters.time import bin_in_time
 
 import xarray as xr
 from xarray import DataArray
@@ -68,89 +53,60 @@ class ST40data:
             if revision != 2:
                 print(f"\nRecommended revision for pulse {self.pulse} = {2}\n")
 
-        efit = self.reader.get("", "efit", revision)
+        data = self.reader.get("", "efit", revision)
 
-        if efit is not None:
-            self.data["efit"] = efit
-            self.data["ipla"] = efit["ipla"]
-            self.data["R_0"] = efit["rmag"]
-            self.data["wmhd"] = efit["wp"]
+        if len(data) > 0:
+            self.data["efit"] = data
+            self.data["ipla"] = data["ipla"]
+            self.data["R_0"] = data["rmag"]
+            self.data["wmhd"] = data["wp"]
 
     def get_xrcs(self, revision=0):
-        xrcs = self.reader.get("sxr", "xrcs", revision)
-        self.data["xrcs"] = xrcs
+        data = self.reader.get("sxr", "xrcs", revision)
+        if len(data) > 0:
+            self.data["xrcs"] = data
 
     def get_nirh1(self, revision=0):
-        nirh1 = self.reader.get("", "nirh1", revision)
-        value, dims = self.reader._get_data(
-            "interferom", "nirh1", ".line_int.ne_bin", nirh1["ne"].attrs["revision"]
-        )
-        times = dims[0]
-        error, _ = self.reader._get_data(
-            "interferom", "nirh1", ".line_int.ne_bin_err", nirh1["ne"].attrs["revision"]
-        )
-        error_sys, _ = self.reader._get_data(
-            "interferom", "nirh1", ".line_int.ne_syserr", nirh1["ne"].attrs["revision"]
-        )
+        data = self.reader.get("", "nirh1", revision)
+        if len(data) > 0:
+            self.data["nirh1"] = data
 
-        transform = nirh1["ne"].attrs["transform"]
-        coords = {"t": times}
-        dims = ["t"]
-        length = len(nirh1["ne"].shape)
-        if length > 1:
-            dims.append(transform.x1_name)
-            coords[transform.x1_name] = np.arange(length)
-        else:
-            coords[transform.x1_name] = 0
-        meta = deepcopy(nirh1["ne"].attrs)
-
-        error = DataArray(
-            error, coords, dims,
-        ).sel(t=slice(self.reader._tstart, self.reader._tend))
-        meta["error"] = error
-
-        error_sys = DataArray(
-            error_sys, coords, dims,
-        ).sel(t=slice(self.reader._tstart, self.reader._tend))
-        meta["error_sys"] = error_sys
-
-        ne_bin = DataArray(
-            value, coords, dims, attrs=meta, name="nirh1_ne_bin"
-        ).sel(t=slice(self.reader._tstart, self.reader._tend))
-
-        nirh1["ne_bin"] = ne_bin
-
-        self.data["nirh1"] = nirh1
+        data_bin = self.reader.get("", "nirh1_bin", revision)
+        if len(data_bin) > 0:
+            self.data["nirh1_bin"] = data_bin
 
     def get_smmh1(self, revision=0):
-        smmh1 = self.reader.get("", "smmh1", revision)
-        self.data["smmh1"] = smmh1
+        data = self.reader.get("", "smmh1", revision)
+        if len(data) > 0:
+            self.data["smmh1"] = data
 
     def get_other_data(self):
         # Read Vloop and toroidal field
         # TODO temporary MAG reader --> : insert in reader class !!!
         # vloop, vloop_path = self.reader._get_signal("", "mag", ".floop.l026:v", 0)
         vloop, vloop_dims = self.reader._get_data("", "mag", ".floop.l016:v", 0)
-        # vloop_dims, _ = self.reader._get_signal_dims(vloop_path, len(vloop.shape))
-        vloop = DataArray(vloop, dims=("t",), coords={"t": vloop_dims[0]},)
-        vloop = vloop.sel(t=slice(self.reader._tstart, self.reader._tend))
-        meta = {
-            "datatype": ("voltage", "loop"),
-            "error": xr.zeros_like(vloop),
-        }
-        vloop.attrs = meta
-        self.data["vloop"] = vloop
+        if not np.array_equal(vloop, "FAILED"):
+            # vloop_dims, _ = self.reader._get_signal_dims(vloop_path, len(vloop.shape))
+            vloop = DataArray(vloop, dims=("t",), coords={"t": vloop_dims[0]},)
+            vloop = vloop.sel(t=slice(self.reader._tstart, self.reader._tend))
+            meta = {
+                "datatype": ("voltage", "loop"),
+                "error": xr.zeros_like(vloop),
+            }
+            vloop.attrs = meta
+            self.data["vloop"] = vloop
 
         # TODO temporary BT reader --> to be calculated using equilibrium class
         tf_i, tf_i_dims = self.reader._get_data("", "psu", ".tf:i", -1)
-        # tf_i_dims, _ = self.reader._get_signal_dims(tf_i_path, len(tf_i.shape))
-        bt_0 = tf_i * 24.0 * constants.mu_0 / (2 * np.pi * 0.4)
-        bt_0 = DataArray(bt_0, dims=("t",), coords={"t": tf_i_dims[0]},)
-        bt_0 = bt_0.sel(t=slice(self.reader._tstart, self.reader._tend))
-        meta = {
-            "datatype": ("field", "toroidal"),
-            "error": xr.zeros_like(bt_0),
-        }
-        bt_0.attrs = meta
-        self.data["bt_0"] = bt_0
-        self.data["R_bt_0"] = 0.4
+        if not np.array_equal(tf_i, "FAILED"):
+            # tf_i_dims, _ = self.reader._get_signal_dims(tf_i_path, len(tf_i.shape))
+            bt_0 = tf_i * 24.0 * constants.mu_0 / (2 * np.pi * 0.4)
+            bt_0 = DataArray(bt_0, dims=("t",), coords={"t": tf_i_dims[0]},)
+            bt_0 = bt_0.sel(t=slice(self.reader._tstart, self.reader._tend))
+            meta = {
+                "datatype": ("field", "toroidal"),
+                "error": xr.zeros_like(bt_0),
+            }
+            bt_0.attrs = meta
+            self.data["bt_0"] = bt_0
+            self.data["R_bt_0"] = 0.4
