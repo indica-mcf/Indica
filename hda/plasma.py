@@ -122,9 +122,7 @@ class Plasma:
             self.flux_coords = FluxSurfaceCoordinates("poloidal")
             self.flux_coords.set_equilibrium(self.equilibrium)
 
-        print_like(
-            "Reorganise raw data: assign equilibrium, bin data in time, calculate geometry"
-        )
+        print_like("Assign equilibrium, bin data in time")
         binned_data = {}
         for kinstr in data.keys():
             instrument_data = {}
@@ -258,9 +256,9 @@ class Plasma:
         """
 
         if diagnostic is None:
-            diagnostic = ["nirh1", "smmh1"]
+            diagnostic = ["nirh1", "nirh1_bin", "smmh1"]
         if quantity is None:
-            quantity = ["ne", "ne_bin"]
+            quantity = ["ne"]
         diagnostic = list(diagnostic)
         quantity = list(quantity)
 
@@ -268,15 +266,13 @@ class Plasma:
             if diag not in data.keys():
                 continue
 
-            if diag not in bckc:
-                bckc[diag] = {}
             for quant in quantity:
                 if quant not in data[diag].keys():
                     continue
 
-                bckc_tmp = initialize_bckc(data[diag][quant])
-                bckc_tmp.values = self.calc_ne_los_int(data[diag][quant]).values
-                bckc[diag][quant] = bckc_tmp
+                bckc = initialize_bckc(diag, quant, data, bckc=bckc)
+
+                bckc[diag][quant].values = self.calc_ne_los_int(data[diag][quant]).values
 
         return bckc
 
@@ -328,8 +324,9 @@ class Plasma:
 
         if diagnostic not in bckc:
             bckc[diagnostic] = {}
-        bckc[diagnostic][quantity_te] = initialize_bckc(data[diagnostic][quantity_te])
-        bckc[diagnostic][quantity_ti] = initialize_bckc(data[diagnostic][quantity_ti])
+
+        bckc = initialize_bckc(diagnostic, quantity_te, data, bckc=bckc)
+        bckc = initialize_bckc(diagnostic, quantity_ti, data, bckc=bckc)
 
         # Initialize back calculated values of diagnostic quantities
         forward_model = self.forward_models[diagnostic]
@@ -356,11 +353,12 @@ class Plasma:
             te_data = data[diagnostic][quantity_te].sel(t=t)
             ti_data = data[diagnostic][quantity_ti].sel(t=t)
 
-            if np.isnan(te_data) or np.isnan(ti_data):
-                tmp = xr.full_like(self.el_temp.sel(t=t), np.nan)
-                self.el_temp.loc[dict(t=t)] = tmp
+            if not ((te_data > 0) * (ti_data > 0)).values:
+                self.el_temp.loc[dict(t=t)] = np.full_like(Te_prof.yspl.values, np.nan)
                 for elem in self.elements:
-                    self.ion_temp.loc[dict(t=t, element=elem)] = tmp
+                    self.ion_temp.loc[dict(t=t, element=elem)] = np.full_like(
+                        Te_prof.yspl.values, np.nan
+                    )
                 continue
 
             el_dens = self.el_dens.sel(t=t)
@@ -405,8 +403,8 @@ class Plasma:
             bckc[diagnostic][quantity_te].loc[dict(t=t)] = te_bckc.values[0]
             bckc[diagnostic][quantity_te].attrs["pos"] = te_pos
 
-            bckc[diagnostic][quantity_te].loc[dict(t=t)] = ti_bckc.values[0]
-            bckc[diagnostic][quantity_te].attrs["pos"] = ti_pos
+            bckc[diagnostic][quantity_ti].loc[dict(t=t)] = ti_bckc.values[0]
+            bckc[diagnostic][quantity_ti].attrs["pos"] = ti_pos
 
             self.el_temp.loc[dict(t=t)] = el_temp.values
             for elem in self.elements:
@@ -427,6 +425,7 @@ class Plasma:
         bckc={},
         diagnostic: str = "nirh1",
         quantity: str = "ne_bin",
+        error=False,
         niter=3,
     ):
         """
@@ -451,16 +450,14 @@ class Plasma:
 
         # TODO: make more elegant optimisation
 
-        if diagnostic not in bckc:
-            bckc[diagnostic] = {}
-        bckc[diagnostic][quantity] = initialize_bckc(data[diagnostic][quantity])
+        bckc = initialize_bckc(diagnostic, quantity, data, bckc=bckc)
 
         Ne_prof = self.Ne_prof
         for t in self.t:
             const = 1.0
             for j in range(niter):
                 ne0 = self.el_dens.sel(t=t, rho_poloidal=0) * const
-                ne0 = xr.where(ne0 <= 0, 5.0e19, ne0)
+                ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
                 Ne_prof.y0 = ne0.values
                 Ne_prof.build_profile()
                 self.el_dens.loc[dict(t=t)] = Ne_prof.yspl.values
@@ -472,8 +469,49 @@ class Plasma:
         self.optimisation[
             "el_dens"
         ] = f"{diagnostic}.{quantity}:{data[diagnostic][quantity].revision}"
+        self.optimisation["stored_en"] = ""
 
         return bckc
+
+    def recover_density(
+        self, data, diagnostic: str = "efit", quantity: str = "wp", niter=3,
+    ):
+        """
+        Match stored energy by adapting electron density
+
+        Parameters
+        ----------
+        data
+        diagnostic
+        quantity
+        niter
+
+        Returns
+        -------
+
+        """
+        print("\n Re-calculating density to match plasma energy \n")
+
+        Ne_prof = self.Ne_prof
+        const = DataArray([1.0] * len(self.t), coords=[("t", self.t)])
+        ne0 = self.el_dens.sel(rho_poloidal=0)
+        data_tmp = data[diagnostic][quantity]
+        for j in range(niter):
+            for t in self.t:
+                if np.isfinite(const.sel(t=t)):
+                    Ne_prof.y0 = (ne0 * const).sel(t=t).values
+                    Ne_prof.build_profile()
+                    self.el_dens.loc[dict(t=t)] = Ne_prof.yspl.values
+            self.calc_imp_dens()
+            self.calc_main_ion_dens()
+            self.calc_zeff()
+            self.calc_pressure()
+            bckc_tmp = self.wp.sel()
+            const = 1 + (data_tmp - bckc_tmp) / bckc_tmp
+
+        self.optimisation[
+            "stored_en"
+        ] = f"{diagnostic}.{quantity}:{data[diagnostic][quantity].revision}"
 
     def propagate_parameters(self):
         """
@@ -493,7 +531,7 @@ class Plasma:
 
     def calc_ne_los_int(self, data, t=None):
         """
-        Calculate line of sight integral assuming only one pass across the plasma
+        Calculate line of sight integral along 2 passes through the plasma
 
         Returns
         -------
@@ -556,20 +594,32 @@ class Plasma:
         tau = None
         fz = {}
         lz = {}
+        rho = self.el_dens.rho_poloidal.values
+        t = self.el_dens.t.values
         for elem in self.elements:
-            fz_tmp = []
-            lz_tmp = []
+            ion_charges = np.arange(len(self.fract_abu[elem].SCD.ion_charges) + 1)
+            fz[elem] = DataArray(
+                np.full((len(t), len(rho), len(ion_charges)), np.nan),
+                coords={"t": t, "rho_poloidal": rho, "ion_charges": ion_charges},
+                dims=["t", "rho_poloidal", "ion_charges",],
+            )
+            lz[elem] = deepcopy(fz[elem])
+        for elem in self.elements:
             for t in self.t:
                 Ne = self.el_dens.sel(t=t)
                 Nh = self.neutral_dens.sel(t=t)
                 Te = self.el_temp.sel(t=t)
+
+                if any(np.logical_not((Te > 0) * (Ne > 0))):
+                    continue
+
                 if use_tau:
                     tau = self.tau.sel(t=t)
-                fz_tmp.append(self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau))
-                lz_tmp.append(self.power_loss[elem](Ne, Te, fz_tmp[-1], Nh=Nh))
-
-            fz[elem] = xr.concat(fz_tmp, "t").assign_coords(t=self.t)
-            lz[elem] = xr.concat(lz_tmp, "t").assign_coords(t=self.t)
+                fz_tmp = self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau)
+                fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
+                lz[elem].loc[dict(t=t)] = self.power_loss[elem](
+                    Ne, Te, fz_tmp, Nh=Nh
+                ).transpose()
 
         self.fz = fz
         self.lz = lz
@@ -609,10 +659,17 @@ class Plasma:
                     self.tot_rad.sel(element=elem, t=t), self.volume.sel(t=t)
                 )
 
-    def calc_pressure(self):
+    def calc_pressure(self, data=None, bckc=None):
         """
         Calculate pressure profiles (thermal and total), MHD and diamagnetic energies
         """
+
+        if data is not None:
+            if hasattr(self, "equil"):
+                bckc = initialize_bckc(self.equil, "wp", data, bckc=bckc)
+            if "dialoop" in data.keys():
+                bckc = initialize_bckc("wdia", "dialoop", data, bckc=bckc)
+
         p_el = ph.calc_pressure(self.el_dens.values, self.el_temp.values)
 
         p_ion = ph.calc_pressure(
@@ -629,7 +686,7 @@ class Plasma:
         self.pressure_th.values = p_el + p_ion
         self.pressure_tot.values = p_el + p_ion + p_fast
 
-        for t in self.time:
+        for t in self.t:
             self.pth.loc[dict(t=t)] = np.trapz(
                 self.pressure_th.sel(t=t), self.volume.sel(t=t)
             )
@@ -637,8 +694,15 @@ class Plasma:
                 self.pressure_tot.sel(t=t), self.volume.sel(t=t)
             )
 
-        self.wmhd.values = 3 / 2 * self.ptot
-        self.wdia.values = 3 / 2 * self.pth
+        self.wth.values = 3 / 2 * self.pth.values
+        self.wp.values = 3 / 2 * self.ptot.values
+
+        if data is not None:
+            if hasattr(self, "equil"):
+                bckc[self.equil]["wp"].values = self.wp.values
+            if "dialoop" in data.keys():
+                bckc["dialoop"]["wdia"].values = self.wp.values
+            return bckc
 
     def calc_zeff(self):
         """
@@ -846,7 +910,13 @@ class Plasma:
             self.machine_dimensions[1][0], self.machine_dimensions[1][1], 100
         )
 
-        self.optimisation = {"equil": "", "el_dens": "", "el_temp": "", "ion_temp": ""}
+        self.optimisation = {
+            "equil": "",
+            "el_dens": "",
+            "el_temp": "",
+            "ion_temp": "",
+            "stored_en": "",
+        }
         self.pulse = None
 
         nt = len(self.t)
@@ -1034,12 +1104,12 @@ class Plasma:
         self.ptot = deepcopy(data1d_time)
         assign_datatype(self.ptot, ("pressure", "total"))
 
-        self.wmhd = deepcopy(data1d_time)
-        assign_datatype(self.wmhd, ("energy", "total"))
-        self.wdia = deepcopy(data1d_time)
-        assign_datatype(self.wmhd, ("energy", "diamagnetic"))
+        self.wth = deepcopy(data1d_time)
+        assign_datatype(self.wth, ("stored_energy", "thermal"))
+        self.wp = deepcopy(data1d_time)
+        assign_datatype(self.wp, ("stored_energy", "total"))
         self.beta_pol = deepcopy(data1d_time)
-        assign_datatype(self.wmhd, ("beta", "poloidal"))
+        assign_datatype(self.beta_pol, ("beta", "poloidal"))
 
     def write_to_pickle(self):
 
@@ -1049,7 +1119,7 @@ class Plasma:
             )
 
 
-def initialize_bckc(data):
+def initialize_bckc(diagnostic, quantity, data, bckc={}):
     """
     Initialise back-calculated data with all info as original data, apart
     from provenance and revision attributes
@@ -1063,9 +1133,13 @@ def initialize_bckc(data):
     -------
 
     """
-    bckc = xr.full_like(data, np.nan)
-    attrs = bckc.attrs
-    if type(bckc) == DataArray:
+    if diagnostic not in bckc:
+        bckc[diagnostic] = {}
+
+    data_tmp = data[diagnostic][quantity]
+    bckc_tmp = xr.full_like(data_tmp, np.nan)
+    attrs = bckc_tmp.attrs
+    if type(bckc_tmp) == DataArray:
         if "error" in attrs.keys():
             attrs["error"] = xr.full_like(attrs["error"], np.nan)
         if "partial_provenance" in attrs.keys():
@@ -1073,7 +1147,9 @@ def initialize_bckc(data):
             attrs.pop("provenance")
         if "revision" in attrs.keys():
             attrs.pop("revision")
-    bckc.attrs = attrs
+    bckc_tmp.attrs = attrs
+
+    bckc[diagnostic][quantity] = bckc_tmp
 
     return bckc
 
