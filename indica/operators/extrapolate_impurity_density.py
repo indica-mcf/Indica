@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import cast
 from typing import List
 from typing import Sequence
@@ -6,11 +7,15 @@ from typing import Union
 
 import numpy as np
 from scipy.interpolate import UnivariateSpline
+from scipy.optimize import Bounds
+from scipy.optimize import minimize
+from scipy.stats import norm
 from xarray import concat
 from xarray import DataArray
 from xarray.core.common import zeros_like
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
+from indica.converters.lines_of_sight import LinesOfSightTransform
 from indica.operators.main_ion_density import MainIonDensity
 from indica.operators.mean_charge import MeanCharge
 from .abstractoperator import EllipsisType
@@ -18,8 +23,6 @@ from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
 from ..utilities import input_check
-
-# import matplotlib.pyplot as plt
 
 
 class ExtrapolateImpurityDensity(Operator):
@@ -107,183 +110,288 @@ class ExtrapolateImpurityDensity(Operator):
             .data
         )
 
+        self.threshold_rho = threshold_rho
+
         return threshold_rho
 
-    def __call__(  # type: ignore
+    def bolometry_derivation(
         self,
-        impurity_density_sxr: DataArray,
-        electron_density: DataArray,
-        electron_temperature: DataArray,
-        truncation_threshold: float,
-        flux_surfaces: FluxSurfaceCoordinates,
-        frac_abund: DataArray,
+        impurity_densities: DataArray,
+        frac_abunds: Sequence,
         impurity_elements: Sequence,
         main_ion_power_loss: DataArray,
         impurities_power_loss: DataArray,
-        t: DataArray = None,
+        electron_density: DataArray,
+        LoS_bolometry_data: Sequence,
+        flux_surfaces: FluxSurfaceCoordinates,
     ):
-        """Extrapolates the impurity density beyond the limits of SXR (Soft X-ray)
+        """Derive bolometry including the extrapolated smoothed impurity density
 
         Parameters
         ----------
-        impurity_density_sxr
-            xarray.DataArray of impurity density derived from soft X-ray emissivity.
+        impurity_densities
+            Densities for all impurities
+            (including the extrapolated smooth density of the impurity in question),
+            dimensions are (elements, rho, theta, t).
+        frac_abund
+            Fractional abundance data for all impurity elements,
+            dimensions are (elements, num_of_ion_charges, rho, t)
+        impurity_elements
+            List of impurity elements, eg. ["be", "ni", "w", etc.]
+        main_ion_power_loss
+            Power loss associated with the main ion (eg. deuterium),
+            dimensions are (rho, t)
+        impurities_power_loss
+            Power loss associated with all of the impurity elements,
+            dimensions are (elements, rho, t)
         electron_density
-            xarray.DataArray of electron density
-        electron_temperature
-            xarray.DataArray of electron temperature
-        truncation_threshold
-            Truncation threshold for the electron temperature
-        t
-            Optional, time at which the impurity concentration is to be calculated at.
+            Electron density, dimensions are (rho, t)
+        LoS_bolometry_data
+            Single dimensional sequence that contains the information for
+            LineOfSightTransform. Hence the contents of the sequence should
+            be in the format corresponding to the arguments of the
+            LineOfSightTransform initialization function.
+        flux_surfaces
+            FluxSurfaceCoordinates used for conversion of LoS coordinates to
+            (rho, theta) coordinates.
 
         Returns
         -------
-        impurity_density_full
-
-        t
-            If ``t`` was not specified as an argument for the __call__ function,
-            return the time the results are given for.
-            Otherwise return the argument.
+        derived_power_loss_integrated
+            Derived bolometry data, dimensions are (t)
         """
-
-        input_check(
-            "impurity_density_sxr",
-            impurity_density_sxr,
-            DataArray,
-            ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+        mean_charges = zeros_like(electron_density)
+        mean_charges = mean_charges.data
+        mean_charges = np.tile(mean_charges, (len(impurity_elements), 1, 1))
+        mean_charges = DataArray(
+            data=mean_charges,
+            coords=dict(**{"elements": impurity_elements}, **electron_density.coords),
+            dims=["elements", *electron_density.dims],
         )
 
-        input_check(
-            "electron_density",
-            electron_density,
-            DataArray,
-            ndim_to_check=2,
-            greater_than_or_equal_zero=True,
+        for ielement, element in enumerate(impurity_elements):
+            mean_charge = MeanCharge()
+            mean_charge = mean_charge(frac_abunds[ielement], element)
+            mean_charges.loc[element] = mean_charge
+
+        main_ion_density_obj = MainIonDensity()
+        main_ion_density = main_ion_density_obj(
+            impurity_densities, electron_density, mean_charges
         )
 
-        input_check(
-            "electron_temperature",
-            electron_temperature,
-            DataArray,
-            ndim_to_check=2,
-            greater_than_or_equal_zero=False,
+        main_ion_density = main_ion_density.transpose("rho", "theta", "t")
+
+        derived_power_loss = electron_density * (main_ion_density * main_ion_power_loss)
+        impurities_losses = impurity_densities * impurities_power_loss
+        impurities_losses = impurities_losses.sum(dim="elements")
+        impurities_losses *= electron_density
+        derived_power_loss += impurities_losses
+        derived_power_loss = derived_power_loss.transpose("t", "rho", "theta")
+
+        t_arr = derived_power_loss.coords["t"]
+
+        derived_power_loss_LoS_tot = DataArray(
+            data=np.zeros((len(LoS_bolometry_data), t_arr.shape[0])),
+            coords={
+                "channels": np.linspace(
+                    0, len(LoS_bolometry_data), len(LoS_bolometry_data)
+                ),
+                "t": t_arr,
+            },
+            dims=["channels", "t"],
         )
 
-        input_check(
-            "truncation_threshold",
-            truncation_threshold,
-            float,
-            greater_than_or_equal_zero=False,
-        )
+        for iLoS in range(len(LoS_bolometry_data)):
+            LoS_transform = LinesOfSightTransform(*LoS_bolometry_data[iLoS])
 
-        if t is None:
-            t = electron_density.t
-        else:
-            input_check("t", t, DataArray, greater_than_or_equal_zero=True)
+            x1_name = LoS_transform.x1_name
+            x2_name = LoS_transform.x2_name
 
-        threshold_rho = self.recover_rho(truncation_threshold, electron_temperature)
+            x1 = DataArray(data=np.array([0]), dims=[x1_name])
+            x2 = DataArray(data=np.linspace(0, 1, 300), dims=[x2_name])
 
-        # Transform impurity_density_sxr to rho, theta coordinates
-        R_arr = impurity_density_sxr.coords["R"]
-        z_arr = impurity_density_sxr.coords["z"]
+            R_arr, z_arr = LoS_transform.convert_to_Rz(x1, x2, t_arr)
 
-        sxr_rho, sxr_theta = flux_surfaces.convert_from_Rz(
-            R_arr,
-            z_arr,
-            t.data,
-        )
+            rho_arr, theta_arr = flux_surfaces.convert_from_Rz(R_arr, z_arr, t_arr)
 
-        if isinstance(sxr_rho, DataArray):
-            sxr_rho = np.abs(sxr_rho)
-            sxr_rho = sxr_rho.transpose("R", "z", "t")
+            rho_arr = np.abs(rho_arr)
 
-        if isinstance(sxr_theta, DataArray):
-            sxr_theta = sxr_theta.transpose("R", "z", "t")
+            derived_power_loss_LoS = derived_power_loss.indica.interp2d(
+                {"rho": rho_arr, "theta": theta_arr}, method="linear"
+            )
 
-        rho_arr = electron_density.coords["rho"].values
-        # theta_arr = np.array([0, np.max(sxr_theta)])
+            derived_power_loss_LoS = derived_power_loss_LoS.fillna(0.0)
+
+            dl = LoS_transform.distance(x2_name, DataArray(0), x2[0:2], 0)
+            dl = cast(DataArray, dl)[1]
+
+            derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
+            derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
+
+        derived_power_loss_integrated = derived_power_loss_LoS_tot.sum(
+            dim="channels"
+        ) / len(LoS_bolometry_data)
+
+        return derived_power_loss_integrated
+
+    def transform_to_rho_theta_reduced(
+        self,
+        data_R_z: DataArray,
+        flux_surfaces: FluxSurfaceCoordinates,
+        rho_arr: DataArray,
+        n_theta: int = 20,
+        t_arr: DataArray = None,
+    ):
+        """Function to transform data from an (R, z) grid to a (rho, theta) grid
+
+        Parameters
+        ----------
+        data_R_z
+            Data on (R, z) grid to be transformed.
+        flux_surfaces
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
+        rho_arr
+            1D array of rho from 0 to 1.
+        n_theta
+            Number of steps for theta_arr (poloidal angle).
+        t_arr
+            1D array of t.
+
+        Returns
+        -------
+        data_rho_theta
+            Data on (rho, theta) grid.
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            (Used in derive_and_apply_asymmetry hence is returned by this function.)
+        """
+        if t_arr is None:
+            t_arr = data_R_z.coords["t"]
+
         theta_arr = np.array([0.0, np.pi])
-        t_arr = t.values
-
-        rho_arr = DataArray(data=rho_arr, coords={"rho": rho_arr}, dims=["rho"])
         theta_arr = DataArray(
             data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
         )
-        t_arr = DataArray(data=t_arr, coords={"t": t_arr}, dims=["t"])
 
         R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr, t_arr)
 
-        if isinstance(R_deriv, DataArray):
-            R_deriv = R_deriv.transpose("rho", "theta", "t")
-        if isinstance(z_deriv, DataArray):
-            z_deriv = z_deriv.transpose("rho", "theta", "t")
+        R_deriv = cast(DataArray, R_deriv).transpose("rho", "theta", "t")
+        z_deriv = cast(DataArray, z_deriv).transpose("rho", "theta", "t")
 
-        impurity_density_sxr = impurity_density_sxr.indica.interp2d(
+        data_rho_theta = data_R_z.indica.interp2d(
             {"R": R_deriv, "z": z_deriv}, method="linear", assume_sorted=True
         )
-        impurity_density_sxr = impurity_density_sxr.transpose("rho", "theta", "t")
+        data_rho_theta = data_rho_theta.transpose("rho", "theta", "t")
 
-        # Discontinuity mitigation
+        return data_rho_theta, R_deriv
+
+    def basic_extrapolation(
+        self,
+        data_rho_theta: DataArray,
+        electron_density: DataArray,
+        threshold_rho: float,
+    ):
+        """Basic extrapolation which eliminates the data_rho_theta for
+        rho > threshold_rho and joins on electron density from that point
+        outwards (in rho). Also multiplies electron density to prevent a
+        discontinuity at rho=threshold_rho.
+
+        Parameters
+        ----------
+        data_rho_theta
+            Data to extrapolate on (rho, theta) grid.
+        electron_density
+            Electron density (axisymmetric)
+        threshold_rho
+            Threshold value of rho beyond which SXR diagnostics cannot
+            be used to accurately infer impurity density.
+
+        Returns
+        -------
+        extrapolated_impurity_density
+            Extrapolated impurity density
+        """
         boundary_electron_density = electron_density.sel({"rho": threshold_rho})
-        boundary_impurity_density_sxr = impurity_density_sxr.sel({"rho": threshold_rho})
+        bounded_data = data_rho_theta.sel({"rho": threshold_rho})
 
-        discontinuity_scale = boundary_impurity_density_sxr / boundary_electron_density
+        discontinuity_scale = bounded_data / boundary_electron_density
         discontinuity_scale = discontinuity_scale.isel(rho=0)
 
         # Continue impurity_density_sxr following the shape of the electron density
         # profile.
-        bounded_impurity_density_sxr = impurity_density_sxr.where(
-            impurity_density_sxr.rho <= threshold_rho, drop=True
+        bounded_data = data_rho_theta.where(
+            data_rho_theta.rho <= threshold_rho, drop=True
         )
 
         bounded_electron_density = electron_density.where(
             electron_density.rho >= threshold_rho, drop=True
         )
 
-        index_to_drop = np.where(
-            bounded_impurity_density_sxr.coords["rho"].data == threshold_rho
-        )[0][0]
+        index_to_drop = np.where(bounded_data.coords["rho"].data == threshold_rho)[0][0]
 
-        bounded_impurity_density_sxr = bounded_impurity_density_sxr.drop_isel(
-            rho=index_to_drop
-        )
+        bounded_data = bounded_data.drop_isel(rho=index_to_drop)
 
         extrapolated_impurity_density = concat(
             (
-                bounded_impurity_density_sxr,
+                bounded_data,
                 bounded_electron_density * discontinuity_scale,
             ),
             dim="rho",
         )
 
-        assert np.all(np.logical_not(np.isnan(extrapolated_impurity_density)))
+        return extrapolated_impurity_density
+
+    def extrapolation_smoothing(
+        self,
+        extrapolated_data: DataArray,
+        rho_arr: DataArray,
+    ):
+        """Function to smooth extrapolatd data. Extrapolated data may not have
+        any 0th order discontinuity but 1st order discontinuities may exist.
+        Smoothing is necessary to eliminate these higher order discontinuities.
+
+        Parameters
+        ----------
+        extrapolated_data
+            Extrapolated data to be smoothed (on (rho, theta) grid).
+        rho_arr
+            rho array used to construct smoothing splines.
+            (Must be higher resolution than the one obtained from extrapolated_data)
+
+        Returns
+        -------
+        extrapolated_smooth_lfs
+            Extrapolated smoothed data on low-field side (fixed theta = 0)
+        extrapolated_smooth_hfs
+            Extrapolated smoothed data on high-field side (fixed theta = pi)
+        """
+        t = extrapolated_data.coords["t"]
 
         extrapolated_smooth_lfs = []
         extrapolated_smooth_hfs = []
 
-        for ind_t, it in enumerate(extrapolated_impurity_density.coords["t"]):
-            variance_extrapolated_impurity_density_lfs = (
-                extrapolated_impurity_density.isel({"t": ind_t, "theta": 0}).var("rho")
-            )
+        for ind_t, it in enumerate(extrapolated_data.coords["t"]):
+            variance_extrapolated_data_lfs = extrapolated_data.isel(
+                {"t": ind_t, "theta": 0}
+            ).var("rho")
 
-            variance_extrapolated_impurity_density_hfs = (
-                extrapolated_impurity_density.isel({"t": ind_t, "theta": 1}).var("rho")
-            )
+            variance_extrapolated_data_hfs = extrapolated_data.isel(
+                {"t": ind_t, "theta": 1}
+            ).var("rho")
 
             extrapolated_spline_lfs = UnivariateSpline(
                 rho_arr,
-                extrapolated_impurity_density[:, 0, ind_t],
+                extrapolated_data[:, 0, ind_t],
                 k=5,
-                s=0.001 * variance_extrapolated_impurity_density_lfs,
+                s=0.001 * variance_extrapolated_data_lfs,
             )
 
             extrapolated_spline_hfs = UnivariateSpline(
                 rho_arr,
-                extrapolated_impurity_density[:, 1, ind_t],
+                extrapolated_data[:, 1, ind_t],
                 k=5,
-                s=0.001 * variance_extrapolated_impurity_density_hfs,
+                s=0.001 * variance_extrapolated_data_hfs,
             )
 
             extrapolated_smooth_lfs.append(extrapolated_spline_lfs(rho_arr, 0))
@@ -308,6 +416,50 @@ class ExtrapolateImpurityDensity(Operator):
             "rho", "t"
         )
 
+        return extrapolated_smooth_lfs, extrapolated_smooth_hfs
+
+    def derive_and_apply_asymmetry(
+        self,
+        R_deriv: DataArray,
+        extrapolated_smooth_hfs: DataArray,
+        extrapolated_smooth_lfs: DataArray,
+        flux_surfaces: FluxSurfaceCoordinates,
+    ):
+        """Deriving asymmetry parameter from low-field-side and
+        high-field-side data and applying it to low-field-side data which
+        has been extended over the poloidal extent to obtain an asymmetric
+        extrapolated smoothed data on a (rho, theta) grid.
+
+        Parameters
+        ----------
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            (from transform_to_rho_theta_reduced)
+        extrapolated_smooth_hfs
+            Extrapolated smoothed data on high-field side (fixed theta = pi)
+        extrapolated_smooth_lfs
+            Extrapolated smoothed data on low-field side (fixed theta = 0)
+        flux_surfaces
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
+
+        Returns
+        -------
+        extrapolated_smooth_data
+            Extrapolated and smoothed data on full (rho, theta) grid.
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            (uniquely calculated by this function used for transform_to_R_z)
+        z_deriv
+            Variable describing value of z in every coordinate on a (rho, theta) grid.
+            (uniquely calculated by this function used for transform_to_R_z)
+        derived_asymmetry_parameter
+            Derived asymmetry parameter (needed for __call__ which returns it)
+        """
+        rho_arr = extrapolated_smooth_hfs.coords["rho"]
+        self.rho_arr = rho_arr
+        t_arr = extrapolated_smooth_hfs.coords["t"]
+
         R_lfs_midplane = cast(DataArray, R_deriv).isel(theta=0)  # theta = 0.0
         R_hfs_midplane = cast(DataArray, R_deriv).isel(theta=1)  # theta = np.pi
 
@@ -325,7 +477,7 @@ class ExtrapolateImpurityDensity(Operator):
             0:0.1, :  # type: ignore
         ] = derived_asymmetry_parameter.loc[0.1, :]
 
-        theta_arr = np.linspace(-np.pi, np.pi, 41)
+        theta_arr = np.linspace(-np.pi, np.pi, 21)
         theta_arr = DataArray(theta_arr, {"theta": theta_arr}, ["theta"])
         R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr, t_arr)
         R_deriv = cast(DataArray, R_deriv).transpose("rho", "theta", "t")
@@ -337,61 +489,291 @@ class ExtrapolateImpurityDensity(Operator):
 
         asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
 
-        extrapolated_smooth_density = extrapolated_smooth_lfs * asymmetry_modifier
-        extrapolated_smooth_density = extrapolated_smooth_density.transpose(
+        extrapolated_smooth_data = extrapolated_smooth_lfs * asymmetry_modifier
+        extrapolated_smooth_data = extrapolated_smooth_data.transpose(
             "rho", "theta", "t"
         )
 
-        extrapolated_smooth_density = DataArray(
-            data=extrapolated_smooth_density.data[np.newaxis, :],
-            coords=dict(
-                **{"elements": impurity_elements}, **extrapolated_smooth_density.coords
-            ),
-            dims=["elements", *extrapolated_smooth_density.dims],
-        )
+        return extrapolated_smooth_data, R_deriv, z_deriv, derived_asymmetry_parameter
 
-        mean_charges = zeros_like(extrapolated_smooth_density)
-        mean_charges = mean_charges.isel(theta=0)
+    def transform_to_R_z(
+        self,
+        R_deriv: DataArray,
+        z_deriv: DataArray,
+        extrapolated_smooth_data: DataArray,
+        flux_surfaces: FluxSurfaceCoordinates,
+    ):
+        """Function to transform data from an (rho, theta) grid to a (R, z) grid
 
-        for element in impurity_elements:
-            mean_charge = MeanCharge()
-            mean_charge = mean_charge(frac_abund, element)
-            mean_charges.loc[element] = mean_charge
+        Parameters
+        ----------
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            (from derive_and_apply_asymmetry)
+        z_deriv
+            Variable describing value of z in every coordinate on a (rho, theta) grid.
+            (from derive_and_apply_asymmetry)
+        extrapolated_smooth_data
+            Extrapolated and smoothed data to transform onto (R, z) grid.
+        flux_surfaces
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
 
-        main_ion_density_obj = MainIonDensity()
-        main_ion_density = main_ion_density_obj(
-            extrapolated_smooth_density, electron_density, mean_charges
-        )
-
-        main_ion_density = main_ion_density.transpose("rho", "theta", "t")
-
-        derived_power_loss = electron_density * (main_ion_density * main_ion_power_loss)
-        impurities_losses = zeros_like(main_ion_density)
-        for element in impurity_elements:
-            impurities_losses += (
-                extrapolated_smooth_density.loc[element]
-                * impurities_power_loss.loc[element]
-            )
-        impurities_losses *= electron_density
-        derived_power_loss += impurities_losses
-
+        Returns
+        -------
+        extrapolated_smooth_data
+            Extrapolated and smoothed data on (R, z) grid.
+        """
         R_arr = np.linspace(np.min(R_deriv[1:]), np.max(R_deriv[1:]), 40)
         z_arr = np.linspace(np.min(z_deriv), np.max(z_deriv), 40)
 
         R_arr = DataArray(R_arr, {"R": R_arr}, ["R"])
         z_arr = DataArray(z_arr, {"z": z_arr}, ["z"])
 
+        t_arr = extrapolated_smooth_data.coords["t"]
+
         rho_derived, theta_derived = flux_surfaces.convert_from_Rz(R_arr, z_arr, t_arr)
         rho_derived = cast(DataArray, rho_derived).transpose("R", "z", "t")
         theta_derived = cast(DataArray, theta_derived).transpose("R", "z", "t")
         rho_derived = abs(rho_derived)
 
-        extrapolated_smooth_density = extrapolated_smooth_density.indica.interp2d(
+        extrapolated_smooth_data = extrapolated_smooth_data.indica.interp2d(
             {"rho": rho_derived, "theta": theta_derived},
             method="linear",
             assume_sorted=True,
         )
 
-        extrapolated_smooth_density = extrapolated_smooth_density.fillna(0.0)
+        extrapolated_smooth_data = extrapolated_smooth_data.fillna(0.0)
 
-        return extrapolated_smooth_density, derived_asymmetry_parameter, t
+        return extrapolated_smooth_data
+
+    def fitting_function(
+        self,
+        amplitude: float,
+        standard_dev: float,
+        position: float,
+    ):
+        """Function to construct a signal that modifies the
+        extrapolated smoothed impurity density. The signal is constructed
+        using a Gaussian profile with the three free parameters.
+
+        Parameters
+        ----------
+        amplitude
+            Amplitude of the additional signal (Gaussian amplitude)
+        standard_dev
+            Standard deviation associated with the Gaussian construction
+            (can be defined as FWHM/2.355 where FWHM is full-width at half maximum)
+        position
+            Position of the Gaussian. During optimization this is constrained to
+            the extrapolated region of rho (ie. outside the SXR validity region).
+
+        Returns
+        -------
+            sig
+                DataArray containing the Gaussian signal with dimensions (rho,)
+        """
+        rho_arr = self.rho_arr
+
+        gaussian_signal = norm(loc=position, scale=standard_dev)
+
+        sig = gaussian_signal.pdf(rho_arr)
+
+        sig = DataArray(data=sig, coords={"rho": rho_arr}, dims=["rho"])
+
+        sig /= sig.max()
+
+        sig *= amplitude
+
+        return sig
+
+    def optimize_perturbation(
+        self,
+        extrapolated_smooth_data: DataArray,
+        orig_bolometry_data: DataArray,
+        bolometry_args: Sequence,
+        impurity_element: str,
+    ):
+        def objective_func(objective_array):
+            amplitude, standard_dev, position = objective_array
+
+            perturbation_signal = self.fitting_function(
+                amplitude, standard_dev, position
+            )
+
+            modified_density = extrapolated_smooth_data + perturbation_signal
+
+            copy_bolometry_args = deepcopy(bolometry_args)
+            copy_bolometry_args[0].loc[impurity_element, :] = modified_density
+
+            modified_bolometry_data = self.bolometry_derivation(*copy_bolometry_args)
+
+            avg_error = np.mean(np.abs(modified_bolometry_data - orig_bolometry_data))
+
+            return avg_error
+
+        result = minimize(
+            fun=objective_func,
+            x0=np.array([1.0e15, 0.15, 0.6]),
+            bounds=Bounds(
+                np.array([0.5e15, 0.1, self.threshold_rho[0]]),
+                np.array([2.0e15, 0.3, 1.0]),
+            ),
+            method="L-BFGS-B",
+            options={"maxfun": 10},
+        )
+
+        gaussian_params = result.x
+
+        perturbation_signal = self.fitting_function(*gaussian_params)
+        fitted_density = extrapolated_smooth_data + perturbation_signal
+
+        return fitted_density
+
+    def __call__(  # type: ignore
+        self,
+        impurity_density_sxr: DataArray,
+        electron_density: DataArray,
+        electron_temperature: DataArray,
+        truncation_threshold: float,
+        flux_surfaces: FluxSurfaceCoordinates,
+        frac_abunds: Sequence,
+        impurity_elements: Sequence,
+        main_ion_power_loss: DataArray,
+        impurities_power_loss: DataArray,
+        t: DataArray = None,
+    ):
+        """Extrapolates the impurity density beyond the limits of SXR (Soft X-ray)
+
+        Parameters
+        ----------
+        impurity_density_sxr
+            xarray.DataArray of impurity density derived from soft X-ray emissivity.
+        electron_density
+            xarray.DataArray of electron density
+        electron_temperature
+            xarray.DataArray of electron temperature
+        truncation_threshold
+            Truncation threshold for the electron temperature
+        flux_surfaces
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
+        frac_abund
+            Fractional abundance data for all impurity elements,
+            dimensions are (elements, rho, t)
+        impurity_elements
+            List of impurity elements, eg. ["be", "ni", "w", etc.]
+        main_ion_power_loss
+            Power loss associated with the main ion (eg. deuterium),
+            dimensions are (rho, t)
+        impurities_power_loss
+            Power loss associated with all of the impurity elements,
+            dimensions are (elements, rho, t)
+        t
+            Optional, time at which the impurity concentration is to be calculated at.
+
+        Returns
+        -------
+        extrapolated_smooth_density
+            Extrapolated and smoothed impurity density ((R, z) grid).
+        derived_asymmetry_parameter
+            Derived asymmetry parameter.
+        t
+            If ``t`` was not specified as an argument for the __call__ function,
+            return the time the results are given for.
+            Otherwise return the argument.
+        """
+
+        input_check(
+            "impurity_density_sxr",
+            impurity_density_sxr,
+            DataArray,
+            ndim_to_check=3,
+            greater_than_or_equal_zero=True,
+        )
+
+        input_check(
+            "electron_density",
+            electron_density,
+            DataArray,
+            ndim_to_check=2,
+            greater_than_or_equal_zero=True,
+        )
+
+        if t is None:
+            t = electron_density.t
+        else:
+            input_check("t", t, DataArray, greater_than_or_equal_zero=True)
+
+        threshold_rho = self.recover_rho(truncation_threshold, electron_temperature)
+
+        # Transform impurity_density_sxr to (rho, theta) coordinates
+        rho_arr = electron_density.coords["rho"]
+        t_arr = t
+
+        impurity_density_sxr, R_deriv = self.transform_to_rho_theta_reduced(
+            impurity_density_sxr,
+            flux_surfaces,
+            rho_arr,
+            t_arr=t_arr,
+        )
+
+        # Continue impurity_density_sxr following the shape of the electron density
+        # profile and mitigate discontinuity.
+
+        extrapolated_impurity_density = self.basic_extrapolation(
+            impurity_density_sxr, electron_density, threshold_rho
+        )
+
+        assert np.all(np.logical_not(np.isnan(extrapolated_impurity_density)))
+
+        # Smoothing extrapolated data at the discontinuity.
+        # (There is still a discontinuity in the radial gradient.)
+
+        extrapolated_smooth_lfs, extrapolated_smooth_hfs = self.extrapolation_smoothing(
+            extrapolated_impurity_density, rho_arr
+        )
+
+        # Deriving and applying the asymmetry parameter to extrapolated density.
+        # Also extends the data beyond the hfs and lfs to be
+        # the full poloidal angle range.
+
+        (
+            extrapolated_smooth_density,
+            R_deriv,
+            z_deriv,
+            derived_asymmetry_parameter,
+        ) = self.derive_and_apply_asymmetry(
+            R_deriv, extrapolated_smooth_hfs, extrapolated_smooth_lfs, flux_surfaces
+        )
+
+        # Transform extrapolated density back onto a (R, z) grid
+
+        extrapolated_smooth_density_Rz = self.transform_to_R_z(
+            R_deriv, z_deriv, extrapolated_smooth_density, flux_surfaces
+        )
+
+        # extrapolated_smooth_density_Rz = DataArray(
+        #     data=extrapolated_smooth_density_Rz.data[np.newaxis, :],
+        #     coords=dict(
+        #         **{"elements": impurity_elements},
+        #         **extrapolated_smooth_density_Rz.coords
+        #     ),
+        #     dims=["elements", *extrapolated_smooth_density_Rz.dims],
+        # )
+
+        # extrapolated_smooth_density = DataArray(
+        #     data=extrapolated_smooth_density.data[np.newaxis, :],
+        #     coords=dict(
+        #         **{"elements": impurity_elements},
+        #         **extrapolated_smooth_density.coords
+        #     ),
+        #     dims=["elements", *extrapolated_smooth_density.dims],
+        # )
+
+        return (
+            extrapolated_smooth_density_Rz,
+            derived_asymmetry_parameter,
+            t,
+            extrapolated_smooth_density,
+        )

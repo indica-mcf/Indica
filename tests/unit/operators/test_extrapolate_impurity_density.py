@@ -1,7 +1,7 @@
-import copy
+from copy import deepcopy
 from typing import get_args
 from typing import Hashable
-import unittest
+from unittest import TestCase
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -21,7 +21,7 @@ from ..test_equilibrium_single import equilibrium_dat_and_te
 # import matplotlib.pyplot as plt
 
 
-class Exception_Impurity_Density_Test_Case(unittest.TestCase):
+class Exception_Impurity_Density_Test_Case(TestCase):
     def __init__(
         self,
         impurity_density_sxr,
@@ -350,7 +350,7 @@ def input_data_setup():
     )
 
 
-def sxr_data_setup():
+def sxr_data_setup(input_data):
     (
         input_Ne,
         input_Te,
@@ -365,7 +365,7 @@ def sxr_data_setup():
         R_derived,
         R_lfs_values,
         elements,
-    ) = input_data_setup()
+    ) = input_data
 
     R_arr = np.linspace(1.83, 3.9, 40)
     z_arr = np.linspace(-1.75, 2.0, 40)
@@ -407,26 +407,23 @@ def sxr_data_setup():
     input_sxr_density_asym = input_sxr_density_lfs * asymmetry_modifier
     input_sxr_density_asym = input_sxr_density_asym.transpose("rho", "theta", "t")
 
-    input_sxr_density_asym = input_sxr_density_asym.indica.interp2d(
+    input_sxr_density_asym_Rz = input_sxr_density_asym.indica.interp2d(
         {"rho": rho_derived, "theta": theta_derived}, method="linear"
     )
-    input_sxr_density_asym = input_sxr_density_asym.fillna(0.0)
-    input_sxr_density_asym = input_sxr_density_asym.transpose("R", "z", "t")
+    input_sxr_density_asym_Rz = input_sxr_density_asym_Rz.fillna(0.0)
+    input_sxr_density_asym_Rz = input_sxr_density_asym_Rz.transpose("R", "z", "t")
 
-    return (input_sxr_density_asym, R_arr)
+    return (input_sxr_density_asym_Rz, R_arr, input_sxr_density_asym)
 
 
-def fitting_data_setup():
-    initial_data = input_data_setup()
+def fitting_data_setup(input_data):
+    initial_data = input_data
 
     base_t = initial_data[9]
     input_Te = initial_data[1]
     input_Ne = initial_data[0]
     expanded_rho = initial_data[4].data
-
-    example_frac_abund = fractional_abundance_setup(
-        "w", base_t, input_Te.isel(t=0), input_Ne.isel(t=0)
-    )
+    elements = initial_data[12]
 
     main_ion_power_loss = power_loss_setup(
         "h", base_t, expanded_rho, input_Te, input_Ne
@@ -434,16 +431,27 @@ def fitting_data_setup():
 
     main_ion_power_loss = main_ion_power_loss.sum(dim="ion_charges")
 
-    impurity_power_loss = power_loss_setup(
-        "w", base_t, expanded_rho, input_Te, input_Ne
-    )
+    example_frac_abunds = []
+    impurity_power_losses = []
 
-    impurity_power_loss = impurity_power_loss.assign_coords(t=("t", base_t))
-    impurity_power_loss = impurity_power_loss.sum(dim="ion_charges")
+    for ielement in elements:
+        example_frac_abund = fractional_abundance_setup(
+            ielement, base_t, input_Te.isel(t=0), input_Ne.isel(t=0)
+        )
+        example_frac_abunds.append(example_frac_abund)
 
-    impurity_power_loss = DataArray(
-        data=impurity_power_loss.data[np.newaxis, :],
-        coords=dict(**{"elements": ["w"]}, **impurity_power_loss.coords),
+        impurity_power_loss = power_loss_setup(
+            ielement, base_t, expanded_rho, input_Te, input_Ne
+        )
+        impurity_power_loss = impurity_power_loss.assign_coords(t=("t", base_t))
+        impurity_power_loss = impurity_power_loss.sum(dim="ion_charges")
+        impurity_power_losses.append(impurity_power_loss.data)
+
+    impurity_power_losses = np.array(impurity_power_losses)
+
+    impurity_power_losses = DataArray(
+        data=impurity_power_losses,
+        coords=dict(**{"elements": elements}, **impurity_power_loss.coords),
         dims=["elements", *impurity_power_loss.dims],
     )
 
@@ -466,10 +474,10 @@ def fitting_data_setup():
     # plt.tight_layout()
     # plt.show()
 
-    return (example_frac_abund, main_ion_power_loss, impurity_power_loss)
+    return (example_frac_abunds, main_ion_power_loss, impurity_power_losses)
 
 
-def invalid_input_tests(
+def invalid_input_checks(
     test_case: Exception_Impurity_Density_Test_Case,
     nominal_input_name: str,
     nominal_input,
@@ -484,35 +492,35 @@ def invalid_input_tests(
         invalid_input = "test"  # type:ignore
         test_case.call_type_check(**{nominal_input_name: invalid_input})
 
-        invalid_input = copy.deepcopy(nominal_input)  # type:ignore
+        invalid_input = deepcopy(nominal_input)  # type:ignore
         invalid_input *= -1
         test_case.call_value_check(**{nominal_input_name: invalid_input})
 
-        invalid_input = copy.deepcopy(nominal_input)  # type:ignore
+        invalid_input = deepcopy(nominal_input)  # type:ignore
         invalid_input *= np.inf
         test_case.call_value_check(**{nominal_input_name: invalid_input})
 
-        invalid_input = copy.deepcopy(nominal_input)  # type:ignore
+        invalid_input = deepcopy(nominal_input)  # type:ignore
         invalid_input *= -np.inf
         test_case.call_value_check(**{nominal_input_name: invalid_input})
 
-        invalid_input = copy.deepcopy(nominal_input)  # type:ignore
+        invalid_input = deepcopy(nominal_input)  # type:ignore
         invalid_input *= np.nan
         test_case.call_value_check(**{nominal_input_name: invalid_input})
 
         if zero_check:
-            invalid_input = copy.deepcopy(nominal_input)  # type:ignore
+            invalid_input = deepcopy(nominal_input)  # type:ignore
             invalid_input *= 0
             test_case.call_value_check(**{nominal_input_name: invalid_input})
     elif isinstance(nominal_input, (np.ndarray, DataArray)):
-        invalid_input = copy.deepcopy(nominal_input[0])  # type:ignore
+        invalid_input = deepcopy(nominal_input[0])  # type:ignore
         test_case.call_value_check(**{nominal_input_name: invalid_input})
 
 
 def test_extrapolate_impurity_density_call():
     initial_data = input_data_setup()
-    sxr_data = sxr_data_setup()
-    fitting_data = fitting_data_setup()
+    sxr_data = sxr_data_setup(initial_data)
+    fitting_data = fitting_data_setup(initial_data)
 
     input_Ne = initial_data[0]
     input_Te = initial_data[1]
@@ -522,8 +530,9 @@ def test_extrapolate_impurity_density_call():
     base_t = initial_data[9]
     Zeff = initial_data[8]
     elements = initial_data[12]
-    impurity_sxr_density_asym = sxr_data[0]
-    example_frac_abund = fitting_data[0]
+    impurity_sxr_density_asym_Rz = sxr_data[0]
+    impurity_sxr_density_asym_rho_theta = sxr_data[2]
+    example_frac_abunds = fitting_data[0]
     main_ion_power_loss = fitting_data[1]
     impurity_power_loss = fitting_data[2]
 
@@ -534,13 +543,14 @@ def test_extrapolate_impurity_density_call():
             example_result,
             example_derived_asymmetry,
             t,
+            example_result_rho_theta,
         ) = example_extrapolate_impurity_density(
-            impurity_sxr_density_asym,
+            impurity_sxr_density_asym_Rz,
             input_Ne,
             input_Te,
             valid_truncation_threshold,
             flux_surfs,
-            example_frac_abund,
+            example_frac_abunds,
             ["w"],
             main_ion_power_loss,
             impurity_power_loss,
@@ -565,40 +575,149 @@ def test_extrapolate_impurity_density_call():
         example_derived_asymmetry, input_Ti, "d", "w", Zeff, input_Te
     )
 
+    example_bolometry_LoS = [
+        [
+            np.array([2.9]),
+            np.array([2.0]),
+            np.array([0.0]),
+            np.array([3.2]),
+            np.array([-1.75]),
+            np.array([0.0]),
+            "Bolometry_0",
+        ],
+        [
+            np.array([2.95]),
+            np.array([2.0]),
+            np.array([0.0]),
+            np.array([3.25]),
+            np.array([-1.75]),
+            np.array([0.0]),
+            "Bolometry_1",
+        ],
+        [
+            np.array([2.85]),
+            np.array([2.0]),
+            np.array([0.0]),
+            np.array([3.15]),
+            np.array([-1.75]),
+            np.array([0.0]),
+            "Bolometry_2",
+        ],
+        [
+            np.array([2.8]),
+            np.array([2.0]),
+            np.array([0.0]),
+            np.array([2.5]),
+            np.array([-1.75]),
+            np.array([0.0]),
+            "Bolometry_3",
+        ],
+        [
+            np.array([2.75]),
+            np.array([2.0]),
+            np.array([0.0]),
+            np.array([2.45]),
+            np.array([-1.75]),
+            np.array([0.0]),
+            "Bolometry_4",
+        ],
+    ]
+
+    rho_profile = example_result_rho_theta.coords["rho"].data
+    theta_profile = example_result_rho_theta.coords["theta"].data
+
+    beryllium_impurity_conc = np.tile(
+        0.03 * input_Ne.data, (theta_profile.shape[0], 1, 1)
+    )
+    neon_impurity_conc = np.tile(0.02 * input_Ne.data, (theta_profile.shape[0], 1, 1))
+    nickel_impurity_conc = np.tile(
+        0.0002 * input_Ne.data, (theta_profile.shape[0], 1, 1)
+    )
+
+    beryllium_impurity_conc = np.transpose(beryllium_impurity_conc, (1, 0, 2))
+    neon_impurity_conc = np.transpose(neon_impurity_conc, (1, 0, 2))
+    nickel_impurity_conc = np.transpose(nickel_impurity_conc, (1, 0, 2))
+
+    # be, ne, ni, w
+    elements = ["be", "ne", "ni", "w"]
+
+    impurity_densities = DataArray(
+        data=np.ones(
+            (len(elements), *rho_profile.shape, *theta_profile.shape, *t.shape)
+        ),
+        coords=[
+            ("elements", elements),
+            ("rho", rho_profile),
+            ("theta", theta_profile),
+            ("t", t),
+        ],
+        dims=["elements", "rho", "theta", "t"],
+    )
+    impurity_densities.data[0] = beryllium_impurity_conc
+    impurity_densities.data[1] = neon_impurity_conc
+    impurity_densities.data[2] = nickel_impurity_conc
+    impurity_densities.data[3] = impurity_sxr_density_asym_rho_theta
+
+    original_bolometry = example_extrapolate_impurity_density.bolometry_derivation(
+        impurity_densities,
+        example_frac_abunds,
+        elements,
+        main_ion_power_loss,
+        impurity_power_loss,
+        input_Ne,
+        example_bolometry_LoS,
+        flux_surfs,
+    )
+
+    bolometry_args = [
+        impurity_densities,
+        example_frac_abunds,
+        elements,
+        main_ion_power_loss,
+        impurity_power_loss,
+        input_Ne,
+        example_bolometry_LoS,
+        flux_surfs,
+    ]
+
+    _ = example_extrapolate_impurity_density.optimize_perturbation(
+        example_result_rho_theta, original_bolometry, bolometry_args, "w"
+    )
+
     example_extrapolate_test_case = Exception_Impurity_Density_Test_Case(
-        impurity_sxr_density_asym,
+        impurity_sxr_density_asym_Rz,
         input_Ne,
         input_Te,
         valid_truncation_threshold,
         flux_surfs,
-        example_frac_abund,
+        example_frac_abunds,
         elements,
         main_ion_power_loss,
         impurity_power_loss,
-        base_t,
+        t,
     )
 
     # Invalid SXR derived density checks
 
-    invalid_input_tests(
+    invalid_input_checks(
         example_extrapolate_test_case,
         "impurity_density_sxr",
-        impurity_sxr_density_asym,
+        impurity_sxr_density_asym_Rz,
     )
 
     # Invalid electron density checks
 
-    invalid_input_tests(example_extrapolate_test_case, "electron_density", input_Ne)
+    invalid_input_checks(example_extrapolate_test_case, "electron_density", input_Ne)
 
     # Invalid electron temperature checks
 
-    invalid_input_tests(
+    invalid_input_checks(
         example_extrapolate_test_case, "electron_temperature", input_Te, zero_check=True
     )
 
     # Invalid truncation threshold check
 
-    invalid_input_tests(
+    invalid_input_checks(
         example_extrapolate_test_case,
         "truncation_threshold",
         valid_truncation_threshold,
