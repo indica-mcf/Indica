@@ -172,6 +172,10 @@ def get_tree_structure():
             ),
             "ION_TEMP": ("TEXT", "Ion temperature diagnostic used for optimization"),
             "STORED_EN": ("TEXT", "Stored energy diagnostic used for optimization"),
+            "MAIN_ION": ("TEXT", "Main ion element"),
+            "IMPURITY1": ("TEXT", "Impurity element chosen for Z1"),
+            "IMPURITY2": ("TEXT", "Impurity element chosen for Z2"),
+            "IMPURITY3": ("TEXT", "Impurity element chosen for Z3"),
         },
         ".GLOBAL": {
             "CR0": ("SIGNAL", "Minor radius = (R_LFS - R_HFS)/2 at midplane, m"),
@@ -180,16 +184,25 @@ def get_tree_structure():
             "VOLM": ("SIGNAL", "Plasma volume z, m^3"),
             "IP": ("SIGNAL", "Plasma current, A"),
             "TE0": ("SIGNAL", "Central electron temp, eV"),
-            "TI0": ("SIGNAL", "Central ion temp, eV"),
+            "TI0": ("SIGNAL", "Central main ion temp, eV"),
+            "TI0_Z1": ("SIGNAL", "Central impurity1 ion temp, eV"),
+            "TI0_Z2": ("SIGNAL", "Central impurity2 ion temp, eV"),
+            "TI0_Z3": ("SIGNAL", "Central impurity3 ion temp, eV"),
             "NE0": ("SIGNAL", "Central electron density, m^-3 "),
-            "TEV": ("SIGNAL", "Volume aver electron temp, eV"),
-            "TIV": ("SIGNAL", "Volume aver ion temp, eV"),
-            "NEV": ("SIGNAL", "Volume aver electron density m^-3"),
+            "NI0": ("SIGNAL", "Central main ion density, m^-3 "),
+            "TEV": ("SIGNAL", "Volume average electron temp, eV"),
+            "TIV": ("SIGNAL", "Volume average ion temp, eV"),
+            "NEV": ("SIGNAL", "Volume average electron density m^-3"),
+            "NIV": ("SIGNAL", "Volume average main ion density m^-3"),
             "WP": ("SIGNAL", "Total stored energy, J"),
             "WTH": ("SIGNAL", "Thermal stored energy, J"),
             "UPL": ("SIGNAL", "Loop Voltage, V"),
             "P_OH": ("SIGNAL", "Total Ohmic power, W"),
             "ZEFF": ("SIGNAL", "Effective charge at the plasma center"),
+            "CION": ("SIGNAL", "Average concentration of main ion"),
+            "CIM1": ("SIGNAL", "Average concentration of impurity IMP1"),
+            "CIM2": ("SIGNAL", "Average concentration of impurity IMP2"),
+            "CIM3": ("SIGNAL", "Average concentration of impurity IMP3"),
         },
         ".PROFILES.PSI_NORM": {
             "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
@@ -198,9 +211,19 @@ def get_tree_structure():
             "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
             "NE": ("SIGNAL", "Electron density, m^-3"),
             "NI": ("SIGNAL", "Ion density, m^-3"),
-            "NH": ("SIGNAL", "Neutral density, m^-3"),
             "TE": ("SIGNAL", "Electron temperature, eV"),
-            "TI": ("SIGNAL", "Ion temperature, eV"),
+            "TI": ("SIGNAL", "Ion temperature of main ion, eV"),
+            "TIZ1": ("SIGNAL", "Ion temperature of impurity IMP1, eV"),
+            "TIZ2": ("SIGNAL", "Ion temperature of impurity IMP2, eV"),
+            "TIZ3": ("SIGNAL", "Ion temperature of impurity IMP3, eV"),
+            "NIZ1": ("SIGNAL", "Density of impurity IMP1, m^-3"),
+            "NIZ2": ("SIGNAL", "Density of impurity IMP2, m^-3"),
+            "NIZ3": ("SIGNAL", "Density of impurity IMP3, m^-3"),
+            "NNEUTR": ("SIGNAL", "Density of neutral main ion, m^-3"),
+            "ZI": ("SIGNAL", "Average charge of main ion, "),
+            "ZIM1": ("SIGNAL", "Average charge of impurity IMP1, "),
+            "ZIM2": ("SIGNAL", "Average charge of impurity IMP2, "),
+            "ZIM3": ("SIGNAL", "Average charge of impurity IMP3, "),
             "ZEFF": ("SIGNAL", "Effective charge, "),
         },
     }
@@ -306,6 +329,7 @@ def organise_data(plasma, data={}, bckc={}):
     tev = []
     tiv = []
     nev = []
+    niv = []
     for t in plasma.time.values:
         tev.append(
             np.trapz(plasma.el_temp.sel(t=t).values, plasma.volume.sel(t=t).values)
@@ -322,120 +346,155 @@ def organise_data(plasma, data={}, bckc={}):
             np.trapz(plasma.el_dens.sel(t=t).values, plasma.volume.sel(t=t).values)
             / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
         )
+        niv.append(
+            np.trapz(
+                plasma.ion_dens.sel(element=plasma.main_ion).sel(t=t).values,
+                plasma.volume.sel(t=t).values,
+            )
+            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
+        )
     tev = np.array(tev)
     tiv = np.array(tiv)
     nev = np.array(nev)
+    niv = np.array(niv)
 
-    cr0 = plasma.cr0
-    rmag = plasma.rmag
-    zmag = plasma.zmag
-    volm = plasma.volume.sel(rho_poloidal=1)
-    ipla = plasma.ipla
+    opt_equil = plasma.optimisation["equil"]
+    opt_el_dens = plasma.optimisation["el_dens"]
+    opt_el_temp = plasma.optimisation["el_temp"]
+    opt_ion_temp = plasma.optimisation["ion_temp"]
+    opt_stored_en = plasma.optimisation["stored_en"]
 
-    equil = plasma.optimisation["equil"]
-    el_dens = plasma.optimisation["el_dens"]
-    el_temp = plasma.optimisation["el_temp"]
-    ion_temp = plasma.optimisation["ion_temp"]
-    stored_en = plasma.optimisation["stored_en"]
+    elements = [plasma.main_ion]
+    impurities = [""] * 3
+    for i, elem in enumerate(plasma.impurities):
+        impurities[i] = elem
+    elements.extend(impurities)
 
+    ion_conc = []
+    ion_meanz = []
+    ion_dens = []
+    ion_temp = []
+    for elem in elements:
+        if len(elem) > 0:
+            conc = (plasma.ion_dens.sel(element=elem) / plasma.el_dens).mean(
+                "rho_poloidal"
+            )
+            meanz = plasma.meanz.sel(element=elem)
+            dens = plasma.ion_dens.sel(element=elem)
+            temp = plasma.ion_temp.sel(element=elem)
+        else:
+            conc = np.zeros_like(plasma.t)
+            meanz = np.zeros_like(plasma.meanz.sel(element=elements[0]))
+            dens = np.zeros_like(plasma.ion_dens.sel(element=elements[0]))
+            temp = np.zeros_like(plasma.ion_temp.sel(element=elements[0]))
+        ion_conc.append(conc)
+        ion_meanz.append(meanz)
+        ion_dens.append(dens)
+        ion_temp.append(temp)
+
+    glob_coord = ["TIME"]
+    prof_coord = ["PROFILES.PSI_NORM.RHOP", "TIME"]
     nodes = {
         "": {
             "TIME": (Float32(plasma.time.values), "s", []),
         },  # (values, units, coordinate node name)
         ".METADATA": {
             "PULSE": (Float32(plasma.pulse), "", []),
-            "EQUIL": (String(equil), "", []),
-            "EL_DENS": (String(el_dens), "", []),
-            "EL_TEMP": (String(el_temp), "", []),
-            "ION_TEMP": (String(ion_temp), "", []),
-            "STORED_EN": (String(stored_en), "", []),
+            "EQUIL": (String(opt_equil), "", []),
+            "EL_DENS": (String(opt_el_dens), "", []),
+            "EL_TEMP": (String(opt_el_temp), "", []),
+            "ION_TEMP": (String(opt_ion_temp), "", []),
+            "STORED_EN": (String(opt_stored_en), "", []),
+            "MAIN_ION": (String(plasma.main_ion), "", []),
+            "IMPURITY1": (String(impurities[0]), "", []),
+            "IMPURITY2": (String(impurities[1]), "", []),
+            "IMPURITY3": (String(impurities[2]), "", []),
         },
         ".GLOBAL": {
-            "CR0": (Float32(cr0.values), "m", ["TIME"],),
-            "RMAG": (Float32(rmag.values), "m", ["TIME"],),
-            "ZMAG": (Float32(zmag.values), "m", ["TIME"],),
-            "VOLM": (Float32(volm.values), "m^3", ["TIME"],),
-            "IP": (Float32(ipla.values), "A", ["TIME"],),
+            "CR0": (Float32(plasma.cr0.values), "m", glob_coord,),
+            "RMAG": (Float32(plasma.rmag.values), "m", glob_coord,),
+            "ZMAG": (Float32(plasma.zmag.values), "m", glob_coord,),
+            "VOLM": (
+                Float32(plasma.volume.sel(rho_poloidal=1).values),
+                "m^3",
+                glob_coord,
+            ),
+            "IP": (Float32(plasma.ipla.values), "A", glob_coord,),
             "TE0": (
                 Float32(plasma.el_temp.sel(rho_poloidal=0).values),
                 "eV",
-                ["TIME"],
+                glob_coord,
             ),
-            "TI0": (
-                Float32(
-                    plasma.ion_temp.sel(element=plasma.main_ion)
-                    .sel(rho_poloidal=0)
-                    .values
-                ),
+            "TI0": (Float32(ion_temp[0].sel(rho_poloidal=0).values), "eV", glob_coord,),
+            "TI0_Z1": (
+                Float32(ion_temp[1].sel(rho_poloidal=0).values),
                 "eV",
-                ["TIME"],
+                glob_coord,
+            ),
+            "TI0_Z2": (
+                Float32(ion_temp[2].sel(rho_poloidal=0).values),
+                "eV",
+                glob_coord,
+            ),
+            "TI0_Z3": (
+                Float32(ion_temp[3].sel(rho_poloidal=0).values),
+                "eV",
+                glob_coord,
             ),
             "NE0": (
                 Float32(plasma.el_dens.sel(rho_poloidal=0).values),
                 "m^-3 ",
-                ["TIME"],
+                glob_coord,
             ),
-            "TEV": (Float32(tev), "eV", ["TIME"]),
-            "TIV": (Float32(tiv), "eV", ["TIME"]),
-            "NEV": (Float32(nev), "m^-3", ["TIME"]),
-            "WTH": (Float32(plasma.wth.values), "J", ["TIME"]),
-            "WP": (Float32(plasma.wp.values), "J", ["TIME"]),
-            "UPL": (Float32(plasma.vloop.values), "V", ["TIME"]),
+            "NI0": (
+                Float32(ion_dens[0].sel(rho_poloidal=0).values),
+                "m^-3 ",
+                glob_coord,
+            ),
+            "TEV": (Float32(tev), "eV", glob_coord),
+            "TIV": (Float32(tiv), "eV", glob_coord),
+            "NEV": (Float32(nev), "m^-3", glob_coord),
+            "NIV": (Float32(niv), "m^-3", glob_coord),
+            "WTH": (Float32(plasma.wth.values), "J", glob_coord),
+            "WP": (Float32(plasma.wp.values), "J", glob_coord),
+            "UPL": (Float32(plasma.vloop.values), "V", glob_coord),
             "ZEFF": (
                 Float32(plasma.zeff.sum("element").sel(rho_poloidal=0).values),
                 "",
-                ["TIME"],
+                glob_coord,
             ),
+            "CION": (Float32(ion_conc[0].values), "", glob_coord),
+            "CIM1": (Float32(ion_conc[1].values), "", glob_coord),
+            "CIM2": (Float32(ion_conc[2].values), "", glob_coord),
+            "CIM3": (Float32(ion_conc[3].values), "", glob_coord),
         },
         ".PROFILES.PSI_NORM": {
             "RHOP": (Float32(plasma.rho.values), "", ()),
             "XPSN": (Float32(plasma.rho.values ** 2), "", ()),
-            "P": (
-                Float32(plasma.pressure_th.values),
-                "Pa",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
-            "VOLUME": (
-                Float32(plasma.volume.values),
-                "m^3",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
-            "NE": (
-                Float32(plasma.el_dens.values),
-                "m^-3",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
-            "NI": (
-                Float32(plasma.ion_dens.sel(element=plasma.main_ion).values),
-                "m^-3",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
-            "NH": (
-                Float32(plasma.neutral_dens.values),
-                "m^-3",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
-            "TE": (
-                Float32(plasma.el_temp.values),
-                "eV",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
-            "TI": (
-                Float32(plasma.ion_temp.sel(element=plasma.main_ion).values),
-                "eV",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
-            "ZEFF": (
-                Float32(plasma.zeff.sum("element").values),
-                "",
-                ["PROFILES.PSI_NORM.RHOP", "TIME"],
-            ),
+            "P": (Float32(plasma.pressure_th.values), "Pa", prof_coord,),
+            "VOLUME": (Float32(plasma.volume.values), "m^3", prof_coord,),
+            "NE": (Float32(plasma.el_dens.values), "m^-3", prof_coord,),
+            "NI": (Float32(ion_dens[0].values), "m^-3", prof_coord,),
+            "NIZ1": (Float32(ion_dens[1].values), "", prof_coord,),
+            "NIZ2": (Float32(ion_dens[2].values), "", prof_coord,),
+            "NIZ3": (Float32(ion_dens[3].values), "", prof_coord,),
+            "NNEUTR": (Float32(plasma.neutral_dens.values), "m^-3", prof_coord,),
+            "TE": (Float32(plasma.el_temp.values), "eV", prof_coord,),
+            "TI": (Float32(ion_temp[0].values), "eV", prof_coord,),
+            "TIZ1": (Float32(ion_temp[1].values), "eV", prof_coord,),
+            "TIZ2": (Float32(ion_temp[2].values), "eV", prof_coord,),
+            "TIZ3": (Float32(ion_temp[3].values), "eV", prof_coord,),
+            "ZEFF": (Float32(plasma.zeff.sum("element").values), "", prof_coord,),
+            "ZI": (Float32(ion_meanz[0].values), "", prof_coord,),
+            "ZIM1": (Float32(ion_meanz[1].values), "", prof_coord,),
+            "ZIM2": (Float32(ion_meanz[2].values), "", prof_coord,),
+            "ZIM3": (Float32(ion_meanz[3].values), "", prof_coord,),
         },
     }
     # "RHOT": (
     #     Float32(plasma.rhot.values),
     #     "",
-    #     ["PROFILES.PSI_NORM.RHOP", "TIME"],
+    #     prof_coord,
     # ),
 
     return nodes
