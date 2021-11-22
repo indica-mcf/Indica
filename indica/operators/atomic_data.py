@@ -141,7 +141,7 @@ class FractionalAbundance(Operator):
         if check_input:
             for ikey, ival in imported_data.items():
                 input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
-            shape_check(imported_data)
+            # shape_check(imported_data)
 
     def interpolation_bounds_check(
         self,
@@ -204,6 +204,7 @@ class FractionalAbundance(Operator):
                     inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
                 )
         except AssertionError:
+            print(np.max(inputted_data["Te"]), np.max(val.coords["electron_temperature"]))
             raise ValueError(
                 f"Inputted electron temperature is larger than the \
                     maximum interpolation range in {key}"
@@ -755,7 +756,7 @@ class PowerLoss(Operator):
         for ikey, ival in imported_data.items():
             input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
 
-        shape_check(imported_data)
+        # shape_check(imported_data)
 
     def interpolation_bounds_check(
         self,
@@ -958,8 +959,8 @@ class PowerLoss(Operator):
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
-        if len(inputted_data) > 1:
-            shape_check(inputted_data)
+        # if len(inputted_data) > 1:
+        #     shape_check(inputted_data)
 
         if F_z_t is not None:
             input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
