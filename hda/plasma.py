@@ -7,6 +7,9 @@ import matplotlib.pylab as plt
 
 import numpy as np
 
+from scipy.optimize import least_squares
+from scipy import constants
+
 from hda.profiles import Profiles
 import hda.physics as ph
 
@@ -33,6 +36,14 @@ ADF11 = {
         "prb": "96",
         "prc": "96",
     },
+    "he": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+    },
     "c": {
         "scd": "96",
         "acd": "96",
@@ -45,8 +56,8 @@ ADF11 = {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
-        "plt": "89",
-        "prb": "89",
+        "plt": "00",
+        "prb": "00",
         "prc": "89",
     },
 }
@@ -74,6 +85,7 @@ class Plasma:
         self.elements = elements
         self.tstart = tstart
         self.tend = tend
+        self.dt = dt
         self.t = np.arange(tstart, tend, dt)
         self.theta = np.linspace(0, 2 * np.pi, ntheta + 1)[:-1]
         self.radial_coordinate = np.linspace(0, 1.0, 41)
@@ -175,10 +187,55 @@ class Plasma:
             binned_data["efit"]["rmjo"] - binned_data["efit"]["rmji"]
         ).sel(rho_poloidal=1) / 2.0
 
-        self.rmag = binned_data["efit"]["rmag"]
-        self.zmag = binned_data["efit"]["zmag"]
+        self.R_mag = binned_data["efit"]["rmag"]
+        self.z_mag = binned_data["efit"]["zmag"]
+
+        self.R_bt_0 = binned_data["R_bt_0"]
+        self.bt_0 = binned_data["bt_0"]
 
         return binned_data
+
+    def apply_limits(
+        self,
+        data,
+        diagnostic: str,
+        quantity=None,
+        val_lim=(np.nan, np.nan),
+        err_lim=(np.nan, np.nan),
+    ):
+        """
+        Set to Nan all data whose value or relative error aren't within specified limits
+        """
+
+        if quantity is None:
+            quantity = list(data[diagnostic])
+        else:
+            quantity = list(quantity)
+
+        for q in quantity:
+            error = None
+            value = data[diagnostic][q]
+            if "error" in value.attrs.keys():
+                error = data[diagnostic][q].attrs["error"]
+
+            if np.isfinite(val_lim[0]):
+                print(val_lim[0])
+                value = xr.where(value >= val_lim[0], value, np.nan)
+            if np.isfinite(val_lim[1]):
+                print(val_lim[1])
+                value = xr.where(value <= val_lim[1], value, np.nan)
+
+            if error is not None:
+                if np.isfinite(err_lim[0]):
+                    print(err_lim[0])
+                    value = xr.where((error/value) >= err_lim[0], value, np.nan)
+                if np.isfinite(err_lim[1]):
+                    print(err_lim[1])
+                    value = xr.where((error/value) <= err_lim[1], value, np.nan)
+
+            data[diagnostic][q].values = value.values
+
+        return data
 
     def calculate_geometry(self):
         if hasattr(self, "equilibrium"):
@@ -250,6 +307,15 @@ class Plasma:
         self.fract_abu = fract_abu
         self.power_loss = power_loss
 
+    def set_neutral_density(self, y0=1.0e10, y1=1.0e15, decay=12):
+        self.Nh_prof.y0 = y0
+        self.Nh_prof.y1 = y1
+        self.Nh_prof.yend = y1
+        self.Nh_prof.wped = decay
+        self.Nh_prof.build_profile()
+        for t in self.t:
+            self.neutral_dens.loc[dict(t=t)] = self.Nh_prof.yspl.values
+
     def interferometer(self, data, bckc={}, diagnostic=None, quantity=None):
         """
         Calculate expected diagnostic measurement given plasma profile
@@ -272,11 +338,61 @@ class Plasma:
 
                 bckc = initialize_bckc(diag, quant, data, bckc=bckc)
 
-                bckc[diag][quant].values = self.calc_ne_los_int(data[diag][quant]).values
+                bckc[diag][quant].values = self.calc_ne_los_int(
+                    data[diag][quant]
+                ).values
 
         return bckc
 
-    def match_xrcs(
+    def bremsstrahlung(
+        self,
+        data,
+        bckc={},
+        diagnostic="lines",
+        quantity="brems",
+        wavelength=532.0,
+        cal=2.5e-5,
+    ):
+        """
+        Estimate back-calculated Bremsstrahlung measurement from plasma quantities
+
+        Parameters
+        ----------
+        data
+            diagnostic data as returned by self.build_data()
+        bckc
+            back-calculated data
+        diagnostic
+            name of diagnostic usef for bremsstrahlung measurement
+        quantity
+            Measurement to be used for the bremsstrahlung
+        wavelength
+            Wavelength of measurement
+        cal
+            Calibration factor for measurement
+            Default value calculated to match Zeff before Ar puff from LINES.BREMS_MP for pulse 9408
+
+        Returns
+        -------
+        bckc
+            dictionary with back calculated value(s)
+
+        """
+        brems = ph.zeff_bremsstrahlung(
+            self.el_temp, self.el_dens, wavelength, zeff=self.zeff.sum("element")
+        )
+        if diagnostic in data.keys():
+            if quantity in data[diagnostic].keys():
+                bckc = initialize_bckc(diagnostic, quantity, data, bckc=bckc)
+
+                bckc[diagnostic][quantity].values = self.calc_los_int(
+                    data[diagnostic][quantity], brems * cal
+                ).values
+
+        bckc[diagnostic][quantity].attrs["calibration"] = cal
+        return bckc
+
+    def match_xrcs_temperatures(
         self,
         data,
         bckc={},
@@ -288,6 +404,9 @@ class Plasma:
         wcenter=0.4,
         peaking=1.5,
         niter=3,
+        leastsq=False,
+        use_ratios=False,
+        time = None,
     ):
         """
         Rescale temperature profiles to match the XRCS spectrometer measurements
@@ -314,6 +433,89 @@ class Plasma:
 
         """
 
+        def residuals_te_ratio(te0):
+            """
+            Optimisation for line ratios
+            """
+            Te_prof.y0 = te0
+            Te_prof.build_profile()
+            el_temp = Te_prof.yspl
+            forward_model.radiation_characteristics(el_temp, el_dens)
+            forward_model.los_integral(rho_los, dl)
+
+            int_n3 = forward_model.intensity
+            if quantity_te == "te_kw":
+                ratio_bckc = (forward_model.intensity["k"] / forward_model.intensity["w"])
+            elif quantity_te == "te_n3w":
+                ratio_bckc = forward_model.intensity["n3"] / (data[diagnostic]["int_tot"])
+
+            te_bckc = _bckc[quantity_te]
+            resid = te_data - te_bckc
+            return resid
+
+        def residuals_te(te0):
+            Te_prof.y0 = te0
+            Te_prof.build_profile()
+            el_temp = Te_prof.yspl
+            ion_temp = Ti_prof.yspl
+            forward_model.radiation_characteristics(el_temp, el_dens)
+            _bckc = forward_model.moment_analysis(ion_temp, rho_los=rho_los, dl=dl)
+            te_bckc = _bckc[quantity_te]
+            resid = te_data - te_bckc
+            return resid
+
+        def residuals_ti(ti0):
+            Ti_prof.y0 = ti0
+            Ti_prof.build_profile(y0_ref=Te_prof.y0)
+            ion_temp = Ti_prof.yspl
+            el_temp = Te_prof.yspl
+            forward_model.radiation_characteristics(el_temp, el_dens)
+            _bckc = forward_model.moment_analysis(ion_temp, rho_los=rho_los, dl=dl)
+            ti_bckc = _bckc[quantity_ti]
+            resid = ti_data - ti_bckc
+            return resid
+
+        def iterative(
+            te_data, ti_data, el_dens, niter,
+        ):
+
+            Te_prof.y0 = deepcopy(te_data)
+            Ti_prof.y0 = deepcopy(ti_data)
+
+            const_te, const_ti = 1, 1
+            for j in range(niter):
+                Te_prof.y0 *= const_te
+                Te_prof.build_profile()
+                el_temp = Te_prof.yspl
+
+                Ti_prof.y0 *= const_ti
+                Ti_prof.build_profile(y0_ref=Te_prof.y0)
+                ion_temp = Ti_prof.yspl
+
+                forward_model.radiation_characteristics(el_temp, el_dens)
+                _bckc = forward_model.moment_analysis(ion_temp)
+                te_bckc = _bckc[quantity_te]
+                ti_bckc = _bckc[quantity_ti]
+
+                const_te = (
+                    te_data
+                    / el_temp.sel(rho_poloidal=te_bckc.rho_poloidal, method="nearest")
+                ).values[0]
+                const_ti = (
+                    ti_data
+                    / ion_temp.sel(rho_poloidal=ti_bckc.rho_poloidal, method="nearest")
+                ).values[0]
+
+                if (np.abs(1 - const_te) < 1.0e-4) and (np.abs(1 - const_ti) < 1.0e-4):
+                    break
+
+            return te_bckc, ti_bckc
+
+        if use_ratios:
+            if not leastsq:
+                print_like("Ratio optimisation possible only with least-sq optimisation..")
+                raise ValueError
+
         if diagnostic not in data.keys():
             print_like(f"No {diagnostic.upper()} data available")
             return
@@ -321,6 +523,9 @@ class Plasma:
         print_like(
             f"Re-calculating temperature profiles to match {diagnostic.upper()} values"
         )
+
+        if time is None:
+            time = self.t
 
         if diagnostic not in bckc:
             bckc[diagnostic] = {}
@@ -348,10 +553,29 @@ class Plasma:
         err_out = deepcopy(pos)
         te_pos = Dataset({"value": pos, "err_in": err_in, "err_out": err_out})
         ti_pos = deepcopy(te_pos)
+        bounds = (100.0, 30.0e3)
 
+        emiss = []
+        fz = []
+        forward_model.radiation_characteristics(self.Te_prof.yspl, self.Ne_prof.yspl)
         for t in self.t:
+            emiss.append(forward_model.emiss["w"] * 0.0)
+            fz.append(forward_model.fz["ar"] * 0.0)
+        emiss = xr.concat(emiss, "t").assign_coords(t=self.t)
+        fz = xr.concat(fz, "t").assign_coords(t=self.t)
+
+        if quantity_te == "te_kw":
+            ratio = (data[diagnostic]["int_k"]/data[diagnostic]["int_w"])
+        elif quantity_te == "te_n3w":
+            ratio = data[diagnostic]["int_n3"]/(data[diagnostic]["int_tot"])
+
+        dl = data[diagnostic][quantity_ti].attrs["dl"]
+        for t in time:
+            print(t)
             te_data = data[diagnostic][quantity_te].sel(t=t)
             ti_data = data[diagnostic][quantity_ti].sel(t=t)
+            rho_los = data[diagnostic][quantity_ti].attrs["rho"].sel(t=t)
+            ratio_data = ratio.sel(t=t)
 
             if not ((te_data > 0) * (ti_data > 0)).values:
                 self.el_temp.loc[dict(t=t)] = np.full_like(Te_prof.yspl.values, np.nan)
@@ -359,38 +583,28 @@ class Plasma:
                     self.ion_temp.loc[dict(t=t, element=elem)] = np.full_like(
                         Te_prof.yspl.values, np.nan
                     )
+
                 continue
 
             el_dens = self.el_dens.sel(t=t)
 
-            const_te, const_ti = 1, 1
-            Te_prof.y0 = deepcopy(te_data.values)
-            Ti_prof.y0 = deepcopy(ti_data.values)
-            for j in range(niter):
-                Te_prof.y0 *= const_te
-                Te_prof.build_profile()
+            if leastsq:
+                fit_te = least_squares(residuals_te, te_data, bounds=bounds)
+                fit_ti = least_squares(residuals_ti, ti_data, bounds=bounds)
+
                 el_temp = Te_prof.yspl
-
-                Ti_prof.y0 *= const_ti
-                Ti_prof.build_profile(y0_ref=Te_prof.y0)
                 ion_temp = Ti_prof.yspl
-
                 forward_model.radiation_characteristics(el_temp, el_dens)
-                _bckc = forward_model.moment_analysis(ion_temp)
+                _bckc = forward_model.moment_analysis(ion_temp, rho_los=rho_los, dl=dl)
                 te_bckc = _bckc[quantity_te]
                 ti_bckc = _bckc[quantity_ti]
+            else:
+                te_bckc, ti_bckc = iterative(
+                    te_data.values, ti_data.values, el_dens, niter
+                )
 
-                const_te = (
-                    te_data
-                    / el_temp.sel(rho_poloidal=te_bckc.rho_poloidal, method="nearest")
-                ).values[0]
-                const_ti = (
-                    ti_data
-                    / ion_temp.sel(rho_poloidal=ti_bckc.rho_poloidal, method="nearest")
-                ).values[0]
-
-                if (const_te < 1.0001) and (const_ti < 1.0001):
-                    continue
+                el_temp = Te_prof.yspl
+                ion_temp = Ti_prof.yspl
 
             te_pos.value.loc[dict(t=t)] = te_bckc.rho_poloidal.values[0]
             te_pos.err_in.loc[dict(t=t)] = te_bckc.attrs["rho_poloidal_err"]["in"]
@@ -400,15 +614,24 @@ class Plasma:
             ti_pos.err_in.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["in"]
             ti_pos.err_out.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["out"]
 
+            emiss.loc[dict(t=t)] = forward_model.emiss["w"]
+            fz.loc[dict(t=t)] = forward_model.fz["ar"]
+
             bckc[diagnostic][quantity_te].loc[dict(t=t)] = te_bckc.values[0]
-            bckc[diagnostic][quantity_te].attrs["pos"] = te_pos
 
             bckc[diagnostic][quantity_ti].loc[dict(t=t)] = ti_bckc.values[0]
-            bckc[diagnostic][quantity_ti].attrs["pos"] = ti_pos
 
             self.el_temp.loc[dict(t=t)] = el_temp.values
             for elem in self.elements:
                 self.ion_temp.loc[dict(t=t, element=elem)] = ion_temp.values
+
+        bckc[diagnostic][quantity_te].attrs["pos"] = te_pos
+        bckc[diagnostic][quantity_te].attrs["emiss"] = emiss
+        bckc[diagnostic][quantity_te].attrs["fz"] = fz
+
+        bckc[diagnostic][quantity_ti].attrs["pos"] = ti_pos
+        bckc[diagnostic][quantity_ti].attrs["emiss"] = emiss
+        bckc[diagnostic][quantity_ti].attrs["fz"] = fz
 
         self.optimisation[
             "el_temp"
@@ -416,6 +639,96 @@ class Plasma:
         self.optimisation[
             "ion_temp"
         ] = f"{diagnostic}.{quantity_ti}:{data[diagnostic][quantity_ti].revision}"
+
+        return bckc
+
+    def match_xrcs_intensity(
+        self,
+        data,
+        bckc={},
+        diagnostic: str = "xrcs",
+        quantity: str = "int_w",
+        elem="ar",
+        cal=1.e13,
+        niter=2,
+        time = None,
+    ):
+        """
+        Compute Ar density to match the XRCS spectrometer measurements
+
+        Parameters
+        ----------
+        data
+            diagnostic data as returned by self.build_data()
+        bckc
+            back-calculated data
+        diagnostic
+            diagnostic name corresponding to xrcs
+        quantity_int
+            Measurement to be used for determining the impurity concentration from line intensity
+        cal
+            Calibration factor for measurement
+            Default value calculated to match Zeff from LINES.BREMS_MP for pulse 9408
+        elem
+            Element responsible for measured spectra
+        niter
+            Number of iterations
+
+        Returns
+        -------
+
+        """
+
+        if diagnostic not in data.keys():
+            print_like(f"No {diagnostic.upper()} data available")
+            return
+
+        print_like(
+            f"Re-calculating Ar density profiles to match {diagnostic.upper()} values"
+        )
+
+        if time is None:
+            time = self.t
+
+        if diagnostic not in bckc:
+            bckc[diagnostic] = {}
+
+        bckc = initialize_bckc(diagnostic, quantity, data, bckc=bckc)
+
+        # Initialize back calculated values of diagnostic quantities
+        forward_model = self.forward_models[diagnostic]
+        dl = data[diagnostic][quantity].attrs["dl"]
+        for i, t in enumerate(time):
+            print(t)
+
+            int_data = data[diagnostic][quantity].sel(t=t)
+            Te = self.el_temp.sel(t=t)
+            Ne = self.el_dens.sel(t=t)
+            tau = self.tau.sel(t=t)
+            Nh = self.neutral_dens.sel(t=t)
+            Nimp = {elem:self.ion_dens.sel(element=elem).sel(t=t)}
+            if np.isnan(Te).any():
+                continue
+            rho_los = data[diagnostic][quantity].attrs["rho"].sel(t=t)
+
+            const = 1.0
+            for j in range(niter):
+                Nimp[elem] *= const
+                forward_model.radiation_characteristics(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
+                int_bckc, _ = forward_model.los_integral(rho_los, dl)
+                int_bckc = int_bckc["w"] * cal
+                const = (int_data / int_bckc).values
+
+                if np.abs(1 - const) < 1.0e-4:
+                    break
+
+            self.ion_dens.loc[dict(element=elem, t=t)] = Nimp[elem].values
+            bckc[diagnostic][quantity].loc[dict(t=t)] = int_bckc.values
+
+        bckc[diagnostic][quantity].attrs["calibration"] = cal
+        self.optimisation[
+            "imp_dens"
+        ] = f"{diagnostic}.{quantity}:{data[diagnostic][quantity].revision}"
 
         return bckc
 
@@ -427,6 +740,7 @@ class Plasma:
         quantity: str = "ne_bin",
         error=False,
         niter=3,
+        time = None,
     ):
         """
         Rescale density profiles to match the interferometer measurements
@@ -448,15 +762,18 @@ class Plasma:
             f"Re-calculating density profiles to match {diagnostic}.{quantity} values"
         )
 
+        if time is None:
+            time = self.t
+
         # TODO: make more elegant optimisation
 
         bckc = initialize_bckc(diagnostic, quantity, data, bckc=bckc)
 
         Ne_prof = self.Ne_prof
-        for t in self.t:
+        for t in time:
             const = 1.0
             for j in range(niter):
-                ne0 = self.el_dens.sel(t=t, rho_poloidal=0) * const
+                ne0 = Ne_prof.yspl.sel(rho_poloidal=0) * const
                 ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
                 Ne_prof.y0 = ne0.values
                 Ne_prof.build_profile()
@@ -529,12 +846,14 @@ class Plasma:
         self.calc_beta_poloidal()
         self.calc_vloop()
 
-    def calc_ne_los_int(self, data, t=None):
+    def calc_ne_los_int(self, data, passes=2, t=None):
         """
-        Calculate line of sight integral along 2 passes through the plasma
+        Calculate line of sight integral for a specified number of passes through the plasma
 
         Returns
         -------
+        los_int
+            Integral along the line of sight
 
         """
         dl = data.attrs["dl"]
@@ -545,12 +864,45 @@ class Plasma:
 
         el_dens = self.el_dens.interp(rho_poloidal=rho)
         if t is not None:
-            el_dens = el_dens.sel(t=t)
-            rho = rho.sel(t=t)
+            el_dens = el_dens.sel(t=t, method="nearest")
+            rho = rho.sel(t=t, method="nearest")
         el_dens = xr.where(rho <= 1, el_dens, 0,)
-        el_dens_int = 2 * el_dens.sum(x2_name) * dl
+        el_dens_int = passes * el_dens.sum(x2_name) * dl
 
         return el_dens_int
+
+    def calc_los_int(self, data, profile, t=None):
+        """
+        Calculate line of sight integral of quantity saved as attr in class
+        
+        Parameters
+        ----------
+        data
+            raw data with LOS information of specified diagnostic
+        quantity
+            Quantity to be integrated along the LOS
+        t
+            Time
+
+        Returns
+        -------
+        Integral along the line of sight
+
+        """
+        dl = data.attrs["dl"]
+        rho = data.attrs["rho"]
+        transform = data.attrs["transform"]
+
+        x2_name = transform.x2_name
+
+        value = profile.interp(rho_poloidal=rho)
+        if t is not None:
+            value = value.sel(t=t)
+            rho = rho.sel(t=t)
+        value = xr.where(rho <= 1, value, 0,)
+        los_int = value.sum(x2_name) * dl
+
+        return los_int
 
     def calc_main_ion_dens(self, fast_dens=True):
         """
@@ -565,7 +917,7 @@ class Plasma:
         ion_dens_meanz = self.ion_dens * self.meanz
         main_ion_dens = deepcopy(self.el_dens)
         for elem in self.impurities:
-            main_ion_dens -= ion_dens_meanz.loc[dict(element=elem)]
+            main_ion_dens -= ion_dens_meanz.sel(element=elem)
 
         if fast_dens is True:
             main_ion_dens -= self.fast_dens
@@ -693,7 +1045,13 @@ class Plasma:
             self.ptot.loc[dict(t=t)] = np.trapz(
                 self.pressure_tot.sel(t=t), self.volume.sel(t=t)
             )
-
+            # self.pf_par.loc[dict(t=t)] = np.trapz(
+            #     self.fpressure_parallel.sel(t=t), self.volume.sel(t=t)
+            # )
+            # self.pf_perp.loc[dict(t=t)] = np.trapz(
+            #     self.fpressure_perp.sel(t=t), self.volume.sel(t=t)
+            # )
+        # self.wfast = 1/2 *self.pf_par + self.pf_perp
         self.wth.values = 3 / 2 * self.pth.values
         self.wp.values = 3 / 2 * self.ptot.values
 
@@ -775,7 +1133,7 @@ class Plasma:
 
             j_phi = ph.current_density(ipla, rho, r_a, area, prof_shape)
 
-            self.j_phi.loc[dict(t=t)] = j_phi
+            self.j_phi.loc[dict(t=t)] = j_phi * 10
 
     def calc_magnetic_field(self):
         """
@@ -787,6 +1145,7 @@ class Plasma:
             R_mag = self.R_mag.sel(t=t).values
             ipla = self.ipla.sel(t=t).values
             bt_0 = self.bt_0.sel(t=t).values
+            zmag = self.equilibrium.zmag.sel(t=t, method="nearest").values
             maj_r_lfs = self.maj_r_lfs.sel(t=t).values
             maj_r_hfs = self.maj_r_hfs.sel(t=t).values
             j_phi = self.j_phi.sel(t=t).values
@@ -794,6 +1153,8 @@ class Plasma:
             min_r = self.min_r.sel(t=t).values
             volume = self.volume.sel(t=t).values
             area = self.area.sel(t=t).values
+
+            # self.b_tor_lfs.loc[dict(t=t)] = self.equilibrium.Btot(maj_r_lfs, np.full_like(maj_r_lfs, zmag), t)
 
             self.b_tor_lfs.loc[dict(t=t)] = ph.toroidal_field(bt_0, R_bt_0, maj_r_lfs)
             self.b_tor_hfs.loc[dict(t=t)] = ph.toroidal_field(bt_0, R_bt_0, maj_r_hfs)
@@ -818,7 +1179,6 @@ class Plasma:
         """
 
         for t in self.time:
-            rho = self.rho.values
             b_pol = self.b_pol.sel(t=t).values
             pressure = self.pressure_tot.sel(t=t).values
             volume = self.volume.sel(t=t).values
@@ -942,7 +1302,7 @@ class Plasma:
         self.time = deepcopy(data1d_time)
         self.time.values = self.t
         assign_datatype(self.time, ("t", "plasma"))
-        self.freq = 1.0 / (self.time[1] - self.time[0]).values
+        self.freq = 1.0 / self.dt
 
         self.rho = deepcopy(data1d_rho)
         self.rho.values = self.radial_coordinate
@@ -957,7 +1317,9 @@ class Plasma:
         self.Ne_prof = Profiles(datatype=("density", "electron"), xspl=self.rho)
         self.Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
         self.Nimp_prof.y1 = 3.0e19
-        self.Nimp_prof.build_profile(yend=self.Nimp_prof.y1)
+        self.Nimp_prof.yend = 3.0e19
+        self.Nimp_prof.build_profile()
+        self.Nh_prof = Profiles(datatype=("neutral_density", "neutrals"), xspl=self.rho)
         self.Vrot_prof = Profiles(datatype=("rotation", "ion"), xspl=self.rho)
 
         # self.rhot = deepcopy(data2d)

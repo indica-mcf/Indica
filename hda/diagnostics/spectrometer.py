@@ -3,15 +3,19 @@ from copy import deepcopy
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
+import pickle
 from xarray import DataArray
+from scipy import constants
 
 from indica.readers import ADASReader
 from indica.operators.atomic_data import FractionalAbundance
+from indica.converters import LinesOfSightTransform
 
 from hda.profiles import Profiles
 
 from indica.numpy_typing import ArrayLike
 
+MARCHUK = "/home/marco.sertoli/python/Indica/hda/Marchuk_Argon_PEC.pkl"
 ADF11 = {"ar": {"scd": "89", "acd": "89", "ccd": "89"}}
 ADF15 = {
     "w": {
@@ -51,8 +55,9 @@ class XRCSpectrometer:
         self,
         name="",
         recom=False,
-        adf11:dict=None,
-        adf15:dict=None,
+        adf11: dict = None,
+        adf15: dict = None,
+        marchuk: bool = False,
     ):
         """
         Read all atomic data and initialise objects
@@ -67,6 +72,8 @@ class XRCSpectrometer:
             Dictionary with details of ionisation balance data (see ADF11 class var)
         adf15
             Dictionary with details of photon emission coefficient data (see ADF15 class var)
+        marchuk
+            Use marchuk PECs instead of ADAS
 
         Returns
         -------
@@ -77,7 +84,22 @@ class XRCSpectrometer:
         self.name = name
         self.recom = recom
         self.set_ion_data(adf11=adf11)
-        self.set_pec_data(adf15=adf15)
+        self.set_pec_data(adf15=adf15, marchuk=marchuk)
+
+    def set_transform(self, transform: LinesOfSightTransform):
+        """
+        Set line-of sight transform to perform coordinate conversion and line-of-sight integrals
+
+        Parameters
+        ----------
+        transform
+            Line of sight transform
+
+        Returns
+        -------
+
+        """
+        self.transform = transform
 
     def test_flow(self):
         """
@@ -110,25 +132,33 @@ class XRCSpectrometer:
         self.Te.plot(label="Te", color="red")
         plt.plot(te_kw0.rho_poloidal, te_kw0.values, marker="o", color="red")
         plt.plot(te_kw1.rho_poloidal, te_kw1.values, marker="x", color="red")
-        plt.hlines(te_kw0.values,
-                   te_kw0.rho_poloidal - te_kw0.rho_poloidal_err["in"],
-                   te_kw0.rho_poloidal + te_kw0.rho_poloidal_err["out"],
-                   color="red")
-        plt.hlines(te_kw1.values,
-                   te_kw1.rho_poloidal - te_kw1.rho_poloidal_err["in"],
-                   te_kw1.rho_poloidal + te_kw1.rho_poloidal_err["out"],
-                   color="red")
+        plt.hlines(
+            te_kw0.values,
+            te_kw0.rho_poloidal - te_kw0.rho_poloidal_err["in"],
+            te_kw0.rho_poloidal + te_kw0.rho_poloidal_err["out"],
+            color="red",
+        )
+        plt.hlines(
+            te_kw1.values,
+            te_kw1.rho_poloidal - te_kw1.rho_poloidal_err["in"],
+            te_kw1.rho_poloidal + te_kw1.rho_poloidal_err["out"],
+            color="red",
+        )
         self.Ti.plot(label="Ti", color="black")
         plt.plot(ti_w0.rho_poloidal, ti_w0.values, marker="o", color="black")
         plt.plot(ti_w1.rho_poloidal, ti_w1.values, marker="x", color="black")
-        plt.hlines(ti_w0.values,
-                   ti_w0.rho_poloidal - ti_w0.rho_poloidal_err["in"],
-                   ti_w0.rho_poloidal + ti_w0.rho_poloidal_err["out"],
-                   color="black")
-        plt.hlines(ti_w1.values,
-                   ti_w1.rho_poloidal - ti_w1.rho_poloidal_err["in"],
-                   ti_w1.rho_poloidal + ti_w1.rho_poloidal_err["out"],
-                   color="black")
+        plt.hlines(
+            ti_w0.values,
+            ti_w0.rho_poloidal - ti_w0.rho_poloidal_err["in"],
+            ti_w0.rho_poloidal + ti_w0.rho_poloidal_err["out"],
+            color="black",
+        )
+        plt.hlines(
+            ti_w1.values,
+            ti_w1.rho_poloidal - ti_w1.rho_poloidal_err["in"],
+            ti_w1.rho_poloidal + ti_w1.rho_poloidal_err["out"],
+            color="black",
+        )
         plt.title("w-line PEC * fz")
         plt.legend()
 
@@ -156,11 +186,7 @@ class XRCSpectrometer:
             acd[elem] = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
             ccd[elem] = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
 
-            fract_abu[elem] = FractionalAbundance(
-                scd[elem],
-                acd[elem],
-                CCD=ccd[elem],
-            )
+            fract_abu[elem] = FractionalAbundance(scd[elem], acd[elem], CCD=ccd[elem],)
 
         self.adf11 = adf11
         self.scd = scd
@@ -168,7 +194,7 @@ class XRCSpectrometer:
         self.ccd = ccd
         self.fract_abu = fract_abu
 
-    def set_pec_data(self, adf15: dict = None):
+    def set_pec_data(self, adf15: dict = None, marchuk=False):
         """
         Read adf15 data and extract PECs for all lines to be included
         in the modelled spectra
@@ -182,6 +208,13 @@ class XRCSpectrometer:
 
         if adf15 is None:
             adf15 = ADF15
+
+        if marchuk:
+            adf15_marchuk = pickle.load(open(MARCHUK, "rb"))
+            adf15_marchuk = adf15_marchuk.rename(
+                {"line name": "line_name", "el temp": "electron_temperature"}
+            )
+            adf15_marchuk *= 1.0e-6  # cm**3 --> m**3
 
         adf15_data = {}
         pec = deepcopy(adf15)
@@ -204,17 +237,38 @@ class XRCSpectrometer:
 
             elements.append(element)
 
+        if marchuk:
+            print("Using Marchukc PECs, only EXCITATION!")
+
+            el_dens = np.array([1.0e17, 1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22, 1.0e23])
+            adf15_new, pec_new = {}, {}
+            lines_new = ["w", "k", "n3", "n4", "n5"]
+            for k in lines_new:
+                adf15_new[k] = deepcopy(adf15[line])
+                adf15_new[k].pop("transition")
+                adf15_new[k]["file"] = MARCHUK
+
+                pec_new[k] = deepcopy(pec[line])
+                pec_new[k].pop("transition")
+                pec_new[k]["file"] = MARCHUK
+
+                line_name = deepcopy(k)
+                if k[0] == "w":
+                    line_name = "w_exc"
+
+                emiss_coeff = adf15_marchuk.sel(line_name=line_name, drop=True)
+                emiss_coeff = emiss_coeff.expand_dims({"electron_density": el_dens})
+                pec_new[k]["emiss_coeff"] = emiss_coeff
+
+            pec = pec_new
+            adf15 = adf15_new
+
         self.adf15 = adf15
         self.pec = pec
         self.elements = elements
 
     def radiation_characteristics(
-        self,
-        Te,
-        Ne,
-        Nh=None,
-        tau=None,
-        recom=False,
+        self, Te, Ne, Nimp: DataArray = None, Nh=None, tau=None, recom=False,
     ):
         """
 
@@ -226,6 +280,8 @@ class XRCSpectrometer:
             Electron density for interpolation of atomic data
         Nh
             Neutral (thermal) hydrogen density for interpolation of atomic data
+        Nimp
+            Total impurity densities for calculation of emission profiles
         recom
             Set to True if recombination emission is to be included
 
@@ -238,6 +294,8 @@ class XRCSpectrometer:
             Nh = xr.full_like(Ne, 0.0)
         self.Ne = Ne
         self.Nh = Nh
+        if Nimp is not None:
+            self.Nimp = Nimp
         self.Te = Te
 
         fz = {}
@@ -245,6 +303,7 @@ class XRCSpectrometer:
         for line, pec in self.pec.items():
             elem = pec["element"]
             charge = pec["charge"]
+            wavelength = pec["wavelength"]
             coords = pec["emiss_coeff"].coords
 
             if elem not in fz.keys():
@@ -262,7 +321,14 @@ class XRCSpectrometer:
                 emiss_coeff = interp_pec(pec["emiss_coeff"], Ne, Te)
                 _emiss = emiss_coeff * fz[elem].sel(ion_charges=charge)
 
-            emiss[line] = xr.where(_emiss >= 0, _emiss, 0)
+            _emiss *= Ne
+            if Nimp is not None:
+                _emiss *= Nimp[elem]
+            else:
+                _emiss *= Ne
+
+            ev_wavelength = constants.e * 1.239842e3 / (wavelength)
+            emiss[line] = xr.where(_emiss >= 0, _emiss, 0) * ev_wavelength
 
         self.fz = fz
         self.emiss = emiss
@@ -273,7 +339,9 @@ class XRCSpectrometer:
         self,
         Ti: ArrayLike,
         rho_los: ArrayLike = None,
-        Cimp: dict = None,
+        dl: float = None,
+        use_satellites=False,
+        half_los=True,
     ):
         """
         Infer the spectrometer measurement of electron and ion temperatures
@@ -282,13 +350,14 @@ class XRCSpectrometer:
         ----------
         Ti
             Ion temperature profile
-        Ne
-            Electron density profiles (close to the values used for the interpolation
-            of the atomic data)
         rho_los
             rho_poloidal for interpolation along the LOS
-        Cimp
-            impurity concentration profile (dictionary)
+        dl
+            LOS radial precision for integration
+        use_satellites
+            Use convolution of spectral line emission shells for moment analysis
+        half_los
+            Calculate moment analysis for half of the LOS only
 
         Returns
         -------
@@ -297,143 +366,181 @@ class XRCSpectrometer:
         coord = "rho_poloidal"
         data = {}
 
-        Te = self.Te
-        Ne = self.Ne
-        elements = self.elements
-        w_emiss = xr.where(np.isnan(self.emiss["w"]), 0, self.emiss["w"])
-        # k_emiss = xr.where(np.isnan(self.emiss["k"]), 0, self.emiss["k"])
+        self.Ti = deepcopy(Ti)
 
+        if dl is not None and rho_los is not None:
+            self.dl = dl
+            if half_los:
+                rho_los = rho_los[0 : np.argmin(rho_los.values)]
         if rho_los is None:
-            rho_los = Te.rho_poloidal
+            rho_los = self.Te.rho_poloidal
+            dl = 1.0
+
+        self.rho_los = rho_los
+        Te = self.Te.interp(rho_poloidal=rho_los)
+        Ti = self.Ti.interp(rho_poloidal=rho_los)
+        intensity, emiss = self.los_integral(rho_los, dl)
+
         rho_tmp = rho_los.values
         rho_min = np.min(rho_tmp)
 
-        if Cimp is None:
-            Cimp = {}
-            for elem in elements:
-                Cimp[elem] = xr.full_like(Ne, 1.0)
+        for line in self.pec.keys():
+            # Ion temperature and position of emissivity
+            x = np.array(range(len(emiss[line])))
+            y = emiss[line]
+            avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
+            pos = rho_tmp[int(avrg)]
+            pos_err_in = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
+            if pos <= rho_min:
+                pos = rho_min
+                pos_err_in = 0.0
+            if (pos_err_in > pos) and (pos_err_in > (pos - rho_min)):
+                pos_err_in = pos - rho_min
+            pos_err_out = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
 
-        # TODO: currently using emission shape for both Te and Ti, change to account for shape of k-like
-        w_emiss *= Cimp["ar"] * Ne ** 2
-        w_emiss = xr.where((rho_los <= 1) * np.isfinite(w_emiss), w_emiss, 0)
+            x = emiss[line]
+            y = Ti
+            ti_w, err_in, err_out, _, _ = calc_moments(
+                x, y, ind_in=ind_in, ind_out=ind_out, simmetry=False
+            )
+            datatype = ("temperature", "ion")
+            attrs = {
+                "datatype": datatype,
+                "err": {"in": err_in, "out": err_out},
+                f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
+            }
+            data[f"ti_{line}"] = DataArray([ti_w], coords=[(coord, [pos])], attrs=attrs)
 
-        # Position of w-line emissivity and its ion temperature
-        x = np.array(range(len(w_emiss)))
-        y = w_emiss
-        avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
+            datatype = ("intensity", "spectral_line")
+            attrs = {
+                "datatype": datatype,
+                "err": {"in": err_in, "out": err_out},
+                f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
+            }
+            data[f"{line}_int"] = DataArray(
+                [intensity[line]], coords=[(coord, [pos])], attrs=attrs
+            )
 
-        pos = rho_tmp[int(avrg)]
-        pos_err_in = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
-        if pos <= rho_min:
-            pos = rho_min
-            pos_err_in = 0.0
-        if (pos_err_in > pos) and (pos_err_in > (pos - rho_min)):
-            pos_err_in = pos - rho_min
-        pos_err_out = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
+        # Electron temperature(s) and position
+        if use_satellites:
+            emiss_shell = {
+                "te_kw": emiss["w"] * emiss["k"],
+                "te_n3w": emiss["w"] * emiss["n3"],
+            }
+        else:
+            emiss_shell = {"te": emiss["w"]}
 
-        # Ion temperature
-        x = w_emiss
-        y = Ti
-        ti_w, err_in, err_out, _, _ = calc_moments(
-            x, y, ind_in=ind_in, ind_out=ind_out, simmetry=False
-        )
-        datatype = ("temperature", "ion")
-        attrs = {
-            "datatype": datatype,
-            "err":{"in": err_in, "out": err_out},
-            f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
-        }
-        data["ti_w"] = DataArray([ti_w], coords=[(coord, [pos])], attrs=attrs)
+        for key in emiss_shell.keys():
+            x = np.array(range(len(emiss_shell[key])))
+            y = emiss_shell[key]
+            avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
+            pos = rho_tmp[int(avrg)]
+            pos_err_in = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
+            if pos <= rho_min:
+                pos = rho_min
+                pos_err_in = 0.0
+            if (pos_err_in > pos) and (pos_err_in > (pos - rho_min)):
+                pos_err_in = pos - rho_min
+            pos_err_out = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
 
-        # Position of w/k-lines emissivity and the measured electron temperature
-        # x = np.array(range(len(w_emiss)))
-        # y = w_emiss
-        # avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
-        #
-        # pos = rho_tmp[int(avrg)]
-        # pos_err_in = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
-        # if pos <= rho_min:
-        #     pos = rho_min
-        #     pos_err_in = 0.0
-        # if (pos_err_in > pos) and (pos_err_in > (pos - rho_min)):
-        #     pos_err_in = pos - rho_min
-        # pos_err_out = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
-
-        # Electron temperature
-        x = w_emiss
-        y = Te
-        te_kw, err_in, err_out, _, _ = calc_moments(
-            x, y, ind_in=ind_in, ind_out=ind_out, simmetry=False
-        )
-        datatype = ("temperature", "electron")
-        attrs = {
-            "datatype": datatype,
-            "err":{"in": err_in, "out": err_out},
-            f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
-        }
-        data["te_kw"] = DataArray([te_kw], coords=[(coord, [pos])], attrs=attrs)
-
-
-        self.rho_los = rho_los
-        self.Cimp = Cimp
-        self.Ti = Ti
+            x = emiss_shell[key]
+            y = Te
+            te_val, err_in, err_out, _, _ = calc_moments(
+                x, y, ind_in=ind_in, ind_out=ind_out, simmetry=False
+            )
+            datatype = ("temperature", "electron")
+            attrs = {
+                "datatype": datatype,
+                "err": {"in": err_in, "out": err_out},
+                f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
+            }
+            if use_satellites:
+                data[key] = DataArray([te_val], coords=[(coord, [pos])], attrs=attrs)
+            else:
+                data["te_kw"] = DataArray(
+                    [te_val], coords=[(coord, [pos])], attrs=attrs
+                )
+                data["te_n3w"] = DataArray(
+                    [te_val], coords=[(coord, [pos])], attrs=attrs
+                )
 
         self.data = data
 
         return data
 
+    def los_integral(self, rho_los, dl):
+        """
+        Calculate line of sight integral for a specified number of passes through the plasma
 
-def bremsstrahlung(
-    Te,
-    Ne,
-    wavelength,
-    zeff,
-    gaunt_approx="callahan",
-):
-    """
-    Calculate Bremsstrahlung along LOS
+        Returns
+        -------
+        los_int
+            Integral along the line of sight
 
-    Parameters
-    ----------
-    Te
-        electron temperature (eV) for calculation
-    wavelength
-        wavelength (nm) at which Bremsstrahlung should be calculated
-    zeff
-        effective charge
-    gaunt_approx
-        approximation for free-free gaunt factors:
-            "callahan" see citation in KJ Callahan 2019 JINST 14 C10002
+        """
 
-    Returns
-    -------
-    Bremsstrahlung emissing per unit time and volume
-    --> to be integrated along the LOS and multiplied by spectrometer t_exp
+        intensity = {}
+        emiss_interp = {}
 
-    """
+        for line in self.pec.keys():
+            emiss_interp[line] = self.emiss[line].interp(rho_poloidal=rho_los)
+            emiss_interp[line] = xr.where(rho_los <= 1, emiss_interp[line], 0,)
 
-    gaunt_funct = {"callahan": lambda Te: 1.35 * Te ** 0.15}
+            intensity[line] = emiss_interp[line].sum() * dl
 
-    const = constants.e ** 6 / (
-        np.sqrt(2)
-        * (3 * np.pi * constants.m_e) ** 1.5
-        * constants.epsilon_0 ** 3
-        * constants.c ** 2
-    )
-    gaunt = gaunt_funct[gaunt_approx](Te)
-    ev_to_k = constants.physical_constants["electron volt-kelvin relationship"][0]
-    wlenght = wavelength * 1.0e-9  # nm to m
-    exponent = np.exp(
-        -(constants.h * constants.c) / (wlenght * constants.k * ev_to_k * Te)
-    )
-    bremss = (
-        const
-        * (Ne ** 2 * zeff / np.sqrt(constants.k * Te))
-        * (exponent / wlenght ** 2)
-        * gaunt
-    ) * wlenght
+        self.intensity = intensity
 
-    return bremss
+        return intensity, emiss_interp
+
+
+#
+# def bremsstrahlung(
+#     Te, Ne, wavelength, zeff, gaunt_approx="callahan",
+# ):
+#     """
+#     Calculate Bremsstrahlung along LOS
+#
+#     Parameters
+#     ----------
+#     Te
+#         electron temperature (eV) for calculation
+#     wavelength
+#         wavelength (nm) at which Bremsstrahlung should be calculated
+#     zeff
+#         effective charge
+#     gaunt_approx
+#         approximation for free-free gaunt factors:
+#             "callahan" see citation in KJ Callahan 2019 JINST 14 C10002
+#
+#     Returns
+#     -------
+#     Bremsstrahlung emissing per unit time and volume
+#     --> to be integrated along the LOS and multiplied by spectrometer t_exp
+#
+#     """
+#
+#     gaunt_funct = {"callahan": lambda Te: 1.35 * Te ** 0.15}
+#
+#     const = constants.e ** 6 / (
+#         np.sqrt(2)
+#         * (3 * np.pi * constants.m_e) ** 1.5
+#         * constants.epsilon_0 ** 3
+#         * constants.c ** 2
+#     )
+#     gaunt = gaunt_funct[gaunt_approx](Te)
+#     ev_to_k = constants.physical_constants["electron volt-kelvin relationship"][0]
+#     wlenght = wavelength * 1.0e-9  # nm to m
+#     exponent = np.exp(
+#         -(constants.h * constants.c) / (wlenght * constants.k * ev_to_k * Te)
+#     )
+#     bremss = (
+#         const
+#         * (Ne ** 2 * zeff / np.sqrt(constants.k * Te))
+#         * (exponent / wlenght ** 2)
+#         * gaunt
+#     ) * wlenght
+#
+#     return bremss
 
 
 def calc_moments(y: ArrayLike, x: ArrayLike, ind_in=None, ind_out=None, simmetry=False):
