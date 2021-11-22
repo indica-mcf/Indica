@@ -89,6 +89,7 @@ class ST40Reader(DataReader):
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
+        "lines": "get_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
@@ -98,6 +99,7 @@ class ST40Reader(DataReader):
     UIDS_MDS = {
         "efit": "",
         "xrcs": "sxr",
+        "lines": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
         "smmh1": "interferom",
@@ -123,10 +125,18 @@ class ST40Reader(DataReader):
             "wp": ".virial:wp",
         },
         "xrcs": {
+            "int_k": ".te_kw:int_k",
+            "int_w": ".te_kw:int_w",
+            "int_n3": ".te_n3w:int_n3",
+            "int_tot": ".te_n3w:int_tot",
             "te_kw": ".te_kw:te",
             "te_n3w": ".te_n3w:te",
             "ti_w": ".ti_w:ti",
             "ti_z": ".ti_z:ti",
+            "ampl_w": ".ti_w:amplitude",
+        },
+        "lines": {
+            "brems": ".brem_mp1:intensity",
         },
         "nirh1": {"ne": ".line_int:ne",},
         "nirh1_bin": {"ne": ".line_int:ne",},
@@ -549,6 +559,59 @@ class ST40Reader(DataReader):
             raise ValueError(f"No geometry available for {instrument}")
         los_start, los_end = self.get_los(location, direction)
         times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
+            )
+            times, _ = self._get_signal_dims(q_path, len(qval.shape))
+            times = times[0]
+            if "times" not in results:
+                results["times"] = times
+            results[q + "_records"] = q_path
+            results[q] = qval
+            qval_err, q_path_err = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_ERR", revision
+            )
+            if np.array_equal(qval_err, "FAILED"):
+                qval_err = 0.0 * results[q]
+                q_path_err = ""
+            results[q + "_error"] = qval_err
+            results[q + "_error" + "_records"] = q_path_err
+
+        results["length"] = 1
+        results["Rstart"] = np.array([los_start[0]])
+        results["Rstop"] = np.array([los_end[0]])
+        results["zstart"] = np.array([los_start[1]])
+        results["zstop"] = np.array([los_end[1]])
+        results["Tstart"] = np.array([los_start[2]])
+        results["Tstop"] = np.array([los_end[2]])
+
+        return results
+
+    def _get_filters(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        if len(uid) == 0:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        revision = results["revision"]
+
+        # position_instrument = "raw_sxr"
+        # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
+        # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
+        if instrument == "lines":
+            location = np.array([1.0, 0, 0])
+            direction = np.array([0.17, 0, 0]) - location
+        else:
+            raise ValueError(f"No geometry available for {instrument}")
+        los_start, los_end = self.get_los(location, direction)
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision

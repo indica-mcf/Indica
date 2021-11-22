@@ -35,11 +35,13 @@ class ST40data:
         self.reader = ST40Reader(pulse, tstart, tend)
         self.data = {}
 
-    def get_all(self, efit_rev=0, xrcs_rev=0, nirh1_rev=0, smmh1_rev=0):
+    def get_all(self, efit_rev=0, xrcs_rev=0, nirh1_rev=0, smmh1_rev=0, brems_rev=-1, sxr_rev=0):
         self.get_efit(revision=efit_rev)
         self.get_xrcs(revision=xrcs_rev)
+        self.get_brems(revision=brems_rev)
         self.get_nirh1(revision=nirh1_rev)
         self.get_smmh1(revision=smmh1_rev)
+        # self.get_sxr(revision=sxr_rev)
         self.get_other_data()
 
     def get_efit(self, revision=0):
@@ -66,6 +68,11 @@ class ST40data:
         if len(data) > 0:
             self.data["xrcs"] = data
 
+    def get_brems(self, revision=-1):
+        data = self.reader.get("spectrom", "lines", revision)
+        if len(data) > 0:
+            self.data["lines"] = data
+
     def get_nirh1(self, revision=0):
         data = self.reader.get("", "nirh1", revision)
         if len(data) > 0:
@@ -79,6 +86,11 @@ class ST40data:
         data = self.reader.get("", "smmh1", revision)
         if len(data) > 0:
             self.data["smmh1"] = data
+
+    # def get_sxr(self, revision=0):
+    #     data = self.reader.get("sxr", "diode_arrays", revision)
+    #     if len(data) > 0:
+    #         self.data["sxr"] = data
 
     def get_other_data(self):
         # Read Vloop and toroidal field
@@ -109,4 +121,4 @@ class ST40data:
             }
             bt_0.attrs = meta
             self.data["bt_0"] = bt_0
-            self.data["R_bt_0"] = 0.4
+            self.data["R_bt_0"] = DataArray(0.4)
