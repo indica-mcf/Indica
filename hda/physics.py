@@ -951,7 +951,7 @@ def zeff_bremsstrahlung(
 
     """
 
-    assert np.isnan(zeff) == (not np.isnan(brems))
+    assert (zeff is not None) == (brems is None)
 
     gaunt_funct = {"callahan": lambda Te: 1.35 * Te ** 0.15}
 
