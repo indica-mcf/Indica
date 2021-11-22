@@ -4,7 +4,7 @@ at identical times in a discharge over a defined pulse range
 Example call:
 
     import hda.regression_analysis as regr
-    regr_data = regr.Database(reload=True, pulse_start=8207, pulse_end=9229)
+    regr_data = regr.Database(reload=True, pulse_start=8207, pulse_end=9486)
     regr_data()
     regr.plot(regr_data)
 
@@ -49,7 +49,7 @@ class Database:
     def __init__(
         self,
         pulse_start=8207,
-        pulse_end=9129,
+        pulse_end=9486,
         tlim=(-0.03, 0.3),
         dt=0.01,
         overlap=0.5,
@@ -1046,12 +1046,13 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         temp_ratio = regr_data.temp_ratio
         for i in range(len(temp_ratio)):
             plt.plot(temp_ratio[i].te0, temp_ratio[i].te_xrcs)
+
         plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
         plt.legend()
         add_to_plot(
-            "T$_e$(0)",
-            "T$_{e,i}$(XRCS)",
-            "XRCS measurement vs. Central Te",
+        "T$_e$(0)",
+        "T$_{e,i}$(XRCS)",
+        "XRCS measurement vs. Central Te",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_Te0_parametrization")
@@ -1060,9 +1061,10 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         for i in range(len(temp_ratio)):
             el_temp = temp_ratio[i].attrs["el_temp"]
             plt.plot(
-                el_temp.rho_poloidal,
-                el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
+            el_temp.rho_poloidal,
+            el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
             )
+
         plt.legend()
         add_to_plot(
             "rho_poloidal",
@@ -1079,6 +1081,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
                 el_dens.rho_poloidal,
                 el_dens.sel(t=el_dens.t.mean(), method="nearest") / 1.0e3,
             )
+
         plt.legend()
         add_to_plot(
             "rho_poloidal",
@@ -1263,7 +1266,7 @@ def save_figure(fig_path, fig_name, orientation="landscape", ext=".jpg"):
     )
 
 
-def simulate_xrcs():
+def simulate_xrcs(pickle_file = "XRCS_temperature_parametrization.pkl", write=False):
     print("Simulating XRCS measurement for Te(0) re-scaling")
 
     adasreader = ADASReader()
@@ -1276,7 +1279,7 @@ def simulate_xrcs():
     )
 
     time = np.linspace(0, 1, 50)
-    te_0 = np.linspace(0.5e3, 5.0e3, 50)  # central temperature
+    te_0 = np.linspace(0.5e3, 8.0e3, 50)  # central temperature
     te_sep = 50  # separatrix temperature
 
     # Test two different profile shapes: flat (Ohmic) and slightly peaked (NBI)
@@ -1309,6 +1312,9 @@ def simulate_xrcs():
             )
             tmp.attrs = {"el_temp": el_temp[itemp], "el_dens": el_dens[idens]}
             temp_ratio.append(tmp.assign_coords(te0=("te_xrcs", te_0)))
+
+    if write:
+        pickle.dump(temp_ratio, open(f"/home/marco.sertoli/data/{pickle_file}", "wb"))
 
     return temp_ratio
 
