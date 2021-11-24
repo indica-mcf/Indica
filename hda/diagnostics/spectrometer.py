@@ -6,6 +6,7 @@ import xarray as xr
 import pickle
 from xarray import DataArray
 from scipy import constants
+from scipy.interpolate import interp1d
 
 from indica.readers import ADASReader
 from indica.operators.atomic_data import FractionalAbundance
@@ -85,6 +86,36 @@ class XRCSpectrometer:
         self.recom = recom
         self.set_ion_data(adf11=adf11)
         self.set_pec_data(adf15=adf15, marchuk=marchuk)
+
+    def __call__(
+        self,
+        Te,
+        Ne,
+        Nimp: dict = None,
+        Nh=None,
+        Ti: ArrayLike = None,
+        tau=None,
+        recom=False,
+        rho_los: ArrayLike = None,
+        dl: float = None,
+        use_satellites=False,
+        half_los=True,
+    ):
+
+        bckc = {}
+        self.radiation_characteristics(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, recom=recom)
+        if rho_los is not None and dl is not None:
+            self.los_integral(rho_los, dl)
+        if Ti is not None:
+            bckc = self.moment_analysis(
+                Ti,
+                rho_los=rho_los,
+                dl=dl,
+                half_los=half_los,
+                use_satellites=use_satellites,
+            )
+
+        return bckc
 
     def set_transform(self, transform: LinesOfSightTransform):
         """
@@ -215,6 +246,37 @@ class XRCSpectrometer:
                 {"line name": "line_name", "el temp": "electron_temperature"}
             )
             adf15_marchuk *= 1.0e-6  # cm**3 --> m**3
+            Te = adf15_marchuk.electron_temperature.values
+            dTe = Te[1] - Te[0]
+            Te = np.append(Te, np.arange(Te[-1] + dTe, 10.0e3, dTe))
+            extrap = adf15_marchuk.interp(electron_temperature=Te)
+
+            plt.figure()
+            for line in extrap.line_name:
+                x = adf15_marchuk.electron_temperature.values
+                y = adf15_marchuk.sel(line_name=line).values
+                func = interp1d(
+                    np.log(x), np.log(y), fill_value="extrapolate", kind="quadratic"
+                )
+                extrap.loc[dict(line_name=line)] = np.exp(func(np.log(Te)))
+                extrap = xr.where(extrap < 1.0e-21, 1.0e-21, extrap)
+                extrap.sel(line_name=line).plot(label=line.values)
+
+                ylim = plt.ylim()
+                plt.vlines(
+                    adf15_marchuk.electron_temperature.max(),
+                    ylim[0],
+                    ylim[1],
+                    color="black",
+                )
+                plt.title("Marchuck PECs extrapolated")
+                plt.xlabel("Te (eV)")
+                plt.ylabel("(m$^3$)")
+                plt.yscale("log")
+
+                plt.legend()
+
+            adf15_marchuk = extrap
 
         adf15_data = {}
         pec = deepcopy(adf15)
@@ -242,7 +304,7 @@ class XRCSpectrometer:
 
             el_dens = np.array([1.0e17, 1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22, 1.0e23])
             adf15_new, pec_new = {}, {}
-            lines_new = ["w", "k", "n3", "n4", "n5"]
+            lines_new = np.unique([line.split("_")[0] for line in adf15_marchuk.line_name.values])
             for k in lines_new:
                 adf15_new[k] = deepcopy(adf15[line])
                 adf15_new[k].pop("transition")
@@ -252,11 +314,22 @@ class XRCSpectrometer:
                 pec_new[k].pop("transition")
                 pec_new[k]["file"] = MARCHUK
 
-                line_name = deepcopy(k)
-                if k[0] == "w":
-                    line_name = "w_exc"
+                if k[0] != "w":
+                    emiss_coeff = adf15_marchuk.sel(line_name=k, drop=True)
+                else:
+                    type = ["excit", "recom"]
+                    excit = adf15_marchuk.sel(line_name="w_exc", drop=True)
+                    adas = pec["w"]["emiss_coeff"].sel(electron_density=1.e19, method="nearest", drop=True)
+                    excit = adas.interp(electron_temperature=excit.electron_temperature)
+                    excit.plot(color="black")
 
-                emiss_coeff = adf15_marchuk.sel(line_name=line_name, drop=True)
+                    recom = adf15_marchuk.sel(line_name="w_rec", drop=True)
+                    emiss_coeff = (
+                        xr.concat([excit, recom], "index")
+                        .assign_coords(index=[0, 1])
+                        .assign_coords(type=("index", type))
+                    )
+
                 emiss_coeff = emiss_coeff.expand_dims({"electron_density": el_dens})
                 pec_new[k]["emiss_coeff"] = emiss_coeff
 
@@ -268,7 +341,7 @@ class XRCSpectrometer:
         self.elements = elements
 
     def radiation_characteristics(
-        self, Te, Ne, Nimp: DataArray = None, Nh=None, tau=None, recom=False,
+        self, Te, Ne, Nimp: dict = None, Nh=None, tau=None, recom=False,
     ):
         """
 
@@ -311,11 +384,15 @@ class XRCSpectrometer:
                 fz[elem] = xr.where(_fz >= 0, _fz, 0)
 
             if "index" in coords:
-                emiss_coeff = interp_pec(select_type(pec, type="excit"), Ne, Te)
+                emiss_coeff = interp_pec(
+                    select_type(pec["emiss_coeff"], type="excit"), Ne, Te
+                )
                 _emiss = emiss_coeff * fz[elem].sel(ion_charges=charge)
 
                 if recom is True and "recom" in pec.type:
-                    emiss_coeff = interp_pec(select_type(pec, type="recom"), Ne, Te)
+                    emiss_coeff = interp_pec(
+                        select_type(pec["emiss_coeff"], type="recom"), Ne, Te
+                    )
                     _emiss += emiss_coeff * fz[elem].sel(ion_charges=charge + 1)
             else:
                 emiss_coeff = interp_pec(pec["emiss_coeff"], Ne, Te)
@@ -491,56 +568,6 @@ class XRCSpectrometer:
         self.intensity = intensity
 
         return intensity, emiss_interp
-
-
-#
-# def bremsstrahlung(
-#     Te, Ne, wavelength, zeff, gaunt_approx="callahan",
-# ):
-#     """
-#     Calculate Bremsstrahlung along LOS
-#
-#     Parameters
-#     ----------
-#     Te
-#         electron temperature (eV) for calculation
-#     wavelength
-#         wavelength (nm) at which Bremsstrahlung should be calculated
-#     zeff
-#         effective charge
-#     gaunt_approx
-#         approximation for free-free gaunt factors:
-#             "callahan" see citation in KJ Callahan 2019 JINST 14 C10002
-#
-#     Returns
-#     -------
-#     Bremsstrahlung emissing per unit time and volume
-#     --> to be integrated along the LOS and multiplied by spectrometer t_exp
-#
-#     """
-#
-#     gaunt_funct = {"callahan": lambda Te: 1.35 * Te ** 0.15}
-#
-#     const = constants.e ** 6 / (
-#         np.sqrt(2)
-#         * (3 * np.pi * constants.m_e) ** 1.5
-#         * constants.epsilon_0 ** 3
-#         * constants.c ** 2
-#     )
-#     gaunt = gaunt_funct[gaunt_approx](Te)
-#     ev_to_k = constants.physical_constants["electron volt-kelvin relationship"][0]
-#     wlenght = wavelength * 1.0e-9  # nm to m
-#     exponent = np.exp(
-#         -(constants.h * constants.c) / (wlenght * constants.k * ev_to_k * Te)
-#     )
-#     bremss = (
-#         const
-#         * (Ne ** 2 * zeff / np.sqrt(constants.k * Te))
-#         * (exponent / wlenght ** 2)
-#         * gaunt
-#     ) * wlenght
-#
-#     return bremss
 
 
 def calc_moments(y: ArrayLike, x: ArrayLike, ind_in=None, ind_out=None, simmetry=False):
