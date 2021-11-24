@@ -66,6 +66,23 @@ class ST40data:
     def get_xrcs(self, revision=0):
         data = self.reader.get("sxr", "xrcs", revision)
         if len(data) > 0:
+            # Add line ratios to data, propagate uncertainties
+            lines = [("int_k", "int_w"), ("int_n3", "int_w"), ("int_n3", "int_tot")]
+            for l in lines:
+                if (l[0] not in data.keys() or
+                        l[1] not in data.keys()):
+                    continue
+                ratio_key = f"{l[0]}/{l[1]}"
+                num = data[l[0]]
+                denom = data[l[1]]
+                ratio_tmp = num / denom
+                ratio_tmp_err = np.sqrt(
+                    (num.attrs["error"] * ratio_tmp / num) ** 2
+                    + (denom.attrs["error"] * ratio_tmp / denom) ** 2
+                )
+                ratio_tmp.attrs["error"] = ratio_tmp_err
+                data[ratio_key] = ratio_tmp
+
             self.data["xrcs"] = data
 
     def get_brems(self, revision=-1):

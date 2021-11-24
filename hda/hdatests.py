@@ -4,6 +4,7 @@ from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import pickle
+import xarray as xr
 
 from hda.hdaplot import HDAplot
 from hda.hdaworkflow import HDArun
@@ -20,6 +21,39 @@ from hda.diagnostics.PISpectrometer import PISpectrometer
 
 plt.ion()
 
+"""
+self = pl
+forward_model = self.forward_models["xrcs"]
+dl = data["xrcs"]["ti_w"].attrs["dl"]
+ratio_kw_data = data[diagnostic]["int_k"] / data[diagnostic]["int_w"]
+ratio_n3w_data = data[diagnostic]["int_n3"] / data[diagnostic]["int_tot"]
+ratio_kw_bckc, ratio_n3w_bckc = [], []
+for t in pl.time:
+Ne = self.el_dens.sel(t=t)
+Nimp = {"ar": self.ion_dens.sel(element="ar").sel(t=t)}
+Nh = self.neutral_dens.sel(t=t)
+Te = self.el_temp.sel(t=t)*1.5
+Ti = self.ion_temp.sel(element="ar").sel(t=t)
+_bckc = forward_model(Te, Ne, Nimp=Nimp, Nh=Nh, rho_los=rho_los, dl=dl)
+ratio_kw_bckc.append((forward_model.intensity["k"] / forward_model.intensity["w"]).values)
+int_tot = (
+forward_model.intensity["n3"]
++ forward_model.intensity["n4"]
++ forward_model.intensity["n5"]
++ forward_model.intensity["w"]
+)
+ratio_n3w_bckc.append((forward_model.intensity["n3"] / int_tot).values)
+
+ratio_kw_bckc = xr.DataArray(ratio_kw_bckc, coords=[("t", self.t)])
+ratio_n3w_bckc = xr.DataArray(ratio_n3w_bckc, coords=[("t", self.t)])
+
+ratio_n3w_data.plot(marker="o", color="red", label="n3w")
+ratio_kw_data.plot(marker="x", linestyle="dashed", color="red", label="kw")
+ratio_n3w_bckc.plot(marker="o", color="black", label="n3w")
+ratio_kw_bckc.plot(marker="x", linestyle="dashed", color="black", label="kw")
+
+"""
+
 
 def plasma_workflow(
     pulse=9229,
@@ -35,19 +69,21 @@ def plasma_workflow(
     main_ion="h",
     impurities=("c", "ar", "he"),
     imp_conc=(0.03, 0.001, 0.01),
-    cal_ar=1.e13,
+    cal_ar=1.0e13,
     write=False,
     save_pickle=False,
     savefig=False,
     modelling=True,
     recover_dens=False,
     ne_peaking=None,
-    leastsq=False,
-    marchuk=False,
+    marchuk=True,
     run_name="RUN40",
-    descr=f"New profile shapes and ionisation balance",
+    descr=f"New profile shapes and ionisation balance",  # descr = "Experimental evolution of the Ar concentration"
     name="",
     xrcs_time=True,
+    use_ratios=False,
+    use_satellites=False,
+    calc_error=False,
 ):
     """
     New framework for running HDA
@@ -63,7 +99,7 @@ def plasma_workflow(
         res = tests.plasma_workflow(pulse=8599, tstart=0.02, tend=0.17, dt=0.01, diagn_ne="nirh1_bin")
         res = tests.plasma_workflow(pulse=9219, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin")
         res = tests.plasma_workflow(pulse=9221, tstart=0.02, tend=0.1, dt=0.007, diagn_ne="nirh1_bin")
-        res = tests.plasma_workflow(pulse=9229, tstart=0.02, tend=0.12, dt=0.007, diagn_ne="smmh1", quant_te="te_n3w", leastsq=True)
+        res = tests.plasma_workflow(pulse=9229, tstart=0.02, tend=0.12, dt=0.007, diagn_ne="smmh1", quant_te="te_n3w")
 
     Ohmic [8385, 8386, 8387, 8390, 8405, 8458, 8909, 9184]
         res = tests.plasma_workflow(pulse=8387, tstart=0.035, tend=0.17, dt=0.015, diagn_ne="nirh1_bin", recover_dens=True)
@@ -72,7 +108,7 @@ def plasma_workflow(
         res = tests.plasma_workflow(pulse=9184, tstart=0.025, tend=0.2, dt=0.015, diagn_ne="nirh1_bin", recover_dens=True)
 
     Bremsstrahlung & Ar concentration calculation
-        res = tests.plasma_workflow(pulse=9408, tstart=0.02, tend=0.11, dt=0.007, diagn_ne="smmh1", leastsq=True, ne_peaking=1, quantity_te="te_n3w")
+        res = tests.plasma_workflow(pulse=9408, tstart=0.02, tend=0.11, dt=0.007, diagn_ne="smmh1", ne_peaking=1, quantity_te="te_n3w")
 
     """
 
@@ -85,7 +121,7 @@ def plasma_workflow(
         tind = np.argwhere((time >= tstart) * (time <= tend)).flatten()
         tstart = time[tind[0]]
         tend = time[tind[-1]]
-        dt = (time[1] - time[0]) * 2
+        dt = time[1] - time[0]
 
     # Plasma class
     bckc = {}
@@ -118,6 +154,11 @@ def plasma_workflow(
         data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
     )
 
+    # Default impurity concentrations
+    pl.calc_imp_dens()
+    #
+    # return pl, raw_data, data, bckc
+
     # Build temperature profiles to match XRCS
     bckc = pl.match_xrcs_temperatures(
         data,
@@ -125,8 +166,12 @@ def plasma_workflow(
         diagnostic=diagn_te,
         quantity_te=quant_te,
         quantity_ti=quant_ti,
-        leastsq=leastsq,
+        use_ratios=use_ratios,
+        use_satellites=use_satellites,
+        calc_error=calc_error,
     )
+
+    # return pl, raw_data, data, bckc
 
     # Average charge known Te
     pl.calc_meanz()
@@ -191,6 +236,182 @@ def plasma_workflow(
     return pl, raw_data, data, bckc
 
 
+def xrcs_sensitivity():
+    """
+    Test optimisation methods and use of different Te measurements but identical profile shapes
+    on final results (Te and Ti + Wth)
+
+    Test for 9539 saved to 25009539 runs 40, 41, 42, 43
+    """
+
+    def propagate(pl, data, bckc, quant_ar="int_w", cal_ar=1.0e13):
+        pl.calc_meanz()
+        pl.calc_imp_dens()
+        bckc = pl.match_xrcs_intensity(
+            data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar, cal=cal_ar,
+        )
+        pl.calc_main_ion_dens()
+        pl.calc_zeff()
+        bckc = pl.calc_pressure(data=data, bckc=bckc)
+        pl.calc_rad_power()
+        bckc = pl.interferometer(data, bckc=bckc)
+        bckc = pl.bremsstrahlung(data, bckc=bckc)
+        return pl, bckc
+
+    # W-line emission moments, n3w PPAC result
+    res = plasma_workflow(
+        pulse=9539,
+        tstart=0.02,
+        tend=0.12,
+        diagn_ne="smmh1",
+        quant_te="te_n3w",
+        imp_conc=(0.03, 0.001, 0.01),
+        marchuk=True,
+        xrcs_time=True,
+        use_ratios=False,
+        use_satellites=False,
+        calc_error=False,
+    )
+    pl, raw_data, data, bckc = res
+
+    pulse = pl.pulse + 25000000
+
+    run_name = "RUN40"
+    descr = f"Moment analysis w-line, Te(n3w)"
+    hda_tree.write(
+        pl, pulse, "HDA", data=data, bckc=bckc, descr=descr, run_name=run_name
+    )
+
+    bckc_mom_n3 = deepcopy(bckc)
+    pl_mom_n3 = deepcopy(pl)
+
+    # W-line emission moments, kw PPAC result
+    bckc_mom_k = deepcopy(bckc)
+    pl_mom_k = deepcopy(pl)
+    bckc_mom_k = pl_mom_k.match_xrcs_temperatures(
+        data,
+        bckc=bckc_mom_k,
+        quantity_te="te_kw",
+        use_ratios=False,
+        use_satellites=False,
+        calc_error=False,
+    )
+    pl_mom_k, bckc_mom_k = propagate(
+        pl_mom_k, data, bckc_mom_k, quant_ar="int_w", cal_ar=1.0e13
+    )
+    run_name = "RUN41"
+    descr = f"Moment analysis w-line, Te(kw)"
+    hda_tree.write(
+        pl_mom_k,
+        pulse,
+        "HDA",
+        data=data,
+        bckc=bckc_mom_k,
+        descr=descr,
+        run_name=run_name,
+    )
+
+    # W-line & satellite convoluted
+    bckc_mom_k_satellites = deepcopy(bckc)
+    pl_mom_k_satellites = deepcopy(pl)
+    bckc_mom_k_satellites = pl_mom_k_satellites.match_xrcs_temperatures(
+        data,
+        bckc=bckc_mom_k_satellites,
+        quantity_te="te_kw",
+        use_ratios=False,
+        use_satellites=True,
+        calc_error=False,
+    )
+    pl_mom_k_satellites, bckc_mom_k_satellites = propagate(
+        pl_mom_k_satellites,
+        data,
+        bckc_mom_k_satellites,
+        quant_ar="int_w",
+        cal_ar=1.0e13,
+    )
+    run_name = "RUN42"
+    descr = f"Moment analysis w-line * satellite, Te(kw)"
+    hda_tree.write(
+        pl_mom_k_satellites,
+        pulse,
+        "HDA",
+        data=data,
+        bckc=bckc_mom_k_satellites,
+        descr=descr,
+        run_name=run_name,
+    )
+
+    # k/w ratio
+    bckc_ratio_kw = deepcopy(bckc)
+    pl_ratio_kw = deepcopy(pl)
+    bckc_ratio_kw = pl_ratio_kw.match_xrcs_temperatures(
+        data,
+        bckc=bckc_ratio_kw,
+        quantity_te="te_kw",
+        use_ratios=True,
+        use_satellites=False,
+        calc_error=False,
+    )
+    pl_ratio_kw, bckc_ratio_kw = propagate(
+        pl_ratio_kw, data, bckc_ratio_kw, quant_ar="int_w", cal_ar=1.0e13
+    )
+    run_name = "RUN43"
+    descr = f"Line ratios, Te(kw)"
+    hda_tree.write(
+        pl_ratio_kw,
+        pulse,
+        "HDA",
+        data=data,
+        bckc=bckc_ratio_kw,
+        descr=descr,
+        run_name=run_name,
+    )
+
+    # n3/w ratio
+    bckc_ratio_n3w = deepcopy(bckc)
+    pl_ratio_n3w = deepcopy(pl)
+    bckc_ratio_n3w = pl_ratio_n3w.match_xrcs_temperatures(
+        data,
+        bckc=bckc_ratio_n3w,
+        quantity_te="te_n3w",
+        use_ratios=True,
+        use_satellites=False,
+        calc_error=False,
+    )
+    pl_ratio_n3w, bckc_ratio_n3w = propagate(
+        pl_ratio_n3w, data, bckc_ratio_n3w, quant_ar="int_w", cal_ar=1.0e13
+    )
+    run_name = "RUN44"
+    descr = f"Line ratios, Te(n3w)"
+    hda_tree.write(
+        pl_ratio_n3w,
+        pulse,
+        "HDA",
+        data=data,
+        bckc=bckc_ratio_n3w,
+        descr=descr,
+        run_name=run_name,
+    )
+
+    plt.figure()
+    pl_mom_n3.el_temp.sel(rho_poloidal=0).plot(
+        color="red", label="moments (w) n3w measurement", alpha=0.5
+    )
+    pl_mom_k.el_temp.sel(rho_poloidal=0).plot(
+        color="orange", label="moments (w) kw measurement", alpha=0.5
+    )
+    pl_mom_k_satellites.el_temp.sel(rho_poloidal=0).plot(
+        color="cyan", label="moments (w * satellite) kw measurement", alpha=0.5
+    )
+    pl_ratio_kw.el_temp.sel(rho_poloidal=0).plot(
+        color="blue", label="line ratios (k/w)", alpha=0.5
+    )
+    pl_ratio_n3w.el_temp.sel(rho_poloidal=0).plot(
+        color="black", label="line ratios (n3/(n3+n4+n5+w))", alpha=0.5
+    )
+    plt.legend()
+
+
 def sawtoothing(
     pulse=9229,
     tstart=0.072,
@@ -208,6 +429,10 @@ def sawtoothing(
     main_ion="h",
     impurities=("c", "ar", "he"),
     imp_conc=(0.03, 0.001, 0.01),
+    cal_ar=1.0e13,
+    marchuk=True,
+    use_ratios=False,
+    calc_error=False,
 ):
     """
     tests.sawtoothing()
@@ -230,7 +455,8 @@ def sawtoothing(
     impurities=("c", "ar", "he")
     imp_conc=(0.03, 0.001, 0.01)
     marchuk = True
-    leastsq = True
+    cal_ar=1.e13
+    calc_error=False
     """
 
     raw = ST40data(pulse, tstart - 0.01, tend + 0.01)
@@ -336,11 +562,11 @@ def sawtoothing(
         diagnostic=diagn_te,
         quantity_te=quant_te,
         quantity_ti=quant_ti,
-        leastsq=leastsq,
         time=[t_pre, t_post],
+        use_ratios=use_ratios,
+        use_satellites=use_satellites,
+        calc_error=calc_error,
     )
-    pl.calc_meanz()
-    pl.calc_imp_dens()
 
     # Scan impurity profile shape to match observed crash in XRCS w-line intensity
     t_xrcs = raw_data["xrcs"]["int_w"].t
@@ -348,9 +574,68 @@ def sawtoothing(
     t_post_xrcs = np.nanmin(xr.where(t_xrcs > t_post, t_xrcs, np.nan).values)
     t_pre_xrcs = pl.time.values[np.argmin(np.abs(pl.time - t_pre_xrcs).values)]
     t_post_xrcs = pl.time.values[np.argmin(np.abs(pl.time - t_post_xrcs).values)]
+    pl.el_temp.loc[dict(t=t_pre_xrcs)] = pl.el_temp.sel(t=t_pre)
+    pl.el_temp.loc[dict(t=t_post_xrcs)] = pl.el_temp.sel(t=t_post)
+    pl.el_dens.loc[dict(t=t_pre_xrcs)] = pl.el_dens.sel(t=t_pre)
+    pl.el_dens.loc[dict(t=t_post_xrcs)] = pl.el_dens.sel(t=t_post)
 
     int_pre_data = data["xrcs"]["int_w"].sel(t=t_pre_xrcs, method="nearest").values
     int_post_data = data["xrcs"]["int_w"].sel(t=t_post_xrcs, method="nearest").values
+
+    pl.Nimp_prof.peaking = Ne_pre.peaking
+    pl.Nimp_prof.wcenter = rho_inv.values / 2.0
+    pl.Nimp_prof.wped = 5
+    pl.Nimp_prof.build_profile()
+    volume = pl.volume.sel(t=t_post)
+
+    pl.calc_meanz()
+    pl.calc_imp_dens()
+
+    scan = np.linspace(1.0, 2.5, 21)
+    Nimp_pre, Nimp_post = [], []
+    int_pre_bckc, int_post_bckc = [], []
+    elem = "ar"
+
+    # TODO: bypassing the renormalisation of impurity densituy setting niter=1
+    for s in scan:
+        pre = deepcopy(pl.Nimp_prof)
+        pre.peaking = s
+        pre.build_profile()
+        Nimp_pre.append(deepcopy(pre))
+        pl.Nimp_prof = deepcopy(pre)
+        pl.calc_imp_dens()
+        bckc = pl.match_xrcs_intensity(
+            data,
+            bckc=bckc,
+            diagnostic="xrcs",
+            quantity=quant_ar,
+            cal=cal_ar,
+            time=[t_pre_xrcs, t_post_xrcs],
+        )
+        int_pre_bckc.append(bckc["xrcs"][quant_ar].sel(t=t_pre_xrcs).values)
+        Nimp = pl.ion_dens.sel(element=elem).sel(t=t_pre_xrcs)
+        pre.y0 = Nimp.sel(rho_poloidal=0).values
+        pre.y1 = Nimp.sel(rho_poloidal=1).values
+        pre.yend = Nimp.sel(rho_poloidal=Nimp.rho_poloidal.max()).values
+        pre.build_profile()
+        post = deepcopy(pre)
+        post.sawtooth_crash(rho_inv.values, volume)
+        Nimp_post.append(deepcopy(post))
+
+        pl.ion_dens.loc[dict(element=elem, t=t_post_xrcs)] = post.yspl.values
+        bckc = pl.match_xrcs_intensity(
+            data,
+            bckc=bckc,
+            diagnostic="xrcs",
+            quantity=quant_ar,
+            cal=cal_ar,
+            time=[t_pre_xrcs, t_post_xrcs],
+            niter=1,
+        )
+        int_post_bckc.append(bckc["xrcs"][quant_ar].sel(t=t_post_xrcs).values)
+
+    int_pre_bckc = np.array(int_pre_bckc)
+    int_post_bckc = np.array(int_post_bckc)
 
     plt.figure()
     raw_data["xrcs"]["int_w"].plot()
@@ -360,44 +645,18 @@ def sawtoothing(
     plt.plot(t_pre_xrcs, int_pre_data, marker="o", color="black")
     plt.plot(t_post_xrcs, int_post_data, marker="o", color="red")
 
-    pl.Nimp_prof.peaking = Ne_pre.peaking
-    pl.Nimp_prof.wcenter = rho_inv.values / 2.0
-    pl.Nimp_prof.wped = 5
-    pl.Nimp_prof.build_profile()
-    volume = pl.volume.sel(t=t_post)
+    colors = cm.rainbow(np.linspace(0, 1, len(scan)))
+    for i, s, in enumerate(scan):
+        plt.plot(t_post_xrcs, int_post_bckc[i], "x", color=colors[i])
 
-    scan = np.linspace(1.0, 2.5, 21)
-    Nimp_pre, Nimp_post = [], []
-    int_pre_bckc, int_post_bckc = [], []
-    for s in scan:
-        pre = deepcopy(pl.Nimp_prof)
-        pre.peaking = s
-        pre.build_profile()
-        pl.el_dens.loc[dict(t=t_pre)] = pre.yspl.values
-        ne_pre_tmp = pl.calc_ne_los_int(data[diagn_ne][quant_ne], t=t_pre)
-        pre.y0 *= (ne_pre_data / ne_pre_tmp).values
-        pre.build_profile()
-        Ne_pre.append(deepcopy(pre))
-        pl.el_dens.loc[dict(t=t_pre)] = pre.yspl.values
-        ne_pre_bckc.append(pl.calc_ne_los_int(data[diagn_ne][quant_ne], t=t_pre).values)
-        post = deepcopy(pre)
-        post.sawtooth_crash(rho_inv.values, volume)
-        Ne_post.append(deepcopy(post))
-        pl.el_dens.loc[dict(t=t_post)] = post.yspl.values
-        ne_post_bckc.append(
-            pl.calc_ne_los_int(data[diagn_ne][quant_ne], t=t_post).values
-        )
+    ind = np.argmin(np.abs(int_post_data - int_post_bckc))
+    plt.figure()
+    for i, s, in enumerate(scan):
+        Nimp_pre[i].yspl.plot(color=colors[i], alpha=0.5)
+        Nimp_post[i].yspl.plot(color=colors[i], linestyle="dashed", alpha=0.5)
 
-    ne_post_bckc = np.array(ne_post_bckc)
-
-    bckc = pl.match_xrcs_intensity(
-        data,
-        bckc=bckc,
-        diagnostic="xrcs",
-        quantity=quant_ar,
-        cal=cal_ar,
-        time=[t_pre, t_post],
-    )
+    Nimp_pre[ind].yspl.plot(color="black", marker="o")
+    Nimp_post[ind].yspl.plot(color=colors[ind], linestyle="dashed", marker="o")
 
 
 def compare_astra(pulse=8574, tstart=0.02, tend=0.14, revision=105, interf="nirh1"):

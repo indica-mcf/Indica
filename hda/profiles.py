@@ -75,9 +75,6 @@ class Profiles:
 
         # baseline profile shape
         y = (centre - edge) * (1 - x ** wped) + edge
-        iped = np.argmin(np.abs(x - 0.8))
-        if y[iped] > edge and y[iped] / edge < 3:
-            edge = y[iped] / 3
 
         if debug:
             plt.figure()
@@ -85,6 +82,14 @@ class Profiles:
 
         # add central peaking
         if peaking != 1:
+            sigma = wcenter / (np.sqrt(2 * np.log(2)))
+            y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
+
+        iped = np.argmin(np.abs(x - 0.8))
+        if y[iped] > edge and y[iped] / edge < 3:
+            edge = y[iped] / 3
+            y = (centre - edge) * (1 - x ** wped) + edge
+
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
             y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
 
