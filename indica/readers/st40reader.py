@@ -222,10 +222,10 @@ class ST40Reader(DataReader):
 
     _IMPLEMENTATION_QUANTITIES = {
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
-            "filter_1": ("total_radiation", "no_filter"),
-            "filter_2": ("total_radiation", "50_Al"),
-            "filter_3": ("total_radiation", "250_Be"),
-            "filter_4": ("total_radiation", "10_Be"),
+            "filter_1": ("luminous_flux", "sxr", "no_filter"),
+            "filter_2": ("luminous_flux", "sxr", "50_Al"),
+            "filter_3": ("luminous_flux", "sxr", "250_Be"),
+            "filter_4": ("luminous_flux", "sxr", "10_Be"),
         },
     }
 
@@ -468,6 +468,22 @@ class ST40Reader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
+        #FUNCTION TO COMPUTE THE VECTOR BASED ON THE ANGLE BETWEEN THEM IN XZ PLANE
+        def vector_rotation_xz(vector_base,angle):
+            #NUMBER OF CHANNELS
+            return_vector = np.nan * np.ones((len(vector_base),3))
+            #SWEEP OF CHANNELS
+            for i_ch in range(0,len(vector_base)):
+                #X,Y AND Z DATA OF THE VECTOR
+                x = vector_base[i_ch,0]
+                y = vector_base[i_ch,1]
+                z = vector_base[i_ch,2]
+                #ROTATED VECTORS
+                return_vector[i_ch,0] = (x*np.cos(angle)) - (z*np.sin(angle))
+                return_vector[i_ch,2] = (x*np.sin(angle)) + (z*np.cos(angle))
+                return_vector[i_ch,1] = y;
+            #RETURNING THE VECTOR
+            return return_vector
 
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
@@ -478,6 +494,7 @@ class ST40Reader(DataReader):
         direction, direction_path = self._get_signal(
             uid, instrument, self.QUANTITIES_MDS[instrument]["direction"], revision
         )
+        direction = vector_rotation_xz(direction,self.angle*np.pi/180)
 
         for q in quantities:
             luminosities = []
@@ -495,27 +512,42 @@ class ST40Reader(DataReader):
             records.append(t_path)
 
             chan_start, chan_end = self._RADIATION_RANGES[q]
-            nchan = chan_end - chan_start + 1
-            for chan in range(chan_start, chan_end + 1):
-                qval, q_path = self._get_signal(
+                        
+            #DEAD CHANNELS
+            qval, q_path = self._get_signal(
                     uid,
                     instrument,
-                    self.QUANTITIES_MDS[instrument][q] + "ch" + str(chan).zfill(3),
+                    self.QUANTITIES_MDS[instrument][q] + "meta_data:d_channels",
                     revision,
                 )
-
-                records.append(q_path)
-                luminosities.append(qval)
-
-                los_start, los_end = self.get_los(
-                    location[chan - chan_start], direction[chan - chan_start]
-                )
-                rstart.append(los_start[0])
-                rend.append(los_end[0])
-                zstart.append(los_start[1])
-                zend.append(los_end[1])
-                Tstart.append(los_start[2])
-                Tend.append(los_end[2])
+            d_channels = list(int(chan_start/20)*20+qval)
+            nchan = 0
+            for chan in range(chan_start, chan_end + 1):
+                if chan not in d_channels:
+                    qval, q_path = self._get_signal(
+                        uid,
+                        instrument,
+                        self.QUANTITIES_MDS[instrument][q] + "ch" + str(chan).zfill(3),
+                        revision,
+                    )
+                    qval[np.isfinite(qval)==False] = 0
+                    
+                    #NEGLECTING CHANNELS WHICH HAS NO DATA IN IT
+                    if (np.nanmean(qval))>0:
+                        
+                        nchan += 1    
+                        records.append(q_path)
+                        luminosities.append(qval)
+        
+                        los_start, los_end = self.get_los(
+                            location[chan - chan_start], direction[chan - chan_start]
+                        )
+                        rstart.append(los_start[0])
+                        rend.append(los_end[0])
+                        zstart.append(los_start[1])
+                        zend.append(los_end[1])
+                        Tstart.append(los_start[2])
+                        Tend.append(los_end[2])
 
             results["length"][q] = nchan
             results[q] = np.array(luminosities).T
