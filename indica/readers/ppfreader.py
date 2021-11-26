@@ -10,6 +10,7 @@ import stat
 from typing import Any
 from typing import cast
 from typing import Dict
+from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Set
@@ -18,6 +19,7 @@ from typing import Union
 import warnings
 
 import numpy as np
+import prov.model as prov
 from sal.client import SALClient
 from sal.core.exception import AuthenticationFailed
 from sal.core.exception import NodeNotFound
@@ -545,6 +547,28 @@ class PPFReader(DataReader):
     #     data.attrs["provenance"] = self.create_provenance(key, revision,
     #                                                       uids, drop)
     #     return data.drop_sel({"Btot": drop})
+
+    def create_provenance(
+        self,
+        diagnostic: str,
+        uid: str,
+        instrument: str,
+        revision: int,
+        quantity: str,
+        data_objects: Iterable[str],
+        ignored: Iterable[Number],
+    ) -> prov.ProvEntity:
+        path = self.get_sal_path(uid, instrument, quantity, revision)
+        info = self._client.list(path)
+        return super().create_provenance(
+            diagnostic,
+            uid,
+            instrument,
+            info.revision_current,
+            quantity,
+            data_objects,
+            ignored,
+        )
 
     def _get_bad_channels(
         self, uid: str, instrument: str, quantity: str
