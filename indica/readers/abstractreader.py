@@ -10,7 +10,6 @@ from typing import Dict
 from typing import Hashable
 from typing import Iterable
 from typing import List
-from typing import Optional
 from typing import Set
 from typing import Tuple
 
@@ -1191,7 +1190,7 @@ class DataReader(BaseIO):
         diagnostic: str,
         uid: str,
         instrument: str,
-        revision: Optional[int],
+        revision: int,
         quantity: str,
         data_objects: Iterable[str],
         ignored: Iterable[Number],
@@ -1240,6 +1239,11 @@ class DataReader(BaseIO):
                 str(s) for s in self.available_quantities(instrument)[quantity]
             ),
             "ignored_channels": str(ignored),
+            "diagnostic": diagnostic,
+            "uid": uid,
+            "instrument": instrument,
+            "revision": revision,
+            "quantity": quantity,
         }
         activity_id = hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(
