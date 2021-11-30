@@ -17,6 +17,7 @@ import time as tt
 import pickle
 
 starting_time = tt.time()
+st = starting_time
 
 baseFilenameDir = '/home/sundaresan.sridhar/Modules/sxr_inversion/sweep_default'
 
@@ -60,7 +61,7 @@ t_1 = 50 * 1.e-3
 t_2 = 100 * 1.e-3
 
 #ST40 COORDINATES
-MACHINE_DIMS = ((0.15, 0.8), (-0.8, 0.8))
+MACHINE_DIMS = ((0.15, 0.8), (-0.75, 0.75))
 R = coord_array(np.linspace(MACHINE_DIMS[0][0],MACHINE_DIMS[0][1], 100), "R")
 z = coord_array(np.linspace(MACHINE_DIMS[1][0],MACHINE_DIMS[1][1], 100), "z")
 
@@ -262,4 +263,4 @@ for i,pulseNo in enumerate(pulseNos):
 # with open(filename, 'wb') as handle:
 #     pickle.dump(return_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-# print('It elapsed '+str(tt.time()-starting_time)+' seconds')
+print('Total time. It elapsed '+str(tt.time()-starting_time)+' seconds')

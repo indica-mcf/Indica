@@ -221,6 +221,7 @@ class InvertRadiation(Operator):
             n_knots=n_knots,
             n_intervals=n_intervals,
         )
+        self.exclude_bad_points = True #BAD POINTS WILL BE EXCLUDED FROM THE FIT
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         """Indicates the datatypes of the results when calling the operator
@@ -338,6 +339,7 @@ class InvertRadiation(Operator):
               camera when fitting emissivity.
 
         """
+        
         self.validate_arguments(R, z, times, *cameras)
         flux_coords = FluxSurfaceCoordinates("poloidal")
         flux_coords.set_equilibrium(cameras[0].attrs["transform"].equilibrium)
@@ -395,12 +397,15 @@ class InvertRadiation(Operator):
             )
             for c in binned_cameras
         ]
-
         rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
         rho_max = 0.0
         print("Calculating coordinate conversions")
         for c in unfolded_cameras:
-            c["has_data"] = np.logical_not(np.isnan(c.camera.isel(t=0)))
+            if self.exclude_bad_points:
+                c["has_data"] = np.logical_not(np.isnan(c.camera.isel(t=0))) & (c.camera.isel(t=0) >= 1.e+3)
+            else:
+                
+                c["has_data"] = np.logical_not(np.isnan(c.camera.isel(t=0)))
             trans = c.attrs["transform"]
             dl = trans.distance(
                 trans.x2_name, DataArray(0), c.coords[trans.x2_name][0:2], 0.0
@@ -414,6 +419,7 @@ class InvertRadiation(Operator):
             )
             c.attrs["impact_parameters"] = ip_coords
             rho_max = max(rho_max, ip_coords.rhomax())
+            # return ip_coords,None,None
             impact_param, _ = c.indica.convert_coords(ip_coords)
             c["weights"] = c.camera * (0.02 + 0.18 * np.abs(impact_param))
             c["weights"].attrs["transform"] = c.camera.attrs["transform"]
@@ -421,7 +427,6 @@ class InvertRadiation(Operator):
             c.coords["R_0"] = c.attrs["transform"].equilibrium.R_hfs(
                 rho, c.coords["t"]
             )[0]
-
         knots = self.knot_positions(n, rho_max)
         dim_name = "rho_" + flux_coords.flux_kind
 
@@ -432,23 +437,19 @@ class InvertRadiation(Operator):
         abel_inversion = np.linspace(3e3, 0.0, m)
         guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
         bounds = (
-            # np.concatenate((np.zeros(m), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
-            # np.concatenate((1e12 * np.ones(m), np.ones(n - 2))),
             np.concatenate((np.zeros(m), np.zeros(n - 2))),
             np.concatenate((1e12 * np.ones(m), 1.e-20 * np.ones(n - 2))),
-            
-              
-        )
-
+          )
+        
         for t in np.asarray(times):
             print(f"\nSolving for t={t}")
-            print("------------------\n")
+            print("------------------\n")           
             fit = least_squares(
                 residuals,
                 guess,
                 bounds=bounds,
                 args=([c.sel(t=t) for c in unfolded_cameras],),
-                verbose=2,
+                verbose=0,
             )
             if fit.status == -1:
                 raise RuntimeError(
@@ -495,7 +496,9 @@ class InvertRadiation(Operator):
                 "asymmetry_parameter": asymmetry_parameter,
             }
         )
+        data_considered = []
         for c, i in zip(unfolded_cameras, integral):
+            data_considered += [c['has_data'].copy()]
             del c["has_data"]
             i.attrs["datatype"] = ("luminous_flux", self.datatype)
             i.attrs["transform"] = c.camera.attrs["transform"]
@@ -504,4 +507,6 @@ class InvertRadiation(Operator):
         self.assign_provenance(results)
         for cam in unfolded_cameras:
             self.assign_provenance(cam)
-        return emissivity, results, *unfolded_cameras
+        for d,c in zip(data_considered,unfolded_cameras):            
+            c["has_data"] = d
+        return emissivity, results,*unfolded_cameras

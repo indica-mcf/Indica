@@ -531,23 +531,21 @@ class ST40Reader(DataReader):
                         revision,
                     )
                     qval[np.isfinite(qval)==False] = 0
-                    
                     #NEGLECTING CHANNELS WHICH HAS NO DATA IN IT
-                    if (np.nanmean(qval))>0:
-                        
-                        nchan += 1    
-                        records.append(q_path)
-                        luminosities.append(qval)
-        
-                        los_start, los_end = self.get_los(
-                            location[chan - chan_start], direction[chan - chan_start]
-                        )
-                        rstart.append(los_start[0])
-                        rend.append(los_end[0])
-                        zstart.append(los_start[1])
-                        zend.append(los_end[1])
-                        Tstart.append(los_start[2])
-                        Tend.append(los_end[2])
+                    # if (np.nanmean(qval))>0:
+                    nchan += 1    
+                    records.append(q_path)
+                    luminosities.append(qval)
+    
+                    los_start, los_end = self.get_los(
+                        location[chan - chan_start], direction[chan - chan_start]
+                    )
+                    rstart.append(los_start[0])
+                    rend.append(los_end[0])
+                    zstart.append(los_start[1])
+                    zend.append(los_end[1])
+                    Tstart.append(los_start[2])
+                    Tend.append(los_end[2])
 
             results["length"][q] = nchan
             results[q] = np.array(luminosities).T

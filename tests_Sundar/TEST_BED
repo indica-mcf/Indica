@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Nov 30 08:23:58 2021
+
+@author: sundaresan.sridhar
+"""
+
+#TEST BED FOR NEW SELECTING MODULE
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+
+save_directory = '/home/sundaresan.sridhar/Modules/sxr_inversion/sweep_shots (copy)'
+
+pulseNo = 9539
+z_shift = 0
+
+filename =save_directory + '/'+str(pulseNo)+'_zshift_'+str(int(z_shift*100))+'.p'
+with open(filename, 'rb') as handle:
+    all_data = pickle.load(handle)
+    
+    
+data = all_data['back_integral']['data_experiment'][1,:]
+
+plt.close('all')
+# plt.figure()
+# plt.scatter(np.arange(0,len(data)),data/np.nanmax(data),color='k')    
+
+threshold = 1.e+3
+
+valid_data = data>=threshold
+
+
+plt.figure()
+plt.scatter(np.arange(0,len(data))[valid_data],data[valid_data],color='k')    
+plt.scatter(np.arange(0,len(data))[np.logical_not(valid_data)],data[np.logical_not(valid_data)],color='r',marker='v')    
