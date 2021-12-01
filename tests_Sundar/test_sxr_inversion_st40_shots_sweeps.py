@@ -46,10 +46,13 @@ for key in data_pulseNos.keys():
     times    += list(np.tile(data_times[key]*1.e-3,len(data_pulseNos[key])))
 
 #SAVE DIRECTORY
-save_directory = '/home/sundaresan.sridhar/Modules/sxr_inversion/sweep_shots'
+# save_directory = '/home/sundaresan.sridhar/Modules/sxr_inversion/sweep_shots'
+save_directory = ''
 
 #ZSHIFTS
-z_shifts = np.arange(0,6) * 1.e-2
+z_shifts = np.arange(0,1) * 1.e-2
+
+pulseNos = [pulseNos[0]]
 
 #SWEEP OF PULSES
 for i,pulseNo in enumerate(pulseNos):
