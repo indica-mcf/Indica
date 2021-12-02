@@ -104,9 +104,9 @@ def parallel_los_coordinates(
             machine_dims[1],
         )
     if draw(booleans()):
-        R_stop, R_start = machine_dims[0]
+        x_stop, x_start = machine_dims[0]
     else:
-        R_start, R_stop = machine_dims[0]
+        x_start, x_stop = machine_dims[0]
     if draw(booleans()):
         z_stop, z_start = machine_dims[1]
     else:
@@ -115,29 +115,29 @@ def parallel_los_coordinates(
     num_los = draw(integers(min_los, max_los))
     num_intervals = draw(integers(min_num, max_num))
     if vertical:
-        R_start_vals = R_stop_vals = draw(monotonic_series(R_start, R_stop, num_los))
-        R_vals = DataArray(R_start_vals, dims="R")
+        x_start_vals = x_stop_vals = draw(monotonic_series(x_start, x_stop, num_los))
+        x_vals = DataArray(x_start_vals, dims="x")
         z_start_vals = np.ones(num_los) * z_start
         z_stop_vals = np.ones(num_los) * z_stop
         z_vals = DataArray(np.linspace(z_start, z_stop, num_intervals + 1), dims="z")
     else:
         z_start_vals = z_stop_vals = draw(monotonic_series(z_start, z_stop, num_los))
         z_vals = DataArray(z_start_vals, dims="z")
-        R_start_vals = np.ones(num_los) * R_start
-        R_stop_vals = np.ones(num_los) * R_stop
-        R_vals = DataArray(np.linspace(R_start, R_stop, num_intervals + 1), dims="R")
+        x_start_vals = np.ones(num_los) * x_start
+        x_stop_vals = np.ones(num_los) * x_stop
+        x_vals = DataArray(np.linspace(x_start, x_stop, num_intervals + 1), dims="x")
     transform = LinesOfSightTransform(
-        R_start_vals,
+        x_start_vals,
         z_start_vals,
-        np.zeros_like(R_start_vals),
-        R_stop_vals,
+        np.zeros_like(x_start_vals),
+        x_stop_vals,
         z_stop_vals,
-        np.zeros_like(R_stop_vals),
+        np.zeros_like(x_stop_vals),
         draw(text()),
         machine_dims,
     )
     transform.set_equilibrium(MagicMock())
-    return transform, vertical, R_vals, z_vals
+    return transform, vertical, x_vals, z_vals
 
 
 @composite
@@ -193,8 +193,8 @@ def los_coordinates_parameters(
         ``((Rmin, Rmax), (zmin, zmax)``.
 
     """
-    focus_R = 2.5 + draw(floats(-2.4, 7.5))
-    if domain and focus_R >= domain[0][0] and focus_R <= domain[0][1]:
+    focus_x = 2.5 + draw(floats(-2.4, 7.5))
+    if domain and focus_x >= domain[0][0] and focus_x <= domain[0][1]:
         zdown, zup = domain[1]
         focus_z = draw(
             one_of(
@@ -205,16 +205,16 @@ def los_coordinates_parameters(
     else:
         focus_z = draw(floats(-10.0, 10.0))
     if domain:
-        Rdown, Rup = domain[0]
-        zdown, zup = domain[1]
-        if Rdown < 0 or Rup < 0:
+        R_down, R_up = domain[0]
+        z_down, z_up = domain[1]
+        if R_down < 0 or R_up < 0:
             raise ValueError(
                 "LinesOfSightTransform does not support domains with R < 0."
             )
-        t1 = np.arctan2(domain[1][0] - focus_z, domain[0][0] - focus_R)
-        t2 = np.arctan2(domain[1][1] - focus_z, domain[0][0] - focus_R)
-        t3 = np.arctan2(domain[1][0] - focus_z, domain[0][1] - focus_R)
-        t4 = np.arctan2(domain[1][1] - focus_z, domain[0][1] - focus_R)
+        t1 = np.arctan2(domain[1][0] - focus_z, domain[0][0] - focus_x)
+        t2 = np.arctan2(domain[1][1] - focus_z, domain[0][0] - focus_x)
+        t3 = np.arctan2(domain[1][0] - focus_z, domain[0][1] - focus_x)
+        t4 = np.arctan2(domain[1][1] - focus_z, domain[0][1] - focus_x)
         thetas = sorted([t1, t2, t3, t4])
         if thetas[-1] - thetas[0] > np.pi:
             thetas = sorted([np.pi - t if t < 0 else t for t in thetas])
@@ -235,15 +235,15 @@ def los_coordinates_parameters(
                 exclude_max=True,
             )
         )
-        d1 = np.sqrt((focus_R - domain[0][0]) ** 2 + (focus_z - domain[1][0]) ** 2)
-        d2 = np.sqrt((focus_R - domain[0][1]) ** 2 + (focus_z - domain[1][0]) ** 2)
-        d3 = np.sqrt((focus_R - domain[0][0]) ** 2 + (focus_z - domain[1][1]) ** 2)
-        d4 = np.sqrt((focus_R - domain[0][1]) ** 2 + (focus_z - domain[1][1]) ** 2)
+        d1 = np.sqrt((focus_x - domain[0][0]) ** 2 + (focus_z - domain[1][0]) ** 2)
+        d2 = np.sqrt((focus_x - domain[0][1]) ** 2 + (focus_z - domain[1][0]) ** 2)
+        d3 = np.sqrt((focus_x - domain[0][0]) ** 2 + (focus_z - domain[1][1]) ** 2)
+        d4 = np.sqrt((focus_x - domain[0][1]) ** 2 + (focus_z - domain[1][1]) ** 2)
         max_dist = min(d1, d2, d3, d4)
-        R1 = 1.5 + draw(floats(-1.5, Rdown - 1.5))
-        R2 = draw(floats(Rup, max(1e3, 2 * Rup)))
-        z1 = draw(floats(min(-1e-3, 2 * zdown), zdown))
-        z2 = draw(floats(zup, max(1e3, 2 * zup)))
+        R_1 = 1.5 + draw(floats(-1.5, R_down - 1.5))
+        R_2 = draw(floats(R_up, max(1e3, 2 * R_up)))
+        z_1 = draw(floats(min(-1e-3, 2 * z_down), z_down))
+        z_2 = draw(floats(z_up, max(1e3, 2 * z_up)))
     else:
         theta_min = 5 * np.pi / 4 + draw(
             floats(-np.pi, np.pi, exclude_min=True, exclude_max=True)
@@ -257,14 +257,14 @@ def los_coordinates_parameters(
         if abs(diff) < 0.1:
             theta_max = theta_min + np.sign(diff) * 0.1
         max_dist = 0.5
-        R1 = 1.5 + draw(floats(-1.5, focus_R - 1.55, exclude_max=True))
-        R2 = draw(floats(focus_R + 0.05, 1e3, exclude_min=True))
-        z1 = draw(floats(-1e3, focus_z - 0.1, exclude_max=True))
-        z2 = draw(floats(focus_z + 0.1, 1e3, exclude_min=True))
+        R_1 = 1.5 + draw(floats(-1.5, focus_x - 1.55, exclude_max=True))
+        R_2 = draw(floats(focus_x + 0.05, 1e3, exclude_min=True))
+        z_1 = draw(floats(-1e3, focus_z - 0.1, exclude_max=True))
+        z_2 = draw(floats(focus_z + 0.1, 1e3, exclude_min=True))
     if domain_as_dims:
         machine_dims = domain
     else:
-        machine_dims = ((R1, R2), (z1, z2))
+        machine_dims = ((R_1, R_2), (z_1, z_2))
     angles = draw(
         monotonic_series(theta_min, theta_max, draw(integers(min_los, max_los)))
     )
@@ -277,27 +277,27 @@ def los_coordinates_parameters(
             fill=just(0.5),
         )
     )
-    R_start = focus_R + start_distance * np.cos(angles)
+    x_start = focus_x + start_distance * np.cos(angles)
     z_start = focus_z + start_distance * np.sin(angles)
-    R_stop = focus_R + (start_distance + lengths) * np.cos(angles)
+    x_stop = focus_x + (start_distance + lengths) * np.cos(angles)
     z_stop = focus_z + (start_distance + lengths) * np.sin(angles)
     if toroidal_skew is None:
         toroidal_skew = draw(booleans())
-    T_start = np.zeros_like(R_start)
+    y_start = np.zeros_like(x_start)
     if toroidal_skew:
         skew = draw(smooth_functions((theta_min, theta_max), 0.1))
-        T_stop = skew(angles)
+        y_stop = skew(angles)
     else:
-        T_stop = np.zeros_like(R_stop)
+        y_stop = np.zeros_like(x_stop)
     if name is None:
         name = draw(text())
     return (
-        R_start,
+        x_start,
         z_start,
-        T_start,
-        R_stop,
+        y_start,
+        x_stop,
         z_stop,
-        T_stop,
+        y_stop,
         name,
         machine_dims,
     )
@@ -415,7 +415,7 @@ def los_coordinates_and_axes(
             name,
         )
     )
-    x1 = coord_array(np.arange(len(transform.R_start)), transform.x1_name)
+    x1 = coord_array(np.arange(len(transform.x_start)), transform.x1_name)
     x2 = DataArray(0)
     t = DataArray(0)
     return transform, x1, x2, t
@@ -439,29 +439,29 @@ pytestmark = mark.filterwarnings(
 )
 def test_parallel_los_to_Rz(coords, position1, position2, time):
     """Checks positions fall between appropriate lines of sight."""
-    transform, vertical, Rvals, zvals = coords
+    transform, vertical, x_vals, z_vals = coords
     if vertical:
-        i = position1 * (len(Rvals) - 1)
-        perp_index = int(position2 * (len(zvals) - 1))
+        i = position1 * (len(x_vals) - 1)
+        perp_index = int(position2 * (len(z_vals) - 1))
     else:
-        i = position1 * (len(zvals) - 1)
-        perp_index = int(position2 * (len(Rvals) - 1))
+        i = position1 * (len(z_vals) - 1)
+        perp_index = int(position2 * (len(x_vals) - 1))
     los_index = int(i)
-    R, z = transform.convert_to_Rz(i, position2, time)
-    R_index = los_index if vertical else perp_index
-    if Rvals[-1] > Rvals[0]:
-        assert R - Rvals[R_index + 1] <= 1e-5
-        assert Rvals[R_index] - R <= 1e-5
+    x, z = transform.convert_to_Rz(i, position2, time)
+    x_index = los_index if vertical else perp_index
+    if x_vals[-1] > x_vals[0]:
+        assert x - x_vals[x_index + 1] <= 1e-5
+        assert x_vals[x_index] - x <= 1e-5
     else:
-        assert R - Rvals[R_index + 1] >= -1e-5
-        assert Rvals[R_index] - R >= -1e-5
+        assert x - x_vals[x_index + 1] >= -1e-5
+        assert x_vals[x_index] - x >= -1e-5
     z_index = perp_index if vertical else los_index
-    if zvals[-1] > zvals[0]:
-        assert z <= zvals[z_index + 1]
-        assert zvals[z_index] <= z
+    if z_vals[-1] > z_vals[0]:
+        assert z <= z_vals[z_index + 1]
+        assert z_vals[z_index] <= z
     else:
-        assert z >= zvals[z_index + 1]
-        assert zvals[z_index] >= z
+        assert z >= z_vals[z_index + 1]
+        assert z_vals[z_index] >= z
 
 
 @given(
@@ -471,18 +471,18 @@ def test_parallel_los_to_Rz(coords, position1, position2, time):
 @mark.xfail(reason="Conversion from R-z is not reliably implemented.")
 def test_parallel_los_from_Rz(coords, time):
     """Checks R,z points along linse of sight have correct channel number."""
-    transform, vertical, Rvals, zvals = coords
-    for (i, R), (j, z) in product(enumerate(Rvals), enumerate(zvals)):
-        ch, pos = transform.convert_from_Rz(R, z, time)
+    transform, vertical, x_vals, z_vals = coords
+    for (i, x), (j, z) in product(enumerate(x_vals), enumerate(z_vals)):
+        ch, pos = transform.convert_from_Rz(x, z, time)
         if vertical:
             assert ch == approx(i, abs=1e-5, rel=1e-2)
             assert pos == approx(
-                (z - zvals[0]) / (zvals[-1] - zvals[0]), abs=1e-5, rel=1e-2
+                (z - z_vals[0]) / (z_vals[-1] - z_vals[0]), abs=1e-5, rel=1e-2
             )
         else:
             assert ch == approx(j, abs=1e-5, rel=1e-2)
             assert pos == approx(
-                (R - Rvals[0]) / (Rvals[-1] - Rvals[0]), abs=1e-5, rel=1e-2
+                (x - x_vals[0]) / (x_vals[-1] - x_vals[0]), abs=1e-5, rel=1e-2
             )
 
 
@@ -495,7 +495,7 @@ def test_parallel_los_from_Rz(coords, time):
 )
 def test_los_uniform_distances(transform, start, end, steps, time):
     """Test distances are uniform along lines of sight"""
-    lines = DataArray(np.arange(len(transform.R_start)), dims="index")
+    lines = DataArray(np.arange(len(transform.x_start)), dims="index")
     samples = DataArray(np.linspace(start, end, steps), dims="x2")
     distance = transform.distance("x2", lines, samples, time)
     assert np.all(
@@ -510,13 +510,13 @@ def test_los_distances(transform, npoints, time):
     """Tests distances along the line of sight are correct."""
     lengths = DataArray(
         np.sqrt(
-            (transform.R_end - transform.R_start) ** 2
+            (transform.x_end - transform.x_start) ** 2
             + (transform.z_end - transform.z_start) ** 2
-            + (transform.T_end - transform.T_start) ** 2
+            + (transform.y_end - transform.y_start) ** 2
         ),
         dims="index",
     )
-    lines = DataArray(np.arange(len(transform.R_start)), dims="index")
+    lines = DataArray(np.arange(len(transform.x_start)), dims="index")
     samples = DataArray(np.linspace(0.0, 1.0, npoints), dims="x2")
     distance = transform.distance("x2", lines, samples, time)
     assert_allclose(distance, lengths * samples)
@@ -526,7 +526,7 @@ def test_los_distances(transform, npoints, time):
 def test_los_end_points(parameters, time):
     """Test end of all lines fall on edge or outside of reactor dimensions"""
     transform = LinesOfSightTransform(*parameters)
-    lines = DataArray(np.arange(len(transform.R_start)), dims="index")
+    lines = DataArray(np.arange(len(transform.x_start)), dims="index")
     dims = parameters[7]
-    R, z = transform.convert_to_Rz(lines, 1.0, time)
-    assert np.all(np.logical_not(inside_machine((R, z), dims, False)))
+    x, z = transform.convert_to_Rz(lines, 1.0, time)
+    assert np.all(np.logical_not(inside_machine((x, z), dims, False)))
