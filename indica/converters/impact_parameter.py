@@ -68,7 +68,7 @@ class ImpactParameterCoordinates(CoordinateTransform):
             Tuple[DataArray, DataArray],
             lines_of_sight.convert_to_Rz(
                 coord_array(
-                    np.arange(len(lines_of_sight.R_start)), lines_of_sight.x1_name
+                    np.arange(len(lines_of_sight.x_start)), lines_of_sight.x1_name
                 ),
                 coord_array(np.linspace(0.0, 1.0, num_intervals + 1), self.x2_name),
                 0.0,
