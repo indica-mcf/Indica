@@ -16,21 +16,30 @@ from indica.converters import FluxSurfaceCoordinates
 import time as tt
 import pickle
 
-
-# pulseNo = 9408
-# time = [90 * 1.e-3, 95*1.e-3]
-# d_time = 5 * 1.e-3
-# angle = 0
-# R_shift = 0
-# z_shift = 0
-# debug = True
-# plots = True
-# save_directory = '/home/sundaresan.sridhar/Modules/sxr_inversion/sweep_shots'
+#DEFAULT INPUT DATA
+input_data_default = dict(
+    d_time = 5*1.e-3,
+    angle=0,
+    R_shift=0,
+    z_shift=0,
+    fit_asymmetry=False,
+    compute_asymmetry=False,
+    debug=True,
+    plots=True,
+    save_directory='',
+    filenameSuffix='',
+    exclude_bad_points = True,
+    )
 
 #FUNCTION TO MAKE SXR INVERSION
-def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=True,plots=True,save_directory=''):
+def make_SXR_inversion(pulseNo,time,input_data={}):
+    #INPUT DATA
+    for key,value in input_data_default.items():
+        if key not in input_data.keys():
+            input_data[key] = value
+    
     #INITIAL TIME OF EXECUTION
-    if debug:
+    if input_data['debug']:
         starting_time = tt.time()
         st = starting_time
     
@@ -44,31 +53,31 @@ def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=Tru
     z = coord_array(np.linspace(MACHINE_DIMS[1][0],MACHINE_DIMS[1][1], 100), "z")
     
     #TIME DATA ARRAY
-    t  = coord_array(np.arange(time[0],time[1],d_time), "t")
+    t  = coord_array(np.arange(time[0],time[1],input_data['d_time']), "t")
     
     #ST40 READER INITIALIZATION
-    t1_ST40 = time[0] - (d_time)
-    t2_ST40 = time[1] + (d_time)
+    t1_ST40 = time[0] - (input_data['d_time'])
+    t2_ST40 = time[1] + (input_data['d_time'])
     reader = ST40Reader(pulseNo,tstart=t1_ST40,tend=t2_ST40)
     #DEBUG TIME
-    if debug:
+    if input_data['debug']:
         print('Reading ST40 reader. It took '+str(tt.time()-st)+' seconds')
         st = tt.time()
     
     #EQUILIBRIUM DATA
     equilib_dat = reader.get("", "efit", 0)
-    equilibrium = Equilibrium(equilib_dat,R_shift=R_shift,z_shift=z_shift)  
+    equilibrium = Equilibrium(equilib_dat,R_shift=input_data['R_shift'],z_shift=input_data['z_shift'])  
     #DEBUG TIME
-    if debug:
+    if input_data['debug']:
         print('Reading equilibrium. It took '+str(tt.time()-st)+' seconds')
         st = tt.time()
             
     #READING SXR DATA
-    reader.angle = angle
+    reader.angle = input_data['angle']
     sxr = reader.get("sxr", "diode_arrays", 1, cameras)
     plt.close('all')
     #DEBUG TIME
-    if debug:
+    if input_data['debug']:
         print('Reading SXR data. It took '+str(tt.time()-st)+' seconds')
         st = tt.time()
         
@@ -98,27 +107,64 @@ def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=Tru
     for data in itertools.chain( sxr.values()):
         data.indica.equilibrium = equilibrium
     #DEBUG TIME
-    if debug:
+    if input_data['debug']:
         print('Remapping SXR data. It took '+str(tt.time()-st)+' seconds')
         st = tt.time()
     
-    # data needed: r,z,t,cameras,sxr,knots
-    
+    #GETTING THE AASYMMETRY PARAMETER    
+    #FUNCTION TO ESTIMATE ASYMMETRY PARAMETER
+    def get_asymmetry_parameter(pulseNo,t):
+        #FUNCTION TO GET GAUSSIAN PROFILE
+        def get_gaussian(sigma = 0.35,center=0):
+            #X DATA
+            x = np.linspace(0,1,100)
+            #Y DATA
+            y_term = (-1/2) * (((x-center)/sigma)**2)
+            return x,np.exp(y_term)
+        # #X AND Y GAUSSIAN
+        # p,y_gaussian = get_gaussian()
+        # #PROFILES
+        # Ti = 4 * 1.e+3 * y_gaussian #keV
+        # Te = 4 * 1.e+3 * y_gaussian #keV
+        # Zeff = 2 * y_gaussian       #no unit
+        # wphi = 1 * 1.e+3 * y_gaussian     #Hz
+        # qs = 2 * y_gaussian
+        # mi = y_gaussian
+        # ms = 12 * y_gaussian
+        # #ASYMETTERY PARAMETER
+        # term_1 = (ms * (wphi**2)) / (2*Ti)
+        # term_2_1 = qs/ms
+        # term_2_2 = (mi*Zeff*Te)/(Ti+(Zeff*Te))
+        # term_2 = term_2_1 * term_2_2
+        # lambda_s = term_1 * (1-term_2)
+        p,asym = get_gaussian(sigma=0.35,center=0.8)
+        asymmetry_parameter = DataArray(np.repeat(np.array([asym]),len(t),axis=0), dims = ["t","p"], coords={"t":t,"p":p})
+        return asymmetry_parameter
+    #DEBUG TIME
+    if input_data['debug']:
+        print('Asymmetry parameter estimation. It took '+str(tt.time()-st)+' seconds')
+        st = tt.time()
+        
     #EMISSIVITY PROFILE
     inverter = InvertRadiationST40(len(cameras), "sxr", knots)
+    inverter.fit_asymmetry = input_data['fit_asymmetry']
+    if input_data['compute_asymmetry']:
+        inverter.asymmetry_parameter = get_asymmetry_parameter(pulseNo,t)
+    if not input_data['exclude_bad_points']:
+        inverter.exclude_bad_points = False
     emissivity, emiss_fit, *camera_results = inverter(R, z, t, *(sxr[c] for c in cameras))
     #DEBUG TIME
-    if debug:
+    if input_data['debug']:
         print('SXR inversion. It took '+str(tt.time()-st)+' seconds')
         st = tt.time()
     
     #GATHERING THE DATA
     return_data = dict(
         pulseNo = pulseNo,
-        R_shift = R_shift,
-        z_shift = z_shift,
+        R_shift = input_data['R_shift'],
+        z_shift = input_data['z_shift'],
         t       = t,
-        dt      = d_time,
+        dt      = input_data['d_time'],
         channels_considered = camera_results[0].has_data.data,
           # results = dict(
           #     emissivity = emissivity,
@@ -136,7 +182,7 @@ def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=Tru
          emissivity_2D = dict(
              R = emissivity.R.data, 
              z = emissivity.z.data,
-             data = emissivity.sel(t=time).data.T,
+             data = emissivity.data.T,
              ),
          sxr_data = dict(
              time =  sxr[cameras[0]].t.data,
@@ -144,7 +190,7 @@ def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=Tru
              no_channel = np.size(sxr[cameras[0]].data,1),        
              ),
         back_integral = dict(
-            p_impact        = np.round(camera_results[0].attrs['impact_parameters'].rho_min.sel(t=time).data,2).T,
+            p_impact        = np.round(camera_results[0].attrs['impact_parameters'].rho_min.data,2).T,
             data_experiment = camera_results[0]['camera'].data,
             data_theory     = camera_results[0]['back_integral'].data,
             channel_no      = np.arange(1,np.size(sxr[cameras[0]].data,1)+1),
@@ -167,7 +213,7 @@ def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=Tru
     return_data['back_integral']['chi2']= chi2
     
     #PLOTS
-    if plots:
+    if input_data['plots']:
         #CLOSING ALL THE PLOTS
         plt.close('all')        
         #SWEEP OF TIMES
@@ -177,7 +223,7 @@ def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=Tru
             gs = ax[0, 2].get_gridspec()
                       
             #BASE TITLE
-            baseTitle = '#'+str(pulseNo)+' @ t='+str(np.round((time.data-(d_time/2))*1e+3,2))+'-'+str(np.round((time.data+(d_time/2))*1e+3,2))+' ms, angle = '+str(angle)+' [degree]'+', knots = '+str(int(knots))+', chi2 = '+str(np.round(chi2[i],2))+', R_shift = '+str(np.round(R_shift*1.e+2,0))+' cm, z_shift = '+str(np.round(z_shift*1.e+2,0))+' cm'
+            baseTitle = '#'+str(pulseNo)+' @ t='+str(np.round((time.data-(input_data['d_time']/2))*1e+3,2))+'-'+str(np.round((time.data+(input_data['d_time']/2))*1e+3,2))+' ms, angle = '+str(input_data['angle'])+' [degree]'+', knots = '+str(int(knots))+', chi2 = '+str(np.round(chi2[i],2))+', R_shift = '+str(np.round(input_data['R_shift']*1.e+2,0))+' cm, z_shift = '+str(np.round(input_data['z_shift']*1.e+2,0))+' cm'
     
             #TITLE OF THE PLOT
             fig.suptitle(baseTitle)
@@ -236,18 +282,21 @@ def make_SXR_inversion(pulseNo,time,d_time,angle=0,R_shift=0,z_shift=0,debug=Tru
             axbig.vlines(0.17, -0.5, 0.5, label="Inner column", color="black")
             
             #SAVING THE PLOT
-            if save_directory!='':
-                filename = save_directory + '/' + str(pulseNo)+'_t_'+str(i+1)+'_zshift_'+str(int(z_shift*100))+'.png'
+            if input_data['save_directory']!='':
+                filename = input_data['save_directory'] + '/' + str(pulseNo)+'_t_'+str(i+1)+'_'+input_data['filenameSuffix']+'.png'
                 plt.savefig(filename)
                 print(filename+' is saved')
                 plt.close()
                     
     #SAVING THE DATA
-    if save_directory!='':
-        filename =save_directory + '/'+str(pulseNo)+'_zshift_'+str(int(z_shift*100))+'.p'
+    if input_data['save_directory']!='':
+        filename =input_data['save_directory'] + '/'+str(pulseNo)+'_'+input_data['filenameSuffix']+'.p'
         with open(filename, 'wb') as handle:
             pickle.dump(return_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
     #TOTAL TIME ELAPSED
-    if debug:
+    if input_data['debug']:
         print('Total time. It elapsed '+str(tt.time()-starting_time)+' seconds')
+    
+    #RETURNING THE DATA
+    return return_data

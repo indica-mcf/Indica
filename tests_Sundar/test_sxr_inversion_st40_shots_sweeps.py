@@ -6,6 +6,8 @@ import numpy as np
 import os
 from xarray import DataArray
 
+from scipy import interpolate
+
 from indica.equilibrium import Equilibrium
 from indica.operators import InvertRadiation
 from indica.readers import ST40Reader
@@ -54,8 +56,9 @@ z_shifts = np.arange(0,1) * 1.e-2
 
 pulseNos = [pulseNos[0]]
 
+return_data = {}
+
 #SWEEP OF PULSES
 for i,pulseNo in enumerate(pulseNos):
     for z_shift in z_shifts:
-        ss.make_SXR_inversion(pulseNo,[times[i],times[i]+dt],dt,angle=0,R_shift=0,z_shift=z_shift,debug=True,plots=True,save_directory=save_directory)
-    
+        return_data[str(pulseNo)+'_z_shift_'+str(int(z_shift*100))] = ss.make_SXR_inversion(pulseNo,[times[i],times[i]+dt],dt,angle=0,R_shift=0,z_shift=z_shift,debug=True,plots=True,save_directory=save_directory)

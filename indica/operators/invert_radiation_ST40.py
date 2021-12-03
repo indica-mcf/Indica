@@ -16,6 +16,7 @@ from xarray import DataArray
 from xarray import Dataset
 from xarray import where
 import time as tt
+from scipy import interpolate
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
@@ -224,7 +225,9 @@ class InvertRadiation(Operator):
         )
         self.exclude_bad_points = True #BAD POINTS WILL BE EXCLUDED FROM THE FIT
         self.debug = True
-        self.parallel_run = False
+        self.parallel_run = False #DATA WILL BE FITTED IN PARALLEL, DEFAULT IS IN SERIAL
+        self.fit_asymmetry = True
+        
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         """Indicates the datatypes of the results when calling the operator
@@ -364,10 +367,11 @@ class InvertRadiation(Operator):
             symmetric_emissivity[0:m] = knotvals[0:m]
             if self.last_knot_zero:
                 symmetric_emissivity[-1] = 0.0
-            asymmetry_parameter = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            asymmetry_parameter[0] = 0.5 * knotvals[m]
-            asymmetry_parameter[1:-1] = knotvals[m:]
-            asymmetry_parameter[-1] = 0.5 * knotvals[-1]
+            asymmetry_parameter = DataArray(np.zeros(n), coords=[(dim_name, knots)])
+            if self.fit_asymmetry:
+                asymmetry_parameter[0] = 0.5 * knotvals[m]
+                asymmetry_parameter[1:-1] = knotvals[m:]
+                asymmetry_parameter[-1] = 0.5 * knotvals[-1]
             return symmetric_emissivity, asymmetry_parameter
 
         x2 = np.linspace(0.0, 1.0, self.n_intervals)
@@ -418,12 +422,18 @@ class InvertRadiation(Operator):
         integrals: List[List[DataArray]] = []
         m = n - 1 if self.last_knot_zero else n
         abel_inversion = np.linspace(3e3, 0.0, m)
-        guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
-        bounds = (
+        if self.fit_asymmetry:
+            guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
+            bounds = (
             np.concatenate((np.zeros(m), np.zeros(n - 2))),
             np.concatenate((1e12 * np.ones(m), 1.e-20 * np.ones(n - 2))),
           )
-        
+        else:
+            guess = abel_inversion
+            bounds = (
+            np.concatenate((np.zeros(m), np.zeros(0))),
+            np.concatenate((1e12 * np.ones(m), 1.e-20 * np.ones(0))),
+          )
         #DEBUG TIME
         if self.debug:
             print('Coordinate conversions. It took '+str(tt.time()-st)+' seconds')
@@ -479,8 +489,6 @@ class InvertRadiation(Operator):
             #LEAST SQUARED FIT
             if not self.parallel_run:
                 fit = fit_function(t,input_data)
-            # else:
-            #     fit = fit_data[it]
             #FIT STATUS
             if fit.status == -1:
                 raise RuntimeError(
@@ -494,6 +502,12 @@ class InvertRadiation(Operator):
                     RuntimeWarning,
                 )
             sym, asym = knotvals_to_xarray(fit.x)
+            if not self.fit_asymmetry:
+                try:
+                    asym.data = interpolate.interp1d(self.asymmetry_parameter.p.data,self.asymmetry_parameter.sel(t=t).data)(knots)
+                except:
+                    pass
+                    
             symmetric_emissivities.append(sym)
             asymmetry_parameters.append(asym)
             integrals.append(self.integral)
