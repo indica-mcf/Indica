@@ -1,4 +1,3 @@
-from copy import deepcopy
 from typing import cast
 from typing import List
 from typing import Sequence
@@ -7,8 +6,7 @@ from typing import Union
 
 import numpy as np
 from scipy.interpolate import UnivariateSpline
-from scipy.optimize import Bounds
-from scipy.optimize import minimize
+from scipy.optimize import least_squares
 from scipy.stats import norm
 from xarray import concat
 from xarray import DataArray
@@ -208,7 +206,7 @@ class ExtrapolateImpurityDensity(Operator):
             x2_name = LoS_transform.x2_name
 
             x1 = DataArray(data=np.array([0]), dims=[x1_name])
-            x2 = DataArray(data=np.linspace(0, 1, 300), dims=[x2_name])
+            x2 = DataArray(data=np.linspace(0, 1, 30), dims=[x2_name])
 
             R_arr, z_arr = LoS_transform.convert_to_Rz(x1, x2, t_arr)
 
@@ -228,11 +226,11 @@ class ExtrapolateImpurityDensity(Operator):
             derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
             derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
 
-        derived_power_loss_integrated = derived_power_loss_LoS_tot.sum(
-            dim="channels"
-        ) / len(LoS_bolometry_data)
+        # derived_power_loss_integrated = derived_power_loss_LoS_tot.sum(
+        #     dim="channels"
+        # ) / len(LoS_bolometry_data)
 
-        return derived_power_loss_integrated
+        return derived_power_loss_LoS_tot
 
     def transform_to_rho_theta_reduced(
         self,
@@ -603,24 +601,27 @@ class ExtrapolateImpurityDensity(Operator):
 
             modified_density = extrapolated_smooth_data + perturbation_signal
 
-            copy_bolometry_args = deepcopy(bolometry_args)
-            copy_bolometry_args[0].loc[impurity_element, :] = modified_density
+            # copy_bolometry_args = deepcopy(bolometry_args)
+            # copy_bolometry_args[0].loc[impurity_element, :] = modified_density
 
-            modified_bolometry_data = self.bolometry_derivation(*copy_bolometry_args)
+            bolometry_args[0].loc[impurity_element, :] = modified_density
 
-            avg_error = np.mean(np.abs(modified_bolometry_data - orig_bolometry_data))
+            modified_bolometry_data = self.bolometry_derivation(*bolometry_args)
 
-            return avg_error
+            # avg_error = np.abs(np.sum(modified_bolometry_data - orig_bolometry_data))
 
-        result = minimize(
+            avg_error = np.abs(modified_bolometry_data - orig_bolometry_data)
+
+            return avg_error.sum(dim="t")
+
+        result = least_squares(
             fun=objective_func,
-            x0=np.array([1.0e15, 0.15, 0.6]),
-            bounds=Bounds(
-                np.array([0.5e15, 0.1, self.threshold_rho[0]]),
-                np.array([2.0e15, 0.3, 1.0]),
+            x0=np.array([0.5e16, 0.025, 0.7]),
+            bounds=(
+                np.array([0.0, 0.025, self.threshold_rho[0]]),
+                np.array([2.0e16, 0.1, 1.0]),
             ),
-            method="L-BFGS-B",
-            options={"maxfun": 10},
+            max_nfev=10,
         )
 
         gaussian_params = result.x
