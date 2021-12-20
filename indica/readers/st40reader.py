@@ -222,10 +222,10 @@ class ST40Reader(DataReader):
 
     _IMPLEMENTATION_QUANTITIES = {
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
-            "filter_1": ("total_radiation", "no_filter"),
-            "filter_2": ("total_radiation", "50_Al"),
-            "filter_3": ("total_radiation", "250_Be"),
-            "filter_4": ("total_radiation", "10_Be"),
+            "filter_1": ("sxr_radiation", "no_filter"),
+            "filter_2": ("sxr_radiation", "50_Al"),
+            "filter_3": ("sxr_radiation", "250_Be"),
+            "filter_4": ("sxr_radiation", "10_Be"),
         },
     }
 
