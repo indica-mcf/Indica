@@ -81,7 +81,7 @@ class XRCSpectrometer:
 
         """
 
-        self.ADASReader = ADASReader()
+        self.adasreader = ADASReader()
         self.name = name
         self.recom = recom
         self.set_ion_data(adf11=adf11)
@@ -136,22 +136,58 @@ class XRCSpectrometer:
         """
         Test module with standard inputs
         """
-        self.set_ion_data()
-        self.set_pec_data()
-        Ne = Profiles(datatype=("density", "electron")).yspl
-        Te = Profiles(datatype=("temperature", "electron")).yspl
-        Ti = Profiles(datatype=("temperature", "electron")).yspl
+        Ne = Profiles(datatype=("density", "electron"))
+        Ne.peaking = 1
+        Ne.build_profile()
+
+        Te = Profiles(datatype=("temperature", "electron"))
+        Te.y0 = 1.0e3
+        Te.y1 = 20
+        Te.wped = 1
+        Te.peaking = 8
+        Te.build_profile()
+
+        # Ti = Profiles(datatype=("temperature", "ion"))
+        Ti = deepcopy(Te)
+        Ti.datatype = ("temperature", "ion")
+
+        Ne = Ne.yspl
+        Te = Te.yspl
+        Ti = Ti.yspl
         Ti /= 2.0
 
         Nh_1 = 1.0e15
         Nh_0 = Nh_1 / 10
         Nh = Ne.rho_poloidal ** 5 * (Nh_1 - Nh_0) + Nh_0
 
+        plt.figure()
+        for line, pec in self.pec.items():
+            for t in pec["emiss_coeff"].type:
+                select_type(pec["emiss_coeff"], type=t).sel(
+                    electron_density=1.0e19
+                ).plot(label=f"{line} {t.values}")
+        plt.yscale("log")
+        plt.title("PEC")
+        plt.legend()
+
         fz0, emiss0 = self.radiation_characteristics(Te, Ne)
-        te_kw0, ti_w0 = self.moment_analysis(Ti)
+        bckc0 = self.moment_analysis(Ti)
+        plt.figure()
+        for line in emiss0.keys():
+            emiss0[line].plot(label=line, marker="o")
+        # plt.yscale("log")
+        plt.title("Line emission shells")
+        plt.legend()
+
+        plt.figure()
+        for line in emiss0.keys():
+            plt.plot(emiss0[line].electron_temperature, emiss0[line].values, label=line, marker="o")
+        # plt.yscale("log")
+        plt.title("Line emission shells")
+        plt.legend()
 
         fz1, emiss1 = self.radiation_characteristics(Te, Ne, Nh=Nh)
-        te_kw1, ti_w1 = self.moment_analysis(Ti)
+        bckc1 = self.moment_analysis(Ti)
 
         plt.figure()
         emiss0["w"].plot(label="Nh = 0", marker="o")
@@ -161,33 +197,41 @@ class XRCSpectrometer:
 
         plt.figure()
         self.Te.plot(label="Te", color="red")
-        plt.plot(te_kw0.rho_poloidal, te_kw0.values, marker="o", color="red")
-        plt.plot(te_kw1.rho_poloidal, te_kw1.values, marker="x", color="red")
+        plt.plot(
+            bckc0["te_kw"].rho_poloidal, bckc0["te_kw"].values, marker="o", color="red"
+        )
+        plt.plot(
+            bckc1["te_kw"].rho_poloidal, bckc1["te_kw"].values, marker="x", color="red"
+        )
         plt.hlines(
-            te_kw0.values,
-            te_kw0.rho_poloidal - te_kw0.rho_poloidal_err["in"],
-            te_kw0.rho_poloidal + te_kw0.rho_poloidal_err["out"],
+            bckc0["te_kw"].values,
+            bckc0["te_kw"].rho_poloidal - bckc0["te_kw"].rho_poloidal_err["in"],
+            bckc0["te_kw"].rho_poloidal + bckc0["te_kw"].rho_poloidal_err["out"],
             color="red",
         )
         plt.hlines(
-            te_kw1.values,
-            te_kw1.rho_poloidal - te_kw1.rho_poloidal_err["in"],
-            te_kw1.rho_poloidal + te_kw1.rho_poloidal_err["out"],
+            bckc1["te_kw"].values,
+            bckc1["te_kw"].rho_poloidal - bckc1["te_kw"].rho_poloidal_err["in"],
+            bckc1["te_kw"].rho_poloidal + bckc1["te_kw"].rho_poloidal_err["out"],
             color="red",
         )
         self.Ti.plot(label="Ti", color="black")
-        plt.plot(ti_w0.rho_poloidal, ti_w0.values, marker="o", color="black")
-        plt.plot(ti_w1.rho_poloidal, ti_w1.values, marker="x", color="black")
+        plt.plot(
+            bckc0["ti_w"].rho_poloidal, bckc0["ti_w"].values, marker="o", color="black"
+        )
+        plt.plot(
+            bckc1["ti_w"].rho_poloidal, bckc1["ti_w"].values, marker="x", color="black"
+        )
         plt.hlines(
-            ti_w0.values,
-            ti_w0.rho_poloidal - ti_w0.rho_poloidal_err["in"],
-            ti_w0.rho_poloidal + ti_w0.rho_poloidal_err["out"],
+            bckc0["ti_w"].values,
+            bckc0["ti_w"].rho_poloidal - bckc0["ti_w"].rho_poloidal_err["in"],
+            bckc0["ti_w"].rho_poloidal + bckc0["ti_w"].rho_poloidal_err["out"],
             color="black",
         )
         plt.hlines(
-            ti_w1.values,
-            ti_w1.rho_poloidal - ti_w1.rho_poloidal_err["in"],
-            ti_w1.rho_poloidal + ti_w1.rho_poloidal_err["out"],
+            bckc1["ti_w"].values,
+            bckc1["ti_w"].rho_poloidal - bckc1["ti_w"].rho_poloidal_err["in"],
+            bckc1["ti_w"].rho_poloidal + bckc1["ti_w"].rho_poloidal_err["out"],
             color="black",
         )
         plt.title("w-line PEC * fz")
@@ -213,9 +257,9 @@ class XRCSpectrometer:
 
         scd, acd, ccd = {}, {}, {}
         for elem in adf11.keys():
-            scd[elem] = self.ADASReader.get_adf11("scd", elem, adf11[elem]["scd"])
-            acd[elem] = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
-            ccd[elem] = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
+            scd[elem] = self.adasreader.get_adf11("scd", elem, adf11[elem]["scd"])
+            acd[elem] = self.adasreader.get_adf11("acd", elem, adf11[elem]["acd"])
+            ccd[elem] = self.adasreader.get_adf11("ccd", elem, adf11[elem]["ccd"])
 
             fract_abu[elem] = FractionalAbundance(scd[elem], acd[elem], CCD=ccd[elem],)
 
@@ -240,101 +284,26 @@ class XRCSpectrometer:
         if adf15 is None:
             adf15 = ADF15
 
-        if marchuk:
-            adf15_marchuk = pickle.load(open(MARCHUK, "rb"))
-            adf15_marchuk = adf15_marchuk.rename(
-                {"line name": "line_name", "el temp": "electron_temperature"}
-            )
-            adf15_marchuk *= 1.0e-6  # cm**3 --> m**3
-            Te = adf15_marchuk.electron_temperature.values
-            dTe = Te[1] - Te[0]
-            Te = np.append(Te, np.arange(Te[-1] + dTe, 10.0e3, dTe))
-            extrap = adf15_marchuk.interp(electron_temperature=Te)
-
-            plt.figure()
-            for line in extrap.line_name:
-                x = adf15_marchuk.electron_temperature.values
-                y = adf15_marchuk.sel(line_name=line).values
-                func = interp1d(
-                    np.log(x), np.log(y), fill_value="extrapolate", kind="quadratic"
-                )
-                extrap.loc[dict(line_name=line)] = np.exp(func(np.log(Te)))
-                extrap = xr.where(extrap < 1.0e-21, 1.0e-21, extrap)
-                extrap.sel(line_name=line).plot(label=line.values)
-
-                ylim = plt.ylim()
-                plt.vlines(
-                    adf15_marchuk.electron_temperature.max(),
-                    ylim[0],
-                    ylim[1],
-                    color="black",
-                )
-                plt.title("Marchuck PECs extrapolated")
-                plt.xlabel("Te (eV)")
-                plt.ylabel("(m$^3$)")
-                plt.yscale("log")
-
-                plt.legend()
-
-            adf15_marchuk = extrap
-
-        adf15_data = {}
-        pec = deepcopy(adf15)
         elements = []
+        if marchuk:
+            adf15, adf15_data = get_marchuk()
+        pec = deepcopy(adf15)
         for line in adf15.keys():
             element = adf15[line]["element"]
             transition = adf15[line]["transition"]
             wavelength = adf15[line]["wavelength"]
-            charge, filetype, year = adf15[line]["file"]
-
-            identifier = f"{element}_{charge}_{filetype}_{year}"
-            if identifier not in adf15_data.keys():
-                adf15_data[identifier] = self.ADASReader.get_adf15(
+            if marchuk:
+                pec[line]["emiss_coeff"] = adf15_data[line]
+            else:
+                charge, filetype, year = adf15[line]["file"]
+                identifier = f"{element}_{charge}_{filetype}_{year}"
+                adf15_data = self.adasreader.get_adf15(
                     element, charge, filetype, year=year
                 )
-
-            pec[line]["emiss_coeff"] = select_transition(
-                adf15_data[identifier], transition, wavelength
-            )
-
+                pec[line]["emiss_coeff"] = select_transition(
+                    adf15_data[identifier], transition, wavelength
+                )
             elements.append(element)
-
-        if marchuk:
-            print("Using Marchukc PECs, only EXCITATION!")
-
-            el_dens = np.array([1.0e17, 1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22, 1.0e23])
-            adf15_new, pec_new = {}, {}
-            lines_new = np.unique([line.split("_")[0] for line in adf15_marchuk.line_name.values])
-            for k in lines_new:
-                adf15_new[k] = deepcopy(adf15[line])
-                adf15_new[k].pop("transition")
-                adf15_new[k]["file"] = MARCHUK
-
-                pec_new[k] = deepcopy(pec[line])
-                pec_new[k].pop("transition")
-                pec_new[k]["file"] = MARCHUK
-
-                if k[0] != "w":
-                    emiss_coeff = adf15_marchuk.sel(line_name=k, drop=True)
-                else:
-                    type = ["excit", "recom"]
-                    excit = adf15_marchuk.sel(line_name="w_exc", drop=True)
-                    adas = pec["w"]["emiss_coeff"].sel(electron_density=1.e19, method="nearest", drop=True)
-                    excit = adas.interp(electron_temperature=excit.electron_temperature)
-                    excit.plot(color="black")
-
-                    recom = adf15_marchuk.sel(line_name="w_rec", drop=True)
-                    emiss_coeff = (
-                        xr.concat([excit, recom], "index")
-                        .assign_coords(index=[0, 1])
-                        .assign_coords(type=("index", type))
-                    )
-
-                emiss_coeff = emiss_coeff.expand_dims({"electron_density": el_dens})
-                pec_new[k]["emiss_coeff"] = emiss_coeff
-
-            pec = pec_new
-            adf15 = adf15_new
 
         self.adf15 = adf15
         self.pec = pec
@@ -367,8 +336,11 @@ class XRCSpectrometer:
             Nh = xr.full_like(Ne, 0.0)
         self.Ne = Ne
         self.Nh = Nh
-        if Nimp is not None:
-            self.Nimp = Nimp
+        if Nimp is None:
+            Nimp = {}
+            for elem in self.elements:
+                Nimp[elem] = xr.full_like(Ne, 1.0)
+        self.Nimp = Nimp
         self.Te = Te
 
         fz = {}
@@ -379,31 +351,24 @@ class XRCSpectrometer:
             wavelength = pec["wavelength"]
             coords = pec["emiss_coeff"].coords
 
+            # Calculate fractional abundance if not already available
             if elem not in fz.keys():
                 _fz = self.fract_abu[elem](Ne, Te, Nh, tau=tau)
                 fz[elem] = xr.where(_fz >= 0, _fz, 0)
 
-            if "index" in coords:
-                emiss_coeff = interp_pec(
-                    select_type(pec["emiss_coeff"], type="excit"), Ne, Te
-                )
-                _emiss = emiss_coeff * fz[elem].sel(ion_charges=charge)
-
-                if recom is True and "recom" in pec.type:
-                    emiss_coeff = interp_pec(
-                        select_type(pec["emiss_coeff"], type="recom"), Ne, Te
-                    )
-                    _emiss += emiss_coeff * fz[elem].sel(ion_charges=charge + 1)
+            # Sum contributions from all transition types
+            _emiss = []
+            if "index" in coords or "type" in coords:
+                for t in coords["type"]:
+                    _pec = interp_pec(select_type(pec["emiss_coeff"], type=t), Ne, Te)
+                    if recom * (t == "recom") or t != "recom":
+                        mult = transition_rules(t, fz[elem], charge, Ne, Nh, Nimp[elem])
+                        _emiss.append(_pec * mult)
             else:
-                emiss_coeff = interp_pec(pec["emiss_coeff"], Ne, Te)
-                _emiss = emiss_coeff * fz[elem].sel(ion_charges=charge)
+                _pec = interp_pec(pec["emiss_coeff"], Ne, Te)
+                _emiss.append(_pec * fz[elem].sel(ion_charges=charge) * Ne * Nimp[elem])
 
-            _emiss *= Ne
-            if Nimp is not None:
-                _emiss *= Nimp[elem]
-            else:
-                _emiss *= Ne
-
+            _emiss = xr.concat(_emiss, "type").sum("type")
             ev_wavelength = constants.e * 1.239842e3 / (wavelength)
             emiss[line] = xr.where(_emiss >= 0, _emiss, 0) * ev_wavelength
 
@@ -456,15 +421,15 @@ class XRCSpectrometer:
         self.rho_los = rho_los
         Te = self.Te.interp(rho_poloidal=rho_los)
         Ti = self.Ti.interp(rho_poloidal=rho_los)
-        intensity, emiss = self.los_integral(rho_los, dl)
+        intensity, emiss_interp = self.los_integral(rho_los, dl)
 
         rho_tmp = rho_los.values
         rho_min = np.min(rho_tmp)
 
         for line in self.pec.keys():
             # Ion temperature and position of emissivity
-            x = np.array(range(len(emiss[line])))
-            y = emiss[line]
+            x = np.array(range(len(emiss_interp[line])))
+            y = emiss_interp[line]
             avrg, dlo, dhi, ind_in, ind_out = calc_moments(y, x, simmetry=False)
             pos = rho_tmp[int(avrg)]
             pos_err_in = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg - dlo)])
@@ -475,7 +440,7 @@ class XRCSpectrometer:
                 pos_err_in = pos - rho_min
             pos_err_out = np.abs(rho_tmp[int(avrg)] - rho_tmp[int(avrg + dhi)])
 
-            x = emiss[line]
+            x = emiss_interp[line]
             y = Ti
             ti_w, err_in, err_out, _, _ = calc_moments(
                 x, y, ind_in=ind_in, ind_out=ind_out, simmetry=False
@@ -494,18 +459,18 @@ class XRCSpectrometer:
                 "err": {"in": err_in, "out": err_out},
                 f"{coord}_err": {"in": pos_err_in, "out": pos_err_out},
             }
-            data[f"{line}_int"] = DataArray(
+            data[f"int_{line}"] = DataArray(
                 [intensity[line]], coords=[(coord, [pos])], attrs=attrs
             )
 
         # Electron temperature(s) and position
         if use_satellites:
             emiss_shell = {
-                "te_kw": emiss["w"] * emiss["k"],
-                "te_n3w": emiss["w"] * emiss["n3"],
+                "te_kw": emiss_interp["w"] * emiss_interp["k"],
+                "te_n3w": emiss_interp["w"] * emiss_interp["n3"],
             }
         else:
-            emiss_shell = {"te": emiss["w"]}
+            emiss_shell = {"te": emiss_interp["w"]}
 
         for key in emiss_shell.keys():
             x = np.array(range(len(emiss_shell[key])))
@@ -607,6 +572,17 @@ def select_type(pec, type="excit"):
     return pec.sel(type=type)
 
 
+def transition_rules(transition_type, fz, charge, Ne, Nh, Nimp):
+    if transition_type == "recom":
+        mult = fz.sel(ion_charges=charge + 1) * Ne * Nimp
+    elif transition_type == "cxr":
+        mult = fz.sel(ion_charges=charge + 1) * Nh * Nimp
+    else:
+        mult = fz.sel(ion_charges=charge) * Ne * Nimp
+
+    return mult
+
+
 def select_transition(adf15_data, transition: str, wavelength: float):
 
     """
@@ -645,3 +621,125 @@ def select_transition(adf15_data, transition: str, wavelength: float):
             pec = pec.sel(wavelength=wavelength, method="nearest", drop=True)
 
     return pec
+
+
+def get_marchuk(extrapolate=False):
+
+    print("Using Marchukc PECs")
+
+    el_dens = np.array([1.0e15, 1.0e17, 1.0e19, 1.0e21, 1.0e23])
+    adf15 = {
+        "w": {
+            "element": "ar",
+            "file": MARCHUK,
+            "charge": 16,
+            "transition": "",
+            "wavelength": 4.0,
+        },
+        "z": {
+            "element": "ar",
+            "file": MARCHUK,
+            "charge": 16,
+            "transition": "",
+            "wavelength": 4.0,
+        },
+        "k": {
+            "element": "ar",
+            "file": MARCHUK,
+            "charge": 16,
+            "transition": "",
+            "wavelength": 4.0,
+        },
+        "n3": {
+            "element": "ar",
+            "file": MARCHUK,
+            "charge": 16,
+            "transition": "",
+            "wavelength": 4.0,
+        },
+        "n345": {
+            "element": "ar",
+            "file": MARCHUK,
+            "charge": 16,
+            "transition": "",
+            "wavelength": 4.0,
+        },
+        "qra": {
+            "element": "ar",
+            "file": MARCHUK,
+            "charge": 15,
+            "transition": "",
+            "wavelength": 4.0,
+        },
+    }
+
+    data = pickle.load(open(MARCHUK, "rb"))
+    data *= 1.0e-6  # cm**3 --> m**3
+    data = data.rename({"el_temp": "electron_temperature"})
+
+    # Extrapolate Marchuk data beyond 4 keV...
+    if extrapolate:
+        Te = data.electron_temperature.values
+        dTe = Te[1] - Te[0]
+        Te = np.append(Te, np.arange(Te[-1] + dTe, 10.0e3, dTe))
+        extrap = data.interp(electron_temperature=Te)
+        for line in data.line_name:
+            x = data.electron_temperature.values
+            y = data.sel(line_name=line).values
+            func = interp1d(
+                np.log(x), np.log(y), fill_value="extrapolate", kind="quadratic"
+            )
+            extrap.loc[dict(line_name=line)] = np.exp(func(np.log(Te)))
+            extrap = xr.where(extrap < 1.0e-21, 1.0e-21, extrap)
+            extrap.sel(line_name=line).plot(label=line.values)
+
+        data = extrap
+
+    data = data.expand_dims({"electron_density": el_dens})
+
+    # Reorder data in correct format
+    pecs = {}
+    w, z, k, n3, n345, qra = [], [], [], [], [], []
+    for t in ["w_exc", "w_rec", "w_cxr"]:
+        w.append(data.sel(line_name=t, drop=True))
+    pecs["w"] = (
+        xr.concat(w, "index")
+        .assign_coords(index=[0, 1, 2])
+        .assign_coords(type=("index", ["excit", "recom", "cxr"]))
+    )
+
+    for t in ["z_exc", "z_rec", "z_cxr", "z_isi", "z_diel"]:
+        z.append(data.sel(line_name=t, drop=True))
+    pecs["z"] = (
+        xr.concat(z, "index")
+        .assign_coords(index=[0, 1, 2, 3, 4])
+        .assign_coords(type=("index", ["excit", "recom", "cxr", "isi", "diel"]))
+    )
+
+    pecs["k"] = (
+        xr.concat([data.sel(line_name="k_diel", drop=True)], "index")
+        .assign_coords(index=[0])
+        .assign_coords(type=("index", ["diel"]))
+    )
+
+    pecs["n3"] = (
+        xr.concat([data.sel(line_name="n3_diel", drop=True)], "index")
+        .assign_coords(index=[0])
+        .assign_coords(type=("index", ["diel"]))
+    )
+
+    pecs["n345"] = (
+        xr.concat([data.sel(line_name="n345_diel", drop=True)], "index")
+        .assign_coords(index=[0])
+        .assign_coords(type=("index", ["diel"]))
+    )
+
+    for t in ["qra_ise", "qra_lidiel"]:
+        qra.append(data.sel(line_name=t, drop=True))
+    pecs["qra"] = (
+        xr.concat(qra, "index")
+        .assign_coords(index=[0, 1])
+        .assign_coords(type=("index", ["ise", "diel"]))
+    )
+
+    return adf15, pecs
