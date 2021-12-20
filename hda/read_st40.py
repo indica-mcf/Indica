@@ -35,14 +35,21 @@ class ST40data:
         self.reader = ST40Reader(pulse, tstart, tend)
         self.data = {}
 
-    def get_all(self, efit_rev=0, xrcs_rev=0, nirh1_rev=0, smmh1_rev=0, brems_rev=-1, sxr_rev=0):
+    def get_all(self, efit_rev=0, xrcs_rev=0, nirh1_rev=0, smmh1_rev=0, brems_rev=-1, sxr_rev=0, sxr=False):
+        plt.ioff()
         self.get_efit(revision=efit_rev)
         self.get_xrcs(revision=xrcs_rev)
+        if sxr:
+            self.get_sxr(revision=sxr_rev)
         self.get_brems(revision=brems_rev)
         self.get_nirh1(revision=nirh1_rev)
         self.get_smmh1(revision=smmh1_rev)
-        # self.get_sxr(revision=sxr_rev)
         self.get_other_data()
+        plt.ion()
+
+    def get_sxr(self, revision=0):
+        data = self.reader.get("sxr", "diode_arrays", revision, ["filter_4"])
+        self.data["sxr"] = data
 
     def get_efit(self, revision=0):
 
