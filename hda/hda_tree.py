@@ -6,6 +6,7 @@ import numpy as np
 from MDSplus import Tree, Float32, Int32, String
 import hda.mdsHelpers as mh
 import getpass
+import xarray as xr
 
 user = getpass.getuser()
 
@@ -212,7 +213,11 @@ def get_tree_structure():
             "NE": ("SIGNAL", "Electron density, m^-3"),
             "NI": ("SIGNAL", "Ion density, m^-3"),
             "TE": ("SIGNAL", "Electron temperature, eV"),
+            "TE_HI": ("SIGNAL", "Electron temperature upper limit, eV"),
+            "TE_LO": ("SIGNAL", "Electron temperature lower limit, eV"),
             "TI": ("SIGNAL", "Ion temperature of main ion, eV"),
+            "TI_HI": ("SIGNAL", "Ion temperature of main ion upper limit, eV"),
+            "TI_LO": ("SIGNAL", "Ion temperature of main ion lower limit, eV"),
             "TIZ1": ("SIGNAL", "Ion temperature of impurity IMP1, eV"),
             "TIZ2": ("SIGNAL", "Ion temperature of impurity IMP2, eV"),
             "TIZ3": ("SIGNAL", "Ion temperature of impurity IMP3, eV"),
@@ -374,6 +379,8 @@ def organise_data(plasma, data={}, bckc={}):
     ion_meanz = []
     ion_dens = []
     ion_temp = []
+    ion_temp_hi = []
+    ion_temp_lo = []
     for elem in elements:
         if len(elem) > 0:
             conc = (plasma.ion_dens.sel(element=elem) / plasma.el_dens).mean(
@@ -382,15 +389,30 @@ def organise_data(plasma, data={}, bckc={}):
             meanz = plasma.meanz.sel(element=elem)
             dens = plasma.ion_dens.sel(element=elem)
             temp = plasma.ion_temp.sel(element=elem)
+            if hasattr(plasma, "ion_temp_hi"):
+                temp_hi = plasma.ion_temp_hi.sel(element=elem)
+                temp_lo = plasma.ion_temp_lo.sel(element=elem)
+            else:
+                temp_hi = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
+                temp_lo = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
         else:
-            conc = np.zeros_like(plasma.t)
-            meanz = np.zeros_like(plasma.meanz.sel(element=elements[0]))
-            dens = np.zeros_like(plasma.ion_dens.sel(element=elements[0]))
-            temp = np.zeros_like(plasma.ion_temp.sel(element=elements[0]))
+            conc = xr.zeros_like(plasma.t)
+            meanz = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
+            dens = xr.zeros_like(plasma.ion_dens.sel(element=elements[0]))
+            temp = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
         ion_conc.append(conc)
         ion_meanz.append(meanz)
         ion_dens.append(dens)
         ion_temp.append(temp)
+        ion_temp_hi.append(temp_hi)
+        ion_temp_lo.append(temp_lo)
+
+    if hasattr(plasma, "el_temp_hi"):
+        el_temp_hi = plasma.el_temp_hi
+        el_temp_lo = plasma.el_temp_lo
+    else:
+        el_temp_hi = xr.zeros_like(plasma.el_temp)
+        el_temp_lo = xr.zeros_like(plasma.el_temp)
 
     glob_coord = ["TIME"]
     prof_coord = ["PROFILES.PSI_NORM.RHOP", "TIME"]
@@ -480,7 +502,11 @@ def organise_data(plasma, data={}, bckc={}):
             "NIZ3": (Float32(ion_dens[3].values), "", prof_coord,),
             "NNEUTR": (Float32(plasma.neutral_dens.values), "m^-3", prof_coord,),
             "TE": (Float32(plasma.el_temp.values), "eV", prof_coord,),
+            "TE_HI": (Float32(el_temp_hi.values), "eV", prof_coord,),
+            "TE_LO": (Float32(el_temp_lo.values), "eV", prof_coord,),
             "TI": (Float32(ion_temp[0].values), "eV", prof_coord,),
+            "TI_HI": (Float32(ion_temp_hi[0].values), "eV", prof_coord,),
+            "TI_LO": (Float32(ion_temp_lo[0].values), "eV", prof_coord,),
             "TIZ1": (Float32(ion_temp[1].values), "eV", prof_coord,),
             "TIZ2": (Float32(ion_temp[2].values), "eV", prof_coord,),
             "TIZ3": (Float32(ion_temp[3].values), "eV", prof_coord,),
