@@ -4,7 +4,7 @@ General equations and quantities for plasma physics
 
 import numpy as np
 import scipy.constants as constants
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, CubicSpline
 import math
 from copy import deepcopy
 
@@ -999,3 +999,25 @@ def derivative(y, x):
 def gaussian(x, A, B, x_0, w):
     """Build Gaussian with known parameters"""
     return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
+
+
+def sawtooth_crash(xspl, yspl, volume, x_inv):
+    vol_int_pre = np.trapz(yspl, volume)
+    inv_ind = np.max(np.where(xspl <= x_inv)[0])
+    for xind in np.arange(inv_ind, xspl.size):
+        yspl = np.where(xspl <= xspl[xind], yspl[inv_ind], yspl)
+        vol_int_post = np.trapz(yspl, volume)
+        if vol_int_post >= vol_int_pre:
+            break
+
+    y = np.where(xspl != xspl[xind], yspl, (yspl[xind] + yspl[xind+1])/2)
+
+    x = np.linspace(0, 1, 15) ** 0.7
+    y = np.interp(x, xspl, yspl)
+    cubicspline = CubicSpline(x, y, 0, "clamped", False,)
+    yspl = cubicspline(xspl)
+    vol_int_post = np.trapz(yspl, volume)
+    print(f"Vol-int: {float(vol_int_pre)}, {float(vol_int_post)}")
+
+    return yspl
+
