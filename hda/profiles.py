@@ -85,13 +85,14 @@ class Profiles:
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
             y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
 
-        iped = np.argmin(np.abs(x - 0.8))
-        if y[iped] > edge and y[iped] / edge < 3:
-            edge = y[iped] / 3
-            y = (centre - edge) * (1 - x ** wped) + edge
-
-            sigma = wcenter / (np.sqrt(2 * np.log(2)))
-            y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
+        # iped = np.argmin(np.abs(x - 0.8))
+        # if y[iped] > edge and y[iped] / edge < 3:
+        #     print(y[iped], edge)
+        #     edge = y[iped] / 3
+        #     y = (centre - edge) * (1 - x ** wped) + edge
+        #
+        #     sigma = wcenter / (np.sqrt(2 * np.log(2)))
+        #     y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
 
         if debug:
             plt.plot(x, y, label="peaking")
@@ -263,3 +264,120 @@ def density_crash(
     print(drop, drop_arr[mn_ind])
 
     return pre, post
+
+def profile_scans(plot=False):
+    rho = np.linspace(0, 1.0, 41)
+    Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
+    Ne = Profiles(datatype=("density", "electron"), xspl=rho)
+    Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
+    Vrot = Profiles(datatype=("rotation", "ion"), xspl=rho)
+
+    Te_list = {}
+    Ti_list = {}
+    Ne_list = {}
+    Nimp_list = {}
+    Vrot_list = {}
+
+    # Broad Te profile
+    Te.y1=30
+    Te.wped=3
+    Te.wcenter=0.35
+    Te.build_profile()
+    Te_list["broad"] = deepcopy(Te)
+    plt.figure()
+    if plot:
+        Te.yspl.plot(color="black", label="Te")
+
+    # Broad Ti profile without/with Te as reference
+    Ti = deepcopy(Te)
+    Ti.datatype =("temperature", "ion")
+    Ti.y0=7.e3
+    Ti.build_profile()
+    Ti_list["broad"] = deepcopy(Ti)
+    if plot:
+        Ti.yspl.plot(linestyle="dashed", color="black", label="Ti no ref")
+    Ti.build_profile(y0_ref=Te.yspl.sel(rho_poloidal=0).values)
+    if plot:
+        Ti.yspl.plot(linestyle="dotted", color="black", label="Ti with ref")
+
+    # Peaked Te profile
+    Te.wcenter, Te.wped, Te.y1, Te.peaking = (0.35, 2, 10, 4)
+    Te.build_profile()
+    Te_list["peaked"] = deepcopy(Te)
+    if plot:
+        Te.yspl.plot(color="red", label="Te")
+
+    # Peaked Ti profile without/with Te as reference
+    Ti = deepcopy(Te)
+    Ti.datatype =("temperature", "ion")
+    Ti.y0=5.e3
+    Ti.build_profile()
+    Ti_list["peaked"] = deepcopy(Ti)
+    Ti.yspl.plot(linestyle="dashed", color="red", label="Ti no ref")
+    Ti.build_profile(y0_ref=Te.yspl.sel(rho_poloidal=0).values)
+    Ti.yspl.plot(linestyle="dotted", color="red", label="Ti with ref")
+
+    plt.figure()
+    Ne.wped = 6
+    Ne.y1 = 0.5e19
+    Ne.build_profile()
+    Ne_list["broad"] = deepcopy(Ne)
+    if plot:
+        Ne.yspl.plot(color="black")
+
+    Ne.wped = 3.5
+    Ne.peaking = 4
+    Ne.y1 = 0.1e19
+    Ne.build_profile()
+    Ne_list["peaked"] = deepcopy(Ne)
+    if plot:
+        Ne.yspl.plot(color="red")
+
+    plt.figure()
+    Nimp.wped = 6
+    Nimp.y0 = 5.e16
+    Nimp.y1 = 3.e16
+    Nimp.yend = 3.e16
+    Nimp.build_profile()
+    Nimp_list["flat"] = deepcopy(Nimp)
+    if plot:
+        Nimp.yspl.plot(color="black")
+
+    Nimp.peaking = 8
+    Nimp.wcenter = 0.2
+    Nimp.y1 = 0.5e16
+    Nimp.yend = 0.5e16
+    Nimp.build_profile()
+    Nimp_list["peaked"] = deepcopy(Nimp)
+    if plot:
+        Nimp.yspl.plot(color="red")
+
+    plt.figure()
+    Vrot.y1 = 1.e3
+    Vrot.yend = 0.
+    Vrot_list["broad"] = deepcopy(Vrot)
+    if plot:
+        Vrot.yspl.plot(color="black")
+
+    Vrot.wped = 1
+    Vrot.peaking = 2.
+    Vrot.build_profile()
+    Vrot_list["peaked"] = deepcopy(Vrot)
+    if plot:
+        Vrot.yspl.plot(color="red")
+
+    return {"Te":Te_list, "Ti":Ti_list, "Ne":Ne_list, "Nimp":Nimp_list, "Vrot":Vrot_list}
+
+    # import pandas as pd
+    # to_write = {
+    #     "Rho-poloidal": rho,
+    #     "Te broad (eV)": Te_broad.yspl.values,
+    #     "Te peaked (eV)": Te_peak.yspl.values,
+    #     "Ti broad (eV)": Ti_broad.yspl.values,
+    #     "Ti peaked (eV)": Ti_peak.yspl.values,
+    #     "Ne broad (m^-3)": Ne_broad.yspl.values,
+    #     "Ne peaked (m^-3)": Ne_peak.yspl.values,
+    # }
+    # df = pd.DataFrame(to_write)
+    # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
+
