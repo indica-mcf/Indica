@@ -57,11 +57,14 @@ def compare_data_bckc(
 
         # Intensity
         plt.figure()
-        for i, quant in enumerate(bckc["xrcs"].keys()):
+        i = -1
+        for quant in bckc["xrcs"].keys():
             if "int" not in quant:
                 continue
+            i += 1
             marker = "o"
 
+            plt.figure()
             if "xrcs" in raw_data.keys():
                 raw_data["xrcs"][quant].plot(
                     color=colors[i], linestyle="dashed", alpha=0.5,
@@ -79,19 +82,20 @@ def compare_data_bckc(
                 linestyle="dashed",
                 label=f"{quant.upper()} XRCS",
             )
-        for i, quant in enumerate(bckc["xrcs"].keys()):
-            if "int" not in quant:
-                continue
+
             bckc["xrcs"][quant].plot(color=colors[i], label="Back-calc", linewidth=3)
 
-        plt.xlim(xlim)
-        plt.ylim(0,)
-        plt.title(f"{pulse} Spectral line intensities")
-        plt.xlabel("Time (s)")
-        plt.ylabel("(a.u.)")
-        plt.legend()
-        if savefig:
-            save_figure(fig_name=f"{figname}data_XRCS_line_intensities")
+            plt.xlim(xlim)
+            plt.ylim(0,)
+            plt.title(f"{pulse} Spectral line intensities ({quant})")
+            plt.xlabel("Time (s)")
+            plt.ylabel("(a.u.)")
+            plt.legend()
+            if savefig:
+                quant_str = quant[:]
+                if "/" in quant:
+                    quant_str = quant_str.replace("/", "_ov_")
+                save_figure(fig_name=f"{figname}data_XRCS_line_intensities_{quant_str}")
 
     if "nirh1" in bckc.keys() or "nirh1_bin" in bckc.keys() or "smmh1" in bckc.keys():
         plt.figure()
@@ -145,6 +149,7 @@ def compare_data_bckc(
         plt.title(f"{pulse} Stored Energy")
         plt.xlabel("Time (s)")
         plt.ylabel("(J)")
+        plt.ylim(0,)
         plt.legend()
         if savefig:
             save_figure(fig_name=f"{figname}data_EFIT_stored_energy")
@@ -190,6 +195,53 @@ def time_evol(plasma, data, bckc={}, savefig=False, name=""):
     linestyles = ("dotted", (0, (5, 1)), (0, (5, 5)), (0, (5, 10)))
 
     plt.figure()
+    ylim = (
+        0,
+        np.max(
+            [
+                plasma.el_temp.max() * 1.05,
+                plasma.ion_temp.sel(element=plasma.main_ion).max() * 1.05,
+            ]
+        ),
+    )
+    if hasattr(plasma, "el_temp_hi"):
+        plt.fill_between(
+            plasma.time,
+            plasma.el_temp_hi.sel(rho_poloidal=0),
+            plasma.el_temp_lo.sel(rho_poloidal=0),
+            color="blue",
+            alpha=0.5,
+        )
+        plt.fill_between(
+            plasma.time,
+            plasma.ion_temp_hi.sel(element=plasma.main_ion, rho_poloidal=0),
+            plasma.ion_temp_lo.sel(element=plasma.main_ion, rho_poloidal=0),
+            color="red",
+            alpha=0.5,
+        )
+        ylim = (
+            0,
+            np.max(
+                [
+                    plasma.el_temp_hi.max() * 1.05,
+                    plasma.ion_temp_hi.sel(element=plasma.main_ion).max() * 1.05,
+                    ylim[1],
+                ]
+            ),
+        )
+    plasma.el_temp.sel(rho_poloidal=0).plot(label="Te(0)", color="blue", alpha=0.8)
+    plasma.ion_temp.sel(element=plasma.main_ion, rho_poloidal=0).plot(
+        color="red", label="Ti(0)", alpha=0.8
+    )
+    plt.title(f"{plasma.pulse} Central temperatures")
+    plt.xlabel("Time (s)")
+    plt.ylabel("(eV)")
+    plt.ylim(ylim)
+    plt.legend()
+    if savefig:
+        save_figure(fig_name=f"{figname}time_evol_central_temperatures")
+
+    plt.figure()
     prad_los_int = xr.zeros_like(plasma.prad)
     # TODO: using XRCS LOS. Comparison with experimental values when diagnostics available
     for j, elem in enumerate(plasma.elements):
@@ -213,7 +265,6 @@ def time_evol(plasma, data, bckc={}, savefig=False, name=""):
         save_figure(fig_name=f"{figname}time_evol_total_rad_power")
 
     plt.figure()
-
     # TODO: using XRCS LOS, add SXR diode experimental value and LOS info
     prad_los_int_sxr = xr.zeros_like(plasma.prad)
     Te_lim = 800
@@ -239,9 +290,7 @@ def time_evol(plasma, data, bckc={}, savefig=False, name=""):
     zeff = plasma.zeff.mean("rho_poloidal")
     zeff_main_ion = zeff.sel(element=plasma.main_ion)
     zeff.sum("element").plot(label="Total", color="black")
-    zeff_main_ion.plot(
-        color=colors[0], label=elem_str[elem], linestyle=linestyles[0]
-    )
+    zeff_main_ion.plot(color=colors[0], label=elem_str[elem], linestyle=linestyles[0])
     for j, elem in enumerate(plasma.elements):
         if elem != plasma.main_ion:
             (zeff.sel(element=elem) + zeff_main_ion).plot(
@@ -264,13 +313,13 @@ def time_evol(plasma, data, bckc={}, savefig=False, name=""):
             c_ion.sel(element=elem).plot(
                 color=colors[j], label=elem_str[elem], linestyle=linestyles[j]
             )
-    plt.title(f"{plasma.pulse} Ion concentration")
+    plt.title(f"{plasma.pulse} Central ion concentration")
     plt.xlabel("Time (s)")
     plt.ylabel("")
     plt.yscale("log")
     plt.legend()
     if savefig:
-        save_figure(fig_name=f"{figname}time_evol_ion_conc")
+        save_figure(fig_name=f"{figname}time_evol_central_ion_conc")
 
     plt.figure()
     plasma.q_prof.sel(rho_poloidal=0).plot(color="black")
@@ -387,7 +436,7 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
             data.attrs["emiss"].sel(t=t).plot(color=colors[i], alpha=alpha)
         plt.title(f"{plasma.pulse} {diagn.upper()} {quant.upper()} emission")
         plt.xlabel("Rho-poloidal")
-        plt.ylabel("(eV)")
+        plt.ylabel("(a.u.)")
         if savefig:
             save_figure(
                 fig_name=f"{figname}profiles_{diagn.upper()}_{quant.upper()}_emission"
@@ -438,7 +487,7 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
     plt.title(f"{plasma.pulse} Total radiated power")
     plt.xlabel("Rho-poloidal")
     plt.ylabel("(W m$^{-3}$)")
-    plt.yscale("log")
+    # plt.yscale("log")
     plt.legend()
     if savefig:
         save_figure(fig_name=f"{figname}profiles_total_radiated_power")
@@ -465,6 +514,28 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
     if savefig:
         save_figure(fig_name=f"{figname}profiles_impurity_density")
 
+    # Impurity concentration
+    plt.figure()
+    for j, elem in enumerate(plasma.impurities):
+        (plasma.ion_dens.sel(element=elem) / plasma.el_dens).sel(t=time[0]).plot(
+            color=colors[0],
+            linestyle=linestyle_imp[j],
+            label=elem_str[elem],
+            alpha=alpha,
+        )
+    for i, t in enumerate(time):
+        for j, elem in enumerate(plasma.impurities):
+            (plasma.ion_dens.sel(element=elem) / plasma.el_dens).sel(t=time[i]).plot(
+                color=colors[i], linestyle=linestyle_imp[j], alpha=alpha,
+            )
+    plt.title(f"{plasma.pulse} Impurity concentration")
+    plt.xlabel("Rho-poloidal")
+    plt.ylabel("(W)")
+    plt.yscale("log")
+    plt.legend()
+    if savefig:
+        save_figure(fig_name=f"{figname}profiles_impurity_concentration")
+
     # Effective charge
     plt.figure()
     plasma.zeff.sum("element").sel(t=time[0]).plot(color=colors[0], label="Total")
@@ -482,7 +553,9 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
         )
     for i, t in enumerate(time):
         plasma.zeff.sum("element").sel(t=t).plot(color=colors[i])
-        plasma.zeff.sel(element=plasma.main_ion).sel(t=t).plot(color=colors[i], linestyle=linestyle_ion)
+        plasma.zeff.sel(element=plasma.main_ion).sel(t=t).plot(
+            color=colors[i], linestyle=linestyle_ion
+        )
         for j, elem in enumerate(plasma.impurities):
             (
                 plasma.zeff.sel(element=elem) + plasma.zeff.sel(element=plasma.main_ion)
