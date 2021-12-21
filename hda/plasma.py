@@ -396,17 +396,16 @@ class Plasma:
         data,
         bckc={},
         diagnostic: str = "xrcs",
-        quantity_te="te_kw",
+        quantity_te="te_n3w",
         quantity_ti="ti_w",
-        y1=50,
-        wped=4,
-        wcenter=0.4,
-        peaking=1.5,
         half_los=True,
         use_ratios=False,
         use_satellites=False,
         time=None,
         calc_error=False,
+        use_ref=True,
+        wcenter_exp=0.05,
+        method="dogbox",
     ):
         """
         Rescale temperature profiles to match the XRCS spectrometer measurements
@@ -423,8 +422,6 @@ class Plasma:
             Measurement to be used for the electron temperature optimisation
         quantity_ti
             Measurement to be used for the ion temperature optimisation
-        y1,  wped, wcenter, peaking
-            Parameters of the profiler object
         niter
             Number of iterations
 
@@ -437,7 +434,9 @@ class Plasma:
             if quantity_ratio == "int_k/int_w":
                 ratio_bckc = forward_model.intensity["k"] / forward_model.intensity["w"]
             elif quantity_ratio == "int_n3/int_w":
-                ratio_bckc = forward_model.intensity["n3"] / forward_model.intensity["w"]
+                ratio_bckc = (
+                    forward_model.intensity["n3"] / forward_model.intensity["w"]
+                )
             elif quantity_ratio == "int_n3/int_tot":
                 int_tot = (
                     forward_model.intensity["n3"]
@@ -464,9 +463,7 @@ class Plasma:
                 dl=dl,
                 use_satellites=use_satellites,
             )
-
             ratio_bckc = line_ratios(forward_model, quantity_ratio)
-
             resid = ratio_data - ratio_bckc
             return resid
 
@@ -491,7 +488,10 @@ class Plasma:
 
         def residuals_ti(ti0):
             Ti_prof.y0 = ti0
-            Ti_prof.build_profile(y0_ref=Te_prof.y0)
+            if use_ref:
+                Ti_prof.build_profile(y0_ref=Te_prof.y0, wcenter_exp=wcenter_exp)
+            else:
+                Ti_prof.build_profile()
             Ti = Ti_prof.yspl
 
             _bckc = forward_model.moment_analysis(
@@ -522,8 +522,8 @@ class Plasma:
         if quantity_te == "te_kw":
             quantity_ratio = "int_k/int_w"
         elif quantity_te == "te_n3w":
-            quantity_ratio = "int_n3/int_w"
-            # quantity_ratio = "int_n3/int_tot"
+            quantity_ratio = "int_n3/int_tot"
+            # quantity_ratio = "int_n3/int_w"
         else:
             print_like(f"{quantity_te} not available for ratio calculation")
             raise ValueError
@@ -537,22 +537,14 @@ class Plasma:
         Te_prof = self.Te_prof
         Ti_prof = self.Ti_prof
 
-        Te_prof.y1 = y1
-        Te_prof.wped = wped
-        Te_prof.wcenter = wcenter
-        Te_prof.peaking = peaking
-
-        Ti_prof.y1 = y1
-        Ti_prof.wped = wped
-        Ti_prof.wcenter = wcenter
-        Ti_prof.peaking = peaking
-
         pos = xr.full_like(data[diagnostic][quantity_te].t, np.nan)
         err_in = deepcopy(pos)
         err_out = deepcopy(pos)
         te_pos = Dataset({"value": pos, "err_in": err_in, "err_out": err_out})
         ti_pos = deepcopy(te_pos)
-        bounds = (100.0, 30.0e3)
+        bounds = (100.0, 10.0e3)
+        if method=="lm":
+            bounds=(-np.inf, np.inf)
 
         # Initialize variables
         emiss = []
@@ -567,9 +559,9 @@ class Plasma:
         dl = data[diagnostic][quantity_ti].attrs["dl"]
 
         if calc_error:
-            self.el_temp_up = deepcopy(self.el_temp)
+            self.el_temp_hi = deepcopy(self.el_temp)
             self.el_temp_lo = deepcopy(self.el_temp)
-            self.ion_temp_up = deepcopy(self.ion_temp)
+            self.ion_temp_hi = deepcopy(self.ion_temp)
             self.ion_temp_lo = deepcopy(self.ion_temp)
 
         for t in time:
@@ -592,11 +584,13 @@ class Plasma:
                 ti0 = Ti_prof.y0
 
             if not ((te0 > 0) * (ti0 > 0)):
-                self.el_temp.loc[dict(t=t)] = np.full_like(Te_prof.yspl.values, np.nan)
+                self.el_temp.loc[dict(t=t)] = np.full_like(
+                    Te_prof.yspl.values, np.nan
+                ).values
                 for elem in self.elements:
                     self.ion_temp.loc[dict(t=t, element=elem)] = np.full_like(
                         Te_prof.yspl.values, np.nan
-                    )
+                    ).values
                 continue
 
             if use_ratios:
@@ -605,23 +599,25 @@ class Plasma:
 
                     # Upper limit of the ratio
                     ratio_data = ratio_tmp + ratio_tmp.attrs["error"]
-                    least_squares(residuals_te_ratio, te0, bounds=bounds)
-                    least_squares(residuals_ti, ti0, bounds=bounds)
-                    Te_up = deepcopy(Te_prof)
-                    Ti_up = deepcopy(Ti_prof)
+                    least_squares(residuals_te_ratio, te0, bounds=bounds, method=method)
+                    least_squares(residuals_ti, ti0, bounds=bounds, method=method)
 
-                    # Lower limit of the ratio
-                    ratio_data = ratio_tmp - ratio_tmp.attrs["error"]
-                    least_squares(residuals_te_ratio, te0, bounds=bounds)
-                    least_squares(residuals_ti, ti0, bounds=bounds)
                     Te_lo = deepcopy(Te_prof)
                     Ti_lo = deepcopy(Ti_prof)
 
-                    te0 = np.mean(Te_up.y0 + Te_lo.y0)/2.
-                    ti0 = np.mean(Ti_up.y0 + Ti_lo.y0)/2.
+                    # Lower limit of the ratio
+                    ratio_data = ratio_tmp - ratio_tmp.attrs["error"]
+                    least_squares(residuals_te_ratio, te0, bounds=bounds, method=method)
+                    least_squares(residuals_ti, ti0, bounds=bounds, method=method)
+                    Te_hi = deepcopy(Te_prof)
+                    Ti_hi = deepcopy(Ti_prof)
 
-                fit_ratio = least_squares(residuals_te_ratio, te0, bounds=bounds)
-                least_squares(residuals_ti, ti0, bounds=bounds)
+                    te0 = np.mean(Te_hi.y0 + Te_lo.y0) / 2.0
+                    ti0 = np.mean(Ti_hi.y0 + Ti_lo.y0) / 2.0
+                    ratio_data = ratio_tmp
+
+                fit_ratio = least_squares(residuals_te_ratio, te0, bounds=bounds, method=method)
+                least_squares(residuals_ti, ti0, bounds=bounds, method=method)
             else:
                 if calc_error:
                     print_like(
@@ -629,8 +625,8 @@ class Plasma:
                     )
                     raise ValueError
 
-                least_squares(residuals_te, te_data.values, bounds=bounds)
-                least_squares(residuals_ti, ti_data.values, bounds=bounds)
+                least_squares(residuals_te, te0, bounds=bounds, method=method)
+                least_squares(residuals_ti, ti0, bounds=bounds, method=method)
 
             Te = Te_prof.yspl
             Ti = Ti_prof.yspl
@@ -657,8 +653,8 @@ class Plasma:
             ti_pos.err_in.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["in"]
             ti_pos.err_out.loc[dict(t=t)] = ti_bckc.attrs["rho_poloidal_err"]["out"]
 
-            emiss.loc[dict(t=t)] = forward_model.emiss["w"]
-            fz.loc[dict(t=t)] = forward_model.fz["ar"]
+            emiss.loc[dict(t=t)] = forward_model.emiss["w"].values
+            fz.loc[dict(t=t)] = forward_model.fz["ar"].values
 
             bckc[diagnostic][quantity_te].loc[dict(t=t)] = te_bckc.values[0]
             bckc[diagnostic][quantity_ti].loc[dict(t=t)] = ti_bckc.values[0]
@@ -667,12 +663,12 @@ class Plasma:
 
             self.el_temp.loc[dict(t=t)] = Te_prof.yspl.values
             if calc_error:
-                self.el_temp_up.loc[dict(t=t)] = Te_up.yspl.values
+                self.el_temp_hi.loc[dict(t=t)] = Te_hi.yspl.values
                 self.el_temp_lo.loc[dict(t=t)] = Te_lo.yspl.values
             for elem in self.elements:
                 self.ion_temp.loc[dict(t=t, element=elem)] = Ti_prof.yspl.values
                 if calc_error:
-                    self.ion_temp_up.loc[dict(t=t, element=elem)] = Ti_up.yspl.values
+                    self.ion_temp_hi.loc[dict(t=t, element=elem)] = Ti_hi.yspl.values
                     self.ion_temp_lo.loc[dict(t=t, element=elem)] = Ti_lo.yspl.values
 
         bckc[diagnostic][quantity_te].attrs["pos"] = te_pos
@@ -700,10 +696,15 @@ class Plasma:
         quantity: str = "int_w",
         elem="ar",
         cal=1.0e13,
+        dt_cal=0.007,
+        dt=None,
         niter=2,
         time=None,
+        scale=True,
     ):
         """
+        TODO: separate calculation of line intensity from optimisation so to call former by itself if needed
+        TODO: tau currently not included in calculation
         Compute Ar density to match the XRCS spectrometer measurements
 
         Parameters
@@ -737,19 +738,22 @@ class Plasma:
             f"Re-calculating Ar density profiles to match {diagnostic.upper()} values"
         )
 
+        if dt is None:
+            dt = dt_cal
+
         if time is None:
             time = self.t
-        time = list(time)
 
         if diagnostic not in bckc:
             bckc[diagnostic] = {}
-
-        bckc = initialize_bckc(diagnostic, quantity, data, bckc=bckc)
+        if quantity not in bckc[diagnostic].keys():
+            bckc = initialize_bckc(diagnostic, quantity, data, bckc=bckc)
+        line = quantity.split("_")[1]
 
         # Initialize back calculated values of diagnostic quantities
         forward_model = self.forward_models[diagnostic]
         dl = data[diagnostic][quantity].attrs["dl"]
-        for t in list(time):
+        for t in time:
             print(t)
 
             int_data = data[diagnostic][quantity].sel(t=t)
@@ -766,20 +770,12 @@ class Plasma:
 
             const = 1.0
             for j in range(niter):
-                self.Nimp_prof.y0 *= const
-                self.Nimp_prof.y1 *= const
-                self.Nimp_prof.yend *= const
-                self.Nimp_prof.build_profile()
-
-                Nimp = {elem: self.Nimp_prof.yspl}
-                forward_model.radiation_characteristics(
-                    Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau
-                )
-                int_bckc, _ = forward_model.los_integral(rho_los, dl)
-                int_bckc = int_bckc["w"] * cal
+                Nimp = {elem: self.ion_dens.sel(element=elem, t=t) * const}
+                _bckc = forward_model(Te, Ne, Nimp=Nimp, Nh=Nh, rho_los=rho_los, dl=dl,)
+                int_bckc = forward_model.intensity[line] * cal / dt_cal * dt
                 const = (int_data / int_bckc).values
 
-                if np.abs(1 - const) < 1.0e-4:
+                if (np.abs(1 - const) < 1.0e-4) or not (scale):
                     break
 
             self.ion_dens.loc[dict(element=elem, t=t)] = Nimp[elem].values
@@ -841,7 +837,7 @@ class Plasma:
                 ne_bckc = self.calc_ne_los_int(data[diagnostic][quantity], t=t)
                 const = (data[diagnostic][quantity].sel(t=t) / ne_bckc).values
 
-            bckc[diagnostic][quantity].loc[dict(t=t)] = ne_bckc
+            bckc[diagnostic][quantity].loc[dict(t=t)] = ne_bckc.values
 
         self.optimisation[
             "el_dens"
@@ -982,22 +978,24 @@ class Plasma:
         if fast_dens is True:
             main_ion_dens -= self.fast_dens
 
-        self.ion_dens.loc[dict(element=self.main_ion)] = main_ion_dens
+        self.ion_dens.loc[dict(element=self.main_ion)] = main_ion_dens.values
 
-    def calc_imp_dens(self):
+    def calc_imp_dens(self, time=None):
         """
         Calculate impurity density from concentration
         """
 
+        if time == None:
+            time = self.t
         imp_dens = self.Nimp_prof.yspl / self.Nimp_prof.yspl.sel(rho_poloidal=0)
         for elem in self.impurities:
             imp_dens_0 = self.el_dens.sel(rho_poloidal=0) * self.ion_conc.sel(
                 element=elem
             )
-            for t in self.t:
-                self.ion_dens.loc[dict(t=t, element=elem)] = imp_dens * imp_dens_0.sel(
-                    t=t
-                )
+            Nimp = self.ion_dens.sel(element=elem)
+            for t in time:
+                Nimp.loc[dict(t=t)] = imp_dens * imp_dens_0.sel(t=t).values
+            self.ion_dens.loc[dict(element=elem)] = Nimp.values
 
     def calc_fz_lz(self, use_tau=False):
         """
@@ -1028,10 +1026,10 @@ class Plasma:
                 if use_tau:
                     tau = self.tau.sel(t=t)
                 fz_tmp = self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau)
-                fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
-                lz[elem].loc[dict(t=t)] = self.power_loss[elem](
-                    Ne, Te, fz_tmp, Nh=Nh
-                ).transpose()
+                fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
+                lz[elem].loc[dict(t=t)] = (
+                    self.power_loss[elem](Ne, Te, fz_tmp, Nh=Nh).transpose().values
+                )
 
         self.fz = fz
         self.lz = lz
@@ -1040,13 +1038,10 @@ class Plasma:
         """
         Calculate mean charge
         """
-        if not hasattr(self, "fz") or not hasattr(self, "lz"):
-            self.calc_fz_lz()
-
         for elem in self.elements:
             fz = self.fz[elem]
-            self.meanz.loc[dict(element=elem)] = (fz * fz.ion_charges).sum(
-                "ion_charges"
+            self.meanz.loc[dict(element=elem)] = (
+                (fz * fz.ion_charges).sum("ion_charges").values
             )
 
     def calc_rad_power(self):
@@ -1054,33 +1049,25 @@ class Plasma:
         Calculate total and SXR filtered radiated power
         """
         for elem in self.elements:
-            self.tot_rad.loc[dict(element=elem)] = (
+            tot_rad = (
                 self.lz[elem].sum("ion_charges")
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
+            tot_rad = xr.where(tot_rad >= 0, tot_rad, 0.0,)
+            self.tot_rad.loc[dict(element=elem)] = tot_rad.values
 
-            self.tot_rad.loc[dict(element=elem)] = xr.where(
-                self.tot_rad.sel(element=elem) >= 0,
-                self.tot_rad.sel(element=elem),
-                0.0,
-            )
-
+            prad = self.prad.sel(element=elem)
             for t in self.t:
-                self.prad.loc[dict(element=elem, t=t)] = np.trapz(
-                    self.tot_rad.sel(element=elem, t=t), self.volume.sel(t=t)
-                )
+                prad.loc[dict(t=t)] = np.trapz(tot_rad.sel(t=t), self.volume.sel(t=t))
+            self.prad.loc[dict(element=elem)] = prad.values
 
-    def calc_pressure(self, data=None, bckc=None):
+    def calc_pressure(self):
         """
         Calculate pressure profiles (thermal and total), MHD and diamagnetic energies
         """
 
-        if data is not None:
-            if hasattr(self, "equil"):
-                bckc = initialize_bckc(self.equil, "wp", data, bckc=bckc)
-            if "dialoop" in data.keys():
-                bckc = initialize_bckc("wdia", "dialoop", data, bckc=bckc)
+        # TODO: EFIT pressure weights on parallel and perpendicular fast particle pressure
 
         p_el = ph.calc_pressure(self.el_dens.values, self.el_temp.values)
 
@@ -1115,21 +1102,15 @@ class Plasma:
         self.wth.values = 3 / 2 * self.pth.values
         self.wp.values = 3 / 2 * self.ptot.values
 
-        if data is not None:
-            if hasattr(self, "equil"):
-                bckc[self.equil]["wp"].values = self.wp.values
-            if "dialoop" in data.keys():
-                bckc["dialoop"]["wdia"].values = self.wp.values
-            return bckc
-
     def calc_zeff(self):
         """
         Calculate Zeff including all ion species
         """
         for elem in self.elements:
             self.zeff.loc[dict(element=elem)] = (
-                self.ion_dens.sel(element=elem) * self.meanz.sel(element=elem) ** 2
-            ) / self.el_dens
+                (self.ion_dens.sel(element=elem) * self.meanz.sel(element=elem) ** 2)
+                / self.el_dens
+            ).values
 
     def calc_vloop(self):
         """
@@ -1155,7 +1136,7 @@ class Plasma:
 
             vloop = ph.vloop(resistivity[ir], j_phi[ir], area[ir])
 
-            self.vloop.loc[dict(t=t)] = vloop
+            self.vloop.loc[dict(t=t)] = vloop.values
 
     def impose_flat_zeff(self):
         """
@@ -1174,7 +1155,7 @@ class Plasma:
                 ion_dens_tmp = zeff_tmp / (
                     self.meanz.sel(element=elem) ** 2 / self.el_dens
                 )
-                self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp
+                self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp.values
 
         self.calc_zeff()
 
@@ -1193,7 +1174,7 @@ class Plasma:
 
             j_phi = ph.current_density(ipla, rho, r_a, area, prof_shape)
 
-            self.j_phi.loc[dict(t=t)] = j_phi * 10
+            self.j_phi.loc[dict(t=t)] = (j_phi * 10).values
 
     def calc_magnetic_field(self):
         """
@@ -1216,20 +1197,24 @@ class Plasma:
 
             # self.b_tor_lfs.loc[dict(t=t)] = self.equilibrium.Btot(maj_r_lfs, np.full_like(maj_r_lfs, zmag), t)
 
-            self.b_tor_lfs.loc[dict(t=t)] = ph.toroidal_field(bt_0, R_bt_0, maj_r_lfs)
-            self.b_tor_hfs.loc[dict(t=t)] = ph.toroidal_field(bt_0, R_bt_0, maj_r_hfs)
+            self.b_tor_lfs.loc[dict(t=t)] = ph.toroidal_field(
+                bt_0, R_bt_0, maj_r_lfs
+            ).values
+            self.b_tor_hfs.loc[dict(t=t)] = ph.toroidal_field(
+                bt_0, R_bt_0, maj_r_hfs
+            ).values
 
             b_pol = ph.poloidal_field(j_phi, min_r, area)
             self.b_pol.loc[dict(t=t)] = b_pol
             self.l_i.loc[dict(t=t)] = ph.internal_inductance(
                 b_pol, ipla, volume, approx=2, R_mag=R_mag
-            )
+            ).values
 
             b_tor = ((self.b_tor_lfs.sel(t=t) + self.b_tor_hfs.sel(t=t)) / 2.0).values
 
             self.q_prof.loc[dict(t=t)] = ph.safety_factor(
                 b_tor, b_pol, min_r, r_a, R_mag
-            )
+            ).values
 
     def calc_beta_poloidal(self):
         """
@@ -1243,7 +1228,9 @@ class Plasma:
             pressure = self.pressure_tot.sel(t=t).values
             volume = self.volume.sel(t=t).values
 
-            self.beta_pol.loc[dict(t=t)] = ph.beta_poloidal(b_pol, pressure, volume)
+            self.beta_pol.loc[dict(t=t)] = ph.beta_poloidal(
+                b_pol, pressure, volume
+            ).values
 
     def propagate_ion_dens(self, fast_dens=False):
         """
@@ -1288,13 +1275,13 @@ class Plasma:
                         * diffusion
                     )
                     gauss /= np.sum(gauss)
-                    fz_tmp.loc[dict(rho_poloidal=rho)] = (fz_tmp * gauss).sum(
-                        "rho_poloidal"
+                    fz_tmp.loc[dict(rho_poloidal=rho)] = (
+                        (fz_tmp * gauss).sum("rho_poloidal").values
                     )
                 for ir, rho in enumerate(self.rho):
                     norm = np.nansum(fz_tmp.sel(rho_poloidal=rho), axis=0)
-                    fz_tmp.loc[dict(rho_poloidal=rho)] = fz_tmp / norm
-                    fz_transp.loc[dict(t=t)] = fz_tmp
+                    fz_tmp.loc[dict(rho_poloidal=rho)] = (fz_tmp / norm).values
+                    fz_transp.loc[dict(t=t)] = fz_tmp.values
 
                 plt.figure()
                 colors = cm.rainbow(np.linspace(0, 1, len(fz.ion_charges)))
@@ -1377,7 +1364,7 @@ class Plasma:
         self.Ne_prof = Profiles(datatype=("density", "electron"), xspl=self.rho)
         self.Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
         self.Nimp_prof.y1 = 3.0e19
-        self.Nimp_prof.yend = 3.0e19
+        self.Nimp_prof.yend = 2.0e19
         self.Nimp_prof.build_profile()
         self.Nh_prof = Profiles(datatype=("neutral_density", "neutrals"), xspl=self.rho)
         self.Vrot_prof = Profiles(datatype=("rotation", "ion"), xspl=self.rho)
@@ -1576,7 +1563,7 @@ def initialize_bckc(diagnostic, quantity, data, bckc={}):
     return bckc
 
 
-def remap_diagnostic(diag_data, flux_transform, npts=300):
+def remap_diagnostic(diag_data, flux_transform, npts=100):
     """
     Calculate maping on equilibrium for speccified diagnostic
 
