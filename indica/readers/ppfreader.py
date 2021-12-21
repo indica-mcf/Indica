@@ -558,6 +558,27 @@ class PPFReader(DataReader):
         data_objects: Iterable[str],
         ignored: Iterable[Number],
     ) -> prov.ProvEntity:
+        """Wrapper to abstract DataReader create_provenance that converts that
+        ensures revision is fixed instead of "0" (for latest revision)
+
+        Parameters
+        ----------
+        key
+            Identifies what data was read. Should be present in
+            :py:attr:`AVAILABLE_DATA`.
+        revision
+            Object indicating which version of data should be used.
+        data_objects
+            Identifiers for the database entries or files which the data was
+            read from.
+        ignored
+            A list of channels which were ignored/dropped from the data.
+
+        Returns
+        -------
+        :
+            A provenance entity for the newly read-in data.
+        """
         path = self.get_sal_path(uid, instrument, quantity, revision)
         info = self._client.list(path)
         return super().create_provenance(
