@@ -174,23 +174,23 @@ def los_coordinates_parameters(
 
     Returns
     -------
-    R_start
-        1-D array of major radii of the start for each line-of-sight.
+    x_start
+        1-D array of x positions of the start for each line-of-sight.
     z_start
-        1-D array of vertical positions of the start for each line-of-sight.
-    T_start
-        1-D array of toroidal offsets of the start for each line-of-sight.
-    R_end
-        1-D array of major radii of the end for each line-of-sight.
+        1-D array of z positions of the start for each line-of-sight.
+    y_start
+        1-D array of y positions of the start for each line-of-sight.
+    x_end
+        1-D array of x positions of the end for each line-of-sight.
     z_end
-        1-D array of vertical positions of the end for each line-of-sight.
-    T_end
-        1-D array of toroidal offsets of the end for each line-of-sight.
+        1-D array of z positions of the end for each line-of-sight.
+    y_end
+        1-D array of y positions of the end for each line-of-sight.
     name: Optional[str]
         The name of the camera these lines of sight are for.
     machine_dimensions
-        A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``.
+        A tuple giving the boundaries of the Tokamak in x-z space:
+        ``((xmin, xmax), (xmin, xmax)``.
 
     """
     focus_x = 2.5 + draw(floats(-2.4, 7.5))
