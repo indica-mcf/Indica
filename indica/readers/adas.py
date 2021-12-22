@@ -153,6 +153,78 @@ class ADASReader(BaseIO):
             attrs=attrs,
         )
 
+    def get_adf12(
+        self,
+        donor_ion: str,
+        donor_metastable: str,
+        receiver_ion: str,
+        receiver_charge: str,
+        year="",
+    ) -> DataArray:
+        """ Read data from specified ADF12 ADAS file.
+        
+        donor_ion 
+            The donor ion element described by the rate file.
+        donor_metastable 
+            The donor ion metastable level
+        receiver_ion 
+            The receiver ion element described by the rate file.
+        receiver_charge
+            The receiver ion charge state described by the rate file.
+        year
+            The two-digit year label for the data.
+        """
+
+        # Find path to file
+        filename = "/home/jonathan.wood/git_home/spectroscopyscripts/indica_scripts/qeff#h"
+
+        # Which block to read
+        block = int(16)
+        
+        # Read data from file
+        with open(filename, 'r') as f:
+            nlines = int(f.readline())
+
+            for iline in range(block):
+                cer_line = {}
+                first_line = '0'
+                while not first_line[0].isalpha():
+                    first_line = f.readline()
+                
+
+                cer_line['header'] = first_line
+                cer_line['qefref'] = np.float( f.readline()[:63].replace('D', 'e'))
+                cer_line['parmref'] = np.float_( f.readline()[:63].replace('D', 'e').split())
+                cer_line['nparmsc'] = np.int_(f.readline()[:63].split())
+                print(first_line)
+
+                print(cer_line)
+                
+                params = []
+                for ipar, npar in enumerate( cer_line['nparmsc'] ):
+                    for q in range(2):
+                        data = []
+                        while npar > len(data):
+                            line = f.readline()
+                            if len(line) > 63:
+                                name = line[63:].strip().lower()
+                                cer_line[name] = []
+                                if q == 0:
+                                    params.append(name)
+
+                            values = np.float_( line[:63].replace('D', 'E').split() )
+                            values = values[values > 0]
+                            if not len(values):
+                                continue
+                            data   += values.tolist()
+                        
+                        cer_line[name] = data
+
+        print(cer_line)
+        print(cer_line.keys())
+        return cer_line
+        
+
     def get_adf15(
         self,
         element: str,
