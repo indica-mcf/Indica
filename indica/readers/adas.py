@@ -179,8 +179,8 @@ class ADASReader(BaseIO):
             The two-digit year label for the data.
         """
 
-        # Find path to file
-        filename = "/home/jonathan.wood/git_home/spectroscopyscripts/indica_scripts/qeff#h"
+        # Find path to file -- to do: generalise
+        filename = "/home/jonathan.wood/git_home/Indica/hda/tests/qeff#h"
 
         # Which block to read
         block = int(16)
