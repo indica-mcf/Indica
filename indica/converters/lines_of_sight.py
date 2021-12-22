@@ -26,33 +26,33 @@ class LinesOfSightTransform(CoordinateTransform):
     the measurements were integrated along the line-of-sight.
 
     If not passed to the constructor, the default grid for converting
-    from the R-z system is chosen as follows:
+    from the x-z system is chosen as follows:
 
-    - The R-grid ranges from ``min(R_start.min(), R_end.min())`` to
-      ``max(R_start.max(), R_end.max())`` with ``num_points`` intervals.
+    - The x-grid ranges from ``min(x_start.min(), x_end.min())`` to
+      ``max(x_start.max(), x_end.max())`` with ``num_points`` intervals.
     - The z-grid ranges from ``min(z_start.min(), z_end.min())`` to
       ``max(z_start.max(), z_end.max())`` with ``num_points`` intervals.
 
     Parameters
     ----------
-    R_start
-        1-D array of major radii of the start for each line-of-sight.
+    x_start
+        1-D array of x positions of the start for each line-of-sight.
     z_start
-        1-D array of vertical positions of the start for each line-of-sight.
-    T_start
-        1-D array of toroidal offset for the start of each line-of-sight.
-    R_end
-        1-D array of major radii of the end for each line-of-sight.
+        1-D array of z positions of the start for each line-of-sight.
+    y_start
+        1-D array of y positions for the start of each line-of-sight.
+    x_end
+        1-D array of x positions of the end for each line-of-sight.
     z_end
-        1-D array of vertical positions of the end for each line-of-sight.
-    T_end
-        1-D array of toroidal offset for the end of each line-of-sight.
+        1-D array of z positions of the end for each line-of-sight.
+    y_end
+        1-D array of y positions for the end of each line-of-sight.
     name
         The name to refer to this coordinate system by, typically taken
         from the instrument it describes.
     machine_dimensions
-        A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
+        A tuple giving the boundaries of the Tokamak in x-z space:
+        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
 
     """
 
@@ -115,16 +115,16 @@ class LinesOfSightTransform(CoordinateTransform):
     ) -> Coordinates:
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
-        R_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
-        R_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
         z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
         z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        T_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
-        T_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-        R_0 = R_s + (R_e - R_s) * x2
-        T_0 = T_s + (T_e - T_s) * x2
+        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        x_0 = x_s + (x_e - x_s) * x2
+        y_0 = y_s + (y_e - y_s) * x2
         z = z_s + (z_e - z_s) * x2
-        return np.sign(R_0) * np.sqrt(R_0 ** 2 + T_0 ** 2), z
+        return np.sign(x_0) * np.sqrt(x_0 ** 2 + y_0 ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -134,31 +134,31 @@ class LinesOfSightTransform(CoordinateTransform):
             x2 = x[1]
             c = np.ceil(x1).astype(int)
             f = np.floor(x1).astype(int)
-            R_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
-            R_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+            x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+            x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
             z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
             z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-            T_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
-            T_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-            R_0 = R_s + (R_e - R_s) * x2
-            T_0 = T_s + (T_e - T_s) * x2
-            R = np.sign(R_0) * np.sqrt(R_0 ** 2 + T_0 ** 2)
-            dR_0dx1 = (self.x_start[c] - self.x_start[f]) * (1 - x2) + (
+            y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+            y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+            x_0 = x_s + (x_e - x_s) * x2
+            y_0 = y_s + (y_e - y_s) * x2
+            x = np.sign(x_0) * np.sqrt(x_0 ** 2 + y_0 ** 2)
+            dx_0dx1 = (self.x_start[c] - self.x_start[f]) * (1 - x2) + (
                 self.x_end[c] - self.x_end[f]
             ) * x2
-            dR_0dx2 = R_e - R_s
-            dT_0dx1 = (self.y_start[c] - self.y_start[f]) * (1 - x2) + (
+            dx_0dx2 = x_e - x_s
+            dy_0dx1 = (self.y_start[c] - self.y_start[f]) * (1 - x2) + (
                 self.y_end[c] - self.y_end[f]
             ) * x2
-            dT_0dx2 = T_e - T_s
+            dy_0dx2 = y_e - y_s
             dzdx1 = (self.z_start[c] - self.z_start[f]) * (1 - x2) + (
                 self.z_end[c] - self.z_end[f]
             ) * x2
             dzdx2 = z_e - z_s
             return [
                 [
-                    2 / R * (R_0 * dR_0dx1 + T_0 * dT_0dx1),
-                    2 / R * (R_0 * dR_0dx2 + T_0 * dT_0dx2),
+                    2 / x * (x_0 * dx_0dx1 + y_0 * dy_0dx1),
+                    2 / x * (x_0 * dx_0dx2 + y_0 * dy_0dx2),
                 ],
                 [dzdx1, dzdx2],
             ]
@@ -215,19 +215,19 @@ class LinesOfSightTransform(CoordinateTransform):
         """
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
-        R_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
-        R_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
         z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
         z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        T_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
-        T_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-        R = R_s + (R_e - R_s) * x2
-        T = T_s + (T_e - T_s) * x2
+        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        x = x_s + (x_e - x_s) * x2
+        y = y_s + (y_e - y_s) * x2
         z = z_s + (z_e - z_s) * x2
         spacings = np.sqrt(
-            R.diff(direction) ** 2 + z.diff(direction) ** 2 + T.diff(direction) ** 2
+            x.diff(direction) ** 2 + z.diff(direction) ** 2 + y.diff(direction) ** 2
         )
-        result = zeros_like(R)
+        result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
 
@@ -250,21 +250,21 @@ def _get_wall_intersection_distances(
 
     Parameters
     ----------
-    R_start
-        1-D array of major radii of the start for each line-of-sight.
+    x_start
+        1-D array of x positions of the start for each line-of-sight.
     z_start
-        1-D array of vertical positions of the start for each line-of-sight.
+        1-D array of z positions of the start for each line-of-sight.
     y_start
-        1-D array of toroidal offset for the start of each line-of-sight.
-    R_end
-        1-D array of major radii of the end for each line-of-sight.
+        1-D array of y positions for the start of each line-of-sight.
+    x_end
+        1-D array of x positions of the end for each line-of-sight.
     z_end
-        1-D array of vertical positions of the end for each line-of-sight.
-    T_end
-        1-D array of toroidal offset for the end of each line-of-sight.
+        1-D array of z positions of the end for each line-of-sight.
+    y_end
+        1-D array of y positions for the end of each line-of-sight.
     machine_dimensions
-        A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
+        A tuple giving the boundaries of the Tokamak in x-z space:
+        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
 
     Returns
     -------
