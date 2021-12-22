@@ -11,12 +11,14 @@ save_directory_var  = ss.get_save_directory('combined_variation')
 base_directory = ss.save_directory_base
 
 #FIELDS
-fields = list(ss.sweep_values.keys())
+fields = ss.fields
 
 #SWITCHES
-plot_combined  = False
-plot_variation = False
+plot_combined  = True
+plot_variation = True
 
+#CAMERA
+camera = 'filter_4'
 
 #COMBINED BACK-INTEGRAL PLOT
 if plot_combined:
@@ -25,7 +27,10 @@ if plot_combined:
         #NUMBER OF SWEEPS
         no_sweeps = len(ss.sweep_values[field])
         #ALL FILES DATA
-        directory = base_directory+'/sweep_'+field
+        if ss.version_control:
+            directory = ss.get_save_directory('sweep_'+field+'_'+ss.version)
+        else:
+            directory = ss.get_save_directory('sweep_'+field)
         all_files = os.listdir(directory)
         #COMBINED DATA DECLARAION
         combined_data = {}
@@ -33,13 +38,19 @@ if plot_combined:
             if ('.p' in file) & ('.png' not in file):
                 filename = file
                 with open(directory+'/'+filename, 'rb') as handle:
-                    combined_data[filename.replace('.p','')] = pickle.load(handle)
+                    # combined_data[filename.replace('.p','')] = pickle.load(handle)
+                    temp_data = pickle.load(handle)
+                    for key,value in temp_data.items():
+                        combined_data[key] = value
         #SAVING THE COMBINED DATA
-        filename = save_directory_data+'/sweep_'+field+'.p'
+        if ss.version_control:
+            filename = save_directory_data+'/sweep_'+field+'_'+ss.version+'.p'    
+        else:
+            filename = save_directory_data+'/sweep_'+field+'.p'
         with open(filename, 'wb') as handle:
                 pickle.dump(combined_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
         #TIMES
-        times = combined_data[list(combined_data.keys())[0]]['t'].data
+        times = combined_data[list(combined_data.keys())[0]][camera]['t'].data
         if field=='d_time':
             times = [times[0]]
         #NUMBER OF ROWS AND COLUMNS
@@ -75,11 +86,11 @@ if plot_combined:
                     key = field+'_'+str(SuffixValue)
                     key = str(ss.pulseNo)+'_'+key
                     #CHI2 VALUE
-                    chi2 = combined_data[key]['back_integral']['chi2'][i_time]
+                    chi2 = combined_data[key][camera]['back_integral']['chi2'][i_time]
                     #TITLE
                     title = field+' = '+str(SuffixValue)+', chi2 = '+str(np.round(chi2,2))
                     #SELECTED DATA
-                    sel_data = combined_data[key]['back_integral']
+                    sel_data = combined_data[key][camera]['back_integral']
                     #I AND J
                     [i1,i2] = plt_sequence[i]
                     #AXIS DEFINITION
@@ -88,9 +99,9 @@ if plot_combined:
                     except:
                         sel_ax = ax[i1+i2]
                     #PLOT
-                    sel_ax.plot(sel_data['channel_no'][combined_data[key]['channels_considered']],sel_data['data_theory'][i_time,combined_data[key]['channels_considered']]/1.e+3,color='b')
-                    sel_ax.scatter(sel_data['channel_no'][combined_data[key]['channels_considered']],sel_data['data_experiment'][i_time,combined_data[key]['channels_considered']]/1.e+3,color='k')
-                    sel_ax.scatter(sel_data['channel_no'][np.logical_not(combined_data[key]['channels_considered'])],sel_data['data_experiment'][i_time,np.logical_not(combined_data[key]['channels_considered'])]/1.e+3,color='r',marker='v')
+                    sel_ax.plot(sel_data['channel_no'][combined_data[key][camera]['channels_considered']],sel_data['data_theory'][i_time,combined_data[key][camera]['channels_considered']]/1.e+3,color='b')
+                    sel_ax.scatter(sel_data['channel_no'][combined_data[key][camera]['channels_considered']],sel_data['data_experiment'][i_time,combined_data[key][camera]['channels_considered']]/1.e+3,color='k')
+                    sel_ax.scatter(sel_data['channel_no'][np.logical_not(combined_data[key][camera]['channels_considered'])],sel_data['data_experiment'][i_time,np.logical_not(combined_data[key][camera]['channels_considered'])]/1.e+3,color='r',marker='v')
                     #TITLE
                     sel_ax.set_title(title)
                 #DELETING THE LAST SUBPLOT
@@ -100,9 +111,12 @@ if plot_combined:
                 fig.text(0.5, 0.04, 'Channel number', ha='center',fontsize=25)
                 fig.text(0.08, 0.5, 'Line emission [Kw/m-2]', va='center', rotation='vertical',fontsize=25)
                 plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False,labelsize=50)
-                plt.suptitle('#'+str(ss.pulseNo)+' @ t='+str(np.round((time-combined_data[key]['dt']/2)*1.e+3,2))+' - '+str(np.round((time-combined_data[key]['dt']/2)*1.e+3,2))+' ms - Sweep of '+field,fontsize=25)
+                plt.suptitle('#'+str(ss.pulseNo)+' @ t='+str(np.round((time-combined_data[key]['input_data']['d_time']/2)*1.e+3,2))+' - '+str(np.round((time-combined_data[key]['input_data']['d_time']/2)*1.e+3,2))+' ms - Sweep of '+field,fontsize=25)
                 #SAVING THE PLOT
-                filenameFig = save_directory_plot+'/sweep_'+field+'_'+str(ss.pulseNo)+'_t_'+str(i_time+1)+'.png'
+                if ss.version_control:
+                    filenameFig = save_directory_plot+'/sweep_'+field+'_'+ss.version+'_'+str(ss.pulseNo)+'_t_'+str(i_time+1)+'.png'
+                else:
+                    filenameFig = save_directory_plot+'/sweep_'+field+'_'+str(ss.pulseNo)+'_t_'+str(i_time+1)+'.png'
                 plt.savefig(filenameFig)
                 plt.close('all')
                 print(filenameFig+' saved successfully!')
@@ -116,7 +130,10 @@ if plot_variation:
         #NUMBER OF SWEEPS
         no_sweeps = len(ss.sweep_values[field])
         #ALL FILES DATA
-        directory = base_directory+'/sweep_'+field
+        if ss.version_control:
+            directory = ss.get_save_directory('sweep_'+field+'_'+ss.version)
+        else:
+            directory = ss.get_save_directory('sweep_'+field)
         all_files = os.listdir(directory)
         #COMBINED DATA DECLARAION
         combined_data = {}
@@ -124,11 +141,14 @@ if plot_variation:
             if ('.p' in file) & ('.png' not in file):
                 filename = file
                 with open(directory+'/'+filename, 'rb') as handle:
-                    combined_data[filename.replace('.p','')] = pickle.load(handle)
+                    # combined_data[filename.replace('.p','')] = pickle.load(handle)
+                    temp_data = pickle.load(handle)
+                    for key,value in temp_data.items():
+                        combined_data[key] = value
         #VALUES
         values = ss.sweep_values[field]
         #TIMES
-        times = combined_data[list(combined_data.keys())[0]]['t'].data
+        times = combined_data[list(combined_data.keys())[0]][camera]['t'].data
         if field=='d_time':
             times = [times[0]]
         #CHI2 VALUES
@@ -152,16 +172,16 @@ if plot_variation:
             key = str(ss.pulseNo)+'_'+key
             #CHI2 VALUE
             if field=='d_time':
-                chi2[ival,:] = combined_data[key]['back_integral']['chi2'][0]
+                chi2[ival,:] = combined_data[key][camera]['back_integral']['chi2'][0]
             else:
-                chi2[ival,:] = combined_data[key]['back_integral']['chi2']
+                chi2[ival,:] = combined_data[key][camera]['back_integral']['chi2']
         #FIGURE DECLARATION
         plt.close('all')
         plt.figure(figsize=(16,10))
         #SWEEP OF TIMES
         for i_time,time in enumerate(times):
             #LABEL
-            label = '#'+str(ss.pulseNo)+' @ t='+str(np.round((time-combined_data[key]['dt']/2)*1.e+3,2))+' - '+str(np.round((time-combined_data[key]['dt']/2)*1.e+3,2))+' ms'            
+            label = '#'+str(ss.pulseNo)+' @ t='+str(np.round((time-combined_data[key]['input_data']['d_time']/2)*1.e+3,2))+' - '+str(np.round((time-combined_data[key]['input_data']['d_time']/2)*1.e+3,2))+' ms'            
             #PLOT
             plt.scatter(np.arange(0,len(values)),chi2[:,i_time])
             plt.plot(np.arange(0,len(values)),chi2[:,i_time],label=label)
@@ -174,6 +194,9 @@ if plot_variation:
             plt.tick_params(axis='both',labelsize=20)
             plt.xticks(np.arange(0,len(values)),values)
         #SAVING THE PLOT
-        filenameFig = save_directory_var+'/sweep_'+field+'.png'
+        if ss.version_control:
+            filenameFig = save_directory_var+'/sweep_'+field+'_'+ss.version+'.png'
+        else:
+            filenameFig = save_directory_var+'/sweep_'+field+'.png'
         plt.savefig(filenameFig)
         plt.close('all')
