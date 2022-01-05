@@ -85,10 +85,11 @@ class ST40Reader(DataReader):
 
     """
 
-    MACHINE_DIMS = ((0.15, 0.8), (-0.75, 0.75))
+    MACHINE_DIMS = ((0.17, 0.8), (-0.75, 0.75))
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
+        "pi": "get_cx_spectroscopy",
         "lines": "get_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
@@ -99,6 +100,7 @@ class ST40Reader(DataReader):
     UIDS_MDS = {
         "efit": "",
         "xrcs": "sxr",
+        "pi": "spectrom",
         "lines": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
@@ -135,6 +137,14 @@ class ST40Reader(DataReader):
             "ti_z": ".ti_z:ti",
             "ampl_w": ".ti_w:amplitude",
         },
+        "pi": {
+            "int": ".int",
+            "int_err": ".int_err",
+            "ti": ".ti",
+            "ti_err": ".ti_err",
+            "vtor": ".vtor",
+            "vtor_err": ".vtor_err"
+        }
         "lines": {
             "brems": ".brem_mp1:intensity",
         },
