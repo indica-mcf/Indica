@@ -144,7 +144,7 @@ class ST40Reader(DataReader):
             "ti_err": ".ti_err",
             "vtor": ".vtor",
             "vtor_err": ".vtor_err"
-        }
+        },
         "lines": {
             "brems": ".brem_mp1:intensity",
         },
