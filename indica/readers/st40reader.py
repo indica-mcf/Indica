@@ -89,7 +89,7 @@ class ST40Reader(DataReader):
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
-        "princeton": "get_cx_spectroscopy",
+        "princeton": "get_charge_exchange",
         "lines": "get_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
@@ -600,7 +600,7 @@ class ST40Reader(DataReader):
 
         return results
 
-    def _get_cx_spectroscopy(
+    def _get_charge_exchange(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, Any]:
 
@@ -615,39 +615,54 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument+".CXSFIT_OUT", revision)
         revision = results["revision"]
         print('revision={}'.format(revision))
+        print('instrument={}'.format(instrument))
+
 
         # Get Geometry data from mds
         if instrument == "princeton":
-            tree_path = "spectrom"
+            tree_path = ""
             location, location_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:location", -1)
             direction, direction_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:direction", -1)
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_end = self.get_los(location, direction)
+        rstart = np.zeros(np.shape(direction)[0], dtype=float)
+        rstop = np.zeros(np.shape(direction)[0], dtype=float)
+        zstart = np.zeros(np.shape(direction)[0], dtype=float)
+        zstop = np.zeros(np.shape(direction)[0], dtype=float)
+        tstart = np.zeros(np.shape(direction)[0], dtype=float)
+        tstop = np.zeros(np.shape(direction)[0], dtype=float)
+        for i in range(np.shape(direction)[0]):
+            los_start, los_end = self.get_los(location, direction[i, :])
+            rstart[i] = los_start[0]
+            rstop[i] = los_end[0]
+            zstart[i] = los_start[2]
+            zstop[i] = los_end[2]
+            tstart[i] = los_start[1]
+            tstop[i] = los_end[1]
 
-
-        #times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
+        # Doesn't yet work, need to write data to the CXSFIT_OUT trees.
+        print('quantities={}'.format(quantities))
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument+".CXSFIT_OUT", self.QUANTITIES_MDS[instrument][q], revision
             )
-            #times, _ = self._get_signal_dims(q_path, len(qval.shape))
-            #times = times[0]
-            #if "times" not in results:
-            #    results["times"] = times
             results[q + "_records"] = q_path
             results[q] = qval
 
-        # Update times to be the mid-point of the frame
-        results["times"] = results["times"] + 0.5*results["exposure"]
+        # Update times to be the mid-point of the frame -- currently no working due to MDSplus data (not code)
+        print(results)
+        print(results["times"])
+        print(results["exposure"])
+        #results["times"] = results["times"] + 0.5*results["exposure"]
 
-        results["length"] = 1
-        #results["Rstart"] = np.array([los_start[0]])
-        #results["Rstop"] = np.array([los_end[0]])
-        #results["zstart"] = np.array([los_start[1]])
-        #results["zstop"] = np.array([los_end[1]])
-        #results["Tstart"] = np.array([los_start[2]])
-        #results["Tstop"] = np.array([los_end[2]])
+        # Export coordinates
+        results["length"] = len(rstart)
+        results["Rstart"] = rstart
+        results["Rstop"] = rstop
+        results["zstart"] = zstart
+        results["zstop"] = zstop
+        results["Tstart"] = tstart
+        results["Tstop"] = tstop
 
         return results
 

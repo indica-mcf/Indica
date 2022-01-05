@@ -7,7 +7,7 @@ from hda.read_st40 import ST40data
 
 
 # Run
-pulseNo = 9537
+pulseNo = 9539
 st40_data = ST40data(pulse=pulseNo, tstart=0.02, tend=0.12)
 
 # XRCS data
