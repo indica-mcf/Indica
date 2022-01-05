@@ -89,7 +89,7 @@ class ST40Reader(DataReader):
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
-        "pi": "get_cx_spectroscopy",
+        "princeton": "get_cx_spectroscopy",
         "lines": "get_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
@@ -100,7 +100,7 @@ class ST40Reader(DataReader):
     UIDS_MDS = {
         "efit": "",
         "xrcs": "sxr",
-        "pi": "spectrom",
+        "princeton": "spectrom",
         "lines": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
@@ -137,13 +137,15 @@ class ST40Reader(DataReader):
             "ti_z": ".ti_z:ti",
             "ampl_w": ".ti_w:amplitude",
         },
-        "pi": {
+        "princeton": {
             "int": ".int",
-            "int_err": ".int_err",
+            "int_error": ".int_err",
             "ti": ".ti",
-            "ti_err": ".ti_err",
+            "ti_error": ".ti_err",
             "vtor": ".vtor",
-            "vtor_err": ".vtor_err"
+            "vtor_error": ".vtor_err",
+            "times": ".time",
+            "exposure": ".exposure"
         },
         "lines": {
             "brems": ".brem_mp1:intensity",
@@ -595,6 +597,57 @@ class ST40Reader(DataReader):
         results["zstop"] = np.array([los_end[1]])
         results["Tstart"] = np.array([los_start[2]])
         results["Tstop"] = np.array([los_end[2]])
+
+        return results
+
+    def _get_cx_spectroscopy(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        if len(uid) == 0:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument+".CXSFIT_OUT", revision)
+        revision = results["revision"]
+        print('revision={}'.format(revision))
+
+        # Get Geometry data from mds
+        if instrument == "princeton":
+            tree_path = "spectrom"
+            location, location_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:location", -1)
+            direction, direction_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:direction", -1)
+        else:
+            raise ValueError(f"No geometry available for {instrument}")
+        los_start, los_end = self.get_los(location, direction)
+
+
+        #times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid, instrument+".CXSFIT_OUT", self.QUANTITIES_MDS[instrument][q], revision
+            )
+            #times, _ = self._get_signal_dims(q_path, len(qval.shape))
+            #times = times[0]
+            #if "times" not in results:
+            #    results["times"] = times
+            results[q + "_records"] = q_path
+            results[q] = qval
+
+        # Update times to be the mid-point of the frame
+        results["times"] = results["times"] + 0.5*results["exposure"]
+
+        results["length"] = 1
+        #results["Rstart"] = np.array([los_start[0]])
+        #results["Rstop"] = np.array([los_end[0]])
+        #results["zstart"] = np.array([los_start[1]])
+        #results["zstop"] = np.array([los_end[1]])
+        #results["Tstart"] = np.array([los_start[2]])
+        #results["Tstop"] = np.array([los_end[2]])
 
         return results
 
