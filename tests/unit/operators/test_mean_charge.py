@@ -4,7 +4,6 @@ import numpy as np
 from xarray import DataArray
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
-from indica.datatypes import ELEMENTS_BY_SYMBOL
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.mean_charge import MeanCharge
 from indica.operators.spline_fit import Spline
@@ -104,25 +103,23 @@ def test_mean_charge():
     F_z_t0 = np.real(example_frac_abundance.F_z_t0)
     F_z_t0 = F_z_t0.expand_dims("t", axis=-1)
 
-    element_name = ELEMENTS_BY_SYMBOL.get(element)
-
     input_check = Exception_Mean_Charge_Test_Case()
 
-    input_check.call_type_check(F_z_t0.data, element_name)
-    input_check.call_value_check(F_z_t0 * -1, element_name)
-    input_check.call_value_check(F_z_t0 * -np.inf, element_name)
-    input_check.call_value_check(F_z_t0 * np.inf, element_name)
-    input_check.call_value_check(F_z_t0 * np.nan, element_name)
+    input_check.call_type_check(F_z_t0.data, element)
+    input_check.call_value_check(F_z_t0 * -1, element)
+    input_check.call_value_check(F_z_t0 * -np.inf, element)
+    input_check.call_value_check(F_z_t0 * np.inf, element)
+    input_check.call_value_check(F_z_t0 * np.nan, element)
 
     input_check.call_type_check(F_z_t0, 4)
 
     input_check.call_value_check(F_z_t0, "xy")
 
-    input_check.call_assertion_check(F_z_t0[0:3], element_name)
+    input_check.call_assertion_check(F_z_t0[0:3], element)
 
     example_mean_charge = MeanCharge()
 
-    result = example_mean_charge(F_z_t0, element_name)
+    result = example_mean_charge(F_z_t0, element)
 
     assert np.all(result == 0)
 
@@ -132,7 +129,7 @@ def test_mean_charge():
 
     example_mean_charge = MeanCharge()
 
-    result = example_mean_charge(F_z_tinf, element_name)
+    result = example_mean_charge(F_z_tinf, element)
     expected = np.zeros((*F_z_tinf.shape[1:],))
     expected += 4.0
 

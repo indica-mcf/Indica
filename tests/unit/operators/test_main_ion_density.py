@@ -5,8 +5,6 @@ from xarray import DataArray
 from xarray.core.common import zeros_like
 
 from indica.converters import FluxSurfaceCoordinates
-from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
-from indica.datatypes import ELEMENTS_BY_SYMBOL
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.main_ion_density import MainIonDensity
@@ -155,8 +153,7 @@ def test_main_ion_density():
     tungsten_impurity_conc = 0.00005 * electron_density
 
     # be, ne, ni, w
-    elements = [4, 10, 28, 74]
-    elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in elements]
+    elements = ["be", "ne", "ni", "w"]
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho.shape, *t.shape)),
@@ -171,32 +168,32 @@ def test_main_ion_density():
 
     mean_charge = zeros_like(impurity_densities)
 
-    F_z_tinf = fractional_abundance_setup("be", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("be")
+    element_symbol = "be"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[0] = result
 
-    F_z_tinf = fractional_abundance_setup("ne", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("ne")
+    element_symbol = "ne"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[1] = result
 
-    F_z_tinf = fractional_abundance_setup("ni", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("ni")
+    element_symbol = "ni"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[2] = result
 
-    F_z_tinf = fractional_abundance_setup("w", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("w")
+    element_symbol = "w"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[3] = result
 
     nominal_inputs = {
