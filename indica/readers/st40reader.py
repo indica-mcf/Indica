@@ -28,7 +28,6 @@ from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from .. import session
-from ..datatypes import ELEMENTS_BY_MASS
 from ..utilities import to_filename
 
 
@@ -482,8 +481,7 @@ class ST40Reader(DataReader):
         for q in quantities:
             luminosities = []
             records = []
-            rstart, rend, zstart, zend, Tstart, Tend = [], [], [], [], [], []
-            rend = []
+            xstart, xstop, ystart, ystop, zstart, zstop = [], [], [], [], [], []
 
             times, t_path = self._get_signal(
                 uid,
@@ -507,27 +505,27 @@ class ST40Reader(DataReader):
                 records.append(q_path)
                 luminosities.append(qval)
 
-                los_start, los_end = self.get_los(
+                los_start, los_stop = self.get_los(
                     location[chan - chan_start], direction[chan - chan_start]
                 )
-                rstart.append(los_start[0])
-                rend.append(los_end[0])
-                zstart.append(los_start[1])
-                zend.append(los_end[1])
-                Tstart.append(los_start[2])
-                Tend.append(los_end[2])
+                xstart.append(los_start[0])
+                xstop.append(los_stop[0])
+                ystart.append(los_start[1])
+                ystop.append(los_stop[1])
+                zstart.append(los_start[2])
+                zstop.append(los_stop[2])
 
             results["length"][q] = nchan
             results[q] = np.array(luminosities).T
             results[q + "_records"] = records
             results[q + "_error"] = self._default_error * results[q]
 
-            results[q + "_Rstart"] = np.array(rstart)
-            results[q + "_Rstop"] = np.array(rend)
+            results[q + "_xstart"] = np.array(xstart)
+            results[q + "_xstop"] = np.array(xstop)
+            results[q + "_ystart"] = np.array(ystart)
+            results[q + "_ystop"] = np.array(ystop)
             results[q + "_zstart"] = np.array(zstart)
-            results[q + "_zstop"] = np.array(zend)
-            results[q + "_Tstart"] = np.array(Tstart)
-            results[q + "_Tstop"] = np.array(Tend)
+            results[q + "_zstop"] = np.array(zstop)
 
             # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
         results["quantities"] = quantities
@@ -557,7 +555,7 @@ class ST40Reader(DataReader):
             direction = np.array([0.17, 0, 0]) - location
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_end = self.get_los(location, direction)
+        los_start, los_stop = self.get_los(location, direction)
         times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
         for q in quantities:
             qval, q_path = self._get_signal(
@@ -579,12 +577,12 @@ class ST40Reader(DataReader):
             results[q + "_error" + "_records"] = q_path_err
 
         results["length"] = 1
-        results["Rstart"] = np.array([los_start[0]])
-        results["Rstop"] = np.array([los_end[0]])
-        results["zstart"] = np.array([los_start[1]])
-        results["zstop"] = np.array([los_end[1]])
-        results["Tstart"] = np.array([los_start[2]])
-        results["Tstop"] = np.array([los_end[2]])
+        results["xstart"] = np.array([los_start[0]])
+        results["xstop"] = np.array([los_stop[0]])
+        results["ystart"] = np.array([los_start[1]])
+        results["ystop"] = np.array([los_stop[1]])
+        results["zstart"] = np.array([los_start[2]])
+        results["zstop"] = np.array([los_stop[2]])
 
         return results
 
@@ -611,7 +609,7 @@ class ST40Reader(DataReader):
             direction = np.array([0.17, 0, 0]) - location
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_end = self.get_los(location, direction)
+        los_start, los_stop = self.get_los(location, direction)
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -632,12 +630,12 @@ class ST40Reader(DataReader):
             results[q + "_error" + "_records"] = q_path_err
 
         results["length"] = 1
-        results["Rstart"] = np.array([los_start[0]])
-        results["Rstop"] = np.array([los_end[0]])
-        results["zstart"] = np.array([los_start[1]])
-        results["zstop"] = np.array([los_end[1]])
-        results["Tstart"] = np.array([los_start[2]])
-        results["Tstop"] = np.array([los_end[2]])
+        results["xstart"] = np.array([los_start[0]])
+        results["xstop"] = np.array([los_stop[0]])
+        results["ystart"] = np.array([los_start[1]])
+        results["ystop"] = np.array([los_stop[1]])
+        results["zstart"] = np.array([los_start[2]])
+        results["zstop"] = np.array([los_stop[2]])
 
         return results
 
@@ -675,7 +673,7 @@ class ST40Reader(DataReader):
             direction = np.array([0.37, -0.75, 0]) - location
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_end = self.get_los(location, direction)
+        los_start, los_stop = self.get_los(location, direction)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
 
         if np.array_equal(times, "FAILED"):
@@ -715,12 +713,12 @@ class ST40Reader(DataReader):
             )
 
         results["length"] = 1
-        results["Rstart"] = np.array([los_start[0]])
-        results["Rstop"] = np.array([los_end[0]])
-        results["zstart"] = np.array([los_start[1]])
-        results["zstop"] = np.array([los_end[1]])
-        results["Tstart"] = np.array([los_start[2]])
-        results["Tstop"] = np.array([los_end[2]])
+        results["xstart"] = np.array([los_start[0]])
+        results["xstop"] = np.array([los_stop[0]])
+        results["ystart"] = np.array([los_start[1]])
+        results["ystop"] = np.array([los_stop[1]])
+        results["zstart"] = np.array([los_start[2]])
+        results["zstop"] = np.array([los_stop[2]])
 
         return results
 
@@ -794,31 +792,23 @@ class ST40Reader(DataReader):
 
     def get_los(self, position, direction):
         """
-        Return (R, z, T) of start and end of line-of-sight given position and direction
+        Return start and stop (x, y, z) of line-of-sight given position and direction
 
         Parameters
         ----------
         position
-            (R, z, T) of LOS starting point
+            (x, y, z) of LOS starting point
         direction
-            (delta_R, delta_z, delta_T) direction of LOS
+            (delta_x, delta_y, delta_y) direction of LOS
 
         Returns
         -------
-            start and end (R, z, T)
+            (x, y, z) of start and stop
 
         """
 
-        # L = 2*np.abs(np.array(self.MACHINE_DIMS)).max()
-        # l_array = np.linspace(-L, L, 100)
-        # Rline = position[0] + l_array * direction[0]
-        # Tline = position[1] + l_array * direction[1]
-        # zline = position[2] + l_array * direction[2]
-        #
-        # Rstart, Tstart, zstart = Rline[0], Tline[0], zline[0]
-        # Rstop, Tstop, zstop = Rline[-1], Tline[-1], zline[-1]
 
-        Rstart, Tstart, zstart = position
-        Rstop, Tstop, zstop = position + direction
+        xstart, ystart, zstart = position
+        xstop, ystop, zstop = position + direction
 
-        return (Rstart, zstart, Tstart), (Rstop, zstop, Tstop)
+        return (xstart, ystart, zstart), (xstop, ystop, zstop)
