@@ -72,30 +72,10 @@ class DataReader(BaseIO):
             "ne": ("number_density", "electrons"),
             "te": ("temperature", "electrons"),
         },
-        #"get_charge_exchange": {
-        #    "angf": ("angular_freq", None),
-        #    # "conc": ("concentration", None),
-        #    "ti": ("temperature", None),
-        #},
-        #"princeton": {
-        #    "int": ".int",
-        #    "int_error": ".int_err",
-        #    "ti": ".ti",
-        #    "ti_error": ".ti_err",
-        #    "vtor": ".vtor",
-        #    "vtor_error": ".vtor_err",
-        #    "times": ".time",
-        #    "exposure": ".exposure"
-        #},
         "get_charge_exchange": {
-            "ti": ("temperature", "ions"),
-            "ti_error": ("temperature", "ions"),
-            "vtor": ("linear_velocity", "ions"),
-            "vtor_error": ("linear_velocity", "ions"),
-            "int": ("intensity", "ions"),
-            "int_error": ("intensity", "ions"),
-            "times": ("time_vector", None),
-            "exposure": ("time_vector", None),
+            "angf": ("angular_freq", None),
+            # "conc": ("concentration", None),
+            "ti": ("temperature", None),
         },
         "get_bremsstrahlung_spectroscopy": {
             "h": ("effective_charge", "plasma"),
@@ -477,6 +457,7 @@ class DataReader(BaseIO):
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
         data = {}
+        # need to change (see GET_RADIATION) - but must still work with other tokamaks/readers
         R_coord = DataArray(database_results["R"], coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(database_results["z"], coords=[(diagnostic_coord, ticks)])
         transform = TransectCoordinates(R_coord, z_coord)

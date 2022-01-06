@@ -137,7 +137,7 @@ class ST40Reader(DataReader):
             "ti_z": ".ti_z:ti",
             "ampl_w": ".ti_w:amplitude",
         },
-        "princeton": {
+        "princeton": {  # change to angf
             "int": ".int",
             "int_error": ".int_err",
             "ti": ".ti",

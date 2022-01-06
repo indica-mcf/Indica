@@ -72,8 +72,10 @@ plt.ylabel('Ne (m^-3)')
 
 
 # Plots of coefficient data
+
+# qener.plot()
 plt.figure()
-plt.plot(qener[qener.dims[0]].data, qener.data, '.-')
+plt.plot(qener[qener.dims[0]].data, qener.data, '.-')  # qener.beam_energy
 plt.title('Beam energy')
 plt.xlabel('Beam energy (eV/amu)')
 plt.ylabel('Coeff. (cm^3/s)')
