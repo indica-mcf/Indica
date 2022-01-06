@@ -104,7 +104,7 @@ def plasma_workflow(
 
     # Read raw data
     raw = ST40data(pulse, tstart - 0.01, tend + 0.01)
-    raw.get_all(sxr=False)  # smmh1_rev=2)
+    raw.get_all(sxr=sxr)  # smmh1_rev=2)
     raw_data = raw.data
     dt_xrcs = (raw_data["xrcs"]["ti_w"].t[1] - raw_data["xrcs"]["ti_w"].t[0]).values
     if "xrcs" in raw_data.keys() and xrcs_time:
@@ -259,6 +259,7 @@ def scan_profiles(
     modelling=True,
     res=None,
     force=True,
+    sxr=False,
 ):
     print("Scanning combinations of profile shapes")
 
@@ -287,6 +288,7 @@ def scan_profiles(
             use_ratios=True,
             calc_error=False,
             cal_ar=1,
+            sxr=sxr,
         )
         return res
     pl, raw_data, data, bckc = res
