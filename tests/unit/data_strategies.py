@@ -811,10 +811,11 @@ def adf11_data(
     data = 10 ** np.clip(func(ion_states, temperatures, densities) - 6, -99, 99)
     result = DataArray(data, coords=[ion_states, temperatures, densities])
     q = draw(sampled_from(quantities))
-    result.attrs["datatype"] = (dt.ADF11_GENERAL_DATATYPES[q], dt.ORDERED_ELEMENTS[z])
+    element_name = [value[2] for value in dt.ELEMENTS.values() if value[0] == z][0]
+    result.attrs["datatype"] = (dt.ADF11_GENERAL_DATATYPES[q], element_name)
     result.attrs["provenance"] = MagicMock()
     result.attrs["date"] = draw(
         dates(datetime.date(1940, 1, 1), datetime.date(2020, 12, 31))
     )
-    result.name = f"{dt.ORDERED_ELEMENTS[z]}_{dt.ADF11_GENERAL_DATATYPES[q]}"
+    result.name = f"{element_name}_{dt.ADF11_GENERAL_DATATYPES[q]}"
     return result
