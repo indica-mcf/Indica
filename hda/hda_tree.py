@@ -19,6 +19,8 @@ def create(
     tree_name="ST40",
     subtree=True,
     close=True,
+    force=False,
+    verbose=False,
 ):
     """
     Create Tree structure for storing HDA data
@@ -66,17 +68,22 @@ def create(
 
     try:
         t.getNode(rf"{write_path}")
-        print(f"\n {pulse}:{write_path} tree already exists")
-        answer = input(f"\n # Overwrite {run_name} * yes/(no) * ?  ")
+        if not(force):
+            print(f"\n {pulse}:{write_path} tree already exists")
+            answer = input(f"\n # Overwrite {run_name} * yes/(no) * ?  ")
+        else:
+            answer = "yes"
+
         if answer.lower() == "yes":
             delete(t, write_path)
         else:
             run_name = next_run(t, code_path, run_name)
-            answer = input(
-                f"\n # Write to next available run {run_name} * yes/(no) * ?  "
-            )
-            if answer.lower() == "no":
-                return None
+            if not(force):
+                answer = input(
+                    f"\n # Write to next available run {run_name} * yes/(no) * ?  "
+                )
+                if answer.lower() == "no":
+                    return None
     except TreeNNF:
         _user = user
 
@@ -160,6 +167,8 @@ def next_run(t, code_path, run_name):
 
 def get_tree_structure():
 
+    # TODO: create upper and lower bounds for global quantities
+
     nodes = {
         "": {"TIME": ("NUMERIC", "time vector, s"),},  # (type, description)
         ".METADATA": {
@@ -209,9 +218,15 @@ def get_tree_structure():
             "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
             "XPSN": ("NUMERIC", "x vector - fi_normalized"),
             "P": ("SIGNAL", "Pressure,Pa"),
+            "P_HI": ("SIGNAL", "Pressure upper bound,Pa"),
+            "P_LO": ("SIGNAL", "Pressure lower bound,Pa"),
             "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
             "NE": ("SIGNAL", "Electron density, m^-3"),
+            "NE_HI": ("SIGNAL", "Electron density upper limit, m^-3"),
+            "NE_LO": ("SIGNAL", "Electron density lower limit, m^-3"),
             "NI": ("SIGNAL", "Ion density, m^-3"),
+            "NI_HI": ("SIGNAL", "Ion density upper limit, m^-3"),
+            "NI_LO": ("SIGNAL", "Ion density lower limit, m^-3"),
             "TE": ("SIGNAL", "Electron temperature, eV"),
             "TE_HI": ("SIGNAL", "Electron temperature upper limit, eV"),
             "TE_LO": ("SIGNAL", "Electron temperature lower limit, eV"),
@@ -219,17 +234,41 @@ def get_tree_structure():
             "TI_HI": ("SIGNAL", "Ion temperature of main ion upper limit, eV"),
             "TI_LO": ("SIGNAL", "Ion temperature of main ion lower limit, eV"),
             "TIZ1": ("SIGNAL", "Ion temperature of impurity IMP1, eV"),
+            "TIZ1_HI": ("SIGNAL", "Ion temperature of impurity IMP1 upper limit, eV"),
+            "TIZ1_LO": ("SIGNAL", "Ion temperature of impurity IMP1 lower limit, eV"),
             "TIZ2": ("SIGNAL", "Ion temperature of impurity IMP2, eV"),
+            "TIZ2_HI": ("SIGNAL", "Ion temperature of impurity IMP2 upper limit, eV"),
+            "TIZ2_LO": ("SIGNAL", "Ion temperature of impurity IMP2 lower limit, eV"),
             "TIZ3": ("SIGNAL", "Ion temperature of impurity IMP3, eV"),
+            "TIZ3_HI": ("SIGNAL", "Ion temperature of impurity IMP3 upper limit, eV"),
+            "TIZ3_LO": ("SIGNAL", "Ion temperature of impurity IMP3 lower limit, eV"),
             "NIZ1": ("SIGNAL", "Density of impurity IMP1, m^-3"),
+            "NIZ1_HI": ("SIGNAL", "Density of impurity IMP1 upper limit, m^-3"),
+            "NIZ1_LO": ("SIGNAL", "Density of impurity IMP1 lower limit, m^-3"),
             "NIZ2": ("SIGNAL", "Density of impurity IMP2, m^-3"),
+            "NIZ2_HI": ("SIGNAL", "Density of impurity IMP2 upper limit, m^-3"),
+            "NIZ2_LO": ("SIGNAL", "Density of impurity IMP2 lower limit, m^-3"),
             "NIZ3": ("SIGNAL", "Density of impurity IMP3, m^-3"),
+            "NIZ3_HI": ("SIGNAL", "Density of impurity IMP3 upper limit, m^-3"),
+            "NIZ3_LO": ("SIGNAL", "Density of impurity IMP3 lower limit, m^-3"),
             "NNEUTR": ("SIGNAL", "Density of neutral main ion, m^-3"),
+            "NNEUTR_HI": ("SIGNAL", "Density of neutral main ion upper limit, m^-3"),
+            "NNEUTR_LO": ("SIGNAL", "Density of neutral main ion lower limit, m^-3"),
             "ZI": ("SIGNAL", "Average charge of main ion, "),
+            "ZI_HI": ("SIGNAL", "Average charge of main ion upper bound, "),
+            "ZI_LO": ("SIGNAL", "Average charge of main ion lower bound, "),
             "ZIM1": ("SIGNAL", "Average charge of impurity IMP1, "),
+            "ZIM1_HI": ("SIGNAL", "Average charge of impurity IMP1 upper bound, "),
+            "ZIM1_LO": ("SIGNAL", "Average charge of impurity IMP1 lower bound, "),
             "ZIM2": ("SIGNAL", "Average charge of impurity IMP2, "),
+            "ZIM2_HI": ("SIGNAL", "Average charge of impurity IMP2 upper bound, "),
+            "ZIM2_LO": ("SIGNAL", "Average charge of impurity IMP2 lower bound, "),
             "ZIM3": ("SIGNAL", "Average charge of impurity IMP3, "),
+            "ZIM3_HI": ("SIGNAL", "Average charge of impurity IMP3 upper bound, "),
+            "ZIM3_LO": ("SIGNAL", "Average charge of impurity IMP3 lower bound, "),
             "ZEFF": ("SIGNAL", "Effective charge, "),
+            "ZEFF_HI": ("SIGNAL", "Effective charge upper limit, "),
+            "ZEFF_LO": ("SIGNAL", "Effective charge lower limit, "),
         },
     }
     # "RHOT": ("SIGNAL", "Sqrt of normalised toroidal flux, xpsn"),
@@ -237,7 +276,7 @@ def get_tree_structure():
     return nodes
 
 
-def create_nodes(t, run_path, nodes):
+def create_nodes(t, run_path, nodes, verbose=False):
 
     t.addNode(f"{run_path}.METADATA", "STRUCTURE")
     t.addNode(f"{run_path}.GLOBAL", "STRUCTURE")
@@ -247,10 +286,12 @@ def create_nodes(t, run_path, nodes):
     for sub_path, quantities in nodes.items():
         for node_name, node_info in quantities.items():
             node_path = f"{run_path}{sub_path}:{node_name}"
-            print(node_path, node_info[0], node_info[1])
+            if verbose:
+                print(node_path, node_info[0], node_info[1])
             n = mh.createNode(t, node_path, node_info[0], node_info[1])
             if len(node_info) == 3:
-                print(f"   {node_info[2]}")
+                if verbose:
+                    print(f"   {node_info[2]}")
                 n.putData(node_info[2])
 
 
@@ -264,6 +305,8 @@ def write(
     descr="",
     tree_name="ST40",
     subtree=True,
+    force=False,
+    verbose=True,
 ):
     """
     Write HDA data to MDS+
@@ -292,10 +335,11 @@ def write(
     text = "Saving data to "
     text += f"{pulse} {run_name}? (yes)/no   "
 
-    answer = input(text)
-    if answer.lower().strip() == "no":
-        print("\n ...writing aborted...")
-        return
+    if not(force):
+        answer = input(text)
+        if answer.lower().strip() == "no":
+            print("\n ...writing aborted...")
+            return
 
     t, write_path = create(
         pulse,
@@ -305,13 +349,15 @@ def write(
         tree_name=tree_name,
         subtree=subtree,
         close=False,
+        force=force,
+        verbose=verbose,
     )
 
     print(f"\n {code_name}: Writing results for {pulse} to {write_path}")
 
     data_to_write = organise_data(plasma, data=data, bckc=bckc)
 
-    write_data(t, write_path, data_to_write)
+    write_data(t, write_path, data_to_write, verbose=verbose)
 
     t.close()
 
@@ -377,17 +423,38 @@ def organise_data(plasma, data={}, bckc={}):
 
     ion_conc = []
     ion_meanz = []
+    ion_meanz_hi = []
+    ion_meanz_lo = []
     ion_dens = []
+    ion_dens_hi = []
+    ion_dens_lo = []
     ion_temp = []
     ion_temp_hi = []
     ion_temp_lo = []
+    ion_zeff = []
+    ion_zeff_hi = []
+    ion_zeff_lo = []
     for elem in elements:
         if len(elem) > 0:
             conc = (plasma.ion_dens.sel(element=elem) / plasma.el_dens).mean(
                 "rho_poloidal"
             )
             meanz = plasma.meanz.sel(element=elem)
+            if hasattr(plasma, "meanz_hi"):
+                meanz_hi = plasma.meanz_hi.sel(element=elem)
+                meanz_lo = plasma.meanz_lo.sel(element=elem)
+            else:
+                meanz_hi = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
+                meanz_lo = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
+
             dens = plasma.ion_dens.sel(element=elem)
+            if hasattr(plasma, "ion_dens_hi"):
+                dens_hi = plasma.ion_dens_hi.sel(element=elem)
+                dens_lo = plasma.ion_dens_lo.sel(element=elem)
+            else:
+                dens_hi = xr.zeros_like(plasma.ion_dens.sel(element=elements[0]))
+                dens_lo = xr.zeros_like(plasma.ion_dens.sel(element=elements[0]))
+
             temp = plasma.ion_temp.sel(element=elem)
             if hasattr(plasma, "ion_temp_hi"):
                 temp_hi = plasma.ion_temp_hi.sel(element=elem)
@@ -395,17 +462,37 @@ def organise_data(plasma, data={}, bckc={}):
             else:
                 temp_hi = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
                 temp_lo = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
+
         else:
             conc = xr.zeros_like(plasma.t)
             meanz = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
+            zeff = xr.zeros_like(plasma.zeff.sel(element=elements[0]))
             dens = xr.zeros_like(plasma.ion_dens.sel(element=elements[0]))
             temp = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
         ion_conc.append(conc)
-        ion_meanz.append(meanz)
-        ion_dens.append(dens)
         ion_temp.append(temp)
         ion_temp_hi.append(temp_hi)
         ion_temp_lo.append(temp_lo)
+        ion_dens.append(dens)
+        ion_dens_hi.append(dens_hi)
+        ion_dens_lo.append(dens_lo)
+        ion_meanz.append(meanz)
+        ion_meanz_hi.append(meanz_hi)
+        ion_meanz_lo.append(meanz_lo)
+
+    if hasattr(plasma, "zeff_hi"):
+        zeff_hi = plasma.zeff_hi
+        zeff_lo = plasma.zeff_lo
+    else:
+        zeff_hi = xr.zeros_like(plasma.zeff)
+        zeff_lo = xr.zeros_like(plasma.zeff)
+
+    if hasattr(plasma, "el_dens_hi"):
+        el_dens_hi = plasma.el_dens_hi
+        el_dens_lo = plasma.el_dens_lo
+    else:
+        el_dens_hi = xr.zeros_like(plasma.el_dens)
+        el_dens_lo = xr.zeros_like(plasma.el_dens)
 
     if hasattr(plasma, "el_temp_hi"):
         el_temp_hi = plasma.el_temp_hi
@@ -413,6 +500,20 @@ def organise_data(plasma, data={}, bckc={}):
     else:
         el_temp_hi = xr.zeros_like(plasma.el_temp)
         el_temp_lo = xr.zeros_like(plasma.el_temp)
+
+    if hasattr(plasma, "neutral_dens_hi"):
+        neutral_dens_hi = plasma.neutral_dens_hi
+        neutral_dens_lo = plasma.neutral_dens_lo
+    else:
+        neutral_dens_hi = xr.zeros_like(plasma.neutral_dens)
+        neutral_dens_lo = xr.zeros_like(plasma.neutral_dens)
+
+    if hasattr(plasma, "pressure_th_hi"):
+        pressure_th_hi = plasma.pressure_th_hi
+        pressure_th_lo = plasma.pressure_th_lo
+    else:
+        pressure_th_hi = xr.zeros_like(plasma.pressure_th)
+        pressure_th_lo = xr.zeros_like(plasma.pressure_th)
 
     glob_coord = ["TIME"]
     prof_coord = ["PROFILES.PSI_NORM.RHOP", "TIME"]
@@ -494,13 +595,27 @@ def organise_data(plasma, data={}, bckc={}):
             "RHOP": (Float32(plasma.rho.values), "", ()),
             "XPSN": (Float32(plasma.rho.values ** 2), "", ()),
             "P": (Float32(plasma.pressure_th.values), "Pa", prof_coord,),
+            "P_HI": (Float32(pressure_th_hi.values), "Pa", prof_coord,),
+            "P_LO": (Float32(pressure_th_lo.values), "Pa", prof_coord,),
             "VOLUME": (Float32(plasma.volume.values), "m^3", prof_coord,),
             "NE": (Float32(plasma.el_dens.values), "m^-3", prof_coord,),
+            "NE_HI": (Float32(el_dens_hi.values), "m^-3", prof_coord,),
+            "NE_LO": (Float32(el_dens_lo.values), "m^-3", prof_coord,),
             "NI": (Float32(ion_dens[0].values), "m^-3", prof_coord,),
+            "NI_HI": (Float32(ion_dens_hi[0].values), "m^-3", prof_coord,),
+            "NI_LO": (Float32(ion_dens_lo[0].values), "m^-3", prof_coord,),
             "NIZ1": (Float32(ion_dens[1].values), "", prof_coord,),
+            "NIZ1_HI": (Float32(ion_dens_hi[0].values), "m^-3", prof_coord,),
+            "NIZ1_LO": (Float32(ion_dens_lo[0].values), "m^-3", prof_coord,),
             "NIZ2": (Float32(ion_dens[2].values), "", prof_coord,),
+            "NIZ2_HI": (Float32(ion_dens_hi[2].values), "m^-3", prof_coord,),
+            "NIZ2_LO": (Float32(ion_dens_lo[2].values), "m^-3", prof_coord,),
             "NIZ3": (Float32(ion_dens[3].values), "", prof_coord,),
+            "NIZ3_HI": (Float32(ion_dens_hi[3].values), "m^-3", prof_coord,),
+            "NIZ3_LO": (Float32(ion_dens_lo[3].values), "m^-3", prof_coord,),
             "NNEUTR": (Float32(plasma.neutral_dens.values), "m^-3", prof_coord,),
+            "NNEUTR_HI": (Float32(neutral_dens_hi.values), "m^-3", prof_coord,),
+            "NNEUTR_LO": (Float32(neutral_dens_lo.values), "m^-3", prof_coord,),
             "TE": (Float32(plasma.el_temp.values), "eV", prof_coord,),
             "TE_HI": (Float32(el_temp_hi.values), "eV", prof_coord,),
             "TE_LO": (Float32(el_temp_lo.values), "eV", prof_coord,),
@@ -508,9 +623,17 @@ def organise_data(plasma, data={}, bckc={}):
             "TI_HI": (Float32(ion_temp_hi[0].values), "eV", prof_coord,),
             "TI_LO": (Float32(ion_temp_lo[0].values), "eV", prof_coord,),
             "TIZ1": (Float32(ion_temp[1].values), "eV", prof_coord,),
+            "TIZ1_HI": (Float32(ion_temp_hi[1].values), "eV", prof_coord,),
+            "TIZ1_LO": (Float32(ion_temp_lo[1].values), "eV", prof_coord,),
             "TIZ2": (Float32(ion_temp[2].values), "eV", prof_coord,),
+            "TIZ2_HI": (Float32(ion_temp_hi[2].values), "eV", prof_coord,),
+            "TIZ2_LO": (Float32(ion_temp_lo[2].values), "eV", prof_coord,),
             "TIZ3": (Float32(ion_temp[3].values), "eV", prof_coord,),
+            "TIZ3_HI": (Float32(ion_temp_hi[3].values), "eV", prof_coord,),
+            "TIZ1_LO": (Float32(ion_temp_lo[3].values), "eV", prof_coord,),
             "ZEFF": (Float32(plasma.zeff.sum("element").values), "", prof_coord,),
+            "ZEFF_HI": (Float32(zeff_hi.sum("element").values), "", prof_coord,),
+            "ZEFF_LO": (Float32(zeff_lo.sum("element").values), "", prof_coord,),
             "ZI": (Float32(ion_meanz[0].values), "", prof_coord,),
             "ZIM1": (Float32(ion_meanz[1].values), "", prof_coord,),
             "ZIM2": (Float32(ion_meanz[2].values), "", prof_coord,),
@@ -526,7 +649,7 @@ def organise_data(plasma, data={}, bckc={}):
     return nodes
 
 
-def write_data(t, write_path, data):
+def write_data(t, write_path, data, verbose=False):
     """
     Write HDA data to MDS+
 
@@ -546,7 +669,8 @@ def write_data(t, write_path, data):
             node_path = f"{write_path}{sub_path}:{node_name}"
             build_str = "build_signal(build_with_units($1,$2), * "
 
-            print(node_path)
+            if verbose:
+                print(node_path)
             n = t.getNode(node_path)
 
             node_data, node_units, node_dims = node_info

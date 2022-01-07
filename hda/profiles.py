@@ -284,8 +284,8 @@ def profile_scans(plot=False):
     Te.wcenter=0.35
     Te.build_profile()
     Te_list["broad"] = deepcopy(Te)
-    plt.figure()
     if plot:
+        plt.figure()
         Te.yspl.plot(color="black", label="Te")
 
     # Broad Ti profile without/with Te as reference
@@ -313,16 +313,18 @@ def profile_scans(plot=False):
     Ti.y0=5.e3
     Ti.build_profile()
     Ti_list["peaked"] = deepcopy(Ti)
-    Ti.yspl.plot(linestyle="dashed", color="red", label="Ti no ref")
+    if plot:
+        Ti.yspl.plot(linestyle="dashed", color="red", label="Ti no ref")
     Ti.build_profile(y0_ref=Te.yspl.sel(rho_poloidal=0).values)
-    Ti.yspl.plot(linestyle="dotted", color="red", label="Ti with ref")
+    if plot:
+        Ti.yspl.plot(linestyle="dotted", color="red", label="Ti with ref")
 
-    plt.figure()
     Ne.wped = 6
     Ne.y1 = 0.5e19
     Ne.build_profile()
     Ne_list["broad"] = deepcopy(Ne)
     if plot:
+        plt.figure()
         Ne.yspl.plot(color="black")
 
     Ne.wped = 3.5
@@ -333,7 +335,6 @@ def profile_scans(plot=False):
     if plot:
         Ne.yspl.plot(color="red")
 
-    plt.figure()
     Nimp.wped = 6
     Nimp.y0 = 5.e16
     Nimp.y1 = 3.e16
@@ -341,6 +342,7 @@ def profile_scans(plot=False):
     Nimp.build_profile()
     Nimp_list["flat"] = deepcopy(Nimp)
     if plot:
+        plt.figure()
         Nimp.yspl.plot(color="black")
 
     Nimp.peaking = 8
@@ -352,11 +354,11 @@ def profile_scans(plot=False):
     if plot:
         Nimp.yspl.plot(color="red")
 
-    plt.figure()
     Vrot.y1 = 1.e3
     Vrot.yend = 0.
     Vrot_list["broad"] = deepcopy(Vrot)
     if plot:
+        plt.figure()
         Vrot.yspl.plot(color="black")
 
     Vrot.wped = 1
