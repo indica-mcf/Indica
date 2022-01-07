@@ -100,10 +100,11 @@ class XRCSpectrometer:
         dl: float = None,
         use_satellites=False,
         half_los=True,
+        fast=False,
     ):
 
         bckc = {}
-        self.radiation_characteristics(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, recom=recom)
+        self.radiation_characteristics(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, recom=recom, fast=fast)
         if rho_los is not None and dl is not None:
             self.los_integral(rho_los, dl)
         if Ti is not None:
@@ -181,7 +182,12 @@ class XRCSpectrometer:
 
         plt.figure()
         for line in emiss0.keys():
-            plt.plot(emiss0[line].electron_temperature, emiss0[line].values, label=line, marker="o")
+            plt.plot(
+                emiss0[line].electron_temperature,
+                emiss0[line].values,
+                label=line,
+                marker="o",
+            )
         # plt.yscale("log")
         plt.title("Line emission shells")
         plt.legend()
@@ -296,21 +302,44 @@ class XRCSpectrometer:
                 pec[line]["emiss_coeff"] = adf15_data[line]
             else:
                 charge, filetype, year = adf15[line]["file"]
-                identifier = f"{element}_{charge}_{filetype}_{year}"
                 adf15_data = self.adasreader.get_adf15(
                     element, charge, filetype, year=year
                 )
                 pec[line]["emiss_coeff"] = select_transition(
-                    adf15_data[identifier], transition, wavelength
+                    adf15_data, transition, wavelength
                 )
             elements.append(element)
 
+        # For fast computation, drop electron density dimension, calculate fz vs. Te only
+        pec_fast = deepcopy(pec)
+        for line in pec:
+            pec_fast[line]["emiss_coeff"] = (
+                pec[line]["emiss_coeff"]
+                .sel(electron_density=4.0e19, method="nearest")
+                .drop("electron_density")
+            )
+
+        fz_fast = {}
+        Te = np.linspace(0, 1, 51) ** 3 * (10.0e3 - 50) + 50
+        Te = DataArray(Te)
+        Ne = DataArray(np.array([5.0e19] * 51))
+        for elem in elements:
+            _fz = self.fract_abu[elem](Ne, Te)
+            _fz = xr.where(_fz >= 0, _fz, 0).assign_coords(
+                electron_temperature=("dim_0", Te)
+            )
+            fz_fast[elem] = _fz.swap_dims({"dim_0": "electron_temperature"}).drop(
+                "dim_0"
+            )
+
         self.adf15 = adf15
         self.pec = pec
+        self.pec_fast = pec_fast
+        self.fz_fast = fz_fast
         self.elements = elements
 
     def radiation_characteristics(
-        self, Te, Ne, Nimp: dict = None, Nh=None, tau=None, recom=False,
+        self, Te, Ne, Nimp: dict = None, Nh=None, tau=None, recom=False, fast=False,
     ):
         """
 
@@ -334,8 +363,15 @@ class XRCSpectrometer:
 
         if Nh is None:
             Nh = xr.full_like(Ne, 0.0)
+
+        if fast:
+            if not np.all(Nh.values == 0) or tau is not None:
+                print("\n Fast calculation available only with: Nh = None, tau = None")
+                raise ValueError
+
         self.Ne = Ne
         self.Nh = Nh
+        self.tau = tau
         if Nimp is None:
             Nimp = {}
             for elem in self.elements:
@@ -353,8 +389,15 @@ class XRCSpectrometer:
 
             # Calculate fractional abundance if not already available
             if elem not in fz.keys():
-                _fz = self.fract_abu[elem](Ne, Te, Nh, tau=tau)
-                fz[elem] = xr.where(_fz >= 0, _fz, 0)
+                if fast:
+                    fz[elem] = (
+                        self.fz_fast[elem]
+                        .interp(electron_temperature=Te)
+                        .drop("electron_temperature")
+                    )
+                else:
+                    _fz = self.fract_abu[elem](Ne, Te, Nh, tau=tau)
+                    fz[elem] = xr.where(_fz >= 0, _fz, 0)
 
             # Sum contributions from all transition types
             _emiss = []
@@ -372,6 +415,7 @@ class XRCSpectrometer:
             ev_wavelength = constants.e * 1.239842e3 / (wavelength)
             emiss[line] = xr.where(_emiss >= 0, _emiss, 0) * ev_wavelength
 
+        self.fast = fast
         self.fz = fz
         self.emiss = emiss
 
