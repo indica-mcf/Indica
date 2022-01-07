@@ -261,11 +261,6 @@ class LinesOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
 
-    def dl(
-            self, d_ell: float,
-    ):
-
-
 def _get_wall_intersection_distances(
     R_start: np.ndarray,
     z_start: np.ndarray,
