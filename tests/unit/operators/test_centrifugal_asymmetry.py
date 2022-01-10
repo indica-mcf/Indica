@@ -6,8 +6,6 @@ import numpy as np
 from xarray.core.common import zeros_like
 from xarray.core.dataarray import DataArray
 
-from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
-from indica.datatypes import ELEMENTS_BY_SYMBOL
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
@@ -329,13 +327,8 @@ def test_centrifugal_asymmetry():
         dims=["rho", "t"],
     )
 
-    # be, c, ne, w
-    element_atomic_numbers = [4, 10, 28, 74]
-    elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in element_atomic_numbers]
-    elements = [
-        list(ELEMENTS_BY_SYMBOL.keys())[list(ELEMENTS_BY_SYMBOL.values()).index(i)]
-        for i in elements
-    ]
+    # be, ne, ni, w
+    elements = ["be", "ne", "ni", "w"]
 
     toroidal_rotations = np.array([200.0e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
     toroidal_rotations = np.tile(toroidal_rotations, (len(elements), len(t), 1))

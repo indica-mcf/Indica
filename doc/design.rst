@@ -542,7 +542,7 @@ that the type is unconstrained or unknown. See examples below::
     # Describes number density of electrons
     ("number_density", "electrons")
     # Describes number density of primary impurity
-    ("number_density", "tungston")
+    ("number_density", "tungsten")
 
 Type descriptions are a bit more complicated for
 :py:class:`xarray.Dataset` objects. Recall that these objects are
@@ -553,8 +553,8 @@ dictionary. This dictionary maps the names of the
 general type that DataArray stores::
 
     # Describes data number density, temperature, and angular
-    # frequency of Tungston
-    ("tungston", {"n", "number_density",
+    # frequency of Tungsten
+    ("tungsten", {"n", "number_density",
                   "T": "temperature",
                   "omega": "angular_freq"})
 
@@ -578,7 +578,7 @@ interface. This is be accomplished using dictionaries::
     GENERAL_DATATYPES = {"number_density": ("Number density of a particle", "m^-3"),
                          "temperature": ("Temperature of a species", "keV")}
     SPECIFIC_DATATYPES = {"electrons": "Electron gas in plasma",
-                          "tungston": "Tungston ions in plasma"}
+                          "tungsten": "Tungsten ions in plasma"}
 
 This information is stored in the :py:mod:`~indica.datatypes` module.
 
