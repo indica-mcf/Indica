@@ -30,7 +30,8 @@ yow = machine_dimensions[0][1] * np.sin(tcc)
 
 
 # Define Transform object
-transform = LinesOfSightTransform(location, direction, machine_dimensions=machine_dimensions, name='instrument')
+dl = 0.002
+transform = LinesOfSightTransform(location, direction, machine_dimensions=machine_dimensions, name='instrument', dl=dl)
 print(transform)
 
 X_start = transform.x_start
@@ -42,6 +43,7 @@ dl = transform.dl
 x2 = transform.x2
 
 print('x2={}'.format(x2))
+print('dl={}'.format(dl))
 
 #R_start = transform.R_start
 #z_start = transform.z_start
