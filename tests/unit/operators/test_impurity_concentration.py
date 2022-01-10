@@ -8,8 +8,6 @@ from xarray.core.common import zeros_like
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.lines_of_sight import LinesOfSightTransform
-from indica.datatypes import ELEMENTS_BY_ATOMIC_NUMBER
-from indica.datatypes import ELEMENTS_BY_SYMBOL
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
@@ -238,20 +236,20 @@ def nominal_output_checks(
     except Exception as e:
         raise e
 
-    element_name = nominal_inputs["element"]
+    element_symbol = nominal_inputs["element"]
 
     try:
         assert np.all(concentration > 0.0)
     except AssertionError:
         raise ValueError(
-            f"Some concentration values for {element_name} are less than zero."
+            f"Some concentration values for {element_symbol} are less than zero."
         )
 
     try:
         assert np.all(concentration <= upper_limit)
     except AssertionError:
         raise ValueError(
-            f"Some concentration values for {element_name} are \
+            f"Some concentration values for {element_symbol} are \
                 more than {upper_limit * 100}%%."
         )
 
@@ -268,12 +266,12 @@ def test_impurity_concentration():
         dims=["t"],
         attrs={
             "transform": LinesOfSightTransform(
-                R_start=np.array([1.9]),
+                x_start=np.array([1.9]),
                 z_start=np.array([0.2]),
-                T_start=np.array([0.0]),
-                R_end=np.array([3.8]),
+                y_start=np.array([0.0]),
+                x_end=np.array([3.8]),
                 z_end=np.array([0.3]),
-                T_end=np.array([0.0]),
+                y_end=np.array([0.0]),
                 name="Zeff_LoS",
             ),
             "Zeff_LoS_coords": DataArray(data=np.array([0]), dims=["Zeff_LoS_coords"]),
@@ -294,8 +292,7 @@ def test_impurity_concentration():
     tungsten_impurity_conc = 0.00005 * electron_density
 
     # be, ne, ni, w
-    elements = [4, 10, 28, 74]
-    elements = [ELEMENTS_BY_ATOMIC_NUMBER.get(i) for i in elements]
+    elements = ["be", "ne", "ni", "w"]
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho_profile.shape, *t.shape)),
@@ -334,32 +331,32 @@ def test_impurity_concentration():
 
     mean_charge = zeros_like(impurity_densities)
 
-    F_z_tinf = fractional_abundance_setup("be", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("be")
+    element_symbol = "be"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[0] = result
 
-    F_z_tinf = fractional_abundance_setup("c", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("c")
+    element_symbol = "c"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[1] = result
 
-    F_z_tinf = fractional_abundance_setup("ne", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("ne")
+    element_symbol = "ne"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[2] = result
 
-    F_z_tinf = fractional_abundance_setup("w", t)
-    element_name = ELEMENTS_BY_SYMBOL.get("w")
+    element_symbol = "w"
+    F_z_tinf = fractional_abundance_setup(element_symbol, t)
 
     mean_charge_obj = MeanCharge()
-    result = mean_charge_obj(F_z_tinf, element_name)
+    result = mean_charge_obj(F_z_tinf, element_symbol)
     mean_charge.data[3] = result
 
     flux_surfs = FluxSurfaceCoordinates("poloidal")
@@ -371,7 +368,7 @@ def test_impurity_concentration():
     flux_surfs.set_equilibrium(equilib)
 
     nominal_inputs = {
-        "element": "beryllium",
+        "element": "be",
         "Zeff_LoS": Zeff_LoS,
         "impurity_densities": impurity_densities,
         "electron_density": electron_density,
@@ -382,15 +379,15 @@ def test_impurity_concentration():
 
     nominal_output_checks(example_, nominal_inputs, 0.04)
 
-    nominal_inputs["element"] = "neon"
+    nominal_inputs["element"] = "ne"
 
     nominal_output_checks(example_, nominal_inputs, 0.04)
 
-    nominal_inputs["element"] = "nickel"
+    nominal_inputs["element"] = "ni"
 
     nominal_output_checks(example_, nominal_inputs, 1e-3)
 
-    nominal_inputs["element"] = "tungsten"
+    nominal_inputs["element"] = "w"
 
     nominal_output_checks(example_, nominal_inputs, 1e-4)
 

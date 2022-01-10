@@ -5,6 +5,7 @@ from collections import defaultdict
 import inspect
 from unittest.mock import MagicMock
 
+from indica.converters import LinesOfSightTransform
 from indica.readers import DataReader
 
 
@@ -61,12 +62,20 @@ def get_vals_error_records_los(sample):
 
     """
     result = get_vals_error_records(sample)
-    result["Rstart"] = sample.attrs["transform"].R_start.data
-    result["Rstop"] = sample.attrs["transform"]._original_R_end.data
-    result["zstart"] = sample.attrs["transform"].z_start.data
-    result["zstop"] = sample.attrs["transform"]._original_z_end.data
-    result["Tstart"] = sample.attrs["transform"].T_start.data
-    result["Tstop"] = sample.attrs["transform"]._original_T_end.data
+    if not isinstance(sample.attrs["transform"], LinesOfSightTransform):
+        result["Rstart"] = sample.attrs["transform"].R_start.data
+        result["Rstop"] = sample.attrs["transform"]._original_R_end.data
+        result["zstart"] = sample.attrs["transform"].z_start.data
+        result["zstop"] = sample.attrs["transform"]._original_z_end.data
+        result["Tstart"] = sample.attrs["transform"].T_start.data
+        result["Tstop"] = sample.attrs["transform"]._original_T_end.data
+    else:
+        result["xstart"] = sample.attrs["transform"].x_start.data
+        result["xstop"] = sample.attrs["transform"]._original_x_end.data
+        result["zstart"] = sample.attrs["transform"].z_start.data
+        result["zstop"] = sample.attrs["transform"]._original_z_end.data
+        result["ystart"] = sample.attrs["transform"].y_start.data
+        result["ystop"] = sample.attrs["transform"]._original_y_end.data
     return result
 
 

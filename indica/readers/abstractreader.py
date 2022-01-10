@@ -961,12 +961,12 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                database_results[quantity + "_Rstart"],
+                database_results[quantity + "_xstart"],
+                database_results[quantity + "_ystart"],
                 database_results[quantity + "_zstart"],
-                database_results[quantity + "_Tstart"],
-                database_results[quantity + "_Rstop"],
+                database_results[quantity + "_xstop"],
+                database_results[quantity + "_ystop"],
                 database_results[quantity + "_zstop"],
-                database_results[quantity + "_Tstop"],
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
             )
@@ -1115,12 +1115,12 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                database_results[quantity + "_Rstart"],
+                database_results[quantity + "_xstart"],
+                database_results[quantity + "_ystart"],
                 database_results[quantity + "_zstart"],
-                database_results[quantity + "_Tstart"],
-                database_results[quantity + "_Rstop"],
+                database_results[quantity + "_xstop"],
+                database_results[quantity + "_ystop"],
                 database_results[quantity + "_zstop"],
-                database_results[quantity + "_Tstop"],
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
             )
@@ -1154,7 +1154,7 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            if len(database_results[quantity + "_Rstart"]) > 1:
+            if len(database_results[quantity + "_xstart"]) > 1:
                 drop = self._select_channels(
                     "bremsstrahlung",
                     uid,
@@ -1269,12 +1269,12 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
-            database_results["Rstart"],
+            database_results["xstart"],
+            database_results["ystart"],
             database_results["zstart"],
-            database_results["Tstart"],
-            database_results["Rstop"],
+            database_results["xstop"],
+            database_results["ystop"],
             database_results["zstop"],
-            database_results["Tstop"],
             f"{instrument}",
             database_results["machine_dims"],
         )
@@ -1422,12 +1422,12 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
-            database_results["Rstart"],
+            database_results["xstart"],
+            database_results["ystart"],
             database_results["zstart"],
-            database_results["Tstart"],
-            database_results["Rstop"],
+            database_results["xstop"],
+            database_results["ystop"],
             database_results["zstop"],
-            database_results["Tstop"],
             f"{instrument}",
             database_results["machine_dims"],
         )
@@ -1577,12 +1577,12 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
-            database_results["Rstart"],
+            database_results["xstart"],
+            database_results["ystart"],
             database_results["zstart"],
-            database_results["Tstart"],
-            database_results["Rstop"],
+            database_results["xstop"],
+            database_results["ystop"],
             database_results["zstop"],
-            database_results["Tstop"],
             f"{instrument}",
             database_results["machine_dims"],
         )

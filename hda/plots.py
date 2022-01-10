@@ -1,3 +1,4 @@
+import matplotlib as mpl
 import matplotlib.pylab as plt
 import numpy as np
 from matplotlib import cm, rcParams
@@ -351,7 +352,11 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
         elem_str[elem] = _str
 
     time = plasma.t
-    colors = cm.rainbow(np.linspace(0, 1, len(time)))
+    cmap = cm.rainbow
+    varr = np.linspace(0, 1, len(time))
+    colors = cmap(varr)
+    hex2names = dict(zip(mpl.colors.cnames.values(), mpl.colors.cnames.keys()))
+    hexcolors = [mpl.colors.to_hex(c) for c in colors]
 
     # Impurity linestyles
     linestyle_imp = ((0, (5, 1)), (0, (5, 5)), (0, (5, 10)))
@@ -566,6 +571,30 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
     plt.legend()
     if savefig:
         save_figure(fig_name=f"{figname}profiles_effective_charge")
+
+    # Equilibrium reconstruction
+    plt.figure()
+    levels = [0.2, 1.0]
+    for i, t in enumerate(time):
+        plasma.equilibrium.rho.sel(t=t, method="nearest").plot.contour(
+            levels=levels, alpha=alpha, cmap=cmap
+        )
+        plt.plot(
+            plasma.equilibrium.rmag.sel(t=t, method="nearest"),
+            plasma.equilibrium.zmag.sel(t=t, method="nearest"),
+            color=colors[i],
+            marker="o",
+            alpha=alpha,
+        )
+
+    plt.title(f"{plasma.pulse} Plasma equilibrium")
+    plt.xlabel("R (m)")
+    plt.ylabel("z (m)")
+    plt.xlim(0, 0.8)
+    plt.ylim(-0.8, 0.8)
+    plt.axis("scaled")
+    if savefig:
+        save_figure(fig_name=f"{figname}2D_equilibrium")
 
 
 # def geometry(data):
