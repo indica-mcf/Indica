@@ -43,6 +43,8 @@ Y_start = R_start * np.sin(T_start)
 X_end = R_end * np.cos(T_end)
 Y_end = R_end * np.sin(T_end)
 
+print('R_end={}'.format(R_end))
+
 
 plt.figure()
 plt.plot(xv, yv, 'r')
@@ -54,8 +56,25 @@ plt.show()
 
 
 ### "distance" method to find "dl"
-##x2_arr = np.linspace(0, 1, 100)
-##x2 = DataArray(x2_arr, dims=transform.x2_name)
+#x2_arr = np.linspace(0, 1, 100)
+#x2 = DataArray(x2_arr, dims=transform.x2_name)
+#print(x2)
+#print('x2[0]={}'.format(x2[0]))
+#dl = transform.distance(transform.x2_name, 0, x2[0:2], 0)[1]
+#print(dl)
+
+### "dl" method to return
+d_ell_target = 0.005                                       # Set "dl"
+x2 = transform.d_ell(d_ell_target)                        # Run method, to return "x2" DataArray
+dl = transform.distance(transform.x2_name, 0, x2, 0)[1]   # Run "distance" to return "dl" in the "usual way"
+
+# Export data to dictionary
+new_attrs = dict()
+new_attrs["x2"] = x2
+new_attrs["dl"] = dl
+new_attrs["R"], new_attrs["z"] = transform.convert_to_Rz(0, x2, 0)  # Return R, Z coords using "x2" defined by "dl".
+print(new_attrs)
+
 
 
 
