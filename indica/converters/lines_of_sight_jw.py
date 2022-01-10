@@ -107,6 +107,10 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x1_name = name + "_coords"
         self.x2_name = name + "_los_position"
 
+        # Add to class
+        #self.x2 = []
+        #self.dl = []
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
