@@ -70,20 +70,12 @@ class LinesOfSightTransform(CoordinateTransform):
 
         # Find intersections with inner and outer wall
         start_coord, end_coord = _find_wall_intersections(origin, direction, machine_dimensions)
-        R_start = np.array(start_coord[0])
-        z_start = np.array(start_coord[1])
-        T_start = np.array(start_coord[2])
-        R_end = np.array(end_coord[0])
-        z_end = np.array(end_coord[1])
-        T_end = np.array(end_coord[2])
-
-        print(R_start)
-        print(z_start)
-        print(T_start)
-        print(R_end)
-        print(z_end)
-        print(T_end)
-
+        R_start = np.array([start_coord[0]])
+        z_start = np.array([start_coord[1]])
+        T_start = np.array([start_coord[2]])
+        R_end = np.array([end_coord[0]])
+        z_end = np.array([end_coord[1]])
+        T_end = np.array([end_coord[2]])
         ## same as lines_of_sight_jw.py
         #lengths = _get_wall_intersection_distances(
         #    R_start, z_start, T_start, R_end, z_end, T_end, machine_dimensions
@@ -260,6 +252,23 @@ class LinesOfSightTransform(CoordinateTransform):
         result = zeros_like(R)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
+
+    def d_ell(
+            self, dl: float
+    ):
+        # Convert to Cartesian
+        X_start = self.R_start * np.cos(self.T_start)
+        Y_start = self.R_start * np.sin(self.T_start)
+        Z_start = self.z_start
+        X_end = self.R_end * np.cos(self.T_end)
+        Y_end = self.R_end * np.sin(self.T_end)
+        Z_end = self.z_end
+        D = np.sqrt((X_end-X_start)**2 + (Y_end-Y_start)**2 + (Z_end-Z_start)**2)
+
+        # Find the number of points
+        npts = np.ceil(D.data / dl).astype(int)
+        ind = np.linspace(0, 1, npts[0], dtype=float)
+        return DataArray(ind, dims=self.x2_name)
 
 def _get_wall_intersection_distances(
     R_start: np.ndarray,
