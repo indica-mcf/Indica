@@ -27,33 +27,36 @@ class LinesOfSightTransform(CoordinateTransform):
     the measurements were integrated along the line-of-sight.
 
     If not passed to the constructor, the default grid for converting
-    from the R-z system is chosen as follows:
+    from the x-y-z system is chosen as follows:
 
-    - The R-grid ranges from ``min(R_start.min(), R_end.min())`` to
-      ``max(R_start.max(), R_end.max())`` with ``num_points`` intervals.
+    - The x-grid ranges from ``min(x_start.min(), x_end.min())`` to
+      ``max(x_start.max(), x_end.max())`` with ``num_points`` intervals.
+    - The y-grid ranges from ``min(y_start.min(), y_end.min())`` to
+      ``max(y_start.max(), y_end.max())`` with ``num_points`` intervals.
     - The z-grid ranges from ``min(z_start.min(), z_end.min())`` to
       ``max(z_start.max(), z_end.max())`` with ``num_points`` intervals.
 
     Parameters
     ----------
-    R_start
-        1-D array of major radii of the start for each line-of-sight.
+    x_start
+        1-D array of x positions of the start for each line-of-sight.
+    y_start
+        1-D array of y positions for the start of each line-of-sight.
     z_start
-        1-D array of vertical positions of the start for each line-of-sight.
-    T_start
-        1-D array of toroidal offset for the start of each line-of-sight.
-    R_end
-        1-D array of major radii of the end for each line-of-sight.
+        1-D array of z positions of the start for each line-of-sight.
+    x_end
+        1-D array of x positions of the end for each line-of-sight.
+    y_end
+        1-D array of y positions for the end of each line-of-sight.
     z_end
-        1-D array of vertical positions of the end for each line-of-sight.
-    T_end
-        1-D array of toroidal offset for the end of each line-of-sight.
+        1-D array of z positions of the end for each line-of-sight.
     name
         The name to refer to this coordinate system by, typically taken
         from the instrument it describes.
     machine_dimensions
-        A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
+        A tuple giving the boundaries of the Tokamak in xy-z space:
+        ``((xymin, xymax), (zmin, zmax)`` where the machine is symmetric
+        with respect to the z-axis. Defaults to values for JET.
 
     """
 
@@ -66,38 +69,38 @@ class LinesOfSightTransform(CoordinateTransform):
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
+        dl: float = 0.01,
     ):
 
         # Find intersections with inner and outer wall
         start_coord, end_coord = _find_wall_intersections(origin, direction, machine_dimensions)
-        R_start = np.array([start_coord[0]])
-        z_start = np.array([start_coord[1]])
-        T_start = np.array([start_coord[2]])
-        R_end = np.array([end_coord[0]])
-        z_end = np.array([end_coord[1]])
-        T_end = np.array([end_coord[2]])
-        ## same as lines_of_sight_jw.py
+        x_start = np.array([start_coord[0]])
+        y_start = np.array([start_coord[1]])
+        z_start = np.array([start_coord[2]])
+        x_end = np.array([end_coord[0]])
+        y_end = np.array([end_coord[1]])
+        z_end = np.array([end_coord[2]])
         #lengths = _get_wall_intersection_distances(
-        #    R_start, z_start, T_start, R_end, z_end, T_end, machine_dimensions
+        #    x_start, y_start, z_start, x_end, y_end, z_end, machine_dimensions
         #)
         #new_length = max(lengths)
         #los_lengths = np.sqrt(
-        #    (R_start - R_end) ** 2 + (z_start - z_end) ** 2 + (T_start - T_end) ** 2
+        #    (x_start - x_end) ** 2 + (y_start - y_end) ** 2 + (z_start - z_end) ** 2
         #)
         #factor = new_length / los_lengths
-        self.R_start = DataArray(R_start)
+        self.x_start = DataArray(x_start)
+        self.y_start = DataArray(y_start)
         self.z_start = DataArray(z_start)
-        self.T_start = DataArray(T_start)
-        self._original_R_end = DataArray(R_end)
+        self._original_x_end = DataArray(x_end)
+        self._original_y_end = DataArray(y_end)
         self._original_z_end = DataArray(z_end)
-        self._original_T_end = DataArray(T_end)
         self._machine_dims = machine_dimensions
-        #self.R_end = DataArray(R_start + factor * (R_end - R_start))
+        #self.x_end = DataArray(x_start + factor * (x_end - x_start))
+        #self.y_end = DataArray(y_start + factor * (y_end - y_start))
         #self.z_end = DataArray(z_start + factor * (z_end - z_start))
-        #self.T_end = DataArray(T_start + factor * (T_end - T_start))
-        self.R_end = DataArray(R_end)
+        self.x_end = DataArray(x_end)
+        self.y_end = DataArray(y_end)
         self.z_end = DataArray(z_end)
-        self.T_end = DataArray(T_end)
         self.index_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
@@ -107,20 +110,21 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x1_name = name + "_coords"
         self.x2_name = name + "_los_position"
 
-        # Add to class
-        #self.x2 = []
-        #self.dl = []
+        # Set "dl" and "x2"
+        self.set_dl(dl)
+        print(self.x2)
+        print(self.dl)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)
-        result = result and np.all(self.R_start == other.R_start)
+        result = result and np.all(self.x_start == other.x_start)
+        result = result and np.all(self.y_start == other.y_start)
         result = result and np.all(self.z_start == other.z_start)
-        result = result and np.all(self.T_start == other.T_start)
-        result = result and np.all(self.R_end == other.R_end)
+        result = result and np.all(self.x_end == other.x_end)
+        result = result and np.all(self.y_end == other.y_end)
         result = result and np.all(self.z_end == other.z_end)
-        result = result and np.all(self.T_end == other.T_end)
         result = result and self._machine_dims == other._machine_dims
         return result
 
@@ -129,32 +133,32 @@ class LinesOfSightTransform(CoordinateTransform):
     ) -> Coordinates:
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
-        Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
-        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
-        zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
-        Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
-        R0 = Rs + (Re - Rs) * x2
-        T0 = Ts + (Te - Ts) * x2
-        z = zs + (ze - zs) * x2
-        return np.sqrt(R0 ** 2 + T0 ** 2), z
+        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        x_0 = x_s + (x_e - x_s) * x2
+        y_0 = y_s + (y_e - y_s) * x2
+        z = z_s + (z_e - z_s) * x2
+        return np.sqrt(x_0 ** 2 + y_0 ** 2), z
 
     def convert_to_xyz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
-        Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
-        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
-        zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
-        Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
-        R0 = Rs + (Re - Rs) * x2
-        T0 = Ts + (Te - Ts) * x2
-        z = zs + (ze - zs) * x2
-        return R0, T0, z
+        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        x_0 = x_s + (x_e - x_s) * x2
+        y_0 = y_s + (y_e - y_s) * x2
+        z = z_s + (z_e - z_s) * x2
+        return x_0, y_0, z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -164,38 +168,38 @@ class LinesOfSightTransform(CoordinateTransform):
             x2 = x[1]
             c = np.ceil(x1).astype(int)
             f = np.floor(x1).astype(int)
-            Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
-            Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
-            zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-            ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-            Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
-            Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
-            R0 = Rs + (Re - Rs) * x2
-            T0 = Ts + (Te - Ts) * x2
-            R = np.sign(R0) * np.sqrt(R0 ** 2 + T0 ** 2)
-            dR0dx1 = (self.R_start[c] - self.R_start[f]) * (1 - x2) + (
-                self.R_end[c] - self.R_end[f]
+            x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+            x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+            y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+            y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+            z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+            z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+            x_0 = x_s + (x_e - x_s) * x2
+            y_0 = y_s + (y_e - y_s) * x2
+            x = np.sign(x_0) * np.sqrt(x_0 ** 2 + y_0 ** 2)
+            dx_0dx1 = (self.x_start[c] - self.x_start[f]) * (1 - x2) + (
+                self.x_end[c] - self.x_end[f]
             ) * x2
-            dR0dx2 = Re - Rs
-            dTdx1 = (self.T_start[c] - self.T_start[f]) * (1 - x2) + (
-                self.T_end[c] - self.T_end[f]
+            dx_0dx2 = x_e - x_s
+            dy_0dx1 = (self.y_start[c] - self.y_start[f]) * (1 - x2) + (
+                self.y_end[c] - self.y_end[f]
             ) * x2
-            dTdx2 = Te - Ts
+            dy_0dx2 = y_e - y_s
             dzdx1 = (self.z_start[c] - self.z_start[f]) * (1 - x2) + (
                 self.z_end[c] - self.z_end[f]
             ) * x2
-            dzdx2 = ze - zs
+            dzdx2 = z_e - z_s
             return [
                 [
-                    2 / R * (R0 * dR0dx1 + T0 * dTdx1),
-                    2 / R * (R0 * dR0dx2 + T0 * dTdx2),
+                    2 / x * (x_0 * dx_0dx1 + y_0 * dy_0dx1),
+                    2 / x * (x_0 * dx_0dx2 + y_0 * dy_0dx2),
                 ],
                 [dzdx1, dzdx2],
             ]
 
         def forward(x):
-            R_prime, z_prime, _ = self.convert_to_Rz(x[0], x[1], 0)
-            return [R_prime - R, z_prime - z]
+            x_prime, z_prime = self.convert_to_Rz(x[0], x[1], 0)
+            return [x_prime - R, z_prime - z]
 
         @np.vectorize
         def invert(R, z):
@@ -241,46 +245,50 @@ class LinesOfSightTransform(CoordinateTransform):
         """
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
-        Rs = (self.R_start[c] - self.R_start[f]) * (x1 - f) + self.R_start[f]
-        Re = (self.R_end[c] - self.R_end[f]) * (x1 - f) + self.R_end[f]
-        zs = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        ze = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        Ts = (self.T_start[c] - self.T_start[f]) * (x1 - f) + self.T_start[f]
-        Te = (self.T_end[c] - self.T_end[f]) * (x1 - f) + self.T_end[f]
-        R = Rs + (Re - Rs) * x2
-        T = Ts + (Te - Ts) * x2
-        z = zs + (ze - zs) * x2
+        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        x = x_s + (x_e - x_s) * x2
+        y = y_s + (y_e - y_s) * x2
+        z = z_s + (z_e - z_s) * x2
         spacings = np.sqrt(
-            R.diff(direction) ** 2 + z.diff(direction) ** 2 + T.diff(direction) ** 2
+            x.diff(direction) ** 2 + y.diff(direction) ** 2 + z.diff(direction) ** 2
         )
-        result = zeros_like(R)
+        result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
 
-    def d_ell(
+    def set_dl(
             self, dl: float
     ):
         # Convert to Cartesian
-        X_start = self.R_start * np.cos(self.T_start)
-        Y_start = self.R_start * np.sin(self.T_start)
-        Z_start = self.z_start
-        X_end = self.R_end * np.cos(self.T_end)
-        Y_end = self.R_end * np.sin(self.T_end)
-        Z_end = self.z_end
-        D = np.sqrt((X_end-X_start)**2 + (Y_end-Y_start)**2 + (Z_end-Z_start)**2)
+        x_start = self.x_start
+        y_start = self.y_start
+        z_start = self.z_start
+        x_end = self.x_end
+        y_end = self.y_end
+        z_end = self.z_end
+        d = np.sqrt((x_end-x_start)**2 + (y_end-y_start)**2 + (z_end-z_start)**2)
 
         # Find the number of points
-        npts = np.ceil(D.data / dl).astype(int)
+        npts = np.ceil(d.data / dl).astype(int)
         ind = np.linspace(0, 1, npts[0], dtype=float)
-        return DataArray(ind, dims=self.x2_name)
+
+        # Set "x2" and "dl"
+        self.x2 = DataArray(ind, dims=self.x2_name)
+        self.dl = self.distance(self.x2_name, 0, self.x2, 0)[1]
+
 
 def _get_wall_intersection_distances(
-    R_start: np.ndarray,
+    x_start: np.ndarray,
+    y_start: np.ndarray,
     z_start: np.ndarray,
-    T_start: np.ndarray,
-    R_end: np.ndarray,
+    x_end: np.ndarray,
+    y_end: np.ndarray,
     z_end: np.ndarray,
-    T_end: np.ndarray,
     machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
         (1.83, 3.9),
         (-1.75, 2.0),
@@ -292,21 +300,21 @@ def _get_wall_intersection_distances(
 
     Parameters
     ----------
-    R_start
-        1-D array of major radii of the start for each line-of-sight.
+    x_start
+        1-D array of x positions of the start for each line-of-sight.
+    y_start
+        1-D array of y positions for the start of each line-of-sight.
     z_start
-        1-D array of vertical positions of the start for each line-of-sight.
-    T_start
-        1-D array of toroidal offset for the start of each line-of-sight.
-    R_end
-        1-D array of major radii of the end for each line-of-sight.
+        1-D array of z positions of the start for each line-of-sight.
+    x_end
+        1-D array of x positions of the end for each line-of-sight.
+    y_end
+        1-D array of y positions for the end of each line-of-sight.
     z_end
-        1-D array of vertical positions of the end for each line-of-sight.
-    T_end
-        1-D array of toroidal offset for the end of each line-of-sight.
+        1-D array of z positions of the end for each line-of-sight.
     machine_dimensions
-        A tuple giving the boundaries of the Tokamak in R-z space:
-        ``((Rmin, Rmax), (zmin, zmax)``. Defaults to values for JET.
+        A tuple giving the boundaries of the Tokamak in xy-z space:
+        ``((xymin, xymax), (zmin, zmax)``. Defaults to values for JET.
 
     Returns
     -------
@@ -314,31 +322,31 @@ def _get_wall_intersection_distances(
         The length of each line of sight for it to intersect a Tokamak wall.
 
     """
-    opposite_R = np.where(
-        R_end - R_start < 0, machine_dimensions[0][0], machine_dimensions[0][1]
+    # TODO: generalize for (x, y, z) plane looking for intersection with the inner column
+    opposite_x = np.where(
+        x_end - x_start < 0, machine_dimensions[0][0], machine_dimensions[0][1]
     )
     opposite_z = np.where(
         z_end - z_start < 0, machine_dimensions[1][0], machine_dimensions[1][1]
     )
     # Calculate where LOS intersects opposite R-surface
-    a = (R_end - R_start) ** 2 + (T_end - T_start) ** 2
-    b = 2 * (R_start * (R_end - R_start) + T_start * (T_end - T_start))
-    c = R_start ** 2 + T_start ** 2 - opposite_R ** 2
-    factor = np.where(R_end - R_start < 0, -1, 1)
+    a = (x_end - x_start) ** 2 + (y_end - y_start) ** 2
+    b = 2 * (x_start * (x_end - x_start) + y_start * (y_end - y_start))
+    c = x_start ** 2 + y_start ** 2 - opposite_x ** 2
+    factor = np.where(x_end - x_start < 0, -1, 1)
     mask = b ** 2 - 4 * a * c < 0
     # Check line of sight actually intersects the expected wall
-    opposite_R[mask] = machine_dimensions[0][1]
-    a[mask] = (R_end[mask] - R_start[mask]) ** 2 + (T_end[mask] - T_start[mask]) ** 2
+    opposite_x[mask] = machine_dimensions[0][1]
+    a[mask] = (x_end[mask] - x_start[mask]) ** 2 + (y_end[mask] - y_start[mask]) ** 2
     b[mask] = 2 * (
-        R_start[mask] * (R_end[mask] - R_start[mask])
-        + T_start[mask] * (T_end[mask] - T_start[mask])
+        x_start[mask] * (x_end[mask] - x_start[mask])
+        + y_start[mask] * (y_end[mask] - y_start[mask])
     )
-    c[mask] = R_start[mask] ** 2 + T_start[mask] ** 2 - opposite_R[mask] ** 2
+    c[mask] = x_start[mask] ** 2 + y_start[mask] ** 2 - opposite_x[mask] ** 2
     factor[mask] *= -1
     x2_trial = (-b + factor * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
     z_trial = z_start + x2_trial * (z_end - z_start)
 
-    # Distinguish if LOS is exactly at midplane
     x2_opposite = np.zeros_like(x2_trial)
     if not np.array_equal(z_start, z_end):
         x2_opposite = (opposite_z - z_start) / (z_end - z_start)
@@ -351,7 +359,7 @@ def _get_wall_intersection_distances(
         x2_opposite,
     )
     return x2 * np.sqrt(
-        (R_start - R_end) ** 2 + (z_start - z_end) ** 2 + (T_start - T_end) ** 2
+        (x_start - x_end) ** 2 + (y_start - y_end) ** 2 + (z_start - z_end) ** 2
     )
 
 
@@ -365,49 +373,36 @@ def _find_wall_intersections(
 ):
 
     # Define XYZ lines for LOS from origin and direction vectors
-    L = 3.0
-    Xline = np.array([origin[0]-L*direction[0], origin[0]+L*direction[0]], dtype=float)
-    Yline = np.array([origin[1]-L*direction[1], origin[1]+L*direction[1]], dtype=float)
+    length = 3.0
+    x_line = np.array([origin[0]-length*direction[0], origin[0]+length*direction[0]], dtype=float)
+    y_line = np.array([origin[1]-length*direction[1], origin[1]+length*direction[1]], dtype=float)
 
     # Define XYZ lines for inner and outer walls
     angles = np.linspace(0.0, 2*np.pi, 1000)
-    Xwall_inner = machine_dimensions[0][0] * np.cos(angles)
-    Ywall_inner = machine_dimensions[0][0] * np.sin(angles)
-    Xwall_outer = machine_dimensions[0][1] * np.cos(angles)
-    Ywall_outer = machine_dimensions[0][1] * np.sin(angles)
+    x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
+    x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
+    y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
 
     # Find intersections, to calculate R_start, z_start, T_start, R_end, z_end, T_end ...
-    xx, yx, ix, jx = intersection(Xline, Yline, Xwall_outer, Ywall_outer)
-    D = np.sqrt((xx-origin[0])**2 + (yx-origin[1])**2)  # Distance from intersections
-    print('D={}'.format(D))
-    iClosest = np.argmin(D)
-    iFurthest = np.argmax(D)
-    X_start = xx[iClosest]
-    Y_start = yx[iClosest]
-    Z_start = origin[-1]
-    X_end = xx[iFurthest]
-    Y_end = yx[iFurthest]
-    Z_end = origin[-1]
-    print('iClosest={}'.format(iClosest))
-    print('iFurthest={}'.format(iFurthest))
+    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_outer, y_wall_outer)
+    distance = np.sqrt((xx-origin[0])**2 + (yx-origin[1])**2)  # Distance from intersections
+    i_closest = np.argmin(distance)
+    i_furthest = np.argmax(distance)
+    x_start = xx[i_closest]
+    y_start = yx[i_closest]
+    z_start = origin[-1]
+    x_end = xx[i_furthest]
+    y_end = yx[i_furthest]
+    z_end = origin[-1]
 
     # Find intersections with inner wall (if exists)
-    xx, yx, ix, jx = intersection(Xline, Yline, Xwall_inner, Ywall_inner)
-    print(xx)
-    print(len(xx))
-    if len(xx)>0:
-        D = np.sqrt((xx - Xline[0]) ** 2 + (yx - Yline[0]) ** 2)  # Distance from intersections
-        iClosest = np.argmin(D)
-        X_end = xx[iClosest]
-        Y_end = yx[iClosest]
-        Z_end = origin[-1]
+    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
+    if len(xx) > 0:
+        distance = np.sqrt((xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2)  # Distance from intersections
+        i_closest = np.argmin(distance)
+        x_end = xx[i_closest]
+        y_end = yx[i_closest]
+        z_end = origin[-1]
 
-    # Convert to cylindrical coordinates
-    R_start = np.sqrt(X_start**2 + Y_start**2)
-    T_start = np.arctan2(Y_start, X_start)
-    z_start = Z_start
-    R_end = np.sqrt(X_end**2 + Y_end**2)
-    T_end = np.arctan2(Y_end, X_end)
-    z_end = Z_end
-
-    return (R_start, z_start, T_start), (R_end, z_end, T_end)
+    return (x_start, y_start, z_start), (x_end, y_end, z_end)
