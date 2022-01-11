@@ -243,6 +243,45 @@ def time_evol(plasma, data, bckc={}, savefig=False, name=""):
         save_figure(fig_name=f"{figname}time_evol_central_temperatures")
 
     plt.figure()
+    ylim = (0, plasma.el_dens.max() * 1.05)
+    if hasattr(plasma, "el_dens_hi"):
+        plt.fill_between(
+            plasma.time,
+            plasma.el_dens_hi.sel(rho_poloidal=0),
+            plasma.el_dens_lo.sel(rho_poloidal=0),
+            color="blue",
+            alpha=0.5,
+        )
+        plt.fill_between(
+            plasma.time,
+            plasma.ion_dens_hi.sel(element=plasma.main_ion, rho_poloidal=0),
+            plasma.ion_dens_lo.sel(element=plasma.main_ion, rho_poloidal=0),
+            color="red",
+            alpha=0.5,
+        )
+        ylim = (
+            0,
+            np.max(
+                [
+                    plasma.el_dens_hi.max() * 1.05,
+                    plasma.ion_dens_hi.sel(element=plasma.main_ion).max() * 1.05,
+                    ylim[1],
+                ]
+            ),
+        )
+    plasma.el_dens.sel(rho_poloidal=0).plot(label="Ne(0)", color="blue", alpha=0.8)
+    plasma.ion_dens.sel(element=plasma.main_ion, rho_poloidal=0).plot(
+        color="red", label="Ni(0)", alpha=0.8
+    )
+    plt.title(f"{plasma.pulse} Central densities")
+    plt.xlabel("Time (s)")
+    plt.ylabel("(m$^{-3}$)")
+    plt.ylim(ylim)
+    plt.legend()
+    if savefig:
+        save_figure(fig_name=f"{figname}time_evol_central_densities")
+
+    plt.figure()
     prad_los_int = xr.zeros_like(plasma.prad)
     # TODO: using XRCS LOS. Comparison with experimental values when diagnostics available
     for j, elem in enumerate(plasma.elements):
@@ -355,8 +394,6 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
     cmap = cm.rainbow
     varr = np.linspace(0, 1, len(time))
     colors = cmap(varr)
-    hex2names = dict(zip(mpl.colors.cnames.values(), mpl.colors.cnames.keys()))
-    hexcolors = [mpl.colors.to_hex(c) for c in colors]
 
     # Impurity linestyles
     linestyle_imp = ((0, (5, 1)), (0, (5, 5)), (0, (5, 10)))
@@ -574,17 +611,27 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
 
     # Equilibrium reconstruction
     plt.figure()
-    levels = [0.2, 1.0]
-    for i, t in enumerate(time):
-        plasma.equilibrium.rho.sel(t=t, method="nearest").plot.contour(
-            levels=levels, alpha=alpha, cmap=cmap
+    R = plasma.equilibrium.R
+    z = plasma.equilibrium.z
+    vmin = np.linspace(1, 0, len(plasma.time))
+    for i, t in enumerate(plasma.time):
+        rho = plasma.equilibrium.rho.sel(t=t, method="nearest")
+        plt.contour(
+            R,
+            z,
+            rho,
+            levels=[1.0],
+            alpha=alpha,
+            cmap=cmap,
+            vmin=vmin[i],
+            vmax=vmin[i] + 1,
         )
         plt.plot(
             plasma.equilibrium.rmag.sel(t=t, method="nearest"),
             plasma.equilibrium.zmag.sel(t=t, method="nearest"),
             color=colors[i],
             marker="o",
-            alpha=alpha,
+            alpha=0.5,
         )
 
     plt.title(f"{plasma.pulse} Plasma equilibrium")
@@ -607,7 +654,7 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
 
 def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
     plt.savefig(
-        "/home/marco.sertoli/python/figures/Indica/" + fig_name + ext,
+        "/home/marco.sertoli/figures/Indica/" + fig_name + ext,
         orientation=orientation,
         dpi=600,
         pil_kwargs={"quality": 95},
