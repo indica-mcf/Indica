@@ -18,7 +18,7 @@ from indica.readers import ADASReader
 from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
 from indica.converters import FluxSurfaceCoordinates
-from indica.converters.time import bin_in_time
+from indica.converters.time import bin_in_time_dt
 
 import xarray as xr
 from xarray import DataArray
@@ -99,10 +99,10 @@ class HDAdata:
             for k in xrcs.keys():
                 xrcs[k].attrs["transform"].set_equilibrium(self.equilibrium)
             self.raw_data["xrcs"] = xrcs
-            self.ti_xrcs = bin_in_time(tstart, tend, self.freq, xrcs["ti_w"]).interp(
+            self.ti_xrcs = bin_in_time_dt(tstart, tend, self.dt, xrcs["ti_w"]).interp(
                 t=self.time, method="linear"
             )
-            self.te_xrcs = bin_in_time(tstart, tend, self.freq, xrcs["te_kw"]).interp(
+            self.te_xrcs = bin_in_time_dt(tstart, tend, self.dt, xrcs["te_kw"]).interp(
                 t=self.time, method="linear"
             )
 
@@ -112,7 +112,7 @@ class HDAdata:
                 for k in nirh1.keys():
                     nirh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
                 self.raw_data["nirh1"] = nirh1
-                self.nirh1 = bin_in_time(tstart, tend, self.freq, nirh1["ne"]).interp(
+                self.nirh1 = bin_in_time_dt(tstart, tend, self.dt, nirh1["ne"]).interp(
                     t=self.time, method="linear"
                 )
                 self.nirh1.attrs = nirh1["ne"].attrs
@@ -121,7 +121,7 @@ class HDAdata:
             for k in smmh1.keys():
                 smmh1[k].attrs["transform"].set_equilibrium(self.equilibrium)
             self.raw_data["smmh1"] = smmh1
-            self.smmh1 = bin_in_time(tstart, tend, self.freq, smmh1["ne"]).interp(
+            self.smmh1 = bin_in_time_dt(tstart, tend, self.dt, smmh1["ne"]).interp(
                 t=self.time, method="linear"
             )
             self.smmh1.attrs = smmh1["ne"].attrs
@@ -139,7 +139,7 @@ class HDAdata:
             }
             vloop.attrs = meta
             self.raw_data["vloop"] = vloop
-            self.vloop = bin_in_time(tstart, tend, self.freq, vloop).interp(
+            self.vloop = bin_in_time_dt(tstart, tend, self.dt, vloop).interp(
                 t=self.time, method="linear"
             )
 
@@ -155,20 +155,20 @@ class HDAdata:
             }
             bt_0.attrs = meta
             self.raw_data["bt_0"] = bt_0
-            self.bt_0 = bin_in_time(tstart, tend, self.freq, bt_0).interp(
+            self.bt_0 = bin_in_time_dt(tstart, tend, self.dt, bt_0).interp(
                 t=self.time, method="linear"
             )
 
-            self.ipla = bin_in_time(tstart, tend, self.freq, efit["ipla"]).interp(
+            self.ipla = bin_in_time_dt(tstart, tend, self.dt, efit["ipla"]).interp(
                 t=self.time, method="linear"
             )
-            self.R_mag = bin_in_time(
-                tstart, tend, self.freq, self.equilibrium.rmag
-            ).interp(t=self.time, method="linear")
-            self.R_0 = bin_in_time(tstart, tend, self.freq, efit["rmag"]).interp(
+            self.R_mag = bin_in_time_dt(
+                tstart, tend, self.dt, self.equilibrium.rmag
+            )
+            self.R_0 = bin_in_time_dt(tstart, tend, self.dt, efit["rmag"]).interp(
                 t=self.time, method="linear"
             )
-            self.wmhd = bin_in_time(tstart, tend, self.freq, efit["wp"]).interp(
+            self.wmhd = bin_in_time_dt(tstart, tend, self.dt, efit["wp"]).interp(
                 t=self.time, method="linear"
             )
         else:
@@ -229,16 +229,16 @@ class HDAdata:
 
         min_r /= len(self.theta)
         min_r = min_r.interp(rho_poloidal=self.rho.values, method="cubic")
-        min_r = bin_in_time(self.tstart, self.tend, self.freq, min_r,).interp(
+        min_r = bin_in_time_dt(self.tstart, self.tend, self.dt, min_r,).interp(
             t=self.time, method="linear"
         )
         self.min_r = min_r
 
         volume, area, _ = self.equilibrium.enclosed_volume(self.rho)
-        volume = bin_in_time(self.tstart, self.tend, self.freq, volume,).interp(
+        volume = bin_in_time_dt(self.tstart, self.tend, self.dt, volume,).interp(
             t=self.time, method="linear"
         )
-        area = bin_in_time(self.tstart, self.tend, self.freq, area,).interp(
+        area = bin_in_time_dt(self.tstart, self.tend, self.dt, area,).interp(
             t=self.time, method="linear"
         )
         self.area.values = area
@@ -254,18 +254,18 @@ class HDAdata:
         self.kappa.values = (self.r_b / self.r_a).values
         self.delta.values = ((self.r_c + self.r_d) / (2 * self.r_a)).values
 
-        self.maj_r_lfs = bin_in_time(
+        self.maj_r_lfs = bin_in_time_dt(
             self.tstart,
             self.tend,
-            self.freq,
+            slf.dt,
             self.equilibrium.rmjo.interp(rho_poloidal=self.rho),
-        ).interp(t=self.time, method="linear")
-        self.maj_r_hfs = bin_in_time(
+        )
+        self.maj_r_hfs = bin_in_time_dt(
             self.tstart,
             self.tend,
-            self.freq,
+            slf.dt,
             self.equilibrium.rmji.interp(rho_poloidal=self.rho),
-        ).interp(t=self.time, method="linear")
+        )
 
         dens = self.profs.ne.interp(rho_poloidal=self.rho)
         temp = self.profs.te.interp(rho_poloidal=self.rho)
@@ -888,7 +888,7 @@ class HDAdata:
 
         self.rhot = deepcopy(data2d)
         rhot, _ = self.equilibrium.convert_flux_coords(self.rho)
-        self.rhot.values = bin_in_time(self.tstart, self.tend, self.freq, rhot).interp(
+        self.rhot.values = bin_in_time_dt(self.tstart, self.tend, self.dt, rhot).interp(
             t=self.time, method="linear"
         )
         assign_datatype(self.rho, ("rho", "poloidal"))
