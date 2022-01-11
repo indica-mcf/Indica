@@ -17,6 +17,7 @@ from xarray import DataArray
 from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import ADF11_GENERAL_DATATYPES
+from ..datatypes import ADF12_GENERAL_DATATYPES
 from ..datatypes import ADF15_GENERAL_DATATYPES
 from ..datatypes import ELEMENTS
 
@@ -160,6 +161,132 @@ class ADASReader(BaseIO):
             name=name,
             attrs=attrs,
         )
+
+    def get_adf12(
+        self,
+        donor_ion: str,
+        donor_metastable: str,
+        receiver_ion: str,
+        receiver_charge: str,
+        filetype: str,
+        year="",
+    ):
+        """ Read data from specified ADF12 ADAS file.
+        
+        donor_ion 
+            The donor ion element described by the rate file.
+        donor_metastable 
+            The donor ion metastable level
+        receiver_ion 
+            The receiver ion element described by the rate file.
+        receiver_charge
+            The receiver ion charge state described by the rate file.
+        filetype
+            The type of data to retrieve. Options: ic, cl, ca, ls, llu, ...
+        year
+            The two-digit year label for the data.
+        """
+
+        # Find path to file -- to do: generalise
+        filename = "/home/jonathan.wood/git_home/Indica/hda/tests/qeff#h"
+
+        # Which block to read
+        block = int(16)
+        
+        # Read data from file
+        with open(filename, 'r') as f:
+            nlines = int(f.readline())
+
+            for iline in range(block):
+                cer_line = {}
+                first_line = '0'
+                while not first_line[0].isalpha():
+                    first_line = f.readline()
+
+                cer_line['header'] = first_line
+                cer_line['qefref'] = np.float( f.readline()[:63].replace('D', 'e'))
+                cer_line['parmref'] = np.float_( f.readline()[:63].replace('D', 'e').split())
+                cer_line['nparmsc'] = np.int_(f.readline()[:63].split())
+
+                params = []
+                for ipar, npar in enumerate( cer_line['nparmsc'] ):
+                    for q in range(2):
+                        data = []
+                        while npar > len(data):
+                            line = f.readline()
+                            if len(line) > 63:
+                                name = line[63:].strip().lower()
+                                cer_line[name] = []
+                                if q == 0:
+                                    params.append(name)
+
+                            values = np.float_( line[:63].replace('D', 'E').split() )
+                            values = values[values > 0]
+                            if not len(values):
+                                continue
+                            data   += values.tolist()
+                        
+                        cer_line[name] = data
+
+        # Attributes
+        gen_type = ADF12_GENERAL_DATATYPES[filetype]
+        name = f"{donor_ion}{donor_metastable}_{receiver_ion}{receiver_charge}_{gen_type}"
+        now = datetime.datetime.now()
+        attrs = {
+            "datatype": (gen_type, donor_ion, donor_metastable, receiver_ion, receiver_charge),
+            "provenance": self.create_provenance(filename, now),
+        }
+
+        # Dimensions
+        ener_coords = [
+            ("beam_energy", cer_line['ener']),  # eV/amu
+        ]#
+
+        tiev_coords = [
+            ("ion_temperature", cer_line['tiev']),  # eV
+        ]#
+
+        densi_coords = [
+            ("electron_density", cer_line['densi']),  # cm^-3
+        ]#
+
+        zeff_coords = [
+            ("effective_charge", cer_line['zeff']),  # dimensionless
+        ]#
+
+        # Data, DataArray format
+        ener_coeffs = DataArray(
+            np.array(cer_line['qener']),
+            coords=ener_coords,
+            name=name,
+            attrs=attrs,
+        )
+
+        tiev_coeffs = DataArray(
+            np.array(cer_line['qtiev']),
+            coords=tiev_coords,
+            name=name,
+            attrs=attrs,
+        )
+
+        densi_coeffs = DataArray(
+            np.array(cer_line['qdensi']),
+            coords=densi_coords,
+            name=name,
+            attrs=attrs,
+        )
+
+        zeff_coeffs = DataArray(
+            np.array(cer_line['qzeff']),
+            coords=zeff_coords,
+            name=name,
+            attrs=attrs,
+        )
+
+        qefref = float(cer_line['qefref'])
+
+        return ener_coeffs, tiev_coeffs, densi_coeffs, zeff_coeffs, qefref
+        
 
     def get_adf15(
         self,

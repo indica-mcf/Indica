@@ -84,10 +84,11 @@ class ST40Reader(DataReader):
 
     """
 
-    MACHINE_DIMS = ((0.15, 0.8), (-0.75, 0.75))
+    MACHINE_DIMS = ((0.17, 0.8), (-0.75, 0.75))
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
+        "princeton": "get_charge_exchange",
         "lines": "get_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
@@ -98,6 +99,7 @@ class ST40Reader(DataReader):
     UIDS_MDS = {
         "efit": "",
         "xrcs": "sxr",
+        "princeton": "spectrom",
         "lines": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
@@ -133,6 +135,16 @@ class ST40Reader(DataReader):
             "ti_w": ".ti_w:ti",
             "ti_z": ".ti_z:ti",
             "ampl_w": ".ti_w:amplitude",
+        },
+        "princeton": {  # change to angf
+            "int": ".int",
+            "int_error": ".int_err",
+            "ti": ".ti",
+            "ti_error": ".ti_err",
+            "vtor": ".vtor",
+            "vtor_error": ".vtor_err",
+            "times": ".time",
+            "exposure": ".exposure"
         },
         "lines": {
             "brems": ".brem_mp1:intensity",
@@ -583,6 +595,72 @@ class ST40Reader(DataReader):
         results["ystop"] = np.array([los_stop[1]])
         results["zstart"] = np.array([los_start[2]])
         results["zstop"] = np.array([los_stop[2]])
+
+        return results
+
+    def _get_charge_exchange(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        if len(uid) == 0:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument+".CXSFIT_OUT", revision)
+        revision = results["revision"]
+        print('revision={}'.format(revision))
+        print('instrument={}'.format(instrument))
+
+
+        # Get Geometry data from mds
+        if instrument == "princeton":
+            tree_path = ""
+            location, location_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:location", -1)
+            direction, direction_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:direction", -1)
+        else:
+            raise ValueError(f"No geometry available for {instrument}")
+        rstart = np.zeros(np.shape(direction)[0], dtype=float)
+        rstop = np.zeros(np.shape(direction)[0], dtype=float)
+        zstart = np.zeros(np.shape(direction)[0], dtype=float)
+        zstop = np.zeros(np.shape(direction)[0], dtype=float)
+        tstart = np.zeros(np.shape(direction)[0], dtype=float)
+        tstop = np.zeros(np.shape(direction)[0], dtype=float)
+        for i in range(np.shape(direction)[0]):
+            los_start, los_end = self.get_los(location, direction[i, :])
+            rstart[i] = los_start[0]
+            rstop[i] = los_end[0]
+            zstart[i] = los_start[2]
+            zstop[i] = los_end[2]
+            tstart[i] = los_start[1]
+            tstop[i] = los_end[1]
+
+        # Doesn't yet work, need to write data to the CXSFIT_OUT trees.
+        print('quantities={}'.format(quantities))
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid, instrument+".CXSFIT_OUT", self.QUANTITIES_MDS[instrument][q], revision
+            )
+            results[q + "_records"] = q_path
+            results[q] = qval
+
+        # Update times to be the mid-point of the frame -- currently no working due to MDSplus data (not code)
+        print(results)
+        print(results["times"])
+        print(results["exposure"])
+        #results["times"] = results["times"] + 0.5*results["exposure"]
+
+        # Export coordinates
+        results["length"] = len(rstart)
+        results["Rstart"] = rstart
+        results["Rstop"] = rstop
+        results["zstart"] = zstart
+        results["zstop"] = zstop
+        results["Tstart"] = tstart
+        results["Tstop"] = tstop
 
         return results
 
