@@ -251,6 +251,7 @@ def scan_profiles(
     diagn_ne="smmh1",
     quant_ne="ne",
     quant_te="te_n3w",
+    quant_ti="ti_w",
     c_c=0.03,
     c_ar=0.001,
     c_he=0.01,
@@ -260,17 +261,13 @@ def scan_profiles(
     res=None,
     force=True,
     sxr=False,
+    main_ion="h",
 ):
     print("Scanning combinations of profile shapes")
 
     # TODO: create better calculation of all average quantities and uncertainties...
 
     profs = profiles.profile_scans()
-
-    if modelling:
-        pulse_to_write = pulse + 25000000
-    else:
-        pulse_to_write = pulse
 
     if res is None:
         res = plasma_workflow(
@@ -289,9 +286,16 @@ def scan_profiles(
             calc_error=False,
             cal_ar=1,
             sxr=sxr,
+            main_ion=main_ion,
         )
         return res
     pl, raw_data, data, bckc = res
+
+    pulse = pl.pulse
+    if modelling:
+        pulse_to_write = pulse + 25000000
+    else:
+        pulse_to_write = pulse
 
     # pl.Vrot_prof = prof_list["Vrot"][0]
     run = 60
@@ -325,7 +329,7 @@ def scan_profiles(
                     run_dict[run_name] = descr
 
                     pl.match_interferometer(
-                        data, bckc=bckc, diagnostic="smmh1", quantity="ne"
+                        data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
                     )
                     pl.calc_imp_dens()
 
@@ -341,8 +345,8 @@ def scan_profiles(
                         data,
                         bckc=bckc,
                         diagnostic="xrcs",
-                        quantity_te="te_n3w",
-                        quantity_ti="ti_w",
+                        quantity_te=quant_te,
+                        quantity_ti=quant_ti,
                         use_ratios=True,
                         calc_error=False,
                     )
@@ -508,25 +512,211 @@ def scan_profiles(
     return pl_dict, raw_data, data, bckc_dict
 
 
-def test_profs(profs):
-    Nimp_list = []
-    for kNe, Ne in profs["Ne"].items():
-        for kTe, Te in profs["Te"].items():
-            for kTi, Ti in profs["Ti"].items():
-                for kNimp, Nimp in profs["Nimp"].items():
-                    if kNimp != "peaked":
-                        Nimp = deepcopy(Ne)
-                        Nimp.datatype = ("density", "impurity")
-                        Nimp.y1 = (
-                            Nimp.yspl.sel(rho_poloidal=0.7, method="nearest").values
-                            / 1.5
-                        )
-                        Nimp.yend = Nimp.y1
-                        Nimp.build_profile()
-                    Nimp_list.append(Nimp)
+def vertical_displacement(
+    pulse=8804,
+    tstart=0.05,
+    tend=0.12,
+    dt=0.01,
+    diagn_ne="nirh1_bin",
+    quant_ne="ne",
+    save_pickle=False,
+    savefig=False,
+    name="vertical_displacement",
+    perc_err=0.05,
+    y1=1.e19,
+    nsteps=6,
+    ref_pulse=None,
+):
+    """
+    # These are really good pulses to compare, with constant flat-top-parameters
+    # and goo geometry scan --> flat density profile
+    res = tests.vertical_displacement(
+        pulse=8804,
+        tstart=0.05,
+        tend=0.12,
+        dt=0.01,
+        diagn_ne="nirh1_bin",
+        quant_ne="ne",
+    )
 
-    Nimp_list.append(Nimp)
-    return Nimp_list
+    res = tests.vertical_displacement(
+        pulse=8806,
+        tstart=0.07,
+        tend=0.13,
+        dt=0.01,
+        diagn_ne="nirh1_bin",
+        quant_ne="ne",
+    )
+
+    res = tests.vertical_displacement(
+        pulse=8807,
+        tstart=0.07,
+        tend=0.12,
+        dt=0.015,
+        diagn_ne="nirh1_bin",
+        quant_ne="ne",
+    )
+
+    # The following two are reference and z-shift pulse, but they have different RFX
+    # waveforms and RFX switch-off during the ramp so are not good to compare
+    res = tests.vertical_displacement(
+        pulse=9651,
+        tstart=0.08,
+        tend=0.12,
+        dt=0.012,
+        diagn_ne="nirh1",
+        quant_ne="ne",
+        y1=0.1e19,
+    )
+
+    res = tests.vertical_displacement(
+        pulse=9652,
+        tstart=0.08,
+        tend=0.12,
+        dt=0.012,
+        diagn_ne="nirh1",
+        quant_ne="ne",
+        y1=0.1e19,
+    )
+    """
+
+    def line(x, intercept, slope):
+        return intercept + x * slope
+
+    main_ion = "h"
+    impurities = ("c", "ar", "he")
+
+    raw = ST40data(pulse, tstart - dt * 2, tend + dt * 2)
+    raw.get_all()
+    raw_data = raw.data
+
+    bckc = {}
+    elements = list(main_ion)
+    elements.extend(list(impurities))
+
+    pl = Plasma(tstart=tstart, tend=tend, dt=dt, elements=elements)
+    data = pl.build_data(raw_data, pulse=pulse)
+
+    Ne = deepcopy(pl.Ne_prof)
+    wped_all = np.linspace(12, 4, nsteps) # [12, 6, 5, 4]
+    peaking_all = np.linspace(1.05, 3, nsteps) # [1.05, 1.3, 2.0, 4]
+    colors = cm.turbo(np.linspace(0, 1, nsteps))
+
+    Ne_all = []
+    pl_all = []
+    bckc_all = []
+    for wped, peaking in zip(wped_all, peaking_all):
+        Ne.wped = wped
+        Ne.y1 = y1
+        Ne.peaking = peaking
+        Ne.build_profile()
+        Ne_all.append(deepcopy(Ne))
+
+        pl.Ne_prof = deepcopy(Ne)
+
+        bckc = pl.match_interferometer(
+            data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
+        )
+
+        bckc = pl.interferometer(data, bckc=bckc)
+        bckc = pl.bremsstrahlung(data, bckc=bckc)
+
+        pl_all.append(deepcopy(pl))
+        bckc_all.append(deepcopy(bckc))
+
+    figname = plots.get_figname(pulse=pulse, name=name)
+    cmap = cm.rainbow
+    colors_t = cmap(np.linspace(0, 1, len(pl.time)))
+
+    plt.figure()
+    t = pl.t[int(len(pl.t)/2)]
+    for pl, c in zip(pl_all, colors):
+        (pl.el_dens.sel(t=t)/1.e19).plot(color=c)
+    plt.title(f"{pulse} Density profiles t = {t:.3f}")
+    plt.xlabel("Rho-poloidal")
+    plt.ylabel("(10$^{19}$ m$^{-3}$)")
+    plt.legend()
+    if savefig:
+        plots.save_figure(fig_name=f"{figname}profiles_electron_densities")
+
+    plt.figure()
+    raw = raw_data[diagn_ne][quant_ne]
+    value = data[diagn_ne][quant_ne]
+    error = value.attrs["error"]
+    print(error)
+    (raw/1.e19).plot()
+    plt.plot(value.t, (value)/1.e19, "-o", color="red")
+    plt.fill_between(value.t, (value - error) / 1.e19, (value + error) / 1.e19, alpha=0.5, color="red")
+    plt.title(f"{pulse} {diagn_ne.upper()} electron density measurement")
+    plt.xlabel("Time (s)")
+    plt.ylabel("(10$^{19}$ m$^{-2}$)")
+    plt.legend()
+    if savefig:
+        plots.save_figure(fig_name=f"{figname}data_density_measurement")
+
+    plt.figure()
+    for pl, c in zip(pl_all, colors):
+        x = pl.time
+        y = pl.el_dens.sel(rho_poloidal=0)/1.e19
+
+        pfit = np.polyfit(x.values, y.values, 1)
+        slope, intercept = pfit
+
+        yfit = line(x, intercept, slope)
+        yfit.plot(linestyle="dashed", color=c)
+        residuals = y - yfit
+        chi_sq = np.sum((residuals / (y * perc_err)) ** 2)
+        plt.plot(x, y, label=f"slope = {slope:.2f}", color=c)
+        for t, c in zip(pl.time, colors_t):
+            plt.errorbar(
+                t, y.sel(t=t), perc_err * y.sel(t=t), alpha=0.8, marker="o", color=c
+            )
+
+    plt.title(f"{pulse} Central electron density")
+    plt.xlabel("Time (s)")
+    plt.ylabel("(10$^{19}$ m$^{-3}$)")
+    plt.legend()
+    if savefig:
+        plots.save_figure(fig_name=f"{figname}time_evol_central_densities")
+
+    plt.figure()
+    R = pl.equilibrium.rho.R
+    z = pl.equilibrium.rho.z
+    vmin = np.linspace(1, 0, len(pl.time))
+    for i, t in enumerate(pl.time):
+        rho = pl.equilibrium.rho.sel(t=t, method="nearest")
+        plt.contour(
+            R,
+            z,
+            rho,
+            levels=[1.0],
+            alpha=0.5,
+            cmap=cmap,
+            vmin=vmin[i],
+            vmax=vmin[i] + 1,
+        )
+        plt.plot(
+            pl.equilibrium.rmag.sel(t=t, method="nearest"),
+            pl.equilibrium.zmag.sel(t=t, method="nearest"),
+            color=colors_t[i],
+            marker="o",
+            alpha=0.5,
+        )
+    plt.plot(data["nirh1"]["ne"].R, data["nirh1"]["ne"].z)
+    plt.title(f"{pulse} Plasma equilibrium")
+    plt.xlabel("R (m)")
+    plt.ylabel("z (m)")
+    plt.axis("scaled")
+    plt.xlim(0, 0.8)
+    plt.ylim(-0.6, 0.6)
+    if savefig:
+        plots.save_figure(fig_name=f"{figname}2D_equilibrium")
+
+    # if save_pickle or write:
+    #     picklefile = f"/home/marco.sertoli/data/Indica/{pl.pulse}_{run_name}_HDA.pkl"
+    #     pickle.dump([pl, raw_data, data, bckc], open(picklefile, "wb"))
+
+    return pl_all, raw_data, data, bckc_all
 
 
 def xrcs_sensitivity(pulse=9391, write=False):
