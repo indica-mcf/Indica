@@ -18,7 +18,7 @@ from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
-from indica.converters.time import bin_in_time
+from indica.converters.time import bin_in_time_dt
 
 import xarray as xr
 from xarray import DataArray, Dataset
@@ -143,27 +143,21 @@ class Plasma:
             if type(data[kinstr]) != dict:
                 value = deepcopy(data[kinstr])
                 if np.size(value) > 1:
-                    value = bin_in_time(
-                        self.tstart, self.tend, self.freq, value
-                    ).interp(t=self.time, method="linear")
+                    value = bin_in_time_dt(
+                        self.tstart, self.tend, self.dt, value
+                    )
                 binned_data[kinstr] = value
                 continue
 
             transform = None
             geom_attrs = None
             for kquant in data[kinstr].keys():
-                value = bin_in_time(
-                    self.tstart, self.tend, self.freq, data[kinstr][kquant]
-                ).interp(t=self.time, method="linear")
-
-                if "error" in value.attrs.keys():
-                    error = bin_in_time(
-                        self.tstart,
-                        self.tend,
-                        self.freq,
-                        data[kinstr][kquant].attrs["error"],
-                    ).interp(t=self.time, method="linear")
-                    value.attrs["error"] = error
+                value = bin_in_time_dt(
+                    self.tstart, self.tend, self.dt, data[kinstr][kquant]
+                )
+                if "error" in value.attrs:
+                    print(kinstr, kquant)
+                    print(value.size, value.attrs["error"].size)
 
                 if "transform" in value.attrs and transform is None:
                     transform = value.attrs["transform"]
@@ -250,16 +244,16 @@ class Plasma:
 
             min_r /= len(self.theta)
             min_r = min_r.interp(rho_poloidal=self.rho.values, method="cubic")
-            min_r = bin_in_time(self.tstart, self.tend, self.freq, min_r,).interp(
+            min_r = bin_in_time_dt(self.tstart, self.tend, self.dt, min_r,).interp(
                 t=self.time, method="linear"
             )
             self.min_r = min_r
 
             volume, area, _ = self.equilibrium.enclosed_volume(self.rho)
-            volume = bin_in_time(self.tstart, self.tend, self.freq, volume,).interp(
+            volume = bin_in_time_dt(self.tstart, self.tend, self.dt, volume,).interp(
                 t=self.time, method="linear"
             )
-            area = bin_in_time(self.tstart, self.tend, self.freq, area,).interp(
+            area = bin_in_time_dt(self.tstart, self.tend, self.dt, area,).interp(
                 t=self.time, method="linear"
             )
             self.area.values = area.values
@@ -272,18 +266,18 @@ class Plasma:
             self.kappa.values = (self.r_b / self.r_a).values
             self.delta.values = ((self.r_c + self.r_d) / (2 * self.r_a)).values
 
-            self.maj_r_lfs = bin_in_time(
+            self.maj_r_lfs = bin_in_time_dt(
                 self.tstart,
                 self.tend,
-                self.freq,
+                self.dt,
                 self.equilibrium.rmjo.interp(rho_poloidal=self.rho),
-            ).interp(t=self.time, method="linear")
-            self.maj_r_hfs = bin_in_time(
+            )
+            self.maj_r_hfs = bin_in_time_dt(
                 self.tstart,
                 self.tend,
-                self.freq,
+                self.dt,
                 self.equilibrium.rmji.interp(rho_poloidal=self.rho),
-            ).interp(t=self.time, method="linear")
+            )
 
     def build_atomic_data(self, adf11: dict = None):
         print_like("Initialize fractional abundance objects")
@@ -543,8 +537,8 @@ class Plasma:
         te_pos = Dataset({"value": pos, "err_in": err_in, "err_out": err_out})
         ti_pos = deepcopy(te_pos)
         bounds = (100.0, 10.0e3)
-        if method=="lm":
-            bounds=(-np.inf, np.inf)
+        if method == "lm":
+            bounds = (-np.inf, np.inf)
 
         # Initialize variables
         emiss = []
@@ -616,7 +610,9 @@ class Plasma:
                     ti0 = np.mean(Ti_hi.y0 + Ti_lo.y0) / 2.0
                     ratio_data = ratio_tmp
 
-                fit_ratio = least_squares(residuals_te_ratio, te0, bounds=bounds, method=method)
+                fit_ratio = least_squares(
+                    residuals_te_ratio, te0, bounds=bounds, method=method
+                )
                 least_squares(residuals_ti, ti0, bounds=bounds, method=method)
             else:
                 if calc_error:
@@ -1371,7 +1367,7 @@ class Plasma:
 
         # self.rhot = deepcopy(data2d)
         # rhot, _ = self.equilibrium.convert_flux_coords(self.rho)
-        # self.rhot.values = bin_in_time(self.tstart, self.tend, self.freq, rhot).interp(
+        # self.rhot.values = bin_in_time_dt(self.tstart, self.tend, self.dt, rhot).interp(
         #     t=self.time, method="linear"
         # )
         # assign_datatype(self.rhot, ("rho", "toroidal"))
