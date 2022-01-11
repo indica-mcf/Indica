@@ -29,7 +29,7 @@ from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from .. import session
 from ..utilities import to_filename
-
+from indica.converters.time import bin_to_time_labels
 
 # SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
 
@@ -701,16 +701,14 @@ class ST40Reader(DataReader):
             qval_syserr, q_path_syserr = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_syserr", revision
             )
-
-            if np.array_equal(qval_syserr, "FAILED"):
-                qval_syserr = np.zeros_like(qval)
-                q_path_syserr = ""
-            results[q + "_syserror"] = qval_syserr
-            results[q + "_syserror" + "_records"] = q_path_syserr
-
-            qval, q_path = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
-            )
+            print(len)
+            if not np.array_equal(qval_syserr, "FAILED"):
+                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
+                results[q + "_error" + "_records"] = [q_path_err, q_path_err]
+            #     qval_syserr = np.zeros_like(qval)
+            #     q_path_syserr = ""
+            # results[q + "_syserror"] = qval_syserr
+            # results[q + "_syserror" + "_records"] = q_path_syserr
 
         results["length"] = 1
         results["xstart"] = np.array([los_start[0]])

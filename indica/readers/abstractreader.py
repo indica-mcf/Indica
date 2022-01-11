@@ -1612,11 +1612,6 @@ class DataReader(BaseIO):
                 ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
-            if (quantity + "_syserror") in database_results:
-                meta["syserror"] = DataArray(
-                    database_results[quantity + "_syserror"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend))
-                meta["error"] = np.sqrt(meta["error"]**2 + meta["error"]**2)
 
             quant_data = DataArray(
                 database_results[quantity], coords, dims, attrs=meta,
