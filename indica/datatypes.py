@@ -166,6 +166,10 @@ ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "prsx": "sxr_recomb_emissions",
 }
 
+ADF12_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
+    "cx": "charge_exchange_cross-section_coefficients",
+}
+
 ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "ca": "photon_emissivity_coefficients_ca",
     "cl": "photon_emissivity_coefficients_cl",

@@ -457,6 +457,7 @@ class DataReader(BaseIO):
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
         data = {}
+        # need to change (see GET_RADIATION) - but must still work with other tokamaks/readers
         R_coord = DataArray(database_results["R"], coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(database_results["z"], coords=[(diagnostic_coord, ticks)])
         transform = TransectCoordinates(R_coord, z_coord)
