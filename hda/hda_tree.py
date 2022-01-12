@@ -7,6 +7,13 @@ from MDSplus import Tree, Float32, Int32, String
 import hda.mdsHelpers as mh
 import getpass
 import xarray as xr
+from xarray import DataArray
+
+from indica.readers import ST40Reader
+
+from typing import Tuple
+from typing import List
+
 
 user = getpass.getuser()
 
@@ -57,6 +64,8 @@ def create(
 
     # Create code Tree if it doesn't exist
     code_path = rf"\{code_name}::TOP"
+    write_path = f"{code_path}.{run_name}"
+
     try:
         t = Tree(code_name, pulse, "EDIT")
     except TreeFOPENW:
@@ -64,11 +73,9 @@ def create(
         t = Tree(code_name, pulse, "NEW")
 
     # Create/Overwrite RUN structure
-    write_path = f"{code_path}.{run_name}"
-
     try:
         t.getNode(rf"{write_path}")
-        if not(force):
+        if not (force):
             print(f"\n {pulse}:{write_path} tree already exists")
             answer = input(f"\n # Overwrite {run_name} * yes/(no) * ?  ")
         else:
@@ -78,7 +85,7 @@ def create(
             delete(t, write_path)
         else:
             run_name = next_run(t, code_path, run_name)
-            if not(force):
+            if not (force):
                 answer = input(
                     f"\n # Write to next available run {run_name} * yes/(no) * ?  "
                 )
@@ -335,7 +342,7 @@ def write(
     text = "Saving data to "
     text += f"{pulse} {run_name}? (yes)/no   "
 
-    if not(force):
+    if not (force):
         answer = input(text)
         if answer.lower().strip() == "no":
             print("\n ...writing aborted...")
@@ -360,6 +367,63 @@ def write(
     write_data(t, write_path, data_to_write, verbose=verbose)
 
     t.close()
+
+
+def read(
+    pulse: int,
+    revision: int,
+    uid: str = "",
+    instrument: str = "HDA",
+    tstart: float = 0.0,
+    tend: float = 0.2,
+    verbose=False,
+):
+    """
+    Read HDA data from MDS+
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+        Dictionary of quantities contained in HDA MDS+ database
+
+    """
+    reader = ST40Reader(pulse, tstart, tend)
+    nodes = get_tree_structure()
+
+    time, dims = reader._get_data(uid, instrument, ":TIME", revision)
+    rhop, dims = reader._get_data(uid, instrument, ".PROFILES.PSI_NORM:RHOP", revision)
+    data = {}
+    for sub_path, quantities in nodes.items():
+        for node_name, node_info in quantities.items():
+            quantity = f"{sub_path}:{node_name}"
+            # TODO: fix MdsCheck in st40reader for strings
+            # TODO: fix conn reading of pointers
+            _data, _dims = reader._get_data(uid, instrument, quantity, revision)
+            if verbose:
+                print(quantity)
+
+            if (
+                node_name == "RHOP"
+                or node_name == "XPSN"
+                or node_name == "TIME"
+                or np.array_equal(_data, "FAILED")
+            ):
+                continue
+
+            if sub_path == "" or sub_path == ".METADATA":
+                data[node_name] = _data
+            elif sub_path == ".GLOBAL":
+                data[node_name] = DataArray(_data, coords=[("t", time)])
+            elif sub_path == ".PROFILES.PSI_NORM":
+                data[node_name] = DataArray(
+                    _data, coords=[("t", time), ("rho_poloidal", rhop)]
+                )
+            else:
+                print(f"No known coordinates for sub_path == {sub_path}")
+
+    return data
 
 
 def organise_data(plasma, data={}, bckc={}):
@@ -463,6 +527,13 @@ def organise_data(plasma, data={}, bckc={}):
                 temp_hi = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
                 temp_lo = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
 
+            zeff = plasma.zeff.sel(element=elem)
+            if hasattr(plasma, "ion_temp_hi"):
+                zeff_hi = plasma.zeff_hi.sel(element=elem)
+                zeff_lo = plasma.zeff_lo.sel(element=elem)
+            else:
+                zeff_hi = xr.zeros_like(plasma.zeff.sel(element=elements[0]))
+                zeff_lo = xr.zeros_like(plasma.zeff.sel(element=elements[0]))
         else:
             conc = xr.zeros_like(plasma.t)
             meanz = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
@@ -479,7 +550,11 @@ def organise_data(plasma, data={}, bckc={}):
         ion_meanz.append(meanz)
         ion_meanz_hi.append(meanz_hi)
         ion_meanz_lo.append(meanz_lo)
+        ion_zeff.append(zeff)
+        ion_zeff_hi.append(zeff_hi)
+        ion_zeff_lo.append(zeff_lo)
 
+    # TODO: distinguish between Zeff from different elements in MDS+
     if hasattr(plasma, "zeff_hi"):
         zeff_hi = plasma.zeff_hi
         zeff_lo = plasma.zeff_lo
