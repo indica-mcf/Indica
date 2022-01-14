@@ -611,8 +611,8 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
 
     # Equilibrium reconstruction
     plt.figure()
-    R = plasma.equilibrium.R
-    z = plasma.equilibrium.z
+    R = plasma.equilibrium.rho.R
+    z = plasma.equilibrium.rho.z
     vmin = np.linspace(1, 0, len(plasma.time))
     for i, t in enumerate(plasma.time):
         rho = plasma.equilibrium.rho.sel(t=t, method="nearest")
@@ -637,9 +637,9 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8):
     plt.title(f"{plasma.pulse} Plasma equilibrium")
     plt.xlabel("R (m)")
     plt.ylabel("z (m)")
-    plt.xlim(0, 0.8)
-    plt.ylim(-0.8, 0.8)
     plt.axis("scaled")
+    plt.xlim(0, 0.8)
+    plt.ylim(-0.6, 0.6)
     if savefig:
         save_figure(fig_name=f"{figname}2D_equilibrium")
 
