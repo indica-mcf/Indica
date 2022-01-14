@@ -5,6 +5,7 @@ from MDSplus.mdsExceptions import TreeALREADY_THERE, TreeFOPENW, TreeNNF
 import numpy as np
 from MDSplus import Tree, Float32, Int32, String
 import hda.mdsHelpers as mh
+import hda.mds_tree_structures as trees
 import getpass
 import xarray as xr
 from xarray import DataArray
@@ -119,7 +120,7 @@ def create(
             t.close()
 
     # Define full path of tree structure and get node-names
-    nodes = get_tree_structure()
+    nodes = trees.hda()
 
     # Create nodes
     t = Tree(code_name, pulse, "EDIT")
@@ -170,118 +171,6 @@ def next_run(t, code_path, run_name):
             n = None
 
     return run_name
-
-
-def get_tree_structure():
-
-    # TODO: create upper and lower bounds for global quantities
-
-    nodes = {
-        "": {"TIME": ("NUMERIC", "time vector, s"),},  # (type, description)
-        ".METADATA": {
-            "USER": ("TEXT", "Username of owner", user),
-            "PULSE": ("NUMERIC", "Pulse number analysed"),
-            "EQUIL": ("TEXT", "Equilibrium used"),
-            "EL_DENS": ("TEXT", "Electron density diagnostic used for optimization"),
-            "EL_TEMP": (
-                "TEXT",
-                "Electron temperature diagnostic used for optimization",
-            ),
-            "ION_TEMP": ("TEXT", "Ion temperature diagnostic used for optimization"),
-            "STORED_EN": ("TEXT", "Stored energy diagnostic used for optimization"),
-            "MAIN_ION": ("TEXT", "Main ion element"),
-            "IMPURITY1": ("TEXT", "Impurity element chosen for Z1"),
-            "IMPURITY2": ("TEXT", "Impurity element chosen for Z2"),
-            "IMPURITY3": ("TEXT", "Impurity element chosen for Z3"),
-        },
-        ".GLOBAL": {
-            "CR0": ("SIGNAL", "Minor radius = (R_LFS - R_HFS)/2 at midplane, m"),
-            "RMAG": ("SIGNAL", "Magnetic axis R, m"),
-            "ZMAG": ("SIGNAL", "Magnetic axis z, m"),
-            "VOLM": ("SIGNAL", "Plasma volume z, m^3"),
-            "IP": ("SIGNAL", "Plasma current, A"),
-            "TE0": ("SIGNAL", "Central electron temp, eV"),
-            "TI0": ("SIGNAL", "Central main ion temp, eV"),
-            "TI0_Z1": ("SIGNAL", "Central impurity1 ion temp, eV"),
-            "TI0_Z2": ("SIGNAL", "Central impurity2 ion temp, eV"),
-            "TI0_Z3": ("SIGNAL", "Central impurity3 ion temp, eV"),
-            "NE0": ("SIGNAL", "Central electron density, m^-3 "),
-            "NI0": ("SIGNAL", "Central main ion density, m^-3 "),
-            "TEV": ("SIGNAL", "Volume average electron temp, eV"),
-            "TIV": ("SIGNAL", "Volume average ion temp, eV"),
-            "NEV": ("SIGNAL", "Volume average electron density m^-3"),
-            "NIV": ("SIGNAL", "Volume average main ion density m^-3"),
-            "WP": ("SIGNAL", "Total stored energy, J"),
-            "WTH": ("SIGNAL", "Thermal stored energy, J"),
-            "UPL": ("SIGNAL", "Loop Voltage, V"),
-            "P_OH": ("SIGNAL", "Total Ohmic power, W"),
-            "ZEFF": ("SIGNAL", "Effective charge at the plasma center"),
-            "CION": ("SIGNAL", "Average concentration of main ion"),
-            "CIM1": ("SIGNAL", "Average concentration of impurity IMP1"),
-            "CIM2": ("SIGNAL", "Average concentration of impurity IMP2"),
-            "CIM3": ("SIGNAL", "Average concentration of impurity IMP3"),
-        },
-        ".PROFILES.PSI_NORM": {
-            "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
-            "XPSN": ("NUMERIC", "x vector - fi_normalized"),
-            "P": ("SIGNAL", "Pressure,Pa"),
-            "P_HI": ("SIGNAL", "Pressure upper bound,Pa"),
-            "P_LO": ("SIGNAL", "Pressure lower bound,Pa"),
-            "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
-            "NE": ("SIGNAL", "Electron density, m^-3"),
-            "NE_HI": ("SIGNAL", "Electron density upper limit, m^-3"),
-            "NE_LO": ("SIGNAL", "Electron density lower limit, m^-3"),
-            "NI": ("SIGNAL", "Ion density, m^-3"),
-            "NI_HI": ("SIGNAL", "Ion density upper limit, m^-3"),
-            "NI_LO": ("SIGNAL", "Ion density lower limit, m^-3"),
-            "TE": ("SIGNAL", "Electron temperature, eV"),
-            "TE_HI": ("SIGNAL", "Electron temperature upper limit, eV"),
-            "TE_LO": ("SIGNAL", "Electron temperature lower limit, eV"),
-            "TI": ("SIGNAL", "Ion temperature of main ion, eV"),
-            "TI_HI": ("SIGNAL", "Ion temperature of main ion upper limit, eV"),
-            "TI_LO": ("SIGNAL", "Ion temperature of main ion lower limit, eV"),
-            "TIZ1": ("SIGNAL", "Ion temperature of impurity IMP1, eV"),
-            "TIZ1_HI": ("SIGNAL", "Ion temperature of impurity IMP1 upper limit, eV"),
-            "TIZ1_LO": ("SIGNAL", "Ion temperature of impurity IMP1 lower limit, eV"),
-            "TIZ2": ("SIGNAL", "Ion temperature of impurity IMP2, eV"),
-            "TIZ2_HI": ("SIGNAL", "Ion temperature of impurity IMP2 upper limit, eV"),
-            "TIZ2_LO": ("SIGNAL", "Ion temperature of impurity IMP2 lower limit, eV"),
-            "TIZ3": ("SIGNAL", "Ion temperature of impurity IMP3, eV"),
-            "TIZ3_HI": ("SIGNAL", "Ion temperature of impurity IMP3 upper limit, eV"),
-            "TIZ3_LO": ("SIGNAL", "Ion temperature of impurity IMP3 lower limit, eV"),
-            "NIZ1": ("SIGNAL", "Density of impurity IMP1, m^-3"),
-            "NIZ1_HI": ("SIGNAL", "Density of impurity IMP1 upper limit, m^-3"),
-            "NIZ1_LO": ("SIGNAL", "Density of impurity IMP1 lower limit, m^-3"),
-            "NIZ2": ("SIGNAL", "Density of impurity IMP2, m^-3"),
-            "NIZ2_HI": ("SIGNAL", "Density of impurity IMP2 upper limit, m^-3"),
-            "NIZ2_LO": ("SIGNAL", "Density of impurity IMP2 lower limit, m^-3"),
-            "NIZ3": ("SIGNAL", "Density of impurity IMP3, m^-3"),
-            "NIZ3_HI": ("SIGNAL", "Density of impurity IMP3 upper limit, m^-3"),
-            "NIZ3_LO": ("SIGNAL", "Density of impurity IMP3 lower limit, m^-3"),
-            "NNEUTR": ("SIGNAL", "Density of neutral main ion, m^-3"),
-            "NNEUTR_HI": ("SIGNAL", "Density of neutral main ion upper limit, m^-3"),
-            "NNEUTR_LO": ("SIGNAL", "Density of neutral main ion lower limit, m^-3"),
-            "ZI": ("SIGNAL", "Average charge of main ion, "),
-            "ZI_HI": ("SIGNAL", "Average charge of main ion upper bound, "),
-            "ZI_LO": ("SIGNAL", "Average charge of main ion lower bound, "),
-            "ZIM1": ("SIGNAL", "Average charge of impurity IMP1, "),
-            "ZIM1_HI": ("SIGNAL", "Average charge of impurity IMP1 upper bound, "),
-            "ZIM1_LO": ("SIGNAL", "Average charge of impurity IMP1 lower bound, "),
-            "ZIM2": ("SIGNAL", "Average charge of impurity IMP2, "),
-            "ZIM2_HI": ("SIGNAL", "Average charge of impurity IMP2 upper bound, "),
-            "ZIM2_LO": ("SIGNAL", "Average charge of impurity IMP2 lower bound, "),
-            "ZIM3": ("SIGNAL", "Average charge of impurity IMP3, "),
-            "ZIM3_HI": ("SIGNAL", "Average charge of impurity IMP3 upper bound, "),
-            "ZIM3_LO": ("SIGNAL", "Average charge of impurity IMP3 lower bound, "),
-            "ZEFF": ("SIGNAL", "Effective charge, "),
-            "ZEFF_HI": ("SIGNAL", "Effective charge upper limit, "),
-            "ZEFF_LO": ("SIGNAL", "Effective charge lower limit, "),
-        },
-    }
-    # "RHOT": ("SIGNAL", "Sqrt of normalised toroidal flux, xpsn"),
-
-    return nodes
-
 
 def create_nodes(t, run_path, nodes, verbose=False):
 
@@ -390,7 +279,7 @@ def read(
 
     """
     reader = ST40Reader(pulse, tstart, tend)
-    nodes = get_tree_structure()
+    nodes = trees.hda()
 
     time, dims = reader._get_data(uid, instrument, ":TIME", revision)
     rhop, dims = reader._get_data(uid, instrument, ".PROFILES.PSI_NORM:RHOP", revision)
