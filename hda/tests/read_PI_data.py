@@ -7,14 +7,17 @@ from hda.read_st40 import ST40data
 
 
 # Run
-pulseNo = 9539
+pulseNo = 9779
 st40_data = ST40data(pulse=pulseNo, tstart=0.02, tend=0.12)
 
 # XRCS data
-st40_data.get_xrcs()
+#st40_data.get_xrcs()
 
-# PI data
-st40_data.get_princeton_cxs()
+# PI spectroscopy data
+st40_data.get_princeton()
+
+# PI CX results data
+#st40_data.get_princeton_cxs()
 
 
 print(st40_data.data)

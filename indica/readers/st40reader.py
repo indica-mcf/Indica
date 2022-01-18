@@ -139,7 +139,8 @@ class ST40Reader(DataReader):
             "ampl_w": ".ti_w:amplitude",
         },
         "princeton": {
-            "intensity": ".intensity"
+            "intensity": ".input.intensity.data",
+            "wavelength": ".input.wavelength.data",
         },
         "princeton_cxs": {  # change to angf
             "conc": ".int",
@@ -601,6 +602,92 @@ class ST40Reader(DataReader):
         results["ystop"] = np.array([los_stop[1]])
         results["zstart"] = np.array([los_start[2]])
         results["zstop"] = np.array([los_stop[2]])
+
+        return results
+
+    def _get_cx_spectroscopy(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        if len(uid) == 0:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument+".CXSFIT", revision)
+        revision = results["revision"]
+        print('revision={}'.format(revision))
+        print('instrument={}'.format(instrument))
+
+        # Get Geometry data from mds
+        if instrument == "princeton":
+            tree_path = ""
+            location, location_path = self._get_signal(
+                uid,
+                tree_path,
+                ".princeton.passive.best.geometry:location",
+                -1
+            )
+            direction, direction_path = self._get_signal(
+                uid,
+                tree_path,
+                ".princeton.passive.best.geometry:direction",
+                -1
+            )
+        else:
+            raise ValueError(f"No geometry available for {instrument}")
+
+        # Lines of sight as Transform!! Ask Marco help
+        # results['location_path'] = location_path
+        # results['location'] = location
+        # results['direction_path'] = direction_path
+        # results['direction'] = direction
+
+        # Read intensity data from MDSplus
+        print('quantities={}'.format(quantities))
+        error_quantities = ['intensity', 'wavelength']
+        for q in quantities:
+            # Data
+            q_value, q_path = self._get_signal(
+                uid,
+                instrument+".cxsfit",
+                self.QUANTITIES_MDS[instrument][q],
+                revision
+            )
+            results[q + "_records"] = q_path
+            results[q] = q_value
+
+            # Error
+            if q in error_quantities:
+                q_value_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument + ".cxsfit",
+                    self.QUANTITIES_MDS[instrument][q].replace('data', 'error'),
+                    revision
+                )
+                results[q + "_error"] = q_value_err
+                results[q + "_error" + "_records"] = q_path_err
+
+        # Read meta data - read in numerics, instead of arrays?
+        results["ion_lambda"], results["ion_lambda" + "_records"] = self._get_signal(
+            uid, "", ".princeton.passive.best.exp_settings:ion_lambda", -1
+        )
+
+        results["ion_mass"], results["ion_mass" + "_records"] = self._get_signal(
+            uid, "", ".princeton.passive.best.exp_settings:ion_mass", -1
+        )
+
+        # Fails to read string!
+        results["ion_name"], results["ion_name" + "_records"] = self._get_signal(
+            uid, "", ".princeton.passive.best.exp_settings:ion_name", -1
+        )
+        results["ion_name"] = "C-VI"
+
+        results["charge"] = int(5)
+        results["charge_records"] = ""
 
         return results
 

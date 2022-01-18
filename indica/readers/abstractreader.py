@@ -72,6 +72,10 @@ class DataReader(BaseIO):
             "ne": ("number_density", "electrons"),
             "te": ("temperature", "electrons"),
         },
+        "get_cx_spectroscopy": {
+            "intensity": ("counts", None),
+            "wavelength": ("wavelength", None),
+        },
         "get_charge_exchange": {
             "angf": ("angular_freq", None),
             "conc": ("concentration", None),
@@ -420,6 +424,74 @@ class DataReader(BaseIO):
         """
         raise NotImplementedError(
             "{} does not implement a '_get_thomson_scattering' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def get_cx_spectroscopy(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, DataArray]:
+
+        print('message #1')
+
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_cx_spectroscopy(
+            uid, instrument, revision, quantities
+        )
+        print(f'database_results = {database_results}')
+
+        print('message #2')
+
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+
+        data = dict()
+        return data
+
+    def _get_cx_spectroscopy(
+        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Gets raw data for CX spectroscopy from the database. Data outside
+        the desired time range will be discarded.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        length : int
+            Number of channels in data
+        R : ndarray
+            Major radius positions for each channel
+        z : ndarray
+            Vertical position of each channel
+        times : ndarray
+            The times at which measurements were taken
+
+        For each quantity requested there will also be the items:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_error : ndarray
+            Uncertainty in the data
+        <quantity>_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for this data.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_cx_spectroscopy' "
             "method.".format(self.__class__.__name__)
         )
 
