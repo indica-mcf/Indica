@@ -88,7 +88,8 @@ class ST40Reader(DataReader):
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
-        "princeton": "get_charge_exchange",
+        "princeton": "get_cx_spectroscopy",
+        "princeton_cxs": "get_charge_exchange",
         "lines": "get_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
@@ -100,6 +101,7 @@ class ST40Reader(DataReader):
         "efit": "",
         "xrcs": "sxr",
         "princeton": "spectrom",
+        "princeton_cxs": "spectrom",
         "lines": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
@@ -136,15 +138,19 @@ class ST40Reader(DataReader):
             "ti_z": ".ti_z:ti",
             "ampl_w": ".ti_w:amplitude",
         },
-        "princeton": {  # change to angf
-            "int": ".int",
-            "int_error": ".int_err",
+        "princeton": {
+            "intensity": ".intensity"
+        },
+        "princeton_cxs": {  # change to angf
+            "conc": ".int",
+            "cohi": ".int_err",
             "ti": ".ti",
-            "ti_error": ".ti_err",
-            "vtor": ".vtor",
-            "vtor_error": ".vtor_err",
+            "tihi": ".ti_err",
+            "angf": ".vtor",
+            "afhi": ".vtor_err",
             "times": ".time",
-            "exposure": ".exposure"
+            "rpos": ".r",
+            "texp": ".exposure"
         },
         "lines": {
             "brems": ".brem_mp1:intensity",
@@ -610,48 +616,62 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
+        instrument_in = instrument
+        if instrument_in == "princeton_cxs":
+            instrument = "princeton"
+        elif instrument_in == "chers_cxs":
+            instrument = "chers"
+        else:
+            raise ValueError(f"No geometry available for {instrument_in}")
+
         results["revision"] = self._get_revision(uid, instrument+".CXSFIT_OUT", revision)
         revision = results["revision"]
         print('revision={}'.format(revision))
         print('instrument={}'.format(instrument))
 
-
         # Get Geometry data from mds
         if instrument == "princeton":
             tree_path = ""
-            location, location_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:location", -1)
-            direction, direction_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:direction", -1)
+            location, location_path = self._get_signal(
+                uid,
+                tree_path,
+                ".princeton.passive.best.geometry:location",
+                -1
+            )
+            direction, direction_path = self._get_signal(
+                uid,
+                tree_path,
+                ".princeton.passive.best.geometry:direction",
+                -1
+            )
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        rstart = np.zeros(np.shape(direction)[0], dtype=float)
-        rstop = np.zeros(np.shape(direction)[0], dtype=float)
-        zstart = np.zeros(np.shape(direction)[0], dtype=float)
-        zstop = np.zeros(np.shape(direction)[0], dtype=float)
-        tstart = np.zeros(np.shape(direction)[0], dtype=float)
-        tstop = np.zeros(np.shape(direction)[0], dtype=float)
-        for i in range(np.shape(direction)[0]):
-            los_start, los_end = self.get_los(location, direction[i, :])
-            rstart[i] = los_start[0]
-            rstop[i] = los_end[0]
-            zstart[i] = los_start[2]
-            zstop[i] = los_end[2]
-            tstart[i] = los_start[1]
-            tstop[i] = los_end[1]
+
+        print(f'location = {location}')
+        print(f'location_path = {location_path}')
+        print(f'direction = {direction}')
+        print(f'direction_path = {direction_path}')
+
+        # Calculate "R" and "z" of measurement position
 
         # Doesn't yet work, need to write data to the CXSFIT_OUT trees.
         print('quantities={}'.format(quantities))
         for q in quantities:
             qval, q_path = self._get_signal(
-                uid, instrument+".CXSFIT_OUT", self.QUANTITIES_MDS[instrument][q], revision
+                uid, instrument+".CXSFIT_OUT", self.QUANTITIES_MDS[instrument_in][q], revision
             )
             results[q + "_records"] = q_path
-            results[q] = qval
+            results[q] = qval   # 18/01/22, not working, need dummy data in tree.
 
-        # Update times to be the mid-point of the frame -- currently no working due to MDSplus data (not code)
+            print(q_path)
         print(results)
-        print(results["times"])
-        print(results["exposure"])
-        #results["times"] = results["times"] + 0.5*results["exposure"]
+        print('aa'**2)
+
+        # Add "tihi", "afhi" and "cohi"
+
+        # Add "times" and "texp"
+
+        # Add "element", "qnn" and "mass"
 
         # Export coordinates
         results["length"] = len(rstart)

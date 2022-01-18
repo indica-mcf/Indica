@@ -14,7 +14,7 @@ st40_data = ST40data(pulse=pulseNo, tstart=0.02, tend=0.12)
 st40_data.get_xrcs()
 
 # PI data
-st40_data.get_princeton()
+st40_data.get_princeton_cxs()
 
 
 print(st40_data.data)

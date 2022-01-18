@@ -74,7 +74,7 @@ class DataReader(BaseIO):
         },
         "get_charge_exchange": {
             "angf": ("angular_freq", None),
-            # "conc": ("concentration", None),
+            "conc": ("concentration", None),
             "ti": ("temperature", None),
         },
         "get_bremsstrahlung_spectroscopy": {

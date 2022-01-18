@@ -97,6 +97,11 @@ class ST40data:
         if len(data) > 0:
             self.data["princeton"] = data
 
+    def get_princeton_cxs(self, revision=0):
+        data = self.reader.get("spectrom", "princeton_cxs", revision)
+        if len(data) > 0:
+            self.data["princeton"] = data
+
     def get_brems(self, revision=-1):
         data = self.reader.get("spectrom", "lines", revision)
         if len(data) > 0:
