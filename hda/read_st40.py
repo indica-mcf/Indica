@@ -94,6 +94,7 @@ class ST40data:
 
     def get_princeton(self, revision=0):
         data = self.reader.get("spectrom", "princeton", revision)
+        print(data)
         if len(data) > 0:
             self.data["princeton"] = data
 

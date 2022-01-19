@@ -15,6 +15,8 @@ st40_data = ST40data(pulse=pulseNo, tstart=0.02, tend=0.12)
 
 # PI spectroscopy data
 st40_data.get_princeton()
+print(st40_data.data["princeton"])
+
 
 # PI CX results data
 #st40_data.get_princeton_cxs()

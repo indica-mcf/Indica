@@ -445,7 +445,7 @@ class DataReader(BaseIO):
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
 
-        data = dict()
+        data = database_results
         return data
 
     def _get_cx_spectroscopy(
