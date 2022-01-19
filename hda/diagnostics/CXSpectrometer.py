@@ -90,7 +90,7 @@ class CXSpectrometer:
 
         # Define LOS transform,
         # 1 LOS transform object for one diagnostic, fibre number is an attribute
-        dl = 0.002
+        dl = 0.01
         los_transform = LinesOfSightTransform(
             data["location"],
             data["direction"],
@@ -99,8 +99,60 @@ class CXSpectrometer:
             dl=dl
         )
         print(f'los_transform = {los_transform}')
+        print(f'los_transform.x_start = {los_transform.x_start}')
+        print(f'los_transform.x2 = {los_transform.x2}')
+        print(f'los_transform.dl = {los_transform.dl}')
 
-        # print(f'data = {data}')
+        if True:
+            # Test methods
+            i_fibre = 3
+            x, y, z = los_transform.convert_to_xyz(i_fibre, 0, 0)
+            R, Z = los_transform.convert_to_Rz(i_fibre, 0, 0)
+
+            plt.figure()
+            plt.plot(x, y, '.-')
+            plt.title(f'fibre = {i_fibre+1}')
+
+            plt.figure()
+            plt.plot(R, Z, '.-')
+            plt.title(f'fibre = {i_fibre+1}')
+
+            plt.show(block=True)
+
+        # Load Equilibrium...
+
+        # Load Profiles...
+
+        # Load Beam...
+
+        # Spectrometer settings
+        lambda0 = 529.059  # [nm]
+        mi = 13.0107  # [amu]
+        c = constants.speed_of_light
+        Avogadro = constants.Avogadro
+        kB = constants.k
+        e = constants.e
+
+        # Calculate passive emission
+        wavelength = data["wavelength"]
+        intensity = np.zeros_like(wavelength, dtype=float)
+        for i in range(los_transform.n):
+
+            # R, Z coordinates for forward model
+            r, z = los_transform.convert_to_Rz(i, 0, 0)
+
+            # Interpolate for Flux coordinate
+
+            # Te, Ti, ne, ni, zeff
+
+            # Interpolate for Bremsstrahlung emission
+
+            # Interpolate for Recombination, Excitation emission
+
+            # Interpolate for Passive charge exchange emission
+
+            # Interpolate for Active charge exchange emission, with beam model
+
         print('aa'**2)
 
         Ne = Profiles(datatype=("density", "electron"))

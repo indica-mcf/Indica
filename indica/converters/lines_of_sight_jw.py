@@ -72,14 +72,26 @@ class LinesOfSightTransform(CoordinateTransform):
         dl: float = 0.01,
     ):
 
+        # Find number of fibres in diagnostic
+        n = np.shape(direction)[0]
+        self.n = n
+
         # Find intersections with inner and outer wall
-        start_coord, end_coord = _find_wall_intersections(origin, direction, machine_dimensions)
-        x_start = np.array([start_coord[0]])
-        y_start = np.array([start_coord[1]])
-        z_start = np.array([start_coord[2]])
-        x_end = np.array([end_coord[0]])
-        y_end = np.array([end_coord[1]])
-        z_end = np.array([end_coord[2]])
+        x_start = np.zeros(n, dtype=float)
+        y_start = np.zeros(n, dtype=float)
+        z_start = np.zeros(n, dtype=float)
+        x_end = np.zeros(n, dtype=float)
+        y_end = np.zeros(n, dtype=float)
+        z_end = np.zeros(n, dtype=float)
+        for i in range(n):
+            start_coord, end_coord = _find_wall_intersections(origin, direction[i, :], machine_dimensions)
+            x_start[i] = start_coord[0]
+            y_start[i] = start_coord[1]
+            z_start[i] = start_coord[2]
+            x_end[i] = end_coord[0]
+            y_end[i] = end_coord[1]
+            z_end[i] = end_coord[2]
+
         #lengths = _get_wall_intersection_distances(
         #    x_start, y_start, z_start, x_end, y_end, z_end, machine_dimensions
         #)
@@ -111,9 +123,10 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2_name = name + "_los_position"
 
         # Set "dl" and "x2"
-        self.set_dl(dl)
-        print(self.x2)
-        print(self.dl)
+        self.dl_target = dl
+        x2, dl = self.set_dl(dl)
+        self.x2 = x2
+        self.dl = dl
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -131,33 +144,39 @@ class LinesOfSightTransform(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        c = np.ceil(x1).astype(int)
-        f = np.floor(x1).astype(int)
-        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
-        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
-        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
-        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        x_0 = x_s + (x_e - x_s) * x2
-        y_0 = y_s + (y_e - y_s) * x2
-        z = z_s + (z_e - z_s) * x2
+        # c = np.ceil(x1).astype(int)
+        # f = np.floor(x1).astype(int)
+        # x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        # x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        # y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        # y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        # z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        # z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        # x_0 = x_s + (x_e - x_s) * x2
+        # y_0 = y_s + (y_e - y_s) * x2
+        # z = z_s + (z_e - z_s) * x2
+        x_0 = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * self.x2[x1]
+        y_0 = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * self.x2[x1]
+        z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * self.x2[x1]
         return np.sqrt(x_0 ** 2 + y_0 ** 2), z
 
     def convert_to_xyz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        c = np.ceil(x1).astype(int)
-        f = np.floor(x1).astype(int)
-        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
-        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
-        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
-        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        x_0 = x_s + (x_e - x_s) * x2
-        y_0 = y_s + (y_e - y_s) * x2
-        z = z_s + (z_e - z_s) * x2
+        # c = np.ceil(x1).astype(int)
+        # f = np.floor(x1).astype(int)
+        # x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        # x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        # y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        # y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        # z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        # z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        x_0 = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * self.x2[x1]
+        y_0 = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * self.x2[x1]
+        z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * self.x2[x1]
+        # x_0 = x_s + (x_e - x_s) * x2
+        # y_0 = y_s + (y_e - y_s) * x2
+        # z = z_s + (z_e - z_s) * x2
         return x_0, y_0, z
 
     def convert_from_Rz(
@@ -243,17 +262,17 @@ class LinesOfSightTransform(CoordinateTransform):
         lines.
 
         """
-        c = np.ceil(x1).astype(int)
-        f = np.floor(x1).astype(int)
-        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
-        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
-        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
-        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        x = x_s + (x_e - x_s) * x2
-        y = y_s + (y_e - y_s) * x2
-        z = z_s + (z_e - z_s) * x2
+        # c = np.ceil(x1).astype(int)
+        # f = np.floor(x1).astype(int)
+        # x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        # x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        # y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        # y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        # z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        # z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
+        y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
+        z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
         spacings = np.sqrt(
             x.diff(direction) ** 2 + y.diff(direction) ** 2 + z.diff(direction) ** 2
         )
@@ -275,11 +294,19 @@ class LinesOfSightTransform(CoordinateTransform):
 
         # Find the number of points
         npts = np.ceil(d.data / dl).astype(int)
-        ind = np.linspace(0, 1, npts[0], dtype=float)
+        print(f'npts = {npts}')
 
-        # Set "x2" and "dl"
-        self.x2 = DataArray(ind, dims=self.x2_name)
-        self.dl = self.distance(self.x2_name, 0, self.x2, 0)[1]
+        # Set dl, calculate dl
+        x2_result = [0] * len(npts)
+        dl_result = np.zeros_like(npts, dtype=float)
+        for x1 in range(len(npts)):
+            ind = np.linspace(0, 1, npts[x1], dtype=float)
+            x2 = DataArray(ind, dims=self.x2_name)
+            dl_temp = self.distance(self.x2_name, x1, x2, 0)
+            dl_result[x1] = dl_temp[1]
+            x2_result[x1] = x2
+
+        return x2_result, dl_result
 
 
 def _get_wall_intersection_distances(

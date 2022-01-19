@@ -640,9 +640,10 @@ class ST40Reader(DataReader):
         else:
             raise ValueError(f"No geometry available for {instrument}")
 
+        i_export = np.arange(21, 36, 1, dtype=int)
         results["location"] = location
         results["location_path"] = location_path
-        results["direction"] = direction
+        results["direction"] = direction[i_export, :]
         results["direction_path"] = direction_path
 
         # Read intensity data from MDSplus
