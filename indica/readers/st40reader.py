@@ -640,12 +640,6 @@ class ST40Reader(DataReader):
         else:
             raise ValueError(f"No geometry available for {instrument}")
 
-        # Lines of sight as Transform!! Ask Marco help
-        # results['location_path'] = location_path
-        # results['location'] = location
-        # results['direction_path'] = direction_path
-        # results['direction'] = direction
-
         # Read intensity data from MDSplus
         print('quantities={}'.format(quantities))
         error_quantities = ['intensity', 'wavelength']
@@ -671,23 +665,65 @@ class ST40Reader(DataReader):
                 results[q + "_error"] = q_value_err
                 results[q + "_error" + "_records"] = q_path_err
 
-        # Read meta data - read in numerics, instead of arrays?
-        results["ion_lambda"], results["ion_lambda" + "_records"] = self._get_signal(
-            uid, "", ".princeton.passive.best.exp_settings:ion_lambda", -1
+        # Read time
+        time, time_path = self._get_signal(
+            uid,
+            instrument+".cxsfit",
+            ".input.time",
+            revision
         )
-
-        results["ion_mass"], results["ion_mass" + "_records"] = self._get_signal(
-            uid, "", ".princeton.passive.best.exp_settings:ion_mass", -1
+        exposure, _ = self._get_signal(
+            uid,
+            instrument + ".cxsfit",
+            ".input.exposure",
+            revision
         )
+        time_mid = time + 0.5*exposure
+        results["t"] = time_mid
+        results["t_records"] = time_path
 
-        # Fails to read string!
-        results["ion_name"], results["ion_name" + "_records"] = self._get_signal(
-            uid, "", ".princeton.passive.best.exp_settings:ion_name", -1
+        # Read attributes: instrument function, dispersion
+        instfu_xs, instfu_xs_path = self._get_signal(
+            uid,
+            instrument+".cxsfit",
+            ".input.instfu.xs",
+            revision
         )
-        results["ion_name"] = "C-VI"
+        instfu_xw, instfu_xw_path = self._get_signal(
+            uid,
+            instrument+".cxsfit",
+            ".input.instfu.xw",
+            revision
+        )
+        instfu_y0, instfu_y0_path = self._get_signal(
+            uid,
+            instrument+".cxsfit",
+            ".input.instfu.y0",
+            revision
+        )
+        results["instfu_xs"] = instfu_xs
+        results["instfu_xs_records"] = instfu_xs_path
+        results["instfu_xw"] = instfu_xw
+        results["instfu_xw_records"] = instfu_xw_path
+        results["instfu_y0"] = instfu_y0
+        results["instfu_y0_records"] = instfu_y0_path
 
-        results["charge"] = int(5)
-        results["charge_records"] = ""
+        dispersion, dispersion_path = self._get_signal(
+            uid,
+            instrument+".cxsfit",
+            ".input.dispersion.data",
+            revision
+        )
+        dispersion_error, dispersion_error_path = self._get_signal(
+            uid,
+            instrument+".cxsfit",
+            ".input.dispersion.error",
+            revision
+        )
+        results["dispersion"] = dispersion
+        results["dispersion_records"] = dispersion_path
+        results["dispersion_error"] = dispersion_error
+        results["dispersion_error_records"] = dispersion_error_path
 
         return results
 
