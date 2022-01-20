@@ -163,6 +163,9 @@ class LinesOfSightTransform(CoordinateTransform):
     def convert_to_xyz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
+
+        # if len x2 == 0 --> use default!!
+
         # c = np.ceil(x1).astype(int)
         # f = np.floor(x1).astype(int)
         # x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
@@ -171,8 +174,8 @@ class LinesOfSightTransform(CoordinateTransform):
         # y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
         # z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
         # z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        x_0 = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * self.x2[x1]
-        y_0 = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * self.x2[x1]
+        x_0 = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * self.x2[x1]  # convert to "x"
+        y_0 = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * self.x2[x1]  # convert to "y"
         z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * self.x2[x1]
         # x_0 = x_s + (x_e - x_s) * x2
         # y_0 = y_s + (y_e - y_s) * x2
@@ -182,6 +185,7 @@ class LinesOfSightTransform(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
+        # TODO -- update functions.
         def jacobian(x):
             x1 = x[0]
             x2 = x[1]

@@ -14,6 +14,7 @@ from indica.operators.atomic_data import FractionalAbundance
 from indica.converters.lines_of_sight_jw import LinesOfSightTransform
 
 from hda.profiles import Profiles
+from hda.plasma import Plasma
 
 from indica.numpy_typing import ArrayLike
 
@@ -86,15 +87,18 @@ class CXSpectrometer:
         # Read ST40 data, from 9779 for Princeton spectrometer
         st40_data = ST40data(pulse=9779, tstart=0.02, tend=0.12)
         st40_data.get_princeton()
+        st40_data.get_efit()
         data = st40_data.data["princeton"]
+        efit_data = st40_data.data
 
         # Define LOS transform,
         # 1 LOS transform object for one diagnostic, fibre number is an attribute
+        machine_dimensions = ((0.175, 0.8), (-0.6, 0.6))
         dl = 0.01
         los_transform = LinesOfSightTransform(
             data["location"],
             data["direction"],
-            machine_dimensions=((0.175, 0.8), (-0.6, 0.6)),
+            machine_dimensions=machine_dimensions,
             name='princeton',
             dl=dl
         )
@@ -103,7 +107,7 @@ class CXSpectrometer:
         print(f'los_transform.x2 = {los_transform.x2}')
         print(f'los_transform.dl = {los_transform.dl}')
 
-        if True:
+        if False:
             # Test methods
             i_fibre = 3
             x, y, z = los_transform.convert_to_xyz(i_fibre, 0, 0)
@@ -119,11 +123,20 @@ class CXSpectrometer:
 
             plt.show(block=True)
 
-        # Load Equilibrium...
+        # Load Equilibrium... use EFIT ST40 data, initialise equilibrium class, initialise flux coord transform,
+        # assign equilibrium class to coordinate transforms.
+        plasma_obj = Plasma(tstart=0.02, tend=0.12, dt=0.01, machine_dimensions=machine_dimensions)
+        plasma_obj.build_data(efit_data)
+        print(plasma_obj)
 
-        # Load Profiles...
+        # Load Profiles... use interp method of DataArray, linear.
+        # rho =
+        # Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
+        # Ne = Profiles(datatype=("density", "electron"), xspl=rho)
+        # Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
+        # Vrot = Profiles(datatype=("rotation", "ion"), xspl=rho)
 
-        # Load Beam...
+        # Load Beam... ??? After!
 
         # Spectrometer settings
         lambda0 = 529.059  # [nm]
@@ -141,17 +154,20 @@ class CXSpectrometer:
             # R, Z coordinates for forward model
             r, z = los_transform.convert_to_Rz(i, 0, 0)
 
-            # Interpolate for Flux coordinate
+            print(f'r = {r}')
+            print('aa'**2)
 
-            # Te, Ti, ne, ni, zeff
+            # Interpolate for magnetic flux coordinate
 
-            # Interpolate for Bremsstrahlung emission
+            # Interpolate for Te, Ti, ne, ni, zeff, velocity
 
-            # Interpolate for Recombination, Excitation emission
+            # Calculate Bremsstrahlung emission
 
-            # Interpolate for Passive charge exchange emission
+            # Calculate Recombination and Excitation emission
 
-            # Interpolate for Active charge exchange emission, with beam model
+            # Calculate Passive charge exchange emission
+
+            # Calculate Active charge exchange emission, with beam model
 
         print('aa'**2)
 
