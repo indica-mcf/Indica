@@ -260,6 +260,7 @@ def hda():
             "UPL": ("SIGNAL", "Loop Voltage, V"),
             "P_OH": ("SIGNAL", "Total Ohmic power, W"),
             "ZEFF": ("SIGNAL", "Effective charge at the plasma center"),
+            "ZEFFV": ("SIGNAL", "Volume averaged effective charge"),
             "CION": ("SIGNAL", "Average concentration of main ion"),
             "CIM1": ("SIGNAL", "Average concentration of impurity IMP1"),
             "CIM2": ("SIGNAL", "Average concentration of impurity IMP2"),
