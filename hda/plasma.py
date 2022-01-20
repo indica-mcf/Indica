@@ -579,11 +579,11 @@ class Plasma:
             if not ((te0 > 0) * (ti0 > 0)):
                 self.el_temp.loc[dict(t=t)] = np.full_like(
                     Te_prof.yspl.values, np.nan
-                ).values
+                )
                 for elem in self.elements:
                     self.ion_temp.loc[dict(t=t, element=elem)] = np.full_like(
                         Te_prof.yspl.values, np.nan
-                    ).values
+                    )
                 continue
 
             if use_ratios:
@@ -885,7 +885,6 @@ class Plasma:
         """
         Propagate all parameters to maintain parameter consistency
         """
-        self.match_xrcs()
         self.build_current_density()
         self.calc_magnetic_field()
         self.calc_meanz()
@@ -1096,8 +1095,6 @@ class Plasma:
         # self.wfast = 1/2 *self.pf_par + self.pf_perp
         self.wth.values = 3 / 2 * self.pth.values
         self.wp.values = 3 / 2 * self.ptot.values
-        self.wefit = 3/2 (self.pth + 1/2 self.pf_par + self.pf_perp)
-        self.wdia = 3/2 (self.pth + self.pf_perp)
 
     def calc_zeff(self):
         """
