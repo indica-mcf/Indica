@@ -76,22 +76,19 @@ def create(
     # Create/Overwrite RUN structure
     try:
         t.getNode(rf"{write_path}")
-        if not (force):
-            print(f"\n {pulse}:{write_path} tree already exists")
-            answer = input(f"\n # Overwrite {run_name} * yes/(no) * ?  ")
-        else:
+        if force:
             answer = "yes"
-
-        if answer.lower() == "yes":
-            delete(t, write_path)
         else:
             run_name = next_run(t, code_path, run_name)
-            if not (force):
-                answer = input(
-                    f"\n # Write to next available run {run_name} * yes/(no) * ?  "
-                )
-                if answer.lower() == "no":
-                    return None
+            print(f"\n {pulse}:{write_path} tree already exists")
+            answer = input(
+                f"\n # Write to next available run {run_name} * yes/(no) * ?  "
+            )
+            if answer.lower() == "no":
+                return None
+
+        if answer.lower() == "yes":
+            delete(t, write_path, force=force)
     except TreeNNF:
         _user = user
 
@@ -124,7 +121,7 @@ def create(
 
     # Create nodes
     t = Tree(code_name, pulse, "EDIT")
-    create_nodes(t, write_path, nodes)
+    create_nodes(t, write_path, nodes, verbose=verbose)
 
     # Write and close Tree
     t.write()
@@ -134,7 +131,7 @@ def create(
     return t, write_path
 
 
-def delete(t, full_path):
+def delete(t, full_path, force=False):
     # Second warning to confirm delete
     print("#####################################################")
     print("#  *** WARNING ***                                  #")
@@ -142,9 +139,10 @@ def delete(t, full_path):
     print(f"{full_path}")
     print("#####################################################")
 
-    answer = input("\n Confirm delete ? * yes/(no) *  ")
-    if answer.lower() != "yes":
-        return
+    if not force:
+        answer = input("\n Confirm delete ? * yes/(no) *  ")
+        if answer.lower() != "yes":
+            return
 
     # Delete
     t.deleteNode(full_path)
@@ -171,6 +169,7 @@ def next_run(t, code_path, run_name):
             n = None
 
     return run_name
+
 
 def create_nodes(t, run_path, nodes, verbose=False):
 
@@ -334,6 +333,7 @@ def organise_data(plasma, data={}, bckc={}):
     tiv = []
     nev = []
     niv = []
+    zeffv = []
     for t in plasma.time.values:
         tev.append(
             np.trapz(plasma.el_temp.sel(t=t).values, plasma.volume.sel(t=t).values)
@@ -357,10 +357,18 @@ def organise_data(plasma, data={}, bckc={}):
             )
             / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
         )
+        zeffv.append(
+            np.trapz(
+                plasma.zeff.sum("element").sel(t=t).values,
+                plasma.volume.sel(t=t).values,
+            )
+            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
+        )
     tev = np.array(tev)
     tiv = np.array(tiv)
     nev = np.array(nev)
     niv = np.array(niv)
+    zeffv = np.array(zeffv)
 
     opt_equil = plasma.optimisation["equil"]
     opt_el_dens = plasma.optimisation["el_dens"]
@@ -538,18 +546,19 @@ def organise_data(plasma, data={}, bckc={}):
                 "m^-3 ",
                 glob_coord,
             ),
-            "TEV": (Float32(tev), "eV", glob_coord),
-            "TIV": (Float32(tiv), "eV", glob_coord),
-            "NEV": (Float32(nev), "m^-3", glob_coord),
-            "NIV": (Float32(niv), "m^-3", glob_coord),
-            "WTH": (Float32(plasma.wth.values), "J", glob_coord),
-            "WP": (Float32(plasma.wp.values), "J", glob_coord),
-            "UPL": (Float32(plasma.vloop.values), "V", glob_coord),
             "ZEFF": (
                 Float32(plasma.zeff.sum("element").sel(rho_poloidal=0).values),
                 "",
                 glob_coord,
             ),
+            "TEV": (Float32(tev), "eV", glob_coord),
+            "TIV": (Float32(tiv), "eV", glob_coord),
+            "NEV": (Float32(nev), "m^-3", glob_coord),
+            "NIV": (Float32(niv), "m^-3", glob_coord),
+            "ZEFFV": (Float32(zeffv), "", glob_coord,),
+            "WTH": (Float32(plasma.wth.values), "J", glob_coord),
+            "WP": (Float32(plasma.wp.values), "J", glob_coord),
+            "UPL": (Float32(plasma.vloop.values), "V", glob_coord),
             "CION": (Float32(ion_conc[0].values), "", glob_coord),
             "CIM1": (Float32(ion_conc[1].values), "", glob_coord),
             "CIM2": (Float32(ion_conc[2].values), "", glob_coord),
