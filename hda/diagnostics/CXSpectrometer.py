@@ -17,6 +17,7 @@ from indica.converters import FluxSurfaceCoordinates
 
 from hda.profiles import Profiles
 from hda.plasma import Plasma
+from hda import physics
 
 from indica.numpy_typing import ArrayLike
 
@@ -146,6 +147,11 @@ class CXSpectrometer:
         nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
         nh = Profiles(datatype=("neutral_density", "impurity"), xspl=rho)
         vrot = Profiles(datatype=("rotation", "ion"), xspl=rho)
+        zeff = deepcopy(te)
+        zeff.y0 = 2.0
+        zeff.y1 = 2.0
+        zeff.wped = 0.0
+        zeff.build_profile()
 
         # TODO Load Beam...
 
@@ -188,17 +194,18 @@ class CXSpectrometer:
             nimp_vec = nimp.yspl.interp(rho_poloidal=rho)
             nh_vec = nh.yspl.interp(rho_poloidal=rho)
             vrot_vec = vrot.yspl.interp(rho_poloidal=rho)
+            zeff_vec = zeff.yspl.interp(rho_poloidal=rho)
 
             if i == 9 and True:
                 plt.figure()
-                plt.subplot(311)
+                plt.subplot(411)
                 plt.plot(l, te_vec[0, :], '.-', label='te')
                 plt.plot(l, ti_vec[0, :], '.-', label='ti')
                 plt.xlabel('Distance along line of sight (m)')
                 plt.ylabel('Temperature (eV)')
                 plt.legend()
 
-                plt.subplot(312)
+                plt.subplot(412)
                 plt.plot(l, ne_vec[0, :], '.-', label='ne')
                 plt.plot(l, nimp_vec[0, :], '.-', label='nimp')
                 plt.plot(l, nh_vec[0, :], '.-', label='nh')
@@ -206,10 +213,16 @@ class CXSpectrometer:
                 plt.ylabel('Density (m^-3)')
                 plt.legend()
 
-                plt.subplot(313)
+                plt.subplot(413)
                 plt.plot(l, vrot_vec[0, :] * 1e-3, '.-')
                 plt.xlabel('Distance along line of sight (m)')
                 plt.ylabel('Vrot (km/s)')
+                plt.show(block=True)
+
+                plt.subplot(414)
+                plt.plot(l, zeff_vec[0, :], '.-')
+                plt.xlabel('Distance along line of sight (m)')
+                plt.ylabel('Zeff')
                 plt.show(block=True)
 
                 print(rho)
@@ -217,6 +230,24 @@ class CXSpectrometer:
                 print('aa'**2)
 
             # Calculate Bremsstrahlung emission
+            n_ell = np.shape(te_vec)[1]
+            n_pixels = np.shape(wavelength)[0]
+            brem = np.zeros((n_pixels, n_ell), dtype=float)
+            for j in range(n_ell):
+                if not np.isnan(te_vec[0, j]):
+                    # print(f'te_vec[0, j] = {te_vec[0, j]}')
+                    # print(f'ne_vec[0, j] = {ne_vec[0, j]}')
+                    brem[:, j] = physics.zeff_bremsstrahlung(  # What are the units?
+                        te_vec[0, j].data,
+                        ne_vec[0, j].data,
+                        wavelength[:, i],
+                        zeff=zeff_vec[0, j].data,
+                        gaunt_approx="callahan"
+                    )
+
+            plt.figure()
+            plt.plot(wavelength[:, i], brem[:, 60])
+            plt.show(block=True)
 
             # Calculate Recombination and Excitation emission
 
