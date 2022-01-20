@@ -12,6 +12,8 @@ from hda.read_st40 import ST40data
 from indica.operators.atomic_data import FractionalAbundance
 # from indica.converters import LinesOfSightTransform
 from indica.converters.lines_of_sight_jw import LinesOfSightTransform
+from indica.equilibrium import Equilibrium
+from indica.converters import FluxSurfaceCoordinates
 
 from hda.profiles import Profiles
 from hda.plasma import Plasma
@@ -87,9 +89,9 @@ class CXSpectrometer:
         # Read ST40 data, from 9779 for Princeton spectrometer
         st40_data = ST40data(pulse=9779, tstart=0.02, tend=0.12)
         st40_data.get_princeton()
-        st40_data.get_efit()
+        equil_data = ST40data(pulse=9779, tstart=0.02, tend=0.12)
+        equil_data.get_all()
         data = st40_data.data["princeton"]
-        efit_data = st40_data.data
 
         # Define LOS transform,
         # 1 LOS transform object for one diagnostic, fibre number is an attribute
@@ -102,10 +104,10 @@ class CXSpectrometer:
             name='princeton',
             dl=dl
         )
-        print(f'los_transform = {los_transform}')
-        print(f'los_transform.x_start = {los_transform.x_start}')
-        print(f'los_transform.x2 = {los_transform.x2}')
-        print(f'los_transform.dl = {los_transform.dl}')
+        # print(f'los_transform = {los_transform}')
+        # print(f'los_transform.x_start = {los_transform.x_start}')
+        # print(f'los_transform.x2 = {los_transform.x2}')
+        # print(f'los_transform.dl = {los_transform.dl}')
 
         if False:
             # Test methods
@@ -125,18 +127,27 @@ class CXSpectrometer:
 
         # Load Equilibrium... use EFIT ST40 data, initialise equilibrium class, initialise flux coord transform,
         # assign equilibrium class to coordinate transforms.
-        plasma_obj = Plasma(tstart=0.02, tend=0.12, dt=0.01, machine_dimensions=machine_dimensions)
-        plasma_obj.build_data(efit_data)
-        print(plasma_obj)
+        equilibrium = Equilibrium(equil_data.data["efit"])
+        flux_surface_coord = FluxSurfaceCoordinates("poloidal")
+        flux_surface_coord.set_equilibrium(equilibrium)
 
-        # Load Profiles... use interp method of DataArray, linear.
-        # rho =
-        # Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
-        # Ne = Profiles(datatype=("density", "electron"), xspl=rho)
-        # Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
-        # Vrot = Profiles(datatype=("rotation", "ion"), xspl=rho)
+        # plasma_obj = Plasma(tstart=0.02, tend=0.12, dt=0.01, machine_dimensions=machine_dimensions)
+        # binned_data = plasma_obj.build_data(equil_data.data)  # Must use equil_data.get_all()!!
+        # # print(binned_data.keys())
+        # print(binned_data["efit"])
+        # print(binned_data["efit"].keys())
+        # print('aa'**2)
 
-        # Load Beam... ??? After!
+        # Load Profiles... default profiles from profiles.py
+        rho = np.linspace(0.0, 1.0, 99, dtype=float)
+        te = Profiles(datatype=("temperature", "electron"), xspl=rho)
+        ti = Profiles(datatype=("temperature", "ion"), xspl=rho)
+        ne = Profiles(datatype=("density", "electron"), xspl=rho)
+        nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
+        nh = Profiles(datatype=("neutral_density", "impurity"), xspl=rho)
+        vrot = Profiles(datatype=("rotation", "ion"), xspl=rho)
+
+        # TODO Load Beam...
 
         # Spectrometer settings
         lambda0 = 529.059  # [nm]
@@ -153,13 +164,57 @@ class CXSpectrometer:
 
             # R, Z coordinates for forward model
             r, z = los_transform.convert_to_Rz(i, 0, 0)
-
-            print(f'r = {r}')
-            print('aa'**2)
+            x, y, z = los_transform.convert_to_xyz(i, 0, 0)
+            l = np.sqrt((x-x[0])**2 + (y-y[0])**2 + (z-z[0])**2)
 
             # Interpolate for magnetic flux coordinate
+            rho, theta, _ = equilibrium.flux_coords(r, z)
+
+            if i == 5 and False:
+                plt.figure()
+                plt.plot(l, rho.data[0, :], '.-')
+                plt.xlabel('Distance along line of sight (m)')
+                plt.ylabel('rho')
+                plt.show(block=True)
+
+                print(rho)
+                print()
+                print('aa'**2)
 
             # Interpolate for Te, Ti, ne, ni, zeff, velocity
+            te_vec = te.yspl.interp(rho_poloidal=rho)
+            ti_vec = ti.yspl.interp(rho_poloidal=rho)
+            ne_vec = ne.yspl.interp(rho_poloidal=rho)
+            nimp_vec = nimp.yspl.interp(rho_poloidal=rho)
+            nh_vec = nh.yspl.interp(rho_poloidal=rho)
+            vrot_vec = vrot.yspl.interp(rho_poloidal=rho)
+
+            if i == 9 and True:
+                plt.figure()
+                plt.subplot(311)
+                plt.plot(l, te_vec[0, :], '.-', label='te')
+                plt.plot(l, ti_vec[0, :], '.-', label='ti')
+                plt.xlabel('Distance along line of sight (m)')
+                plt.ylabel('Temperature (eV)')
+                plt.legend()
+
+                plt.subplot(312)
+                plt.plot(l, ne_vec[0, :], '.-', label='ne')
+                plt.plot(l, nimp_vec[0, :], '.-', label='nimp')
+                plt.plot(l, nh_vec[0, :], '.-', label='nh')
+                plt.xlabel('Distance along line of sight (m)')
+                plt.ylabel('Density (m^-3)')
+                plt.legend()
+
+                plt.subplot(313)
+                plt.plot(l, vrot_vec[0, :] * 1e-3, '.-')
+                plt.xlabel('Distance along line of sight (m)')
+                plt.ylabel('Vrot (km/s)')
+                plt.show(block=True)
+
+                print(rho)
+                print()
+                print('aa'**2)
 
             # Calculate Bremsstrahlung emission
 
