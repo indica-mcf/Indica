@@ -155,9 +155,6 @@ class Plasma:
                 value = bin_in_time_dt(
                     self.tstart, self.tend, self.dt, data[kinstr][kquant]
                 )
-                if "error" in value.attrs:
-                    print(kinstr, kquant)
-                    print(value.size, value.attrs["error"].size)
 
                 if "transform" in value.attrs and transform is None:
                     transform = value.attrs["transform"]
@@ -536,9 +533,11 @@ class Plasma:
         err_out = deepcopy(pos)
         te_pos = Dataset({"value": pos, "err_in": err_in, "err_out": err_out})
         ti_pos = deepcopy(te_pos)
-        bounds = (100.0, 10.0e3)
+        bounds_te = (100.0, 10.0e3)
+        bounds_ti = (100.0, 30.0e3)
         if method == "lm":
-            bounds = (-np.inf, np.inf)
+            bounds_te = (-np.inf, np.inf)
+            bounds_ti = (-np.inf, np.inf)
 
         # Initialize variables
         emiss = []
@@ -580,11 +579,11 @@ class Plasma:
             if not ((te0 > 0) * (ti0 > 0)):
                 self.el_temp.loc[dict(t=t)] = np.full_like(
                     Te_prof.yspl.values, np.nan
-                ).values
+                )
                 for elem in self.elements:
                     self.ion_temp.loc[dict(t=t, element=elem)] = np.full_like(
                         Te_prof.yspl.values, np.nan
-                    ).values
+                    )
                 continue
 
             if use_ratios:
@@ -593,16 +592,16 @@ class Plasma:
 
                     # Upper limit of the ratio
                     ratio_data = ratio_tmp + ratio_tmp.attrs["error"]
-                    least_squares(residuals_te_ratio, te0, bounds=bounds, method=method)
-                    least_squares(residuals_ti, ti0, bounds=bounds, method=method)
+                    least_squares(residuals_te_ratio, te0, bounds=bounds_te, method=method)
+                    least_squares(residuals_ti, ti0, bounds=bounds_ti, method=method)
 
                     Te_lo = deepcopy(Te_prof)
                     Ti_lo = deepcopy(Ti_prof)
 
                     # Lower limit of the ratio
                     ratio_data = ratio_tmp - ratio_tmp.attrs["error"]
-                    least_squares(residuals_te_ratio, te0, bounds=bounds, method=method)
-                    least_squares(residuals_ti, ti0, bounds=bounds, method=method)
+                    least_squares(residuals_te_ratio, te0, bounds=bounds_te, method=method)
+                    least_squares(residuals_ti, ti0, bounds=bounds_ti, method=method)
                     Te_hi = deepcopy(Te_prof)
                     Ti_hi = deepcopy(Ti_prof)
 
@@ -611,9 +610,9 @@ class Plasma:
                     ratio_data = ratio_tmp
 
                 fit_ratio = least_squares(
-                    residuals_te_ratio, te0, bounds=bounds, method=method
+                    residuals_te_ratio, te0, bounds=bounds_te, method=method
                 )
-                least_squares(residuals_ti, ti0, bounds=bounds, method=method)
+                least_squares(residuals_ti, ti0, bounds=bounds_ti, method=method)
             else:
                 if calc_error:
                     print_like(
@@ -621,8 +620,8 @@ class Plasma:
                     )
                     raise ValueError
 
-                least_squares(residuals_te, te0, bounds=bounds, method=method)
-                least_squares(residuals_ti, ti0, bounds=bounds, method=method)
+                least_squares(residuals_te, te0, bounds=bounds_te, method=method)
+                least_squares(residuals_ti, ti0, bounds=bounds_ti, method=method)
 
             Te = Te_prof.yspl
             Ti = Ti_prof.yspl
@@ -886,7 +885,6 @@ class Plasma:
         """
         Propagate all parameters to maintain parameter consistency
         """
-        self.match_xrcs()
         self.build_current_density()
         self.calc_magnetic_field()
         self.calc_meanz()

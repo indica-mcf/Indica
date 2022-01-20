@@ -126,6 +126,7 @@ class ST40Reader(DataReader):
             "zbnd": ".p_boundary:zbnd",
             "ipla": ".constraints.ip:cvalue",
             "wp": ".virial:wp",
+            "df":".constraints.df:cvalue",
         },
         "xrcs": {
             "int_k": ".te_kw:int_k",
@@ -162,16 +163,7 @@ class ST40Reader(DataReader):
         "astra": {
             "upl":".global:upl",
             "wth":".global:wth",
-            "cc": ".profiles.astra:cc",  # Parallel current conductivity, 1/(Ohm*m)
-            "chi_e": ".profiles.astra:chi_e",  # Total electron heat conductivity, m^2/s
-            "chi_e_anom": ".profiles.astra:chi_e_anom",  # anomalous electron heat conductivity, m^2/s
-            "chi_e_neo": ".profiles.astra:chi_e_neo",  # neoclassical electron heat conductivity, m^2/s
-            "chi_i": ".profiles.astra:chi_i",  # Total ion heat conductivity, m^2/s
-            "chi_i_anom": ".profiles.astra:chi_i_anom",  # anomalous ion heat conductivity, m^2/s
-            "chi_i_neo": ".profiles.astra:chi_i_neo",  # neoclassical ion heat conductivity, m^2/s
-            "chi_phi": ".profiles.astra:chi_phi",  # Momentum transport coefficient, m2/s
-            "cn": ".profiles.astra:cn",  # Particle pinch velocity , m/s
-            "diff": ".profiles.astra:diff",  # diffusion coefficient, m^2/s
+            "df":".global.df",
             "elon": ".profiles.astra:elon",  # Elongation profile
             "j_bs": ".profiles.astra:j_bs",  # Bootstrap current density,MA/m2
             "j_nbi": ".profiles.astra:j_nbi",  # NB driven current density,MA/m2
@@ -180,19 +172,16 @@ class ST40Reader(DataReader):
             "j_tot": ".profiles.astra:j_tot",  # Total current density,MA/m2
             "ne": ".profiles.astra:ne",  # Electron density, 10^19 m^-3
             "ni": ".profiles.astra:ni",  # Main ion density, 10^19 m^-3
+            "nf": ".profiles.astra:nf",  # Main ion density, 10^19 m^-3
             "n_d": ".profiles.astra:n_d",  # Deuterium density,10E19/m3
             "n_t": ".profiles.astra:n_t",  # Tritium density	,10E19/m3
             "omega_tor": ".profiles.astra:omega_tor",  # Toroidal rotation frequency, 1/s
-            "pegn": ".profiles.astra:pegn",  # electron convective heat flux, MW
-            "pign": ".profiles.astra:pign",  # ion convective heat flux, MW
             "psin": ".profiles.astra:psin",  # Normalized poloidal flux -
             "qe": ".profiles.astra:qe",  # electron power flux, MW
             "qi": ".profiles.astra:qi",  # ion power flux, MW
             "qn": ".profiles.astra:qn",  # total electron flux, 10^19/s
             "qnbe": ".profiles.astra:qnbe",  # Beam power density to electrons, MW/m3
             "qnbi": ".profiles.astra:qnbi",  # Beam power density to ions, MW/m3
-            "q_alpha_e": ".profiles.astra:q_alpha_e",  # Alpha power density to electrons,MW/m3
-            "q_alpha_i": ".profiles.astra:q_alpha_i",  # Alpha power density to ions,MW/m3
             "q_oh": ".profiles.astra:q_oh",  # Ohmic heating power profile, MW/m3
             "q_rf": ".profiles.astra:q_rf",  # RF power density to electron,MW/m3
             "rmid": ".profiles.astra:rmid",  # Centre of flux surfaces, m
@@ -203,21 +192,15 @@ class ST40Reader(DataReader):
             "swall": ".profiles.astra:swall",  # Particle source from wall neutrals, 10^19/m^3/s
             "te": ".profiles.astra:te",  # Electron temperature, keV
             "ti": ".profiles.astra:ti",  # Ion temperature, keV
-            "torq_den": ".profiles.astra:torq_den",  # Total torque density from NB, N*m/m3
-            "torq_den_bcx": ".profiles.astra:torq_den_bcx",  # CX losses torque density from NB, N*m/m3
-            "torq_den_be": ".profiles.astra:torq_den_be",  # Collisional to electron torque density from NB, N*m/m3
-            "torq_den_bi": ".profiles.astra:torq_den_bi",  # Collisional to ions torque density from NB, N*m/m3
-            "torq_den_bth": ".profiles.astra:torq_den_bth",  # Beam thermalisation torque density from NB, N*m/m3
-            "torq_den_jxb": ".profiles.astra:torq_den_jxb",  # JXB torque density from NB, N*m/m3
             "tri": ".profiles.astra:tri",  # Triangularity (up/down symmetrized) profile
             "t_d": ".profiles.astra:t_d",  # Deuterium temperature,keV
             "t_t": ".profiles.astra:t_t",  # Tritium temperature,keV
             "zeff": ".profiles.astra:zeff",  # Effective ion charge
             "areat": ".profiles.psi_norm:areat",  # Toroidal cross section,m2
-            "ffprime": ".profiles.psi_norm:ffprime",  # FFPRIME
             "ftor": ".profiles.psi_norm:ftor",  # Toroidal flux, Wb
             "p": ".profiles.psi_norm:p",  # PRESSURE(PSI_NORM)
-            "pprime": ".profiles.psi_norm:pprime",  # PPRIME
+            "pblon": ".profiles.astra:pblon",  # PRESSURE(PSI_NORM)
+            "pbper": ".profiles.astra:pbper",  # PRESSURE(PSI_NORM)
             "psi": ".profiles.psi_norm:psi",  # PSI
             "q": ".profiles.psi_norm:q",  # Q_PROFILE(PSI_NORM)
             "sigmapar": ".profiles.psi_norm:sigmapar",  # Parallel conductivity,1/(Ohm*m)
@@ -236,7 +219,31 @@ class ST40Reader(DataReader):
             "direction": ".middle_head.geometry:direction",
         },
     }
+
+    # diode_arrays
     # "extension": ".middle_head.geometry:dir_ext",
+
+    # astra
+    # "cc": ".profiles.astra:cc",  # Parallel current conductivity, 1/(Ohm*m)
+    # "chi_e": ".profiles.astra:chi_e",  # Total electron heat conductivity, m^2/s
+    # "chi_e_anom": ".profiles.astra:chi_e_anom",  # anomalous electron heat conductivity, m^2/s
+    # "chi_e_neo": ".profiles.astra:chi_e_neo",  # neoclassical electron heat conductivity, m^2/s
+    # "chi_i": ".profiles.astra:chi_i",  # Total ion heat conductivity, m^2/s
+    # "chi_i_anom": ".profiles.astra:chi_i_anom",  # anomalous ion heat conductivity, m^2/s
+    # "chi_i_neo": ".profiles.astra:chi_i_neo",  # neoclassical ion heat conductivity, m^2/s
+    # "chi_phi": ".profiles.astra:chi_phi",  # Momentum transport coefficient, m2/s
+    # "cn": ".profiles.astra:cn",  # Particle pinch velocity , m/s
+    # "diff": ".profiles.astra:diff",  # diffusion coefficient, m^2/s
+    # "q_alpha_e": ".profiles.astra:q_alpha_e",  # Alpha power density to electrons,MW/m3
+    # "q_alpha_i": ".profiles.astra:q_alpha_i",  # Alpha power density to ions,MW/m3
+    # "torq_den": ".profiles.astra:torq_den",  # Total torque density from NB, N*m/m3
+    # "torq_den_bcx": ".profiles.astra:torq_den_bcx",  # CX losses torque density from NB, N*m/m3
+    # "torq_den_be": ".profiles.astra:torq_den_be",  # Collisional to electron torque density from NB, N*m/m3
+    # "torq_den_bi": ".profiles.astra:torq_den_bi",  # Collisional to ions torque density from NB, N*m/m3
+    # "torq_den_bth": ".profiles.astra:torq_den_bth",  # Beam thermalisation torque density from NB, N*m/m3
+    # "torq_den_jxb": ".profiles.astra:torq_den_jxb",  # JXB torque density from NB, N*m/m3
+    # "ffprime": ".profiles.psi_norm:ffprime",  # FFPRIME
+    # "pprime": ".profiles.psi_norm:pprime",  # PPRIME
 
     _IMPLEMENTATION_QUANTITIES = {
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
@@ -928,7 +935,6 @@ class ST40Reader(DataReader):
             qval_syserr, q_path_syserr = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_syserr", revision
             )
-            print(len)
             if not np.array_equal(qval_syserr, "FAILED"):
                 results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]

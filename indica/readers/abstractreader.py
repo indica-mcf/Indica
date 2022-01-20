@@ -96,9 +96,7 @@ class DataReader(BaseIO):
             "ti_z": ("temperature", "ions"),
             "ampl_w": ("amplitude", "ar_w"),
         },
-        "get_filters": {
-            "brems": ("intensity", "bremsstrahlung"),
-        },
+        "get_filters": {"brems": ("intensity", "bremsstrahlung"),},
         "get_interferometry": {"ne": ("density", "electrons"),},
         "get_equilibrium": {
             "f": ("f_value", "plasma"),
@@ -116,27 +114,14 @@ class DataReader(BaseIO):
             "zbnd": ("z", "separatrix"),
             "ipla": ("current", "plasma"),
             "wp": ("energy", "plasma"),
+            "df": ("energy", "plasma"),
         },
         "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
         "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
         "get_astra": {
             "upl": ("voltage", "loop",),  # Loop voltage V
             "wth": ("stored_energy", "thermal",),  # Thermal stored energy
-            "cc": (
-                "conductivity",
-                "total_current",
-            ),  # Parallel current conductivity, 1/(Ohm*m)
-            "chi_e": (
-                "conductivity",
-                "electron_heat",
-            ),  # Total electron heat conductivity, m^2/s
-            "chi_i": ("conductivity", "ion_heat"),  # Total ion heat conductivity, m^2/s
-            "chi_phi": (
-                "conductivity",
-                "momentum",
-            ),  # Momentum transport coefficient, m2/s
-            "cn": ("convection", "particle_transport"),  # Particle pinch velocity , m/s
-            "diff": ("diffusion", "particle_transport"),  # diffusion coefficient, m^2/s
+            "df": ("flux", "diamagnetic",),
             "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
             "j_nbi": (
                 "current_density",
@@ -147,6 +132,7 @@ class DataReader(BaseIO):
             "j_tot": ("current_density", "total"),  # Total current density,MA/m2
             "ne": ("density", "electron"),  # Electron density, 10^19 m^-3
             "ni": ("density", "main_ion"),  # Main ion density, 10^19 m^-3
+            "nf": ("density", "fast"),
             "omega_tor": (
                 "rotation_frequency",
                 "toroidal",
@@ -177,11 +163,30 @@ class DataReader(BaseIO):
             "ti": ("temperature", "ion"),  # Ion temperature, keV
             "zeff": ("effective_charge", "plasma"),  # Effective ion charge
             "p": ("pressure", "total"),  # PRESSURE(PSI_NORM)
+            "pblon": ("fast_pressure", "parallel"),
+            "pbper": ("fast_pressure", "perpendicular"),
             "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
             "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
             "volume": ("volume", "plasma"),  # Parallel conductivity,1/(Ohm*m)
         },
     }
+
+    # "cc": (
+    #     "conductivity",
+    #     "total_current",
+    # ),  # Parallel current conductivity, 1/(Ohm*m)
+    # "chi_e": (
+    #     "conductivity",
+    #     "electron_heat",
+    # ),  # Total electron heat conductivity, m^2/s
+    # "chi_i": ("conductivity", "ion_heat"),  # Total ion heat conductivity, m^2/s
+    # "chi_phi": (
+    #     "conductivity",
+    #     "momentum",
+    # ),  # Momentum transport coefficient, m2/s
+    # "cn": ("convection", "particle_transport"),  # Particle pinch velocity , m/s
+    # "diff": ("diffusion", "particle_transport"),  # diffusion coefficient, m^2/s
+
     # Quantities available for specific INSTRUMENTs in a given
     # implementation. Override values given in _AVAILABLE_QUANTITIES.
     _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
@@ -690,6 +695,7 @@ class DataReader(BaseIO):
             "fbnd",
             "ipla",
             "wp",
+            "df",
         }
         separatrix_quantities = {"rbnd", "zbnd"}
         flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
@@ -1460,7 +1466,6 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-
     def get_filters(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
     ) -> Dict[str, DataArray]:
@@ -1485,9 +1490,7 @@ class DataReader(BaseIO):
 
         """
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_filters(
-            uid, instrument, revision, quantities
-        )
+        database_results = self._get_filters(uid, instrument, revision, quantities)
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results

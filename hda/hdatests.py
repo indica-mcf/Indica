@@ -1,6 +1,7 @@
 from copy import deepcopy
 from matplotlib import cm, rcParams
 
+import os
 from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -62,6 +63,7 @@ def plasma_workflow(
     recover_dens=False,
     ne_peaking=None,
     marchuk=True,
+    extrapolate=True,
     run_name="RUN40",
     descr=f"New profile shapes and ionisation balance",  # descr = "Experimental evolution of the Ar concentration"
     name="",
@@ -135,7 +137,9 @@ def plasma_workflow(
     pl.build_atomic_data()
     pl.calculate_geometry()
     if "xrcs" in raw_data:
-        pl.forward_models["xrcs"] = XRCSpectrometer(marchuk=marchuk)
+        pl.forward_models["xrcs"] = XRCSpectrometer(
+            marchuk=marchuk, extrapolate=extrapolate
+        )
     if "princeton" in raw_data:
         pl.forward_models["princeton"] = PISpectrometer()
 
@@ -221,10 +225,41 @@ def plasma_workflow(
         )
 
     if save_pickle or write:
-        picklefile = f"/home/marco.sertoli/data/Indica/{pl.pulse}_{run_name}_HDA.pkl"
-        pickle.dump([pl, raw_data, data, bckc], open(picklefile, "wb"))
+        save_to_pickle(pl, raw_data, data, bckc, pulse=pl.pulse, name=run_name)
 
     return pl, raw_data, data, bckc
+
+
+def save_to_pickle(pl, raw_data, data, bckc, pulse=0, name="", force=False):
+    picklefile = f"/home/marco.sertoli/data/Indica/{pulse}_{name}_HDA.pkl"
+
+    if (
+        os.path.isfile(picklefile)
+        and not (os.access(picklefile, os.W_OK))
+        and force == True
+    ):
+        os.chmod(picklefile, 0o744)
+
+    if os.access(picklefile, os.W_OK) or not os.path.isfile(picklefile):
+        pickle.dump([pl, raw_data, data, bckc], open(picklefile, "wb"))
+        os.chmod(picklefile, 0o444)
+
+
+def load_pickle(pulse, name):
+    picklefile = f"/home/marco.sertoli/data/Indica/{pulse}_{name}_HDA.pkl"
+    return pickle.load(open(picklefile, "rb"))
+
+
+def plot_results(pl, raw_data, data, bckc, savefig=False, name=""):
+    if savefig:
+        plt.ioff()
+    plots.compare_data_bckc(
+        data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
+    )
+    plots.profiles(pl, bckc=bckc, savefig=savefig, name=name)
+    plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
+    if savefig:
+        plt.ion()
 
 
 def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
@@ -243,6 +278,37 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
     return pl, bckc
 
 
+def run_all_scans():
+    # pulses = [9229, 9537, 9539, 9676, 9721, 9766, 9779, 9780, 9781, 9783, 9787]
+    pulses = [9748, 9752]
+    for pulse in pulses:
+        scan_profiles(
+            pulse,
+            tstart=0.02,
+            tend=0.12,
+            dt=0.01,
+            diagn_ne="smmh1",
+            quant_ne="ne",
+            quant_te="te_n3w",
+            quant_ti="ti_w",
+            c_c=0.03,
+            c_ar=0.001,
+            c_he=0.01,
+            marchuk=True,
+            extrapolate=False,
+            write=True,
+            save_pickle=True,
+            plotfig=False,
+            savefig=False,
+            modelling=True,
+            xrcs_time=False,
+            force=True,
+            sxr=False,
+            main_ion="h",
+            proceed=True,
+        )
+
+
 def scan_profiles(
     pulse=9229,
     tstart=0.02,
@@ -255,13 +321,19 @@ def scan_profiles(
     c_c=0.03,
     c_ar=0.001,
     c_he=0.01,
+    marchuk=True,
+    extrapolate=True,
     write=False,
     save_pickle=False,
+    savefig=False,
+    plotfig=False,
     modelling=True,
+    xrcs_time=True,
     res=None,
     force=True,
     sxr=False,
     main_ion="h",
+    proceed=True,
 ):
     print("Scanning combinations of profile shapes")
 
@@ -280,15 +352,19 @@ def scan_profiles(
             diagn_te="xrcs",
             quant_te=quant_te,
             imp_conc=(c_c, c_ar, c_he),
-            marchuk=True,
-            xrcs_time=False,
+            marchuk=marchuk,
+            extrapolate=extrapolate,
+            xrcs_time=xrcs_time,
             use_ratios=True,
             calc_error=False,
             cal_ar=1,
             sxr=sxr,
             main_ion=main_ion,
+            plotfig=False,
         )
-        return res
+        if not proceed:
+            return res
+
     pl, raw_data, data, bckc = res
 
     pulse = pl.pulse
@@ -309,7 +385,13 @@ def scan_profiles(
         for kTe, Te in profs["Te"].items():
             pl.Te_prof = deepcopy(Te)
             for kTi, Ti in profs["Ti"].items():
-                pl.Ti_prof = deepcopy(Ti)
+                Ti = deepcopy(Te)
+                Ti.datatype = ("temperature", "ion")
+                pl.Ti_prof = Ti
+                if kTi == "broad":
+                    use_ref = False
+                else:
+                    use_ref = True
                 for kNimp, Nimp in profs["Nimp"].items():
                     if kNimp != "peaked":
                         Nimp = deepcopy(Ne)
@@ -324,7 +406,7 @@ def scan_profiles(
 
                     run_tmp += 1
                     run_name = f"RUN{run_tmp}"
-                    descr = f"{kTe} Te, {kTi} Ti, {kNe} Ne, {kNimp} Nimp"
+                    descr = f"{kTe} Te, {kTi} Ti, {kNe} Ne, {kNimp} Cimp"
                     print(f"\n{descr}\n")
                     run_dict[run_name] = descr
 
@@ -333,10 +415,10 @@ def scan_profiles(
                     )
                     pl.calc_imp_dens()
 
-                    pl.Nimp_prof.yspl.plot()
-                    pl.ion_dens.sel(element="ar").sel(
-                        t=pl.time.mean(), method="nearest"
-                    ).plot()
+                    # pl.Nimp_prof.yspl.plot()
+                    # pl.ion_dens.sel(element="ar").sel(
+                    #     t=pl.time.mean(), method="nearest"
+                    # ).plot()
 
                     # if iteration > 3:
                     #     return
@@ -349,10 +431,18 @@ def scan_profiles(
                         quantity_ti=quant_ti,
                         use_ratios=True,
                         calc_error=False,
+                        use_ref=use_ref,
                     )
                     propagate(pl, raw_data, data, bckc, quant_ar="int_w")
                     pl_dict[run_name] = deepcopy(pl)
                     bckc_dict[run_name] = deepcopy(bckc)
+
+                    if plotfig or savefig:
+                        plot_results(
+                            pl, raw_data, data, bckc, savefig=savefig, name=run_name
+                        )
+                        if not savefig:
+                            input("Press any key to continue")
 
                     if write:
                         hda_tree.write(
@@ -367,8 +457,15 @@ def scan_profiles(
                         )
 
                     if save_pickle or write:
-                        picklefile = f"/home/marco.sertoli/data/Indica/{pl.pulse}_{run_name}_HDA.pkl"
-                        pickle.dump([pl, raw_data, data, bckc], open(picklefile, "wb"))
+                        save_to_pickle(
+                            pl,
+                            raw_data,
+                            data,
+                            bckc,
+                            pulse=pl.pulse,
+                            name=run_name,
+                            force=force,
+                        )
 
                     if run_tmp > 80:
                         break
@@ -378,9 +475,6 @@ def scan_profiles(
     elem = "ar"
     t = pl.time.values[int(len(pl.time) / 2.0)]
 
-    cols = cm.rainbow(np.linspace(0, 1, len(pl_dict.keys())))
-
-    colors = {}
     ne0, ni0, nimp0, te0, ti0 = [], [], [], [], []
     el_dens, ion_dens, neutral_dens, el_temp, ion_temp, meanz, zeff, pressure_th = (
         [],
@@ -403,7 +497,6 @@ def scan_profiles(
         meanz.append(pl.meanz)
         zeff.append(pl.zeff)
         pressure_th.append(pl.pressure_th)
-        colors[run_name] = cols[len(ne0)]
         ne0.append(pl.el_dens.sel(rho_poloidal=0))
         ni0.append(pl.ion_dens.sel(rho_poloidal=0, element=pl.main_ion))
         nimp0.append(pl.ion_dens.sel(rho_poloidal=0, element=elem))
@@ -459,7 +552,12 @@ def scan_profiles(
     pl.pressure_th_lo = pl.pressure_th - stdev
 
     run_name = f"RUN{run}"
+    runs.append(run_name)
     descr = f"Average over runs {runs[0]}-{runs[-1]}"
+    run_dict[run_name] = descr
+    pl_dict[run_name] = deepcopy(pl)
+    bckc_dict[run_name] = deepcopy(bckc)
+
     if write:
         hda_tree.write(
             pl,
@@ -470,46 +568,217 @@ def scan_profiles(
             descr=descr,
             run_name=run_name,
             verbose=True,
+            force=force,
         )
 
     if save_pickle or write:
-        picklefile = f"/home/marco.sertoli/data/Indica/{pl.pulse}_{run_name}_HDA.pkl"
-        pickle.dump([pl, raw_data, data, bckc], open(picklefile, "wb"))
-
-    plt.figure()
-    for run_name, pl in pl_dict.items():
-        pl.el_temp.sel(t=t).plot(color=colors[run_name])
-
-    plt.figure()
-    for run_name, pl in pl_dict.items():
-        pl.ion_temp.sel(t=t, element=elem).plot(color=colors[run_name])
-
-    plt.figure()
-    for run_name, pl in pl_dict.items():
-        pl.el_dens.sel(t=t).plot(color=colors[run_name])
-
-    plt.figure()
-    for run_name, pl in pl_dict.items():
-        pl.ion_dens.sel(t=t, element=elem).plot(color=colors[run_name])
-
-    plt.figure()
-    for run_name, pl in pl_dict.items():
-        pl.el_temp.sel(rho_poloidal=0).plot(color=colors[run_name])
-        pl.ion_temp.sel(rho_poloidal=0, element=elem).plot(
-            color=colors[run_name], linestyle="dashed"
+        save_to_pickle(
+            pl, raw_data, data, bckc, pulse=pl.pulse, name=run_name, force=force
         )
-    plt.ylim(0,)
-    plt.title("Te(0) and Ti(0)")
-    plt.ylabel("(eV)")
 
-    plt.figure()
-    for run_name, pl in pl_dict.items():
-        pl.el_dens.sel(rho_poloidal=0).plot(color=colors[run_name])
-    plt.ylim(0,)
-    plt.title("Ne(0)")
-    plt.ylabel("(m$^{-3}$)")
+    # cols = cm.rainbow(np.linspace(0, 1, len(pl_dict.keys())+2))
+    # colors = {}
+    # for i, run_name in enumerate(runs):
+    #     colors[run_name] = cols[i]
+    #
+    # plt.figure()
+    # for run_name, pl in pl_dict.items():
+    #     pl.el_temp.sel(t=t).plot(color=colors[run_name])
+    #
+    # plt.figure()
+    # for run_name, pl in pl_dict.items():
+    #     pl.ion_temp.sel(t=t, element=elem).plot(color=colors[run_name])
+    #
+    # plt.figure()
+    # for run_name, pl in pl_dict.items():
+    #     pl.el_dens.sel(t=t).plot(color=colors[run_name])
+    #
+    # plt.figure()
+    # for run_name, pl in pl_dict.items():
+    #     pl.ion_dens.sel(t=t, element=elem).plot(color=colors[run_name])
+    #
+    # plt.figure()
+    # for run_name, pl in pl_dict.items():
+    #     pl.el_temp.sel(rho_poloidal=0).plot(color=colors[run_name])
+    #     pl.ion_temp.sel(rho_poloidal=0, element=elem).plot(
+    #         color=colors[run_name], linestyle="dashed"
+    #     )
+    # plt.ylim(0,)
+    # plt.title("Te(0) and Ti(0)")
+    # plt.ylabel("(eV)")
+    #
+    # plt.figure()
+    # for run_name, pl in pl_dict.items():
+    #     pl.el_dens.sel(rho_poloidal=0).plot(color=colors[run_name])
+    # plt.ylim(0,)
+    # plt.title("Ne(0)")
+    # plt.ylabel("(m$^{-3}$)")
+
+    return pl_dict, raw_data, data, bckc_dict, run_dict
+
+
+def write_profile_scans(
+    pl_dict, raw_data, data, bckc_dict, run_dict, modelling=True, force=False
+):
+    for run_name, descr in run_dict.items():
+        if modelling:
+            pulse_to_write = pl_dict[run_name].pulse + 25000000
+        else:
+            pulse_to_write = pl_dict[run_name].pulse
+
+        hda_tree.write(
+            pl_dict[run_name],
+            pulse_to_write,
+            "HDA",
+            data=data,
+            bckc=bckc_dict[run_name],
+            descr=descr,
+            run_name=run_name,
+            force=force,
+        )
+
+        save_to_pickle(
+            pl_dict[run_name],
+            raw_data,
+            data,
+            bckc_dict[run_name],
+            pulse=pl_dict[run_name].pulse,
+            name=run_name,
+        )
+
+
+def read_profile_scans(pulse, plotfig=False, savefig=False):
+    runs = np.arange(60, 76 + 1)
+    pl_dict = {}
+    bckc_dict = {}
+    for run in runs:
+        run_name = f"RUN{run}"
+        pl, raw_data, data, bckc = load_pickle(pulse, run_name)
+        pl_dict[run_name] = deepcopy(pl)
+        bckc_dict[run_name] = deepcopy(bckc)
+
+        if plotfig or savefig:
+            plot_results(pl, raw_data, data, bckc, savefig=savefig, name=run_name)
+            if not savefig:
+                input("Press any key to continue")
 
     return pl_dict, raw_data, data, bckc_dict
+
+
+def find_best_profiles(
+    pulse=None, pl_dict=None, raw_data=None, data=None, bckc_dict=None, astra_dict=None, time=0.08,
+):
+    def plot_compare(
+        astra_dict, raw=None, val=None, perc_err=0.2, key="", title="", xlabel="", ylabel="", label="", const=1.,
+    ):
+        if raw is not None:
+            (raw * const).plot(color="black", alpha=0.5)
+        if val is not None:
+            err = val * perc_err
+            if "error" in val.attrs:
+                err = np.sqrt(err**2 + val.attrs["error"]**2)
+            (val * const).plot(
+                linewidth=3, color="black", marker="o", alpha=0.5, label=label,
+            )
+            plt.fill_between(
+                val.t, (val - err) * const, (val + err) * const, color="black", alpha=0.5,
+            )
+        for run_name in astra_dict.keys():
+            val_astra = astra_dict[run_name][key]
+            (val_astra * const).plot(alpha=0.7, color="red")
+        (val_astra * const).plot(alpha=0.7, color="red", label="ASTRA")
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.legend()
+
+    if pl_dict is None:
+        pl_dict, raw_data, data, bckc_dict = read_profile_scans(pulse)
+
+        pl_avrg = pl_dict["RUN60"]
+        pulse = 13100000 + pl_avrg.pulse
+        tstart = 0
+        tend = 0.2
+
+        reader = ST40Reader(pulse, tstart, tend, tree="ASTRA")
+        astra_dict = {}
+        for run in pl_dict.keys():
+            revision = int(run[3:])
+            astra_dict[run] = reader.get("", "astra", revision)
+
+            # find q=1 surface
+            q_prof = astra_dict[run]["q"]
+            rho = q_prof.rho_poloidal
+            ind = np.abs(1 - q_prof).argmin("rho_poloidal")
+            q1 = deepcopy(ind)
+            q1.name = "q1"
+            q1 = [rho[i] for i in ind]
+            q1 = xr.concat(q1, "time").drop("rho_poloidal")
+            q1.name = "q1_astra"
+            astra_dict[run]["q1"] = q1
+
+    plt.figure()
+    const = 1.0e3
+    raw = raw_data["efit"]["wp"]
+    val = data["efit"]["wp"]
+    plot_compare(
+        astra_dict,
+        raw=raw,
+        val=val,
+        key="wth",
+        title="Stored energy",
+        xlabel="Time (s)",
+        ylabel="(kJ)",
+        label="EFIT",
+        const = const,
+    )
+
+    plt.figure()
+    const = 1.0
+    raw = raw_data["vloop"]
+    val = data["vloop"]
+    plot_compare(
+        astra_dict,
+        raw=raw,
+        val=val,
+        key="upl",
+        title="Loop voltage",
+        xlabel="Time (s)",
+        ylabel="(V)",
+        label="MAG",
+        const = const,
+    )
+
+
+    plt.figure()
+    const = 1.0
+    raw = raw_data["vloop"]
+    val = data["vloop"]
+    plot_compare(
+        astra_dict,
+        raw=raw,
+        val=val,
+        key="upl",
+        title="Loop voltage",
+        xlabel="Time (s)",
+        ylabel="(V)",
+        label="MAG",
+        const = const,
+    )
+
+    plt.figure()
+    const = 1.0
+    plot_compare(
+        astra_dict,
+        key="q1",
+        title="q=1 surface position",
+        xlabel="Time (s)",
+        ylabel="(rho_poloidal)",
+        label="ASTRA",
+        const = const,
+    )
+
+    return pl_dict, raw_data, data, bckc_dict, astra_dict
 
 
 def vertical_displacement(
@@ -523,7 +792,7 @@ def vertical_displacement(
     savefig=False,
     name="vertical_displacement",
     perc_err=0.05,
-    y1=1.e19,
+    y1=1.0e19,
     nsteps=6,
     ref_pulse=None,
 ):
@@ -562,9 +831,9 @@ def vertical_displacement(
     res = tests.vertical_displacement(
         pulse=9651,
         tstart=0.08,
-        tend=0.12,
-        dt=0.012,
-        diagn_ne="nirh1",
+        tend=0.13,
+        dt=0.01,
+        diagn_ne="nirh1_bin",
         quant_ne="ne",
         y1=0.1e19,
     )
@@ -572,9 +841,9 @@ def vertical_displacement(
     res = tests.vertical_displacement(
         pulse=9652,
         tstart=0.08,
-        tend=0.12,
-        dt=0.012,
-        diagn_ne="nirh1",
+        tend=0.13,
+        dt=0.01,
+        diagn_ne="nirh1_bin",
         quant_ne="ne",
         y1=0.1e19,
     )
@@ -598,8 +867,8 @@ def vertical_displacement(
     data = pl.build_data(raw_data, pulse=pulse)
 
     Ne = deepcopy(pl.Ne_prof)
-    wped_all = np.linspace(12, 4, nsteps) # [12, 6, 5, 4]
-    peaking_all = np.linspace(1.05, 3, nsteps) # [1.05, 1.3, 2.0, 4]
+    wped_all = np.linspace(12, 4, nsteps)  # [12, 6, 5, 4]
+    peaking_all = np.linspace(1.05, 3, nsteps)  # [1.05, 1.3, 2.0, 4]
     colors = cm.turbo(np.linspace(0, 1, nsteps))
 
     Ne_all = []
@@ -629,9 +898,9 @@ def vertical_displacement(
     colors_t = cmap(np.linspace(0, 1, len(pl.time)))
 
     plt.figure()
-    t = pl.t[int(len(pl.t)/2)]
+    t = pl.t[int(len(pl.t) / 2)]
     for pl, c in zip(pl_all, colors):
-        (pl.el_dens.sel(t=t)/1.e19).plot(color=c)
+        (pl.el_dens.sel(t=t) / 1.0e19).plot(color=c)
     plt.title(f"{pulse} Density profiles t = {t:.3f}")
     plt.xlabel("Rho-poloidal")
     plt.ylabel("(10$^{19}$ m$^{-3}$)")
@@ -644,10 +913,17 @@ def vertical_displacement(
     value = data[diagn_ne][quant_ne]
     error = value.attrs["error"]
     print(error)
-    (raw/1.e19).plot()
-    plt.plot(value.t, (value)/1.e19, "-o", color="red")
-    plt.fill_between(value.t, (value - error) / 1.e19, (value + error) / 1.e19, alpha=0.5, color="red")
+    (raw / 1.0e19).plot()
+    plt.plot(value.t, (value) / 1.0e19, "-o", color="red")
+    plt.fill_between(
+        value.t,
+        (value - error) / 1.0e19,
+        (value + error) / 1.0e19,
+        alpha=0.5,
+        color="red",
+    )
     plt.title(f"{pulse} {diagn_ne.upper()} electron density measurement")
+    plt.ylim(0,)
     plt.xlabel("Time (s)")
     plt.ylabel("(10$^{19}$ m$^{-2}$)")
     plt.legend()
@@ -657,7 +933,7 @@ def vertical_displacement(
     plt.figure()
     for pl, c in zip(pl_all, colors):
         x = pl.time
-        y = pl.el_dens.sel(rho_poloidal=0)/1.e19
+        y = pl.el_dens.sel(rho_poloidal=0) / 1.0e19
 
         pfit = np.polyfit(x.values, y.values, 1)
         slope, intercept = pfit
@@ -713,6 +989,8 @@ def vertical_displacement(
         plots.save_figure(fig_name=f"{figname}2D_equilibrium")
 
     # if save_pickle or write:
+    #     save_to_pickle(pl, raw_data, data, bckc, pulse=pl.pulse, name=run_name)
+
     #     picklefile = f"/home/marco.sertoli/data/Indica/{pl.pulse}_{run_name}_HDA.pkl"
     #     pickle.dump([pl, raw_data, data, bckc], open(picklefile, "wb"))
 

@@ -92,14 +92,14 @@ class LinesOfSightTransform(CoordinateTransform):
             y_end[i] = end_coord[1]
             z_end[i] = end_coord[2]
 
-        #lengths = _get_wall_intersection_distances(
+        # lengths = _get_wall_intersection_distances(
         #    x_start, y_start, z_start, x_end, y_end, z_end, machine_dimensions
-        #)
-        #new_length = max(lengths)
-        #los_lengths = np.sqrt(
+        # )
+        # new_length = max(lengths)
+        # los_lengths = np.sqrt(
         #    (x_start - x_end) ** 2 + (y_start - y_end) ** 2 + (z_start - z_end) ** 2
-        #)
-        #factor = new_length / los_lengths
+        # )
+        # factor = new_length / los_lengths
         self.x_start = DataArray(x_start)
         self.y_start = DataArray(y_start)
         self.z_start = DataArray(z_start)
@@ -107,9 +107,9 @@ class LinesOfSightTransform(CoordinateTransform):
         self._original_y_end = DataArray(y_end)
         self._original_z_end = DataArray(z_end)
         self._machine_dims = machine_dimensions
-        #self.x_end = DataArray(x_start + factor * (x_end - x_start))
-        #self.y_end = DataArray(y_start + factor * (y_end - y_start))
-        #self.z_end = DataArray(z_start + factor * (z_end - z_start))
+        # self.x_end = DataArray(x_start + factor * (x_end - x_start))
+        # self.y_end = DataArray(y_start + factor * (y_end - y_start))
+        # self.z_end = DataArray(z_start + factor * (z_end - z_start))
         self.x_end = DataArray(x_end)
         self.y_end = DataArray(y_end)
         self.z_end = DataArray(z_end)
@@ -284,9 +284,7 @@ class LinesOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
 
-    def set_dl(
-            self, dl: float
-    ):
+    def set_dl(self, dl: float):
         # Convert to Cartesian
         x_start = self.x_start
         y_start = self.y_start
@@ -294,7 +292,9 @@ class LinesOfSightTransform(CoordinateTransform):
         x_end = self.x_end
         y_end = self.y_end
         z_end = self.z_end
-        d = np.sqrt((x_end-x_start)**2 + (y_end-y_start)**2 + (z_end-z_start)**2)
+        d = np.sqrt(
+            (x_end - x_start) ** 2 + (y_end - y_start) ** 2 + (z_end - z_start) ** 2
+        )
 
         # Find the number of points
         npts = np.ceil(d.data / dl).astype(int)
@@ -405,11 +405,17 @@ def _find_wall_intersections(
 
     # Define XYZ lines for LOS from origin and direction vectors
     length = 3.0
-    x_line = np.array([origin[0]-length*direction[0], origin[0]+length*direction[0]], dtype=float)
-    y_line = np.array([origin[1]-length*direction[1], origin[1]+length*direction[1]], dtype=float)
+    x_line = np.array(
+        [origin[0] - length * direction[0], origin[0] + length * direction[0]],
+        dtype=float,
+    )
+    y_line = np.array(
+        [origin[1] - length * direction[1], origin[1] + length * direction[1]],
+        dtype=float,
+    )
 
     # Define XYZ lines for inner and outer walls
-    angles = np.linspace(0.0, 2*np.pi, 1000)
+    angles = np.linspace(0.0, 2 * np.pi, 1000)
     x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
     y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
     x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
@@ -417,7 +423,9 @@ def _find_wall_intersections(
 
     # Find intersections, to calculate R_start, z_start, T_start, R_end, z_end, T_end ...
     xx, yx, ix, jx = intersection(x_line, y_line, x_wall_outer, y_wall_outer)
-    distance = np.sqrt((xx-origin[0])**2 + (yx-origin[1])**2)  # Distance from intersections
+    distance = np.sqrt(
+        (xx - origin[0]) ** 2 + (yx - origin[1]) ** 2
+    )  # Distance from intersections
     i_closest = np.argmin(distance)
     i_furthest = np.argmax(distance)
     x_start = xx[i_closest]
@@ -430,7 +438,9 @@ def _find_wall_intersections(
     # Find intersections with inner wall (if exists)
     xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
     if len(xx) > 0:
-        distance = np.sqrt((xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2)  # Distance from intersections
+        distance = np.sqrt(
+            (xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2
+        )  # Distance from intersections
         i_closest = np.argmin(distance)
         x_end = xx[i_closest]
         y_end = yx[i_closest]
