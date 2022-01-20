@@ -59,6 +59,7 @@ class XRCSpectrometer:
         adf11: dict = None,
         adf15: dict = None,
         marchuk: bool = False,
+        extrapolate=False,
     ):
         """
         Read all atomic data and initialise objects
@@ -85,7 +86,7 @@ class XRCSpectrometer:
         self.name = name
         self.recom = recom
         self.set_ion_data(adf11=adf11)
-        self.set_pec_data(adf15=adf15, marchuk=marchuk)
+        self.set_pec_data(adf15=adf15, marchuk=marchuk, extrapolate=extrapolate)
 
     def __call__(
         self,
@@ -104,7 +105,9 @@ class XRCSpectrometer:
     ):
 
         bckc = {}
-        self.radiation_characteristics(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, recom=recom, fast=fast)
+        self.radiation_characteristics(
+            Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, recom=recom, fast=fast
+        )
         if rho_los is not None and dl is not None:
             self.los_integral(rho_los, dl)
         if Ti is not None:
@@ -163,11 +166,16 @@ class XRCSpectrometer:
 
         plt.figure()
         for line, pec in self.pec.items():
-            for t in pec["emiss_coeff"].type:
-                select_type(pec["emiss_coeff"], type=t).sel(
-                    electron_density=1.0e19
-                ).plot(label=f"{line} {t.values}")
+            pec_to_plot = pec["emiss_coeff"].sel(electron_density=1.0e19, method="nearest")
+            if "type" in pec["emiss_coeff"].coords:
+                for t in pec["emiss_coeff"].type:
+                    select_type(pec_to_plot, type=t).plot(label=f"{line} {t.values}")
+            else:
+                pec_to_plot.plot(label=f"{line}")
+
         plt.yscale("log")
+        plt.xscale("log")
+        plt.ylim(np.max(pec_to_plot)/1.e3, np.max(pec_to_plot))
         plt.title("PEC")
         plt.legend()
 
@@ -275,7 +283,7 @@ class XRCSpectrometer:
         self.ccd = ccd
         self.fract_abu = fract_abu
 
-    def set_pec_data(self, adf15: dict = None, marchuk=False):
+    def set_pec_data(self, adf15: dict = None, marchuk=False, extrapolate=False):
         """
         Read adf15 data and extract PECs for all lines to be included
         in the modelled spectra
@@ -292,7 +300,7 @@ class XRCSpectrometer:
 
         elements = []
         if marchuk:
-            adf15, adf15_data = get_marchuk()
+            adf15, adf15_data = get_marchuk(extrapolate=extrapolate)
         pec = deepcopy(adf15)
         for line in adf15.keys():
             element = adf15[line]["element"]
@@ -721,23 +729,34 @@ def get_marchuk(extrapolate=False):
     data *= 1.0e-6  # cm**3 --> m**3
     data = data.rename({"el_temp": "electron_temperature"})
 
-    # Extrapolate Marchuk data beyond 4 keV...
+    Te = data.electron_temperature.values
     if extrapolate:
-        Te = data.electron_temperature.values
-        dTe = Te[1] - Te[0]
-        Te = np.append(Te, np.arange(Te[-1] + dTe, 10.0e3, dTe))
-        extrap = data.interp(electron_temperature=Te)
+        # Extrapolate data where nans are present
+        new_data = data.interp(electron_temperature=Te)
         for line in data.line_name:
-            x = data.electron_temperature.values
             y = data.sel(line_name=line).values
+            ifin = np.where(np.isfinite(y))[0]
             func = interp1d(
-                np.log(x), np.log(y), fill_value="extrapolate", kind="quadratic"
+                np.log(Te[ifin]),
+                np.log(y[ifin]),
+                fill_value="extrapolate",
+                kind="quadratic",
             )
-            extrap.loc[dict(line_name=line)] = np.exp(func(np.log(Te)))
-            extrap = xr.where(extrap < 1.0e-21, 1.0e-21, extrap)
-            extrap.sel(line_name=line).plot(label=line.values)
-
-        data = extrap
+            new_data.loc[dict(line_name=line)] = np.exp(func(np.log(Te)))
+        data = new_data
+    else:
+        # Restrict data to where all are finite
+        ifin = np.array([True] * len(Te))
+        for line in data.line_name:
+            ifin *= np.where(np.isfinite(data.sel(line_name=line).values), True, False)
+        ifin = np.where(ifin == True)[0]
+        Te = Te[ifin]
+        line_name = data.line_name.values
+        new_data = []
+        for line in data.line_name:
+            y = data.sel(line_name=line).values[ifin]
+            new_data.append(DataArray(y, coords=[("electron_temperature", Te)]))
+        data = xr.concat(new_data, "line_name").assign_coords(line_name=line_name)
 
     data = data.expand_dims({"electron_density": el_dens})
 
