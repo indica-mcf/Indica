@@ -723,31 +723,47 @@ def find_best_profiles(
         return pl
 
     def compare_runs(
-        astra_dict, val, perc_err=0.2, key="", good_dict=None, max_val=False,
+        astra_dict,
+        val,
+        perc_err=0.2,
+        key="",
+        good_dict=None,
+        chi2_dict=None,
+        max_val=False,
     ):
         """
         Find astra runs with parameters < percentage error of the experimental value
         """
         if good_dict is None:
             good_dict = {}
+        if chi2_dict is None:
+            chi2_dict = {}
+
         for run_name in astra_dict.keys():
             val_astra = astra_dict[run_name][key].interp(t=val.t)
             if len(val_astra.shape) == 2:
                 val_astra = val_astra.sel(rho_poloidal=0, method="nearest")
+
             if max_val:
                 good_tmp = val_astra < val
+                perc_err = 0.01
             else:
                 good_tmp = np.abs(val_astra - val) / val < perc_err
 
             if run_name not in good_dict:
-                good_dict[run_name] = np.full_like(good_tmp, True)
-
+                good_dict[run_name] = np.full_like(val_astra, True)
             good_dict[run_name] *= good_tmp
 
-        return good_dict
+            if run_name not in chi2_dict:
+                chi2_dict[run_name] = np.full_like(val_astra, 0.0)
+
+            chi2_dict[run_name] += np.abs((val_astra - val) / (val * perc_err)) ** 2
+
+        return good_dict, chi2_dict
 
     def plot_compare(
         astra_dict,
+        chi2_dict=None,
         pl_dict=None,
         raw=None,
         val=None,
@@ -764,7 +780,6 @@ def find_best_profiles(
         figure=True,
         ylim=(None, None),
         savefig=False,
-        spline=True,
     ):
         all_runs = list(astra_dict)
 
@@ -803,7 +818,7 @@ def find_best_profiles(
             if run_name in good_runs:
                 ylim_lo.append(to_plot.min())
                 ylim_hi.append(to_plot.max())
-                to_plot.plot(label=f"ASTRA {run_name}", linewidth=4)
+                to_plot.plot(label=f"{run_name}", linewidth=4)
 
         _ylim = [np.min(ylim_lo), np.max(ylim_hi)]
         if ylim_val is not None:
@@ -822,7 +837,16 @@ def find_best_profiles(
         if good_dict is not None and tgood is not None and not profile:
             plt.vlines(tgood, ylim[0], ylim[1], linestyle="dashed", color="black")
 
-        plt.title(f"{pulse} {title}")
+        name = f"ASTRA_compare_{all_runs[0]}-{all_runs[-1]}"
+        _title = f"{pulse} {title}"
+        if profile:
+            _title += f" t={int(tgood*1.e3)} ms"
+            name += "_profile"
+        else:
+            name += "_time_evol"
+        name += f"_{int(tgood * 1.e3)}_ms_{key}"
+
+        plt.title(_title)
         if xlabel is not None:
             plt.xlabel(xlabel)
         if ylabel is not None:
@@ -830,9 +854,8 @@ def find_best_profiles(
         plt.legend()
 
         if savefig:
-            plots.save_figure(
-                fig_name=f"ASTRA_compare_{pulse}_{all_runs[0]}-{all_runs[-1]}_{key}"
-            )
+            figname = plots.get_figname(pulse=pulse, name=name)
+            plots.save_figure(fig_name=figname)
 
     """
     Of a given set of ASTRA runs based on HDA profiles, select the ones that better match
@@ -871,20 +894,27 @@ def find_best_profiles(
 
     # Selection of good runs
     # Stored energy inside uncertainty band of EFIT
-    good_dict = compare_runs(
+    good_dict, chi2_dict = compare_runs(
         astra_dict, data["efit"]["wp"], perc_err=perc_err, key="wth"
     )
 
     # Central electron temperature < current atomic data limit of 4 keV
-    val = xr.full_like(data["efit"]["wp"], 3.98)
-    good_dict = compare_runs(
-        astra_dict, val, key="te", good_dict=good_dict, max_val=True,
+    val = xr.full_like(data["efit"]["wp"], 4.0)
+    good_dict, _ = compare_runs(
+        astra_dict,
+        val,
+        key="te",
+        good_dict=good_dict,
+        max_val=True,
     )
 
     good_runs = []
+    chi2 = []
     for run_name in good_dict.keys():
         if good_dict[run_name].sel(t=tgood, method="nearest") == True:
             good_runs.append(run_name)
+            chi2.append(chi2_dict[run_name].sel(t=tgood, method="nearest").values)
+    best_run = good_runs[np.argmin(chi2)]
 
     const = 1.0e-3
     raw = raw_data["efit"]["wp"]
@@ -1017,6 +1047,35 @@ def find_best_profiles(
     )
 
     pl = average_runs(pl_dict, good_dict=good_dict, tgood=tgood)
+
+    name = f"ASTRA_compare_{best_run}"
+    plots.profiles(
+        pl_dict[best_run],
+        bckc=bckc_dict[best_run],
+        savefig=savefig,
+        name=name,
+        title=best_run,
+        ploterr=False,
+    )
+    plots.time_evol(
+        pl_dict[best_run],
+        data,
+        bckc=bckc_dict[best_run],
+        savefig=savefig,
+        name=name,
+        title=best_run,
+        ploterr=False,
+    )
+    plots.compare_data_bckc(
+        data,
+        bckc_dict,
+        raw_data=raw_data,
+        pulse=pulse,
+        savefig=savefig,
+        name=name,
+        title=best_run,
+        ploterr=False,
+    )
 
     return pl
 
