@@ -49,7 +49,7 @@ class Database:
     def __init__(
         self,
         pulse_start=8207,
-        pulse_end=9486,
+        pulse_end=9854,
         tlim=(-0.03, 0.3),
         dt=0.01,
         overlap=0.5,
@@ -703,15 +703,13 @@ def apply_selection(
         cond = {
             "Ohmic": {
                 "nbi_power": {"var": "value", "lim": (0,)},
-                "te0": {"var": "error", "lim": (np.nan, 0.2)},
-                "ti0": {"var": "error", "lim": (np.nan, 0.2)},
             },
             "NBI": {
                 "nbi_power": {"var": "value", "lim": (20, np.nan)},
-                "te0": {"var": "error", "lim": (np.nan, 0.2)},
-                "ti0": {"var": "error", "lim": (np.nan, 0.2)},
             },
         }
+    # "te0": {"var": "error", "lim": (np.nan, 0.2)},
+    # "ti0": {"var": "error", "lim": (np.nan, 0.2)},
 
     # Apply selection criteria
     if cond is not None:
