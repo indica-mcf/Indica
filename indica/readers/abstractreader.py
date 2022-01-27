@@ -126,6 +126,7 @@ class DataReader(BaseIO):
             "j_oh": ("current_density", "ohmic"),  # Ohmic current density,MA/m2
             "j_rf": ("current_density", "rf"),  # EC driven current density,MA/m2
             "j_tot": ("current_density", "total"),  # Total current density,MA/m2
+            "ftor": ("flux", "toroidal"),
             "ne": ("density", "electron"),  # Electron density, 10^19 m^-3
             "ni": ("density", "main_ion"),  # Main ion density, 10^19 m^-3
             "nf": ("density", "fast"),
@@ -1732,12 +1733,26 @@ class DataReader(BaseIO):
 
         data: Dict[str, DataArray] = {}
 
-        rhop = np.sqrt(database_results["psin"])
-        rhot = np.sqrt(
-            (database_results["ftor"] - np.min(database_results["ftor"]))
-            / (np.max(database_results["ftor"]) - np.min(database_results["ftor"]))
-        )
-        radial_coords = {"rho_toroidal": rhot, "rho_poloidal": rhop}
+        # Reorganise coordinate system to match Indica default rho-poloidal
+        rhop_psin = np.sqrt(database_results["psin"])
+        rhop_interp = np.linspace(0, 1.0, 65)
+        rhot_astra = database_results["rho"] / np.max(database_results["rho"])
+        rhot_rhop = []
+        for it in range(len(database_results["times"])):
+            ftor_tmp = database_results["ftor"][it, :]
+            psi_tmp = database_results["psi"][it, :]
+            rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
+            rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0])/(psi_tmp[-1] - psi_tmp[0]))
+            rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
+            rhot_rhop.append(rhot_xpsn)
+
+        rhot_rhop = DataArray(
+            np.array(rhot_rhop),
+            {"t": database_results["times"], "rho_poloidal": rhop_interp},
+            dims=["t", "rho_poloidal"],
+        ).sel(t=slice(self._tstart, self._tend))
+
+        radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
 
         sorted_quantities = sorted(quantities)
         for quantity in sorted_quantities:
@@ -1769,6 +1784,17 @@ class DataReader(BaseIO):
             quant_data = DataArray(
                 database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
+
+            # TODO: careful with interpolation on new rho_poloidal array...
+            # Interpolate ASTRA profiles on new rhop_interp array
+            # Interpolate PSI_NORM profiles on same coordinate system
+            if name_coord == "rho_toroidal":
+                rho_toroidal_0 = quant_data.rho_toroidal.min()
+                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop("rho_toroidal")
+                quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(rho_toroidal=rho_toroidal_0)
+                quant_data = quant_interp.interpolate_na("rho_poloidal")
+            elif name_coord == "rho_poloidal":
+                quant_data = quant_data.interp(rho_poloidal=rhop_interp)
 
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
