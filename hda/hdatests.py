@@ -8,6 +8,7 @@ import numpy as np
 import pickle
 import xarray as xr
 from xarray import DataArray
+from scipy.interpolate import CubicSpline
 
 from hda.hdaplot import HDAplot
 from hda.hdaworkflow import HDArun
@@ -65,7 +66,7 @@ def plasma_workflow(
     marchuk=True,
     extrapolate=True,
     run_name="RUN40",
-    descr=f"New profile shapes and ionisation balance",  # descr = "Experimental evolution of the Ar concentration"
+    descr="New profile shapes and ionisation balance",
     name="",
     xrcs_time=True,
     use_ratios=True,
@@ -279,9 +280,12 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
 
 
 def run_all_scans():
-    # pulses = [9229, 9537, 9539, 9676, 9721, 9766, 9779, 9780, 9781, 9783, 9787]
-    pulses = [9748, 9752]
+    # pulses = [9229, 9537, 9539, 9676, 9721, 9748, 9752, 9766, 9779, 9780, 9781, 9783, 9787]
+    # pulses = [9771, 9816, 9820, 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849]
+    # Issues with data: 9818, 9820
+    pulses = [9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849]
     for pulse in pulses:
+        print(pulse)
         scan_profiles(
             pulse,
             tstart=0.02,
@@ -666,32 +670,176 @@ def read_profile_scans(pulse, plotfig=False, savefig=False):
 
 
 def find_best_profiles(
-    pulse=None, pl_dict=None, raw_data=None, data=None, bckc_dict=None, astra_dict=None, time=0.08,
+    pulse=None,
+    pl_dict=None,
+    raw_data=None,
+    data=None,
+    bckc_dict=None,
+    astra_dict=None,
+    tgood=0.08,
+    perc_err=0.2,
+    savefig=False,
 ):
-    def plot_compare(
-        astra_dict, raw=None, val=None, perc_err=0.2, key="", title="", xlabel="", ylabel="", label="", const=1.,
+    def average_runs(pl_dict, good_dict=None, tgood=0.08):
+        """
+        Average results from different runs
+        """
+
+        pl_attrs = [
+            "el_temp",
+            "ion_temp",
+            "el_dens",
+            "ion_dens",
+            "zeff",
+        ]
+
+        pl_to_avrg = {}
+        for key in pl_attrs:
+            pl_to_avrg[key] = []
+
+        runs = []
+        for run_name in pl_dict.keys():
+            good_run = True
+            if good_dict is not None:
+                good_run = good_dict[run_name].sel(t=tgood, method="nearest")
+            if good_run:
+
+                runs.append(run_name)
+                for key in pl_attrs:
+                    pl_to_avrg[key].append(getattr(pl_dict[run_name], key))
+
+        pl = deepcopy(pl_dict[run_name])
+        for key in pl_attrs:
+            data = xr.concat(pl_to_avrg[key], "run_name").assign_coords(
+                {"run_name": runs}
+            )
+            avrg = data.mean("run_name")
+            stdev = data.std("run_name")
+            setattr(pl, key, avrg)
+            setattr(pl, f"{key}_hi", avrg + stdev)
+            setattr(pl, f"{key}_lo", avrg - stdev)
+
+        pl.avrg_runs = runs
+        return pl
+
+    def compare_runs(
+        astra_dict, val, perc_err=0.2, key="", good_dict=None, max_val=False,
     ):
+        """
+        Find astra runs with parameters < percentage error of the experimental value
+        """
+        if good_dict is None:
+            good_dict = {}
+        for run_name in astra_dict.keys():
+            val_astra = astra_dict[run_name][key].interp(t=val.t)
+            if len(val_astra.shape) == 2:
+                val_astra = val_astra.sel(rho_poloidal=0, method="nearest")
+            if max_val:
+                good_tmp = val_astra < val
+            else:
+                good_tmp = np.abs(val_astra - val) / val < perc_err
+
+            if run_name not in good_dict:
+                good_dict[run_name] = np.full_like(good_tmp, True)
+
+            good_dict[run_name] *= good_tmp
+
+        return good_dict
+
+    def plot_compare(
+        astra_dict,
+        pl_dict=None,
+        raw=None,
+        val=None,
+        perc_err=0.0,
+        key="",
+        title="",
+        xlabel=None,
+        ylabel=None,
+        label=None,
+        const=1.0,
+        good_runs=[],
+        tgood=None,
+        profile=False,
+        figure=True,
+        ylim=(None, None),
+        savefig=False,
+        spline=True,
+    ):
+        all_runs = list(astra_dict)
+
+        ylim_val = None
+        if figure:
+            plt.figure()
         if raw is not None:
             (raw * const).plot(color="black", alpha=0.5)
         if val is not None:
             err = val * perc_err
             if "error" in val.attrs:
-                err = np.sqrt(err**2 + val.attrs["error"]**2)
+                err = np.sqrt(err ** 2 + val.attrs["error"] ** 2)
             (val * const).plot(
                 linewidth=3, color="black", marker="o", alpha=0.5, label=label,
             )
             plt.fill_between(
-                val.t, (val - err) * const, (val + err) * const, color="black", alpha=0.5,
+                val.t,
+                (val - err) * const,
+                (val + err) * const,
+                color="black",
+                alpha=0.5,
             )
-        for run_name in astra_dict.keys():
-            val_astra = astra_dict[run_name][key]
-            (val_astra * const).plot(alpha=0.7, color="red")
-        (val_astra * const).plot(alpha=0.7, color="red", label="ASTRA")
-        plt.title(title)
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
+            ylim_val = [np.min(val - err) * const, np.max(val + err) * const]
+
+        ylim_lo = []
+        ylim_hi = []
+        for run_name in all_runs:
+            to_plot = astra_dict[run_name][key] * const
+            if len(astra_dict[run_name][key].shape) == 2:
+                if profile:
+                    to_plot = to_plot.sel(t=tgood, method="nearest")
+                else:
+                    to_plot = to_plot.sel(rho_poloidal=0, method="nearest")
+
+            to_plot.plot(alpha=0.5, color="red", linestyle="dashed")
+            if run_name in good_runs:
+                ylim_lo.append(to_plot.min())
+                ylim_hi.append(to_plot.max())
+                to_plot.plot(label=f"ASTRA {run_name}", linewidth=4)
+
+        _ylim = [np.min(ylim_lo), np.max(ylim_hi)]
+        if ylim_val is not None:
+            _ylim = [np.min([_ylim, ylim_val]), np.max([_ylim, ylim_val])]
+
+        if ylim[0] is not None:
+            _ylim[0] = np.min([ylim[0], _ylim[0]])
+        if ylim[1] is not None:
+            _ylim[1] = np.max([ylim[1], _ylim[1]])
+        if _ylim[0] != 0:
+            _ylim[0] *= 0.9
+        _ylim[1] *= 1.1
+
+        plt.ylim(_ylim)
+        ylim = plt.ylim()
+        if good_dict is not None and tgood is not None and not profile:
+            plt.vlines(tgood, ylim[0], ylim[1], linestyle="dashed", color="black")
+
+        plt.title(f"{pulse} {title}")
+        if xlabel is not None:
+            plt.xlabel(xlabel)
+        if ylabel is not None:
+            plt.ylabel(ylabel)
         plt.legend()
 
+        if savefig:
+            plots.save_figure(
+                fig_name=f"ASTRA_compare_{pulse}_{all_runs[0]}-{all_runs[-1]}_{key}"
+            )
+
+    """
+    Of a given set of ASTRA runs based on HDA profiles, select the ones that better match
+    other measurements and parameters (e.g. EFIT stored energy, ...)
+    """
+
+    # Read data
     if pl_dict is None:
         pl_dict, raw_data, data, bckc_dict = read_profile_scans(pulse)
 
@@ -717,8 +865,28 @@ def find_best_profiles(
             q1.name = "q1_astra"
             astra_dict[run]["q1"] = q1
 
-    plt.figure()
-    const = 1.0e3
+        return pl_dict, raw_data, data, bckc_dict, astra_dict
+
+    pulse = pl_dict["RUN60"].pulse
+
+    # Selection of good runs
+    # Stored energy inside uncertainty band of EFIT
+    good_dict = compare_runs(
+        astra_dict, data["efit"]["wp"], perc_err=perc_err, key="wth"
+    )
+
+    # Central electron temperature < current atomic data limit of 4 keV
+    val = xr.full_like(data["efit"]["wp"], 3.98)
+    good_dict = compare_runs(
+        astra_dict, val, key="te", good_dict=good_dict, max_val=True,
+    )
+
+    good_runs = []
+    for run_name in good_dict.keys():
+        if good_dict[run_name].sel(t=tgood, method="nearest") == True:
+            good_runs.append(run_name)
+
+    const = 1.0e-3
     raw = raw_data["efit"]["wp"]
     val = data["efit"]["wp"]
     plot_compare(
@@ -730,11 +898,14 @@ def find_best_profiles(
         xlabel="Time (s)",
         ylabel="(kJ)",
         label="EFIT",
-        const = const,
+        const=const,
+        perc_err=perc_err,
+        good_runs=good_runs,
+        tgood=tgood,
+        ylim=(0, None),
+        savefig=savefig,
     )
 
-    plt.figure()
-    const = 1.0
     raw = raw_data["vloop"]
     val = data["vloop"]
     plot_compare(
@@ -746,28 +917,13 @@ def find_best_profiles(
         xlabel="Time (s)",
         ylabel="(V)",
         label="MAG",
-        const = const,
+        perc_err=perc_err,
+        good_runs=good_runs,
+        tgood=tgood,
+        ylim=(0, None),
+        savefig=savefig,
     )
 
-
-    plt.figure()
-    const = 1.0
-    raw = raw_data["vloop"]
-    val = data["vloop"]
-    plot_compare(
-        astra_dict,
-        raw=raw,
-        val=val,
-        key="upl",
-        title="Loop voltage",
-        xlabel="Time (s)",
-        ylabel="(V)",
-        label="MAG",
-        const = const,
-    )
-
-    plt.figure()
-    const = 1.0
     plot_compare(
         astra_dict,
         key="q1",
@@ -775,10 +931,94 @@ def find_best_profiles(
         xlabel="Time (s)",
         ylabel="(rho_poloidal)",
         label="ASTRA",
-        const = const,
+        good_runs=good_runs,
+        tgood=tgood,
+        savefig=savefig,
     )
 
-    return pl_dict, raw_data, data, bckc_dict, astra_dict
+    plot_compare(
+        astra_dict,
+        key="ne",
+        title="Central electron density",
+        xlabel="Time (s)",
+        ylabel="(10$^{19}$ m$^{-3}$)",
+        label="ASTRA",
+        good_runs=good_runs,
+        tgood=tgood,
+        ylim=(0, None),
+        savefig=savefig,
+    )
+
+    plot_compare(
+        astra_dict,
+        key="te",
+        title="Central electron temperature",
+        xlabel="Time (s)",
+        ylabel="(keV)",
+        label="ASTRA",
+        good_runs=good_runs,
+        tgood=tgood,
+        ylim=(0, None),
+        savefig=savefig,
+    )
+
+    plot_compare(
+        astra_dict,
+        key="ti",
+        title="Central ion temperature",
+        xlabel="Time (s)",
+        ylabel="(keV)",
+        label="ASTRA",
+        good_runs=good_runs,
+        tgood=tgood,
+        ylim=(0, None),
+        savefig=savefig,
+    )
+
+    plot_compare(
+        astra_dict,
+        key="ne",
+        title="Electron density",
+        ylabel="(10$^{19}$ m$^{-3}$)",
+        label="ASTRA",
+        good_runs=good_runs,
+        tgood=tgood,
+        profile=True,
+        ylim=(0, None),
+        savefig=savefig,
+    )
+
+    plot_compare(
+        astra_dict,
+        pl_dict=pl_dict,
+        key="te",
+        title="Electron temperature",
+        ylabel="(keV)",
+        label="ASTRA",
+        good_runs=good_runs,
+        tgood=tgood,
+        profile=True,
+        ylim=(0, None),
+        savefig=savefig,
+    )
+
+    plot_compare(
+        astra_dict,
+        pl_dict=pl_dict,
+        key="ti",
+        title="Ion temperature",
+        ylabel="(keV)",
+        label="ASTRA",
+        good_runs=good_runs,
+        tgood=tgood,
+        profile=True,
+        ylim=(0, None),
+        savefig=savefig,
+    )
+
+    pl = average_runs(pl_dict, good_dict=good_dict, tgood=tgood)
+
+    return pl
 
 
 def vertical_displacement(
