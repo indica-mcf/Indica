@@ -169,7 +169,6 @@ class ST40Reader(DataReader):
             "n_d": ".profiles.astra:n_d",  # Deuterium density,10E19/m3
             "n_t": ".profiles.astra:n_t",  # Tritium density	,10E19/m3
             "omega_tor": ".profiles.astra:omega_tor",  # Toroidal rotation frequency, 1/s
-            "psin": ".profiles.astra:psin",  # Normalized poloidal flux -
             "qe": ".profiles.astra:qe",  # electron power flux, MW
             "qi": ".profiles.astra:qi",  # ion power flux, MW
             "qn": ".profiles.astra:qn",  # total electron flux, 10^19/s
@@ -177,6 +176,7 @@ class ST40Reader(DataReader):
             "qnbi": ".profiles.astra:qnbi",  # Beam power density to ions, MW/m3
             "q_oh": ".profiles.astra:q_oh",  # Ohmic heating power profile, MW/m3
             "q_rf": ".profiles.astra:q_rf",  # RF power density to electron,MW/m3
+            "rho": ".profiles.astra:rho",  # ASTRA rho-toroidal
             "rmid": ".profiles.astra:rmid",  # Centre of flux surfaces, m
             "rminor": ".profiles.astra:rminor",  # minor radius, m
             "sbm": ".profiles.astra:sbm",  # Particle source from beam, 10^19/m^3/s
@@ -189,6 +189,7 @@ class ST40Reader(DataReader):
             "t_d": ".profiles.astra:t_d",  # Deuterium temperature,keV
             "t_t": ".profiles.astra:t_t",  # Tritium temperature,keV
             "zeff": ".profiles.astra:zeff",  # Effective ion charge
+            "psin": ".profiles.psi_norm:psin",  # Normalized poloidal flux -
             "areat": ".profiles.psi_norm:areat",  # Toroidal cross section,m2
             "ftor": ".profiles.psi_norm:ftor",  # Toroidal flux, Wb
             "p": ".profiles.psi_norm:p",  # PRESSURE(PSI_NORM)
@@ -452,15 +453,26 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         # Read time and radial dimensions
+        psi, psin_path = self._get_signal(
+            uid, instrument, ".profiles.psi_norm:psi", revision
+        )
         psin, psin_path = self._get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
-        ftor, rho_path = self._get_signal(
+        ftor, ftor_path = self._get_signal(
+            uid, instrument, ".profiles.psi_norm:ftor", revision
+        )
+        rho, rho_path = self._get_signal(
             uid, instrument, ".profiles.astra:rho", revision
         )
+        # psi, rho_path = self._get_signal(
+        #     uid, instrument, ".profiles.astra:psi", revision
+        # )
         times, t_path = self._get_signal(uid, instrument, ":time", revision)
+        results["psi"] = psi
         results["psin"] = psin
         results["ftor"] = ftor
+        results["rho"] = rho
         self._set_times_item(results, times)
         for q in quantities:
             qval, q_path = self._get_signal(
