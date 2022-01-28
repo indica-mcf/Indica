@@ -540,8 +540,9 @@ class InvertRadiation(Operator):
                     ),
                 #PROFILES
                 profile = dict(
-                    sym_emissivity = symmetric_emissivity,
-                    asym_parameter = asymmetry_parameter,
+                    sym_emissivity = symmetric_emissivity.data,
+                    asym_parameter = asymmetry_parameter.data,
+                    rho_poloidal =  np.repeat(np.array([asymmetry_parameter.rho_poloidal.data]),len(times.data),axis=0),
                     ),
                 
                 #EMISSIVITY 2D
@@ -556,6 +557,8 @@ class InvertRadiation(Operator):
             data_exp = return_data[key]['back_integral']['data_experiment'][:,return_data[key]['channels_considered']]
             data_the = return_data[key]['back_integral']['data_theory'    ][:,return_data[key]['channels_considered']]
             return_data[key]['back_integral']['chi2'] = np.sqrt(np.nansum(((data_exp-data_the)**2) / (data_exp**2),axis=1))
+            
+            print('hahahaha',data_exp[0,:],data_the[0,:],data_exp.shape)
         
         #APPENDING DEBUG DATA
         if self.debug:

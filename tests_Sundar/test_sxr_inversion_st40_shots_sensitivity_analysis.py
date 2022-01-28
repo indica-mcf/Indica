@@ -12,7 +12,7 @@ import time as tt
 import pickle
 
 import st40_sxr_inversion as ss
-import SXR_inversion_plot as ss_plot
+import st40_sxr_inversion_plots as ss_plot
 
 import multiprocessing as mp
 
@@ -22,8 +22,8 @@ save_data = True
 version_control = False
 version = 'v1_zshift_-1'
 
-pulseNo = 9184
-t1 = 0.05
+pulseNo = 9409
+t1 = 0.03
 t2 = 0.07
 time = [t1,t2]
 

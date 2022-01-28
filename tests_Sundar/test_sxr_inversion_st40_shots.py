@@ -1,3 +1,13 @@
+import sys
+try:
+    sys.path.remove('/home/marco.sertoli/python/Indica')
+except:
+    pass
+try:
+    sys.path.append('/home/sundaresan.sridhar/Modules/st40/Indica')
+except:
+    pass
+
 import getpass
 import itertools
 
@@ -12,36 +22,31 @@ import time as tt
 import pickle
 
 import st40_sxr_inversion as ss
-import SXR_inversion_plot as ss_plot
+import st40_sxr_inversion_plots as ss_plot
 
 import multiprocessing as mp
 
 plots = True
 save_plot = True
 save_data = True
-version_control = False
+version_control = True
 version = ''
-
-# pulseNos = [9229]#[9184,9408,9409,9411,9539,9537,9560,9229]
-# t1 = 0.01
-# t2 = 0.15
-# time = [t1,t2]
 
 pulseInfo = {
     '9408' : [15,135],
-    '9560' : [15,120],
-    '9229' : [15,120],
-    '9409' : [15,150],
-    '9411' : [15,150],
-    '9539' : [15,150],
-    '9537' : [15,150],    
-    '9184' : [15,150],
-    '9538' : [15,140],    
+    # '9560' : [15,120],
+    # '9229' : [15,120],
+    # '9409' : [15,150],
+    # '9411' : [15,150],
+    # '9539' : [15,150],
+    # '9537' : [15,150],    
+    # '9184' : [15,150],
+    # '9538' : [15,140],    
     }
 
 
 #SAVE DIRECTORY
-save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots'
+save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots_tomo_1D'
 
 #FUNCTION TO GET SAVE DIRECTORY
 def get_save_directory(folder = ''):
@@ -67,6 +72,9 @@ input_data_default = dict(
     fit_asymmetry=False,
     compute_asymmetry=False,
     debug=True,
+    EFIT_run = 1,
+    method = 'tomo_1D',
+    # method = 'indica',
     )
 
 exception_pulses = []
@@ -90,7 +98,7 @@ if __name__ == "__main__":
         
         #FILENAME SUFFIX
         filenameSuffix = str(pulseNo)
-        
+                
         try:
             #PERFORMING SXR INVERSION
             shot_data = ss.make_SXR_inversion(pulseNo,time,input_data)

@@ -1,0 +1,35 @@
+      
+      # #GETTING THE AASYMMETRY PARAMETER    
+      # #FUNCTION TO ESTIMATE ASYMMETRY PARAMETER
+      # def get_asymmetry_parameter(pulseNo,t):
+      #     #FUNCTION TO GET GAUSSIAN PROFILE
+      #     def get_gaussian(sigma = 0.35,center=0):
+      #         #X DATA
+      #         x = np.linspace(0,1,100)
+      #         #Y DATA
+      #         y_term = (-1/2) * (((x-center)/sigma)**2)
+      #         return x,np.exp(y_term)
+      #     # #X AND Y GAUSSIAN
+      #     # p,y_gaussian = get_gaussian()
+      #     # #PROFILES
+      #     # Ti = 4 * 1.e+3 * y_gaussian #keV
+      #     # Te = 4 * 1.e+3 * y_gaussian #keV
+      #     # Zeff = 2 * y_gaussian       #no unit
+      #     # wphi = 1 * 1.e+3 * y_gaussian     #Hz
+      #     # qs = 2 * y_gaussian
+      #     # mi = y_gaussian
+      #     # ms = 12 * y_gaussian
+      #     # #ASYMETTERY PARAMETER
+      #     # term_1 = (ms * (wphi**2)) / (2*Ti)
+      #     # term_2_1 = qs/ms
+      #     # term_2_2 = (mi*Zeff*Te)/(Ti+(Zeff*Te))
+      #     # term_2 = term_2_1 * term_2_2
+      #     # lambda_s = term_1 * (1-term_2)
+      #     p,asym = get_gaussian(sigma=0.35,center=0.8)
+      #     asymmetry_parameter = DataArray(np.repeat(np.array([asym]),len(t),axis=0), dims = ["t","p"], coords={"t":t,"p":p})
+      #     return asymmetry_parameter
+      # #DEBUG TIME
+      # if input_data['debug']:
+      #     print('Asymmetry parameter estimation. It took '+str(tt.time()-st)+' seconds')
+      #     st = tt.time()
+        

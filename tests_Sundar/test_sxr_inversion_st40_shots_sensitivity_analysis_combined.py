@@ -1,4 +1,4 @@
-import test_sxr_inversion_st40_shots_sensiivity_analysis as ss
+import test_sxr_inversion_st40_shots_sensitivity_analysis as ss
 import os
 import pickle
 import matplotlib.pyplot as plt
