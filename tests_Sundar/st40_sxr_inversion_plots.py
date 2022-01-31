@@ -146,56 +146,116 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory='',optimiz
     return return_Fig_data
 
 #FUNCTION TO PLOT Z-SHIFT
-def plot_z_shifts(results,save_directory='',saveFig=True):
-    #Z_SHIFT OPTIMIZATION PLOT
-    t = results['filter_4']['t']*1.e+3
-    chi2_optimum = results['filter_4']['back_integral']['chi2']
-    chi2_all     = results['results_optimize']['chi2_evolution']
-    chi2_0       = results['all_results']['sweep_value_'+str(np.where(results['results_optimize']['z_shifts']==0)[0][0]+1)]['filter_4']['back_integral']['chi2']
-    z_shifts     = results['filter_4']['z_shift']          
-    #LOADING ZMAG
-    pulseNo = results['pulseNo']
-    conn = Connection(MDSplus_IP_address)
-    conn.openTree('EFIT',pulseNo)
-    node = 'BEST.GLOBAL:ZMAG'
-    r_zmag         = conn.get(node).data()
-    r_t_zmag       = conn.get('dim_of('+node+')').data()
-    zmag = interpolate.interp1d(r_t_zmag,r_zmag,bounds_error=False)(t*1.e-3)
+def plot_z_shifts(results,save_directory='',saveFig=True,results2={},methods=[]):
+    #ALL RESULTS
+    if results2!={}:
+        results_all = (results,results2,)
+    else:
+        results_all = (results,)
     #SUBPLOT DECLARATION
-    plt.close('all')
-    fig,ax = plt.subplots(nrows=3,ncols=1,squeeze=True,figsize=(16,10),sharex=True)
-    #SUBPLOT 1 - ALL CHI2 OF THE SWEEP
+    plt.close('all')    
+    #COLORS OF Z_SHIFTS
+    colors_zshift = ['red','blue']
+    #SWEEP OF RESULTS
     k = 0
-    #ALL CHI2
-    for i in range(0,np.size(chi2_all,1)):
-        ax[k].plot(t,chi2_all[:,i],color='orange')
-    #CHI2 AT Z_SHIFT=0
-    ax[k].plot(t,chi2_0,color='blue',label='chi2 at z_shift=0cm')
-    #OPTIMAL CHI2
-    ax[k].plot(t,chi2_optimum,color='k',label='chi2 at optimum z_shifts')
-    #LEGEND
-    ax[k].legend(ncol=3,fontsize=ticksize)
-    #YLABEL
-    ax[k].set_ylabel('chi2',size=labelsize)
-    #TICK SIZE
-    ax[k].tick_params(axis='both', labelsize=ticksize)
-    #TITLE
-    print('#'+str(results['pulseNo'])+' - z_shift optimization')
-    fig.suptitle('#'+str(results['pulseNo'])+' - z_shift optimization',fontsize=labelsize*1.5)
-    #SUBPLOT 2 - OPTIMUM Z_SHIFT
-    k += 1
-    ax[k].plot(t,z_shifts*100,color='red',label='z_shift (optimum)')
+    data_zshifts = {}
+    for iresults,results in enumerate(results_all):
+        #METHOD
+        if len(results_all)==1:
+            method = 'set1'
+        else:
+            method = methods[iresults]
+        #Z_SHIFT OPTIMIZATION PLOT
+        t = results['filter_4']['t']*1.e+3
+        chi2_optimum = results['filter_4']['back_integral']['chi2']
+        chi2_all     = results['results_optimize']['chi2_evolution']
+        chi2_0       = results['all_results']['sweep_value_'+str(np.where(results['results_optimize']['z_shifts']==0)[0][0]+1)]['filter_4']['back_integral']['chi2']
+        z_shifts     = results['filter_4']['z_shift']      
+        data_zshifts[method] = dict(
+            time = t,
+            data = z_shifts,
+            color = colors_zshift[iresults],
+            method = method,
+            )
+        #SUBPLOTS DECLARATION
+        if iresults==0:
+            if len(results_all)==1:
+                nrows = 3
+            else:
+                nrows = 4
+            fig,ax = plt.subplots(nrows=nrows,ncols=1,squeeze=True,figsize=(16,10),sharex=True)            
+        #SUBPLOT 1 - ALL CHI2 OF THE SWEEP
+        #ALL CHI2
+        for i in range(0,np.size(chi2_all,1)):
+            ax[k].plot(t,chi2_all[:,i],color='orange')
+        #CHI2 AT Z_SHIFT=0
+        ax[k].plot(t,chi2_0,color='blue',label='chi2 at z_shift=0cm')
+        #OPTIMAL CHI2
+        ax[k].plot(t,chi2_optimum,color='k',label='chi2 at optimum z_shifts')
+        #LEGEND
+        ax[k].legend(ncol=3,fontsize=ticksize)
+        #YLABEL
+        if len(results_all)==1:
+            ax[k].set_ylabel('chi2',size=labelsize)
+        else:
+            ax[k].set_ylabel('chi2('+method+')',size=labelsize)
+        #TICK SIZE
+        ax[k].tick_params(axis='both', labelsize=ticksize)
+        #TITLE
+        if iresults==0:
+            fig.suptitle('#'+str(results['pulseNo'])+' - z_shift optimization',fontsize=labelsize*1.5)
+        #INCREMENT
+        k += 1
+    
+    #SUBPLOT - OPTIMUM Z_SHIFT
+    for key,value in data_zshifts.items():
+        t = value['time']
+        z_shifts = value['data']
+        if len(results_all)==1:
+            ax[k].plot(t,z_shifts*100,color=value['color'],label='z_shift (optimum)')
+        else:
+            ax[k].plot(t,z_shifts*100,color=value['color'],label='z_shift (optimum,'+value['method']+')')
     #TICK SIZE
     ax[k].tick_params(axis='both', labelsize=ticksize)
     #YLABEL
     ax[k].set_ylabel('z_shift[cm]',size=labelsize)
-    #SUBPLOT 2 - OPTIMUM Z_SHIFT
-    k += 1
-    ax[k].plot(t,zmag*100,color='blue',label='Zmag (EFIT)')
-    ax[k].plot(t,(zmag + z_shifts)*100,color='green',label='Zmag + z_shift')
-    ax[k].plot(t,(zmag - z_shifts)*100,color='black',label='Zmag - z_shift')
     #LEGEND
-    ax[k].legend(ncol=3,fontsize=ticksize)
+    if len(results_all)>1:
+        ax[k].legend(ncol=2,fontsize=ticksize)
+    #k INCREMENT
+    k += 1
+    
+    #LOADING ZMAG FROM EFIT
+    results = results_all[0]
+    whichRun = 'BEST' if (results['input_data']['EFIT_run']==0) else 'RUN'+str(results['input_data']['EFIT_run']).zfill(2)
+    pulseNo = results['pulseNo']
+    conn = Connection(MDSplus_IP_address)
+    conn.openTree('EFIT',pulseNo)
+    node = whichRun+'.GLOBAL:ZMAG'
+    r_zmag         = conn.get(node).data()
+    r_t_zmag       = conn.get('dim_of('+node+')').data()    
+    #SUBPLOT - OPTIMUM Z_SHIFT
+    label = 'Zmag - z_shift'
+    for iresults,sel_data in enumerate(data_zshifts.values()):
+        #LABEL
+        if len(results_all)>1:
+            label_plot = label + '('+sel_data['method']+')'
+        else:
+            label_plot = label
+        #DATA
+        t = sel_data['time']
+        data = sel_data['data']
+        col  = sel_data['color']
+        
+        #ZMAG FROM EFIT
+        zmag = interpolate.interp1d(r_t_zmag,r_zmag,bounds_error=False)(t*1.e-3)
+        #ZMAG PLOT
+        if iresults==0:
+            ax[k].plot(t,zmag*100,color='black',label='Zmag (EFIT)')
+        #ZMAG - ZSHIFT PLOT
+        ax[k].plot(t,(zmag - data)*100,color=col,label=label_plot)
+    #LEGEND
+    ax[k].legend(ncol=1,fontsize=ticksize)
     #TICK SIZE
     ax[k].tick_params(axis='both', labelsize=ticksize)
     #YLABEL
@@ -204,9 +264,10 @@ def plot_z_shifts(results,save_directory='',saveFig=True):
     ax[k].set_xlabel('Time [ms]',size=labelsize)
     #FILENAME
     fileName = str(results['pulseNo'])+'_z_shift_optimization'    
+    if len(results_all)>1:
+        fileName += '_comparison'
     #SUBPLOTS ADJUST
-    plt.subplots_adjust(top=0.9,wspace=0.05, hspace=0.1)  
-    
+    plt.subplots_adjust(top=0.9,wspace=0.05, hspace=0.1)      
     #SAVING THE PLOT
     if saveFig:
         #SAVE DIRECTORY

@@ -38,9 +38,9 @@ data_pulseTypes = dict(
 
 #SAVE DIRECTORY
 if optimized_plot:
-    save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots_optimized/plots'
+    save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots_optimized_tomo_1D/plots'
 else:
-    save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots/plots'
+    save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots_tomo_1D/plots'
 
 #FUNCTION TO GET SAVE DIRECTORY
 def get_save_directory(folder = ''):

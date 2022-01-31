@@ -25,7 +25,7 @@ import pickle
 
 #DEFAULT INPUT DATA
 input_data_default = dict(
-    d_time = 5*1.e-3,
+    d_time = 3*1.e-3,
     angle=0,
     R_shift=0,
     z_shift=0 * 1.e-2,
@@ -39,13 +39,13 @@ input_data_default = dict(
     debug=True,
     optimize_z_shift = False,
     exclude_bad_points = True,
-    EFIT_run = 0,
-    method = 'indica',
+    EFIT_run = 1,
+    method = 'tomo_1D',
     )
 
 #FUNCTION TO MAKE SXR INVERSION
 def make_SXR_inversion(pulseNo,time,input_data={}):
-          
+    
     #INPUT DATA
     for key,value in input_data_default.items():
         if key not in input_data.keys():
@@ -88,9 +88,10 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
         debug_data['steps'][step] = step_time
         print(step+'. It took '+str(step_time)+' seconds')
         st = tt.time()
-    
+
     #FUNCTION TO PERFORM SXR INVERSION WITH SWEEP OF Z_SHIFT
     def sweep_z_shift(z_shift,sxr):
+    
         #EQUILIBRIUM DATA
         st = tt.time()
         equilib_dat = reader.get("", "efit", input_data['EFIT_run'])
@@ -102,7 +103,7 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
             debug_data['steps'][step] = step_time
             print(step+'. It took '+str(step_time)+' seconds')
             st = tt.time()
-       
+           
         #REMAPPING THE SXR DATA
         flux_coords = FluxSurfaceCoordinates("poloidal")
         flux_coords.set_equilibrium(equilibrium)
@@ -128,7 +129,7 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
             debug_data['steps'][step] = step_time
             print(step+'. It took '+str(step_time)+' seconds')
             st = tt.time()
-      
+          
         #BINNING THE SXR CAMERAS
         x2 = np.linspace(0.0, 1.0, input_data['n_intervals'])
         sxr_binned = {}
@@ -146,7 +147,7 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
             debug_data['steps'][step] = step_time
             print(step+'. It took '+str(step_time)+' seconds')
             st = tt.time()
-      
+          
         #WEIGHT ESTIMATION
         rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
         rho_max = 0.0
@@ -178,7 +179,7 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
             debug_data['steps'][step] = step_time
             print(step+'. It took '+str(step_time)+' seconds')
             st = tt.time()
-      
+          
         #SXR INVERSION FROM INDICA
         if input_data['method'] == 'indica':
             #EMISSIVITY PROFILE
@@ -244,10 +245,10 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
             if 'debug_data' not in return_data.keys():
                 return_data['debug_data'] = return_data[input_data['cameras'][0]]['debug_data'].copy()
             return_data['debug_data'].update(debug_data)
-                
+            
         #RETURNING THE DATA
         return return_data
-     
+ 
     #RETURN DATA
     if input_data['optimize_z_shift']:
         #SWEEP OF Z_SHIFT
@@ -405,4 +406,4 @@ def optimize_results(dataI,z_shifts):
     #ALL RESULTS
     dataO['all_results'] = dataI
     #RETURNING THE DATA
-    return dataO  
+    return dataO

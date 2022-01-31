@@ -111,7 +111,7 @@ class SXR_tomography():
 
         #guess!! of uncertainty
         self.err = self.data*0.05+np.nanmax(self.data)*0.01  #assume 5% error
- 
+        
         self.tvec = data['t'] 
         
         self.valid = data['has_data']
@@ -305,9 +305,10 @@ class SXR_tomography():
             if not np.any(t_ind):
                 continue
             
-            # valid = np.all(np.isfinite(self.data[t_ind]),axis=0)
-            valid = self.valid
+            valid = np.all((np.isfinite(self.data[t_ind,:]))&(self.data[t_ind,:]>0),axis=0)
+            # valid = self.valid
             #weight the contribution matrix and data by the uncertainty
+            # print(it,teq,t_ind)#,(self.err[t_ind,:]/self.data[t_ind,:]).shape,valid)
             err = np.atleast_2d(self.err[t_ind,valid]).mean(0)
             T = self.dLmat[it,valid]/err[:,None]
             mean_d = np.atleast_2d(self.data[t_ind,valid]).mean(0)/err #NOTE take a ratio of means of mean of rations?

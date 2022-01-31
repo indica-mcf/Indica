@@ -33,10 +33,10 @@ version_control = True
 version = ''
 
 pulseInfo = {
-    '9408' : [15,135],
+    # '9408' : [15,135],
     # '9560' : [15,120],
     # '9229' : [15,120],
-    # '9409' : [15,150],
+    '9409' : [15,150],
     # '9411' : [15,150],
     # '9539' : [15,150],
     # '9537' : [15,150],    
@@ -60,7 +60,7 @@ def get_save_directory(folder = ''):
 
 #DEFAULT INPUT DATA
 input_data_default = dict(
-    d_time = 2*1.e-3,
+    d_time = 3*1.e-3,
     angle=0,
     R_shift=0,
     z_shift=0 * 1.e-2,

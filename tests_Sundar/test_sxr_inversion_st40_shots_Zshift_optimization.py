@@ -24,7 +24,7 @@ import pickle
 import st40_sxr_inversion as ss
 import st40_sxr_inversion_plots as ss_plot
 
-invert = False
+invert = True
 plots = True
 save_plot = True
 save_data = True
@@ -56,7 +56,7 @@ sweepInfo = {
     }
 
 #SAVE DIRECTORY
-save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots_optimized'
+save_directory_base = '/home/sundaresan.sridhar/Modules/sxr_inversion/shots_optimized_tomo_1D'
 
 #FUNCTION TO GET SAVE DIRECTORY
 def get_save_directory(folder,save_directory_base):
@@ -70,7 +70,7 @@ def get_save_directory(folder,save_directory_base):
 
 #DEFAULT INPUT DATA
 input_data_default = dict(
-    d_time = 2*1.e-3,
+    d_time = 3*1.e-3,
     angle=0,
     R_shift=0,
     z_shift=0 * 1.e-2,
@@ -83,7 +83,9 @@ input_data_default = dict(
     compute_asymmetry=False,
     debug=True,
     exclude_bad_points = True,
-    optimize_z_shift = True,
+    optimize_z_shift = True,    
+    method = 'tomo_1D',
+    EFIT_run = 1,
     )
 
 # #Z_SHIFT VALUES
