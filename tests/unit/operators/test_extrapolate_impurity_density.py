@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
 from xarray import DataArray
+from xarray import zeros_like
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
@@ -18,6 +19,7 @@ from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.centrifugal_asymmetry import ToroidalRotation
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
 from indica.readers import ADASReader
+from .KB5_Bolometry_data import example_bolometry_LoS
 from ..test_equilibrium_single import equilibrium_dat_and_te
 
 
@@ -249,7 +251,7 @@ def power_loss_setup(
 
 def input_data_setup():
     base_rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
-    base_t = np.linspace(75.0, 80.0, 5)
+    base_t = np.linspace(75.0, 80.0, 4)
 
     input_Te = np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3])
     input_Te = np.tile(input_Te, (len(base_t), 1)).T
@@ -318,10 +320,10 @@ def input_data_setup():
 
     R_lfs_values = R_derived.interp(theta=0, method="linear")
 
-    input_Te = input_Te.interp(rho=expanded_rho, method="cubic")
-    input_Ne = input_Ne.interp(rho=expanded_rho, method="cubic")
-    input_Ti = input_Ti.interp(rho=expanded_rho, method="cubic")
-    toroidal_rotations = toroidal_rotations.interp(rho=expanded_rho, method="cubic")
+    input_Te = input_Te.interp(rho=expanded_rho, method="linear")
+    input_Ne = input_Ne.interp(rho=expanded_rho, method="linear")
+    input_Ti = input_Ti.interp(rho=expanded_rho, method="linear")
+    toroidal_rotations = toroidal_rotations.interp(rho=expanded_rho, method="linear")
 
     toroidal_rotations /= R_lfs_values.data  # re-scale from velocity to frequency
 
@@ -383,15 +385,20 @@ def sxr_data_setup(input_data):
         elements,
     ) = input_data
 
-    R_arr = np.linspace(1.83, 3.9, 40)
-    z_arr = np.linspace(-1.75, 2.0, 40)
+    R_arr = np.linspace(1.83, 3.9, 100)
+    z_arr = np.linspace(-1.75, 2.0, 100)
 
     R_arr = DataArray(data=R_arr, coords={"R": R_arr}, dims=["R"])
     z_arr = DataArray(data=z_arr, coords={"z": z_arr}, dims=["z"])
 
-    additional_sig = gaussian_perturbation((rho_arr, 0.90e16, 0.075, 0.9))
+    additional_sig = zeros_like(input_Ne)
+    for it in additional_sig.coords["t"].data:
+        amp = 0.9e17 - (it / additional_sig.coords["t"].data[-1]) * 0.01e17
+        width = 0.125
+        pos = 0.9
+        additional_sig.loc[:, it] = gaussian_perturbation((rho_arr, amp, width, pos))
 
-    sxr_density_data = 25.0e15 * np.exp(-rho_arr)
+    sxr_density_data = 1e-3 * input_Ne.isel(t=0)  # 25.0e15 * np.exp(-rho_arr)
 
     sxr_density_data = np.tile(sxr_density_data, (len(base_t), len(theta_arr), 1))
 
@@ -409,23 +416,29 @@ def sxr_data_setup(input_data):
     )
     example_asymmetry = example_asymmetry.transpose("rho", "t")
 
+    # example_asymmetry.isel(t=0).plot()
+
     rho_derived, theta_derived = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
     rho_derived = abs(rho_derived)
 
     rho_derived = rho_derived.transpose("R", "z", "t")
     theta_derived = theta_derived.transpose("R", "z", "t")
 
-    input_sxr_density_lfs = input_sxr_density.sel(theta=0)
-
     asymmetry_modifier = np.exp(
         example_asymmetry * (R_derived ** 2 - R_lfs_values ** 2)
     )
     asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
 
+    # R_derived_diff = example_asymmetry * (R_derived ** 2 - R_lfs_values ** 2)
+
+    input_sxr_density_lfs = input_sxr_density.sel(theta=0) + additional_sig
+
     input_sxr_density_asym = input_sxr_density_lfs * asymmetry_modifier
     input_sxr_density_asym = input_sxr_density_asym.transpose("rho", "theta", "t")
 
-    input_sxr_density_asym = input_sxr_density_asym + additional_sig
+    input_sxr_density_lfs = input_sxr_density_asym.sel(theta=0)
+    # input_sxr_density_hfs = input_sxr_density_asym.sel(theta=np.pi)
+    # input_sxr_density_hfs.isel(t=0).plot()
 
     input_sxr_density_asym_Rz = input_sxr_density_asym.indica.interp2d(
         {"rho": rho_derived, "theta": theta_derived}, method="linear"
@@ -448,6 +461,8 @@ def fitting_data_setup(input_data):
     main_ion_power_loss = power_loss_setup(
         "h", base_t, expanded_rho, input_Te, input_Ne
     )
+
+    main_ion_power_loss = main_ion_power_loss.assign_coords(t=("t", base_t))
 
     main_ion_power_loss = main_ion_power_loss.sum(dim="ion_charges")
 
@@ -545,10 +560,12 @@ def test_extrapolate_impurity_density_call():
     input_Ne = initial_data[0]
     input_Te = initial_data[1]
     input_Ti = initial_data[2]
+    original_toroidal_rotations = initial_data[3]
     valid_truncation_threshold = initial_data[7]
     flux_surfs = initial_data[6]
     base_t = initial_data[9]
     Zeff = initial_data[8]
+    R_derived = initial_data[10]
     elements = initial_data[12]
     impurity_sxr_density_asym_Rz = sxr_data[0]
     impurity_sxr_density_asym_rho_theta = sxr_data[2]
@@ -564,6 +581,7 @@ def test_extrapolate_impurity_density_call():
             example_derived_asymmetry,
             t,
             example_result_rho_theta,
+            example_asym_modifier,
         ) = example_extrapolate_impurity_density(
             impurity_sxr_density_asym_Rz,
             input_Ne,
@@ -590,86 +608,20 @@ def test_extrapolate_impurity_density_call():
 
     assert np.all(t == base_t)
 
-    impurity_sxr_density_asym_rho_theta.interp(theta=0, method="nearest").isel(
-        t=0
-    ).plot()
+    # impurity_sxr_density_asym_rho_theta.interp(theta=0, method="nearest").isel(
+    #     t=0
+    # ).plot()
     # plt.show()
 
-    derived_toroidal_rotations = ToroidalRotation()
-    derived_toroidal_rotations = derived_toroidal_rotations(
-        example_derived_asymmetry, input_Ti, "d", "w", Zeff, input_Te
-    )
-
-    example_bolometry_LoS = [
-        [
-            np.array([3.35]),
-            np.array([2.0]),
-            np.array([0.0]),
-            np.array([3.87]),
-            np.array([-0.05]),
-            np.array([0.0]),
-            "Bolometry_0",
-        ],
-        [
-            np.array([3.27]),
-            np.array([2.0]),
-            np.array([0.0]),
-            np.array([3.44]),
-            np.array([-0.96]),
-            np.array([0.0]),
-            "Bolometry_1",
-        ],
-        [
-            np.array([3.24]),
-            np.array([2.0]),
-            np.array([0.0]),
-            np.array([3.14]),
-            np.array([-1.26]),
-            np.array([0.0]),
-            "Bolometry_2",
-        ],
-        [
-            np.array([3.04]),
-            np.array([2.0]),
-            np.array([0.0]),
-            np.array([2.04]),
-            np.array([-0.85]),
-            np.array([0.0]),
-            "Bolometry_3",
-        ],
-        [
-            np.array([3.00]),
-            np.array([2.0]),
-            np.array([0.0]),
-            np.array([1.92]),
-            np.array([-0.42]),
-            np.array([0.0]),
-            "Bolometry_4",
-        ],
-        [
-            np.array([2.96]),
-            np.array([2.0]),
-            np.array([0.0]),
-            np.array([1.85]),
-            np.array([-0.03]),
-            np.array([0.0]),
-            "Bolometry_5",
-        ],
-        [
-            np.array([2.92]),
-            np.array([2.0]),
-            np.array([0.0]),
-            np.array([1.84]),
-            np.array([0.37]),
-            np.array([0.0]),
-            "Bolometry_6",
-        ],
-    ]
+    # derived_toroidal_rotations = ToroidalRotation()
+    # derived_toroidal_rotations = derived_toroidal_rotations(
+    #     example_derived_asymmetry, input_Ti, "d", "w", Zeff, input_Te
+    # )
 
     rho_profile = example_result_rho_theta.coords["rho"].data
     theta_profile = example_result_rho_theta.coords["theta"].data
 
-    example_result_rho_theta.interp(theta=0, method="nearest").isel(t=0).plot()
+    # example_result_rho_theta.interp(theta=0, method="nearest").isel(t=0).plot()
     # plt.show()
 
     beryllium_impurity_conc = np.tile(
@@ -704,16 +656,11 @@ def test_extrapolate_impurity_density_call():
     impurity_densities.data[2] = nickel_impurity_conc
     impurity_densities.data[3] = impurity_sxr_density_asym_rho_theta
 
-    original_bolometry = example_extrapolate_impurity_density.bolometry_derivation(
-        impurity_densities,
-        example_frac_abunds,
-        elements,
-        main_ion_power_loss,
-        impurity_power_loss,
-        input_Ne,
-        example_bolometry_LoS,
-        flux_surfs,
+    LoS_coords = example_extrapolate_impurity_density.bolometry_coord_transforms(
+        example_bolometry_LoS, flux_surfs, input_Ne.coords["t"]
     )
+
+    main_ion_density = zeros_like(impurity_densities.isel(elements=0).squeeze())
 
     bolometry_args = [
         impurity_densities,
@@ -722,16 +669,97 @@ def test_extrapolate_impurity_density_call():
         main_ion_power_loss,
         impurity_power_loss,
         input_Ne,
+        main_ion_density,
         example_bolometry_LoS,
+        LoS_coords,
         flux_surfs,
     ]
 
-    _ = example_extrapolate_impurity_density.optimize_perturbation(
-        example_result_rho_theta, original_bolometry, bolometry_args, "w"
+    bolometry_args[6] = example_extrapolate_impurity_density.bolometry_setup(
+        *bolometry_args[0:6]
     )
 
-    _.interp(theta=0, method="nearest").isel(t=0).plot()
+    (
+        original_bolometry,
+        rho_samples,
+    ) = example_extrapolate_impurity_density.bolometry_derivation(*bolometry_args)
+
+    base_plot_dat = impurity_sxr_density_asym_rho_theta.sel(
+        theta=0.0 * np.pi, method="nearest"
+    )
+    base_plot_dat = base_plot_dat.isel(t=0)
+    base_plot_dat.plot()
+
+    # for ikey in rho_samples.keys():
+    #     to_plot = rho_samples[ikey].data[()]
+    #     plt.vlines(to_plot, np.min(base_plot_dat), np.max(base_plot_dat))
+
+    optimized_impurity_density = (
+        example_extrapolate_impurity_density.optimize_perturbation(
+            example_result_rho_theta,
+            original_bolometry,
+            bolometry_args,
+            "w",
+            example_asym_modifier,
+        )
+    )
+
+    # _.interp(theta=0, method="nearest").isel(t=0).plot()
     plt.show()
+
+    R_lfs = R_derived.interp(theta=0, method="linear")
+    R_hfs = R_derived.interp(theta=np.pi, method="linear")
+
+    optimized_asymmetry_parameter = optimized_impurity_density.sel(
+        theta=np.pi
+    ) / optimized_impurity_density.sel(theta=0)
+
+    optimized_asymmetry_parameter = np.log(optimized_asymmetry_parameter) / (
+        (R_hfs ** 2) - (R_lfs ** 2)
+    )
+
+    optimized_asymmetry_parameter.loc[0.0, :] = 1.0
+
+    optimized_asymmetry_parameter = DataArray(
+        data=optimized_asymmetry_parameter.data[np.newaxis, :, :],
+        coords={"elements": np.array(["w"]), **optimized_asymmetry_parameter.coords},
+        dims=["elements", *optimized_asymmetry_parameter.dims],
+    )
+
+    toroidal_rotation_check_obj = ToroidalRotation()
+
+    toroidal_rotation_check = toroidal_rotation_check_obj(
+        optimized_asymmetry_parameter, input_Ti, "d", "w", Zeff, input_Te
+    )
+
+    orig_toroidal_rotation_mean = original_toroidal_rotations.sel(elements="w").mean(
+        ["rho", "t"]
+    )
+
+    original_toroidal_rotations.sel(elements="w").isel(t=0).plot()
+
+    toroidal_rotation_check.isel(t=0).plot()
+    plt.show()
+
+    toroidal_rotation_error = (
+        original_toroidal_rotations.sel(elements="w") - toroidal_rotation_check
+    )
+    toroidal_rotation_error = toroidal_rotation_error ** 2
+    sum_of_squares_res = toroidal_rotation_error.sum(["rho", "t"])
+    sum_of_squares_tot = (
+        original_toroidal_rotations.sel(elements="w") - orig_toroidal_rotation_mean
+    ) ** 2
+    sum_of_squares_tot = sum_of_squares_tot.sum(["rho", "t"])
+
+    rSquared_val = 1.0 - sum_of_squares_res / sum_of_squares_tot
+
+    try:
+        assert rSquared_val > 0.9
+    except AssertionError:
+        raise AssertionError(
+            f"R-squared value is too low(minimum threshold is 0.9): \
+                r-squared={rSquared_val}"
+        )
 
     example_extrapolate_test_case = Exception_Impurity_Density_Test_Case(
         impurity_sxr_density_asym_Rz,
