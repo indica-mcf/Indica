@@ -1,5 +1,4 @@
 from copy import deepcopy
-import cProfile
 from typing import cast
 from typing import List
 from typing import Sequence
@@ -303,8 +302,6 @@ class ExtrapolateImpurityDensity(Operator):
                 dims=["channels", "t"],
             )
 
-        rho_vals = dict()  # type: ignore
-
         for iLoS in range(len(LoS_bolometry_data)):
             LoS_transform = LinesOfSightTransform(*LoS_bolometry_data[iLoS])
 
@@ -325,34 +322,6 @@ class ExtrapolateImpurityDensity(Operator):
             rho_arr = rho_arr.drop(x1_name).squeeze()
             theta_arr = theta_arr.drop(x1_name).squeeze()
 
-            # ntheta = 20
-
-            # if t_val is not None:
-            #     theta_vals = np.linspace(np.min(theta_arr), np.max(theta_arr), ntheta)
-
-            #     LoS_pos_theta = theta_arr.indica.invert_interp(theta_vals, x2_name)
-            # else:
-            #     theta_vals = np.linspace(
-            #         np.min(theta_arr.isel(t=0)),
-            #         np.max(theta_arr.isel(t=0)),
-            #         ntheta
-            #     )
-
-            #     LoS_pos_theta = \
-            #         theta_arr.isel(t=0).indica.invert_interp(theta_vals, x2_name)
-
-            # LoS_pos_theta = LoS_pos_theta.rename({"dim_0": "theta"})
-            # LoS_pos_theta = LoS_pos_theta.assign_coords({"theta": theta_vals})
-
-            # theta_ = 0.0
-            # if theta_ <= np.max(theta_vals) and theta_ >= np.min(theta_vals):
-            #     to_interp = LoS_pos_theta.interp(theta=theta_)
-            #     dict_key = LoS_bolometry_data[iLoS][6]
-            #     if t_val is not None:
-            #         rho_vals[dict_key] = rho_arr.interp({x2_name: to_interp})
-            #     else:
-            #        rho_vals[dict_key] = rho_arr.isel(t=0).interp({x2_name: to_interp})
-
             derived_power_loss_LoS = derived_power_loss.interp(
                 {"rho": rho_arr, "theta": theta_arr}
             )
@@ -365,7 +334,7 @@ class ExtrapolateImpurityDensity(Operator):
             derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
             derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
 
-        return derived_power_loss_LoS_tot, rho_vals
+        return derived_power_loss_LoS_tot
 
     def transform_to_rho_theta_reduced(
         self,
@@ -462,16 +431,10 @@ class ExtrapolateImpurityDensity(Operator):
             Extrapolated impurity density
         """
 
-        # rho_arr = data_rho_theta.coords["rho"]
         theta_arr = np.array([0.0, np.pi])
         theta_arr = DataArray(
             data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
         )
-        # t_arr = data_rho_theta.coords["t"]
-
-        # R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr, t_arr)
-
-        # R_lfs_midplane = R_deriv.isel(theta=0)
 
         boundary_electron_density = electron_density.sel(
             {"rho": threshold_rho}
@@ -479,7 +442,6 @@ class ExtrapolateImpurityDensity(Operator):
         boundary_data = data_rho_theta.sel({"rho": threshold_rho}).squeeze()
 
         discontinuity_scale = boundary_data / boundary_electron_density
-        # discontinuity_scale = discontinuity_scale.isel(rho=0)
 
         # Continue impurity_density_sxr following the shape of the electron density
         # profile.
@@ -760,6 +722,7 @@ class ExtrapolateImpurityDensity(Operator):
         bolometry_args: Sequence,
         impurity_element: str,
         asymmetry_modifier: DataArray,
+        R_deriv: DataArray,
     ):
         setup_args = bolometry_args[0:6]
 
@@ -772,16 +735,11 @@ class ExtrapolateImpurityDensity(Operator):
                 amplitude, standard_dev, position
             )
 
-            perturbation_signal = perturbation_signal * asymmetry_modifier.sel(
-                t=time, method="nearest"
-            )
+            perturbation_signal = perturbation_signal * asymmetry_modifier.sel(t=time)
 
             modified_density = (
-                extrapolated_smooth_data.sel(t=time, method="nearest")
-                + perturbation_signal
+                extrapolated_smooth_data.sel(t=time) + perturbation_signal
             )
-
-            # modified_density = modified_density.transpose("rho", "theta")
 
             bolometry_args[0].loc[impurity_element, :, :, time] = modified_density
 
@@ -790,33 +748,26 @@ class ExtrapolateImpurityDensity(Operator):
             )
 
             avg_error = np.abs(
-                modified_bolometry_data
-                - orig_bolometry_data.sel(t=time, method="nearest")
+                modified_bolometry_data - orig_bolometry_data.sel(t=time)
             )
 
-            # avg_error = avg_error.mean(dim="t")
-
             return avg_error
-
-        gaussian_params = np.array([])
-
-        t_value = extrapolated_smooth_data.coords["t"].isel(t=0)
-
-        pr = cProfile.Profile()
-        pr.enable()
 
         fitted_density = zeros_like(bolometry_args[5])
 
         for it in extrapolated_smooth_data.coords["t"].data:
             result = least_squares(
                 fun=objective_func,
-                x0=np.array([1.2e17, 0.2, 0.75]),
+                x0=np.array([0.5e17, 0.2, 0.8]),
                 bounds=(
                     np.array([0.1e17, 0.1, self.threshold_rho[0]]),
                     np.array([2.0e17, 0.4, 0.95]),
                 ),
-                max_nfev=6,
+                max_nfev=9,
                 args=(it,),
+                ftol=1e-15,
+                xtol=1e-60,
+                gtol=1e-60,
             )
 
             gaussian_params = result.x
@@ -829,13 +780,6 @@ class ExtrapolateImpurityDensity(Operator):
 
         fitted_density = fitted_density * asymmetry_modifier
         fitted_density = fitted_density.transpose("rho", "theta", "t")
-
-        pr.disable()
-        pr.dump_stats("./bolometry_stats.prof")
-
-        fitted_density.loc[:, :, t_value].sel(
-            theta=0.0 * np.pi, method="nearest"
-        ).plot()
 
         return fitted_density
 
@@ -989,4 +933,5 @@ class ExtrapolateImpurityDensity(Operator):
             t,
             extrapolated_smooth_density,
             asymmetry_modifier,
+            R_deriv,
         )
