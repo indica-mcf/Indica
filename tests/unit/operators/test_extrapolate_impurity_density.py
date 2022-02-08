@@ -517,7 +517,7 @@ def sxr_data_setup(input_data):
     theta_derived = theta_derived.transpose("R", "z", "t")
 
     asymmetry_modifier = np.exp(
-        example_asymmetry * (R_derived ** 2 - R_lfs_values ** 2)
+        example_asymmetry * (R_derived**2 - R_lfs_values**2)
     )
     asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
 

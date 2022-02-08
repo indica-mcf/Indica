@@ -147,7 +147,7 @@ class ToroidalRotation(Operator):
             / (impurity_mass * (ion_temperature + Zeff * electron_temp))
         )
 
-        toroidal_rotation = toroidal_rotation ** 0.5
+        toroidal_rotation = toroidal_rotation**0.5
 
         c = 3.0e8  # speed of light in vacuum
         toroidal_rotation *= c
@@ -283,7 +283,9 @@ class AsymmetryParameter(Operator):
         # mypy on the github CI suggests that * is in an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
         asymmetry_parameter = (
-            impurity_mass * (toroidal_rotations ** 2) / (2.0 * ion_temperature)  # type: ignore  # noqa: E501
+            impurity_mass
+            * (toroidal_rotations**2)  # type: ignore
+            / (2.0 * ion_temperature)  # type: ignore
         )
         asymmetry_parameter *= 1.0 - (
             mean_charge * main_ion_mass * Zeff * electron_temp  # type: ignore

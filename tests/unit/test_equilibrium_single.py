@@ -125,7 +125,7 @@ def equilibrium_dat(times=None):
     )
     result["rbnd"] = (
         result["rmag"]
-        + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
+        + a_coeff * b_coeff / np.sqrt(a_coeff**2 * np.tan(thetas) ** 2 + b_coeff**2)
     ).assign_attrs(**attrs)
     result["rbnd"].name = "rbnd"
     result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
@@ -134,7 +134,7 @@ def equilibrium_dat(times=None):
         result["zmag"]
         + a_coeff
         * b_coeff
-        / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
+        / np.sqrt(a_coeff**2 + b_coeff**2 * np.tan(thetas) ** -2)
     ).assign_attrs(**attrs)
     result["zbnd"].name = "zbnd"
     result["zbnd"].attrs["datatype"] = ("z", "separatrix")
@@ -144,8 +144,8 @@ def equilibrium_dat(times=None):
     rgrid = xr.DataArray(r, coords=[("R", r)])
     zgrid = xr.DataArray(z, coords=[("z", z)])
     psin = (
-        (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
-        + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
+        (-result["zmag"] + zgrid) ** 2 / b_coeff**2
+        + (-result["rmag"] + rgrid) ** 2 / a_coeff**2
     ) ** (0.5 / n_exp)
 
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
@@ -185,8 +185,8 @@ def equilibrium_dat(times=None):
     else:
         f_raw = np.outer(
             np.sqrt(
-                Btot_factor ** 2
-                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff ** 2
+                Btot_factor**2
+                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff**2
             ),
             np.ones_like(rho),
         )
@@ -196,13 +196,13 @@ def equilibrium_dat(times=None):
         f_raw, coords=[("t", times), ("rho_poloidal", rho)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
-    result["rmjo"] = (result["rmag"] + a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmjo"].name = "rmjo"
     result["rmjo"].attrs["datatype"] = ("major_rad", "lfs")
     result["rmjo"].coords["z"] = result["zmag"]
-    result["rmji"] = (result["rmag"] - a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmji"] = (result["rmag"] - a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmji"].name = "rmji"
@@ -211,7 +211,7 @@ def equilibrium_dat(times=None):
     result["vjac"] = (
         4
         * n_exp
-        * np.pi ** 2
+        * np.pi**2
         * result["rmag"]
         * a_coeff
         * b_coeff
@@ -459,15 +459,18 @@ def test_enclosed_volume():
         full_output=True,
     )[1]
 
-    max_minor_radius = -1 * fmin(
-        func=lambda th: -1 * equilib.minor_radius(rho, th, time)[0],
-        x0=0.5 * np.pi,
-        disp=False,
-        full_output=True,
-    )[1]
+    max_minor_radius = (
+        -1
+        * fmin(
+            func=lambda th: -1 * equilib.minor_radius(rho, th, time)[0],
+            x0=0.5 * np.pi,
+            disp=False,
+            full_output=True,
+        )[1]
+    )
 
-    lower_limit_vol = (np.pi * min_minor_radius ** 2) * (2.0 * np.pi * Rmag)
-    upper_limit_vol = (np.pi * max_minor_radius ** 2) * (2.0 * np.pi * Rmag)
+    lower_limit_vol = (np.pi * min_minor_radius**2) * (2.0 * np.pi * Rmag)
+    upper_limit_vol = (np.pi * max_minor_radius**2) * (2.0 * np.pi * Rmag)
 
     actual, area_, _ = equilib.enclosed_volume(rho, time)
 
@@ -504,12 +507,15 @@ def test_enclosed_volume():
             irho = np.array([irho])
             it = np.array([it])
 
-            max_minor_radius[i, k] = -1 * fmin(
-                func=lambda th: -1 * equilib.minor_radius(irho, th, it)[0],
-                x0=0.5 * np.pi,
-                disp=False,
-                full_output=True,
-            )[1]
+            max_minor_radius[i, k] = (
+                -1
+                * fmin(
+                    func=lambda th: -1 * equilib.minor_radius(irho, th, it)[0],
+                    x0=0.5 * np.pi,
+                    disp=False,
+                    full_output=True,
+                )[1]
+            )
 
     lower_limit_vol = np.zeros((time.data.size, rho.size))
     upper_limit_vol = np.zeros((time.data.size, rho.size))

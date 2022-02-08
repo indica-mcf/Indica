@@ -201,9 +201,15 @@ class ExtrapolateImpurityDensity(Operator):
         mean_charges = zeros_like(electron_density)
         mean_charges = mean_charges.data
         mean_charges = np.tile(mean_charges, (len(impurity_elements), 1, 1))
+        # Ignoring mypy error since mypy refuses to acknowlege electron_density.coords
+        # as a dictionary
+        mean_charges_coords = {
+            "elements": impurity_elements,  # type: ignore
+            **electron_density.coords,  # type: ignore
+        }
         mean_charges = DataArray(
             data=mean_charges,
-            coords=dict(**{"elements": impurity_elements}, **electron_density.coords),
+            coords=mean_charges_coords,  # type:ignore
             dims=["elements", *electron_density.dims],
         )
 
@@ -346,6 +352,7 @@ class ExtrapolateImpurityDensity(Operator):
             rho_arr = np.abs(rho_arr)
             rho_arr = rho_arr.assign_coords({x2_name: x2})
             rho_arr = rho_arr.drop(x1_name).squeeze()
+            rho_arr = rho_arr.fillna(2.0)
             theta_arr = theta_arr.drop(x1_name).squeeze()
 
             derived_power_loss_LoS = derived_power_loss.interp(
@@ -420,7 +427,7 @@ class ExtrapolateImpurityDensity(Operator):
         R_lfs_midplane = cast(DataArray, R_deriv).isel(theta=0)  # theta = 0.0
         R_hfs_midplane = cast(DataArray, R_deriv).isel(theta=1)  # theta = np.pi
 
-        derived_asymmetry_parameter /= R_hfs_midplane ** 2 - R_lfs_midplane ** 2
+        derived_asymmetry_parameter /= R_hfs_midplane**2 - R_lfs_midplane**2
 
         derived_asymmetry_parameter.loc[0, :] = 1.0
         derived_asymmetry_parameter.loc[1.0, :] = 0.0
@@ -476,13 +483,13 @@ class ExtrapolateImpurityDensity(Operator):
             electron_density.rho >= threshold_rho, drop=True
         )
 
-        index_to_drop = np.where(bounded_data.coords["rho"].data == threshold_rho)[0][0]
+        bounded_data_trim = bounded_data[:-1]
 
-        bounded_data = bounded_data.drop_isel(rho=index_to_drop)
+        # bounded_data = bounded_data.drop_isel(rho=index_to_drop)
 
         extrapolated_impurity_density = concat(
             (
-                bounded_data,
+                bounded_data_trim,
                 bounded_electron_density * discontinuity_scale,
             ),
             dim="rho",
@@ -509,9 +516,9 @@ class ExtrapolateImpurityDensity(Operator):
 
         Returns
         -------
-        extrapolated_smooth_lfs
+        extrapolated_smooth_lfs_arr
             Extrapolated smoothed data on low-field side (fixed theta = 0)
-        extrapolated_smooth_hfs
+        extrapolated_smooth_hfs_arr
             Extrapolated smoothed data on high-field side (fixed theta = pi)
         """
         t = extrapolated_data.coords["t"]
@@ -545,26 +552,22 @@ class ExtrapolateImpurityDensity(Operator):
             extrapolated_smooth_lfs.append(extrapolated_spline_lfs(rho_arr, 0))
             extrapolated_smooth_hfs.append(extrapolated_spline_hfs(rho_arr, 0))
 
-        extrapolated_smooth_lfs = DataArray(
+        extrapolated_smooth_lfs_arr = DataArray(
             data=extrapolated_smooth_lfs,
             coords={"t": t, "rho": rho_arr},
             dims=["t", "rho"],
         )
 
-        extrapolated_smooth_hfs = DataArray(
+        extrapolated_smooth_hfs_arr = DataArray(
             data=extrapolated_smooth_hfs,
             coords={"t": t, "rho": rho_arr},
             dims=["t", "rho"],
         )
 
-        extrapolated_smooth_lfs = cast(DataArray, extrapolated_smooth_lfs).transpose(
-            "rho", "t"
-        )
-        extrapolated_smooth_hfs = cast(DataArray, extrapolated_smooth_hfs).transpose(
-            "rho", "t"
-        )
+        extrapolated_smooth_lfs_arr = extrapolated_smooth_lfs_arr.transpose("rho", "t")
+        extrapolated_smooth_hfs_arr = extrapolated_smooth_hfs_arr.transpose("rho", "t")
 
-        return extrapolated_smooth_lfs, extrapolated_smooth_hfs
+        return extrapolated_smooth_lfs_arr, extrapolated_smooth_hfs_arr
 
     def derive_and_apply_asymmetry(
         self,
@@ -616,7 +619,7 @@ class ExtrapolateImpurityDensity(Operator):
             / cast(DataArray, extrapolated_smooth_lfs)
         )
 
-        asym_denominator = R_hfs_midplane ** 2 - R_lfs_midplane ** 2
+        asym_denominator = R_hfs_midplane**2 - R_lfs_midplane**2
 
         derived_asymmetry_parameter /= asym_denominator
 
@@ -627,14 +630,14 @@ class ExtrapolateImpurityDensity(Operator):
 
         theta_arr = np.linspace(-np.pi, np.pi, 21)
         theta_arr = DataArray(theta_arr, {"theta": theta_arr}, ["theta"])
-        R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
-        R_deriv = cast(DataArray, R_deriv).interp(t=t_arr, method="linear")
-        z_deriv = cast(DataArray, z_deriv).interp(t=t_arr, method="linear")
+        R_deriv_, z_deriv_ = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
+        R_deriv = cast(DataArray, R_deriv_).interp(t=t_arr, method="linear")
+        z_deriv = cast(DataArray, z_deriv_).interp(t=t_arr, method="linear")
         R_deriv = cast(DataArray, R_deriv).transpose("rho", "theta", "t")
         z_deriv = cast(DataArray, z_deriv).transpose("rho", "theta", "t")
 
         asymmetry_modifier = np.exp(
-            derived_asymmetry_parameter * (R_deriv ** 2 - R_lfs_midplane ** 2)
+            derived_asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
         )
 
         asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
@@ -1018,7 +1021,7 @@ class ExtrapolateImpurityDensity(Operator):
         else:
             asym_par = derived_asymmetry_parameter_full
 
-        asymmetry_modifier = np.exp(asym_par * (R_deriv ** 2 - R_lfs ** 2))
+        asymmetry_modifier = np.exp(asym_par * (R_deriv**2 - R_lfs**2))
         asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
 
         return (
