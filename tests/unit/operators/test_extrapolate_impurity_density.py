@@ -22,6 +22,10 @@ from ..test_equilibrium_single import equilibrium_dat_and_te
 
 
 class Exception_Impurity_Density_Test_Case(TestCase):
+    """Test case for testing type and value errors in ExtrapolateImpurityDensity
+    call.
+    """
+
     def __init__(
         self,
         impurity_density_sxr,
@@ -29,21 +33,14 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         electron_temperature,
         truncation_threshold,
         flux_surfaces,
-        frac_abund,
-        impurity_elements,
-        main_ion_power_loss,
-        impurities_power_loss,
         t,
     ):
+        """ "Initialise the test case with a set of nominal inputs."""
         self.impurity_density_sxr = impurity_density_sxr
         self.electron_density = electron_density
         self.electron_temperature = electron_temperature
         self.truncation_threshold = truncation_threshold
         self.flux_surfaces = flux_surfaces
-        self.frac_abund = frac_abund
-        self.impurity_elements = impurity_elements
-        self.main_ion_power_loss = main_ion_power_loss
-        self.impurities_power_loss = impurities_power_loss
         self.t = t
 
         self.nominal_inputs = [
@@ -52,10 +49,6 @@ class Exception_Impurity_Density_Test_Case(TestCase):
             self.electron_temperature,
             self.truncation_threshold,
             self.flux_surfaces,
-            self.frac_abund,
-            self.impurity_elements,
-            self.main_ion_power_loss,
-            self.impurities_power_loss,
             self.t,
         ]
 
@@ -66,22 +59,15 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         electron_temperature=None,
         truncation_threshold=None,
         flux_surfaces=None,
-        frac_abund=None,
-        impurity_elements=None,
-        main_ion_power_loss=None,
-        impurities_power_loss=None,
         t=None,
     ):
+        """Test TypeError for ExtrapolateImpurityDensity call."""
         inputs = [
             impurity_density_sxr,
             electron_density,
             electron_temperature,
             truncation_threshold,
             flux_surfaces,
-            frac_abund,
-            impurity_elements,
-            main_ion_power_loss,
-            impurities_power_loss,
             t,
         ]
 
@@ -95,10 +81,6 @@ class Exception_Impurity_Density_Test_Case(TestCase):
             electron_temperature,
             truncation_threshold,
             flux_surfaces,
-            frac_abund,
-            impurity_elements,
-            main_ion_power_loss,
-            impurities_power_loss,
             t,
         ) = inputs
 
@@ -113,22 +95,15 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         electron_temperature=None,
         truncation_threshold=None,
         flux_surfaces=None,
-        frac_abund=None,
-        impurity_elements=None,
-        main_ion_power_loss=None,
-        impurities_power_loss=None,
         t=None,
     ):
+        """ "Test ValueError for ExtrapolateImpurityDensity call."""
         inputs = [
             impurity_density_sxr,
             electron_density,
             electron_temperature,
             truncation_threshold,
             flux_surfaces,
-            frac_abund,
-            impurity_elements,
-            main_ion_power_loss,
-            impurities_power_loss,
             t,
         ]
 
@@ -142,16 +117,68 @@ class Exception_Impurity_Density_Test_Case(TestCase):
             electron_temperature,
             truncation_threshold,
             flux_surfaces,
-            frac_abund,
-            impurity_elements,
-            main_ion_power_loss,
-            impurities_power_loss,
             t,
         ) = inputs
 
         with self.assertRaises(ValueError):
             example_ = ExtrapolateImpurityDensity()
             example_(*inputs)
+
+
+def invalid_input_checks(
+    test_case: TestCase,
+    nominal_input_name: str,
+    nominal_input,
+    zero_check: bool = False,
+):
+    """Tests that the test_case correctly identifies invalid inputs.
+
+    Parameters
+    ----------
+    test_case
+        Object of type TestCase that should contain the relevant check functions.
+    nominal_input_name
+        String signifying the internal name of the input variable
+        (needed for error messages in case the check functions fail.)
+    nominal_input
+        Nominal value of the input variable.
+    zero_check
+        Optional boolean signifying whether or not to perform a check where a
+        zero value for the input variable is checked.
+    """
+    if isinstance(test_case, Exception_Impurity_Density_Test_Case):
+        if not isinstance(nominal_input, Hashable):
+            invalid_input = 1.0
+            test_case.call_type_check(**{nominal_input_name: invalid_input})
+        elif isinstance(nominal_input, get_args(LabeledArray)):
+            # Type ignore due to mypy complaining about redefinition of invalid_input
+
+            invalid_input = "test"  # type:ignore
+            test_case.call_type_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -1
+            test_case.call_value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.inf
+            test_case.call_value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -np.inf
+            test_case.call_value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.nan
+            test_case.call_value_check(**{nominal_input_name: invalid_input})
+
+            if zero_check:
+                invalid_input = deepcopy(nominal_input)  # type:ignore
+                invalid_input *= 0
+                test_case.call_value_check(**{nominal_input_name: invalid_input})
+        elif isinstance(nominal_input, (np.ndarray, DataArray)):
+            invalid_input = deepcopy(nominal_input[0])  # type:ignore
+            test_case.call_value_check(**{nominal_input_name: invalid_input})
 
 
 def fractional_abundance_setup(
@@ -168,6 +195,13 @@ def fractional_abundance_setup(
     element
         String of the symbol of the element per ADAS notation
         e.g be for Beryllium
+    t
+        Time array (used for expanding the dimensions of the output of
+        the function to ensure that time is a dimension of the output.)
+    input_Te
+        xarray.DataArray of electron temperature
+    input_Ne
+        xarray.DataArray of electron density
 
     Returns
     -------
@@ -198,7 +232,6 @@ def fractional_abundance_setup(
 def power_loss_setup(
     element: str,
     t: np.ndarray,
-    rho_profile: np.ndarray,
     input_Te: DataArray,
     input_Ne: DataArray,
 ) -> DataArray:
@@ -210,6 +243,13 @@ def power_loss_setup(
     element
         String of the symbol of the element per ADAS notation
         e.g be for Beryllium
+    t
+        Time array (used for expanding the dimensions of the output of
+        the function to ensure that time is a dimension of the output.)
+    input_Te
+        xarray.DataArray of electron temperature
+    input_Ne
+        xarray.DataArray of electron density
 
     Returns
     -------
@@ -233,6 +273,40 @@ def power_loss_setup(
 
 
 def input_data_setup():
+    """Initial set-up for the majority of the data needed for ExtrapolateImpurityDensity.
+
+    Returns
+    -------
+    input_Ne
+        xarray.DataArray of electron density
+    input_Te
+        xarray.DataArray of electron temperature
+    input_Ti
+        xarray.DataArray of ion temperature
+    toroidal_rotations
+        xarray.DataArray of toroidal rotations (needed for calculating the centrifugal
+        asymmetry parameter)
+    rho_arr
+        xarray.DataArray of rho values, np.linspace(0, 1, 41)
+    theta_arr
+        xarray.DataArray of theta values, np.linspace(-np.pi, np.pi, 21)
+    flux_surfs
+        FluxSurfaceCoordinates object representing polar coordinate systems
+        using flux surfaces for the radial coordinate.
+    valid_truncation_threshold
+        Truncation threshold for the electron temperature (below this value soft-xray
+        measurements are not valid)
+    Zeff
+        xarray.DataArray of the effective z(atomic number)-value for the plasma.
+    base_t
+        xarray.DataArray of time values.
+    R_derived
+        Variable describing value of R in every coordinate on a (rho, theta) grid.
+    R_lfs_values
+        R_derived values at theta = 0 (ie low-field-side of the tokamak).
+    elements
+        List of element symbols for all impurities.
+    """
     base_rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
     base_t = np.linspace(75.0, 80.0, 5)
 
@@ -336,6 +410,27 @@ def input_data_setup():
 
 
 def gaussian_perturbation(gaussian_params):
+    """Function to construct a signal that follows a Gaussian profile with
+    three free parameters.
+
+    Parameters
+    ----------
+    gaussian_params
+        A list containing:
+            amplitude
+                Amplitude of the additional signal (Gaussian amplitude)
+            standard_dev
+                Standard deviation associated with the Gaussian construction
+                (can be defined as FWHM/2.355 where FWHM is full-width at half maximum)
+            position
+                Position of the Gaussian. During optimization this is constrained to
+                the extrapolated region of rho (ie. outside the SXR validity region).
+
+    Returns
+    -------
+    sig
+        DataArray containing the Gaussian signal with dimensions (rho,)
+    """
     rho_arr, amplitude, standard_dev, position = gaussian_params
 
     gaussian_signal = norm(loc=position, scale=standard_dev)
@@ -352,6 +447,22 @@ def gaussian_perturbation(gaussian_params):
 
 
 def sxr_data_setup(input_data):
+    """Set-up for soft-x-ray derived data.
+
+    Parameters
+    ----------
+    input_data
+        Output of input_data_setup().
+
+    Returns
+    -------
+    input_sxr_density_asym_Rz
+        Ground truth asymmetric impurity density on a (R, z) grid.
+    R_arr
+        xarray.DataArray of major radius values, np.linspace(1.83, 3.9, 100)
+    input_sxr_density_asym
+        Ground truth asymmetric impurity density on a (rho, theta) grid.
+    """
     (
         input_Ne,
         input_Te,
@@ -426,18 +537,34 @@ def sxr_data_setup(input_data):
     return (input_sxr_density_asym_Rz, R_arr, input_sxr_density_asym)
 
 
-def fitting_data_setup(input_data):
+def bolometry_input_data_setup(input_data):
+    """Set-up for input data used for calculating bolometry data.
+
+    Parameters
+    ----------
+    input_data
+        Output of input_data_setup().
+
+    Returns
+    -------
+    example_frac_abunds
+        Fractional abundances list of fractional abundances (one for each impurity)
+        dimensions of each element in list are (ion_charges, rho, t).
+    main_ion_power_loss
+        Power loss associated with the main ion (eg. deuterium),
+        dimensions are (rho, t)
+    impurity_power_losses
+        Power loss associated with all of the impurity elements,
+        dimensions are (elements, rho, t)
+    """
     initial_data = input_data
 
     base_t = initial_data[9]
     input_Te = initial_data[1]
     input_Ne = initial_data[0]
-    expanded_rho = initial_data[4].data
     elements = initial_data[12]
 
-    main_ion_power_loss = power_loss_setup(
-        "h", base_t, expanded_rho, input_Te, input_Ne
-    )
+    main_ion_power_loss = power_loss_setup("h", base_t, input_Te, input_Ne)
 
     main_ion_power_loss = main_ion_power_loss.assign_coords(t=("t", base_t))
 
@@ -452,9 +579,7 @@ def fitting_data_setup(input_data):
         )
         example_frac_abunds.append(example_frac_abund)
 
-        impurity_power_loss = power_loss_setup(
-            ielement, base_t, expanded_rho, input_Te, input_Ne
-        )
+        impurity_power_loss = power_loss_setup(ielement, base_t, input_Te, input_Ne)
         impurity_power_loss = impurity_power_loss.assign_coords(t=("t", base_t))
         impurity_power_loss = impurity_power_loss.sum(dim="ion_charges")
         impurity_power_losses.append(impurity_power_loss.data)
@@ -470,50 +595,13 @@ def fitting_data_setup(input_data):
     return (example_frac_abunds, main_ion_power_loss, impurity_power_losses)
 
 
-def invalid_input_checks(
-    test_case: Exception_Impurity_Density_Test_Case,
-    nominal_input_name: str,
-    nominal_input,
-    zero_check: bool = False,
-):
-    if not isinstance(nominal_input, Hashable):
-        invalid_input = 1.0
-        test_case.call_type_check(**{nominal_input_name: invalid_input})
-    elif isinstance(nominal_input, get_args(LabeledArray)):
-        # Type ignore due to mypy complaining about redefinition of invalid_input
-
-        invalid_input = "test"  # type:ignore
-        test_case.call_type_check(**{nominal_input_name: invalid_input})
-
-        invalid_input = deepcopy(nominal_input)  # type:ignore
-        invalid_input *= -1
-        test_case.call_value_check(**{nominal_input_name: invalid_input})
-
-        invalid_input = deepcopy(nominal_input)  # type:ignore
-        invalid_input *= np.inf
-        test_case.call_value_check(**{nominal_input_name: invalid_input})
-
-        invalid_input = deepcopy(nominal_input)  # type:ignore
-        invalid_input *= -np.inf
-        test_case.call_value_check(**{nominal_input_name: invalid_input})
-
-        invalid_input = deepcopy(nominal_input)  # type:ignore
-        invalid_input *= np.nan
-        test_case.call_value_check(**{nominal_input_name: invalid_input})
-
-        if zero_check:
-            invalid_input = deepcopy(nominal_input)  # type:ignore
-            invalid_input *= 0
-            test_case.call_value_check(**{nominal_input_name: invalid_input})
-    elif isinstance(nominal_input, (np.ndarray, DataArray)):
-        invalid_input = deepcopy(nominal_input[0])  # type:ignore
-        test_case.call_value_check(**{nominal_input_name: invalid_input})
-
-
 def test_extrapolate_impurity_density_call():
+    """Test ExtrapolateImpurityDensity.__call__ and
+    ExtrapolateImpurityDensity.optimize_perturbation
+    """
     initial_data = input_data_setup()
     sxr_data = sxr_data_setup(initial_data)
-    fitting_data = fitting_data_setup(initial_data)
+    bolometry_input_data = bolometry_input_data_setup(initial_data)
 
     input_Ne = initial_data[0]
     input_Te = initial_data[1]
@@ -523,9 +611,9 @@ def test_extrapolate_impurity_density_call():
     elements = initial_data[12]
     impurity_sxr_density_asym_Rz = sxr_data[0]
     impurity_sxr_density_asym_rho_theta = sxr_data[2]
-    example_frac_abunds = fitting_data[0]
-    main_ion_power_loss = fitting_data[1]
-    impurity_power_loss = fitting_data[2]
+    example_frac_abunds = bolometry_input_data[0]
+    main_ion_power_loss = bolometry_input_data[1]
+    impurity_power_loss = bolometry_input_data[2]
 
     example_extrapolate_impurity_density = ExtrapolateImpurityDensity()
 
@@ -543,10 +631,6 @@ def test_extrapolate_impurity_density_call():
             input_Te,
             valid_truncation_threshold,
             flux_surfs,
-            example_frac_abunds,
-            ["w"],
-            main_ion_power_loss,
-            impurity_power_loss,
         )
     except Exception as e:
         raise e
@@ -606,34 +690,32 @@ def test_extrapolate_impurity_density_call():
 
     bolometry_args = [
         impurity_densities,
-        example_frac_abunds,
-        elements,
         main_ion_power_loss,
         impurity_power_loss,
         input_Ne,
         main_ion_density,
         example_bolometry_LoS,
         LoS_coords,
-        flux_surfs,
     ]
 
-    bolometry_args[6] = example_extrapolate_impurity_density.bolometry_setup(
-        *bolometry_args[0:6]
+    bolometry_setup_args = [impurity_densities, example_frac_abunds, elements, input_Ne]
+
+    bolometry_args[4] = example_extrapolate_impurity_density.bolometry_setup(
+        *bolometry_setup_args
     )
 
-    (
-        original_bolometry,
-        rho_samples,
-    ) = example_extrapolate_impurity_density.bolometry_derivation(*bolometry_args)
+    original_bolometry = example_extrapolate_impurity_density.bolometry_derivation(
+        *bolometry_args
+    )
 
     optimized_impurity_density = (
         example_extrapolate_impurity_density.optimize_perturbation(
             example_result_rho_theta,
             original_bolometry,
+            bolometry_setup_args,
             bolometry_args,
             "w",
             example_asym_modifier,
-            example_R_deriv,
         )
     )
 
@@ -646,16 +728,14 @@ def test_extrapolate_impurity_density_call():
     sum_of_original = sum_of_original.sum(["rho"])
     sum_of_original = np.nan_to_num(sum_of_original)
 
-    Relative_fit_error = sum_of_residuals / sum_of_original
-
-    print(Relative_fit_error.data)
+    relative_fit_error = sum_of_residuals / sum_of_original
 
     try:
-        assert np.max(Relative_fit_error) < 0.1
+        assert np.max(relative_fit_error) < 0.1
     except AssertionError:
         raise AssertionError(
             f"Relative error is too high(maximum allowed is 0.1): \
-                relative error = {Relative_fit_error}"
+                relative error = {relative_fit_error}"
         )
 
     example_extrapolate_test_case = Exception_Impurity_Density_Test_Case(
@@ -664,10 +744,6 @@ def test_extrapolate_impurity_density_call():
         input_Te,
         valid_truncation_threshold,
         flux_surfs,
-        example_frac_abunds,
-        elements,
-        main_ion_power_loss,
-        impurity_power_loss,
         t,
     )
 
@@ -697,3 +773,5 @@ def test_extrapolate_impurity_density_call():
         valid_truncation_threshold,
         zero_check=True,
     )
+
+    invalid_input_checks(example_extrapolate_test_case, "flux_surfaces", flux_surfs)
