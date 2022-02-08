@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import MagicMock
 
 import numpy as np
-from tests.unit.test_equilibrium_single import equilibrium_dat_and_te
 from xarray.core.common import zeros_like
 from xarray.core.dataarray import DataArray
 
@@ -14,6 +13,7 @@ from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.centrifugal_asymmetry import ToroidalRotation
 from indica.readers.adas import ADASReader
+from ..test_equilibrium_single import equilibrium_dat_and_te
 
 
 class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
