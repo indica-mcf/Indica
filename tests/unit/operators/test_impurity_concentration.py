@@ -266,12 +266,12 @@ def test_impurity_concentration():
         dims=["t"],
         attrs={
             "transform": LinesOfSightTransform(
-                R_start=np.array([1.9]),
+                x_start=np.array([1.9]),
                 z_start=np.array([0.2]),
-                T_start=np.array([0.0]),
-                R_end=np.array([3.8]),
+                y_start=np.array([0.0]),
+                x_end=np.array([3.8]),
                 z_end=np.array([0.3]),
-                T_end=np.array([0.0]),
+                y_end=np.array([0.0]),
                 name="Zeff_LoS",
             ),
             "Zeff_LoS_coords": DataArray(data=np.array([0]), dims=["Zeff_LoS_coords"]),
