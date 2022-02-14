@@ -17,7 +17,8 @@ from indica.converters import FluxSurfaceCoordinates
 from indica.converters import FluxMajorRadCoordinates
 from indica.converters import ImpactParameterCoordinates
 
-import tomo_1D
+
+import ST40_SXR_Inversion.tomo_1D as tomo_1D
 
 from xarray import Dataset
 import time as tt
@@ -25,7 +26,7 @@ import pickle
 
 #DEFAULT INPUT DATA
 input_data_default = dict(
-    d_time = 3*1.e-3,
+    d_time = 2*1.e-3,
     angle=0,
     R_shift=0,
     z_shift=0 * 1.e-2,
@@ -39,7 +40,8 @@ input_data_default = dict(
     debug=True,
     optimize_z_shift = False,
     exclude_bad_points = True,
-    EFIT_run = 1,
+    EFIT_run = 0,
+    SXR_run = 0,
     method = 'tomo_1D',
     )
 
@@ -79,7 +81,7 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
        
     #READING SXR DATA
     reader.angle = input_data['angle']
-    sxr = reader.get("sxr", "diode_arrays", 1, input_data['cameras'])
+    sxr = reader.get("sxr", "diode_arrays", input_data['SXR_run'], input_data['cameras'])
     plt.close('all')
     #DEBUG TIME
     if input_data['debug']:
@@ -147,7 +149,7 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
             debug_data['steps'][step] = step_time
             print(step+'. It took '+str(step_time)+' seconds')
             st = tt.time()
-          
+         
         #WEIGHT ESTIMATION
         rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
         rho_max = 0.0
@@ -198,6 +200,7 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
                 sel_sxr = sxr[camera]
                 sel_bin = sxr_binned[camera]
                 #INPUT DATA
+                eq_data = equilibrium.rho.interp(t=sel_bin.t.data,method='nearest')
                 inp_data = dict(
                     brightness = sel_bin['camera'].data,
                     dl = sel_bin.dl.data,
@@ -205,10 +208,10 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
                     R = sel_bin.R.data,
                     z = sel_bin.z.data,
                     rho_equil = dict(
-                        R = equilibrium.rho.R.data,
-                        z = equilibrium.rho.z.data,
-                        t = equilibrium.rho.t.data,
-                        rho = equilibrium.rho.data,
+                        R = eq_data.R.data,
+                        z = eq_data.z.data,
+                        t = eq_data.t.data,
+                        rho = eq_data.data,
                         ),
                     impact_parameters = sel_bin.attrs['impact_parameters'].rho_min.data.T,
                     debug = input_data['debug'],
@@ -407,3 +410,16 @@ def optimize_results(dataI,z_shifts):
     dataO['all_results'] = dataI
     #RETURNING THE DATA
     return dataO
+
+#FUNCTION TO MAKE DIRECTORY
+def make_directory(directory):
+    #LIST OF FOLDERS
+    all_folders = directory.split('/')
+    for i,folder in enumerate(all_folders):
+        if i>1:
+            base_directory = '/'.join(all_folders[0:i])
+            try:
+                os.chdir(base_directory)
+                os.mkdir(folder)
+            except:
+                pass

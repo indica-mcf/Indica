@@ -8,21 +8,25 @@ Created on Tue Dec  7 18:31:42 2021
 #MODULE TO PLOT
 import matplotlib.pyplot as plt
 import numpy as np
+import ST40_SXR_Inversion.st40_sxr_inversion as ss
 from MDSplus import *
-MDSplus_IP_address = '192.168.1.7:8000'
 from scipy import interpolate
+
+#MDSPLUS IP ADDRESS
+MDSplus_IP_address = '192.168.1.7:8000'
 
 #CLOSING ALL THE PLOTS
 plt.close('all') 
 
+#PLOT ATTRIBUTES
+ticksize    =   15
+labelsize   =   20
+
 save_directory = ''
 saveFig = True
 
-ticksize = 15
-labelsize = 20
-
 #FUNCTION TO PLOT SXR INVERSION
-def make_SXR_inversion_plots(return_data,saveFig=False,save_directory='',optimize_plot=False):
+def make_SXR_inversion_plots(return_data,saveFig=False,save_directory=''):
     #RETURN FIGURE DATA
     return_Fig_data = {}
     #SWEEP OF CAMERAS
@@ -46,10 +50,7 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory='',optimiz
             #SHIFTS
             shifts = ['R_shift','z_shift']
             for shift in shifts:
-                if (shift=='R_shift') | (not optimize_plot):
-                    baseTitle += shift + ' = ' + str(int(return_data['input_data'][shift]*1.e+2))+' cm, '
-                else:
-                    baseTitle += shift + ' = ' + str(int(return_data['filter_4'][shift][i]*1.e+2))+' cm, '
+                baseTitle += shift + ' = ' + str(int(return_data['input_data'][shift]*1.e+2))+' cm, '
             #CHI2
             baseTitle += 'chi2 = '+str(np.round(data_camera['back_integral']['chi2'][i],2))
             
@@ -59,7 +60,6 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory='',optimiz
             #SUBPLOT 1 - EMISSIVITY PROFILE
             axx = ax[0,0]
             zdata = data_camera['emissivity_2D']['data'][:,:,i]/1.e+3
-            zdata[zdata<0] = 0
             z_min = np.nanmin(zdata)
             z_max = np.nanmax(zdata)
             heatmap = axx.pcolormesh(data_camera['emissivity_2D']['R'], data_camera['emissivity_2D']['z'], zdata, cmap='RdBu', vmin=z_min, vmax=z_max)
@@ -85,7 +85,6 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory='',optimiz
             axx = ax[1,0]
             x_data  = return_data[camera]['profile']['rho_poloidal'][i,:]
             pro_sym = return_data[camera]['profile']['sym_emissivity'][i,:]
-            par_asy = return_data[camera]['profile']['asym_parameter'][i,:]
             axx.plot(x_data,pro_sym/1.e+3)        
             axx.set_xlabel('rho poloidal')
             axx.set_ylabel('symmetric emissivity [kW/m3]')        
@@ -134,8 +133,7 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory='',optimiz
             #SAVING THE PLOT
             if saveFig:
                 #SAVE DIRECTORY
-                if save_directory=='':
-                    save_directory = os.getcwd()
+                ss.make_directory(save_directory)
                 fileName = save_directory + '/' + fileName + '.png'
                 #SAVING THE PLOT
                 plt.savefig(fileName)
@@ -245,8 +243,7 @@ def plot_z_shifts(results,save_directory='',saveFig=True,results2={},methods=[])
         #DATA
         t = sel_data['time']
         data = sel_data['data']
-        col  = sel_data['color']
-        
+        col  = sel_data['color']        
         #ZMAG FROM EFIT
         zmag = interpolate.interp1d(r_t_zmag,r_zmag,bounds_error=False)(t*1.e-3)
         #ZMAG PLOT
@@ -271,8 +268,60 @@ def plot_z_shifts(results,save_directory='',saveFig=True,results2={},methods=[])
     #SAVING THE PLOT
     if saveFig:
         #SAVE DIRECTORY
-        if save_directory=='':
-            save_directory = os.getcwd()
+        ss.make_directory(save_directory)
+        fileName = save_directory + '/' + fileName + '.png'
+        #SAVING THE PLOT
+        plt.savefig(fileName)
+        print(fileName+' is saved')
+        plt.close()
+    #RETURNING THE FIGURE DATA
+    return fig
+
+#FUNCTION TO PLOT CHI2 EVOLUTION
+def plot_chi2(results,save_directory='',saveFig=True):
+    #SUBPLOT DECLARATION
+    plt.close('all')    
+    #CHI2 DATA
+    t_chi2      =   results['filter_4']['t'] * 1.e+3
+    chi2        =   results['filter_4']['back_integral']['chi2']
+    #EFIT DATA
+    whichRun = 'BEST' if (results['input_data']['EFIT_run']==0) else 'RUN'+str(results['input_data']['EFIT_run']).zfill(2)
+    pulseNo = results['pulseNo']
+    conn = Connection(MDSplus_IP_address)
+    conn.openTree('EFIT',pulseNo)
+    node = whichRun+'.GLOBAL:ZMAG'
+    zmag         = conn.get(node).data()
+    t_zmag       = conn.get('dim_of('+node+')').data()*1.e+3
+    sel_map      = (t_zmag>=np.nanmin(t_chi2))&(t_zmag<=np.nanmax(t_chi2))
+    t_zmag       = t_zmag[sel_map]
+    zmag         = zmag[sel_map]
+    
+    #SUBPLOT DECLARATION
+    fig,ax = plt.subplots(nrows=2,ncols=1,squeeze=True,figsize=(16,10),sharex=True)            
+    #SUBPLOT 1 - CHI2 DATA
+    ax[0].plot(t_chi2,chi2,color='blue')
+    ax[0].set_ylabel('chi2',size=labelsize)
+    #SUBPLOT 2 - ZMAG DATA
+    ax[1].plot(t_zmag,zmag*1.e+2,color='red',label='Zmag from EFIT#'+whichRun)
+    ax[1].set_ylabel('Zmag [cm]',size=labelsize)
+    #SWEEP OF SUBPLOTS
+    for k in range(0,2):
+        #TICK SIZE
+        ax[k].tick_params(axis='both', labelsize=ticksize)
+        #LEGEND
+        ax[k].legend(ncol=1,fontsize=ticksize)
+        #XLABEL
+        ax[k].set_xlabel('Time [ms]',size=labelsize)    
+    #TITLE
+    fig.suptitle('#'+str(results['pulseNo'])+' - chi2 evolution',fontsize=labelsize*1.5)
+    #SUBPLOTS ADJUST
+    plt.subplots_adjust(top=0.9,wspace=0.05, hspace=0.1)      
+    #SAVING THE PLOT
+    if saveFig:
+        #SAVE DIRECTORY
+        ss.make_directory(save_directory)
+        #FILENAME
+        fileName = str(results['pulseNo'])+'_chi2_evolution.png'
         fileName = save_directory + '/' + fileName + '.png'
         #SAVING THE PLOT
         plt.savefig(fileName)
