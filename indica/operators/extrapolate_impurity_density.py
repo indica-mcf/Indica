@@ -567,6 +567,51 @@ class ExtrapolateImpurityDensity(Operator):
         extrapolated_smooth_lfs_arr = extrapolated_smooth_lfs_arr.transpose("rho", "t")
         extrapolated_smooth_hfs_arr = extrapolated_smooth_hfs_arr.transpose("rho", "t")
 
+        inv_extrapolated_smooth_hfs = DataArray(
+            data=np.flip(extrapolated_smooth_hfs_arr.data, axis=0),
+            coords={
+                "rho": -1 * np.flip(extrapolated_smooth_hfs_arr.coords["rho"].data),
+                "t": extrapolated_smooth_hfs_arr.coords["t"].data,
+            },
+            dims=["rho", "t"],
+        )
+
+        inv_rho_arr = inv_extrapolated_smooth_hfs.coords["rho"].data
+        inv_del_val = inv_rho_arr[-1]
+
+        inv_extrapolated_smooth_hfs = inv_extrapolated_smooth_hfs.drop_sel(
+            rho=inv_del_val
+        )
+
+        extrapolated_smooth_mid_plane_arr = concat(
+            (inv_extrapolated_smooth_hfs, extrapolated_smooth_lfs_arr), "rho"
+        )
+
+        drho = np.mean(np.diff(extrapolated_smooth_mid_plane_arr.coords["rho"].data))
+        smooth_central_region = extrapolated_smooth_mid_plane_arr.loc[
+            -2 * drho : 2 * drho
+        ]
+
+        smooth_central_region.loc[:, :] = smooth_central_region.max(dim="rho")
+
+        extrapolated_smooth_mid_plane_arr.loc[
+            -2 * drho : 2 * drho
+        ] = smooth_central_region
+
+        inv_extrapolated_smooth_hfs = extrapolated_smooth_mid_plane_arr.loc[:drho]
+
+        extrapolated_smooth_hfs_arr = DataArray(
+            data=np.flip(inv_extrapolated_smooth_hfs.data, axis=0),
+            coords=extrapolated_smooth_hfs_arr.coords,
+            dims=extrapolated_smooth_hfs_arr.dims,
+        )
+
+        # Ignoring mypy warning since it seems to be unaware that the xarray .loc
+        # method uses label-based indexing and slicing instead of integer-based.
+        extrapolated_smooth_lfs_arr = extrapolated_smooth_mid_plane_arr.loc[
+            0.0:  # type: ignore
+        ]
+
         return extrapolated_smooth_lfs_arr, extrapolated_smooth_hfs_arr
 
     def derive_and_apply_asymmetry(
