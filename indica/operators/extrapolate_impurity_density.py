@@ -1,4 +1,3 @@
-from copy import deepcopy
 from typing import cast
 from typing import List
 from typing import Sequence
@@ -61,8 +60,14 @@ class ExtrapolateImpurityDensity(Operator):
         ("time", "impurity_element"),
     ]
 
-    def __init__(self, sess: session.Session = session.global_session):
+    def __init__(
+        self,
+        flux_surfs: FluxSurfaceCoordinates,
+        sess: session.Session = session.global_session,
+    ):
         super().__init__(sess=sess)
+
+        self.flux_surfs = flux_surfs
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
@@ -273,7 +278,7 @@ class ExtrapolateImpurityDensity(Operator):
             Derived bolometry data, dimensions are (t)
         """
         if t_val is not None:
-            LoS_coords = deepcopy(LoS_coords_in)
+            LoS_coords = cast(Sequence, [{} for i in LoS_coords_in])
             impurity_densities = impurity_densities_in.sel(t=t_val)
             main_ion_power_loss = main_ion_power_loss_in.sel(t=t_val)
             impurities_power_loss = impurities_power_loss_in.sel(t=t_val)
@@ -284,6 +289,9 @@ class ExtrapolateImpurityDensity(Operator):
                 LoS_coords[icoord]["theta"] = LoS_coords_in[icoord]["theta"].sel(
                     t=t_val
                 )
+                LoS_coords[icoord]["dl"] = LoS_coords_in[icoord]["dl"]
+                LoS_coords[icoord]["R"] = LoS_coords_in[icoord]["R"]
+                LoS_coords[icoord]["z"] = LoS_coords_in[icoord]["z"]
         else:
             LoS_coords = LoS_coords_in
             impurity_densities = impurity_densities_in
@@ -315,6 +323,10 @@ class ExtrapolateImpurityDensity(Operator):
                 },
                 dims=["channels"],
             )
+
+            R_central = self.flux_surfs.equilibrium.rmag.interp(
+                t=t_val, method="linear"
+            )
         else:
             derived_power_loss = derived_power_loss.transpose("t", "rho", "theta")
 
@@ -334,38 +346,57 @@ class ExtrapolateImpurityDensity(Operator):
                 dims=["channels", "t"],
             )
 
+            R_central = self.flux_surfs.equilibrium.rmag.interp(
+                t=t_arr, method="linear"
+            )
+
         for iLoS in range(len(LoS_bolometry_data)):
-            LoS_transform = LinesOfSightTransform(*LoS_bolometry_data[iLoS])
+            R_arr = LoS_coords[iLoS]["R"]
+            z_arr = LoS_coords[iLoS]["z"]
 
-            x1_name = LoS_transform.x1_name
-            x2_name = LoS_transform.x2_name
+            try:
+                midplane_LoS_pos = z_arr.indica.invert_interp(
+                    values=0.0, target=z_arr.dims[1], method="nearest"
+                )
+            except ValueError:
+                midplane_LoS_pos = 2.0
 
-            x2 = DataArray(
-                data=np.linspace(0, 1, 30),
-                coords={x2_name: np.linspace(0, 1, 30)},
-                dims=[x2_name],
+            LoS_R_midplane = R_arr.interp(
+                {R_arr.dims[1]: midplane_LoS_pos}, method="nearest"
             )
 
-            rho_arr = LoS_coords[iLoS]["rho"]
-            theta_arr = LoS_coords[iLoS]["theta"]
+            if (LoS_R_midplane > R_central).all():
+                LoS_transform = LinesOfSightTransform(*LoS_bolometry_data[iLoS])
 
-            rho_arr = np.abs(rho_arr)
-            rho_arr = rho_arr.assign_coords({x2_name: x2})
-            rho_arr = rho_arr.drop(x1_name).squeeze()
-            rho_arr = rho_arr.fillna(2.0)
-            theta_arr = theta_arr.drop(x1_name).squeeze()
+                x1_name = LoS_transform.x1_name
+                x2_name = LoS_transform.x2_name
 
-            derived_power_loss_LoS = derived_power_loss.interp(
-                {"rho": rho_arr, "theta": theta_arr}
-            )
+                x2 = DataArray(
+                    data=np.linspace(0, 1, 30),
+                    coords={x2_name: np.linspace(0, 1, 30)},
+                    dims=[x2_name],
+                )
 
-            derived_power_loss_LoS = derived_power_loss_LoS.fillna(0.0)
+                rho_arr = LoS_coords[iLoS]["rho"]
+                theta_arr = LoS_coords[iLoS]["theta"]
 
-            dl = LoS_coords[iLoS]["dl"]
-            dl = cast(DataArray, dl)[1]
+                rho_arr = np.abs(rho_arr)
+                rho_arr = rho_arr.assign_coords({x2_name: x2})
+                rho_arr = rho_arr.drop(x1_name).squeeze()
+                rho_arr = rho_arr.fillna(2.0)
+                theta_arr = theta_arr.drop(x1_name).squeeze()
 
-            derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
-            derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
+                derived_power_loss_LoS = derived_power_loss.interp(
+                    {"rho": rho_arr, "theta": theta_arr}
+                )
+
+                derived_power_loss_LoS = derived_power_loss_LoS.fillna(0.0)
+
+                dl = LoS_coords[iLoS]["dl"]
+                dl = cast(DataArray, dl)[1]
+
+                derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
+                derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
 
         return derived_power_loss_LoS_tot
 
@@ -793,6 +824,7 @@ class ExtrapolateImpurityDensity(Operator):
         bolometry_args: Sequence,
         impurity_element: str,
         asymmetry_modifier: DataArray,
+        time_correlation: bool = True,
     ):
         """Optimizes a Gaussian-style perturbation to recover the over-density
         structure that is expected on the low-field-side of the plasma.
@@ -882,28 +914,77 @@ class ExtrapolateImpurityDensity(Operator):
 
             abs_error = np.abs(
                 modified_bolometry_data - orig_bolometry_data.sel(t=time)
-            )
+            )  # / orig_bolometry_data.sel(t=time)
+
+            abs_error = np.nan_to_num(abs_error)
 
             return abs_error
 
         fitted_density = zeros_like(bolometry_args[3])
 
-        for it in extrapolated_smooth_data.coords["t"].data:
+        initial_guesses = np.array([[0.2e17, 0.2, 0.8]])
+
+        # Initial fitting for first time-step.
+        result = least_squares(
+            fun=objective_func,
+            x0=initial_guesses[0],
+            bounds=(
+                np.array([0.1e17, 0.1, self.threshold_rho[0]]),
+                np.array([2.0e17, 0.4, 0.95]),
+            ),
+            max_nfev=10,
+            args=(extrapolated_smooth_data.coords["t"].data[0],),
+            ftol=1e-15,
+            xtol=1e-60,
+            gtol=1e-60,
+        )
+
+        gaussian_params = result.x
+
+        if time_correlation:
+            initial_guesses = np.append(
+                initial_guesses, np.array([gaussian_params]), axis=0
+            )
+        else:
+            initial_guesses = np.append(
+                initial_guesses, np.array([initial_guesses[0]]), axis=0
+            )
+
+        perturbation_signal = self.fitting_function(*gaussian_params)
+        fitted_density.loc[:, extrapolated_smooth_data.coords["t"].data[0]] = (
+            extrapolated_smooth_data.sel(
+                theta=0,
+                t=extrapolated_smooth_data.coords["t"].data[0],
+                method="nearest",
+            )
+            + perturbation_signal
+        )
+
+        for ind_t, it in enumerate(extrapolated_smooth_data.coords["t"].data[1:]):
             result = least_squares(
                 fun=objective_func,
-                x0=np.array([0.5e17, 0.2, 0.8]),
+                x0=initial_guesses[ind_t],
                 bounds=(
                     np.array([0.1e17, 0.1, self.threshold_rho[0]]),
                     np.array([2.0e17, 0.4, 0.95]),
                 ),
-                max_nfev=9,
+                max_nfev=50,
                 args=(it,),
-                ftol=1e-15,
-                xtol=1e-60,
+                ftol=1e-60,
+                xtol=1e-2,
                 gtol=1e-60,
             )
 
             gaussian_params = result.x
+
+            if time_correlation:
+                initial_guesses = np.append(
+                    initial_guesses, np.array([gaussian_params]), axis=0
+                )
+            else:
+                initial_guesses = np.append(
+                    initial_guesses, np.array([initial_guesses[ind_t]]), axis=0
+                )
 
             perturbation_signal = self.fitting_function(*gaussian_params)
             fitted_density.loc[:, it] = (
