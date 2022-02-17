@@ -1,9 +1,11 @@
 from copy import deepcopy
+import cProfile
 from typing import get_args
 from typing import Hashable
 from unittest import TestCase
 from unittest.mock import MagicMock
 
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm
 from xarray import DataArray
@@ -85,7 +87,7 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         ) = inputs
 
         with self.assertRaises(TypeError):
-            example_ = ExtrapolateImpurityDensity()
+            example_ = ExtrapolateImpurityDensity(flux_surfaces)
             example_(*inputs)
 
     def call_value_check(
@@ -121,7 +123,7 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         ) = inputs
 
         with self.assertRaises(ValueError):
-            example_ = ExtrapolateImpurityDensity()
+            example_ = ExtrapolateImpurityDensity(flux_surfaces)
             example_(*inputs)
 
 
@@ -308,7 +310,7 @@ def input_data_setup():
         List of element symbols for all impurities.
     """
     base_rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
-    base_t = np.linspace(75.0, 80.0, 5)
+    base_t = np.linspace(75.0, 80.0, 100)
 
     input_Te = np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3])
     input_Te = np.tile(input_Te, (len(base_t), 1)).T
@@ -487,9 +489,9 @@ def sxr_data_setup(input_data):
 
     additional_sig = zeros_like(input_Ne)
     for it in additional_sig.coords["t"].data:
-        amp = 0.9e17 - (it / additional_sig.coords["t"].data[-1]) * 0.02e17
-        width = 0.15 - (it / additional_sig.coords["t"].data[-1]) * 0.0025
-        pos = 0.9 - (it / additional_sig.coords["t"].data[-1]) * 0.0075
+        amp = 1.3e17 - (it / additional_sig.coords["t"].data[-1]) * 0.005e17
+        width = 0.15 - (it / additional_sig.coords["t"].data[-1]) * 0.0004
+        pos = 0.9 - (it / additional_sig.coords["t"].data[-1]) * 0.002
         additional_sig.loc[:, it] = gaussian_perturbation((rho_arr, amp, width, pos))
 
     sxr_density_data = 1e-3 * input_Ne.isel(t=0)  # 25.0e15 * np.exp(-rho_arr)
@@ -615,7 +617,7 @@ def test_extrapolate_impurity_density_call():
     main_ion_power_loss = bolometry_input_data[1]
     impurity_power_loss = bolometry_input_data[2]
 
-    example_extrapolate_impurity_density = ExtrapolateImpurityDensity()
+    example_extrapolate_impurity_density = ExtrapolateImpurityDensity(flux_surfs)
 
     try:
         (
@@ -708,6 +710,10 @@ def test_extrapolate_impurity_density_call():
         *bolometry_args
     )
 
+    test_profile = cProfile.Profile()
+
+    test_profile.enable()
+
     optimized_impurity_density = (
         example_extrapolate_impurity_density.optimize_perturbation(
             example_result_rho_theta,
@@ -718,6 +724,13 @@ def test_extrapolate_impurity_density_call():
             example_asym_modifier,
         )
     )
+
+    test_profile.enable()
+    test_profile.dump_stats("./optimization.prof")
+
+    impurity_sxr_density_asym_rho_theta.isel(t=19).sel(theta=0).plot()
+    optimized_impurity_density.isel(t=19).sel(theta=0).plot()
+    plt.show()
 
     sum_of_residuals = np.abs(
         optimized_impurity_density.sel(theta=0)
@@ -731,7 +744,7 @@ def test_extrapolate_impurity_density_call():
     relative_fit_error = sum_of_residuals / sum_of_original
 
     try:
-        assert np.max(relative_fit_error) < 0.1
+        assert np.max(relative_fit_error) < 0.125
     except AssertionError:
         raise AssertionError(
             f"Relative error is too high(maximum allowed is 0.1): \
