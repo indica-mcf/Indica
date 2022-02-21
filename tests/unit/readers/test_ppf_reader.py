@@ -496,8 +496,8 @@ def test_get_sxr(
             signal = reader._client.DATA[f"{instrument}/{name}"]
             assert np.all(radiation[:, i] == signal.data)
             assert np.all(results[q + "_times"] == signal.dimensions[0].data)
-        assert np.all(results[q + "_Rstart"] == los[0][channel_indices])
-        assert np.all(results[q + "_Rstop"] == los[1][channel_indices])
+        assert np.all(results[q + "_xstart"] == los[0][channel_indices])
+        assert np.all(results[q + "_xstop"] == los[1][channel_indices])
         assert np.all(results[q + "_zstart"] == los[2][channel_indices])
         assert np.all(results[q + "_zstop"] == los[3][channel_indices])
         assert np.all(results[q + "_error"] == pytest.approx(error * radiation))
@@ -568,8 +568,8 @@ def test_get_radiation(
         signal = reader._client.DATA[f"{instrument}/{q}"]
         assert np.all(radiation == signal.data)
         assert np.all(results[q + "_times"] == signal.dimensions[0].data)
-        assert np.all(results[q + "_Rstart"] == los[0][:length])
-        assert np.all(results[q + "_Rstop"] == los[1][:length])
+        assert np.all(results[q + "_xstart"] == los[0][:length])
+        assert np.all(results[q + "_xstop"] == los[1][:length])
         assert np.all(results[q + "_zstart"] == los[2][:length])
         assert np.all(results[q + "_zstop"] == los[3][:length])
         assert np.all(results[q + "_error"] == pytest.approx(error * radiation))
@@ -629,17 +629,17 @@ def test_get_bremsstrahlung_spectroscopy(
         assert np.all(results[q + "_error"] == 0.0)
         # assert np.all(results["times"] == error_signal.dimensions[0].data)
         los = reader._client.DATA[f"edg7/los{q[-1]}"]
-        assert results[q + "_Rstart"].shape == (1,)
-        assert results[q + "_Rstop"].shape == (1,)
+        assert results[q + "_xstart"].shape == (1,)
+        assert results[q + "_xstop"].shape == (1,)
         assert results[q + "_zstart"].shape == (1,)
         assert results[q + "_zstop"].shape == (1,)
         assert results["length"][q] == 1
-        assert np.all(results[q + "_Rstart"] == los.data[1] / 1000)
-        assert np.all(results[q + "_Rstop"] == los.data[4] / 1000)
+        assert np.all(results[q + "_xstart"] == los.data[1] / 1000)
+        assert np.all(results[q + "_xstop"] == los.data[4] / 1000)
         assert np.all(results[q + "_zstart"] == los.data[2] / 1000)
         assert np.all(results[q + "_zstop"] == los.data[5] / 1000)
-        assert np.all(results[q + "_Tstart"] == np.zeros_like(los.data[1]))
-        assert np.all(results[q + "_Tstop"] == np.zeros_like(los.data[1]))
+        assert np.all(results[q + "_ystart"] == np.zeros_like(los.data[1]))
+        assert np.all(results[q + "_ystop"] == np.zeros_like(los.data[1]))
         assert sorted(results[q + "_records"]) == sorted(
             map(
                 lambda x: get_record(reader, pulse, uid, x[0], x[1], revision),
