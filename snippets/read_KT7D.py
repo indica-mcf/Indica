@@ -106,7 +106,7 @@ def get_kt7c(pulse, skip=None, trim40=False, backgrd=True, foregrd=False):
 
     # wavelength (nm)
     pix = pixel + pix_offs
-    wave = c[0] + c[1] * pix + c[2] * pix ** 2
+    wave = c[0] + c[1] * pix + c[2] * pix**2
 
     out = {
         "data": data,
