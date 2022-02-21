@@ -416,7 +416,7 @@ class Equilibrium(AbstractEquilibrium):
                 for k, itheta in enumerate(theta):
                     minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
 
-        minor_radii = minor_radii ** 2
+        minor_radii = minor_radii**2
         minor_radii *= 0.5
 
         area = trapz(minor_radii, theta, axis=0)

@@ -124,7 +124,7 @@ class LinesOfSightTransform(CoordinateTransform):
         x_0 = x_s + (x_e - x_s) * x2
         y_0 = y_s + (y_e - y_s) * x2
         z = z_s + (z_e - z_s) * x2
-        return np.sign(x_0) * np.sqrt(x_0 ** 2 + y_0 ** 2), z
+        return np.sign(x_0) * np.sqrt(x_0**2 + y_0**2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -142,7 +142,7 @@ class LinesOfSightTransform(CoordinateTransform):
             y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
             x_0 = x_s + (x_e - x_s) * x2
             y_0 = y_s + (y_e - y_s) * x2
-            x = np.sign(x_0) * np.sqrt(x_0 ** 2 + y_0 ** 2)
+            x = np.sign(x_0) * np.sqrt(x_0**2 + y_0**2)
             dx_0dx1 = (self.x_start[c] - self.x_start[f]) * (1 - x2) + (
                 self.x_end[c] - self.x_end[f]
             ) * x2
@@ -281,9 +281,9 @@ def _get_wall_intersection_distances(
     # Calculate where LOS intersects opposite R-surface
     a = (x_end - x_start) ** 2 + (y_end - y_start) ** 2
     b = 2 * (x_start * (x_end - x_start) + y_start * (y_end - y_start))
-    c = x_start ** 2 + y_start ** 2 - opposite_x ** 2
+    c = x_start**2 + y_start**2 - opposite_x**2
     factor = np.where(x_end - x_start < 0, -1, 1)
-    mask = b ** 2 - 4 * a * c < 0
+    mask = b**2 - 4 * a * c < 0
     # Check line of sight actually intersects the expected wall
     opposite_x[mask] = machine_dimensions[0][1]
     a[mask] = (x_end[mask] - x_start[mask]) ** 2 + (y_end[mask] - y_start[mask]) ** 2
@@ -293,7 +293,7 @@ def _get_wall_intersection_distances(
     )
     c[mask] = x_start[mask] ** 2 + y_start[mask] ** 2 - opposite_x[mask] ** 2
     factor[mask] *= -1
-    x2_trial = (-b + factor * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+    x2_trial = (-b + factor * np.sqrt(b**2 - 4 * a * c)) / (2 * a)
     z_trial = z_start + x2_trial * (z_end - z_start)
 
     x2 = np.where(
