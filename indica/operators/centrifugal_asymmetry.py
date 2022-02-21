@@ -276,7 +276,9 @@ class AsymmetryParameter(Operator):
         # mypy on the github CI suggests that * is in an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
         asymmetry_parameter = (
-            impurity_mass * (toroidal_rotations**2) / (2.0 * ion_temperature)
+            impurity_mass
+            * (toroidal_rotations**2)  # type: ignore
+            / (2.0 * ion_temperature)  # type: ignore
         )
         asymmetry_parameter *= 1.0 - (
             mean_charge * main_ion_mass * Zeff * electron_temp  # type: ignore
