@@ -996,17 +996,17 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
+        <quantity>_xstart : ndarray
             Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
+        <quantity>_xstop : ndarray
             Major radius of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
+        <quantity>_ystart : ndarray
             Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
+        <quantity>_ystop : ndarray
             Toroidal offset of stop positions for lines of sight for this data.
 
         """
@@ -1167,17 +1167,17 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
+        <quantity>_xstart : ndarray
             Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
+        <quantity>_xstop : ndarray
             Major radius of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
+        <quantity>_ystart : ndarray
             Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
+        <quantity>_ystop : ndarray
             Toroidal offset of stop positions for lines of sight for this data.
 
         """
