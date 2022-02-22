@@ -10,7 +10,15 @@ rcParams.update({"font.size": 12})
 
 
 def compare_data_bckc(
-    data, bckc, raw_data={}, pulse=None, xlim=None, savefig=False, name="", title="", ploterr=True,
+    data,
+    bckc,
+    raw_data={},
+    pulse=None,
+    xlim=None,
+    savefig=False,
+    name="",
+    title="",
+    ploterr=True,
 ):
     colors = ("black", "blue", "purple", "orange", "red")
     _title = ""
@@ -148,26 +156,38 @@ def compare_data_bckc(
             save_figure(fig_name=f"{figname}data_electron_density")
 
     diag = "efit"
+    quant = "wp"
     if diag in data.keys():
         plt.figure()
         ylim0, ylim1 = [], []
         i = 0
         if diag in raw_data.keys():
-            raw_data[diag]["wp"].plot(
+            (raw_data[diag][quant] / 1.0e3).plot(
                 color=colors[i], linestyle="dashed", alpha=0.5,
             )
-        data[diag]["wp"].plot(
+        if "error" in data[diag][quant].attrs:
+            plt.fill_between(
+                data[diag][quant].t,
+                (data[diag][quant].values + data[diag][quant].attrs["error"]) / 1.0e3,
+                (data[diag][quant].values - data[diag][quant].attrs["error"]) / 1.0e3,
+                color=colors[i],
+                alpha=0.5,
+            )
+
+        (data[diag][quant] / 1.0e3).plot(
             marker="o", color=colors[i], linestyle="dashed", label=f"Wp {diag.upper()}",
         )
-        ylim0.append(np.nanmin(data[diag]["wp"]))
-        ylim1.append(np.nanmax(data[diag]["wp"]) * 1.3)
+        ylim0.append(np.nanmin(data[diag]["wp"] / 1.0e3))
+        ylim1.append(np.nanmax(data[diag]["wp"] / 1.0e3) * 1.3)
 
         if diag in bckc.keys():
-            bckc[diag]["wp"].plot(color=colors[i], label="Back-calc", linewidth=3)
+            (bckc[diag]["wp"] / 1.0e3).plot(
+                color=colors[i], label="Back-calc", linewidth=3
+            )
         plt.xlim(xlim)
         plt.title(f"{_title} Stored Energy")
         plt.xlabel("Time (s)")
-        plt.ylabel("(J)")
+        plt.ylabel("(kJ)")
         plt.ylim(0, np.max(ylim1))
         plt.legend()
         if savefig:
@@ -183,6 +203,15 @@ def compare_data_bckc(
             raw_data[diag][quant].plot(
                 color=colors[i], linestyle="dashed", alpha=0.5,
             )
+        if "error" in data[diag][quant].attrs:
+            plt.fill_between(
+                data[diag][quant].t,
+                (data[diag][quant].values + data[diag][quant].attrs["error"]),
+                (data[diag][quant].values - data[diag][quant].attrs["error"]),
+                color=colors[i],
+                alpha=0.5,
+            )
+
         data[diag][quant].plot(
             marker="o",
             color=colors[i],
@@ -202,6 +231,46 @@ def compare_data_bckc(
         plt.legend()
         if savefig:
             save_figure(fig_name=f"{figname}data_LINES_bremsstrahlung")
+
+    diag = "mag"
+    quant = "vloop"
+    if diag in data.keys():
+        plt.figure()
+        i = 0
+        ylim0, ylim1 = [], []
+        if diag in raw_data.keys():
+            raw_data[diag][quant].plot(
+                color=colors[i], linestyle="dashed", alpha=0.5,
+            )
+
+        if "error" in data[diag][quant].attrs:
+            plt.fill_between(
+                data[diag][quant].t,
+                (data[diag][quant].values + data[diag][quant].attrs["error"]),
+                (data[diag][quant].values - data[diag][quant].attrs["error"]),
+                color=colors[i],
+                alpha=0.5,
+            )
+
+        data[diag][quant].plot(
+            marker="o",
+            color=colors[i],
+            linestyle="dashed",
+            label=f"Vloop {diag.upper()}",
+        )
+        ylim0.append(np.nanmin(data[diag][quant]) * 0.7)
+        ylim1.append(np.nanmax(data[diag][quant]) * 1.3)
+
+        if diag in bckc.keys():
+            bckc[diag][quant].plot(color=colors[i], label="Back-calc", linewidth=3)
+        plt.xlim(xlim)
+        plt.ylim(np.min(ylim0), np.max(ylim1))
+        plt.title(f"{_title} Loop voltage")
+        plt.xlabel("Time (s)")
+        plt.ylabel("(V)")
+        plt.legend()
+        if savefig:
+            save_figure(fig_name=f"{figname}data_MAG_Vloop")
 
 
 def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=True):
@@ -289,7 +358,7 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
             np.max(
                 [
                     plasma.el_dens_hi.max() * 1.05,
-                    plasma.ion_dens_hi.sel(element=plasma.main_ion).max() * 1.05,
+                    plasma.ion_dens_hi.max() * 1.05,
                     ylim[1],
                 ]
             ),
@@ -405,10 +474,19 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         save_figure(fig_name=f"{figname}time_evol_loop_voltage")
 
 
-def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", ploterr=True):
+def profiles(
+    plasma,
+    bckc=None,
+    savefig=False,
+    name="",
+    alpha=0.8,
+    title="",
+    ploterr=False,
+    tplot=None,
+):
     figname = get_figname(pulse=plasma.pulse, name=name)
     _title = f"{plasma.pulse}"
-    if len(title)>1:
+    if len(title) > 1:
         _title += f" {title}"
 
     elem_str = {}
@@ -418,14 +496,21 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
             _str = elem[0].upper() + elem[1]
         elem_str[elem] = _str
 
-    time = plasma.t
+    if tplot is not None:
+        time = [plasma.t[np.argmin(np.abs(tplot - plasma.t))]]
+    else:
+        time = plasma.t
     cmap = cm.rainbow
-    varr = np.linspace(0, 1, len(time))
-    colors = cmap(varr)
+    if len(time) > 1:
+        varr = np.linspace(0, 1, len(time))
+        colors = cmap(varr)
+    else:
+        colors = ["b"]
 
     # Impurity linestyles
     linestyle_imp = ((0, (5, 1)), (0, (5, 5)), (0, (5, 10)))
     linestyle_ion = "dotted"
+    linestyle_fast = "dashed"
 
     # Electron and ion density
     plt.figure()
@@ -433,11 +518,40 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
     plasma.ion_dens.sel(element=plasma.main_ion).sel(t=time[0]).plot(
         color=colors[0], linestyle=linestyle_ion, label=plasma.main_ion, alpha=alpha
     )
+    plasma.fast_dens.sel(t=time[0]).plot(
+        color=colors[0], linestyle=linestyle_fast, label="Fast ion", alpha=alpha,
+    )
     for i, t in enumerate(time):
+        if hasattr(plasma, "el_dens_hi") and ploterr:
+            plt.fill_between(
+                plasma.el_dens.rho_poloidal,
+                plasma.el_dens_hi.sel(t=t),
+                plasma.el_dens_lo.sel(t=t),
+                color=colors[i],
+                alpha=0.5,
+            )
+            plt.fill_between(
+                plasma.ion_dens.rho_poloidal,
+                plasma.ion_dens_hi.sel(element=plasma.main_ion).sel(t=t),
+                plasma.ion_dens_lo.sel(element=plasma.main_ion).sel(t=t),
+                color=colors[i],
+                alpha=0.5,
+            )
+            plt.fill_between(
+                plasma.fast_dens.rho_poloidal,
+                plasma.fast_dens_hi.sel(t=t),
+                plasma.fast_dens_lo.sel(t=t),
+                color=colors[i],
+                alpha=0.5,
+            )
         plasma.el_dens.sel(t=t).plot(color=colors[i], alpha=alpha)
         plasma.ion_dens.sel(element=plasma.main_ion).sel(t=t).plot(
             color=colors[i], linestyle=linestyle_ion, alpha=alpha,
         )
+        plasma.fast_dens.sel(t=t).plot(
+            color=colors[i], linestyle=linestyle_fast, alpha=alpha,
+        )
+
     plt.title(f"{_title} Electron and Ion densities")
     plt.xlabel("Rho-poloidal")
     plt.ylabel("(m$^{-3}$)")
@@ -448,6 +562,14 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
     # Neutral density
     plt.figure()
     for i, t in enumerate(time):
+        if hasattr(plasma, "neutral_dens_hi") and ploterr:
+            plt.fill_between(
+                plasma.neutral_dens.rho_poloidal,
+                plasma.neutral_dens_hi.sel(t=t),
+                plasma.neutral_dens_lo.sel(t=t),
+                color=colors[i],
+                alpha=0.5,
+            )
         plasma.neutral_dens.sel(t=t).plot(color=colors[i], alpha=alpha)
     plt.title(f"{_title} Neutral density")
     plt.xlabel("Rho-poloidal")
@@ -458,9 +580,9 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
 
     # Electron temperature
     plt.figure()
-    ylim = (0, np.max([plasma.el_temp.max(), plasma.ion_temp.max()]) * 1.05)
+    ylim = (0, np.max([plasma.el_temp.max(), plasma.ion_temp.max() * 1.05]))
     data = None
-    if len(plasma.optimisation["el_temp"]) > 0 and len(bckc) > 0:
+    if len(plasma.optimisation["el_temp"]) > 0 and bckc is not None:
         diagn, quant = plasma.optimisation["el_temp"].split(".")
         quant, _ = quant.split(":")
         data = bckc[diagn][quant]
@@ -468,10 +590,27 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
         pos_in = bckc[diagn][quant].pos.value - bckc[diagn][quant].pos.err_in
         pos_out = bckc[diagn][quant].pos.value + bckc[diagn][quant].pos.err_out
     for i, t in enumerate(time):
+        if hasattr(plasma, "el_temp_hi") and ploterr:
+            plt.fill_between(
+                plasma.el_temp.rho_poloidal,
+                plasma.el_temp_hi.sel(t=t),
+                plasma.el_temp_lo.sel(t=t),
+                color=colors[i],
+                alpha=0.5,
+            )
+            ylim = (0, plasma.el_temp_hi.max() * 1.05)
         plasma.el_temp.sel(t=t).plot(color=colors[i], alpha=alpha)
         if data is not None:
-            plt.plot(pos[i], data.values[i], color=colors[i], marker="o", alpha=alpha)
-            plt.hlines(data[i], pos_in[i], pos_out[i], color=colors[i], alpha=alpha)
+            plt.plot(
+                pos.sel(t=t), data.sel(t=t), color=colors[i], marker="o", alpha=alpha
+            )
+            plt.hlines(
+                data.sel(t=t),
+                pos_in.sel(t=t),
+                pos_out.sel(t=t),
+                color=colors[i],
+                alpha=alpha,
+            )
     plt.ylim(ylim)
     plt.title(f"{_title} Electron temperature")
     plt.xlabel("Rho-poloidal")
@@ -482,7 +621,7 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
     # Ion temperature
     plt.figure()
     data = None
-    if len(plasma.optimisation["ion_temp"]) > 0 and len(bckc) > 0:
+    if len(plasma.optimisation["ion_temp"]) > 0 and bckc is not None:
         diagn, quant = plasma.optimisation["ion_temp"].split(".")
         quant, _ = quant.split(":")
         data = bckc[diagn][quant]
@@ -490,10 +629,27 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
         pos_in = bckc[diagn][quant].pos.value - bckc[diagn][quant].pos.err_in
         pos_out = bckc[diagn][quant].pos.value + bckc[diagn][quant].pos.err_out
     for i, t in enumerate(time):
+        if hasattr(plasma, "ion_temp_hi") and ploterr:
+            plt.fill_between(
+                plasma.ion_temp.rho_poloidal,
+                plasma.ion_temp_hi.sel(element="h").sel(t=t),
+                plasma.ion_temp_lo.sel(element="h").sel(t=t),
+                color=colors[i],
+                alpha=0.5,
+            )
+            ylim = (0, plasma.ion_temp_hi.max() * 1.05)
         plasma.ion_temp.sel(element="h").sel(t=t).plot(color=colors[i], alpha=alpha)
         if data is not None:
-            plt.plot(pos[i], data[i], color=colors[i], marker="o", alpha=alpha)
-            plt.hlines(data[i], pos_in[i], pos_out[i], color=colors[i], alpha=alpha)
+            plt.plot(
+                pos.sel(t=t), data.sel(t=t), color=colors[i], marker="o", alpha=alpha
+            )
+            plt.hlines(
+                data.sel(t=t),
+                pos_in.sel(t=t),
+                pos_out.sel(t=t),
+                color=colors[i],
+                alpha=alpha,
+            )
     plt.ylim(ylim)
     plt.title(f"{_title} ion temperature")
     plt.xlabel("Rho-poloidal")
@@ -512,7 +668,7 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
                 fig_name=f"{figname}profiles_{diagn.upper()}_{quant.upper()}_emission"
             )
 
-        if len(plasma.optimisation["ion_temp"]) > 0 and len(bckc) > 0:
+        if len(plasma.optimisation["ion_temp"]) > 0 and bckc is not None:
             plt.figure()
             ylim = (0, 1.05)
             for i, t in enumerate(time):
@@ -521,46 +677,84 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
                         color=colors[i], alpha=alpha
                     )
             plt.ylim(ylim)
-            plt.title(
-                f"{_title} {diagn.upper()} {quant.upper()} ionization balance"
-            )
+            plt.title(f"{_title} {diagn.upper()} {quant.upper()} ionization balance")
             plt.xlabel("Rho-poloidal")
             plt.ylabel("(eV)")
             if savefig:
                 save_figure(fig_name=f"{figname}fractional_abundance")
 
     # Total radiated power
+    const = 1.0e-3
     plt.figure()
-    plasma.tot_rad.sum("element").sel(t=time[0]).plot(color=colors[0], label="Total")
-    plasma.tot_rad.sel(element=plasma.main_ion).sel(t=time[0]).plot(
+    (plasma.tot_rad * const).sum("element").sel(t=time[0]).plot(
+        color=colors[0], label="Total"
+    )
+    (plasma.tot_rad * const).sel(element=plasma.main_ion).sel(t=time[0]).plot(
         color=colors[0],
         linestyle=linestyle_ion,
         alpha=alpha,
         label=elem_str[plasma.main_ion],
     )
     for j, elem in enumerate(plasma.impurities):
-        plasma.tot_rad.sel(element=elem).sel(t=time[0]).plot(
+        (plasma.tot_rad * const).sel(element=elem).sel(t=time[0]).plot(
             color=colors[0],
             linestyle=linestyle_imp[j],
             label=elem_str[elem],
             alpha=alpha,
         )
     for i, t in enumerate(time):
-        plasma.tot_rad.sum("element").sel(t=t).plot(color=colors[i])
-        plasma.tot_rad.sel(element=plasma.main_ion).sel(t=t).plot(
+        (plasma.tot_rad * const).sum("element").sel(t=t).plot(color=colors[i])
+        (plasma.tot_rad * const).sel(element=plasma.main_ion).sel(t=t).plot(
             color=colors[i], linestyle=linestyle_ion, alpha=alpha
         )
         for j, elem in enumerate(plasma.impurities):
-            plasma.tot_rad.sel(element=elem).sel(t=t).plot(
+            (plasma.tot_rad * const).sel(element=elem).sel(t=t).plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha
             )
     plt.title(f"{_title} Total radiated power")
     plt.xlabel("Rho-poloidal")
-    plt.ylabel("(W m$^{-3}$)")
+    plt.ylabel("(kW m$^{-3}$)")
     # plt.yscale("log")
     plt.legend()
     if savefig:
         save_figure(fig_name=f"{figname}profiles_total_radiated_power")
+
+    # SXR radiated power
+    const = 1.0e-3
+    if hasattr(plasma, "sxr_rad"):
+        plt.figure()
+        (plasma.sxr_rad.sum("element").sel(t=time[0]) * const).plot(
+            color=colors[0], label="Total"
+        )
+        (plasma.sxr_rad.sel(element=plasma.main_ion).sel(t=time[0]) * const).plot(
+            color=colors[0],
+            linestyle=linestyle_ion,
+            alpha=alpha,
+            label=elem_str[plasma.main_ion],
+        )
+        for j, elem in enumerate(plasma.impurities):
+            (plasma.sxr_rad.sel(element=elem).sel(t=time[0]) * const).plot(
+                color=colors[0],
+                linestyle=linestyle_imp[j],
+                label=elem_str[elem],
+                alpha=alpha,
+            )
+        for i, t in enumerate(time):
+            (plasma.sxr_rad.sum("element").sel(t=t) * const).plot(color=colors[i])
+            (plasma.sxr_rad.sel(element=plasma.main_ion).sel(t=t) * const).plot(
+                color=colors[i], linestyle=linestyle_ion, alpha=alpha
+            )
+            for j, elem in enumerate(plasma.impurities):
+                (plasma.sxr_rad.sel(element=elem).sel(t=t) * const).plot(
+                    color=colors[i], linestyle=linestyle_imp[j], alpha=alpha
+                )
+        plt.title(f"{_title} SXR radiated power")
+        plt.xlabel("Rho-poloidal")
+        plt.ylabel("(kW m$^{-3}$)")
+        # plt.yscale("log")
+        plt.legend()
+        if savefig:
+            save_figure(fig_name=f"{figname}profiles_total_radiated_power")
 
     # Impurity density
     plt.figure()
@@ -578,7 +772,7 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
             )
     plt.title(f"{_title} Impurity density")
     plt.xlabel("Rho-poloidal")
-    plt.ylabel("(W)")
+    plt.ylabel("(m$^{-3}$)")
     plt.yscale("log")
     plt.legend()
     if savefig:
@@ -600,7 +794,7 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
             )
     plt.title(f"{_title} Impurity concentration")
     plt.xlabel("Rho-poloidal")
-    plt.ylabel("(W)")
+    plt.ylabel("")
     plt.yscale("log")
     plt.legend()
     if savefig:
@@ -642,7 +836,9 @@ def profiles(plasma, bckc={}, savefig=False, name="", alpha=0.8, title="", plote
     R = plasma.equilibrium.rho.R
     z = plasma.equilibrium.rho.z
     vmin = np.linspace(1, 0, len(plasma.time))
-    for i, t in enumerate(plasma.time):
+    if tplot:
+        vmin = [0]
+    for i, t in enumerate(time):
         rho = plasma.equilibrium.rho.sel(t=t, method="nearest")
         plt.contour(
             R,
