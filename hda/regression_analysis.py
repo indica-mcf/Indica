@@ -4,7 +4,7 @@ at identical times in a discharge over a defined pulse range
 Example call:
 
     import hda.regression_analysis as regr
-    regr_data = regr.Database(reload=True, pulse_start=8207, pulse_end=9486)
+    regr_data = regr.Database(reload=True)
     regr_data()
     regr.plot(regr_data)
 
@@ -19,6 +19,7 @@ Ti/Te, Vloop, all NBI, li, betaP, geometry (volm, elongation, ..)
 from copy import deepcopy
 import getpass
 import pickle
+from scipy import constants
 
 import hda.fac_profiles as fac
 from hda.forward_models import Spectrometer
@@ -36,7 +37,7 @@ from indica.readers import ST40Reader
 from indica.readers import ADASReader
 
 # First pulse after Boronisation / GDC
-BORONISATION = [8441, 8537]
+BORONISATION = [8441, 8537, 9903]
 GDC = [8545]
 # for p in np.arange(8547, 8560+1):
 #     GDC.append(p)
@@ -49,7 +50,7 @@ class Database:
     def __init__(
         self,
         pulse_start=8207,
-        pulse_end=9854,
+        pulse_end=10046,
         tlim=(-0.03, 0.3),
         dt=0.01,
         overlap=0.5,
@@ -167,11 +168,7 @@ class Database:
         pulses_all = []
         for pulse in np.arange(pulse_start, pulse_end + 1):
             print(pulse)
-            reader = ST40Reader(
-                int(pulse),
-                self.tlim[0],
-                self.tlim[1],
-            )
+            reader = ST40Reader(int(pulse), self.tlim[0], self.tlim[1],)
 
             time, _ = reader._get_signal("", "pfit", ".post_best.results:time", -1)
             if np.array_equal(time, "FAILED"):
@@ -217,11 +214,7 @@ class Database:
                     max_val[k].append(self.empty_max_val)
                     continue
 
-                binned_tmp, max_val_tmp = self.bin_in_time(
-                    data,
-                    time,
-                    err,
-                )
+                binned_tmp, max_val_tmp = self.bin_in_time(data, time, err,)
 
                 binned[k].append(binned_tmp)
                 max_val[k].append(max_val_tmp)
@@ -466,6 +459,38 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
     binned["total_nbi"] = deepcopy(binned["nbi_power"])
     binned["total_nbi"].value.values = binned["nbi_power"].cumul.values
 
+    info["ti_te_xrcs"] = {
+        "max": False,
+        "label": "Ti/Te (XRCS)",
+        "units": "",
+        "const": 1.0,
+    }
+    max_val["ti_te_xrcs"] = deepcopy(max_val["ti_xrcs"])
+    binned["ti_te_xrcs"] = deepcopy(binned["ti_xrcs"])
+    binned["ti_te_xrcs"].value.values = (
+        binned["ti_xrcs"].value.values / binned["te_xrcs"].value.values
+    )
+    binned["ti_te_xrcs"].error.values = binned["ti_te_xrcs"].value.values * np.sqrt(
+        (binned["ti_xrcs"].error.values / binned["ti_xrcs"].value.values) ** 2
+        + (binned["ti_xrcs"].error.values / binned["ti_xrcs"].value.values) ** 2
+    )
+
+    info["ne_nirh1_te_xrcs"] = {
+        "max": False,
+        "label": "Ne (NIRH1)/3. * Te (XRCS)",
+        "units": "",
+        "const": 1.0,
+    }
+    max_val["ne_nirh1_te_xrcs"] = deepcopy(max_val["te_xrcs"])
+    binned["ne_nirh1_te_xrcs"] = deepcopy(binned["te_xrcs"])
+    binned["ne_nirh1_te_xrcs"].value.values = (
+        binned["ne_nirh1"].value.values/3. * binned["te_xrcs"].value.values * constants.e
+    )
+    binned["ne_nirh1_te_xrcs"].error.values = binned["ne_nirh1_te_xrcs"].value.values * np.sqrt(
+        (binned["ne_nirh1"].error.values / binned["ne_nirh1"].value.values) ** 2
+        + (binned["te_xrcs"].error.values / binned["te_xrcs"].value.values) ** 2
+    )
+
     return binned, max_val, info
 
 
@@ -481,11 +506,7 @@ def general_filters(results):
     for k in neg_to_zero:
         if k in keys:
             cond = (results[k].value > 0) * np.isfinite(results[k].value)
-            results[k] = xr.where(
-                cond,
-                results[k],
-                0,
-            )
+            results[k] = xr.where(cond, results[k], 0,)
 
     # Set all negative values to Nan
     neg_to_nan = [
@@ -504,11 +525,7 @@ def general_filters(results):
     for k in neg_to_nan:
         if k in keys:
             cond = (results[k].value > 0) * (np.isfinite(results[k].value))
-            results[k] = xr.where(
-                cond,
-                results[k],
-                np.nan,
-            )
+            results[k] = xr.where(cond, results[k], np.nan,)
 
     # Set to Nan if values outside specific ranges
     err_perc_cond = {"var": "error", "lim": (np.nan, 0.2)}
@@ -536,6 +553,16 @@ def general_filters(results):
             selection = selection_criteria(results, cond)
             results[k] = xr.where(selection, results[k], np.nan)
 
+    lim_cond = {"var": "value", "lim": (np.nan, 100.e3)}
+    lim_keys = [
+        "wp_efit",
+    ]
+    for k in lim_keys:
+        if k in keys:
+            cond = {k: lim_cond}
+            selection = selection_criteria(results, cond)
+            results[k] = xr.where(selection, results[k], np.nan)
+
     return results
 
 
@@ -552,9 +579,7 @@ def calc_central_temperature(binned, temp_ratio):
             te_xrcs = binned["te_xrcs"].value.sel(pulse=p)
             if any(np.isfinite(te_xrcs)):
                 ratio_tmp.loc[dict(pulse=p)] = np.interp(
-                    te_xrcs.values,
-                    temp_ratio[i].te_xrcs,
-                    temp_ratio[i].values,
+                    te_xrcs.values, temp_ratio[i].te_xrcs, temp_ratio[i].values,
                 )
         mult_binned.append(ratio_tmp)
     mult_binned = xr.concat(mult_binned, "prof")
@@ -676,9 +701,7 @@ def flat(data: DataArray):
 
 
 def apply_selection(
-    binned,
-    cond=None,
-    default=True,
+    binned, cond=None, default=True,
 ):
     """
     Apply selection criteria as defined in the cond dictionary
@@ -701,12 +724,8 @@ def apply_selection(
     # TODO: max_val calculation too time-consuming...is it worth it?
     if default:
         cond = {
-            "Ohmic": {
-                "nbi_power": {"var": "value", "lim": (0,)},
-            },
-            "NBI": {
-                "nbi_power": {"var": "value", "lim": (20, np.nan)},
-            },
+            "Ohmic": {"nbi_power": {"var": "value", "lim": (0,)},},
+            "NBI": {"nbi_power": {"var": "value", "lim": (20, np.nan)},},
         }
     # "te0": {"var": "error", "lim": (np.nan, 0.2)},
     # "ti0": {"var": "error", "lim": (np.nan, 0.2)},
@@ -741,6 +760,7 @@ def plot_time_evol(
     regr_data,
     info,
     to_plot,
+    pulse_lim=None,
     tplot=None,
     savefig=False,
     vlines=True,
@@ -757,6 +777,8 @@ def plot_time_evol(
         tit_front = ""
         tit_end = f" @ t={tplot:.3f} s"
         result = regr_data.binned
+    if pulse_lim is None:
+        pulse_lim = (np.min(regr_data.pulses) - 5, np.max(regr_data.pulses) + 5)
 
     for title, ykey in to_plot.items():
         name = "time_evol"
@@ -777,20 +799,13 @@ def plot_time_evol(
                 label = ""
 
             plt.errorbar(
-                x,
-                yval,
-                yerr=yerr,
-                fmt="o",
-                label=label,
-                alpha=0.5,
+                x, yval, yerr=yerr, fmt="o", label=label, alpha=0.5,
             )
         plt.xlabel("Pulse #")
         plt.ylabel(info[k]["units"])
         plt.title(f"{tit_front}{title}{tit_end}")
-        plt.xlim(np.min(regr_data.pulses) - 5, np.max(regr_data.pulses) + 5)
-        plt.ylim(
-            0,
-        )
+        plt.xlim(pulse_lim)
+        plt.ylim(0,)
         if len(ykey) > 1:
             plt.legend()
         if vlines:
@@ -809,13 +824,7 @@ def plot_time_evol(
 
 
 def plot_bivariate(
-    filtered,
-    info,
-    to_plot,
-    label=None,
-    savefig=False,
-    fig_path="",
-    fig_name="",
+    filtered, info, to_plot, label=None, savefig=False, fig_path="", fig_name="",
 ):
     if savefig:
         plt.ioff()
@@ -837,13 +846,7 @@ def plot_bivariate(
             yerr = flat(y.error)
 
             plt.errorbar(
-                xval,
-                yval,
-                xerr=xerr,
-                yerr=yerr,
-                fmt="o",
-                label=label,
-                alpha=0.5,
+                xval, yval, xerr=xerr, yerr=yerr, fmt="o", label=label, alpha=0.5,
             )
             plt.xlabel(xinfo["label"] + " " + xinfo["units"])
             plt.ylabel(yinfo["label"] + " " + yinfo["units"])
@@ -1023,7 +1026,9 @@ def ip_400_500(regr_data, savefig=False, plot_results=False):
     return filtered
 
 
-def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
+def plot(
+    regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True, pulse_lim=None
+):
     if savefig:
         plt.ioff()
 
@@ -1048,9 +1053,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
         plt.legend()
         add_to_plot(
-        "T$_e$(0)",
-        "T$_{e,i}$(XRCS)",
-        "XRCS measurement vs. Central Te",
+            "T$_e$(0)", "T$_{e,i}$(XRCS)", "XRCS measurement vs. Central Te",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_Te0_parametrization")
@@ -1059,15 +1062,13 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
         for i in range(len(temp_ratio)):
             el_temp = temp_ratio[i].attrs["el_temp"]
             plt.plot(
-            el_temp.rho_poloidal,
-            el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
+                el_temp.rho_poloidal,
+                el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
             )
 
         plt.legend()
         add_to_plot(
-            "rho_poloidal",
-            "T$_e$ (keV)",
-            "Temperature profiles",
+            "rho_poloidal", "T$_e$ (keV)", "Temperature profiles",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_parametrization_temperatures")
@@ -1082,9 +1083,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
 
         plt.legend()
         add_to_plot(
-            "rho_poloidal",
-            "n$_e$ (10$^{19}$)",
-            "Density profiles",
+            "rho_poloidal", "n$_e$ (10$^{19}$)", "Density profiles",
         )
         if savefig:
             save_figure(fig_path, f"{fig_name}_XRCS_parametrization_densities")
@@ -1098,7 +1097,9 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "Stored Energy": ("wp_efit",),
             "Electron Temperature": ("te_xrcs", "te0"),
             "Ion Temperature": ("ti_xrcs", "ti0"),
+            "Ion/Electron Temperature": ("ti_te_xrcs",),
             "Electron Density": ("ne_nirh1",),
+            "Electron Pressure": ("ne_nirh1_te_xrcs",),
             "MC Current": ("imc",),
             "Gas pressure": ("gas_press",),
             "Gas prefill": ("gas_prefill",),
@@ -1113,6 +1114,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             savefig=savefig,
             fig_path=fig_path,
             fig_name=fig_name,
+            pulse_lim=pulse_lim,
         )
 
         ###################################
@@ -1139,6 +1141,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             savefig=savefig,
             fig_path=fig_path,
             fig_name=fig_name,
+            pulse_lim=pulse_lim,
         )
 
     ###################################
@@ -1151,6 +1154,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
             "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
             "T$_i$(0) vs. gas pressure": ("gas_press", "ti0"),
             "T$_i$(0) vs. Cumulative gas puff": ("gas_cumulative", "ti0"),
+            "T$_i$(0) vs. Electron pressure": ("ne_nirh1_te_xrcs", "ti0"),
         }
 
         plot_bivariate(
@@ -1203,6 +1207,7 @@ def plot(regr_data, filtered=None, tplot=0.03, savefig=False, plot_time=True):
 
     if savefig:
         plt.ion()
+
 
 def write_to_csv(regr_data):
 
@@ -1264,16 +1269,12 @@ def save_figure(fig_path, fig_name, orientation="landscape", ext=".jpg"):
     )
 
 
-def simulate_xrcs(pickle_file = "XRCS_temperature_parametrization.pkl", write=False):
+def simulate_xrcs(pickle_file="XRCS_temperature_parametrization.pkl", write=False):
     print("Simulating XRCS measurement for Te(0) re-scaling")
 
     adasreader = ADASReader()
     xrcs = Spectrometer(
-        adasreader,
-        "ar",
-        "16",
-        transition="(1)1(1.0)-(1)0(0.0)",
-        wavelength=4.0,
+        adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
     )
 
     time = np.linspace(0, 1, 50)
