@@ -161,9 +161,9 @@ ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "ccd": "charge_exchange_recomb_coeffs",
     "plt": "line_emissions",
     "prc": "charge_exchange_emissions",
-    "plsx": "sxr_line_emissions",
+    "pls": "sxr_line_emissions",
     "prb": "recomb_emissions",
-    "prsx": "sxr_recomb_emissions",
+    "prs": "sxr_recomb_emissions",
 }
 
 ADF12_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
