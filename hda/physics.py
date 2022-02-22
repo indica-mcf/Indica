@@ -921,6 +921,64 @@ def ev_doppler(temperature, mass: float, fwhm=False):
     return dl_l
 
 
+def centrifugal_asymmetry(
+    ion_temperature,
+    electron_temperature,
+    mass,
+    meanz,
+    zeff,
+    main_ion_mass,
+    toroidal_rotation=None,
+    asymmetry_parameter=None,
+):
+
+    """
+    Calculate toroidal rotation or asymmetry parameter for given plasma parameters
+
+
+    Parameters
+    ----------
+    ion_temperature
+        Ion temperature (eV)
+    electron_temperature
+        Electron temperature (eV)
+    mass
+        Atomic mass of ion whose centrifugal asymmetry is to be investigated
+    meanz
+        Average charge of ion whose centrifugal asymmetry is to be investigated
+    zeff
+        Plasma effective charge
+    toroidal_rotation
+        Toroidal rotation (rad/s)
+    asymmetry_parameter
+
+    Returns
+    -------
+    toroidal_rotation or asymmetry_parameter following equations in
+        J. A. Wesson 1997 Nucl. Fusion 37 577
+    TODO: include simple equations for fast particle drive asymmetry given in
+        T. Odstrcil et al 2018 Plasma Phys. Control. Fusion 60 014003
+
+    """
+
+    const = (mass * constants.proton_mass) / (2 * ion_temperature * constants.e)
+    const *= 1 - (meanz / mass) * (main_ion_mass * zeff * electron_temperature) / (
+        ion_temperature + zeff * electron_temperature
+    )
+
+    if toroidal_rotation is not None:
+        asymmetry_parameter = const * toroidal_rotation ** 2
+        return asymmetry_parameter
+    elif asymmetry_parameter is not None:
+        toroidal_rotation = np.sqrt(asymmetry_parameter / const)
+        return toroidal_rotation
+    else:
+        print(
+            "\n physics.centrifugal_asymmetry: input either toroidal_rotation or asymmetry parameter \n"
+        )
+        raise ValueError
+
+
 def zeff_bremsstrahlung(
     Te,
     Ne,
@@ -1010,7 +1068,7 @@ def sawtooth_crash(xspl, yspl, volume, x_inv):
         if vol_int_post >= vol_int_pre:
             break
 
-    y = np.where(xspl != xspl[xind], yspl, (yspl[xind] + yspl[xind+1])/2)
+    y = np.where(xspl != xspl[xind], yspl, (yspl[xind] + yspl[xind + 1]) / 2)
 
     x = np.linspace(0, 1, 15) ** 0.7
     y = np.interp(x, xspl, yspl)
@@ -1020,4 +1078,3 @@ def sawtooth_crash(xspl, yspl, volume, x_inv):
     print(f"Vol-int: {float(vol_int_pre)}, {float(vol_int_post)}")
 
     return yspl
-
