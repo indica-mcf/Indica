@@ -35,6 +35,8 @@ ADF11 = {
         "plt": "96",
         "prb": "96",
         "prc": "96",
+        "pls": "15",
+        "prs": "15",
     },
     "he": {
         "scd": "96",
@@ -43,6 +45,8 @@ ADF11 = {
         "plt": "96",
         "prb": "96",
         "prc": "96",
+        "pls": "15",
+        "prs": "15",
     },
     "c": {
         "scd": "96",
@@ -51,6 +55,8 @@ ADF11 = {
         "plt": "96",
         "prb": "96",
         "prc": "96",
+        "pls": "15",
+        "prs": "15",
     },
     "ar": {
         "scd": "89",
@@ -59,6 +65,8 @@ ADF11 = {
         "plt": "00",
         "prb": "00",
         "prc": "89",
+        "pls": "15",
+        "prs": "15",
     },
     "ne": {
         "scd": "96",
@@ -67,6 +75,8 @@ ADF11 = {
         "plt": "96",
         "prb": "96",
         "prc": "96",
+        "pls": "15",
+        "prs": "15",
     },
 }
 
@@ -104,7 +114,7 @@ class Plasma:
 
         self.initialize_variables()
 
-    def build_data(self, data, pulse=None, equil="efit"):
+    def build_data(self, data, pulse=None, equil="efit", instrument=""):
         """
         Reorganise raw data on new time axis and generate geometry information
 
@@ -114,6 +124,8 @@ class Plasma:
             Raw data dictionary
         equil
             Equilibrium code to use for equilibrium object
+        instrument
+            Build data only for specified instrument
 
         Returns
         -------
@@ -121,45 +133,47 @@ class Plasma:
         """
         print_like("Building data class")
 
-        self.initialize_variables()
+        if len(instrument) == 0:
+            self.initialize_variables()
 
-        self.pulse = pulse
-        self.optimisation["equil"] = f"{equil}:{data[equil]['rmag'].revision}"
+            self.pulse = pulse
+            self.optimisation["equil"] = f"{equil}:{data[equil]['rmag'].revision}"
 
-        t_ip = data["efit"]["ipla"].t
-        if self.tstart < t_ip.min():
-            print_like("Start time changed to stay inside Ip limit")
-            self.tstart = t_ip.min().values
-        if self.tend > t_ip.max():
-            print_like("End time changed to stay inside Ip limit")
-            self.tend = t_ip.max().values
+            t_ip = data["efit"]["ipla"].t
+            if self.tstart < t_ip.min():
+                print_like("Start time changed to stay inside Ip limit")
+                self.tstart = t_ip.min().values
+            if self.tend > t_ip.max():
+                print_like("End time changed to stay inside Ip limit")
+                self.tend = t_ip.max().values
 
-        self.equil = equil
+            self.equil = equil
 
-        if equil in data.keys():
-            print_like("Initialise equilibrium object")
-            self.equilibrium = Equilibrium(data[equil])
-            self.flux_coords = FluxSurfaceCoordinates("poloidal")
-            self.flux_coords.set_equilibrium(self.equilibrium)
+            if equil in data.keys():
+                print_like("Initialise equilibrium object")
+                self.equilibrium = Equilibrium(data[equil])
+                self.flux_coords = FluxSurfaceCoordinates("poloidal")
+                self.flux_coords.set_equilibrium(self.equilibrium)
 
         print_like("Assign equilibrium, bin data in time")
         binned_data = {}
         for kinstr in data.keys():
+            if (len(instrument) > 0) and (kinstr != instrument):
+                continue
             instrument_data = {}
 
-            print(kinstr)
+            # print(kinstr)
             if type(data[kinstr]) != dict:
                 value = deepcopy(data[kinstr])
                 if np.size(value) > 1:
-                    value = bin_in_time_dt(
-                        self.tstart, self.tend, self.dt, value
-                    )
+                    value = bin_in_time_dt(self.tstart, self.tend, self.dt, value)
                 binned_data[kinstr] = value
                 continue
 
             transform = None
             geom_attrs = None
             for kquant in data[kinstr].keys():
+                # print("  " + kquant)
                 value = bin_in_time_dt(
                     self.tstart, self.tend, self.dt, data[kinstr][kquant]
                 )
@@ -179,17 +193,20 @@ class Plasma:
                 instrument_data[kquant] = value
 
             binned_data[kinstr] = instrument_data
+            if kinstr == instrument:
+                break
 
-        self.ipla.values = binned_data["efit"]["ipla"]
-        self.cr0.values = (
-            binned_data["efit"]["rmjo"] - binned_data["efit"]["rmji"]
-        ).sel(rho_poloidal=1) / 2.0
+        if (len(instrument) == 0) and ("efit" in binned_data.keys()):
+            self.ipla.values = binned_data["efit"]["ipla"]
+            self.cr0.values = (
+                binned_data["efit"]["rmjo"] - binned_data["efit"]["rmji"]
+            ).sel(rho_poloidal=1) / 2.0
 
-        self.R_mag = binned_data["efit"]["rmag"]
-        self.z_mag = binned_data["efit"]["zmag"]
+            self.R_mag = binned_data["efit"]["rmag"]
+            self.z_mag = binned_data["efit"]["zmag"]
 
-        self.R_bt_0 = binned_data["R_bt_0"]
-        self.bt_0 = binned_data["bt_0"]
+            self.R_bt_0 = binned_data["R_bt_0"]
+            self.bt_0 = binned_data["bt_0"]
 
         return binned_data
 
@@ -286,7 +303,7 @@ class Plasma:
 
     def build_atomic_data(self, adf11: dict = None):
         print_like("Initialize fractional abundance objects")
-        fract_abu, power_loss = {}, {}
+        fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
         for elem in self.elements:
             if adf11 is None:
                 adf11 = ADF11
@@ -299,11 +316,16 @@ class Plasma:
             plt = self.ADASReader.get_adf11("plt", elem, adf11[elem]["plt"])
             prb = self.ADASReader.get_adf11("prb", elem, adf11[elem]["prb"])
             prc = self.ADASReader.get_adf11("prc", elem, adf11[elem]["prc"])
-            power_loss[elem] = PowerLoss(plt, prb, PRC=prc)
+            power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
+
+            pls = self.ADASReader.get_adf11("pls", elem, adf11[elem]["pls"])
+            prs = self.ADASReader.get_adf11("prs", elem, adf11[elem]["prs"])
+            power_loss_sxr[elem] = PowerLoss(pls, prs)
 
         self.adf11 = adf11
         self.fract_abu = fract_abu
-        self.power_loss = power_loss
+        self.power_loss_tot = power_loss_tot
+        self.power_loss_sxr = power_loss_sxr
 
     def set_neutral_density(self, y0=1.0e10, y1=1.0e15, decay=12):
         self.Nh_prof.y0 = y0
@@ -585,9 +607,7 @@ class Plasma:
                 ti0 = Ti_prof.y0
 
             if not ((te0 > 0) * (ti0 > 0)):
-                self.el_temp.loc[dict(t=t)] = np.full_like(
-                    Te_prof.yspl.values, np.nan
-                )
+                self.el_temp.loc[dict(t=t)] = np.full_like(Te_prof.yspl.values, np.nan)
                 for elem in self.elements:
                     self.ion_temp.loc[dict(t=t, element=elem)] = np.full_like(
                         Te_prof.yspl.values, np.nan
@@ -600,7 +620,9 @@ class Plasma:
 
                     # Upper limit of the ratio
                     ratio_data = ratio_tmp + ratio_tmp.attrs["error"]
-                    least_squares(residuals_te_ratio, te0, bounds=bounds_te, method=method)
+                    least_squares(
+                        residuals_te_ratio, te0, bounds=bounds_te, method=method
+                    )
                     least_squares(residuals_ti, ti0, bounds=bounds_ti, method=method)
 
                     Te_lo = deepcopy(Te_prof)
@@ -608,7 +630,9 @@ class Plasma:
 
                     # Lower limit of the ratio
                     ratio_data = ratio_tmp - ratio_tmp.attrs["error"]
-                    least_squares(residuals_te_ratio, te0, bounds=bounds_te, method=method)
+                    least_squares(
+                        residuals_te_ratio, te0, bounds=bounds_te, method=method
+                    )
                     least_squares(residuals_ti, ti0, bounds=bounds_ti, method=method)
                     Te_hi = deepcopy(Te_prof)
                     Ti_hi = deepcopy(Ti_prof)
@@ -999,13 +1023,37 @@ class Plasma:
                 Nimp.loc[dict(t=t)] = imp_dens * imp_dens_0.sel(t=t).values
             self.ion_dens.loc[dict(element=elem)] = Nimp.values
 
+    def calc_centrifugal_asymmetry(self, time=None):
+        """
+        Calculate (R, z) maps of the ion densities caused by centrifugal asymmetry
+        """
+        if time == None:
+            time = self.t
+
+        if not hasattr(self, "ion_dens_2d"):
+            R = self.equilibrium.rho.R
+            z = self.equilibrium.rho.z
+            coords = [
+                ("element", list(self.elements)),
+                ("t", self.t),
+                ("R", R),
+                ("z", z),
+            ]
+            self.ion_dens_2d = DataArray(
+                np.zeros((len(self.elements), len(self.t), len(R), len(z))),
+                coords=[coords_elem, coords_time, coords_R, coords_z],
+            )
+            self.asymmetry_2d = deepcopy(self.ion_dens_2d)
+
+
     def calc_fz_lz(self, use_tau=False):
         """
         Calculate fractional abundance and cooling factors
         """
         tau = None
         fz = {}
-        lz = {}
+        lz_tot = {}
+        lz_sxr = {}
         rho = self.el_dens.rho_poloidal.values
         t = self.el_dens.t.values
         for elem in self.elements:
@@ -1015,7 +1063,9 @@ class Plasma:
                 coords={"t": t, "rho_poloidal": rho, "ion_charges": ion_charges},
                 dims=["t", "rho_poloidal", "ion_charges",],
             )
-            lz[elem] = deepcopy(fz[elem])
+            lz_tot[elem] = deepcopy(fz[elem])
+            lz_sxr[elem] = deepcopy(fz[elem])
+
         for elem in self.elements:
             for t in self.t:
                 Ne = self.el_dens.sel(t=t)
@@ -1029,12 +1079,16 @@ class Plasma:
                     tau = self.tau.sel(t=t)
                 fz_tmp = self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau)
                 fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
-                lz[elem].loc[dict(t=t)] = (
-                    self.power_loss[elem](Ne, Te, fz_tmp, Nh=Nh).transpose().values
+                lz_tot[elem].loc[dict(t=t)] = (
+                    self.power_loss_tot[elem](Ne, Te, fz_tmp, Nh=Nh).transpose().values
+                )
+                lz_sxr[elem].loc[dict(t=t)] = (
+                    self.power_loss_sxr[elem](Ne, Te, fz_tmp).transpose().values
                 )
 
         self.fz = fz
-        self.lz = lz
+        self.lz_tot = lz_tot
+        self.lz_sxr = lz_sxr
 
     def calc_meanz(self):
         """
@@ -1052,17 +1106,37 @@ class Plasma:
         """
         for elem in self.elements:
             tot_rad = (
-                self.lz[elem].sum("ion_charges")
+                self.lz_tot[elem].sum("ion_charges")
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
             tot_rad = xr.where(tot_rad >= 0, tot_rad, 0.0,)
             self.tot_rad.loc[dict(element=elem)] = tot_rad.values
 
-            prad = self.prad.sel(element=elem)
+            sxr_rad = (
+                self.lz_sxr[elem].sum("ion_charges")
+                * self.el_dens
+                * self.ion_dens.sel(element=elem)
+            )
+            sxr_rad = xr.where(sxr_rad >= 0, sxr_rad, 0.0,)
+            self.sxr_rad.loc[dict(element=elem)] = sxr_rad.values
+
+            if not hasattr(self, "prad_tot"):
+                self.prad_tot = deepcopy(self.prad)
+                self.prad_sxr = deepcopy(self.prad)
+                assign_datatype(self.prad_sxr, ("radiation", "sxr"))
+
+            prad_tot = self.prad_tot.sel(element=elem)
+            prad_sxr = self.prad_sxr.sel(element=elem)
             for t in self.t:
-                prad.loc[dict(t=t)] = np.trapz(tot_rad.sel(t=t), self.volume.sel(t=t))
-            self.prad.loc[dict(element=elem)] = prad.values
+                prad_tot.loc[dict(t=t)] = np.trapz(
+                    tot_rad.sel(t=t), self.volume.sel(t=t)
+                )
+                prad_sxr.loc[dict(t=t)] = np.trapz(
+                    sxr_rad.sel(t=t), self.volume.sel(t=t)
+                )
+            self.prad_tot.loc[dict(element=elem)] = prad_tot.values
+            self.prad_sxr.loc[dict(element=elem)] = prad_sxr.values
 
     def calc_pressure(self):
         """
@@ -1502,8 +1576,11 @@ class Plasma:
         self.sxr_rad = deepcopy(data3d)
         assign_datatype(self.sxr_rad, ("radiation_emission", "sxr"))
 
-        self.prad = deepcopy(data2d_elem)
+        self.prad_tot = deepcopy(data2d_elem)
         assign_datatype(self.tot_rad, ("radiation", "total"))
+
+        self.prad_sxr = deepcopy(data2d_elem)
+        assign_datatype(self.prad_sxr, ("radiation", "sxr"))
 
         self.pressure_th = deepcopy(data2d)
         assign_datatype(self.pressure_th, ("pressure", "thermal"))
@@ -1582,9 +1659,17 @@ def remap_diagnostic(diag_data, flux_transform, npts=100):
     new_attrs["x2"] = x2
     new_attrs["dl"] = dl
     new_attrs["R"], new_attrs["z"] = trans.convert_to_Rz(x1, x2, 0)
-    rho_equil, _ = flux_transform.convert_from_Rz(new_attrs["R"], new_attrs["z"])
+
+    dt_equil = flux_transform.equilibrium.rho.t[1] - flux_transform.equilibrium.rho.t[0]
+    dt_data = diag_data.t[1] - diag_data.t[0]
+    if dt_data > dt_equil:
+        t = diag_data.t
+    else:
+        t = None
+    rho_equil, _ = flux_transform.convert_from_Rz(new_attrs["R"], new_attrs["z"], t=t)
     rho = rho_equil.interp(t=diag_data.t, method="linear")
     rho = xr.where(rho >= 0, rho, 0.0)
+    rho.coords[trans.x2_name] = x2
     new_attrs["rho"] = rho
 
     return new_attrs
