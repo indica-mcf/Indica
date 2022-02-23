@@ -169,6 +169,7 @@ class ExtrapolateImpurityDensity(Operator):
                         "dl": dl,
                         "R": R_arr,
                         "z": z_arr,
+                        "t": t_arr,
                     }
                 )
             )
@@ -231,6 +232,89 @@ class ExtrapolateImpurityDensity(Operator):
         main_ion_density = main_ion_density.transpose("rho", "theta", "t")
 
         return main_ion_density
+
+    def bolometry_channel_filter(
+        self,
+        LoS_bolometry_data_in: Sequence,
+        LoS_coords_in: Sequence,
+    ):
+        LoS_bolometry_data = []
+        LoS_coords = []
+
+        t_arr = LoS_coords_in[0]["t"]
+
+        R_central = self.flux_surfs.equilibrium.rmag.interp(t=t_arr, method="linear")
+
+        LoS_R_midplane_multi = []
+
+        for iLoS in range(len(LoS_bolometry_data_in)):
+            R_arr = LoS_coords_in[iLoS]["R"]
+            z_arr = LoS_coords_in[iLoS]["z"]
+
+            try:
+                midplane_LoS_pos = z_arr.indica.invert_interp(
+                    values=0.0, target=z_arr.dims[1], method="nearest"
+                )
+            except ValueError:
+                midplane_LoS_pos = 2.0
+
+            LoS_R_midplane = R_arr.interp(
+                {R_arr.dims[1]: midplane_LoS_pos}, method="nearest"
+            )
+
+            if (LoS_R_midplane > R_central).all():
+                LoS_bolometry_data.append(LoS_bolometry_data_in[iLoS])
+                LoS_coords.append(LoS_coords_in[iLoS])
+                LoS_R_midplane_multi.append(LoS_R_midplane.data[0])
+
+        LoS_R_midplane_positions = DataArray(
+            data=LoS_R_midplane_multi,
+            coords={"channels": [j[6] for j in LoS_bolometry_data]},
+            dims=["channels"],
+        )
+
+        LoS_R_midplane_positions_sorted = LoS_R_midplane_positions.sortby(
+            LoS_R_midplane_positions
+        )
+
+        radial_resolution_threshold = 0.1  # in metres
+
+        LoS_R_midplane_positions_diff = LoS_R_midplane_positions_sorted.diff(
+            "channels", label="upper"
+        )
+
+        LoS_R_midplane_positions_diff_first = DataArray(
+            data=np.array([True]),
+            coords={
+                "channels": np.array(
+                    [LoS_R_midplane_positions_sorted.coords["channels"].data[0]]
+                )
+            },
+            dims=["channels"],
+        )
+
+        LoS_R_midplane_positions_diff = concat(
+            [LoS_R_midplane_positions_diff_first, LoS_R_midplane_positions_diff],
+            dim="channels",
+        )
+
+        LoS_R_midplane_trim_mask = (
+            LoS_R_midplane_positions_diff > radial_resolution_threshold
+        )
+
+        LoS_R_midplane_trimmed = LoS_R_midplane_positions_sorted[
+            LoS_R_midplane_trim_mask
+        ]
+
+        LoS_bolometry_data_trimmed = []
+        LoS_coords_trimmed = []
+        for iLoS in range(len(LoS_bolometry_data)):
+            orig_channel = LoS_bolometry_data[iLoS][6]
+            if orig_channel in LoS_R_midplane_trimmed.coords["channels"].data:
+                LoS_bolometry_data_trimmed.append(LoS_bolometry_data[iLoS])
+                LoS_coords_trimmed.append(LoS_coords[iLoS])
+
+        return LoS_bolometry_data_trimmed, LoS_coords_trimmed
 
     def bolometry_derivation(
         self,
@@ -324,9 +408,6 @@ class ExtrapolateImpurityDensity(Operator):
                 dims=["channels"],
             )
 
-            R_central = self.flux_surfs.equilibrium.rmag.interp(
-                t=t_val, method="linear"
-            )
         else:
             derived_power_loss = derived_power_loss.transpose("t", "rho", "theta")
 
@@ -346,57 +427,38 @@ class ExtrapolateImpurityDensity(Operator):
                 dims=["channels", "t"],
             )
 
-            R_central = self.flux_surfs.equilibrium.rmag.interp(
-                t=t_arr, method="linear"
-            )
-
         for iLoS in range(len(LoS_bolometry_data)):
-            R_arr = LoS_coords[iLoS]["R"]
-            z_arr = LoS_coords[iLoS]["z"]
+            LoS_transform = LinesOfSightTransform(*LoS_bolometry_data[iLoS])
 
-            try:
-                midplane_LoS_pos = z_arr.indica.invert_interp(
-                    values=0.0, target=z_arr.dims[1], method="nearest"
-                )
-            except ValueError:
-                midplane_LoS_pos = 2.0
+            x1_name = LoS_transform.x1_name
+            x2_name = LoS_transform.x2_name
 
-            LoS_R_midplane = R_arr.interp(
-                {R_arr.dims[1]: midplane_LoS_pos}, method="nearest"
+            x2 = DataArray(
+                data=np.linspace(0, 1, 30),
+                coords={x2_name: np.linspace(0, 1, 30)},
+                dims=[x2_name],
             )
 
-            if (LoS_R_midplane > R_central).all():
-                LoS_transform = LinesOfSightTransform(*LoS_bolometry_data[iLoS])
+            rho_arr = LoS_coords[iLoS]["rho"]
+            theta_arr = LoS_coords[iLoS]["theta"]
 
-                x1_name = LoS_transform.x1_name
-                x2_name = LoS_transform.x2_name
+            rho_arr = np.abs(rho_arr)
+            rho_arr = rho_arr.assign_coords({x2_name: x2})
+            rho_arr = rho_arr.drop(x1_name).squeeze()
+            rho_arr = rho_arr.fillna(2.0)
+            theta_arr = theta_arr.drop(x1_name).squeeze()
 
-                x2 = DataArray(
-                    data=np.linspace(0, 1, 30),
-                    coords={x2_name: np.linspace(0, 1, 30)},
-                    dims=[x2_name],
-                )
+            derived_power_loss_LoS = derived_power_loss.interp(
+                {"rho": rho_arr, "theta": theta_arr}
+            )
 
-                rho_arr = LoS_coords[iLoS]["rho"]
-                theta_arr = LoS_coords[iLoS]["theta"]
+            derived_power_loss_LoS = derived_power_loss_LoS.fillna(0.0)
 
-                rho_arr = np.abs(rho_arr)
-                rho_arr = rho_arr.assign_coords({x2_name: x2})
-                rho_arr = rho_arr.drop(x1_name).squeeze()
-                rho_arr = rho_arr.fillna(2.0)
-                theta_arr = theta_arr.drop(x1_name).squeeze()
+            dl = LoS_coords[iLoS]["dl"]
+            dl = cast(DataArray, dl)[1]
 
-                derived_power_loss_LoS = derived_power_loss.interp(
-                    {"rho": rho_arr, "theta": theta_arr}
-                )
-
-                derived_power_loss_LoS = derived_power_loss_LoS.fillna(0.0)
-
-                dl = LoS_coords[iLoS]["dl"]
-                dl = cast(DataArray, dl)[1]
-
-                derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
-                derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
+            derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
+            derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
 
         return derived_power_loss_LoS_tot
 
