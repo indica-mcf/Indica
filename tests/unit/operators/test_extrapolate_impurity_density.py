@@ -706,6 +706,13 @@ def test_extrapolate_impurity_density_call():
         *bolometry_setup_args
     )
 
+    (
+        bolometry_args[5],
+        bolometry_args[6],
+    ) = example_extrapolate_impurity_density.bolometry_channel_filter(
+        bolometry_args[5], bolometry_args[6]
+    )
+
     original_bolometry = example_extrapolate_impurity_density.bolometry_derivation(
         *bolometry_args
     )
@@ -725,7 +732,7 @@ def test_extrapolate_impurity_density_call():
         )
     )
 
-    test_profile.enable()
+    test_profile.disable()
     test_profile.dump_stats("./optimization.prof")
 
     impurity_sxr_density_asym_rho_theta.isel(t=19).sel(theta=0).plot()
@@ -744,7 +751,7 @@ def test_extrapolate_impurity_density_call():
     relative_fit_error = sum_of_residuals / sum_of_original
 
     try:
-        assert np.max(relative_fit_error) < 0.125
+        assert np.max(relative_fit_error) < 0.1
     except AssertionError:
         raise AssertionError(
             f"Relative error is too high(maximum allowed is 0.1): \
