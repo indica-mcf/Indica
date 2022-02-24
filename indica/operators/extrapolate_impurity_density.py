@@ -159,6 +159,12 @@ class ExtrapolateImpurityDensity(Operator):
             rho_arr = cast(DataArray, rho_arr).interp(t=t_arr, method="linear")
             theta_arr = cast(DataArray, theta_arr).interp(t=t_arr, method="linear")
 
+            rho_arr = np.abs(rho_arr)
+            rho_arr = rho_arr.assign_coords({x2_name: x2})
+            rho_arr = rho_arr.drop(x1_name).squeeze()
+            rho_arr = rho_arr.fillna(2.0)
+            theta_arr = theta_arr.drop(x1_name).squeeze()
+
             dl = LoS_transform.distance(x2_name, DataArray(0), x2[0:2], 0)
 
             LoS_coords.append(
@@ -430,23 +436,10 @@ class ExtrapolateImpurityDensity(Operator):
         for iLoS in range(len(LoS_bolometry_data)):
             LoS_transform = LinesOfSightTransform(*LoS_bolometry_data[iLoS])
 
-            x1_name = LoS_transform.x1_name
             x2_name = LoS_transform.x2_name
-
-            x2 = DataArray(
-                data=np.linspace(0, 1, 30),
-                coords={x2_name: np.linspace(0, 1, 30)},
-                dims=[x2_name],
-            )
 
             rho_arr = LoS_coords[iLoS]["rho"]
             theta_arr = LoS_coords[iLoS]["theta"]
-
-            rho_arr = np.abs(rho_arr)
-            rho_arr = rho_arr.assign_coords({x2_name: x2})
-            rho_arr = rho_arr.drop(x1_name).squeeze()
-            rho_arr = rho_arr.fillna(2.0)
-            theta_arr = theta_arr.drop(x1_name).squeeze()
 
             derived_power_loss_LoS = derived_power_loss.interp(
                 {"rho": rho_arr, "theta": theta_arr}
@@ -1033,7 +1026,7 @@ class ExtrapolateImpurityDensity(Operator):
                 max_nfev=50,
                 args=(it,),
                 ftol=1e-60,
-                xtol=1e-2,
+                xtol=5e-2,
                 gtol=1e-60,
             )
 
