@@ -15,6 +15,7 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
+from indica.operators.bolometry_derivation import BolometryDerivation
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
 from indica.readers import ADASReader
@@ -683,38 +684,21 @@ def test_extrapolate_impurity_density_call():
     impurity_densities.data[2] = nickel_impurity_conc
     impurity_densities.data[3] = impurity_sxr_density_asym_rho_theta
 
-    LoS_coords = example_extrapolate_impurity_density.bolometry_coord_transforms(
-        example_bolometry_LoS, flux_surfs, input_Ne.coords["t"]
-    )
-
-    main_ion_density = zeros_like(impurity_densities.isel(elements=0).squeeze())
-
     bolometry_args = [
+        flux_surfs,
+        example_bolometry_LoS,
+        input_Ne.coords["t"],
         impurity_densities,
+        example_frac_abunds,
+        elements,
+        input_Ne,
         main_ion_power_loss,
         impurity_power_loss,
-        input_Ne,
-        main_ion_density,
-        example_bolometry_LoS,
-        LoS_coords,
     ]
 
-    bolometry_setup_args = [impurity_densities, example_frac_abunds, elements, input_Ne]
+    example_bolometry_derivation = BolometryDerivation(*bolometry_args)
 
-    bolometry_args[4] = example_extrapolate_impurity_density.bolometry_setup(
-        *bolometry_setup_args
-    )
-
-    (
-        bolometry_args[5],
-        bolometry_args[6],
-    ) = example_extrapolate_impurity_density.bolometry_channel_filter(
-        bolometry_args[5], bolometry_args[6]
-    )
-
-    original_bolometry = example_extrapolate_impurity_density.bolometry_derivation(
-        *bolometry_args
-    )
+    original_bolometry = example_bolometry_derivation(deriv_only=False, trim=True)
 
     test_profile = cProfile.Profile()
 
@@ -723,9 +707,8 @@ def test_extrapolate_impurity_density_call():
     optimized_impurity_density = (
         example_extrapolate_impurity_density.optimize_perturbation(
             example_result_rho_theta,
-            original_bolometry,
-            bolometry_setup_args,
-            bolometry_args,
+            original_bolometry.copy(deep=True),
+            example_bolometry_derivation,
             "w",
             example_asym_modifier,
         )
