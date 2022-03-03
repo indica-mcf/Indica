@@ -476,15 +476,15 @@ class PPFReader(DataReader):
                 results[q] = np.array(luminosities).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
-            rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
+            xstart, xend, zstart, zend, ystart, yend = surf_los.read_surf_los(
                 SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
             )
-            results[q + "_Rstart"] = rstart[channels]
-            results[q + "_Rstop"] = rend[channels]
+            results[q + "_xstart"] = xstart[channels]
+            results[q + "_xstop"] = xend[channels]
             results[q + "_zstart"] = zstart[channels]
             results[q + "_zstop"] = zend[channels]
-            results[q + "_Tstart"] = Tstart[channels]
-            results[q + "_Tstop"] = Tend[channels]
+            results[q + "_ystart"] = ystart[channels]
+            results[q + "_ystop"] = yend[channels]
         return results
 
     def _get_bremsstrahlung_spectroscopy(
@@ -507,12 +507,12 @@ class PPFReader(DataReader):
             results["length"][q] = 1
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
-            results[q + "_Rstart"] = np.array([los.data[1] / 1000])
-            results[q + "_Rstop"] = np.array([los.data[4] / 1000])
+            results[q + "_xstart"] = np.array([los.data[1] / 1000])
+            results[q + "_xstop"] = np.array([los.data[4] / 1000])
             results[q + "_zstart"] = np.array([los.data[2] / 1000])
             results[q + "_zstop"] = np.array([los.data[5] / 1000])
-            results[q + "_Tstart"] = np.zeros_like(results[q + "_Rstart"])
-            results[q + "_Tstop"] = np.zeros_like(results[q + "_Rstop"])
+            results[q + "_ystart"] = np.zeros_like(results[q + "_xstart"])
+            results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
         return results
 
