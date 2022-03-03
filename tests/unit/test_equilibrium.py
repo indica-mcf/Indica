@@ -421,7 +421,7 @@ def test_volume_enclosed(equilib_Te, rho, time, ftype, offset):
     )
     expected = 2 * np.pi * Rmag * area
     actual, _ = equilib.enclosed_volume(rho, time)
-    tol = 2 * np.pi * np.sqrt(Rmag ** 2 * a_err ** 2 + area ** 2 * R_err ** 2) * 1e4
+    tol = 2 * np.pi * np.sqrt(Rmag**2 * a_err**2 + area**2 * R_err**2) * 1e4
     assert actual == approx(expected, rel=tol, abs=tol)
 
 
