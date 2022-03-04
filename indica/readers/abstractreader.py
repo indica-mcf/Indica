@@ -900,12 +900,12 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                database_results[quantity + "_Rstart"],
+                database_results[quantity + "_xstart"],
                 database_results[quantity + "_zstart"],
-                database_results[quantity + "_Tstart"],
-                database_results[quantity + "_Rstop"],
+                database_results[quantity + "_ystart"],
+                database_results[quantity + "_xstop"],
                 database_results[quantity + "_zstop"],
-                database_results[quantity + "_Tstop"],
+                database_results[quantity + "_ystop"],
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
             )
@@ -995,17 +995,17 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
+        <quantity>_xstart : ndarray
             Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
+        <quantity>_xstop : ndarray
             Major radius of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
+        <quantity>_ystart : ndarray
             Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
+        <quantity>_ystop : ndarray
             Toroidal offset of stop positions for lines of sight for this data.
 
         """
@@ -1058,12 +1058,12 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                database_results[quantity + "_Rstart"],
+                database_results[quantity + "_xstart"],
                 database_results[quantity + "_zstart"],
-                database_results[quantity + "_Tstart"],
-                database_results[quantity + "_Rstop"],
+                database_results[quantity + "_ystart"],
+                database_results[quantity + "_xstop"],
                 database_results[quantity + "_zstop"],
-                database_results[quantity + "_Tstop"],
+                database_results[quantity + "_ystop"],
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
             )
@@ -1100,7 +1100,7 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            if len(database_results[quantity + "_Rstart"]) > 1:
+            if len(database_results[quantity + "_xstart"]) > 1:
                 drop = self._select_channels(
                     "bremsstrahlung",
                     uid,
@@ -1166,17 +1166,17 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
+        <quantity>_xstart : ndarray
             Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
+        <quantity>_xstop : ndarray
             Major radius of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
+        <quantity>_ystart : ndarray
             Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
+        <quantity>_ystop : ndarray
             Toroidal offset of stop positions for lines of sight for this data.
 
         """

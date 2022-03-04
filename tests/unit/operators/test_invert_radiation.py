@@ -36,7 +36,7 @@ knot_times = coord_array(np.linspace(0.0, 10.0, 6), "t")
 
 def sym_func(rho, t):
     # Need this form of polynomial in order to satisfy boundary conditions
-    return rho ** 3 - 3 * rho ** 2 + 0.2 * t + 2
+    return rho**3 - 3 * rho**2 + 0.2 * t + 2
 
 
 def asym_func(rho, t):
@@ -67,7 +67,7 @@ def test_emissivity_profile_asym():
         flux_coords, alpha_grid, alpha_z_off_grid, t_grid
     )
     R_0 = fake_equilib.R_hfs(rho_grid, t_grid, "poloidal")[0]
-    expected_emissiv = np.exp(asym_func(rho_grid, t_grid) * (0.36 - R_0 ** 2))
+    expected_emissiv = np.exp(asym_func(rho_grid, t_grid) * (0.36 - R_0**2))
     result = profile(coords, alpha_grid, alpha_z_off_grid, t_grid)
     assert_allclose(result, expected_emissiv.transpose(*result.dims))
     assert result.attrs["transform"] == coords
@@ -97,7 +97,7 @@ def test_emissivity_profile_evaluate2():
     expected_emissiv = sym_func(rho_grid, t_grid) * np.exp(
         0.01 * asym_func(rho_grid, t_grid)
     )
-    result = profile.evaluate(rho_grid, R_grid, R_0=np.sqrt(R_grid ** 2 - 0.01))
+    result = profile.evaluate(rho_grid, R_grid, R_0=np.sqrt(R_grid**2 - 0.01))
     assert_allclose(result, expected_emissiv.transpose(*result.dims))
 
 
