@@ -192,17 +192,30 @@ class Profiles:
 
 def get_defaults(identifier):
 
+    # parameters = {
+    #     "density": (12, 0.4, 1.3),
+    #     "temperature": (4, 0.4, 1.5),
+    #     "rotation": (4, 0.4, 1.4),
+    #     "neutral_density": (12, 0, 1),
+    # }
+    #
+    # values = {
+    #     "density": (5.0e19, 1.0e19, 0.0),
+    #     "temperature": (3.0e3, 50, 0.0),
+    #     "rotation": (200.0e3, 10.0e3, 0.0),
+    #     "neutral_density": (1.0e16, 1.0e18, 1.0e18),
+    # }
     parameters = {
-        "density": (12, 0.4, 1.3),
-        "temperature": (4, 0.4, 1.5),
-        "rotation": (4, 0.4, 1.4),
+        "density": (6, 0.4, 2),
+        "temperature": (3, 0.35, 1.5),
+        "rotation": (3, 0.35, 1.5),
         "neutral_density": (12, 0, 1),
     }
 
     values = {
-        "density": (5.0e19, 1.0e19, 0.0),
+        "density": (5.0e19, 0.1e19, 0.0),
         "temperature": (3.0e3, 50, 0.0),
-        "rotation": (200.0e3, 10.0e3, 0.0),
+        "rotation": (100.0e3, 10.0e3, 0.0),
         "neutral_density": (1.0e16, 1.0e18, 1.0e18),
     }
 
@@ -265,7 +278,7 @@ def density_crash(
 
     return pre, post
 
-def profile_scans(plot=False):
+def profile_scans(plot=False, avrg=False):
     rho = np.linspace(0, 1.0, 41)
     Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
     Ne = Profiles(datatype=("density", "electron"), xspl=rho)
