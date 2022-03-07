@@ -24,6 +24,7 @@ import hda.profiles as profiles
 from indica.readers import ST40Reader, ADASReader
 from indica.converters.time import bin_in_time_dt
 from indica.operators.atomic_data import PowerLoss, FractionalAbundance
+from indica.converters import LinesOfSightTransform
 
 from hda.diagnostics.spectrometer import XRCSpectrometer
 from hda.diagnostics.PISpectrometer import PISpectrometer
@@ -217,7 +218,7 @@ def plasma_workflow(
         plots.compare_data_bckc(
             data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
         )
-        plots.profiles(pl, bckc=bckc, savefig=savefig, name=name)
+        plots.profiles(pl, data=data, savefig=savefig, name=name)
         plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
 
     if write:
@@ -261,7 +262,7 @@ def plot_results(pl, raw_data, data, bckc, savefig=False, name=""):
     plots.compare_data_bckc(
         data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
     )
-    plots.profiles(pl, bckc=bckc, savefig=savefig, name=name)
+    plots.profiles(pl, data=data, savefig=savefig, name=name)
     plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
     if savefig:
         plt.ion()
@@ -284,12 +285,14 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
 
 
 def run_all_scans():
-    # pulses = [9098, 9099, 9229, 9537, 9539, 9676, 9721, 9748, 9752, 9766, 9771, 9779, 9780,
-    # 9781, 9783, 9787, 9816, 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849]
+    # pulses = [9098, 9099, 9229, 9401, 9486, 9537, 9538, 9539, 9619, 9622, 9624, 9626, 9676,
+    # 9721, 9746, 9748, 9752, 9766, 9771, 9779, 9780, 9781, 9783, 9787, 9816, 9822, 9823, 9824,
+    # 9831, 9835, 9837, 9839, 9840, 9842, 9849, 9880, 9901]
 
     # 9818, 9820, 9389 - unknown issues
     # 9840 - doesn't have enough Ar
-    pulses = [9401, 9486, 9538, 9626, 9746, 9880, 9901]
+    # 9623 - issues with XRCS temperature optimisation...
+    pulses = []
 
     for pulse in pulses:
         print(pulse)
@@ -751,6 +754,11 @@ def find_best_profiles(
     minmax=False,
     tmax=3.8,
 ):
+    """
+    pl_dict, raw_data, data, bckc_dict, astra_dict = tests.find_best_profiles(pulse=9783)
+    pl, bckc = tests.find_best_profiles(pl_dict=pl_dict, raw_data=raw_data, data=data, bckc_dict=bckc_dict, astra_dict=astra_dict, savefig=savefig, tgood=0.08, perc_err=0.2, tmax=4.5, minmax=True)
+    """
+
     def average_runs(pl_dict, bckc=None, good_dict=None, tgood=0.08, minmax=False):
         """
         Average results from different runs
@@ -1011,6 +1019,163 @@ def find_best_profiles(
         if savefig:
             figname = plots.get_figname(pulse=pulse, name=name)
             plots.save_figure(fig_name=figname)
+
+    def add_missing_cxrs(pl, raw_data, data):
+        reader_st40 = ST40Reader(pl.pulse, pl.tstart, pl.tend, tree="ST40")
+        instrument = "princeton"
+        quantity = "ti"
+
+        R_orig, _ = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit", ".input:r_orig", 0
+        )
+        phi_orig, _ = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit", ".input:phi_orig", 0
+        )
+        x_orig = R_orig * np.cos(phi_orig)
+        y_orig = R_orig * np.sin(phi_orig)
+        z_orig, dims = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit", ".input:z_orig", 0
+        )
+
+        R_pos, _ = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit", ".input:r_pos", 0
+        )
+        phi_pos, _ = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit", ".input:phi_pos", 0
+        )
+        x_pos = R_pos * np.cos(phi_pos)
+        y_pos = R_pos * np.sin(phi_pos)
+        z_pos, dims = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit", ".input:z_pos", 0
+        )
+
+        location = np.array([x_orig, y_orig, z_orig]).transpose()
+        direction = np.array([x_pos, y_pos, z_pos]).transpose() - location
+
+        from indica.converters.lines_of_sight_jw import LinesOfSightTransform
+
+        rev = 3
+        values, dims = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti", rev
+        )
+        # Loop on channels and times to non-nil values
+        ch_ind = []
+        t_ind = []
+        for i in range(values.shape[1]):
+            if any(values[:, i]):
+                ch_ind.append(i)
+                t_ind.append(np.where(values[:, i] > 0)[0])
+        t_ind = np.arange(np.min(t_ind), np.max(t_ind) + 1)
+
+        err, dims = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti_err", rev
+        )
+        times = dims[1][t_ind]
+        location = location[ch_ind, :]
+        direction = direction[ch_ind, :]
+        R_nbi = dims[0][ch_ind]
+        x_nbi = x_pos[ch_ind]
+        y_nbi = y_pos[ch_ind]
+        z_nbi = z_pos[ch_ind]
+        values = values[t_ind, :]
+        values = values[:, ch_ind]
+        err = err[t_ind, :]
+        err = err[:, ch_ind]
+
+        # restrict to channels with data only
+        transform = []
+        dl_nbi = 0.2
+        for i in range(len(R_nbi)):
+            trans = LinesOfSightTransform(
+                location[i, :],
+                direction[i, :],
+                f"{instrument}_{quantity}",
+                reader_st40.MACHINE_DIMS,
+            )
+            x, y, z = trans.convert_to_xyz(0, trans.x2, 0)
+            R, _ = trans.convert_to_Rz(0, trans.x2, 0)
+
+            trans.x, trans.y, trans.z, trans.R = x, y, z, R
+
+            trans.R_nbi = R_nbi[i]
+
+            rho_equil, _ = pl.flux_coords.convert_from_Rz(trans.R, trans.z, t=times)
+            rho = rho_equil.interp(t=times, method="linear")
+            rho = xr.where(rho >= 0, rho, 0.0)
+            rho.coords[trans.x2_name] = trans.x2
+            trans.rho = rho
+
+            dn_nbi = int(dl_nbi / trans.dl / 2.0)
+            ind = np.argmin(np.abs(x.values - x_nbi[i]))
+            nbi_x2 = trans.x2[ind]
+            in_x2 = trans.x2[ind - dn_nbi]
+            out_x2 = trans.x2[ind + dn_nbi]
+
+            trans.rho_nbi = rho.sel(princeton_ti_los_position=nbi_x2)
+
+            rho_tmp = rho.sel(princeton_ti_los_position=slice(in_x2, out_x2))
+            trans.rho_in = rho_tmp.min("princeton_ti_los_position")
+            trans.rho_out = rho_tmp.max("princeton_ti_los_position")
+
+            transform.append(trans)
+
+        coords = [
+            ("t", times),
+            (transform[0].x1_name, ch_ind),
+        ]
+        error = (
+            DataArray(err, coords)
+            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        )
+        meta = {
+            "datatype": "ti",
+            "error": error,
+            "transform": transform,
+        }
+        quant_data = (
+            DataArray(values, coords, attrs=meta,)
+            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        )
+
+        quant_data.name = "princeton" + "_" + "ti"
+        quant_data.attrs["revision"] = rev
+
+        data["princeton"] = {}
+        data["princeton"]["cxsfit_bgnd"] = quant_data
+
+        # Multi-gaussian fit
+        values, dims = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti", 5
+        )
+        err, dims = reader_st40._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti_err", 5
+        )
+
+        values = values[t_ind, :]
+        values = values[:, ch_ind]
+        err = err[t_ind, :]
+        err = err[:, ch_ind]
+
+        error = (
+            DataArray(err, coords)
+            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        )
+        meta = {
+            "datatype": "ti",
+            "error": error,
+            "transform": transform,
+        }
+        quant_data = (
+            DataArray(values, coords, attrs=meta,)
+            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        )
+
+        quant_data.name = "princeton" + "_" + "ti"
+        quant_data.attrs["revision"] = rev
+
+        data["princeton"]["cxsfit_full"] = quant_data
+
+        return raw_data, data
 
     def add_missing_sxr(pl, raw_data, data, rotate=True):
         reader_st40 = ST40Reader(pl.pulse, pl.tstart, pl.tend, tree="ST40")
@@ -1275,6 +1440,9 @@ def find_best_profiles(
         # Read SXR data if it isn't already in the data structure
         if sxr and "sxr" not in raw_data:
             raw_data, data = add_missing_sxr(pl, raw_data, data)
+
+        if "princeton" not in data:
+            raw_data, data = add_missing_cxrs(pl, raw_data, data)
 
         if not hasattr(pl_avrg, "lz_sxr"):
             add_missing_sxr_atomdat(pl_dict)
@@ -1545,10 +1713,10 @@ def find_best_profiles(
 
     name = f"ASTRA_compare_average"
     plots.profiles(
-        pl, bckc=bckc, savefig=savefig, name=best_run,
+        pl, data=data, bckc=bckc, savefig=savefig, name=best_run,
     )
     plots.profiles(
-        pl, bckc=bckc, savefig=savefig, name=name, ploterr=True, tplot=tgood,
+        pl, data=data, bckc=bckc, savefig=savefig, name=name, ploterr=True, tplot=tgood,
     )
     plots.time_evol(
         pl, data, bckc=bckc, savefig=savefig, name=name, ploterr=True,
@@ -2348,7 +2516,7 @@ def sawtoothing(
     plots.compare_data_bckc(
         data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
     )
-    plots.profiles(pl, bckc=bckc, savefig=savefig, name=name)
+    plots.profiles(pl, data=data, savefig=savefig, name=name)
     plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
 
     return pl, raw_data, data, bckc
