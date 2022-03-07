@@ -76,7 +76,7 @@ class Database:
             self.dt = regr_data.dt
             self.overlap = regr_data.overlap
             self.time = regr_data.time
-            self.empty_binned = regr_data.empty_binned
+            self.initialize_structures()
             self.binned = regr_data.binned
             self.max_val = regr_data.max_val
             self.pulses = regr_data.pulses
@@ -153,6 +153,8 @@ class Database:
             first pulse in range
         pulse_end
             last pulse in range
+        info
+            dictionary of data to be read
 
         Returns
         -------
@@ -161,6 +163,7 @@ class Database:
 
         binned = {}
         max_val = {}
+
         for k in self.info.keys():
             binned[k] = []
             max_val[k] = []
@@ -230,7 +233,7 @@ class Database:
 
         return binned, max_val, pulses
 
-    def bin_in_time(self, data, time, err=None):
+    def bin_in_time(self, data, time, err=None, sign=+1):
         """
         Bin data in time, calculate maximum value in specified time range,
         create datasets for binned data and maximum values
@@ -280,7 +283,17 @@ class Database:
         binned.gradient.values = binned.value.differentiate("t")
         binned.cumul.values = xr.where(np.isfinite(binned.value), binned.cumul, np.nan)
 
-        max_ind = np.nanargmax(data)
+        # FInd max value in time range of analysis
+        tind = np.where((time >= self.tlim[0]) * (time < self.tlim[1]))[0]
+        # Look for maximum in the signal in the positive or negative sides or in its absolute value
+        if sign > 0:
+            max_ind = np.nanargmax(data[tind])
+        elif sign < 0:
+            max_ind = np.nanargmin(data[tind])
+        else:
+            max_ind = np.nanargmin(np.abs(data[tind]))
+
+        max_ind = tind[max_ind]
         max_val.value.values = data[max_ind]
         max_val.time.values = time[max_ind]
         if err is not None:
@@ -330,6 +343,479 @@ def add_pulses(regr_data, pulse_end, reload=False, write=True):
         write_to_pickle(merged)
     else:
         return merged
+
+
+def add_quantities(regr_data, info=None, write=True):
+    """
+    Add additional quantities to the database
+
+    Temporary: define info structure here
+    TODO: move info structure somewhere else so that additional quantities can be added permanently
+    TODO: add sign key to all info dictionaries for calculation of max_val
+        --> sign = +1 : look for maximum on positive side
+        --> sign = -1 : look for maximum on negative sige
+        --> sign = 0 : absolute value
+    """
+    if info is None:
+        info = {
+            "d_i_6561": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".line_evol.d_i_6561:intensity",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "D I 656.1 nm",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_ar": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_ar",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "Ar lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_b": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_b",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "B lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_c": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_c",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "C lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_h": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_h",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "H lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_he": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_he",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "He lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_li": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_li",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "Li lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_n": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_n",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "N lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+            "sum_o": {
+                "uid": "spectrom",
+                "diag": "avantes.line_mon",
+                "node": ".key_species:sum_o",
+                "seq": 0,
+                "err": None,
+                "max": False,
+                "label": "O lines",
+                "units": "(a.u.)",
+                "const": 1.0,
+            },
+        }
+    #     info = {
+    #     "D_I_6561": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.D_I_6561:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "D I 656.1 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "HE_II_6678": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.HE_II_6678:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "He II 467.8 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "B_IV_2826": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.B_IV_2826:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "B IV 282.6 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "B_IV_2822": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.B_IV_2822:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "B IV 282.2 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "B_II_7030": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.B_II_7030:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "B II 703.0 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "B_III_2067": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.B_III_2067:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "B III 206.7 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "B_III_2066": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.B_III_2066:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "B III 206.6 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_V_2787": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_V_2787:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 278.7 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_V_2781": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_V_2781:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 278.1 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_VI_3834": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_VI_3834:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 383.4 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_VI_3811": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_VI_3811:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 381.1 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_IV_3386": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_IV_3386:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 338.6 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_IV_3063": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_IV_3063:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 306.3 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_II_4417": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_II_4417:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 441.7 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_III_3047": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_III_3047:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 304.7 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "O_III_2984": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.O_III_2984:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "O IV 298.4 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "ar_ii_3729": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.ar_ii_3729:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "Ar II 372.9 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "ar_iii_3024": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.ar_iii_3024:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "Ar III 302.4 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_V_2277": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_V_2277:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C V 227.7 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_V_2271": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_V_2271:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C V 227.1 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_II_6583": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_II_6583:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C II 658.3 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_II_6578": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_II_6578:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C II 657.8 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_II_5133": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_II_5133:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C II 513.3 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_II_2838": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_II_2838:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C II 283.8 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_III_4647": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_III_4647:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C III 464.7 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    #     "C_III_2297": {
+    #         "uid": "spectrom",
+    #         "diag": "avantes.line_mon",
+    #         "node": ".line_evol.C_III_2297:intensity",
+    #         "seq": 0,
+    #         "err": None,
+    #         "max": False,
+    #         "label": "C III 229.7 nm",
+    #         "units": "(a.u.)",
+    #         "const": 1.0,
+    #     },
+    # }
+
+    print(f"New items being added: {list(info)}")
+
+    key = list(regr_data.binned)[0]
+    pulses = regr_data.binned[key].pulse.values
+
+    # TODO: check whether the new quantities are already in the self.info dictionary
+    info_keys = regr_data.info.keys()
+    binned = {}
+    max_val = {}
+    for k in info.keys():
+        assert k not in info_keys
+        binned[k] = []
+        max_val[k] = []
+
+    for pulse in pulses:
+        print(pulse)
+        reader = ST40Reader(int(pulse), regr_data.tlim[0], regr_data.tlim[1],)
+
+        for k, v in info.items():
+            if "uid" not in v.keys():
+                binned[k].append(regr_data.empty_binned)
+                max_val[k].append(regr_data.empty_max_val)
+                continue
+
+            err = None
+            data, dims = reader._get_data(v["uid"], v["diag"], v["node"], v["seq"])
+            if np.array_equal(data, "FAILED") or np.array_equal(dims[0], "FAILED"):
+                binned[k].append(regr_data.empty_binned)
+                max_val[k].append(regr_data.empty_max_val)
+                continue
+
+            time = dims[0]
+            if v["err"] is not None:
+                err, _ = reader._get_data(v["uid"], v["diag"], v["err"], v["seq"])
+
+            if np.min(time) > np.max(regr_data.tlim) or np.max(time) < np.min(
+                regr_data.tlim
+            ):
+                print(f"{k} wrong time range")
+                binned[k].append(regr_data.empty_binned)
+                max_val[k].append(regr_data.empty_max_val)
+                continue
+
+            if "sign" in v.keys():
+                sign = v["sign"]
+            else:
+                sign = +1
+            binned_tmp, max_val_tmp = regr_data.bin_in_time(data, time, err, sign=sign)
+
+            binned[k].append(binned_tmp)
+            max_val[k].append(max_val_tmp)
+
+    merged = deepcopy(regr_data)
+    for k in binned.keys():
+        binned[k] = xr.concat(binned[k], "pulse")
+        binned[k] = binned[k].assign_coords({"pulse": pulses})
+        max_val[k] = xr.concat(max_val[k], "pulse")
+        max_val[k] = max_val[k].assign_coords({"pulse": pulses})
+
+        merged.binned[k] = binned[k]
+        merged.max_val[k] = max_val[k]
+
+    if write:
+        old_file = f"{regr_data.data_path}{regr_data.data_file}"
+        backup_file = f"{regr_data.data_path}_{regr_data.data_file}"
+        os.rename(old_file, backup_file)
+        write_to_pickle(merged)
+    else:
+        return regr_data
 
 
 def calc_additional_quantities(binned, max_val, info, temp_ratio):
@@ -484,9 +970,14 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
     max_val["ne_nirh1_te_xrcs"] = deepcopy(max_val["te_xrcs"])
     binned["ne_nirh1_te_xrcs"] = deepcopy(binned["te_xrcs"])
     binned["ne_nirh1_te_xrcs"].value.values = (
-        binned["ne_nirh1"].value.values/3. * binned["te_xrcs"].value.values * constants.e
+        binned["ne_nirh1"].value.values
+        / 3.0
+        * binned["te_xrcs"].value.values
+        * constants.e
     )
-    binned["ne_nirh1_te_xrcs"].error.values = binned["ne_nirh1_te_xrcs"].value.values * np.sqrt(
+    binned["ne_nirh1_te_xrcs"].error.values = binned[
+        "ne_nirh1_te_xrcs"
+    ].value.values * np.sqrt(
         (binned["ne_nirh1"].error.values / binned["ne_nirh1"].value.values) ** 2
         + (binned["te_xrcs"].error.values / binned["te_xrcs"].value.values) ** 2
     )
@@ -553,7 +1044,7 @@ def general_filters(results):
             selection = selection_criteria(results, cond)
             results[k] = xr.where(selection, results[k], np.nan)
 
-    lim_cond = {"var": "value", "lim": (np.nan, 100.e3)}
+    lim_cond = {"var": "value", "lim": (np.nan, 100.0e3)}
     lim_keys = [
         "wp_efit",
     ]
@@ -805,7 +1296,19 @@ def plot_time_evol(
         plt.ylabel(info[k]["units"])
         plt.title(f"{tit_front}{title}{tit_end}")
         plt.xlim(pulse_lim)
-        plt.ylim(0,)
+
+        if "sign" in info[k].keys():
+            sign = info[k]["sign"]
+        else:
+            sign = +1
+
+        if sign > 0:
+            plt.ylim(0,)
+        elif sign < 0:
+            plt.ylim(top=0)
+        else:
+            ylim = plt.ylim()
+
         if len(ykey) > 1:
             plt.legend()
         if vlines:
@@ -821,6 +1324,46 @@ def plot_time_evol(
             save_figure(fig_path, f"{fig_name}_{name}")
     if savefig:
         plt.ion()
+
+    plt.figure()
+    cols = cm.rainbow(np.linspace(0, 1, len(regr_data.pulses)))
+    for i, p in enumerate(regr_data.pulses):
+        (
+            regr_data.binned["ipla_efit"].value.sel(pulse=p)
+            * regr_data.info["ipla_efit"]["const"]
+        ).plot(color=cols[i], alpha=0.5)
+
+    plt.title(f"Pulse range [{regr_data.pulses.min()}, {regr_data.pulses.max()}]")
+    plt.xlabel("time (s)")
+    plt.ylabel(
+        f"{regr_data.info['ipla_efit']['label']} {regr_data.info['ipla_efit']['units']}"
+    )
+    plt.ylim(bottom=0)
+
+    plt.figure()
+    bvl_ov_ip = regr_data.binned["i_bvl"] / regr_data.binned["ipla_efit"]
+    cols = cm.rainbow(np.linspace(0, 1, len(regr_data.pulses)))
+    for i, p in enumerate(bvl_ov_ip.pulse):
+        bvl_ov_ip.value.sel(pulse=p).plot(color=cols[i], alpha=0.5)
+
+    plt.title(f"Pulse range [{regr_data.pulses.min()}, {regr_data.pulses.max()}]")
+    plt.xlabel("time (s)")
+    plt.ylabel("I$_{BVL}$/I$_P$")
+    plt.ylim(top=0)
+
+    plt.figure()
+    time = np.arange(0.01, 0.2, 0.02)
+    cols = cm.rainbow(np.linspace(0, 1, len(time)))
+    for i, t in enumerate(time):
+        bvl_ov_ip.value.sel(t=t, method="nearest").plot(
+            color=cols[i], label=f"{t:.2f} s", alpha=0.5, marker="o"
+        )
+
+    plt.legend()
+    plt.title(f"Time range [{time.min():.2f}, {time.max():.2f}]")
+    plt.xlabel("Pulse")
+    plt.ylabel("I$_{BVL}$/I$_P$")
+    plt.ylim(top=0)
 
 
 def plot_bivariate(
@@ -1100,6 +1643,7 @@ def plot(
             "Ion/Electron Temperature": ("ti_te_xrcs",),
             "Electron Density": ("ne_nirh1",),
             "Electron Pressure": ("ne_nirh1_te_xrcs",),
+            "BVL current": ("i_bvl",),
             "MC Current": ("imc",),
             "Gas pressure": ("gas_press",),
             "Gas prefill": ("gas_prefill",),
@@ -1127,12 +1671,21 @@ def plot(
             "Gas pressure": ("gas_press",),
             "Total gas puff": ("gas_cumulative",),
             "Electron Density": ("ne_nirh1",),
-            "H-alpha": ("h_i_6563",),
-            "Helium": ("he_ii_4686",),
-            "Boron": ("b_ii_3451",),
-            "Oxygen": ("o_iv_3063",),
-            "Argon": ("ar_ii_4348",),
+            "BVL current": ("i_bvl",),
+            "H visible emission": ("h_sum",),
+            "He visible emission": ("he_sum",),
+            "B visible emission": ("b_sum",),
+            "C visible emission": ("c_sum",),
+            "N visible emission": ("n_sum",),
+            "O visible emission": ("o_sum",),
+            "Ar visible emission": ("ar_sum",),
         }
+        # "H-alpha": ("h_i_6563",),
+        # "Helium": ("he_ii_4686",),
+        # "Boron": ("b_ii_3451",),
+        # "Oxygen": ("o_iv_3063",),
+        # "Argon": ("ar_ii_4348",),
+
         plot_time_evol(
             regr_data,
             info,
@@ -1749,6 +2302,18 @@ def get_data_info():
             "label": "Ar II 434.8 nm",
             "units": "(a.u.)",
             "const": 1.0,
+        },
+        "i_bvl": {
+            "uid": "",
+            "diag": "psu",
+            "node": ".bvl:i",
+            "seq": -1,
+            "err": None,
+            "max": True,
+            "sign": -1,
+            "label": "I$_{BVL}$ PSU",
+            "units": "(kA)",
+            "const": 1.0e-3,
         },
         "te0": {"max": False, "label": "T$_e$(0)", "units": "(keV)", "const": 1.0e-3},
         "ti0": {"max": False, "label": "T$_i$(0)", "units": "(keV)", "const": 1.0e-3},
