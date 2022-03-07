@@ -114,8 +114,8 @@ class LinesOfSightTransform(CoordinateTransform):
 
         # Set "dl" and "x2"
         self.set_dl(dl)
-        print(self.x2)
-        print(self.dl)
+        # print(self.x2)
+        # print(self.dl)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
