@@ -19,6 +19,7 @@ from indica.converters import FluxSurfaceCoordinates
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 from indica.converters.time import bin_in_time_dt
+from indica.datatypes import ELEMENTS
 
 import xarray as xr
 from xarray import DataArray, Dataset
@@ -1023,28 +1024,93 @@ class Plasma:
                 Nimp.loc[dict(t=t)] = imp_dens * imp_dens_0.sel(t=t).values
             self.ion_dens.loc[dict(element=elem)] = Nimp.values
 
-    def calc_centrifugal_asymmetry(self, time=None):
+    def calc_centrifugal_asymmetry(self, time=None, test_vtor=None, plot=False):
         """
         Calculate (R, z) maps of the ion densities caused by centrifugal asymmetry
         """
         if time == None:
             time = self.t
 
+        # TODO: make this attribute creation a property and standardize in whole workflow
         if not hasattr(self, "ion_dens_2d"):
-            R = self.equilibrium.rho.R
-            z = self.equilibrium.rho.z
-            coords = [
-                ("element", list(self.elements)),
-                ("t", self.t),
-                ("R", R),
-                ("z", z),
-            ]
-            self.ion_dens_2d = DataArray(
-                np.zeros((len(self.elements), len(self.t), len(R), len(z))),
-                coords=[coords_elem, coords_time, coords_R, coords_z],
-            )
-            self.asymmetry_2d = deepcopy(self.ion_dens_2d)
+            self.rho_2d = self.equilibrium.rho.interp(t=self.t, method="nearest")
+            tmp = deepcopy(self.rho_2d)
+            ion_dens_2d = []
+            for elem in self.elements:
+                ion_dens_2d.append(tmp)
 
+            self.ion_dens_2d = xr.concat(ion_dens_2d, "element").assign_coords(
+                element=self.elements
+            )
+            assign_datatype(self.ion_dens_2d, ("density", "ion"))
+            self.centrifugal_asymmetry = deepcopy(self.ion_dens)
+            assign_datatype(self.centrifugal_asymmetry, ("asymmetry", "centrifugal"))
+            self.asymmetry_multiplier = deepcopy(self.ion_dens_2d)
+            assign_datatype(
+                self.asymmetry_multiplier, ("asymmetry_multiplier", "centrifugal")
+            )
+
+        # If toroidal rotation != 0 calculate ion density on 2D poloidal plane
+        if test_vtor is not None:
+            vtor = deepcopy(self.ion_temp)
+            assign_datatype(vtor, ("rotation", "toroidal"), "rad/s")
+            vtor /= vtor.max("rho_poloidal")
+            vtor *= test_vtor  # rad/s
+            self.vtor = vtor
+
+        if not np.any(self.vtor != 0):
+            return
+
+        zeff = self.zeff.sum("element")
+        R_0 = self.maj_r_lfs.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
+        for elem in self.elements:
+            main_ion_mass = ELEMENTS[self.main_ion][1]
+            mass = ELEMENTS[elem][1]
+            asymm = ph.centrifugal_asymmetry(
+                self.ion_temp.sel(element=elem).drop("element"),
+                self.el_temp,
+                mass,
+                self.meanz.sel(element=elem).drop("element"),
+                zeff,
+                main_ion_mass,
+                toroidal_rotation=self.vtor.sel(element=elem).drop("element"),
+            )
+            self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
+            asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
+            self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
+                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
+            )
+
+        self.ion_dens_2d = (
+            self.ion_dens.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
+            * self.asymmetry_multiplier
+        )
+        assign_datatype(self.ion_dens_2d, ("density", "ion"), "m^-3")
+
+        if plot:
+            t = self.t[6]
+        for elem in self.elements:
+            plt.figure()
+            z = self.equilibrium.zmag.sel(t=t, method="nearest")
+            rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
+            plt.plot(
+            rho,
+            self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
+            )
+            self.ion_dens.sel(element=elem).sel(t=t).plot(linestyle="dashed")
+            plt.title(elem)
+
+        elem = "ar"
+        plt.figure()
+        np.log(self.ion_dens_2d.sel(element=elem).sel(t=t, method="nearest")).plot()
+        self.rho_2d.sel(t=t, method="nearest").plot.contour(levels=10, colors="white")
+        # self.ion_dens_2d.sel(element=elem).sel(t=t, method="nearest").plot.contour(levels=10, colors="white")
+        plt.xlabel("R (m)")
+        plt.ylabel("z (m)")
+        plt.title(f"log({elem} density")
+        plt.axis("scaled")
+        plt.xlim(0, 0.8)
+        plt.ylim(-0.6, 0.6)
 
     def calc_fz_lz(self, use_tau=False):
         """
@@ -1103,6 +1169,45 @@ class Plasma:
     def calc_rad_power(self):
         """
         Calculate total and SXR filtered radiated power
+        """
+        for elem in self.elements:
+            tot_rad = (
+                self.lz_tot[elem].sum("ion_charges")
+                * self.el_dens
+                * self.ion_dens.sel(element=elem)
+            )
+            tot_rad = xr.where(tot_rad >= 0, tot_rad, 0.0,)
+            self.tot_rad.loc[dict(element=elem)] = tot_rad.values
+
+            sxr_rad = (
+                self.lz_sxr[elem].sum("ion_charges")
+                * self.el_dens
+                * self.ion_dens.sel(element=elem)
+            )
+            sxr_rad = xr.where(sxr_rad >= 0, sxr_rad, 0.0,)
+            self.sxr_rad.loc[dict(element=elem)] = sxr_rad.values
+
+            if not hasattr(self, "prad_tot"):
+                self.prad_tot = deepcopy(self.prad)
+                self.prad_sxr = deepcopy(self.prad)
+                assign_datatype(self.prad_sxr, ("radiation", "sxr"))
+
+            prad_tot = self.prad_tot.sel(element=elem)
+            prad_sxr = self.prad_sxr.sel(element=elem)
+            for t in self.t:
+                prad_tot.loc[dict(t=t)] = np.trapz(
+                    tot_rad.sel(t=t), self.volume.sel(t=t)
+                )
+                prad_sxr.loc[dict(t=t)] = np.trapz(
+                    sxr_rad.sel(t=t), self.volume.sel(t=t)
+                )
+            self.prad_tot.loc[dict(element=elem)] = prad_tot.values
+            self.prad_sxr.loc[dict(element=elem)] = prad_sxr.values
+
+    def calc_rad_power_2d(self):
+        """
+        Calculate total and SXR filtered radiated power on a 2D poloidal plane
+        including effects from poloidal asymmetries
         """
         for elem in self.elements:
             tot_rad = (
@@ -1383,6 +1488,8 @@ class Plasma:
             rho
             time
             theta
+
+        TODO: add units to each variable --> e.g. vtor in rad/s not in km/s
         """
 
         # Assign attributes
@@ -1564,7 +1671,7 @@ class Plasma:
         self.ion_temp = deepcopy(data3d)
         assign_datatype(self.ion_temp, ("temperature", "ion"))
         self.vtor = deepcopy(data3d)
-        assign_datatype(self.vtor, ("temperature", "ion"))
+        assign_datatype(self.vtor, ("toroidal_rotation", "ion"))
         self.meanz = deepcopy(data3d)
         assign_datatype(self.meanz, ("charge", "mean"))
 
@@ -1675,9 +1782,11 @@ def remap_diagnostic(diag_data, flux_transform, npts=100):
     return new_attrs
 
 
-def assign_datatype(data_array: DataArray, datatype: tuple):
+def assign_datatype(data_array: DataArray, datatype: tuple, unit=""):
     data_array.name = f"{datatype[1]}_{datatype[0]}"
     data_array.attrs["datatype"] = datatype
+    if len(unit) > 0:
+        data_array.attrs["unit"] = unit
 
 
 def print_like(string):
