@@ -11,13 +11,13 @@ from xarray.core.common import zeros_like
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from indica.converters.lines_of_sight import LinesOfSightTransform
-from indica.numpy_typing import LabeledArray
 from indica.operators.main_ion_density import MainIonDensity
 from indica.operators.mean_charge import MeanCharge
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
+from ..utilities import input_check
 
 
 class BolometryDerivation(Operator):
@@ -102,6 +102,52 @@ class BolometryDerivation(Operator):
     ):
         super().__init__(sess=sess)
 
+        input_check(
+            "flux_surfs",
+            flux_surfs,
+            FluxSurfaceCoordinates,
+        )
+
+        input_check("LoS_bolometry_data", LoS_bolometry_data, Sequence)
+
+        input_check("t_arr", t_arr, DataArray, greater_than_or_equal_zero=True)
+
+        input_check(
+            "impurity_densities",
+            impurity_densities,
+            DataArray,
+            ndim_to_check=4,
+            greater_than_or_equal_zero=True,
+        )
+
+        input_check("frac_abunds", frac_abunds, Sequence)
+
+        input_check("impurity_elements", impurity_elements, Sequence)
+
+        input_check(
+            "electron_density",
+            electron_density,
+            DataArray,
+            ndim_to_check=2,
+            greater_than_or_equal_zero=True,
+        )
+
+        input_check(
+            "main_ion_power_loss",
+            main_ion_power_loss,
+            DataArray,
+            ndim_to_check=2,
+            greater_than_or_equal_zero=True,
+        )
+
+        input_check(
+            "impurities_power_loss",
+            impurities_power_loss,
+            DataArray,
+            ndim_to_check=3,
+            greater_than_or_equal_zero=True,
+        )
+
         self.flux_surfaces = flux_surfs
         self.LoS_bolometry_data = LoS_bolometry_data
         self.t_arr = t_arr
@@ -115,7 +161,7 @@ class BolometryDerivation(Operator):
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
 
-    def bolometry_coord_transforms(self):
+    def __bolometry_coord_transforms(self):
         """Transform the bolometry coords from LoS to (rho, theta) and (R, z).
 
         Returns
@@ -171,7 +217,7 @@ class BolometryDerivation(Operator):
 
         return LoS_coords
 
-    def bolometry_setup(self):
+    def __bolometry_setup(self):
         """Calculating main ion density for the bolometry derivation.
 
         Returns
@@ -210,7 +256,7 @@ class BolometryDerivation(Operator):
 
         return main_ion_density
 
-    def bolometry_channel_filter(self):
+    def __bolometry_channel_filter(self):
         """Filters the bolometry data to reduce the number of channels by eliminating
         channels that are too close together.
 
@@ -308,10 +354,10 @@ class BolometryDerivation(Operator):
 
         return LoS_bolometry_data_trimmed, LoS_coords_trimmed
 
-    def bolometry_derivation(
+    def __bolometry_derivation(
         self,
         trim: bool = False,
-        t_val: LabeledArray = None,
+        t_val: float = None,
     ):
         """Derive bolometry including the extrapolated smoothed impurity density.
 
@@ -431,7 +477,7 @@ class BolometryDerivation(Operator):
         return derived_power_loss_LoS_tot
 
     def __call__(  # type: ignore
-        self, deriv_only: bool = False, trim: bool = True, t_val: LabeledArray = None
+        self, deriv_only: bool = False, trim: bool = True, t_val: float = None
     ):
         """Varying workflow to derive bolometry from plasma quantities.
         (Varing as in, if full setup and derivation is needed or only derivaiton.)
@@ -448,14 +494,20 @@ class BolometryDerivation(Operator):
             Optional time value for which to calculate the bolometry data.
             (This is passed to bolometry_derivation())
         """
-        if not deriv_only:
-            self.bolometry_coord_transforms()
+        input_check("deriv_only", deriv_only, bool)
+        input_check("trim", trim, bool)
 
-            self.bolometry_setup()
+        if t_val is not None:
+            input_check("t_val", t_val, float, greater_than_or_equal_zero=True)
+
+        if not deriv_only:
+            self.__bolometry_coord_transforms()
+
+            self.__bolometry_setup()
 
             if trim:
-                self.bolometry_channel_filter()
+                self.__bolometry_channel_filter()
 
-        self.bolometry_derivation(trim, t_val)
+        self.__bolometry_derivation(trim, t_val)
 
         return self.derived_power_loss_LoS_tot

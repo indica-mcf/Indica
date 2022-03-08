@@ -59,12 +59,10 @@ class ExtrapolateImpurityDensity(Operator):
 
     def __init__(
         self,
-        flux_surfs: FluxSurfaceCoordinates,
         sess: session.Session = session.global_session,
     ):
+        """Initialises ExtrapolateImpurityDensity class."""
         super().__init__(sess=sess)
-
-        self.flux_surfs = flux_surfs
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
@@ -546,21 +544,8 @@ class ExtrapolateImpurityDensity(Operator):
         orig_bolometry_data
             Original bolometry data that is used in the objective function to fit
             the perturbation. xarray DataArray with dimensions (channels, t).
-        bolometry_args
-            Arguments that need to be passed to bolometry_derivation for recalculation
-            of bolometry data when trialling different perturbations in the objective
-            function. List of arguments containing: [
-                impurity_densities (elements, rho, theta, t)
-                main_ion_power_loss (rho, t)
-                impurity_power_loss (elements, rho, t)
-                input_Ne (rho, t)
-                main_ion_density(rho, theta, t)
-                example_bolometry_LoS (list of bolometry LoS start and end points
-                in the format [x_start, z_start, y_start, x_end, z_end, y_end, label]
-                for each channel see: tests/unit/operators/KB5_Bolometry_data.py
-                for examples)
-                LoS_coords (Results from bolometry_coord_transforms() for each channel)
-            ]
+        bolometry_obj
+            BolometryDerivation object.
         impurity_element
             String of impurity element symbol.
         asymmetry_modifier
@@ -571,6 +556,10 @@ class ExtrapolateImpurityDensity(Operator):
             radius as a function of (rho, theta, t) and R_lfs is the low-field-side
             major radius as a function of (rho, t). xarray DataArray with dimensions
             (rho, theta, t)
+        time_correlation
+            Boolean to indicate whether or not to use time correlated guesses during
+            the optimization (ie. the result of the optimization for the previous
+            time-step is used as a guess for the next time-step.)
 
         Returns
         -------
@@ -744,12 +733,6 @@ class ExtrapolateImpurityDensity(Operator):
 
         Returns
         -------
-        extrapolated_smooth_density_Rz,
-            asym_par,
-            t,
-            extrapolated_smooth_density,
-            asymmetry_modifier,
-            R_deriv,
         extrapolated_smooth_density_Rz
             Extrapolated and smoothed impurity density ((R, z) grid).
         asym_par
@@ -760,6 +743,17 @@ class ExtrapolateImpurityDensity(Operator):
             Otherwise return the argument.
         extrapolated_smooth_density
             Extrapolated and smoothed impurity density ((rho, theta) grid).
+        asymmetry_modifier
+            Asymmetry modifier used to transform a low-field side only rho-profile
+            of a poloidally asymmetric quantity to a full poloidal cross-sectional
+            profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
+            exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
+            radius as a function of (rho, theta, t) and R_lfs is the low-field-side
+            major radius as a function of (rho, t). xarray DataArray with dimensions
+            (rho, theta, t)
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            (from derive_and_apply_asymmetry)
         """
 
         input_check(
