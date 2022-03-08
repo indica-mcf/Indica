@@ -15,6 +15,7 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
+from indica.operators.bolometry_derivation import BolometryDerivation
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
 from indica.readers import ADASReader
@@ -36,7 +37,7 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         flux_surfaces,
         t,
     ):
-        """ "Initialise the test case with a set of nominal inputs."""
+        """Initialise the test case with a set of nominal inputs."""
         self.impurity_density_sxr = impurity_density_sxr
         self.electron_density = electron_density
         self.electron_temperature = electron_temperature
@@ -86,7 +87,7 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         ) = inputs
 
         with self.assertRaises(TypeError):
-            example_ = ExtrapolateImpurityDensity(flux_surfaces)
+            example_ = ExtrapolateImpurityDensity()
             example_(*inputs)
 
     def call_value_check(
@@ -122,7 +123,7 @@ class Exception_Impurity_Density_Test_Case(TestCase):
         ) = inputs
 
         with self.assertRaises(ValueError):
-            example_ = ExtrapolateImpurityDensity(flux_surfaces)
+            example_ = ExtrapolateImpurityDensity()
             example_(*inputs)
 
 
@@ -177,9 +178,10 @@ def invalid_input_checks(
                 invalid_input = deepcopy(nominal_input)  # type:ignore
                 invalid_input *= 0
                 test_case.call_value_check(**{nominal_input_name: invalid_input})
-        elif isinstance(nominal_input, (np.ndarray, DataArray)):
-            invalid_input = deepcopy(nominal_input[0])  # type:ignore
-            test_case.call_value_check(**{nominal_input_name: invalid_input})
+
+            if isinstance(nominal_input, (np.ndarray, DataArray)):
+                invalid_input = deepcopy(nominal_input[0])  # type:ignore
+                test_case.call_value_check(**{nominal_input_name: invalid_input})
 
 
 def fractional_abundance_setup(
@@ -309,7 +311,7 @@ def input_data_setup():
         List of element symbols for all impurities.
     """
     base_rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
-    base_t = np.linspace(75.0, 80.0, 100)
+    base_t = np.linspace(75.0, 80.0, 20)
 
     input_Te = np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3])
     input_Te = np.tile(input_Te, (len(base_t), 1)).T
@@ -616,7 +618,7 @@ def test_extrapolate_impurity_density_call():
     main_ion_power_loss = bolometry_input_data[1]
     impurity_power_loss = bolometry_input_data[2]
 
-    example_extrapolate_impurity_density = ExtrapolateImpurityDensity(flux_surfs)
+    example_extrapolate_impurity_density = ExtrapolateImpurityDensity()
 
     try:
         (
@@ -683,38 +685,21 @@ def test_extrapolate_impurity_density_call():
     impurity_densities.data[2] = nickel_impurity_conc
     impurity_densities.data[3] = impurity_sxr_density_asym_rho_theta
 
-    LoS_coords = example_extrapolate_impurity_density.bolometry_coord_transforms(
-        example_bolometry_LoS, flux_surfs, input_Ne.coords["t"]
-    )
-
-    main_ion_density = zeros_like(impurity_densities.isel(elements=0).squeeze())
-
     bolometry_args = [
+        flux_surfs,
+        example_bolometry_LoS,
+        input_Ne.coords["t"],
         impurity_densities,
+        example_frac_abunds,
+        elements,
+        input_Ne,
         main_ion_power_loss,
         impurity_power_loss,
-        input_Ne,
-        main_ion_density,
-        example_bolometry_LoS,
-        LoS_coords,
     ]
 
-    bolometry_setup_args = [impurity_densities, example_frac_abunds, elements, input_Ne]
+    example_bolometry_derivation = BolometryDerivation(*bolometry_args)
 
-    bolometry_args[4] = example_extrapolate_impurity_density.bolometry_setup(
-        *bolometry_setup_args
-    )
-
-    (
-        bolometry_args[5],
-        bolometry_args[6],
-    ) = example_extrapolate_impurity_density.bolometry_channel_filter(
-        bolometry_args[5], bolometry_args[6]
-    )
-
-    original_bolometry = example_extrapolate_impurity_density.bolometry_derivation(
-        *bolometry_args
-    )
+    original_bolometry = example_bolometry_derivation(deriv_only=False, trim=True)
 
     test_profile = cProfile.Profile()
 
@@ -723,9 +708,8 @@ def test_extrapolate_impurity_density_call():
     optimized_impurity_density = (
         example_extrapolate_impurity_density.optimize_perturbation(
             example_result_rho_theta,
-            original_bolometry,
-            bolometry_setup_args,
-            bolometry_args,
+            original_bolometry.copy(deep=True),
+            example_bolometry_derivation,
             "w",
             example_asym_modifier,
         )
@@ -790,3 +774,5 @@ def test_extrapolate_impurity_density_call():
     )
 
     invalid_input_checks(example_extrapolate_test_case, "flux_surfaces", flux_surfs)
+
+    invalid_input_checks(example_extrapolate_test_case, "t", t)

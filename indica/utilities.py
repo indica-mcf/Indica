@@ -217,7 +217,9 @@ def input_check(
     # For some reason passing get_args(LabeledArray) to isinstance causes
     # mypy to complain but giving it the constituent types(and np.ndarray) solves this.
     # Guessing this is because LabeledArray isn't resolved/evaluated by mypy.
-    if isinstance(var_to_check, (float, int, DataArray, Dataset, Variable, np.ndarray)):
+    if isinstance(
+        var_to_check, (float, int, DataArray, Dataset, Variable, np.ndarray)
+    ) and not isinstance(var_to_check, bool):
 
         # Handles dropped channels, if present
         sliced_var_to_check = deepcopy(var_to_check)
@@ -253,10 +255,10 @@ def input_check(
             except AssertionError:
                 raise ValueError(f"Cannot have any negative values in {var_name}")
 
-    if ndim_to_check is not None and isinstance(
-        sliced_var_to_check, (np.ndarray, DataArray)
-    ):
-        try:
-            assert sliced_var_to_check.ndim == ndim_to_check
-        except AssertionError:
-            raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
+        if ndim_to_check is not None and isinstance(
+            sliced_var_to_check, (np.ndarray, DataArray)
+        ):
+            try:
+                assert sliced_var_to_check.ndim == ndim_to_check
+            except AssertionError:
+                raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
