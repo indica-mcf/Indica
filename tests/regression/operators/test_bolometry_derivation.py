@@ -19,16 +19,21 @@ def input_data_setup():
     Returns
     -------
     input_Ne
-        xarray.DataArray of electron density
+        xarray.DataArray of electron density. Dimensions (rho, t)
     input_Te
-        xarray.DataArray of electron temperature
+        xarray.DataArray of electron temperature. Dimensions (rho, t)
     flux_surfs
         FluxSurfaceCoordinates object representing polar coordinate systems
         using flux surfaces for the radial coordinate.
     base_t
-        xarray.DataArray of time values.
+        xarray.DataArray of time values. Dimensions (t)
     elements
         List of element symbols for all impurities.
+    rho_arr
+        xarray.DataArray of rho values, np.linspace(0, 1, 41). Dimensions (rho)
+    theta_arr
+        xarray.DataArray of theta values, np.linspace(-np.pi, np.pi, 21).
+        Dimensions (theta)
     """
     base_rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
     base_t = np.linspace(75.0, 80.0, 20)
@@ -100,17 +105,18 @@ def fractional_abundance_setup(
         String of the symbol of the element per ADAS notation
         e.g be for Beryllium
     t
-        Time array (used for expanding the dimensions of the output of
+        Time np.ndarray (used for expanding the dimensions of the output of
         the function to ensure that time is a dimension of the output.)
     input_Te
-        xarray.DataArray of electron temperature
+        xarray.DataArray of electron temperature. Dimensions (rho, t)
     input_Ne
-        xarray.DataArray of electron density
+        xarray.DataArray of electron density. Dimensions (rho, t)
 
     Returns
     -------
     F_z_tinf
         Fractional abundance of the ionisation stages of the element at t=infinity.
+        xarray.DataArray with dimensions (ion_charges, rho, t)
     """
     ADAS_file = ADASReader()
 
@@ -148,17 +154,18 @@ def power_loss_setup(
         String of the symbol of the element per ADAS notation
         e.g be for Beryllium
     t
-        Time array (used for expanding the dimensions of the output of
+        Time np.ndarray (used for expanding the dimensions of the output of
         the function to ensure that time is a dimension of the output.)
     input_Te
-        xarray.DataArray of electron temperature
+        xarray.DataArray of electron temperature. Dimensions (rho, t)
     input_Ne
-        xarray.DataArray of electron density
+        xarray.DataArray of electron density. Dimensions (rho, t)
 
     Returns
     -------
     power_loss
         Power loss of the element at t=infinity.
+        xarray.DataArray with dimensions (ion_charges, rho, t).
     """
     ADAS_file = ADASReader()
 
@@ -187,14 +194,14 @@ def bolometry_input_data_setup(input_data):
     Returns
     -------
     example_frac_abunds
-        Fractional abundances list of fractional abundances (one for each impurity)
+        List of fractional abundances (an xarray.DataArray for each impurity)
         dimensions of each element in list are (ion_charges, rho, t).
     main_ion_power_loss
         Power loss associated with the main ion (eg. deuterium),
-        dimensions are (rho, t)
+        xarray.DataArray with dimensions (rho, t)
     impurity_power_losses
         Power loss associated with all of the impurity elements,
-        dimensions are (elements, rho, t)
+        xarray.DataArray with dimensions (elements, rho, t)
     """
     initial_data = input_data
 
