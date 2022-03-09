@@ -34,35 +34,47 @@ class BolometryDerivation(Operator):
         tests/unit/operator/KB5_Bolometry_data.py
     t_arr
         Array of time values to interpolate the (rho, theta) grids on.
+        xarray.DataArray with dimensions (t).
     impurity_densities
         Densities for all impurities
         (including the extrapolated smooth density of the impurity in question),
-        dimensions are (elements, rho, theta, t).
+        xarray.DataArray with dimensions (elements, rho, theta, t).
     frac_abunds
-        Fractional abundances list of fractional abundances (one for each impurity)
-        dimensions of each element in list are (ion_charges, rho, t).
+        Fractional abundances list of fractional abundances
+        (an xarray.DataArray for each impurity) dimensions of each element in
+        the list are (ion_charges, rho, t).
     impurity_elements
-        List of element symbols for all impurities.
+        List of element symbols(as strings) for all impurities.
     electron_density
-        xarray.DataArray of electron density, dimensions are (rho, t)
+        xarray.DataArray of electron density, xarray.DataArray wit dimensions (rho, t)
     main_ion_power_loss
         Power loss associated with the main ion (eg. deuterium),
-        dimensions are (rho, t)
+        xarray.DataArray with dimensions (rho, t)
     main_ion_density
-        Density profile for the main ion, dimensions are (rho, theta, t)
+        Density profile for the main ion,
+        xarray.DataArray with dimensions (rho, theta, t)
 
     Methods
     -------
-    bolometry_coord_transforms()
+    __bolometry_coord_transforms()
         Transform the bolometry coords from LoS to (rho, theta) and (R, z).
-    bolometry_setup()
+    __bolometry_setup()
         Calculating main ion density for the bolometry derivation.
-    bolometry_channel_filter()
+    __bolometry_channel_filter()
         Filters the bolometry data to reduce the number of channels by eliminating
         channels that are too close together.
-    bolometry_derivation(trim, t_val)
+    __bolometry_derivation(trim, t_val)
         Derive bolometry including the extrapolated smoothed impurity density.
-    __call__(trim)
+    __call__(deriv_only, trim, t_val)
+        Varying workflow to derive bolometry from plasma quantities.
+        (Varying as in, if full setup and derivation is needed or only derivaiton.)
+
+    Returns
+    -------
+    derived_power_loss_LoS_tot
+        Total derived bolometric power loss values along all lines-of-sight.
+        xarray.DataArray with dimensions (channels, t) or (channels) depending
+        on whether t_val is provided.
 
     Attributes
     ----------
@@ -100,6 +112,7 @@ class BolometryDerivation(Operator):
         impurities_power_loss: DataArray,
         sess: session.Session = session.global_session,
     ):
+        """Initialises the BolometryDerivation class. Checks all inputs for errors."""
         super().__init__(sess=sess)
 
         input_check(
@@ -110,7 +123,9 @@ class BolometryDerivation(Operator):
 
         input_check("LoS_bolometry_data", LoS_bolometry_data, Sequence)
 
-        input_check("t_arr", t_arr, DataArray, greater_than_or_equal_zero=True)
+        input_check(
+            "t_arr", t_arr, DataArray, ndim_to_check=1, greater_than_or_equal_zero=True
+        )
 
         input_check(
             "impurity_densities",
@@ -203,11 +218,17 @@ class BolometryDerivation(Operator):
             LoS_coords.append(
                 dict(
                     {
+                        # dimensions for rho_arr and
+                        # theta_arr are (channel no., distance along LoS)
                         "rho": rho_arr,
                         "theta": theta_arr,
+                        # dimensions for dl are (channel no.)
                         "dl": dl,
+                        # dimensions for R_arr and
+                        # z_arr are (channel no., distance along LoS)
                         "R": R_arr,
                         "z": z_arr,
+                        # dimensions for t are (t)
                         "t": self.t_arr,
                     }
                 )
@@ -223,7 +244,8 @@ class BolometryDerivation(Operator):
         Returns
         -------
         main_ion_density
-            Density profile for the main ion, dimensions are (rho, theta, t)
+            Density profile for the main ion,
+            xarray.DataArray with dimensions (rho, theta, t)
         """
         mean_charges = zeros_like(self.electron_density)
         mean_charges = mean_charges.data
@@ -263,10 +285,12 @@ class BolometryDerivation(Operator):
         Returns
         -------
         LoS_bolometry_data_trimmed
-            Lines-of-sight data with a reduced number of channels.
+            Lines-of-sight data with a reduced number of channels. List with
+            the same formatting as self.LoS_bolometry_data.
         LoS_coords_trimmed
             LoS coordinates (as returned by bolometry_coord_transforms) with a
-            reduced number of channels.
+            reduced number of channels. List with the same formatting as
+            self.LoS_coords.
         """
         LoS_bolometry_data_in = self.LoS_bolometry_data
         LoS_coords_in = self.LoS_coords
@@ -366,12 +390,14 @@ class BolometryDerivation(Operator):
         trim
             Boolean specifying whether the number of bolometry channels are trimmed.
         t_val
-            Optional time value for which to calculate the bolometry data.
+            Optional time value(float) for which to calculate the bolometry data.
 
         Returns
         -------
         derived_power_loss_LoS_tot
-            Derived bolometry data, dimensions are (t)
+            Total derived bolometric power loss values along all lines-of-sight.
+            xarray.DataArray with dimensions (channels, t) or (channels) depending
+            on whether t_val is provided.
         """
         if trim:
             if not (
@@ -480,7 +506,7 @@ class BolometryDerivation(Operator):
         self, deriv_only: bool = False, trim: bool = True, t_val: float = None
     ):
         """Varying workflow to derive bolometry from plasma quantities.
-        (Varing as in, if full setup and derivation is needed or only derivaiton.)
+        (Varying as in, if full setup and derivation is needed or only derivaiton.)
 
         Parameters
         ----------
@@ -493,6 +519,13 @@ class BolometryDerivation(Operator):
         t_val
             Optional time value for which to calculate the bolometry data.
             (This is passed to bolometry_derivation())
+
+        Returns
+        -------
+        derived_power_loss_LoS_tot
+            Total derived bolometric power loss values along all lines-of-sight.
+            xarray.DataArray with dimensions (channels, t) or (channels) depending
+            on whether t_val is provided.
         """
         input_check("deriv_only", deriv_only, bool)
         input_check("trim", trim, bool)

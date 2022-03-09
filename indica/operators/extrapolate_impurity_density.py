@@ -34,15 +34,61 @@ class ExtrapolateImpurityDensity(Operator):
 
     Returns
     -------
-    impurity_density_full
-
+    extrapolated_smooth_density_Rz
+        Extrapolated and smoothed impurity density, with dimensions (R, z, t).
+    asym_par
+        Derived asymmetry parameter, with dimensions (rho, t).
     t
         If ``t`` was not specified as an argument for the __call__ function,
         return the time the results are given for.
         Otherwise return the argument.
+    extrapolated_smooth_density
+        Extrapolated and smoothed impurity density with dimensions (rho, theta, t).
+    asymmetry_modifier
+        Asymmetry modifier used to transform a low-field side only rho-profile
+        of a poloidally asymmetric quantity to a full poloidal cross-sectional
+        profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
+        exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
+        radius as a function of (rho, theta, t) and R_lfs is the low-field-side
+        major radius as a function of (rho, t). xarray DataArray with dimensions
+        (rho, theta, t)
+    R_deriv
+        Variable describing value of R in every coordinate on a (rho, theta) grid.
+        (from derive_and_apply_asymmetry), dimensions (rho, theta, t)
 
     Methods
     -------
+    recover_rho(truncation_threshold, electron_temperature)
+        Recover the rho value for a given electron temperature threshold, as in
+        at what rho location does the electron temperature drop below the specified
+        threshold.
+    transform_to_rho_theta_reduced(data_R_z, flux_surfaces, rho_arr, t_arr)
+        Function to transform data from an (R, z) grid to a (rho, theta) grid.
+    basic_extrapolation(data_rho_theta, electron_density, threshold_rho)
+        Basic extrapolation which eliminates the data_rho_theta for
+        rho > threshold_rho and joins on electron density from that point
+        outwards (in rho). Also multiplies electron density to prevent a
+        discontinuity at rho=threshold_rho.
+    extrapolation_smoothing(extrapolated_data, rho_arr)
+        Function to smooth extrapolatd data. Extrapolated data may not have
+        any 0th order discontinuity but 1st order discontinuities may exist.
+        Smoothing is necessary to eliminate these higher order discontinuities.
+    derive_and_apply_asymmetry(R_deriv, extrapolated_smooth_hfs,
+        extrapolated_smooth_lfs, flux_surfaces)
+        Deriving asymmetry parameter from low-field-side and
+        high-field-side data and applying it to low-field-side data which
+        has been extended over the poloidal extent to obtain an asymmetric
+        extrapolated smoothed data on a (rho, theta) grid.
+    transform_to_R_z(R_deriv, z_deriv, extrapolated_smooth_data, flux_surfaces)
+        Function to transform data from an (rho, theta) grid to a (R, z) grid
+    fitting_funciton(amplitude, standard_dev, position)
+        Function to construct a signal that modifies the
+        extrapolated smoothed impurity density. The signal is constructed
+        using a Gaussian profile with the three free parameters.
+    optimize_perturbation(extrapolated_smooth_data, orig_bolometry_data, bolometry_obj
+        impurity_element, asymmetry_modifier, time_correlation)
+        Optimizes a Gaussian-style perturbation to recover the over-density
+        structure that is expected on the low-field-side of the plasma.
     __call__(
         element, ion_radiation_loss, impurity_radiation_losses, electron_density,
         mean_charge, flux_surfaces, t
@@ -75,9 +121,10 @@ class ExtrapolateImpurityDensity(Operator):
         Parameters
         ----------
         truncation_threshold
-            User-specified temperature truncation threshold.
+            User-specified (float) temperature truncation threshold.
         electron_temperature
-            xarray.DataArray of the electron temperature profile (in rho).
+            xarray.DataArray of the electron temperature profile,
+            with dimensions (rho, t).
 
         Returns
         -------
@@ -119,24 +166,26 @@ class ExtrapolateImpurityDensity(Operator):
         Parameters
         ----------
         data_R_z
-            Data on (R, z) grid to be transformed.
+            xarray.DataArray to be transformed. Dimensions (R, z, t)
         flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
         rho_arr
-            1D array of rho from 0 to 1.
+            1D xarray.DataArray of rho from 0 to 1.
         t_arr
-            1D array of t.
+            1D xarray.DataArray of t.
 
         Returns
         -------
         data_rho_theta
-            Data on (rho, theta) grid.
+            Transformed xarray.DataArray. Dimensions (rho, theta, t)
         R_deriv
             Variable describing value of R in every coordinate on a (rho, theta) grid.
             (Used in derive_and_apply_asymmetry hence is returned by this function.)
+            xarray.DataArray with dimensions (rho, theta, t)
         derived_asymmetry_parameter
-            Derived asymmetry parameter (needed for __call__ which returns it)
+            Derived asymmetry parameter (needed for __call__ which returns it).
+            xarray.DataArray with dimensions (rho, t)
         """
         if t_arr is None:
             t_arr = data_R_z.coords["t"]
@@ -186,17 +235,18 @@ class ExtrapolateImpurityDensity(Operator):
         Parameters
         ----------
         data_rho_theta
-            Data to extrapolate on (rho, theta) grid.
+            xarray.DataArray to extrapolate. Dimensions (rho, theta, t)
         electron_density
-            Electron density (axisymmetric)
+            xarray.DataArray of Electron density (axisymmetric). Dimensions (rho, t)
         threshold_rho
-            Threshold value of rho beyond which SXR diagnostics cannot
+            Threshold value (float) of rho beyond which SXR diagnostics cannot
             be used to accurately infer impurity density.
 
         Returns
         -------
         extrapolated_impurity_density
-            Extrapolated impurity density
+            xarray.DataArray of extrapolated impurity density.
+            Dimensions (rho, theta, t)
         """
 
         theta_arr = np.array([0.0, np.pi])
@@ -247,10 +297,12 @@ class ExtrapolateImpurityDensity(Operator):
         Parameters
         ----------
         extrapolated_data
-            Extrapolated data to be smoothed (on (rho, theta) grid).
+            xarray.DataArray extrapolated data to be smoothed.
+            Dimensions (rho, theta, t)
         rho_arr
-            rho array used to construct smoothing splines.
-            (Must be higher resolution than the one obtained from extrapolated_data)
+            xarray.DataArray used to construct smoothing splines. Dimensions (rho)
+            (Must be higher or the same resolution as the rho dimension
+            of extrapolated_data)
 
         Returns
         -------
@@ -305,6 +357,8 @@ class ExtrapolateImpurityDensity(Operator):
         extrapolated_smooth_lfs_arr = extrapolated_smooth_lfs_arr.transpose("rho", "t")
         extrapolated_smooth_hfs_arr = extrapolated_smooth_hfs_arr.transpose("rho", "t")
 
+        # Following section is to ensure that near the rho=0 region, the
+        # extrapolated_smooth_data is constant (ie. with a first-order derivative of 0).
         inv_extrapolated_smooth_hfs = DataArray(
             data=np.flip(extrapolated_smooth_hfs_arr.data, axis=0),
             coords={
@@ -368,11 +422,14 @@ class ExtrapolateImpurityDensity(Operator):
         ----------
         R_deriv
             Variable describing value of R in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
             (from transform_to_rho_theta_reduced)
         extrapolated_smooth_hfs
-            Extrapolated smoothed data on high-field side (fixed theta = pi)
+            Extrapolated smoothed data on high-field side (fixed theta = pi).
+            xarray.DataArray with dimensions (rho, t)
         extrapolated_smooth_lfs
-            Extrapolated smoothed data on low-field side (fixed theta = 0)
+            Extrapolated smoothed data on low-field side (fixed theta = 0).
+            xarray.DataArray with dimensions (rho, t)
         flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
@@ -381,14 +438,18 @@ class ExtrapolateImpurityDensity(Operator):
         -------
         extrapolated_smooth_data
             Extrapolated and smoothed data on full (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
         R_deriv
             Variable describing value of R in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
             (uniquely calculated by this function used for transform_to_R_z)
         z_deriv
             Variable describing value of z in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
             (uniquely calculated by this function used for transform_to_R_z)
         derived_asymmetry_parameter
-            Derived asymmetry parameter (needed for __call__ which returns it)
+            Derived asymmetry parameter (needed for __call__ which returns it).
+            xarray.DataArray with dimensions (rho, t)
         """
         rho_arr = extrapolated_smooth_hfs.coords["rho"]
         self.rho_arr = rho_arr
@@ -445,12 +506,15 @@ class ExtrapolateImpurityDensity(Operator):
         ----------
         R_deriv
             Variable describing value of R in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
             (from derive_and_apply_asymmetry)
         z_deriv
             Variable describing value of z in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
             (from derive_and_apply_asymmetry)
         extrapolated_smooth_data
             Extrapolated and smoothed data to transform onto (R, z) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
         flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
@@ -459,6 +523,7 @@ class ExtrapolateImpurityDensity(Operator):
         -------
         extrapolated_smooth_data
             Extrapolated and smoothed data on (R, z) grid.
+            xarray.DataArray with dimensions (R, z, t)
         """
         R_arr = np.linspace(np.min(R_deriv[1:]), np.max(R_deriv[1:]), 40)
         z_arr = np.linspace(np.min(z_deriv), np.max(z_deriv), 40)
@@ -507,7 +572,7 @@ class ExtrapolateImpurityDensity(Operator):
         Returns
         -------
         sig
-            DataArray containing the Gaussian signal with dimensions (rho,)
+            xarray.DataArray containing the Gaussian signal with dimensions (rho)
         """
         rho_arr = self.rho_arr
 
@@ -586,7 +651,9 @@ class ExtrapolateImpurityDensity(Operator):
             -------
             abs_error
                 Absolute error between the derived bolometry data (with a given
-                Gaussian perturbation) and the original bolometry data (ground truth).
+                Gaussian perturbation) and the original bolometry data (ground truth)
+                for the selected time point.
+                xarray.DataArray with dimensions (channels)
             """
             amplitude, standard_dev, position = objective_array
 
@@ -719,30 +786,35 @@ class ExtrapolateImpurityDensity(Operator):
         ----------
         impurity_density_sxr
             xarray.DataArray of impurity density derived from soft X-ray emissivity.
+            Dimensions (R, z, t)
         electron_density
-            xarray.DataArray of electron density
+            xarray.DataArray of electron density. Dimensions (rho ,t)
         electron_temperature
-            xarray.DataArray of electron temperature
+            xarray.DataArray of electron temperature. Dimensions (rho, t)
         truncation_threshold
-            Truncation threshold for the electron temperature
+            Truncation threshold (float) for the electron temperature
         flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
         t
-            Optional, time at which the impurity concentration is to be calculated at.
+            Optional float, time at which the impurity concentration is to
+            be calculated at.
 
         Returns
         -------
         extrapolated_smooth_density_Rz
             Extrapolated and smoothed impurity density ((R, z) grid).
+            xarray.DataArray with dimensions (R, z, t)
         asym_par
             Derived asymmetry parameter.
+            xarray.DataArray with dimensions (rho, t)
         t
             If ``t`` was not specified as an argument for the __call__ function,
             return the time the results are given for.
             Otherwise return the argument.
         extrapolated_smooth_density
             Extrapolated and smoothed impurity density ((rho, theta) grid).
+            xarray.DataArray with dimensions (rho, theta, t).
         asymmetry_modifier
             Asymmetry modifier used to transform a low-field side only rho-profile
             of a poloidally asymmetric quantity to a full poloidal cross-sectional
@@ -753,7 +825,8 @@ class ExtrapolateImpurityDensity(Operator):
             (rho, theta, t)
         R_deriv
             Variable describing value of R in every coordinate on a (rho, theta) grid.
-            (from derive_and_apply_asymmetry)
+            (from derive_and_apply_asymmetry).
+            xarray.DataArray with dimensions (rho, theta, t)
         """
 
         input_check(

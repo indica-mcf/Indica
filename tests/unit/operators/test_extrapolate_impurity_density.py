@@ -1,5 +1,4 @@
 from copy import deepcopy
-import cProfile
 from typing import get_args
 from typing import Hashable
 from unittest import TestCase
@@ -199,17 +198,18 @@ def fractional_abundance_setup(
         String of the symbol of the element per ADAS notation
         e.g be for Beryllium
     t
-        Time array (used for expanding the dimensions of the output of
+        Time np.ndarray (used for expanding the dimensions of the output of
         the function to ensure that time is a dimension of the output.)
     input_Te
-        xarray.DataArray of electron temperature
+        xarray.DataArray of electron temperature. Dimensions (rho, t)
     input_Ne
-        xarray.DataArray of electron density
+        xarray.DataArray of electron density. Dimensions (rho, t)
 
     Returns
     -------
     F_z_tinf
         Fractional abundance of the ionisation stages of the element at t=infinity.
+        xarray.DataArray with dimensions (ion_charges, rho, t)
     """
     ADAS_file = ADASReader()
 
@@ -247,17 +247,18 @@ def power_loss_setup(
         String of the symbol of the element per ADAS notation
         e.g be for Beryllium
     t
-        Time array (used for expanding the dimensions of the output of
+        Time np.ndarray (used for expanding the dimensions of the output of
         the function to ensure that time is a dimension of the output.)
     input_Te
-        xarray.DataArray of electron temperature
+        xarray.DataArray of electron temperature. Dimensions (rho, t)
     input_Ne
-        xarray.DataArray of electron density
+        xarray.DataArray of electron density. Dimensions (rho, t)
 
     Returns
     -------
     power_loss
         Power loss of the element at t=infinity.
+        xarray.DataArray with dimensions (ion_charges, rho, t).
     """
     ADAS_file = ADASReader()
 
@@ -281,32 +282,36 @@ def input_data_setup():
     Returns
     -------
     input_Ne
-        xarray.DataArray of electron density
+        xarray.DataArray of electron density. Dimensions (rho, t)
     input_Te
-        xarray.DataArray of electron temperature
+        xarray.DataArray of electron temperature. Dimensions (rho, t)
     input_Ti
-        xarray.DataArray of ion temperature
+        xarray.DataArray of ion temperature. Dimensions (elements, rho, t)
     toroidal_rotations
         xarray.DataArray of toroidal rotations (needed for calculating the centrifugal
-        asymmetry parameter)
+        asymmetry parameter). Dimensions (elements, rho, t)
     rho_arr
-        xarray.DataArray of rho values, np.linspace(0, 1, 41)
+        xarray.DataArray of rho values, np.linspace(0, 1, 41). Dimensions (rho)
     theta_arr
-        xarray.DataArray of theta values, np.linspace(-np.pi, np.pi, 21)
+        xarray.DataArray of theta values, np.linspace(-np.pi, np.pi, 21).
+        Dimensions (theta)
     flux_surfs
         FluxSurfaceCoordinates object representing polar coordinate systems
         using flux surfaces for the radial coordinate.
     valid_truncation_threshold
-        Truncation threshold for the electron temperature (below this value soft-xray
-        measurements are not valid)
+        Truncation threshold (float) for the electron temperature
+        (below this value soft-xray measurements are not valid)
     Zeff
         xarray.DataArray of the effective z(atomic number)-value for the plasma.
+        Dimensions (rho, t)
     base_t
-        xarray.DataArray of time values.
+        xarray.DataArray of time values. Dimensions (t)
     R_derived
         Variable describing value of R in every coordinate on a (rho, theta) grid.
+        xarray.DataArray with dimensions (rho, theta, t)
     R_lfs_values
         R_derived values at theta = 0 (ie low-field-side of the tokamak).
+        xarray.DataArray with dimensions (rho, t)
     elements
         List of element symbols for all impurities.
     """
@@ -419,7 +424,7 @@ def gaussian_perturbation(gaussian_params):
     Parameters
     ----------
     gaussian_params
-        A list containing:
+        A list containing floats:
             amplitude
                 Amplitude of the additional signal (Gaussian amplitude)
             standard_dev
@@ -432,7 +437,7 @@ def gaussian_perturbation(gaussian_params):
     Returns
     -------
     sig
-        DataArray containing the Gaussian signal with dimensions (rho,)
+        xarray.DataArray containing the Gaussian signal with dimensions (rho,)
     """
     rho_arr, amplitude, standard_dev, position = gaussian_params
 
@@ -461,10 +466,13 @@ def sxr_data_setup(input_data):
     -------
     input_sxr_density_asym_Rz
         Ground truth asymmetric impurity density on a (R, z) grid.
+        xarray.DataArray with dimensions (R, z, t)
     R_arr
-        xarray.DataArray of major radius values, np.linspace(1.83, 3.9, 100)
+        xarray.DataArray of major radius values, np.linspace(1.83, 3.9, 100).
+        Dimensions (R)
     input_sxr_density_asym
         Ground truth asymmetric impurity density on a (rho, theta) grid.
+        xarray.DataArray with dimensions (rho, theta, t)
     """
     (
         input_Ne,
@@ -551,14 +559,14 @@ def bolometry_input_data_setup(input_data):
     Returns
     -------
     example_frac_abunds
-        Fractional abundances list of fractional abundances (one for each impurity)
+        List of fractional abundances (an xarray.DataArray for each impurity)
         dimensions of each element in list are (ion_charges, rho, t).
     main_ion_power_loss
         Power loss associated with the main ion (eg. deuterium),
-        dimensions are (rho, t)
+        xarray.DataArray with dimensions (rho, t)
     impurity_power_losses
         Power loss associated with all of the impurity elements,
-        dimensions are (elements, rho, t)
+        xarray.DataArray with dimensions (elements, rho, t)
     """
     initial_data = input_data
 
@@ -701,10 +709,6 @@ def test_extrapolate_impurity_density_call():
 
     original_bolometry = example_bolometry_derivation(deriv_only=False, trim=True)
 
-    test_profile = cProfile.Profile()
-
-    test_profile.enable()
-
     optimized_impurity_density = (
         example_extrapolate_impurity_density.optimize_perturbation(
             example_result_rho_theta,
@@ -714,9 +718,6 @@ def test_extrapolate_impurity_density_call():
             example_asym_modifier,
         )
     )
-
-    test_profile.disable()
-    test_profile.dump_stats("./optimization.prof")
 
     sum_of_residuals = np.abs(
         optimized_impurity_density.sel(theta=0)
