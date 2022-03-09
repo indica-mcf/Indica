@@ -36,10 +36,18 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory=''):
         #SWEEP OF TIMES
         for i,time in enumerate(data_camera['t']):
             
-            #FIGURE DECLARATION
-            fig,ax = plt.subplots(nrows=2,ncols=3,squeeze=True,figsize=(16,10))
-            gs = ax[0, 2].get_gridspec()
-                  
+            #ZSHIFT VALUE
+            if type(return_data['input_data']['z_shift'])==np.ndarray:
+                z_shift = return_data['filter_4']['z_shift'][i]
+            else:
+                z_shift = return_data['input_data']['z_shift']
+            
+            #RSHIFT VALUE
+            if type(return_data['input_data']['R_shift'])==np.ndarray:
+                R_shift = return_data['filter_4']['R_shift'][i]
+            else:
+                R_shift = return_data['input_data']['R_shift']
+            
             #BASE TITLE - pulseNo & time
             baseTitle  = '#'+str(return_data['pulseNo']) #pulseNo
             baseTitle += '-'+camera #NAME OF THE CAMERA
@@ -48,21 +56,28 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory=''):
             #ANGLE
             baseTitle += 'angle = '+str(int(return_data['input_data']['angle']))+' [degrees], '
             #SHIFTS
-            shifts = ['R_shift','z_shift']
-            for shift in shifts:
-                baseTitle += shift + ' = ' + str(int(return_data['input_data'][shift]*1.e+2))+' cm, '
+            shifts = dict(
+                R_shift = R_shift,
+                z_shift = z_shift,
+                )
+            for shift,shift_data in shifts.items():                
+                baseTitle += shift + ' = ' + str(np.round(shift_data*1.e+2,1))+' cm, '
             #CHI2
             baseTitle += 'chi2 = '+str(np.round(data_camera['back_integral']['chi2'][i],2))
-            
+                       
+            #FIGURE DECLARATION
+            fig,ax = plt.subplots(nrows=2,ncols=3,squeeze=True,figsize=(16,10))
+            gs = ax[0, 2].get_gridspec()
+                  
             #TITLE OF THE PLOT
             fig.suptitle(baseTitle)
-        
+            
             #SUBPLOT 1 - EMISSIVITY PROFILE
             axx = ax[0,0]
             zdata = data_camera['emissivity_2D']['data'][:,:,i]/1.e+3
             z_min = np.nanmin(zdata)
             z_max = np.nanmax(zdata)
-            heatmap = axx.pcolormesh(data_camera['emissivity_2D']['R'], data_camera['emissivity_2D']['z'], zdata, cmap='RdBu', vmin=z_min, vmax=z_max)
+            heatmap = axx.pcolormesh(data_camera['emissivity_2D']['R']+R_shift, data_camera['emissivity_2D']['z']+z_shift, zdata, cmap='RdBu', vmin=z_min, vmax=z_max)
             axx.set_xlabel("R (m)")
             axx.set_ylabel("z (m)")
             axx.set_xlim(0, 1)
@@ -103,10 +118,10 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory=''):
             ax[1,2].remove()                
             axbig = fig.add_subplot(gs[0:, -1])
             #HEATMAP PLOT
-            heatmap = axbig.pcolormesh(data_camera['emissivity_2D']['R'], data_camera['emissivity_2D']['z'], zdata, cmap='RdBu', vmin=z_min, vmax=z_max)
+            heatmap = axbig.pcolormesh(data_camera['emissivity_2D']['R']+R_shift, data_camera['emissivity_2D']['z']+z_shift, zdata, cmap='RdBu', vmin=z_min, vmax=z_max)
             #PROJECTION PLOT
             R_data = return_data[camera]['projection']['R']
-            z_data = return_data[camera]['projection']['z']
+            z_data = return_data[camera]['projection']['z'] - return_data[camera]['projection']['z'][0][0]
             for j,ch_considered in enumerate(sel_channels):
                 if ch_considered:
                     axbig.plot(R_data[j,:], z_data[j,:], color='k')
@@ -123,9 +138,8 @@ def make_SXR_inversion_plots(return_data,saveFig=False,save_directory=''):
             fileName += '_'+camera #CAMERA NAME
             fileName += '_t_'+str(i) #time
             fileName += '_angle_'+str(int(return_data['input_data']['angle'])) #angle
-            shifts = ['R_shift','z_shift']
-            for shift in shifts:
-                fileName += '_'+ shift + '_' + str(int(return_data['input_data'][shift]*1.e+2))
+            for shift,shift_data in shifts.items():   
+                fileName += '_'+ shift + '_' + str(int(shift_data*1.e+2))
             
             #FIGURE DATA
             return_Fig_data[fileName] = fig
@@ -167,7 +181,10 @@ def plot_z_shifts(results,save_directory='',saveFig=True,results2={},methods=[])
         t = results['filter_4']['t']*1.e+3
         chi2_optimum = results['filter_4']['back_integral']['chi2']
         chi2_all     = results['results_optimize']['chi2_evolution']
-        chi2_0       = results['all_results']['sweep_value_'+str(np.where(results['results_optimize']['z_shifts']==0)[0][0]+1)]['filter_4']['back_integral']['chi2']
+        try:
+            chi2_0   = results['all_results']['sweep_value_'+str(np.where(results['results_optimize']['z_shifts']==0)[0][0]+1)]['filter_4']['back_integral']['chi2']
+        except:
+            chi2_0   = np.nan * np.ones(len(chi2_optimum))
         z_shifts     = results['filter_4']['z_shift']      
         data_zshifts[method] = dict(
             time = t,
@@ -321,7 +338,7 @@ def plot_chi2(results,save_directory='',saveFig=True):
         #SAVE DIRECTORY
         ss.make_directory(save_directory)
         #FILENAME
-        fileName = str(results['pulseNo'])+'_chi2_evolution.png'
+        fileName = str(results['pulseNo'])+'_chi2_evolution'
         fileName = save_directory + '/' + fileName + '.png'
         #SAVING THE PLOT
         plt.savefig(fileName)

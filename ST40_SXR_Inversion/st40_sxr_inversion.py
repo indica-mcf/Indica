@@ -219,8 +219,13 @@ def make_SXR_inversion(pulseNo,time,input_data={}):
                     )
                 #TOMOGRAPHY CLASS INITIALIZATION
                 tomo = tomo_1D.SXR_tomography(inp_data)
-                #PERFORMING INVERSION USING TOMOGRAOHIC ROUTINE FROM TOMAS            
+                #PERFORMING INVERSION USING TOMOGRAPHIC ROUTINE FROM TOMAS            
                 return_data[camera] = tomo()
+                #INCLUDING THE INPUT DATA
+                try:
+                    return_data[camera+'_inp_data'] = inp_data
+                except:
+                    pass
         else:
             return_data = {}
         #DEBUG TIME
