@@ -87,7 +87,7 @@ class ImpurityConcentration(Operator):
             xarray.DataArray of electron density
         mean_charge
             xarray.DataArray of mean charge of all impurity elements of interest.
-            This can be provided manually (with dimensions of ["elements", "rho", "t]),
+            This can be provided manually (with dimensions of ["element", "rho", "t]),
             or can be passed as the results of MeanCharge.__call__
         flux_surfaces
             FluxSurfaceCoordinates object that defines the flux surface geometry
@@ -114,7 +114,7 @@ class ImpurityConcentration(Operator):
 
         input_check("element", element, str)
 
-        elements_list = impurity_densities.coords["elements"]
+        elements_list = impurity_densities.coords["element"]
 
         try:
             assert element in elements_list
@@ -220,7 +220,7 @@ class ImpurityConcentration(Operator):
         term_1 = LoS_length * (Zeff_LoS - 1)
 
         term_2 = zeros_like(term_1)
-        for k, kdens in enumerate(impurity_densities.coords["elements"]):
+        for k, kdens in enumerate(impurity_densities.coords["element"]):
             if element == kdens:
                 term_3 = (mean_charge[k] ** 2 - mean_charge[k]).sum(x2_name) * dl
                 continue
