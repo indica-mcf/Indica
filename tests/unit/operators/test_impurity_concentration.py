@@ -296,8 +296,8 @@ def test_impurity_concentration():
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho_profile.shape, *t.shape)),
-        coords=[("elements", elements), ("rho", rho_profile), ("t", t)],
-        dims=["elements", "rho", "t"],
+        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
+        dims=["element", "rho", "t"],
     )
     impurity_densities.data[0] = beryllium_impurity_conc
     impurity_densities.data[1] = neon_impurity_conc
@@ -327,7 +327,7 @@ def test_impurity_concentration():
         rho,
     )
 
-    impurity_densities = impurity_densities.transpose("elements", "rho", "t")
+    impurity_densities = impurity_densities.transpose("element", "rho", "t")
 
     mean_charge = zeros_like(impurity_densities)
 
@@ -456,7 +456,7 @@ def test_impurity_concentration():
 
     erroneous_input = {
         "impurity_densities": nominal_inputs["impurity_densities"].rename(
-            {"elements": "elements", "rho": "theta", "t": "t"}
+            {"element": "element", "rho": "theta", "t": "t"}
         )
     }
     test_case_impurity.call_value_check(**erroneous_input)
