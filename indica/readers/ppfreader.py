@@ -579,16 +579,20 @@ class PPFReader(DataReader):
         :
             A provenance entity for the newly read-in data.
         """
-        path = self.get_sal_path(uid, instrument, quantity, revision)
-        info = self._client.list(path)
+        revision_current = revision
+        for data in data_objects:
+            try:
+                revision_current = int(data.split(":")[-1])
+            except ValueError:
+                continue
         return super().create_provenance(
-            diagnostic,
-            uid,
-            instrument,
-            info.revision_current,
-            quantity,
-            data_objects,
-            ignored,
+            diagnostic=diagnostic,
+            uid=uid,
+            instrument=instrument,
+            revision=revision_current,
+            quantity=quantity,
+            data_objects=data_objects,
+            ignored=ignored,
         )
 
     def _get_bad_channels(
