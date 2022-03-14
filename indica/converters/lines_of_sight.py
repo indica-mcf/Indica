@@ -58,34 +58,34 @@ class LinesOfSightTransform(CoordinateTransform):
 
     def __init__(
         self,
-        # x_start: np.ndarray,
-        # z_start: np.ndarray,
-        # y_start: np.ndarray,
-        # x_end: np.ndarray,
-        # z_end: np.ndarray,
-        # y_end: np.ndarray,
-        origin: tuple,
-        direction: tuple,
+        origin: Tuple,
+        direction: Tuple,
         name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
+        dell: float = 0.01,
     ):
 
         # Calculate [x_start, y_start, z_start], [x_end, y_end, z_end]
-        x_start = origin[0]
-        y_start = origin[1]
-        z_start = origin[2]
+        start_coords, end_coords = _find_wall_intersections(origin, direction, machine_dimensions=machine_dimensions)
+        x_start = start_coords[0]
+        y_start = start_coords[1]
+        z_start = start_coords[2]
+        x_end = end_coords[0]
+        y_end = end_coords[1]
+        z_end = end_coords[2]
 
-        lengths = _get_wall_intersection_distances(
-            x_start, z_start, y_start, x_end, z_end, y_end, machine_dimensions
-        )
-        new_length = max(lengths)
-        los_lengths = np.sqrt(
-            (x_start - x_end) ** 2 + (z_start - z_end) ** 2 + (y_start - y_end) ** 2
-        )
-        factor = new_length / los_lengths
+        ## Get distance to wall
+        #lengths = _get_wall_intersection_distances(
+        #    x_start, z_start, y_start, x_end, z_end, y_end, machine_dimensions
+        #)
+        #new_length = max(lengths)
+        #los_lengths = np.sqrt(
+        #    (x_start - x_end) ** 2 + (z_start - z_end) ** 2 + (y_start - y_end) ** 2
+        #)
+        #factor = new_length / los_lengths
         self.x_start = DataArray(x_start)
         self.z_start = DataArray(z_start)
         self.y_start = DataArray(y_start)
@@ -93,9 +93,9 @@ class LinesOfSightTransform(CoordinateTransform):
         self._original_z_end = DataArray(z_end)
         self._original_y_end = DataArray(y_end)
         self._machine_dims = machine_dimensions
-        self.x_end = DataArray(x_start + factor * (x_end - x_start))
-        self.z_end = DataArray(z_start + factor * (z_end - z_start))
-        self.y_end = DataArray(y_start + factor * (y_end - y_start))
+        self.x_end = DataArray(x_end)
+        self.z_end = DataArray(z_end)
+        self.y_end = DataArray(y_end)
         self.index_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
@@ -105,7 +105,20 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x1_name = name + "_coords"
         self.x2_name = name + "_los_position"
 
-        # Set "dl"
+        # Set "dell"
+        self.dell_target = dell
+        x2, dell_new = self.set_dl(dell)
+        self.x2 = x2
+        self.dell = dell_new
+
+        # Set x, y, z
+        self.x = self.x_start + (self.x_end - self.x_start) * x2
+        self.y = self.y_start + (self.y_end - self.y_start) * x2
+        self.z = self.z_start + (self.z_end - self.z_start) * x2
+
+        # Calculate r, theta (cylindrical coordinates)
+        self.r = np.sqrt(self.x**2 + self.y**2)
+        self.theta = np.arctan2(self.y, self.x)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -225,21 +238,48 @@ class LinesOfSightTransform(CoordinateTransform):
         """
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
-        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
-        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
-        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
-        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
-        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-        x = x_s + (x_e - x_s) * x2
-        y = y_s + (y_e - y_s) * x2
-        z = z_s + (z_e - z_s) * x2
+        # x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        # x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        # z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        # z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        # y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        # y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        x = self.x_start + (self.x_end - self.x_start) * x2
+        y = self.y_start + (self.y_end - self.y_start) * x2
+        z = self.z_start + (self.z_end - self.z_start) * x2
         spacings = np.sqrt(
             x.diff(direction) ** 2 + z.diff(direction) ** 2 + y.diff(direction) ** 2
         )
         result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
+
+    def set_dl(self, dl: float):
+        # Convert to Cartesian
+        x_start = self.x_start
+        y_start = self.y_start
+        z_start = self.z_start
+        x_end = self.x_end
+        y_end = self.y_end
+        z_end = self.z_end
+        d = np.sqrt(
+            (x_end - x_start) ** 2 + (y_end - y_start) ** 2 + (z_end - z_start) ** 2
+        )
+
+        # Find the number of points
+        npts = np.ceil(d.data / dl).astype(int)
+        print(f'npts = {npts}')
+
+        # Set dl, calculate dl
+        #x2_result = [0] * len(npts)
+        #dl_result = np.zeros_like(npts, dtype=float)
+        #for x1 in range(len(npts)):
+        ind = np.linspace(0, 1, npts, dtype=float)
+        x2 = DataArray(ind, dims=self.x2_name)
+        dell_temp = self.distance(self.x2_name, 0, x2, 0)
+        dell = dell_temp[1]
+
+        return x2, dell
 
 
 def _get_wall_intersection_distances(
@@ -316,3 +356,139 @@ def _get_wall_intersection_distances(
     return x2 * np.sqrt(
         (x_start - x_end) ** 2 + (z_start - z_end) ** 2 + (y_start - y_end) ** 2
     )
+
+
+def _find_wall_intersections(
+    origin: Tuple,
+    direction: Tuple,
+    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+        (1.83, 3.9),
+        (-1.75, 2.0),
+    ),
+):
+
+    # Define XYZ lines for LOS from origin and direction vectors
+    length = 3.0
+    x_line = np.array(
+        [origin[0] - length * direction[0], origin[0] + length * direction[0]],
+        dtype=float,
+    )
+    y_line = np.array(
+        [origin[1] - length * direction[1], origin[1] + length * direction[1]],
+        dtype=float,
+    )
+
+    # Define XYZ lines for inner and outer walls
+    angles = np.linspace(0.0, 2 * np.pi, 1000)
+    x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
+    x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
+    y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
+
+    # Find intersections, to calculate R_start, z_start, T_start, R_end, z_end, T_end ...
+    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_outer, y_wall_outer)
+    distance = np.sqrt(
+        (xx - origin[0]) ** 2 + (yx - origin[1]) ** 2
+    )  # Distance from intersections
+    i_closest = np.argmin(distance)
+    i_furthest = np.argmax(distance)
+    x_start = xx[i_closest]
+    y_start = yx[i_closest]
+    z_start = origin[-1]
+    x_end = xx[i_furthest]
+    y_end = yx[i_furthest]
+    z_end = origin[-1]
+
+    # Find intersections with inner wall (if exists)
+    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
+    if len(xx) > 0:
+        distance = np.sqrt(
+            (xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2
+        )  # Distance from intersections
+        i_closest = np.argmin(distance)
+        x_end = xx[i_closest]
+        y_end = yx[i_closest]
+        z_end = origin[-1]
+
+    return (x_start, y_start, z_start), (x_end, y_end, z_end)
+
+
+def _rect_inter_inner(x1, x2):
+    n1 = x1.shape[0] - 1
+    n2 = x2.shape[0] - 1
+    X1 = np.c_[x1[:-1], x1[1:]]
+    X2 = np.c_[x2[:-1], x2[1:]]
+    S1 = np.tile(X1.min(axis=1), (n2, 1)).T
+    S2 = np.tile(X2.max(axis=1), (n1, 1))
+    S3 = np.tile(X1.max(axis=1), (n2, 1)).T
+    S4 = np.tile(X2.min(axis=1), (n1, 1))
+    return S1, S2, S3, S4
+
+
+def _rectangle_intersection_(x1, y1, x2, y2):
+    S1, S2, S3, S4 = _rect_inter_inner(x1, x2)
+    S5, S6, S7, S8 = _rect_inter_inner(y1, y2)
+
+    C1 = np.less_equal(S1, S2)
+    C2 = np.greater_equal(S3, S4)
+    C3 = np.less_equal(S5, S6)
+    C4 = np.greater_equal(S7, S8)
+
+    ii, jj = np.nonzero(C1 & C2 & C3 & C4)
+    return ii, jj
+
+
+def intersection(x1, y1, x2, y2):
+    """
+INTERSECTIONS Intersections of curves.
+   Computes the (x,y) locations where two curves intersect.  The curves
+   can be broken with NaNs or have vertical segments.
+usage:
+x,y=intersection(x1,y1,x2,y2)
+    Example:
+    a, b = 1, 2
+    phi = np.linspace(3, 10, 100)
+    x1 = a*phi - b*np.sin(phi)
+    y1 = a - b*np.cos(phi)
+    x2=phi
+    y2=np.sin(phi)+2
+    x,y=intersection(x1,y1,x2,y2)
+    plt.plot(x1,y1,c='r')
+    plt.plot(x2,y2,c='g')
+    plt.plot(x,y,'*k')
+    plt.show()
+    """
+    ii, jj = _rectangle_intersection_(x1, y1, x2, y2)
+    n = len(ii)
+
+    dxy1 = np.diff(np.c_[x1, y1], axis=0)
+    dxy2 = np.diff(np.c_[x2, y2], axis=0)
+
+    T = np.zeros((4, n))
+    AA = np.zeros((4, 4, n))
+    AA[0:2, 2, :] = -1
+    AA[2:4, 3, :] = -1
+    AA[0::2, 0, :] = dxy1[ii, :].T
+    AA[1::2, 1, :] = dxy2[jj, :].T
+
+    BB = np.zeros((4, n))
+    BB[0, :] = -x1[ii].ravel()
+    BB[1, :] = -x2[jj].ravel()
+    BB[2, :] = -y1[ii].ravel()
+    BB[3, :] = -y2[jj].ravel()
+
+    for i in range(n):
+        try:
+            T[:, i] = np.linalg.solve(AA[:, :, i], BB[:, i])
+        except:
+            T[:, i] = np.NaN
+
+    in_range = (T[0, :] >= 0) & (T[1, :] >= 0) & (T[0, :] <= 1) & (T[1, :] <= 1)
+
+    xy0 = T[2:, in_range]
+    xy0 = xy0.T
+
+    indii = ii[in_range] + T[0, in_range]
+    indjj = jj[in_range] + T[1, in_range]
+
+    return xy0[:, 0], xy0[:, 1], indii, indjj
