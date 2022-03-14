@@ -32,6 +32,7 @@ import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 import os
+import json
 
 from indica.readers import ST40Reader
 from indica.readers import ADASReader
@@ -58,11 +59,12 @@ class Database:
         reload=False,
     ):
 
-        self.info = get_data_info()
         self.data_path = f"{os.path.expanduser('~')}/data/"
+        self.json_file = "info_dict.json"
         self.data_file = f"{pulse_start}_{pulse_end}_regression_database.pkl"
         self.fig_path = f"{os.path.expanduser('~')}/figures/regr_trends/"
         self.fig_file = f"{pulse_start}_{pulse_end}"
+
         if reload:
 
             print(f"\n Reading database for pulse range {pulse_start}-{pulse_end}")
@@ -84,6 +86,8 @@ class Database:
         else:
 
             print(f"\n Building database for pulse range {pulse_start}-{pulse_end}")
+
+            self.info = get_data_info(self.data_path, self.json_file)
 
             self.pulse_start = pulse_start
             self.pulse_end = pulse_end
@@ -344,13 +348,11 @@ def add_pulses(regr_data, pulse_end, reload=False, write=True):
     else:
         return merged
 
-
 def add_quantities(regr_data, info=None, write=True):
     """
     Add additional quantities to the database
 
     Temporary: define info structure here
-    TODO: move info structure somewhere else so that additional quantities can be added permanently
     TODO: add sign key to all info dictionaries for calculation of max_val
         --> sign = +1 : look for maximum on positive side
         --> sign = -1 : look for maximum on negative sige
@@ -758,6 +760,7 @@ def add_quantities(regr_data, info=None, write=True):
     max_val = {}
     for k in info.keys():
         assert k not in info_keys
+        regr_data.info[k] = info[k]
         binned[k] = []
         max_val[k] = []
 
@@ -808,6 +811,8 @@ def add_quantities(regr_data, info=None, write=True):
 
         merged.binned[k] = binned[k]
         merged.max_val[k] = max_val[k]
+
+    update_data_info(regr_data)
 
     if write:
         old_file = f"{regr_data.data_path}{regr_data.data_file}"
@@ -1271,6 +1276,8 @@ def plot_time_evol(
     if pulse_lim is None:
         pulse_lim = (np.min(regr_data.pulses) - 5, np.max(regr_data.pulses) + 5)
 
+    ymin = []
+    ymax = []
     for title, ykey in to_plot.items():
         name = "time_evol"
         plt.figure()
@@ -1282,6 +1289,8 @@ def plot_time_evol(
 
             x = res.pulse
             yval = flat(res.value)
+            ymin.append(np.nanmin(yval))
+            ymax.append(np.nanmax(yval))
             yerr = flat(res.error)
 
             if len(ykey) > 1:
@@ -1303,8 +1312,10 @@ def plot_time_evol(
             sign = +1
 
         if sign > 0:
-            plt.ylim(0,)
+            # plt.ylim(bottom=0, top=np.nanmax(ymax)*1.2)
+            plt.ylim(bottom=0)
         elif sign < 0:
+            # plt.ylim(bottom=np.nanmin(ymin)*0.8, top=0)
             plt.ylim(top=0)
         else:
             ylim = plt.ylim()
@@ -1672,13 +1683,13 @@ def plot(
             "Total gas puff": ("gas_cumulative",),
             "Electron Density": ("ne_nirh1",),
             "BVL current": ("i_bvl",),
-            "H visible emission": ("h_sum",),
-            "He visible emission": ("he_sum",),
-            "B visible emission": ("b_sum",),
-            "C visible emission": ("c_sum",),
-            "N visible emission": ("n_sum",),
-            "O visible emission": ("o_sum",),
-            "Ar visible emission": ("ar_sum",),
+            "H visible emission": ("sum_h",),
+            "He visible emission": ("sum_he",),
+            "B visible emission": ("sum_b",),
+            "C visible emission": ("sum_c",),
+            "N visible emission": ("sum_n",),
+            "O visible emission": ("sum_o",),
+            "Ar visible emission": ("sum_ar",),
         }
         # "H-alpha": ("h_i_6563",),
         # "Helium": ("he_ii_4686",),
@@ -1991,9 +2002,49 @@ def write_to_pickle(regr_data):
     print(f"Saving regression database to \n {picklefile}")
     pickle.dump(regr_data, open(picklefile, "wb"))
 
+def update_data_info(regr_data):
+    backup_file = f"{regr_data.data_path}_{filename}"
+
+    # Look for file and read info dictionary within it
+    try:
+        info = get_data_info(regr_data.data_path, regr_data.json_file)
+    except FileNotFoundError:
+        info = {}
+
+    # Check whether regr_data.info is the same as in file, if not write
+    if info != regr_data.info:
+        os.rename(json_file, backup_file)
+        _json = json.dumps(regr_data.info)
+        with open(json_file, "w") as f:
+            f.write(_json)
+    else:
+        print("\n Info JSON file already up to date \n")
+
+    # Re-read file and return info dictionary written within
+    info = get_data_info(regr_data.data_path, regr_data.json_file)
+
+    return info
+
+def get_data_info(file_path, file_name):
+    json_file = f"{file_path}{file_name}"
+    with open(f"{json_file}", "r") as f:
+        info = json.load(f)
+
+    return info
+
+
+def add_to_plot(xlab, ylab, tit, legend=True, vlines=False):
+    if vlines:
+        add_vlines(BORONISATION)
+        add_vlines(GDC, color="r")
+    plt.xlabel(xlab)
+    plt.ylabel(ylab)
+    plt.title(tit)
+    if legend:
+        plt.legend()
 
 def get_data_info():
-
+    # TODO: superseeded by info_json method
     info = {
         "ipla_efit": {
             "uid": "",
@@ -2320,14 +2371,3 @@ def get_data_info():
     }
 
     return info
-
-
-def add_to_plot(xlab, ylab, tit, legend=True, vlines=False):
-    if vlines:
-        add_vlines(BORONISATION)
-        add_vlines(GDC, color="r")
-    plt.xlabel(xlab)
-    plt.ylabel(ylab)
-    plt.title(tit)
-    if legend:
-        plt.legend()
