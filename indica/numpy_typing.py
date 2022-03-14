@@ -9,6 +9,10 @@ import typing
 
 import xarray
 
+# Jon added due to errors
+import numpy as np
+import numbers
+
 try:
     from numpy.typing import ArrayLike
 except ImportError:
