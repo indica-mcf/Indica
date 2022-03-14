@@ -23,6 +23,7 @@ from indica.numpy_typing import ArrayLike
 
 
 ADF11 = {"c": {"scd": "96", "acd": "96", "ccd": "96"}}
+ADF12 = {}
 ADF15 = {
     "529": {
         "element": "c",
@@ -65,6 +66,7 @@ class CXSpectrometer:
         self.adasreader = ADASReader()
         self.name = name
         self.set_ion_data(adf11=adf11)
+        self.set_cx_data(adf12=adf12)
         self.set_pec_data(adf15=adf15)
 
     def set_transform(self, transform: LinesOfSightTransform):
@@ -88,11 +90,18 @@ class CXSpectrometer:
         """
 
         # Read ST40 data, from 9779 for Princeton spectrometer
-        st40_data = ST40data(pulse=9779, tstart=0.02, tend=0.12)
+        st40_data = ST40data(pulse=9780, tstart=0.04, tend=0.085)
         st40_data.get_princeton()
-        equil_data = ST40data(pulse=9779, tstart=0.02, tend=0.12)
+        equil_data = ST40data(pulse=9780, tstart=0.04, tend=0.085)
         equil_data.get_all()
         data = st40_data.data["princeton"]
+
+        # print(f'self.pec        = {self.pec}')
+        # print(f'self.pec (keys) = {self.pec.keys()}')
+        # print(f'self.pec[529] = {self.pec["529"]}')
+        # print(f'self.pec[529][emiss_coeff] = {self.pec["529"]["emiss_coeff"]}')
+        # print(f'self.pec[529][emiss_coeff].sel(excit) = {self.pec["529"]["emiss_coeff"][0]}')
+        # print('aa'**2)
 
         # Define LOS transform,
         # 1 LOS transform object for one diagnostic, fibre number is an attribute
@@ -157,7 +166,7 @@ class CXSpectrometer:
 
         # Spectrometer settings
         lambda0 = 529.059  # [nm]
-        mi = 13.0107  # [amu]
+        mi = 12.0107  # [amu]
         c = constants.speed_of_light
         Avogadro = constants.Avogadro
         kB = constants.k
@@ -245,15 +254,93 @@ class CXSpectrometer:
                         gaunt_approx="callahan"
                     )
 
-            plt.figure()
-            plt.plot(wavelength[:, i], brem[:, 60])
-            plt.show(block=True)
+            # plt.figure()
+            # plt.plot(wavelength[:, i], brem[:, 60])
+            # plt.show(block=True)
 
             # Calculate Recombination and Excitation emission
+            pec_excit = self.pec["529"]["emiss_coeff"][0]
+            pec_recom = self.pec["529"]["emiss_coeff"][1]
+            pec_excit_here = pec_excit.interp(electron_temperature=te_vec, electron_density=ne_vec)
+            pec_recom_here = pec_recom.interp(electron_temperature=te_vec, electron_density=ne_vec)
+
+            plt.figure()
+            plt.plot(pec_excit_here.sel(t=0.04, method='nearest').data, label='excit')
+            plt.plot(pec_recom_here.sel(t=0.04, method='nearest').data, label='recom')
+
+            eps_excit_here = (pec_excit_here * 1e-6) * ne_vec * nimp_vec  # units = [ph m^-3 s^-1]
+            eps_recom_here = (pec_recom_here * 1e-6) * ne_vec * nimp_vec  # units = [ph m^-3 s^-1]
+
+            plt.figure()
+            plt.plot(eps_excit_here.sel(t=0.04, method='nearest').data, label='excit')
+            plt.plot(eps_recom_here.sel(t=0.04, method='nearest').data, label='recom')
+            plt.yscale('log')
+            plt.legend()
+            plt.ylabel('ph m^-3 s^-1')
+            # plt.show(block=True)
 
             # Calculate Passive charge exchange emission
+            # Simulate Gaussian's along the line of sight and integrate
+            delta_lambda = lambda0 * vrot_vec / constants.speed_of_light  # To do: account for cos(theta)
+            doppler_width = physics.ev_doppler(ti_vec, mass=12.0107) * lambda0  # sigma / centroid
+
+            print(doppler_width)
+            passive_tot = np.zeros((n_pixels, n_ell), dtype=float)
+            for j in range(n_ell):
+                if ~np.isnan(pec_excit_here[0, j]):
+                    print(wavelength[:, i])
+                    print(pec_excit_here[0, j])
+                    print(lambda0-delta_lambda[0, j])
+                    print(doppler_width[0, j])
+                    # Excitation line
+                    passive_excit = physics.gaussian(
+                        wavelength[:, i], pec_excit_here[0, j].data, 0.0, lambda0-delta_lambda[0, j].data, doppler_width[0, j].data
+                    )
+                    # Recombination line
+                    passive_recom = physics.gaussian(
+                        wavelength[:, i], pec_recom_here[0, j].data, 0.0, lambda0-delta_lambda[0, j].data, doppler_width[0, j].data
+                    )
+                    # CX at edge: ToDo
+                    passive_cx = np.zeros_like(passive_excit)
+                    # Total
+                    passive_tot[:, j] = passive_excit + passive_recom + passive_cx
+
+                    if False:
+                        plt.figure()
+                        plt.plot(wavelength[:, i], passive_excit, 'b', label='excitation')
+                        plt.plot(wavelength[:, i], passive_recom, 'r', label='recombination')
+                        plt.plot(wavelength[:, i], passive_cx, 'm', label='charge-exchange')
+                        plt.plot(wavelength[:, i], passive_tot[:, j], 'g', label='total')
+                        plt.legend()
+                        plt.xlabel('Wavelength (nm)')
+                        plt.ylabel('ph m^-3 s^-1')
+                        plt.xlim([528.0, 530.0])
+                        plt.show(block=True)
+
+            passive = np.sum(passive_tot, axis=1)
+
+            plt.figure()
+            plt.plot(wavelength[:, i], passive, 'b', label='total')
+            plt.legend()
+            plt.xlabel('Wavelength (nm)')
+            plt.ylabel('ph m^-3 s^-1')
+            plt.xlim([528.0, 530.0])
+            plt.show(block=True)
+
+            print('aa'**2)
+
+            # for j in range(n_ell):
+            #     passive_excit = physics.gaussian(wavelength[:, i], pec_excit_here[0, j], 0.0, lambda0, )
 
             # Calculate Active charge exchange emission, with beam model
+            # Simulate active spectrum using adf12 data
+            qener = self.qener
+            qtiev = self.qtiev
+            qdensi = self.qdensi
+            qzeff = self.qzeff
+            qefref = self.qefref
+
+            print(qener)
 
         print('aa'**2)
 
@@ -297,8 +384,6 @@ class CXSpectrometer:
 
         #
 
-
-
     def set_ion_data(self, adf11: dict = None):
         """
         Read adf11 data and build fractional abundance objects for all elements
@@ -328,6 +413,30 @@ class CXSpectrometer:
         self.acd = acd
         self.ccd = ccd
         self.fract_abu = fract_abu
+
+    def set_cx_data(self, adf12: dict = None):
+        """
+
+        Parameters
+        ----------
+        adf12
+
+        Returns
+        -------
+
+        """
+        if adf12 is None:
+            adf12 = ADF12
+
+        # Get CX data
+        qener, qtiev, qdensi, qzeff, qefref = self.adasreader.get_adf12("H", "0", "C", "6", "cx", "99")
+
+        self.adf12 = adf12
+        self.qener = qener
+        self.qtiev = qtiev
+        self.qdensi = qdensi
+        self.qzeff = qzeff
+        self.qefref = qefref
 
     def set_pec_data(self, adf15: dict = None):
         """
