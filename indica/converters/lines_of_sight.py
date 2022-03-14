@@ -58,18 +58,26 @@ class LinesOfSightTransform(CoordinateTransform):
 
     def __init__(
         self,
-        x_start: np.ndarray,
-        z_start: np.ndarray,
-        y_start: np.ndarray,
-        x_end: np.ndarray,
-        z_end: np.ndarray,
-        y_end: np.ndarray,
+        # x_start: np.ndarray,
+        # z_start: np.ndarray,
+        # y_start: np.ndarray,
+        # x_end: np.ndarray,
+        # z_end: np.ndarray,
+        # y_end: np.ndarray,
+        origin: tuple,
+        direction: tuple,
         name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
     ):
+
+        # Calculate [x_start, y_start, z_start], [x_end, y_end, z_end]
+        x_start = origin[0]
+        y_start = origin[1]
+        z_start = origin[2]
+
         lengths = _get_wall_intersection_distances(
             x_start, z_start, y_start, x_end, z_end, y_end, machine_dimensions
         )
@@ -96,6 +104,8 @@ class LinesOfSightTransform(CoordinateTransform):
         ] = None
         self.x1_name = name + "_coords"
         self.x2_name = name + "_los_position"
+
+        # Set "dl"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
