@@ -173,7 +173,7 @@ def plasma_workflow(
     # return pl, raw_data, data, bckc
 
     # Average charge known Te
-
+    pl.el_dens.plot()
     pl.calc_fz_lz()
     pl.calc_meanz()
 
@@ -292,14 +292,15 @@ def run_all_scans():
     # 9818, 9820, 9389 - unknown issues
     # 9840 - doesn't have enough Ar
     # 9623 - issues with XRCS temperature optimisation...
-    pulses = []
+    pulses = [8532, 8533, 8605, 8621, 10014]
+    tlims = [(0.01, 0.08), (0.01, 0.12), (0.01, 0.1), (0.01, 0.1), (0.01, 0.1)]
 
-    for pulse in pulses:
+    for pulse, tlim in zip(pulses, tlims):
         print(pulse)
         scan_profiles(
             pulse,
-            tstart=0.01,
-            tend=0.12,
+            tstart=tlim[0],
+            tend=tlim[1],
             dt=0.01,
             diagn_ne="smmh1",
             quant_ne="ne",
