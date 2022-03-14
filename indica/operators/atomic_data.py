@@ -239,7 +239,7 @@ class FractionalAbundance(Operator):
         return (("fractional abundance", "impurity_element"),)
 
     def interpolate_rates(
-        self, Ne: DataArray, Te: DataArray,
+        self, Ne: DataArray, Te: DataArray, bounds_check=True,
     ):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
@@ -252,6 +252,8 @@ class FractionalAbundance(Operator):
         Te
             xarray.DataArray of electron temperature as a profile of a user-chosen
             coordinate.
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -265,7 +267,8 @@ class FractionalAbundance(Operator):
             Number of ionisation charges(stages) for the given impurity element.
         """
 
-        self.interpolation_bounds_check(Ne, Te)
+        if bounds_check:
+            self.interpolation_bounds_check(Ne, Te)
 
         self.Ne, self.Te = Ne, Te  # type: ignore
 
@@ -604,6 +607,7 @@ class FractionalAbundance(Operator):
         tau: LabeledArray = None,
         F_z_t0: DataArray = None,
         full_run: bool = True,
+        bounds_check=True,
     ) -> DataArray:
         """Executes all functions in correct order to calculate the fractional
         abundance.
@@ -629,6 +633,8 @@ class FractionalAbundance(Operator):
             the entire ordered workflow(True) for calculating abundance from the start.
             This is mostly only useful for unit testing and is set to True by default.
             (Optional)
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -636,7 +642,7 @@ class FractionalAbundance(Operator):
             Fractional abundance at tau.
         """
         if full_run:
-            self.interpolate_rates(Ne, Te)
+            self.interpolate_rates(Ne, Te, bounds_check=bounds_check)
 
             self.calc_ionisation_balance_matrix(Ne, Nh)
 
@@ -840,7 +846,7 @@ class PowerLoss(Operator):
         return (("total_radiated power loss", "impurity_element"),)
 
     def interpolate_power(
-        self, Ne: DataArray, Te: DataArray,
+        self, Ne: DataArray, Te: DataArray, bounds_check=True,
     ):
         """Interpolates the various powers based on inputted Ne and Te.
 
@@ -852,6 +858,8 @@ class PowerLoss(Operator):
         Te
             xarray.DataArray of electron temperature as a profile of a user-chosen
             coordinate.
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -867,7 +875,8 @@ class PowerLoss(Operator):
             Number of ionisation charges(stages) for the given impurity element.
         """
 
-        self.interpolation_bounds_check(Ne, Te)
+        if bounds_check:
+            self.interpolation_bounds_check(Ne, Te)
 
         self.Ne, self.Te = Ne, Te  # type: ignore
         # TODO: check why errors coming out with interp2d...
@@ -920,7 +929,7 @@ class PowerLoss(Operator):
         return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
 
     def calculate_power_loss(
-        self, Ne: DataArray, F_z_t: DataArray, Nh: DataArray = None
+        self, Ne: DataArray, F_z_t: DataArray, Nh: DataArray = None,
     ):
         """Calculates total radiated power of all ionisation charges of a given
         impurity element.
@@ -1033,6 +1042,7 @@ class PowerLoss(Operator):
         F_z_t: DataArray,
         Nh: DataArray = None,
         full_run: bool = True,
+        bounds_check=True,
     ):
         """Executes all functions in correct order to calculate the total radiated
         power.
@@ -1056,6 +1066,8 @@ class PowerLoss(Operator):
             run the entire ordered workflow(True) for calculating power loss from the
             start. This is mostly only useful for unit testing and is set to True by
             default. (Optional)
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -1064,7 +1076,7 @@ class PowerLoss(Operator):
         """
 
         if full_run:
-            self.interpolate_power(Ne, Te)
+            self.interpolate_power(Ne, Te, bounds_check=bounds_check)
 
         cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
 
