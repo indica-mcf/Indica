@@ -1094,8 +1094,7 @@ class Plasma:
             z = self.equilibrium.zmag.sel(t=t, method="nearest")
             rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
             plt.plot(
-            rho,
-            self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
+                rho, self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
             )
             self.ion_dens.sel(element=elem).sel(t=t).plot(linestyle="dashed")
             plt.title(elem)
@@ -1146,10 +1145,14 @@ class Plasma:
                 fz_tmp = self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau)
                 fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
                 lz_tot[elem].loc[dict(t=t)] = (
-                    self.power_loss_tot[elem](Ne, Te, fz_tmp, Nh=Nh).transpose().values
+                    self.power_loss_tot[elem](Ne, Te, fz_tmp, Nh=Nh, bounds_check=False)
+                    .transpose()
+                    .values
                 )
                 lz_sxr[elem].loc[dict(t=t)] = (
-                    self.power_loss_sxr[elem](Ne, Te, fz_tmp).transpose().values
+                    self.power_loss_sxr[elem](Ne, Te, fz_tmp, bounds_check=False)
+                    .transpose()
+                    .values
                 )
 
         self.fz = fz
