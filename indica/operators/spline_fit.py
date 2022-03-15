@@ -137,7 +137,7 @@ class SplineFit(Operator):
     def __init__(
         self,
         knots: ArrayLike = [0.0, 0.3, 0.6, 0.85, 0.95, 1.05],
-        lower_bound: ArrayLike = -np.inf,
+        lower_bound: ArrayLike = np.NINF,
         upper_bound: ArrayLike = np.inf,
         sess: session.Session = session.global_session,
     ):
