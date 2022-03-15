@@ -33,8 +33,10 @@ flux_coord.set_equilibrium(equil)
 los = lines_of_sight.LinesOfSightTransform(origin, direction, machine_dimensions=machine_dims, name=name)
 
 # Assign flux transform
+los.assign_flux_transform(flux_coord)
 
 # Convert_to_rho method
+los.convert_to_rho(t=0.045)
 
 print(f'los.dell = {los.dell}')
 print(f'los.x2 = {los.x2}')
@@ -42,6 +44,8 @@ print(f'los.x = {los.x}')
 print(f'los.y = {los.y}')
 print(f'los.z = {los.z}')
 print(f'los.r = {los.r}')
+print(' ')
+print(f'los.rho = {los.rho}')
 
 # centre column
 th = np.linspace(0.0, 2*np.pi, 1000)
@@ -52,6 +56,12 @@ y_cc = machine_dims[0][0] * np.sin(th)
 x_ivc = machine_dims[0][1] * np.cos(th)
 y_ivc = machine_dims[0][1] * np.sin(th)
 
+
+plt.figure()
+plt.plot(los.rho[0].sel(t=0.045, method='nearest'), 'b')
+plt.ylabel('rho')
+
+
 plt.figure()
 plt.plot(x_cc, y_cc, 'k--')
 plt.plot(x_ivc, y_ivc, 'k--')
@@ -61,4 +71,4 @@ plt.plot(los.x, los.y, 'g', label='los')
 plt.legend()
 plt.xlabel('x (m)')
 plt.ylabel('y (m)')
-plt.show()
+plt.show(block=True)

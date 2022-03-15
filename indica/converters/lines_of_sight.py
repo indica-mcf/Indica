@@ -13,7 +13,7 @@ from xarray import zeros_like
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
-
+from .flux_surfaces import FluxSurfaceCoordinates
 
 class LinesOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
@@ -280,6 +280,12 @@ class LinesOfSightTransform(CoordinateTransform):
         dell = dell_temp[1]
 
         return x2, dell
+
+    def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
+        self.flux_transform = flux_transform
+
+    def convert_to_rho(self, t: float):
+        self.rho = self.flux_transform.convert_from_Rz(self.r, self.z)
 
 
 def _get_wall_intersection_distances(
