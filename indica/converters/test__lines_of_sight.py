@@ -4,6 +4,7 @@ sys.path.remove("/home/marco.sertoli/python/Indica")
 from indica.converters import lines_of_sight
 from indica.converters import flux_surfaces
 from indica import equilibrium
+from hda_jw.read_st40 import ST40data
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -20,6 +21,10 @@ machine_dims = ((0.175, 1.0), (0.0, 0.0))
 name = "los_test"
 
 # Equilibrium
+st40_data = ST40data(pulse=9780, tstart=0.04, tend=0.085)
+st40_data.get_efit()
+print(st40_data)
+print('aa'**2)
 equil = equilibrium.Equilibrium(dict())
 
 # Flux surface coordinate
