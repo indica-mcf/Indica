@@ -23,17 +23,18 @@ name = "los_test"
 # Equilibrium
 st40_data = ST40data(pulse=9780, tstart=0.04, tend=0.085)
 st40_data.get_efit()
-print(st40_data)
-print('aa'**2)
-equil = equilibrium.Equilibrium(dict())
+equil = equilibrium.Equilibrium(st40_data.data['efit'])
 
 # Flux surface coordinate
 flux_coord = flux_surfaces.FluxSurfaceCoordinates("poloidal")
-print(flux_coord)
-print('aa'**2)
+flux_coord.set_equilibrium(equil)
 
 # Set-up line of sight class
 los = lines_of_sight.LinesOfSightTransform(origin, direction, machine_dimensions=machine_dims, name=name)
+
+# Assign flux transform
+
+# Convert_to_rho method
 
 print(f'los.dell = {los.dell}')
 print(f'los.x2 = {los.x2}')
