@@ -2,6 +2,8 @@ import sys
 sys.path.insert(0, "/home/jonathan.wood/git_home/Indica")
 sys.path.remove("/home/marco.sertoli/python/Indica")
 from indica.converters import lines_of_sight
+from indica.converters import flux_surfaces
+from indica import equilibrium
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -16,6 +18,14 @@ machine_dims = ((0.175, 1.0), (0.0, 0.0))
 
 # name
 name = "los_test"
+
+# Equilibrium
+equil = equilibrium.Equilibrium(dict())
+
+# Flux surface coordinate
+flux_coord = flux_surfaces.FluxSurfaceCoordinates("poloidal")
+print(flux_coord)
+print('aa'**2)
 
 # Set-up line of sight class
 los = lines_of_sight.LinesOfSightTransform(origin, direction, machine_dimensions=machine_dims, name=name)
