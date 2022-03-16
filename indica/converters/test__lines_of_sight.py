@@ -6,10 +6,11 @@ from indica.converters import flux_surfaces
 from indica import equilibrium
 from hda_jw.read_st40 import ST40data
 from matplotlib import pyplot as plt
+from xarray import DataArray
 import numpy as np
 
 # Line of sight origin tuple
-origin = (0.9, -0.1, 0.0)  # [xyz]
+origin = (0.9, -0.2, 0.0)  # [xyz]
 
 # Line of sight direction
 direction = (-1.0, 0.0, 0.0)  # [xyz]
@@ -38,6 +39,27 @@ los.assign_flux_transform(flux_coord)
 # Convert_to_rho method
 los.convert_to_rho(t=0.045)
 
+# Check method #1: convert_to_Rz, inputs: "x1", "x2", "t"
+x1 = 0.0  # does nothing
+x2 = DataArray(np.linspace(0.0, 1.0, 350, dtype=float))  # index along line of sight, must be a DataArray
+t = 0.0  # does nothing
+r_, z_ = los.convert_to_Rz(x1, x2, t)
+print(f'r_ = {r_}')
+print(f'z_ = {z_}')
+
+# Check method #2: convert_from_Rz, inputs: "R", "Z", "t"
+# R_test = DataArray(np.linspace(0.8, 0.2, 200))
+# Z_test = DataArray(np.linspace(0.0, 0.0, len(R_test)))
+R_test = DataArray(0.5)  # Does not work as an array
+Z_test = DataArray(0.0)  # Does not work as an array
+x1_out1, x2_out2 = los.convert_from_Rz(R_test, Z_test, t)
+print(f'x2_out2 = {x2_out2}')
+
+# Check method #3: distance, inputs: "x1", "x2", "t"
+dist = los.distance('dim_0', x1, x2, t)
+print(f'dist = {dist}')
+
+# Check!
 print(f'los.dell = {los.dell}')
 print(f'los.x2 = {los.x2}')
 print(f'los.x = {los.x}')
