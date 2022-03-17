@@ -262,7 +262,7 @@ def test_impurity_concentration():
 
     Zeff_LoS = DataArray(
         data=np.ones(*t.shape) * 1.85,
-        coords={"t": t},
+        coords={"Zeff_LoS_coords": DataArray(data=0), "t": t},
         dims=["t"],
         attrs={
             "transform": LinesOfSightTransform(
@@ -274,7 +274,6 @@ def test_impurity_concentration():
                 y_end=np.array([0.0]),
                 name="Zeff_LoS",
             ),
-            "Zeff_LoS_coords": DataArray(data=np.array([0]), dims=["Zeff_LoS_coords"]),
         },
     )
 
