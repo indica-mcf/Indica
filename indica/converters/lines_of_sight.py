@@ -59,8 +59,12 @@ class LinesOfSightTransform(CoordinateTransform):
 
     def __init__(
         self,
-        origin: Tuple,
-        direction: Tuple,
+        origin_x: float,
+        origin_y: float,
+        origin_z: float,
+        direction_x: float,
+        direction_y: float,
+        direction_z: float,
         name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
@@ -69,7 +73,11 @@ class LinesOfSightTransform(CoordinateTransform):
         dell: float = 0.01,
     ):
 
-        # Calculate [x_start, y_start, z_start], [x_end, y_end, z_end]
+        # Origin and Direction vectors
+        origin: Tuple[float, float, float] = (origin_x, origin_y, origin_z)
+        direction: Tuple[float, float, float] = (direction_x, direction_y, direction_z)
+
+        # Calculate x_start, y_start, z_start, x_end, y_end and z_end
         start_coords, end_coords = _find_wall_intersections(origin, direction, machine_dimensions=machine_dimensions)
         x_start = start_coords[0]
         y_start = start_coords[1]

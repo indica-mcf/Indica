@@ -10,7 +10,7 @@ from xarray import DataArray
 import numpy as np
 
 # Line of sight origin tuple
-origin = (0.9, -0.1, 0.0)  # [xyz]
+origin = (0.9, -0.2, 0.0)  # [xyz]
 
 # Line of sight direction
 direction = (-1.0, 0.0, 0.0)  # [xyz]
@@ -31,7 +31,10 @@ flux_coord = flux_surfaces.FluxSurfaceCoordinates("poloidal")
 flux_coord.set_equilibrium(equil)
 
 # Set-up line of sight class
-los = lines_of_sight.LinesOfSightTransform(origin, direction, machine_dimensions=machine_dims, name=name)
+los = lines_of_sight.LinesOfSightTransform(
+    origin[0], origin[1], origin[2], direction[0], direction[1], direction[2],
+    machine_dimensions=machine_dims, name=name
+)
 
 # Assign flux transform
 los.assign_flux_transform(flux_coord)
