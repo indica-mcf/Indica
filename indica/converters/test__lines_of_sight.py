@@ -10,7 +10,7 @@ from xarray import DataArray
 import numpy as np
 
 # Line of sight origin tuple
-origin = (0.9, -0.2, 0.0)  # [xyz]
+origin = (0.9, -0.1, 0.0)  # [xyz]
 
 # Line of sight direction
 direction = (-1.0, 0.0, 0.0)  # [xyz]
@@ -80,7 +80,7 @@ y_ivc = machine_dims[0][1] * np.sin(th)
 
 
 plt.figure()
-plt.plot(los.rho[0].sel(t=0.045, method='nearest'), 'b')
+plt.plot(los.x2, los.rho[0].sel(t=0.045, method='nearest'), 'b')
 plt.ylabel('rho')
 
 
