@@ -177,6 +177,7 @@ class ImpurityConcentration(Operator):
                 rho = rho.drop_vars("t")
                 rho = rho.drop_vars("R")
                 rho = rho.drop_vars("z")
+                rho = rho.fillna(2.0)
 
         if set(["R", "z"]).issubset(set(list(impurity_densities.coords.keys()))):
             impurity_densities = impurity_densities.indica.interp2d(
