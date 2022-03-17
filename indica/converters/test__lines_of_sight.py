@@ -40,7 +40,7 @@ los = lines_of_sight.LinesOfSightTransform(
 los.assign_flux_transform(flux_coord)
 
 # Convert_to_rho method
-los.convert_to_rho(t=0.045)
+los.convert_to_rho()
 
 # Check method #1: convert_to_Rz, inputs: "x1", "x2", "t"
 x1 = 0.0  # does nothing
