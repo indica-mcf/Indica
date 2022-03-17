@@ -117,8 +117,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.z = self.z_start + (self.z_end - self.z_start) * x2
 
         # Calculate r, theta (cylindrical coordinates)
-        self.r = np.sqrt(self.x**2 + self.y**2)
-        self.theta = np.arctan2(self.y, self.x)
+        self.R = np.sqrt(self.x**2 + self.y**2)
+        # self.theta = np.arctan2(self.y, self.x)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -250,8 +250,8 @@ class LinesOfSightTransform(CoordinateTransform):
     def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         self.flux_transform = flux_transform
 
-    def convert_to_rho(self, t: float):
-        self.rho = self.flux_transform.convert_from_Rz(self.r, self.z)
+    def convert_to_rho(self):
+        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z)
 
 
 def _find_wall_intersections(
