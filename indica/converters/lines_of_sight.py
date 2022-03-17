@@ -36,17 +36,17 @@ class LinesOfSightTransform(CoordinateTransform):
 
     Parameters
     ----------
-    x_start
+    origin_x
         1-D array of x positions of the start for each line-of-sight.
-    z_start
+    origin_y
         1-D array of z positions of the start for each line-of-sight.
-    y_start
+    origin_z
         1-D array of y positions for the start of each line-of-sight.
-    x_end
+    direction_x
         1-D array of x positions of the end for each line-of-sight.
-    z_end
+    direction_y
         1-D array of z positions of the end for each line-of-sight.
-    y_end
+    direction_z
         1-D array of y positions for the end of each line-of-sight.
     name
         The name to refer to this coordinate system by, typically taken
