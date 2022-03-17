@@ -160,7 +160,7 @@ class ImpurityConcentration(Operator):
         x1_name = transform.x1_name
         x2_name = transform.x2_name
 
-        x1 = Zeff_LoS.attrs[x1_name]
+        x1 = Zeff_LoS.coords[x1_name]
         x2_arr = np.linspace(0, 1, 300)
         x2 = DataArray(data=x2_arr, dims=[x2_name])
 
