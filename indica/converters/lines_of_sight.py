@@ -253,8 +253,8 @@ class LinesOfSightTransform(CoordinateTransform):
     def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         self.flux_transform = flux_transform
 
-    def convert_to_rho(self):
-        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z)
+    def convert_to_rho(self, t: float = None):
+        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
 
 
 def _find_wall_intersections(
