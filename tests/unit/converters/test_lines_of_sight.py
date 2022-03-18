@@ -52,7 +52,7 @@ def convert_to_rho(plot=False):
     los.assign_flux_transform(flux_coord)
 
     # Convert_to_rho method
-    los.convert_to_rho()
+    los.convert_to_rho(t=77.0)
 
     if plot:
         # centre column
@@ -65,7 +65,7 @@ def convert_to_rho(plot=False):
         y_ivc = machine_dims[0][1] * np.sin(th)
 
         plt.figure()
-        plt.plot(los.x2, los.rho[0].sel(t=77.0, method='nearest'), 'b')
+        plt.plot(los.x2, los.rho[0], 'b')
         plt.ylabel('rho')
 
         plt.figure()
