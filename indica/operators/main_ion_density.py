@@ -66,7 +66,7 @@ class MainIonDensity(Operator):
             xarray.DataArray of electron density
         mean_charge
             xarray.DataArray of mean charge of all impurity elements of interest.
-            This can be provided manually (with dimensions of ["elements", "rho", "t]),
+            This can be provided manually (with dimensions of ["element", "rho", "t]),
             or can be passed as the results of MeanCharge.__call__
 
         Returns
@@ -100,7 +100,7 @@ class MainIonDensity(Operator):
         )
 
         main_ion_density = electron_density - (mean_charge * impurity_densities).sum(
-            "elements"
+            "element"
         )
 
         return main_ion_density
