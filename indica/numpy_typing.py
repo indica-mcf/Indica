@@ -5,16 +5,15 @@ labeled dimensions and to scalar.
 
 """
 
+import numbers
 import typing
 
+import numpy as np
 import xarray
 
 try:
     from numpy.typing import ArrayLike
 except ImportError:
-    import numpy as np
-    import numbers
-
     ArrayLike = typing.Union[
         numbers.Number, typing.Sequence[numbers.Number], np.ndarray
     ]
