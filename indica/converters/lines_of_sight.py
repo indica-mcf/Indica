@@ -37,23 +37,26 @@ class LinesOfSightTransform(CoordinateTransform):
     Parameters
     ----------
     origin_x
-        1-D array of x positions of the start for each line-of-sight.
+        A float giving x position for the origin of the line-of-sight.
     origin_y
-        1-D array of z positions of the start for each line-of-sight.
+        A float giving y position for the origin of the line-of-sight.
     origin_z
-        1-D array of y positions for the start of each line-of-sight.
+        A float giving z position for the origin of the line-of-sight.
     direction_x
-        1-D array of x positions of the end for each line-of-sight.
+        A float giving x position for the direction of the line-of-sight.
     direction_y
-        1-D array of z positions of the end for each line-of-sight.
+        A float giving y position for the direction of the line-of-sight.
     direction_z
-        1-D array of y positions for the end of each line-of-sight.
+        A float giving z position for the direction of the line-of-sight.
     name
         The name to refer to this coordinate system by, typically taken
         from the instrument it describes.
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in x-z space:
         ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
+    dell
+        A float giving the distance between coordinates along the
+        line-of-sight. Default to 0.01 metres.
 
     """
 
@@ -262,9 +265,35 @@ def _find_wall_intersections(
         (-1.75, 2.0),
     ),
 ):
+    """ Function for calculating "start" and "end" positions of the line-of-sight
+    given the machine dimensions.
+
+    The end coordinate is calculated by finding the intersections with the
+    machine dimensions. If the intersection hits the inner column, the first
+    intersection point becomes the "end" position of the line-of-sight. If the
+    intersection misses the inner column, the last intersection point with the
+    outer column becomes the "end" position.
+
+    Parameters
+    ----------
+    origin
+        A Tuple (1x3) giving the X, Y and Z origin positions of the line-of-sight
+    direction
+        A Tuple (1x3) giving the X, Y and Z direction of the line-of-sight
+    machine_dimensions
+        A tuple giving the boundaries of the Tokamak in x-z space:
+        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
+
+    Returns
+    -------
+    start_coordinates
+        A Tuple (1x3) giving the X, Y and Z start positions of the line-of-sight
+    end_coordinates
+        A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
+    """
 
     # Define XYZ lines for LOS from origin and direction vectors
-    length = 3.0
+    length = 10.0
     x_line = np.array(
         [origin[0] - length * direction[0], origin[0] + length * direction[0]],
         dtype=float,
