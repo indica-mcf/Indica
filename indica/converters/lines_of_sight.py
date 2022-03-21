@@ -12,8 +12,8 @@ from xarray import zeros_like
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from ..numpy_typing import LabeledArray
 from .flux_surfaces import FluxSurfaceCoordinates
+from ..numpy_typing import LabeledArray
 
 
 class LinesOfSightTransform(CoordinateTransform):
@@ -81,7 +81,9 @@ class LinesOfSightTransform(CoordinateTransform):
         direction: Tuple[float, float, float] = (direction_x, direction_y, direction_z)
 
         # Calculate x_start, y_start, z_start, x_end, y_end and z_end
-        start_coords, end_coords = _find_wall_intersections(origin, direction, machine_dimensions=machine_dimensions)
+        start_coords, end_coords = _find_wall_intersections(
+            origin, direction, machine_dimensions=machine_dimensions
+        )
         x_start = start_coords[0]
         y_start = start_coords[1]
         z_start = start_coords[2]
@@ -148,7 +150,7 @@ class LinesOfSightTransform(CoordinateTransform):
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         def jacobian(x):
-            x1 = x[0]
+            # x1 = x[0]
             x2 = x[1]
             x_0 = self.x_start + (self.x_end - self.x_start) * x2
             y_0 = self.y_start + (self.y_end - self.y_start) * x2
@@ -211,7 +213,7 @@ class LinesOfSightTransform(CoordinateTransform):
         x1: LabeledArray,
         x2: LabeledArray,
         t: LabeledArray,
-    ) -> LabeledArray:
+    ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
         lines.
@@ -225,7 +227,7 @@ class LinesOfSightTransform(CoordinateTransform):
         )
         result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
-        return result
+        return result.values
 
     def set_dl(self, dl: float):
         # Convert to Cartesian
@@ -245,10 +247,9 @@ class LinesOfSightTransform(CoordinateTransform):
         # Set dl, calculate dl
         ind = np.linspace(0, 1, npts, dtype=float)
         x2 = DataArray(ind, dims=self.x2_name)
-        dell_temp = self.distance(self.x2_name, 0, x2, 0)
-        dell = dell_temp[1]
+        dl = self.distance(self.x2_name, 0, x2[0:2], 0).values[1]
 
-        return x2, dell
+        return x2, dl
 
     def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         self.flux_transform = flux_transform
@@ -265,7 +266,7 @@ def _find_wall_intersections(
         (-1.75, 2.0),
     ),
 ):
-    """ Function for calculating "start" and "end" positions of the line-of-sight
+    """Function for calculating "start" and "end" positions of the line-of-sight
     given the machine dimensions.
 
     The end coordinate is calculated by finding the intersections with the
@@ -310,7 +311,8 @@ def _find_wall_intersections(
     x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
     y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
 
-    # Find intersections, to calculate R_start, z_start, T_start, R_end, z_end, T_end ...
+    # Find intersections, to calculate
+    # R_start, z_start, T_start, R_end, z_end, T_end ...
     xx, yx, ix, jx = intersection(x_line, y_line, x_wall_outer, y_wall_outer)
     distance = np.sqrt(
         (xx - origin[0]) ** 2 + (yx - origin[1]) ** 2
@@ -365,23 +367,23 @@ def _rectangle_intersection_(x1, y1, x2, y2):
 
 def intersection(x1, y1, x2, y2):
     """
-INTERSECTIONS Intersections of curves.
-   Computes the (x,y) locations where two curves intersect.  The curves
-   can be broken with NaNs or have vertical segments.
-usage:
-x,y=intersection(x1,y1,x2,y2)
-    Example:
-    a, b = 1, 2
-    phi = np.linspace(3, 10, 100)
-    x1 = a*phi - b*np.sin(phi)
-    y1 = a - b*np.cos(phi)
-    x2=phi
-    y2=np.sin(phi)+2
+    INTERSECTIONS Intersections of curves.
+       Computes the (x,y) locations where two curves intersect.  The curves
+       can be broken with NaNs or have vertical segments.
+    usage:
     x,y=intersection(x1,y1,x2,y2)
-    plt.plot(x1,y1,c='r')
-    plt.plot(x2,y2,c='g')
-    plt.plot(x,y,'*k')
-    plt.show()
+        Example:
+        a, b = 1, 2
+        phi = np.linspace(3, 10, 100)
+        x1 = a*phi - b*np.sin(phi)
+        y1 = a - b*np.cos(phi)
+        x2=phi
+        y2=np.sin(phi)+2
+        x,y, ix, iy=intersection(x1,y1,x2,y2)
+        plt.plot(x1,y1,c='r')
+        plt.plot(x2,y2,c='g')
+        plt.plot(x,y,'*k')
+        plt.show()
     """
     ii, jj = _rectangle_intersection_(x1, y1, x2, y2)
     n = len(ii)
@@ -405,7 +407,7 @@ x,y=intersection(x1,y1,x2,y2)
     for i in range(n):
         try:
             T[:, i] = np.linalg.solve(AA[:, :, i], BB[:, i])
-        except:
+        except np.linalg.LinAlgError:
             T[:, i] = np.NaN
 
     in_range = (T[0, :] >= 0) & (T[1, :] >= 0) & (T[0, :] <= 1) & (T[1, :] <= 1)
