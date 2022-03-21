@@ -54,7 +54,7 @@ class LinesOfSightTransform(CoordinateTransform):
     machine_dimensions
         A tuple giving the boundaries of the Tokamak in x-z space:
         ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
-    dell
+    dl
         A float giving the distance between coordinates along the
         line-of-sight. Default to 0.01 metres.
 
@@ -73,7 +73,7 @@ class LinesOfSightTransform(CoordinateTransform):
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
-        dell: float = 0.01,
+        dl: float = 0.01,
     ):
 
         # Origin and Direction vectors
@@ -110,11 +110,11 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x1_name = name + "_coords"
         self.x2_name = name + "_los_position"
 
-        # Set "dell"
-        self.dell_target = dell
-        x2, dell_new = self.set_dl(dell)
+        # Set "dl"
+        self.dl_target = dl
+        x2, dl_new = self.set_dl(dl)
         self.x2 = x2
-        self.dell = dell_new
+        self.dl = dl_new
 
         # Set x, y, z
         self.x = self.x_start + (self.x_end - self.x_start) * x2
