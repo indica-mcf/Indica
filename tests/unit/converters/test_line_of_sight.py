@@ -1,20 +1,15 @@
 """Tests for line-of-sight coordinate transforms."""
 
-import sys
 from unittest.mock import MagicMock
 
 from matplotlib import pyplot as plt
 import numpy as np
-from test_equilibrium_single import equilibrium_dat_and_te
+from tests.unit.test_equilibrium_single import equilibrium_dat_and_te
 from xarray import DataArray
 
 from indica import equilibrium
 from indica.converters import flux_surfaces
-from indica.converters import lines_of_sight
-
-sys.path.insert(0, "/home/jonathan.wood/git_home/Indica")
-sys.path.insert(0, "../")
-sys.path.remove("/home/marco.sertoli/python/Indica")
+from indica.converters import line_of_sight
 
 
 def convert_to_rho(plot=False):
@@ -45,7 +40,7 @@ def convert_to_rho(plot=False):
     flux_coord.set_equilibrium(equil)
 
     # Set-up line of sight class
-    los = lines_of_sight.LinesOfSightTransform(
+    los = line_of_sight.LinesOfSightTransform(
         origin[0],
         origin[1],
         origin[2],
@@ -104,7 +99,7 @@ def test_methods(debug=False):
     name = "los_test"
 
     # Set-up line of sight class
-    los = lines_of_sight.LinesOfSightTransform(
+    los = line_of_sight.LinesOfSightTransform(
         origin[0],
         origin[1],
         origin[2],
