@@ -12,7 +12,6 @@ import pathlib
 from indica.readers import ST40Reader
 from trends.info_dict import info_dict
 
-
 class Database:
     """
     Read and manage Trends database
@@ -246,11 +245,12 @@ class Database:
         """
         Initialize common data structures to save data MDS+
         """
-        revision = DataArray(np.nan)
+        constant = DataArray(np.nan)
 
         value = DataArray(np.nan)
         error = xr.full_like(value, np.nan)
         time = xr.full_like(value, np.nan)
+        revision = xr.full_like(constant, np.nan)
         self.empty_max_val = Dataset(
             {"value": value, "error": error, "time": time, "revision": revision}
         )
@@ -259,6 +259,7 @@ class Database:
         error = xr.full_like(value, np.nan)
         gradient = xr.full_like(value, np.nan)
         cumul = xr.full_like(value, np.nan)
+        revision = xr.full_like(constant, np.nan)
         self.empty_binned = Dataset(
             {
                 "value": value,
@@ -556,40 +557,6 @@ def fix_things(regr_data, assign=True):
     return regr_data
 
 
-def test(database):
-    # density fringe jump
-    p = 9709
-    k = "ne_smmh1"
-
-    # strange electron temperature
-    p = 9781
-    k = "te_xrcs"
-
-    # high bremsstrahlung
-    p = 9413
-    k = "brems_pi"
-
-    data = database.binned[k].sel(pulse=p)
-
-    plt.figure()
-    data.value.plot(marker="o")
-    plt.figure()
-    data.gradient.plot(marker="o")
-
-    # high bremsstrahlung
-    plt.figure()
-    data = regr_data.binned["sum_c"] / regr_data.binned["ne_smmh1"]
-    data.value.sel(t=0.03, method="nearest").plot()
-
-    plt.figure()
-    data = regr_data.binned["sum_c"] / regr_data.binned["ne_nirh1"]
-    data.value.sel(t=0.03, method="nearest").plot()
-
-    plt.figure()
-    data = regr_data.binned["brems_mp"] / regr_data.binned["ne_nirh1"]
-    data.value.sel(t=0.03, method="nearest").plot()
-
-
 def current_file_path():
     return str(pathlib.Path(__file__).parent.resolve())
 
@@ -602,16 +569,20 @@ def rename_file(_file, _file_backup):
 
 
 def test_flow(
-    pulse_start=9770, pulse_end=9790, pulse_add=9800, write=False, set_info=False
+    pulse_start=9770, pulse_end=9790, pulse_add=9800,
 ):
+    # Initialize class
     st40_trends = Database(
         pulse_start=pulse_start, pulse_end=pulse_end, set_info=set_info
     )
+    # Read all data and save to class attributes
     st40_trends()
+
+    # Add pulses to database
     st40_trends.add_pulses(pulse_add)
 
-    if write:
-        write_database(st40_trends)
+    # Write information and data to file
+    write_database(st40_trends)
 
     return st40_trends
 
