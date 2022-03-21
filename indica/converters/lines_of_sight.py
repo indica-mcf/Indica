@@ -110,9 +110,9 @@ class LinesOfSightTransform(CoordinateTransform):
         self.y = self.y_start + (self.y_end - self.y_start) * x2
         self.z = self.z_start + (self.z_end - self.z_start) * x2
 
-        # Calculate r, theta (cylindrical coordinates)
+        # Calculate r, phi (cylindrical coordinates)
         self.R = np.sqrt(self.x**2 + self.y**2)
-        # self.theta = np.arctan2(self.y, self.x)
+        self.phi = np.arctan2(self.y, self.x)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
