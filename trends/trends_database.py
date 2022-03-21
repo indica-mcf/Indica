@@ -1,4 +1,3 @@
-
 from copy import deepcopy
 import pickle
 
@@ -249,6 +248,13 @@ class Database:
         """
         revision = DataArray(np.nan)
 
+        value = DataArray(np.nan)
+        error = xr.full_like(value, np.nan)
+        time = xr.full_like(value, np.nan)
+        self.empty_max_val = Dataset(
+            {"value": value, "error": error, "time": time, "revision": revision}
+        )
+
         value = DataArray(np.full(self.time.shape, np.nan), coords=[("t", self.time)])
         error = xr.full_like(value, np.nan)
         gradient = xr.full_like(value, np.nan)
@@ -261,13 +267,6 @@ class Database:
                 "cumul": cumul,
                 "revision": revision,
             }
-        )
-
-        value = DataArray(np.nan)
-        error = xr.full_like(value, np.nan)
-        time = xr.full_like(value, np.nan)
-        self.empty_max_val = Dataset(
-            {"value": value, "error": error, "time": time, "revision": revision}
         )
 
     def add_pulses(self, pulse_end):
@@ -293,6 +292,32 @@ class Database:
                 self.binned[k] = xr.concat([self.binned[k], binned[k]], "pulse")
                 self.max_val[k] = xr.concat([self.max_val[k], max_val[k]], "pulse")
                 self.min_val[k] = xr.concat([self.min_val[k], max_val[k]], "pulse")
+
+    def add_quantities(self, info=None):
+        """
+        Add additional quantities to the database
+
+        Temporary: define info structure here
+        """
+        if info is None:
+            print("No new items to add")
+            return
+
+        print(f"New items being added: {list(info)}")
+
+        binned, max_val, min_val, pulses = self.read_data(
+            self.pulse_start, self.pulse_end, info=info, pulse_list=self.pulses,
+        )
+
+        assert self.pulses == pulses
+
+        for k in info.keys():
+            self.info[k] = info[k]
+
+        for k in binned.keys():
+            self.binned[k] = binned[k]
+            self.max_val[k] = max_val[k]
+            self.min_val[k] = min_val[k]
 
     def read_data(self, pulse_start, pulse_end, info=None, pulse_list=None):
         """
@@ -344,7 +369,6 @@ class Database:
                     append_empty(k, binned, max_val)
                     continue
 
-                err = None
                 data, dims = reader._get_data(v["uid"], v["diag"], v["node"], v["rev"])
                 if np.array_equal(data, "FAILED") or np.array_equal(dims[0], "FAILED"):
                     append_empty(k, binned, max_val)
@@ -355,6 +379,7 @@ class Database:
                     append_empty(k, binned, max_val)
                     continue
 
+                err = None
                 if v["err"] is not None:
                     err, _ = reader._get_data(v["uid"], v["diag"], v["err"], v["rev"])
                 rev = v["rev"]
@@ -386,32 +411,6 @@ class Database:
 
         return binned, max_val, min_val, pulses
 
-    def add_quantities(self, info=None):
-        """
-        Add additional quantities to the database
-
-        Temporary: define info structure here
-        """
-        if info is None:
-            print("No new items to add")
-            return
-
-        print(f"New items being added: {list(info)}")
-
-        binned, max_val, min_val, pulses = self.read_data(
-            self.pulse_start, self.pulse_end, info=info, pulse_list=self.pulses,
-        )
-
-        assert self.pulses == pulses
-
-        for k in info.keys():
-            self.info[k] = info[k]
-
-        for k in binned.keys():
-            self.binned[k] = binned[k]
-            self.max_val[k] = max_val[k]
-            self.min_val[k] = min_val[k]
-
     def bin_in_time(self, data, time, err=None, sign=+1):
         """
         TODO: account for texp for spectroscopy intensities if not already in MDS+
@@ -442,6 +441,20 @@ class Database:
         if len(ifin) < 2:
             return binned, max_val, min_val
 
+        # Find max value of raw data in time range of analysis
+        tind = np.where((time >= self.tlim[0]) * (time < self.tlim[1]))[0]
+        max_ind = tind[np.nanargmax(data[tind])]
+        max_val.value.values = data[max_ind]
+        max_val.time.values = time[max_ind]
+
+        min_ind = tind[np.nanargmin(data[tind])]
+        min_val.value.values = data[min_ind]
+        min_val.time.values = time[min_ind]
+        if err is not None:
+            max_val.error.values = err[max_ind]
+            min_val.error.values = err[min_ind]
+
+        # Bin in time following rules refined at initialzation
         time_binning = time_new[
             np.where((time_new >= np.nanmin(time)) * (time_new <= np.nanmax(time)))
         ]
@@ -464,19 +477,6 @@ class Database:
 
         binned.gradient.values = binned.value.differentiate("t", edge_order=2)
         binned.cumul.values = xr.where(np.isfinite(binned.value), binned.cumul, np.nan)
-
-        # FInd max value in time range of analysis
-        tind = np.where((time >= self.tlim[0]) * (time < self.tlim[1]))[0]
-        max_ind = tind[np.nanargmax(data[tind])]
-        max_val.value.values = data[max_ind]
-        max_val.time.values = time[max_ind]
-
-        min_ind = tind[np.nanargmin(data[tind])]
-        min_val.value.values = data[min_ind]
-        min_val.time.values = time[min_ind]
-        if err is not None:
-            max_val.error.values = err[max_ind]
-            min_val.error.values = err[min_ind]
 
         return binned, max_val, min_val
 
@@ -601,10 +601,31 @@ def rename_file(_file, _file_backup):
         print(f"No backup required, {_file} does not exist")
 
 
-def test_flow(pulse_start=9770, pulse_end=9790, pulse_add=9800, write=False):
-    st40_trends = Database(pulse_start=pulse_start, pulse_end=pulse_end)
+def test_flow(
+    pulse_start=9770, pulse_end=9790, pulse_add=9800, write=False, set_info=False
+):
+    st40_trends = Database(
+        pulse_start=pulse_start, pulse_end=pulse_end, set_info=set_info
+    )
     st40_trends()
     st40_trends.add_pulses(pulse_add)
 
     if write:
         write_database(st40_trends)
+
+    return st40_trends
+
+
+def run_workflow(pulse_start=8207, pulse_end=10046, set_info=False, write=False):
+    """
+    Run workflow to build Trends database from scratch
+    """
+    st40_trends = Database(
+        pulse_start=pulse_start, pulse_end=pulse_end, set_info=set_info,
+    )
+    st40_trends()
+
+    if write:
+        write_database(st40_trends)
+
+    return st40_trends
