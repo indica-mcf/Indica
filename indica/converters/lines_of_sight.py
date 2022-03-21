@@ -213,17 +213,17 @@ class LinesOfSightTransform(CoordinateTransform):
         x_end = self.x_end
         y_end = self.y_end
         z_end = self.z_end
-        d = np.sqrt(
+        los_length = np.sqrt(
             (x_end - x_start) ** 2 + (y_end - y_start) ** 2 + (z_end - z_start) ** 2
         )
 
         # Find the number of points
-        npts = np.ceil(d.data / dl).astype(int)
+        npts = np.ceil(los_length.data / dl).astype(int)
 
         # Set dl, calculate dl
         ind = np.linspace(0, 1, npts, dtype=float)
         x2 = DataArray(ind, dims=self.x2_name)
-        dl = self.distance(self.x2_name, 0, x2[0:2], 0).values[1]
+        dl = self.distance(self.x2_name, 0, x2[0:2], 0)[1]
 
         return x2, dl
 
