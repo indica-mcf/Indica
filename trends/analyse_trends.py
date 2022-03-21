@@ -12,11 +12,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from xarray import DataArray
-from xarray import Dataset
-import os
-import json
+import matplotlib.pylab as plt
 
-from indica.readers import ST40Reader
+from trends.trends_database import Database
 from indica.readers import ADASReader
 
 plt.ion()
@@ -24,8 +22,6 @@ plt.ion()
 
 def additional_info():
     info = {
-        "te0": {"max": False, "label": "T$_e$(0)", "units": "(keV)", "const": 0.001},
-        "ti0": {"max": False, "label": "T$_i$(0)", "units": "(keV)", "const": 0.001},
         "nbi_power": {
             "max": False,
             "label": "P$_{NBI}$",
@@ -87,65 +83,59 @@ def additional_info():
             "const": 1.0,
         },
     }
+    #
+    # "te0": {"max": False, "label": "T$_e$(0)", "units": "(keV)", "const": 0.001},
+    # "ti0": {"max": False, "label": "T$_i$(0)", "units": "(keV)", "const": 0.001},
+    return info
 
 
-def analyse_database(regr_data):
+def analyse_database(database):
     """
     Apply general filters to data and calculate maximum values of binned data
     """
 
-    # Multiplication factor for calculation of Te,i(0)
-    regr_data.temp_ratio = simulate_xrcs()
+    # Calculate additional quantities
+    database = calc_additional_quantities(database)
 
-    # Apply general filters
-    regr_data.binned = general_filters(regr_data.binned)
-
-    # Calculate additional quantities and filter again
-    regr_data.binned, regr_data.max_val, regr_data.info = calc_additional_quantities(
-        regr_data.binned, regr_data.max_val, regr_data.info, regr_data.temp_ratio
-    )
-    regr_data.binned = general_filters(regr_data.binned)
+    # Apply general filters to binned values and calculate its max value
+    database.binned = general_filters(database.binned)
 
     # Calculate max values of binned data
-    regr_data.max_val = calc_max_val(
-        regr_data.binned, regr_data.max_val, regr_data.info, t_max=regr_data.t_max
+    database.binned_max_val = calc_max_val(
+        database, t_max=database.t_max
     )
 
     # Apply general filters and calculate additional quantities
-    regr_data.max_val = general_filters(regr_data.max_val)
+    database.binned_max_val = general_filters(database.binned_max_val)
 
     # Apply defult selection criteria
-    regr_data.filtered = apply_selection(regr_data.binned)
+    database.filtered = apply_selection(database.binned)
 
-    return regr_data
+    return database
 
 
-def calc_additional_quantities(binned, max_val, info, temp_ratio):
-    keys = list(info)
-
-    empty_max_val = xr.full_like(max_val[keys[0]], np.nan)
-    empty_binned = xr.full_like(binned[keys[0]], np.nan)
-
+def calc_additional_quantities(database:Database):
     # Estimate central temperature from parameterization
-    binned = calc_central_temperature(binned, temp_ratio)
+    # database = calc_central_temperature(database)
 
-    pulses = binned["ipla_efit"].pulse
-    time = binned["ipla_efit"].t
+    info = database.info
+    keys = list(database.binned)
+    binned = database.binned
+    max_val = database.max_val
+    empty_binned = xr.full_like(binned[keys[0]], np.nan)
+    empty_max_val = xr.full_like(max_val[keys[0]], np.nan)
+
+    pulses = database.binned["ipla_efit"].pulse
+    time = database.binned["ipla_efit"].t
 
     # NBI power
     # TODO: propagation of gradient of V and I...
     info["nbi_power"] = {
-        "max": False,
         "label": "P$_{NBI}$",
         "units": "(V * A)",
         "const": 1.0,
     }
-    max_val["nbi_power"] = deepcopy(empty_max_val)
-    max_val["nbi_power"].value.values = (
-        max_val["i_hnbi"] * max_val["v_hnbi"]
-    ).value.values
-
-    binned["nbi_power"] = deepcopy(empty_binned)
+    binned["nbi_power"] = empty_binned
     binned["nbi_power"].value.values = (
         binned["i_hnbi"] * binned["v_hnbi"]
     ).value.values
@@ -154,10 +144,14 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
         + (binned["i_hnbi"].value.values * binned["v_hnbi"].error.values) ** 2
     )
 
+    max_val["nbi_power"] = deepcopy(empty_max_val)
+    max_val["nbi_power"].value.values = (
+        max_val["i_hnbi"] * max_val["v_hnbi"]
+    ).value.values
+
     # Pulse length
     # Ip > 50 kA & up to end of flat-top
     info["pulse_length"] = {
-        "max": False,
         "label": "Pulse length",
         "units": "(s)",
         "const": 1.0,
@@ -183,13 +177,11 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
 
     # Calculate RIP/IMC and add to values to be plotted
     info["rip_efit"] = {
-        "max": True,
         "label": "(R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
         "units": " ",
         "const": 1.0,
     }
     info["rip_imc"] = {
-        "max": True,
         "label": "(EFIT R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
         "units": " ",
         "const": 1.0,
@@ -207,7 +199,6 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
     )
     # Calculate total gas puff = cumulative gas_puff & its max value
     info["gas_cumulative"] = {
-        "max": True,
         "label": "Cumulative gas",
         "units": "(V * s)",
         "const": 1.0,
@@ -225,7 +216,6 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
 
     # Gas prefill
     info["gas_prefill"] = {
-        "max": True,
         "label": "Gas prefill",
         "units": "(V * s)",
         "const": 1.0,
@@ -237,7 +227,6 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
 
     # Gas for t > 0
     info["gas_fuelling"] = {
-        "max": True,
         "label": "Gas fuelling t > 0",
         "units": "(V * s)",
         "const": 1.0,
@@ -250,7 +239,6 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
 
     # Calculate total gas puff = cumulative gas_puff & its max value
     info["total_nbi"] = {
-        "max": False,
         "label": "Cumulative NBI power",
         "units": "(kV * A * s)",
         "const": 1.0e-3,
@@ -260,7 +248,6 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
     binned["total_nbi"].value.values = binned["nbi_power"].cumul.values
 
     info["ti_te_xrcs"] = {
-        "max": False,
         "label": "Ti/Te (XRCS)",
         "units": "",
         "const": 1.0,
@@ -276,7 +263,6 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
     )
 
     info["ne_nirh1_te_xrcs"] = {
-        "max": False,
         "label": "Ne (NIRH1)/3. * Te (XRCS)",
         "units": "",
         "const": 1.0,
@@ -296,7 +282,12 @@ def calc_additional_quantities(binned, max_val, info, temp_ratio):
         + (binned["te_xrcs"].error.values / binned["te_xrcs"].value.values) ** 2
     )
 
-    return binned, max_val, info
+    database.empty_max_val = empty_max_val
+    database.empty_binned = empty_binned
+    database.binned = binned
+    database.max_val = max_val
+
+    return database
 
 
 def general_filters(results):
@@ -313,14 +304,15 @@ def general_filters(results):
     for k in neg_to_zero:
         if k in keys:
             cond = (results[k].value > 0) * np.isfinite(results[k].value)
-            results[k] = xr.where(cond, results[k], 0,)
+            dims = results[k].value.dims
+            for ds_key in list(results[k]):
+                if results[k][ds_key].dims == dims:
+                    results[k][ds_key].values = xr.where(cond, results[k][ds_key], 0,).values
 
     # Set all negative values to Nan
     neg_to_nan = [
         "te_xrcs",
         "ti_xrcs",
-        "ti0",
-        "te0",
         "ipla_efit",
         "ipla_pfit",
         "wp_efit",
@@ -329,17 +321,21 @@ def general_filters(results):
         "gas_press",
         "rip_imc",
     ]
+    #
+    # "ti0",
+    # "te0",
     for k in neg_to_nan:
         if k in keys:
             cond = (results[k].value > 0) * (np.isfinite(results[k].value))
-            results[k] = xr.where(cond, results[k], np.nan,)
+            dims = results[k].value.dims
+            for ds_key in list(results[k]):
+                if results[k][ds_key].dims == dims:
+                    results[k][ds_key].values = xr.where(cond, results[k][ds_key], np.nan,).values
 
     # Set to Nan if values outside specific ranges
     err_perc_keys = [
         "te_xrcs",
         "ti_xrcs",
-        "te0",
-        "ti0",
         "brems_pi",
         "brems_mp",
         "h_i_6563",
@@ -352,6 +348,9 @@ def general_filters(results):
         "rip_pfit",
         "imc",
     ]
+    #
+    # "te0",
+    # "ti0",
     err_perc_cond = {}
     for k in err_perc_keys:
         err_perc_cond[k] = {"var": "error", "lim": (np.nan, 0.2)}
@@ -360,72 +359,82 @@ def general_filters(results):
         if k in keys:
             cond = {k: err_perc_cond[k]}
             selection = selection_criteria(results, cond)
-            results[k] = xr.where(selection, results[k], np.nan)
+            dims = results[k].value.dims
+            for ds_key in list(results[k]):
+                if results[k][ds_key].dims == dims:
+                    results[k][ds_key].values = xr.where(selection, results[k][ds_key], np.nan,).values
 
     lim_cond = {"wp_efit": {"var": "value", "lim": (np.nan, 100.0e3)}}
     for k in lim_cond:
         if k in keys:
             cond = {k: lim_cond[k]}
             selection = selection_criteria(results, cond)
-            results[k] = xr.where(selection, results[k], np.nan)
+            dims = results[k].value.dims
+            for ds_key in list(results[k]):
+                if results[k][ds_key].dims == dims:
+                    results[k][ds_key].values = xr.where(selection, results[k][ds_key], np.nan,).values
 
     # Set to nan all the values where the gradients are nan
     if "t" in results[k].dims:
         grad_nan = [
             "te_xrcs",
             "ti_xrcs",
-            "ti0",
-            "te0",
             "ne_smmh1",
         ]
+        #
+        # "ti0",
+        # "te0",
         for k in grad_nan:
             if k in keys:
                 cond = np.isfinite(results[k].gradient)
-                results[k].value.values = xr.where(
-                    cond, results[k].value, np.nan,
-                ).values
+                dims = results[k].value.dims
+                for ds_key in list(results[k]):
+                    if results[k][ds_key].dims == dims:
+                        results[k][ds_key].values = xr.where(cond, results[k][ds_key], np.nan, ).values
 
     return results
 
 
-def calc_central_temperature(binned, temp_ratio):
+def calc_central_temperature(database:Database):
     print("Calculating central temperature from parameterization")
 
     # Central temperatures from XRCS parametrization
+    temp_ratio = simulate_xrcs()
+
     mult_binned = []
     profs = np.arange(len(temp_ratio))
     for i in range(len(temp_ratio)):
-        ratio_tmp = xr.full_like(binned["te_xrcs"].value, np.nan)
+        ratio_tmp = xr.full_like(database.binned["te_xrcs"].value, np.nan)
         # TODO: DataArray interp crashing if all nans (@ home only)
-        for p in binned["te_xrcs"].pulse:
-            te_xrcs = binned["te_xrcs"].value.sel(pulse=p)
+        for p in database.binned["te_xrcs"].pulse:
+            te_xrcs = database.binned["te_xrcs"].value.sel(pulse=p)
             if any(np.isfinite(te_xrcs)):
                 ratio_tmp.loc[dict(pulse=p)] = np.interp(
                     te_xrcs.values, temp_ratio[i].te_xrcs, temp_ratio[i].values,
                 )
         mult_binned.append(ratio_tmp)
-    mult_binned = xr.concat(mult_binned, "prof")
-    mult_binned = mult_binned.assign_coords({"prof": profs})
+    mult_binned = xr.concat(mult_binned, "prof").assign_coords({"prof": profs})
 
     # Binned data
     mult_max = mult_binned.max("prof", skipna=True)
     mult_min = mult_binned.min("prof", skipna=True)
     mult_mean = mult_binned.mean("prof", skipna=True)
-    binned["te0"].value.values = (binned["te_xrcs"].value * mult_mean).values
-    err = np.abs(binned["te0"].value * mult_max - binned["te0"].value * mult_min)
-    binned["te0"].error.values = np.sqrt(
-        (binned["te_xrcs"].error * mult_mean) ** 2 + err ** 2
+    print(mult_mean)
+    database.binned["te0"].value.values = (database.binned["te_xrcs"].value * mult_mean).values
+    err = np.abs(database.binned["te0"].value * mult_max - database.binned["te0"].value * mult_min)
+    database.binned["te0"].error.values = np.sqrt(
+        (database.binned["te_xrcs"].error * mult_mean) ** 2 + err ** 2
     ).values
-    binned["ti0"].value.values = (binned["ti_xrcs"].value * mult_mean).values
-    err = np.abs(binned["ti0"].value * mult_max - binned["ti0"].value * mult_min)
-    binned["ti0"].error.values = np.sqrt(
-        (binned["ti_xrcs"].error * mult_mean) ** 2 + err ** 2
+    database.binned["ti0"].value.values = (database.binned["ti_xrcs"].value * mult_mean).values
+    err = np.abs(database.binned["ti0"].value * mult_max - database.binned["ti0"].value * mult_min)
+    database.binned["ti0"].error.values = np.sqrt(
+        (database.binned["ti_xrcs"].error * mult_mean) ** 2 + err ** 2
     ).values
 
-    return binned
+    return database
 
 
-def calc_max_val(binned, max_val, info, t_max=0.02, keys=None):
+def calc_max_val(database:Database, t_max=0.02, keys=None):
     """
     Calculate maximum value in a pulse using the binned data
 
@@ -437,6 +446,10 @@ def calc_max_val(binned, max_val, info, t_max=0.02, keys=None):
     """
     print("Calculating maximum values from binned data")
 
+    binned = database.binned
+    binned_max_val = deepcopy(database.max_val)
+    info = database.info
+
     # Calculate max values for those quantities where binned data is to be used
     if keys is None:
         keys = list(binned.keys())
@@ -444,30 +457,33 @@ def calc_max_val(binned, max_val, info, t_max=0.02, keys=None):
         if type(keys) != list:
             keys = [keys]
 
+    keys = list(binned)
+    empty_max_val = xr.full_like(binned_max_val[keys[0]], np.nan)
+
     for k in keys:
         if k not in info.keys():
             print(f"\n Max val: key {k} not in info dictionary...")
             continue
 
+        if k not in binned_max_val.keys():
+            binned_max_val[k] = empty_max_val
+
         for p in binned[keys[0]].pulse:
-            v = info[k]
-            if v["max"] is True:
-                continue
             max_search = xr.where(
                 binned[k].t > t_max, binned[k].value.sel(pulse=p), np.nan
             )
             if not any(np.isfinite(max_search)):
-                max_val[k].value.loc[dict(pulse=p)] = np.nan
-                max_val[k].error.loc[dict(pulse=p)] = np.nan
-                max_val[k].time.loc[dict(pulse=p)] = np.nan
+                binned_max_val[k].value.loc[dict(pulse=p)] = np.nan
+                binned_max_val[k].error.loc[dict(pulse=p)] = np.nan
+                binned_max_val[k].time.loc[dict(pulse=p)] = np.nan
                 continue
             tind = max_search.argmax(dim="t", skipna=True).values
             tmax = binned[k].t[tind]
-            max_val[k].time.loc[dict(pulse=p)] = tmax
-            max_val[k].value.loc[dict(pulse=p)] = binned[k].value.sel(pulse=p, t=tmax)
-            max_val[k].error.loc[dict(pulse=p)] = binned[k].error.sel(pulse=p, t=tmax)
+            binned_max_val[k].time.loc[dict(pulse=p)] = tmax
+            binned_max_val[k].value.loc[dict(pulse=p)] = binned[k].value.sel(pulse=p, t=tmax)
+            binned_max_val[k].error.loc[dict(pulse=p)] = binned[k].error.sel(pulse=p, t=tmax)
 
-    return max_val
+    return binned_max_val
 
 
 def selection_criteria(binned, cond):
@@ -502,7 +518,6 @@ def selection_criteria(binned, cond):
         if c["var"] == "error":  # percentage error
             val = np.abs(item["error"] / item["value"])
         else:
-            # val = flat(item[c["var"]])
             val = item[c["var"]]
 
         lim = c["lim"]
@@ -517,10 +532,6 @@ def selection_criteria(binned, cond):
                 selection *= (val >= lim[0]) * (val < lim[1])
 
     return selection
-
-
-def flat(data: DataArray):
-    return data.values.flatten()
 
 
 def apply_selection(
@@ -579,22 +590,22 @@ def apply_selection(
     return filtered
 
 
-def write_to_csv(regr_data):
+def write_to_csv(database:Database):
 
-    results = regr_data.filtered
+    results = database.filtered
     ipla_max = results["ipla_efit_max"].value.values
     ipla_max_time = results["ipla_efit_max"].time.values
     ti_max = results["ti_xrcs_max"].value.values
     ti_max_err = results["ti_xrcs_max"].error.values
     ti_max_time = results["ti_xrcs_max"].time.values
-    ratio = regr_data.temp_ratio.sel(
+    ratio = database.temp_ratio.sel(
         te_xrcs=results["te_xrcs_max"].value.values, method="nearest"
     ).values
     ti_0 = ti_max * ratio
     ipla_at_max = []
     nbi_at_max = []
 
-    pulses = regr_data.pulses
+    pulses = database.pulses
     for i, p in enumerate(pulses):
         if np.isfinite(ti_max_time[i]):
             ipla = results["ipla_efit"].sel(pulse=p, t=ti_max_time[i]).value.values
@@ -757,43 +768,6 @@ def profiles_peaked(te_sep=50):
 
     return profs
 
-
-def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None):
-
-    avrg = np.nan
-    std = 0.0
-    offset = 0
-    if (
-        not np.array_equal(data, "FAILED")
-        and (np.size(data) == np.size(time))
-        and np.size(data) > 1
-    ):
-        it = (time >= tstart) * (time <= tend)
-        if lower is not None:
-            it *= data > lower
-        if upper is not None:
-            it *= data < upper
-
-        it = np.where(it)[0]
-        if len(it) > 1:
-            if toffset is not None:
-                it_offset = np.where(time <= toffset)[0]
-                if len(it_offset) > 1:
-                    offset = np.mean(data[it_offset])
-
-            avrg = np.mean(data[it] + offset)
-            if len(it) >= 2:
-                std = np.std(data[it] + offset)
-
-    return avrg, std
-
-
-def write_to_pickle(regr_data):
-    picklefile = f"{regr_data.path_data}{regr_data.pkl_file_data}"
-    print(f"Saving regression database to \n {picklefile}")
-    pickle.dump(regr_data, open(picklefile, "wb"))
-
-
 def add_to_plot(xlab, ylab, tit, legend=True, vlines=False):
     if vlines:
         add_vlines(BORONISATION)
@@ -804,555 +778,3 @@ def add_to_plot(xlab, ylab, tit, legend=True, vlines=False):
     if legend:
         plt.legend()
 
-
-def set_data_info():
-    # TODO: superseeded by info_json method
-    """
-    Info dictionary defining the data to read
-
-    uid, diag, node, seq
-        Information to read data from MDS+
-    err
-        None if no error node available, otherwise, path to error
-    max
-        True if already calculated for unbinned values
-        False if this has to be calculated from binned data
-    label
-        label for plotting
-    units
-        unit of plot
-    const
-        constant to rescale units for plot
-    """
-
-    info = {
-        "ipla_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".constraints.ip:cvalue",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "I$_P$ EFIT",
-            "units": "(MA)",
-            "const": 1e-06,
-        },
-        "wp_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".virial:wp",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "W$_P$ EFIT",
-            "units": "(kJ)",
-            "const": 0.001,
-        },
-        "q95_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".global:q95",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "q$_{95}$ EFIT",
-            "units": "",
-            "const": 1.0,
-        },
-        "volm_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".global:volm",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "V$_p$ EFIT",
-            "units": "",
-            "const": 1.0,
-        },
-        "elon_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".global:elon",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "Elongation EFIT",
-            "units": "",
-            "const": 1.0,
-        },
-        "zmag_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".global:zmag",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "R$_{mag}$ EFIT",
-            "units": "",
-            "const": 1.0,
-        },
-        "rmag_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".global:rmag",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "R$_{mag}$ EFIT",
-            "units": "",
-            "const": 1.0,
-        },
-        "rmin_efit": {
-            "uid": "",
-            "diag": "efit",
-            "node": ".global:cr0",
-            "seq": 0,
-            "err": None,
-            "max": True,
-            "label": "R$_{min}$ EFIT",
-            "units": "",
-            "const": 1.0,
-        },
-        "ipla_pfit": {
-            "uid": "",
-            "diag": "pfit",
-            "node": ".post_best.results.global:ip",
-            "seq": -1,
-            "err": None,
-            "max": True,
-            "label": "I$_P$ PFIT",
-            "units": "(MA)",
-            "const": 1e-06,
-        },
-        "rip_pfit": {
-            "uid": "",
-            "diag": "pfit",
-            "node": ".post_best.results.global:rip",
-            "seq": -1,
-            "err": None,
-            "max": False,
-            "label": "W$_P$ EFIT",
-            "units": "(kJ)",
-            "const": 0.001,
-        },
-        "vloop": {
-            "uid": "",
-            "diag": "mag",
-            "node": ".floop.l026:v",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "V$_{loop}$ L026",
-            "units": "(V)",
-            "const": 1.0,
-        },
-        "ne_nirh1": {
-            "uid": "interferom",
-            "diag": "nirh1",
-            "node": ".line_int:ne",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "n$_{e}$-int NIRH1",
-            "units": "($10^{19}$ $m^{-3}$)",
-            "const": 1e-19,
-        },
-        "ne_smmh1": {
-            "uid": "interferom",
-            "diag": "smmh1",
-            "node": ".line_int:ne",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "n$_{e}$-int SMMH1",
-            "units": "($10^{19}$ $m^{-3}$)",
-            "const": 1e-19,
-        },
-        "gas_puff": {
-            "uid": "",
-            "diag": "gas",
-            "node": ".puff_valve:gas_total",
-            "seq": -1,
-            "err": None,
-            "max": False,
-            "label": "Total gas",
-            "units": "(V)",
-            "const": 1.0,
-        },
-        "gas_press": {
-            "uid": "",
-            "diag": "mcs",
-            "node": ".mcs004:ch019",
-            "seq": -1,
-            "err": None,
-            "max": True,
-            "label": "Total Pressure",
-            "units": "(a.u.)",
-            "const": 1000.0,
-        },
-        "imc": {
-            "uid": "",
-            "diag": "psu",
-            "node": ".mc:i",
-            "seq": -1,
-            "err": None,
-            "max": True,
-            "label": "I$_{MC}$",
-            "units": "(kA)",
-            "const": 0.001,
-        },
-        "itf": {
-            "uid": "",
-            "diag": "psu",
-            "node": ".tf:i",
-            "seq": -1,
-            "err": None,
-            "max": True,
-            "label": "I$_{TF}$",
-            "units": "(kA)",
-            "const": 0.001,
-        },
-        "brems_pi": {
-            "uid": "spectrom",
-            "diag": "princeton.passive",
-            "node": ".dc:brem_mp",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "Bremsstrahlung PI",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "brems_mp": {
-            "uid": "spectrom",
-            "diag": "lines",
-            "node": ".brem_mp1:intensity",
-            "seq": -1,
-            "err": None,
-            "max": False,
-            "label": "Bremsstrahlung MP",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "te_xrcs": {
-            "uid": "sxr",
-            "diag": "xrcs",
-            "node": ".te_kw:te",
-            "seq": 0,
-            "err": ".te_kw:te_err",
-            "max": False,
-            "label": "T$_e$ XRCS",
-            "units": "(keV)",
-            "const": 0.001,
-        },
-        "ti_xrcs": {
-            "uid": "sxr",
-            "diag": "xrcs",
-            "node": ".ti_w:ti",
-            "seq": 0,
-            "err": ".ti_w:ti_err",
-            "max": False,
-            "label": "T$_i$ XRCS",
-            "units": "(keV)",
-            "const": 0.001,
-        },
-        "i_hnbi": {
-            "uid": "raw_nbi",
-            "diag": "hnbi1",
-            "node": ".hv_ps:i_jema",
-            "seq": -1,
-            "err": None,
-            "max": False,
-            "label": "I$_{HNBI}$",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "v_hnbi": {
-            "uid": "raw_nbi",
-            "diag": "hnbi1",
-            "node": ".hv_ps:v_jema",
-            "seq": -1,
-            "err": None,
-            "max": False,
-            "label": "V$_{HNBI}$",
-            "units": "(a.u.)",
-            "const": 0.001,
-        },
-        "h_i_6563": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".line_evol.h_i_6563:intensity",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "H I 656.3 nm",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "he_ii_4686": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".line_evol.he_ii_4686:intensity",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "He II 468.6 nm",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "b_ii_3451": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".line_evol.b_ii_3451:intensity",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "B II 345.1 nm",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "o_iv_3063": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".line_evol.o_iv_3063:intensity",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "O IV 306.3 nm",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "ar_ii_4348": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".line_evol.ar_ii_4348:intensity",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "Ar II 434.8 nm",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "i_bvl": {
-            "uid": "",
-            "diag": "psu",
-            "node": ".bvl:i",
-            "seq": -1,
-            "err": None,
-            "max": True,
-            "sign": -1,
-            "label": "I$_{BVL}$ PSU",
-            "units": "(kA)",
-            "const": 0.001,
-        },
-        "te0": {"max": False, "label": "T$_e$(0)", "units": "(keV)", "const": 0.001},
-        "ti0": {"max": False, "label": "T$_i$(0)", "units": "(keV)", "const": 0.001},
-        "d_i_6561": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".line_evol.d_i_6561:intensity",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "D I 656.1 nm",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_ar": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_ar",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "Ar lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_b": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_b",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "B lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_c": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_c",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "C lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_h": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_h",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "H lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_he": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_he",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "He lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_li": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_li",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "Li lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_n": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_n",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "N lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "sum_o": {
-            "uid": "spectrom",
-            "diag": "avantes.line_mon",
-            "node": ".key_species:sum_o",
-            "seq": 0,
-            "err": None,
-            "max": False,
-            "label": "O lines",
-            "units": "(a.u.)",
-            "const": 1.0,
-        },
-        "nbi_power": {
-            "max": False,
-            "label": "P$_{NBI}$",
-            "units": "(V * A)",
-            "const": 1.0,
-        },
-        "pulse_length": {
-            "max": False,
-            "label": "Pulse length",
-            "units": "(s)",
-            "const": 1.0,
-        },
-        "rip_efit": {
-            "max": True,
-            "label": "(R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
-            "units": " ",
-            "const": 1.0,
-        },
-        "rip_imc": {
-            "max": True,
-            "label": "(EFIT R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
-            "units": " ",
-            "const": 1.0,
-        },
-        "gas_cumulative": {
-            "max": True,
-            "label": "Cumulative gas",
-            "units": "(V * s)",
-            "const": 1.0,
-        },
-        "gas_prefill": {
-            "max": True,
-            "label": "Gas prefill",
-            "units": "(V * s)",
-            "const": 1.0,
-        },
-        "gas_fuelling": {
-            "max": True,
-            "label": "Gas fuelling t > 0",
-            "units": "(V * s)",
-            "const": 1.0,
-        },
-        "total_nbi": {
-            "max": False,
-            "label": "Cumulative NBI power",
-            "units": "(kV * A * s)",
-            "const": 0.001,
-        },
-        "ti_te_xrcs": {
-            "max": False,
-            "label": "Ti/Te (XRCS)",
-            "units": "",
-            "const": 1.0,
-        },
-        "ne_nirh1_te_xrcs": {
-            "max": False,
-            "label": "Ne (NIRH1)/3. * Te (XRCS)",
-            "units": "",
-            "const": 1.0,
-        },
-    }
-
-    return info
-
-
-def fix_things(regr_data, assign=True):
-    binned = deepcopy(regr_data.binned)
-
-    for k in binned.keys():
-        binned[k].gradient.values = binned[k].value.differentiate("t", edge_order=2)
-
-    if assign:
-        regr_data.binned = binned
-
-    return regr_data
-
-
-def test(regr_data):
-    # density fringe jump
-    p = 9709
-    k = "ne_smmh1"
-
-    # strange electron temperature
-    p = 9781
-    k = "te_xrcs"
-
-    # high bremsstrahlung
-    p = 9413
-    k = "brems_pi"
-
-    data = regr_data.binned[k].sel(pulse=p)
-
-    plt.figure()
-    data.value.plot(marker="o")
-    plt.figure()
-    data.gradient.plot(marker="o")
-
-    # high bremsstrahlung
-    plt.figure()
-    data = regr_data.binned["sum_c"] / regr_data.binned["ne_smmh1"]
-    data.value.sel(t=0.03, method="nearest").plot()
-
-    plt.figure()
-    data = regr_data.binned["sum_c"] / regr_data.binned["ne_nirh1"]
-    data.value.sel(t=0.03, method="nearest").plot()
-
-    plt.figure()
-    data = regr_data.binned["brems_mp"] / regr_data.binned["ne_nirh1"]
-    data.value.sel(t=0.03, method="nearest").plot()
