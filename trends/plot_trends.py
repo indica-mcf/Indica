@@ -4,6 +4,7 @@
 
 from copy import deepcopy
 import pickle
+import os
 
 import hda.fac_profiles as fac
 from hda.forward_models import Spectrometer
@@ -13,6 +14,7 @@ import numpy as np
 import pandas as pd
 from xarray import DataArray
 
+from trends.trends_database import Database
 from indica.readers import ADASReader
 
 # First pulse after Boronisation / GDC
@@ -21,6 +23,14 @@ GDC = [8545]
 GDC = np.array(GDC) - 0.5
 
 plt.ion()
+
+def set_paths(database:Database, path_fig="", name_fig="",):
+    if len(path_fig) == 0:
+        path_fig = f"{os.path.expanduser('~')}/figures/regr_trends/"
+    if len(name_fig) == 0:
+        name_fig = f"{database.pulse_start}_{database.pulse_end}"
+
+    return path_fig, name_fig
 
 def plot_time_evol(
     database,
@@ -150,6 +160,7 @@ def plot_time_evol(
 def plot_bivariate(
     filtered, info, to_plot, label=None, savefig=False, path_fig="", name_fig="",
 ):
+
     if savefig:
         plt.ioff()
 
@@ -187,6 +198,7 @@ def plot_bivariate(
 def plot_trivariate(
     filtered, info, to_plot, nbins=10, savefig=False, path_fig="", name_fig=""
 ):
+
     if savefig:
         plt.ioff()
 
@@ -305,12 +317,12 @@ def plot_hist(
 def max_ti_pulses(database, savefig=False, plot_results=False):
     cond_general = {
         "nbi_power": {"var": "value", "lim": (20, np.nan)},
-        "te0": {"var": "error", "lim": (np.nan, 0.2)},
-        "ti0": {"var": "error", "lim": (np.nan, 0.2)},
+        "te_xrcs": {"var": "error", "lim": (np.nan, 0.2)},
+        "ti_xrcs": {"var": "error", "lim": (np.nan, 0.2)},
         "ipla_efit": {"var": "gradient", "lim": (-1.0e6, np.nan)},
     }
     cond_special = deepcopy(cond_general)
-    cond_special["ti0"] = {"var": "value", "lim": (1.5e3, np.nan)}
+    cond_special["ti_xrcs"] = {"var": "value", "lim": (1.5e3, np.nan)}
     cond = {
         "NBI": cond_general,
         "NBI & Ti > 1.5 keV": cond_special,
@@ -329,8 +341,8 @@ def max_ti_pulses(database, savefig=False, plot_results=False):
 def ip_400_500(database, savefig=False, plot_results=False):
     cond_general = {
         "nbi_power": {"var": "value", "lim": (20, np.nan)},
-        "te0": {"var": "error", "lim": (np.nan, 0.2)},
-        "ti0": {"var": "error", "lim": (np.nan, 0.2)},
+        "te_xrcs": {"var": "error", "lim": (np.nan, 0.2)},
+        "ti_xrcs": {"var": "error", "lim": (np.nan, 0.2)},
         "ipla_efit": {"var": "gradient", "lim": (-1.0e6, np.nan)},
     }
     cond_special = deepcopy(cond_general)
@@ -416,8 +428,7 @@ def plot(
         if hasattr(database, "filtered"):
             filtered = database.filtered
 
-    path_fig = database.path_fig
-    name_fig = database.fig_file
+    path_fig, name_fig = set_paths(database)
 
     info = database.info
 
@@ -425,48 +436,49 @@ def plot(
     # Simulated XRCS measurements
     ###################################
     if plot_time == True:
-        plt.figure()
-        temp_ratio = database.temp_ratio
-        for i in range(len(temp_ratio)):
-            plt.plot(temp_ratio[i].te0, temp_ratio[i].te_xrcs)
+        if hasattr(database, "temp_ratio"):
+            plt.figure()
+            temp_ratio = database.temp_ratio
+            for i in range(len(temp_ratio)):
+                plt.plot(temp_ratio[i].te0, temp_ratio[i].te_xrcs)
 
-        plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
-        plt.legend()
-        add_to_plot(
-            "T$_e$(0)", "T$_{e,i}$(XRCS)", "XRCS measurement vs. Central Te",
-        )
-        if savefig:
-            save_figure(path_fig, f"{name_fig}_XRCS_Te0_parametrization")
-
-        plt.figure()
-        for i in range(len(temp_ratio)):
-            el_temp = temp_ratio[i].attrs["el_temp"]
-            plt.plot(
-                el_temp.rho_poloidal,
-                el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
+            plt.plot(temp_ratio[0].te0, temp_ratio[0].te0, "--k", label="Central Te")
+            plt.legend()
+            add_to_plot(
+                "T$_e$(0)", "T$_{e,i}$(XRCS)", "XRCS measurement vs. Central Te",
             )
+            if savefig:
+                save_figure(path_fig, f"{name_fig}_XRCS_Te0_parametrization")
 
-        plt.legend()
-        add_to_plot(
-            "rho_poloidal", "T$_e$ (keV)", "Temperature profiles",
-        )
-        if savefig:
-            save_figure(path_fig, f"{name_fig}_XRCS_parametrization_temperatures")
+            plt.figure()
+            for i in range(len(temp_ratio)):
+                el_temp = temp_ratio[i].attrs["el_temp"]
+                plt.plot(
+                    el_temp.rho_poloidal,
+                    el_temp.sel(t=el_temp.t.mean(), method="nearest") / 1.0e3,
+                )
 
-        plt.figure()
-        for i in range(len(temp_ratio)):
-            el_dens = temp_ratio[i].attrs["el_dens"]
-            plt.plot(
-                el_dens.rho_poloidal,
-                el_dens.sel(t=el_dens.t.mean(), method="nearest") / 1.0e3,
+            plt.legend()
+            add_to_plot(
+                "rho_poloidal", "T$_e$ (keV)", "Temperature profiles",
             )
+            if savefig:
+                save_figure(path_fig, f"{name_fig}_XRCS_parametrization_temperatures")
 
-        plt.legend()
-        add_to_plot(
-            "rho_poloidal", "n$_e$ (10$^{19}$)", "Density profiles",
-        )
-        if savefig:
-            save_figure(path_fig, f"{name_fig}_XRCS_parametrization_densities")
+            plt.figure()
+            for i in range(len(temp_ratio)):
+                el_dens = temp_ratio[i].attrs["el_dens"]
+                plt.plot(
+                    el_dens.rho_poloidal,
+                    el_dens.sel(t=el_dens.t.mean(), method="nearest") / 1.0e3,
+                )
+
+            plt.legend()
+            add_to_plot(
+                "rho_poloidal", "n$_e$ (10$^{19}$)", "Density profiles",
+            )
+            if savefig:
+                save_figure(path_fig, f"{name_fig}_XRCS_parametrization_densities")
 
         ###################################
         # Time evolution of maximum quantities
@@ -475,8 +487,6 @@ def plot(
             "Plasma Current": ("ipla_efit",),
             "Pulse Length": ("pulse_length",),
             "Stored Energy": ("wp_efit",),
-            "Electron Temperature": ("te_xrcs", "te0",),
-            "Ion Temperature": ("ti_xrcs", "ti0",),
             "Ion/Electron Temperature (XRCS)": ("ti_te_xrcs",),
             "Electron Density": ("ne_nirh1",),
             "Electron Pressure": ("ne_nirh1_te_xrcs",),
@@ -488,6 +498,8 @@ def plot(
             "Cumulative NBI power": ("total_nbi",),
             "Plasma current @ 15 ms / MC current ": ("rip_imc",),
         }
+        # "Electron Temperature": ("te_xrcs", "te0",),
+        # "Ion Temperature": ("ti_xrcs", "ti0",),
         plot_time_evol(
             database,
             info,
@@ -539,12 +551,12 @@ def plot(
     ###################################
     if filtered is not None:
         to_plot = {
-            "T$_e$(0) vs. I$_P$": ("ipla_efit", "te0"),
-            "T$_i$(0) vs. I$_P$": ("ipla_efit", "ti0"),
-            "T$_i$(0) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti0"),
-            "T$_i$(0) vs. gas pressure": ("gas_press", "ti0"),
-            "T$_i$(0) vs. Cumulative gas puff": ("gas_cumulative", "ti0"),
-            "T$_i$(0) vs. Electron pressure": ("ne_nirh1_te_xrcs", "ti0"),
+            "T$_e$(XRCS) vs. I$_P$": ("ipla_efit", "te_xrcs"),
+            "T$_i$(XRCS) vs. I$_P$": ("ipla_efit", "ti_xrcs"),
+            "T$_i$(XRCS) vs. n$_e$(NIRH1)": ("ne_nirh1", "ti_xrcs"),
+            "T$_i$(XRCS) vs. gas pressure": ("gas_press", "ti_xrcs"),
+            "T$_i$(XRCS) vs. Cumulative gas puff": ("gas_cumulative", "ti_xrcs"),
+            "T$_i$(XRCS) vs. Electron pressure": ("ne_nirh1_te_xrcs", "ti_xrcs"),
         }
 
         plot_bivariate(
@@ -559,8 +571,8 @@ def plot(
         to_plot = {
             "Plasma Current": "ipla_efit",
             "Electron Density": "ne_nirh1",
-            "Central Electron Temperature": "te0",
-            "Central Ion Temperature": "ti0",
+            "XRCS Electron Temperature": "te_xrcs",
+            "XRCS Ion Temperature": "ti_xrcs",
             "Gas Pressure": "gas_press",
             "Cumulative Gas Puff": "gas_cumulative",
         }
@@ -577,12 +589,12 @@ def plot(
         )
 
         to_plot = {
-            "Plasma Current": ("te0", "ti0", "ipla_efit"),
-            "Electron Density": ("te0", "ti0", "ne_nirh1"),
-            "Gas Pressure, Te, Ti": ("te0", "ti0", "gas_press"),
-            "Gas Pressure, Ne, Ti": ("ne_nirh1", "ti0", "gas_press"),
-            "Cumulative Gas Puff, Te, Ti": ("te0", "ti0", "gas_cumulative"),
-            "Cumulative Gas Puff, Ne, Ti": ("ne_nirh1", "ti0", "gas_cumulative"),
+            "Plasma Current": ("te_xrcs", "ti_xrcs", "ipla_efit"),
+            "Electron Density": ("te_xrcs", "ti_xrcs", "ne_nirh1"),
+            "Gas Pressure, Te, Ti": ("te_xrcs", "ti_xrcs", "gas_press"),
+            "Gas Pressure, Ne, Ti": ("ne_nirh1", "ti_xrcs", "gas_press"),
+            "Cumulative Gas Puff, Te, Ti": ("te_xrcs", "ti_xrcs", "gas_cumulative"),
+            "Cumulative Gas Puff, Ne, Ti": ("ne_nirh1", "ti_xrcs", "gas_cumulative"),
         }
 
         # filtered["All"] = {"selection": None, "binned": database.binned}
@@ -788,3 +800,6 @@ def add_to_plot(xlab, ylab, tit, legend=True, vlines=False):
     if legend:
         plt.legend()
 
+
+def flat(data: DataArray):
+    return data.values.flatten()
