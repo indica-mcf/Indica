@@ -1,8 +1,6 @@
 """Coordinate system representing a collection of lines of sight.
 """
 
-from typing import Callable
-from typing import Optional
 from typing import Tuple
 
 import numpy as np
@@ -94,19 +92,10 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x_start = DataArray(x_start)
         self.z_start = DataArray(z_start)
         self.y_start = DataArray(y_start)
-        self._original_x_end = DataArray(x_end)
-        self._original_z_end = DataArray(z_end)
-        self._original_y_end = DataArray(y_end)
         self._machine_dims = machine_dimensions
         self.x_end = DataArray(x_end)
         self.z_end = DataArray(z_end)
         self.y_end = DataArray(y_end)
-        self.index_inversion: Optional[
-            Callable[[LabeledArray, LabeledArray], LabeledArray]
-        ] = None
-        self.x2_inversion: Optional[
-            Callable[[LabeledArray, LabeledArray], LabeledArray]
-        ] = None
         self.x1_name = name + "_coords"
         self.x2_name = name + "_los_position"
 
