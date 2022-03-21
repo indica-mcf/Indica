@@ -124,16 +124,20 @@ class LinesOfSightTransform(CoordinateTransform):
         result = result and np.all(self.x_end == other.x_end)
         result = result and np.all(self.z_end == other.z_end)
         result = result and np.all(self.y_end == other.y_end)
+        result = result and np.all(self.dl == other.dl)
+        result = result and np.all(self.x2 == other.x2)
+        result = result and np.all(self.R == other.R)
+        result = result and np.all(self.phi == other.phi)
         result = result and self._machine_dims == other._machine_dims
         return result
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        x_0 = self.x_start + (self.x_end - self.x_start) * x2
-        y_0 = self.y_start + (self.y_end - self.y_start) * x2
+        x = self.x_start + (self.x_end - self.x_start) * x2
+        y = self.y_start + (self.y_end - self.y_start) * x2
         z = self.z_start + (self.z_end - self.z_start) * x2
-        return np.sign(x_0) * np.sqrt(x_0**2 + y_0**2), z
+        return np.sign(x) * np.sqrt(x**2 + y**2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
