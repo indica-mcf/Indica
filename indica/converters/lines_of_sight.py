@@ -182,23 +182,6 @@ class LinesOfSightTransform(CoordinateTransform):
         # # TODO: Consider if there is some way to invert this exactly,
         # # rather than rely on interpolation (which is necessarily
         # # inexact, as well as computationally expensive).
-        # if not self.index_inversion:
-        #     R_vals, z_vals, _ = self.convert_to_Rz()
-        #     points = np.stack((np.ravel(R_vals), np.ravel(z_vals))).T
-        #     index_vals = self.default_x1 * np.ones_like(self.default_x2)
-        #     x2_vals = np.ones_like(self.default_x1) * self.default_x2
-        #     interp2d = (
-        #         LinearNDInterpolator if np.all(self.T_start == 0.0) and
-        #         np.all(self.T_end == 0.0) else CloughTocher2DInterpolator
-        #     )
-        #     self.index_inversion = interp2d(points, np.ravel(index_vals))
-        #     self.x2_inversion = interp2d(points, np.ravel(x2_vals))
-        #     self.index_inversion = Rbf(R_vals, z_vals, index_vals)
-        #     self.x2_inversion = Rbf(R_vals, z_vals, x2_vals)
-        # assert self.x2_inversion is not None
-        # x1 = self.index_inversion(R, z)
-        # x2 = self.x2_inversion(R, z)
-        # return x1, x2
 
     def distance(
         self,
