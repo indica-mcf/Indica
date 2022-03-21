@@ -145,19 +145,19 @@ class LinesOfSightTransform(CoordinateTransform):
         def jacobian(x):
             # x1 = x[0]
             x2 = x[1]
-            x_0 = self.x_start + (self.x_end - self.x_start) * x2
-            y_0 = self.y_start + (self.y_end - self.y_start) * x2
-            x = np.sign(x_0) * np.sqrt(x_0**2 + y_0**2)
-            dx_0dx1 = 0.0
-            dx_0dx2 = self.x_end - self.x_start
-            dy_0dx1 = 0.0
-            dy_0dx2 = self.y_end - self.y_start
+            x = self.x_start + (self.x_end - self.x_start) * x2
+            y = self.y_start + (self.y_end - self.y_start) * x2
+            x = np.sign(x) * np.sqrt(x**2 + y**2)
+            dxdx1 = 0.0
+            dxdx2 = self.x_end - self.x_start
+            dydx1 = 0.0
+            dydx2 = self.y_end - self.y_start
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
                 [
-                    2 / x * (x_0 * dx_0dx1 + y_0 * dy_0dx1),
-                    2 / x * (x_0 * dx_0dx2 + y_0 * dy_0dx2),
+                    2 / x * (x * dxdx1 + y * dydx1),
+                    2 / x * (x * dxdx2 + y * dydx2),
                 ],
                 [dzdx1, dzdx2],
             ]
