@@ -40,7 +40,7 @@ Setting up the Development Environment
 InDiCA development uses `Poetry <https://python-poetry.org/>`_ to manage
 dependencies, control the testing environment, and handle
 packaging. Follow the `instructions on installing poetry
-<https://python-poetry.org/docs/#installation>`_. In the repository,
+<https://python-poetry.org/docs/master/#installation>`_. In the repository,
 run::
 
   poetry install
@@ -266,7 +266,7 @@ distance along the coordinate. This would happen if the coordinate has
 some component in the toroidal direction, as is the case for the
 :py:class:`~indica.converters.LinesOfSightTransform`.
 
-Coordinate transforms to not record provenance.
+Coordinate transforms do not record provenance.
 
 Performing New Operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~

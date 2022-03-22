@@ -518,9 +518,9 @@ meanings associated with them. The most obvious way this manifests
 itself is in terms of what units are associated with a
 number. However, you may have multiple distinct quantities with the
 same units and an operation may require a specific one of those. It is
-desirable to be able to detect mistake arising from using the wrong
+desirable to be able to detect mistakes arising from using the wrong
 quantity as quickly as possible. For this reason, operations on data
-define what they expects that data to be and to check this.
+define what they expect that data to be and to check this.
 
 Beyond catching errors when using this software as a library or
 interactively at the command line, this technique will be valuable
@@ -734,7 +734,7 @@ xarray Extensions
 
 A number of InDiCA-specific utilities are needed in addition to
 standard xarray functionality. For this reason, `"custom accessors"
-<http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_
+<https://xarray.pydata.org/en/stable/internals/extending-xarray.html>`_
 were written to provide these methods in the ``indica``
 namespace. Accessors are available for both
 :py:class:`xarray.DataArray` and :py:class:`xarray.Dataset` objects,
