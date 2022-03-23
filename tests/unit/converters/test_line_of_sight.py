@@ -247,16 +247,20 @@ def test_missing_los():
     name = "los_test"
 
     # Set-up line of sight class
-    los = line_of_sight.LinesOfSightTransform(
-        origin[0],
-        origin[1],
-        origin[2],
-        direction[0],
-        direction[1],
-        direction[2],
-        machine_dimensions=machine_dims,
-        name=name,
-    )
+    try:
+        los = line_of_sight.LinesOfSightTransform(
+            origin[0],
+            origin[1],
+            origin[2],
+            direction[0],
+            direction[1],
+            direction[2],
+            machine_dimensions=machine_dims,
+            name=name,
+        )
+    except ValueError:
+        # Value Error since the LOS does not intersect with machine dimensions
+        print('LOS initialisation failed with ValueError as expected')
 
     return
 
