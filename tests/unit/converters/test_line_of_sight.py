@@ -16,6 +16,16 @@ from indica.converters import TrivialTransform
 # from tests.unit.test_equilibrium_single import equilibrium_dat_and_te
 
 
+def default_inputs():
+    x1 = 0.0  # does nothing
+    x2 = DataArray(
+        np.linspace(0.0, 1.0, 350, dtype=float)
+    )  # index along line of sight, must be a DataArray
+    t = 0.0  # does nothing
+
+    return x1, x2, t
+
+
 def load_los_default():
     # Line of sight origin tuple
     origin = (3.8, -2.0, 0.5)  # [xyz]
@@ -53,12 +63,7 @@ def convert_to_rho(plot=False):
     data = equilibrium_dat()
     Te = None
     offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
-    equil = equilibrium.Equilibrium(
-        data,
-        Te,
-        sess=MagicMock(),
-        offset_picker=offset,
-    )
+    equil = equilibrium.Equilibrium(data, Te, sess=MagicMock(), offset_picker=offset,)
 
     # Flux Transform
     flux_coord = flux_surfaces.FluxSurfaceCoordinates("poloidal")
@@ -95,59 +100,48 @@ def convert_to_rho(plot=False):
         plt.ylabel("y (m)")
         plt.show(block=True)
 
-    return
 
-
-def test_methods(debug=False):
+# Test convert_to_xyz method
+def test_convert_to_xyz(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
+    x1, x2, t = default_inputs()
 
-    # Inputs for testing methods...
-    R_test = DataArray(2.5)  # Does not work as an array
-    Z_test = DataArray(0.5)  # Does not work as an array
-    x1 = 0.0  # does nothing
-    x2 = DataArray(
-        np.linspace(0.0, 1.0, 350, dtype=float)
-    )  # index along line of sight, must be a DataArray
-    t = 0.0  # does nothing
+    # Test method
+    x, y, z = los.convert_to_xyz(x1, x2, t)
 
-    # Test method #1
-    r_, z_ = los.convert_to_Rz(x1, x2, t)
+    assert np.all(x.values <= np.max([los.x_start, los.x_end]))
+    assert np.all(x >= np.min([los.x_start, los.x_end]))
+    assert np.all(y <= np.max([los.y_start, los.y_end]))
+    assert np.all(y >= np.min([los.y_start, los.y_end]))
+    assert np.all(z <= np.max([los.z_start, los.z_end]))
+    assert np.all(z >= np.min([los.z_start, los.z_end]))
+
     if debug:
-        print(f"r_ = {r_}")
-        print(f"z_ = {z_}")
-
-    # Check method #2: convert_from_Rz, inputs: "R", "Z", "t"
-    _, x2_out2 = los.convert_from_Rz(R_test, Z_test, t)
-    if debug:
-        print(f"x2_out2 = {x2_out2}")
-
-    # Check method #3: distance, inputs: "x1", "x2", "t"
-    dist = los.distance("dim_0", x1, x2, t)
-    if debug:
-        print(f"dist = {dist}")
-
-    return
+        print(f"x = {x}")
+        print(f"y = {y}")
+        print(f"z = {z}")
 
 
 # Test convert_to_Rz method
 def test_convert_to_Rz(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
-
-    # Test inputs
-    x1 = 0.0  # does nothing
-    x2 = DataArray(
-        np.linspace(0.0, 1.0, 350, dtype=float)
-    )  # index along line of sight, must be a DataArray
-    t = 0.0  # does nothing
+    x1, x2, t = default_inputs()
 
     # Test method
-    r_, z_ = los.convert_to_Rz(x1, x2, t)
+    R_, z_ = los.convert_to_Rz(x1, x2, t)
+
+    x, y, z = los.convert_to_xyz(x1, x2, t)
+    R = np.sign(x) * np.sqrt(x ** 2 + y ** 2)
+
+    # R and z are as expected
+    assert all(z == z_)
+    assert all(R == R_)
+
     if debug:
-        print(f"r_ = {r_}")
-        print(f"z_ = {z_}")
-    return
+        print(f"R = {R}")
+        print(f"z = {z}")
 
 
 # Test convert_from_Rz method
@@ -162,6 +156,10 @@ def test_convert_from_Rz(debug=False):
 
     # Test method
     _, x2_out = los.convert_from_Rz(R_test, Z_test, t)
+
+    # x2 is within specified range
+    assert x2_out <= 1 and x2_out >= 0
+
     if debug:
         print(f"x2_out2 = {x2_out}")
     return
@@ -171,16 +169,15 @@ def test_convert_from_Rz(debug=False):
 def test_distance(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
-
-    # Test inputs
-    x1 = 0.0  # does nothing
-    x2 = DataArray(
-        np.linspace(0.0, 1.0, 350, dtype=float)
-    )  # index along line of sight, must be a DataArray
-    t = 0.0  # does nothing
+    x1, x2, t = default_inputs()
 
     # Test method
     dist = los.distance("dim_0", x1, x2, t)
+    dls = [dist[i + 1] - dist[i] for i in range(len(dist) - 1)]
+
+    # dl is identical along the line of sight up to 1 per million
+    assert all(np.abs(dls - dls[0]) < (dls[0] * 1.0e-6))
+
     if debug:
         print(f"dist = {dist}")
     return
@@ -196,6 +193,8 @@ def test_set_dl(debug=False):
 
     # Test method
     x2, dl_out = los.set_dl(dl)
+
+    assert np.abs(dl - dl_out) < 1.0e-6
 
     if debug:
         print(f"x2 = {x2}")
@@ -214,8 +213,9 @@ def test_intersections(debug=False):
     line_2_y = np.array([2.0, 3.0])
 
     rx, zx, _, _ = line_of_sight.intersection(line_1_x, line_1_y, line_2_x, line_2_y)
-    if len(rx) > 0:
-        raise ValueError
+    assert len(rx) == 0
+    assert len(zx) == 0
+
     if debug:
         print(rx)
         print(zx)
@@ -224,14 +224,12 @@ def test_intersections(debug=False):
     line_3_x = np.array([0.0, 1.0])
     line_3_y = np.array([2.0, 1.0])
     rx, zx, _, _ = line_of_sight.intersection(line_1_x, line_1_y, line_3_x, line_3_y)
-    if len(rx) != 1:
-        raise ValueError
+    assert len(rx) != 0
+    assert len(zx) != 0
+
     if debug:
         print(rx)
         print(zx)
-
-    return
-
 
 # Test LOS missing vessel
 def test_missing_los():
@@ -262,8 +260,6 @@ def test_missing_los():
     except ValueError:
         # Value Error since the LOS does not intersect with machine dimensions
         print("LOS initialisation failed with ValueError as expected")
-
-    return
 
 
 # Function for defining equilibrium
@@ -354,7 +350,7 @@ def equilibrium_dat():
     )
     result["rbnd"] = (
         result["rmag"]
-        + a_coeff * b_coeff / np.sqrt(a_coeff**2 * np.tan(thetas) ** 2 + b_coeff**2)
+        + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
     ).assign_attrs(**attrs)
     result["rbnd"].name = "rbnd"
     result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
@@ -363,7 +359,7 @@ def equilibrium_dat():
         result["zmag"]
         + a_coeff
         * b_coeff
-        / np.sqrt(a_coeff**2 + b_coeff**2 * np.tan(thetas) ** -2)
+        / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
     ).assign_attrs(**attrs)
     result["zbnd"].name = "zbnd"
     result["zbnd"].attrs["datatype"] = ("z", "separatrix")
@@ -373,8 +369,8 @@ def equilibrium_dat():
     rgrid = xr.DataArray(r, coords=[("R", r)])
     zgrid = xr.DataArray(z, coords=[("z", z)])
     psin = (
-        (-result["zmag"] + zgrid) ** 2 / b_coeff**2
-        + (-result["rmag"] + rgrid) ** 2 / a_coeff**2
+        (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
+        + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
     ) ** (0.5 / n_exp)
 
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
@@ -388,9 +384,7 @@ def equilibrium_dat():
     psin_coords = np.linspace(0.0, 1.0, nspace)
     rho = np.sqrt(psin_coords)
     psin_data = xr.DataArray(psin_coords, coords=[("rho_poloidal", rho)])
-    attrs["transform"] = FluxSurfaceCoordinates(
-        "poloidal",
-    )
+    attrs["transform"] = FluxSurfaceCoordinates("poloidal",)
 
     def monotonic_series(start, stop, num=50, endpoint=True, retstep=False, dtype=None):
         return np.linspace(start, stop, num, endpoint, retstep, dtype)
@@ -414,8 +408,8 @@ def equilibrium_dat():
     else:
         f_raw = np.outer(
             np.sqrt(
-                Btot_factor**2
-                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff**2
+                Btot_factor ** 2
+                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff ** 2
             ),
             np.ones_like(rho),
         )
@@ -425,13 +419,13 @@ def equilibrium_dat():
         f_raw, coords=[("t", times), ("rho_poloidal", rho)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
-    result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
+    result["rmjo"] = (result["rmag"] + a_coeff * psin_data ** n_exp).assign_attrs(
         **attrs
     )
     result["rmjo"].name = "rmjo"
     result["rmjo"].attrs["datatype"] = ("major_rad", "lfs")
     result["rmjo"].coords["z"] = result["zmag"]
-    result["rmji"] = (result["rmag"] - a_coeff * psin_data**n_exp).assign_attrs(
+    result["rmji"] = (result["rmag"] - a_coeff * psin_data ** n_exp).assign_attrs(
         **attrs
     )
     result["rmji"].name = "rmji"
@@ -440,7 +434,7 @@ def equilibrium_dat():
     result["vjac"] = (
         4
         * n_exp
-        * np.pi**2
+        * np.pi ** 2
         * result["rmag"]
         * a_coeff
         * b_coeff
