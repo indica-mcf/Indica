@@ -13,8 +13,6 @@ from indica.converters import FluxSurfaceCoordinates
 from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
 
-# from tests.unit.test_equilibrium_single import equilibrium_dat_and_te
-
 
 def default_inputs():
     x1 = 0.0  # does nothing
