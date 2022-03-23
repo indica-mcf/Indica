@@ -4,15 +4,16 @@ from unittest.mock import MagicMock
 
 from matplotlib import pyplot as plt
 import numpy as np
-# from tests.unit.test_equilibrium_single import equilibrium_dat_and_te
-from xarray import DataArray
 import xarray as xr
+from xarray import DataArray
 
 from indica import equilibrium
 from indica.converters import flux_surfaces
-from indica.converters import line_of_sight
 from indica.converters import FluxSurfaceCoordinates
+from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
+
+# from tests.unit.test_equilibrium_single import equilibrium_dat_and_te
 
 
 def load_los_default():
@@ -260,7 +261,7 @@ def test_missing_los():
         )
     except ValueError:
         # Value Error since the LOS does not intersect with machine dimensions
-        print('LOS initialisation failed with ValueError as expected')
+        print("LOS initialisation failed with ValueError as expected")
 
     return
 
