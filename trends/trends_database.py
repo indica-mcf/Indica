@@ -544,19 +544,6 @@ def pulse_ok(reader: ST40Reader, tlim, ipla_min: float = 50.0e3):
 
     return ok_pfit or ok_efit
 
-
-def fix_things(regr_data, assign=True):
-    binned = deepcopy(regr_data.binned)
-
-    for k in binned.keys():
-        binned[k].gradient.values = binned[k].value.differentiate("t", edge_order=2)
-
-    if assign:
-        regr_data.binned = binned
-
-    return regr_data
-
-
 def current_file_path():
     return str(pathlib.Path(__file__).parent.resolve())
 
@@ -566,6 +553,21 @@ def rename_file(_file, _file_backup):
         os.rename(_file, _file_backup)
     except FileNotFoundError:
         print(f"No backup required, {_file} does not exist")
+
+def fix_things(regr_data, assign=True):
+    """
+    Place where to put temporary workflow to fix data in the database
+    """
+    return
+    binned = deepcopy(regr_data.binned)
+
+    for k in binned.keys():
+        binned[k].gradient.values = binned[k].value.differentiate("t", edge_order=2)
+
+    if assign:
+        regr_data.binned = binned
+
+    return regr_data
 
 
 def test_flow(
