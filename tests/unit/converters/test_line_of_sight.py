@@ -249,7 +249,7 @@ def test_missing_los():
 
     # Set-up line of sight class
     try:
-        los = line_of_sight.LinesOfSightTransform(
+        _ = line_of_sight.LinesOfSightTransform(
             origin[0],
             origin[1],
             origin[2],
