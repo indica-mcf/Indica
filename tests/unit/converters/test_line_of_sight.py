@@ -63,7 +63,12 @@ def convert_to_rho(plot=False):
     data = equilibrium_dat()
     Te = None
     offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
-    equil = equilibrium.Equilibrium(data, Te, sess=MagicMock(), offset_picker=offset,)
+    equil = equilibrium.Equilibrium(
+        data,
+        Te,
+        sess=MagicMock(),
+        offset_picker=offset,
+    )
 
     # Flux Transform
     flux_coord = flux_surfaces.FluxSurfaceCoordinates("poloidal")
@@ -133,7 +138,7 @@ def test_convert_to_Rz(debug=False):
     R_, z_ = los.convert_to_Rz(x1, x2, t)
 
     x, y, z = los.convert_to_xyz(x1, x2, t)
-    R = np.sign(x) * np.sqrt(x ** 2 + y ** 2)
+    R = np.sign(x) * np.sqrt(x**2 + y**2)
 
     # R and z are as expected
     assert all(z == z_)
@@ -230,6 +235,7 @@ def test_intersections(debug=False):
     if debug:
         print(rx)
         print(zx)
+
 
 # Test LOS missing vessel
 def test_missing_los():
@@ -350,7 +356,7 @@ def equilibrium_dat():
     )
     result["rbnd"] = (
         result["rmag"]
-        + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
+        + a_coeff * b_coeff / np.sqrt(a_coeff**2 * np.tan(thetas) ** 2 + b_coeff**2)
     ).assign_attrs(**attrs)
     result["rbnd"].name = "rbnd"
     result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
@@ -359,7 +365,7 @@ def equilibrium_dat():
         result["zmag"]
         + a_coeff
         * b_coeff
-        / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
+        / np.sqrt(a_coeff**2 + b_coeff**2 * np.tan(thetas) ** -2)
     ).assign_attrs(**attrs)
     result["zbnd"].name = "zbnd"
     result["zbnd"].attrs["datatype"] = ("z", "separatrix")
@@ -369,8 +375,8 @@ def equilibrium_dat():
     rgrid = xr.DataArray(r, coords=[("R", r)])
     zgrid = xr.DataArray(z, coords=[("z", z)])
     psin = (
-        (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
-        + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
+        (-result["zmag"] + zgrid) ** 2 / b_coeff**2
+        + (-result["rmag"] + rgrid) ** 2 / a_coeff**2
     ) ** (0.5 / n_exp)
 
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
@@ -384,7 +390,9 @@ def equilibrium_dat():
     psin_coords = np.linspace(0.0, 1.0, nspace)
     rho = np.sqrt(psin_coords)
     psin_data = xr.DataArray(psin_coords, coords=[("rho_poloidal", rho)])
-    attrs["transform"] = FluxSurfaceCoordinates("poloidal",)
+    attrs["transform"] = FluxSurfaceCoordinates(
+        "poloidal",
+    )
 
     def monotonic_series(start, stop, num=50, endpoint=True, retstep=False, dtype=None):
         return np.linspace(start, stop, num, endpoint, retstep, dtype)
@@ -408,8 +416,8 @@ def equilibrium_dat():
     else:
         f_raw = np.outer(
             np.sqrt(
-                Btot_factor ** 2
-                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff ** 2
+                Btot_factor**2
+                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff**2
             ),
             np.ones_like(rho),
         )
@@ -419,13 +427,13 @@ def equilibrium_dat():
         f_raw, coords=[("t", times), ("rho_poloidal", rho)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
-    result["rmjo"] = (result["rmag"] + a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmjo"].name = "rmjo"
     result["rmjo"].attrs["datatype"] = ("major_rad", "lfs")
     result["rmjo"].coords["z"] = result["zmag"]
-    result["rmji"] = (result["rmag"] - a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmji"] = (result["rmag"] - a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmji"].name = "rmji"
@@ -434,7 +442,7 @@ def equilibrium_dat():
     result["vjac"] = (
         4
         * n_exp
-        * np.pi ** 2
+        * np.pi**2
         * result["rmag"]
         * a_coeff
         * b_coeff
