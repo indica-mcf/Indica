@@ -124,7 +124,7 @@ def plot_time_evol(
             * database.info["ipla_efit"]["const"]
         ).plot(color=cols[i], alpha=0.5)
 
-    plt.title(f"Pulse range [{database.pulses.min()}, {database.pulses.max()}]")
+    plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
     plt.xlabel("time (s)")
     plt.ylabel(
         f"{database.info['ipla_efit']['label']} {database.info['ipla_efit']['units']}"
@@ -137,7 +137,7 @@ def plot_time_evol(
     for i, p in enumerate(bvl_ov_ip.pulse):
         bvl_ov_ip.value.sel(pulse=p).plot(color=cols[i], alpha=0.5)
 
-    plt.title(f"Pulse range [{database.pulses.min()}, {database.pulses.max()}]")
+    plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
     plt.xlabel("time (s)")
     plt.ylabel("I$_{BVL}$/I$_P$")
     plt.ylim(top=0)
@@ -487,6 +487,8 @@ def plot(
             "Plasma Current": ("ipla_efit",),
             "Pulse Length": ("pulse_length",),
             "Stored Energy": ("wp_efit",),
+            "Electron Temperature (XRCS)": ("te_xrcs",),
+            "Ion Temperature (XRCS)": ("ti_xrcs",),
             "Ion/Electron Temperature (XRCS)": ("ti_te_xrcs",),
             "Electron Density": ("ne_nirh1",),
             "Electron Pressure": ("ne_nirh1_te_xrcs",),
