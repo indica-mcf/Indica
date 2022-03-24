@@ -48,7 +48,7 @@ jobs:
       run: python -m venv .venv &&
            source .venv/bin/activate &&
            pip install .[docs]
-      if: ${{ steps.cache-venv.ouputs.cache-hit != 'true' && steps.cache-checkup.outputs.cache-bad == 'true'}}
+      if: ${{ steps.cache-venv.ouputs.cache-hit != 'true' || steps.cache-checkup.outputs.cache-bad == 'true'}}
 
     - name: Test docs build successfully
       run: source .venv/bin/activate &&
