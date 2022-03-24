@@ -6,7 +6,11 @@ from xarray import DataArray
 
 
 def convert_in_time(
-    tstart: float, tend: float, dt: float, data: DataArray, method="linear",
+    tstart: float,
+    tend: float,
+    dt: float,
+    data: DataArray,
+    method="linear",
 ) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
@@ -37,7 +41,6 @@ def convert_in_time(
         return bin_to_time_labels(tlabels, data)
     else:
         return interpolate_to_time_labels(tlabels, data, method=method)
-
 
 
 def interpolate_to_time_labels(
@@ -117,10 +120,10 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         )
         uncertainty = np.sqrt(
             grouped.reduce(
-                lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
+                lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
             )
         )
-        error = np.sqrt(uncertainty ** 2 + stdev ** 2)
+        error = np.sqrt(uncertainty**2 + stdev**2)
         averaged.attrs["error"] = error.rename(t_bins="t")
     if "dropped" in data.attrs:
         grouped = (
@@ -140,10 +143,10 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             )
             uncertainty = np.sqrt(
                 grouped.reduce(
-                    lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
+                    lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
                 )
             )
-            error = np.sqrt(uncertainty ** 2 + stdev ** 2)
+            error = np.sqrt(uncertainty**2 + stdev**2)
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
     if "provenance" in data.attrs:
         del averaged.attrs["partial_provenance"]
@@ -151,8 +154,13 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
 
     return averaged.rename(t_bins="t")
 
+
 def interpolate_in_time(
-    tstart: float, tend: float, dt: float, data: DataArray, method: str = "linear",
+    tstart: float,
+    tend: float,
+    dt: float,
+    data: DataArray,
+    method: str = "linear",
 ) -> DataArray:
     """Interpolate the given data along the time axis, discarding data
     before or after the limits.
@@ -188,6 +196,7 @@ def interpolate_in_time(
 
     tlabels = np.arange(tstart, tend, dt)
     return interpolate_to_time_labels(tlabels, data, method=method)
+
 
 def bin_in_time(tstart: float, tend: float, dt: float, data: DataArray) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
