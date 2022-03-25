@@ -44,11 +44,7 @@ def convert_in_time(
 
 
 def convert_in_time_dt(
-    tstart: float,
-    tend: float,
-    dt: float,
-    data: DataArray,
-    method="linear",
+    tstart: float, tend: float, dt: float, data: DataArray, method="linear",
 ) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
@@ -156,10 +152,10 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         )
         uncertainty = np.sqrt(
             grouped.reduce(
-                lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
+                lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
             )
         )
-        error = np.sqrt(uncertainty**2 + stdev**2)
+        error = np.sqrt(uncertainty ** 2 + stdev ** 2)
         averaged.attrs["error"] = error.rename(t_bins="t")
     if "dropped" in data.attrs:
         grouped = (
@@ -179,10 +175,10 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             )
             uncertainty = np.sqrt(
                 grouped.reduce(
-                    lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
+                    lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
                 )
             )
-            error = np.sqrt(uncertainty**2 + stdev**2)
+            error = np.sqrt(uncertainty ** 2 + stdev ** 2)
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
     if "provenance" in data.attrs:
         del averaged.attrs["partial_provenance"]
@@ -223,18 +219,13 @@ def interpolate_in_time(
     """
     check_bounds_interp(tstart, tend, data)
 
-    npoints = round((tend - tstart) * frequency) + 1
-    tlabels = np.linspace(tstart, tend, npoints)
+    tlabels = get_tlabels(tstart, tend, frequency)
 
     return interpolate_to_time_labels(tlabels, data, method=method)
 
 
 def interpolate_in_time_dt(
-    tstart: float,
-    tend: float,
-    dt: float,
-    data: DataArray,
-    method: str = "linear",
+    tstart: float, tend: float, dt: float, data: DataArray, method: str = "linear",
 ) -> DataArray:
     """Interpolate the given data along the time axis, discarding data
     before or after the limits.
@@ -261,7 +252,8 @@ def interpolate_in_time_dt(
     """
 
     check_bounds_interp(tstart, tend, data)
-    tlabels = np.arange(tstart, tend, dt)
+    tlabels = get_tlabels_dt(tstart, tend, dt)
+
     return interpolate_to_time_labels(tlabels, data, method=method)
 
 
@@ -289,8 +281,8 @@ def bin_in_time(
 
     """
     check_bounds_bin(tstart, tend, 1.0 / frequency, data)
-    npoints = round((tend - tstart) * frequency) + 1
-    tlabels = np.linspace(tstart, tend, npoints)
+    tlabels = get_tlabels(tstart, tend, frequency)
+
     return bin_to_time_labels(tlabels, data)
 
 
@@ -316,8 +308,55 @@ def bin_in_time_dt(tstart: float, tend: float, dt: float, data: DataArray) -> Da
 
     """
     check_bounds_bin(tstart, tend, dt, data)
-    tlabels = np.arange(tstart, tend, dt)
+    tlabels = get_tlabels_dt(tstart, tend, dt)
     return bin_to_time_labels(tlabels, data)
+
+
+def get_tlabels(tstart:float, tend:float, frequency:float):
+    """
+    Build time array given start, end and frequency
+
+    Parameters
+    ----------
+    tstart
+        The lower limit in time for determining which data to retain.
+    tend
+        The upper limit in time for determining which data to retain.
+    frequency
+        Frequency of sampling on the time axis.
+
+    Returns
+    -------
+    tlabels
+        Time array
+
+    """
+    npoints = round((tend - tstart) * frequency) + 1
+    return np.linspace(tstart, tend, npoints)
+
+
+def get_tlabels_dt(tstart:float, tend:float, dt:float):
+    """
+    Build time array given start, end and frequency
+
+    Parameters
+    ----------
+    tstart
+        The lower limit in time for determining which data to retain.
+    tend
+        The upper limit in time for determining which data to retain.
+    dt
+        Time resolution of new time axis.
+
+    Returns
+    -------
+    tlabels
+        Time array
+
+    """
+    tlabels = np.arange(tstart, tend + 2 * dt, dt)
+    tlabels = tlabels[np.where((tlabels >= tstart) * (tlabels <= tend))[0]]
+    return tlabels
 
 
 def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):
