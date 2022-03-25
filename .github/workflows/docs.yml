@@ -3,6 +3,7 @@
 name: sphinx docs
 
 on:
+  pull_request:
   push:
     branches:
       - master
@@ -12,9 +13,6 @@ on:
       - indica/**
       - doc/**
       - poetry.lock
-  pull_request:
-    branches:
-      - '**'
 
 jobs:
   docs:

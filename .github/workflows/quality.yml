@@ -3,13 +3,11 @@
 name: linting
 
 on:
+  pull_request:
   push:
     branches:
       - master
       - develop
-  pull_request:
-    branches:
-      - '**'
 
 jobs:
 
