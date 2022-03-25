@@ -1,4 +1,5 @@
-"""Routines for averaging or interpolate along the time axis."""
+"""Routines for averaging or interpolate along the time axis given start and end times
+and a desired time resolution"""
 
 import numpy as np
 from xarray import DataArray
@@ -18,7 +19,7 @@ def convert_in_time(
     ----------
     tstart
         The lower limit in time for determining which data to retain.
-    tup
+    tend
         The upper limit in time for determining which data to retain.
     frequency
         Frequency of sampling on the time axis.
@@ -42,131 +43,40 @@ def convert_in_time(
         return interpolate_in_time(tstart, tend, frequency, data, method)
 
 
-def interpolate_in_time(
+def convert_in_time_dt(
     tstart: float,
     tend: float,
-    frequency: float,
+    dt: float,
     data: DataArray,
-    method: str = "linear",
+    method="linear",
 ) -> DataArray:
-    """Interpolate the given data along the time axis, discarding data
-    before or after the limits.
+    """Bin given data along the time axis, discarding data before or after
+    the limits.
 
     Parameters
     ----------
     tstart
         The lower limit in time for determining which data to retain.
-    tup
+    tend
         The upper limit in time for determining which data to retain.
-    frequency
-        Frequency of sampling on the time axis.
-    data
-        Data to be interpolated.
-    method
-        Interpolation method to use. Must be a value accepted by
-        :py:class:`scipy.interpolate.interp1d`.
-
-    Returns
-    -------
-    :
-        Array like the input, but interpolated along the time axis.
-
-    """
-    # Old implementation from abstract reader. Will likely need to be changed.
-    tcoords = data.coords["t"]
-    start = np.argmax((tcoords > tstart).data) - 1
-    if start < 0:
-        raise ValueError("Start time {} not in range of provided data.".format(tstart))
-    end = np.argmax((tcoords >= tend).data)
-    if end < 1:
-        raise ValueError("End time {} not in range of provided data.".format(tend))
-    npoints = round((tend - tstart) * frequency) + 1
-    tvals = np.linspace(tstart, tend, npoints)
-    cleaned_data = data.indica.with_ignored_data
-    result = cleaned_data.interp(t=tvals, method=method)
-    if "error" in data.attrs:
-        result.attrs["error"] = cleaned_data.attrs["error"].interp(
-            t=tvals, method=method
-        )
-    if "dropped" in data.attrs:
-        ddim = data.indica.drop_dim
-        result = result.indica.ignore_data(data.attrs["dropped"].coords[ddim], ddim)
-    if "provenance" in data.attrs:
-        del result.attrs["partial_provenance"]
-        del result.attrs["provenance"]
-    return result
-
-
-def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
-    """Bin data to sit on the specified time labels.
-
-    Parameters
-    ----------
-    tlabels
-        The times at which the data should be binned.
+    dt
+        Time resolution of new time axis.
     data
         Data to be binned.
 
     Returns
     -------
     :
-        Array like the input, but binned onto the time labels.
+        Array like the input, but binned along the time axis.
 
     """
-    if data.coords["t"].shape == tlabels.shape and np.all(data.coords["t"] == tlabels):
-        return data
-    npoints = len(tlabels)
-    half_interval = 0.5 * (tlabels[1] - tlabels[0])
-    tbins = np.empty(npoints + 1)
-    tbins[0] = tlabels[0] - half_interval
-    tbins[1:] = tlabels + half_interval
-    grouped = data.sel(t=slice(tbins[0], tbins[-1])).groupby_bins(
-        "t", tbins, labels=tlabels
-    )
-    averaged = grouped.mean("t", keep_attrs=True)
-    stdev = grouped.std("t", keep_attrs=True)
 
-    if "error" in data.attrs:
-        grouped = (
-            data.attrs["error"]
-            .sel(t=slice(tbins[0], tbins[-1]))
-            .groupby_bins("t", tbins, labels=tlabels)
-        )
-        uncertainty = np.sqrt(
-            grouped.reduce(
-                lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
-            )
-        )
-        error = np.sqrt(uncertainty ** 2 + stdev ** 2)
-        averaged.attrs["error"] = error.rename(t_bins="t")
-    if "dropped" in data.attrs:
-        grouped = (
-            data.attrs["dropped"]
-            .sel(t=slice(tbins[0], tbins[-1]))
-            .groupby_bins("t", tbins, labels=tlabels)
-        )
-        dropped = grouped.mean("t")
-        stdev = grouped.std("t")
-        averaged.attrs["dropped"] = dropped.rename(t_bins="t")
-        if "error" in data.attrs:
-            grouped = (
-                data.attrs["dropped"]
-                .attrs["error"]
-                .sel(t=slice(tbins[0], tbins[-1]))
-                .groupby_bins("t", tbins, labels=tlabels)
-            )
-            uncertainty = np.sqrt(
-                grouped.reduce(
-                    lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
-                )
-            )
-            error = np.sqrt(uncertainty ** 2 + stdev ** 2)
-            averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
-    if "provenance" in data.attrs:
-        del averaged.attrs["partial_provenance"]
-        del averaged.attrs["provenance"]
-
-    return averaged.rename(t_bins="t")
+    tcoords = data.coords["t"]
+    data_dt = tcoords[1] - tcoords[0]
+    if data_dt <= dt / 2:
+        return bin_in_time_dt(tstart, tend, dt, data)
+    else:
+        return interpolate_in_time_dt(tstart, tend, dt, data, method=method)
 
 
 def interpolate_to_time_labels(
@@ -209,6 +119,150 @@ def interpolate_to_time_labels(
     return interpolated
 
 
+def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
+    """Bin data to sit on the specified time labels.
+
+    Parameters
+    ----------
+    tlabels
+        The times at which the data should be binned.
+    data
+        Data to be binned.
+
+    Returns
+    -------
+    :
+        Array like the input, but binned onto the time labels.
+
+    """
+    if data.coords["t"].shape == tlabels.shape and np.all(data.coords["t"] == tlabels):
+        return data
+    npoints = len(tlabels)
+    half_interval = 0.5 * (tlabels[1] - tlabels[0])
+    tbins = np.empty(npoints + 1)
+    tbins[0] = tlabels[0] - half_interval
+    tbins[1:] = tlabels + half_interval
+    grouped = data.sel(t=slice(tbins[0], tbins[-1])).groupby_bins(
+        "t", tbins, labels=tlabels
+    )
+    averaged = grouped.mean("t", keep_attrs=True)
+    stdev = grouped.std("t", keep_attrs=True)
+
+    if "error" in data.attrs:
+        grouped = (
+            data.attrs["error"]
+            .sel(t=slice(tbins[0], tbins[-1]))
+            .groupby_bins("t", tbins, labels=tlabels)
+        )
+        uncertainty = np.sqrt(
+            grouped.reduce(
+                lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
+            )
+        )
+        error = np.sqrt(uncertainty**2 + stdev**2)
+        averaged.attrs["error"] = error.rename(t_bins="t")
+    if "dropped" in data.attrs:
+        grouped = (
+            data.attrs["dropped"]
+            .sel(t=slice(tbins[0], tbins[-1]))
+            .groupby_bins("t", tbins, labels=tlabels)
+        )
+        dropped = grouped.mean("t")
+        stdev = grouped.std("t")
+        averaged.attrs["dropped"] = dropped.rename(t_bins="t")
+        if "error" in data.attrs:
+            grouped = (
+                data.attrs["dropped"]
+                .attrs["error"]
+                .sel(t=slice(tbins[0], tbins[-1]))
+                .groupby_bins("t", tbins, labels=tlabels)
+            )
+            uncertainty = np.sqrt(
+                grouped.reduce(
+                    lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
+                )
+            )
+            error = np.sqrt(uncertainty**2 + stdev**2)
+            averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
+    if "provenance" in data.attrs:
+        del averaged.attrs["partial_provenance"]
+        del averaged.attrs["provenance"]
+
+    return averaged.rename(t_bins="t")
+
+
+def interpolate_in_time(
+    tstart: float,
+    tend: float,
+    frequency: float,
+    data: DataArray,
+    method: str = "linear",
+) -> DataArray:
+    """Interpolate the given data along the time axis, discarding data
+    before or after the limits.
+
+    Parameters
+    ----------
+    tstart
+        The lower limit in time for determining which data to retain.
+    tend
+        The upper limit in time for determining which data to retain.
+    frequency
+        Frequency of sampling on the time axis.
+    data
+        Data to be interpolated.
+    method
+        Interpolation method to use. Must be a value accepted by
+        :py:class:`scipy.interpolate.interp1d`.
+
+    Returns
+    -------
+    :
+        Array like the input, but interpolated along the time axis.
+
+    """
+    check_bounds_interp(tstart, tend, data)
+
+    npoints = round((tend - tstart) * frequency) + 1
+    tlabels = np.linspace(tstart, tend, npoints)
+
+    return interpolate_to_time_labels(tlabels, data, method=method)
+
+def interpolate_in_time_dt(
+    tstart: float,
+    tend: float,
+    dt: float,
+    data: DataArray,
+    method: str = "linear",
+) -> DataArray:
+    """Interpolate the given data along the time axis, discarding data
+    before or after the limits.
+
+    Parameters
+    ----------
+    tstart
+        The lower limit in time for determining which data to retain.
+    tend
+        The upper limit in time for determining which data to retain.
+    dt
+        Time resolution of new time axis.
+    data
+        Data to be interpolated.
+    method
+        Interpolation method to use. Must be a value accepted by
+        :py:class:`scipy.interpolate.interp1d`.
+
+    Returns
+    -------
+    :
+        Array like the input, but interpolated along the time axis.
+
+    """
+
+    check_bounds_interp(tstart, tend, data)
+    tlabels = np.arange(tstart, tend, dt)
+    return interpolate_to_time_labels(tlabels, data, method=method)
+
 def bin_in_time(
     tstart: float, tend: float, frequency: float, data: DataArray
 ) -> DataArray:
@@ -219,7 +273,7 @@ def bin_in_time(
     ----------
     tstart
         The lower limit in time for determining which data to retain.
-    tup
+    tend
         The upper limit in time for determining which data to retain.
     frequency
         Frequency of sampling on the time axis.
@@ -232,38 +286,11 @@ def bin_in_time(
         Array like the input, but binned along the time axis.
 
     """
-    npoints = round(abs(tend - tstart) * frequency) + 1
-    half_interval = 0.5 * (tend - tstart) / (npoints - 1)
-    tcoords = data.coords["t"]
-    data_frequency = 1 / (tcoords[1] - tcoords[0])
+    check_bounds_bin(tstart, tend, 1./frequency, data)
     tlabels = np.linspace(tstart, tend, npoints)
-    if data_frequency > frequency * 2:
-        if tcoords[0] > tstart + half_interval:
-            raise ValueError(
-                "No data falls within first bin {}.".format(
-                    (tstart - half_interval, tstart + half_interval)
-                )
-            )
-        if tcoords[-1] < tend - half_interval:
-            raise ValueError(
-                "No data falls within last bin {}.".format(
-                    (tend - half_interval, tend + half_interval)
-                )
-            )
+    return bin_to_time_labels(tlabels, data)
 
-        return bin_to_time_labels(tlabels, data)
-    else:
-        return data.interp(t=tlabels, method="linear")
-
-
-def bin_in_time_dt(
-    tstart: float,
-    tend: float,
-    dt: float,
-    data: DataArray,
-    method="linear",
-    tlabels=None,
-) -> DataArray:
+def bin_in_time_dt(tstart: float, tend: float, dt: float, data: DataArray) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
 
@@ -271,7 +298,7 @@ def bin_in_time_dt(
     ----------
     tstart
         The lower limit in time for determining which data to retain.
-    tup
+    tend
         The upper limit in time for determining which data to retain.
     dt
         Time resolution of new time axis.
@@ -284,27 +311,88 @@ def bin_in_time_dt(
         Array like the input, but binned along the time axis.
 
     """
-    if tlabels is None:
-        tlabels = np.arange(tstart, tend, dt)
+    check_bounds_bin(tstart, tend, dt, data)
+    tlabels = np.arange(tstart, tend, dt)
+    return bin_to_time_labels(tlabels, data)
 
-    half_interval = 0.5 * dt
+def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):
+    """
+    Check necessary bounds for binning data in time
+
+    Parameters
+    ----------
+    tstart
+        The lower limit in time for determining which data to retain.
+    tend
+        The upper limit in time for determining which data to retain.
+    dt
+        Time resolution of new time axis.
+    data
+        Data to be binned.
+    """
     tcoords = data.coords["t"]
-    data_dt = tcoords[1] - tcoords[0]
-
-    if data_dt <= dt / 2:
-        if tcoords[0] > tstart + half_interval:
-            raise ValueError(
-                "No data falls within first bin {}.".format(
-                    (tstart - half_interval, tstart + half_interval)
-                )
+    half_interval = dt / 2
+    if tcoords[0] > tstart + half_interval:
+        return ValueError(
+            "No data falls within first bin {}.".format(
+                (tstart - half_interval, tstart + half_interval)
             )
-        if tcoords[-1] < tend - half_interval:
-            raise ValueError(
-                "No data falls within last bin {}.".format(
-                    (tend - half_interval, tend + half_interval)
-                )
+        )
+    if tcoords[-1] < tend - half_interval:
+        return ValueError(
+            "No data falls within last bin {}.".format(
+                (tend - half_interval, tend + half_interval)
             )
+        )
 
-        return bin_to_time_labels(tlabels, data)
-    else:
-        return interpolate_to_time_labels(tlabels, data, method=method)
+    return
+
+
+def check_bounds_interp(tstart: float, tend: float, data: DataArray):
+    """
+    Check necessary bounds for interpolating in time
+
+    Parameters
+    ----------
+    tstart
+        The lower limit in time for determining which data to retain.
+    tend
+        The upper limit in time for determining which data to retain.
+    dt
+        Time resolution of new time axis.
+    data
+        Data to be binned.
+    """
+    tcoords = data.coords["t"]
+    start = np.argmax((tcoords > tstart).data) - 1
+    if start < 0:
+        raise ValueError("Start time {} not in range of provided data.".format(tstart))
+    end = np.argmax((tcoords >= tend).data)
+    if end < 1:
+        raise ValueError("End time {} not in range of provided data.".format(tend))
+
+
+    return
+
+def test_time():
+    import matplotlib.pylab as plt
+
+    nt = 50
+    values = np.sin(np.linspace(0, np.pi*3, nt)) + np.random.random(nt) - 0.5
+    time = np.linspace(0, 0.1, nt)
+    data = DataArray(values, coords=[("t", time)])
+
+    dt = time[1] - time[0]
+    dt_binned = dt * 4
+    dt_interp = dt / 4
+
+    tstart = time[0] + 5*dt
+    tend = time[-1] - 10*dt
+    data_interp = convert_in_time_dt(tstart, tend, dt_interp, data)
+    data_binned = convert_in_time_dt(tstart, tend, dt_binned, data)
+
+    plt.figure()
+    data_interp.plot(marker="x", label="Interpolated")
+    data.plot(marker="o", label="Original data")
+    data_binned.plot(marker="x", label="Binned")
+    plt.legend()
