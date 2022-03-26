@@ -425,10 +425,9 @@ def check_bounds_interp(tstart: float, tend: float, data: DataArray):
     return
 
 
-def test_time():
+def example(nt=50, plot=False):
     import matplotlib.pylab as plt
 
-    nt = 50
     values = np.sin(np.linspace(0, np.pi * 3, nt)) + np.random.random(nt) - 0.5
     time = np.linspace(0, 0.1, nt)
     data = DataArray(values, coords=[("t", time)])
@@ -442,8 +441,11 @@ def test_time():
     data_interp = convert_in_time_dt(tstart, tend, dt_interp, data)
     data_binned = convert_in_time_dt(tstart, tend, dt_binned, data)
 
-    plt.figure()
-    data_interp.plot(marker="x", label="Interpolated")
-    data.plot(marker="o", label="Original data")
-    data_binned.plot(marker="x", label="Binned")
-    plt.legend()
+    if plot:
+        plt.figure()
+        data_interp.plot(marker="x", label="Interpolated")
+        data.plot(marker="o", label="Original data")
+        data_binned.plot(marker="x", label="Binned")
+        plt.legend()
+
+    return data, data_interp, data_binned
