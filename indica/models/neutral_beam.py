@@ -9,6 +9,8 @@ from ..converters.line_of_sight import LinesOfSightTransform
 
 
 analytical_beam_defaults = {
+    "element": "H",
+    "amu": int(1),
     "energy": 25.0*1e3,
     "power": 500*1e3,
     "fractions": (0.7, 0.1, 0.2, 0.0),
@@ -44,21 +46,20 @@ class NeutralBeam:
     def run_BBNBI(self):
         print('Add code to run BBNBI')
 
-    def analytical_beam(self):
+    def run_analytical_beam(
+            self,
+            x_dash: LabeledArray = DataArray(np.linspace(-1.0, 1.0, 501, dtype=float)),
+            y_dash: LabeledArray = DataArray(np.linspace(-1.0, 1.0, 501, dtype=float)),
+            z_dash: LabeledArray = DataArray(np.linspace(0.0, 1.0, 1001, dtype=float)),
+    ):
         '''Analytical beam based on double gaussian formula'''
 
-        # coordinates
-        x_coords = DataArray(np.linspace(-1.0, 1.0, 501, dtype=float))
-        y_coords = DataArray(np.linspace(-1.0, 1.0, 501, dtype=float))
-        z_coords = DataArray(np.linspace(0.0, 1.0, 1001, dtype=float))
+        # Calculate beam velocity
+        v_beam = self.beam_velocity()
+        
 
-        # Neutral beam formula
-        width_x0 = 0.04  # initial 1/e width in x direction [m]
-        width_y0 = 0.06  # initial 1/e width in y direction [m]
-        # v_beam = self.beam_velocity()
-
-    # def beam_velocity(self):
-    #     return 4.38*1e5 * np.sqrt(self.energy * 1e-3 / self.amu)
+    def beam_velocity(self):
+        return 4.38*1e5 * np.sqrt(self.energy * 1e-3 / float(self.amu))
 
     def set_energy(self, energy: float):
         self.energy = energy
@@ -75,4 +76,11 @@ class NeutralBeam:
     def set_width(self, width: tuple):
         self.width = width
 
-
+    def set_element(self, element: str):
+        self.element = element
+        if self.element == "H":
+            self.amu = int(1)
+        elif self.element == "D":
+            self.amu = int(2)
+        else:
+            raise ValueError
