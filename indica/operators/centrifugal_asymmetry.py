@@ -123,7 +123,7 @@ class ToroidalRotation(Operator):
             greater_than_or_equal_zero=False,
         )
 
-        asymmetry_parameter = asymmetry_parameters.sel(elements=impurity)
+        asymmetry_parameter = asymmetry_parameters.sel(element=impurity)
 
         impurity_mass_int = ELEMENTS[impurity][1]
 
@@ -136,7 +136,7 @@ class ToroidalRotation(Operator):
 
         main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
 
-        ion_temperature = ion_temperature.sel(elements=impurity)
+        ion_temperature = ion_temperature.sel(element=impurity)
 
         # mypy on the github CI suggests that * is an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
@@ -262,7 +262,7 @@ class AsymmetryParameter(Operator):
             greater_than_or_equal_zero=False,
         )
 
-        toroidal_rotations = toroidal_rotations.sel(elements=impurity)
+        toroidal_rotations = toroidal_rotations.sel(element=impurity)
 
         impurity_mass_int = ELEMENTS[impurity][1]
 
@@ -275,7 +275,7 @@ class AsymmetryParameter(Operator):
 
         main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
 
-        ion_temperature = ion_temperature.sel(elements=impurity)
+        ion_temperature = ion_temperature.sel(element=impurity)
 
         c = 3.0e8  # speed of light in m/s
         toroidal_rotations /= c

@@ -157,8 +157,8 @@ def test_main_ion_density():
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho.shape, *t.shape)),
-        coords=[("elements", elements), ("rho", rho), ("t", t)],
-        dims=["elements", "rho", "t"],
+        coords=[("element", elements), ("rho", rho), ("t", t)],
+        dims=["element", "rho", "t"],
     )
 
     impurity_densities.data[0] = beryllium_impurity_conc
