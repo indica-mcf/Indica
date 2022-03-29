@@ -294,14 +294,6 @@ def test_interpolate_linear_data(tstart, tend, n, times, a, b, abs_err, method):
                 expected.values, abs=max(1e-12, 0.5 * np.abs(a) / original_frequency)
             )
         )
-        assert np.all(
-            abs_err / np.sqrt(count_ceil(count) + 1) - 1e-12
-            <= result.attrs["error"][1:-1].values
-        )
-        assert np.all(
-            result.attrs["error"].values
-            <= abs_err / np.sqrt(count_floor(count) - 1) + 1e-12
-        )
     else:
         assert np.all(result.values == approx(expected.values))
         assert np.all(result.attrs["error"].values == approx(abs_err))
