@@ -172,3 +172,36 @@ class ST40data:
             bt_0.attrs = meta
             self.data["bt_0"] = bt_0
             self.data["R_bt_0"] = DataArray(0.4)
+
+        # TODO temporary NBI power reader
+        mds_path = ".NBI.RFX.RUN1:PINJ"
+        prfx = np.array(self.reader._conn_get(mds_path))*1.e6
+        prfx_dims, _ = self.reader._get_signal_dims(mds_path, len(prfx.shape))
+        prfx = DataArray(prfx, dims=("t",), coords={"t": prfx_dims[0]}, )
+        prfx = prfx.sel(t=slice(self.reader._tstart, self.reader._tend))
+        self.data["rfx"] = {}
+        self.data["rfx"]["pin"] = prfx
+
+        mds_path = ".NBI.HNBI1.RUN1:PINJ"
+        phnbi1 = np.array(self.reader._conn_get(mds_path))*1.e6
+        phnbi1_dims, _ = self.reader._get_signal_dims(mds_path, len(phnbi1.shape))
+        phnbi1 = DataArray(phnbi1, dims=("t",), coords={"t": phnbi1_dims[0]}, )
+        phnbi1 = phnbi1.sel(t=slice(self.reader._tstart, self.reader._tend))
+        self.data["hnbi1"] = {}
+        self.data["hnbi1"]["pin"] = phnbi1
+
+        # TODO temporary SXR single point reader
+        data, dims = self.reader._get_data("sxr", "diode_detr", ".filter_001:signal", 0)
+        if not np.array_equal(data, "FAILED"):
+            data = DataArray(data, dims=("t",), coords={"t": dims[0]},)
+            data = data.sel(t=slice(self.reader._tstart, self.reader._tend))
+            self.data["diode_detr"] = {}
+            self.data["diode_detr"]["filter_001"] = data
+
+        # TODO temporary SXR single point reader
+        data, dims = self.reader._get_data("", "diode_detr", ".filter_001:signal", 0)
+        if not np.array_equal(data, "FAILED"):
+            data = DataArray(data, dims=("t",), coords={"t": dims[0]},)
+            data = data.sel(t=slice(self.reader._tstart, self.reader._tend))
+            self.data["diode_detr"] = {}
+            self.data["diode_detr"]["filter_001"] = data

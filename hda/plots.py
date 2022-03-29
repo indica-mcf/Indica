@@ -1051,8 +1051,8 @@ def profiles(
     R = plasma.equilibrium.rho.R
     z = plasma.equilibrium.rho.z
     vmin = np.linspace(1, 0, len(plasma.time))
-    if tplot is not None:
-        vmin = [0]
+    # if tplot is not None:
+    #     vmin = [0]*len(plasma.time)
     for i, t in enumerate(tplot):
         rho = plasma.equilibrium.rho.sel(t=t, method="nearest")
         plt.contour(
