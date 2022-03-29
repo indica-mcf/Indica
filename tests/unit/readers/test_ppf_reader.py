@@ -700,7 +700,7 @@ def test_general_get(
     revisions,
     edited_revisions,
 )
-def test_get_sal_provenance(
+def test_sal_create_provenance(
     fake_sal,
     pulse,
     time_range,
@@ -711,7 +711,7 @@ def test_get_sal_provenance(
     revision,
     available_revisions,
 ):
-    """Test SAL provenance is being correctly saved from get_* method calls."""
+    """Test SAL provenance is being correctly saved in create_provenance."""
     reader = patched_ppf_reader(
         fake_sal,
         pulse,
@@ -719,23 +719,34 @@ def test_get_sal_provenance(
         default_error=error,
         max_freq=freq,
         selector=MagicMock(),
-        # session=MagicMock(),
     )
     reader._client._revisions = available_revisions
-    bad_rev = revision != 0 and revision < available_revisions[0]
-    with pytest.raises(sal.core.exception.NodeNotFound) if bad_rev else nullcontext():
-        results = reader.get(uid, instrument, revision)
-    if bad_rev:
+    if revision in available_revisions:
+        expected_revision = revision
+    elif revision < 0:
+        expected_revision = available_revisions[revision + 1]
+    elif revision > max(available_revisions):
+        expected_revision = available_revisions[-1]
+    else:
         return
-    for q in results.keys():
-        print(results[q].provenance)
-        if revision != 0:
-            assert list(results[q].provenance.get_attribute("revision"))[0] == revision
-        else:
-            assert (
-                list(results[q].provenance.get_attribute("revision"))[0]
-                == available_revisions[-1]
-            )
+    for q in reader._IMPLEMENTATION_QUANTITIES.get(instrument, {}).keys():
+        provenance = reader.create_provenance(
+            diagnostic="test",
+            uid=uid,
+            instrument=instrument,
+            revision=revision,
+            quantity=q,
+            data_objects=[
+                reader.get_sal_path(
+                    uid=uid,
+                    instrument=instrument,
+                    quantity=q,
+                    revision=expected_revision,
+                )
+            ],
+            ignored=[],
+        )
+        assert list(provenance.get_attribute("revision"))[0] == expected_revision
 
 
 @given(
