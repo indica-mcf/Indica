@@ -356,8 +356,8 @@ class Equilibrium(AbstractEquilibrium):
     def cross_sectional_area(
         self,
         rho: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        ntheta: Optional[int] = 12,
+        t: Optional[LabeledArray],
+        ntheta: int = 12,
         kind: str = "poloidal",
     ) -> Tuple[DataArray, LabeledArray]:
         """Calculates the cross-sectional area inside the flux surface rho and at
@@ -394,7 +394,8 @@ class Equilibrium(AbstractEquilibrium):
             t = np.array([t])
 
         theta = np.linspace(0.0, 2.0 * np.pi, ntheta)
-        theta = DataArray(
+        # Reassignment to a different type is not recognised by mypy.
+        theta = DataArray(  # type: ignore
             data=theta,
             coords={"theta": theta},
             dims=[
@@ -417,7 +418,7 @@ class Equilibrium(AbstractEquilibrium):
                     minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
 
         minor_radii = minor_radii**2
-        minor_radii *= 0.5
+        minor_radii = minor_radii * 0.5
 
         area = trapz(minor_radii, theta, axis=0)
 

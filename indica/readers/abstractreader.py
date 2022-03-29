@@ -1325,12 +1325,12 @@ class DataReader(BaseIO):
             if cached_vals.ndim == 0:
                 cached_vals = np.array([cached_vals])
         else:
-            cached_vals = intrinsic_bad
+            cached_vals = np.array(intrinsic_bad)
         ignored = self._selector(
             data, channel_dim, [*intrinsic_bad, *bad_channels], cached_vals
         )
         form = "%d" if np.issubdtype(dtype, np.integer) else "%.18e"
-        np.savetxt(cache_file, ignored, form)
+        np.savetxt(cache_file, np.fromiter(ignored, Number), form)
         return ignored
 
     def _set_times_item(
