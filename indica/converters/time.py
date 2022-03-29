@@ -48,7 +48,7 @@ def convert_in_time_dt(
     tend: float,
     dt: float,
     data: DataArray,
-    method: str = "linear",
+    method="linear",
 ) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
@@ -66,6 +66,7 @@ def convert_in_time_dt(
 
     Returns
     -------
+    :
         Array like the input, but binned along the time axis.
 
     """
@@ -169,7 +170,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         dropped = grouped.mean("t")
         stdev = grouped.std("t")
         averaged.attrs["dropped"] = dropped.rename(t_bins="t")
-        if "error" in data.attrs:
+        if "error" in data.attrs["dropped"].attrs:
             grouped = (
                 data.attrs["dropped"]
                 .attrs["error"]
@@ -361,7 +362,8 @@ def get_tlabels_dt(tstart: float, tend: float, dt: float):
         Time array
 
     """
-    tlabels = np.arange(tstart, tend + dt, dt)
+    tlabels = np.arange(tstart, tend + 2 * dt, dt)
+    tlabels = tlabels[np.where((tlabels >= tstart) * (tlabels <= tend))[0]]
     return tlabels
 
 
@@ -383,13 +385,13 @@ def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):
     tcoords = data.coords["t"]
     half_interval = dt / 2
     if tcoords[0] > tstart + half_interval:
-        raise ValueError(
+        return ValueError(
             "No data falls within first bin {}.".format(
                 (tstart - half_interval, tstart + half_interval)
             )
         )
     if tcoords[-1] < tend - half_interval:
-        raise ValueError(
+        return ValueError(
             "No data falls within last bin {}.".format(
                 (tend - half_interval, tend + half_interval)
             )
@@ -424,9 +426,10 @@ def check_bounds_interp(tstart: float, tend: float, data: DataArray):
     return
 
 
-def example(nt=50, plot=False):
+def test_time():
     import matplotlib.pylab as plt
 
+    nt = 50
     values = np.sin(np.linspace(0, np.pi * 3, nt)) + np.random.random(nt) - 0.5
     time = np.linspace(0, 0.1, nt)
     data = DataArray(values, coords=[("t", time)])
@@ -440,11 +443,8 @@ def example(nt=50, plot=False):
     data_interp = convert_in_time_dt(tstart, tend, dt_interp, data)
     data_binned = convert_in_time_dt(tstart, tend, dt_binned, data)
 
-    if plot:
-        plt.figure()
-        data_interp.plot(marker="x", label="Interpolated")
-        data.plot(marker="o", label="Original data")
-        data_binned.plot(marker="x", label="Binned")
-        plt.legend()
-
-    return data, data_interp, data_binned
+    plt.figure()
+    data_interp.plot(marker="x", label="Interpolated")
+    data.plot(marker="o", label="Original data")
+    data_binned.plot(marker="x", label="Binned")
+    plt.legend()
