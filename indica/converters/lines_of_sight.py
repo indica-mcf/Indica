@@ -2,6 +2,7 @@
 """
 
 from typing import Callable
+from typing import cast
 from typing import Optional
 from typing import Tuple
 
@@ -101,12 +102,12 @@ class LinesOfSightTransform(CoordinateTransform):
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)
-        result = result and np.all(self.x_start == other.x_start)
-        result = result and np.all(self.z_start == other.z_start)
-        result = result and np.all(self.y_start == other.y_start)
-        result = result and np.all(self.x_end == other.x_end)
-        result = result and np.all(self.z_end == other.z_end)
-        result = result and np.all(self.y_end == other.y_end)
+        result = cast(bool, result and np.all(self.x_start == other.x_start))
+        result = cast(bool, result and np.all(self.z_start == other.z_start))
+        result = cast(bool, result and np.all(self.y_start == other.y_start))
+        result = cast(bool, result and np.all(self.x_end == other.x_end))
+        result = cast(bool, result and np.all(self.z_end == other.z_end))
+        result = cast(bool, result and np.all(self.y_end == other.y_end))
         result = result and self._machine_dims == other._machine_dims
         return result
 
