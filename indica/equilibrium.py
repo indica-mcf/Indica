@@ -243,13 +243,15 @@ class Equilibrium(AbstractEquilibrium):
         )
 
         # Components of poloidal field
-        b_R = -(np.float64(1.0) / R) * dpsi_dz
-        b_z = (np.float64(1.0) / R) * dpsi_dR
+        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
+        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
         b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
 
         # Need this as the current flux_coords function
         # returns some negative values for rho
-        rho_ = where(rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_)
+        rho_ = where(
+            rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
+        )
 
         f = f.indica.interp2d(
             rho_poloidal=rho_,

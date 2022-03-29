@@ -1330,7 +1330,10 @@ class DataReader(BaseIO):
             data, channel_dim, [*intrinsic_bad, *bad_channels], cached_vals
         )
         form = "%d" if np.issubdtype(dtype, np.integer) else "%.18e"
-        np.savetxt(cache_file, np.fromiter(ignored, Number), form)
+        # changed from np.fromiter() to np.array() since numpy 1.22.3
+        # regards numbers.Number as unrecognised datatype for fromiter().
+        # And hence spits out: ValueError: cannot create object arrays from iterator
+        np.savetxt(cache_file, np.array(ignored), form)
         return ignored
 
     def _set_times_item(
