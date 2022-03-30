@@ -18,6 +18,7 @@ import numpy as np
 import prov.model as prov
 from xarray import DataArray
 
+from .available_quantities import AVAILABLE_QUANTITIES
 from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
@@ -27,7 +28,6 @@ from ..converters import MagneticCoordinates
 from ..converters import TransectCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import ArrayType
-from .available_quantities import AVAILABLE_QUANTITIES
 from ..numpy_typing import ArrayLike
 from ..session import hash_vals
 from ..session import Session
@@ -496,7 +496,7 @@ class DataReader(BaseIO):
             A dictionary containing the requested physical quantities.
 
         """
-        dims_1d_quantities = {
+        global_quantities = {
             "psi",
             "rmag",
             "zmag",
@@ -564,14 +564,14 @@ class DataReader(BaseIO):
             meta = {
                 "datatype": available_quantities[quantity],
                 "transform": trivial_transform
-                if quantity in dims_1d_quantities | separatrix_quantities
+                if quantity in global_quantities | separatrix_quantities
                 else flux_transform,
             }
             dims: Tuple[str, ...]
             if quantity == "psi":
                 coords = coords_3d
                 dims = dims_3d
-            elif quantity in dims_1d_quantities:
+            elif quantity in global_quantities:
                 coords = coords_1d
                 dims = dims_1d
             elif quantity in separatrix_quantities:
