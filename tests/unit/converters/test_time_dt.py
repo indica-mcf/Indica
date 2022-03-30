@@ -6,6 +6,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters.time import convert_in_time_dt
+from indica.converters.time import run_example
 
 
 class Test_time:
@@ -35,7 +36,7 @@ class Test_time:
     dt_data = (data.t[1] - data.t[0]).values
 
     def test_identity(self):
-        """Checks interpolation works as expected and returned data is within limits"""
+        """Checks identity"""
         dt = self.dt_data * 1.0
 
         tstart = self.data.t[0].values
@@ -49,7 +50,7 @@ class Test_time:
         assert np.all(_data == self.data)
 
     def test_identity_dt(self):
-        """Checks interpolation works as expected and returned data is within limits"""
+        """Checks identity for dt = dt_data"""
         dt = self.dt_data * 1.0
 
         tstart = (self.data.t[0] + 5 * self.dt_data).values
@@ -97,7 +98,7 @@ class Test_time:
                 raise e
 
     def test_binning(self):
-        """Checks interpolation works as expected and returned data is withing limits"""
+        """Checks binning works as expected and returned data is withing limits"""
         dt = self.dt_data * 3.0
 
         tstart = (self.data.t[0] + 5 * self.dt_data).values
@@ -141,7 +142,7 @@ class Test_time:
         assert _dt == approx(dt)
 
     def test_binning_dropped(self):
-        """Checks interpolation works as expected and returned data is withing limits"""
+        """Checks binning including dropped channels"""
         dt = self.dt_data * 3.0
 
         tstart = (self.data.t[0] + 5 * self.dt_data).values
@@ -212,7 +213,7 @@ class Test_time:
         assert _dt == approx(dt)
 
     def test_wrong_start_time(self):
-        """Checks interpolation works as expected and returned data is withing limits"""
+        """Checks start time wrongly set"""
         dt = self.dt_data
 
         tstart = (self.data.t[0] - 5 * self.dt_data).values
@@ -224,7 +225,7 @@ class Test_time:
             assert e
 
     def test_wrong_end_time(self):
-        """Checks interpolation works as expected and returned data is withing limits"""
+        """Checks end time wrongly set"""
         dt = self.dt_data
 
         tstart = (self.data.t[0] + 5 * self.dt_data).values
@@ -234,3 +235,8 @@ class Test_time:
             _ = convert_in_time_dt(tstart, tend, dt, self.data)
         except ValueError as e:
             assert e
+
+    def test_example(self):
+        """Checks example flow is working"""
+        nt = len(self.data)
+        run_example(nt)
