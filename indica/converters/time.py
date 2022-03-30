@@ -385,19 +385,17 @@ def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):
     tcoords = data.coords["t"]
     half_interval = dt / 2
     if tcoords[0] > tstart + half_interval:
-        return ValueError(
+        raise ValueError(
             "No data falls within first bin {}.".format(
                 (tstart - half_interval, tstart + half_interval)
             )
         )
     if tcoords[-1] < tend - half_interval:
-        return ValueError(
+        raise ValueError(
             "No data falls within last bin {}.".format(
                 (tend - half_interval, tend + half_interval)
             )
         )
-
-    return
 
 
 def check_bounds_interp(tstart: float, tend: float, data: DataArray):
