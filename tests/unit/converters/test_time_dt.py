@@ -6,7 +6,6 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters.time import convert_in_time_dt
-from indica.converters.time import example
 
 
 class Test_time:
@@ -235,6 +234,3 @@ class Test_time:
             _ = convert_in_time_dt(tstart, tend, dt, self.data)
         except ValueError as e:
             assert e
-
-    def test_example(self):
-        example()
