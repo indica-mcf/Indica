@@ -16,7 +16,7 @@ coordinates along each dimension, and associated metadata. Standard
 mathematical operations are built into these objects. Additional
 bespoke functionality is provided using meta-data and `"custom
 accessors"
-<http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_,
+<https://xarray.pydata.org/en/stable/internals/extending-xarray.html>`_,
 as described in the xarray documentation.
 
 Each observed quantity will be stored in its own
