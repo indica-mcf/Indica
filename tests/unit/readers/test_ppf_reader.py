@@ -742,7 +742,8 @@ def test_sal_create_provenance(
                     instrument=instrument,
                     quantity=q,
                     revision=expected_revision,
-                )
+                ),
+                "test non-sal path",
             ],
             ignored=[],
         )
