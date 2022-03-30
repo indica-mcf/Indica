@@ -1,6 +1,7 @@
 """Coordinate systems based on strength of magnetic field."""
 
 from typing import Callable
+from typing import cast
 from typing import Tuple
 
 import numpy as np
@@ -78,7 +79,7 @@ class MagneticCoordinates(CoordinateTransform):
 
         def find_root(B: float, x2: float, t: float) -> float:
             def func(R: float) -> float:
-                return self.convert_from_Rz(R, x2 + self.z_los, t)[0] - B
+                return cast(float, self.convert_from_Rz(R, x2 + self.z_los, t)[0] - B)
 
             brackets = find_brackets(self.left, self.right, func)
             result = root_scalar(
@@ -124,7 +125,7 @@ class MagneticCoordinates(CoordinateTransform):
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)
-        return result and np.all(self.z_los == other.z_los)
+        return cast(bool, result and np.all(self.z_los == other.z_los))
 
 
 def find_brackets(

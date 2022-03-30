@@ -1,5 +1,6 @@
 """Class to handle conversions to and from flux surface coordinates."""
 
+from typing import cast
 from typing import Optional
 
 import numpy as np
@@ -117,4 +118,4 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)
-        return result and np.all(self.flux_kind == other.flux_kind)
+        return cast(bool, result and np.all(self.flux_kind == other.flux_kind))
