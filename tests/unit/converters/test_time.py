@@ -285,8 +285,6 @@ def test_interpolate_linear_data(tstart, tend, n, times, a, b, abs_err, method):
     result = convert_in_time(tstart, tend, frequency, data, method)
     new_times = result.coords["t"]
     expected = a * new_times + b
-    new_times = result.coords["t"]
-    count = ((new_times[1] - new_times[0]) / (times[1] - times[0])).values
     if frequency / original_frequency <= 0.2:
         assert np.all(
             result.values
