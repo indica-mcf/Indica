@@ -316,6 +316,7 @@ autodoc_mock_imports = [
     "prov",
     "sal",
     "scipy",
-    "xarray",
+    # Need to import xarray for accessor documentation
+    # "xarray",
 ]
 autodoc_typehints = "description"
