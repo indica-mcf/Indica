@@ -10,6 +10,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
 from scipy import constants
+from hda.atomdat import get_atomdat
+from indica.readers import ADASReader
+from indica.operators.atomic_data import FractionalAbundance
+from hda.profiles import Profiles
 
 
 def calculate_Te_kw(R):
@@ -31,7 +35,8 @@ def diel_calc(atomic_data, Te, label="he"):
     a0 = 5.29E-9  # bohr radius / cm
     Te = Te / Ry
     Es = atomic_data[:, 1] * percmtoeV / Ry  # Ry
-    F2 = atomic_data[:, 4] * 1e13  # 1/s
+    F2 = atomic_data[:, 4] * 1e13  # 1/sfrom hda.profiles import Profiles
+
     if label == "he":
         g0 = 1
 
@@ -53,19 +58,23 @@ Ry = 13.605  # eV
 percmtoeV = 1.239841E-4  # Convert 1/cm to eV
 Mi = 39.948
 
+# Keys for ADF11
+ADF11 = {"ar": {"scd": "89", "acd": "89", "ccd": "89"}}
 
 class Crystal_Spectrometer:
     def __init__(self,
 
                  window=np.linspace(.394, .401, 1000),
-                 intensity_calib=None
+                 int_cal=1,
+                 ADASReader = ADASReader
                  # etendue / instrument function / geometry
-                 # atomic data / build_data
+                 # atomic data / build_database
                  ):
 
         # spectrometer specific
         self.window = window
-        self.intensity_calib = intensity_calib
+        self.int_cal = int_cal
+        self.adasreader = ADASReader()
 
         # constants
         self.Ry = 13.605  # eV
@@ -73,6 +82,7 @@ class Crystal_Spectrometer:
         self.Mi = 39.948
 
         self.database = self.build_database()
+        self.set_ion_data(ADF11)
 
     def build_database(self, Te=np.linspace(200, 10000, 1000)):
         """
@@ -237,11 +247,11 @@ class Crystal_Spectrometer:
         print(LOG)
         return database
 
-    def make_intensity(self, el_temp=None, el_dens=None, frac_abund=None,
-                       Ar_dens=None, neutrals=None, intensity_calib=None):
+    def make_intensity(self, el_temp=None, el_dens=None, fract_abu=None,
+                       Ar_dens=None, H_dens=None, int_cal=None):
 
         """
-        Uses the intensity recipes to get intensity from Te/ne/f_abundance/neutrals/calibration_factor
+        Uses the intensity recipes to get intensity from Te/ne/f_abundance/H_dens/calibration_factor
         and atomic data at each spatial point.
         Returns DataArrays of emission type with co-ordinates of line label and rho co-ordinate
         """
@@ -252,29 +262,29 @@ class Crystal_Spectrometer:
         intensity = {}
         for key, value in self.database.items():
             if value.type == "EXC":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 16, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
+                    Ar_dens * el_dens * int_cal
             elif value.type == "REC":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 17, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[17, ] * \
+                    Ar_dens * el_dens * int_cal
             elif value.type == "CXR":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 17, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * neutrals[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[17, ] * \
+                    Ar_dens * H_dens * int_cal
             elif value.type == "ISE":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 15, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[15, ] * \
+                    Ar_dens * el_dens * int_cal
             elif value.type == "ISI":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 15, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[15, ] * \
+                    Ar_dens * el_dens * int_cal
             elif value.type == "DIREC":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 16, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
+                    Ar_dens * el_dens * int_cal
             elif value.type == "N2CASC":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 16, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
+                    Ar_dens * el_dens * int_cal
             elif value.type == "LIDIREC":
-                I = value.interp(el_temp = el_temp) * frac_abund[:, 15, None] * \
-                    Ar_dens[:,None] * el_dens[:,None] * intensity_calib
+                I = value.interp(el_temp = el_temp) * fract_abu[15, ] * \
+                    Ar_dens * el_dens * int_cal
             else:
                 print("Wrong Emission Type")
             intensity[key] = I
@@ -282,60 +292,127 @@ class Crystal_Spectrometer:
         print("Generated intensity profile")
         return intensity
 
-    def make_spectrum(self, intensity, ion_temp):
+    def make_spectra(self, intensity, ion_temp, background=0):
 
+        # Add convolution of signals as wrapper
+        # -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
         # instrument function / photon noise / photon -> counts
+        # Background Noise
         def gaussian(x, integral, center, sigma):
             return integral / (sigma * np.sqrt(2 * np.pi)) * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
 
         def doppler_broaden(i):
-            sigma = np.sqrt(constants.e / (Mi * constants.proton_mass * constants.c ** 2) * ion_temp[:,None]) * i.wavelength
+            sigma = np.sqrt(constants.e / (Mi * constants.proton_mass * constants.c ** 2) * ion_temp) * i.wavelength
             return gaussian(self.window[:,None,None], i, i.wavelength.expand_dims(dict(window=self.window)), sigma.expand_dims(dict(window=self.window)))
 
         spectra = {}
+        spectra["total"] = 0
         for key, value in intensity.items():
             i = value.expand_dims(dict(window=self.window), 0)
             y=doppler_broaden(i)
             spectra[key] = y
+            spectra["total"] = spectra["total"] + y.sum(["rho_poloidal", "line_name"])
+
+        spectra["background"] = self.window + background
+        spectra["total+background"] = spectra["total"] + spectra["background"]
+        # spectra["normed_total"] = norm_tot * spectra["total"] / spectra["total"].max() + spectra["background"]
         return spectra
 
     def plot_spectrum(self, spectra):
-        tot=0
-        for key, value in spectra.items():
-            tot=tot+value.sum(["el_temp", "line_name"])
-            plt.plot(self.window, value.sum(["el_temp", "line_name"]), label=key)
 
-        plt.plot(self.window, tot, "k*", label="Total")
-        plt.xlabel("Wavelength (A)")
+        plt.figure()
+        plt.plot(self.window, spectra["total+background"], "k*", label="Total")
+        plt.xlim([.394, .40])
+        plt.xlabel("Wavelength (nm)")
         plt.ylabel("Intensity (AU)")
         plt.legend()
-        plt.show()
+
+        plt.figure()
+        avoid = ["total", "background", "normed_total", "total+background"]
+        for key, value in spectra.items():
+            if not any([x in key for x in avoid]):
+                plt.plot(self.window, value.sum(["rho_poloidal", "line_name"]), label=key)
+
+        plt.plot(self.window, spectra["total"], "k*", label="Total")
+        # plt.plot(self.window, spectra["background"], "k", label="background")
+        plt.xlabel("Wavelength (nm)")
+        plt.ylabel("Intensity (AU)")
+        plt.legend()
+        plt.show(block=True)
         return
 
+    def set_ion_data(self, adf11: dict = None):
+        """
+        Read adf11 data and build fractional abundance objects for all elements
+        whose lines are to included in the modelled spectra
+
+        Parameters
+        ----------
+        adf11
+            Dictionary with details of ionisation balance data (see ADF11 class var)
+
+        """
+
+        fract_abu = {}
+
+        scd, acd, ccd = {}, {}, {}
+        for elem in adf11.keys():
+            scd[elem] = self.adasreader.get_adf11("scd", elem, adf11[elem]["scd"])
+            acd[elem] = self.adasreader.get_adf11("acd", elem, adf11[elem]["acd"])
+            ccd[elem] = self.adasreader.get_adf11("ccd", elem, adf11[elem]["ccd"])
+
+            fract_abu[elem] = FractionalAbundance(scd[elem], acd[elem], CCD=ccd[elem], )
+
+        self.adf11 = adf11
+        self.scd = scd
+        self.acd = acd
+        self.ccd = ccd
+        self.fract_abu = fract_abu
 
     def test_workflow(self):
 
-        # Spectrometer Class
-        rho = 10
-        frac_abund = np.zeros((rho, 18))
-        frac_abund[:,15] = np.linspace(0.49, 0.10, rho) # Li-like
-        frac_abund[:,16] = np.linspace(0.5, 0.75, rho) # He-like
-        frac_abund[:,17] = np.linspace(0.01, 0.10, rho) # H-like
+        Ne = Profiles(datatype=("density", "electron"))
+        Ne.peaking = 1
+        Ne.build_profile()
+        Te = Profiles(datatype=("temperature", "electron"))
+        Te.y0 = 3.0e3
+        Te.y1 = 20
+        Te.wped = 1
+        Te.peaking = 8
+        Te.build_profile()
+        Ti = Profiles(datatype=("temperature", "ion"))
+        Ti.y0 = 9.0e3
+        Ti.y1 = 100
+        Ti.wped = 1
+        Ti.peaking = 5
+        Ti.build_profile()
 
-        neutrals = 1e-6 * np.ones(rho)
-        intensity_calib = 1
+        Ne = Ne.yspl
+        Te = Te.yspl
+        Ti = Ti.yspl
 
-        el_temp = np.linspace(1000,3000,rho)
-        ion_temp = np.linspace(1000,9000,rho)
-        el_dens = np.linspace(1e19,1e20,rho)
-        Ar_dens = el_dens * 1e-6
+        Nh_1 = 5.0e14
+        Nh_0 = Nh_1 / 10
+        Nh = Ne.rho_poloidal ** 2 * (Nh_1 - Nh_0) + Nh_0
+        NAr = Ne.rho_poloidal ** 2 * (1/100*Ne) + (1/100*Ne)
+        # tau = None
+        tau = 1.0e-3
 
-        self.intensity = self.make_intensity(el_temp=el_temp, el_dens=el_dens, frac_abund=frac_abund, Ar_dens=Ar_dens,
-                                             neutrals=neutrals, intensity_calib=intensity_calib)
-        self.spectrum = self.make_spectrum(self.intensity, ion_temp)
-        self.plot_spectrum(self.spectrum)
+        fz = self.fract_abu["ar"](Ne, Te, Nh, tau=tau)
+
+        background = 250
+        int_cal = 1.3e-27
+
+        self.intensity = self.make_intensity(el_temp=Te, el_dens=Ne, fract_abu=fz, Ar_dens=NAr,
+                                             H_dens=Nh, int_cal=int_cal)
+        self.spectra = self.make_spectra(self.intensity, Ti, background)
+        self.plot_spectrum(self.spectra)
         return
 
 spec = Crystal_Spectrometer()
 spec.test_workflow()
 
+
+# Make an optimizer class
+
+print()
