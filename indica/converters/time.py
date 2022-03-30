@@ -48,7 +48,7 @@ def convert_in_time_dt(
     tend: float,
     dt: float,
     data: DataArray,
-    method="linear",
+    method: str = "linear",
 ) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
@@ -362,8 +362,7 @@ def get_tlabels_dt(tstart: float, tend: float, dt: float):
         Time array
 
     """
-    tlabels = np.arange(tstart, tend + 2 * dt, dt)
-    tlabels = tlabels[np.where((tlabels >= tstart) * (tlabels <= tend))[0]]
+    tlabels = np.arange(tstart, tend + dt, dt)
     return tlabels
 
 
