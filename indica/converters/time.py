@@ -423,26 +423,27 @@ def check_bounds_interp(tstart: float, tend: float, data: DataArray):
     return
 
 
-def run_example(nt=50, plot=False):
-    values = np.sin(np.linspace(0, np.pi * 3, nt)) + np.random.random(nt) - 0.5
-    time = np.linspace(0, 0.1, nt)
-    data = DataArray(values, coords=[("t", time)])
-
-    dt = time[1] - time[0]
-    dt_binned = dt * 4
-    dt_interp = dt / 4
-
-    tstart = time[0] + 5 * dt
-    tend = time[-1] - 10 * dt
-    data_interp = convert_in_time_dt(tstart, tend, dt_interp, data)
-    data_binned = convert_in_time_dt(tstart, tend, dt_binned, data)
-
-    if plot:
-        import matplotlib.pylab as plt
-
-        plt.figure()
-        data_interp.plot(marker="x", label="Interpolated")
-        data.plot(marker="o", label="Original data")
-        data_binned.plot(marker="x", label="Binned")
-        plt.legend()
-        plt.show()
+#
+# def run_example(nt=50, plot=False):
+#     values = np.sin(np.linspace(0, np.pi * 3, nt)) + np.random.random(nt) - 0.5
+#     time = np.linspace(0, 0.1, nt)
+#     data = DataArray(values, coords=[("t", time)])
+#
+#     dt = time[1] - time[0]
+#     dt_binned = dt * 4
+#     dt_interp = dt / 4
+#
+#     tstart = time[0] + 5 * dt
+#     tend = time[-1] - 10 * dt
+#     data_interp = convert_in_time_dt(tstart, tend, dt_interp, data)
+#     data_binned = convert_in_time_dt(tstart, tend, dt_binned, data)
+#
+#     if plot:
+#         import matplotlib.pylab as plt
+#
+#         plt.figure()
+#         data_interp.plot(marker="x", label="Interpolated")
+#         data.plot(marker="o", label="Original data")
+#         data_binned.plot(marker="x", label="Binned")
+#         plt.legend()
+#         plt.show()
