@@ -293,8 +293,9 @@ def run_all_scans():
     # 9840 - doesn't have enough Ar
     # 9623 - issues with XRCS temperature optimisation...
     pulses = [10013]
+    pulses = [9850]
     # tlims = [(0.01, 0.08), (0.01, 0.12), (0.01, 0.1), (0.01, 0.1), (0.01, 0.1)]
-    tlims = [(0.02, 0.13)]*len(pulses)
+    tlims = [(0.02, 0.18)]*len(pulses)
     for pulse, tlim in zip(pulses, tlims):
         print(pulse)
         scan_profiles(
