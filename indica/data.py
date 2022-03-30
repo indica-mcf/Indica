@@ -44,6 +44,7 @@ from .datatypes import DatasetType
 from .equilibrium import Equilibrium
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
+from .numpy_typing import OnlyArray
 
 
 def _convert_coords(
@@ -226,10 +227,10 @@ class InDiCAArrayAccessor:
             new_dim_names = [
                 new_dims,
             ]
-            value_dims = list(values.dims)
+            value_dims = cast(List, values.dims)
         else:
             new_dim_names = list(new_dims)
-            value_dims = list(values.dims)
+            value_dims = cast(List, values.dims)
         data = xr.apply_ufunc(
             invert_interp_func,
             interpolated,
@@ -608,20 +609,22 @@ class InDiCAArrayAccessor:
                 if k in v.dims:
                     new_dim = "__new_" + cast(str, k)
                     interp_core.append([new_dim])
-                    rename_dims[new_dim] = k
+                    rename_dims[new_dim] = cast(str, k)
                     if new_dim not in output_core:
                         output_core.append(new_dim)
-                    ordered_coords.append((k, v.rename({k: new_dim})))
+                    ordered_coords.append((cast(str, k), v.rename({k: new_dim})))
                 else:
                     interp_core.append([])
-                    ordered_coords.append((k, v))
+                    ordered_coords.append((cast(str, k), v))
             else:
-                ordered_coords.append((k, v))
-                output_core.append([])
+                # Not really sure what mypy is complaining about here.
+                ordered_coords.append((k, v))  # type: ignore
+                # mypy doesn't allow empty append.
+                output_core.append([])  # type: ignore
             if zero_coords:
                 ordered_zero_coords.append(zero_coords[k])
             else:
-                ordered_zero_coords.append(None)
+                ordered_zero_coords.append(None)  # type: ignore
         if len(_coords) > 1:
             input_core: List[List[str]] = [
                 [ordered_coords[0][0]],
@@ -852,7 +855,7 @@ class InDiCAArrayAccessor:
             )
         return None
 
-    def ignore_data(self, labels: ArrayLike, dimension: str) -> xr.DataArray:
+    def ignore_data(self, labels: OnlyArray, dimension: str) -> xr.DataArray:
         """Create a copy of this array which masks the specified data.
 
         Parameters
@@ -887,7 +890,8 @@ class InDiCAArrayAccessor:
                 )
             )
         else:
-            unique_labels = labels
+            # mypy doesn't understand conditionals apparently.
+            unique_labels = labels  # type: ignore
         if len(unique_labels) == 0:
             return self._obj
         result = self._obj.copy()
