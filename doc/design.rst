@@ -279,7 +279,7 @@ attempting to use multiple sets of equilibrium data at once.
 The methods on :py:class:`~indica.converters.CoordinateTransform` take
 :py:class:`xarray.DataArray` objects as arguments. They make use of
 `broadcasting by dimension name
-<http://xarray.pydata.org/en/stable/computation.html#broadcasting-by-dimension-name>`_. This
+<https://xarray.pydata.org/en/stable/user-guide/computation.html#broadcasting-by-dimension-name>`_. This
 allows easy creation of grids.
 
 

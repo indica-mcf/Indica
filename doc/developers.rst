@@ -379,7 +379,7 @@ In order for your pull request to be accepted, it must meet the
 following standards:
 
 - pass all pre-commit hooks (e.g., it must obey the
-  `black <https://github.com/psf/black) formatting style>`_
+  `black <https://github.com/psf/black>`_ formatting style
 - use Python `type-hints <https://www.python.org/dev/peps/pep-0484/>`_ wherever possible
 - pass `mypy <https://mypy.readthedocs.io/en/stable/>`_
 - provide unit tests (and ideally integration tests as well)
