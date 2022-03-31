@@ -44,7 +44,7 @@ class sxr():
             dl = trans.distance(trans.x2_name, DataArray(0), x2[0:2], 0)[1]
             data.attrs["x2"] = x2
             data.attrs["dl"] = dl
-            data.attrs["x"], data.attrs["y"], data.attrs["z"] = trans.convert_to_xyz(x1, x2, 0)
+            data.attrs["x"], data.attrs["y"] = trans.convert_to_xy(x1, x2, 0)
             data.attrs["R"], data.attrs["z"] = trans.convert_to_Rz(x1, x2, 0)
             rho_equil, _ = self.flux_coords.convert_from_Rz(
                 data.attrs["R"], data.attrs["z"]
