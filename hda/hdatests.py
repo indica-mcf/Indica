@@ -1109,8 +1109,8 @@ def find_best_profiles(
                 f"{instrument}_{quantity}",
                 reader_st40.MACHINE_DIMS,
             )
-            x, y, z = trans.convert_to_xyz(0, trans.x2, 0)
-            R, _ = trans.convert_to_Rz(0, trans.x2, 0)
+            x, y = trans.convert_to_xy(0, trans.x2, 0)
+            R, z = trans.convert_to_Rz(0, trans.x2, 0)
 
             trans.x, trans.y, trans.z, trans.R = x, y, z, R
 
