@@ -29,6 +29,7 @@ from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
+from ..numpy_typing import RevisionLike
 from .. import session
 from ..datatypes import ELEMENTS
 from ..utilities import to_filename
@@ -158,7 +159,7 @@ class PPFReader(DataReader):
         self._default_error = default_error
 
     def get_sal_path(
-        self, uid: str, instrument: str, quantity: str, revision: int
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> str:
         """Return the path in the PPF database to for the given INSTRUMENT
         (DDA in JET)."""
@@ -168,7 +169,7 @@ class PPFReader(DataReader):
         )
 
     def _get_signal(
-        self, uid: str, instrument: str, quantity: str, revision: int
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[Signal, str]:
         """Gets the signal for the given INSTRUMENT (DDA in JET), at the
         given revision."""
@@ -238,7 +239,7 @@ class PPFReader(DataReader):
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Return temperature, angular frequency, or concentration data for an
@@ -309,7 +310,7 @@ class PPFReader(DataReader):
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for electron temperature or number density
@@ -353,7 +354,7 @@ class PPFReader(DataReader):
         self,
         uid: str,
         calculation: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
@@ -385,7 +386,7 @@ class PPFReader(DataReader):
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for electron cyclotron emissin diagnostics."""
@@ -427,7 +428,7 @@ class PPFReader(DataReader):
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for radiation quantities such as SXR and bolometric
@@ -491,7 +492,7 @@ class PPFReader(DataReader):
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         results: Dict[str, Any] = {
@@ -516,7 +517,7 @@ class PPFReader(DataReader):
             results[q + "_records"] = [q_path, l_path]
         return results
 
-    # def _handle_kk3(self, key: str, revision: int) -> DataArray:
+    # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:
     #     """Produce :py:class:`xarray.DataArray` for electron temperature."""
     #     uid, general_dat = self._get_signal("kk3_gen", revision)
     #     channel_index = np.argwhere(general_dat.data[0, :] > 0)
