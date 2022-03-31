@@ -253,13 +253,13 @@ class BolometryDerivation(Operator):
         # Ignoring mypy error since mypy refuses to acknowlege electron_density.coords
         # as a dictionary
         mean_charges_coords = {
-            "elements": self.impurity_elements,  # type: ignore
+            "element": self.impurity_elements,  # type: ignore
             **self.electron_density.coords,  # type: ignore
         }
         mean_charges = DataArray(
             data=mean_charges,
             coords=mean_charges_coords,  # type:ignore
-            dims=["elements", *self.electron_density.dims],
+            dims=["element", *self.electron_density.dims],
         )
 
         for ielement, element in enumerate(self.impurity_elements):
@@ -439,7 +439,7 @@ class BolometryDerivation(Operator):
 
         derived_power_loss = electron_density * (main_ion_density * main_ion_power_loss)
         impurities_losses = impurity_densities * impurities_power_loss
-        impurities_losses = impurities_losses.sum(dim="elements")
+        impurities_losses = impurities_losses.sum(dim="element")
         impurities_losses *= electron_density
         derived_power_loss += impurities_losses
 
