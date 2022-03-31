@@ -65,7 +65,7 @@ class Crystal_Spectrometer:
     def __init__(self,
 
                  window=np.linspace(.394, .401, 1000),
-                 int_cal=1,
+                 int_cal=1e-30,
                  ADASReader = ADASReader
                  # etendue / instrument function / geometry
                  # atomic data / build_database
@@ -391,12 +391,12 @@ class Crystal_Spectrometer:
         Te = Te.yspl
         Ti = Ti.yspl
 
-        Nh_1 = 5.0e14
-        Nh_0 = Nh_1 / 10
+        Nh_1 = 5.0e16
+        Nh_0 = Nh_1 / 1000
         Nh = Ne.rho_poloidal ** 2 * (Nh_1 - Nh_0) + Nh_0
         NAr = Ne.rho_poloidal ** 2 * (1/100*Ne) + (1/100*Ne)
-        # tau = None
-        tau = 1.0e-3
+        tau = None
+        # tau = 1.0e-3
 
         fz = self.fract_abu["ar"](Ne, Te, Nh, tau=tau)
 
@@ -409,10 +409,9 @@ class Crystal_Spectrometer:
         self.plot_spectrum(self.spectra)
         return
 
-spec = Crystal_Spectrometer()
-spec.test_workflow()
 
+if __name__ == "__main__":
+    spec = Crystal_Spectrometer()
+    spec.test_workflow()
 
-# Make an optimizer class
-
-print()
+    print()
