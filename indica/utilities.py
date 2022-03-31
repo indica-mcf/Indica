@@ -20,6 +20,7 @@ from xarray.core.dataset import Dataset
 from xarray.core.variable import Variable
 
 from .numpy_typing import ArrayLike
+from .numpy_typing import OnlyArray
 
 
 def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional[str]]:
@@ -56,7 +57,7 @@ def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional
     return param_names, var_positional
 
 
-def sum_squares(x: ArrayLike, axis: int, **kwargs: Any) -> ArrayLike:
+def sum_squares(x: OnlyArray, axis: int, **kwargs: Any) -> OnlyArray:
     """Perform a reduction on the provided data by taking the sum of squares.
 
     Parameters
@@ -72,7 +73,7 @@ def sum_squares(x: ArrayLike, axis: int, **kwargs: Any) -> ArrayLike:
     return np.sum(x**2, axis=axis)
 
 
-def get_slice_limits(low: float, high: float, data: ArrayLike) -> Tuple[int, int]:
+def get_slice_limits(low: float, high: float, data: OnlyArray) -> Tuple[int, int]:
     """Returns the start and end points needed to slice ``data`` so that
     all values fall between ``high`` and ``low`` (inclusive).
 
@@ -105,7 +106,7 @@ def get_slice_limits(low: float, high: float, data: ArrayLike) -> Tuple[int, int
     if end < 1:
         raise ValueError("High value {} not in range of provided " "data.".format(high))
 
-    return (start, end)
+    return (start, end)  # type: ignore
 
 
 def to_filename(name: str) -> str:

@@ -216,8 +216,9 @@ class SplineFit(Operator):
         ]
         good_channels = [
             np.ravel(
-                np.logical_not(
-                    np.isnan(d.isel({dim: 0 for dim in droppable}))
+                cast(
+                    DataArray,
+                    np.logical_not(np.isnan(d.isel({dim: 0 for dim in droppable}))),
                 ).drop_vars(droppable)
             )
             for d, droppable in zip(data, droppable_dims)

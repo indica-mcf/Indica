@@ -61,7 +61,7 @@ def test_positional_parameters4():
     assert varpos == "args"
 
 
-@given(arrays(np.float, array_shapes(), elements=sampled_from([1.0, -1.0])))
+@given(arrays(np.float64, array_shapes(), elements=sampled_from([1.0, -1.0])))
 def test_sum_squares_ones(a):
     """Test summing arrays made up only of +/- 1."""
     print(a)

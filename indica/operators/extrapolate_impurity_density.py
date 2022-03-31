@@ -191,7 +191,8 @@ class ExtrapolateImpurityDensity(Operator):
             t_arr = data_R_z.coords["t"]
 
         theta_arr = np.array([0.0, np.pi])
-        theta_arr = DataArray(
+        # mypy doesn't like re-assignments which changes types.
+        theta_arr = DataArray(  # type: ignore
             data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
         )
 
@@ -250,7 +251,7 @@ class ExtrapolateImpurityDensity(Operator):
         """
 
         theta_arr = np.array([0.0, np.pi])
-        theta_arr = DataArray(
+        theta_arr = DataArray(  # type: ignore
             data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
         )
 
@@ -473,7 +474,9 @@ class ExtrapolateImpurityDensity(Operator):
         ] = derived_asymmetry_parameter.loc[0.1, :]
 
         theta_arr = np.linspace(-np.pi, np.pi, 21)
-        theta_arr = DataArray(theta_arr, {"theta": theta_arr}, ["theta"])
+        theta_arr = DataArray(
+            theta_arr, {"theta": theta_arr}, ["theta"]
+        )  # type: ignore
         R_deriv_, z_deriv_ = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
         R_deriv = cast(DataArray, R_deriv_).interp(t=t_arr, method="linear")
         z_deriv = cast(DataArray, z_deriv_).interp(t=t_arr, method="linear")
@@ -528,8 +531,8 @@ class ExtrapolateImpurityDensity(Operator):
         R_arr = np.linspace(np.min(R_deriv[1:]), np.max(R_deriv[1:]), 40)
         z_arr = np.linspace(np.min(z_deriv), np.max(z_deriv), 40)
 
-        R_arr = DataArray(R_arr, {"R": R_arr}, ["R"])
-        z_arr = DataArray(z_arr, {"z": z_arr}, ["z"])
+        R_arr = DataArray(R_arr, {"R": R_arr}, ["R"])  # type: ignore
+        z_arr = DataArray(z_arr, {"z": z_arr}, ["z"])  # type: ignore
 
         t_arr = extrapolated_smooth_data.coords["t"]
 
