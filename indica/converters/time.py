@@ -287,6 +287,7 @@ def bin_in_time(
 
     """
     check_bounds_bin(tstart, tend, 1./frequency, data)
+    npoints = round((tend - tstart) * frequency) + 1
     tlabels = np.linspace(tstart, tend, npoints)
     return bin_to_time_labels(tlabels, data)
 
