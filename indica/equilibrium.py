@@ -243,13 +243,15 @@ class Equilibrium(AbstractEquilibrium):
         )
 
         # Components of poloidal field
-        b_R = -(np.float64(1.0) / R) * dpsi_dz
-        b_z = (np.float64(1.0) / R) * dpsi_dR
+        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
+        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
         b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
 
         # Need this as the current flux_coords function
         # returns some negative values for rho
-        rho_ = where(rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_)
+        rho_ = where(
+            rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
+        )
 
         f = f.indica.interp2d(
             rho_poloidal=rho_,
@@ -356,8 +358,8 @@ class Equilibrium(AbstractEquilibrium):
     def cross_sectional_area(
         self,
         rho: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        ntheta: Optional[int] = 12,
+        t: Optional[LabeledArray],
+        ntheta: int = 12,
         kind: str = "poloidal",
     ) -> Tuple[DataArray, LabeledArray]:
         """Calculates the cross-sectional area inside the flux surface rho and at
@@ -394,7 +396,8 @@ class Equilibrium(AbstractEquilibrium):
             t = np.array([t])
 
         theta = np.linspace(0.0, 2.0 * np.pi, ntheta)
-        theta = DataArray(
+        # Reassignment to a different type is not recognised by mypy.
+        theta = DataArray(  # type: ignore
             data=theta,
             coords={"theta": theta},
             dims=[
@@ -417,7 +420,7 @@ class Equilibrium(AbstractEquilibrium):
                     minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
 
         minor_radii = minor_radii**2
-        minor_radii *= 0.5
+        minor_radii = minor_radii * 0.5
 
         area = trapz(minor_radii, theta, axis=0)
 
