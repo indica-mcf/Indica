@@ -218,13 +218,13 @@ def _parse_kj34(
             zstart.append(zs)
             rend.append(rs - np.sin(theta))
             zend.append(zs - np.cos(theta))
-    rstart = np.concatenate(rstart)
+    rstart = np.concatenate(rstart)  # type: ignore
     rend = np.concatenate(rend)
-    zstart = np.concatenate(zstart)
+    zstart = np.concatenate(zstart)  # type: ignore
     zend = np.concatenate(zend)
     Tstart = np.zeros_like(rstart)
     Tend = np.zeros_like(rend)
-    return rstart, rend, zstart, zend, Tstart, Tend
+    return rstart, rend, zstart, zend, Tstart, Tend  # type: ignore
 
 
 SURF_PARSERS = {
