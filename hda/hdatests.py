@@ -77,6 +77,8 @@ def plasma_workflow(
     use_ratios=True,
     calc_error=False,
     sxr=False,
+    efit_pulse=None,
+    efit_run=0,
 ):
     """
     New framework for running HDA
@@ -112,7 +114,7 @@ def plasma_workflow(
 
     # Read raw data
     raw = ST40data(pulse, tstart - 0.01, tend + 0.01)
-    raw.get_all(sxr=sxr)  # smmh1_rev=2)
+    raw.get_all(sxr=sxr, efit_pulse=efit_pulse, efit_rev=efit_run)  # smmh1_rev=2)
     raw_data = raw.data
     dt_xrcs = (raw_data["xrcs"]["ti_w"].t[1] - raw_data["xrcs"]["ti_w"].t[0]).values
     if "xrcs" in raw_data.keys() and xrcs_time:
@@ -284,7 +286,7 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
     return pl, bckc
 
 
-def run_all_scans():
+def run_all_scans(efit_pulse=None, efit_run=0, run_add=""):
     # pulses = [8532, 8533, 8605, 8621, 9098, 9099, 9229, 9401, 9486, 9537, 9538, 9539, 9619, 9622,
     # 9624, 9626, 9676, 9721, 9746, 9748, 9752, 9766, 9771, 9779, 9780, 9781, 9783, 9784, 9787, 9816,
     # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849, 9880, 9892, 9901, 10014]
@@ -293,10 +295,15 @@ def run_all_scans():
     # 9840 - doesn't have enough Ar
     # 9623 - issues with XRCS temperature optimisation...
     pulses = [10013]
-    pulses = [9850]
+    pulses = [9850] * 2
+    efit_pulse = [11009850] * 2
+    efit_run = ["1016A2", "1013N"]
+    run_add = ["A2", "N"]
     # tlims = [(0.01, 0.08), (0.01, 0.12), (0.01, 0.1), (0.01, 0.1), (0.01, 0.1)]
-    tlims = [(0.02, 0.18)]*len(pulses)
-    for pulse, tlim in zip(pulses, tlims):
+    tlims = [(0.02, 0.11)] * len(pulses)
+    for pulse, tlim, _efit_pulse, _efit_run, _run_add in zip(
+        pulses, tlims, efit_pulse, efit_run, run_add
+    ):
         print(pulse)
         scan_profiles(
             pulse,
@@ -322,6 +329,9 @@ def run_all_scans():
             sxr=False,
             main_ion="h",
             proceed=True,
+            efit_run=_efit_run,
+            efit_pulse=_efit_pulse,
+            run_add=_run_add,
         )
 
 
@@ -350,6 +360,9 @@ def scan_profiles(
     sxr=False,
     main_ion="h",
     proceed=True,
+    run_add="",
+    efit_run="",
+    efit_pulse=None,
 ):
     print("Scanning combinations of profile shapes")
 
@@ -377,6 +390,8 @@ def scan_profiles(
             sxr=sxr,
             main_ion=main_ion,
             plotfig=False,
+            efit_pulse=efit_pulse,
+            efit_run=efit_run,
         )
         if not proceed:
             return res
@@ -421,7 +436,7 @@ def scan_profiles(
                     pl.Nimp_prof = deepcopy(Nimp)
 
                     run_tmp += 1
-                    run_name = f"RUN{run_tmp}"
+                    run_name = f"RUN{run_tmp}{run_add}"
                     descr = f"{kTe} Te, {kTi} Ti, {kNe} Ne, {kNimp} Cimp"
                     print(f"\n{descr}\n")
                     run_dict[run_name] = descr
@@ -567,7 +582,7 @@ def scan_profiles(
     pl.pressure_th_hi = pl.pressure_th + stdev
     pl.pressure_th_lo = pl.pressure_th - stdev
 
-    run_name = f"RUN{run}"
+    run_name = f"RUN{run}{run_add}"
     runs.append(run_name)
     descr = f"Average over runs {runs[0]}-{runs[-1]}"
     run_dict[run_name] = descr
@@ -1056,7 +1071,7 @@ def find_best_profiles(
 
         from indica.converters.lines_of_sight_jw import LinesOfSightTransform
 
-        rev = 3
+        rev = "3"
         values, dims = reader_st40._get_data(
             "spectrom", "princeton.cxsfit_out", ":ti", rev
         )
@@ -1125,18 +1140,16 @@ def find_best_profiles(
             ("t", times),
             (transform[0].x1_name, ch_ind),
         ]
-        error = (
-            DataArray(err, coords)
-            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        error = DataArray(err, coords).sel(
+            t=slice(reader_st40._tstart, reader_st40._tend)
         )
         meta = {
             "datatype": "ti",
             "error": error,
             "transform": transform,
         }
-        quant_data = (
-            DataArray(values, coords, attrs=meta,)
-            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        quant_data = DataArray(values, coords, attrs=meta,).sel(
+            t=slice(reader_st40._tstart, reader_st40._tend)
         )
 
         quant_data.name = "princeton" + "_" + "ti"
@@ -1158,18 +1171,16 @@ def find_best_profiles(
         err = err[t_ind, :]
         err = err[:, ch_ind]
 
-        error = (
-            DataArray(err, coords)
-            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        error = DataArray(err, coords).sel(
+            t=slice(reader_st40._tstart, reader_st40._tend)
         )
         meta = {
             "datatype": "ti",
             "error": error,
             "transform": transform,
         }
-        quant_data = (
-            DataArray(values, coords, attrs=meta,)
-            .sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        quant_data = DataArray(values, coords, attrs=meta,).sel(
+            t=slice(reader_st40._tstart, reader_st40._tend)
         )
 
         quant_data.name = "princeton" + "_" + "ti"
@@ -1184,7 +1195,7 @@ def find_best_profiles(
 
         plt.close("all")
         plt.ioff()
-        revision = 0
+        revision = "0"
         sxr = reader_st40.get(
             "sxr", "diode_arrays", revision=revision, quantities=["filter_4"]
         )
@@ -1335,7 +1346,7 @@ def find_best_profiles(
         reader_astra = ST40Reader(pulse, tstart, tend, tree="ASTRA")
         for run in pl_dict.keys():
             # Read ASTRA results
-            revision = int(run[3:])
+            revision = run[3:]
             astra_dict[run] = reader_astra.get("", "astra", revision)
 
             # find q=1 surface
@@ -2528,7 +2539,7 @@ def compare_astra(pulse=8574, tstart=0.02, tend=0.14, revision=105, interf="nirh
     pulse = 8574
     tstart = 0.02
     tend = 0.14
-    revision = 105
+    revision = "105"
     reader = ST40Reader(int(pulse + 25.0e6), tstart, tend, tree="astra")
     astra = reader.get("", "astra", revision)
     astra["ne"] *= 1.0e19
