@@ -521,6 +521,7 @@ class DataReader(BaseIO):
 
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
+        times_unique, ind_unique = np.unique(times, return_index=True)
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
         dims_1d = ("t",)
         trivial_transform = TrivialTransform()
@@ -601,6 +602,10 @@ class DataReader(BaseIO):
             elif quantity == "faxs":
                 quant_data.coords["R"] = data["rmag"]
                 quant_data.coords["z"] = data["zmag"]
+
+            if len(times) != len(times_unique):
+                print("Equilibrium time axis does not have unique elements...correcting...")
+                quant_data = quant_data.isel(t=ind_unique)
             data[quantity] = quant_data
         return data
 
@@ -1741,7 +1746,7 @@ class DataReader(BaseIO):
         diagnostic: str,
         uid: str,
         instrument: str,
-        revision: Optional[int],
+        revision: int,
         quantity: str,
         data_objects: Iterable[str],
         ignored: Iterable[Number],
@@ -1790,6 +1795,11 @@ class DataReader(BaseIO):
                 str(s) for s in self.available_quantities(instrument)[quantity]
             ),
             "ignored_channels": str(ignored),
+            "uid":uid,
+            "instrument":instrument,
+            "diagnostic":diagnostic,
+            "revision":revision,
+            "quantity":quantity,
         }
         activity_id = hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(
