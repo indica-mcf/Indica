@@ -107,26 +107,6 @@ class ST40data:
                 ratio_tmp.attrs["error"] = ratio_tmp_err
                 data[ratio_key] = ratio_tmp
 
-            # # ...this doesn't make much sense since I'm optimizing for line ratios...
-            # # calculate electron temperature average from kw and n3w
-            # kw = _data["te_kw"]
-            # n3w = _data["te_n3w"]
-            # avrg = xr.full_like(kw, np.nan)
-            # avrg.attrs["error"] = xr.full_like(kw.error, np.nan)
-            # avrg.name = "xrcs_te"
-            # for t in avrg.t:
-            #     val = np.array([kw.sel(t=t).values, n3w.sel(t=t).values])
-            #     err = np.array([kw.error.sel(t=t).values, n3w.error.sel(t=t).values])
-            #
-            #     ifin = np.where(np.isfinite(val))[0]
-            #     if len(ifin)>0:
-            #         avrg.loc[dict(t=t)] = np.mean(val[ifin])
-            #
-            #     ifin = np.where(np.isfinite(err))[0]
-            #     if len(ifin) > 0:
-            #         avrg.error.loc[dict(t=t)] = np.sqrt(np.sum(err[ifin]**2))/len(ifin)
-            #
-
             self.data["xrcs"] = data
 
     def get_princeton(self, revision=0):
