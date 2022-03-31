@@ -211,7 +211,7 @@ class ADASReader(BaseIO):
                 params = []
                 for ipar, npar in enumerate( cer_line['nparmsc'] ):
                     for q in range(2):
-                        data = []
+                        data:list = []
                         while npar > len(data):
                             line = f.readline()
                             if len(line) > 63:
