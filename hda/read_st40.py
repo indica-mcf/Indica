@@ -36,9 +36,19 @@ class ST40data:
         self.reader = ST40Reader(pulse, tstart, tend)
         self.data = {}
 
-    def get_all(self, efit_rev=0, xrcs_rev=0, nirh1_rev=0, smmh1_rev=0, brems_rev=-1, sxr_rev=0, sxr=False):
+    def get_all(
+        self,
+        efit_rev=0,
+        efit_pulse=None,
+        xrcs_rev=0,
+        nirh1_rev=0,
+        smmh1_rev=0,
+        brems_rev=-1,
+        sxr_rev=0,
+        sxr=False,
+    ):
         plt.ioff()
-        self.get_efit(revision=efit_rev)
+        self.get_efit(revision=efit_rev, pulse=efit_pulse)
         self.get_xrcs(revision=xrcs_rev)
         if sxr:
             self.get_sxr(revision=sxr_rev)
@@ -52,18 +62,25 @@ class ST40data:
         data = self.reader.get("sxr", "diode_arrays", revision, ["filter_4"])
         self.data["sxr"] = data
 
-    def get_efit(self, revision=0):
+    def get_efit(self, revision=0, pulse=None):
 
+        if pulse is None:
+            pulse = self.pulse
         if (
-            self.pulse == 8303
-            or self.pulse == 8322
-            or self.pulse == 8323
-            or self.pulse == 8324
+            pulse == 8303
+            or pulse == 8322
+            or pulse == 8323
+            or pulse == 8324
         ):
             if revision != 2:
-                print(f"\nRecommended revision for pulse {self.pulse} = {2}\n")
+                print(f"\nRecommended revision for pulse {pulse} = {2}\n")
 
-        data = self.reader.get("", "efit", revision)
+        if pulse != self.pulse:
+            reader = ST40Reader(pulse, self.tstart, self.tend)
+        else:
+            reader = self.reader
+
+        data = reader.get("", "efit", revision)
 
         if len(data) > 0:
             self.data["efit"] = data
@@ -77,8 +94,7 @@ class ST40data:
             # Add line ratios to data, propagate uncertainties
             lines = [("int_k", "int_w"), ("int_n3", "int_w"), ("int_n3", "int_tot")]
             for l in lines:
-                if (l[0] not in data.keys() or
-                        l[1] not in data.keys()):
+                if l[0] not in data.keys() or l[1] not in data.keys():
                     continue
                 ratio_key = f"{l[0]}/{l[1]}"
                 num = data[l[0]]
@@ -110,7 +126,6 @@ class ST40data:
             #     if len(ifin) > 0:
             #         avrg.error.loc[dict(t=t)] = np.sqrt(np.sum(err[ifin]**2))/len(ifin)
             #
-
 
             self.data["xrcs"] = data
 
@@ -177,9 +192,9 @@ class ST40data:
         # TODO temporary NBI power reader
         mds_path = ".NBI.RFX.RUN1:PINJ"
         try:
-            prfx = np.array(self.reader._conn_get(mds_path))*1.e6
+            prfx = np.array(self.reader._conn_get(mds_path)) * 1.0e6
             prfx_dims, _ = self.reader._get_signal_dims(mds_path, len(prfx.shape))
-            prfx = DataArray(prfx, dims=("t",), coords={"t": prfx_dims[0]}, )
+            prfx = DataArray(prfx, dims=("t",), coords={"t": prfx_dims[0]},)
             prfx = prfx.sel(t=slice(self.reader._tstart, self.reader._tend))
             self.data["rfx"] = {}
             self.data["rfx"]["pin"] = prfx
@@ -188,9 +203,9 @@ class ST40data:
 
         mds_path = ".NBI.HNBI1.RUN1:PINJ"
         try:
-            phnbi1 = np.array(self.reader._conn_get(mds_path))*1.e6
+            phnbi1 = np.array(self.reader._conn_get(mds_path)) * 1.0e6
             phnbi1_dims, _ = self.reader._get_signal_dims(mds_path, len(phnbi1.shape))
-            phnbi1 = DataArray(phnbi1, dims=("t",), coords={"t": phnbi1_dims[0]}, )
+            phnbi1 = DataArray(phnbi1, dims=("t",), coords={"t": phnbi1_dims[0]},)
             phnbi1 = phnbi1.sel(t=slice(self.reader._tstart, self.reader._tend))
             self.data["hnbi1"] = {}
             self.data["hnbi1"]["pin"] = phnbi1
