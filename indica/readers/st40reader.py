@@ -4,34 +4,20 @@ reading MDS+ data produced by ST40.
 """
 
 import re
-from numbers import Number
-from pathlib import Path
-import pickle
-import stat
 from typing import Any
-from typing import cast
 from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Set
 from typing import Tuple
-from typing import Union
-import warnings
-from xarray import DataArray
 
-import numpy as np
 from MDSplus import Connection
-import scipy.constants as sc
+import numpy as np
 
-from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from .. import session
-from ..utilities import to_filename
-from indica.converters.time import bin_to_time_labels
-
-# SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
+from ..numpy_typing import RevisionLike
 
 
 class MDSError(Exception):
@@ -147,10 +133,18 @@ class ST40Reader(DataReader):
             "times": ".time",
             "exposure": ".exposure",
         },
-        "lines": {"brems": ".brem_mp1:intensity",},
-        "nirh1": {"ne": ".line_int:ne",},
-        "nirh1_bin": {"ne": ".line_int:ne",},
-        "smmh1": {"ne": ".line_int:ne",},
+        "lines": {
+            "brems": ".brem_mp1:intensity",
+        },
+        "nirh1": {
+            "ne": ".line_int:ne",
+        },
+        "nirh1_bin": {
+            "ne": ".line_int:ne",
+        },
+        "smmh1": {
+            "ne": ".line_int:ne",
+        },
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
@@ -212,31 +206,6 @@ class ST40Reader(DataReader):
         },
     }
 
-    # diode_arrays
-    # "extension": ".middle_head.geometry:dir_ext",
-
-    # astra
-    # "cc": ".profiles.astra:cc",  # Parallel current conductivity, 1/(Ohm*m)
-    # "chi_e": ".profiles.astra:chi_e",  # Total electron heat conductivity, m^2/s
-    # "chi_e_anom": ".profiles.astra:chi_e_anom",  # anomalous electron heat conductivity, m^2/s
-    # "chi_e_neo": ".profiles.astra:chi_e_neo",  # neoclassical electron heat conductivity, m^2/s
-    # "chi_i": ".profiles.astra:chi_i",  # Total ion heat conductivity, m^2/s
-    # "chi_i_anom": ".profiles.astra:chi_i_anom",  # anomalous ion heat conductivity, m^2/s
-    # "chi_i_neo": ".profiles.astra:chi_i_neo",  # neoclassical ion heat conductivity, m^2/s
-    # "chi_phi": ".profiles.astra:chi_phi",  # Momentum transport coefficient, m2/s
-    # "cn": ".profiles.astra:cn",  # Particle pinch velocity , m/s
-    # "diff": ".profiles.astra:diff",  # diffusion coefficient, m^2/s
-    # "q_alpha_e": ".profiles.astra:q_alpha_e",  # Alpha power density to electrons,MW/m3
-    # "q_alpha_i": ".profiles.astra:q_alpha_i",  # Alpha power density to ions,MW/m3
-    # "torq_den": ".profiles.astra:torq_den",  # Total torque density from NB, N*m/m3
-    # "torq_den_bcx": ".profiles.astra:torq_den_bcx",  # CX losses torque density from NB, N*m/m3
-    # "torq_den_be": ".profiles.astra:torq_den_be",  # Collisional to electron torque density from NB, N*m/m3
-    # "torq_den_bi": ".profiles.astra:torq_den_bi",  # Collisional to ions torque density from NB, N*m/m3
-    # "torq_den_bth": ".profiles.astra:torq_den_bth",  # Beam thermalisation torque density from NB, N*m/m3
-    # "torq_den_jxb": ".profiles.astra:torq_den_jxb",  # JXB torque density from NB, N*m/m3
-    # "ffprime": ".profiles.psi_norm:ffprime",  # FFPRIME
-    # "pprime": ".profiles.psi_norm:pprime",  # PPRIME
-
     _IMPLEMENTATION_QUANTITIES = {
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
             "filter_1": ("sxr_radiation", "no_filter"),
@@ -284,7 +253,7 @@ class ST40Reader(DataReader):
         self._default_error = default_error
 
     def get_mds_path(
-        self, uid: str, instrument: str, quantity: str, revision: int
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[str, str]:
         """Return the path in the MDS+ database to for the given INSTRUMENT/CODE
 
@@ -302,14 +271,14 @@ class ST40Reader(DataReader):
         mds_path += f"{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)
 
-    def get_mds_path_dims(self, mds_path):
+    def get_mds_path_dims(self, mds_path: str, dim: int):
         """Gets the dimensions' path given an mds_path"""
 
         dims_path = f"dim_of({mds_path},{dim})"
         return dims_path
 
     def _get_data(
-        self, uid: str, instrument: str, quantity: str, revision: int
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[np.array, List[np.array]]:
         """Gets the signal and its coordinates for the given INSTRUMENT, at the
         given revision."""
@@ -326,7 +295,7 @@ class ST40Reader(DataReader):
         return mds_data
 
     def _get_signal(
-        self, uid: str, instrument: str, quantity: str, revision: int
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[np.array, str]:
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
@@ -339,7 +308,9 @@ class ST40Reader(DataReader):
         return data, path
 
     def _get_signal_dims(
-        self, mds_path: str, ndims: int,
+        self,
+        mds_path: str,
+        ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
@@ -354,7 +325,9 @@ class ST40Reader(DataReader):
             dimensions.append(np.array(dim_tmp))
         return dimensions, paths
 
-    def _get_revision(self, uid: str, instrument: str, revision: int) -> int:
+    def _get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> RevisionLike:
         """
         Gets the effective revision name if latest/best is given in input
         """
@@ -367,7 +340,11 @@ class ST40Reader(DataReader):
         return revision
 
     def _get_equilibrium(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
 
@@ -408,7 +385,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_astra(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch data from ASTRA run."""
 
@@ -454,7 +435,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_radiation(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch data from SXR camera."""
 
@@ -528,7 +513,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_helike_spectroscopy(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -582,7 +571,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_charge_exchange(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -656,7 +649,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_filters(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -709,7 +706,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_interferometry(
-        self, uid: str, instrument: str, revision: int, quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -806,32 +807,13 @@ class ST40Reader(DataReader):
             True if authenticationis needed, otherwise false.
         """
         # Perform the necessary logic to know whether authentication is needed.
-        try:
-            self._client.list("/")
-            return False
-        except AuthenticationFailed:
-            return True
-
-    def authenticate(self, name: str, password: str):
-        """Log onto the JET/SAL system to access data.
-
-        Parameters
-        ----------
-        name:
-            Your username when logging onto Heimdall.
-        password:
-            Your single sign-on password.
-
-        Returns
-        -------
-        :
-            Indicates whether authentication was succesful.
-        """
-        try:
-            self._client.authenticate(name, password)
-            return True
-        except AuthenticationFailed:
-            return False
+        # try:
+        #     self._client.list("/")
+        #     return False
+        # except AuthenticationFailed:
+        #     return True
+        #
+        return False
 
     def mdsCheck(self, mds_path):
         """Return FAILED if node doesn't exist or other error
@@ -848,14 +830,17 @@ class ST40Reader(DataReader):
     def get_revision_name(self, revision):
         """Return string defining RUN## or BEST if revision = 0"""
 
-        if revision < 0:
-            rev_str = ""
-        elif revision == 0:
-            rev_str = ".best"
-        elif revision < 10:
-            rev_str = f".run0{int(revision)}"
-        elif revision > 9:
-            rev_str = f".run{int(revision)}"
+        if type(revision) is not str:
+            if revision < 0:
+                rev_str = ""
+            elif revision == 0:
+                rev_str = ".best"
+            elif revision < 10:
+                rev_str = f".run0{int(revision)}"
+            elif revision > 9:
+                rev_str = f".run{int(revision)}"
+        else:
+            rev_str = f".run{revision}"
 
         return rev_str
 
