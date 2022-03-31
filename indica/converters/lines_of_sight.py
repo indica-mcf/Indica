@@ -129,7 +129,7 @@ class LinesOfSightTransform(CoordinateTransform):
         z = z_s + (z_e - z_s) * x2
         return np.sqrt(x_0 ** 2 + y_0 ** 2), z
 
-    def convert_to_xyz(
+    def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         c = np.ceil(x1).astype(int)
@@ -143,7 +143,7 @@ class LinesOfSightTransform(CoordinateTransform):
         x_0 = x_s + (x_e - x_s) * x2
         y_0 = y_s + (y_e - y_s) * x2
         z = z_s + (z_e - z_s) * x2
-        return x_0, y_0, z
+        return x_0, y_0
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
