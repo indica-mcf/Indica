@@ -128,8 +128,8 @@ class AbstractEquilibrium(ABC):
     def cross_sectional_area(
         self,
         rho: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        ntheta: Optional[int] = 12,
+        t: Optional[LabeledArray],
+        ntheta: int = 12,
         kind: str = "poloidal",
     ) -> Tuple[DataArray, LabeledArray]:
         """Calculates the cross-sectional area inside the flux surface rho and at
