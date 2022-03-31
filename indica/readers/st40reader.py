@@ -11,6 +11,7 @@ from typing import Set
 from typing import Tuple
 
 from MDSplus import Connection
+from MDSplus.mdsExceptions import TreeNNF
 import numpy as np
 
 from .abstractreader import DataReader
@@ -115,6 +116,10 @@ class ST40Reader(DataReader):
         "xrcs": {
             "int_k": ".te_kw:int_k",
             "int_w": ".te_kw:int_w",
+            "int_z": ".te_kw:int_z",
+            "int_q": ".te_kw:int_q",
+            "int_r": ".te_kw:int_r",
+            "int_a": ".te_kw:int_a",
             "int_n3": ".te_n3w:int_n3",
             "int_tot": ".te_n3w:int_tot",
             "te_kw": ".te_kw:te",
@@ -122,6 +127,7 @@ class ST40Reader(DataReader):
             "ti_w": ".ti_w:ti",
             "ti_z": ".ti_z:ti",
             "ampl_w": ".ti_w:amplitude",
+            "spectra": ":intensity",
         },
         "princeton": {  # change to angf
             "int": ".int",
@@ -541,20 +547,30 @@ class ST40Reader(DataReader):
             raise ValueError(f"No geometry available for {instrument}")
         los_start, los_stop = self.get_los(location, direction)
         times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
+        # results["times"] = times
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
+        results["wavelength"] = wavelength
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
-            times, _ = self._get_signal_dims(q_path, len(qval.shape))
-            times = times[0]
-            if "times" not in results:
-                results["times"] = times
             results[q + "_records"] = q_path
             results[q] = qval
-            qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_ERR", revision
-            )
-            if np.array_equal(qval_err, "FAILED"):
+            times, _ = self._get_signal_dims(q_path, len(qval.shape))
+            if "times" not in results.keys():
+                results["times"] = times[0]
+
+            try:
+                qval_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q] + "_err",
+                    revision,
+                )
+                if np.array_equal(qval_err, "FAILED"):
+                    qval_err = 0.0 * results[q]
+                    q_path_err = ""
+            except TreeNNF:
                 qval_err = 0.0 * results[q]
                 q_path_err = ""
             results[q + "_error"] = qval_err
