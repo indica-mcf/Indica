@@ -1227,6 +1227,7 @@ class DataReader(BaseIO):
             return database_results
 
         times = database_results["times"]
+        wavelength = database_results["wavelength"]
         transform = LinesOfSightTransform(
             database_results["xstart"],
             database_results["ystart"],
@@ -1240,13 +1241,10 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
-        coords: Dict[Hashable, Any] = {"t": times}
-        dims = ["t"]
-        if database_results["length"] > 1:
-            dims.append(transform.x1_name)
-            coords[transform.x1_name] = np.arange(database_results["length"])
-        else:
-            coords[transform.x1_name] = 0
+        coords_1d: Dict[Hashable, Any] = {"t": times}
+        dims_1d: list = ["t"]
+        dims_spectra: list = ["t", "wavelength"]
+        coords_spectra: Dict[Hashable, Any] = {"t": times, "wavelength": wavelength}
 
         data: dict = {}
         drop: list = []
@@ -1259,11 +1257,23 @@ class DataReader(BaseIO):
                 )
             meta = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(
-                    database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
+
+            quantity_error = quantity + "_error"
+            if quantity == "spectra":
+                dims = dims_spectra
+                coords = coords_spectra
+            else:
+                dims = dims_1d
+                coords = coords_1d
+
+            if quantity_error in database_results.keys():
+                meta["error"] = (
+                    DataArray(database_results[quantity_error], coords, dims).sel(
+                        t=slice(self._tstart, self._tend)
+                    ),
+                )
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
@@ -1274,12 +1284,13 @@ class DataReader(BaseIO):
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
                 ).mean()
-                quant_data.attrs["error"] = np.sqrt(
-                    (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
-                    .mean()
-                    / downsample_ratio
-                )
+                if quantity_error in database_results.keys():
+                    quant_data.attrs["error"] = np.sqrt(
+                        (quant_data.attrs["error"] ** 2)
+                        .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                        .mean()
+                        / downsample_ratio
+                    )
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "helike_spectroscopy",
