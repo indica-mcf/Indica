@@ -52,3 +52,7 @@ jobs:
     - name: Test docs build successfully
       run: source .venv/bin/activate &&
            make -C doc html
+
+    - name: Check links in docs
+      run: source .venv/bin/activate &&
+           make -C doc linkcheck
