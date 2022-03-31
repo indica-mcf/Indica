@@ -346,8 +346,8 @@ def input_data_setup():
 
     input_Ti = DataArray(
         data=input_Ti,
-        coords={"elements": elements, "rho": base_rho_profile, "t": base_t},
-        dims=["elements", "rho", "t"],
+        coords={"element": elements, "rho": base_rho_profile, "t": base_t},
+        dims=["element", "rho", "t"],
     )
 
     toroidal_rotations = np.array([200.0e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
@@ -357,8 +357,8 @@ def input_data_setup():
 
     toroidal_rotations = DataArray(
         data=toroidal_rotations,
-        coords=[("elements", elements), ("rho", base_rho_profile), ("t", base_t)],
-        dims=["elements", "rho", "t"],
+        coords=[("element", elements), ("rho", base_rho_profile), ("t", base_t)],
+        dims=["element", "rho", "t"],
     )
 
     expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 41)
@@ -599,8 +599,8 @@ def bolometry_input_data_setup(input_data):
 
     impurity_power_losses = DataArray(
         data=impurity_power_losses,
-        coords=dict(**{"elements": elements}, **impurity_power_loss.coords),
-        dims=["elements", *impurity_power_loss.dims],
+        coords=dict(**{"element": elements}, **impurity_power_loss.coords),
+        dims=["element", *impurity_power_loss.dims],
     )
 
     return (example_frac_abunds, main_ion_power_loss, impurity_power_losses)
@@ -649,11 +649,11 @@ def test_extrapolate_impurity_density_call():
     example_derived_asymmetry = DataArray(
         data=example_derived_asymmetry.data[np.newaxis, :],
         coords={
-            "elements": ["w"],
+            "element": ["w"],
             "rho": example_derived_asymmetry.coords["rho"].data,
             "t": example_derived_asymmetry.coords["t"].data,
         },
-        dims=["elements", "rho", "t"],
+        dims=["element", "rho", "t"],
     )
 
     assert np.all(t == base_t)
@@ -681,12 +681,12 @@ def test_extrapolate_impurity_density_call():
             (len(elements), *rho_profile.shape, *theta_profile.shape, *t.shape)
         ),
         coords=[
-            ("elements", elements),
+            ("element", elements),
             ("rho", rho_profile),
             ("theta", theta_profile),
             ("t", t),
         ],
-        dims=["elements", "rho", "theta", "t"],
+        dims=["element", "rho", "theta", "t"],
     )
     impurity_densities.data[0] = beryllium_impurity_conc
     impurity_densities.data[1] = neon_impurity_conc

@@ -234,8 +234,8 @@ def bolometry_input_data_setup(input_data):
 
     impurity_power_losses = DataArray(
         data=impurity_power_losses,
-        coords=dict(**{"elements": elements}, **impurity_power_loss.coords),
-        dims=["elements", *impurity_power_loss.dims],
+        coords=dict(**{"element": elements}, **impurity_power_loss.coords),
+        dims=["element", *impurity_power_loss.dims],
     )
 
     return (example_frac_abunds, main_ion_power_loss, impurity_power_losses)
@@ -274,12 +274,12 @@ def test_bolometry_derivation():
             (len(impurity_elements), *rho_arr.shape, *theta_arr.shape, *t_arr.shape)
         ),
         coords=[
-            ("elements", impurity_elements),
+            ("element", impurity_elements),
             ("rho", rho_arr),
             ("theta", theta_arr),
             ("t", t_arr),
         ],
-        dims=["elements", "rho", "theta", "t"],
+        dims=["element", "rho", "theta", "t"],
     )
 
     impurity_densities.data[0] = beryllium_density
