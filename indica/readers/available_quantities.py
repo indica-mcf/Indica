@@ -3,6 +3,7 @@ Quantities that can be read with the current abstract reader implementation
 """
 
 from typing import Dict
+
 from ..datatypes import ArrayType
 
 
@@ -31,8 +32,12 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "ampl_w": ("amplitude", "ar_w"),
         "spectra": ("spectra", "passive"),
     },
-    "get_filters": {"brems": ("intensity", "bremsstrahlung"),},
-    "get_interferometry": {"ne": ("density", "electrons"),},
+    "get_filters": {
+        "brems": ("intensity", "bremsstrahlung"),
+    },
+    "get_interferometry": {
+        "ne": ("density", "electrons"),
+    },
     "get_equilibrium": {
         "f": ("f_value", "plasma"),
         "faxs": ("magnetic_flux", "mag_axis"),
@@ -51,12 +56,26 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "wp": ("energy", "plasma"),
         "df": ("energy", "plasma"),
     },
-    "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
-    "get_radiation": {"h": ("luminous_flux", None), "v": ("luminous_flux", None),},
+    "get_cyclotron_emissions": {
+        "te": ("temperature", "electrons"),
+    },
+    "get_radiation": {
+        "h": ("luminous_flux", None),
+        "v": ("luminous_flux", None),
+    },
     "get_astra": {
-        "upl": ("voltage", "loop",),  # Loop voltage V
-        "wth": ("stored_energy", "thermal",),  # Thermal stored energy
-        "df": ("flux", "diamagnetic",),
+        "upl": (
+            "voltage",
+            "loop",
+        ),  # Loop voltage V
+        "wth": (
+            "stored_energy",
+            "thermal",
+        ),  # Thermal stored energy
+        "df": (
+            "flux",
+            "diamagnetic",
+        ),
         "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
         "j_nbi": (
             "current_density",
