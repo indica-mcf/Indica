@@ -96,8 +96,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x_end = DataArray(x_end)
         self.z_end = DataArray(z_end)
         self.y_end = DataArray(y_end)
-        self.x1_name = name + "_coords"
-        self.x2_name = name + "_los_position"
+        self.x1_name = "channel"
+        self.x2_name = "los_position"
 
         # Set "dl"
         self.dl_target = dl
