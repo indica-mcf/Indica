@@ -606,8 +606,6 @@ class ST40Reader(DataReader):
             uid, instrument + ".CXSFIT_OUT", revision
         )
         revision = results["revision"]
-        print("revision={}".format(revision))
-        print("instrument={}".format(instrument))
 
         # Get Geometry data from mds
         if instrument == "princeton":
