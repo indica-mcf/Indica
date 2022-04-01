@@ -336,8 +336,8 @@ def test_centrifugal_asymmetry():
 
     toroidal_rotations = DataArray(
         data=toroidal_rotations,
-        coords=[("elements", elements), ("rho", rho_profile), ("t", t)],
-        dims=["elements", "rho", "t"],
+        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
+        dims=["element", "rho", "t"],
     )
 
     ion_temperature = np.array([2.0e3, 1.2e3, 0.5e3, 0.2e3, 0.1e3])
@@ -346,8 +346,8 @@ def test_centrifugal_asymmetry():
 
     ion_temperature = DataArray(
         data=ion_temperature,
-        coords=[("elements", elements), ("rho", rho_profile), ("t", t)],
-        dims=["elements", "rho", "t"],
+        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
+        dims=["element", "rho", "t"],
     )
 
     Zeff = DataArray(
@@ -408,7 +408,7 @@ def test_centrifugal_asymmetry():
     except Exception as e:
         raise e
 
-    expected_toroidal_rotation = toroidal_rotations.sel(elements="w")
+    expected_toroidal_rotation = toroidal_rotations.sel(element="w")
 
     assert np.allclose(output_toroidal_rotation, expected_toroidal_rotation)
 

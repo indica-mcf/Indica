@@ -69,7 +69,7 @@ def sum_squares(x: ArrayLike, axis: int, **kwargs: Any) -> ArrayLike:
         Additiona keyword arguments (unused)
 
     """
-    return np.sum(x ** 2, axis=axis)
+    return np.sum(x**2, axis=axis)
 
 
 def get_slice_limits(low: float, high: float, data: ArrayLike) -> Tuple[int, int]:

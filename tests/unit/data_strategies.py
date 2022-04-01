@@ -666,7 +666,7 @@ def equilibrium_data(
     )
     result["rbnd"] = (
         result["rmag"]
-        + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
+        + a_coeff * b_coeff / np.sqrt(a_coeff**2 * np.tan(thetas) ** 2 + b_coeff**2)
     ).assign_attrs(**attrs)
     result["rbnd"].name = "rbnd"
     result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
@@ -674,7 +674,7 @@ def equilibrium_data(
         result["zmag"]
         + a_coeff
         * b_coeff
-        / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
+        / np.sqrt(a_coeff**2 + b_coeff**2 * np.tan(thetas) ** -2)
     ).assign_attrs(**attrs)
     result["zbnd"].name = "zbnd"
     result["zbnd"].attrs["datatype"] = ("z", "separatrix")
@@ -684,8 +684,8 @@ def equilibrium_data(
     rgrid = DataArray(r, coords=[("R", r)])
     zgrid = DataArray(z, coords=[("z", z)])
     psin = (
-        (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
-        + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
+        (-result["zmag"] + zgrid) ** 2 / b_coeff**2
+        + (-result["rmag"] + rgrid) ** 2 / a_coeff**2
     ) ** (0.5 / n_exp)
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
@@ -721,8 +721,8 @@ def equilibrium_data(
     else:
         f_raw = np.outer(
             np.sqrt(
-                Btot_factor ** 2
-                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff ** 2
+                Btot_factor**2
+                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff**2
             ),
             np.ones_like(rho),
         )
@@ -731,13 +731,13 @@ def equilibrium_data(
         f_raw, coords=[("t", times), ("rho_poloidal", rho)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
-    result["rmjo"] = (result["rmag"] + a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmjo"].name = "rmjo"
     result["rmjo"].attrs["datatype"] = ("major_rad", "lfs")
     result["rmjo"].coords["z"] = result["zmag"]
-    result["rmji"] = (result["rmag"] - a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmji"] = (result["rmag"] - a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmji"].name = "rmji"
@@ -746,7 +746,7 @@ def equilibrium_data(
     result["vjac"] = (
         4
         * n_exp
-        * np.pi ** 2
+        * np.pi**2
         * result["rmag"]
         * a_coeff
         * b_coeff
