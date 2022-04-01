@@ -101,7 +101,10 @@ class Equilibrium(AbstractEquilibrium):
                     self.rho.interp(t=t, method="nearest").indica.interp2d(
                         R=T_e.coords["index"] - offset,
                         z=T_e.coords["index_z_offset"] - z_shift,
-                        zero_coords={"R": Rmag.sel(offset=offset), "z": zmag,},
+                        zero_coords={
+                            "R": Rmag.sel(offset=offset),
+                            "z": zmag,
+                        },
                         method="cubic",
                         assume_sorted=True,
                     )
@@ -227,10 +230,16 @@ class Equilibrium(AbstractEquilibrium):
             rho_, theta_, _ = self.flux_coords(R, z)
 
         dpsi_dR = psi.differentiate("R").indica.interp2d(
-            R=R, z=z, method="cubic", assume_sorted=True,
+            R=R,
+            z=z,
+            method="cubic",
+            assume_sorted=True,
         )
         dpsi_dz = psi.differentiate("z").indica.interp2d(
-            R=R, z=z, method="cubic", assume_sorted=True,
+            R=R,
+            z=z,
+            method="cubic",
+            assume_sorted=True,
         )
 
         # Components of poloidal field
@@ -242,7 +251,11 @@ class Equilibrium(AbstractEquilibrium):
         # returns some negative values for rho
         rho_ = where(rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_)
 
-        f = f.indica.interp2d(rho_poloidal=rho_, method="cubic", assume_sorted=True,)
+        f = f.indica.interp2d(
+            rho_poloidal=rho_,
+            method="cubic",
+            assume_sorted=True,
+        )
         f.name = self.f.name
 
         # Toroidal field
@@ -381,7 +394,13 @@ class Equilibrium(AbstractEquilibrium):
             t = np.array([t])
 
         theta = np.linspace(0.0, 2.0 * np.pi, ntheta)
-        theta = DataArray(data=theta, coords={"theta": theta}, dims=["theta",],)
+        theta = DataArray(
+            data=theta,
+            coords={"theta": theta},
+            dims=[
+                "theta",
+            ],
+        )
 
         minor_radii = np.empty(ntheta, dtype=DataArray)
 
@@ -397,15 +416,15 @@ class Equilibrium(AbstractEquilibrium):
                 for k, itheta in enumerate(theta):
                     minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
 
-        minor_radii = minor_radii ** 2
+        minor_radii = minor_radii**2
         minor_radii *= 0.5
 
         area = trapz(minor_radii, theta, axis=0)
 
         result = DataArray(
             data=area,
-            coords=[("t", t), (f"rho_{kind}", rho)],
-            dims=["t", f"rho_{kind}"],
+            coords=[("t", t), ("rho", rho)],
+            dims=["t", "rho"],
         )
 
         return (
@@ -449,14 +468,10 @@ class Equilibrium(AbstractEquilibrium):
             if t.shape[0] > 3:
                 interp1d_method = "cubic"
 
-        # Major radius centre of each flux-surface
-        major_radius = (
-            (self.rmji + (self.rmjo - self.rmji) / 2.0)
-            .interp(t=t, method=interp1d_method, assume_sorted=True,)
-            .drop_vars("z")
-        )
-        major_radius = major_radius.interp(
-            rho_poloidal=rho, method=interp1d_method, assume_sorted=True,
+        major_radius_axis = self.rmag.interp(
+            t=t,
+            method=interp1d_method,
+            assume_sorted=True,
         )
 
         # Cross-sectional area calculated by integrating:
@@ -464,7 +479,7 @@ class Equilibrium(AbstractEquilibrium):
         area_arr, _ = self.cross_sectional_area(rho, t, kind=kind)
 
         # Vol = area * toroidal circumference measure at the magnetic axis
-        vol_enclosed = area_arr * 2 * np.pi * major_radius
+        vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
         vol_enclosed.name = "Enclosed volumes (m^3)"
 
         return vol_enclosed, area_arr, t
