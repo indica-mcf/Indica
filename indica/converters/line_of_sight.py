@@ -106,7 +106,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.dl = dl_new
 
         # Set x, y, z
-        self.x, self.y, self.z = self.convert_to_xyz(0, x2, 0)
+        self.x, self.y, _ = self.convert_to_xyz(0, x2, 0)
+        _, self.z = self.convert_to_Rz(0, x2, 0)
 
         # Calculate r, phi (cylindrical coordinates)
         self.R = np.sqrt(self.x**2 + self.y**2)
