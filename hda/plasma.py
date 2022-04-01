@@ -101,7 +101,7 @@ class Plasma:
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
-        self.t = np.arange(tstart, tend, dt)
+        self.t = np.arange(tstart, tend + dt, dt)
         self.theta = np.linspace(0, 2 * np.pi, ntheta + 1)[:-1]
         self.radial_coordinate = np.linspace(0, 1.0, 41)
         self.radial_coordinate_type = "rho_poloidal"
@@ -1100,7 +1100,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
+                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
             )
 
         self.ion_dens_2d = (
