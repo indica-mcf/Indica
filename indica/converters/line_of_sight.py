@@ -106,7 +106,7 @@ class LinesOfSightTransform(CoordinateTransform):
         self.dl = dl_new
 
         # Set x, y, z
-        self.x, self.y, _ = self.convert_to_xyz(0, x2, 0)
+        self.x, self.y = self.convert_to_xy(0, x2, 0)
         _, self.z = self.convert_to_Rz(0, x2, 0)
 
         # Calculate r, phi (cylindrical coordinates)
@@ -130,13 +130,12 @@ class LinesOfSightTransform(CoordinateTransform):
         result = result and self._machine_dims == other._machine_dims
         return result
 
-    def convert_to_xyz(
+    def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Tuple:
         x = self.x_start + (self.x_end - self.x_start) * x2
         y = self.y_start + (self.y_end - self.y_start) * x2
-        z = self.z_start + (self.z_end - self.z_start) * x2
-        return x, y, z
+        return x, y
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
