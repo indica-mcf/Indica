@@ -105,12 +105,11 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2 = x2
         self.dl = dl_new
 
-        # Set x, y, z
+        # Set x, y, z, r
         self.x, self.y = self.convert_to_xy(0, x2, 0)
-        _, self.z = self.convert_to_Rz(0, x2, 0)
+        self.R, self.z = self.convert_to_Rz(0, x2, 0)
 
         # Calculate r, phi (cylindrical coordinates)
-        self.R = np.sqrt(self.x**2 + self.y**2)
         self.phi = np.arctan2(self.y, self.x)
 
     def __eq__(self, other: object) -> bool:
