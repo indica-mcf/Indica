@@ -31,8 +31,8 @@ from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from .. import session
 from ..datatypes import ELEMENTS
-from ..utilities import to_filename
 from ..numpy_typing import RevisionLike
+from ..utilities import to_filename
 
 
 SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
