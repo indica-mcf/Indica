@@ -1,6 +1,7 @@
 """Experimental design for reading data from disk/database.
 """
 
+from copy import deepcopy
 import datetime
 from numbers import Number
 import os
@@ -1243,8 +1244,15 @@ class DataReader(BaseIO):
         )
         coords_1d: Dict[Hashable, Any] = {"t": times}
         dims_1d: list = ["t"]
-        dims_spectra: list = ["t", "wavelength"]
-        coords_spectra: Dict[Hashable, Any] = {"t": times, "wavelength": wavelength}
+        if database_results["length"] > 1:
+            dims_1d.append(transform.x1_name)
+            coords_1d[transform.x1_name] = np.arange(database_results["length"])
+        else:
+            coords_1d[transform.x1_name] = 0
+        dims_spectra = deepcopy(dims_1d)
+        dims_spectra.append("wavelength")
+        coords_spectra = deepcopy(coords_1d)
+        coords_spectra["wavelength"] = wavelength
 
         data: dict = {}
         drop: list = []
