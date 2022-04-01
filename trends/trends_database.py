@@ -469,6 +469,8 @@ class Database:
                 if len(ifin) >= 1:
                     binned.value.loc[dict(t=t)] = np.mean(data_tmp[ifin])
                     binned.cumul.loc[dict(t=t)] = np.sum(data[tind_lt]) * dt
+                    # TODO: separate std from error propagation
+                    # TODO: deviation from a linear evolution? --> InMatlab: regress > error around linear reg
                     binned.error.loc[dict(t=t)] = np.std(data_tmp[ifin])
                     if err is not None:
                         err_tmp = err[tind]
@@ -476,6 +478,7 @@ class Database:
                             np.sum(err_tmp[ifin] ** 2)
                         ) / len(ifin)
 
+        # TODO: calculate gradient uncertainty
         binned.gradient.values = binned.value.differentiate("t", edge_order=2)
         binned.cumul.values = xr.where(np.isfinite(binned.value), binned.cumul, np.nan)
 
