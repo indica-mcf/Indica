@@ -197,10 +197,10 @@ class DataReader(BaseIO):
         database_results = self._get_thomson_scattering(
             uid, instrument, revision, quantities
         )
-
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
@@ -266,7 +266,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -355,6 +354,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
@@ -436,7 +436,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
         return data
 
@@ -540,6 +539,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
@@ -623,7 +623,6 @@ class DataReader(BaseIO):
                 [],
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             if quantity in {"rmji", "rmjo"}:
                 quant_data.coords["z"] = data["zmag"]
             elif quantity == "faxs":
@@ -736,6 +735,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         times = database_results["times"]
         transform = MagneticCoordinates(
@@ -796,7 +796,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -884,6 +883,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         data = {}
         for quantity in quantities:
@@ -949,7 +949,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1049,6 +1048,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         times = database_results["times"]
         data = {}
@@ -1126,7 +1126,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1225,6 +1224,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         times = database_results["times"]
         wavelength = database_results["wavelength"]
@@ -1300,7 +1300,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1395,6 +1394,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
@@ -1461,7 +1461,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1558,6 +1557,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         if len(database_results) == 0:
             return database_results
@@ -1628,7 +1628,6 @@ class DataReader(BaseIO):
                 drop,
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
@@ -1716,10 +1715,10 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_astra(uid, instrument, revision, quantities)
-
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+        revision = database_results["revision"]
 
         data: Dict[str, DataArray] = {}
 
@@ -1805,7 +1804,6 @@ class DataReader(BaseIO):
             )
 
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            quant_data.attrs["revision"] = database_results["revision"]
 
             data[quantity] = quant_data
 
