@@ -1,4 +1,5 @@
 import copy
+from typing import cast
 from typing import get_args
 from typing import List
 from typing import Tuple
@@ -344,8 +345,8 @@ class FractionalAbundance(Operator):
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
         elif self.CCD is not None:
-            Nh = zeros_like(Ne)
-            inputted_data["Nh"] = Nh
+            Nh = cast(DataArray, zeros_like(Ne))
+            inputted_data["Nh"] = cast(DataArray, Nh)
 
         shape_check(inputted_data)
 
@@ -507,8 +508,11 @@ class FractionalAbundance(Operator):
         x1_coord = self.x1_coord
 
         if F_z_t0 is None:
-            F_z_t0 = np.zeros(self.F_z_tinf.shape, dtype=np.complex128)
-            F_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(x1_coord.size)])
+            # mypy doesn't understand contionals or reassignments either.
+            F_z_t0 = np.zeros(self.F_z_tinf.shape, dtype=np.complex128)  # type: ignore
+            F_z_t0[0, :] = np.array(  # type: ignore
+                [1.0 + 0.0j for i in range(x1_coord.size)]
+            )
 
             F_z_t0 = DataArray(
                 data=F_z_t0,
@@ -563,7 +567,9 @@ class FractionalAbundance(Operator):
 
         self.eig_coeffs = eig_coeffs
 
-        F_z_t0 = np.abs(np.real(F_z_t0))
+        # If argument to numpy functions is of type DataArray then output is of
+        # type DataArray
+        F_z_t0 = np.abs(np.real(F_z_t0))  # type: ignore
 
         self.F_z_t0 = F_z_t0  # type: ignore
 
@@ -988,8 +994,8 @@ class PowerLoss(Operator):
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
         elif self.PRC is not None:
-            Nh = zeros_like(Ne)
-            inputted_data["Nh"] = Nh
+            Nh = cast(DataArray, zeros_like(Ne))
+            inputted_data["Nh"] = cast(DataArray, Nh)
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
