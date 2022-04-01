@@ -122,7 +122,7 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
              of given impurity element",
         "m^3 s^-1",
     ),
-    "line_power_coeffecient": (
+    "line_power_coefficient": (
         "Radiated power of line emission from excitation of all relevant ionisation \
             stages of given impurity element",
         "w m^3",
