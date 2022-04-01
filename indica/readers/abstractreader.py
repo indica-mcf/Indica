@@ -1698,169 +1698,170 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def get_astra(
-        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
-    ) -> Dict[str, DataArray]:
-        """Reads ASTRA data.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the code used to calculate this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested physical quantities.
-
-        """
-        available_quantities = self.available_quantities(instrument)
-        database_results = self._get_astra(uid, instrument, revision, quantities)
-        if len(database_results) == 0:
-            print(f"No data from {uid}.{instrument}:{revision}")
-            return database_results
-        revision = database_results["revision"]
-
-        data: Dict[str, DataArray] = {}
-
-        # Reorganise coordinate system to match Indica default rho-poloidal
-        rhop_psin = np.sqrt(database_results["psin"])
-        rhop_interp = np.linspace(0, 1.0, 65)
-        rhot_astra = database_results["rho"] / np.max(database_results["rho"])
-        rhot_rhop = []
-        for it in range(len(database_results["times"])):
-            ftor_tmp = database_results["ftor"][it, :]
-            psi_tmp = database_results["psi"][it, :]
-            rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
-            rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
-            rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
-            rhot_rhop.append(rhot_xpsn)
-
-        rhot_rhop = DataArray(
-            np.array(rhot_rhop),
-            {"t": database_results["times"], "rho_poloidal": rhop_interp},
-            dims=["t", "rho_poloidal"],
-        ).sel(t=slice(self._tstart, self._tend))
-
-        radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
-
-        sorted_quantities = sorted(quantities)
-        for quantity in sorted_quantities:
-            if quantity not in available_quantities:
-                raise ValueError(
-                    "{} can not read astra data for "
-                    "quantity {}".format(self.__class__.__name__, quantity)
-                )
-
-            if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
-                name_coord = "rho_toroidal"
-            elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
-                name_coord = "rho_poloidal"
-            else:
-                name_coord = ""
-
-            coords = {"t": database_results["times"]}
-            dims = ["t"]
-            if len(name_coord) > 0:
-                coords[name_coord] = radial_coords[name_coord]
-                dims.append(name_coord)
-
-            trivial_transform = TrivialTransform()
-            meta = {
-                "datatype": available_quantities[quantity],
-                "transform": trivial_transform,
-            }
-
-            quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
-
-            # TODO: careful with interpolation on new rho_poloidal array...
-            # Interpolate ASTRA profiles on new rhop_interp array
-            # Interpolate PSI_NORM profiles on same coordinate system
-            if name_coord == "rho_toroidal":
-                rho_toroidal_0 = quant_data.rho_toroidal.min()
-                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop(
-                    "rho_toroidal"
-                )
-                quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
-                    rho_toroidal=rho_toroidal_0
-                )
-                quant_data = quant_interp.interpolate_na("rho_poloidal")
-            elif name_coord == "rho_poloidal":
-                quant_data = quant_data.interp(rho_poloidal=rhop_interp)
-
-            quant_data.name = instrument + "_" + quantity
-            quant_data.attrs["partial_provenance"] = self.create_provenance(
-                "astra",
-                uid,
-                instrument,
-                revision,
-                quantity,
-                database_results[quantity + "_records"],
-                [],
-            )
-
-            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-
-            data[quantity] = quant_data
-
-        return data
-
-    def _get_astra(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-    ) -> Dict[str, Any]:
-        """Reads ASTRA data
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        times : ndarray
-            The times at which measurements were taken
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-
-        """
-        raise NotImplementedError(
-            "{} does not implement a '_get_spectroscopy' "
-            "method.".format(self.__class__.__name__)
-        )
+    #
+    # def get_astra(
+    #     self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
+    # ) -> Dict[str, DataArray]:
+    #     """Reads ASTRA data.
+    #
+    #     Parameters
+    #     ----------
+    #     uid
+    #         User ID (i.e., which user created this data)
+    #     instrument
+    #         Name of the code used to calculate this data
+    #     revision
+    #         An object (of implementation-dependent type) specifying what
+    #         version of data to get. Default is the most recent.
+    #     quantities
+    #         Which physical quantitie(s) to read from the database.
+    #
+    #     Returns
+    #     -------
+    #     :
+    #         A dictionary containing the requested physical quantities.
+    #
+    #     """
+    #     available_quantities = self.available_quantities(instrument)
+    #     database_results = self._get_astra(uid, instrument, revision, quantities)
+    #     if len(database_results) == 0:
+    #         print(f"No data from {uid}.{instrument}:{revision}")
+    #         return database_results
+    #     revision = database_results["revision"]
+    #
+    #     data: Dict[str, DataArray] = {}
+    #
+    #     # Reorganise coordinate system to match Indica default rho-poloidal
+    #     rhop_psin = np.sqrt(database_results["psin"])
+    #     rhop_interp = np.linspace(0, 1.0, 65)
+    #     rhot_astra = database_results["rho"] / np.max(database_results["rho"])
+    #     rhot_rhop = []
+    #     for it in range(len(database_results["times"])):
+    #         ftor_tmp = database_results["ftor"][it, :]
+    #         psi_tmp = database_results["psi"][it, :]
+    #         rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
+    #         rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
+    #         rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
+    #         rhot_rhop.append(rhot_xpsn)
+    #
+    #     rhot_rhop = DataArray(
+    #         np.array(rhot_rhop),
+    #         {"t": database_results["times"], "rho_poloidal": rhop_interp},
+    #         dims=["t", "rho_poloidal"],
+    #     ).sel(t=slice(self._tstart, self._tend))
+    #
+    #     radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
+    #
+    #     sorted_quantities = sorted(quantities)
+    #     for quantity in sorted_quantities:
+    #         if quantity not in available_quantities:
+    #             raise ValueError(
+    #                 "{} can not read astra data for "
+    #                 "quantity {}".format(self.__class__.__name__, quantity)
+    #             )
+    #
+    #         if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
+    #             name_coord = "rho_toroidal"
+    #         elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
+    #             name_coord = "rho_poloidal"
+    #         else:
+    #             name_coord = ""
+    #
+    #         coords = {"t": database_results["times"]}
+    #         dims = ["t"]
+    #         if len(name_coord) > 0:
+    #             coords[name_coord] = radial_coords[name_coord]
+    #             dims.append(name_coord)
+    #
+    #         trivial_transform = TrivialTransform()
+    #         meta = {
+    #             "datatype": available_quantities[quantity],
+    #             "transform": trivial_transform,
+    #         }
+    #
+    #         quant_data = DataArray(
+    #             database_results[quantity],
+    #             coords,
+    #             dims,
+    #             attrs=meta,
+    #         ).sel(t=slice(self._tstart, self._tend))
+    #
+    #         # TODO: careful with interpolation on new rho_poloidal array...
+    #         # Interpolate ASTRA profiles on new rhop_interp array
+    #         # Interpolate PSI_NORM profiles on same coordinate system
+    #         if name_coord == "rho_toroidal":
+    #             rho_toroidal_0 = quant_data.rho_toroidal.min()
+    #             quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop(
+    #                 "rho_toroidal"
+    #             )
+    #             quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
+    #                 rho_toroidal=rho_toroidal_0
+    #             )
+    #             quant_data = quant_interp.interpolate_na("rho_poloidal")
+    #         elif name_coord == "rho_poloidal":
+    #             quant_data = quant_data.interp(rho_poloidal=rhop_interp)
+    #
+    #         quant_data.name = instrument + "_" + quantity
+    #         quant_data.attrs["partial_provenance"] = self.create_provenance(
+    #             "astra",
+    #             uid,
+    #             instrument,
+    #             revision,
+    #             quantity,
+    #             database_results[quantity + "_records"],
+    #             [],
+    #         )
+    #
+    #         quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+    #
+    #         data[quantity] = quant_data
+    #
+    #     return data
+    #
+    # def _get_astra(
+    #     self,
+    #     uid: str,
+    #     instrument: str,
+    #     revision: RevisionLike,
+    #     quantities: Set[str],
+    # ) -> Dict[str, Any]:
+    #     """Reads ASTRA data
+    #
+    #     Parameters
+    #     ----------
+    #     uid
+    #         User ID (i.e., which user created this data)
+    #     instrument
+    #         Name of the instrument which measured this data
+    #     revision
+    #         An object (of implementation-dependent type) specifying what
+    #         version of data to get. Default is the most recent.
+    #     quantities
+    #         Which physical quantitie(s) to read from the database.
+    #
+    #     Returns
+    #     -------
+    #     A dictionary containing the following items:
+    #
+    #     times : ndarray
+    #         The times at which measurements were taken
+    #     machine_dims
+    #         A tuple describing the size of the Tokamak domain. It should have
+    #         the form ``((Rmin, Rmax), (zmin, zmax))``.
+    #
+    #     For each requested quantity, the following items will also be present:
+    #
+    #     <quantity> : ndarray
+    #         The data itself (first axis is time, second channel)
+    #     <quantity>_records : List[str]
+    #         Representations (e.g., paths) for the records in the database used
+    #         to access data needed for this data.
+    #
+    #     """
+    #     raise NotImplementedError(
+    #         "{} does not implement a '_get_spectroscopy' "
+    #         "method.".format(self.__class__.__name__)
+    #     )
 
     def create_provenance(
         self,
