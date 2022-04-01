@@ -14,6 +14,7 @@ class Profiles:
             xspl = np.linspace(0, 1.0, 30)
         self.xspl = xspl
         self.xend = 1.05
+        self.yend = 0
 
         self.datatype = datatype
 
@@ -182,7 +183,7 @@ class Profiles:
         self.yspl.values = cubicspline(self.xspl)
         vol_int_post = np.trapz(self.yspl, self.vol)
 
-        print(f"Vol-int: {float(vol_int_pre)}, {float(vol_int_post)}")
+        print(f"Vol-int: {vol_int_pre}, {vol_int_post}")
 
     def plot(self, fig=True):
         if fig:
