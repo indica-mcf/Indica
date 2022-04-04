@@ -137,7 +137,7 @@ def test_convert_to_Rz(debug=False):
     R_, z_ = los.convert_to_Rz(x1, x2, t)
 
     x, y = los.convert_to_xy(x1, x2, t)
-    R = np.sign(x) * np.sqrt(x**2 + y**2)
+    R = np.sqrt(x**2 + y**2)
 
     # R and z are as expected=
     assert all(R == R_)
