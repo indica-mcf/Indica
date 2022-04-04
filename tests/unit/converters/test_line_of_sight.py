@@ -269,10 +269,10 @@ def test_missing_los():
 def test_los_vertical(plot=False):
 
     # line-of-sight dimensions
-    # origin = (3.3276, 0.0, 1.6921)
-    # direction = (0.15044, 0.0, -0.98862)
-    origin = (3.8, -2.0, 0.5)  # [xyz]
-    direction = (-1.0, 0.0, -0.1)
+    origin = (3.3276, 0.0, 1.6921)
+    direction = (0.15044, 0.0, -0.98862)
+    # origin = (3.8, -2.0, 0.5)  # [xyz]
+    # direction = (-1.0, 0.0, -0.1)
     name = "testLos"
     dl = 0.01
 
@@ -293,12 +293,12 @@ def test_los_vertical(plot=False):
     )
 
     if plot:
-        print(f"{origin[0]} --> {los.x_start.data}")
-        print(f"{origin[1]} --> {los.y_start.data}")
-        print(f"{origin[2]} --> {los.z_start.data}")
-        print(f"los.x_end = {los.x_end.data}")
-        print(f"los.y_end = {los.y_end.data}")
-        print(f"los.z_end = {los.z_end.data}")
+        print(f"x_start --> {los.x_start.data}")
+        print(f"y_start --> {los.y_start.data}")
+        print(f"z_start --> {los.z_start.data}")
+        print(f"x_end   --> {los.x_end.data}")
+        print(f"y_end   --> {los.y_end.data}")
+        print(f"z_end   --> {los.z_end.data}")
 
         # centre column
         th = np.linspace(0.0, 2 * np.pi, 1000)
