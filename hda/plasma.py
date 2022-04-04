@@ -17,7 +17,7 @@ from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
-from indica.provenance import get_attribute
+from indica.provenance import get_prov_attribute
 from indica.readers import ADASReader
 
 plt.ion()
@@ -134,7 +134,7 @@ class Plasma:
             self.initialize_variables()
 
             self.pulse = pulse
-            revision = get_attribute(data[equil]["rmag"].provenance)
+            revision = get_prov_attribute(data[equil]["rmag"].provenance, "revision")
             self.optimisation["equil"] = f"{equil}:{revision}"
 
             t_ip = data["efit"]["ipla"].t
@@ -710,10 +710,10 @@ class Plasma:
         bckc[diagnostic][quantity_ti].attrs["emiss"] = emiss
         bckc[diagnostic][quantity_ti].attrs["fz"] = fz
 
-        revision = get_attribute(data[diagnostic][quantity_te].provenance)
+        revision = get_prov_attribute(data[diagnostic][quantity_te].provenance, "revision")
         self.optimisation["el_temp"] = f"{diagnostic}.{quantity_te}:{revision}"
 
-        revision = get_attribute(data[diagnostic][quantity_ti].provenance)
+        revision = get_prov_attribute(data[diagnostic][quantity_ti].provenance, "revision")
         self.optimisation["ion_temp"] = f"{diagnostic}.{quantity_ti}:{revision}"
 
         return bckc
@@ -821,7 +821,7 @@ class Plasma:
 
         bckc[diagnostic][quantity].attrs["calibration"] = cal
 
-        revision = get_attribute(data[diagnostic][quantity].provenance)
+        revision = get_prov_attribute(data[diagnostic][quantity].provenance, "revision")
         self.optimisation["imp_dens"] = f"{diagnostic}.{quantity}:{revision}"
 
         return bckc
@@ -877,7 +877,7 @@ class Plasma:
 
             bckc[diagnostic][quantity].loc[dict(t=t)] = ne_bckc.values
 
-        revision = get_attribute(data[diagnostic][quantity].provenance)
+        revision = get_prov_attribute(data[diagnostic][quantity].provenance, "revision")
         self.optimisation["el_dens"] = f"{diagnostic}.{quantity}:{revision}"
         self.optimisation["stored_en"] = ""
 
@@ -923,7 +923,7 @@ class Plasma:
             bckc_tmp = self.wp.sel()
             const = 1 + (data_tmp - bckc_tmp) / bckc_tmp
 
-        revision = get_attribute(data[diagnostic][quantity].provenance)
+        revision = get_prov_attribute(data[diagnostic][quantity].provenance, "revision")
         self.optimisation["stored_en"] = f"{diagnostic}.{quantity}:{revision}"
 
     def propagate_parameters(self):
