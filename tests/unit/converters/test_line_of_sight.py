@@ -265,6 +265,78 @@ def test_missing_los():
         print("LOS initialisation failed with ValueError as expected")
 
 
+# Test LOS behaviour
+def test_los_vertical(plot=False):
+
+    # line-of-sight dimensions
+    # origin = (3.3276, 0.0, 1.6921)
+    # direction = (0.15044, 0.0, -0.98862)
+    origin = (3.8, -2.0, 0.5)  # [xyz]
+    direction = (-1.0, 0.0, -0.1)
+    name = "testLos"
+    dl = 0.01
+
+    # machine dimensions
+    machine_dims = ((1.83, 3.9), (-1.75, 2.0))
+
+    # line of sight transform
+    los = line_of_sight.LinesOfSightTransform(
+        origin[0],
+        origin[1],
+        origin[2],
+        direction[0],
+        direction[1],
+        direction[2],
+        machine_dimensions=machine_dims,
+        name=name,
+        dl=dl,
+    )
+
+    if plot:
+        print(f"{origin[0]} --> {los.x_start.data}")
+        print(f"{origin[1]} --> {los.y_start.data}")
+        print(f"{origin[2]} --> {los.z_start.data}")
+        print(f"los.x_end = {los.x_end.data}")
+        print(f"los.y_end = {los.y_end.data}")
+        print(f"los.z_end = {los.z_end.data}")
+
+        # centre column
+        th = np.linspace(0.0, 2 * np.pi, 1000)
+        x_cc = machine_dims[0][0] * np.cos(th)
+        y_cc = machine_dims[0][0] * np.sin(th)
+
+        # IVC
+        x_ivc = machine_dims[0][1] * np.cos(th)
+        y_ivc = machine_dims[0][1] * np.sin(th)
+
+        plt.figure()
+        # plt.plot(los.x_start, los.y_start, "ro", label="start")
+        # plt.plot(los.x_end, los.y_end, "bo", label="end")
+        plt.subplot(411)
+        plt.plot(los.x, "g", label="los")
+        plt.ylabel("X (m)")
+        plt.subplot(412)
+        plt.plot(los.y, "g", label="los")
+        plt.ylabel("Y (m)")
+        plt.subplot(413)
+        plt.plot(los.z, "g", label="los")
+        plt.ylabel("Z (m)")
+        plt.subplot(414)
+        plt.plot(los.R, "g", label="los")
+        plt.ylabel("R (m)")
+
+        plt.figure()
+        plt.plot(x_cc, y_cc, "k--")
+        plt.plot(x_ivc, y_ivc, "k--")
+        plt.plot(los.x_start, los.y_start, "ro", label="start")
+        plt.plot(los.x_end, los.y_end, "bo", label="end")
+        plt.plot(los.x, los.y, "g", label="los")
+        plt.legend()
+        plt.xlabel("x (m)")
+        plt.ylabel("y (m)")
+        plt.show(block=True)
+
+
 # Function for defining equilibrium
 def equilibrium_dat():
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
