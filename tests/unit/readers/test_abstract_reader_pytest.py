@@ -1,16 +1,15 @@
 """Test methods present on the base class DataReader."""
 
 from copy import deepcopy
-import numpy as np
-import xarray as xr
-from xarray import DataArray
-from pytest import approx
 from numbers import Number
-from typing import Set
 from typing import Collection
+from typing import Set
 
-from indica.readers import PPFReader
+import numpy as np
+from xarray import DataArray
+
 from indica.numpy_typing import RevisionLike
+from indica.readers import PPFReader
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
@@ -47,11 +46,12 @@ class Generate_data:
         self.Ne_error = np.sqrt(self.Ne)
         self.angf = np.random.uniform(1.0e2, 1.0e6, (nt, self.length))
         self.angf_error = np.sqrt(self.angf)
-        self.conc = np.random.uniform(1.e-6, 1.e-1, (nt, self.length))
+        self.conc = np.random.uniform(1.0e-6, 1.0e-1, (nt, self.length))
         self.conc_error = np.sqrt(self.conc)
 
         self.Btot = np.random.uniform(0.1, 5, (self.length))
         self.bad_channels = []
+
 
 def _select_channels(
     category: str,
@@ -64,16 +64,17 @@ def _select_channels(
 ):
     return []
 
+
 def test_get_thomson_scattering(nsamples=10):
     """Test the get_thomson_scattering method correctly combines and processes
     raw data."""
 
     def _get_thomson_scattering(
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
-            empty=False,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        empty=False,
     ):
         """Strategy to produce a dictionary of DataArrays of the type that
         could be returned by a read operation.
@@ -115,11 +116,18 @@ def test_get_thomson_scattering(nsamples=10):
         reader._select_channels = _select_channels
 
         for instrument in instruments:
-            database_results = reader._get_thomson_scattering(uid, instrument, data.revision, quantities)
-            results = reader.get_thomson_scattering(uid, instrument, data.revision, quantities)
+            database_results = reader._get_thomson_scattering(
+                uid, instrument, data.revision, quantities
+            )
+            results = reader.get_thomson_scattering(
+                uid, instrument, data.revision, quantities
+            )
 
-            for q, actual, expected in [(q, results[q], database_results[q]) for q in quantities]:
+            for q, actual, expected in [
+                (q, results[q], database_results[q]) for q in quantities
+            ]:
                 assert np.all(actual.values == expected)
+
 
 def test_get_charge_exchange(nsamples=10):
     """Test the get_charge_exchange method correctly combines and processes
@@ -179,10 +187,16 @@ def test_get_charge_exchange(nsamples=10):
         reader._select_channels = _select_channels
 
         for instrument in instruments:
-            database_results = reader._get_charge_exchange(uid, instrument, data.revision, quantities)
-            results = reader.get_charge_exchange(uid, instrument, data.revision, quantities)
+            database_results = reader._get_charge_exchange(
+                uid, instrument, data.revision, quantities
+            )
+            results = reader.get_charge_exchange(
+                uid, instrument, data.revision, quantities
+            )
 
-            for q, actual, expected in [(q, results[q], database_results[q]) for q in quantities]:
+            for q, actual, expected in [
+                (q, results[q], database_results[q]) for q in quantities
+            ]:
                 assert np.all(actual.values == expected)
 
 
@@ -235,63 +249,14 @@ def test_cyclotron_emissions(nsamples=10):
         reader._select_channels = _select_channels
 
         for instrument in instruments:
-            database_results = reader._get_cyclotron_emissions(uid, instrument, data.revision, quantities)
-            results = reader.get_cyclotron_emissions(uid, instrument, data.revision, quantities)
+            database_results = reader._get_cyclotron_emissions(
+                uid, instrument, data.revision, quantities
+            )
+            results = reader.get_cyclotron_emissions(
+                uid, instrument, data.revision, quantities
+            )
 
-            for q, actual, expected in [(q, results[q], database_results[q]) for q in quantities]:
+            for q, actual, expected in [
+                (q, results[q], database_results[q]) for q in quantities
+            ]:
                 assert np.all(actual.values == expected)
-#
-# def test_get_radiation(nsamples=10):
-#     """Test the get_charge_exchange method correctly combines and processes
-#     raw data."""
-#
-#     def _get_radiation(
-#         uid: str,
-#         instrument: str,
-#         revision: RevisionLike,
-#         quantities: Set[str],
-#         empty=False,
-#     ):
-#         """Strategy to produce a dictionary of DataArrays of the type that
-#         could be returned by a read operation.
-#         """
-#
-#         if empty:
-#             return {}
-#
-#         database_results: dict = {}
-#         database_results["machine_dims"] = data.machine_dims
-#         database_results["z"] = data.z_ece
-#         database_results["length"] = data.length
-#         database_results["Btot"] = data.Btot
-#         database_results["bad_channels"] = data.bad_channels
-#         database_results["times"] = data.times
-#         database_results["te"] = data.Te
-#         database_results["te_error"] = data.Te_error
-#         database_results["revision"] = data.revision
-#
-#         for quantity in quantities:
-#             database_results[f"{quantity}_records"] = []
-#             for i in range(data.length):
-#                 database_results[f"{quantity}_records"].append(f"chan_{i}_path")
-#
-#         return database_results
-#
-#     for i in range(nsamples):
-#         data = Generate_data()
-#
-#         category = "get_cyclotron_emissions"
-#         uid = "jetppf"
-#         instruments = ["kk3"]
-#         quantities = AVAILABLE_QUANTITIES[category]
-#
-#         reader = PPFReader(0, data.tstart, data.tend + data.dt)
-#         reader._get_radiation = _get_radiation
-#         reader._select_channels = _select_channels
-#
-#         for instrument in instruments:
-#             database_results = reader._get_radiation(uid, instrument, data.revision, quantities)
-#             results = reader.get_radiation(uid, instrument, data.revision, quantities)
-#
-#             for q, actual, expected in [(q, results[q], database_results[q]) for q in quantities]:
-#                 assert np.all(actual.values == expected)
