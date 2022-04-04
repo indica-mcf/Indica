@@ -376,8 +376,9 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
+        # TODO: why use ffill as method??? Temporarily removed...
         texp = DataArray(database_results["texp"], coords=[("t", times)]).sel(
-            t=slice(self._tstart, self._tend), method="ffill"
+            t=slice(self._tstart, self._tend)
         )
         if downsample_ratio > 1:
             # Seems to be some sort of bug setting the coordinate when
