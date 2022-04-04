@@ -275,23 +275,64 @@ def _find_wall_intersections(
         A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
     """
 
+    # x_start, y_start, z_start
+    x_start = origin[0]
+    y_start = origin[1]
+    z_start = origin[2]
+
     # Define XYZ lines for LOS from origin and direction vectors
+    num_points = 500
     length = 10.0
-    x_line = np.array(
-        [origin[0] - length * direction[0], origin[0] + length * direction[0]],
+    x_line = np.linspace(
+        origin[0] - length * direction[0],
+        origin[0] + length * direction[0],
+        num_points,
         dtype=float,
     )
-    y_line = np.array(
-        [origin[1] - length * direction[1], origin[1] + length * direction[1]],
+    y_line = np.linspace(
+        origin[1] - length * direction[1],
+        origin[1] + length * direction[1],
+        num_points,
         dtype=float,
     )
+    z_line = np.linspace(
+        origin[2] - length * direction[2],
+        origin[2] + length * direction[2],
+        num_points,
+        dtype=float,
+    )
+    r_line = np.sqrt(x_line**2 + y_line**2)
 
     # Define XYZ lines for inner and outer walls
     angles = np.linspace(0.0, 2 * np.pi, 1000)
-    x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
-    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
+    # x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+    # y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
     x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
     y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
+
+    z_wall_inner = np.linspace(
+        machine_dimensions[1][0], machine_dimensions[1][1], len(angles), dtype=float
+    )
+    r_wall_inner = machine_dimensions[0][0] * np.ones_like(z_wall_inner)
+
+    r_wall_outer = np.array(
+        [0.0, machine_dimensions[0][1], machine_dimensions[0][1], 0.0, 0.0], dtype=float
+    )
+    z_wall_outer = np.array(
+        [
+            machine_dimensions[1][0],
+            machine_dimensions[1][0],
+            machine_dimensions[1][1],
+            machine_dimensions[1][1],
+            machine_dimensions[1][0],
+        ],
+        dtype=float,
+    )
+    # z_wall_outer = np.linspace(
+    #    machine_dimensions[1][0]-z_buffer,
+    #    machine_dimensions[1][1]+z_buffer,
+    #    len(angles), dtype=float)
+    # r_wall_outer = machine_dimensions[0][1] * np.ones_like(z_wall_outer)
 
     # Find intersections, to calculate
     # R_start, z_start, T_start, R_end, z_end, T_end ...
@@ -299,25 +340,57 @@ def _find_wall_intersections(
     distance = np.sqrt(
         (xx - origin[0]) ** 2 + (yx - origin[1]) ** 2
     )  # Distance from intersections
-    i_closest = np.argmin(distance)
     i_furthest = np.argmax(distance)
-    x_start = xx[i_closest]
-    y_start = yx[i_closest]
-    z_start = origin[-1]
     x_end = xx[i_furthest]
     y_end = yx[i_furthest]
     z_end = origin[-1]
 
-    # Find intersections with inner wall (if exists)
-    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
-    if len(xx) > 0:
-        distance = np.sqrt(
-            (xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2
-        )  # Distance from intersections
-        i_closest = np.argmin(distance)
-        x_end = xx[i_closest]
-        y_end = yx[i_closest]
-        z_end = origin[-1]
+    # Find intersection in z for outer wall
+    rx, zx, ix, jx = intersection(r_line, z_line, r_wall_outer, z_wall_outer)
+    if len(zx) == 2:
+        z_temp = zx[-1]
+        if (z_temp == machine_dimensions[1][0]) or (z_temp == machine_dimensions[1][1]):
+            z_end = zx[-1]
+            x_end = np.interp(ix[-1], np.arange(0, len(x_line), 1), x_line)
+            y_end = np.interp(ix[-1], np.arange(0, len(x_line), 1), y_line)
+        else:
+            z_end = zx[-1]
+
+    # from matplotlib import pyplot as plt
+    # plt.figure()
+    # plt.plot(r_wall_outer, z_wall_outer, 'k')
+    # plt.plot(r_line, z_line, 'r')
+    # plt.plot(np.sqrt(origin[0]**2 + origin[1]**2), origin[2], 'gx')
+    # plt.plot(rx[0], zx[0], 'b^')
+    # plt.plot(rx[1], zx[1], 'mo')
+    # plt.show(block=True)
+
+    # Find intersection in z for inner wall (if exists)
+    rx, zx, ix, jx = intersection(r_line, z_line, r_wall_inner, z_wall_inner)
+    if len(zx) > 0:
+        z_end = zx[0]
+        x_end = np.interp(ix[0], np.arange(0, len(x_line), 1), x_line)
+        y_end = np.interp(ix[0], np.arange(0, len(y_line), 1), y_line)
+
+    # from matplotlib import pyplot as plt
+    # plt.figure()
+    # plt.plot(r_wall_inner, z_wall_inner, 'k')
+    # plt.plot(r_line, z_line, 'r')
+    # plt.plot(np.sqrt(origin[0]**2 + origin[1]**2), origin[2], 'gx')
+    # plt.plot(rx[0], zx[0], 'b^')
+    # plt.plot(rx[1], zx[1], 'mo')
+    # plt.show(block=True)
+
+    # # Find intersections with inner wall (if exists)
+    # xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
+    # if len(xx) > 0:
+    #    distance = np.sqrt(
+    #        (xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2
+    #    )  # Distance from intersections
+    #    i_closest = np.argmin(distance)
+    #    x_end = xx[i_closest]
+    #    y_end = yx[i_closest]
+    #    z_end = origin[-1]
 
     return (x_start, y_start, z_start), (x_end, y_end, z_end)
 
