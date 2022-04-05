@@ -99,6 +99,7 @@ class LinesOfSightTransform(CoordinateTransform):
         self.y_end = DataArray(y_end)
         self.x1_name = "channel"
         self.x2_name = "los_position"
+        self.name = name
 
         # Set "dl"
         self.dl_target = dl
@@ -282,7 +283,7 @@ def _find_wall_intersections(
 
     # Define XYZ lines for LOS from origin and direction vectors
     num_points = 500
-    length = 10.0
+    length = 100.0
     x_line = np.linspace(
         origin[0] - length * direction[0],
         origin[0] + length * direction[0],
@@ -314,7 +315,7 @@ def _find_wall_intersections(
     r_wall_inner = machine_dimensions[0][0] * np.ones_like(z_wall_inner)
 
     r_wall_outer = np.array(
-        [0.0, machine_dimensions[0][1], machine_dimensions[0][1], 0.0, 0.0], dtype=float
+        [0.0, machine_dimensions[0][1], machine_dimensions[0][1], 0.0], dtype=float
     )
     z_wall_outer = np.array(
         [
@@ -322,7 +323,6 @@ def _find_wall_intersections(
             machine_dimensions[1][0],
             machine_dimensions[1][1],
             machine_dimensions[1][1],
-            machine_dimensions[1][0],
         ],
         dtype=float,
     )
@@ -341,13 +341,15 @@ def _find_wall_intersections(
     # Find intersection in z for outer wall
     rx, zx, ix, jx = intersection(r_line, z_line, r_wall_outer, z_wall_outer)
     if len(zx) == 2:
-        z_temp = zx[-1]
-        if (z_temp == machine_dimensions[1][0]) or (z_temp == machine_dimensions[1][1]):
+        if (
+            (zx[0] == machine_dimensions[1][0])
+            or (zx[0] == machine_dimensions[1][1])
+            or (zx[1] == machine_dimensions[1][0])
+            or (zx[1] == machine_dimensions[1][1])
+        ):
             z_end = zx[-1]
-            x_end = np.interp(ix[-1], np.arange(0, len(x_line), 1), x_line)
-            y_end = np.interp(ix[-1], np.arange(0, len(x_line), 1), y_line)
-        else:
-            z_end = zx[-1]
+            x_end = np.interp(ix[1], np.arange(0, len(x_line), 1), x_line)
+            y_end = np.interp(ix[1], np.arange(0, len(x_line), 1), y_line)
 
     # Find intersection in z for inner wall (if exists)
     rx, zx, ix, jx = intersection(r_line, z_line, r_wall_inner, z_wall_inner)
