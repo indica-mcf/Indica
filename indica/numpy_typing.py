@@ -14,7 +14,7 @@ import xarray
 try:
     from numpy.typing import ArrayLike
 except ImportError:
-    ArrayLike = typing.Union[
+    ArrayLike = typing.Union[  # type: ignore
         numbers.Number, typing.Sequence[numbers.Number], np.ndarray
     ]
 
@@ -23,7 +23,6 @@ LabeledArray = typing.Union[
 ]
 
 OnlyArray = typing.Union[
-    typing.Sequence[numbers.Number],
     np.ndarray,
     xarray.DataArray,
     xarray.Dataset,
@@ -31,3 +30,5 @@ OnlyArray = typing.Union[
 ]
 
 OnlyXarray = typing.Union[xarray.DataArray, xarray.Dataset, xarray.Variable]
+
+RevisionLike = typing.Union[str, int]

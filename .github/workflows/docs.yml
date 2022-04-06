@@ -3,6 +3,7 @@
 name: sphinx docs
 
 on:
+  pull_request:
   push:
     branches:
       - master
@@ -12,9 +13,6 @@ on:
       - indica/**
       - doc/**
       - poetry.lock
-  pull_request:
-    branches:
-      - '**'
 
 jobs:
   docs:
@@ -22,7 +20,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2

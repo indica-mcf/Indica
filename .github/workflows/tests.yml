@@ -3,6 +3,7 @@
 name: tests
 
 on:
+  pull_request:
   push:
     paths:
       - .github/workflows/tests.yml
@@ -12,9 +13,6 @@ on:
     branches:
       - master
       - develop
-  pull_request:
-    branches:
-      - '**'
 
 jobs:
   tests:
@@ -27,7 +25,8 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2

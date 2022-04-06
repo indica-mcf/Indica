@@ -1,9 +1,9 @@
 import copy
+from typing import cast
 from typing import get_args
 from typing import List
 from typing import Tuple
 from typing import Union
-import warnings
 
 import numpy as np
 from numpy.core.numeric import zeros_like
@@ -117,6 +117,7 @@ class FractionalAbundance(Operator):
         ACD: DataArray,
         CCD: DataArray = None,
         sess: session.Session = session.global_session,
+        check_input=True,
     ):
         """Initialises FractionalAbundance class and additionally performs error
         checking on imported data (SCD, ACD and CCD).
@@ -137,10 +138,10 @@ class FractionalAbundance(Operator):
         if self.CCD is not None:
             imported_data["CCD"] = self.CCD
 
-        for ikey, ival in imported_data.items():
-            input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
-
-        shape_check(imported_data)
+        if check_input:
+            for ikey, ival in imported_data.items():
+                input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
+            # shape_check(imported_data)
 
     def interpolation_bounds_check(
         self,
@@ -203,6 +204,9 @@ class FractionalAbundance(Operator):
                     inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
                 )
         except AssertionError:
+            print(
+                np.max(inputted_data["Te"]), np.max(val.coords["electron_temperature"])
+            )
             raise ValueError(
                 f"Inputted electron temperature is larger than the \
                     maximum interpolation range in {key}"
@@ -242,6 +246,7 @@ class FractionalAbundance(Operator):
         self,
         Ne: DataArray,
         Te: DataArray,
+        bounds_check=True,
     ):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
@@ -254,6 +259,8 @@ class FractionalAbundance(Operator):
         Te
             xarray.DataArray of electron temperature as a profile of a user-chosen
             coordinate.
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -267,14 +274,8 @@ class FractionalAbundance(Operator):
             Number of ionisation charges(stages) for the given impurity element.
         """
 
-        self.interpolation_bounds_check(Ne, Te)
-
-        if self.Ne is not None:
-            if np.logical_not(np.all(Ne == self.Ne)):
-                warnings.warn(
-                    "Ne given to calc_ionisation_balance_matrix is different from \
-                        the internal Ne known to FractionalAbundance object."
-                )
+        if bounds_check:
+            self.interpolation_bounds_check(Ne, Te)
 
         self.Ne, self.Te = Ne, Te  # type: ignore
 
@@ -344,17 +345,10 @@ class FractionalAbundance(Operator):
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
         elif self.CCD is not None:
-            Nh = zeros_like(Ne)
-            inputted_data["Nh"] = Nh
+            Nh = cast(DataArray, zeros_like(Ne))
+            inputted_data["Nh"] = cast(DataArray, Nh)
 
         shape_check(inputted_data)
-
-        if self.Ne is not None:
-            if np.logical_not(np.all(Ne == self.Ne)):
-                warnings.warn(
-                    "Ne given to calc_ionisation_balance_matrix is different from \
-                        the internal Ne known to FractionalAbundance object."
-                )
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
@@ -514,8 +508,11 @@ class FractionalAbundance(Operator):
         x1_coord = self.x1_coord
 
         if F_z_t0 is None:
-            F_z_t0 = np.zeros(self.F_z_tinf.shape, dtype=np.complex128)
-            F_z_t0[0, :] = np.array([1.0 + 0.0j for i in range(x1_coord.size)])
+            # mypy doesn't understand contionals or reassignments either.
+            F_z_t0 = np.zeros(self.F_z_tinf.shape, dtype=np.complex128)  # type: ignore
+            F_z_t0[0, :] = np.array(  # type: ignore
+                [1.0 + 0.0j for i in range(x1_coord.size)]
+            )
 
             F_z_t0 = DataArray(
                 data=F_z_t0,
@@ -570,7 +567,9 @@ class FractionalAbundance(Operator):
 
         self.eig_coeffs = eig_coeffs
 
-        F_z_t0 = np.abs(np.real(F_z_t0))
+        # If argument to numpy functions is of type DataArray then output is of
+        # type DataArray
+        F_z_t0 = np.abs(np.real(F_z_t0))  # type: ignore
 
         self.F_z_t0 = F_z_t0  # type: ignore
 
@@ -627,9 +626,10 @@ class FractionalAbundance(Operator):
         Ne: DataArray,
         Te: DataArray,
         Nh: DataArray = None,
-        tau: LabeledArray = 1e3,
+        tau: LabeledArray = None,
         F_z_t0: DataArray = None,
         full_run: bool = True,
+        bounds_check=True,
     ) -> DataArray:
         """Executes all functions in correct order to calculate the fractional
         abundance.
@@ -655,6 +655,8 @@ class FractionalAbundance(Operator):
             the entire ordered workflow(True) for calculating abundance from the start.
             This is mostly only useful for unit testing and is set to True by default.
             (Optional)
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -662,11 +664,16 @@ class FractionalAbundance(Operator):
             Fractional abundance at tau.
         """
         if full_run:
-            self.interpolate_rates(Ne, Te)
+            self.interpolate_rates(Ne, Te, bounds_check=bounds_check)
 
             self.calc_ionisation_balance_matrix(Ne, Nh)
 
             self.calc_F_z_tinf()
+
+            if tau is None:
+                F_z_t = np.real(self.F_z_tinf)
+                self.F_z_t = F_z_t
+                return F_z_t
 
             self.calc_eigen_vals_and_vecs()
 
@@ -726,9 +733,9 @@ class PowerLoss(Operator):
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("line_power_coeffecient", "impurity_element"),
-        ("recombination_power_coeffecient", "impurity_element"),
-        ("charge-exchange_power_coeffecient", "impurity_element"),
+        ("line_power_coefficient", "impurity_element"),
+        ("recombination_power_coefficient", "impurity_element"),
+        ("charge-exchange_power_coefficient", "impurity_element"),
         ("number_density", "electrons"),
         ("temperature", "electrons"),
         ("fractional_abundance", "impurity_element"),
@@ -763,7 +770,7 @@ class PowerLoss(Operator):
         for ikey, ival in imported_data.items():
             input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
 
-        shape_check(imported_data)
+        # shape_check(imported_data)
 
     def interpolation_bounds_check(
         self,
@@ -866,6 +873,7 @@ class PowerLoss(Operator):
         self,
         Ne: DataArray,
         Te: DataArray,
+        bounds_check=True,
     ):
         """Interpolates the various powers based on inputted Ne and Te.
 
@@ -877,6 +885,8 @@ class PowerLoss(Operator):
         Te
             xarray.DataArray of electron temperature as a profile of a user-chosen
             coordinate.
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -892,32 +902,52 @@ class PowerLoss(Operator):
             Number of ionisation charges(stages) for the given impurity element.
         """
 
-        self.interpolation_bounds_check(Ne, Te)
+        if bounds_check:
+            self.interpolation_bounds_check(Ne, Te)
 
         self.Ne, self.Te = Ne, Te  # type: ignore
-
-        PLT_spec = self.PLT.indica.interp2d(
-            electron_temperature=Te,
-            electron_density=Ne,
-            method="cubic",
-            assume_sorted=True,
+        # TODO: check why errors coming out with interp2d...
+        # try:
+        #     PLT_spec = self.PLT.indica.interp2d(
+        #         electron_temperature=Te,
+        #         electron_density=Ne,
+        #         method="cubic",
+        #         assume_sorted=True,
+        #     )
+        # except:
+        # print("PowerLoss: error in indica.interp2d")
+        PLT_spec = self.PLT.interp(electron_temperature=Te, method="cubic").interp(
+            electron_density=Ne, method="linear"
         )
 
         if self.PRC is not None:
-            PRC_spec = self.PRC.indica.interp2d(
-                electron_temperature=Te,
-                electron_density=Ne,
-                method="cubic",
-                assume_sorted=True,
+            # try:
+            #     PRC_spec = self.PRC.indica.interp2d(
+            #         electron_temperature=Te,
+            #         electron_density=Ne,
+            #         method="cubic",
+            #         assume_sorted=True,
+            #     )
+            # except:
+            # print("PowerLoss: error in indica.interp2d")
+            PRC_spec = self.PRC.interp(electron_temperature=Te, method="cubic").interp(
+                electron_density=Ne, method="linear"
             )
+
         else:
             PRC_spec = None
 
-        PRB_spec = self.PRB.indica.interp2d(
-            electron_temperature=Te,
-            electron_density=Ne,
-            method="cubic",
-            assume_sorted=True,
+        # try:
+        #     PRB_spec = self.PRB.indica.interp2d(
+        #         electron_temperature=Te,
+        #         electron_density=Ne,
+        #         method="cubic",
+        #         assume_sorted=True,
+        #     )
+        # except:
+        # print("PowerLoss: error in indica.interp2d")
+        PRB_spec = self.PRB.interp(electron_temperature=Te, method="cubic").interp(
+            electron_density=Ne, method="linear"
         )
 
         self.PLT_spec, self.PRC_spec, self.PRB_spec = PLT_spec, PRC_spec, PRB_spec
@@ -926,7 +956,10 @@ class PowerLoss(Operator):
         return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
 
     def calculate_power_loss(
-        self, Ne: DataArray, F_z_t: DataArray, Nh: DataArray = None
+        self,
+        Ne: DataArray,
+        F_z_t: DataArray,
+        Nh: DataArray = None,
     ):
         """Calculates total radiated power of all ionisation charges of a given
         impurity element.
@@ -961,20 +994,13 @@ class PowerLoss(Operator):
             input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
             inputted_data["Nh"] = Nh
         elif self.PRC is not None:
-            Nh = zeros_like(Ne)
-            inputted_data["Nh"] = Nh
-
-        if self.Ne is not None:
-            if np.logical_not(np.all(Ne == self.Ne)):
-                warnings.warn(
-                    "Ne given to calc_ionisation_balance_matrix is different from \
-                        the internal Ne known to FractionalAbundance object."
-                )
+            Nh = cast(DataArray, zeros_like(Ne))
+            inputted_data["Nh"] = cast(DataArray, Nh)
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
-        if len(inputted_data) > 1:
-            shape_check(inputted_data)
+        # if len(inputted_data) > 1:
+        #     shape_check(inputted_data)
 
         if F_z_t is not None:
             input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
@@ -1044,6 +1070,7 @@ class PowerLoss(Operator):
         F_z_t: DataArray,
         Nh: DataArray = None,
         full_run: bool = True,
+        bounds_check=True,
     ):
         """Executes all functions in correct order to calculate the total radiated
         power.
@@ -1067,6 +1094,8 @@ class PowerLoss(Operator):
             run the entire ordered workflow(True) for calculating power loss from the
             start. This is mostly only useful for unit testing and is set to True by
             default. (Optional)
+        bounds_check
+            Check bounds of inputted data
 
         Returns
         -------
@@ -1075,7 +1104,7 @@ class PowerLoss(Operator):
         """
 
         if full_run:
-            self.interpolate_power(Ne, Te)
+            self.interpolate_power(Ne, Te, bounds_check=bounds_check)
 
         cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
 
