@@ -1,2 +1,21 @@
-Installing
+Installation
 ==========
+
+InDicA requires python version 3.8 or above. If this is not the default in your
+environment and you cannot install version 3.8 system-wide, consider using
+`pyenv <https://github.com/pyenv/pyenv>`_, available via the
+`installer <https://github.com/pyenv/pyenv-installer>`_, to manage your python
+versions.
+
+InDicA can be installed in a virtual environment:
+
+.. code-block:: bash
+
+   mkdir analysis
+   cd analysis
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install git+https://github.com/ukaea/Indica
+
+You should then be able to `import indica` in your python scripts, Jupyter
+notebooks and python interpreters after having sourced the virtual environment.
