@@ -17,5 +17,6 @@ InDicA can be installed in a virtual environment:
    source .venv/bin/activate
    pip install git+https://github.com/ukaea/Indica
 
-You should then be able to `import indica` in your python scripts, Jupyter
-notebooks and python interpreters after having sourced the virtual environment.
+You should then be able to :code:`import indica` in your python scripts,
+Jupyter notebooks and python interpreters after having sourced the virtual
+environment.
