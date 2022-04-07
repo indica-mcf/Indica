@@ -24,15 +24,14 @@ download a copy with the command ::
   # If you do not have permission and won't contribute changes upstream
   git clone https://github.com/ukaea/Indica.git
 
-If you want to contribute your changes upstream but don't have
-permission to do so, fork the repository and do your development
-there. Then make a pull request (see below) from you forked version.
 
 All development should be performed on a dedicated branch::
 
   git branch my_new_feature
   git checkout my_new_feature
 
+Please read `Contributing Changes Upstream`_ for more information on the
+contribution process.
 
 Setting up the Development Environment
 --------------------------------------
@@ -368,27 +367,62 @@ Contributing Changes Upstream
 -----------------------------
 
 If you implement new features, you should consider submitting them for
-inclusion in the official version of InDiCA. You can do this by
-submitting a `pull
-request <https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests>`_
-on GitHub. In your pull request, please explain what you have
-implemented, with reference to any of the repository's issues which it
-may address.
+inclusion in the official version of InDiCA. The process for
+contributing is as follows:
+
+1. If an issue for the contribution does not exist then create one,
+   otherwise either refer to one that has been assigned to you or
+   assign yourself to an open one.
+2. If you do not have permission for the main repository, fork the repository
+   and do your development there.
+3. Clone the `repo <https://github.com/ukaea/Indica>`_ to your local machine if
+   you haven't already. Create a branch from ``master`` with the following
+   naming scheme:
+   ``${developer_name}/${issue_number}_${short_issue_description}``. Here,
+   ``${developer_name}`` is your GitHub username, ``${issue_number}`` is just
+   the issue number (without ``#``). Please keep ``${short_issue_description}``
+   brief but clear to avoid excessively long branch names.
+4. Develop and implement the feature on this new branch and check that
+   it works. Write the appropriate tests for the new feature and check
+   that the tests (both new and old) pass.
+5. Pull from remote ``master`` to your local ``master`` branch and merge
+   any updates into your local feature branch before pushing your
+   feature branch to remote. This ensures that any merge conflicts can
+   be handled before the pull request is created. (Remember to push
+   the feature branch regularly to the remote repo to act as a backup
+   and prevent a loss of code locally)
+6. Once the issue has been addressed and the remote version of the
+   feature branch is up-to-date with the local version, submit a
+   `pull request <https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests>`_.
+   Mention the issue number (**with** ``#``) in the pull request description to
+   link the pull request to the issue, which will cause the issue to be closed
+   when the pull request is merged. In your pull request, please explain what
+   you have implemented, with reference to any of the repository's issues which
+   it may address.
+7. The options on the pull request will need to be decided on a
+   per-case basis in terms of whether to delete the source branch
+   and/or squash the commits upon merging.
+8. Assign a reviewer (someone other than yourself) to review and merge
+   the pull request. Note that merging will be disabled by default if
+   any tests fail.
 
 In order for your pull request to be accepted, it must meet the
 following standards:
 
-- pass all pre-commit hooks (e.g., it must obey the
-  `black <https://github.com/psf/black>`_ formatting style
-- use Python `type-hints <https://www.python.org/dev/peps/pep-0484/>`_ wherever possible
-- pass `mypy <https://mypy.readthedocs.io/en/stable/>`_
+- pass all pre-commit hooks, mainly:
+
+  + `black <https://github.com/psf/black>`_ formatting style
+  + `mypy <https://mypy.readthedocs.io/en/stable/>`_ type checking
+- use Python `type-hints <https://www.python.org/dev/peps/pep-0484/>`_
+  wherever possible
 - provide unit tests (and ideally integration tests as well)
 - not introduce any regressions in existing functionality
 - provide docstrings for all functions and classes, using the `NumPy
   style <https://sphinxcontrib-napoleon.readthedocs.io/en/latest/index.html#google-vs-numpy>`_
-- depending on the sort of change you make, explain the new features
-  in the `sphinx <https://www.sphinx-doc.org/en/master/>`_ documentation
-  held in the ``doc/`` directory.
+- depending on the sort of change you make, you may need to explain
+  the new features in the `sphinx
+  <https://www.sphinx-doc.org/en/master/>`_ documentation held in the
+  ``doc/`` directory.
 
 Most of these will be checked automatically by the continuous
 integration system when you create your pull request. You should also
