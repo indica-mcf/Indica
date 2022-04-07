@@ -294,15 +294,16 @@ def run_all_scans(efit_pulse=None, efit_run=0, run_add=""):
     # 9818, 9820, 9389 - unknown issues
     # 9840 - doesn't have enough Ar
     # 9623 - issues with XRCS temperature optimisation...
-    pulses = [10013]
+    # 10013 - issues with EFIT
+
     pulses = [9850] * 2
     efit_pulse = [11009850] * 2
     efit_run = ["1016A2", "1013N"]
-    run_add = ["A2", "N"]
+    only_run = None   # :int = write only this run
     # tlims = [(0.01, 0.08), (0.01, 0.12), (0.01, 0.1), (0.01, 0.1), (0.01, 0.1)]
     tlims = [(0.02, 0.11)] * len(pulses)
-    for pulse, tlim, _efit_pulse, _efit_run, _run_add in zip(
-        pulses, tlims, efit_pulse, efit_run, run_add
+    for pulse, tlim, _efit_pulse, _efit_run in zip(
+        pulses, tlims, efit_pulse, efit_run
     ):
         print(pulse)
         scan_profiles(
@@ -331,7 +332,8 @@ def run_all_scans(efit_pulse=None, efit_run=0, run_add=""):
             proceed=True,
             efit_run=_efit_run,
             efit_pulse=_efit_pulse,
-            run_add=_run_add,
+            run_add=_efit_run,
+            only_run=only_run,
         )
 
 
@@ -363,6 +365,7 @@ def scan_profiles(
     run_add="",
     efit_run="",
     efit_pulse=None,
+    only_run=None,
 ):
     print("Scanning combinations of profile shapes")
 
@@ -436,6 +439,10 @@ def scan_profiles(
                     pl.Nimp_prof = deepcopy(Nimp)
 
                     run_tmp += 1
+                    if only_run is not None:
+                        if run_tmp != only_run:
+                            continue
+
                     run_name = f"RUN{run_tmp}{run_add}"
                     descr = f"{kTe} Te, {kTi} Ti, {kNe} Ne, {kNimp} Cimp"
                     print(f"\n{descr}\n")
