@@ -1,5 +1,5 @@
 Installation
-==========
+============
 
 InDicA requires python version 3.8 or above. If this is not the default in your
 environment and you cannot install version 3.8 system-wide, consider using
