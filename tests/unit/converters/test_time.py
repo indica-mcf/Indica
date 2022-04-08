@@ -144,7 +144,6 @@ def test_unchanged_axes(tstart, tend, n, data, method):
 def test_unchanged_attrs(tstart, tend, n, data, method):
     """Check other axes unchanged"""
     data_attrs = data.attrs
-    print(data_attrs.keys())
     if tstart > tend:
         tstart, tend = tend, tstart
     frequency = (n - 1) / 70.0
