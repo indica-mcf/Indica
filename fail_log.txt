@@ -1,0 +1,2133 @@
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 4 valid examples in 1.04 seconds (8 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(180690932643360923674110700526525927014) to this test or run pytest with --hypothesis-seed=180690932643360923674110700526525927014 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 4.38s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 5 valid examples in 1.14 seconds (7 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(14602509358742420004351952801524401325) to this test or run pytest with --hypothesis-seed=14602509358742420004351952801524401325 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 4.76s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 6 valid examples in 1.07 seconds (10 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(211501926058890628752374267482967620603) to this test or run pytest with --hypothesis-seed=211501926058890628752374267482967620603 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.40s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 5 valid examples in 1.25 seconds (10 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(164198928794614381701396752568880663765) to this test or run pytest with --hypothesis-seed=164198928794614381701396752568880663765 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.92s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 4 valid examples in 1.02 seconds (7 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(49198671346965476998844904668820803850) to this test or run pytest with --hypothesis-seed=49198671346965476998844904668820803850 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.90s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 4 valid examples in 1.11 seconds (11 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(309780505220339492830936644969734787808) to this test or run pytest with --hypothesis-seed=309780505220339492830936644969734787808 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 6.01s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 5 valid examples in 1.03 seconds (7 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(80557508758952008109877867825154045128) to this test or run pytest with --hypothesis-seed=80557508758952008109877867825154045128 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.54s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 6 valid examples in 1.02 seconds (8 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(188889049655670017774609859028973245281) to this test or run pytest with --hypothesis-seed=188889049655670017774609859028973245281 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 6.05s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 5 valid examples in 1.03 seconds (10 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(174809588492470748304542622760741963365) to this test or run pytest with --hypothesis-seed=174809588492470748304542622760741963365 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 6.00s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 7 valid examples in 1.03 seconds (5 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(328073838540100084886924502591335484145) to this test or run pytest with --hypothesis-seed=328073838540100084886924502591335484145 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.93s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 4 valid examples in 1.06 seconds (8 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(309853928199208464130122889630433239664) to this test or run pytest with --hypothesis-seed=309853928199208464130122889630433239664 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 6.35s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 4 valid examples in 1.04 seconds (9 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(213617083763282937469831599987179860849) to this test or run pytest with --hypothesis-seed=213617083763282937469831599987179860849 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 4.76s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 5 valid examples in 1.12 seconds (8 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(85029689119607998998946819831247241941) to this test or run pytest with --hypothesis-seed=85029689119607998998946819831247241941 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 6.43s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 5 valid examples in 1.27 seconds (6 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(131951288874850961861900493747909831225) to this test or run pytest with --hypothesis-seed=131951288874850961861900493747909831225 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 6.43s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 4 valid examples in 1.23 seconds (11 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(172518036659972647233497999253985557304) to this test or run pytest with --hypothesis-seed=172518036659972647233497999253985557304 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.58s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 5 valid examples in 1.03 seconds (10 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(180526423995962286766231001868464423576) to this test or run pytest with --hypothesis-seed=180526423995962286766231001868464423576 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.36s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 8 valid examples in 1.10 seconds (7 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(11742235343949041661651424715385766562) to this test or run pytest with --hypothesis-seed=11742235343949041661651424715385766562 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.52s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 6 valid examples in 1.04 seconds (8 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(258839652959879110216983865417425195202) to this test or run pytest with --hypothesis-seed=258839652959879110216983865417425195202 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 5.93s ========================
+============================= test session starts ==============================
+platform linux -- Python 3.8.10, pytest-6.2.5, py-1.11.0, pluggy-1.0.0
+rootdir: /home/work/code/indica, configfile: pyproject.toml
+plugins: cov-2.12.1, hypothesis-5.49.0
+collected 1 item
+
+tests/unit/converters/test_time.py F                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_unchanged_attrs _____________________________
+
+    @given(start_times, end_times, samples, useful_data_arrays(), methods)
+>   def test_unchanged_attrs(tstart, tend, n, data, method):
+E   hypothesis.errors.FailedHealthCheck: Data generation is extremely slow: Only produced 6 valid examples in 1.09 seconds (10 invalid ones and 0 exceeded maximum size). Try decreasing size of the data you're generating (with e.g.max_size or max_leaves parameters).
+E   See https://hypothesis.readthedocs.io/en/latest/healthchecks.html for more information about this. If you want to disable just this health check, add HealthCheck.too_slow to the suppress_health_check settings for this test.
+
+tests/unit/converters/test_time.py:144: FailedHealthCheck
+----------------------------- Captured stdout call -----------------------------
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+dict_keys(['error', 'datatype', 'provenance', 'partial_provenance', 'transform'])
+---------------------------------- Hypothesis ----------------------------------
+You can add @seed(231638047130639591541463310491234380695) to this test or run pytest with --hypothesis-seed=231638047130639591541463310491234380695 to reproduce this failure.
+=============================== warnings summary ===============================
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p16 = _nlv < LooseVersion("1.16")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p17 = _nlv < LooseVersion("1.17")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p18 = _nlv < LooseVersion("1.18")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/__init__.py:15: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/setuptools/_distutils/version.py:351: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
+
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/pandas/compat/numpy/function.py:125: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(_np_version) >= LooseVersion("1.17.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:16: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.0.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:149: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) >= LooseVersion("2.8.1"):
+
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/dask_array_compat.py:186: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(dask_version) > LooseVersion("2.9.0"):
+
+.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pd.__version__) < "0.25.0":
+
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169
+  /home/work/code/indica/.venv/lib/python3.8/site-packages/matplotlib/__init__.py:169: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(module.__version__) < minver:
+
+-- Docs: https://docs.pytest.org/en/stable/warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/converters/test_time.py::test_unchanged_attrs - hypothesis....
+======================== 1 failed, 27 warnings in 6.03s ========================
