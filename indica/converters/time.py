@@ -59,8 +59,9 @@ def convert_in_time_dt(
     data: DataArray,
     method: str = "linear",
 ) -> DataArray:
-    """Bin given data along the time axis, discarding data before or after
-    the limits.
+    """
+    Interpolate or bin given data along the time axis, discarding data before
+    or after the limits.
 
     Parameters
     ----------
@@ -71,12 +72,12 @@ def convert_in_time_dt(
     dt
         Time resolution of new time axis.
     data
-        Data to be binned.
+        Data to be interpolated/binned.
 
     Returns
     -------
     :
-        Array like the input, but binned along the time axis.
+        Array like the input, but interpolated/binned along the time axis.
 
     """
 
@@ -99,7 +100,7 @@ def interpolate_to_time_labels(
     tlabels
         The times at which the data should be interpolated.
     data
-        Data to be binned.
+        Data to be interpolated.
 
     Returns
     -------
@@ -425,7 +426,7 @@ def check_bounds_interp(tstart: float, tend: float, data: DataArray):
     dt
         Time resolution of new time axis.
     data
-        Data to be binned.
+        Data to be interpolated.
     """
     tcoords = data.coords["t"]
     start = np.argmax((tcoords > tstart).data) - 1
