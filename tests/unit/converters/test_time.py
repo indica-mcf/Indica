@@ -81,7 +81,7 @@ def test_correct_time_values(tstart, tend, n, data, method):
     """Check always have requested time values."""
     if tstart > tend:
         tstart, tend = tend, tstart
-    frequency = (n - 1) / 70.0
+    frequency = (n - 1) / (tend - tstart)
     assume((tend - tstart) * frequency >= 2.0)
     result = convert_in_time(tstart, tend, frequency, data, method)
     time_arrays = [result.coords["t"]]
@@ -113,7 +113,7 @@ def test_unchanged_axes(tstart, tend, n, data, method):
     """Check other axes unchanged"""
     if tstart > tend:
         tstart, tend = tend, tstart
-    frequency = (n - 1) / 70.0
+    frequency = (n - 1) / (tend - tstart)
     assume((tend - tstart) * frequency >= 2.0)
     result = convert_in_time(tstart, tend, frequency, data, method)
     all_results = [(result, data)]
@@ -146,7 +146,7 @@ def test_unchanged_attrs(tstart, tend, n, data, method):
     data_attrs = data.attrs
     if tstart > tend:
         tstart, tend = tend, tstart
-    frequency = (n - 1) / 70.0
+    frequency = (n - 1) / (tend - tstart)
     assume((tend - tstart) * frequency >= 2.0)
     result = convert_in_time(tstart, tend, frequency, data, method)
     assert set(result.attrs) == set(data_attrs) - {"provenance", "partial_provenance"}
@@ -157,7 +157,13 @@ def test_unchanged_attrs(tstart, tend, n, data, method):
 
 
 @given(
-    floats(max_value=50.0, exclude_max=True, allow_infinity=False, allow_nan=False),
+    floats(
+        min_value=0.1,
+        max_value=50.0,
+        exclude_max=True,
+        allow_infinity=False,
+        allow_nan=False,
+    ),
     end_times,
     samples,
     useful_data_arrays(),
@@ -166,7 +172,7 @@ def test_unchanged_attrs(tstart, tend, n, data, method):
 def test_invalid_start_time(tstart, tend, n, data, method):
     """Test an exception is raised when tstart falls outside of the available
     data."""
-    frequency = (n - 1) / 70.0
+    frequency = (n - 1) / (tend - tstart)
     # This frequency is not exactly the one which will actually be
     # used when binning, so make extra offset to ensure outside of
     # range.
@@ -178,15 +184,22 @@ def test_invalid_start_time(tstart, tend, n, data, method):
 
 @given(
     start_times,
-    floats(min_value=120.0, exclude_min=True, allow_infinity=False, allow_nan=False),
+    floats(
+        min_value=120.0,
+        max_value=9000,
+        exclude_min=True,
+        allow_infinity=False,
+        allow_nan=False,
+    ),
     samples,
     useful_data_arrays(),
     methods,
 )
 def test_invalid_end_time(tstart, tend, n, data, method):
-    """Test an exception is raised when tstart falls outside of the available
-    data."""
-    frequency = (n - 1) / 70.0
+    """
+    Test an exception is raised when tend falls outside of the available data.
+    """
+    frequency = (n - 1) / (tend - tstart)
     # This frequency is not exactly the one which will actually be
     # used when binning, so make extra offset to ensure outside of
     # range.
@@ -233,7 +246,7 @@ def test_interpolate_downsample(tstart, tend, n, data, method):
     assume(len(new_times) > 1)
     new_tstart = float(new_times[0])
     new_tend = float(new_times[-1])
-    frequency = (n - 1) / 70.0
+    frequency = (n - 1) / (tend - tstart)
     result = convert_in_time(tstart, tend, frequency, data, "cubic")
     result2 = convert_in_time(new_tstart, new_tend, original_freq, result, method)
     assert np.all(
@@ -276,7 +289,7 @@ def test_interpolate_linear_data(tstart, tend, n, times, a, b, abs_err, method):
     if tstart > tend:
         tstart, tend = tend, tstart
     original_frequency = 1 / (times[1] - times[0])
-    frequency = (n - 1) / 70.0
+    frequency = (n - 1) / (tend - tstart)
     tstart += 0.5 / frequency
     tend -= 0.5 / frequency
     assume(tstart < tend)
