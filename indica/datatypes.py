@@ -143,7 +143,7 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
     "hfs": "High flux surface",
     "lfs": "Low flux surface",
     "mag_axis": "Magnetic axis for equilibrium in tokamak",
-    "nickle": "Nickle ions in plasma",
+    "nickel": "Nickle ions in plasma",
     "plasma": "The plasma as a whole",
     "separatrix": "Sepeparatrix surface for equilibrium in tokamak",
     "sxr": "Soft X-rays",
