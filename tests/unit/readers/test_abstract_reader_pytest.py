@@ -202,7 +202,6 @@ class Reader(DataReader):
         results["psi_records"] = ["value_records", "R_records", "z_records"]
         return results
 
-    #
     # def _get_cyclotron_emissions(
     #     self,
     #     uid: str,
@@ -226,11 +225,10 @@ class Reader(DataReader):
     #
     #     results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
     #     results["te_error"] = np.sqrt(results["te"])
-    #     results["Btot"] = np.random.uniform(0.1, 5, (results["length"]))
+    #     results["Btot"] = np.random.uniform(0.1, 5, (results["length"],))
     #     results["bad_channels"] = []
     #
-    #     for quantity in quantities:
-    #         results[f"{quantity}_records"] = ["info_path", "data_path"]
+    #     results["te_records"] = ["info_path", "data_path"]
     #
     #     return results
 
@@ -376,7 +374,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-    ) -> Dict[str, DataArray]:
+    ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
         zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
