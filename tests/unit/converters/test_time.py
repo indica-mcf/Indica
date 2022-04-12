@@ -18,6 +18,7 @@ from pytest import raises
 from xarray import DataArray
 
 from indica.converters.time import convert_in_time
+from indica.converters.time import strip_provenance
 from indica.utilities import coord_array
 from .test_abstract_transform import coordinate_transforms_and_axes
 from ..data_strategies import data_arrays_from_coords
@@ -149,7 +150,7 @@ def test_unchanged_attrs(tstart, tend, n, data, method):
     frequency = (n - 1) / (tend - tstart)
     assume((tend - tstart) * frequency >= 2.0)
     result = convert_in_time(tstart, tend, frequency, data, method)
-    assert set(result.attrs) == set(data_attrs) - {"provenance", "partial_provenance"}
+    assert set(strip_provenance(result.attrs)) == set(strip_provenance(data_attrs))
     for key, val in result.attrs.items():
         if key == "error" or key == "dropped":
             continue

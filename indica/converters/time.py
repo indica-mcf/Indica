@@ -110,9 +110,7 @@ def interpolate_to_time_labels(
     """
     # No interpolation required if the current t coordinates already match the desired
     if data.coords["t"].shape == tlabels.shape and np.all(data.coords["t"] == tlabels):
-        result = data.copy()
-        strip_provenance(result)
-        return result
+        return data
 
     interpolated = data.interp(t=tlabels, method=method)
     if "error" in data.attrs:
@@ -150,9 +148,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
     """
     # No binning required if the current t coordinates already match the desired
     if data.coords["t"].shape == tlabels.shape and np.all(data.coords["t"] == tlabels):
-        result = data.copy()
-        strip_provenance(result)
-        return result
+        return data
 
     npoints = len(tlabels)
     half_interval = 0.5 * (tlabels[1] - tlabels[0])
