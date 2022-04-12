@@ -144,17 +144,21 @@ def test_unchanged_axes(tstart, tend, n, data, method):
 @given(start_times, end_times, samples, useful_data_arrays(), methods)
 def test_unchanged_attrs(tstart, tend, n, data, method):
     """Check other axes unchanged"""
-    data_attrs = data.attrs
     if tstart > tend:
         tstart, tend = tend, tstart
     frequency = (n - 1) / (tend - tstart)
     assume((tend - tstart) * frequency >= 2.0)
+
     result = convert_in_time(tstart, tend, frequency, data, method)
-    assert set(strip_provenance(result.attrs)) == set(strip_provenance(data_attrs))
+
+    # Strip any provenance until this is implemented
+    strip_provenance(data)
+    strip_provenance(result)
+    assert set(result.attrs) == set(data.attrs)
     for key, val in result.attrs.items():
         if key == "error" or key == "dropped":
             continue
-        assert data_attrs[key] == val
+        assert data.attrs[key] == val
 
 
 @given(
