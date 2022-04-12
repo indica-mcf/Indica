@@ -803,7 +803,7 @@ class DataReader(BaseIO):
 
     def _get_cyclotron_emissions(
         self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, DataArray]:
         """Gets raw data for cyclotron resonance from the database. Data
         outside the desired time range will be discarded.
 
