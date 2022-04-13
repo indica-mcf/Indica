@@ -10,8 +10,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
 from scipy import constants
+from copy import deepcopy
+import time
+
 from hda.atomdat import get_atomdat
-from indica.readers import ADASReader
+from indica.readers import ADASReader, ST40Reader
+
 from indica.operators.atomic_data import FractionalAbundance
 from hda.profiles import Profiles
 
@@ -30,7 +34,7 @@ def calculate_Te_Rosen(R):
     return 1e3 * (0.1552 * (R ** (-0.7781)))
 
 
-# dielectronic intensity conversion
+# dielectronic intensity conversion_offset
 def diel_calc(atomic_data, Te, label="he"):
     a0 = 5.29E-9  # bohr radius / cm
     Te = Te / Ry
@@ -51,6 +55,7 @@ def diel_calc(atomic_data, Te, label="he"):
 
     return I
 
+    background = 0
 
 # Start with excitation and recombination
 
@@ -82,6 +87,8 @@ class Crystal_Spectrometer:
         self.Mi = 39.948
 
         self.database = self.build_database()
+        self.database_offset = self.wavelength_offset(self.database, offset=1e-5)
+
         self.set_ion_data(ADF11)
 
     def build_database(self, Te=np.linspace(200, 10000, 1000)):
@@ -91,7 +98,7 @@ class Crystal_Spectrometer:
 
         Only input is the Te co-ordinate for dielectronic recombination data
         """
-        head = "./Data_Argon/"
+        head = "./../Data_Argon/"
 
         lines_main = ["W", "X", "Y", "Z"]
         lines_ise = ["q", "r", "s", "t", "u", "v", "w"]
@@ -222,6 +229,16 @@ class Crystal_Spectrometer:
                                               shape=(len(Te), len(lin2[:, 0]))))},
                                   dims=["el_temp", "line_name"])
 
+        # Temporary !!! Adjust wavelengths for match with experiment
+        # n3_array = n3_array.assign_coords(wavelength=(n3_array.wavelength + offset_n3))
+        # n2_array = n2_array.assign_coords(wavelength=(n2_array.wavelength + offset_n2))
+        #
+        # a = xr.where((n2_array.wavelength>0.3985) & (n2_array.wavelength<0.3987), n2_array.wavelength-0.000025, n2_array.wavelength)
+        # n2_array = n2_array.assign_coords(wavelength=(a))
+        #
+        # k = xr.where((n2_array.wavelength>0.3989) & (n2_array.wavelength<0.3991), n2_array.wavelength+0.00003, n2_array.wavelength)
+        # n2_array = n2_array.assign_coords(wavelength=(k))
+
         # Cascade functions
         casc_factor = casc_factor_array.interp(el_temp=Te, method="quadratic")
 
@@ -247,20 +264,29 @@ class Crystal_Spectrometer:
         print(LOG)
         return database
 
-    def make_intensity(self, el_temp=None, el_dens=None, fract_abu=None,
+    def wavelength_offset(self, database, offset):
+        # constant offset applied to wavelengths
+        database_offset = {}
+        for key, item in database.items():
+            item = item.assign_coords(wavelength=(item.wavelength - offset))
+            database_offset[key] = item
+
+        return database_offset
+
+    def make_intensity(self, database, el_temp=None, el_dens=None, fract_abu=None,
                        Ar_dens=None, H_dens=None, int_cal=None):
 
         """
         Uses the intensity recipes to get intensity from Te/ne/f_abundance/H_dens/calibration_factor
         and atomic data at each spatial point.
         Returns DataArrays of emission type with co-ordinates of line label and rho co-ordinate
-        """
-        if not hasattr(self, "database"):
-            self.build_database()
-            print("Building database")
+        # """
+        # if not hasattr(self, "database"):
+        #     self.build_database()
+        #     print("Building database")
 
         intensity = {}
-        for key, value in self.database.items():
+        for key, value in database.items():
             if value.type == "EXC":
                 I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
                     Ar_dens * el_dens * int_cal
@@ -311,35 +337,40 @@ class Crystal_Spectrometer:
             i = value.expand_dims(dict(window=self.window), 0)
             y=doppler_broaden(i)
             spectra[key] = y
-            spectra["total"] = spectra["total"] + y.sum(["rho_poloidal", "line_name"])
+            spectra["total"] = spectra["total"] + y.sum(["line_name"])
 
-        spectra["background"] = self.window + background
-        spectra["total+background"] = spectra["total"] + spectra["background"]
+        spectra["background"] = self.window*0 + background
+        # spectra["total"] = spectra["total"] + spectra["background"]
         # spectra["normed_total"] = norm_tot * spectra["total"] / spectra["total"].max() + spectra["background"]
         return spectra
 
     def plot_spectrum(self, spectra):
 
         plt.figure()
-        plt.plot(self.window, spectra["total+background"], "k*", label="Total")
+        plt.plot(self.window, spectra["total"].sum(["rho_poloidal"])+spectra["background"], "k*", label="Total")
         plt.xlim([.394, .40])
         plt.xlabel("Wavelength (nm)")
         plt.ylabel("Intensity (AU)")
         plt.legend()
 
         plt.figure()
-        avoid = ["total", "background", "normed_total", "total+background"]
+        avoid = ["total", "background"]
         for key, value in spectra.items():
             if not any([x in key for x in avoid]):
                 plt.plot(self.window, value.sum(["rho_poloidal", "line_name"]), label=key)
 
-        plt.plot(self.window, spectra["total"], "k*", label="Total")
+        plt.plot(self.window, spectra["total"].sum(["rho_poloidal"]), "k*", label="Total")
         # plt.plot(self.window, spectra["background"], "k", label="background")
         plt.xlabel("Wavelength (nm)")
         plt.ylabel("Intensity (AU)")
         plt.legend()
         plt.show(block=True)
         return
+
+    def plot_heatmap(self, spectra):
+
+        plt.imshow(spectra["total"])
+
 
     def set_ion_data(self, adf11: dict = None):
         """
@@ -371,17 +402,24 @@ class Crystal_Spectrometer:
 
     def test_workflow(self):
 
+        # pulse = 25009780
+        # tstart = 0.05
+        # tend = 0.10
+        # reader = ST40Reader(pulse, tstart, tend)
+        # # spectra, dims = reader._get_data("hda", "run60", ":intensity", 0)
+
+
         Ne = Profiles(datatype=("density", "electron"))
         Ne.peaking = 1
         Ne.build_profile()
         Te = Profiles(datatype=("temperature", "electron"))
-        Te.y0 = 3.0e3
+        Te.y0 = 2.0e3
         Te.y1 = 20
         Te.wped = 1
-        Te.peaking = 8
+        Te.peaking = 4
         Te.build_profile()
         Ti = Profiles(datatype=("temperature", "ion"))
-        Ti.y0 = 9.0e3
+        Ti.y0 = 2.0e3
         Ti.y1 = 100
         Ti.wped = 1
         Ti.peaking = 5
@@ -395,6 +433,7 @@ class Crystal_Spectrometer:
         Nh_0 = Nh_1 / 1000
         Nh = Ne.rho_poloidal ** 2 * (Nh_1 - Nh_0) + Nh_0
         NAr = Ne.rho_poloidal ** 2 * (1/100*Ne) + (1/100*Ne)
+
         tau = None
         # tau = 1.0e-3
 
@@ -403,7 +442,9 @@ class Crystal_Spectrometer:
         background = 250
         int_cal = 1.3e-27
 
-        self.intensity = self.make_intensity(el_temp=Te, el_dens=Ne, fract_abu=fz, Ar_dens=NAr,
+        # self.database_offset = self.wavelength_offset(self.database, offset=1e-5)
+
+        self.intensity = self.make_intensity(self.database_offset, el_temp=Te, el_dens=Ne, fract_abu=fz, Ar_dens=NAr,
                                              H_dens=Nh, int_cal=int_cal)
         self.spectra = self.make_spectra(self.intensity, Ti, background)
         self.plot_spectrum(self.spectra)
