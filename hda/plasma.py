@@ -13,6 +13,7 @@ from xarray import Dataset
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.time import bin_in_time_dt
+from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.operators.atomic_data import FractionalAbundance
@@ -101,7 +102,7 @@ class Plasma:
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
-        self.t = np.arange(tstart, tend + dt, dt)
+        self.t = get_tlabels_dt(self.tstart, self.tend, self.dt)
         self.theta = np.linspace(0, 2 * np.pi, ntheta + 1)[:-1]
         self.radial_coordinate = np.linspace(0, 1.0, 41)
         self.radial_coordinate_type = "rho_poloidal"
@@ -188,6 +189,8 @@ class Plasma:
             binned_data[kinstr] = instrument_data
             if kinstr == instrument:
                 break
+
+        return binned_data
 
         if (len(instrument) == 0) and ("efit" in binned_data.keys()):
             self.ipla.values = binned_data["efit"]["ipla"]
