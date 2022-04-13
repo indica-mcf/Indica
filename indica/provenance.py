@@ -5,7 +5,6 @@ import prov.model as prov
 
 def get_prov_attribute(provenance:prov.ProvEntity, attr:str=""):
     try:
-        print(f"Reading provenance for {attr}")
         attr_value = list(provenance.get_attribute(attr))
         print(attr_value)
         attr_value = attr_value[0]
