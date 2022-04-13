@@ -28,65 +28,6 @@ from hda.diagnostics.PISpectrometer import PISpectrometer
 
 plt.ion()
 
-def test_hda():
-
-    raw = ST40data(9229)
-    raw.get_all()
-    raw_data = raw.data
-
-    bckc = {}
-    impurities=("c", "ar", "he")
-    imp_conc=(0.03, 0.001, 0.01)
-    elements = ["h"]
-    elements.extend(list(impurities))
-
-    pl = Plasma(tstart=0.02, tend=0.14, dt=0.015, elements=elements)
-    data = pl.build_data(raw_data, pulse=9229)
-
-    data = pl.apply_limits(data, "xrcs", err_lim=(np.nan, np.nan))
-
-    for i, elem in enumerate(impurities):
-        if elem in pl.ion_conc.element:
-            pl.ion_conc.loc[dict(element=elem)] = imp_conc[i]
-    pl.set_neutral_density(y1=1.0e15, y0=1.0e9)
-    pl.build_atomic_data()
-    pl.calculate_geometry()
-    pl.forward_models["xrcs"] = XRCSpectrometer(marchuk=True)
-
-    pl.match_interferometer(data, bckc=bckc, diagnostic="smmh1", quantity="ne")
-    pl.calc_imp_dens()
-    pl.match_xrcs_temperatures(
-        data,
-        bckc=bckc,
-        diagnostic="xrcs",
-        quantity_te="te_n3w",
-        quantity_ti="ti_w",
-        use_ratios=True,
-    )
-    pl.el_dens.plot()
-    pl.calc_fz_lz()
-    pl.calc_meanz()
-    pl.calc_imp_dens()
-    dt_xrcs = (raw_data["xrcs"]["ti_w"].t[1] - raw_data["xrcs"]["ti_w"].t[0]).values
-    pl.match_xrcs_intensity(
-        data, bckc=bckc, diagnostic="xrcs", quantity="int_w", cal=1, dt=dt_xrcs,
-    )
-    pl.calc_main_ion_dens()
-    pl.calc_zeff()
-    pl.calc_pressure()
-    pl.calc_rad_power()
-
-    bckc = pl.interferometer(data, bckc=bckc)
-    bckc = pl.bremsstrahlung(data, bckc=bckc)
-
-    plots.compare_data_bckc(
-        data, bckc, raw_data=raw_data, pulse=pl.pulse,
-    )
-    plots.profiles(pl, data=data)
-    plots.time_evol(pl, data, bckc=bckc)
-
-    return pl, raw_data, data, bckc
-
 """
 descr = "Line ratio analysis n3/(n3+n4+n5+w), same profile shapes as RUN40"
 run_name = "RUN50"
@@ -100,6 +41,114 @@ for pulse in pulses:
         write=write, save_pickle=save_pickle)
 
 """
+
+
+def test_hda(
+    pulse=9780,
+    tstart=0.025,
+    tend=0.14,
+    dt=0.015,
+    diagn_ne="smmh1",
+    diagn_te="xrcs",
+    quant_ne="ne",
+    quant_te="te_kw",
+    quant_ti="ti_w",
+    quant_ar="int_w",
+    main_ion="h",
+    impurities=("c", "ar", "he"),
+    imp_conc=(0.03, 0.001, 0.01),
+    cal_ar=1.0,
+    savefig=False,
+    plotfig=False,
+    ne_peaking=None,
+    marchuk=True,
+    extrapolate=False,
+    name="standard_hda_test",
+    xrcs_time=False,
+    use_ratios=True,
+    calc_error=False,
+    sxr=False,
+    efit_pulse=None,
+    efit_run=0,
+):
+
+    raw = ST40data(pulse, tstart - 0.01, tend + 0.01)
+    raw.get_all(sxr=sxr, efit_pulse=efit_pulse, efit_rev=efit_run)  # smmh1_rev=2)
+    raw_data = raw.data
+    dt_xrcs = (raw_data["xrcs"]["ti_w"].t[1] - raw_data["xrcs"]["ti_w"].t[0]).values
+    if "xrcs" in raw_data.keys() and xrcs_time:
+        time = raw_data["xrcs"]["ti_w"].t.values
+        tind = np.argwhere((time >= tstart) * (time <= tend)).flatten()
+        tstart = time[tind[0]]
+        tend = time[tind[-1]]
+        dt = dt_xrcs
+    bckc = {}
+    elements = list(main_ion)
+    elements.extend(list(impurities))
+
+    pl = Plasma(tstart=tstart, tend=tend, dt=dt, elements=elements)
+    data = pl.build_data(raw_data, pulse=pulse)
+    data = pl.apply_limits(data, "xrcs", err_lim=(np.nan, np.nan))
+
+    profs = profiles.profile_scans(rho=pl.rho)
+    pl.Ne_prof = profs["Ne"]["peaked"]
+    pl.Te_prof = profs["Te"]["peaked"]
+    pl.Ti_prof = profs["Ti"]["peaked"]
+    pl.Nimp_prof = profs["Nimp"]["peaked"]
+    pl.Vrot_prof = profs["Vrot"]["peaked"]
+
+    if ne_peaking is not None:
+        pl.Ne_prof.peaking = ne_peaking
+        pl.Ne_prof.build_profile()
+    for i, elem in enumerate(impurities):
+        if elem in pl.ion_conc.element:
+            pl.ion_conc.loc[dict(element=elem)] = imp_conc[i]
+    pl.set_neutral_density(y1=1.0e15, y0=1.0e9)
+    pl.build_atomic_data()
+    pl.calculate_geometry()
+    if "xrcs" in raw_data:
+        pl.forward_models["xrcs"] = XRCSpectrometer(
+            marchuk=marchuk, extrapolate=extrapolate
+        )
+    if "princeton" in raw_data:
+        pl.forward_models["princeton"] = PISpectrometer()
+
+    bckc = pl.match_interferometer(
+        data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
+    )
+    pl.calc_imp_dens()
+    bckc = pl.match_xrcs_temperatures(
+        data,
+        bckc=bckc,
+        diagnostic=diagn_te,
+        quantity_te=quant_te,
+        quantity_ti=quant_ti,
+        use_ratios=use_ratios,
+        calc_error=calc_error,
+    )
+    pl.el_dens.plot()
+    pl.calc_fz_lz()
+    pl.calc_meanz()
+    pl.calc_imp_dens()
+    bckc = pl.match_xrcs_intensity(
+        data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar, cal=cal_ar, dt=dt_xrcs,
+    )
+    pl.calc_main_ion_dens()
+    pl.calc_zeff()
+    pl.calc_pressure()
+    pl.calc_rad_power()
+    bckc = pl.interferometer(data, bckc=bckc)
+    bckc = pl.bremsstrahlung(data, bckc=bckc)
+
+    if plotfig or savefig:
+        plots.compare_data_bckc(
+            data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
+        )
+        plots.profiles(pl, data=data, bckc=bckc, savefig=savefig, name=name)
+        plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
+
+    return pl, raw_data, data, bckc
+
 
 
 def plasma_workflow(
