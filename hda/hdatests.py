@@ -1,5 +1,4 @@
 from copy import deepcopy
-from matplotlib import cm, rcParams
 
 import os
 from matplotlib import cm
@@ -8,7 +7,6 @@ import numpy as np
 import pickle
 import xarray as xr
 from xarray import DataArray
-from scipy.interpolate import CubicSpline
 from scipy import constants
 
 from hda.hdaplot import HDAplot
@@ -23,13 +21,71 @@ import hda.physics as ph
 import hda.profiles as profiles
 from indica.readers import ST40Reader, ADASReader
 from indica.converters.time import bin_in_time_dt
-from indica.operators.atomic_data import PowerLoss, FractionalAbundance
-from indica.converters import LinesOfSightTransform
+from indica.operators.atomic_data import PowerLoss
 
 from hda.diagnostics.spectrometer import XRCSpectrometer
 from hda.diagnostics.PISpectrometer import PISpectrometer
 
 plt.ion()
+
+def test_hda():
+
+    raw = ST40data(9229, 0.02, 0.14)
+    raw.get_all()
+    raw_data = raw.data
+
+    bckc = {}
+    impurities=("c", "ar", "he")
+    imp_conc=(0.03, 0.001, 0.01)
+    elements = ["h"]
+    elements.extend(list(impurities))
+
+    pl = Plasma(tstart=0.02, tend=0.14, dt=0.015, elements=elements)
+    data = pl.build_data(raw_data, pulse=9229)
+    return pl, data
+    data = pl.apply_limits(data, "xrcs", err_lim=(np.nan, np.nan))
+
+    for i, elem in enumerate(impurities):
+        if elem in pl.ion_conc.element:
+            pl.ion_conc.loc[dict(element=elem)] = imp_conc[i]
+    pl.set_neutral_density(y1=1.0e15, y0=1.0e9)
+    pl.build_atomic_data()
+    pl.calculate_geometry()
+    pl.forward_models["xrcs"] = XRCSpectrometer(marchuk=True)
+
+    pl.match_interferometer(data, bckc=bckc, diagnostic="smmh1", quantity="ne")
+    pl.calc_imp_dens()
+    pl.match_xrcs_temperatures(
+        data,
+        bckc=bckc,
+        diagnostic="xrcs",
+        quantity_te="te_n3w",
+        quantity_ti="ti_w",
+        use_ratios=True,
+    )
+    pl.el_dens.plot()
+    pl.calc_fz_lz()
+    pl.calc_meanz()
+    pl.calc_imp_dens()
+    dt_xrcs = (raw_data["xrcs"]["ti_w"].t[1] - raw_data["xrcs"]["ti_w"].t[0]).values
+    pl.match_xrcs_intensity(
+        data, bckc=bckc, diagnostic="xrcs", quantity="int_w", cal=1, dt=dt_xrcs,
+    )
+    pl.calc_main_ion_dens()
+    pl.calc_zeff()
+    pl.calc_pressure()
+    pl.calc_rad_power()
+
+    bckc = pl.interferometer(data, bckc=bckc)
+    bckc = pl.bremsstrahlung(data, bckc=bckc)
+
+    plots.compare_data_bckc(
+        data, bckc, raw_data=raw_data, pulse=pl.pulse,
+    )
+    plots.profiles(pl, data=data)
+    plots.time_evol(pl, data, bckc=bckc)
+
+    return pl, raw_data, data, bckc
 
 """
 descr = "Line ratio analysis n3/(n3+n4+n5+w), same profile shapes as RUN40"
