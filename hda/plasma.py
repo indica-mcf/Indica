@@ -102,8 +102,7 @@ class Plasma:
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
-        t = get_tlabels_dt(self.tstart, self.tend, self.dt)
-        self.t = t[np.where(t <= self.tend)[0]]
+        self.t = get_tlabels_dt(self.tstart, self.tend, self.dt)
         self.theta = np.linspace(0, 2 * np.pi, ntheta + 1)[:-1]
         self.radial_coordinate = np.linspace(0, 1.0, 41)
         self.radial_coordinate_type = "rho_poloidal"
