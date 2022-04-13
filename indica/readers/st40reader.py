@@ -124,7 +124,7 @@ class ST40Reader(DataReader):
             "zbnd": ".p_boundary:zbnd",
             "ipla": ".constraints.ip:cvalue",
             "wp": ".virial:wp",
-            "df":".constraints.df:cvalue",
+            "df": ".constraints.df:cvalue",
         },
         "xrcs": {
             "int_k": ".te_kw:int_k",
@@ -145,18 +145,16 @@ class ST40Reader(DataReader):
             "vtor": ".vtor",
             "vtor_error": ".vtor_err",
             "times": ".time",
-            "exposure": ".exposure"
+            "exposure": ".exposure",
         },
-        "lines": {
-            "brems": ".brem_mp1:intensity",
-        },
+        "lines": {"brems": ".brem_mp1:intensity",},
         "nirh1": {"ne": ".line_int:ne",},
         "nirh1_bin": {"ne": ".line_int:ne",},
         "smmh1": {"ne": ".line_int:ne",},
         "astra": {
-            "upl":".global:upl",
-            "wth":".global:wth",
-            "df":".global.df",
+            "upl": ".global:upl",
+            "wth": ".global:wth",
+            "df": ".global.df",
             "elon": ".profiles.astra:elon",  # Elongation profile
             "j_bs": ".profiles.astra:j_bs",  # Bootstrap current density,MA/m2
             "j_nbi": ".profiles.astra:j_nbi",  # NB driven current density,MA/m2
@@ -304,6 +302,12 @@ class ST40Reader(DataReader):
         mds_path += f"{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)
 
+    def get_mds_path_dims(self, mds_path):
+        """Gets the dimensions' path given an mds_path"""
+
+        dims_path = f"dim_of({mds_path},{dim})"
+        return dims_path
+
     def _get_data(
         self, uid: str, instrument: str, quantity: str, revision: int
     ) -> Tuple[np.array, List[np.array]]:
@@ -313,6 +317,13 @@ class ST40Reader(DataReader):
         dims, _ = self._get_signal_dims(_path, len(data.shape))
 
         return data, dims
+
+    def _conn_get(self, mds_path):
+        """Gets the signal for the given INSTRUMENT, at the
+        given revision."""
+
+        mds_data = self.conn.get(mds_path)
+        return mds_data
 
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: int
@@ -354,53 +365,6 @@ class ST40Reader(DataReader):
                 revision = int(m.group(1))
 
         return revision
-
-    def _read_cached_ppf(self, path: Path) -> Optional[np.array]:
-        """Check if the PPF data specified by `sal_path` has been cached and,
-        if so, load it.
-
-        """
-        if not path.exists():
-            return None
-        permissions = stat.filemode(path.stat().st_mode)
-        if permissions[5] == "w" or permissions[8] == "w":
-            warnings.warn(
-                "Can not open cache file which is writeable by anyone other than "
-                "the user. (Security risk.)",
-                PPFWarning,
-            )
-            return None
-        with path.open("rb") as f:
-            try:
-                return pickle.load(f)
-            except pickle.UnpicklingError:
-                warnings.warn(
-                    f"Error unpickling cache file {path}. (Possible data corruption.)",
-                    PPFWarning,
-                )
-                return None
-
-    def _write_cached_ppf(self, path: Path, data: np.array):
-        """Write the given signal, fetched from `sal_path`, to the disk for
-        later reuse.
-
-        """
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as f:
-            pickle.dump(data, f)
-        path.chmod(0o644)
-
-    def _sal_path_to_file(self, sal_path: str) -> Path:
-        """Get the file path which would be used to cache data from the given
-        `sal_path`.
-
-        """
-        return (
-            Path.home()
-            / CACHE_DIR
-            / self.__class__.__name__
-            / to_filename(self._reader_cache_id + sal_path + ".pkl")
-        )
 
     def _get_equilibrium(
         self, uid: str, instrument: str, revision: int, quantities: Set[str],
@@ -629,17 +593,22 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument+".CXSFIT_OUT", revision)
+        results["revision"] = self._get_revision(
+            uid, instrument + ".CXSFIT_OUT", revision
+        )
         revision = results["revision"]
-        print('revision={}'.format(revision))
-        print('instrument={}'.format(instrument))
-
+        print("revision={}".format(revision))
+        print("instrument={}".format(instrument))
 
         # Get Geometry data from mds
         if instrument == "princeton":
             tree_path = ""
-            location, location_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:location", -1)
-            direction, direction_path = self._get_signal(uid, tree_path, ".princeton.passive.best.geometry:direction", -1)
+            location, location_path = self._get_signal(
+                uid, tree_path, ".princeton.passive.best.geometry:location", -1
+            )
+            direction, direction_path = self._get_signal(
+                uid, tree_path, ".princeton.passive.best.geometry:direction", -1
+            )
         else:
             raise ValueError(f"No geometry available for {instrument}")
         rstart = np.zeros(np.shape(direction)[0], dtype=float)
@@ -658,10 +627,13 @@ class ST40Reader(DataReader):
             tstop[i] = los_end[1]
 
         # Doesn't yet work, need to write data to the CXSFIT_OUT trees.
-        print('quantities={}'.format(quantities))
+        print("quantities={}".format(quantities))
         for q in quantities:
             qval, q_path = self._get_signal(
-                uid, instrument+".CXSFIT_OUT", self.QUANTITIES_MDS[instrument][q], revision
+                uid,
+                instrument + ".CXSFIT_OUT",
+                self.QUANTITIES_MDS[instrument][q],
+                revision,
             )
             results[q + "_records"] = q_path
             results[q] = qval
@@ -670,7 +642,7 @@ class ST40Reader(DataReader):
         print(results)
         print(results["times"])
         print(results["exposure"])
-        #results["times"] = results["times"] + 0.5*results["exposure"]
+        # results["times"] = results["times"] + 0.5*results["exposure"]
 
         # Export coordinates
         results["length"] = len(rstart)
@@ -787,7 +759,7 @@ class ST40Reader(DataReader):
             results[q] = qval
 
             qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_err", revision
+                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision
             )
             if np.array_equal(qval_err, "FAILED"):
                 qval_err = np.zeros_like(qval)
@@ -796,10 +768,13 @@ class ST40Reader(DataReader):
             results[q + "_error" + "_records"] = q_path_err
 
             qval_syserr, q_path_syserr = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q]+"_syserr", revision
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q] + "_syserr",
+                revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):
-                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
+                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
             #     qval_syserr = np.zeros_like(qval)
             #     q_path_syserr = ""
@@ -900,7 +875,6 @@ class ST40Reader(DataReader):
             (x, y, z) of start and stop
 
         """
-
 
         xstart, ystart, zstart = position
         xstop, ystop, zstop = position + direction

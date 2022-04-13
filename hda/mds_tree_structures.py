@@ -117,7 +117,7 @@ def astra():
         ".CONSTRAINTS.PRESSURE": constraints_dict,
         ".CONSTRAINTS.ROGC": constraints_dict,
         ".CONSTRAINTS.ULOOP": constraints_dict,
-        "PROFILES.PSI_NORM":{
+        ".PROFILES.PSI_NORM":{
             "XPSN":("NUMERIC", "x vector -sqrt(fi_normalized)"),
             "Q":("SIGNAL", "Q_PROFILE(PSI_NORM)"),
             "P":("SIGNAL", "PRESSURE(PSI_NORM)"),
@@ -129,7 +129,7 @@ def astra():
             "AREAT":("SIGNAL", "Toroidal cross section,m2"),
             "VOLUME":("SIGNAL", "Volume inside magnetic surface,m3"),
         },
-        "PROFILES.ASTRA":{
+        ".PROFILES.ASTRA":{
             "RHO":("SIGNAL", "rho - toroidal flux coordinate, m"),
             "TE":("SIGNAL", "Electron temperature, keV"),
             "NE":("SIGNAL", "Electron density, 10^19 m^-3"),
