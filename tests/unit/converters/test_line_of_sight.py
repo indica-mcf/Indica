@@ -104,14 +104,15 @@ def convert_to_rho(plot=False):
         plt.show(block=True)
 
 
-# Test convert_to_xyz method
-def test_convert_to_xyz(debug=False):
+# Test convert_to_xy method
+def test_convert_to_xy(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
     x1, x2, t = default_inputs()
 
     # Test method
-    x, y, z = los.convert_to_xyz(x1, x2, t)
+    x, y = los.convert_to_xy(x1, x2, t)
+    _, z = los.convert_to_Rz(x1, x2, t)
 
     assert np.all(x.values <= np.max([los.x_start, los.x_end]))
     assert np.all(x >= np.min([los.x_start, los.x_end]))
@@ -135,16 +136,14 @@ def test_convert_to_Rz(debug=False):
     # Test method
     R_, z_ = los.convert_to_Rz(x1, x2, t)
 
-    x, y, z = los.convert_to_xyz(x1, x2, t)
+    x, y = los.convert_to_xy(x1, x2, t)
     R = np.sign(x) * np.sqrt(x**2 + y**2)
 
-    # R and z are as expected
-    assert all(z == z_)
+    # R and z are as expected=
     assert all(R == R_)
 
     if debug:
         print(f"R = {R}")
-        print(f"z = {z}")
 
 
 # Test convert_from_Rz method
