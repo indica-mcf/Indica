@@ -210,37 +210,37 @@ class Reader(DataReader):
         results["psi_records"] = ["value_records", "R_records", "z_records"]
         return results
 
-    # def _get_cyclotron_emissions(
-    #     self,
-    #     uid: str,
-    #     instrument: str,
-    #     revision: RevisionLike,
-    #     quantities: Set[str],
-    # ) -> Dict[str, Any]:
-    #
-    #     zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-    #
-        # results: Dict[str, Any] = {
-        #     "length": np.random.randint(4, 20),
-        #     "machine_dims": self.MACHINE_DIMS,
-        # }
-    #
-    #     dt = np.random.uniform(0.001, 1.0)
-    #     times = np.arange(TSTART, TEND, dt)
-    #     results["times"] = times
-    #     nt = times.shape[0]
-    #
-    #     results["revision"] = np.random.randint(0, 10)
-    #     results["z"] = np.random.uniform(zmin, zmax)
-    #
-    #     results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
-    #     results["te_error"] = np.sqrt(results["te"])
-    #     results["Btot"] = np.random.uniform(0.1, 5, (results["length"],))
-    #     results["bad_channels"] = []
-    #
-    #     results["te_records"] = ["info_path", "data_path"]
-    #
-    #     return results
+    def _get_cyclotron_emissions(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+
+        results: Dict[str, Any] = {
+            "length": np.random.randint(4, 20),
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        dt = np.random.uniform(0.001, 1.0)
+        times = np.arange(TSTART, TEND, dt)
+        results["times"] = times
+        nt = times.shape[0]
+
+        results["revision"] = np.random.randint(0, 10)
+        results["z"] = np.random.uniform(zmin, zmax)
+
+        results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
+        results["te_error"] = np.sqrt(results["te"])
+        results["Btot"] = np.random.uniform(0.1, 5, (results["length"],))
+        results["bad_channels"] = []
+
+        results["te_records"] = ["info_path", "data_path"]
+
+        return results
 
     def _get_radiation(
         self,
@@ -363,12 +363,12 @@ class Reader(DataReader):
             wavelength_start, wavelength_end, nwavelength
         )
 
-        results["xstart"] = [np.random.uniform(Rmin, Rmax)]
-        results["ystart"] = [np.random.uniform(Rmin, Rmax)]
-        results["zstart"] = [np.random.uniform(zmin, zmax)]
-        results["xstop"] = [np.random.uniform(Rmin, Rmax)]
-        results["ystop"] = [np.random.uniform(Rmin, Rmax)]
-        results["zstop"] = [np.random.uniform(zmin, zmax)]
+        results["xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
+        results["ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
+        results["zstart"] = np.array([np.random.uniform(zmin, zmax)])
+        results["xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
+        results["ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
+        results["zstop"] = np.array([np.random.uniform(zmin, zmax)])
         for quantity in quantities:
             if quantity == "spectra":
                 results[quantity] = np.random.uniform(0, 1.0e6, (nt, nwavelength))
@@ -516,8 +516,8 @@ def test_get_charge_exchange():
     _test_get_methods(instrument="charge_exchange", nsamples=10)
 
 
-# def test_get_cyclotron_emissions():
-#     _test_get_methods(instrument="cyclotron_emissions", nsamples=10)
+def test_get_cyclotron_emissions():
+    _test_get_methods(instrument="cyclotron_emissions", nsamples=10)
 
 
 def test_get_equilibrium():
