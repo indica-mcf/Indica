@@ -30,7 +30,7 @@ plt.ion()
 
 def test_hda():
 
-    raw = ST40data(9229, 0.02, 0.14)
+    raw = ST40data(9229)
     raw.get_all()
     raw_data = raw.data
 
@@ -42,7 +42,7 @@ def test_hda():
 
     pl = Plasma(tstart=0.02, tend=0.14, dt=0.015, elements=elements)
     data = pl.build_data(raw_data, pulse=9229)
-    return pl, data
+
     data = pl.apply_limits(data, "xrcs", err_lim=(np.nan, np.nan))
 
     for i, elem in enumerate(impurities):

@@ -102,7 +102,8 @@ class Plasma:
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
-        self.t = get_tlabels_dt(self.tstart, self.tend, self.dt)
+        t = get_tlabels_dt(self.tstart, self.tend, self.dt)
+        self.t = t[np.where(t <= self.tend)[0]]
         self.theta = np.linspace(0, 2 * np.pi, ntheta + 1)[:-1]
         self.radial_coordinate = np.linspace(0, 1.0, 41)
         self.radial_coordinate_type = "rho_poloidal"
@@ -189,8 +190,6 @@ class Plasma:
             binned_data[kinstr] = instrument_data
             if kinstr == instrument:
                 break
-
-        return binned_data
 
         if (len(instrument) == 0) and ("efit" in binned_data.keys()):
             self.ipla.values = binned_data["efit"]["ipla"]
