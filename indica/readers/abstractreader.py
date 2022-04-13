@@ -201,7 +201,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
@@ -261,7 +261,7 @@ class DataReader(BaseIO):
                 "thomson_scattering",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -355,7 +355,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
@@ -376,8 +376,9 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
+        # TODO: why use ffill as method??? Temporarily removed...
         texp = DataArray(database_results["texp"], coords=[("t", times)]).sel(
-            t=slice(self._tstart, self._tend), method="ffill"
+            t=slice(self._tstart, self._tend)
         )
         if downsample_ratio > 1:
             # Seems to be some sort of bug setting the coordinate when
@@ -431,7 +432,7 @@ class DataReader(BaseIO):
                 "cxrs",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -540,7 +541,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
@@ -618,7 +619,7 @@ class DataReader(BaseIO):
                 "equilibrium",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 [],
@@ -736,7 +737,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         transform = MagneticCoordinates(
@@ -791,7 +792,7 @@ class DataReader(BaseIO):
                 "cyclotron_emissions",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -884,7 +885,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         data = {}
         for quantity in quantities:
@@ -944,7 +945,7 @@ class DataReader(BaseIO):
                 "radiation",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -996,18 +997,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1049,7 +1050,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         data = {}
@@ -1121,7 +1122,7 @@ class DataReader(BaseIO):
                 "bremsstrahlung_spectroscopy",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1172,18 +1173,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1225,7 +1226,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         wavelength = database_results["wavelength"]
@@ -1302,7 +1303,7 @@ class DataReader(BaseIO):
                 "helike_spectroscopy",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1351,18 +1352,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1402,7 +1403,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
@@ -1463,7 +1464,7 @@ class DataReader(BaseIO):
                 "filters",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1512,18 +1513,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1565,7 +1566,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         if len(database_results) == 0:
             return database_results
@@ -1630,7 +1631,7 @@ class DataReader(BaseIO):
                 "interferometry",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1679,18 +1680,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1727,7 +1728,7 @@ class DataReader(BaseIO):
     #     if len(database_results) == 0:
     #         print(f"No data from {uid}.{instrument}:{revision}")
     #         return database_results
-    #     revision = database_results["revision"]
+    #     _revision = database_results["revision"]
     #
     #     data: Dict[str, DataArray] = {}
     #
@@ -1806,7 +1807,7 @@ class DataReader(BaseIO):
     #             "astra",
     #             uid,
     #             instrument,
-    #             revision,
+    #             _revision,
     #             quantity,
     #             database_results[quantity + "_records"],
     #             [],
