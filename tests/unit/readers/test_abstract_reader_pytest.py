@@ -7,7 +7,6 @@ from typing import Dict
 from typing import Iterable
 from typing import List
 from typing import Set
-from typing import Tuple
 
 import numpy as np
 from xarray import DataArray
@@ -21,8 +20,34 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 # TODO these values should come from the machine dimensions variable of the reader
 
-TSTART = 0
-TEND = 10
+_MACHINE_DIMS = ((1.83, 3.9), (-1.75, 2.0))
+_INSTRUMENT_METHODS = {
+    "thomson_scattering": "get_thomson_scattering",
+    "equilibrium": "get_equilibrium",
+    "cyclotron_emissions": "get_cyclotron_emissions",
+    "charge_exchange": "get_charge_exchange",
+    "bremsstrahlung_spectroscopy": "get_bremsstrahlung_spectroscopy",
+    "radiation": "get_radiation",
+    "helike_spectroscopy": "get_helike_spectroscopy",
+    "interferometry": "get_interferometry",
+    "filters": "get_filters",
+}
+
+
+def gen_array(_min: float, _max: float, shape: tuple, to_float=False):
+
+    values = np.linspace(_min, _max, shape[-1])
+    if len(shape) > 1:
+        values = [values] * shape[-2]
+    if len(shape) > 2:
+        values = [values] * shape[-3]
+
+    values = np.array(values)
+
+    if len(shape) == 1 and shape[0] == 1 and to_float:
+        values = values[0]
+
+    return np.array(values)
 
 
 def selector(
@@ -34,46 +59,71 @@ def selector(
     return bad_channels
 
 
-class Reader(DataReader):
+class TestReader(DataReader):
     """Class to read fake data"""
 
-    MACHINE_DIMS = ((1.83, 3.9), (-1.75, 2.0))
-    INSTRUMENT_METHODS = {
-        "thomson_scattering": "get_thomson_scattering",
-        "equilibrium": "get_equilibrium",
-        "cyclotron_emissions": "get_cyclotron_emissions",
-        "charge_exchange": "get_charge_exchange",
-        "bremsstrahlung_spectroscopy": "get_bremsstrahlung_spectroscopy",
-        "radiation": "get_radiation",
-        "helike_spectroscopy": "get_helike_spectroscopy",
-        "interferometry": "get_interferometry",
-        "filters": "get_filters",
-    }
+    MACHINE_DIMS = _MACHINE_DIMS
+    INSTRUMENT_METHODS = _INSTRUMENT_METHODS
 
     def __init__(
         self,
-        pulse: int,
         tstart: float,
         tend: float,
-        server: str = "",
-        default_error: float = 0.05,
         max_freq: float = 1e6,
         selector: DataSelector = selector,
-        session: session.Session = session.global_session,
+        sess: session.Session = session.global_session,
+        empty=False,
+        equil_unique=True,
     ):
+        """
+        Test version of DataReader
+
+        Parameters
+        ----------
+        tstart
+            ...as in abstractreader...
+        tend
+            ...as in abstractreader...
+        max_freq
+            ...as in abstractreader...
+        selector
+            Fake version of selector
+        sess
+            ...as in abstractreader...
+        empty
+            Set to True to return empty dictionary
+        equil_unique
+            Set to False to return equilibrium time axis with non-unique elements
+        """
         self._reader_cache_id = ""
-        self.NAMESPACE: Tuple[str, str] = ("", server)
         super().__init__(
             tstart,
             tend,
             max_freq,
-            session,
+            sess,
             selector,
-            pulse=pulse,
-            server=server,
-            default_error=default_error,
         )
-        self.pulse = pulse
+        self._client = ""
+
+        self.empty = empty
+        self.equil_unique = equil_unique
+
+        self.Rmin, self.Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
+        self.zmin, self.zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+
+        self.length = 10
+        self.dt = 0.01
+        self.nwavelength = 256
+        self.wavelength_start = 0.3
+        self.wavelength_end = 0.3
+
+        self.tstart = tstart
+        self.tend = tend
+        self.times = np.arange(self.tstart, self.tend, self.dt)
+        self.nt = len(self.times)
+        self.nrho = 35
+        self.nr = 20
+        self.nz = 40
 
     def _get_charge_exchange(
         self,
@@ -83,27 +133,24 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
-            "length": np.random.randint(4, 20),
+            "length": self.length,
             "machine_dims": self.MACHINE_DIMS,
         }
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        results["texp"] = np.full_like(times, dt)
-        nt = times.shape[0]
+        results["times"] = self.times
+        results["texp"] = np.full_like(self.times, self.nt)
         results["element"] = "element"
-        results["revision"] = np.random.randint(0, 10)
-        results["R"] = np.random.uniform(Rmin, Rmax, (results["length"],))
-        results["z"] = np.random.uniform(zmin, zmax, (results["length"],))
-        results["ti"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
+        results["revision"] = revision
+        results["R"] = gen_array(self.Rmin, self.Rmax, (results["length"],))
+        results["z"] = gen_array(self.zmin, self.zmax, (results["length"],))
+        results["ti"] = gen_array(10, 10.0e3, (self.nt, results["length"]))
         results["ti_error"] = np.sqrt(results["ti"])
-        results["angf"] = np.random.uniform(1.0e2, 1.0e6, (nt, results["length"]))
+        results["angf"] = gen_array(1.0e2, 1.0e6, (self.nt, results["length"]))
         results["angf_error"] = np.sqrt(results["angf"])
-        results["conc"] = np.random.uniform(1.0e-6, 1.0e-1, (nt, results["length"]))
+        results["conc"] = gen_array(1.0e-6, 1.0e-1, (self.nt, results["length"]))
         results["conc_error"] = np.sqrt(results["conc"])
         results["bad_channels"] = []
 
@@ -127,23 +174,20 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
-            "length": np.random.randint(4, 20),
+            "length": self.length,
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        nt = times.shape[0]
-        results["times"] = times
-        results["revision"] = np.random.randint(0, 10)
-        results["z"] = np.random.uniform(zmin, zmax, (results["length"],))
-        results["R"] = np.random.uniform(Rmin, Rmax, (results["length"],))
-        results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
-        results["ne"] = np.random.uniform(1.0e16, 1.0e21, (nt, results["length"]))
+        results["times"] = self.times
+        results["revision"] = revision
+        results["z"] = gen_array(self.zmin, self.zmax, (results["length"],))
+        results["R"] = gen_array(self.Rmin, self.Rmax, (results["length"],))
+        results["te"] = gen_array(10.0, 10.0e3, (self.nt, results["length"]))
+        results["ne"] = gen_array(1.0e16, 1.0e21, (self.nt, results["length"]))
         results["te_error"] = np.sqrt(results["te"])
         results["ne_error"] = np.sqrt(results["ne"])
         results["bad_channels"] = []
@@ -165,45 +209,41 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {}
 
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
-        nrho = np.random.randint(20, 40)
+        results["times"] = self.times
+        if not self.equil_unique:
+            results["times"][-1] = results["times"][-2]
 
         results["element"] = "element"
 
-        results["R"] = np.random.uniform(Rmin, Rmax, (nrho,))
-        results["z"] = np.random.uniform(zmin, zmax, (nrho,))
+        results["rgeo"] = gen_array(self.Rmin, self.Rmax, (self.nt,))
+        results["rmag"] = gen_array(self.Rmin, self.Rmax, (self.nt,))
+        results["zmag"] = gen_array(self.zmin, self.zmax, (self.nt,))
+        results["ipla"] = gen_array(1.0e4, 1.0e6, (self.nt,))
+        results["wp"] = gen_array(1.0e2, 1.0e5, (self.nt,))
+        results["df"] = gen_array(0, 1, (self.nt,))
+        results["faxs"] = gen_array(1.0e-6, 0.1, (self.nt,))
+        results["fbnd"] = gen_array(-1, 1, (self.nt,))
 
-        results["rgeo"] = np.random.uniform(Rmin, Rmax, (nt,))
-        results["rmag"] = np.random.uniform(Rmin, Rmax, (nt,))
-        results["zmag"] = np.random.uniform(zmin, zmax, (nt,))
-        results["ipla"] = np.random.uniform(1.0e4, 1.0e6, (nt,))
-        results["wp"] = np.random.uniform(1.0e3, 1.0e5, (nt,))
-        results["df"] = np.random.uniform(0, 1, (nt,))
-        results["faxs"] = np.random.uniform(1.0e-6, 0.1, (nt,))
-        results["fbnd"] = np.random.uniform(-1, 1, (nt,))
+        results["psin"] = gen_array(0, 1, (self.nrho,))
+        results["psi_r"] = gen_array(self.Rmin, self.Rmax, (self.nr,))
+        results["psi_z"] = gen_array(self.zmin, self.zmax, (self.nz,))
 
-        results["psin"] = np.random.uniform(0, 1, (nrho,))
-        results["psi_r"] = np.random.uniform(Rmin, Rmax, (nrho,))
-        results["psi_z"] = np.random.uniform(zmin, zmax, (nrho,))
+        results["f"] = gen_array(self.Rmin, self.Rmax, (self.nt, self.nrho))
+        results["ftor"] = gen_array(1.0e-4, 1.0e-2, (self.nt, self.nrho))
+        results["vjac"] = gen_array(1.0e-3, 2, (self.nt, self.nrho))
+        results["rmji"] = gen_array(self.Rmin, self.Rmax, (self.nt, self.nrho))
+        results["rmjo"] = gen_array(self.Rmin, self.Rmax, (self.nt, self.nrho))
+        results["rbnd"] = gen_array(self.Rmin, self.Rmax, (self.nt, self.nrho))
+        results["zbnd"] = gen_array(self.zmin, self.zmax, (self.nt, self.nrho))
 
-        results["f"] = np.random.uniform(1.0e-6, 0.1, (nt, nrho))
-        results["ftor"] = np.random.uniform(1.0e-4, 1.0e-2, (nt, nrho))
-        results["vjac"] = np.random.uniform(1.0e-3, 2.0, (nt, nrho))
-        results["rmji"] = np.random.uniform(Rmin, Rmax, (nt, nrho))
-        results["rmjo"] = np.random.uniform(Rmin, Rmax, (nt, nrho))
-        results["rbnd"] = np.random.uniform(Rmin, Rmax, (nt, nrho))
-        results["zbnd"] = np.random.uniform(zmin, zmax, (nt, nrho))
-        results["psi"] = np.random.uniform(-1, 1, (nt, nrho, nrho))
+        results["psi"] = gen_array(-1, 1, (self.nt, self.nz, self.nr))
 
-        results["revision"] = np.random.randint(0, 10)
+        results["revision"] = revision
 
         for quantity in quantities:
             results[f"{quantity}_records"] = [f"{quantity}_records"]
@@ -218,24 +258,22 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
-            "length": np.random.randint(4, 20),
+            "length": self.length,
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        results["times"] = self.times
 
-        results["revision"] = np.random.randint(0, 10)
-        results["z"] = np.random.uniform(zmin, zmax)
+        results["revision"] = revision
+        results["z"] = gen_array(self.zmin, self.zmax, (1,), to_float=True)
 
-        results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
+        results["te"] = gen_array(10, 10.0e3, (self.nt, results["length"]))
         results["te_error"] = np.sqrt(results["te"])
-        results["Btot"] = np.random.uniform(0.1, 5, (results["length"],))
+        results["Btot"] = gen_array(0.1, 5, (results["length"],))
         results["bad_channels"] = []
 
         results["te_records"] = ["info_path", "data_path"]
@@ -250,46 +288,42 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        _, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = np.random.randint(0, 10)
-        length = np.random.randint(4, 20)
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        results["revision"] = revision
+        results["times"] = self.times
 
-        results["v_times"] = times
-        results["v"] = np.random.uniform(0, 1.0e6, (nt, length))
+        results["v_times"] = self.times
+        results["v"] = gen_array(0, 1.0e6, (self.nt, self.length))
         results["v_error"] = np.sqrt(results["v"])
-        results["v_xstart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_ystart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_zstart"] = np.random.uniform(zmin, zmax, (length,))
-        results["v_xstop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_ystop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_zstop"] = np.random.uniform(zmin, zmax, (length,))
+        results["v_xstart"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["v_ystart"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["v_zstart"] = gen_array(self.zmin, self.zmax, (self.length,))
+        results["v_xstop"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["v_ystop"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["v_zstop"] = gen_array(self.zmin, self.zmax, (self.length,))
 
-        results["h_times"] = times
-        results["h"] = np.random.uniform(0, 1.0e6, (nt, length))
+        results["h_times"] = self.times
+        results["h"] = gen_array(0, 1.0e6, (self.nt, self.length))
         results["h_error"] = np.sqrt(results["h"])
-        results["h_xstart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_ystart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_zstart"] = np.random.uniform(zmin, zmax, (length,))
-        results["h_xstop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_ystop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_zstop"] = np.random.uniform(zmin, zmax, (length,))
+        results["h_xstart"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["h_ystart"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["h_zstart"] = gen_array(self.zmin, self.zmax, (self.length,))
+        results["h_xstop"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["h_ystop"] = gen_array(-self.Rmax, self.Rmax, (self.length,))
+        results["h_zstop"] = gen_array(self.zmin, self.zmax, (self.length,))
 
-        results["length"]["v"] = int(length)
-        results["length"]["h"] = int(length)
+        results["length"]["v"] = int(self.length)
+        results["length"]["h"] = int(self.length)
 
         for quantity in quantities:
-            results[f"{quantity}_records"] = [f"{quantity}_records"] * length
+            results[f"{quantity}_records"] = [f"{quantity}_records"] * self.length
 
         return results
 
@@ -301,30 +335,27 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
-        results["revision"] = np.random.randint(0, 10)
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        results["revision"] = revision
+        results["times"] = self.times
 
         length = int(1)
         signals = ["zefv", "zefh"]
         for k in signals:
-            results[k] = np.random.uniform(0, 1.0e6, (nt,))
+            results[k] = gen_array(0, 1.0e6, (self.nt,))
             results[f"{k}_error"] = np.sqrt(results[k])
-            results[f"{k}_xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_zstart"] = np.array([np.random.uniform(zmin, zmax)])
-            results[f"{k}_xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_zstop"] = np.array([np.random.uniform(zmin, zmax)])
+            results[f"{k}_xstart"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[f"{k}_ystart"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[f"{k}_zstart"] = gen_array(self.zmin, self.zmax, (1,))
+            results[f"{k}_xstop"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[f"{k}_ystop"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[f"{k}_zstop"] = gen_array(self.zmin, self.zmax, (1,))
             results["length"][k] = int(length)
 
         for quantity in quantities:
@@ -343,37 +374,31 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
-        nwavelength = np.random.randint(256, 1024)
-        wavelength_start, wavelength_end = 3.8, 4.0
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
             "length": 1,
             "machine_dims": self.MACHINE_DIMS,
         }
-        results["revision"] = np.random.randint(0, 10)
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        results["revision"] = revision
+        results["times"] = self.times
 
-        results["wavelength"] = np.linspace(
-            wavelength_start, wavelength_end, nwavelength
+        results["wavelength"] = gen_array(
+            self.wavelength_start, self.wavelength_end, (self.nwavelength,)
         )
 
-        results["xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstart"] = np.array([np.random.uniform(zmin, zmax)])
-        results["xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstop"] = np.array([np.random.uniform(zmin, zmax)])
+        results["xstart"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["ystart"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["zstart"] = gen_array(self.zmin, self.zmax, (1,))
+        results["xstop"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["ystop"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["zstop"] = gen_array(self.zmin, self.zmax, (1,))
         for quantity in quantities:
             if quantity == "spectra":
-                results[quantity] = np.random.uniform(0, 1.0e6, (nt, nwavelength))
+                results[quantity] = gen_array(0, 1.0e6, (self.nt, self.nwavelength))
             else:
-                results[quantity] = np.random.uniform(0, 1.0e4, (nt,))
+                results[quantity] = gen_array(0, 1.0e4, (self.nt,))
             results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
@@ -390,28 +415,25 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
             "length": 1,
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = np.random.randint(0, 10)
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        results["revision"] = revision
+        results["times"] = self.times
 
-        results["xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstart"] = np.array([np.random.uniform(zmin, zmax)])
-        results["xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstop"] = np.array([np.random.uniform(zmin, zmax)])
+        results["xstart"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["ystart"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["zstart"] = gen_array(self.zmin, self.zmax, (1,))
+        results["xstop"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["ystop"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["zstop"] = gen_array(self.zmin, self.zmax, (1,))
         for quantity in quantities:
-            results[quantity] = np.random.uniform(0, 1.0e6, (nt,))
+            results[quantity] = gen_array(0, 1.0e6, (self.nt,))
             results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
@@ -431,28 +453,25 @@ class Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
+        if self.empty:
+            return {}
 
         results: Dict[str, Any] = {
             "length": 1,
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = np.random.randint(0, 10)
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        results["revision"] = revision
+        results["times"] = self.times
 
-        results["xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstart"] = np.array([np.random.uniform(zmin, zmax)])
-        results["xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstop"] = np.array([np.random.uniform(zmin, zmax)])
+        results["xstart"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["ystart"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["zstart"] = gen_array(self.zmin, self.zmax, (1,))
+        results["xstop"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["ystop"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["zstop"] = gen_array(self.zmin, self.zmax, (1,))
         for quantity in quantities:
-            results[quantity] = np.random.uniform(0, 1.0e6, (nt,))
+            results[quantity] = gen_array(0, 1.0e6, (self.nt,))
             results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
@@ -485,72 +504,122 @@ class Reader(DataReader):
 
 
 def _test_get_methods(
-    instrument="ts",
-    nsamples=10,
+    instrument,
+    tstart=0.0,
+    tend=1.0,
 ):
     """
     Generalised test for all get methods of the abstractreader
     """
 
-    for i in range(nsamples):
-        reader = Reader(
-            1,
-            TSTART,
-            TEND,
-        )
+    _get_method = f"_{_INSTRUMENT_METHODS[instrument]}"
 
-        quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
+    reader = TestReader(
+        tstart,
+        tend,
+    )
 
-        results = reader.get("", instrument, 0, quantities)
+    quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
 
-        # Check whether data is as expected
-        for q, actual, expected in [(q, results[q], results[q]) for q in quantities]:
+    _results = getattr(reader, _get_method)("", instrument, 0, quantities)
+
+    results = reader.get("", instrument, 0, quantities)
+
+    for q, actual, expected in [(q, results[q], _results[q]) for q in quantities]:
+        try:
             assert np.all(actual.values == expected)
+        except AssertionError:
+            return actual, expected
 
 
-def test_get_thomson_scattering():
-    _test_get_methods(instrument="thomson_scattering", nsamples=10)
+def _test_empty(
+    instrument,
+    tstart=0.0,
+    tend=1.0,
+):
+    """
+    Test for no data returned by reader _get_methods
+    """
 
-
-def test_get_charge_exchange():
-    _test_get_methods(instrument="charge_exchange", nsamples=10)
-
-
-def test_get_cyclotron_emissions():
-    _test_get_methods(instrument="cyclotron_emissions", nsamples=10)
-
-
-def test_get_equilibrium():
-    _test_get_methods(instrument="equilibrium", nsamples=10)
-
-
-def test_get_radiation():
-    _test_get_methods(instrument="radiation", nsamples=10)
-
-
-def test_get_bremsstrahlung_spectroscopy():
-    _test_get_methods(
-        instrument="bremsstrahlung_spectroscopy",
-        nsamples=10,
+    reader = TestReader(
+        tstart,
+        tend,
+        empty=True,
     )
 
+    quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
 
-def test_get_helike_spectroscopy():
-    _test_get_methods(
-        instrument="helike_spectroscopy",
-        nsamples=10,
+    results = reader.get("", instrument, 0, quantities)
+
+    assert np.all(len(results) == 0)
+
+
+def test_non_unique_times(instrument="equilibrium", tstart=0.0, tend=1.0):
+    _get_method = f"_{_INSTRUMENT_METHODS[instrument]}"
+
+    reader = TestReader(
+        tstart,
+        tend,
+        equil_unique=False,
     )
 
+    quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
 
-def test_get_filters():
-    _test_get_methods(
-        instrument="filters",
-        nsamples=10,
-    )
+    _results = getattr(reader, _get_method)("", instrument, 0, quantities)
+
+    results = reader.get("", instrument, 0, quantities)
+
+    for q, actual, expected in [(q, results[q], _results[q]) for q in quantities]:
+        if "t" in results[q].dims:
+            assert np.all(results[q].t.values == np.unique(_results["times"]))
 
 
-def test_get_interferometry():
-    _test_get_methods(
-        instrument="interferometry",
-        nsamples=10,
-    )
+def test_thomson_scattering():
+    instrument = "thomson_scattering"
+    return _test_get_methods(instrument)
+
+
+def test_equilibrium():
+    instrument = "equilibrium"
+    return _test_get_methods(instrument)
+
+
+def test_cyclotron_emissions():
+    instrument = "cyclotron_emissions"
+    return _test_get_methods(instrument)
+
+
+def test_charge_exchange():
+    instrument = "charge_exchange"
+    return _test_get_methods(instrument)
+
+
+def test_bremsstrahlung_spectroscopy():
+    instrument = "bremsstrahlung_spectroscopy"
+    return _test_get_methods(instrument)
+
+
+def test_radiation():
+    instrument = "radiation"
+    return _test_get_methods(instrument)
+
+
+def test_helike_spectroscopy():
+    instrument = "helike_spectroscopy"
+    return _test_get_methods(instrument)
+
+
+def test_interferometry():
+    instrument = "interferometry"
+    return _test_get_methods(instrument)
+
+
+def test_filters():
+    instrument = "filters"
+    return _test_get_methods(instrument)
+
+
+def test_empty():
+    for instrument in _INSTRUMENT_METHODS.keys():
+        print(instrument)
+        _test_empty(instrument)
