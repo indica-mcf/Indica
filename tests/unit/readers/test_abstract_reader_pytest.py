@@ -36,13 +36,13 @@ _INSTRUMENT_METHODS = {
 
 def gen_array(_min: float, _max: float, shape: tuple, to_float=False):
 
-    values = list(np.linspace(_min, _max, shape[-1]))
+    _values = list(np.linspace(_min, _max, shape[-1]))
     if len(shape) > 1:
-        values = [values] * shape[-2]
+        _values = [_values] * shape[-2]
     if len(shape) > 2:
-        values = [values] * shape[-3]
+        _values = [_values] * shape[-3]
 
-    values = np.array(values)
+    values = np.array(_values)
 
     if len(shape) == 1 and shape[0] == 1 and to_float:
         values = values[0]
