@@ -17,7 +17,6 @@ repos:
     - id: trailing-whitespace
     - id: mixed-line-ending
       name: "Fix Mixed Line Ending"
-    - id: no-commit-to-branch
 -   repo: https://gitlab.com/pycqa/flake8
     rev: 3.8.4
     hooks:
