@@ -1,4 +1,4 @@
-"""Test methods present on the base class DataReader."""
+"""Test methods for the abstracreader class"""
 
 from numbers import Number
 from typing import Any
