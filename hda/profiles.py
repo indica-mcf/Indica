@@ -279,8 +279,7 @@ def density_crash(
 
     return pre, post
 
-def profile_scans(plot=False, avrg=False):
-    rho = np.linspace(0, 1.0, 41)
+def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
     Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
     Ne = Profiles(datatype=("density", "electron"), xspl=rho)
     Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
