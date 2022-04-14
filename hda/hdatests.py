@@ -140,12 +140,11 @@ def test_hda(
     bckc = pl.interferometer(data, bckc=bckc)
     bckc = pl.bremsstrahlung(data, bckc=bckc)
 
-    if plotfig or savefig:
-        plots.compare_data_bckc(
-            data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
-        )
-        plots.profiles(pl, data=data, bckc=bckc, savefig=savefig, name=name)
-        plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
+    plots.compare_data_bckc(
+        data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
+    )
+    plots.profiles(pl, data=data, bckc=bckc, savefig=savefig, name=name)
+    plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
 
     return pl, raw_data, data, bckc
 
