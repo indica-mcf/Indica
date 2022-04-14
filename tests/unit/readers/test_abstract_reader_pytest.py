@@ -36,7 +36,7 @@ _INSTRUMENT_METHODS = {
 
 def gen_array(_min: float, _max: float, shape: tuple, to_float=False):
 
-    values = np.linspace(_min, _max, shape[-1])
+    values = list(np.linspace(_min, _max, shape[-1]))
     if len(shape) > 1:
         values = [values] * shape[-2]
     if len(shape) > 2:
@@ -47,7 +47,7 @@ def gen_array(_min: float, _max: float, shape: tuple, to_float=False):
     if len(shape) == 1 and shape[0] == 1 and to_float:
         values = values[0]
 
-    return np.array(values)
+    return values
 
 
 def selector(
@@ -504,9 +504,9 @@ class TestReader(DataReader):
 
 
 def _test_get_methods(
-    instrument,
-    tstart=0.0,
-    tend=1.0,
+    instrument: str,
+    tstart: float = 0.0,
+    tend: float = 1.0,
 ):
     """
     Generalised test for all get methods of the abstractreader
@@ -554,7 +554,34 @@ def _test_empty(
     assert np.all(len(results) == 0)
 
 
-def test_non_unique_times(instrument="equilibrium", tstart=0.0, tend=1.0):
+def _test_caching(instrument: str, tstart: float = 0.0, tend: float = 1.0):
+    """
+    Generalised test for all get methods of the abstractreader
+    """
+
+    _get_method = f"_{_INSTRUMENT_METHODS[instrument]}"
+
+    reader = TestReader(
+        tstart,
+        tend,
+    )
+
+    quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
+
+    _results = getattr(reader, _get_method)("", instrument, 0, quantities)
+
+    results = reader.get("", instrument, 0, quantities)
+
+    for q, actual, expected in [(q, results[q], _results[q]) for q in quantities]:
+        try:
+            assert np.all(actual.values == expected)
+        except AssertionError:
+            return actual, expected
+
+
+def test_non_unique_times(
+    instrument: str = "equilibrium", tstart: float = 0.0, tend: float = 1.0
+):
     _get_method = f"_{_INSTRUMENT_METHODS[instrument]}"
 
     reader = TestReader(
