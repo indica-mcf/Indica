@@ -377,19 +377,12 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         save_figure(fig_name=f"{figname}time_evol_central_densities")
 
     plt.figure()
-    prad_los_int = xr.zeros_like(plasma.prad)
-    # TODO: using XRCS LOS. Comparison with experimental values when diagnostics available
-    for j, elem in enumerate(plasma.elements):
-        los_int = plasma.calc_los_int(
-            data["xrcs"]["ti_w"], plasma.tot_rad.sel(element=elem)
-        )
-        prad_los_int.loc[dict(element=elem)] = los_int
-    prad_los_int.sum("element").plot(label="Total", color="black")
-    prad_los_int.sel(element=plasma.main_ion).plot(
+    plasma.prad_tot.sum("element").plot(label="Total", color="black")
+    plasma.prad_tot.sel(element=plasma.main_ion).plot(
         color="black", label=elem_str[plasma.main_ion], linestyle="dotted"
     )
     for j, elem in enumerate(plasma.elements):
-        prad_los_int.sel(element=elem).plot(
+        plasma.prad_tot.sel(element=elem).plot(
             color=colors[j], label=elem_str[elem], linestyle="dashed"
         )
     plt.title(f"{_title} Total radiated power")
@@ -401,20 +394,12 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
 
     plt.figure()
     # TODO: using XRCS LOS, add SXR diode experimental value and LOS info
-    prad_los_int_sxr = xr.zeros_like(plasma.prad)
-    Te_lim = 800
-    for elem in plasma.elements:
-        rad_tmp = xr.where(
-            plasma.el_temp > Te_lim, plasma.tot_rad.sel(element=elem), 0.0
-        )
-        los_int = plasma.calc_los_int(data["xrcs"]["ti_w"], rad_tmp)
-        prad_los_int_sxr.loc[dict(element=elem)] = los_int
-    prad_los_int_sxr.sum("element").plot(label="Total", color="black")
+    plasma.prad_sxr.sum("element").plot(label="Total", color="black")
     for j, elem in enumerate(plasma.elements):
-        prad_los_int_sxr.sel(element=elem).plot(
+        plasma.prad_sxr.sel(element=elem).plot(
             color=colors[j], label=elem_str[elem], linestyle=linestyles[j]
         )
-    plt.title(f"{_title} SXR radiated power (Te>{Te_lim}) eV)")
+    plt.title(f"{_title} SXR radiated power")
     plt.xlabel("Time (s)")
     plt.ylabel("")
     plt.legend()
