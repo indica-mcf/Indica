@@ -97,8 +97,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x_end = DataArray(x_end)
         self.z_end = DataArray(z_end)
         self.y_end = DataArray(y_end)
-        self.x1_name = name + "_coords"
-        self.x2_name = name + "_los_position"
+        self.x1_name = "channel"
+        self.x2_name = "los_position"
 
         # Set "dl"
         self.dl_target = dl
@@ -106,11 +106,11 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2 = x2
         self.dl = dl_new
 
-        # Set x, y, z
-        self.x, self.y, self.z = self.convert_to_xyz(0, x2, 0)
+        # Set x, y, z, r
+        self.x, self.y = self.convert_to_xy(0, x2, 0)
+        self.R, self.z = self.convert_to_Rz(0, x2, 0)
 
         # Calculate r, phi (cylindrical coordinates)
-        self.R = np.sqrt(self.x**2 + self.y**2)
         self.phi = np.arctan2(self.y, self.x)
 
     def __eq__(self, other: object) -> bool:
@@ -130,13 +130,12 @@ class LinesOfSightTransform(CoordinateTransform):
         result = result and self._machine_dims == other._machine_dims
         return result
 
-    def convert_to_xyz(
+    def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Tuple:
         x = self.x_start + (self.x_end - self.x_start) * x2
         y = self.y_start + (self.y_end - self.y_start) * x2
-        z = self.z_start + (self.z_end - self.z_start) * x2
-        return x, y, z
+        return x, y
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
