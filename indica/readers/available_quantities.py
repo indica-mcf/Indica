@@ -17,8 +17,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "ti": ("temperature", None),
     },
     "get_bremsstrahlung_spectroscopy": {
-        "h": ("effective_charge", "plasma"),
-        "v": ("effective_charge", "plasma"),
+        "zefh": ("effective_charge", "plasma"),
+        "zefv": ("effective_charge", "plasma"),
     },
     "get_helike_spectroscopy": {
         "int_w": ("intensity", "spectral_line"),

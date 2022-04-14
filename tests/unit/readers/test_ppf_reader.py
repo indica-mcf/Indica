@@ -95,7 +95,7 @@ def trim_lines_of_sight(los, n):
 
 
 def get_record(reader, pulse, uid, instrument, dtype, revision):
-    """Gets the path for the requested recrod, with the correct revision for
+    """Gets the path for the requested record, with the correct revision for
     the data actually heald in the database."""
     path = f"/pulse/{pulse:d}/ppf/signal/{uid}/{instrument}/{dtype}"
     rev = reader._client.list(path + f":{revision}").revision_current
@@ -355,7 +355,7 @@ def test_get_equilibrium(
     edited_revisions,
     sane_floats(),
 )
-@settings(deadline=500)
+@settings(deadline=2000)
 def test_get_cyclotron_emissions(
     fake_sal,
     pulse,
