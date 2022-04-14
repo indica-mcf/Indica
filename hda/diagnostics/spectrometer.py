@@ -55,11 +55,10 @@ class XRCSpectrometer:
     def __init__(
         self,
         name="",
-        recom=False,
         adf11: dict = None,
         adf15: dict = None,
         marchuk: bool = False,
-        extrapolate=False,
+        extrapolate:str=None,
     ):
         """
         Read all atomic data and initialise objects
@@ -68,8 +67,6 @@ class XRCSpectrometer:
         ----------
         name
             Identifier for the spectrometer
-        recom
-            Set to True if
         adf11
             Dictionary with details of ionisation balance data (see ADF11 class var)
         adf15
@@ -84,7 +81,6 @@ class XRCSpectrometer:
 
         self.adasreader = ADASReader()
         self.name = name
-        self.recom = recom
         self.set_ion_data(adf11=adf11)
         self.set_pec_data(adf15=adf15, marchuk=marchuk, extrapolate=extrapolate)
 
@@ -96,7 +92,6 @@ class XRCSpectrometer:
         Nh=None,
         Ti: ArrayLike = None,
         tau=None,
-        recom=False,
         rho_los: ArrayLike = None,
         dl: float = None,
         use_satellites=False,
@@ -106,7 +101,7 @@ class XRCSpectrometer:
 
         bckc = {}
         self.radiation_characteristics(
-            Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, recom=recom, fast=fast
+            Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, fast=fast
         )
         if rho_los is not None and dl is not None:
             self.los_integral(rho_los, dl)
@@ -283,7 +278,7 @@ class XRCSpectrometer:
         self.ccd = ccd
         self.fract_abu = fract_abu
 
-    def set_pec_data(self, adf15: dict = None, marchuk=False, extrapolate=False):
+    def set_pec_data(self, adf15: dict = None, marchuk=False, extrapolate:str=None):
         """
         Read adf15 data and extract PECs for all lines to be included
         in the modelled spectra
@@ -347,7 +342,7 @@ class XRCSpectrometer:
         self.elements = elements
 
     def radiation_characteristics(
-        self, Te, Ne, Nimp: dict = None, Nh=None, tau=None, recom=False, fast=False,
+        self, Te, Ne, Nimp: dict = None, Nh=None, tau=None, fast=False,
     ):
         """
 
@@ -361,8 +356,6 @@ class XRCSpectrometer:
             Neutral (thermal) hydrogen density for interpolation of atomic data
         Nimp
             Total impurity densities for calculation of emission profiles
-        recom
-            Set to True if recombination emission is to be included
 
         Returns
         -------
@@ -412,9 +405,8 @@ class XRCSpectrometer:
             if "index" in coords or "type" in coords:
                 for t in coords["type"]:
                     _pec = interp_pec(select_type(pec["emiss_coeff"], type=t), Ne, Te)
-                    if recom * (t == "recom") or t != "recom":
-                        mult = transition_rules(t, fz[elem], charge, Ne, Nh, Nimp[elem])
-                        _emiss.append(_pec * mult)
+                    mult = transition_rules(t, fz[elem], charge, Ne, Nh, Nimp[elem])
+                    _emiss.append(_pec * mult)
             else:
                 _pec = interp_pec(pec["emiss_coeff"], Ne, Te)
                 _emiss.append(_pec * fz[elem].sel(ion_charges=charge) * Ne * Nimp[elem])
@@ -675,8 +667,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def get_marchuk(extrapolate=False):
-
+def get_marchuk(extrapolate:str=None, as_is=False):
     print("Using Marchukc PECs")
 
     el_dens = np.array([1.0e15, 1.0e17, 1.0e19, 1.0e21, 1.0e23])
@@ -729,21 +720,27 @@ def get_marchuk(extrapolate=False):
     data *= 1.0e-6  # cm**3 --> m**3
     data = data.rename({"el_temp": "electron_temperature"})
 
+    if as_is:
+        return data
+
     Te = data.electron_temperature.values
-    if extrapolate:
-        # Extrapolate data where nans are present
+    if extrapolate is not None:
         new_data = data.interp(electron_temperature=Te)
         for line in data.line_name:
             y = data.sel(line_name=line).values
             ifin = np.where(np.isfinite(y))[0]
+            extrapolate_method = {"extrapolate":"extrapolate",
+                                  "constant":(np.log(y[ifin[0]]), np.log(y[ifin[-1]]))}
+            fill_value = extrapolate_method[extrapolate]
+
             func = interp1d(
                 np.log(Te[ifin]),
                 np.log(y[ifin]),
-                fill_value="extrapolate",
-                kind="quadratic",
+                fill_value=fill_value,
+                bounds_error=False,
             )
             new_data.loc[dict(line_name=line)] = np.exp(func(np.log(Te)))
-        data = new_data
+            data = new_data
     else:
         # Restrict data to where all are finite
         ifin = np.array([True] * len(Te))
