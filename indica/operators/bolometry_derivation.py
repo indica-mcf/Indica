@@ -230,6 +230,7 @@ class BolometryDerivation(Operator):
                         "z": z_arr,
                         # dimensions for t are (t)
                         "t": self.t_arr,
+                        "label": self.LoS_bolometry_data[iLoS][6],
                     }
                 )
             )
@@ -404,7 +405,7 @@ class BolometryDerivation(Operator):
                 hasattr(self, "LoS_bolometry_data_trimmed")
                 and hasattr(self, "LoS_coords_trimmed")
             ):
-                return AttributeError(
+                raise AttributeError(
                     'Argument "trim" is set to True but bolometry_channel_filter() \
                         has not yet been run at least once.'
                 )
@@ -498,12 +499,14 @@ class BolometryDerivation(Operator):
             derived_power_loss_LoS = derived_power_loss_LoS.sum(dim=x2_name) * dl
             derived_power_loss_LoS_tot[iLoS] = derived_power_loss_LoS.squeeze()
 
+        derived_power_loss_LoS_tot = derived_power_loss_LoS_tot.fillna(0.0)
+
         self.derived_power_loss_LoS_tot = derived_power_loss_LoS_tot
 
         return derived_power_loss_LoS_tot
 
     def __call__(  # type: ignore
-        self, deriv_only: bool = False, trim: bool = True, t_val: float = None
+        self, deriv_only: bool = False, trim: bool = False, t_val: float = None
     ):
         """Varying workflow to derive bolometry from plasma quantities.
         (Varying as in, if full setup and derivation is needed or only derivaiton.)
