@@ -58,7 +58,7 @@ class XRCSpectrometer:
         adf11: dict = None,
         adf15: dict = None,
         marchuk: bool = False,
-        extrapolate:str=None,
+        extrapolate: str = None,
     ):
         """
         Read all atomic data and initialise objects
@@ -100,9 +100,7 @@ class XRCSpectrometer:
     ):
 
         bckc = {}
-        self.radiation_characteristics(
-            Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, fast=fast
-        )
+        self.radiation_characteristics(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau, fast=fast)
         if rho_los is not None and dl is not None:
             self.los_integral(rho_los, dl)
         if Ti is not None:
@@ -161,7 +159,9 @@ class XRCSpectrometer:
 
         plt.figure()
         for line, pec in self.pec.items():
-            pec_to_plot = pec["emiss_coeff"].sel(electron_density=1.0e19, method="nearest")
+            pec_to_plot = pec["emiss_coeff"].sel(
+                electron_density=1.0e19, method="nearest"
+            )
             if "type" in pec["emiss_coeff"].coords:
                 for t in pec["emiss_coeff"].type:
                     select_type(pec_to_plot, type=t).plot(label=f"{line} {t.values}")
@@ -170,7 +170,7 @@ class XRCSpectrometer:
 
         plt.yscale("log")
         plt.xscale("log")
-        plt.ylim(np.max(pec_to_plot)/1.e3, np.max(pec_to_plot))
+        plt.ylim(np.max(pec_to_plot) / 1.0e3, np.max(pec_to_plot))
         plt.title("PEC")
         plt.legend()
 
@@ -278,7 +278,7 @@ class XRCSpectrometer:
         self.ccd = ccd
         self.fract_abu = fract_abu
 
-    def set_pec_data(self, adf15: dict = None, marchuk=False, extrapolate:str=None):
+    def set_pec_data(self, adf15: dict = None, marchuk=False, extrapolate: str = None):
         """
         Read adf15 data and extract PECs for all lines to be included
         in the modelled spectra
@@ -667,7 +667,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def get_marchuk(extrapolate:str=None, as_is=False):
+def get_marchuk(extrapolate: str = None, as_is=False):
     print("Using Marchukc PECs")
 
     el_dens = np.array([1.0e15, 1.0e17, 1.0e19, 1.0e21, 1.0e23])
@@ -729,8 +729,10 @@ def get_marchuk(extrapolate:str=None, as_is=False):
         for line in data.line_name:
             y = data.sel(line_name=line).values
             ifin = np.where(np.isfinite(y))[0]
-            extrapolate_method = {"extrapolate":"extrapolate",
-                                  "constant":(np.log(y[ifin[0]]), np.log(y[ifin[-1]]))}
+            extrapolate_method = {
+                "extrapolate": "extrapolate",
+                "constant": (np.log(y[ifin[0]]), np.log(y[ifin[-1]])),
+            }
             fill_value = extrapolate_method[extrapolate]
 
             func = interp1d(
