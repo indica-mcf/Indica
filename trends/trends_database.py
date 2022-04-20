@@ -1,16 +1,17 @@
 from copy import deepcopy
+import json
+import os
+import pathlib
 import pickle
 
 import numpy as np
+from trends.info_dict import info_dict
 import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
-import os
-import json
-import pathlib
 
 from indica.readers import ST40Reader
-from trends.info_dict import info_dict
+
 
 class Database:
     """
@@ -27,21 +28,21 @@ class Database:
 
     def __init__(
         self,
-        pulse_start=8207,
-        pulse_end=10046,
-        tlim=(-0.03, 0.3),
-        dt=0.01,
-        overlap=0.5,
-        t_max=0.02,
-        ipla_min=50.0e3,
-        reload=False,
-        set_info=False,
+        pulse_start: int = 8207,
+        pulse_end: int = 10046,
+        tlim: tuple = (-0.03, 0.3),
+        dt: float = 0.01,
+        overlap: float = 0.5,
+        t_max: float = 0.02,
+        ipla_min: float = 50.0e3,
+        reload: bool = False,
+        set_info: bool = False,
     ):
         """
         Initialise Trends database class
 
-        If reload = True, the old version of the database is read in and all attributes assigned
-        to present class
+        If reload = True, the old version of the database is read in
+        and all attributes assigned to present class
 
         Parameters
         ----------
@@ -89,7 +90,7 @@ class Database:
 
             self.initialize_structures()
 
-    def __call__(self, write=False):
+    def __call__(self, write: bool = False):
         """
         Read all data for desired pulse range and write database to file
 
@@ -111,23 +112,28 @@ class Database:
         self.pulses = pulses
 
     def set_paths(
-        self, path_data="", file_info_json="", file_info_py="",
+        self,
+        path_data: str = None,
+        file_info_json: str = None,
+        file_info_py: str = None,
     ):
         """
-        Set paths/file names for reading/saving the info dictionary, the database, plotting figures
+        Set paths/file names for reading/saving the info dictionary, the database,
+        plotting figures
 
         Parameters
         ----------
         path_data
             path where data and setup files will be saved
         file_info_json
-            file name of JSON containing the information dictionary on what to read from MDS+
+            file name of JSON containing the information dictionary on what to
+            read from MDS+
         """
-        if len(path_data) == 0:
+        if path_data is None:
             path_data = f"{current_file_path()}/"
-        if len(file_info_json) == 0:
+        if file_info_json is None:
             file_info_json = "info_dict.json"
-        if len(file_info_py) == 0:
+        if file_info_py is None:
             file_info_py = "info_dict.py"
 
         self.path_data = path_data
@@ -138,16 +144,21 @@ class Database:
         filename = f"{self.pulse_start}_{self.pulse_end}_trends_database"
         return filename
 
-    def reload_database(self, from_pkl=True):
+    def reload_database(self, source: str = "pickle"):
         """
-        Reload database from file
+        Reload data from database
+
+        Parameters
+        ----------
+        source
+            Define source to read from (pickle, mysql, ...)
 
         Returns
         -------
-        Database data/class as saved to file
+            Database data/class as saved to file
 
         """
-        if from_pkl:
+        if source.lower() == "pickle":
             _file = self.database_filename()
             _file = f"{self.path_data}{_file}.pkl"
             database = pickle.load(open(_file, "rb"))
@@ -173,7 +184,7 @@ class Database:
         info = info_dict()
         return info
 
-    def get_info_json(self, file_info_json=None):
+    def get_info_json(self, file_info_json: str = None):
         """
         Get info dict from JSON file
 
@@ -191,7 +202,7 @@ class Database:
 
         return info
 
-    def write_info_to_file(self, file_info_py=None, file_info_json=None):
+    def write_info_to_file(self, file_info_py: str = None, file_info_json: str = None):
         """
         Write info dictionary to .py and .json files
         """
@@ -231,11 +242,12 @@ class Database:
             with open(_file, "w") as f:
                 f.write("def info_dict():\n")
                 f.write(f"    info = {self.info} \n")
-                f.write(f"    return info")
+                f.write("    return info")
         else:
             print(f"\n {_file} file already up to date \n")
 
-        # Re-read file and return info dictionary written within, check that it's == class value
+        # Re-read file and return info dictionary written within,
+        # check that it's == class value
         info = self.get_info_json()
         assert info == self.info
 
@@ -270,7 +282,7 @@ class Database:
             }
         )
 
-    def add_pulses(self, pulse_end):
+    def add_pulses(self, pulse_end: int):
         """
         Add data from newer pulses
 
@@ -285,7 +297,10 @@ class Database:
             return
 
         self.pulse_end = pulse_end
-        binned, max_val, min_val, pulses = self.read_data(pulse_start, pulse_end,)
+        binned, max_val, min_val, pulses = self.read_data(
+            pulse_start,
+            pulse_end,
+        )
 
         if len(pulses) > 0:
             self.pulses = np.append(self.pulses, pulses)
@@ -294,7 +309,7 @@ class Database:
                 self.max_val[k] = xr.concat([self.max_val[k], max_val[k]], "pulse")
                 self.min_val[k] = xr.concat([self.min_val[k], max_val[k]], "pulse")
 
-    def add_quantities(self, info=None):
+    def add_quantities(self, info: dict = None):
         """
         Add additional quantities to the database
 
@@ -307,7 +322,10 @@ class Database:
         print(f"New items being added: {list(info)}")
 
         binned, max_val, min_val, pulses = self.read_data(
-            self.pulse_start, self.pulse_end, info=info, pulse_list=self.pulses,
+            self.pulse_start,
+            self.pulse_end,
+            info=info,
+            pulse_list=self.pulses,
         )
 
         assert self.pulses == pulses
@@ -320,7 +338,13 @@ class Database:
             self.max_val[k] = max_val[k]
             self.min_val[k] = min_val[k]
 
-    def read_data(self, pulse_start, pulse_end, info=None, pulse_list=None):
+    def read_data(
+        self,
+        pulse_start: int,
+        pulse_end: int,
+        info: dict = None,
+        pulse_list: list = None,
+    ):
         """
         Read data in time-range of interest
 
@@ -347,7 +371,9 @@ class Database:
         if pulse_list is None:
             pulse_list = np.arange(pulse_start, pulse_end + 1)
 
-        binned, max_val, min_val = {}, {}, {}
+        binned: dict = {}
+        max_val: dict = {}
+        min_val: dict = {}
         for k in info.keys():
             binned[k] = []
             max_val[k] = []
@@ -356,7 +382,11 @@ class Database:
         pulses = []
         for pulse in pulse_list:
             print(pulse)
-            reader = ST40Reader(int(pulse), self.tlim[0], self.tlim[1],)
+            reader = ST40Reader(
+                int(pulse),
+                self.tlim[0],
+                self.tlim[1],
+            )
 
             proceed = pulse_ok(reader, self.tlim, ipla_min=self.ipla_min)
             if not proceed:
@@ -388,7 +418,9 @@ class Database:
                     rev = int(reader._get_revision(v["uid"], v["diag"], v["rev"]))
 
                 binned_tmp, max_val_tmp, min_val_tmp = self.bin_in_time(
-                    data, time, err,
+                    data,
+                    time,
+                    err,
                 )
                 binned_tmp.revision.values = rev
                 max_val_tmp.revision.values = rev
@@ -412,7 +444,9 @@ class Database:
 
         return binned, max_val, min_val, pulses
 
-    def bin_in_time(self, data, time, err=None, sign=+1):
+    def bin_in_time(
+        self, data: np.ndarray, time: np.ndarray, err: np.ndarray = None, sign=+1
+    ):
         """
         TODO: account for texp for spectroscopy intensities if not already in MDS+
 
@@ -470,7 +504,8 @@ class Database:
                     binned.value.loc[dict(t=t)] = np.mean(data_tmp[ifin])
                     binned.cumul.loc[dict(t=t)] = np.sum(data[tind_lt]) * dt
                     # TODO: separate std from error propagation
-                    # TODO: deviation from a linear evolution? --> InMatlab: regress > error around linear reg
+                    # TODO: deviation from a linear evolution?
+                    #  --> InMatlab: regress > error around linear reg
                     binned.error.loc[dict(t=t)] = np.std(data_tmp[ifin])
                     if err is not None:
                         err_tmp = err[tind]
@@ -485,7 +520,7 @@ class Database:
         return binned, max_val, min_val
 
 
-def write_database(trends_database, pkl_file=None):
+def write_database(trends_database: Database, pkl_file: str = None):
     """
     Write database to file(s), update info file(s)
 
@@ -503,7 +538,7 @@ def write_database(trends_database, pkl_file=None):
     pickle.dump(trends_database, open(_file, "wb"))
 
 
-def pulse_ok(reader: ST40Reader, tlim, ipla_min: float = 50.0e3):
+def pulse_ok(reader: ST40Reader, tlim: tuple, ipla_min: float = 50.0e3):
     """
     Check whether pulse meets requirements to be included in the database
 
@@ -512,7 +547,7 @@ def pulse_ok(reader: ST40Reader, tlim, ipla_min: float = 50.0e3):
     reader
         ST40reader class already initialized for desired pulse
     tlim
-        (start, end) time of desired time windown (s)
+        (start, end) time of desired time window (s)
     ipla_min
         minimum value of Ip to read in the data (A)
 
@@ -525,7 +560,10 @@ def pulse_ok(reader: ST40Reader, tlim, ipla_min: float = 50.0e3):
     ipla_pfit, dims_pfit = reader._get_data(
         "", "pfit", ".post_best.results.global:ip", -1
     )
-    ipla_efit, dims_efit, = reader._get_data("", "efit", ".constraints.ip:cvalue", 0)
+    (
+        ipla_efit,
+        dims_efit,
+    ) = reader._get_data("", "efit", ".constraints.ip:cvalue", 0)
 
     ok_pfit = not np.array_equal(ipla_pfit, "FAILED")
     ok_efit = not np.array_equal(ipla_efit, "FAILED")
@@ -547,17 +585,19 @@ def pulse_ok(reader: ST40Reader, tlim, ipla_min: float = 50.0e3):
 
     return ok_pfit or ok_efit
 
+
 def current_file_path():
     return str(pathlib.Path(__file__).parent.resolve())
 
 
-def rename_file(_file, _file_backup):
+def rename_file(_file: str, _file_backup: str):
     try:
         os.rename(_file, _file_backup)
     except FileNotFoundError:
         print(f"No backup required, {_file} does not exist")
 
-def fix_things(regr_data, assign=True):
+
+def fix_things(regr_data: Database, assign: bool = True):
     """
     Place where to put temporary workflow to fix data in the database
     """
@@ -574,11 +614,14 @@ def fix_things(regr_data, assign=True):
 
 
 def test_flow(
-    pulse_start=9770, pulse_end=9790, pulse_add=9800,
+    pulse_start: int = 9770,
+    pulse_end: int = 9790,
+    pulse_add: int = 9800,
 ):
     # Initialize class
     st40_trends = Database(
-        pulse_start=pulse_start, pulse_end=pulse_end, set_info=set_info
+        pulse_start=pulse_start,
+        pulse_end=pulse_end,
     )
     # Read all data and save to class attributes
     st40_trends()
@@ -592,12 +635,19 @@ def test_flow(
     return st40_trends
 
 
-def run_workflow(pulse_start=8207, pulse_end=10046, set_info=False, write=False):
+def run_workflow(
+    pulse_start: int = 8207,
+    pulse_end: int = 10046,
+    set_info: bool = False,
+    write: bool = False,
+):
     """
     Run workflow to build Trends database from scratch
     """
     st40_trends = Database(
-        pulse_start=pulse_start, pulse_end=pulse_end, set_info=set_info,
+        pulse_start=pulse_start,
+        pulse_end=pulse_end,
+        set_info=set_info,
     )
     st40_trends()
 
