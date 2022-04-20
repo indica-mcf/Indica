@@ -142,13 +142,11 @@ class ExtrapolateImpurityDensity(Operator):
             (electron_temperature - truncation_threshold >= 0), drop=True
         ).min("rho")
 
-        threshold_rho = (
-            electron_temperature.where(
-                electron_temperature == threshold_temp, drop=True
-            )
-            .coords["rho"]
-            .data
-        )
+        threshold_rho_ind = electron_temperature.where(
+            electron_temperature >= threshold_temp, np.inf
+        ).argmin("rho")
+
+        threshold_rho = electron_temperature.coords["rho"].isel(rho=threshold_rho_ind)
 
         self.threshold_rho = threshold_rho
 
@@ -264,24 +262,26 @@ class ExtrapolateImpurityDensity(Operator):
 
         # Continue impurity_density_sxr following the shape of the electron density
         # profile.
-        bounded_data = data_rho_theta.where(
-            data_rho_theta.rho <= threshold_rho, drop=True
-        )
+        bounded_data = data_rho_theta.where(data_rho_theta.rho <= threshold_rho, 0.0)
 
         bounded_electron_density = electron_density.where(
-            electron_density.rho >= threshold_rho, drop=True
+            electron_density.rho > threshold_rho, 0.0
         )
 
-        bounded_data_trim = bounded_data[:-1]
+        # bounded_data_trim = bounded_data[:-1]
 
         # bounded_data = bounded_data.drop_isel(rho=index_to_drop)
 
-        extrapolated_impurity_density = concat(
-            (
-                bounded_data_trim,
-                bounded_electron_density * discontinuity_scale,
-            ),
-            dim="rho",
+        # extrapolated_impurity_density = concat(
+        #     (
+        #         bounded_data_trim,
+        #         bounded_electron_density * discontinuity_scale,
+        #     ),
+        #     dim="rho",
+        # )
+
+        extrapolated_impurity_density = (
+            bounded_data + bounded_electron_density * discontinuity_scale
         )
 
         return extrapolated_impurity_density
@@ -380,18 +380,26 @@ class ExtrapolateImpurityDensity(Operator):
             (inv_extrapolated_smooth_hfs, extrapolated_smooth_lfs_arr), "rho"
         )
 
-        drho = np.mean(np.diff(extrapolated_smooth_mid_plane_arr.coords["rho"].data))
-        smooth_central_region = extrapolated_smooth_mid_plane_arr.loc[
-            -2 * drho : 2 * drho
-        ]
+        rho_zero_ind = np.where(
+            np.isclose(extrapolated_smooth_mid_plane_arr.rho.data, 0.0)
+        )[0][0]
+
+        smooth_central_region = extrapolated_smooth_mid_plane_arr.isel(
+            rho=slice(rho_zero_ind - 2, rho_zero_ind + 3)
+        )
 
         smooth_central_region.loc[:, :] = smooth_central_region.max(dim="rho")
 
         extrapolated_smooth_mid_plane_arr.loc[
-            -2 * drho : 2 * drho
+            extrapolated_smooth_mid_plane_arr.rho.data[
+                rho_zero_ind - 2
+            ] : extrapolated_smooth_mid_plane_arr.rho.data[rho_zero_ind + 2],
+            :,
         ] = smooth_central_region
 
-        inv_extrapolated_smooth_hfs = extrapolated_smooth_mid_plane_arr.loc[:drho]
+        inv_extrapolated_smooth_hfs = extrapolated_smooth_mid_plane_arr.isel(
+            rho=slice(0, rho_zero_ind + 1)
+        )
 
         extrapolated_smooth_hfs_arr = DataArray(
             data=np.flip(inv_extrapolated_smooth_hfs.data, axis=0),
@@ -402,7 +410,7 @@ class ExtrapolateImpurityDensity(Operator):
         # Ignoring mypy warning since it seems to be unaware that the xarray .loc
         # method uses label-based indexing and slicing instead of integer-based.
         extrapolated_smooth_lfs_arr = extrapolated_smooth_mid_plane_arr.loc[
-            0.0:  # type: ignore
+            0:  # type: ignore
         ]
 
         return extrapolated_smooth_lfs_arr, extrapolated_smooth_hfs_arr
@@ -470,8 +478,8 @@ class ExtrapolateImpurityDensity(Operator):
 
         # Set constant asymmetry parameter for rho<0.1
         derived_asymmetry_parameter.loc[
-            0:0.1, :  # type: ignore
-        ] = derived_asymmetry_parameter.loc[0.1, :]
+            0:0.125, :  # type: ignore
+        ] = derived_asymmetry_parameter.loc[0.125, :]
 
         theta_arr = np.linspace(-np.pi, np.pi, 21)
         theta_arr = DataArray(
@@ -678,11 +686,15 @@ class ExtrapolateImpurityDensity(Operator):
             # confused about whether t_val is included in bolometry_args or not,
             # hence ignored
             modified_bolometry_data = bolometry_obj(  # type:ignore
-                deriv_only=True, trim=True, t_val=time
+                deriv_only=True, trim=False, t_val=time
+            )
+
+            comparison_orig_bolometry_data = orig_bolometry_data.sel(
+                t=time, method="nearest"
             )
 
             abs_error = np.abs(
-                modified_bolometry_data - orig_bolometry_data.sel(t=time)
+                modified_bolometry_data - comparison_orig_bolometry_data
             )  # / orig_bolometry_data.sel(t=time)
 
             abs_error = np.nan_to_num(abs_error)
@@ -691,16 +703,18 @@ class ExtrapolateImpurityDensity(Operator):
 
         fitted_density = zeros_like(bolometry_obj.electron_density)
 
-        initial_guesses = np.array([[0.2e17, 0.2, 0.8]])
+        initial_guesses = np.array([[1.0e17, 0.1 / 2.355, 0.8]])
+
+        fitting_bounds = (
+            np.array([0.1e17, 0.08 / 2.355, self.threshold_rho[0]]),
+            np.array([2.0e19, 0.15 / 2.355, 0.95]),
+        )
 
         # Initial fitting for first time-step.
         result = least_squares(
             fun=objective_func,
             x0=initial_guesses[0],
-            bounds=(
-                np.array([0.1e17, 0.1, self.threshold_rho[0]]),
-                np.array([2.0e17, 0.4, 0.95]),
-            ),
+            bounds=fitting_bounds,
             max_nfev=10,
             args=(extrapolated_smooth_data.coords["t"].data[0],),
             ftol=1e-15,
@@ -730,10 +744,7 @@ class ExtrapolateImpurityDensity(Operator):
                 result = least_squares(
                     fun=objective_func,
                     x0=initial_guesses[ind_t],
-                    bounds=(
-                        np.array([0.1e17, 0.1, self.threshold_rho[0]]),
-                        np.array([2.0e17, 0.4, 0.95]),
-                    ),
+                    bounds=fitting_bounds,
                     max_nfev=50,
                     args=(it,),
                     ftol=1e-60,
@@ -750,10 +761,7 @@ class ExtrapolateImpurityDensity(Operator):
                 result = least_squares(
                     fun=objective_func,
                     x0=initial_guesses[0],
-                    bounds=(
-                        np.array([0.1e17, 0.1, self.threshold_rho[0]]),
-                        np.array([2.0e17, 0.4, 0.95]),
-                    ),
+                    bounds=fitting_bounds,
                     max_nfev=10,
                     args=(it,),
                     ftol=1e-15,
