@@ -269,6 +269,7 @@ class Database:
 
         value = DataArray(np.full(self.time.shape, np.nan), coords=[("t", self.time)])
         error = xr.full_like(value, np.nan)
+        stdev = xr.full_like(value, np.nan)
         gradient = xr.full_like(value, np.nan)
         cumul = xr.full_like(value, np.nan)
         revision = xr.full_like(constant, np.nan)
@@ -276,6 +277,7 @@ class Database:
             {
                 "value": value,
                 "error": error,
+                "stdev": error,
                 "gradient": gradient,
                 "cumul": cumul,
                 "revision": revision,
@@ -506,10 +508,10 @@ class Database:
                     # TODO: separate std from error propagation
                     # TODO: deviation from a linear evolution?
                     #  --> InMatlab: regress > error around linear reg
-                    binned.error.loc[dict(t=t)] = np.std(data_tmp[ifin])
+                    binned.stdev.loc[dict(t=t)] = np.std(data_tmp[ifin])
                     if err is not None:
                         err_tmp = err[tind]
-                        binned.error.loc[dict(t=t)] += np.sqrt(
+                        binned.error.loc[dict(t=t)] = np.sqrt(
                             np.sum(err_tmp[ifin] ** 2)
                         ) / len(ifin)
 
