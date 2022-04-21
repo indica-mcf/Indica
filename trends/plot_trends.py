@@ -114,46 +114,46 @@ def plot_time_evol(
             save_figure(path_fig, f"{name_fig}_{name}")
     if savefig:
         plt.ion()
-
-    plt.figure()
-    cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
-    for i, p in enumerate(database.pulses):
-        (
-            database.binned["ipla_efit"].value.sel(pulse=p)
-            * database.info["ipla_efit"]["const"]
-        ).plot(color=cols[i], alpha=0.5)
-
-    plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
-    plt.xlabel("time (s)")
-    plt.ylabel(
-        f"{database.info['ipla_efit']['label']} {database.info['ipla_efit']['units']}"
-    )
-    plt.ylim(bottom=0)
-
-    plt.figure()
-    bvl_ov_ip = database.binned["i_bvl"] / database.binned["ipla_efit"]
-    cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
-    for i, p in enumerate(bvl_ov_ip.pulse):
-        bvl_ov_ip.value.sel(pulse=p).plot(color=cols[i], alpha=0.5)
-
-    plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
-    plt.xlabel("time (s)")
-    plt.ylabel("I$_{BVL}$/I$_P$")
-    plt.ylim(top=0)
-
-    plt.figure()
-    time = np.arange(0.01, 0.2, 0.02)
-    cols = cm.rainbow(np.linspace(0, 1, len(time)))
-    for i, t in enumerate(time):
-        bvl_ov_ip.value.sel(t=t, method="nearest").plot(
-            color=cols[i], label=f"{t:.2f} s", alpha=0.5, marker="o"
-        )
-
-    plt.legend()
-    plt.title(f"Time range [{time.min():.2f}, {time.max():.2f}]")
-    plt.xlabel("Pulse")
-    plt.ylabel("I$_{BVL}$/I$_P$")
-    plt.ylim(top=0)
+    #
+    # plt.figure()
+    # cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
+    # for i, p in enumerate(database.pulses):
+    #     (
+    #         database.binned["ipla_efit"].value.sel(pulse=p)
+    #         * database.info["ipla_efit"]["const"]
+    #     ).plot(color=cols[i], alpha=0.5)
+    #
+    # plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
+    # plt.xlabel("time (s)")
+    # plt.ylabel(
+    #     f"{database.info['ipla_efit']['label']} {database.info['ipla_efit']['units']}"
+    # )
+    # plt.ylim(bottom=0)
+    #
+    # plt.figure()
+    # bvl_ov_ip = database.binned["i_bvl"] / database.binned["ipla_efit"]
+    # cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
+    # for i, p in enumerate(bvl_ov_ip.pulse):
+    #     bvl_ov_ip.value.sel(pulse=p).plot(color=cols[i], alpha=0.5)
+    #
+    # plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
+    # plt.xlabel("time (s)")
+    # plt.ylabel("I$_{BVL}$/I$_P$")
+    # plt.ylim(top=0)
+    #
+    # plt.figure()
+    # time = np.arange(0.01, 0.2, 0.02)
+    # cols = cm.rainbow(np.linspace(0, 1, len(time)))
+    # for i, t in enumerate(time):
+    #     bvl_ov_ip.value.sel(t=t, method="nearest").plot(
+    #         color=cols[i], label=f"{t:.2f} s", alpha=0.5, marker="o"
+    #     )
+    #
+    # plt.legend()
+    # plt.title(f"Time range [{time.min():.2f}, {time.max():.2f}]")
+    # plt.xlabel("Pulse")
+    # plt.ylabel("I$_{BVL}$/I$_P$")
+    # plt.ylim(top=0)
 
 
 def plot_bivariate(
