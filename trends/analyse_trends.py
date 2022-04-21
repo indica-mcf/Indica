@@ -18,89 +18,76 @@ plt.ion()
 def additional_info():
     info = {
         "nbi_power": {
-            "max": False,
             "label": "P$_{NBI}$",
             "units": "(V * A)",
             "const": 1.0,
         },
         "pulse_length": {
-            "max": False,
             "label": "Pulse length",
             "units": "(s)",
             "const": 1.0,
         },
         "rip_efit": {
-            "max": True,
             "label": "(R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
             "units": " ",
             "const": 1.0,
         },
         "rip_imc": {
-            "max": True,
             "label": "(EFIT R$_{geo}$ I$_P$ @ 10 ms) / (R$_{MC}$ max(I$_{MC})$)",
             "units": " ",
             "const": 1.0,
         },
         "gas_cumulative": {
-            "max": True,
             "label": "Cumulative gas",
             "units": "(V * s)",
             "const": 1.0,
         },
         "gas_prefill": {
-            "max": True,
             "label": "Gas prefill",
             "units": "(V * s)",
             "const": 1.0,
         },
         "gas_fuelling": {
-            "max": True,
             "label": "Gas fuelling t > 0",
             "units": "(V * s)",
             "const": 1.0,
         },
         "total_nbi": {
-            "max": False,
             "label": "Cumulative NBI power",
             "units": "(kV * A * s)",
             "const": 0.001,
         },
         "ti_te_xrcs": {
-            "max": False,
             "label": "Ti/Te (XRCS)",
             "units": "",
             "const": 1.0,
         },
         "ne_nirh1_te_xrcs": {
-            "max": False,
             "label": "Ne (NIRH1)/3. * Te (XRCS)",
             "units": "",
             "const": 1.0,
         },
     }
-    #
-    # "te0": {"max": False, "label": "T$_e$(0)", "units": "(keV)", "const": 0.001},
-    # "ti0": {"max": False, "label": "T$_i$(0)", "units": "(keV)", "const": 0.001},
     return info
 
 
-def analyse_database(database):
+def analyse_database(database:Database):
     """
     Apply general filters to data and calculate maximum values of binned data
     """
 
-    # Calculate additional quantities
-    database = calc_additional_quantities(database)
-
     # Apply general filters to binned values and calculate its max value
     database.binned = general_filters(database.binned)
+
+    # Calculate additional quantities
+    database = calc_additional_quantities(database)
 
     # Calculate max values of binned data
     database.binned_max_val = calc_max_val(
         database, t_max=database.t_max
     )
 
-    # Apply general filters and calculate additional quantities
+    # Apply general filters on all values including additional quantities
     database.binned_max_val = general_filters(database.binned_max_val)
 
     # Apply defult selection criteria
@@ -110,9 +97,6 @@ def analyse_database(database):
 
 
 def calc_additional_quantities(database:Database):
-    # Estimate central temperature from parameterization
-    # database = calc_central_temperature(database)
-
     info = database.info
     keys = list(database.binned)
     binned = database.binned
@@ -285,7 +269,7 @@ def calc_additional_quantities(database:Database):
     return database
 
 
-def general_filters(results):
+def general_filters(results:dict):
     """
     Apply general filters to data read e.g. NBI power 0 where not positive
 
@@ -315,10 +299,8 @@ def general_filters(results):
         "ne_smmh1",
         "gas_press",
         "rip_imc",
+        "ne_nirh1_te_xrcs",
     ]
-    #
-    # "ti0",
-    # "te0",
     for k in neg_to_nan:
         if k in keys:
             cond = (results[k].value > 0) * (np.isfinite(results[k].value))
@@ -390,45 +372,6 @@ def general_filters(results):
     return results
 
 
-def calc_central_temperature(database:Database):
-    print("Calculating central temperature from parameterization")
-
-    # Central temperatures from XRCS parametrization
-    temp_ratio = simulate_xrcs()
-
-    mult_binned = []
-    profs = np.arange(len(temp_ratio))
-    for i in range(len(temp_ratio)):
-        ratio_tmp = xr.full_like(database.binned["te_xrcs"].value, np.nan)
-        # TODO: DataArray interp crashing if all nans (@ home only)
-        for p in database.binned["te_xrcs"].pulse:
-            te_xrcs = database.binned["te_xrcs"].value.sel(pulse=p)
-            if any(np.isfinite(te_xrcs)):
-                ratio_tmp.loc[dict(pulse=p)] = np.interp(
-                    te_xrcs.values, temp_ratio[i].te_xrcs, temp_ratio[i].values,
-                )
-        mult_binned.append(ratio_tmp)
-    mult_binned = xr.concat(mult_binned, "prof").assign_coords({"prof": profs})
-
-    # Binned data
-    mult_max = mult_binned.max("prof", skipna=True)
-    mult_min = mult_binned.min("prof", skipna=True)
-    mult_mean = mult_binned.mean("prof", skipna=True)
-    print(mult_mean)
-    database.binned["te0"].value.values = (database.binned["te_xrcs"].value * mult_mean).values
-    err = np.abs(database.binned["te0"].value * mult_max - database.binned["te0"].value * mult_min)
-    database.binned["te0"].error.values = np.sqrt(
-        (database.binned["te_xrcs"].error * mult_mean) ** 2 + err ** 2
-    ).values
-    database.binned["ti0"].value.values = (database.binned["ti_xrcs"].value * mult_mean).values
-    err = np.abs(database.binned["ti0"].value * mult_max - database.binned["ti0"].value * mult_min)
-    database.binned["ti0"].error.values = np.sqrt(
-        (database.binned["ti_xrcs"].error * mult_mean) ** 2 + err ** 2
-    ).values
-
-    return database
-
-
 def calc_max_val(database:Database, t_max=0.02, keys=None):
     """
     Calculate maximum value in a pulse using the binned data
@@ -447,12 +390,11 @@ def calc_max_val(database:Database, t_max=0.02, keys=None):
 
     # Calculate max values for those quantities where binned data is to be used
     if keys is None:
-        keys = list(binned.keys())
+        keys = list(binned)
     else:
         if type(keys) != list:
             keys = [keys]
 
-    keys = list(binned)
     empty_max_val = xr.full_like(binned_max_val[keys[0]], np.nan)
 
     for k in keys:
@@ -481,7 +423,7 @@ def calc_max_val(database:Database, t_max=0.02, keys=None):
     return binned_max_val
 
 
-def selection_criteria(binned, cond):
+def selection_criteria(binned:dict, cond:dict):
     """
     Find values within specified limits
 
@@ -530,7 +472,7 @@ def selection_criteria(binned, cond):
 
 
 def apply_selection(
-    binned, cond=None, default=True,
+    binned:dict, cond:bool=None, default:bool=True,
 ):
     """
     Apply selection criteria as defined in the cond dictionary
@@ -630,7 +572,7 @@ def write_to_csv(database:Database):
     return df
 
 
-def add_to_plot(xlab, ylab, tit, legend=True, vlines=False):
+def add_to_plot(xlab:str, ylab:str, tit:str, legend:bool=True, vlines:bool=False):
     if vlines:
         add_vlines(BORONISATION)
         add_vlines(GDC, color="r")
