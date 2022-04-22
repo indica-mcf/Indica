@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 from matplotlib import pyplot as plt
 import numpy as np
-from tests.unit.operators.KB5_Bolometry_data import example_bolometry_LoS
 import xarray as xr
 from xarray import DataArray
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
+from ..operators.KB5_Bolometry_data import example_bolometry_LoS
 
 
 def default_inputs():
