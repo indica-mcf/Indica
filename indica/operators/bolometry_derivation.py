@@ -220,7 +220,7 @@ class BolometryDerivation(Operator):
                     {
                         # dimensions for rho_arr and
                         # theta_arr are (channel no., distance along LoS)
-                        "rho": rho_arr,
+                        "rho_poloidal": rho_arr,
                         "theta": theta_arr,
                         # dimensions for dl are (channel no.)
                         "dl": dl,
@@ -273,7 +273,7 @@ class BolometryDerivation(Operator):
             self.impurity_densities, self.electron_density, mean_charges
         )
 
-        main_ion_density = main_ion_density.transpose("rho", "theta", "t")
+        main_ion_density = main_ion_density.transpose("rho_poloidal", "theta", "t")
 
         self.main_ion_density = main_ion_density
 
@@ -423,7 +423,9 @@ class BolometryDerivation(Operator):
             electron_density = self.electron_density.sel(t=t_val)
             main_ion_density = self.main_ion_density.sel(t=t_val)
             for icoord in range(len(LoS_coords_in)):
-                LoS_coords[icoord]["rho"] = LoS_coords_in[icoord]["rho"].sel(t=t_val)
+                LoS_coords[icoord]["rho_poloidal"] = LoS_coords_in[icoord][
+                    "rho_poloidal"
+                ].sel(t=t_val)
                 LoS_coords[icoord]["theta"] = LoS_coords_in[icoord]["theta"].sel(
                     t=t_val
                 )
@@ -445,7 +447,7 @@ class BolometryDerivation(Operator):
         derived_power_loss += impurities_losses
 
         if t_val is not None:
-            derived_power_loss = derived_power_loss.transpose("rho", "theta")
+            derived_power_loss = derived_power_loss.transpose("rho_poloidal", "theta")
 
             derived_power_loss_LoS_tot = DataArray(
                 data=np.zeros((len(LoS_bolometry_data))),
@@ -461,7 +463,9 @@ class BolometryDerivation(Operator):
             )
 
         else:
-            derived_power_loss = derived_power_loss.transpose("t", "rho", "theta")
+            derived_power_loss = derived_power_loss.transpose(
+                "t", "rho_poloidal", "theta"
+            )
 
             t_arr = derived_power_loss.coords["t"]
 
@@ -484,11 +488,11 @@ class BolometryDerivation(Operator):
 
             x2_name = LoS_transform.x2_name
 
-            rho_arr = LoS_coords[iLoS]["rho"]
+            rho_arr = LoS_coords[iLoS]["rho_poloidal"]
             theta_arr = LoS_coords[iLoS]["theta"]
 
             derived_power_loss_LoS = derived_power_loss.interp(
-                {"rho": rho_arr, "theta": theta_arr}
+                {"rho_poloidal": rho_arr, "theta": theta_arr}
             )
 
             derived_power_loss_LoS = derived_power_loss_LoS.fillna(0.0)
