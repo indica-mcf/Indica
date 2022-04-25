@@ -1,8 +1,10 @@
 from copy import deepcopy
 import json
 import os
+import glob
 import pathlib
 import pickle
+import re
 
 import numpy as np
 from trends.info_dict import info_dict
@@ -66,14 +68,14 @@ class Database:
             set info dictionary from .py file
         """
 
-        self.pulse_start = pulse_start
-        self.pulse_end = pulse_end
         self.set_paths()
-
         if reload:
-            self.reload_database()
+            self.reload_database(pulse_start, pulse_end)
         else:
             print(f"\n Building new database for pulse range {pulse_start}-{pulse_end}")
+
+            self.pulse_start = pulse_start
+            self.pulse_end = pulse_end
 
             if set_info:
                 info = self.get_info_dict()
@@ -140,11 +142,43 @@ class Database:
         self.file_info_json = file_info_json
         self.file_info_py = file_info_py
 
-    def database_filename(self):
-        filename = f"{self.pulse_start}_{self.pulse_end}_trends_database"
+    def database_filename(self, pulse_start: int = None, pulse_end: int = None, ext="pkl"):
+        """
+        Open Pickle file where Database has been saved
+        If either of the two values is None, latest file will be searched for
+        in the default directory
+
+        Parameters
+        ----------
+        pulse_start
+            Inital pulse in database
+        pulse_end
+            Last pulse in database
+
+        Returns
+        -------
+            Name of file to be read
+
+        """
+        filename = None
+        if pulse_start is None or pulse_end is None:
+            path_file = f"{self.path_data}*trends_database.{ext}"
+            file_list = glob.glob(path_file)
+            if len(file_list) != 0:
+                filename = max(file_list, key=os.path.getctime)
+        else:
+            filename = f"{pulse_start}_{pulse_end}_trends_database"
+
+        if filename is None:
+            print(f"\n File not found: {path_file}")
+        else:
+            print(f"\n Database read from file: {filename}")
+
         return filename
 
-    def reload_database(self, source: str = "pickle"):
+    def reload_database(
+        self, pulse_start: int = None, pulse_end: int = None, source: str = "pickle"
+    ):
         """
         Reload data from database
 
@@ -158,8 +192,9 @@ class Database:
             Database data/class as saved to file
 
         """
+
         if source.lower() == "pickle":
-            _file = self.database_filename()
+            _file = self.database_filename(pulse_start, pulse_end)
             _file = f"{self.path_data}{_file}.pkl"
             database = pickle.load(open(_file, "rb"))
             for k in list(database.__dict__):
@@ -261,10 +296,17 @@ class Database:
 
         value = DataArray(np.nan)
         error = xr.full_like(value, np.nan)
+        stdev = xr.full_like(value, np.nan)
         time = xr.full_like(value, np.nan)
         revision = xr.full_like(constant, np.nan)
         self.empty_max_val = Dataset(
-            {"value": value, "error": error, "time": time, "revision": revision}
+            {
+                "value": value,
+                "error": error,
+                "stdev": stdev,
+                "time": time,
+                "revision": revision,
+            }
         )
 
         value = DataArray(np.full(self.time.shape, np.nan), coords=[("t", self.time)])
@@ -277,7 +319,7 @@ class Database:
             {
                 "value": value,
                 "error": error,
-                "stdev": error,
+                "stdev": stdev,
                 "gradient": gradient,
                 "cumul": cumul,
                 "revision": revision,
@@ -299,10 +341,7 @@ class Database:
             return
 
         self.pulse_end = pulse_end
-        binned, max_val, min_val, pulses = self.read_data(
-            pulse_start,
-            pulse_end,
-        )
+        binned, max_val, min_val, pulses = self.read_data(pulse_start, pulse_end,)
 
         if len(pulses) > 0:
             self.pulses = np.append(self.pulses, pulses)
@@ -318,16 +357,14 @@ class Database:
         Temporary: define info structure here
         """
         if info is None:
+            # TODO: add beam powers fo HNBI and RFX !!!
             print("No new items to add")
             return
 
         print(f"New items being added: {list(info)}")
 
         binned, max_val, min_val, pulses = self.read_data(
-            self.pulse_start,
-            self.pulse_end,
-            info=info,
-            pulse_list=self.pulses,
+            self.pulse_start, self.pulse_end, info=info, pulse_list=self.pulses,
         )
 
         assert self.pulses == pulses
@@ -384,11 +421,7 @@ class Database:
         pulses = []
         for pulse in pulse_list:
             print(pulse)
-            reader = ST40Reader(
-                int(pulse),
-                self.tlim[0],
-                self.tlim[1],
-            )
+            reader = ST40Reader(int(pulse), self.tlim[0], self.tlim[1],)
 
             proceed = pulse_ok(reader, self.tlim, ipla_min=self.ipla_min)
             if not proceed:
@@ -420,9 +453,7 @@ class Database:
                     rev = int(reader._get_revision(v["uid"], v["diag"], v["rev"]))
 
                 binned_tmp, max_val_tmp, min_val_tmp = self.bin_in_time(
-                    data,
-                    time,
-                    err,
+                    data, time, err,
                 )
                 binned_tmp.revision.values = rev
                 max_val_tmp.revision.values = rev
@@ -522,22 +553,41 @@ class Database:
         return binned, max_val, min_val
 
 
-def write_database(trends_database: Database, pkl_file: str = None):
+def write_to_pickle(database: Database, pkl_file: str = None):
+    """
+    Write database to local pickle file
+
+    Parameters
+    ----------
+    database
+        Database class to save to pickle
+    """
+    database.write_info_to_file()
+
+    if pkl_file is None:
+        pkl_file = f"{database.database_filename(database.pulse_start, database.pulse_end)}.pkl"
+    _file = f"{database.path_data}{pkl_file}"
+    print(f"Saving Trends database to \n {_file}")
+    pickle.dump(database, open(_file, "wb"))
+
+
+def write_to_mysql(database: Database, database_name: str = "st40_test"):
     """
     Write database to file(s), update info file(s)
 
     Parameters
     ----------
-    trends_database
+    database
         Database class to save to pickle
     """
-    trends_database.write_info_to_file()
-
-    if pkl_file is None:
-        pkl_file = f"{trends_database.database_filename()}.pkl"
-    _file = f"{trends_database.path_data}{pkl_file}"
-    print(f"Saving Trends database to \n {_file}")
-    pickle.dump(trends_database, open(_file, "wb"))
+    mysql_conn = pymysql.connect(
+        user="marco.sertoli",
+        password="Marco3142!",
+        host="192.168.1.9",
+        database="database_name",
+        port=3306,
+    )
+    mysql_cursor = mysql_conn.cursor()
 
 
 def pulse_ok(reader: ST40Reader, tlim: tuple, ipla_min: float = 50.0e3):
@@ -562,10 +612,7 @@ def pulse_ok(reader: ST40Reader, tlim: tuple, ipla_min: float = 50.0e3):
     ipla_pfit, dims_pfit = reader._get_data(
         "", "pfit", ".post_best.results.global:ip", -1
     )
-    (
-        ipla_efit,
-        dims_efit,
-    ) = reader._get_data("", "efit", ".constraints.ip:cvalue", 0)
+    (ipla_efit, dims_efit,) = reader._get_data("", "efit", ".constraints.ip:cvalue", 0)
 
     ok_pfit = not np.array_equal(ipla_pfit, "FAILED")
     ok_efit = not np.array_equal(ipla_efit, "FAILED")
@@ -599,42 +646,69 @@ def rename_file(_file: str, _file_backup: str):
         print(f"No backup required, {_file} does not exist")
 
 
-def fix_things(regr_data: Database, assign: bool = True):
+def add_quantities(database: Database):
+    info = {
+        "p_hnbi1": {
+            "uid": "nbi",
+            "diag": "hnbi1",
+            "node": ":pinj",
+            "rev": "1",
+            "err": None,
+            "label": "P$_{HNBI1}$",
+            "units": "(MW)",
+            "const": 1.0,
+        },
+        "p_rfx": {
+            "uid": "nbi",
+            "diag": "rfx",
+            "node": ":pinj",
+            "rev": "1",
+            "err": None,
+            "label": "P$_{RFX}$",
+            "units": "(MW)",
+            "const": 1.0,
+        },
+    }
+    database.add_quantities(info=info)
+
+    write_to_pickle(database)
+
+    database.write_info_to_file()
+
+    return database
+
+
+def fix_things(database: Database, assign: bool = True):
     """
     Place where to put temporary workflow to fix data in the database
     """
     return
-    binned = deepcopy(regr_data.binned)
+    binned = deepcopy(database.binned)
 
     for k in binned.keys():
         binned[k].gradient.values = binned[k].value.differentiate("t", edge_order=2)
 
     if assign:
-        regr_data.binned = binned
+        database.binned = binned
 
-    return regr_data
+    return database
 
 
 def test_flow(
-    pulse_start: int = 9770,
-    pulse_end: int = 9790,
-    pulse_add: int = 9800,
+    pulse_start: int = 9770, pulse_end: int = 9790, pulse_add: int = 9800,
 ):
     # Initialize class
-    st40_trends = Database(
-        pulse_start=pulse_start,
-        pulse_end=pulse_end,
-    )
+    database = Database(pulse_start=pulse_start, pulse_end=pulse_end,)
     # Read all data and save to class attributes
-    st40_trends()
+    database()
 
     # Add pulses to database
-    st40_trends.add_pulses(pulse_add)
+    database.add_pulses(pulse_add)
 
     # Write information and data to file
-    write_database(st40_trends)
+    write_to_pickle(database)
 
-    return st40_trends
+    return database
 
 
 def run_workflow(
@@ -646,14 +720,12 @@ def run_workflow(
     """
     Run workflow to build Trends database from scratch
     """
-    st40_trends = Database(
-        pulse_start=pulse_start,
-        pulse_end=pulse_end,
-        set_info=set_info,
+    database = Database(
+        pulse_start=pulse_start, pulse_end=pulse_end, set_info=set_info,
     )
-    st40_trends()
+    database()
 
     if write:
-        write_database(st40_trends)
+        write_to_pickle(database)
 
-    return st40_trends
+    return database

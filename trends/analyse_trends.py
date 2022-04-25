@@ -108,25 +108,25 @@ def calc_additional_quantities(database:Database):
     time = database.binned["ipla_efit"].t
 
     # NBI power
-    # TODO: propagation of gradient of V and I...
-    info["nbi_power"] = {
-        "label": "P$_{NBI}$",
-        "units": "(V * A)",
-        "const": 1.0,
-    }
-    binned["nbi_power"] = empty_binned
-    binned["nbi_power"].value.values = (
-        binned["i_hnbi"] * binned["v_hnbi"]
-    ).value.values
-    binned["nbi_power"].error.values = np.sqrt(
-        (binned["i_hnbi"].error.values * binned["v_hnbi"].value.values) ** 2
-        + (binned["i_hnbi"].value.values * binned["v_hnbi"].error.values) ** 2
-    )
-
-    max_val["nbi_power"] = deepcopy(empty_max_val)
-    max_val["nbi_power"].value.values = (
-        max_val["i_hnbi"] * max_val["v_hnbi"]
-    ).value.values
+    # TODO: now redundant, since P_HNBI1 and P_RFX now added to database
+    # info["nbi_power"] = {
+    #     "label": "P$_{NBI}$",
+    #     "units": "(V * A)",
+    #     "const": 1.0,
+    # }
+    # binned["nbi_power"] = empty_binned
+    # binned["nbi_power"].value.values = (
+    #     binned["i_hnbi"] * binned["v_hnbi"]
+    # ).value.values
+    # binned["nbi_power"].error.values = np.sqrt(
+    #     (binned["i_hnbi"].error.values * binned["v_hnbi"].value.values) ** 2
+    #     + (binned["i_hnbi"].value.values * binned["v_hnbi"].error.values) ** 2
+    # )
+    #
+    # max_val["nbi_power"] = deepcopy(empty_max_val)
+    # max_val["nbi_power"].value.values = (
+    #     max_val["i_hnbi"] * max_val["v_hnbi"]
+    # ).value.values
 
     # Pulse length
     # Ip > 50 kA & up to end of flat-top
@@ -297,6 +297,8 @@ def general_filters(results:dict):
         "wp_efit",
         "ne_nirh1",
         "ne_smmh1",
+        "p_hnbi1",
+        "p_rfx",
         "gas_press",
         "rip_imc",
         "ne_nirh1_te_xrcs",
@@ -358,9 +360,6 @@ def general_filters(results:dict):
             "ti_xrcs",
             "ne_smmh1",
         ]
-        #
-        # "ti0",
-        # "te0",
         for k in grad_nan:
             if k in keys:
                 cond = np.isfinite(results[k].gradient)
