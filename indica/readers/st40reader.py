@@ -337,6 +337,9 @@ class ST40Reader(DataReader):
         """
         Gets the effective revision name if latest/best is given in input
         """
+        if type(revision) == str:
+            return revision
+
         if revision == 0:
             run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
             m = re.search(r"\s??RUN(\d+)", run_name, re.I)
