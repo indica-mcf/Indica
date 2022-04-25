@@ -110,6 +110,9 @@ class ExtrapolateImpurityDensity(Operator):
         """Initialises ExtrapolateImpurityDensity class."""
         super().__init__(sess=sess)
 
+        self.halfwidthhalfmax_coeff = np.sqrt(2 * np.log(2))
+        self.fullwidthhalfmax_coeff = 2 * self.halfwidthhalfmax_coeff
+
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
 
@@ -646,6 +649,8 @@ class ExtrapolateImpurityDensity(Operator):
         """
 
         # bolometry_args[4] = self.bolometry_setup(*bolometry_setup_args)
+        rho_arr = extrapolated_smooth_data.rho.data
+        drho = np.max(np.diff(rho_arr))
 
         def objective_func(objective_array: Sequence, time: float):
             """Objective function that is passed to scipy.optimize.least_squares
@@ -670,6 +675,11 @@ class ExtrapolateImpurityDensity(Operator):
 
             perturbation_signal = self.fitting_function(
                 amplitude, standard_dev, position
+            )
+
+            # trim perturbation_signal to only be valid within rho = 0.0 and rho = 1.0
+            perturbation_signal = perturbation_signal.interp(
+                rho=rho_arr, method="linear"
             )
 
             perturbation_signal = perturbation_signal * asymmetry_modifier.sel(t=time)
@@ -703,11 +713,42 @@ class ExtrapolateImpurityDensity(Operator):
 
         fitted_density = zeros_like(bolometry_obj.electron_density)
 
-        initial_guesses = np.array([[1.0e17, 0.1 / 2.355, 0.8]])
+        lower_width_bound = drho / self.halfwidthhalfmax_coeff
+        upper_width_bound = (1.1 - self.threshold_rho[0]) / self.fullwidthhalfmax_coeff
+
+        lower_pos_bound = drho + self.threshold_rho[0]
+        upper_pos_bound = 1.1
+
+        initial_guesses = np.array(
+            [
+                [
+                    1.0e17,
+                    np.mean([lower_width_bound, upper_width_bound])
+                    / self.halfwidthhalfmax_coeff,
+                    np.mean([lower_pos_bound, upper_pos_bound]),
+                ]
+            ]
+        )
+
+        extrapolated_smooth_data_mean = np.mean(
+            extrapolated_smooth_data.loc[self.threshold_rho[0] :, :, :]
+        )
 
         fitting_bounds = (
-            np.array([0.1e17, 0.08 / 2.355, self.threshold_rho[0]]),
-            np.array([2.0e19, 0.15 / 2.355, 0.95]),
+            np.array(
+                [
+                    0.1 * extrapolated_smooth_data_mean,
+                    lower_width_bound,
+                    lower_pos_bound,
+                ]
+            ),
+            np.array(
+                [
+                    1e2 * extrapolated_smooth_data_mean,
+                    upper_width_bound,
+                    upper_pos_bound,
+                ]
+            ),
         )
 
         # Initial fitting for first time-step.
