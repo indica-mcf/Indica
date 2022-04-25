@@ -137,19 +137,23 @@ class ExtrapolateImpurityDensity(Operator):
         """
 
         try:
-            assert set(["rho"]).issubset(set(list(electron_temperature.coords.keys())))
+            assert set(["rho_poloidal"]).issubset(
+                set(list(electron_temperature.coords.keys()))
+            )
         except AssertionError:
             raise AssertionError("Electron temperature must be a profile of rho.")
 
         threshold_temp = electron_temperature.where(
             (electron_temperature - truncation_threshold >= 0), drop=True
-        ).min("rho")
+        ).min("rho_poloidal")
 
         threshold_rho_ind = electron_temperature.where(
             electron_temperature >= threshold_temp, np.inf
-        ).argmin("rho")
+        ).argmin("rho_poloidal")
 
-        threshold_rho = electron_temperature.coords["rho"].isel(rho=threshold_rho_ind)
+        threshold_rho = electron_temperature.coords["rho_poloidal"].isel(
+            rho_poloidal=threshold_rho_ind
+        )
 
         self.threshold_rho = threshold_rho
 
@@ -201,13 +205,13 @@ class ExtrapolateImpurityDensity(Operator):
         R_deriv = cast(DataArray, R_deriv).interp(t=t_arr, method="linear")
         z_deriv = cast(DataArray, z_deriv).interp(t=t_arr, method="linear")
 
-        R_deriv = cast(DataArray, R_deriv).transpose("rho", "theta", "t")
-        z_deriv = cast(DataArray, z_deriv).transpose("rho", "theta", "t")
+        R_deriv = cast(DataArray, R_deriv).transpose("rho_poloidal", "theta", "t")
+        z_deriv = cast(DataArray, z_deriv).transpose("rho_poloidal", "theta", "t")
 
         data_rho_theta = data_R_z.indica.interp2d(
             {"R": R_deriv, "z": z_deriv}, method="linear", assume_sorted=True
         )
-        data_rho_theta = data_rho_theta.transpose("rho", "theta", "t")
+        data_rho_theta = data_rho_theta.transpose("rho_poloidal", "theta", "t")
 
         derived_asymmetry_parameter = np.log(
             data_rho_theta.isel(theta=1) / data_rho_theta.isel(theta=0)
@@ -257,18 +261,20 @@ class ExtrapolateImpurityDensity(Operator):
         )
 
         boundary_electron_density = electron_density.sel(
-            {"rho": threshold_rho}
+            {"rho_poloidal": threshold_rho}
         ).squeeze()
-        boundary_data = data_rho_theta.sel({"rho": threshold_rho}).squeeze()
+        boundary_data = data_rho_theta.sel({"rho_poloidal": threshold_rho}).squeeze()
 
         discontinuity_scale = boundary_data / boundary_electron_density
 
         # Continue impurity_density_sxr following the shape of the electron density
         # profile.
-        bounded_data = data_rho_theta.where(data_rho_theta.rho <= threshold_rho, 0.0)
+        bounded_data = data_rho_theta.where(
+            data_rho_theta.rho_poloidal <= threshold_rho, 0.0
+        )
 
         bounded_electron_density = electron_density.where(
-            electron_density.rho > threshold_rho, 0.0
+            electron_density.rho_poloidal > threshold_rho, 0.0
         )
 
         # bounded_data_trim = bounded_data[:-1]
@@ -323,11 +329,11 @@ class ExtrapolateImpurityDensity(Operator):
         for ind_t, it in enumerate(extrapolated_data.coords["t"]):
             variance_extrapolated_data_lfs = extrapolated_data.isel(
                 {"t": ind_t, "theta": 0}
-            ).var("rho")
+            ).var("rho_poloidal")
 
             variance_extrapolated_data_hfs = extrapolated_data.isel(
                 {"t": ind_t, "theta": 1}
-            ).var("rho")
+            ).var("rho_poloidal")
 
             extrapolated_spline_lfs = UnivariateSpline(
                 rho_arr,
@@ -348,60 +354,65 @@ class ExtrapolateImpurityDensity(Operator):
 
         extrapolated_smooth_lfs_arr = DataArray(
             data=extrapolated_smooth_lfs,
-            coords={"t": t, "rho": rho_arr},
-            dims=["t", "rho"],
+            coords={"t": t, "rho_poloidal": rho_arr},
+            dims=["t", "rho_poloidal"],
         )
 
         extrapolated_smooth_hfs_arr = DataArray(
             data=extrapolated_smooth_hfs,
-            coords={"t": t, "rho": rho_arr},
-            dims=["t", "rho"],
+            coords={"t": t, "rho_poloidal": rho_arr},
+            dims=["t", "rho_poloidal"],
         )
 
-        extrapolated_smooth_lfs_arr = extrapolated_smooth_lfs_arr.transpose("rho", "t")
-        extrapolated_smooth_hfs_arr = extrapolated_smooth_hfs_arr.transpose("rho", "t")
+        extrapolated_smooth_lfs_arr = extrapolated_smooth_lfs_arr.transpose(
+            "rho_poloidal", "t"
+        )
+        extrapolated_smooth_hfs_arr = extrapolated_smooth_hfs_arr.transpose(
+            "rho_poloidal", "t"
+        )
 
         # Following section is to ensure that near the rho=0 region, the
         # extrapolated_smooth_data is constant (ie. with a first-order derivative of 0).
         inv_extrapolated_smooth_hfs = DataArray(
             data=np.flip(extrapolated_smooth_hfs_arr.data, axis=0),
             coords={
-                "rho": -1 * np.flip(extrapolated_smooth_hfs_arr.coords["rho"].data),
+                "rho_poloidal": -1
+                * np.flip(extrapolated_smooth_hfs_arr.coords["rho_poloidal"].data),
                 "t": extrapolated_smooth_hfs_arr.coords["t"].data,
             },
-            dims=["rho", "t"],
+            dims=["rho_poloidal", "t"],
         )
 
-        inv_rho_arr = inv_extrapolated_smooth_hfs.coords["rho"].data
+        inv_rho_arr = inv_extrapolated_smooth_hfs.coords["rho_poloidal"].data
         inv_del_val = inv_rho_arr[-1]
 
         inv_extrapolated_smooth_hfs = inv_extrapolated_smooth_hfs.drop_sel(
-            rho=inv_del_val
+            rho_poloidal=inv_del_val
         )
 
         extrapolated_smooth_mid_plane_arr = concat(
-            (inv_extrapolated_smooth_hfs, extrapolated_smooth_lfs_arr), "rho"
+            (inv_extrapolated_smooth_hfs, extrapolated_smooth_lfs_arr), "rho_poloidal"
         )
 
         rho_zero_ind = np.where(
-            np.isclose(extrapolated_smooth_mid_plane_arr.rho.data, 0.0)
+            np.isclose(extrapolated_smooth_mid_plane_arr.rho_poloidal.data, 0.0)
         )[0][0]
 
         smooth_central_region = extrapolated_smooth_mid_plane_arr.isel(
-            rho=slice(rho_zero_ind - 2, rho_zero_ind + 3)
+            rho_poloidal=slice(rho_zero_ind - 2, rho_zero_ind + 3)
         )
 
-        smooth_central_region.loc[:, :] = smooth_central_region.max(dim="rho")
+        smooth_central_region.loc[:, :] = smooth_central_region.max(dim="rho_poloidal")
 
         extrapolated_smooth_mid_plane_arr.loc[
-            extrapolated_smooth_mid_plane_arr.rho.data[
+            extrapolated_smooth_mid_plane_arr.rho_poloidal.data[
                 rho_zero_ind - 2
-            ] : extrapolated_smooth_mid_plane_arr.rho.data[rho_zero_ind + 2],
+            ] : extrapolated_smooth_mid_plane_arr.rho_poloidal.data[rho_zero_ind + 2],
             :,
         ] = smooth_central_region
 
         inv_extrapolated_smooth_hfs = extrapolated_smooth_mid_plane_arr.isel(
-            rho=slice(0, rho_zero_ind + 1)
+            rho_poloidal=slice(0, rho_zero_ind + 1)
         )
 
         extrapolated_smooth_hfs_arr = DataArray(
@@ -463,7 +474,7 @@ class ExtrapolateImpurityDensity(Operator):
             Derived asymmetry parameter (needed for __call__ which returns it).
             xarray.DataArray with dimensions (rho, t)
         """
-        rho_arr = extrapolated_smooth_hfs.coords["rho"]
+        rho_arr = extrapolated_smooth_hfs.coords["rho_poloidal"]
         self.rho_arr = rho_arr
         t_arr = extrapolated_smooth_hfs.coords["t"]
 
@@ -480,9 +491,15 @@ class ExtrapolateImpurityDensity(Operator):
         derived_asymmetry_parameter /= asym_denominator
 
         # Set constant asymmetry parameter for rho<0.1
-        derived_asymmetry_parameter.loc[
-            0:0.125, :  # type: ignore
-        ] = derived_asymmetry_parameter.loc[0.125, :]
+        # derived_asymmetry_parameter.loc[
+        #     0:0.125, :  # type: ignore
+        # ] = derived_asymmetry_parameter.loc[0.125, :]
+        derived_asymmetry_parameter = derived_asymmetry_parameter.where(
+            derived_asymmetry_parameter.coords["rho_poloidal"] > 0.1,
+            other=derived_asymmetry_parameter.sel(
+                {"rho_poloidal": 0.1}, method="nearest"
+            ),
+        )
 
         theta_arr = np.linspace(-np.pi, np.pi, 21)
         theta_arr = DataArray(
@@ -491,18 +508,18 @@ class ExtrapolateImpurityDensity(Operator):
         R_deriv_, z_deriv_ = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
         R_deriv = cast(DataArray, R_deriv_).interp(t=t_arr, method="linear")
         z_deriv = cast(DataArray, z_deriv_).interp(t=t_arr, method="linear")
-        R_deriv = cast(DataArray, R_deriv).transpose("rho", "theta", "t")
-        z_deriv = cast(DataArray, z_deriv).transpose("rho", "theta", "t")
+        R_deriv = cast(DataArray, R_deriv).transpose("rho_poloidal", "theta", "t")
+        z_deriv = cast(DataArray, z_deriv).transpose("rho_poloidal", "theta", "t")
 
         asymmetry_modifier = np.exp(
             derived_asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
         )
 
-        asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
+        asymmetry_modifier = asymmetry_modifier.transpose("rho_poloidal", "theta", "t")
 
         extrapolated_smooth_data = extrapolated_smooth_lfs * asymmetry_modifier
         extrapolated_smooth_data = extrapolated_smooth_data.transpose(
-            "rho", "theta", "t"
+            "rho_poloidal", "theta", "t"
         )
 
         return extrapolated_smooth_data, R_deriv, z_deriv, derived_asymmetry_parameter
@@ -553,7 +570,7 @@ class ExtrapolateImpurityDensity(Operator):
         rho_derived = abs(rho_derived)
 
         extrapolated_smooth_data = extrapolated_smooth_data.indica.interp2d(
-            {"rho": rho_derived, "theta": theta_derived},
+            {"rho_poloidal": rho_derived, "theta": theta_derived},
             method="linear",
             assume_sorted=True,
         )
@@ -594,7 +611,9 @@ class ExtrapolateImpurityDensity(Operator):
 
         sig = gaussian_signal.pdf(rho_arr)
 
-        sig = DataArray(data=sig, coords={"rho": rho_arr}, dims=["rho"])
+        sig = DataArray(
+            data=sig, coords={"rho_poloidal": rho_arr}, dims=["rho_poloidal"]
+        )
 
         sig /= sig.max()
 
@@ -651,6 +670,21 @@ class ExtrapolateImpurityDensity(Operator):
         # bolometry_args[4] = self.bolometry_setup(*bolometry_setup_args)
         rho_arr = extrapolated_smooth_data.rho.data
         drho = np.max(np.diff(rho_arr))
+        if hasattr(bolometry_obj, "LoS_bolometry_data_trimmed"):
+            trim = True
+            orig_bolometry_trimmed = []
+            for bolo_diag, bolo_los in zip(
+                orig_bolometry_data.coords["bolo_kb5v_coords"],
+                bolometry_obj.LoS_bolometry_data,
+            ):
+                if bolo_los in bolometry_obj.LoS_bolometry_data_trimmed:
+                    orig_bolometry_trimmed.append(orig_bolometry_data.loc[:, bolo_diag])
+            orig_bolometry = concat(
+                orig_bolometry_trimmed, dim="bolo_kb5v_coords"
+            ).assign_attrs(**orig_bolometry_data.attrs)
+        else:
+            trim = False
+            orig_bolometry = orig_bolometry_data
 
         def objective_func(objective_array: Sequence, time: float):
             """Objective function that is passed to scipy.optimize.least_squares
@@ -696,15 +730,15 @@ class ExtrapolateImpurityDensity(Operator):
             # confused about whether t_val is included in bolometry_args or not,
             # hence ignored
             modified_bolometry_data = bolometry_obj(  # type:ignore
-                deriv_only=True, trim=False, t_val=time
+                deriv_only=True, trim=trim, t_val=time
             )
 
-            comparison_orig_bolometry_data = orig_bolometry_data.sel(
+            comparison_orig_bolometry_data = orig_bolometry.sel(
                 t=time, method="nearest"
             )
 
             abs_error = np.abs(
-                modified_bolometry_data - comparison_orig_bolometry_data
+                modified_bolometry_data.data - comparison_orig_bolometry_data.data
             )  # / orig_bolometry_data.sel(t=time)
 
             abs_error = np.nan_to_num(abs_error)
@@ -819,7 +853,7 @@ class ExtrapolateImpurityDensity(Operator):
             )
 
         fitted_density = fitted_density * asymmetry_modifier
-        fitted_density = fitted_density.transpose("rho", "theta", "t")
+        fitted_density = fitted_density.transpose("rho_poloidal", "theta", "t")
 
         return fitted_density
 
@@ -921,7 +955,7 @@ class ExtrapolateImpurityDensity(Operator):
         threshold_rho = self.recover_rho(truncation_threshold, electron_temperature)
 
         # Transform impurity_density_sxr to (rho, theta) coordinates
-        rho_arr = electron_density.coords["rho"]
+        rho_arr = electron_density.coords["rho_poloidal"]
         t_arr = t
 
         (
@@ -985,7 +1019,7 @@ class ExtrapolateImpurityDensity(Operator):
             asym_par = derived_asymmetry_parameter_full
 
         asymmetry_modifier = np.exp(asym_par * (R_deriv**2 - R_lfs**2))
-        asymmetry_modifier = asymmetry_modifier.transpose("rho", "theta", "t")
+        asymmetry_modifier = asymmetry_modifier.transpose("rho_poloidal", "theta", "t")
 
         return (
             extrapolated_smooth_density_Rz,
