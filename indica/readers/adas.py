@@ -121,12 +121,17 @@ class ADASReader(BaseIO):
                 m = re.search(
                     r"DATE=\s*(\d?\d)[.\-/](\d\d)[.\-/](\d\d)", section_header, re.I
                 )
-                assert isinstance(m, re.Match)
-                short_year = int(m.group(3))
-                parsed_year = short_year + (
-                    1900 if short_year >= now.year % 100 else 2000
-                )
-                new_date = datetime.date(parsed_year, int(m.group(2)), int(m.group(1)))
+                # assert isinstance(m, re.Match)  # TEMP for PLSX/PRSX reading
+                if isinstance(m, re.Match):
+                    short_year = int(m.group(3))
+                    parsed_year = short_year + (
+                        1900 if short_year >= now.year % 100 else 2000
+                    )
+                    new_date = datetime.date(
+                        parsed_year, int(m.group(2)), int(m.group(1))
+                    )
+                else:
+                    new_date = datetime.datetime.now().date()
                 if new_date > date:
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
