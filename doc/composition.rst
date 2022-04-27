@@ -5,7 +5,7 @@ This section of the documentation describes the main concepts of the modules ded
 
 
 Documentation and Publications
-------------------------------------------
+------------------------------
 
 | The main features of the code in its various versions since its initial conception are documented in the following papers:
 | `M. Sertoli et al. J. Plasma Phys. 85, 905850504 (2019) <https://doi.org/10.1017/S0022377819000618>`_
@@ -26,7 +26,7 @@ Documentation and Publications
 | `P. Piovesan et al. Plasma Physics and Controlled Fusion 59, 014027 (2016) <https://doi.org/10.1088/0741-3335/59/1/014027>`_
 
 Scope, Inputs and Outputs
-------------------------------------------
+-------------------------
 The main scope of the code is to evaluate the plasma composition combining a large set of measurements from different diagnostics. The code calculates the time evolution of the density profiles of 3(+1) impurities: one low-Z and two mid-/high-Z elements (+ one additional background low-Z impurity, constant in time). Mid-Z and high-Z elements are resolved in 2D on a poloidal plane to account for poloidal asymmetries.
 
 The main inputs necessary for the computation are:
