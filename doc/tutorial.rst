@@ -130,6 +130,7 @@ densities:
 
    from indica.readers import ADASReader
    from indica.operators import FractionalAbundance
+   from indica.operators import PowerLoss
 
    adas = ADASReader()
 
@@ -166,3 +167,60 @@ densities:
       element: PowerLoss(PLT=PLT.get(element), PRB=PRB.get(element))
       for element in elements
    }
+
+Calculating power loss
+----------------------
+
+Interpolate the fractional abundance profile for our elements given their
+temperature and density profiles, calculate the power loss for our elements and
+the mean charge of each element given the fractional abundancies.
+
+.. code-block:: python
+
+   from indica.operators.mean_charge import MeanCharge
+
+   fzt = {
+      elem: concat(
+          [
+              FA[elem](
+                  Ne=ne.interp(t=time),
+                  Te=te.interp(t=time),
+                  tau=time,
+              ).expand_dims("t", -1)
+              for time in t.values
+          ],
+          dim="t",
+      )
+      .assign_coords({"t": t.values})
+      .assign_attrs(transform=flux_surface)
+      for elem in elements
+   }
+
+   power_loss = {
+      elem: concat(
+          [
+              PL[elem](
+                  Ne=ne.interp(t=time),
+                  Te=te.interp(t=time),
+                  F_z_t=fzt[elem].sel(t=time, method="nearest"),
+              ).expand_dims("t", -1)
+              for time in t.values
+          ],
+          dim="t",
+      )
+      .assign_coords({"t": t.values})
+      .assign_attrs(transform=flux_surface)
+      for elem in elements
+   }
+
+   q = (
+      concat(
+          [
+              MeanCharge()(FracAbundObj=fzt[elem], element=elem)
+              for elem in elements
+          ],
+          dim="element",
+      )
+      .assign_coords({"element": elements})
+      .assign_attrs(transform=flux_surface)
+   )
