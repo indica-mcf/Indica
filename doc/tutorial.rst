@@ -7,7 +7,7 @@ notebooks). It is specific to JET in the interest of producing something that
 runs and is testable, however we have done our best to make it clear and easy
 to adapt for other machines.
 
-Set Up
+Set up
 ------
 
 We start by defining the pulse to analyse, coordinate arrays on which we will
@@ -59,7 +59,7 @@ initialise the equilibrium (from EFIT data) and coordinate systems:
        "efit": reader.get(uid="jetppf", instrument="eftp", revision=0),
        "hrts": reader.get(uid="jetppf", instrument="hrts", revision=0),
        "sxr": reader.get(uid="jetppf", instrument="sxr", revision=0),
-       "ks3": reader.get(uid="jetppf", instrument="ks3", revision=0),
+       "zeff": reader.get(uid="jetppf", instrument="ks3", revision=0),
        "bolo": reader.get(uid="jetppf", instrument="bolo", revision=0),
    }
 
@@ -159,22 +159,23 @@ densities:
       for element in elements
    }
 
-   #TODO: work out how to distribute these files
-   adas = ADASReader("/home/elitherl/Analysis/SXR/indica/sxr_filtered_adf11/")
    PLT = {
-      element: adas.get_adf11("plsx", element, year)
-      for element, year in zip(impurities, ["5"] * len(impurities))
+      element: adas.get_adf11("plt", element, year)
+      for element, year in zip(impurities, ["89"] * len(impurities))
    }
-   PLT[main_ion] = adas.get_adf11("plsx", "h", "5")
+   PLT[main_ion] = adas.get_adf11("plt", "h", "89")
    PRB = {
-      element: adas.get_adf11("prsx", element, year)
-      for element, year in zip(impurities, ["5"] * len(impurities))
+      element: adas.get_adf11("prb", element, year)
+      for element, year in zip(impurities, ["89"] * len(impurities))
    }
-   PRB[main_ion] = adas.get_adf11("prsx", "h", "5")
+   PRB[main_ion] = adas.get_adf11("prb", "h", "89")
    PL = {
       element: PowerLoss(PLT=PLT.get(element), PRB=PRB.get(element))
       for element in elements
    }
+
+.. note::
+   Placeholder
 
 Calculating power loss
 ----------------------
@@ -234,21 +235,32 @@ the mean charge of each element given the fractional abundancies.
       .assign_attrs(transform=flux_surface)
    )
 
-Calculate the high Z impurity density profile
----------------------------------------------
+Calculate the initial high Z impurity density profile
+-----------------------------------------------------
 
 Next we use the emissivity data calculated from the soft x-ray cameras to
-estimate the density profile of the high Z element. We also use the electron
-density profile to extrapolate the shape of the high Z density profile outside
-of the range of applicability of the SXR diagnostic.
+estimate the density profile shape for the high Z element. We use equation
+(2.1) from `M. Sertoli et al. J. Plasma Phys. 85, 905850504 (2019)
+<https://doi.org/10.1017/S0022377819000618>`_
+
+.. math::
+   n_{Z_0}^{SXR} = \frac{ M \cdot \epsilon_{exp}^{SXR} - n_e \left[ n_I
+   L_I^{SXR} + \sum_{s \neq Z_0} n_s L_s^{SXR} \right]}{n_e L^{SXR}_{Z_0}},
+
+where, :math:`n_{Z_0}^{SXR}` is our high Z impurity density :math:`M` is a
+constant which we will calulcate during rescaling later,
+:math:`\epsilon_{exp}^{SXR}` is our calculated emissivity based on the SXR
+(:code:`emissivity`), :math:`L^{SXR}` is the SXR filtered cooling function,
+filtered in the energy range detected by the SXR diagnostic
+(:code:`power_loss`). We set the term inside the square brackets to zero for
+now by assuming the emissivity is a result of only the high Z element.
 
 .. code-block:: python
 
    from indica.operators import ExtrapolateImpurityDensity
 
    n_high_z_simple = (
-      2.5
-      * emissivity
+      emissivity
       / (
           ne.indica.remap_like(emissivity)
           * power_loss[high_z]
@@ -256,6 +268,13 @@ of the range of applicability of the SXR diagnostic.
           .sum("ion_charges")
       )
    )
+
+We also use the
+electron density profile to extrapolate the shape of the high Z density profile
+outside of the range of applicability of the SXR diagnostic.
+
+.. code-block:: python
+
    extrapolator = ExtrapolateImpurityDensity()
    n_high_z_extrapolated, *high_z_extrapolate_params = extrapolator(
       impurity_density_sxr=n_high_z_simple.where(
@@ -271,14 +290,14 @@ Estimate low Z density profile
 ------------------------------
 
 Now we use the effective Z measurement to estimate the low Z element's density
-profile by subtracting the profile of the high Z element:
+profile shape by subtracting the profile of the high Z element:
 
 .. code-block:: python
 
    import xarray as xr
    from indica.operators import ImpurityConcentration
 
-   zeff = diagnostics["ks3"]["zefh"].interp(t=t.values)
+   zeff = diagnostics["zeff"]["zefh"].interp(t=t.values)
    conc_zeff_el, _ = ImpurityConcentration()(
       element=zeff_el,
       Zeff_LoS=zeff,
@@ -347,8 +366,16 @@ values that the bolometry cameras would read, given our current model:
 Optimise high Z density profile
 -------------------------------
 
-Now we fit a gaussian over-density on the low field side of the plasma using
-the actual bolometry measurements and our bolometry predictor:
+Next we re-scale the high Z density profile (without changing the shape at the
+centre) using an independant high Z element measurement (e.g. bolometry or
+VUV).
+
+..
+   TODO: code block for rescaling here
+
+We also fit a gaussian over-density on the
+low field side of the plasma using the actual bolometry measurements and our
+bolometry predictor:
 
 .. code-block:: python
 
@@ -403,6 +430,10 @@ Plotting
 --------
 
 Finally we plot our density profiles:
+
+
+..
+   #TODO: main ion, be on 1-D slice
 
 .. code-block:: python
 
