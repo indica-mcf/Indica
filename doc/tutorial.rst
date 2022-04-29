@@ -1,11 +1,18 @@
 Tutorial
 ========
 
+This tutorial aims to introduce the core operators used in analysis, in a
+format that can easily be copied, pasted and ran (we recommend Jupyter
+notebooks). It is specific to JET in the interest of producing something that
+runs and is testable, however we have done our best to make it clear and easy
+to adapt for other machines.
+
 Set Up
 ------
 
 We start by defining the pulse to analyse, coordinate arrays on which we will
-carry out our analysis and the impurities present:
+carry out our analysis, the impurities present and the server to request data
+from:
 
 .. code-block:: python
 
@@ -33,7 +40,7 @@ Reading in the data
 -------------------
 
 Next we read in the diagnostic data listed :ref:`Scope, Inputs and Outputs`,
-initialise the equilibrium and coordinate systems:
+initialise the equilibrium (from EFIT data) and coordinate systems:
 
 .. code-block:: python
 
@@ -60,9 +67,9 @@ initialise the equilibrium and coordinate systems:
    for key, diag in diagnostics.items():
       for data in diag.values():
          if hasattr(data.attrs["transform"], "equilibrium"):
-   del data.attrs["transform"].equilibrium
-      if "efit" not in key.lower():
-         data.indica.equilibrium = efit_equilibrium
+            del data.attrs["transform"].equilibrium
+         if "efit" not in key.lower():
+            data.indica.equilibrium = efit_equilibrium
 
    flux_surface = FluxSurfaceCoordinates(kind="poloidal")
    flux_surface.set_equilibrium(efit_equilibrium)
@@ -293,8 +300,8 @@ profile by subtracting the profile of the high Z element:
 Derive bolometry LOS data
 -------------------------
 
-Next we use the data calculated before in order to estimate the values that the
-bolometry cameras would read, given our current model:
+Next we use the data calculated before in order to create an estimator of the
+values that the bolometry cameras would read, given our current model:
 
 .. code-block:: python
 
@@ -341,7 +348,7 @@ Optimise high Z density profile
 -------------------------------
 
 Now we fit a gaussian over-density on the low field side of the plasma using
-the predicted and actual bolometry measurements:
+the actual bolometry measurements and our bolometry predictor:
 
 .. code-block:: python
 
