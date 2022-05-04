@@ -303,6 +303,8 @@ class BolometryDerivation(Operator):
 
         R_central = self.flux_surfaces.equilibrium.rmag.interp(t=t_arr, method="linear")
 
+        z_central = self.flux_surfaces.equilibrium.zmag.interp(t=t_arr, method="linear")
+
         LoS_R_midplane_multi = []
 
         for iLoS in range(len(LoS_bolometry_data_in)):
@@ -311,7 +313,7 @@ class BolometryDerivation(Operator):
 
             try:
                 midplane_LoS_pos = z_arr.indica.invert_interp(
-                    values=0.0, target=z_arr.dims[1], method="nearest"
+                    values=z_central.values[0], target=z_arr.dims[1], method="nearest"
                 )
             except ValueError:
                 midplane_LoS_pos = 2.0
