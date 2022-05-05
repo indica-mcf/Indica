@@ -377,7 +377,7 @@ def input_data_setup():
         dims=["element", "rho_poloidal", "t"],
     )
 
-    expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 81)
+    expanded_rho = np.linspace(base_rho_profile[0], base_rho_profile[-1], 41)
 
     rho_arr = expanded_rho
     theta_arr = np.linspace(-np.pi, np.pi, 21)
@@ -489,12 +489,22 @@ def sxr_data_setup(input_data):
     input_sxr_density_asym_Rz
         Ground truth asymmetric impurity density on a (R, z) grid.
         xarray.DataArray with dimensions (R, z, t)
-    R_arr
-        xarray.DataArray of major radius values, np.linspace(1.83, 3.9, 100).
-        Dimensions (R)
-    input_sxr_density_asym
+    input_sxr_density_asym_rho_theta
         Ground truth asymmetric impurity density on a (rho, theta) grid.
         xarray.DataArray with dimensions (rho, theta, t)
+    additional_sig
+        Gaussian signal to be added after extrapolation of the sxr_density
+        outside of the valid SXR limits.
+    example_asymmetry
+        Asymmetry parameter, xarray.DataArray with dimensions (rho, t)
+    asymmetry_modifier
+        Asymmetry modifier used to transform a low-field side only rho-profile
+        of a poloidally asymmetric quantity to a full poloidal cross-sectional
+        profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
+        exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
+        radius as a function of (rho, theta, t) and R_lfs is the low-field-side
+        major radius as a function of (rho, t). xarray DataArray with dimensions
+        (rho, theta, t)
     """
     (
         input_Ne,
@@ -559,23 +569,20 @@ def sxr_data_setup(input_data):
     additional_sig = additional_sig * asymmetry_modifier
     additional_sig = additional_sig.transpose("rho_poloidal", "theta", "t")
 
-    input_sxr_density_asym = input_sxr_density_lfs * asymmetry_modifier
-    input_sxr_density_asym = input_sxr_density_asym.transpose(
+    input_sxr_density_asym_rho_theta = input_sxr_density_lfs * asymmetry_modifier
+    input_sxr_density_asym_rho_theta = input_sxr_density_asym_rho_theta.transpose(
         "rho_poloidal", "theta", "t"
     )
 
-    input_sxr_density_lfs = input_sxr_density_asym.sel(theta=0)
-
-    input_sxr_density_asym_Rz = input_sxr_density_asym.indica.interp2d(
+    input_sxr_density_asym_R_z = input_sxr_density_asym_rho_theta.indica.interp2d(
         {"rho_poloidal": rho_derived, "theta": theta_derived}, method="linear"
     )
-    input_sxr_density_asym_Rz = input_sxr_density_asym_Rz.fillna(0.0)
-    input_sxr_density_asym_Rz = input_sxr_density_asym_Rz.transpose("R", "z", "t")
+    input_sxr_density_asym_R_z = input_sxr_density_asym_R_z.fillna(0.0)
+    input_sxr_density_asym_R_z = input_sxr_density_asym_R_z.transpose("R", "z", "t")
 
     return (
-        input_sxr_density_asym_Rz,
-        R_arr,
-        input_sxr_density_asym,
+        input_sxr_density_asym_R_z,
+        input_sxr_density_asym_rho_theta,
         additional_sig,
         example_asymmetry,
         asymmetry_modifier,
@@ -655,8 +662,8 @@ def test_extrapolate_impurity_density_call():
     base_t = initial_data[9]
     elements = initial_data[12]
     impurity_sxr_density_asym_Rz = sxr_data[0]
-    additional_sig = sxr_data[3]
-    orig_asymmetry_param = sxr_data[4]
+    additional_sig = sxr_data[2]
+    orig_asymmetry_param = sxr_data[3]
     example_frac_abunds = bolometry_input_data[0]
     main_ion_power_loss = bolometry_input_data[1]
     impurity_power_loss = bolometry_input_data[2]
@@ -667,7 +674,6 @@ def test_extrapolate_impurity_density_call():
         (
             example_result_R_z,
             example_result_rho_theta,
-            example_asym_modifier,
             t,
         ) = example_extrapolate_impurity_density(
             impurity_sxr_density_asym_Rz,
@@ -679,6 +685,8 @@ def test_extrapolate_impurity_density_call():
         )
     except Exception as e:
         raise e
+
+    example_asym_modifier = example_extrapolate_impurity_density.asymmetry_modifier
 
     perturbed_impurity_sxr_density_rho_theta = (
         example_result_rho_theta.copy(deep=True) + additional_sig
@@ -752,16 +760,12 @@ def test_extrapolate_impurity_density_call():
         )
     )
 
+    # Rough check of entire rho_profile on the low-field-side.
     sum_of_residuals = np.abs(
         optimized_impurity_density.sel(theta=0)
-        # - impurity_sxr_density_asym_rho_theta.sel(theta=0)
         - perturbed_impurity_sxr_density_rho_theta.sel(theta=0)
     )
-    # sum_of_original = np.abs(impurity_sxr_density_asym_rho_theta.sel(theta=0))
     sum_of_original = np.abs(perturbed_impurity_sxr_density_rho_theta.sel(theta=0))
-    # sum_of_original = np.nan_to_num(sum_of_original)
-
-    relative_fit_error = sum_of_residuals / sum_of_original
 
     sum_of_original = sum_of_original.sum(["rho_poloidal"])
     sum_of_residuals = sum_of_residuals.sum(["rho_poloidal"])
@@ -772,8 +776,60 @@ def test_extrapolate_impurity_density_call():
         assert np.max(relative_fit_error) < 0.1
     except AssertionError:
         raise AssertionError(
-            f"Relative error is too high(maximum allowed is 0.1): \
+            f"Relative error across rho_poloidal is too high(maximum allowed is 0.1): \
                 relative error = {relative_fit_error}"
+        )
+
+    # Constrained check of invalid SXR range of rho-profile on the low-field-side.
+    sum_of_original = zeros_like(relative_fit_error)
+    sum_of_residuals = zeros_like(relative_fit_error)
+
+    for ind_t, it in enumerate(sum_of_original.t):
+        sum_of_residuals_ = np.abs(
+            optimized_impurity_density.sel(
+                theta=0,
+                rho_poloidal=slice(
+                    example_extrapolate_impurity_density.threshold_rho.isel(
+                        t=ind_t
+                    ).data,
+                    1.0,
+                ),
+            ).isel(t=ind_t)
+            - perturbed_impurity_sxr_density_rho_theta.sel(
+                theta=0,
+                rho_poloidal=slice(
+                    example_extrapolate_impurity_density.threshold_rho.isel(
+                        t=ind_t
+                    ).data,
+                    1.0,
+                ),
+            ).isel(t=ind_t)
+        )
+
+        sum_of_original_ = np.abs(
+            perturbed_impurity_sxr_density_rho_theta.sel(
+                theta=0,
+                rho_poloidal=slice(
+                    example_extrapolate_impurity_density.threshold_rho.isel(
+                        t=ind_t
+                    ).data,
+                    1.0,
+                ),
+            ).isel(t=ind_t)
+        )
+
+        sum_of_original.loc[it] = sum_of_original_.sum(["rho_poloidal"])
+        sum_of_residuals.loc[it] = sum_of_residuals_.sum(["rho_poloidal"])
+
+    relative_fit_error_constrained = sum_of_residuals / sum_of_original
+
+    try:
+        assert np.max(relative_fit_error_constrained) < 0.2
+    except AssertionError:
+        raise AssertionError(
+            f"Relative error in invalid SXR region is too \
+                high(maximum allowed is 0.2): relative error = \
+                    {relative_fit_error_constrained}"
         )
 
     example_extrapolate_test_case = Exception_Impurity_Density_Test_Case(
@@ -832,7 +888,7 @@ def test_asymmetry_from_profile():
     orig_toroidal_rotations = initial_data[3]
     flux_surfs = initial_data[6]
     impurity_sxr_density_asym_Rz = sxr_data[0]
-    impurity_sxr_density_asym_rho_theta = sxr_data[2]
+    impurity_sxr_density_asym_rho_theta = sxr_data[1]
 
     orig_toroidal_rotations = orig_toroidal_rotations.sel(element="w")
 
