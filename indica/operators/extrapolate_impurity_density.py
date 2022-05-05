@@ -154,26 +154,15 @@ class ExtrapolateImpurityDensity(Operator):
     Returns
     -------
     extrapolated_smooth_density_Rz
-        Extrapolated and smoothed impurity density, with dimensions (R, z, t).
-    asym_par
-        Derived asymmetry parameter, with dimensions (rho, t).
+        Extrapolated and smoothed impurity density,
+        xarray.DataArray with dimensions (R, z, t).
+    extrapolated_smooth_density_rho_theta
+        Extrapolated and smoothed impurity density,
+        xarray.DataArray with dimensions (rho, theta, t).
     t
         If ``t`` was not specified as an argument for the __call__ function,
         return the time the results are given for.
         Otherwise return the argument.
-    extrapolated_smooth_density
-        Extrapolated and smoothed impurity density with dimensions (rho, theta, t).
-    asymmetry_modifier
-        Asymmetry modifier used to transform a low-field side only rho-profile
-        of a poloidally asymmetric quantity to a full poloidal cross-sectional
-        profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
-        exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
-        radius as a function of (rho, theta, t) and R_lfs is the low-field-side
-        major radius as a function of (rho, t). xarray DataArray with dimensions
-        (rho, theta, t)
-    R_deriv
-        Variable describing value of R in every coordinate on a (rho, theta) grid.
-        (from derive_and_apply_asymmetry), dimensions (rho, theta, t)
 
     Methods
     -------
@@ -192,15 +181,14 @@ class ExtrapolateImpurityDensity(Operator):
         Function to smooth extrapolatd data. Extrapolated data may not have
         any 0th order discontinuity but 1st order discontinuities may exist.
         Smoothing is necessary to eliminate these higher order discontinuities.
-    derive_and_apply_asymmetry(R_deriv, extrapolated_smooth_hfs,
-        extrapolated_smooth_lfs, flux_surfaces)
-        Deriving asymmetry parameter from low-field-side and
-        high-field-side data and applying it to low-field-side data which
-        has been extended over the poloidal extent to obtain an asymmetric
+    apply_asymmetry(asymmetry_parameter, extrapolated_smooth_hfs,
+        extrapolated_smooth_lfs, R_deriv)
+        Applying an asymmetry parameter to low-field-side data which
+        will be extended over the poloidal extent to obtain an asymmetric
         extrapolated smoothed data on a (rho, theta) grid.
     transform_to_R_z(R_deriv, z_deriv, extrapolated_smooth_data, flux_surfaces)
         Function to transform data from an (rho, theta) grid to a (R, z) grid
-    fitting_funciton(amplitude, standard_dev, position)
+    fitting_function(amplitude, standard_dev, position)
         Function to construct a signal that modifies the
         extrapolated smoothed impurity density. The signal is constructed
         using a Gaussian profile with the three free parameters.
@@ -209,16 +197,17 @@ class ExtrapolateImpurityDensity(Operator):
         Optimizes a Gaussian-style perturbation to recover the over-density
         structure that is expected on the low-field-side of the plasma.
     __call__(
-        element, ion_radiation_loss, impurity_radiation_losses, electron_density,
-        mean_charge, flux_surfaces, t
+        impurity_density_sxr, electron_density, truncation_threshold, flux_surfaces,
+        asymmetry_parameter, t
     )
-        Calculates the impurity concentration for the inputted element.
+        Extrapolates the impurity density beyond the limits of SXR (Soft X-ray)
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
     RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("impurity_density", "impurity_element"),
+        ("number_density", "impurity_element"),
+        ("number_density", "impurity_element"),
         ("time", "impurity_element"),
     ]
 
@@ -529,11 +518,9 @@ class ExtrapolateImpurityDensity(Operator):
         extrapolated_smooth_hfs: DataArray,
         extrapolated_smooth_lfs: DataArray,
         R_deriv: DataArray,
-        z_deriv: DataArray,
     ):
-        """Deriving asymmetry parameter from low-field-side and
-        high-field-side data and applying it to low-field-side data which
-        has been extended over the poloidal extent to obtain an asymmetric
+        """Applying an asymmetry parameter to low-field-side data which
+        will be extended over the poloidal extent to obtain an asymmetric
         extrapolated smoothed data on a (rho, theta) grid.
 
         Parameters
@@ -547,23 +534,23 @@ class ExtrapolateImpurityDensity(Operator):
         extrapolated_smooth_lfs
             Extrapolated smoothed data on low-field side (fixed theta = 0).
             xarray.DataArray with dimensions (rho, t)
-        flux_surfaces
-            FluxSurfaceCoordinates object representing polar coordinate systems
-            using flux surfaces for the radial coordinate.
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
 
         Returns
         -------
         extrapolated_smooth_data
             Extrapolated and smoothed data on full (rho, theta) grid.
             xarray.DataArray with dimensions (rho, theta, t)
-        R_deriv
-            Variable describing value of R in every coordinate on a (rho, theta) grid.
-            xarray.DataArray with dimensions (rho, theta, t)
-            (uniquely calculated by this function used for transform_to_R_z)
-        z_deriv
-            Variable describing value of z in every coordinate on a (rho, theta) grid.
-            xarray.DataArray with dimensions (rho, theta, t)
-            (uniquely calculated by this function used for transform_to_R_z)
+        asymmetry_modifier
+            Asymmetry modifier used to transform a low-field side only rho-profile
+            of a poloidally asymmetric quantity to a full poloidal cross-sectional
+            profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
+            exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
+            radius as a function of (rho, theta, t) and R_lfs is the low-field-side
+            major radius as a function of (rho, t). xarray DataArray with dimensions
+            (rho, theta, t)
         """
         rho_arr = extrapolated_smooth_hfs.coords["rho_poloidal"]
         self.rho_arr = rho_arr
@@ -731,10 +718,11 @@ class ExtrapolateImpurityDensity(Operator):
             (rho, theta, t)
         """
 
-        # bolometry_args[4] = self.bolometry_setup(*bolometry_setup_args)
         rho_arr = self.rho_arr
         drho = np.max(np.diff(rho_arr))
 
+        # Check whether bolometry_obj as been called at least once
+        # (ie. does it have a trimmed variant of the LoS bolometry data.)
         if hasattr(bolometry_obj, "LoS_bolometry_data_trimmed"):
             trim = True
             orig_bolometry_trimmed = []
@@ -947,37 +935,25 @@ class ExtrapolateImpurityDensity(Operator):
         flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
+        asymmetry_parameter
+            Optional, asymmetry parameter (either externally sourced or pre-calculated),
+            xarray.DataArray with dimensions (rho, t)
         t
             Optional float, time at which the impurity concentration is to
             be calculated at.
 
         Returns
         -------
-        extrapolated_smooth_density_Rz
+        extrapolated_smooth_density_R_z
             Extrapolated and smoothed impurity density ((R, z) grid).
             xarray.DataArray with dimensions (R, z, t)
-        asym_par
-            Derived asymmetry parameter.
-            xarray.DataArray with dimensions (rho, t)
+        extrapolated_smooth_density_rho_theta
+            Extrapolated and smoothed impurity density ((rho, theta) grid).
+            xarray.DataArray with dimensions (rho, theta, t).
         t
             If ``t`` was not specified as an argument for the __call__ function,
             return the time the results are given for.
             Otherwise return the argument.
-        extrapolated_smooth_density
-            Extrapolated and smoothed impurity density ((rho, theta) grid).
-            xarray.DataArray with dimensions (rho, theta, t).
-        asymmetry_modifier
-            Asymmetry modifier used to transform a low-field side only rho-profile
-            of a poloidally asymmetric quantity to a full poloidal cross-sectional
-            profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
-            exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
-            radius as a function of (rho, theta, t) and R_lfs is the low-field-side
-            major radius as a function of (rho, t). xarray DataArray with dimensions
-            (rho, theta, t)
-        R_deriv
-            Variable describing value of R in every coordinate on a (rho, theta) grid.
-            (from derive_and_apply_asymmetry).
-            xarray.DataArray with dimensions (rho, theta, t)
         """
 
         input_check(
@@ -1075,7 +1051,6 @@ class ExtrapolateImpurityDensity(Operator):
             extrapolated_smooth_hfs,
             extrapolated_smooth_lfs,
             R_deriv,
-            z_deriv,
         )
 
         # Transform extrapolated density back onto a (R, z) grid
@@ -1084,9 +1059,10 @@ class ExtrapolateImpurityDensity(Operator):
             R_deriv, z_deriv, extrapolated_smooth_density_rho_theta, flux_surfaces
         )
 
+        self.asymmetry_modifier = asymmetry_modifier
+
         return (
             extrapolated_smooth_density_R_z,
             extrapolated_smooth_density_rho_theta,
-            asymmetry_modifier,
             t,
         )
