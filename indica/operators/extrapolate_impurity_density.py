@@ -25,6 +25,7 @@ def asymmetry_from_R_z(
     data_R_z: DataArray,
     flux_surfaces: FluxSurfaceCoordinates,
     rho_arr: DataArray,
+    threshold_rho: DataArray = None,
     t_arr: DataArray = None,
 ):
     """Function to calculate an asymmetry parameter from a given density profile in
@@ -80,12 +81,19 @@ def asymmetry_from_R_z(
 
     derived_asymmetry_parameter = np.abs(derived_asymmetry_parameter)
 
+    if threshold_rho is not None:
+        for ind_t, it in enumerate(threshold_rho.coords["t"]):
+            derived_asymmetry_parameter.loc[
+                threshold_rho[ind_t] :, it
+            ] = derived_asymmetry_parameter.loc[threshold_rho[ind_t], it]
+
     return derived_asymmetry_parameter
 
 
 def asymmetry_from_rho_theta(
     data_rho_theta: DataArray,
     flux_surfaces: FluxSurfaceCoordinates,
+    threshold_rho: DataArray = None,
     t_arr: DataArray = None,
 ):
     """Function to calculate an asymmetry parameter from a given density profile in
@@ -136,6 +144,12 @@ def asymmetry_from_rho_theta(
     )
 
     derived_asymmetry_parameter = np.abs(derived_asymmetry_parameter)
+
+    if threshold_rho is not None:
+        for ind_t, it in enumerate(threshold_rho.coords["t"]):
+            derived_asymmetry_parameter.loc[
+                threshold_rho[ind_t] :, it
+            ] = derived_asymmetry_parameter.loc[threshold_rho[ind_t], it]
 
     return derived_asymmetry_parameter
 
@@ -1028,7 +1042,7 @@ class ExtrapolateImpurityDensity(Operator):
 
         if asymmetry_parameter is None:
             asymmetry_parameter = asymmetry_from_R_z(
-                impurity_density_sxr, flux_surfaces, rho_arr, t_arr
+                impurity_density_sxr, flux_surfaces, rho_arr, threshold_rho, t_arr
             )
         else:
             input_check(

@@ -476,13 +476,16 @@ def gaussian_perturbation(gaussian_params):
     return sig
 
 
-def sxr_data_setup(input_data):
+def sxr_data_setup(input_data, sxr_truncation=True):
     """Set-up for soft-x-ray derived data.
 
     Parameters
     ----------
     input_data
         Output of input_data_setup().
+    sxr_truncation
+        Boolean to determine whether or not to assume constant asymmetry parameter
+        outside the soft x-ray valid range.
 
     Returns
     -------
@@ -553,6 +556,17 @@ def sxr_data_setup(input_data):
         toroidal_rotations.copy(deep=True), input_Ti, "d", "w", Zeff, input_Te
     )
     example_asymmetry = example_asymmetry.transpose("rho_poloidal", "t")
+
+    if sxr_truncation:
+        blank_extrapolate_obj = ExtrapolateImpurityDensity()
+
+        threshold_rho = blank_extrapolate_obj.recover_rho(
+            valid_truncation_threshold, input_Te
+        )
+
+        example_asymmetry.loc[threshold_rho[0] :, :] = example_asymmetry.loc[
+            threshold_rho[0], :
+        ]
 
     rho_derived, theta_derived = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
     rho_derived = abs(rho_derived)
@@ -681,7 +695,6 @@ def test_extrapolate_impurity_density_call():
             input_Te,
             valid_truncation_threshold,
             flux_surfs,
-            orig_asymmetry_param,
         )
     except Exception as e:
         raise e
@@ -881,7 +894,7 @@ def test_extrapolate_impurity_density_call():
 def test_asymmetry_from_profile():
     """Test for asymmetry_from_R_z() and asymmetry_from_rho_theta()."""
     initial_data = input_data_setup()
-    sxr_data = sxr_data_setup(initial_data)
+    sxr_data = sxr_data_setup(initial_data, False)
 
     input_Te = initial_data[1]
     input_Ti = initial_data[2]
@@ -897,14 +910,14 @@ def test_asymmetry_from_profile():
 
     try:
         asymmetry_from_R_z_ = asymmetry_from_R_z(
-            impurity_sxr_density_asym_Rz, flux_surfs, rho_arr, t_arr
+            impurity_sxr_density_asym_Rz, flux_surfs, rho_arr, t_arr=t_arr
         )
     except Exception as e:
         raise e
 
     try:
         asymmetry_from_rho_theta_ = asymmetry_from_rho_theta(
-            impurity_sxr_density_asym_rho_theta, flux_surfs, t_arr
+            impurity_sxr_density_asym_rho_theta, flux_surfs, t_arr=t_arr
         )
     except Exception as e:
         raise e
