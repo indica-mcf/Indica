@@ -20,9 +20,47 @@ from indica.operators.centrifugal_asymmetry import ToroidalRotation
 from indica.operators.extrapolate_impurity_density import asymmetry_from_R_z
 from indica.operators.extrapolate_impurity_density import asymmetry_from_rho_theta
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
+from indica.operators.extrapolate_impurity_density import recover_threshold_rho
 from indica.readers import ADASReader
 from .KB5_Bolometry_data import example_bolometry_LoS
 from ..test_equilibrium_single import equilibrium_dat_and_te
+
+
+class Recover_Threshold_Rho_Test_Case(TestCase):
+    """Test case for testing type and value errors in recover_threshold_rho()."""
+
+    def __init__(self, truncation_threshold, electron_temperature):
+        """Initialise the test case with a set of nominal inputs."""
+        self.truncation_threshold = truncation_threshold
+        self.electron_temperature = electron_temperature
+
+        self.nominal_inputs = [self.truncation_threshold, self.electron_temperature]
+
+    def type_check(self, truncation_threshold=None, electron_temperature=None):
+        """Test TypeError for recover_threshold_rho()."""
+        inputs = [truncation_threshold, electron_temperature]
+
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        (truncation_threshold, electron_temperature) = inputs
+
+        with self.assertRaises(TypeError):
+            recover_threshold_rho(*inputs)
+
+    def value_check(self, truncation_threshold=None, electron_temperature=None):
+        """Test ValueError for recover_threshold_rho()."""
+        inputs = [truncation_threshold, electron_temperature]
+
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        (truncation_threshold, electron_temperature) = inputs
+
+        with self.assertRaises(ValueError):
+            recover_threshold_rho(*inputs)
 
 
 class Exception_Impurity_Density_Test_Case(TestCase):
@@ -160,7 +198,7 @@ def invalid_input_checks(
         zero value for the input variable is checked.
     """
     if isinstance(test_case, Exception_Impurity_Density_Test_Case):
-        if not isinstance(nominal_input, Hashable):
+        if isinstance(nominal_input, Hashable):
             invalid_input = 1.0
             test_case.call_type_check(**{nominal_input_name: invalid_input})
         elif isinstance(nominal_input, get_args(LabeledArray)):
@@ -193,6 +231,37 @@ def invalid_input_checks(
             if isinstance(nominal_input, (np.ndarray, DataArray)):
                 invalid_input = deepcopy(nominal_input[0])  # type:ignore
                 test_case.call_value_check(**{nominal_input_name: invalid_input})
+    elif isinstance(test_case, Recover_Threshold_Rho_Test_Case):
+        if isinstance(nominal_input, get_args(LabeledArray)):
+            # Type ignore due to mypy complaining about redefinition of invalid_input
+
+            invalid_input = "test"  # type:ignore
+            test_case.type_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -1
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.inf
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -np.inf
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.nan
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            if zero_check:
+                invalid_input = deepcopy(nominal_input)  # type:ignore
+                invalid_input *= 0
+                test_case.value_check(**{nominal_input_name: invalid_input})
+
+            if isinstance(nominal_input, (np.ndarray, DataArray)):
+                invalid_input = deepcopy(nominal_input[0])  # type:ignore
+                test_case.value_check(**{nominal_input_name: invalid_input})
 
 
 def fractional_abundance_setup(
@@ -558,11 +627,7 @@ def sxr_data_setup(input_data, sxr_truncation=True):
     example_asymmetry = example_asymmetry.transpose("rho_poloidal", "t")
 
     if sxr_truncation:
-        blank_extrapolate_obj = ExtrapolateImpurityDensity()
-
-        threshold_rho = blank_extrapolate_obj.recover_rho(
-            valid_truncation_threshold, input_Te
-        )
+        threshold_rho = recover_threshold_rho(valid_truncation_threshold, input_Te)
 
         example_asymmetry.loc[threshold_rho[0] :, :] = example_asymmetry.loc[
             threshold_rho[0], :
@@ -962,4 +1027,36 @@ def test_asymmetry_from_profile():
     # not much that can be done about that.
     assert np.allclose(
         orig_toroidal_rotations[:-3, :], toroidal_rotation_results_R_z[:-3, :], rtol=0.1
+    )
+
+
+def test_recover_threshold_rho():
+    initial_data = input_data_setup()
+    valid_input_Te = initial_data[1]
+    valid_truncation_threshold = initial_data[7]
+
+    try:
+        threshold_rho = recover_threshold_rho(
+            valid_truncation_threshold, valid_input_Te
+        )
+    except Exception as e:
+        raise e
+
+    assert np.allclose(threshold_rho, 0.575)
+
+    example_recover_threshold_rho_test_case = Recover_Threshold_Rho_Test_Case(
+        valid_truncation_threshold, valid_input_Te
+    )
+
+    invalid_input_checks(
+        example_recover_threshold_rho_test_case,
+        "truncation_threshold",
+        valid_truncation_threshold,
+        True,
+    )
+    invalid_input_checks(
+        example_recover_threshold_rho_test_case,
+        "electron_temperature",
+        valid_input_Te,
+        True,
     )
