@@ -160,7 +160,7 @@ class ImpurityConcentration(Operator):
         x1_name = transform.x1_name
         x2_name = transform.x2_name
 
-        x1 = Zeff_LoS.attrs[x1_name]
+        x1 = Zeff_LoS.coords[x1_name]
         x2_arr = np.linspace(0, 1, 300)
         x2 = DataArray(data=x2_arr, dims=[x2_name])
 
@@ -177,6 +177,7 @@ class ImpurityConcentration(Operator):
                 rho = rho.drop_vars("t")
                 rho = rho.drop_vars("R")
                 rho = rho.drop_vars("z")
+                rho = rho.fillna(2.0)
 
         if set(["R", "z"]).issubset(set(list(impurity_densities.coords.keys()))):
             impurity_densities = impurity_densities.indica.interp2d(
