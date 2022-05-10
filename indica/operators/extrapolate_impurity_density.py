@@ -154,6 +154,62 @@ def asymmetry_from_rho_theta(
     return derived_asymmetry_parameter
 
 
+def recover_threshold_rho(truncation_threshold: float, electron_temperature: DataArray):
+    """Recover the rho value for a given electron temperature threshold, as in
+    at what rho location does the electron temperature drop below the specified
+    temperature.
+
+    Parameters
+    ----------
+    truncation_threshold
+        User-specified (float) temperature truncation threshold.
+    electron_temperature
+        xarray.DataArray of the electron temperature profile,
+        with dimensions (rho, t).
+
+    Returns
+    -------
+    threshold_rho
+        rho value beyond which the electron temperature falls below
+        the truncation_threshold.
+    """
+    input_check(
+        "truncation_threshold",
+        truncation_threshold,
+        float,
+        greater_than_or_equal_zero=False,
+    )
+
+    input_check(
+        "electron_temperature",
+        electron_temperature,
+        DataArray,
+        2,
+        greater_than_or_equal_zero=False,
+    )
+
+    try:
+        assert set(["rho_poloidal"]).issubset(
+            set(list(electron_temperature.coords.keys()))
+        )
+    except AssertionError:
+        raise AssertionError("Electron temperature must be a profile of rho.")
+
+    threshold_temp = electron_temperature.where(
+        (electron_temperature - truncation_threshold >= 0), drop=True
+    ).min("rho_poloidal")
+
+    threshold_rho_ind = electron_temperature.where(
+        electron_temperature >= threshold_temp, np.inf
+    ).argmin("rho_poloidal")
+
+    threshold_rho = electron_temperature.coords["rho_poloidal"].isel(
+        rho_poloidal=threshold_rho_ind
+    )
+
+    return threshold_rho
+
+
 class ExtrapolateImpurityDensity(Operator):
     """Extrapolate the impurity density beyond the limits of SXR (Soft X-ray)
 
@@ -237,49 +293,6 @@ class ExtrapolateImpurityDensity(Operator):
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
-
-    def recover_rho(self, truncation_threshold: float, electron_temperature: DataArray):
-        """Recover the rho value for a given electron temperature threshold, as in
-        at what rho location does the electron temperature drop below the specified
-        threshold.
-
-        Parameters
-        ----------
-        truncation_threshold
-            User-specified (float) temperature truncation threshold.
-        electron_temperature
-            xarray.DataArray of the electron temperature profile,
-            with dimensions (rho, t).
-
-        Returns
-        -------
-        threshold_rho
-            rho value beyond which the electron temperature falls below
-            the truncation_threshold.
-        """
-
-        try:
-            assert set(["rho_poloidal"]).issubset(
-                set(list(electron_temperature.coords.keys()))
-            )
-        except AssertionError:
-            raise AssertionError("Electron temperature must be a profile of rho.")
-
-        threshold_temp = electron_temperature.where(
-            (electron_temperature - truncation_threshold >= 0), drop=True
-        ).min("rho_poloidal")
-
-        threshold_rho_ind = electron_temperature.where(
-            electron_temperature >= threshold_temp, np.inf
-        ).argmin("rho_poloidal")
-
-        threshold_rho = electron_temperature.coords["rho_poloidal"].isel(
-            rho_poloidal=threshold_rho_ind
-        )
-
-        self.threshold_rho = threshold_rho
-
-        return threshold_rho
 
     def transform_to_rho_theta_reduced(
         self,
@@ -1007,7 +1020,9 @@ class ExtrapolateImpurityDensity(Operator):
         else:
             input_check("t", t, DataArray, greater_than_or_equal_zero=True)
 
-        threshold_rho = self.recover_rho(truncation_threshold, electron_temperature)
+        self.threshold_rho = recover_threshold_rho(
+            truncation_threshold, electron_temperature
+        )
 
         # Transform impurity_density_sxr to (rho, theta) coordinates
         rho_arr = electron_density.coords["rho_poloidal"]
@@ -1028,7 +1043,7 @@ class ExtrapolateImpurityDensity(Operator):
         # profile and mitigate discontinuity.
 
         extrapolated_impurity_density = self.basic_extrapolation(
-            impurity_density_sxr_rho_theta, electron_density, threshold_rho
+            impurity_density_sxr_rho_theta, electron_density, self.threshold_rho
         )
 
         assert np.all(np.logical_not(np.isnan(extrapolated_impurity_density)))
@@ -1042,7 +1057,7 @@ class ExtrapolateImpurityDensity(Operator):
 
         if asymmetry_parameter is None:
             asymmetry_parameter = asymmetry_from_R_z(
-                impurity_density_sxr, flux_surfaces, rho_arr, threshold_rho, t_arr
+                impurity_density_sxr, flux_surfaces, rho_arr, self.threshold_rho, t_arr
             )
         else:
             input_check(
