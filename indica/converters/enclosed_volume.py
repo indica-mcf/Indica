@@ -7,7 +7,6 @@ from typing import Optional
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from .flux_surfaces import FluxSurfaceCoordinates
-from ..numpy_typing import ArrayLike
 from ..numpy_typing import LabeledArray
 
 
@@ -73,7 +72,7 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
             return other.get_converter(self, True)
 
     def _convert_to_rho(
-        self, volume: ArrayLike, theta: ArrayLike, t: ArrayLike
+        self, volume: LabeledArray, theta: LabeledArray, t: LabeledArray
     ) -> Coordinates:
         """Convert from this coordinate system to a flux surface coordinate
         system.
@@ -100,7 +99,9 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
         )
         return rho, theta
 
-    def convert_to_Rz(self, x1: ArrayLike, x2: ArrayLike, t: ArrayLike) -> Coordinates:
+    def convert_to_Rz(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system.
 
         Parameters
@@ -123,7 +124,9 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
         rho, theta = self._convert_to_rho(x1, x2, t)
         return self.flux_transform.convert_to_Rz(rho, theta, t)
 
-    def convert_from_Rz(self, R: ArrayLike, z: ArrayLike, t: ArrayLike) -> Coordinates:
+    def convert_from_Rz(
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate.
 
         Parameters
