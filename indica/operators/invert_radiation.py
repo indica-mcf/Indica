@@ -163,7 +163,7 @@ class EmissivityProfile:
         )
         if R_0 is None:
             R_0 = cast(DataArray, self.transform.equilibrium.R_hfs(rho, t)[0])
-        result = symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))
+        result = symmetric * np.exp(asymmetric * (R**2 - R_0**2))
         # Ensure round-off error doesn't result in any values below 0
         return where(result < 0.0, 0.0, result).fillna(0.0)
 
@@ -240,34 +240,32 @@ class InvertRadiation(Operator):
 
         """
         radiation = cast(DataType, self.ARGUMENT_TYPES[-1])[1]
-        result = (
-            cast(
-                Tuple[DataType, ...],
+        result = cast(
+            Tuple[DataType, ...],
+            (
+                ("emissivity", radiation),
                 (
-                    ("emissivity", radiation),
-                    (
-                        radiation,
-                        {
-                            "symmetric_emissivity": "emissivity",
-                            "asymmetry_parameter": "asymmetry",
-                        },
-                    ),
+                    radiation,
+                    {
+                        "symmetric_emissivity": "emissivity",
+                        "asymmetry_parameter": "asymmetry",
+                    },
                 ),
-            )
-            + cast(
-                Tuple[DataType, ...],
+            ),
+        ) + cast(
+            Tuple[DataType, ...],
+            (
                 (
-                    (
-                        radiation,
-                        {
-                            "camera": "luminous_flux",
-                            "weights": "weighting",
-                            "back_integral": "luminous_flux",
-                        },
-                    ),
+                    radiation,
+                    {
+                        "camera": "luminous_flux",
+                        "weights": "weighting",
+                        "back_integral": "luminous_flux",
+                    },
                 ),
-            )
-            * (len(args) - 3)
+            ),
+        ) * (
+            len(args) - 3
         )
         return result
 
@@ -472,8 +470,8 @@ class InvertRadiation(Operator):
             integral.append(concat(data, dim=times))
             del integral[-1].coords[None]  # type: ignore
         # For some reason concat adds a `None` coordinate
-        del symmetric_emissivity.coords[None]
-        del asymmetry_parameter.coords[None]
+        del symmetric_emissivity.coords[None]  # type: ignore
+        del asymmetry_parameter.coords[None]  # type: ignore
         estimate = EmissivityProfile(
             symmetric_emissivity, asymmetry_parameter, flux_coords
         )

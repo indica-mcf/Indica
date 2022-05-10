@@ -347,11 +347,11 @@ class ADASReader(BaseIO):
         coords = [
             ("index", tindex),
             ("electron_temperature", temperatures),  # eV
-            ("electron_density", densities * 10 ** 6),  # m**-3
+            ("electron_density", densities * 10**6),  # m**-3
         ]
 
         pecs = DataArray(
-            data * 10 ** -6,
+            data * 10**-6,
             coords=coords,
             name=name,
             attrs=attrs,

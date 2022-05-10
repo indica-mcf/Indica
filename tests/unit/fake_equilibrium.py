@@ -118,7 +118,7 @@ class FakeEquilibrium(Equilibrium):
         b = self.parameters[kind + "_b"]
         n = self.parameters[kind + "_n"]
         alpha = self.parameters[kind + "_alpha"]
-        vol = 2 * np.pi ** 2 * a * b * rho ** (2 * n) * (1 + alpha * t) ** 2 * rmag
+        vol = 2 * np.pi**2 * a * b * rho ** (2 * n) * (1 + alpha * t) ** 2 * rmag
 
         # blank area variable to return so that tests pass
         area = 0
@@ -136,7 +136,7 @@ class FakeEquilibrium(Equilibrium):
         b = self.parameters[kind + "_b"]
         n = self.parameters[kind + "_n"]
         alpha = self.parameters[kind + "_alpha"]
-        rho = (vol / (2 * np.pi ** 2 * a * b * (1 + alpha * t) ** 2 * rmag)) ** (
+        rho = (vol / (2 * np.pi**2 * a * b * (1 + alpha * t) ** 2 * rmag)) ** (
             0.5 / n
         )
         return rho, t

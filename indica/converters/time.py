@@ -132,7 +132,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         )
         uncertainty = np.sqrt(
             grouped.reduce(
-                lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
+                lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
             )
         )
         averaged.attrs["error"] = uncertainty.rename(t_bins="t")
@@ -153,7 +153,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             )
             uncertainty = np.sqrt(
                 grouped.reduce(
-                    lambda x, axis: np.sum(x ** 2, axis) / np.size(x, axis) ** 2, "t"
+                    lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
                 )
             )
             averaged.attrs["dropped"].attrs["error"] = uncertainty.rename(t_bins="t")
