@@ -41,6 +41,11 @@ def asymmetry_from_R_z(
         using flux surfaces for the radial coordinate.
     rho_arr
         1D xarray.DataArray of rho from 0 to 1.
+    threshold_rho
+        rho value denoting the cutoff point beyond which soft x-ray diagnostics
+        are invalid. It's also used in setting the derived asymmetry parameter to be
+        flat in the invalid region.
+        xarray.DataArray with dimensions (t)
     t_arr
         1D xarray.DataArray of t.
 
@@ -49,8 +54,23 @@ def asymmetry_from_R_z(
     derived_asymmetry_parameter
         Derived asymmetry parameter. xarray.DataArray with dimensions (rho, t)
     """
-    theta_arr = np.array([0.0, np.pi])
-    theta_arr = DataArray(data=theta_arr, coords={"theta": theta_arr}, dims=["theta"])
+
+    input_check("data_R_z", data_R_z, DataArray, 3, True)
+
+    input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
+
+    input_check("rho_arr", rho_arr, DataArray, 1, True)
+
+    if threshold_rho is not None:
+        input_check("threshold_rho", threshold_rho, DataArray, 1, True)
+
+    if t_arr is None:
+        t_arr = data_R_z.coords["t"]
+    else:
+        input_check("t_arr", t_arr, DataArray, 1, True)
+
+    theta_arr_ = np.array([0.0, np.pi])
+    theta_arr = DataArray(data=theta_arr_, coords={"theta": theta_arr_}, dims=["theta"])
 
     R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
     R_deriv = cast(DataArray, R_deriv).interp(t=t_arr, method="linear")
@@ -84,7 +104,7 @@ def asymmetry_from_R_z(
     if threshold_rho is not None:
         for ind_t, it in enumerate(threshold_rho.coords["t"]):
             derived_asymmetry_parameter.loc[
-                threshold_rho[ind_t] :, it
+                threshold_rho[ind_t] :, it  # type:ignore
             ] = derived_asymmetry_parameter.loc[threshold_rho[ind_t], it]
 
     return derived_asymmetry_parameter
@@ -107,6 +127,11 @@ def asymmetry_from_rho_theta(
     flux_surfaces
         FluxSurfaceCoordinates object representing polar coordinate systems
         using flux surfaces for the radial coordinate.
+    threshold_rho
+        rho value denoting the cutoff point beyond which soft x-ray diagnostics
+        are invalid. It's also used in setting the derived asymmetry parameter to be
+        flat in the invalid region.
+        xarray.DataArray with dimensions (t)
     t_arr
         1D xarray.DataArray of t.
 
@@ -115,9 +140,22 @@ def asymmetry_from_rho_theta(
     derived_asymmetry_parameter
         Derived asymmetry parameter. xarray.DataArray with dimensions (rho, t)
     """
+
+    input_check("data_rho_theta", data_rho_theta, DataArray, 3, True)
+
+    input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
+
+    if threshold_rho is not None:
+        input_check("threshold_rho", threshold_rho, DataArray, 1, True)
+
+    if t_arr is None:
+        t_arr = data_rho_theta.coords["t"]
+    else:
+        input_check("t_arr", t_arr, DataArray, 1, True)
+
     rho_arr = data_rho_theta.coords["rho_poloidal"]
-    theta_arr = np.array([0.0, np.pi])
-    theta_arr = DataArray(data=theta_arr, coords={"theta": theta_arr}, dims=["theta"])
+    theta_arr_ = np.array([0.0, np.pi])
+    theta_arr = DataArray(data=theta_arr_, coords={"theta": theta_arr_}, dims=["theta"])
 
     R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
 
@@ -148,7 +186,7 @@ def asymmetry_from_rho_theta(
     if threshold_rho is not None:
         for ind_t, it in enumerate(threshold_rho.coords["t"]):
             derived_asymmetry_parameter.loc[
-                threshold_rho[ind_t] :, it
+                threshold_rho[ind_t] :, it  # type:ignore
             ] = derived_asymmetry_parameter.loc[threshold_rho[ind_t], it]
 
     return derived_asymmetry_parameter
@@ -236,10 +274,6 @@ class ExtrapolateImpurityDensity(Operator):
 
     Methods
     -------
-    recover_rho(truncation_threshold, electron_temperature)
-        Recover the rho value for a given electron temperature threshold, as in
-        at what rho location does the electron temperature drop below the specified
-        threshold.
     transform_to_rho_theta_reduced(data_R_z, flux_surfaces, rho_arr, t_arr)
         Function to transform data from an (R, z) grid to a (rho, theta) grid.
     basic_extrapolation(data_rho_theta, electron_density, threshold_rho)
