@@ -7,11 +7,10 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica import equilibrium
-from indica.converters import flux_surfaces
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
+from ..operators.KB5_Bolometry_data import example_bolometry_LoS
 
 
 def default_inputs():
@@ -25,105 +24,91 @@ def default_inputs():
 
 
 def load_los_default():
-    # Line of sight origin tuple
-    origin = (3.8, -2.0, 0.5)  # [xyz]
-
-    # Line of sight direction
-    direction = (-1.0, 0.0, 0.0)  # [xyz]
-
     # machine dimensions
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
 
-    # name
-    name = "los_test"
+    LoS = []
 
-    # Set-up line of sight class
-    los = line_of_sight.LinesOfSightTransform(
-        origin[0],
-        origin[1],
-        origin[2],
-        direction[0],
-        direction[1],
-        direction[2],
-        machine_dimensions=machine_dims,
-        name=name,
-    )
+    for ind, iLoS in enumerate(example_bolometry_LoS):
+        length = np.linalg.norm(
+            [iLoS[3] - iLoS[0], iLoS[5] - iLoS[2], iLoS[4] - iLoS[1]]
+        )
+        new_LoS_data = [
+            iLoS[0][0],
+            iLoS[2][0],
+            iLoS[1][0],
+            (iLoS[3][0] - iLoS[0][0]) / length,
+            (iLoS[5][0] - iLoS[2][0]) / length,
+            (iLoS[4][0] - iLoS[1][0]) / length,
+            iLoS[6],
+        ]
 
-    return los, machine_dims
+        LoS.append(line_of_sight.LinesOfSightTransform(*new_LoS_data))
+
+    return LoS, machine_dims
 
 
-def convert_to_rho(plot=False):
-    # Load line-of-sight default
+def test_initialization():
+    """Test initialization of the LinesOfSightTransform to ensure the
+    start and end points of the Line-of-Sight are calculated correctly.
+    """
     los, machine_dims = load_los_default()
 
-    # Equilibrium
-    # data, Te = equilibrium_dat_and_te()
-    data = equilibrium_dat()
-    Te = None
-    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
-    equil = equilibrium.Equilibrium(
-        data,
-        Te,
-        sess=MagicMock(),
-        offset_picker=offset,
-    )
+    for ind, iLoS in enumerate(los):
+        legacy_iLoS = example_bolometry_LoS[ind]
+        assert np.all(
+            [iLoS.x_start.data[()], iLoS.z_start.data[()], iLoS.y_start.data[()]]
+            == [i for i in legacy_iLoS[0:3]]
+        )
 
-    # Flux Transform
-    flux_coord = flux_surfaces.FluxSurfaceCoordinates("poloidal")
-    flux_coord.set_equilibrium(equil)
-
-    # Assign flux transform
-    los.assign_flux_transform(flux_coord)
-
-    # Convert_to_rho method
-    los.convert_to_rho(t=77.0)
-
-    if plot:
-        # centre column
-        th = np.linspace(0.0, 2 * np.pi, 1000)
-        x_cc = machine_dims[0][0] * np.cos(th)
-        y_cc = machine_dims[0][0] * np.sin(th)
-
-        # IVC
-        x_ivc = machine_dims[0][1] * np.cos(th)
-        y_ivc = machine_dims[0][1] * np.sin(th)
-
-        plt.figure()
-        plt.plot(los.x2, los.rho[0], "b")
-        plt.ylabel("rho")
-
-        plt.figure()
-        plt.plot(x_cc, y_cc, "k--")
-        plt.plot(x_ivc, y_ivc, "k--")
-        plt.plot(los.x_start, los.y_start, "ro", label="start")
-        plt.plot(los.x_end, los.y_end, "bo", label="end")
-        plt.plot(los.x, los.y, "g", label="los")
-        plt.legend()
-        plt.xlabel("x (m)")
-        plt.ylabel("y (m)")
-        plt.show(block=True)
+        assert iLoS.R[-1] < machine_dims[0][1] or np.isclose(
+            iLoS.R[-1], machine_dims[0][1]
+        )
+        assert iLoS.R[-1] > machine_dims[0][0] or np.isclose(
+            iLoS.R[-1], machine_dims[0][0]
+        )
+        assert iLoS.z_end < machine_dims[1][1] or np.isclose(
+            iLoS.z_end, machine_dims[1][1]
+        )
+        assert iLoS.z_end > machine_dims[1][0] or np.isclose(
+            iLoS.z_end, machine_dims[1][0]
+        )
 
 
-# Test convert_to_xyz method
-def test_convert_to_xyz(debug=False):
+# Test convert_to_xy method
+def test_convert_to_xy(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
     x1, x2, t = default_inputs()
 
     # Test method
-    x, y, z = los.convert_to_xyz(x1, x2, t)
+    for ind, iLoS in enumerate(los):
+        x, y = iLoS.convert_to_xy(x1, x2, t)
+        _, z = iLoS.convert_to_Rz(x1, x2, t)
 
-    assert np.all(x.values <= np.max([los.x_start, los.x_end]))
-    assert np.all(x >= np.min([los.x_start, los.x_end]))
-    assert np.all(y <= np.max([los.y_start, los.y_end]))
-    assert np.all(y >= np.min([los.y_start, los.y_end]))
-    assert np.all(z <= np.max([los.z_start, los.z_end]))
-    assert np.all(z >= np.min([los.z_start, los.z_end]))
+        assert np.max(x) <= np.max([iLoS.x_start, iLoS.x_end]) or np.isclose(
+            np.max(x), np.max([iLoS.x_start, iLoS.x_end])
+        )
+        assert np.min(x) >= np.min([iLoS.x_start, iLoS.x_end]) or np.isclose(
+            np.min(x), np.min([iLoS.x_start, iLoS.x_end])
+        )
+        assert np.max(y) <= np.max([iLoS.y_start, iLoS.y_end]) or np.isclose(
+            np.max(y), np.max([iLoS.y_start, iLoS.y_end])
+        )
+        assert np.min(y) >= np.min([iLoS.y_start, iLoS.y_end]) or np.isclose(
+            np.min(y), np.min([iLoS.y_start, iLoS.y_end])
+        )
+        assert np.max(z) <= np.max([iLoS.z_start, iLoS.z_end]) or np.isclose(
+            np.max(z), np.max([iLoS.z_start, iLoS.z_end])
+        )
+        assert np.min(z) >= np.min([iLoS.z_start, iLoS.z_end]) or np.isclose(
+            np.min(z), np.min([iLoS.z_start, iLoS.z_end])
+        )
 
-    if debug:
-        print(f"x = {x}")
-        print(f"y = {y}")
-        print(f"z = {z}")
+        if debug:
+            print(f"x = {x}")
+            print(f"y = {y}")
+            print(f"z = {z}")
 
 
 # Test convert_to_Rz method
@@ -133,18 +118,17 @@ def test_convert_to_Rz(debug=False):
     x1, x2, t = default_inputs()
 
     # Test method
-    R_, z_ = los.convert_to_Rz(x1, x2, t)
+    for ind, iLoS in enumerate(los):
+        R_, z_ = iLoS.convert_to_Rz(x1, x2, t)
 
-    x, y, z = los.convert_to_xyz(x1, x2, t)
-    R = np.sign(x) * np.sqrt(x**2 + y**2)
+        x, y = iLoS.convert_to_xy(x1, x2, t)
+        R = np.sqrt(x**2 + y**2)
 
-    # R and z are as expected
-    assert all(z == z_)
-    assert all(R == R_)
+        # R and z are as expected=
+        assert np.allclose(R, R_)
 
-    if debug:
-        print(f"R = {R}")
-        print(f"z = {z}")
+        if debug:
+            print(f"R = {R}")
 
 
 # Test convert_from_Rz method
@@ -152,20 +136,22 @@ def test_convert_from_Rz(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
 
-    # Test inputs
-    R_test = DataArray(2.5)  # Does not work as an array
-    Z_test = DataArray(0.5)  # Does not work as an array
-    t = 0.0
+    # Test input
+    x1, x2, t = default_inputs()
 
     # Test method
-    _, x2_out = los.convert_from_Rz(R_test, Z_test, t)
+    for ind, iLoS in enumerate(los):
+        print(iLoS.name)
+        R_test, Z_test = iLoS.convert_to_Rz(x1, x2, t)
+        _, x2_out = iLoS.convert_from_Rz(R_test[2], Z_test[2], t)
 
-    # x2 is within specified range
-    assert x2_out <= 1 and x2_out >= 0
+        # x2 is within specified range
+        assert (x2_out < 1 or np.isclose(x2_out, 1)) and (
+            x2_out > 0 or np.isclose(x2_out, 0)
+        )
 
-    if debug:
-        print(f"x2_out2 = {x2_out}")
-    return
+        if debug:
+            print(f"x2_out2 = {x2_out}")
 
 
 # Test distance method
@@ -175,15 +161,15 @@ def test_distance(debug=False):
     x1, x2, t = default_inputs()
 
     # Test method
-    dist = los.distance("dim_0", x1, x2, t)
-    dls = [dist[i + 1] - dist[i] for i in range(len(dist) - 1)]
+    for ind, iLoS in enumerate(los):
+        dist = iLoS.distance("dim_0", x1, x2, t)
+        dls = [dist[i + 1] - dist[i] for i in range(len(dist) - 1)]
 
-    # dl is identical along the line of sight up to 1 per million
-    assert all(np.abs(dls - dls[0]) < (dls[0] * 1.0e-6))
+        # dl is identical along the line of sight up to 1 per million
+        assert all(np.abs(dls - dls[0]) < (dls[0] * 1.0e-6))
 
-    if debug:
-        print(f"dist = {dist}")
-    return
+        if debug:
+            print(f"dist = {dist}")
 
 
 # Test distance method
@@ -195,13 +181,14 @@ def test_set_dl(debug=False):
     dl = 0.002
 
     # Test method
-    x2, dl_out = los.set_dl(dl)
+    for ind, iLoS in enumerate(los):
+        x2, dl_out = iLoS.set_dl(dl)
 
-    assert np.abs(dl - dl_out) < 1.0e-6
+        assert np.isclose(dl, dl_out, rtol=1e-2)
 
-    if debug:
-        print(f"x2 = {x2}")
-        print(f"dl_out = {dl_out}")
+        if debug:
+            print(f"x2 = {x2}")
+            print(f"dl_out = {dl_out}")
     return
 
 
@@ -264,6 +251,78 @@ def test_missing_los():
     except ValueError:
         # Value Error since the LOS does not intersect with machine dimensions
         print("LOS initialisation failed with ValueError as expected")
+
+
+# Test LOS behaviour
+def plot_los_vertical(plot=False):
+
+    # line-of-sight dimensions
+    origin = (3.3276, 0.0, 1.6921)
+    direction = (0.15044, 0.0, -0.98862)
+    # origin = (3.8, -2.0, 0.5)  # [xyz]
+    # direction = (-1.0, 0.0, -0.1)
+    name = "testLos"
+    dl = 0.01
+
+    # machine dimensions
+    machine_dims = ((1.83, 3.9), (-1.75, 2.0))
+
+    # line of sight transform
+    los = line_of_sight.LinesOfSightTransform(
+        origin[0],
+        origin[1],
+        origin[2],
+        direction[0],
+        direction[1],
+        direction[2],
+        machine_dimensions=machine_dims,
+        name=name,
+        dl=dl,
+    )
+
+    if plot:
+        print(f"x_start --> {los.x_start.data}")
+        print(f"y_start --> {los.y_start.data}")
+        print(f"z_start --> {los.z_start.data}")
+        print(f"x_end   --> {los.x_end.data}")
+        print(f"y_end   --> {los.y_end.data}")
+        print(f"z_end   --> {los.z_end.data}")
+
+        # centre column
+        th = np.linspace(0.0, 2 * np.pi, 1000)
+        x_cc = machine_dims[0][0] * np.cos(th)
+        y_cc = machine_dims[0][0] * np.sin(th)
+
+        # IVC
+        x_ivc = machine_dims[0][1] * np.cos(th)
+        y_ivc = machine_dims[0][1] * np.sin(th)
+
+        plt.figure()
+        # plt.plot(los.x_start, los.y_start, "ro", label="start")
+        # plt.plot(los.x_end, los.y_end, "bo", label="end")
+        plt.subplot(411)
+        plt.plot(los.x, "g", label="los")
+        plt.ylabel("X (m)")
+        plt.subplot(412)
+        plt.plot(los.y, "g", label="los")
+        plt.ylabel("Y (m)")
+        plt.subplot(413)
+        plt.plot(los.z, "g", label="los")
+        plt.ylabel("Z (m)")
+        plt.subplot(414)
+        plt.plot(los.R, "g", label="los")
+        plt.ylabel("R (m)")
+
+        plt.figure()
+        plt.plot(x_cc, y_cc, "k--")
+        plt.plot(x_ivc, y_ivc, "k--")
+        plt.plot(los.x_start, los.y_start, "ro", label="start")
+        plt.plot(los.x_end, los.y_end, "bo", label="end")
+        plt.plot(los.x, los.y, "g", label="los")
+        plt.legend()
+        plt.xlabel("x (m)")
+        plt.ylabel("y (m)")
+        plt.show(block=True)
 
 
 # Function for defining equilibrium

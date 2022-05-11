@@ -1,5 +1,6 @@
-"""`"Custom accessors"
-<http://xarray.pydata.org/en/stable/internals.html#extending-xarray>`_,
+"""
+`"Custom accessors"
+<https://xarray.pydata.org/en/stable/internals/extending-xarray.html>`_,
 are defined to provide additional functionality to
 :py:class:`xarray.DataArray` and :py:class:`xarray.Dataset`
 objects. These accessors group methods under the namespace
