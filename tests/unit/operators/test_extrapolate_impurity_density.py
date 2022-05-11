@@ -63,6 +63,105 @@ class Recover_Threshold_Rho_Test_Case(TestCase):
             recover_threshold_rho(*inputs)
 
 
+class Asymmetry_From_R_z_Test_Case(TestCase):
+    """Test case for testing type and value errors in asymmetry_from_R_z()."""
+
+    def __init__(self, data_R_z, flux_surfaces, rho_arr, threshold_rho, t_arr):
+        """Initialise the test case with a set of nominal inputs."""
+        self.data_R_z = data_R_z
+        self.flux_surfaces = flux_surfaces
+        self.rho_arr = rho_arr
+        self.threshold_rho = threshold_rho
+        self.t_arr = t_arr
+
+        self.nominal_inputs = [
+            self.data_R_z,
+            self.flux_surfaces,
+            self.rho_arr,
+            self.threshold_rho,
+            self.t_arr,
+        ]
+
+    def type_check(
+        self,
+        data_R_z=None,
+        flux_surfaces=None,
+        rho_arr=None,
+        threshold_rho=None,
+        t_arr=None,
+    ):
+        """Test TypeError for asymmetry_from_R_z()."""
+        inputs = [data_R_z, flux_surfaces, rho_arr, threshold_rho, t_arr]
+
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        (data_R_z, flux_surfaces, rho_arr, threshold_rho, t_arr) = inputs
+
+        with self.assertRaises(TypeError):
+            recover_threshold_rho(*inputs)
+
+    def value_check(self, data_R_z, flux_surfaces, rho_arr, threshold_rho, t_arr):
+        """Test ValueError for asymmetry_from_R_z()."""
+        inputs = [data_R_z, flux_surfaces, rho_arr, threshold_rho, t_arr]
+
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        (data_R_z, flux_surfaces, rho_arr, threshold_rho, t_arr) = inputs
+
+        with self.assertRaises(ValueError):
+            recover_threshold_rho(*inputs)
+
+
+class Asymmetry_From_Rho_Theta_Test_Case(TestCase):
+    """Test case for testing type and value errors in asymmetry_from_rho_theta()."""
+
+    def __init__(self, data_rho_theta, flux_surfaces, threshold_rho, t_arr):
+        """Initialise the test case with a set of nominal inputs."""
+        self.data_rho_theta = data_rho_theta
+        self.flux_surfaces = flux_surfaces
+        self.threshold_rho = threshold_rho
+        self.t_arr = t_arr
+
+        self.nominal_inputs = [
+            self.data_rho_theta,
+            self.flux_surfaces,
+            self.threshold_rho,
+            self.t_arr,
+        ]
+
+    def type_check(
+        self, data_rho_theta=None, flux_surfaces=None, threshold_rho=None, t_arr=None
+    ):
+        """Test TypeError for asymmetry_from_rho_theta()."""
+        inputs = [data_rho_theta, flux_surfaces, threshold_rho, t_arr]
+
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        (data_rho_theta, flux_surfaces, threshold_rho, t_arr) = inputs
+
+        with self.assertRaises(TypeError):
+            recover_threshold_rho(*inputs)
+
+    def value_check(self, data_rho_theta, flux_surfaces, threshold_rho, t_arr):
+        """Test ValueError for asymmetry_from_rho_theta()."""
+        inputs = [data_rho_theta, flux_surfaces, threshold_rho, t_arr]
+
+        for i, iinput in enumerate(inputs):
+            if iinput is None:
+                inputs[i] = self.nominal_inputs[i]
+
+        (data_rho_theta, flux_surfaces, threshold_rho, t_arr) = inputs
+
+        with self.assertRaises(ValueError):
+            recover_threshold_rho(*inputs)
+
+
 class Exception_Impurity_Density_Test_Case(TestCase):
     """Test case for testing type and value errors in ExtrapolateImpurityDensity
     call.
@@ -176,7 +275,7 @@ class Exception_Impurity_Density_Test_Case(TestCase):
             example_(*inputs)
 
 
-def invalid_input_checks(
+def invalid_input_checks_extrapolate_impurity_density(
     test_case: TestCase,
     nominal_input_name: str,
     nominal_input,
@@ -198,7 +297,7 @@ def invalid_input_checks(
         zero value for the input variable is checked.
     """
     if isinstance(test_case, Exception_Impurity_Density_Test_Case):
-        if isinstance(nominal_input, Hashable):
+        if not isinstance(nominal_input, Hashable):
             invalid_input = 1.0
             test_case.call_type_check(**{nominal_input_name: invalid_input})
         elif isinstance(nominal_input, get_args(LabeledArray)):
@@ -231,8 +330,101 @@ def invalid_input_checks(
             if isinstance(nominal_input, (np.ndarray, DataArray)):
                 invalid_input = deepcopy(nominal_input[0])  # type:ignore
                 test_case.call_value_check(**{nominal_input_name: invalid_input})
-    elif isinstance(test_case, Recover_Threshold_Rho_Test_Case):
+
+
+def invalid_input_checks(
+    test_case: TestCase,
+    nominal_input_name: str,
+    nominal_input,
+    zero_check: bool = False,
+):
+    """Tests that the test_case correctly identifies invalid inputs.
+    (Same as invalid_input_checks_extrapolate_impurity_density but two functions are
+    split to satisfy complexity requirements from Flake8.)
+
+    Parameters
+    ----------
+    test_case
+        Object of type TestCase that should contain the relevant check functions.
+    nominal_input_name
+        String signifying the internal name of the input variable
+        (needed for error messages in case the check functions fail.)
+    nominal_input
+        Nominal value of the input variable.
+    zero_check
+        Optional boolean signifying whether or not to perform a check where a
+        zero value for the input variable is checked.
+    """
+    if isinstance(test_case, Recover_Threshold_Rho_Test_Case):
         if isinstance(nominal_input, get_args(LabeledArray)):
+            # Type ignore due to mypy complaining about redefinition of invalid_input
+
+            invalid_input = "test"  # type:ignore
+            test_case.type_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -1
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.inf
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -np.inf
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.nan
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            if zero_check:
+                invalid_input = deepcopy(nominal_input)  # type:ignore
+                invalid_input *= 0
+                test_case.value_check(**{nominal_input_name: invalid_input})
+
+            if isinstance(nominal_input, (np.ndarray, DataArray)):
+                invalid_input = deepcopy(nominal_input[0])  # type:ignore
+                test_case.value_check(**{nominal_input_name: invalid_input})
+    elif isinstance(test_case, Asymmetry_From_R_z_Test_Case):
+        if not isinstance(nominal_input, Hashable):
+            invalid_input = 1.0  # type:ignore
+            test_case.type_check(**{nominal_input_name: invalid_input})
+        elif isinstance(nominal_input, get_args(LabeledArray)):
+            # Type ignore due to mypy complaining about redefinition of invalid_input
+
+            invalid_input = "test"  # type:ignore
+            test_case.type_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -1
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.inf
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= -np.inf
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            invalid_input = deepcopy(nominal_input)  # type:ignore
+            invalid_input *= np.nan
+            test_case.value_check(**{nominal_input_name: invalid_input})
+
+            if zero_check:
+                invalid_input = deepcopy(nominal_input)  # type:ignore
+                invalid_input *= 0
+                test_case.value_check(**{nominal_input_name: invalid_input})
+
+            if isinstance(nominal_input, (np.ndarray, DataArray)):
+                invalid_input = deepcopy(nominal_input[0])  # type:ignore
+                test_case.value_check(**{nominal_input_name: invalid_input})
+    elif isinstance(test_case, Asymmetry_From_Rho_Theta_Test_Case):
+        if not isinstance(nominal_input, Hashable):
+            invalid_input = 1.0  # type:ignore
+            test_case.type_check(**{nominal_input_name: invalid_input})
+        elif isinstance(nominal_input, get_args(LabeledArray)):
             # Type ignore due to mypy complaining about redefinition of invalid_input
 
             invalid_input = "test"  # type:ignore
@@ -922,7 +1114,7 @@ def test_extrapolate_impurity_density_call():
 
     # Invalid SXR derived density checks
 
-    invalid_input_checks(
+    invalid_input_checks_extrapolate_impurity_density(
         example_extrapolate_test_case,
         "impurity_density_sxr",
         impurity_sxr_density_asym_Rz,
@@ -930,30 +1122,36 @@ def test_extrapolate_impurity_density_call():
 
     # Invalid electron density checks
 
-    invalid_input_checks(example_extrapolate_test_case, "electron_density", input_Ne)
+    invalid_input_checks_extrapolate_impurity_density(
+        example_extrapolate_test_case, "electron_density", input_Ne
+    )
 
     # Invalid electron temperature checks
 
-    invalid_input_checks(
+    invalid_input_checks_extrapolate_impurity_density(
         example_extrapolate_test_case, "electron_temperature", input_Te, zero_check=True
     )
 
     # Invalid truncation threshold check
 
-    invalid_input_checks(
+    invalid_input_checks_extrapolate_impurity_density(
         example_extrapolate_test_case,
         "truncation_threshold",
         valid_truncation_threshold,
         zero_check=True,
     )
 
-    invalid_input_checks(example_extrapolate_test_case, "flux_surfaces", flux_surfs)
+    invalid_input_checks_extrapolate_impurity_density(
+        example_extrapolate_test_case, "flux_surfaces", flux_surfs
+    )
 
-    invalid_input_checks(
+    invalid_input_checks_extrapolate_impurity_density(
         example_extrapolate_test_case, "asymmetry_parameter", orig_asymmetry_param
     )
 
-    invalid_input_checks(example_extrapolate_test_case, "t", t)
+    invalid_input_checks_extrapolate_impurity_density(
+        example_extrapolate_test_case, "t", t
+    )
 
 
 def test_asymmetry_from_profile():
@@ -1027,6 +1225,77 @@ def test_asymmetry_from_profile():
     # not much that can be done about that.
     assert np.allclose(
         orig_toroidal_rotations[:-3, :], toroidal_rotation_results_R_z[:-3, :], rtol=0.1
+    )
+
+    valid_truncation_threshold = initial_data[7]
+
+    valid_threshold_rho = recover_threshold_rho(valid_truncation_threshold, input_Te)
+
+    example_asymmetry_from_R_z_test_case = Asymmetry_From_R_z_Test_Case(
+        impurity_sxr_density_asym_Rz,
+        flux_surfs,
+        rho_arr,
+        valid_threshold_rho,
+        t_arr=t_arr,
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_R_z_test_case,
+        "data_R_z",
+        impurity_sxr_density_asym_Rz,
+        False,
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_R_z_test_case,
+        "flux_surfaces",
+        flux_surfs,
+        False,
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_R_z_test_case, "rho_arr", rho_arr, False
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_R_z_test_case,
+        "threshold_rho",
+        valid_threshold_rho,
+        False,
+    )
+
+    invalid_input_checks(example_asymmetry_from_R_z_test_case, "t_arr", t_arr, False)
+
+    example_asymmetry_from_rho_theta_test_case = Asymmetry_From_Rho_Theta_Test_Case(
+        impurity_sxr_density_asym_rho_theta,
+        flux_surfs,
+        valid_threshold_rho,
+        t_arr=t_arr,
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_rho_theta_test_case,
+        "data_rho_theta",
+        impurity_sxr_density_asym_rho_theta,
+        False,
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_rho_theta_test_case,
+        "flux_surfaces",
+        flux_surfs,
+        False,
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_rho_theta_test_case,
+        "threshold_rho",
+        valid_threshold_rho,
+        False,
+    )
+
+    invalid_input_checks(
+        example_asymmetry_from_rho_theta_test_case, "t_arr", t_arr, False
     )
 
 
