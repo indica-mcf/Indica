@@ -24,17 +24,13 @@ class ToroidalRotation(Operator):
     toroidal_rotation
         xarray.DataArray containing toroidal rotation for a given impurity element
 
-    Methods
-    -------
-    __call__(
-        asymmetry_parameters,
-        ion_temperature,
-        main_ion,
-        impurity,
-        Zeff,
-        electron_temp,
-    )
-        Calculates the toroidal_rotation from the asymmetry_parameter.
+    Attributes
+    ----------
+    ARGUMENT_TYPES: List[DataType]
+        Ordered list of the types of data expected for each argument of the
+        operator.
+    RESULT_TYPES: List[DataType]
+        Ordered list of the types of data returned by the operator.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
@@ -166,17 +162,6 @@ class AsymmetryParameter(Operator):
     asymmetry_parameter
         xarray.DataArray containing asymmetry_parameter for a given impurity element
 
-    Methods
-    -------
-    __call__(
-        toroidal_rotation,
-        ion_temperature,
-        main_ion,
-        impurity,
-        Zeff,
-        electron_temp,
-    )
-        Calculates the asymmetry parameter from the toroidal rotation.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []

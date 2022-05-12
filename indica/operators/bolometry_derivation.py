@@ -54,21 +54,6 @@ class BolometryDerivation(Operator):
         Density profile for the main ion,
         xarray.DataArray with dimensions (rho, theta, t)
 
-    Methods
-    -------
-    __bolometry_coord_transforms()
-        Transform the bolometry coords from LoS to (rho, theta) and (R, z).
-    __bolometry_setup()
-        Calculating main ion density for the bolometry derivation.
-    __bolometry_channel_filter()
-        Filters the bolometry data to reduce the number of channels by eliminating
-        channels that are too close together.
-    __bolometry_derivation(trim, t_val)
-        Derive bolometry including the extrapolated smoothed impurity density.
-    __call__(deriv_only, trim, t_val)
-        Varying workflow to derive bolometry from plasma quantities.
-        (Varying as in, if full setup and derivation is needed or only derivaiton.)
-
     Returns
     -------
     derived_power_loss_LoS_tot
