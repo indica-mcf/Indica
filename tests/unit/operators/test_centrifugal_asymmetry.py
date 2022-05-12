@@ -245,14 +245,14 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
 
     input_Te = DataArray(
         data=np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]),
-        coords={"rho": rho_profile},
-        dims=["rho"],
+        coords={"rho_poloidal": rho_profile},
+        dims=["rho_poloidal"],
     )
 
     input_Ne = DataArray(
         data=np.array([5.0e19, 4e19, 3.0e19, 2.0e19, 1.0e19]),
-        coords={"rho": rho_profile},
-        dims=["rho"],
+        coords={"rho_poloidal": rho_profile},
+        dims=["rho_poloidal"],
     )
 
     example_frac_abundance = FractionalAbundance(
@@ -328,8 +328,8 @@ def test_centrifugal_asymmetry():
 
     electron_temp = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     offset = MagicMock(return_value=0.02)
@@ -342,7 +342,7 @@ def test_centrifugal_asymmetry():
     )
 
     xr_rho_profile = DataArray(
-        data=rho_profile, coords={"rho": rho_profile}, dims=["rho"]
+        data=rho_profile, coords={"rho_poloidal": rho_profile}, dims=["rho_poloidal"]
     )
 
     R_lfs_values, _ = example_equilibrium.R_lfs(xr_rho_profile)
@@ -359,8 +359,8 @@ def test_centrifugal_asymmetry():
 
     toroidal_rotations = DataArray(
         data=toroidal_rotations,
-        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
-        dims=["element", "rho", "t"],
+        coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
+        dims=["element", "rho_poloidal", "t"],
     )
 
     ion_temperature = np.array([2.0e3, 1.2e3, 0.5e3, 0.2e3, 0.1e3])
@@ -369,14 +369,14 @@ def test_centrifugal_asymmetry():
 
     ion_temperature = DataArray(
         data=ion_temperature,
-        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
-        dims=["element", "rho", "t"],
+        coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
+        dims=["element", "rho_poloidal", "t"],
     )
 
     Zeff = DataArray(
         data=1.85 * np.ones((*rho_profile.shape, len(t))),
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     main_ion = "d"

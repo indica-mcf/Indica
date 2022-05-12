@@ -19,9 +19,9 @@ def input_data_setup():
     Returns
     -------
     input_Ne
-        xarray.DataArray of electron density. Dimensions (rho, t)
+        xarray.DataArray of electron density. Dimensions (rho_poloidal, t)
     input_Te
-        xarray.DataArray of electron temperature. Dimensions (rho, t)
+        xarray.DataArray of electron temperature. Dimensions (rho_poloidal, t)
     flux_surfs
         FluxSurfaceCoordinates object representing polar coordinate systems
         using flux surfaces for the radial coordinate.
@@ -30,7 +30,8 @@ def input_data_setup():
     elements
         List of element symbols for all impurities.
     rho_arr
-        xarray.DataArray of rho values, np.linspace(0, 1, 41). Dimensions (rho)
+        xarray.DataArray of rho_poloidal values, np.linspace(0, 1, 41).
+        Dimensions (rho_poloidal)
     theta_arr
         xarray.DataArray of theta values, np.linspace(-np.pi, np.pi, 21).
         Dimensions (theta)
@@ -43,8 +44,8 @@ def input_data_setup():
 
     input_Te = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(base_t), 1)).T,
-        coords={"rho": base_rho_profile, "t": base_t},
-        dims=["rho", "t"],
+        coords={"rho_poloidal": base_rho_profile, "t": base_t},
+        dims=["rho_poloidal", "t"],
     )
 
     input_Ne = np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19])
@@ -54,8 +55,8 @@ def input_data_setup():
         data=np.tile(
             np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(base_t), 1)
         ).T,
-        coords={"rho": base_rho_profile, "t": base_t},
-        dims=["rho", "t"],
+        coords={"rho_poloidal": base_rho_profile, "t": base_t},
+        dims=["rho_poloidal", "t"],
     )
 
     elements = ["be", "ne", "ni"]
@@ -65,7 +66,9 @@ def input_data_setup():
     rho_arr = expanded_rho
     theta_arr = np.linspace(-np.pi, np.pi, 21)
 
-    rho_arr = DataArray(data=rho_arr, coords={"rho": rho_arr}, dims=["rho"])
+    rho_arr = DataArray(
+        data=rho_arr, coords={"rho_poloidal": rho_arr}, dims=["rho_poloidal"]
+    )
     theta_arr = DataArray(data=theta_arr, coords={"theta": theta_arr}, dims=["theta"])
 
     flux_surfs = FluxSurfaceCoordinates("poloidal")
@@ -76,8 +79,8 @@ def input_data_setup():
 
     flux_surfs.set_equilibrium(equilib)
 
-    input_Te = input_Te.interp(rho=expanded_rho, method="linear")
-    input_Ne = input_Ne.interp(rho=expanded_rho, method="linear")
+    input_Te = input_Te.interp(rho_poloidal=expanded_rho, method="linear")
+    input_Ne = input_Ne.interp(rho_poloidal=expanded_rho, method="linear")
 
     return (
         input_Ne,
@@ -275,11 +278,11 @@ def test_bolometry_derivation():
         ),
         coords=[
             ("element", impurity_elements),
-            ("rho", rho_arr),
+            ("rho_poloidal", rho_arr),
             ("theta", theta_arr),
             ("t", t_arr),
         ],
-        dims=["element", "rho", "theta", "t"],
+        dims=["element", "rho_poloidal", "theta", "t"],
     )
 
     impurity_densities.data[0] = beryllium_density
@@ -293,10 +296,8 @@ def test_bolometry_derivation():
     t_arr = DataArray(data=t_arr, coords={"t": t_arr}, dims=["t"])
 
     original_bolometry_data = DataArray(
-        data=np.array(
-            [0.00000000e00, 4.46150316e08, 1.84150833e09, 3.54655827e09, 4.65631669e09]
-        ),
-        coords={"channels": np.array([0.0, 1.0, 2.0, 3.0, 4.0])},
+        data=np.array([0.00000000e00, 1.84150833e09, 4.65631669e09, 2.11855843e09]),
+        coords={"channels": np.array([0.0, 1.0, 2.0, 3.0])},
         dims=["channels"],
     )
 

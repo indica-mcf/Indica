@@ -359,7 +359,7 @@ class ExtrapolateImpurityDensity(Operator):
         """Basic extrapolation which eliminates the data_rho_theta for
         rho > threshold_rho and joins on electron density from that point
         outwards (in rho). Also multiplies electron density to prevent a
-        discontinuity at rho=threshold_rho.
+        discontinuity at rho_poloidal=threshold_rho.
 
         Parameters
         ----------
@@ -482,7 +482,7 @@ class ExtrapolateImpurityDensity(Operator):
             "rho_poloidal", "t"
         )
 
-        # Following section is to ensure that near the rho=0 region, the
+        # Following section is to ensure that near the rho_poloidal=0 region, the
         # extrapolated_smooth_data is constant (ie. with a first-order derivative of 0).
         inv_extrapolated_smooth_hfs = DataArray(
             data=np.flip(extrapolated_smooth_hfs_arr.data, axis=0),
