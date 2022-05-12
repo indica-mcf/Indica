@@ -272,39 +272,6 @@ class ExtrapolateImpurityDensity(Operator):
         return the time the results are given for.
         Otherwise return the argument.
 
-    Methods
-    -------
-    transform_to_rho_theta_reduced(data_R_z, flux_surfaces, rho_arr, t_arr)
-        Function to transform data from an (R, z) grid to a (rho, theta) grid.
-    basic_extrapolation(data_rho_theta, electron_density, threshold_rho)
-        Basic extrapolation which eliminates the data_rho_theta for
-        rho > threshold_rho and joins on electron density from that point
-        outwards (in rho). Also multiplies electron density to prevent a
-        discontinuity at rho=threshold_rho.
-    extrapolation_smoothing(extrapolated_data, rho_arr)
-        Function to smooth extrapolatd data. Extrapolated data may not have
-        any 0th order discontinuity but 1st order discontinuities may exist.
-        Smoothing is necessary to eliminate these higher order discontinuities.
-    apply_asymmetry(asymmetry_parameter, extrapolated_smooth_hfs,
-        extrapolated_smooth_lfs, R_deriv)
-        Applying an asymmetry parameter to low-field-side data which
-        will be extended over the poloidal extent to obtain an asymmetric
-        extrapolated smoothed data on a (rho, theta) grid.
-    transform_to_R_z(R_deriv, z_deriv, extrapolated_smooth_data, flux_surfaces)
-        Function to transform data from an (rho, theta) grid to a (R, z) grid
-    fitting_function(amplitude, standard_dev, position)
-        Function to construct a signal that modifies the
-        extrapolated smoothed impurity density. The signal is constructed
-        using a Gaussian profile with the three free parameters.
-    optimize_perturbation(extrapolated_smooth_data, orig_bolometry_data, bolometry_obj
-        impurity_element, asymmetry_modifier, time_correlation)
-        Optimizes a Gaussian-style perturbation to recover the over-density
-        structure that is expected on the low-field-side of the plasma.
-    __call__(
-        impurity_density_sxr, electron_density, truncation_threshold, flux_surfaces,
-        asymmetry_parameter, t
-    )
-        Extrapolates the impurity density beyond the limits of SXR (Soft X-ray)
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
