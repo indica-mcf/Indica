@@ -87,7 +87,8 @@ class ImpurityConcentration(Operator):
             xarray.DataArray of electron density
         mean_charge
             xarray.DataArray of mean charge of all impurity elements of interest.
-            This can be provided manually (with dimensions of ["element", "rho", "t]),
+            This can be provided manually (with dimensions of
+            ["element", "rho_poloidal", "t]),
             or can be passed as the results of MeanCharge.__call__
         flux_surfaces
             FluxSurfaceCoordinates object that defines the flux surface geometry
@@ -193,7 +194,7 @@ class ImpurityConcentration(Operator):
         else:
             raise ValueError(
                 'Inputted impurity densities does not have any compatible\
-                    coordinates: ["rho"] or ["R", "z"]'
+                    coordinates: ["rho_poloidal"] or ["R", "z"]'
             )
 
         impurity_densities = impurity_densities.interp(

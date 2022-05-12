@@ -189,8 +189,8 @@ def input_data_setup():
 
     input_Te = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(base_t), 1)).T,
-        coords={"rho": base_rho_profile, "t": base_t},
-        dims=["rho", "t"],
+        coords={"rho_poloidal": base_rho_profile, "t": base_t},
+        dims=["rho_poloidal", "t"],
     )
 
     input_Ne = np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19])
@@ -200,8 +200,8 @@ def input_data_setup():
         data=np.tile(
             np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(base_t), 1)
         ).T,
-        coords={"rho": base_rho_profile, "t": base_t},
-        dims=["rho", "t"],
+        coords={"rho_poloidal": base_rho_profile, "t": base_t},
+        dims=["rho_poloidal", "t"],
     )
 
     elements = ["be", "ne", "ni"]
@@ -211,7 +211,9 @@ def input_data_setup():
     rho_arr = expanded_rho
     theta_arr = np.linspace(-np.pi, np.pi, 21)
 
-    rho_arr = DataArray(data=rho_arr, coords={"rho": rho_arr}, dims=["rho"])
+    rho_arr = DataArray(
+        data=rho_arr, coords={"rho_poloidal": rho_arr}, dims=["rho_poloidal"]
+    )
     theta_arr = DataArray(data=theta_arr, coords={"theta": theta_arr}, dims=["theta"])
 
     flux_surfs = FluxSurfaceCoordinates("poloidal")
@@ -222,8 +224,8 @@ def input_data_setup():
 
     flux_surfs.set_equilibrium(equilib)
 
-    input_Te = input_Te.interp(rho=expanded_rho, method="linear")
-    input_Ne = input_Ne.interp(rho=expanded_rho, method="linear")
+    input_Te = input_Te.interp(rho_poloidal=expanded_rho, method="linear")
+    input_Ne = input_Ne.interp(rho_poloidal=expanded_rho, method="linear")
 
     return (
         input_Ne,
@@ -539,11 +541,11 @@ def test_bolometry_derivation():
         ),
         coords=[
             ("elements", impurity_elements),
-            ("rho", rho_arr),
+            ("rho_poloidal", rho_arr),
             ("theta", theta_arr),
             ("t", t_arr),
         ],
-        dims=["elements", "rho", "theta", "t"],
+        dims=["elements", "rho_poloidal", "theta", "t"],
     )
 
     impurity_densities.data[0] = beryllium_density

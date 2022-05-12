@@ -160,25 +160,25 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
 
     input_Ne = DataArray(
         data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     input_Te = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     rho = DataArray(
         data=np.linspace(0.0, 1.0, 20),
-        coords=[("rho", np.linspace(0.0, 1.05, 20))],
-        dims=["rho"],
+        coords=[("rho_poloidal", np.linspace(0.0, 1.05, 20))],
+        dims=["rho_poloidal"],
     )
 
     dummy_coordinates = FluxSurfaceCoordinates("poloidal")
 
-    input_Ne_spline = Spline(input_Ne, "rho", dummy_coordinates)
+    input_Ne_spline = Spline(input_Ne, "rho_poloidal", dummy_coordinates)
     input_Ne = broadcast_spline(
         input_Ne_spline.spline,
         input_Ne_spline.spline_dims,
@@ -186,7 +186,7 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
         rho,
     )
 
-    input_Te_spline = Spline(input_Te, "rho", dummy_coordinates)
+    input_Te_spline = Spline(input_Te, "rho_poloidal", dummy_coordinates)
     input_Te = broadcast_spline(
         input_Te_spline.spline,
         input_Te_spline.spline_dims,
@@ -281,8 +281,8 @@ def test_impurity_concentration():
 
     electron_density = DataArray(
         data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     beryllium_impurity_conc = 0.03 * electron_density
@@ -295,8 +295,8 @@ def test_impurity_concentration():
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho_profile.shape, *t.shape)),
-        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
-        dims=["element", "rho", "t"],
+        coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
+        dims=["element", "rho_poloidal", "t"],
     )
     impurity_densities.data[0] = beryllium_impurity_conc
     impurity_densities.data[1] = neon_impurity_conc
@@ -304,11 +304,13 @@ def test_impurity_concentration():
     impurity_densities.data[3] = tungsten_impurity_conc
 
     rho = np.linspace(0.0, 1.0, 20)
-    rho = DataArray(data=rho, coords={"rho": rho}, dims=["rho"])
+    rho = DataArray(data=rho, coords={"rho_poloidal": rho}, dims=["rho_poloidal"])
 
     dummy_coordinates = FluxSurfaceCoordinates("poloidal")
 
-    electron_density_spline = Spline(electron_density, "rho", dummy_coordinates)
+    electron_density_spline = Spline(
+        electron_density, "rho_poloidal", dummy_coordinates
+    )
     electron_density = broadcast_spline(
         electron_density_spline.spline,
         electron_density_spline.spline_dims,
@@ -316,9 +318,11 @@ def test_impurity_concentration():
         rho,
     )
 
-    electron_density = electron_density.transpose("rho", "t")
+    electron_density = electron_density.transpose("rho_poloidal", "t")
 
-    impurity_densities_spline = Spline(impurity_densities, "rho", dummy_coordinates)
+    impurity_densities_spline = Spline(
+        impurity_densities, "rho_poloidal", dummy_coordinates
+    )
     impurity_densities = broadcast_spline(
         impurity_densities_spline.spline,
         impurity_densities_spline.spline_dims,
@@ -326,7 +330,7 @@ def test_impurity_concentration():
         rho,
     )
 
-    impurity_densities = impurity_densities.transpose("element", "rho", "t")
+    impurity_densities = impurity_densities.transpose("element", "rho_poloidal", "t")
 
     mean_charge = zeros_like(impurity_densities)
 
@@ -455,7 +459,7 @@ def test_impurity_concentration():
 
     erroneous_input = {
         "impurity_densities": nominal_inputs["impurity_densities"].rename(
-            {"element": "element", "rho": "theta", "t": "t"}
+            {"element": "element", "rho_poloidal": "theta", "t": "t"}
         )
     }
     test_case_impurity.call_value_check(**erroneous_input)

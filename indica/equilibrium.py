@@ -426,8 +426,8 @@ class Equilibrium(AbstractEquilibrium):
 
         result = DataArray(
             data=area,
-            coords=[("t", t), ("rho", rho)],
-            dims=["t", "rho"],
+            coords=[("t", t), ("rho_poloidal", rho)],
+            dims=["t", "rho_poloidal"],
         )
 
         return (
