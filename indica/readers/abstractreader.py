@@ -43,9 +43,9 @@ class DataReader(BaseIO):
 
     This defines the interface used by all concrete objects which read
     data from the disc, a database, etc. It is a `context manager
-    <https://protect-eu.mimecast.com/s/f7vJCpzxoFzjOpcPXjtX?domain=docs.python.org>`_
+    <https://docs.python.org/3/library/stdtypes.html#typecontextmanager>`_
     and can be used in a `with statement
-    <https://protect-eu.mimecast.com/s/ITLqCq2ypIOpkJuX7qUj?domain=docs.python.org>`_.
+    <https://docs.python.org/3/reference/compound_stmts.html#with>`_.
 
     Attributes
     ----------
@@ -528,7 +528,6 @@ class DataReader(BaseIO):
             "fbnd",
             "ipla",
             "wp",
-            "df",
         }
         separatrix_quantities = {"rbnd", "zbnd"}
         flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
@@ -546,6 +545,13 @@ class DataReader(BaseIO):
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
         times_unique, ind_unique = np.unique(times, return_index=True)
+        downsample_ratio = int(
+            np.ceil(
+                (len(times_unique) - 1)
+                / (times_unique[-1] - times_unique[0])
+                / self._max_freq
+            )
+        )
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
         dims_1d = ("t",)
         trivial_transform = TrivialTransform()
@@ -614,6 +620,16 @@ class DataReader(BaseIO):
                 attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
 
+            if len(times) != len(times_unique):
+                print(
+                    """Equilibrium time axis does not have
+                    unique elements...correcting..."""
+                )
+                quant_data = quant_data.isel(t=ind_unique)
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "equilibrium",
@@ -631,12 +647,6 @@ class DataReader(BaseIO):
                 quant_data.coords["R"] = data["rmag"]
                 quant_data.coords["z"] = data["zmag"]
 
-            if len(times) != len(times_unique):
-                print(
-                    """Equilibrium time axis does not have
-                    unique elements...correcting..."""
-                )
-                quant_data = quant_data.isel(t=ind_unique)
             data[quantity] = quant_data
         return data
 
@@ -1699,6 +1709,8 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    # Astra reader is currently working but not tested, code will be uncommented
+    # when tests have been written
     #
     # def get_astra(
     #     self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
