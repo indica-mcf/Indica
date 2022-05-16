@@ -235,8 +235,8 @@ the mean charge of each element given the fractional abundancies.
       .assign_attrs(transform=flux_surface)
    )
 
-Calculate the initial high Z impurity density profile
------------------------------------------------------
+Calculate the high Z impurity density profile
+---------------------------------------------
 
 Next we use the emissivity data calculated from the soft x-ray cameras to
 estimate the density profile shape for the high Z element. We use equation
@@ -319,7 +319,7 @@ profile shape by subtracting the profile of the high Z element:
 Derive bolometry LOS data
 -------------------------
 
-Next we use the data calculated before in order to create an estimator of the
+Next we use the data calculated above in order to create an estimator of the
 values that the bolometry cameras would read, given our current model:
 
 .. code-block:: python
@@ -408,6 +408,71 @@ calculated mean charge and the electron density.
       electron_density=ne,
       mean_charge=q.where(q.element != main_ion, drop=True),
    ).assign_attrs({"transform": flux_surface})
+
+Iterating
+---------
+
+The above steps from `Calculate the high Z impurity density profile`_ may be
+repeated in order to refine the profiles:
+
+.. code-block:: python
+
+   other_densities = xr.concat([n_high_z, n_zeff_el, n_main_ion], dim="element")
+
+   other_power_loss = xr.concat(
+      [
+          val.indica.remap_like(emissivity).sum("ion_charges")
+          for key, val in power_loss.items()
+          if key != high_z
+      ],
+      dim="element",
+   ).assign_coords(
+      {"element": [key for key in power_loss.keys() if key != high_z]}
+   )
+
+   n_high_z = (
+      emissivity
+      - electron_density
+      * (other_densities * other_power_loss).sum("element")
+   ) / (
+      electron_density
+      * power_loss[high_z]
+      .indica.remap_like(emissivity)
+      .sum("ion_charges")
+   ).assign_attrs("transform": flux_surface)
+
+   extrapolator = ExtrapolateImpurityDensity()
+   n_high_z_extrapolated, *high_z_extrapolate_params = extrapolator(
+      impurity_density_sxr=n_high_z.where(
+          n_high_z> 0.0, other=1.0
+      ).fillna(1.0),
+      electron_density=ne,
+      electron_temperature=te,
+      truncation_threshold=1.5e3,
+      flux_surfaces=ne.transform,
+   )
+
+   n_high_z = n_high_z_extrapolated
+
+   densities = concat([n_high_z, n_zeff_el], dim="element").assign_coords(
+      {"element": ["high_z", "zeff_el"]}
+   )
+
+   zeff = diagnostics["zeff"]["zefh"].interp(t=t.values)
+   conc_zeff_el, _ = ImpurityConcentration()(
+      element=zeff_el,
+      Zeff_LoS=zeff,
+      impurity_densities=densities,
+          dim="element",
+      ).assign_coords({"element": impurities}),
+      electron_density=ne.where(ne > 0.0, other=1.0),
+      mean_charge=q.fillna(0.0),
+      flux_surfaces=flux_surface,
+   )
+   n_zeff_el = (conc_zeff_el.values * ne).assign_attrs(
+      {"transform": flux_surface}
+   )
+
 
 Remap densities
 ---------------
