@@ -5,6 +5,15 @@ import numpy as np
 from xarray import DataArray
 
 
+def strip_provenance(arr: DataArray):
+    """
+    Remove provenance information from a DataArray if present.
+    """
+    if "provenance" in arr.attrs:
+        del arr.attrs["partial_provenance"]
+        del arr.attrs["provenance"]
+
+
 def convert_in_time(
     tstart: float,
     tend: float,
@@ -50,8 +59,9 @@ def convert_in_time_dt(
     data: DataArray,
     method: str = "linear",
 ) -> DataArray:
-    """Bin given data along the time axis, discarding data before or after
-    the limits.
+    """
+    Interpolate or bin given data along the time axis, discarding data before
+    or after the limits.
 
     Parameters
     ----------
@@ -62,12 +72,12 @@ def convert_in_time_dt(
     dt
         Time resolution of new time axis.
     data
-        Data to be binned.
+        Data to be interpolated/binned.
 
     Returns
     -------
     :
-        Array like the input, but binned along the time axis.
+        Array like the input, but interpolated/binned along the time axis.
 
     """
 
@@ -82,21 +92,23 @@ def convert_in_time_dt(
 def interpolate_to_time_labels(
     tlabels: np.ndarray, data: DataArray, method: str = "linear"
 ) -> DataArray:
-    """Bin data to sit on the specified time labels.
+    """
+    Interpolate data to sit on the specified time labels.
 
     Parameters
     ----------
     tlabels
-        The times at which the data should be binned.
+        The times at which the data should be interpolated.
     data
-        Data to be binned.
+        Data to be interpolated.
 
     Returns
     -------
     :
-        Array like the input, but binned onto the time labels.
+        Array like the input, but interpolated onto the time labels.
 
     """
+    # No interpolation required if the current t coordinates already match the desired
     if data.coords["t"].shape == tlabels.shape and np.all(data.coords["t"] == tlabels):
         return data
 
@@ -112,9 +124,8 @@ def interpolate_to_time_labels(
                 t=tlabels, method=method
             )
         interpolated.attrs["dropped"] = dropped
-    if "provenance" in data.attrs:
-        del interpolated.attrs["partial_provenance"]
-        del interpolated.attrs["provenance"]
+
+    strip_provenance(interpolated)
 
     return interpolated
 
@@ -135,8 +146,10 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         Array like the input, but binned onto the time labels.
 
     """
+    # No binning required if the current t coordinates already match the desired
     if data.coords["t"].shape == tlabels.shape and np.all(data.coords["t"] == tlabels):
         return data
+
     npoints = len(tlabels)
     half_interval = 0.5 * (tlabels[1] - tlabels[0])
     tbins = np.empty(npoints + 1)
@@ -184,9 +197,8 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             )
             error = np.sqrt(uncertainty**2 + stdev**2)
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
-    if "provenance" in data.attrs:
-        del averaged.attrs["partial_provenance"]
-        del averaged.attrs["provenance"]
+
+    strip_provenance(averaged)
 
     return averaged.rename(t_bins="t")
 
@@ -410,7 +422,7 @@ def check_bounds_interp(tstart: float, tend: float, data: DataArray):
     dt
         Time resolution of new time axis.
     data
-        Data to be binned.
+        Data to be interpolated.
     """
     tcoords = data.coords["t"]
     start = np.argmax((tcoords > tstart).data) - 1
