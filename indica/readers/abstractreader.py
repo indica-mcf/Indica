@@ -1709,6 +1709,7 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    # TODO: method reading ASTRA data works, but requires tests to be written
     # Astra reader is currently working but not tested, code will be uncommented
     # when tests have been written
     #
