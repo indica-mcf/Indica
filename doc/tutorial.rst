@@ -307,6 +307,8 @@ profile shape by subtracting the profile of the high Z element:
               xr.zeros_like(n_high_z_extrapolated),
           ],
           dim="element",
+      ).transpose(
+         "element", "R", "z", "t"
       ).assign_coords({"element": impurities}),
       electron_density=ne.where(ne > 0.0, other=1.0),
       mean_charge=q.fillna(0.0),
@@ -494,7 +496,7 @@ repeated in order to refine the profiles:
    derived_power_los = bolo_derivation(trim=False)
 
    nhz_rho_theta = high_z_extrapolate_params[0]
-   asymmetry_modifier = high_z_extrapolate_params[3]
+   asymmetry_modifier = extrapolator.asymmetry_modifier
    n_high_z = extrapolator.optimize_perturbation(
       extrapolated_smooth_data=nhz_rho_theta,
       orig_bolometry_data=diagnostics["bolo"]["kb5v"],
