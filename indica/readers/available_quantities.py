@@ -71,10 +71,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
             "stored_energy",
             "thermal",
         ),  # Thermal stored energy
-        "df": (
-            "flux",
-            "diamagnetic",
-        ),
         "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
         "j_nbi": (
             "current_density",
