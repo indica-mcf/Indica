@@ -3,19 +3,14 @@
 """
 
 from copy import deepcopy
-import pickle
 import os
 
-import hda.fac_profiles as fac
-from hda.forward_models import Spectrometer
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
-import pandas as pd
 from xarray import DataArray
 
 from trends.trends_database import Database
-from indica.readers import ADASReader
 
 # First pulse after Boronisation / GDC
 BORONISATION = [8441, 8537, 9903]
@@ -24,13 +19,17 @@ GDC = np.array(GDC) - 0.5
 
 plt.ion()
 
-def set_paths(database:Database, path_fig="", name_fig="",):
+
+def set_paths(
+    database: Database, path_fig="", name_fig="",
+):
     if len(path_fig) == 0:
         path_fig = f"{os.path.expanduser('~')}/figures/regr_trends/"
     if len(name_fig) == 0:
         name_fig = f"{database.pulse_start}_{database.pulse_end}"
 
     return path_fig, name_fig
+
 
 def plot_time_evol(
     database,
@@ -115,46 +114,46 @@ def plot_time_evol(
             save_figure(path_fig, f"{name_fig}_{name}")
     if savefig:
         plt.ion()
-
-    plt.figure()
-    cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
-    for i, p in enumerate(database.pulses):
-        (
-            database.binned["ipla_efit"].value.sel(pulse=p)
-            * database.info["ipla_efit"]["const"]
-        ).plot(color=cols[i], alpha=0.5)
-
-    plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
-    plt.xlabel("time (s)")
-    plt.ylabel(
-        f"{database.info['ipla_efit']['label']} {database.info['ipla_efit']['units']}"
-    )
-    plt.ylim(bottom=0)
-
-    plt.figure()
-    bvl_ov_ip = database.binned["i_bvl"] / database.binned["ipla_efit"]
-    cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
-    for i, p in enumerate(bvl_ov_ip.pulse):
-        bvl_ov_ip.value.sel(pulse=p).plot(color=cols[i], alpha=0.5)
-
-    plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
-    plt.xlabel("time (s)")
-    plt.ylabel("I$_{BVL}$/I$_P$")
-    plt.ylim(top=0)
-
-    plt.figure()
-    time = np.arange(0.01, 0.2, 0.02)
-    cols = cm.rainbow(np.linspace(0, 1, len(time)))
-    for i, t in enumerate(time):
-        bvl_ov_ip.value.sel(t=t, method="nearest").plot(
-            color=cols[i], label=f"{t:.2f} s", alpha=0.5, marker="o"
-        )
-
-    plt.legend()
-    plt.title(f"Time range [{time.min():.2f}, {time.max():.2f}]")
-    plt.xlabel("Pulse")
-    plt.ylabel("I$_{BVL}$/I$_P$")
-    plt.ylim(top=0)
+    #
+    # plt.figure()
+    # cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
+    # for i, p in enumerate(database.pulses):
+    #     (
+    #         database.binned["ipla_efit"].value.sel(pulse=p)
+    #         * database.info["ipla_efit"]["const"]
+    #     ).plot(color=cols[i], alpha=0.5)
+    #
+    # plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
+    # plt.xlabel("time (s)")
+    # plt.ylabel(
+    #     f"{database.info['ipla_efit']['label']} {database.info['ipla_efit']['units']}"
+    # )
+    # plt.ylim(bottom=0)
+    #
+    # plt.figure()
+    # bvl_ov_ip = database.binned["i_bvl"] / database.binned["ipla_efit"]
+    # cols = cm.rainbow(np.linspace(0, 1, len(database.pulses)))
+    # for i, p in enumerate(bvl_ov_ip.pulse):
+    #     bvl_ov_ip.value.sel(pulse=p).plot(color=cols[i], alpha=0.5)
+    #
+    # plt.title(f"Pulse range [{np.min(database.pulses)}, {np.max(database.pulses)}]")
+    # plt.xlabel("time (s)")
+    # plt.ylabel("I$_{BVL}$/I$_P$")
+    # plt.ylim(top=0)
+    #
+    # plt.figure()
+    # time = np.arange(0.01, 0.2, 0.02)
+    # cols = cm.rainbow(np.linspace(0, 1, len(time)))
+    # for i, t in enumerate(time):
+    #     bvl_ov_ip.value.sel(t=t, method="nearest").plot(
+    #         color=cols[i], label=f"{t:.2f} s", alpha=0.5, marker="o"
+    #     )
+    #
+    # plt.legend()
+    # plt.title(f"Time range [{time.min():.2f}, {time.max():.2f}]")
+    # plt.xlabel("Pulse")
+    # plt.ylabel("I$_{BVL}$/I$_P$")
+    # plt.ylim(top=0)
 
 
 def plot_bivariate(
@@ -361,6 +360,7 @@ def ip_400_500(database, savefig=False, plot_results=False):
 
     return filtered
 
+
 def apply_selection(
     binned, cond=None, default=True,
 ):
@@ -415,7 +415,6 @@ def apply_selection(
         filtered = {"All": {"selection": None, "binned": binned}}
 
     return filtered
-
 
 
 def plot(
@@ -626,140 +625,6 @@ def save_figure(path_fig, name_fig, orientation="landscape", ext=".jpg"):
         dpi=600,
         pil_kwargs={"quality": 95},
     )
-
-
-def simulate_xrcs(pickle_file="XRCS_temperature_parametrization.pkl", write=False):
-    print("Simulating XRCS measurement for Te(0) re-scaling")
-
-    adasreader = ADASReader()
-    xrcs = Spectrometer(
-        adasreader, "ar", "16", transition="(1)1(1.0)-(1)0(0.0)", wavelength=4.0,
-    )
-
-    time = np.linspace(0, 1, 50)
-    te_0 = np.linspace(0.5e3, 8.0e3, 50)  # central temperature
-    te_sep = 50  # separatrix temperature
-
-    # Test two different profile shapes: flat (Ohmic) and slightly peaked (NBI)
-    peaked = profiles_peaked()
-    broad = profiles_broad()
-
-    temp = [broad.te, peaked.te]
-    dens = [broad.ne, peaked.ne]
-
-    el_temp = deepcopy(temp)
-    el_dens = deepcopy(dens)
-
-    for i in range(len(dens)):
-        el_dens[i] = el_dens[i].expand_dims({"t": len(time)})
-        el_dens[i] = el_dens[i].assign_coords({"t": time})
-        el_temp[i] = el_temp[i].expand_dims({"t": len(time)})
-        el_temp[i] = el_temp[i].assign_coords({"t": time})
-        temp_tmp = deepcopy(el_temp[i])
-        for it, t in enumerate(time):
-            temp_tmp.loc[dict(t=t)] = scale_prof(temp[i], te_0[it], te_sep).values
-        el_temp[i] = temp_tmp
-
-    temp_ratio = []
-    for idens in range(len(dens)):
-        for itemp in range(len(dens)):
-            xrcs.simulate_measurements(el_dens[idens], el_temp[itemp], el_temp[itemp])
-
-            tmp = DataArray(
-                te_0 / xrcs.el_temp.values, coords=[("te_xrcs", xrcs.el_temp.values)]
-            )
-            tmp.attrs = {"el_temp": el_temp[itemp], "el_dens": el_dens[idens]}
-            temp_ratio.append(tmp.assign_coords(te0=("te_xrcs", te_0)))
-
-    if write:
-        pickle.dump(temp_ratio, open(f"/home/marco.sertoli/data/{pickle_file}", "wb"))
-
-    return temp_ratio
-
-
-def scale_prof(profile, centre, separatrix):
-    scaled = profile - profile.sel(rho_poloidal=1.0)
-    scaled /= scaled.sel(rho_poloidal=0.0)
-    scaled = scaled * (centre - separatrix) + separatrix
-
-    return scaled
-
-
-def profiles_broad(te_sep=50):
-    rho = np.linspace(0, 1, 100)
-    profs = fac.Plasma_profs(rho)
-
-    ne_0 = 5.0e19
-    profs.ne = profs.build_density(
-        y_0=ne_0,
-        y_ped=ne_0,
-        x_ped=0.88,
-        w_core=4.0,
-        w_edge=0.1,
-        datatype=("density", "electron"),
-    )
-    te_0 = 1.0e3
-    profs.te = profs.build_temperature(
-        y_0=te_0,
-        y_ped=50,
-        x_ped=1.0,
-        w_core=0.6,
-        w_edge=0.05,
-        datatype=("temperature", "electron"),
-    )
-    profs.te = scale_prof(profs.te, te_0, te_sep)
-
-    ti_0 = 1.0e3
-    profs.ti = profs.build_temperature(
-        y_0=ti_0,
-        y_ped=50,
-        x_ped=1.0,
-        w_core=0.6,
-        w_edge=0.05,
-        datatype=("temperature", "ion"),
-    )
-    profs.ti = scale_prof(profs.ti, ti_0, te_sep)
-
-    return profs
-
-
-def profiles_peaked(te_sep=50):
-    rho = np.linspace(0, 1, 100)
-    profs = fac.Plasma_profs(rho)
-
-    # slight central peaking and lower separatrix
-    ne_0 = 5.0e19
-    profs.ne = profs.build_density(
-        y_0=ne_0,
-        y_ped=ne_0 / 1.25,
-        x_ped=0.85,
-        w_core=4.0,
-        w_edge=0.1,
-        datatype=("density", "electron"),
-    )
-    te_0 = 1.0e3
-    profs.te = profs.build_temperature(
-        y_0=te_0,
-        y_ped=50,
-        x_ped=1.0,
-        w_core=0.4,
-        w_edge=0.05,
-        datatype=("temperature", "electron"),
-    )
-    profs.te = scale_prof(profs.te, te_0, te_sep)
-
-    ti_0 = 1.0e3
-    profs.ti = profs.build_temperature(
-        y_0=ti_0,
-        y_ped=50,
-        x_ped=1.0,
-        w_core=0.4,
-        w_edge=0.05,
-        datatype=("temperature", "ion"),
-    )
-    profs.ti = scale_prof(profs.ti, ti_0, te_sep)
-
-    return profs
 
 
 def calc_mean_std(time, data, tstart, tend, lower=0.0, upper=None, toffset=None):
