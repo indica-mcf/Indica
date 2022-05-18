@@ -66,12 +66,7 @@ class ST40data:
 
         if pulse is None:
             pulse = self.pulse
-        if (
-            pulse == 8303
-            or pulse == 8322
-            or pulse == 8323
-            or pulse == 8324
-        ):
+        if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
             if revision != 2:
                 print(f"\nRecommended revision for pulse {pulse} = {2}\n")
 
@@ -106,6 +101,28 @@ class ST40data:
                 )
                 ratio_tmp.attrs["error"] = ratio_tmp_err
                 data[ratio_key] = ratio_tmp
+
+            keys = ["te_kw", "te_n3w"]
+            data["te_avrg"] = xr.full_like(data[keys[0]], np.nan)
+            data["te_avrg"].attrs["error"] = xr.full_like(data[keys[0]].error, np.nan)
+            data["te_avrg"].name = "xrcs_te_avrg"
+            for t in data["te_avrg"].t:
+                val = []
+                err = []
+                for k in keys:
+                    _val = data[k].sel(t=t)
+                    if np.isfinite(_val):
+                        val.append(_val)
+                    _err = data[k].error.sel(t=t)
+                    if np.isfinite(_err):
+                        err.append(_err)
+                if len(val) > 0:
+                    data["te_avrg"].loc[dict(t=t)] = np.sum(val) / len(val)
+                if len(err) > 0:
+                    err_tmp = np.sqrt(
+                        np.sum((np.array(err) / len(err)) ** 2 + np.std(val) ** 2)
+                    )
+                    data["te_avrg"].attrs["error"].loc[dict(t=t)] = err_tmp
 
             self.data["xrcs"] = data
 
@@ -152,7 +169,7 @@ class ST40data:
                 "error": xr.zeros_like(vloop),
             }
             vloop.attrs = meta
-            self.data["vloop"] = vloop
+            self.data["mag"] = {"vloop":vloop}
 
         # TODO temporary BT reader --> to be calculated using equilibrium class
         tf_i, tf_i_dims = self.reader._get_data("", "psu", ".tf:i", -1)
@@ -200,10 +217,3 @@ class ST40data:
             self.data["diode_detr"] = {}
             self.data["diode_detr"]["filter_001"] = data
 
-        # TODO temporary SXR single point reader
-        data, dims = self.reader._get_data("", "diode_detr", ".filter_001:signal", 0)
-        if not np.array_equal(data, "FAILED"):
-            data = DataArray(data, dims=("t",), coords={"t": dims[0]},)
-            data = data.sel(t=slice(self.reader._tstart, self.reader._tend))
-            self.data["diode_detr"] = {}
-            self.data["diode_detr"]["filter_001"] = data
