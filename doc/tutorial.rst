@@ -316,7 +316,7 @@ profile shape by subtracting the profile of the high Z element:
    )
    n_zeff_el = (conc_zeff_el.values * ne).assign_attrs(
       {"transform": flux_surface}
-   )
+   ).assign_coords({"element": zeff_el})
 
 Derive bolometry LOS data
 -------------------------
@@ -342,7 +342,7 @@ values that the bolometry cameras would read, given our current model:
          for i in bolo_diag_array.bolo_kb5v_coords
       ]
 
-   nhz_rho_theta = high_z_extrapolate_params[0]
+   nhz_rho_theta = high_z_extrapolate_params[0].assign_coords({"element": high_z})
 
    bolo_derivation = BolometryDerivation(
       flux_surfs=flux_surface,
@@ -381,13 +381,12 @@ bolometry predictor:
 
 .. code-block:: python
 
-   asymmetry_modifier = high_z_extrapolate_params[3]
    n_high_z = extrapolator.optimize_perturbation(
       extrapolated_smooth_data=nhz_rho_theta,
       orig_bolometry_data=diagnostics["bolo"]["kb5v"],
       bolometry_obj=bolo_derivation,
       impurity_element=high_z,
-      asymmetry_modifier=asymmetry_modifier,
+      asymmetry_modifier=extrapolator.asymmetry_modifier,
    )
 
    n_high_z.attrs["transform"] = flux_surface
@@ -415,105 +414,6 @@ Iterating
 
 The above steps from `Calculate the high Z impurity density profile`_ may be
 repeated in order to refine the profiles:
-
-.. code-block:: python
-
-   other_densities = xr.concat([n_high_z, n_zeff_el, n_main_ion], dim="element")
-
-   other_power_loss = xr.concat(
-      [
-          val.indica.remap_like(emissivity).sum("ion_charges")
-          for key, val in power_loss.items()
-          if key != high_z
-      ],
-      dim="element",
-   ).assign_coords(
-      {"element": [key for key in power_loss.keys() if key != high_z]}
-   )
-
-   n_high_z = (
-      emissivity
-      - electron_density
-      * (other_densities * other_power_loss).sum("element")
-   ) / (
-      electron_density
-      * power_loss[high_z]
-      .indica.remap_like(emissivity)
-      .sum("ion_charges")
-   ).assign_attrs("transform": flux_surface)
-
-   extrapolator = ExtrapolateImpurityDensity()
-   n_high_z_extrapolated, *high_z_extrapolate_params = extrapolator(
-      impurity_density_sxr=n_high_z.where(
-          n_high_z> 0.0, other=1.0
-      ).fillna(1.0),
-      electron_density=ne,
-      electron_temperature=te,
-      truncation_threshold=1.5e3,
-      flux_surfaces=ne.transform,
-   )
-
-   n_high_z = n_high_z_extrapolated
-
-   densities = concat([n_high_z, n_zeff_el], dim="element").assign_coords(
-      {"element": ["high_z", "zeff_el"]}
-   )
-
-   zeff = diagnostics["zeff"]["zefh"].interp(t=t.values)
-   conc_zeff_el, _ = ImpurityConcentration()(
-      element=zeff_el,
-      Zeff_LoS=zeff,
-      impurity_densities=densities,
-          dim="element",
-      ).assign_coords({"element": impurities}),
-      electron_density=ne.where(ne > 0.0, other=1.0),
-      mean_charge=q.fillna(0.0),
-      flux_surfaces=flux_surface,
-   )
-   n_zeff_el = (conc_zeff_el.values * ne).assign_attrs(
-      {"transform": flux_surface}
-   )
-
-   bolo_derivation = BolometryDerivation(
-      flux_surfs=flux_surface,
-      LoS_bolometry_data=bolo_los(diagnostics["bolo"]["kb5v"]),
-      t_arr=t,
-      impurity_densities=concat([nhz_rho_theta, n_zeff_el], dim="element")
-      .assign_coords({"element": [high_z, zeff_el]})
-      .transpose("element", "rho_poloidal", "theta", "t"),
-      frac_abunds=[fzt.get(high_z), fzt.get(zeff_el)],
-      impurity_elements=[high_z, zeff_el],
-      electron_density=ne,
-      main_ion_power_loss=power_loss.get(main_ion).sum("ion_charges"),
-      impurities_power_loss=concat(
-          [
-              power_loss.get(element).sum("ion_charges")
-              for element in impurities
-          ],
-          dim="element",
-      ).assign_coords({"element": impurities}),
-   )
-   derived_power_los = bolo_derivation(trim=False)
-
-   nhz_rho_theta = high_z_extrapolate_params[0]
-   asymmetry_modifier = extrapolator.asymmetry_modifier
-   n_high_z = extrapolator.optimize_perturbation(
-      extrapolated_smooth_data=nhz_rho_theta,
-      orig_bolometry_data=diagnostics["bolo"]["kb5v"],
-      bolometry_obj=bolo_derivation,
-      impurity_element=high_z,
-      asymmetry_modifier=asymmetry_modifier,
-   )
-
-   n_high_z.attrs["transform"] = flux_surface
-
-   n_main_ion = MainIonDensity()(
-      impurity_densities=concat(
-          [n_high_z, n_zeff_el], dim="element"
-      ).assign_coords({"element": impurities}),
-      electron_density=ne,
-      mean_charge=q.where(q.element != main_ion, drop=True),
-   ).assign_attrs({"transform": flux_surface})
 
 
 Remap densities
