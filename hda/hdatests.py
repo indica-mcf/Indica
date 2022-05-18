@@ -1,26 +1,26 @@
 from copy import deepcopy
-
 import os
-from matplotlib import cm
+import pickle
+
+from hda.diagnostics.PISpectrometer import PISpectrometer
+from hda.diagnostics.spectrometer import XRCSpectrometer
+import hda.hda_tree as hda_tree
+from hda.plasma import initialize_bckc
+from hda.plasma import Plasma
+from hda.plasma import remap_diagnostic
+import hda.plots as plots
+import hda.profiles as profiles
+from hda.read_st40 import ST40data
 import matplotlib.pylab as plt
 import numpy as np
-import pickle
+from scipy import constants
 import xarray as xr
 from xarray import DataArray
-from scipy import constants
 
-from hda.read_st40 import ST40data
-from hda.plasma import Plasma
-from hda.plasma import remap_diagnostic, initialize_bckc
-import hda.plots as plots
-import hda.hda_tree as hda_tree
-import hda.profiles as profiles
-from indica.readers import ST40Reader, ADASReader
 from indica.converters.time import bin_in_time_dt
 from indica.operators.atomic_data import PowerLoss
-
-from hda.diagnostics.spectrometer import XRCSpectrometer
-from hda.diagnostics.PISpectrometer import PISpectrometer
+from indica.readers import ADASReader
+from indica.readers import ST40Reader
 
 plt.ion()
 
@@ -31,9 +31,9 @@ pulses = [9229, 9391, 9539]
 write = False
 save_pickle = True
 for pulse in pulses:
-    res = tests.plasma_workflow(pulse=pulse, tstart=0.02, tend=0.12, dt=0.007, 
-        diagn_ne="smmh1", quant_te="te_n3w", imp_conc=(0.03, 0.001, 0.01), marchuk=True, 
-        use_ratios=True, xrcs_time=False, descr=descr, run_name=run_name, calc_error=True, 
+    res = tests.plasma_workflow(pulse=pulse, tstart=0.02, tend=0.12, dt=0.007,
+        diagn_ne="smmh1", quant_te="te_n3w", imp_conc=(0.03, 0.001, 0.01), marchuk=True,
+        use_ratios=True, xrcs_time=False, descr=descr, run_name=run_name, calc_error=True,
         write=write, save_pickle=save_pickle)
 
 """
@@ -126,7 +126,12 @@ def test_hda(
     pl.calc_meanz()
     pl.calc_imp_dens()
     bckc = pl.match_xrcs_intensity(
-        data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar, cal=cal_ar, dt=dt_xrcs,
+        data,
+        bckc=bckc,
+        diagnostic="xrcs",
+        quantity=quant_ar,
+        cal=cal_ar,
+        dt=dt_xrcs,
     )
     pl.calc_main_ion_dens()
     pl.calc_zeff()
@@ -136,13 +141,17 @@ def test_hda(
     bckc = pl.bremsstrahlung(data, bckc=bckc)
 
     plots.compare_data_bckc(
-        data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
+        data,
+        bckc,
+        raw_data=raw_data,
+        pulse=pl.pulse,
+        savefig=savefig,
+        name=name,
     )
     plots.profiles(pl, data=data, bckc=bckc, savefig=savefig, name=name)
     plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
 
     return pl, raw_data, data, bckc
-
 
 
 def plasma_workflow(
@@ -283,7 +292,12 @@ def plasma_workflow(
 
     # Ar density from intensity of w line
     bckc = pl.match_xrcs_intensity(
-        data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar, cal=cal_ar, dt=dt_xrcs,
+        data,
+        bckc=bckc,
+        diagnostic="xrcs",
+        quantity=quant_ar,
+        cal=cal_ar,
+        dt=dt_xrcs,
     )
     # Quasineutrality
     pl.calc_main_ion_dens()
@@ -317,7 +331,12 @@ def plasma_workflow(
     # Compare diagnostic data with back-calculated data
     if plotfig or savefig:
         plots.compare_data_bckc(
-            data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
+            data,
+            bckc,
+            raw_data=raw_data,
+            pulse=pl.pulse,
+            savefig=savefig,
+            name=name,
         )
         plots.profiles(pl, data=data, savefig=savefig, name=name)
         plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
@@ -343,7 +362,7 @@ def save_to_pickle(pl, raw_data, data, bckc, pulse=0, name="", force=False):
     if (
         os.path.isfile(picklefile)
         and not (os.access(picklefile, os.W_OK))
-        and force == True
+        and force is True
     ):
         os.chmod(picklefile, 0o744)
 
@@ -361,7 +380,12 @@ def plot_results(pl, raw_data, data, bckc, savefig=False, name=""):
     if savefig:
         plt.ioff()
     plots.compare_data_bckc(
-        data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
+        data,
+        bckc,
+        raw_data=raw_data,
+        pulse=pl.pulse,
+        savefig=savefig,
+        name=name,
     )
     plots.profiles(pl, data=data, savefig=savefig, name=name)
     plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
@@ -374,7 +398,12 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
     pl.calc_meanz()
     pl.calc_imp_dens()
     pl.match_xrcs_intensity(
-        data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar, cal=cal_ar, dt=dt_xrcs,
+        data,
+        bckc=bckc,
+        diagnostic="xrcs",
+        quantity=quant_ar,
+        cal=cal_ar,
+        dt=dt_xrcs,
     )
     pl.calc_main_ion_dens()
     pl.calc_zeff()
@@ -385,7 +414,7 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
     return pl, bckc
 
 
-def run_all_scans(efit_pulse=None, efit_run=0, run_add=""):
+def run_all_scans(efit_pulse=None, efit_run=None):
     # pulses = [8532, 8533, 8605, 8621, 9098, 9099, 9229, 9401, 9486, 9537, 9538, 9539, 9619, 9622,
     # 9624, 9626, 9676, 9721, 9746, 9748, 9752, 9766, 9771, 9779, 9780, 9781, 9783, 9784, 9787, 9816,
     # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849, 9880, 9892, 9901, 10014]
@@ -395,15 +424,16 @@ def run_all_scans(efit_pulse=None, efit_run=0, run_add=""):
     # 9623 - issues with XRCS temperature optimisation...
     # 10013 - issues with EFIT
 
-    pulses = [9850] * 2
-    efit_pulse = [11009850] * 2
-    efit_run = ["1016A2", "1013N"]
-    only_run = None   # :int = write only this run
+    # pulses = [9850] * 2
+    # efit_pulse = [11009850] * 2
+    # efit_run = ["1016A2", "1013N"]
+    pulses = [9896, 9894]
+    efit_pulse = [efit_pulse]*len(pulses)
+    efit_run = [0]*len(pulses)
+    only_run = None  # :int = write only this run
     # tlims = [(0.01, 0.08), (0.01, 0.12), (0.01, 0.1), (0.01, 0.1), (0.01, 0.1)]
     tlims = [(0.02, 0.11)] * len(pulses)
-    for pulse, tlim, _efit_pulse, _efit_run in zip(
-        pulses, tlims, efit_pulse, efit_run
-    ):
+    for pulse, tlim, _efit_pulse, _efit_run in zip(pulses, tlims, efit_pulse, efit_run):
         print(pulse)
         scan_profiles(
             pulse,
@@ -431,7 +461,6 @@ def run_all_scans(efit_pulse=None, efit_run=0, run_add=""):
             proceed=True,
             efit_run=_efit_run,
             efit_pulse=_efit_pulse,
-            run_add=_efit_run,
             only_run=only_run,
         )
 
@@ -462,7 +491,7 @@ def scan_profiles(
     main_ion="h",
     proceed=True,
     run_add="",
-    efit_run="",
+    efit_run=0,
     efit_pulse=None,
     only_run=None,
 ):
@@ -610,7 +639,7 @@ def scan_profiles(
                     iteration += 1
 
     elem = "ar"
-    t = pl.time.values[int(len(pl.time) / 2.0)]
+    # t = pl.time.values[int(len(pl.time) / 2.0)]
 
     ne0, ni0, nimp0, te0, ti0 = [], [], [], [], []
     el_dens, ion_dens, neutral_dens, el_temp, ion_temp, meanz, zeff, pressure_th = (
@@ -1052,7 +1081,11 @@ def find_best_profiles(
                 err = err.swap_dims({dim: "rho_min"})
 
             value.plot(
-                linewidth=3, color="black", marker="o", alpha=0.5, label=label,
+                linewidth=3,
+                color="black",
+                marker="o",
+                alpha=0.5,
+                label=label,
             )
             plt.fill_between(
                 value.coords[value.dims[0]],
@@ -1198,8 +1231,8 @@ def find_best_profiles(
         direction = direction[ch_ind, :]
         R_nbi = dims[0][ch_ind]
         x_nbi = x_pos[ch_ind]
-        y_nbi = y_pos[ch_ind]
-        z_nbi = z_pos[ch_ind]
+        # y_nbi = y_pos[ch_ind]
+        # z_nbi = z_pos[ch_ind]
         values = values[t_ind, :]
         values = values[:, ch_ind]
         err = err[t_ind, :]
@@ -1254,9 +1287,11 @@ def find_best_profiles(
             "error": error,
             "transform": transform,
         }
-        quant_data = DataArray(values, coords, attrs=meta,).sel(
-            t=slice(reader_st40._tstart, reader_st40._tend)
-        )
+        quant_data = DataArray(
+            values,
+            coords,
+            attrs=meta,
+        ).sel(t=slice(reader_st40._tstart, reader_st40._tend))
 
         quant_data.name = "princeton" + "_" + "ti"
         quant_data.attrs["revision"] = rev
@@ -1285,9 +1320,11 @@ def find_best_profiles(
             "error": error,
             "transform": transform,
         }
-        quant_data = DataArray(values, coords, attrs=meta,).sel(
-            t=slice(reader_st40._tstart, reader_st40._tend)
-        )
+        quant_data = DataArray(
+            values,
+            coords,
+            attrs=meta,
+        ).sel(t=slice(reader_st40._tstart, reader_st40._tend))
 
         quant_data.name = "princeton" + "_" + "ti"
         quant_data.attrs["revision"] = rev
@@ -1345,7 +1382,9 @@ def find_best_profiles(
                 )
 
                 rho_min.loc[dict(t=t)] = xr.where(
-                    zimpact < 0, -rho_min.sel(t=t), rho_min.sel(t=t),
+                    zimpact < 0,
+                    -rho_min.sel(t=t),
+                    rho_min.sel(t=t),
                 )
 
             geom_attrs["rho"] = rho
@@ -1420,7 +1459,9 @@ def find_best_profiles(
 
         sxr_rad_interp = pl.sxr_rad.sum("element").interp(rho_poloidal=bckc_tmp.rho)
         sxr_rad_interp = xr.where(
-            (bckc_tmp.rho <= 1) * np.isfinite(sxr_rad_interp), sxr_rad_interp, 0,
+            (bckc_tmp.rho <= 1) * np.isfinite(sxr_rad_interp),
+            sxr_rad_interp,
+            0,
         )
         x2_name = "diode_arrays_filter_4_los_position"
         bckc_tmp = sxr_rad_interp.sum(x2_name) * bckc_tmp.dl
@@ -1487,6 +1528,7 @@ def find_best_profiles(
 
             volume = astra_dict[run]["volume"]
 
+            # TODO: calculate also Wdia to compare with experiment
             wtot = deepcopy(astra_dict[run]["wth"])
             wtot.name = "astra_wtot"
             wtot.attrs["datatype"] = ("stored_energy", "total")
@@ -1585,13 +1627,21 @@ def find_best_profiles(
     # Central electron temperature < current atomic data limit of 4 keV
     val = xr.full_like(data["efit"]["wp"], tmax)
     good_dict, _ = compare_runs(
-        astra_dict, val, key="te", good_dict=good_dict, max_val=True,
+        astra_dict,
+        val,
+        key="te",
+        good_dict=good_dict,
+        max_val=True,
     )
 
     # Central electron temperature < current atomic data limit of 4 keV
     val = xr.full_like(data["efit"]["wp"], 20)
     good_dict, _ = compare_runs(
-        astra_dict, val, key="ti", good_dict=good_dict, max_val=True,
+        astra_dict,
+        val,
+        key="ti",
+        good_dict=good_dict,
+        max_val=True,
     )
 
     all_runs = list(pl_dict)
@@ -1830,15 +1880,30 @@ def find_best_profiles(
     initialize_bckc("mag", "vloop", data, bckc=bckc)
     bckc["mag"]["vloop"] = pl.vloop
 
-    name = f"ASTRA_compare_average"
+    name = "ASTRA_compare_average"
     plots.profiles(
-        pl, data=data, bckc=bckc, savefig=savefig, name=best_run,
+        pl,
+        data=data,
+        bckc=bckc,
+        savefig=savefig,
+        name=best_run,
     )
     plots.profiles(
-        pl, data=data, bckc=bckc, savefig=savefig, name=name, ploterr=True, tplot=tgood,
+        pl,
+        data=data,
+        bckc=bckc,
+        savefig=savefig,
+        name=name,
+        ploterr=True,
+        tplot=tgood,
     )
     plots.time_evol(
-        pl, data, bckc=bckc, savefig=savefig, name=name, ploterr=True,
+        pl,
+        data,
+        bckc=bckc,
+        savefig=savefig,
+        name=name,
+        ploterr=True,
     )
     plots.compare_data_bckc(
         data,
@@ -1872,6 +1937,7 @@ def find_best_profiles(
 
     print(f"Best run {best_run}")
     return pl, bckc
+
 
 #
 # def vertical_displacement(

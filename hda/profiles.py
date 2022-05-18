@@ -410,18 +410,20 @@ def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
     # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
 
 
-def scan_profile_peaking(y0=7.5e3, plim=(1.5, 5), rho=np.linspace(0, 1.0, 41), plot=True):
+def scan_profile_parameter(profile:Profiles=None, parameter="wcenter", plim=(1.5, 5), y0_ref=None, plot=True):
     """
     Scan profile peaking
 
     Parameters
     ----------
-    y0
-        Central value
+    prof
+        Profiles class
+    parameter
+        Name of parameter to scan
     plim
-        Lower and upper limit of peaking factor
-    rho
-        Radial axis to build profile
+        Lower and upper limit of parameter
+    y0_ref
+        Reference central value for profile building
     plot
         Set to True to plot resulting profiles
 
@@ -430,18 +432,21 @@ def scan_profile_peaking(y0=7.5e3, plim=(1.5, 5), rho=np.linspace(0, 1.0, 41), p
     List of Profile objects
     """
 
-    Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=rho)
-    Ti_prof.y0 = y0
-    peakings = np.linspace(plim[0], plim[1], 10)
+    if profile is None:
+        profile = Profiles()
 
-    Tis = []
-    for peaking in peakings:
-        Ti_prof.peaking = peaking
-        Ti_prof.build_profile()
-        Tis.append(deepcopy(Ti_prof))
+    params = np.linspace(plim[0], plim[1], 10)
+
+    profs = []
+    for param in params:
+        setattr(profile, parameter, param)
+        profile.build_profile(y0_ref=y0_ref)
+        profs.append(deepcopy(profile))
 
     if plot:
-        for Ti in Tis:
-            Ti.yspl.plot(alpha=0.5)
+        for prof in profs:
+            prof.yspl.plot(alpha=0.5)
+        prof.yspl.plot(alpha=0.5, label=parameter)
+        plt.legend()
 
-    return Tis
+    return profs

@@ -284,7 +284,7 @@ def collisionality_electrons_sauter(el_dens, el_temp, zeff, a, R_mag, q):
     Parameters
     ----------
     el_dens
-        Electron density (m**-3)
+        Electron density: local (m**-3)
     el_temp
         Electron temperature (eV)
     zeff
@@ -356,7 +356,6 @@ def collisionality_electrons_todd(el_dens, el_temp, a, R_mag, q, vloop):
         / tau_ee
     )
     return nu
-
 
 def collision_time_el_el(el_dens, el_temp):
     """
@@ -1083,8 +1082,6 @@ def sawtooth_crash(xspl, yspl, volume, x_inv):
         vol_int_post = np.trapz(yspl, volume)
         if vol_int_post >= vol_int_pre:
             break
-
-    y = np.where(xspl != xspl[xind], yspl, (yspl[xind] + yspl[xind + 1]) / 2)
 
     x = np.linspace(0, 1, 15) ** 0.7
     y = np.interp(x, xspl, yspl)
