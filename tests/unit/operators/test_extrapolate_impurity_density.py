@@ -664,7 +664,7 @@ def input_data_setup():
 
     R_derived = R_derived.transpose("rho_poloidal", "theta", "t")
 
-    R_lfs_values = R_derived.interp(theta=0, method="linear")
+    R_lfs_values = R_derived.sel(theta=0, method="nearest")
 
     input_Te = input_Te.interp(rho_poloidal=expanded_rho, method="linear")
     input_Ne = input_Ne.interp(rho_poloidal=expanded_rho, method="linear")
