@@ -187,7 +187,7 @@ class AsymmetryParameter(Operator):
         ----------
         toroidal_rotations
             xarray.DataArray containing toroidal rotation frequencies data.
-            In units of Hz.
+            In units of ms^-1.
         ion_temperature
             xarray.DataArray containing ion temperature data. In units of eV.
         main_ion

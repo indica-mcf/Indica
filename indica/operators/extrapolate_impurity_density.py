@@ -295,7 +295,7 @@ class ExtrapolateImpurityDensity(Operator):
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return super().return_types(*args)
 
-    def transform_to_rho_theta_reduced(
+    def transform_to_rho_theta(
         self,
         data_R_z: DataArray,
         flux_surfaces: FluxSurfaceCoordinates,
@@ -330,15 +330,13 @@ class ExtrapolateImpurityDensity(Operator):
         if t_arr is None:
             t_arr = data_R_z.coords["t"]
 
-        theta_arr = np.array([0.0, np.pi])
+        theta_arr = np.linspace(-np.pi, np.pi, 21)
         # mypy doesn't like re-assignments which changes types.
         theta_arr = DataArray(  # type: ignore
             data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
         )
 
-        R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
-        R_deriv = cast(DataArray, R_deriv).interp(t=t_arr, method="linear")
-        z_deriv = cast(DataArray, z_deriv).interp(t=t_arr, method="linear")
+        R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr, t_arr)
 
         R_deriv = cast(DataArray, R_deriv).transpose("rho_poloidal", "theta", "t")
         z_deriv = cast(DataArray, z_deriv).transpose("rho_poloidal", "theta", "t")
@@ -448,14 +446,14 @@ class ExtrapolateImpurityDensity(Operator):
 
             extrapolated_spline_lfs = UnivariateSpline(
                 rho_arr,
-                extrapolated_data[:, 0, ind_t],
+                extrapolated_data.isel(t=ind_t).sel(theta=0),
                 k=5,
                 s=0.001 * variance_extrapolated_data_lfs,
             )
 
             extrapolated_spline_hfs = UnivariateSpline(
                 rho_arr,
-                extrapolated_data[:, 1, ind_t],
+                extrapolated_data.isel(t=ind_t).sel(theta=np.pi),
                 k=5,
                 s=0.001 * variance_extrapolated_data_hfs,
             )
@@ -588,7 +586,7 @@ class ExtrapolateImpurityDensity(Operator):
             theta_arr, {"theta": theta_arr}, ["theta"]
         )  # type: ignore
 
-        R_lfs_midplane = cast(DataArray, R_deriv).isel(theta=0)  # theta = 0.0
+        R_lfs_midplane = cast(DataArray, R_deriv).sel(theta=0, method="nearest")
 
         asymmetry_modifier = np.exp(
             asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
@@ -836,7 +834,7 @@ class ExtrapolateImpurityDensity(Operator):
         fitted_density = zeros_like(bolometry_obj.electron_density)
 
         lower_amp_bound = 0.1 * extrapolated_smooth_data_mean
-        upper_amp_bound = 1e3 * extrapolated_smooth_data_mean
+        upper_amp_bound = 1e4 * extrapolated_smooth_data_mean
 
         lower_width_bound = (drho / self.halfwidthhalfmax_coeff) / 3
         upper_width_bound = (
@@ -1033,7 +1031,7 @@ class ExtrapolateImpurityDensity(Operator):
             impurity_density_sxr_rho_theta,
             R_deriv,
             z_deriv,
-        ) = self.transform_to_rho_theta_reduced(
+        ) = self.transform_to_rho_theta(
             impurity_density_sxr,
             flux_surfaces,
             rho_arr,
