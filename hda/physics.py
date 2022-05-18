@@ -2,11 +2,13 @@
 General equations and quantities for plasma physics
 """
 
+from copy import deepcopy
+import math
+
 import numpy as np
 import scipy.constants as constants
-from scipy.interpolate import interp1d, CubicSpline
-import math
-from copy import deepcopy
+from scipy.interpolate import CubicSpline
+from scipy.interpolate import interp1d
 
 
 def conductivity_spitzer(el_dens, el_temp, zeff, approx="sauter"):
@@ -102,7 +104,7 @@ def conductivity_spitzer_todd(el_dens, el_temp, zeff):
     const = (
         3
         * (2 * math.pi) ** 1.5
-        * constants.epsilon_0 ** 2
+        * constants.epsilon_0**2
         / np.sqrt(constants.m_e * constants.e)
     )
     conductivity = const * el_temp ** (3 / 2) * lambda_e_zeff(zeff) / coul_log
@@ -193,7 +195,7 @@ def conductivity_neo_sauter(el_dens, el_temp, zeff, min_r, a, R_mag, q):
 
     def F33(x):
         return (
-            1 - (1 + 0.36 / zeff) * x + (0.59 / zeff) * x ** 2 - (0.23 / zeff) * x ** 3
+            1 - (1 + 0.36 / zeff) * x + (0.59 / zeff) * x**2 - (0.23 / zeff) * x**3
         )
 
     spitzer_cond = conductivity_spitzer_sauter(el_dens, el_temp, zeff)
@@ -282,7 +284,7 @@ def collisionality_electrons_sauter(el_dens, el_temp, zeff, a, R_mag, q):
     Parameters
     ----------
     el_dens
-        Electron density (m**-3)
+        Electron density: local (m**-3)
     el_temp
         Electron temperature (eV)
     zeff
@@ -304,7 +306,7 @@ def collisionality_electrons_sauter(el_dens, el_temp, zeff, a, R_mag, q):
     nu = (
         6.921e-18
         * (q * R_mag * el_dens * zeff * coul_log)
-        / (el_temp ** 2 * epsilon ** (3 / 2))
+        / (el_temp**2 * epsilon ** (3 / 2))
     )
 
     return nu
@@ -338,7 +340,7 @@ def collisionality_electrons_todd(el_dens, el_temp, a, R_mag, q, vloop):
 
     vthe = thermal_velocity(el_temp, ion=False)
     eps = a / R_mag
-    E_perp = constants.m_e * vthe ** 2 / constants.e
+    E_perp = constants.m_e * vthe**2 / constants.e
     E_phi = 2 * math.pi * R_mag * vloop
     x = q * R_mag * E_phi / (eps * E_perp)
     tau_ee = collision_time_el_el(el_dens, el_temp)
@@ -350,11 +352,10 @@ def collisionality_electrons_todd(el_dens, el_temp, a, R_mag, q, vloop):
         * q
         / vthe
         * eps ** (-3 / 2)
-        * (1 - x ** 2) ** (-1 / 4)
+        * (1 - x**2) ** (-1 / 4)
         / tau_ee
     )
     return nu
-
 
 def collision_time_el_el(el_dens, el_temp):
     """
@@ -382,9 +383,9 @@ def collision_time_el_el(el_dens, el_temp):
         3
         / (16 * np.sqrt(math.pi))
         * (4 * math.pi * constants.epsilon_0) ** 2
-        * constants.m_e ** 2
-        * vthe ** 3
-        / (el_dens * constants.e ** 4 * coul_log)
+        * constants.m_e**2
+        * vthe**3
+        / (el_dens * constants.e**4 * coul_log)
     )
 
     return tau_ee
@@ -419,8 +420,8 @@ def collisionality_ions_sauter(ion_dens, ion_temp, charge, a, R_mag, q):
     epsilon = a / R_mag
     nu = (
         4.9e-18
-        * (q * R_mag * ion_dens * charge ** 4 * coul_log)
-        / (ion_temp ** 2 * epsilon ** (3 / 2))
+        * (q * R_mag * ion_dens * charge**4 * coul_log)
+        / (ion_temp**2 * epsilon ** (3 / 2))
     )
 
     return nu
@@ -465,7 +466,7 @@ def coul_log_ii(ion_temp, ion_dens, charge):
     Coulomb logarithm
 
     """
-    return 30 - np.log(charge ** 3 * np.sqrt(ion_dens) / ion_temp ** (3 / 2))
+    return 30 - np.log(charge**3 * np.sqrt(ion_dens) / ion_temp ** (3 / 2))
 
 
 def current_density(ipla, rho, a, area, prof_shape):
@@ -521,7 +522,7 @@ def resistance(resistivity, j_phi, area, ipla):
 
     """
 
-    res = np.trapz(resistivity * j_phi ** 2, area) / ipla ** 2
+    res = np.trapz(resistivity * j_phi**2, area) / ipla**2
 
     return res
 
@@ -652,7 +653,8 @@ def safety_factor(b_tor, b_pol, min_r, a, R_mag, monotonic=True):
 
 def internal_inductance(b_pol, ipla, volume, approx=2, **kwargs):
     """
-    Calculate the internal inductance given poloidal magnetic field and geometrical quantities
+    Calculate the internal inductance given poloidal magnetic field and
+    geometrical quantities
 
     Parameters
     ----------
@@ -689,16 +691,16 @@ def internal_inductance(b_pol, ipla, volume, approx=2, **kwargs):
         elongation_a = elongation[np.argmin(np.abs(min_r - a))]
         return (
             2
-            * np.trapz(b_pol ** 2, volume)
+            * np.trapz(b_pol**2, volume)
             / (R_geo * (constants.mu_0 * ipla) ** 2)
-            * (1 + elongation ** 2 / (2 * elongation_a))
+            * (1 + elongation**2 / (2 * elongation_a))
         )
 
     def li2(b_pol, ipla, volume, R_mag):
-        return 2 * np.trapz(b_pol ** 2, volume) / (R_mag * (constants.mu_0 * ipla) ** 2)
+        return 2 * np.trapz(b_pol**2, volume) / (R_mag * (constants.mu_0 * ipla) ** 2)
 
     def li3(b_pol, ipla, volume, R_geo):
-        return 2 * np.trapz(b_pol ** 2, volume) / (R_geo * (constants.mu_0 * ipla) ** 2)
+        return 2 * np.trapz(b_pol**2, volume) / (R_geo * (constants.mu_0 * ipla) ** 2)
 
     if (
         approx == 1
@@ -718,17 +720,28 @@ def internal_inductance(b_pol, ipla, volume, approx=2, **kwargs):
         )
 
     if approx == 2 and "R_mag" in kwargs.keys():
-        return li2(b_pol, ipla, volume, kwargs["R_mag"],)
+        return li2(
+            b_pol,
+            ipla,
+            volume,
+            kwargs["R_mag"],
+        )
 
     if approx == 3 and "R_geo" in kwargs.keys():
-        return li3(b_pol, ipla, volume, kwargs["R_geo"],)
+        return li3(
+            b_pol,
+            ipla,
+            volume,
+            kwargs["R_geo"],
+        )
 
-    return l_i
+    return None
 
 
 def beta(b_field, pressure, volume):
     """
-    Calculate ratio of magnetic to kinetic pressure given magnetic field, pressure and geometrical quantities
+    Calculate ratio of magnetic to kinetic pressure given magnetic field,
+    pressure and geometrical quantities
 
     Parameters
     ----------
@@ -746,7 +759,7 @@ def beta(b_field, pressure, volume):
     """
 
     beta = (2 * constants.mu_0 * np.trapz(pressure, volume)) / np.trapz(
-        b_field ** 2, volume
+        b_field**2, volume
     )
 
     return beta
@@ -770,7 +783,8 @@ def beta_N():
 
 def beta_poloidal(b_pol, pressure, volume):
     """
-    Calculate the internal inductance given poloidal magnetic field and geometrical quantities
+    Calculate the internal inductance given poloidal magnetic field
+    and geometrical quantities
 
     Parameters
     ----------
@@ -788,7 +802,7 @@ def beta_poloidal(b_pol, pressure, volume):
     """
 
     beta_pol = (2 * constants.mu_0 * np.trapz(pressure, volume)) / np.trapz(
-        b_pol ** 2, volume
+        b_pol**2, volume
     )
 
     return beta_pol
@@ -874,14 +888,14 @@ def doppler_ev(sigma, centroid, mass: float, sigma_instr=0.0, fwhm=False):
 
     """
 
-    sigma_thermal = np.sqrt(sigma ** 2 - sigma_instr ** 2)
+    sigma_thermal = np.sqrt(sigma**2 - sigma_instr**2)
 
     J2eV = constants.physical_constants["joule-electron volt relationship"][0]
     temperature = (
         mass
         * constants.m_p
         * J2eV
-        * constants.c ** 2
+        * constants.c**2
         * (sigma_thermal / centroid) ** 2.0
     )
 
@@ -913,7 +927,7 @@ def ev_doppler(temperature, mass: float, fwhm=False):
     """
 
     J2eV = constants.physical_constants["joule-electron volt relationship"][0]
-    dl_l = np.sqrt(temperature / (mass * constants.m_p * J2eV * constants.c ** 2))
+    dl_l = np.sqrt(temperature / (mass * constants.m_p * J2eV * constants.c**2))
 
     if fwhm is True:
         dl_l *= 2 * np.sqrt(2 * np.log(2))
@@ -967,14 +981,15 @@ def centrifugal_asymmetry(
     )
 
     if toroidal_rotation is not None:
-        asymmetry_parameter = const * toroidal_rotation ** 2
+        asymmetry_parameter = const * toroidal_rotation**2
         return asymmetry_parameter
     elif asymmetry_parameter is not None:
         toroidal_rotation = np.sqrt(asymmetry_parameter / const)
         return toroidal_rotation
     else:
         print(
-            "\n physics.centrifugal_asymmetry: input either toroidal_rotation or asymmetry parameter \n"
+            "\n physics.centrifugal_asymmetry: input either toroidal_rotation "
+            "or asymmetry parameter \n"
         )
         raise ValueError
 
@@ -1011,13 +1026,13 @@ def zeff_bremsstrahlung(
 
     assert (zeff is not None) == (brems is None)
 
-    gaunt_funct = {"callahan": lambda Te: 1.35 * Te ** 0.15}
+    gaunt_funct = {"callahan": lambda Te: 1.35 * Te**0.15}
 
-    const = constants.e ** 6 / (
+    const = constants.e**6 / (
         np.sqrt(2)
         * (3 * np.pi * constants.m_e) ** 1.5
-        * constants.epsilon_0 ** 3
-        * constants.c ** 2
+        * constants.epsilon_0**3
+        * constants.c**2
     )
     gaunt = gaunt_funct[gaunt_approx](Te)
     ev_to_k = constants.physical_constants["electron volt-kelvin relationship"][0]
@@ -1028,8 +1043,8 @@ def zeff_bremsstrahlung(
 
     factor = (
         const
-        * (Ne ** 2 / np.sqrt(constants.k * Te))
-        * (exponent / wlenght ** 2)
+        * (Ne**2 / np.sqrt(constants.k * Te))
+        * (exponent / wlenght**2)
         * gaunt
     ) * wlenght
 
@@ -1048,7 +1063,7 @@ def derivative(y, x):
         if i > 0:
             der[i] = (y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1])
 
-    finterp = interp1d(x[1 : nlen - 1], q_prof[1 : nlen - 1], kind="quadratic")
+    finterp = interp1d(x[1 : nlen - 1], y[1 : nlen - 1], kind="quadratic")
     der = finterp(x)
 
     return der
@@ -1056,7 +1071,7 @@ def derivative(y, x):
 
 def gaussian(x, A, B, x_0, w):
     """Build Gaussian with known parameters"""
-    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
+    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
 
 
 def sawtooth_crash(xspl, yspl, volume, x_inv):
@@ -1068,11 +1083,15 @@ def sawtooth_crash(xspl, yspl, volume, x_inv):
         if vol_int_post >= vol_int_pre:
             break
 
-    y = np.where(xspl != xspl[xind], yspl, (yspl[xind] + yspl[xind + 1]) / 2)
-
     x = np.linspace(0, 1, 15) ** 0.7
     y = np.interp(x, xspl, yspl)
-    cubicspline = CubicSpline(x, y, 0, "clamped", False,)
+    cubicspline = CubicSpline(
+        x,
+        y,
+        0,
+        "clamped",
+        False,
+    )
     yspl = cubicspline(xspl)
     vol_int_post = np.trapz(yspl, volume)
     print(f"Vol-int: {float(vol_int_pre)}, {float(vol_int_post)}")
