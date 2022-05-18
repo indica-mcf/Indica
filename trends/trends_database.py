@@ -1,10 +1,9 @@
 from copy import deepcopy
+import glob
 import json
 import os
-import glob
 import pathlib
 import pickle
-import re
 
 import numpy as np
 from trends.info_dict import info_dict
@@ -142,7 +141,9 @@ class Database:
         self.file_info_json = file_info_json
         self.file_info_py = file_info_py
 
-    def database_filename(self, pulse_start: int = None, pulse_end: int = None, ext="pkl"):
+    def database_filename(
+        self, pulse_start: int = None, pulse_end: int = None, ext="pkl"
+    ):
         """
         Open Pickle file where Database has been saved
         If either of the two values is None, latest file will be searched for
@@ -341,7 +342,10 @@ class Database:
             return
 
         self.pulse_end = pulse_end
-        binned, max_val, min_val, pulses = self.read_data(pulse_start, pulse_end,)
+        binned, max_val, min_val, pulses = self.read_data(
+            pulse_start,
+            pulse_end,
+        )
 
         if len(pulses) > 0:
             self.pulses = np.append(self.pulses, pulses)
@@ -364,7 +368,10 @@ class Database:
         print(f"New items being added: {list(info)}")
 
         binned, max_val, min_val, pulses = self.read_data(
-            self.pulse_start, self.pulse_end, info=info, pulse_list=self.pulses,
+            self.pulse_start,
+            self.pulse_end,
+            info=info,
+            pulse_list=self.pulses,
         )
 
         assert self.pulses == pulses
@@ -421,7 +428,11 @@ class Database:
         pulses = []
         for pulse in pulse_list:
             print(pulse)
-            reader = ST40Reader(int(pulse), self.tlim[0], self.tlim[1],)
+            reader = ST40Reader(
+                int(pulse),
+                self.tlim[0],
+                self.tlim[1],
+            )
 
             proceed = pulse_ok(reader, self.tlim, ipla_min=self.ipla_min)
             if not proceed:
@@ -439,6 +450,7 @@ class Database:
                 if np.array_equal(data, "FAILED") or np.array_equal(dims[0], "FAILED"):
                     append_empty(k, binned, max_val)
                     continue
+                data *= v["mult"]
 
                 time = dims[0]
                 if np.min(time) > np.max(self.tlim) or np.max(time) < np.min(self.tlim):
@@ -448,12 +460,16 @@ class Database:
                 err = None
                 if v["err"] is not None:
                     err, _ = reader._get_data(v["uid"], v["diag"], v["err"], v["rev"])
+                    err *= v["mult"]
+
                 rev = v["rev"]
                 if rev == 0:
                     rev = int(reader._get_revision(v["uid"], v["diag"], v["rev"]))
 
                 binned_tmp, max_val_tmp, min_val_tmp = self.bin_in_time(
-                    data, time, err,
+                    data,
+                    time,
+                    err,
                 )
                 binned_tmp.revision.values = rev
                 max_val_tmp.revision.values = rev
@@ -478,7 +494,10 @@ class Database:
         return binned, max_val, min_val, pulses
 
     def bin_in_time(
-        self, data: np.ndarray, time: np.ndarray, err: np.ndarray = None, sign=+1
+        self,
+        data: np.ndarray,
+        time: np.ndarray,
+        err: np.ndarray = None,
     ):
         """
         TODO: account for texp for spectroscopy intensities if not already in MDS+
@@ -571,23 +590,23 @@ def write_to_pickle(database: Database, pkl_file: str = None):
     pickle.dump(database, open(_file, "wb"))
 
 
-def write_to_mysql(database: Database, database_name: str = "st40_test"):
-    """
-    Write database to file(s), update info file(s)
-
-    Parameters
-    ----------
-    database
-        Database class to save to pickle
-    """
-    mysql_conn = pymysql.connect(
-        user="marco.sertoli",
-        password="Marco3142!",
-        host="192.168.1.9",
-        database="database_name",
-        port=3306,
-    )
-    mysql_cursor = mysql_conn.cursor()
+# def write_to_mysql(database: Database, database_name: str = "st40_test"):
+#     """
+#     Write database to file(s), update info file(s)
+#
+#     Parameters
+#     ----------
+#     database
+#         Database class to save to pickle
+#     """
+#     mysql_conn = pymysql.connect(
+#         user="marco.sertoli",
+#         password="Marco3142!",
+#         host="192.168.1.9",
+#         database="database_name",
+#         port=3306,
+#     )
+#     mysql_cursor = mysql_conn.cursor()
 
 
 def pulse_ok(reader: ST40Reader, tlim: tuple, ipla_min: float = 50.0e3):
@@ -612,7 +631,10 @@ def pulse_ok(reader: ST40Reader, tlim: tuple, ipla_min: float = 50.0e3):
     ipla_pfit, dims_pfit = reader._get_data(
         "", "pfit", ".post_best.results.global:ip", -1
     )
-    (ipla_efit, dims_efit,) = reader._get_data("", "efit", ".constraints.ip:cvalue", 0)
+    (
+        ipla_efit,
+        dims_efit,
+    ) = reader._get_data("", "efit", ".constraints.ip:cvalue", 0)
 
     ok_pfit = not np.array_equal(ipla_pfit, "FAILED")
     ok_efit = not np.array_equal(ipla_efit, "FAILED")
@@ -647,25 +669,16 @@ def rename_file(_file: str, _file_backup: str):
 
 
 def add_quantities(database: Database):
+
     info = {
-        "p_hnbi1": {
-            "uid": "nbi",
-            "diag": "hnbi1",
-            "node": ":pinj",
-            "rev": "1",
+        "btvac_efit": {
+            "uid": "",
+            "diag": "efit",
+            "node": ".global:btvac",
+            "rev": 0,
             "err": None,
-            "label": "P$_{HNBI1}$",
-            "units": "(MW)",
-            "const": 1.0,
-        },
-        "p_rfx": {
-            "uid": "nbi",
-            "diag": "rfx",
-            "node": ":pinj",
-            "rev": "1",
-            "err": None,
-            "label": "P$_{RFX}$",
-            "units": "(MW)",
+            "label": "B$_{t}$ vac EFIT",
+            "units": "",
             "const": 1.0,
         },
     }
@@ -695,10 +708,15 @@ def fix_things(database: Database, assign: bool = True):
 
 
 def test_flow(
-    pulse_start: int = 9770, pulse_end: int = 9790, pulse_add: int = 9800,
+    pulse_start: int = 9770,
+    pulse_end: int = 9790,
+    pulse_add: int = 9800,
 ):
     # Initialize class
-    database = Database(pulse_start=pulse_start, pulse_end=pulse_end,)
+    database = Database(
+        pulse_start=pulse_start,
+        pulse_end=pulse_end,
+    )
     # Read all data and save to class attributes
     database()
 
@@ -721,7 +739,9 @@ def run_workflow(
     Run workflow to build Trends database from scratch
     """
     database = Database(
-        pulse_start=pulse_start, pulse_end=pulse_end, set_info=set_info,
+        pulse_start=pulse_start,
+        pulse_end=pulse_end,
+        set_info=set_info,
     )
     database()
 
