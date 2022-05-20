@@ -208,12 +208,16 @@ class Compatible_Input_Type_Test_Case(unittest.TestCase):
         dropped_t_coord = np.array([80.5])
         dropped_rho_coord = np.array([rho[3], rho[7]])
 
-        Ne = DataArray(data=Ne, coords=[("t", t), ("rho", rho)], dims=["t", "rho"])
+        Ne = DataArray(
+            data=Ne,
+            coords=[("t", t), ("rho_poloidal", rho)],
+            dims=["t", "rho_poloidal"],
+        )
 
         dropped = Ne.sel({"t": dropped_t_coord})
-        dropped = dropped.sel({"rho": dropped_rho_coord})
+        dropped = dropped.sel({"rho_poloidal": dropped_rho_coord})
 
-        Ne.loc[{"t": dropped_t_coord, "rho": dropped_rho_coord}] = np.nan
+        Ne.loc[{"t": dropped_t_coord, "rho_poloidal": dropped_rho_coord}] = np.nan
 
         Ne.attrs["dropped"] = dropped
 
