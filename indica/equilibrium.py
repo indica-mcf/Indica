@@ -426,8 +426,8 @@ class Equilibrium(AbstractEquilibrium):
 
         result = DataArray(
             data=area,
-            coords=[("t", t), ("rho", rho)],
-            dims=["t", "rho"],
+            coords=[("t", t), ("rho_poloidal", rho)],
+            dims=["t", "rho_poloidal"],
         )
 
         return (
@@ -597,14 +597,14 @@ class Equilibrium(AbstractEquilibrium):
             R=R_grid,
             z=z_grid,
             zero_coords={"R": R0, "z": z0},
-            method="cubic",
+            method="linear",
             assume_sorted=True,
         ).rename("rho_" + kind)
         fluxes_samples.loc[{"r": 0}] = 0.0
 
-        indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="cubic")
+        indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="linear")
         return (
-            minor_rads.indica.interp2d(r=indices, method="cubic", assume_sorted=True),
+            minor_rads.indica.interp2d(r=indices, method="linear", assume_sorted=True),
             t,
         )
 
