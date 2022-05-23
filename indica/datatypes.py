@@ -20,18 +20,23 @@ SpecificDataType = str
 GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     "angular_freq": (
         "Angular speed at which a species of ion completes a loop of the Tokamak",
-        "\rad s^{-1}",
+        "rad s^-1",
     ),
     "asymmetry": (
-        "Parameter describing asymettry between quantities on HFS and LFS",
+        "Parameter describing asymmetry between quantities on HFS and LFS",
         "",
+    ),
+    "lines_of_sight_data": (
+        'Data specifying start and end points of given lines-of-sight, \
+            as well as labelling specifying each line-of-sight (ie. "KB5V01B").',
+        "m",
     ),
     "concentration": (
         "Portion of nuclei which are the given type of ion",
         "%",
     ),
     "effective_charge": (
-        "Ratio of positive ion charge to electron charge in plasma",
+        "Zeff ratio of ion charge to electron charge in plasma",
         "",
     ),
     "emissivity": ("Radiation power produced per unit volume of space", "W m^{-3}"),
@@ -39,18 +44,32 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Product of toroidal magnetic field strength and major radius",
         "Wb m",
     ),
+    "flux_surface_coordinates": (
+        "Flux surface coordinate object derived attached to a given equilibrium.",
+        "",
+    ),
+    "elements": ("List of elements (symbols).", ""),
     "ion_coeffs": ("Effective ionisation coefficients", "m^3 s^{-1}"),
     "line_emissions": ("Line emissions from excitation", "W m^3"),
     "luminous_flux": (
         "Radiation power received per unit area at some point",
-        "W m^{-2}",
+        "W m^-2",
     ),
-    "magnetic_flux": ("Unnormalised poloidal component of magnetic flux", "Wb/2\\pi"),
     "major_rad": (
         "Horizontal position within the tokamak along the major radius",
         "m",
     ),
     "minor_rad": ("Distance of a point from the magnetic axis", "m"),
+    "z": ("Vertical position from mid-plane of Tokamak", "m"),
+    "vol_jacobian": (
+        "Derivative of enclosed volume with respect to normalised poloidal flux",
+        "m^3",
+    ),
+    "f_value": (
+        "Product of toroidal magnetic field strength and major radius",
+        "Wb m",
+    ),
+    "magnetic_flux": ("Poloidal component of magnetic flux", "Wb/2\\pi"),
     "norm_flux_pol": (
         "Square root of normalised poloidal component of magnetic flux",
         "",
@@ -59,10 +78,12 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Square root of normalised toroidal component of magnetic flux",
         "",
     ),
-    "number_density": ("Number of particles per cubic metre", "m^{-3}"),
+    "toroidal_flux": ("Toroidal component of magnetic flux", "Wb"),
+    "number_density": ("Number of particles per cubic metre", "m^-3"),
     "temperature": ("Thermal temperature of some particals", "eV"),
     "time": ("Time into the pulse", "s"),
-    "toroidal_flux": ("Unnormalised toroidal component of magnetic flux", "Wb"),
+    "times": ("All time values for the pulse", "s"),
+    "ion_coeff": ("Effective ionisation rate coefficient", "m^3 s^-1"),
     "recomb_coeffs": ("Effective recombination coefficients", "m^3 s^{-1}"),
     "recomb_emissions": ("Emissions from recombination and bremsstrahlung", "W m^3"),
     "sxr_line_emissions": ("SXR-filtered line emissions from excitation", "W m^3"),
@@ -70,14 +91,40 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "SXR-filtered emissions from recombination and bremsstrahlung",
         "W m^3",
     ),
-    "vol_jacobian": (
-        "Derivative of enclosed volume with respect to normalised poloidal flux",
-        "m^3",
+    "photon_emissivity_coefficient_ca": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
     ),
-    "weighting": ("Dimensionless weighting to use when fitting data.", ""),
-    "z": ("Vertical position from mid-plane of Tokamak", "m"),
+    "photon_emissivity_coefficient_cl": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
+    ),
+    "photon_emissivity_coefficient_ic": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
+    ),
+    "photon_emissivity_coefficient_ls": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
+    ),
+    "photon_emissivity_coefficient_llu": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
+    ),
+    "photon_emissivity_coefficient_pju": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
+    ),
+    "photon_emissivity_coefficient_bnd": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
+    ),
+    "photon_emissivity_coefficient_pjr": (
+        "ADAS photon emissivity coefficients",
+        "W m^3",
+    ),
     "ionisation_rate": (
-        "Effective ionisation rate coefficients of all relevant ionisation stages of \
+        "Effective ionisation rate coefficient of all relevant ionisation stages of \
             given impurity element",
         "m^3 s^-1",
     ),
@@ -87,21 +134,21 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "m^3 s^-1",
     ),
     "charge-exchange_rate": (
-        "Charge exchange cross coupling coefficients of all relevant ionisation stages\
+        "Charge exchange cross coupling coefficient of all relevant ionisation stages\
              of given impurity element",
         "m^3 s^-1",
     ),
-    "line_power_coeffecient": (
+    "line_power_coefficient": (
         "Radiated power of line emission from excitation of all relevant ionisation \
             stages of given impurity element",
         "w m^3",
     ),
-    "charge-exchange_power_coeffecient": (
+    "charge-exchange_power_coefficient": (
         "Radiated power of charge exchange emission of all relevant ionisation stages \
             of given impurity element",
         "w m^3",
     ),
-    "recombination_power_coeffecient": (
+    "recombination_power_coefficient": (
         "Radiated power from recombination and bremsstrahlung of given impurity \
             element",
         "w m^3",
@@ -118,18 +165,19 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "",
     ),
     "total_radiated_power_loss": (
-        "Total radiated power of all ionisation stages of given impurity element",
+        "Total radiated power of all ionisation stages of given element",
         "W m^3",
     ),
     "impurity_concentration": (
         "Impurity concentration of given element",
         "",
     ),
-    "toroidal_rotation": ("Toroidal rotation speed of the plasma", ""),
+    "toroidal_rotation": ("Toroidal rotation speed of the plasma", "m s^-1"),
     "mean_charge": (
         "Mean charge of given element, in units of electron charge",
         "",
     ),
+    "weighting": ("Dimensionless weighting to use when fitting data.", ""),
 }
 
 #: A dictionary containing information on what the general datatype is
@@ -143,13 +191,16 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
     "hfs": "High flux surface",
     "lfs": "Low flux surface",
     "mag_axis": "Magnetic axis for equilibrium in tokamak",
-    "nickle": "Nickle ions in plasma",
+    "nickel": "Nickel ions in plasma",
     "plasma": "The plasma as a whole",
     "separatrix": "Sepeparatrix surface for equilibrium in tokamak",
     "sxr": "Soft X-rays",
     "tungsten": "Tungsten ions in plasma",
+    "argon": "Argon ions in plasma",
+    "impurities": "All impurities in the plasma",
     "impurity_element": "Chosen impurity element in plasma",
     "thermal_hydrogen": "Thermal hydrogen in plasma",
+    "main_ion": "Main ion in the plasma (eg. deuterium)",
 }
 
 
@@ -157,24 +208,28 @@ SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
 # datatype used by indica.
 ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
     "scd": "ion_coeff",
-    "acd": "recomb_coeffs",
-    "ccd": "charge_exchange_recomb_coeffs",
-    "plt": "line_emissions",
-    "prc": "charge_exchange_emissions",
-    "plsx": "sxr_line_emissions",
-    "prb": "recomb_emissions",
-    "prsx": "sxr_recomb_emissions",
+    "acd": "recomb_coeff",
+    "ccd": "charge_exchange_recomb_coeff",
+    "plt": "line_emission",
+    "prc": "charge_exchange_emission",
+    "pls": "sxr_line_emission",
+    "prb": "recomb_emission",
+    "prs": "sxr_recomb_emission",
+}
+
+ADF12_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
+    "cx": "charge_exchange_cross-section_coefficient",
 }
 
 ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
-    "ca": "photon_emissivity_coefficients_ca",
-    "cl": "photon_emissivity_coefficients_cl",
-    "ic": "photon_emissivity_coefficients_ic",
-    "ls": "photon_emissivity_coefficients_ls",
-    "llu": "photon_emissivity_coefficients_llu",
-    "pju": "photon_emissivity_coefficients_pju",
-    "bnd": "photon_emissivity_coefficients_bnd",
-    "pjr": "photon_emissivity_coefficients_pjr",
+    "ca": "photon_emissivity_coefficient_ca",
+    "cl": "photon_emissivity_coefficient_cl",
+    "ic": "photon_emissivity_coefficient_ic",
+    "ls": "photon_emissivity_coefficient_ls",
+    "llu": "photon_emissivity_coefficient_llu",
+    "pju": "photon_emissivity_coefficient_pju",
+    "bnd": "photon_emissivity_coefficient_bnd",
+    "pjr": "photon_emissivity_coefficient_pjr",
 }
 
 # Format is {str(element_symbol):
@@ -271,15 +326,15 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "ionisation_rate",
         "recombination_rate",
         "charge-exchange_rate",
-        "line_power_coeffecient",
-        "recombination_power_coeffecient",
-        "charge-exchange_power_coeffecient",
+        "line_power_coefficient",
+        "recombination_power_coefficient",
+        "charge-exchange_power_coefficient",
         "initial_fractional_abundance",
         "fractional_abundance",
         "total radiated power loss",
     ],
     {
-        "bolometric": ["luminous_flux", "weighting"],
+        "bolometric": ["luminous_flux", "weighting", "lines_of_sight_data"],
         "electrons": ["angular_freq", "number_density", "temperature", "weighting"],
         "hfs": ["major_rad", "z", "weighting"],
         "lfs": ["major_rad", "z", "weighting"],
@@ -287,6 +342,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
         "plasma": [
             "angular_freq",
             "effective_charge",
+            "flux_surface_coordinates",
             "magnetic_flux",
             "norm_flux_pol",
             "norm_flux_tor",
@@ -296,17 +352,19 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "vol_jacobian",
             "weighting",
             "toroidal_rotation",
+            "times",
         ],
         "separatrix": ["magnetic_flux", "major_rad", "minor_rad", "z", "weighting"],
-        "sxr": ["luminous_flux", "weighting"],
+        "sxr": ["luminous_flux", "weighting", "lines_of_sight_data"],
         "thermal_hydrogen": ["number_density"],
+        "impurities": ["number_density", "fractional_abundance", "elements"],
         "impurity_element": [
             "ionisation_rate",
             "recombination_rate",
             "charge-exchange_rate",
-            "line_power_coeffecient",
-            "recombination_power_coeffecient",
-            "charge-exchange_power_coeffecient",
+            "line_power_coefficient",
+            "recombination_power_coefficient",
+            "charge-exchange_power_coefficient",
             "initial_fractional_abundance",
             "fractional_abundance",
             "total radiated power loss",
@@ -314,6 +372,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "mean_charge",
             "time",
         ],
+        "main_ion": ["total radiated power loss", "number_density"],
     },
 )
 

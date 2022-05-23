@@ -1,16 +1,19 @@
 from typing import Dict
 from typing import Union
 import unittest
+from unittest.mock import MagicMock
 
 import numpy as np
 from xarray.core.common import zeros_like
 from xarray.core.dataarray import DataArray
 
+from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.centrifugal_asymmetry import ToroidalRotation
 from indica.readers.adas import ADASReader
+from ..test_equilibrium_single import equilibrium_dat_and_te
 
 
 class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
@@ -242,14 +245,14 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
 
     input_Te = DataArray(
         data=np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]),
-        coords={"rho": rho_profile},
-        dims=["rho"],
+        coords={"rho_poloidal": rho_profile},
+        dims=["rho_poloidal"],
     )
 
     input_Ne = DataArray(
         data=np.array([5.0e19, 4e19, 3.0e19, 2.0e19, 1.0e19]),
-        coords={"rho": rho_profile},
-        dims=["rho"],
+        coords={"rho_poloidal": rho_profile},
+        dims=["rho_poloidal"],
     )
 
     example_frac_abundance = FractionalAbundance(
@@ -321,23 +324,43 @@ def test_centrifugal_asymmetry():
     t = np.linspace(75.0, 80.0, 5)
     rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
 
+    example_equilib_dat, example_Te = equilibrium_dat_and_te()
+
     electron_temp = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
+
+    offset = MagicMock(return_value=0.02)
+
+    example_equilibrium = Equilibrium(
+        example_equilib_dat,
+        example_Te,
+        sess=MagicMock(),
+        offset_picker=offset,
+    )
+
+    xr_rho_profile = DataArray(
+        data=rho_profile, coords={"rho_poloidal": rho_profile}, dims=["rho_poloidal"]
+    )
+
+    R_lfs_values, _ = example_equilibrium.R_lfs(xr_rho_profile)
 
     # be, ne, ni, w
     elements = ["be", "ne", "ni", "w"]
 
     toroidal_rotations = np.array([200.0e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
+
+    toroidal_rotations /= R_lfs_values.data[0, :]
+
     toroidal_rotations = np.tile(toroidal_rotations, (len(elements), len(t), 1))
     toroidal_rotations = np.swapaxes(toroidal_rotations, 1, 2)
 
     toroidal_rotations = DataArray(
         data=toroidal_rotations,
-        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
-        dims=["element", "rho", "t"],
+        coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
+        dims=["element", "rho_poloidal", "t"],
     )
 
     ion_temperature = np.array([2.0e3, 1.2e3, 0.5e3, 0.2e3, 0.1e3])
@@ -346,21 +369,23 @@ def test_centrifugal_asymmetry():
 
     ion_temperature = DataArray(
         data=ion_temperature,
-        coords=[("element", elements), ("rho", rho_profile), ("t", t)],
-        dims=["element", "rho", "t"],
+        coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
+        dims=["element", "rho_poloidal", "t"],
     )
 
     Zeff = DataArray(
         data=1.85 * np.ones((*rho_profile.shape, len(t))),
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     main_ion = "d"
     impurity = "be"
 
+    # toroidal_rotations has to be deepcopied otherwise it gets modified when
+    # passed to example_asymmetry.__call__
     nominal_inputs = {
-        "toroidal_rotations": toroidal_rotations,
+        "toroidal_rotations": toroidal_rotations.copy(deep=True),
         "ion_temperature": ion_temperature,
         "main_ion": main_ion,
         "impurity": impurity,

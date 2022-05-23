@@ -24,17 +24,13 @@ class ToroidalRotation(Operator):
     toroidal_rotation
         xarray.DataArray containing toroidal rotation for a given impurity element
 
-    Methods
-    -------
-    __call__(
-        asymmetry_parameters,
-        ion_temperature,
-        main_ion,
-        impurity,
-        Zeff,
-        electron_temp,
-    )
-        Calculates the toroidal_rotation from the asymmetry_parameter.
+    Attributes
+    ----------
+    ARGUMENT_TYPES: List[DataType]
+        Ordered list of the types of data expected for each argument of the
+        operator.
+    RESULT_TYPES: List[DataType]
+        Ordered list of the types of data returned by the operator.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
@@ -58,14 +54,14 @@ class ToroidalRotation(Operator):
         Zeff: DataArray,
         electron_temp: DataArray,
     ):
-        """Calculates the toroidal rotation from the asymmetry parameter.
+        """Calculates the toroidal rotation frequency from the asymmetry parameter.
 
         Parameters
         ----------
         asymmetry_parameters
-            xarray.DataArray containing asymmetry parameters data.
+            xarray.DataArray containing asymmetry parameters data. In units of m^-2.
         ion_temperature
-            xarray.DataArray containing ion temperature data.
+            xarray.DataArray containing ion temperature data. In units of eV.
         main_ion
             Element symbol of main ion.
         impurity
@@ -73,12 +69,12 @@ class ToroidalRotation(Operator):
         Zeff
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
-            xarray.DataArray containing electron temperature data.
+            xarray.DataArray containing electron temperature data. In units of eV.
 
         Returns
         -------
         toroidal_rotation
-            xarray.DataArray containing data for toroidal rotations
+            xarray.DataArray containing data for toroidal rotation frequencies
             for the given impurity element
         """
         input_check(
@@ -127,7 +123,7 @@ class ToroidalRotation(Operator):
 
         impurity_mass_int = ELEMENTS[impurity][1]
 
-        unified_atomic_mass_unit = 1.660539066e-27
+        unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
         mean_charge = ELEMENTS[impurity][0]
@@ -149,6 +145,9 @@ class ToroidalRotation(Operator):
 
         toroidal_rotation = toroidal_rotation**0.5
 
+        c = 3.0e8  # speed of light in vacuum
+        toroidal_rotation *= c
+
         return toroidal_rotation
 
 
@@ -163,17 +162,6 @@ class AsymmetryParameter(Operator):
     asymmetry_parameter
         xarray.DataArray containing asymmetry_parameter for a given impurity element
 
-    Methods
-    -------
-    __call__(
-        toroidal_rotation,
-        ion_temperature,
-        main_ion,
-        impurity,
-        Zeff,
-        electron_temp,
-    )
-        Calculates the asymmetry parameter from the toroidal rotation.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
@@ -193,14 +181,15 @@ class AsymmetryParameter(Operator):
         Zeff: DataArray,
         electron_temp: DataArray,
     ):
-        """Calculates the asymmetry parameter from the toroidal rotation.
+        """Calculates the asymmetry parameter from the toroidal rotation frequency.
 
         Parameters
         ----------
         toroidal_rotations
-            xarray.DataArray containing toroidal rotations data.
+            xarray.DataArray containing toroidal rotation frequencies data.
+            In units of ms^-1.
         ion_temperature
-            xarray.DataArray containing ion temperature data.
+            xarray.DataArray containing ion temperature data. In units of eV.
         main_ion
             Element symbol of main ion.
         impurity
@@ -208,7 +197,7 @@ class AsymmetryParameter(Operator):
         Zeff
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
-            xarray.DataArray containing electron temperature data.
+            xarray.DataArray containing electron temperature data. In units of eV.
 
         Returns
         -------
@@ -262,7 +251,7 @@ class AsymmetryParameter(Operator):
 
         impurity_mass_int = ELEMENTS[impurity][1]
 
-        unified_atomic_mass_unit = 1.660539066e-27
+        unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
         mean_charge = ELEMENTS[impurity][0]
@@ -272,6 +261,9 @@ class AsymmetryParameter(Operator):
         main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
 
         ion_temperature = ion_temperature.sel(element=impurity)
+
+        c = 3.0e8  # speed of light in m/s
+        toroidal_rotations /= c
 
         # mypy on the github CI suggests that * is in an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
