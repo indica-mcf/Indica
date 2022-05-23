@@ -9,6 +9,7 @@ from typing import List
 from typing import Set
 
 import numpy as np
+import pytest
 from xarray import DataArray
 
 from indica import session
@@ -503,6 +504,55 @@ class TestReader(DataReader):
         return True
 
 
+class UnimplementedMethodReader(DataReader):
+    """Class to test calls to unimplemented get methods"""
+
+    MACHINE_DIMS = _MACHINE_DIMS
+    INSTRUMENT_METHODS = _INSTRUMENT_METHODS
+
+    def __init__(
+        self,
+        tstart: float,
+        tend: float,
+        max_freq: float = 1e6,
+        selector: DataSelector = selector,
+        sess: session.Session = session.global_session,
+    ):
+        """
+        Test version of DataReader
+
+        Parameters
+        ----------
+        tstart
+            ...as in abstractreader...
+        tend
+            ...as in abstractreader...
+        max_freq
+            ...as in abstractreader...
+        selector
+            Fake version of selector
+        sess
+            ...as in abstractreader...
+        empty
+            Set to True to return empty dictionary
+        equil_unique
+            Set to False to return equilibrium time axis with non-unique elements
+        """
+        super().__init__(
+            tstart,
+            tend,
+            max_freq,
+            sess,
+            selector,
+        )
+
+    def close(self):
+        del self._client
+
+    def requires_authentication(self):
+        return True
+
+
 def _test_get_methods(
     instrument: str,
     tstart: float = 0.0,
@@ -532,6 +582,26 @@ def _test_get_methods(
             return actual, expected
 
 
+def _test_catch_unimplemented_reader(
+    instrument: str,
+    tstart: float = 0.0,
+    tend: float = 1.0,
+):
+    """
+    Test catch for unimplemented get methods in abstract reader
+    """
+
+    reader = UnimplementedMethodReader(
+        tstart,
+        tend,
+    )
+
+    quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
+
+    with pytest.raises(NotImplementedError):
+        reader.get("", instrument, 0, quantities)
+
+
 def _test_empty(
     instrument,
     tstart=0.0,
@@ -552,6 +622,21 @@ def _test_empty(
     results = reader.get("", instrument, 0, quantities)
 
     assert np.all(len(results) == 0)
+
+
+def _test_invalid_quantity(
+    instrument: str,
+    tstart=0.0,
+    tend=1.0,
+):
+    """
+    Test raising ValueError when fetching unavailable quantity
+    """
+
+    reader = TestReader(tstart, tend)
+
+    with pytest.raises(ValueError):
+        reader.get("", instrument, 0, {"invalid"})
 
 
 def _test_caching(instrument: str, tstart: float = 0.0, tend: float = 1.0):
@@ -579,6 +664,24 @@ def _test_caching(instrument: str, tstart: float = 0.0, tend: float = 1.0):
             return actual, expected
 
 
+def _test_downsample_ratio(instrument: str, tstart: float = 0.0, tend: float = 1.0):
+    _get_method = f"_{_INSTRUMENT_METHODS[instrument]}"
+
+    reader = TestReader(tstart, tend)
+    reader._max_freq = (1 / reader.dt) / 10
+
+    quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
+
+    _results = getattr(reader, _get_method)("", instrument, 0, quantities)
+
+    results = reader.get("", instrument, 0, quantities)
+
+    for q, actual in [(q, results[q]) for q in quantities]:
+        frequency = 1 / (actual.coords["t"][1:].values - actual.coords["t"][:-1].values)
+        assert np.all(frequency - reader._max_freq < 1e-6)  # reader._max_freq / 1000)
+        assert actual.coords["t"].size < _results["times"].size
+
+
 def test_non_unique_times(
     instrument: str = "equilibrium", tstart: float = 0.0, tend: float = 1.0
 ):
@@ -603,50 +706,71 @@ def test_non_unique_times(
 
 def test_thomson_scattering():
     instrument = "thomson_scattering"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_equilibrium():
     instrument = "equilibrium"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_cyclotron_emissions():
     instrument = "cyclotron_emissions"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_charge_exchange():
     instrument = "charge_exchange"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_bremsstrahlung_spectroscopy():
     instrument = "bremsstrahlung_spectroscopy"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_radiation():
     instrument = "radiation"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_helike_spectroscopy():
     instrument = "helike_spectroscopy"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_interferometry():
     instrument = "interferometry"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_filters():
     instrument = "filters"
-    return _test_get_methods(instrument)
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
 
 
 def test_empty():
     for instrument in _INSTRUMENT_METHODS.keys():
         print(instrument)
         _test_empty(instrument)
+
+
+def test_invalid_quantity():
+    for instrument in _INSTRUMENT_METHODS.keys():
+        print(instrument)
+        _test_invalid_quantity(instrument)
+
+
+def test_downsample_ratio():
+    for instrument in _INSTRUMENT_METHODS.keys():
+        print(instrument)
+        _test_downsample_ratio(instrument)
