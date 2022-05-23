@@ -33,6 +33,7 @@ from .abstractreader import DataSelector
 from .selectors import choose_on_plot
 from .. import session
 from ..datatypes import ELEMENTS
+from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
 
@@ -160,7 +161,7 @@ class PPFReader(DataReader):
         self._default_error = default_error
 
     def get_sal_path(
-        self, uid: str, instrument: str, quantity: str, revision: int
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> str:
         """Return the path in the PPF database to for the given INSTRUMENT
         (DDA in JET)."""
@@ -170,7 +171,7 @@ class PPFReader(DataReader):
         )
 
     def _get_signal(
-        self, uid: str, instrument: str, quantity: str, revision: int
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[Signal, str]:
         """Gets the signal for the given INSTRUMENT (DDA in JET), at the
         given revision."""
@@ -240,7 +241,7 @@ class PPFReader(DataReader):
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Return temperature, angular frequency, or concentration data for an
@@ -305,13 +306,15 @@ class PPFReader(DataReader):
             results["ti"] = ti.data
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
+
+        results["revision"] = revision
         return results
 
     def _get_thomson_scattering(
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for electron temperature or number density
@@ -349,13 +352,15 @@ class PPFReader(DataReader):
             results["ne_records"] = [z_path, d_path]
             if instrument != "kg10":
                 results["ne_records"].append(e_path)
+
+        results["revision"] = revision
         return results
 
     def _get_equilibrium(
         self,
         uid: str,
         calculation: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
@@ -381,13 +386,15 @@ class PPFReader(DataReader):
             else:
                 results[q] = qval.data
                 results[q + "_records"] = [q_path]
+
+        results["revision"] = revision
         return results
 
     def _get_cyclotron_emissions(
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for electron cyclotron emissin diagnostics."""
@@ -423,13 +430,15 @@ class PPFReader(DataReader):
             results[q] = np.array(data).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
+
+        results["revision"] = revision
         return results
 
     def _get_radiation(
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for radiation quantities such as SXR and bolometric
@@ -487,13 +496,15 @@ class PPFReader(DataReader):
             results[q + "_zstop"] = zend[channels]
             results[q + "_ystart"] = ystart[channels]
             results[q + "_ystop"] = yend[channels]
+
+        results["revision"] = revision
         return results
 
     def _get_bremsstrahlung_spectroscopy(
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         results: Dict[str, Any] = {
@@ -516,9 +527,11 @@ class PPFReader(DataReader):
             results[q + "_ystart"] = np.zeros_like(results[q + "_xstart"])
             results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
+
+        results["revision"] = revision
         return results
 
-    # def _handle_kk3(self, key: str, revision: int) -> DataArray:
+    # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:
     #     """Produce :py:class:`xarray.DataArray` for electron temperature."""
     #     uid, general_dat = self._get_signal("kk3_gen", revision)
     #     channel_index = np.argwhere(general_dat.data[0, :] > 0)
@@ -553,7 +566,7 @@ class PPFReader(DataReader):
         diagnostic: str,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantity: str,
         data_objects: Iterable[str],
         ignored: Iterable[Number],
