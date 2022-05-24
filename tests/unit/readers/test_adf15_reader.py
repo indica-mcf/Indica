@@ -118,7 +118,7 @@ class Testadf15:
         assert len(data.attrs["datatype"]) == 2
         assert all([type(datatype) is str for datatype in data.attrs["datatype"]])
         assert data.attrs["datatype"] == (
-            f"photon_emissivity_coefficients_{self.file_type}",
+            f"photon_emissivity_coefficient_{self.file_type}",
             self.element,
         )
 
