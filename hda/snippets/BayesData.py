@@ -1,5 +1,5 @@
 import numpy as np
-from hda.diagnostics.crystal_spectrometer import Crystal_Spectrometer
+from hda.diagnostics.crystal_spectrometer import CrystalSpectrometer
 from indica.readers import ST40Reader
 from MDSplus import Connection
 import xarray as xr
