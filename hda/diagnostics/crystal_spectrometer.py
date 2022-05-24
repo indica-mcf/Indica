@@ -18,7 +18,6 @@ from hda.profiles import Profiles
 from hda.physics import calculate_Te_kw, calculate_Te_Rosen
 
 
-
 def diel_calc(atomic_data, Te, label="he"):
     """
     Calculates intensity of dielectronic recombination
@@ -51,10 +50,12 @@ def diel_calc(atomic_data, Te, label="he"):
         Es = Esli * percmtoeV / Ry
     else:
         return None
-    I = (1 / g0) * ((4 * np.pi ** (3 / 2) * a0 ** 3) / Te[:,None] ** (3 / 2)) * F2[None,] * np.exp(-(Es[None,] / Te[:,None]))
+    I = (1 / g0) * ((4 * np.pi ** (3 / 2) * a0 ** 3) / Te[:, None] ** (3 / 2)) * F2[None,] * np.exp(
+        -(Es[None,] / Te[:, None]))
 
     return I
     background = 0
+
 
 # Constants
 Ry = 13.605  # eV
@@ -64,7 +65,8 @@ Mi = 39.948
 # Keys for ADF11
 ADF11 = {"ar": {"scd": "89", "acd": "89", "ccd": "89"}}
 
-class Crystal_Spectrometer:
+
+class CrystalSpectrometer:
     """
     Class for the crystal spectrometer which generates a database of the line intensities from atomic data,
     and when given temperature and density profiles makes the xray spectrum.
@@ -90,10 +92,10 @@ class Crystal_Spectrometer:
     spec.spectra = spec.make_spectra(spec.intensity, Ti, background)
     spec.plot_spectrum(spec.spectra)
     """
-    def __init__(self,
 
-                 window=np.linspace(.394, .401, 1000),
-                 int_cal=1e-30,
+    def __init__(self,
+                 window: np.typing.ArrayLike = np.linspace(.394, .401, 1000),
+                 int_cal: float = 1e-30,
                  ADASReader = ADASReader
                  # etendue / instrument function / geometry
                  # atomic data / build_database
@@ -121,7 +123,7 @@ class Crystal_Spectrometer:
 
         Only input is the Te co-ordinate for dielectronic recombination data
         """
-        head = "./../Data_Argon/"
+        head = "./Data_Argon/"
 
         lines_main = ["W", "X", "Y", "Z"]
         lines_ise = ["q", "r", "s", "t", "u", "v", "w"]
@@ -220,35 +222,35 @@ class Crystal_Spectrometer:
         n2_array = xr.DataArray(data=rates_n2,
                                 coords={"el_temp": Te, "line_name": lines_n2,
                                         "type": "DIREC",
-                                        "wavelength": (("el_temp", "line_name"), n2[:, 0]*0.1 * np.ones(
+                                        "wavelength": (("el_temp", "line_name"), n2[:, 0] * 0.1 * np.ones(
                                             shape=(len(Te), len(n2[:, 0]))))},
                                 dims=["el_temp", "line_name"])
 
         n3_array = xr.DataArray(data=rates_n3,
                                 coords={"el_temp": Te, "line_name": lines_n3,
                                         "type": "DIREC",
-                                        "wavelength": (("el_temp", "line_name"), n3[:, 0]*0.1 * np.ones(
+                                        "wavelength": (("el_temp", "line_name"), n3[:, 0] * 0.1 * np.ones(
                                             shape=(len(Te), len(n3[:, 0]))))},
                                 dims=["el_temp", "line_name"])
 
         n4_array = xr.DataArray(data=rates_n4,
                                 coords={"el_temp": Te, "line_name": lines_n4,
                                         "type": "DIREC",
-                                        "wavelength": (("el_temp", "line_name"), n4[:, 0]*0.1 * np.ones(
+                                        "wavelength": (("el_temp", "line_name"), n4[:, 0] * 0.1 * np.ones(
                                             shape=(len(Te), len(n4[:, 0]))))},
                                 dims=["el_temp", "line_name"])
 
         n5_array = xr.DataArray(data=rates_n5,
                                 coords={"el_temp": Te, "line_name": lines_n5,
                                         "type": "DIREC",
-                                        "wavelength": (("el_temp", "line_name"), n5[:, 0]*0.1 * np.ones(
+                                        "wavelength": (("el_temp", "line_name"), n5[:, 0] * 0.1 * np.ones(
                                             shape=(len(Te), len(n5[:, 0]))))},
                                 dims=["el_temp", "line_name"])
 
         lin2_array = xr.DataArray(data=rates_lin2,
                                   coords={"el_temp": Te, "line_name": lines_lin2,
                                           "type": "LIDIREC",
-                                          "wavelength": (("el_temp", "line_name"), lin2[:, 0]*0.1 * np.ones(
+                                          "wavelength": (("el_temp", "line_name"), lin2[:, 0] * 0.1 * np.ones(
                                               shape=(len(Te), len(lin2[:, 0]))))},
                                   dims=["el_temp", "line_name"])
 
@@ -281,8 +283,8 @@ class Crystal_Spectrometer:
 
         # Atomic data
         database = dict(EXC=exc_array, REC=recom_array, CXR=cxr_array, ISE=ise_array,
-                             ISI=isi_array, N2=n2_array,       N3=n3_array,   N4=n4_array,
-                             N5=n5_array,   LIN2=lin2_array,   N2CASC=casc_array)
+                        ISI=isi_array, N2=n2_array, N3=n3_array, N4=n4_array,
+                        N5=n5_array, LIN2=lin2_array, N2CASC=casc_array)
         LOG = "Finished building database"
         print(LOG)
         return database
@@ -308,31 +310,31 @@ class Crystal_Spectrometer:
         intensity = {}
         for key, value in database.items():
             if value.type == "EXC":
-                I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
+                I = value.interp(el_temp=el_temp) * fract_abu[16,] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "REC":
                 # Truncate to max value at 4keV
-                el_temp = el_temp.where(el_temp<4000, 4000)
-                I = value.interp(el_temp = el_temp) * fract_abu[17, ] * \
+                el_temp = el_temp.where(el_temp < 4000, 4000)
+                I = value.interp(el_temp=el_temp) * fract_abu[17,] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "CXR":
-                el_temp = el_temp.where(el_temp<4000, 4000)
-                I = value.interp(el_temp = el_temp) * fract_abu[17, ] * \
+                el_temp = el_temp.where(el_temp < 4000, 4000)
+                I = value.interp(el_temp=el_temp) * fract_abu[17,] * \
                     Ar_dens * H_dens * int_cal
             elif value.type == "ISE":
-                I = value.interp(el_temp = el_temp) * fract_abu[15, ] * \
+                I = value.interp(el_temp=el_temp) * fract_abu[15,] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "ISI":
-                I = value.interp(el_temp = el_temp) * fract_abu[15, ] * \
+                I = value.interp(el_temp=el_temp) * fract_abu[15,] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "DIREC":
-                I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
+                I = value.interp(el_temp=el_temp) * fract_abu[16,] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "N2CASC":
-                I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
+                I = value.interp(el_temp=el_temp) * fract_abu[16,] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "LIDIREC":
-                I = value.interp(el_temp = el_temp) * fract_abu[15, ] * \
+                I = value.interp(el_temp=el_temp) * fract_abu[15,] * \
                     Ar_dens * el_dens * int_cal
             else:
                 print("Wrong Emission Type")
@@ -341,7 +343,7 @@ class Crystal_Spectrometer:
         print("Generated intensity profile")
         return intensity
 
-    def make_spectra(self, intensity, ion_temp, background=0):
+    def make_spectra(self, intensity: dict, ion_temp: xr.DataArray, background=0):
 
         # Add convolution of signals as wrapper
         # -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
@@ -352,48 +354,36 @@ class Crystal_Spectrometer:
 
         def doppler_broaden(i):
             sigma = np.sqrt(constants.e / (Mi * constants.proton_mass * constants.c ** 2) * ion_temp) * i.wavelength
-            return gaussian(self.window[:,None,None], i, i.wavelength.expand_dims(dict(window=self.window)), sigma.expand_dims(dict(window=self.window)))
+            return gaussian(self.window[:, None, None], i, i.wavelength.expand_dims(dict(window=self.window)),
+                            sigma.expand_dims(dict(window=self.window)))
 
         spectra = {}
         spectra["total"] = 0
         for key, value in intensity.items():
             i = value.expand_dims(dict(window=self.window), 0)
-            y=doppler_broaden(i)
+            y = doppler_broaden(i)
             spectra[key] = y
             spectra["total"] = spectra["total"] + y.sum(["line_name"])
 
-        spectra["total"] = spectra["total"].rename({"window":"wavelength"})
+        spectra["total"] = spectra["total"].rename({"window": "wavelength"})
         spectra["total"] = spectra["total"].drop_vars(["type", "ion_charges"])
-        spectra["background"] = self.window*0 + background
+        spectra["background"] = self.window * 0 + background
         return spectra
 
-    def plot_spectrum(self, spectra):
-
-        plt.figure()
-        plt.plot(self.window, spectra["total"].sum(["rho_poloidal"])+spectra["background"], "k*", label="Total")
-        plt.xlim([.394, .40])
-        plt.xlabel("Wavelength (nm)")
-        plt.ylabel("Intensity (AU)")
-        plt.legend()
+    def plot_spectrum(self, spectra: dict):
 
         plt.figure()
         avoid = ["total", "background"]
         for key, value in spectra.items():
             if not any([x in key for x in avoid]):
-                plt.plot(self.window, value.sum(["rho_poloidal", "line_name"]), label=key)
+                plt.plot(self.window, value.sum(["rho_poloidal", "line_name"]) + spectra["background"], label=key)
 
-        plt.plot(self.window, spectra["total"].sum(["rho_poloidal"]), "k*", label="Total")
-        # plt.plot(self.window, spectra["background"], "k", label="background")
+        plt.plot(self.window, spectra["total"].sum(["rho_poloidal"]) + spectra["background"], "k*", label="Total")
         plt.xlabel("Wavelength (nm)")
         plt.ylabel("Intensity (AU)")
         plt.legend()
         plt.show(block=True)
         return
-
-    def plot_heatmap(self, spectra):
-
-        plt.imshow(spectra["total"])
-
 
     def set_ion_data(self, adf11: dict = None):
         """
@@ -431,7 +421,6 @@ class Crystal_Spectrometer:
         # reader = ST40Reader(pulse, tstart, tend)
         # # spectra, dims = reader._get_data("hda", "run60", ":intensity", 0)
 
-
         Ne = Profiles(datatype=("density", "electron"))
         Ne.peaking = 1
         Ne.build_profile()
@@ -455,7 +444,7 @@ class Crystal_Spectrometer:
         Nh_1 = 5.0e16
         Nh_0 = Nh_1 / 1000
         Nh = Ne.rho_poloidal ** 2 * (Nh_1 - Nh_0) + Nh_0
-        NAr = Ne.rho_poloidal ** 2 * (1/100*Ne) + (1/100*Ne)
+        NAr = Ne.rho_poloidal ** 2 * (1 / 100 * Ne) + (1 / 100 * Ne)
 
         tau = None
         # tau = 1.0e-3
