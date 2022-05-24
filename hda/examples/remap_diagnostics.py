@@ -39,12 +39,7 @@ def remap(diag_data, flux_transform, npts=100):
 
     return new_attrs
 
-def remap_xrcs(plot=True):
-    plt.ion()
-
-    pulse = 9780
-    tstart = 0.07
-    tend = 0.10
+def remap_xrcs(pulse, tstart, tend, plot=True):
     st40reader = ST40Reader(pulse, tstart, tend)
 
     xrcs_revision = 0
