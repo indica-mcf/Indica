@@ -10,32 +10,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
 from scipy import constants
-from copy import deepcopy
-import time
 
-from hda.atomdat import get_atomdat
 from indica.readers import ADASReader, ST40Reader
-
 from indica.operators.atomic_data import FractionalAbundance
+
 from hda.profiles import Profiles
+from hda.physics import calculate_Te_kw, calculate_Te_Rosen
 
 
-def calculate_Te_kw(R):
-    # Te(keV) = (4.1716913) + (-119.91436)*R + (2132.1279)*R^2 + (-21900.396)*R^3 + (138367.33)*R^4 + (-560282.2)*R^5 + (1480395.4)*R^6 + (-2537587.3)*R^7 + (2718292.6)*R^8 + (-1652671.4)*R^9 + (435199.6)*R^10
-    # keV -> eV
-    return 1e3 * (
-            (4.1716913) + (-119.91436) * R + (2132.1279) * R ** 2 + (-21900.396) * R ** 3 + (138367.33) * R ** 4 + (
-        -560282.2) * R ** 5 + (1480395.4) * R ** 6 + (-2537587.3) * R ** 7 + (2718292.6) * R ** 8 + (
-                -1652671.4) * R ** 9 + (435199.6) * R ** 10)
 
-
-def calculate_Te_Rosen(R):
-    # A.S Rosen et. al 2014 (0.0223<x<0.2449) for n3 / w + n4 + n5
-    return 1e3 * (0.1552 * (R ** (-0.7781)))
-
-
-# dielectronic intensity conversion_offset
 def diel_calc(atomic_data, Te, label="he"):
+    """
+    Calculates intensity of dielectronic recombination
+
+    Parameters
+    ----------
+    atomic_data
+        array of atomic data read from Marchuk's database
+    Te
+        electron temperature (eV)
+    label
+        "he" for helium like collision or "li" for lithium like inner collision
+
+    Returns
+    -------
+    Intensity along Te vector
+    """
     a0 = 5.29E-9  # bohr radius / cm
     Te = Te / Ry
     Es = atomic_data[:, 1] * percmtoeV / Ry  # Ry
@@ -54,11 +54,9 @@ def diel_calc(atomic_data, Te, label="he"):
     I = (1 / g0) * ((4 * np.pi ** (3 / 2) * a0 ** 3) / Te[:,None] ** (3 / 2)) * F2[None,] * np.exp(-(Es[None,] / Te[:,None]))
 
     return I
-
     background = 0
 
-# Start with excitation and recombination
-
+# Constants
 Ry = 13.605  # eV
 percmtoeV = 1.239841E-4  # Convert 1/cm to eV
 Mi = 39.948
@@ -67,6 +65,31 @@ Mi = 39.948
 ADF11 = {"ar": {"scd": "89", "acd": "89", "ccd": "89"}}
 
 class Crystal_Spectrometer:
+    """
+    Class for the crystal spectrometer which generates a database of the line intensities from atomic data,
+    and when given temperature and density profiles makes the xray spectrum.
+
+    Parameters
+    ----------
+    window
+        wavelength vector to build the spectrum on
+    int_cal
+        intensity calibration
+    ADASReader
+        ADASReader class to read atomic data
+
+    Examples
+    ---------
+    spec = Crystal_Spectrometer()
+    spec.test_workflow()
+
+    or:
+
+    spec.intensity = spec.make_intensity(spec.database_offset, el_temp=Te, el_dens=Ne, fract_abu=fz, Ar_dens=NAr,
+                                             H_dens=Nh, int_cal=int_cal)
+    spec.spectra = spec.make_spectra(spec.intensity, Ti, background)
+    spec.plot_spectrum(spec.spectra)
+    """
     def __init__(self,
 
                  window=np.linspace(.394, .401, 1000),
