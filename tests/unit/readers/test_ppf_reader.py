@@ -697,10 +697,10 @@ def test_general_get(
     max_freqs,
     just("jetppf"),
     sampled_from(sorted(PPFReader.INSTRUMENT_METHODS.keys())),
-    revisions,
+    integers(),
     edited_revisions,
 )
-def test_sal_create_provenance(
+def test_get_revision(
     fake_sal,
     pulse,
     time_range,
@@ -721,33 +721,20 @@ def test_sal_create_provenance(
         selector=MagicMock(),
     )
     reader._client._revisions = available_revisions
-    if revision in available_revisions:
-        expected_revision = revision
-    elif revision < 0:
-        expected_revision = available_revisions[revision + 1]
-    elif revision > max(available_revisions):
-        expected_revision = available_revisions[-1]
+    if revision < 0:
+        with pytest.raises(sal.core.exception.InvalidPath):
+            reader._get_revision(uid=uid, instrument=instrument, revision=revision)
+    elif 0 < revision < available_revisions[0]:
+        with pytest.raises(sal.core.exception.NodeNotFound):
+            reader._get_revision(uid=uid, instrument=instrument, revision=revision)
     else:
-        return
-    for q in reader._IMPLEMENTATION_QUANTITIES.get(instrument, {}).keys():
-        provenance = reader.create_provenance(
-            diagnostic="test",
-            uid=uid,
-            instrument=instrument,
-            revision=revision,
-            quantity=q,
-            data_objects=[
-                reader.get_sal_path(
-                    uid=uid,
-                    instrument=instrument,
-                    quantity=q,
-                    revision=expected_revision,
-                ),
-                "test non-sal path",
-            ],
-            ignored=[],
+        expected_revision = reader._client.list(
+            f"/pulse/{reader.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
+        ).revision_current
+        assert (
+            reader._get_revision(uid=uid, instrument=instrument, revision=revision)
+            == expected_revision
         )
-        assert list(provenance.get_attribute("revision"))[0] == expected_revision
 
 
 @given(

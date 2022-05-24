@@ -6,6 +6,7 @@ import pickle
 from unittest.mock import Mock
 
 from sal.client import SALClient
+from sal.core.exception import InvalidPath
 from sal.core.exception import NodeNotFound
 from sal.core.object import Branch
 from sal.core.object import BranchReport
@@ -64,10 +65,17 @@ def fake_sal_client(datafile):
                 )
                 if revision == 0:
                     revision = self._revisions[-1]
+                elif revision < 0:
+                    raise InvalidPath(
+                        f"The supplied path {path} does not conform to the data system"
+                        " path specification."
+                    )
                 elif revision < self._revisions[0]:
                     raise NodeNotFound(f"Node {path} does not exist.")
                 else:
-                    revision = next(filter(lambda r: r <= revision, self._revisions))
+                    revision = list(filter(lambda r: r <= revision, self._revisions))[
+                        -1
+                    ]
                 key = f"{path_components[-2]}/{path_components[-1].split(':')[0]}"
                 if len(path_components) < 6:
                     return Mock()

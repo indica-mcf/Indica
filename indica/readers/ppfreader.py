@@ -10,7 +10,6 @@ import stat
 from typing import Any
 from typing import cast
 from typing import Dict
-from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Set
@@ -19,7 +18,6 @@ from typing import Union
 import warnings
 
 import numpy as np
-import prov.model as prov
 from sal.client import SALClient
 from sal.core.exception import AuthenticationFailed
 from sal.core.exception import NodeNotFound
@@ -190,6 +188,18 @@ class PPFReader(DataReader):
             self._write_cached_ppf(cache_path, data)
         return data, path
 
+    def _get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> RevisionLike:
+        """
+        Get actual revision that's being read from database, converts relative revision
+        (e.g. 0, latest) to absolute
+        """
+        info = self._client.list(
+            f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
+        )
+        return info.revision_current
+
     def _read_cached_ppf(self, path: Path) -> Optional[Signal]:
         """Check if the PPF data specified by `sal_path` has been cached and,
         if so, load it.
@@ -307,7 +317,7 @@ class PPFReader(DataReader):
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_thomson_scattering(
@@ -353,20 +363,20 @@ class PPFReader(DataReader):
             if instrument != "kg10":
                 results["ne_records"].append(e_path)
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_equilibrium(
         self,
         uid: str,
-        calculation: str,
+        instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
         results: Dict[str, Any] = {}
         for q in quantities:
-            qval, q_path = self._get_signal(uid, calculation, q, revision)
+            qval, q_path = self._get_signal(uid, instrument, q, revision)
             self._set_times_item(results, qval.dimensions[0].data)
             if (
                 len(qval.dimensions) > 1
@@ -375,8 +385,8 @@ class PPFReader(DataReader):
             ):
                 results["psin"] = qval.dimensions[1].data
             if q == "psi":
-                r, r_path = self._get_signal(uid, calculation, "psir", revision)
-                z, z_path = self._get_signal(uid, calculation, "psiz", revision)
+                r, r_path = self._get_signal(uid, instrument, "psir", revision)
+                z, z_path = self._get_signal(uid, instrument, "psiz", revision)
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
@@ -387,7 +397,7 @@ class PPFReader(DataReader):
                 results[q] = qval.data
                 results[q + "_records"] = [q_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_cyclotron_emissions(
@@ -431,7 +441,7 @@ class PPFReader(DataReader):
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_radiation(
@@ -497,7 +507,7 @@ class PPFReader(DataReader):
             results[q + "_ystart"] = ystart[channels]
             results[q + "_ystop"] = yend[channels]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_bremsstrahlung_spectroscopy(
@@ -528,7 +538,7 @@ class PPFReader(DataReader):
             results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:
@@ -560,53 +570,6 @@ class PPFReader(DataReader):
     #     data.attrs["provenance"] = self.create_provenance(key, revision,
     #                                                       uids, drop)
     #     return data.drop_sel({"Btot": drop})
-
-    def create_provenance(
-        self,
-        diagnostic: str,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantity: str,
-        data_objects: Iterable[str],
-        ignored: Iterable[Number],
-    ) -> prov.ProvEntity:
-        """Wrapper to abstract DataReader create_provenance that converts that
-        ensures revision is fixed instead of "0" (for latest revision)
-
-        Parameters
-        ----------
-        key
-            Identifies what data was read. Should be present in
-            :py:attr:`AVAILABLE_DATA`.
-        revision
-            Object indicating which version of data should be used.
-        data_objects
-            Identifiers for the database entries or files which the data was
-            read from.
-        ignored
-            A list of channels which were ignored/dropped from the data.
-
-        Returns
-        -------
-        :
-            A provenance entity for the newly read-in data.
-        """
-        revision_current = revision
-        for data in data_objects:
-            try:
-                revision_current = int(data.split(":")[-1])
-            except ValueError:
-                continue
-        return super().create_provenance(
-            diagnostic=diagnostic,
-            uid=uid,
-            instrument=instrument,
-            revision=revision_current,
-            quantity=quantity,
-            data_objects=data_objects,
-            ignored=ignored,
-        )
 
     def _get_bad_channels(
         self, uid: str, instrument: str, quantity: str
