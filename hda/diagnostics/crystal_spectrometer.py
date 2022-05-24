@@ -87,7 +87,7 @@ class Crystal_Spectrometer:
         self.Mi = 39.948
 
         self.database = self.build_database()
-        self.database_offset = self.wavelength_offset(self.database, offset=1e-5)
+        self.database_offset = self.wavelength_offset(self.database, offset=2e-5)
 
         self.set_ion_data(ADF11)
 
@@ -281,9 +281,6 @@ class Crystal_Spectrometer:
         and atomic data at each spatial point.
         Returns DataArrays of emission type with co-ordinates of line label and rho co-ordinate
         # """
-        # if not hasattr(self, "database"):
-        #     self.build_database()
-        #     print("Building database")
 
         intensity = {}
         for key, value in database.items():
@@ -291,9 +288,12 @@ class Crystal_Spectrometer:
                 I = value.interp(el_temp = el_temp) * fract_abu[16, ] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "REC":
+                # Truncate to max value at 4keV
+                el_temp = el_temp.where(el_temp<4000, 4000)
                 I = value.interp(el_temp = el_temp) * fract_abu[17, ] * \
                     Ar_dens * el_dens * int_cal
             elif value.type == "CXR":
+                el_temp = el_temp.where(el_temp<4000, 4000)
                 I = value.interp(el_temp = el_temp) * fract_abu[17, ] * \
                     Ar_dens * H_dens * int_cal
             elif value.type == "ISE":
@@ -339,9 +339,9 @@ class Crystal_Spectrometer:
             spectra[key] = y
             spectra["total"] = spectra["total"] + y.sum(["line_name"])
 
+        spectra["total"] = spectra["total"].rename({"window":"wavelength"})
+        spectra["total"] = spectra["total"].drop_vars(["type", "ion_charges"])
         spectra["background"] = self.window*0 + background
-        # spectra["total"] = spectra["total"] + spectra["background"]
-        # spectra["normed_total"] = norm_tot * spectra["total"] / spectra["total"].max() + spectra["background"]
         return spectra
 
     def plot_spectrum(self, spectra):
