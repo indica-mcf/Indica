@@ -358,7 +358,7 @@ class Equilibrium(AbstractEquilibrium):
     def cross_sectional_area(
         self,
         rho: LabeledArray,
-        t: Optional[LabeledArray],
+        t: Optional[LabeledArray] = None,
         ntheta: int = 12,
         kind: str = "poloidal",
     ) -> Tuple[DataArray, LabeledArray]:

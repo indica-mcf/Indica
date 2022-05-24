@@ -30,3 +30,5 @@ OnlyArray = typing.Union[
 ]
 
 OnlyXarray = typing.Union[xarray.DataArray, xarray.Dataset, xarray.Variable]
+
+RevisionLike = typing.Union[str, int]
