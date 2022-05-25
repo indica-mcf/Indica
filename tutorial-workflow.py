@@ -9,12 +9,17 @@ import xarray as xr
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
-from indica.operators import (BolometryDerivation, ExtrapolateImpurityDensity,
-                              FractionalAbundance, ImpurityConcentration,
-                              InvertRadiation, PowerLoss, SplineFit)
+from indica.operators import BolometryDerivation
+from indica.operators import ExtrapolateImpurityDensity
+from indica.operators import FractionalAbundance
+from indica.operators import ImpurityConcentration
+from indica.operators import InvertRadiation
+from indica.operators import PowerLoss
+from indica.operators import SplineFit
 from indica.operators.main_ion_density import MainIonDensity
 from indica.operators.mean_charge import MeanCharge
-from indica.readers import ADASReader, PPFReader
+from indica.readers import ADASReader
+from indica.readers import PPFReader
 from indica.utilities import coord_array
 
 # %% set up
@@ -175,7 +180,7 @@ q = (
 # %% Initial assumptions
 
 n_zeff_el = xr.zeros_like(emissivity).assign_coords({"element": zeff_el})
-main_ion_density = xr.zeros_like(emissivity).assign_coords({"element": main_ion})
+n_main_ion = xr.zeros_like(emissivity).assign_coords({"element": main_ion})
 
 M = 1
 sxr_rescale_factor = 2.5
@@ -185,10 +190,10 @@ sxr_rescale_factor = 2.5
 other_densities = xr.concat(
     [
         n_zeff_el,
-        main_ion_density.expand_dims({"element": [main_ion]}, -1),
+        n_main_ion.expand_dims({"element": [main_ion]}, -1),
     ],
     dim="element",
-)
+).indica.remap_like(emissivity)
 
 other_power_loss = xr.concat(
     [
@@ -228,7 +233,7 @@ conc_zeff_el, _ = ImpurityConcentration()(
     element=zeff_el,
     Zeff_LoS=zeff,
     impurity_densities=xr.concat(
-        [n_high_z, n_zeff_el],
+        [n_high_z, n_zeff_el.indica.remap_like(emissivity)],
         dim="element",
     )
     .transpose("element", "R", "z", "t")
@@ -274,9 +279,12 @@ bolo_derivation = BolometryDerivation(
     frac_abunds=[fzt.get(high_z), fzt.get(zeff_el)],
     impurity_elements=[high_z, zeff_el],
     electron_density=ne,
-    main_ion_power_loss=power_loss.get(main_ion).sum("ion_charges"),
+    main_ion_power_loss=power_loss.get(main_ion).sum("ion_charges"),  # type: ignore
     impurities_power_loss=xr.concat(
-        [power_loss.get(element).sum("ion_charges") for element in impurities],
+        [
+            power_loss.get(element).sum("ion_charges")  # type: ignore
+            for element in impurities
+        ],
         dim="element",
     ).assign_coords({"element": impurities}),
 )
@@ -296,13 +304,17 @@ n_high_z.attrs["transform"] = flux_surface
 
 # %% calculate main ion density
 
-n_main_ion = MainIonDensity()(
-    impurity_densities=xr.concat([n_high_z, n_zeff_el], dim="element").assign_coords(
-        {"element": impurities}
-    ),
-    electron_density=ne,
-    mean_charge=q.where(q.element != main_ion, drop=True),
-).assign_attrs({"transform": flux_surface})
+n_main_ion = (
+    MainIonDensity()(
+        impurity_densities=xr.concat(
+            [n_high_z, n_zeff_el], dim="element"
+        ).assign_coords({"element": impurities}),
+        electron_density=ne,
+        mean_charge=q.where(q.element != main_ion, drop=True),
+    )
+    .assign_attrs({"transform": flux_surface})
+    .assign_coords({"element": main_ion})
+)
 
 # %% remap densities
 
