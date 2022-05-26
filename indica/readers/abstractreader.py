@@ -2067,12 +2067,13 @@ class DataReader(BaseIO):
         """
         return []
 
-    def available_quantities(self, instrument):
+    @classmethod
+    def available_quantities(cls, instrument):
         """Return the quantities which can be read for the specified
         instrument."""
-        if instrument not in self.INSTRUMENT_METHODS:
+        if instrument not in cls.INSTRUMENT_METHODS:
             raise ValueError("Can not read data for instrument {}".format(instrument))
-        if instrument in self._IMPLEMENTATION_QUANTITIES:
-            return self._IMPLEMENTATION_QUANTITIES[instrument]
+        if instrument in cls._IMPLEMENTATION_QUANTITIES:
+            return cls._IMPLEMENTATION_QUANTITIES[instrument]
         else:
-            return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
+            return cls._AVAILABLE_QUANTITIES[cls.INSTRUMENT_METHODS[instrument]]
