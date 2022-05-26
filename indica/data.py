@@ -740,9 +740,9 @@ class InDiCAArrayAccessor:
             new_coords[transform.x1_name] = x1
         if transform.x2_name in self._obj.dims:
             new_coords[transform.x2_name] = x2
-        result = self.interp2d(new_coords, method="cubic") if new_coords else self._obj
+        result = self.interp2d(new_coords, method="linear") if new_coords else self._obj
         if "t" in self._obj.dims:
-            result = result.interp(t=t, method="cubic")
+            result = result.interp(t=t, method="linear")
         return result
 
     def check_datatype(self, data_type: ArrayType) -> Tuple[bool, Optional[str]]:

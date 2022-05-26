@@ -73,30 +73,6 @@ class FractionalAbundance(Operator):
         xarray.DataArray of fractional abundance of all ionisation charges of given
         impurity element.
 
-    Methods
-    -------
-    interpolation_bounds_check(Ne, Te)
-        Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside SCD, ACD and CCD.
-    interpolate_rates(Ne, Te)
-        Interpolates rates based on inputted Ne and Te, also determines the number
-        of ionisation charges for a given element.
-    calc_ionisation_balance_matrix(Ne, Nh)
-        Calculates the ionisation balance matrix that defines the differential equation
-        that defines the time evolution of the fractional abundance of all of the
-        ionisation charges.
-    calc_F_z_tinf()
-        Calculates the equilibrium fractional abundance of all ionisation charges,
-        F_z(t=infinity) used for the final time evolution equation.
-    calc_eigen_vals_and_vecs()
-        Calculates the eigenvalues and eigenvectors of the ionisation balance matrix.
-    calc_eigen_coeffs(F_z_t0)
-        Calculates the coefficients from the eigenvalues and eigenvectors for the time
-        evolution equation.
-    calculate_abundance(tau)
-        Calculates the fractional abundance of all ionisation charges at time tau.
-    __call__(Ne, Te, Nh, tau, F_z_t0, full_run)
-        Executes all functions in correct order to calculate the fractional abundance.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
@@ -717,18 +693,6 @@ class PowerLoss(Operator):
         xarray.DataArray of total radiated power loss of all ionisation charges of given
         impurity element.
 
-    Methods
-    -------
-    interpolation_bounds_check(Ne, Te)
-        Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside PLT, PRB and PRC).
-    interpolate_power(Ne, Te)
-        Interpolates the various powers based on inputted Ne and Te.
-    calculate_power_loss(Ne, F_z_t, Nh)
-        Calculates total radiated power of all ionisation charges of a given
-        impurity element.
-    __call__(Ne, Te, Nh, F_z_t, full_run)
-        Executes all functions in correct order to calculate the total radiated power.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [

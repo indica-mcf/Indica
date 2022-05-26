@@ -33,15 +33,20 @@ def smooth_funcs(domain=(0.0, 1.0), max_val=None, min_terms=1, max_terms=11):
     return f
 
 
-def equilibrium_dat():
+def equilibrium_dat(times=None):
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
-    start_time, end_time = 75.0, 80.0
     Btot_factor = None
 
     result = {}
-    nspace = 8
-    ntime = 3
-    times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
+    nspace = 100
+    if times is None:
+        start_time, end_time = 75.0, 80.0
+        ntime = 3
+        times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
+    else:
+        start_time = times[0]
+        end_time = times[-1]
+        ntime = len(times)
 
     tfuncs = smooth_funcs((start_time, end_time), 0.01)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
@@ -301,10 +306,8 @@ def data_arrays_from_coord(
     return result
 
 
-def electron_temp(rho, zmag):
+def electron_temp(rho, zmag, times=None):
     machine_dimensions = ((1.83, 3.9), (-1.75, 2.0))
-    start_time = 75.0
-    end_time = 80.0
 
     zmin = float(zmag.min())
     zmax = float(zmag.max())
@@ -315,9 +318,14 @@ def electron_temp(rho, zmag):
     zend = 0.5 * (zmax + machine_dimensions[1][1])
     z_vals = np.linspace(zstart, zend, nspace)
     z_scaled = np.linspace(0.0, 1.0, nspace)
-    ntime = 3
-    times = np.linspace(start_time, end_time, ntime)
-    times_scaled = np.linspace(0.0, 1.0, ntime)
+    if times is None:
+        start_time = 75.0
+        end_time = 80.0
+        ntime = 3
+        times = np.linspace(start_time, end_time, ntime)
+        times_scaled = np.linspace(0.0, 1.0, ntime)
+    else:
+        times_scaled = np.linspace(0.0, 1.0, len(times))
     R_array = xr.DataArray(R_vals, dims="index")
     z_array = xr.DataArray(z_vals, dims="index")
     transform = TransectCoordinates(R_array, z_array)
@@ -357,18 +365,15 @@ def electron_temp(rho, zmag):
     )
 
 
-def equilibrium_dat_and_te(with_Te=False):
-    data = equilibrium_dat()
+def equilibrium_dat_and_te(with_Te=False, times=None):
+    data = equilibrium_dat(times)
 
     # This can be toggled but for now is switched of since it intefers
     # with the initlization of the Equilibrium class. A fix for this
     # from another issue will allow the code in the if statement below to be tested.
     if with_Te:
         rho = np.sqrt((data["psi"] - data["faxs"]) / (data["fbnd"] - data["faxs"]))
-        Te = electron_temp(
-            rho,
-            data["zmag"],
-        )
+        Te = electron_temp(rho, data["zmag"], times)
     else:
         Te = None
     return data, Te

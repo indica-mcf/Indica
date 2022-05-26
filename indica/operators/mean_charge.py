@@ -29,10 +29,6 @@ class MeanCharge(Operator):
     mean_charge
         numpy.ndarray of mean charge of the given element.
 
-    Methods
-    -------
-    __call__(FracAbundObj, element)
-        Calculates the mean charge.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
