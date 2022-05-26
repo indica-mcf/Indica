@@ -30,7 +30,34 @@ from indica.readers.selectors import ignore_channels_from_dict
 from indica.readers.selectors import ignore_channels_from_file
 from indica.readers.selectors import use_cached_ignore_channels
 from .mock_reader import ConcreteReader
-from .test_abstract_reader import _check_calls_equivalent
+
+
+def _check_calls_equivalent(actual_args, expected_args):
+    """Checks two calls to a mock are equivalent. Unlike the standard,
+    implementation, this one is designed to work with numpy arrays."""
+    if len(actual_args[0]) != len(expected_args[0]):
+        return False
+    for a, e in zip(actual_args[0], expected_args[0]):
+        if isinstance(a, np.ndarray) or isinstance(e, np.ndarray):
+            val = np.all(a == e)
+        else:
+            val = a == e
+        if not val:
+            return False
+    if len(actual_args[1]) != len(expected_args[1]):
+        return False
+    if actual_args[1].keys() != expected_args[1].keys():
+        return False
+    for key in actual_args[1]:
+        a = actual_args[1][key]
+        e = expected_args[1][key]
+        if isinstance(a, np.ndarray) or isinstance(e, np.ndarray):
+            val = np.all(a == e)
+        else:
+            val = a == e
+        if not val:
+            return False
+    return True
 
 
 def assert_called_with(mock, *expected_args, **expected_kwargs):
