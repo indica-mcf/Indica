@@ -1,7 +1,10 @@
 """Provides a fake implementaion of the SALClient, that reads data
 from a file on the disk."""
 
+from abc import ABC
+from abc import abstractmethod
 from datetime import datetime
+from hashlib import sha1
 import json
 from pathlib import Path
 from typing import Dict
@@ -10,6 +13,7 @@ from typing import Union
 from unittest.mock import Mock
 
 import numpy as np
+from numpy.random import default_rng
 from sal.client import SALClient
 from sal.core.exception import InvalidPath
 from sal.core.exception import NodeNotFound
@@ -18,13 +22,16 @@ from sal.core.object import BranchReport
 from sal.core.object import LeafReport
 from sal.core.object import ObjectReport
 from sal.dataclass import Signal
+from sal.dataclass.signal.dimension import ArrayDimension
 
 
-class FakeSALClient(SALClient):
-    """Fake implementation of the SALClient class. It only implements the
+class BaseFakeSALClient(SALClient, ABC):
+    """
+    Base fake implementation of the SALClient class. It only implements the
     subset of functionality used by the
     :py:class:`indica.readers.PPFReader` class.
 
+    Reads data from data_file, subclass and assign this to a json for testing.
     """
 
     def __init__(self, url, verify_https_cert=True):
@@ -32,17 +39,43 @@ class FakeSALClient(SALClient):
         self._blacklist = []
         self._revisions = [1]
         self.authenticate = Mock(return_value=True)
+
         with open(self.data_file, "r") as f:
             self.data: Dict[str, Tuple[int]] = json.load(f)
-        self.constructed_data: Dict[str, Signal] = {
-            key: Signal(
-                data=np.random.randn(*data_shape),
-                dimensions=[np.random.random(size) for size in data_shape],
-            )
-            for key, data_shape in self.data.items()
-        }
+
+        self.constructed_data: Dict[str, Signal] = {}
+
+        for key, specs in self.data.items():
+
+            # some data is stored e.g. cxg6/zqnn and cxg6/mass
+            if "data" in specs:
+                generated_data = specs["data"]
+            else:
+                # Set the PRNG state using the hash of the diagnotic/dda string
+                # Will reproduce the same data/dimensions for the same pair
+                hash = sha1(key.encode("utf-8"))
+                rng = default_rng(int.from_bytes(hash.digest()[-4:], "big"))
+
+                shape = specs["shape"]
+                dtype = specs["dtype"]
+                min_val = specs["min"]
+                max_val = specs["max"]
+
+                if dtype == "float64":
+                    generated_data = rng.uniform(size=shape, low=min_val, high=max_val)
+                elif dtype == "int64":
+                    generated_data = rng.integers(size=shape, low=min_val, high=max_val)
+                else:
+                    raise ValueError(f"dtype {dtype} in {self.data_file} unrecognised.")
+
+            dimensions = [
+                ArrayDimension(np.linspace(0, 1, size)) for size in specs["shape"]
+            ]
+            signal = Signal(dimensions, generated_data)
+            self.constructed_data[key] = signal
 
     @property
+    @abstractmethod
     def data_file(self) -> Union[str, Path]:
         raise NotImplementedError(
             "Data source file not implemented, use subclass of FakeSALClient"
