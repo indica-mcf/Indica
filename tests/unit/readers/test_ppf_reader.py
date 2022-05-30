@@ -36,14 +36,14 @@ from indica.readers.selectors import choose_on_plot
 from indica.readers.selectors import DataSelector
 from indica.session import global_session
 from indica.session import Session
-from .fake_salclient import FakeSALClient
+from .fake_salclient import BaseFakeSALClient
 from ..strategies import sane_floats
 
 
 FAKE_DATA_PATH = pathlib.Path(__file__).parent.absolute() / "ppf_samples.json"  # .pkl"
 
 
-class JETFakeSALClient(FakeSALClient):
+class JETFakeSALClient(BaseFakeSALClient):
     @property
     def data_file(self) -> Union[str, pathlib.Path]:
         return FAKE_DATA_PATH
@@ -117,9 +117,9 @@ def test_needs_authentication():
 
 
 @given(pulses, times, errors, max_freqs, text(), text())
-def test_authentication(fake_sal, pulse, time_range, error, freq, user, password):
+def test_authentication(pulse, time_range, error, freq, user, password):
     """Test authentication method on client get called."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,
@@ -184,10 +184,12 @@ def test_get_thomson_scattering(
         assert np.all(results["times"] == signal.dimensions[0].data)
         if instrument == "lidr":
             error_signal = reader._client.constructed_data[f"{instrument}/{q}u"]
-            assert np.all(results[q] + results[q + "_error"] == error_signal.data)
+            np.testing.assert_allclose(
+                results[q] + results[q + "_error"], error_signal.data
+            )
         else:
             error_signal = reader._client.constructed_data[f"{instrument}/d{q}"]
-            assert np.all(results[q + "_error"] == error_signal.data)
+            np.testing.assert_allclose(results[q + "_error"], error_signal.data)
         assert np.all(results["times"] == error_signal.dimensions[0].data)
         expected = sorted(
             records
@@ -264,7 +266,9 @@ def test_get_charge_exchange(
         error_signal = reader._client.constructed_data[
             f"{instrument}/{uncertainties[q]}"
         ]
-        assert np.all(results[q + "_error"] + results[q] == error_signal.data)
+        np.testing.assert_allclose(
+            results[q + "_error"] + results[q], error_signal.data
+        )
         assert np.all(results["times"] == error_signal.dimensions[0].data)
         assert sorted(results[q + "_records"]) == sorted(
             records
@@ -399,7 +403,7 @@ def test_get_cyclotron_emissions(
     for q in quantities:
         vals = results[q]
         channel_names = [
-            f"{q}{chan + 1:02d}" for chan, v in enumerate(gen.data[0, :]) if v != 0.0
+            f"{q}{chan + 1:02d}" for chan, v in enumerate(gen.data[0, :]) if v > 0.0
         ]
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
@@ -663,7 +667,7 @@ def test_get_bremsstrahlung_spectroscopy(
     lists(text(), min_size=1, unique=True).map(set),
 )
 def test_general_get(
-    fake_sal, pulse, time_range, error, freq, uid, instrument, revision, quantities
+    pulse, time_range, error, freq, uid, instrument, revision, quantities
 ):
     """Test the generic get method to ensure it calls the correct things."""
     with patch.multiple(
@@ -674,7 +678,7 @@ def test_general_get(
         get_cyclotron_emissions=DEFAULT,
         get_radiation=DEFAULT,
         get_bremsstrahlung_spectroscopy=DEFAULT,
-    ), patch("indica.readers.ppfreader.SALClient", fake_sal):
+    ), patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,
@@ -700,7 +704,6 @@ def test_general_get(
     revisions,
 )
 def test_cache_read_write(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -710,7 +713,7 @@ def test_cache_read_write(
     revision,
 ):
     """Test that reading a cache produces the same data that was written to it."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,
@@ -757,7 +760,6 @@ def cachedir():
     revisions,
 )
 def test_get_signal_from_cache(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -767,7 +769,7 @@ def test_get_signal_from_cache(
     revision,
 ):
     """Test that reading a cache produces the same data that was written to it."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,
