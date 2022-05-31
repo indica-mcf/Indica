@@ -78,7 +78,7 @@ class BaseFakeSALClient(SALClient, ABC):
     @abstractmethod
     def data_file(self) -> Union[str, Path]:
         raise NotImplementedError(
-            "Data source file not implemented, use subclass of FakeSALClient"
+            "Data source file not implemented, use subclass of BaseFakeSALClient"
         )
 
     def get(self, path, summary=False):
