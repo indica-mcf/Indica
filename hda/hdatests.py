@@ -137,6 +137,8 @@ def test_hda(
     pl.calc_zeff()
     pl.calc_pressure()
     pl.calc_rad_power()
+    pl.map_to_midplane()
+    # pl.map_to_rova()
     bckc = pl.interferometer(data, bckc=bckc)
     bckc = pl.bremsstrahlung(data, bckc=bckc)
 
@@ -411,13 +413,16 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
     pl.calc_rad_power()
     pl.interferometer(data, bckc=bckc)
     pl.bremsstrahlung(data, bckc=bckc)
+    pl.map_to_midplane()
+
     return pl, bckc
 
 
-def run_all_scans(efit_pulse=None, efit_run=None):
+def run_all_scans(efit_pulse=None, efit_run=None, run_add="", force=True):
     # pulses = [8532, 8533, 8605, 8621, 9098, 9099, 9229, 9401, 9486, 9537, 9538, 9539, 9619, 9622,
     # 9624, 9626, 9676, 9721, 9746, 9748, 9752, 9766, 9771, 9779, 9780, 9781, 9783, 9784, 9787, 9816,
-    # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849, 9880, 9892, 9901, 10014]
+    # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849, 9880, 9892, 9894, 9896, 9901, 9913,
+    # 10014]
 
     # 9818, 9820, 9389 - unknown issues
     # 9840 - doesn't have enough Ar
@@ -427,13 +432,15 @@ def run_all_scans(efit_pulse=None, efit_run=None):
     # pulses = [9850] * 2
     # efit_pulse = [11009850] * 2
     # efit_run = ["1016A2", "1013N"]
-    pulses = [9896, 9894]
+
+    pulses = [9841, 9877, 9878, 9885, 9928]
+    tlims = [(0.02, 0.11)] * len(pulses)
+    run_add = [""]*len(pulses)
     efit_pulse = [efit_pulse]*len(pulses)
     efit_run = [0]*len(pulses)
     only_run = None  # :int = write only this run
-    # tlims = [(0.01, 0.08), (0.01, 0.12), (0.01, 0.1), (0.01, 0.1), (0.01, 0.1)]
-    tlims = [(0.02, 0.11)] * len(pulses)
-    for pulse, tlim, _efit_pulse, _efit_run in zip(pulses, tlims, efit_pulse, efit_run):
+
+    for pulse, tlim, _efit_pulse, _efit_run, _run_add in zip(pulses, tlims, efit_pulse, efit_run, run_add):
         print(pulse)
         scan_profiles(
             pulse,
@@ -455,13 +462,14 @@ def run_all_scans(efit_pulse=None, efit_run=None):
             savefig=False,
             modelling=True,
             xrcs_time=False,
-            force=True,
+            force=force,
             sxr=False,
             main_ion="h",
             proceed=True,
             efit_run=_efit_run,
             efit_pulse=_efit_pulse,
             only_run=only_run,
+            run_add=_run_add,
         )
 
 
@@ -581,14 +589,6 @@ def scan_profiles(
                     )
                     pl.calc_imp_dens()
 
-                    # pl.Nimp_prof.yspl.plot()
-                    # pl.ion_dens.sel(element="ar").sel(
-                    #     t=pl.time.mean(), method="nearest"
-                    # ).plot()
-
-                    # if iteration > 3:
-                    #     return
-
                     pl.match_xrcs_temperatures(
                         data,
                         bckc=bckc,
@@ -600,6 +600,7 @@ def scan_profiles(
                         use_ref=use_ref,
                     )
                     propagate(pl, raw_data, data, bckc, quant_ar="int_w")
+
                     pl_dict[run_name] = deepcopy(pl)
                     bckc_dict[run_name] = deepcopy(bckc)
 
@@ -813,12 +814,12 @@ def write_profile_scans(
         )
 
 
-def read_profile_scans(pulse, plotfig=False, savefig=False):
+def read_profile_scans(pulse, plotfig=False, savefig=False, run_add=""):
     runs = np.arange(60, 76 + 1)
     pl_dict = {}
     bckc_dict = {}
     for run in runs:
-        run_name = f"RUN{run}"
+        run_name = f"RUN{run}{run_add}"
         pl, raw_data, data, bckc = load_pickle(pulse, run_name)
         pl_dict[run_name] = deepcopy(pl)
         bckc_dict[run_name] = deepcopy(bckc)
