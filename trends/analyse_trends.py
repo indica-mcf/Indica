@@ -878,6 +878,9 @@ def plot_max_ti(save_data=False):
     import os
     import json
 
+    boronization = [8441, 8537, 9903]
+    gdc = [8545]
+
     path = (
         "/home/marco.sertoli/data/regr_trends/"
         + datetime.datetime.now().strftime("%y_%m_%d-%H_%M")
@@ -906,30 +909,26 @@ def plot_max_ti(save_data=False):
     _all = {
         "btvac_efit:value": (1.0, 2),
         "ipla_efit:value": (0.3e6, 1.0e6),
-        "p_hnbi1:value": (1e3, np.nan),
-        "p_rfx:value": (1.0e3, np.nan),
         "ne_smmh1:value": (2.50e19, 9.0e19),
         "vloop_l016:value": (0, np.nan),
-        "te_xrcs:value": (1.0e2, 4.0e3),
-        "ti_xrcs:value": (1.0e2, 10.0e3),
+        "te_xrcs:value": (5.0e2, 4.0e3),
+        "ti_xrcs:value": (5.0e2, 10.0e3),
         "ti_xrcs:error": (np.nan, 0.3),
         "ti_xrcs:t": (0.0, np.nan),
     }
-    _low_bt = deepcopy(_all)
-    _low_bt["btvac_efit:value"] = (1.42, 1.47)
-    _high_bt = deepcopy(_all)
-    _high_bt["btvac_efit:value"] = (1.69, 1.73)
-    cond = {"all": _all}  # , "Bt 1.4 T": _low_bt, "Bt 1.7 T": _high_bt}
+    _nbi = deepcopy(_all)
+    _nbi["p_hnbi1:value"] = (1.0e3, np.nan)
+    _nbi["p_rfx:value"] = (1.0e3, np.nan)
+    cond = {"all": _all, "NBI": _nbi}
     filtered = apply_selection(database.binned, cond)
 
-    cond_str = {"all": "RFX & HNBI"}
-
+    pulses = np.array(database.pulses)
     results = {}
     for k in filtered.keys():
         results[k] = {}
 
         binned = filtered[k]["binned"]
-        _max_val, _ = calc_max_val(binned, keys="ti_xrcs")
+        _max_val, _ = calc_max_val(binned)
         results[k]["max_ti"] = _max_val["ti_xrcs"]
 
         ifin = np.isfinite(results[k]["max_ti"].value)
@@ -959,6 +958,7 @@ def plot_max_ti(save_data=False):
         for q in quantities:
             results[k][q] = xr.where(ifin, binned[q].sel(t=tmax), np.nan)
 
+        # Calculate additional quantities not contained in original data
         empty = xr.full_like(results[k][q], np.nan)
         results[k]["fabs_rfx"] = deepcopy(empty)
         results[k]["fabs_rfx"].value.values = fabs.interp(
@@ -1046,12 +1046,57 @@ def plot_max_ti(save_data=False):
             )
         ).values
 
+        results[k]["electron_pressure"] = deepcopy(empty)
+        results[k]["electron_pressure"].value.values = ph.calc_pressure(
+            results[k]["ne_smmh1"].value, results[k]["te_xrcs"].value
+        ).values
+        results[k]["electron_pressure"].error.values = (
+            results[k]["electron_pressure"].value
+            * np.sqrt(
+                (results[k]["ne_smmh1"].error / results[k]["ne_smmh1"].value) ** 2
+                + (results[k]["te_xrcs"].error / results[k]["te_xrcs"].value) ** 2
+            )
+        ).values
+
+        # Pulse numbers when something happened
+        vip_pulses = {}
+        vip_pulses["First NBI pulse"] = pulses[np.min(np.where(binned["hnbi1_on"].cumul.max("t") > 0)[0])]
+        vip_pulses["RFX duration > 90ms"] = pulses[
+            np.min(np.where(binned["rfx_on"].cumul.max("t") >= 0.09)[0])
+        ]
+        vip_pulses["1st & 2nd boronization"] = boronization[0]
+        vip_pulses["3rd boronization"] = boronization[2]
+        vip_pulses["Inter-pulse GDC"] = gdc[0]
+        sum_h = binned["sum_h"].value.sel(t=0.03, method="nearest")
+        vip_pulses["Low H-alpha @ 30 ms"] = pulses[
+            np.min(np.where(sum_h/sum_h.max() <= 0.1)[0])
+        ]
+        # prefill = xr.where(
+        #     database.binned["gas_puff"].cumul.t <= 0.0, database.binned["gas_puff"].cumul, 0.0
+        # ).max("t")
+        # gas_50ms = xr.where(
+        #     database.binned["gas_puff"].cumul.t < 0.05, database.binned["gas_puff"].cumul, 0.0
+        # ).max("t")
+        # if np.any((prefill / gas_50ms > 0.85) * (prefill > 90) * (pulses > gdc[0])):
+        #     vip_pulses["Prefill gas only"] = pulses[
+        #         np.min(
+        #             np.where(
+        #                 (prefill / gas_50ms > 0.85) * (prefill > 90) * (pulses > gdc[0])
+        #             )[0]
+        #         )
+        #     ]
+
+        bt_45cm = _max_val["btvac_efit"].value*0.5/0.45
+        vip_pulses["Bt(R=45 cm) > 1.9 T"] = pulses[
+            np.min(np.where((bt_45cm > 1.9) * (pulses > 9700))[0])
+        ]
+
         dt_hnbi1 = (0.0, 0.2)
         dt_rfx = (0.0, 0.2)
         all_ = (
-            (results[k]["rfx_on"].cumul > dt_rfx[0])
+            (results[k]["rfx_on"].cumul >= dt_rfx[0])
             * (results[k]["rfx_on"].cumul < dt_rfx[1])
-            * (results[k]["hnbi1_on"].cumul > dt_hnbi1[0])
+            * (results[k]["hnbi1_on"].cumul >= dt_hnbi1[0])
             * (results[k]["hnbi1_on"].cumul < dt_hnbi1[1])
         )
         dd_ = all_ * (pulses >= dd[0]) * (pulses <= dd[1])
@@ -1061,6 +1106,82 @@ def plot_max_ti(save_data=False):
 
         rcParams.update({"font.size": 10})
         rcParams.update({"lines.markersize": 5})
+
+        plt.figure()
+        x = results[k]["ti_xrcs"].pulse
+        y = results[k]["ti_xrcs"].value * 1.0e-3
+        yerr = results[k]["ti_xrcs"].error * 1.0e-3
+        for k_isotope, ind_isotope in isotopes.items():
+            ind = np.where(ind_isotope.values)[0]
+            plt.errorbar(
+                x[ind],
+                y[ind],
+                yerr[ind],
+                marker="o",
+                alpha=0.7,
+                linestyle="",
+            )
+        plt.title(k)
+        plt.xlabel("Pulse #")
+        plt.ylabel("Ti (keV) XRCS")
+        plt.ylim(0,)
+
+        import matplotlib.cm as cm
+        cols = cm.rainbow(np.linspace(0, 1, len(vip_pulses.keys())))
+        vip_keys = list(vip_pulses)
+        vip_pulses_sort = np.argsort([vip_pulses[kpulse] for kpulse in vip_pulses.keys()])
+
+        icol = 0
+        for isort in vip_pulses_sort:
+            kpulse = vip_keys[isort]
+            plt.plot(
+                np.full(2, vip_pulses[kpulse]),
+                list(plt.ylim()),
+                label=kpulse,
+                linestyle="dashed",
+                color=cols[icol],
+                alpha=0.8,
+            )
+            icol += 1
+        plt.legend(loc=2)
+        if save_data:
+            save_figure(path=path, fig_name=f"{k}_Ti_vs_pulse_number")
+
+        plt.figure()
+        x = results[k]["ti_xrcs"].pulse
+        y = results[k]["ti_xrcs"].value/results[k]["te_xrcs"].value
+        yerr = y * np.sqrt((results[k]["ti_xrcs"].error/results[k]["ti_xrcs"].value)**2 +
+                           (results[k]["te_xrcs"].error/results[k]["te_xrcs"].value)**2)
+        for k_isotope, ind_isotope in isotopes.items():
+            ind = np.where(ind_isotope.values)[0]
+            plt.errorbar(
+                x[ind],
+                y[ind],
+                yerr[ind],
+                marker="o",
+                alpha=0.7,
+                linestyle="",
+            )
+        plt.title(k)
+        plt.xlabel("Pulse #")
+        plt.ylabel("Ti/Te XRCS")
+        plt.ylim(0,)
+
+        icol = 0
+        for isort in vip_pulses_sort:
+            kpulse = vip_keys[isort]
+            plt.plot(
+                np.full(2, vip_pulses[kpulse]),
+                list(plt.ylim()),
+                label=kpulse,
+                linestyle="dashed",
+                color=cols[icol],
+                alpha=0.8,
+            )
+            icol += 1
+        plt.legend(loc=2)
+        if save_data:
+            save_figure(path=path, fig_name=f"{k}_Ti_ov_Te_vs_pulse_number")
 
         plt.figure()
         x = results[k]["nu_star_e"].value
@@ -1084,7 +1205,7 @@ def plot_max_ti(save_data=False):
         plt.xlim(0,)
         plt.legend()
         if save_data:
-            save_figure(path=path, fig_name="Ti_vs_nu_star")
+            save_figure(path=path, fig_name=f"{k}_Ti_vs_nu_star")
 
         plt.figure()
         x = results[k]["nu_star_e"].value
@@ -1108,16 +1229,70 @@ def plot_max_ti(save_data=False):
         plt.xlim(0,)
         plt.legend()
         if save_data:
-            save_figure(path=path, fig_name="Te_vs_nu_star")
+            save_figure(path=path, fig_name=f"{k}_Te_vs_nu_star")
+
+        plt.figure()
+        x = results[k]["electron_pressure"].value
+        xerr = results[k]["electron_pressure"].error * 1.0e-3
+        y = results[k]["ti_xrcs"].value * 1.0e-3
+        yerr = results[k]["ti_xrcs"].error * 1.0e-3
+        for k_isotope, ind_isotope in isotopes.items():
+            ind = np.where(ind_isotope.values)[0]
+            plt.errorbar(
+                x[ind],
+                y[ind],
+                yerr=yerr[ind],
+                xerr=xerr[ind],
+                marker="o",
+                alpha=0.7,
+                label=k_isotope,
+                linestyle="",
+            )
+        plt.title(k)
+        plt.xlabel("$<P_e>$ (Pa)")
+        plt.ylabel("Ti XRCS (keV)")
+        plt.ylim(0,)
+        plt.xlim(0,)
+        plt.legend()
+        if save_data:
+            save_figure(path=path, fig_name=f"{k}_Ti_vs_Pe")
+
+        plt.figure()
+        x = results[k]["te_xrcs"].value * 1.0e-3
+        xerr = results[k]["te_xrcs"].error * 1.0e-3
+        y = results[k]["ti_xrcs"].value * 1.0e-3
+        yerr = results[k]["ti_xrcs"].error * 1.0e-3
+        for k_isotope, ind_isotope in isotopes.items():
+            ind = np.where(ind_isotope.values)[0]
+            plt.errorbar(
+                x[ind],
+                y[ind],
+                yerr=yerr[ind],
+                xerr=xerr[ind],
+                marker="o",
+                alpha=0.7,
+                label=k_isotope,
+                linestyle="",
+            )
+        plt.title(k)
+        plt.xlabel("Te XRCS (keV)")
+        plt.ylabel("Ti XRCS (keV)")
+        plt.ylim(0,)
+        plt.xlim(0,)
+        plt.legend()
+        if save_data:
+            save_figure(path=path, fig_name=f"{k}_Ti_vs_Te")
 
         if save_data:
             _json = json.dumps(cond[k])
-            with open(f"{path}selection_criteria.json", "w") as f:
+            with open(f"{path}{k}_selection_criteria.json", "w") as f:
                 f.write(_json)
 
             to_write = {}
             _all = results["all"]
             ind = np.where(np.isfinite(_all["ti_xrcs"].value.values))[0]
+            to_write["Pulse"] = _all["ti_xrcs"].pulse.values[ind]
+            to_write["Time (s)"] = _all["ti_xrcs"].pulse.values[ind]
             to_write["Ti XRCS (eV)"] = _all["ti_xrcs"].value.values[ind]
             to_write["Ti XRCS error (eV)"] = _all["ti_xrcs"].error.values[ind]
             to_write["Te XRCS (eV)"] = _all["te_xrcs"].value.values[ind]
@@ -1133,7 +1308,7 @@ def plot_max_ti(save_data=False):
             to_write["Wp EFIT (J)"] = _all["wp_efit"].value.values[ind]
 
             df = pd.DataFrame(to_write)
-            df.to_csv(f"{path}dataset.csv")
+            df.to_csv(f"{path}{k}_dataset.csv")
 
     return database, results
 
