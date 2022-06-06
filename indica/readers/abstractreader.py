@@ -550,6 +550,9 @@ class DataReader(BaseIO):
         dims_1d = ("t",)
         trivial_transform = TrivialTransform()
         if len(flux_quantities & quantities) > 0:
+            psin = database_results["psin"]
+            coords_psin: Dict[Hashable, ArrayLike] = {"psin": psin}
+            dims_psin = ("psin", )
             rho = np.sqrt(database_results["psin"])
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
         else:
@@ -581,6 +584,11 @@ class DataReader(BaseIO):
         if "zmag" in quantities:
             sorted_quantities.remove("zmag")
             sorted_quantities.insert(0, "zmag")
+        # TODO: add this in the available_quantities.py
+        if "psin" not in quantities:
+            sorted_quantities.insert(0, "psin")
+            available_quantities["psin"] = ("poloidal_flux", "normalised")
+
         # Get rmag, zmag if need any of rmji, rmjo, faxs
         for quantity in sorted_quantities:
             if quantity not in available_quantities:
@@ -604,15 +612,21 @@ class DataReader(BaseIO):
             elif quantity in separatrix_quantities:
                 coords = coords_sep
                 dims = dims_sep
+            elif quantity == "psin":
+                coords = coords_psin
+                dims = dims_psin
             else:
                 coords = coords_2d
                 dims = dims_2d
+
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            )
+            if "t" in dims:
+                quant_data = quant_data.sel(t=slice(self._tstart, self._tend))
 
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
@@ -638,6 +652,7 @@ class DataReader(BaseIO):
                 )
                 quant_data = quant_data.isel(t=ind_unique)
             data[quantity] = quant_data
+
         return data
 
     def _get_equilibrium(
@@ -1732,6 +1747,7 @@ class DataReader(BaseIO):
         data: Dict[str, DataArray] = {}
 
         # Reorganise coordinate system to match Indica default rho-poloidal
+        psin = database_results["psin"]
         rhop_psin = np.sqrt(database_results["psin"])
         rhop_interp = np.linspace(0, 1.0, 65)
         rhot_astra = database_results["rho"] / np.max(database_results["rho"])

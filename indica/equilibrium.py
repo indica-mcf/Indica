@@ -82,6 +82,7 @@ class Equilibrium(AbstractEquilibrium):
         self.rmji = equilibrium_data["rmji"]
         self.rmjo = equilibrium_data["rmjo"]
         self.psi = equilibrium_data["psi"]
+        self.psin = equilibrium_data["psin"]
         self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
         self.vjac = equilibrium_data["vjac"]
         self.rmag = equilibrium_data["rmag"]
