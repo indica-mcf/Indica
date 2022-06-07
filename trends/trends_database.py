@@ -131,7 +131,7 @@ class Database:
             read from MDS+
         """
         if path_data is None:
-            path_data = f"{current_file_path()}/"
+            path_data = f"{data_path()}/"
         if file_info_json is None:
             file_info_json = "info_dict.json"
         if file_info_py is None:
@@ -659,6 +659,10 @@ def pulse_ok(reader: ST40Reader, tlim: tuple, ipla_min: float = 50.0e3):
 
 def current_file_path():
     return str(pathlib.Path(__file__).parent.resolve())
+
+
+def data_path():
+    return f"{str(pathlib.Path.home())}/data"
 
 
 def rename_file(_file: str, _file_backup: str):
