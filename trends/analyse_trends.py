@@ -12,8 +12,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import matplotlib.pylab as plt
+import matplotlib.cm as cm
 
 from trends.trends_database import Database
+import indica.converters.bin_interp as bin_interp
 import hda.physics as ph
 
 plt.ion()
@@ -919,7 +921,7 @@ def plot_max_ti(save_data=False):
     _nbi = deepcopy(_all)
     _nbi["p_hnbi1:value"] = (1.0e3, np.nan)
     _nbi["p_rfx:value"] = (1.0e3, np.nan)
-    cond = {"all": _all, "NBI": _nbi}
+    cond = {"all": _all}  # , "NBI": _nbi}
     filtered = apply_selection(database.binned, cond)
 
     pulses = np.array(database.pulses)
@@ -1060,33 +1062,29 @@ def plot_max_ti(save_data=False):
 
         # Pulse numbers when something happened
         vip_pulses = {}
-        vip_pulses["First NBI pulse"] = pulses[np.min(np.where(binned["hnbi1_on"].cumul.max("t") > 0)[0])]
+        # vip_pulses["First HNBI pulse"] = pulses[
+        #     np.min(np.where(binned["hnbi1_on"].cumul.max("t") > 0)[0])
+        # ]
+        vip_pulses["First RFX pulse"] = pulses[
+            np.min(np.where(binned["rfx_on"].cumul.max("t") > 0)[0])
+        ]
         vip_pulses["RFX duration > 90ms"] = pulses[
             np.min(np.where(binned["rfx_on"].cumul.max("t") >= 0.09)[0])
         ]
         vip_pulses["1st & 2nd boronization"] = boronization[0]
         vip_pulses["3rd boronization"] = boronization[2]
         vip_pulses["Inter-pulse GDC"] = gdc[0]
-        sum_h = binned["sum_h"].value.sel(t=0.03, method="nearest")
-        vip_pulses["Low H-alpha @ 30 ms"] = pulses[
-            np.min(np.where(sum_h/sum_h.max() <= 0.1)[0])
-        ]
-        # prefill = xr.where(
-        #     database.binned["gas_puff"].cumul.t <= 0.0, database.binned["gas_puff"].cumul, 0.0
-        # ).max("t")
-        # gas_50ms = xr.where(
-        #     database.binned["gas_puff"].cumul.t < 0.05, database.binned["gas_puff"].cumul, 0.0
-        # ).max("t")
-        # if np.any((prefill / gas_50ms > 0.85) * (prefill > 90) * (pulses > gdc[0])):
-        #     vip_pulses["Prefill gas only"] = pulses[
-        #         np.min(
-        #             np.where(
-        #                 (prefill / gas_50ms > 0.85) * (prefill > 90) * (pulses > gdc[0])
-        #             )[0]
-        #         )
-        #     ]
+        step = 70
+        halpha = database.binned["halpha_mp"].cumul.sel(
+            t=results["all"]["ti_xrcs"].t, method="nearest"
+        )
+        halpha = xr.where(results["all"]["ti_xrcs"].t > 0.02, halpha, np.nan)
+        halpha = bin_interp.convert(pulses[0], pulses[-1], 70, halpha, "pulse")
+        vip_pulses["Low H-alpha @ max Ti"] = halpha.pulse[
+            np.min(np.where(halpha / halpha.max() <= 0.2)[0])
+        ] - step/2
 
-        bt_45cm = _max_val["btvac_efit"].value*0.5/0.45
+        bt_45cm = _max_val["btvac_efit"].value * 0.5 / 0.45
         vip_pulses["Bt(R=45 cm) > 1.9 T"] = pulses[
             np.min(np.where((bt_45cm > 1.9) * (pulses > 9700))[0])
         ]
@@ -1114,22 +1112,21 @@ def plot_max_ti(save_data=False):
         for k_isotope, ind_isotope in isotopes.items():
             ind = np.where(ind_isotope.values)[0]
             plt.errorbar(
-                x[ind],
-                y[ind],
-                yerr[ind],
-                marker="o",
-                alpha=0.7,
-                linestyle="",
+                x[ind], y[ind], yerr[ind], marker="o", alpha=0.7, linestyle="",
             )
+        # plt.ylim(0,)
+        # ylim = plt.ylim()
+        # (halpha / halpha.max() * ylim[1] * 0.5).plot(label = "Halpha @ max Ti (a.u.)", alpha=0.6)
         plt.title(k)
         plt.xlabel("Pulse #")
         plt.ylabel("Ti (keV) XRCS")
         plt.ylim(0,)
 
-        import matplotlib.cm as cm
         cols = cm.rainbow(np.linspace(0, 1, len(vip_pulses.keys())))
         vip_keys = list(vip_pulses)
-        vip_pulses_sort = np.argsort([vip_pulses[kpulse] for kpulse in vip_pulses.keys()])
+        vip_pulses_sort = np.argsort(
+            [vip_pulses[kpulse] for kpulse in vip_pulses.keys()]
+        )
 
         icol = 0
         for isort in vip_pulses_sort:
@@ -1149,18 +1146,15 @@ def plot_max_ti(save_data=False):
 
         plt.figure()
         x = results[k]["ti_xrcs"].pulse
-        y = results[k]["ti_xrcs"].value/results[k]["te_xrcs"].value
-        yerr = y * np.sqrt((results[k]["ti_xrcs"].error/results[k]["ti_xrcs"].value)**2 +
-                           (results[k]["te_xrcs"].error/results[k]["te_xrcs"].value)**2)
+        y = results[k]["ti_xrcs"].value / results[k]["te_xrcs"].value
+        yerr = y * np.sqrt(
+            (results[k]["ti_xrcs"].error / results[k]["ti_xrcs"].value) ** 2
+            + (results[k]["te_xrcs"].error / results[k]["te_xrcs"].value) ** 2
+        )
         for k_isotope, ind_isotope in isotopes.items():
             ind = np.where(ind_isotope.values)[0]
             plt.errorbar(
-                x[ind],
-                y[ind],
-                yerr[ind],
-                marker="o",
-                alpha=0.7,
-                linestyle="",
+                x[ind], y[ind], yerr[ind], marker="o", alpha=0.7, linestyle="",
             )
         plt.title(k)
         plt.xlabel("Pulse #")
