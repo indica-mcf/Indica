@@ -121,7 +121,7 @@ def test_hda(
         use_ratios=use_ratios,
         calc_error=calc_error,
     )
-    pl.el_dens.plot()
+    # pl.el_dens.plot()
     pl.calc_fz_lz()
     pl.calc_meanz()
     pl.calc_imp_dens()
