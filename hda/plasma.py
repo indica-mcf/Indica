@@ -172,9 +172,11 @@ class Plasma:
                 continue
 
             for kquant in data[kinstr].keys():
-                value = bin_in_time_dt(
-                    self.tstart, self.tend, self.dt, data[kinstr][kquant]
-                )
+                value = data[kinstr][kquant]
+                if "t" in value.coords:
+                    value = bin_in_time_dt(
+                        self.tstart, self.tend, self.dt, value
+                    )
 
                 if "transform" in data[kinstr][kquant].attrs:
                     value.attrs["transform"] = data[kinstr][kquant].transform
