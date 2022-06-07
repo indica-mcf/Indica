@@ -13,6 +13,7 @@ from xarray import Dataset
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.time import bin_in_time_dt
+from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.operators.atomic_data import FractionalAbundance
@@ -101,7 +102,7 @@ class Plasma:
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
-        self.t = np.arange(tstart, tend + dt, dt)
+        self.t = get_tlabels_dt(self.tstart, self.tend, self.dt)
         self.theta = np.linspace(0, 2 * np.pi, ntheta + 1)[:-1]
         self.radial_coordinate = np.linspace(0, 1.0, 41)
         self.radial_coordinate_type = "rho_poloidal"
@@ -111,9 +112,10 @@ class Plasma:
 
         self.initialize_variables()
 
-    def build_data(self, data, pulse=None, equil="efit", instrument=""):
+    def build_data(self, data, pulse: int = None, equil="efit", instrument=""):
         """
-        Reorganise raw data on new time axis and generate geometry information
+        Reorganise raw data dictionary on the desired time axis and generate
+        geometry information from equilibrium reconstruction
 
         Parameters
         ----------
@@ -155,6 +157,8 @@ class Plasma:
 
         print_like("Assign equilibrium, bin data in time")
         binned_data = {}
+
+        # np.seterr(all="reise")
         for kinstr in data.keys():
             if (len(instrument) > 0) and (kinstr != instrument):
                 continue
@@ -168,9 +172,11 @@ class Plasma:
                 continue
 
             for kquant in data[kinstr].keys():
-                value = bin_in_time_dt(
-                    self.tstart, self.tend, self.dt, data[kinstr][kquant]
-                )
+                value = data[kinstr][kquant]
+                if "t" in value.coords:
+                    value = bin_in_time_dt(
+                        self.tstart, self.tend, self.dt, value
+                    )
 
                 if "transform" in data[kinstr][kquant].attrs:
                     value.attrs["transform"] = data[kinstr][kquant].transform
@@ -201,6 +207,7 @@ class Plasma:
             self.R_bt_0 = binned_data["R_bt_0"]
             self.bt_0 = binned_data["bt_0"]
 
+        # np.seterr(all="warn")
         return binned_data
 
     def apply_limits(
@@ -259,27 +266,21 @@ class Plasma:
 
             min_r /= len(self.theta)
             min_r = min_r.interp(rho_poloidal=self.rho.values, method="cubic")
-            min_r = bin_in_time_dt(
-                self.tstart,
-                self.tend,
-                self.dt,
-                min_r,
-            ).interp(t=self.time, method="linear")
+            min_r = bin_in_time_dt(self.tstart, self.tend, self.dt, min_r,).interp(
+                t=self.time, method="linear"
+            )
             self.min_r = min_r
 
+            # TODO: fix volume and area for all devices to get the value from equilibrium
+            # dpsin = self.equilibrium.psin[1] - self.equilibrium.psin[0]
+            # volume = (self.equilibrium.vjac * dpsin).cumsum("rho_poloidal")
             volume, area, _ = self.equilibrium.enclosed_volume(self.rho)
-            volume = bin_in_time_dt(
-                self.tstart,
-                self.tend,
-                self.dt,
-                volume,
-            ).interp(t=self.time, method="linear")
-            area = bin_in_time_dt(
-                self.tstart,
-                self.tend,
-                self.dt,
-                area,
-            ).interp(t=self.time, method="linear")
+            volume = bin_in_time_dt(self.tstart, self.tend, self.dt, volume,).interp(
+                t=self.time, method="linear"
+            )
+            area = bin_in_time_dt(self.tstart, self.tend, self.dt, area,).interp(
+                t=self.time, method="linear"
+            )
             self.area.values = area.values
             self.volume.values = volume.values
 
@@ -365,6 +366,54 @@ class Plasma:
                 ).values
 
         return bckc
+
+    def map_to_midplane(self):
+        keys = [
+            "el_dens",
+            "ion_dens",
+            "neutral_dens",
+            "el_temp",
+            "ion_temp",
+            "pressure_th",
+            "vtor",
+            "zeff",
+            "meanz",
+            "volume",
+        ]
+
+        nchan = len(self.R_midplane)
+        chan = np.arange(nchan)
+        R = DataArray(self.R_midplane, coords=[("channel", chan)])
+        z = DataArray(self.z_midplane, coords=[("channel", chan)])
+
+        midplane_profs = {}
+        for k in keys:
+            k_hi = f"{k}_hi"
+            k_lo = f"{k}_lo"
+
+            midplane_profs[k] = []
+            if hasattr(self, k_hi):
+                midplane_profs[k_hi] = []
+            if hasattr(self, k_lo):
+                midplane_profs[k_lo] = []
+
+        for k in midplane_profs.keys():
+            for t in self.t:
+                rho = (
+                    self.equilibrium.rho.sel(t=t, method="nearest")
+                    .interp(R=R, z=z)
+                    .drop(["R", "z"])
+                )
+                midplane_profs[k].append(
+                    getattr(self, k).sel(t=t, method="nearest").interp(rho_poloidal=rho).drop("rho_poloidal"))
+            midplane_profs[k] = xr.concat(midplane_profs[k], "t").assign_coords(
+                t=self.t
+            )
+            midplane_profs[k] = xr.where(
+                np.isfinite(midplane_profs[k]), midplane_profs[k], 0.0
+            )
+
+        self.midplane_profs = midplane_profs
 
     def bremsstrahlung(
         self,
@@ -710,10 +759,14 @@ class Plasma:
         bckc[diagnostic][quantity_ti].attrs["emiss"] = emiss
         bckc[diagnostic][quantity_ti].attrs["fz"] = fz
 
-        revision = get_prov_attribute(data[diagnostic][quantity_te].provenance, "revision")
+        revision = get_prov_attribute(
+            data[diagnostic][quantity_te].provenance, "revision"
+        )
         self.optimisation["el_temp"] = f"{diagnostic}.{quantity_te}:{revision}"
 
-        revision = get_prov_attribute(data[diagnostic][quantity_ti].provenance, "revision")
+        revision = get_prov_attribute(
+            data[diagnostic][quantity_ti].provenance, "revision"
+        )
         self.optimisation["ion_temp"] = f"{diagnostic}.{quantity_ti}:{revision}"
 
         return bckc
@@ -802,14 +855,7 @@ class Plasma:
             const = 1.0
             for j in range(niter):
                 Nimp = {elem: self.ion_dens.sel(element=elem, t=t) * const}
-                _ = forward_model(
-                    Te,
-                    Ne,
-                    Nimp=Nimp,
-                    Nh=Nh,
-                    rho_los=rho_los,
-                    dl=dl,
-                )
+                _ = forward_model(Te, Ne, Nimp=Nimp, Nh=Nh, rho_los=rho_los, dl=dl,)
                 int_bckc = forward_model.intensity[line] * cal / dt_cal * dt
                 const = (int_data / int_bckc).values
 
@@ -884,11 +930,7 @@ class Plasma:
         return bckc
 
     def recover_density(
-        self,
-        data,
-        diagnostic: str = "efit",
-        quantity: str = "wp",
-        niter=3,
+        self, data, diagnostic: str = "efit", quantity: str = "wp", niter=3,
     ):
         """
         Match stored energy by adapting electron density
@@ -962,11 +1004,7 @@ class Plasma:
         if t is not None:
             el_dens = el_dens.sel(t=t, method="nearest")
             rho = rho.sel(t=t, method="nearest")
-        el_dens = xr.where(
-            rho <= 1,
-            el_dens,
-            0,
-        )
+        el_dens = xr.where(rho <= 1, el_dens, 0,)
         el_dens_int = passes * el_dens.sum(x2_name) * dl
 
         return el_dens_int
@@ -999,11 +1037,7 @@ class Plasma:
         if t is not None:
             value = value.sel(t=t)
             rho = rho.sel(t=t)
-        value = xr.where(
-            rho <= 1,
-            value,
-            0,
-        )
+        value = xr.where(rho <= 1, value, 0,)
         los_int = value.sum(x2_name) * dl
 
         return los_int
@@ -1100,7 +1134,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
+                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
             )
 
         self.ion_dens_2d = (
@@ -1113,11 +1147,10 @@ class Plasma:
             t = self.t[6]
         for elem in self.elements:
             plt.figure()
-            z = self.equilibrium.zmag.sel(t=t, method="nearest")
+            z = self.z_mag.sel(t=t)
             rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
             plt.plot(
-                rho,
-                self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
+                rho, self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
             )
             self.ion_dens.sel(element=elem).sel(t=t).plot(linestyle="dashed")
             plt.title(elem)
@@ -1148,11 +1181,7 @@ class Plasma:
             fz[elem] = DataArray(
                 np.full((len(t), len(rho), len(ion_charges)), np.nan),
                 coords={"t": t, "rho_poloidal": rho, "ion_charges": ion_charges},
-                dims=[
-                    "t",
-                    "rho_poloidal",
-                    "ion_charges",
-                ],
+                dims=["t", "rho_poloidal", "ion_charges",],
             )
             lz_tot[elem] = deepcopy(fz[elem])
             lz_sxr[elem] = deepcopy(fz[elem])
@@ -1205,11 +1234,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            tot_rad = xr.where(
-                tot_rad >= 0,
-                tot_rad,
-                0.0,
-            )
+            tot_rad = xr.where(tot_rad >= 0, tot_rad, 0.0,)
             self.tot_rad.loc[dict(element=elem)] = tot_rad.values
 
             sxr_rad = (
@@ -1217,11 +1242,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            sxr_rad = xr.where(
-                sxr_rad >= 0,
-                sxr_rad,
-                0.0,
-            )
+            sxr_rad = xr.where(sxr_rad >= 0, sxr_rad, 0.0,)
             self.sxr_rad.loc[dict(element=elem)] = sxr_rad.values
 
             if not hasattr(self, "prad_tot"):
@@ -1252,11 +1273,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            tot_rad = xr.where(
-                tot_rad >= 0,
-                tot_rad,
-                0.0,
-            )
+            tot_rad = xr.where(tot_rad >= 0, tot_rad, 0.0,)
             self.tot_rad.loc[dict(element=elem)] = tot_rad.values
 
             sxr_rad = (
@@ -1264,11 +1281,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            sxr_rad = xr.where(
-                sxr_rad >= 0,
-                sxr_rad,
-                0.0,
-            )
+            sxr_rad = xr.where(sxr_rad >= 0, sxr_rad, 0.0,)
             self.sxr_rad.loc[dict(element=elem)] = sxr_rad.values
 
             if not hasattr(self, "prad_tot"):
@@ -1412,7 +1425,7 @@ class Plasma:
             R_mag = self.R_mag.sel(t=t).values
             ipla = self.ipla.sel(t=t).values
             bt_0 = self.bt_0.sel(t=t).values
-            # zmag = self.equilibrium.zmag.sel(t=t, method="nearest").values
+            # z_mag = self.z_mag.sel(t=t).values
             maj_r_lfs = self.maj_r_lfs.sel(t=t).values
             maj_r_hfs = self.maj_r_hfs.sel(t=t).values
             j_phi = self.j_phi.sel(t=t).values
@@ -1557,7 +1570,13 @@ class Plasma:
         nel = len(self.elements)
         nth = len(self.theta)
 
+        R_midplane = np.linspace(self.machine_R.min(), self.machine_R.max(), 50)
+        self.R_midplane = R_midplane
+        z_midplane = np.full_like(R_midplane, 0.)
+        self.z_midplane = z_midplane
+
         coords_radius = (self.radial_coordinate_type, self.radial_coordinate)
+        # coords_rmid = ("R", R_midplane)
         coords_theta = ("poloidal_angle", self.theta)
         coords_time = ("t", self.t)
         coords_elem = ("element", list(self.elements))
@@ -1618,6 +1637,9 @@ class Plasma:
         self.R_mag = deepcopy(data1d_time)
         assign_datatype(self.R_mag, ("major_radius", "magnetic"))
 
+        self.z_mag = deepcopy(data1d_time)
+        assign_datatype(self.z_mag, ("z", "magnetic"))
+
         # Major radius array at midplane
         self.maj_r_lfs = deepcopy(data2d)
         assign_datatype(self.maj_r_lfs, ("radius", "major"))
@@ -1649,10 +1671,6 @@ class Plasma:
         assign_datatype(self.min_r, ("minor_radius", "plasma"))
         self.cr0 = deepcopy(data1d_time)
         assign_datatype(self.cr0, ("minor_radius", "separatrizx"))
-        self.rmag = deepcopy(data1d_time)
-        assign_datatype(self.rmag, ("major_radius", "magnetic_axis"))
-        self.zmag = deepcopy(data1d_time)
-        assign_datatype(self.rmag, ("z", "magnetic_axis"))
         self.volume = deepcopy(data2d)
         assign_datatype(self.volume, ("volume", "plasma"))
         self.area = deepcopy(data2d)
@@ -1748,8 +1766,7 @@ class Plasma:
 
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                self,
-                f,
+                self, f,
             )
 
 

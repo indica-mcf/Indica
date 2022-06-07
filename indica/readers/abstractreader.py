@@ -201,7 +201,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
@@ -261,7 +261,7 @@ class DataReader(BaseIO):
                 "thomson_scattering",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -355,7 +355,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
@@ -376,8 +376,9 @@ class DataReader(BaseIO):
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
+        # TODO: why use ffill as method??? Temporarily removed...
         texp = DataArray(database_results["texp"], coords=[("t", times)]).sel(
-            t=slice(self._tstart, self._tend), method="ffill"
+            t=slice(self._tstart, self._tend)
         )
         if downsample_ratio > 1:
             # Seems to be some sort of bug setting the coordinate when
@@ -431,7 +432,7 @@ class DataReader(BaseIO):
                 "cxrs",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -540,7 +541,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
@@ -549,6 +550,9 @@ class DataReader(BaseIO):
         dims_1d = ("t",)
         trivial_transform = TrivialTransform()
         if len(flux_quantities & quantities) > 0:
+            psin = database_results["psin"]
+            coords_psin: Dict[Hashable, ArrayLike] = {"psin": psin}
+            dims_psin = ("psin", )
             rho = np.sqrt(database_results["psin"])
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
         else:
@@ -580,6 +584,11 @@ class DataReader(BaseIO):
         if "zmag" in quantities:
             sorted_quantities.remove("zmag")
             sorted_quantities.insert(0, "zmag")
+        # TODO: add this in the available_quantities.py
+        if "psin" not in quantities:
+            sorted_quantities.insert(0, "psin")
+            available_quantities["psin"] = ("poloidal_flux", "normalised")
+
         # Get rmag, zmag if need any of rmji, rmjo, faxs
         for quantity in sorted_quantities:
             if quantity not in available_quantities:
@@ -603,22 +612,28 @@ class DataReader(BaseIO):
             elif quantity in separatrix_quantities:
                 coords = coords_sep
                 dims = dims_sep
+            elif quantity == "psin":
+                coords = coords_psin
+                dims = dims_psin
             else:
                 coords = coords_2d
                 dims = dims_2d
+
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            )
+            if "t" in dims:
+                quant_data = quant_data.sel(t=slice(self._tstart, self._tend))
 
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "equilibrium",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 [],
@@ -637,6 +652,7 @@ class DataReader(BaseIO):
                 )
                 quant_data = quant_data.isel(t=ind_unique)
             data[quantity] = quant_data
+
         return data
 
     def _get_equilibrium(
@@ -736,7 +752,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         transform = MagneticCoordinates(
@@ -791,7 +807,7 @@ class DataReader(BaseIO):
                 "cyclotron_emissions",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -884,7 +900,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         data = {}
         for quantity in quantities:
@@ -944,7 +960,7 @@ class DataReader(BaseIO):
                 "radiation",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -996,18 +1012,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1049,7 +1065,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         data = {}
@@ -1121,7 +1137,7 @@ class DataReader(BaseIO):
                 "bremsstrahlung_spectroscopy",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1172,18 +1188,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1225,7 +1241,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         wavelength = database_results["wavelength"]
@@ -1302,7 +1318,7 @@ class DataReader(BaseIO):
                 "helike_spectroscopy",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1351,18 +1367,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1402,7 +1418,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
@@ -1463,7 +1479,7 @@ class DataReader(BaseIO):
                 "filters",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1512,18 +1528,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1565,7 +1581,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        revision = database_results["revision"]
+        _revision = database_results["revision"]
 
         if len(database_results) == 0:
             return database_results
@@ -1630,7 +1646,7 @@ class DataReader(BaseIO):
                 "interferometry",
                 uid,
                 instrument,
-                revision,
+                _revision,
                 quantity,
                 database_results[quantity + "_records"],
                 drop,
@@ -1679,18 +1695,18 @@ class DataReader(BaseIO):
         <quantity>_records : List[str]
             Representations (e.g., paths) for the records in the database used
             to access data needed for this data.
-        <quantity>_Rstart : ndarray
-            Major radius of start positions for lines of sight for this data.
-        <quantity>_Rstop : ndarray
-            Major radius of stop positions for lines of sight for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
         <quantity>_zstart : ndarray
             Vertical location of start positions for lines of sight for this data.
         <quantity>_zstop : ndarray
             Vertical location of stop positions for lines of sight for this data.
-        <quantity>_Tstart : ndarray
-            Toroidal offset of start positions for lines of sight for this data.
-        <quantity>_Tstop : ndarray
-            Toroidal offset of stop positions for lines of sight for this data.
 
         """
         raise NotImplementedError(
@@ -1698,170 +1714,170 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    #
-    # def get_astra(
-    #     self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
-    # ) -> Dict[str, DataArray]:
-    #     """Reads ASTRA data.
-    #
-    #     Parameters
-    #     ----------
-    #     uid
-    #         User ID (i.e., which user created this data)
-    #     instrument
-    #         Name of the code used to calculate this data
-    #     revision
-    #         An object (of implementation-dependent type) specifying what
-    #         version of data to get. Default is the most recent.
-    #     quantities
-    #         Which physical quantitie(s) to read from the database.
-    #
-    #     Returns
-    #     -------
-    #     :
-    #         A dictionary containing the requested physical quantities.
-    #
-    #     """
-    #     available_quantities = self.available_quantities(instrument)
-    #     database_results = self._get_astra(uid, instrument, revision, quantities)
-    #     if len(database_results) == 0:
-    #         print(f"No data from {uid}.{instrument}:{revision}")
-    #         return database_results
-    #     revision = database_results["revision"]
-    #
-    #     data: Dict[str, DataArray] = {}
-    #
-    #     # Reorganise coordinate system to match Indica default rho-poloidal
-    #     rhop_psin = np.sqrt(database_results["psin"])
-    #     rhop_interp = np.linspace(0, 1.0, 65)
-    #     rhot_astra = database_results["rho"] / np.max(database_results["rho"])
-    #     rhot_rhop = []
-    #     for it in range(len(database_results["times"])):
-    #         ftor_tmp = database_results["ftor"][it, :]
-    #         psi_tmp = database_results["psi"][it, :]
-    #         rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
-    #         rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
-    #         rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
-    #         rhot_rhop.append(rhot_xpsn)
-    #
-    #     rhot_rhop = DataArray(
-    #         np.array(rhot_rhop),
-    #         {"t": database_results["times"], "rho_poloidal": rhop_interp},
-    #         dims=["t", "rho_poloidal"],
-    #     ).sel(t=slice(self._tstart, self._tend))
-    #
-    #     radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
-    #
-    #     sorted_quantities = sorted(quantities)
-    #     for quantity in sorted_quantities:
-    #         if quantity not in available_quantities:
-    #             raise ValueError(
-    #                 "{} can not read astra data for "
-    #                 "quantity {}".format(self.__class__.__name__, quantity)
-    #             )
-    #
-    #         if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
-    #             name_coord = "rho_toroidal"
-    #         elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
-    #             name_coord = "rho_poloidal"
-    #         else:
-    #             name_coord = ""
-    #
-    #         coords = {"t": database_results["times"]}
-    #         dims = ["t"]
-    #         if len(name_coord) > 0:
-    #             coords[name_coord] = radial_coords[name_coord]
-    #             dims.append(name_coord)
-    #
-    #         trivial_transform = TrivialTransform()
-    #         meta = {
-    #             "datatype": available_quantities[quantity],
-    #             "transform": trivial_transform,
-    #         }
-    #
-    #         quant_data = DataArray(
-    #             database_results[quantity],
-    #             coords,
-    #             dims,
-    #             attrs=meta,
-    #         ).sel(t=slice(self._tstart, self._tend))
-    #
-    #         # TODO: careful with interpolation on new rho_poloidal array...
-    #         # Interpolate ASTRA profiles on new rhop_interp array
-    #         # Interpolate PSI_NORM profiles on same coordinate system
-    #         if name_coord == "rho_toroidal":
-    #             rho_toroidal_0 = quant_data.rho_toroidal.min()
-    #             quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop(
-    #                 "rho_toroidal"
-    #             )
-    #             quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
-    #                 rho_toroidal=rho_toroidal_0
-    #             )
-    #             quant_data = quant_interp.interpolate_na("rho_poloidal")
-    #         elif name_coord == "rho_poloidal":
-    #             quant_data = quant_data.interp(rho_poloidal=rhop_interp)
-    #
-    #         quant_data.name = instrument + "_" + quantity
-    #         quant_data.attrs["partial_provenance"] = self.create_provenance(
-    #             "astra",
-    #             uid,
-    #             instrument,
-    #             revision,
-    #             quantity,
-    #             database_results[quantity + "_records"],
-    #             [],
-    #         )
-    #
-    #         quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-    #
-    #         data[quantity] = quant_data
-    #
-    #     return data
-    #
-    # def _get_astra(
-    #     self,
-    #     uid: str,
-    #     instrument: str,
-    #     revision: RevisionLike,
-    #     quantities: Set[str],
-    # ) -> Dict[str, Any]:
-    #     """Reads ASTRA data
-    #
-    #     Parameters
-    #     ----------
-    #     uid
-    #         User ID (i.e., which user created this data)
-    #     instrument
-    #         Name of the instrument which measured this data
-    #     revision
-    #         An object (of implementation-dependent type) specifying what
-    #         version of data to get. Default is the most recent.
-    #     quantities
-    #         Which physical quantitie(s) to read from the database.
-    #
-    #     Returns
-    #     -------
-    #     A dictionary containing the following items:
-    #
-    #     times : ndarray
-    #         The times at which measurements were taken
-    #     machine_dims
-    #         A tuple describing the size of the Tokamak domain. It should have
-    #         the form ``((Rmin, Rmax), (zmin, zmax))``.
-    #
-    #     For each requested quantity, the following items will also be present:
-    #
-    #     <quantity> : ndarray
-    #         The data itself (first axis is time, second channel)
-    #     <quantity>_records : List[str]
-    #         Representations (e.g., paths) for the records in the database used
-    #         to access data needed for this data.
-    #
-    #     """
-    #     raise NotImplementedError(
-    #         "{} does not implement a '_get_spectroscopy' "
-    #         "method.".format(self.__class__.__name__)
-    #     )
+    def get_astra(
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
+    ) -> Dict[str, DataArray]:
+        """Reads ASTRA data.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the code used to calculate this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        :
+            A dictionary containing the requested physical quantities.
+
+        """
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_astra(uid, instrument, revision, quantities)
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+        _revision = database_results["revision"]
+
+        data: Dict[str, DataArray] = {}
+
+        # Reorganise coordinate system to match Indica default rho-poloidal
+        psin = database_results["psin"]
+        rhop_psin = np.sqrt(database_results["psin"])
+        rhop_interp = np.linspace(0, 1.0, 65)
+        rhot_astra = database_results["rho"] / np.max(database_results["rho"])
+        rhot_rhop = []
+        for it in range(len(database_results["times"])):
+            ftor_tmp = database_results["ftor"][it, :]
+            psi_tmp = database_results["psi"][it, :]
+            rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
+            rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
+            rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
+            rhot_rhop.append(rhot_xpsn)
+
+        rhot_rhop = DataArray(
+            np.array(rhot_rhop),
+            {"t": database_results["times"], "rho_poloidal": rhop_interp},
+            dims=["t", "rho_poloidal"],
+        ).sel(t=slice(self._tstart, self._tend))
+
+        radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
+
+        sorted_quantities = sorted(quantities)
+        for quantity in sorted_quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read astra data for "
+                    "quantity {}".format(self.__class__.__name__, quantity)
+                )
+
+            if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
+                name_coord = "rho_toroidal"
+            elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
+                name_coord = "rho_poloidal"
+            else:
+                name_coord = ""
+
+            coords = {"t": database_results["times"]}
+            dims = ["t"]
+            if len(name_coord) > 0:
+                coords[name_coord] = radial_coords[name_coord]
+                dims.append(name_coord)
+
+            trivial_transform = TrivialTransform()
+            meta = {
+                "datatype": available_quantities[quantity],
+                "transform": trivial_transform,
+            }
+
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                dims,
+                attrs=meta,
+            ).sel(t=slice(self._tstart, self._tend))
+
+            # TODO: careful with interpolation on new rho_poloidal array...
+            # Interpolate ASTRA profiles on new rhop_interp array
+            # Interpolate PSI_NORM profiles on same coordinate system
+            if name_coord == "rho_toroidal":
+                rho_toroidal_0 = quant_data.rho_toroidal.min()
+                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop(
+                    "rho_toroidal"
+                )
+                quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
+                    rho_toroidal=rho_toroidal_0
+                )
+                quant_data = quant_interp.interpolate_na("rho_poloidal")
+            elif name_coord == "rho_poloidal":
+                quant_data = quant_data.interp(rho_poloidal=rhop_interp)
+
+            quant_data.name = instrument + "_" + quantity
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
+                "astra",
+                uid,
+                instrument,
+                _revision,
+                quantity,
+                database_results[quantity + "_records"],
+                [],
+            )
+
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+
+            data[quantity] = quant_data
+
+        return data
+
+    def _get_astra(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Reads ASTRA data
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        times : ndarray
+            The times at which measurements were taken
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for this data.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_spectroscopy' "
+            "method.".format(self.__class__.__name__)
+        )
 
     def create_provenance(
         self,

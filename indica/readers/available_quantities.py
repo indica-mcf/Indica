@@ -17,8 +17,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "ti": ("temperature", None),
     },
     "get_bremsstrahlung_spectroscopy": {
-        "h": ("effective_charge", "plasma"),
-        "v": ("effective_charge", "plasma"),
+        "zefh": ("effective_charge", "plasma"),
+        "zefv": ("effective_charge", "plasma"),
     },
     "get_helike_spectroscopy": {
         "int_w": ("intensity", "spectral_line"),
@@ -34,6 +34,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
     },
     "get_filters": {
         "brems": ("intensity", "bremsstrahlung"),
+        "h_alpha": ("intensity", "h_alpha"),
     },
     "get_interferometry": {
         "ne": ("density", "electrons"),
@@ -54,7 +55,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "zbnd": ("z", "separatrix"),
         "ipla": ("current", "plasma"),
         "wp": ("energy", "plasma"),
-        "df": ("energy", "plasma"),
     },
     "get_cyclotron_emissions": {
         "te": ("temperature", "electrons"),
@@ -120,6 +120,9 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "p": ("pressure", "total"),  # PRESSURE(PSI_NORM)
         "pblon": ("fast_pressure", "parallel"),
         "pbper": ("fast_pressure", "perpendicular"),
+        "pnb": ("nbi", "injected_power"),  # Injected NBI power, W
+        "pabs": ("nbi", "absorbed_power"),  # Absorber NBI power, W
+        "p_oh": ("ohmic", "power"),  # Absorber NBI power, W
         "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
         "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
         "volume": ("volume", "plasma"),  # Parallel conductivity,1/(Ohm*m)

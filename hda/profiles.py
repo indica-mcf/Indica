@@ -167,14 +167,16 @@ class Profiles:
         inv_ind = np.max(np.where(rho <= rho_inv)[0])
         for rind in np.arange(inv_ind, rho.size):
             # rind += 1
-            y = xr.where(rho <= rho[rind], self.yspl.sel(rho_poloidal=rho[inv_ind]), self.yspl)
+            y = xr.where(
+                rho <= rho[rind], self.yspl.sel(rho_poloidal=rho[inv_ind]), self.yspl
+            )
             vol_int_post = np.trapz(y, self.vol)
             # y.plot()
             # print(vol_int_pre - vol_int_post)
             if vol_int_post >= vol_int_pre:
                 break
 
-        y = xr.where(rho != rho[rind], y, (y[rind] + y[rind+1])/2)
+        y = xr.where(rho != rho[rind], y, (y[rind] + y[rind + 1]) / 2)
         y = y.interp(rho_poloidal=x)
 
         x = np.append(x, self.xend)
@@ -238,12 +240,16 @@ def get_defaults(identifier):
 
 
 def density_crash(
-    los_avrg=2.8e19, drop=0.9, rho=np.linspace(0, 1, 20), rho_inv=0.4, identifier="density"
+    los_avrg=2.8e19,
+    drop=0.9,
+    rho=np.linspace(0, 1, 20),
+    rho_inv=0.4,
+    identifier="density",
 ):
     volume = DataArray(0.85 * rho ** 3, coords=[("rho_poloidal", rho)])
 
     pre = Profiles(datatype=(identifier, "electron"), xspl=rho)
-    pre.wcenter = rho_inv/1.5
+    pre.wcenter = rho_inv / 1.5
     pre.build_profile()
 
     plt.figure()
@@ -253,7 +259,7 @@ def density_crash(
     for s in scan:
         pre.peaking = s
         pre.build_profile()
-        pre.y0 *= los_avrg/pre.yspl.mean().values
+        pre.y0 *= los_avrg / pre.yspl.mean().values
         pre.build_profile()
 
         post = deepcopy(pre)
@@ -266,7 +272,7 @@ def density_crash(
     mn_ind = np.argmin(np.abs(np.array(drop_arr) - drop))
     pre.peaking = scan[mn_ind]
     pre.build_profile()
-    pre.y0 *= los_avrg/pre.yspl.mean().values
+    pre.y0 *= los_avrg / pre.yspl.mean().values
     pre.build_profile()
 
     post = deepcopy(pre)
@@ -279,8 +285,8 @@ def density_crash(
 
     return pre, post
 
-def profile_scans(plot=False, avrg=False):
-    rho = np.linspace(0, 1.0, 41)
+
+def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
     Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
     Ne = Profiles(datatype=("density", "electron"), xspl=rho)
     Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
@@ -293,9 +299,9 @@ def profile_scans(plot=False, avrg=False):
     Vrot_list = {}
 
     # Broad Te profile
-    Te.y1=30
-    Te.wped=3
-    Te.wcenter=0.35
+    Te.y1 = 30
+    Te.wped = 3
+    Te.wcenter = 0.35
     Te.build_profile()
     Te_list["broad"] = deepcopy(Te)
     if plot:
@@ -304,8 +310,8 @@ def profile_scans(plot=False, avrg=False):
 
     # Broad Ti profile without/with Te as reference
     Ti = deepcopy(Te)
-    Ti.datatype =("temperature", "ion")
-    Ti.y0=7.e3
+    Ti.datatype = ("temperature", "ion")
+    Ti.y0 = 7.0e3
     Ti.build_profile()
     Ti_list["broad"] = deepcopy(Ti)
     if plot:
@@ -323,8 +329,8 @@ def profile_scans(plot=False, avrg=False):
 
     # Peaked Ti profile without/with Te as reference
     Ti = deepcopy(Te)
-    Ti.datatype =("temperature", "ion")
-    Ti.y0=5.e3
+    Ti.datatype = ("temperature", "ion")
+    Ti.y0 = 5.0e3
     Ti.build_profile()
     Ti_list["peaked"] = deepcopy(Ti)
     if plot:
@@ -350,9 +356,9 @@ def profile_scans(plot=False, avrg=False):
         Ne.yspl.plot(color="red")
 
     Nimp.wped = 6
-    Nimp.y0 = 5.e16
-    Nimp.y1 = 3.e16
-    Nimp.yend = 3.e16
+    Nimp.y0 = 5.0e16
+    Nimp.y1 = 3.0e16
+    Nimp.yend = 3.0e16
     Nimp.build_profile()
     Nimp_list["flat"] = deepcopy(Nimp)
     if plot:
@@ -368,21 +374,27 @@ def profile_scans(plot=False, avrg=False):
     if plot:
         Nimp.yspl.plot(color="red")
 
-    Vrot.y1 = 1.e3
-    Vrot.yend = 0.
+    Vrot.y1 = 1.0e3
+    Vrot.yend = 0.0
     Vrot_list["broad"] = deepcopy(Vrot)
     if plot:
         plt.figure()
         Vrot.yspl.plot(color="black")
 
     Vrot.wped = 1
-    Vrot.peaking = 2.
+    Vrot.peaking = 2.0
     Vrot.build_profile()
     Vrot_list["peaked"] = deepcopy(Vrot)
     if plot:
         Vrot.yspl.plot(color="red")
 
-    return {"Te":Te_list, "Ti":Ti_list, "Ne":Ne_list, "Nimp":Nimp_list, "Vrot":Vrot_list}
+    return {
+        "Te": Te_list,
+        "Ti": Ti_list,
+        "Ne": Ne_list,
+        "Nimp": Nimp_list,
+        "Vrot": Vrot_list,
+    }
 
     # import pandas as pd
     # to_write = {
@@ -397,3 +409,44 @@ def profile_scans(plot=False, avrg=False):
     # df = pd.DataFrame(to_write)
     # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
 
+
+def scan_profile_parameter(profile:Profiles=None, parameter="wcenter", plim=(1.5, 5), y0_ref=None, plot=True):
+    """
+    Scan profile peaking
+
+    Parameters
+    ----------
+    prof
+        Profiles class
+    parameter
+        Name of parameter to scan
+    plim
+        Lower and upper limit of parameter
+    y0_ref
+        Reference central value for profile building
+    plot
+        Set to True to plot resulting profiles
+
+    Returns
+    -------
+    List of Profile objects
+    """
+
+    if profile is None:
+        profile = Profiles()
+
+    params = np.linspace(plim[0], plim[1], 10)
+
+    profs = []
+    for param in params:
+        setattr(profile, parameter, param)
+        profile.build_profile(y0_ref=y0_ref)
+        profs.append(deepcopy(profile))
+
+    if plot:
+        for prof in profs:
+            prof.yspl.plot(alpha=0.5)
+        prof.yspl.plot(alpha=0.5, label=parameter)
+        plt.legend()
+
+    return profs

@@ -29,9 +29,9 @@ from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .abstractreader import DataSelector
 from .selectors import choose_on_plot
-from ..numpy_typing import RevisionLike
 from .. import session
 from ..datatypes import ELEMENTS
+from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
 
@@ -304,6 +304,8 @@ class PPFReader(DataReader):
             results["ti"] = ti.data
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
+
+        results["revision"] = revision
         return results
 
     def _get_thomson_scattering(
@@ -348,6 +350,8 @@ class PPFReader(DataReader):
             results["ne_records"] = [z_path, d_path]
             if instrument != "kg10":
                 results["ne_records"].append(e_path)
+
+        results["revision"] = revision
         return results
 
     def _get_equilibrium(
@@ -380,6 +384,8 @@ class PPFReader(DataReader):
             else:
                 results[q] = qval.data
                 results[q + "_records"] = [q_path]
+
+        results["revision"] = revision
         return results
 
     def _get_cyclotron_emissions(
@@ -422,6 +428,8 @@ class PPFReader(DataReader):
             results[q] = np.array(data).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
+
+        results["revision"] = revision
         return results
 
     def _get_radiation(
@@ -477,15 +485,17 @@ class PPFReader(DataReader):
                 results[q] = np.array(luminosities).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
-            rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
+            xstart, xend, zstart, zend, ystart, yend = surf_los.read_surf_los(
                 SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
             )
-            results[q + "_Rstart"] = rstart[channels]
-            results[q + "_Rstop"] = rend[channels]
+            results[q + "_xstart"] = xstart[channels]
+            results[q + "_xstop"] = xend[channels]
             results[q + "_zstart"] = zstart[channels]
             results[q + "_zstop"] = zend[channels]
-            results[q + "_Tstart"] = Tstart[channels]
-            results[q + "_Tstop"] = Tend[channels]
+            results[q + "_ystart"] = ystart[channels]
+            results[q + "_ystop"] = yend[channels]
+
+        results["revision"] = revision
         return results
 
     def _get_bremsstrahlung_spectroscopy(
@@ -508,13 +518,15 @@ class PPFReader(DataReader):
             results["length"][q] = 1
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
-            results[q + "_Rstart"] = np.array([los.data[1] / 1000])
-            results[q + "_Rstop"] = np.array([los.data[4] / 1000])
+            results[q + "_xstart"] = np.array([los.data[1] / 1000])
+            results[q + "_xstop"] = np.array([los.data[4] / 1000])
             results[q + "_zstart"] = np.array([los.data[2] / 1000])
             results[q + "_zstop"] = np.array([los.data[5] / 1000])
-            results[q + "_Tstart"] = np.zeros_like(results[q + "_Rstart"])
-            results[q + "_Tstop"] = np.zeros_like(results[q + "_Rstop"])
+            results[q + "_ystart"] = np.zeros_like(results[q + "_xstart"])
+            results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
+
+        results["revision"] = revision
         return results
 
     # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:

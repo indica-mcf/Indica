@@ -141,6 +141,7 @@ class ST40Reader(DataReader):
         },
         "lines": {
             "brems": ".brem_mp1:intensity",
+            "h_alpha": ".h_alpha_mp1:intensity",
         },
         "nirh1": {
             "ne": ".line_int:ne",
@@ -193,6 +194,9 @@ class ST40Reader(DataReader):
             "p": ".profiles.psi_norm:p",  # PRESSURE(PSI_NORM)
             "pblon": ".profiles.astra:pblon",  # PRESSURE(PSI_NORM)
             "pbper": ".profiles.astra:pbper",  # PRESSURE(PSI_NORM)
+            "pnb": ".global:pnb",  # Injected NBI power, W
+            "pabs": ".global:pabs",  # Absorber NBI power, W
+            "p_oh": ".global:p_oh",  # Absorber NBI power, W
             "psi": ".profiles.psi_norm:psi",  # PSI
             "q": ".profiles.psi_norm:q",  # Q_PROFILE(PSI_NORM)
             "sigmapar": ".profiles.psi_norm:sigmapar",  # Parallel conductivity,1/(Ohm*m)
@@ -337,6 +341,9 @@ class ST40Reader(DataReader):
         """
         Gets the effective revision name if latest/best is given in input
         """
+        if type(revision) == str:
+            return revision
+
         if revision == 0:
             run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
             m = re.search(r"\s??RUN(\d+)", run_name, re.I)
@@ -365,18 +372,14 @@ class ST40Reader(DataReader):
         if np.array_equal(times, "FAILED"):
             return {}
 
-        psin, _ = self._get_signal(uid, instrument, ".profiles.psi_norm:xpsn", revision)
+        qval, q_path = self._get_signal(uid, instrument, ".profiles.psi_norm:xpsn", revision)
+        results["psin"] = qval
+        results["psin_records"] = [q_path]
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
             self._set_times_item(results, times)
-            if (
-                len(qval.shape) > 1
-                and q not in {"psi", "rbnd", "zbnd"}
-                and "psin" not in results
-            ):
-                results["psin"] = psin
             if q == "psi":
                 r, r_path = self._get_signal(uid, instrument, ".psi2d:rgrid", revision)
                 z, z_path = self._get_signal(uid, instrument, ".psi2d:zgrid", revision)
