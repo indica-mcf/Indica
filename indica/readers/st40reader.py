@@ -509,6 +509,8 @@ class ST40Reader(DataReader):
             results[q + "_records"] = records
             results[q + "_error"] = self._default_error * results[q]
 
+            results[q + "location"] = np.array(location)
+            results[q + "direction"] = np.array(direction)
             results[q + "_xstart"] = np.array(xstart)
             results[q + "_xstop"] = np.array(xstop)
             results[q + "_ystart"] = np.array(ystart)

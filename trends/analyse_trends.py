@@ -296,7 +296,6 @@ def general_filters(results: dict):
         "te_xrcs",
         "ti_xrcs",
         "brems_pi",
-        "brems_mp",
         "h_i_6563",
         "he_ii_4686",
         "b_ii_3451",
@@ -1074,6 +1073,7 @@ def plot_max_ti(save_data=False):
         vip_pulses["1st & 2nd boronization"] = boronization[0]
         vip_pulses["3rd boronization"] = boronization[2]
         vip_pulses["Inter-pulse GDC"] = gdc[0]
+
         step = 70
         halpha = database.binned["halpha_mp"].cumul.sel(
             t=results["all"]["ti_xrcs"].t, method="nearest"
@@ -1083,6 +1083,14 @@ def plot_max_ti(save_data=False):
         vip_pulses["Low H-alpha @ max Ti"] = halpha.pulse[
             np.min(np.where(halpha / halpha.max() <= 0.2)[0])
         ] - step/2
+        bremss = database.binned["brems_mp"].cumul.sel(
+            t=results["all"]["ti_xrcs"].t, method="nearest"
+        )
+        bremss = xr.where(results["all"]["ti_xrcs"].t > 0.02, bremss, np.nan)
+        bremss = bin_interp.convert(pulses[0], pulses[-1], 70, bremss, "pulse")
+        # vip_pulses["Low H-alpha @ max Ti"] = halpha.pulse[
+        #     np.min(np.where(halpha / halpha.max() <= 0.2)[0])
+        # ] - step/2
 
         bt_45cm = _max_val["btvac_efit"].value * 0.5 / 0.45
         vip_pulses["Bt(R=45 cm) > 1.9 T"] = pulses[
@@ -1176,6 +1184,13 @@ def plot_max_ti(save_data=False):
         plt.legend(loc=2)
         if save_data:
             save_figure(path=path, fig_name=f"{k}_Ti_ov_Te_vs_pulse_number")
+
+        plt.figure()
+        (halpha/halpha.max()).plot(label = "H-alpha")
+        (bremss/bremss.max()).plot(label="Bremsstrahlung")
+        plt.ylabel("(a.u.)")
+        plt.xlabel("Pulse #")
+        plt.legend()
 
         plt.figure()
         x = results[k]["nu_star_e"].value
