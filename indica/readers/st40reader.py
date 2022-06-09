@@ -372,18 +372,14 @@ class ST40Reader(DataReader):
         if np.array_equal(times, "FAILED"):
             return {}
 
-        psin, _ = self._get_signal(uid, instrument, ".profiles.psi_norm:xpsn", revision)
+        qval, q_path = self._get_signal(uid, instrument, ".profiles.psi_norm:xpsn", revision)
+        results["psin"] = qval
+        results["psin_records"] = [q_path]
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
             self._set_times_item(results, times)
-            if (
-                len(qval.shape) > 1
-                and q not in {"psi", "rbnd", "zbnd"}
-                and "psin" not in results
-            ):
-                results["psin"] = psin
             if q == "psi":
                 r, r_path = self._get_signal(uid, instrument, ".psi2d:rgrid", revision)
                 z, z_path = self._get_signal(uid, instrument, ".psi2d:zgrid", revision)
@@ -513,6 +509,8 @@ class ST40Reader(DataReader):
             results[q + "_records"] = records
             results[q + "_error"] = self._default_error * results[q]
 
+            results[q + "location"] = np.array(location)
+            results[q + "direction"] = np.array(direction)
             results[q + "_xstart"] = np.array(xstart)
             results[q + "_xstop"] = np.array(xstop)
             results[q + "_ystart"] = np.array(ystart)

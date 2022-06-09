@@ -114,7 +114,8 @@ class Plasma:
 
     def build_data(self, data, pulse: int = None, equil="efit", instrument=""):
         """
-        Reorganise raw data on new time axis and generate geometry information
+        Reorganise raw data dictionary on the desired time axis and generate
+        geometry information from equilibrium reconstruction
 
         Parameters
         ----------
@@ -156,6 +157,8 @@ class Plasma:
 
         print_like("Assign equilibrium, bin data in time")
         binned_data = {}
+
+        # np.seterr(all="reise")
         for kinstr in data.keys():
             if (len(instrument) > 0) and (kinstr != instrument):
                 continue
@@ -169,9 +172,11 @@ class Plasma:
                 continue
 
             for kquant in data[kinstr].keys():
-                value = bin_in_time_dt(
-                    self.tstart, self.tend, self.dt, data[kinstr][kquant]
-                )
+                value = data[kinstr][kquant]
+                if "t" in value.coords:
+                    value = bin_in_time_dt(
+                        self.tstart, self.tend, self.dt, value
+                    )
 
                 if "transform" in data[kinstr][kquant].attrs:
                     value.attrs["transform"] = data[kinstr][kquant].transform
@@ -202,6 +207,7 @@ class Plasma:
             self.R_bt_0 = binned_data["R_bt_0"]
             self.bt_0 = binned_data["bt_0"]
 
+        # np.seterr(all="warn")
         return binned_data
 
     def apply_limits(
@@ -265,6 +271,9 @@ class Plasma:
             )
             self.min_r = min_r
 
+            # TODO: fix volume and area for all devices to get the value from equilibrium
+            # dpsin = self.equilibrium.psin[1] - self.equilibrium.psin[0]
+            # volume = (self.equilibrium.vjac * dpsin).cumsum("rho_poloidal")
             volume, area, _ = self.equilibrium.enclosed_volume(self.rho)
             volume = bin_in_time_dt(self.tstart, self.tend, self.dt, volume,).interp(
                 t=self.time, method="linear"
@@ -357,6 +366,54 @@ class Plasma:
                 ).values
 
         return bckc
+
+    def map_to_midplane(self):
+        keys = [
+            "el_dens",
+            "ion_dens",
+            "neutral_dens",
+            "el_temp",
+            "ion_temp",
+            "pressure_th",
+            "vtor",
+            "zeff",
+            "meanz",
+            "volume",
+        ]
+
+        nchan = len(self.R_midplane)
+        chan = np.arange(nchan)
+        R = DataArray(self.R_midplane, coords=[("channel", chan)])
+        z = DataArray(self.z_midplane, coords=[("channel", chan)])
+
+        midplane_profs = {}
+        for k in keys:
+            k_hi = f"{k}_hi"
+            k_lo = f"{k}_lo"
+
+            midplane_profs[k] = []
+            if hasattr(self, k_hi):
+                midplane_profs[k_hi] = []
+            if hasattr(self, k_lo):
+                midplane_profs[k_lo] = []
+
+        for k in midplane_profs.keys():
+            for t in self.t:
+                rho = (
+                    self.equilibrium.rho.sel(t=t, method="nearest")
+                    .interp(R=R, z=z)
+                    .drop(["R", "z"])
+                )
+                midplane_profs[k].append(
+                    getattr(self, k).sel(t=t, method="nearest").interp(rho_poloidal=rho).drop("rho_poloidal"))
+            midplane_profs[k] = xr.concat(midplane_profs[k], "t").assign_coords(
+                t=self.t
+            )
+            midplane_profs[k] = xr.where(
+                np.isfinite(midplane_profs[k]), midplane_profs[k], 0.0
+            )
+
+        self.midplane_profs = midplane_profs
 
     def bremsstrahlung(
         self,
@@ -1090,7 +1147,7 @@ class Plasma:
             t = self.t[6]
         for elem in self.elements:
             plt.figure()
-            z = self.equilibrium.zmag.sel(t=t, method="nearest")
+            z = self.z_mag.sel(t=t)
             rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
             plt.plot(
                 rho, self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
@@ -1368,7 +1425,7 @@ class Plasma:
             R_mag = self.R_mag.sel(t=t).values
             ipla = self.ipla.sel(t=t).values
             bt_0 = self.bt_0.sel(t=t).values
-            # zmag = self.equilibrium.zmag.sel(t=t, method="nearest").values
+            # z_mag = self.z_mag.sel(t=t).values
             maj_r_lfs = self.maj_r_lfs.sel(t=t).values
             maj_r_hfs = self.maj_r_hfs.sel(t=t).values
             j_phi = self.j_phi.sel(t=t).values
@@ -1513,7 +1570,13 @@ class Plasma:
         nel = len(self.elements)
         nth = len(self.theta)
 
+        R_midplane = np.linspace(self.machine_R.min(), self.machine_R.max(), 50)
+        self.R_midplane = R_midplane
+        z_midplane = np.full_like(R_midplane, 0.)
+        self.z_midplane = z_midplane
+
         coords_radius = (self.radial_coordinate_type, self.radial_coordinate)
+        # coords_rmid = ("R", R_midplane)
         coords_theta = ("poloidal_angle", self.theta)
         coords_time = ("t", self.t)
         coords_elem = ("element", list(self.elements))
@@ -1574,6 +1637,9 @@ class Plasma:
         self.R_mag = deepcopy(data1d_time)
         assign_datatype(self.R_mag, ("major_radius", "magnetic"))
 
+        self.z_mag = deepcopy(data1d_time)
+        assign_datatype(self.z_mag, ("z", "magnetic"))
+
         # Major radius array at midplane
         self.maj_r_lfs = deepcopy(data2d)
         assign_datatype(self.maj_r_lfs, ("radius", "major"))
@@ -1605,10 +1671,6 @@ class Plasma:
         assign_datatype(self.min_r, ("minor_radius", "plasma"))
         self.cr0 = deepcopy(data1d_time)
         assign_datatype(self.cr0, ("minor_radius", "separatrizx"))
-        self.rmag = deepcopy(data1d_time)
-        assign_datatype(self.rmag, ("major_radius", "magnetic_axis"))
-        self.zmag = deepcopy(data1d_time)
-        assign_datatype(self.rmag, ("z", "magnetic_axis"))
         self.volume = deepcopy(data2d)
         assign_datatype(self.volume, ("volume", "plasma"))
         self.area = deepcopy(data2d)

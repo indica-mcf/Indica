@@ -121,7 +121,7 @@ def test_hda(
         use_ratios=use_ratios,
         calc_error=calc_error,
     )
-    pl.el_dens.plot()
+    # pl.el_dens.plot()
     pl.calc_fz_lz()
     pl.calc_meanz()
     pl.calc_imp_dens()
@@ -137,6 +137,8 @@ def test_hda(
     pl.calc_zeff()
     pl.calc_pressure()
     pl.calc_rad_power()
+    pl.map_to_midplane()
+    # pl.map_to_rova()
     bckc = pl.interferometer(data, bckc=bckc)
     bckc = pl.bremsstrahlung(data, bckc=bckc)
 
@@ -411,13 +413,16 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
     pl.calc_rad_power()
     pl.interferometer(data, bckc=bckc)
     pl.bremsstrahlung(data, bckc=bckc)
+    pl.map_to_midplane()
+
     return pl, bckc
 
 
-def run_all_scans(efit_pulse=None, efit_run=None):
+def run_all_scans(efit_pulse=None, efit_run=None, run_add="", force=True):
     # pulses = [8532, 8533, 8605, 8621, 9098, 9099, 9229, 9401, 9486, 9537, 9538, 9539, 9619, 9622,
     # 9624, 9626, 9676, 9721, 9746, 9748, 9752, 9766, 9771, 9779, 9780, 9781, 9783, 9784, 9787, 9816,
-    # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849, 9880, 9892, 9901, 10014]
+    # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9841, 9842, 9849, 9877, 9878, 9880, 9885, 9892,
+    # 9894, 9896, 9901, 9913, 9928, 10014]
 
     # 9818, 9820, 9389 - unknown issues
     # 9840 - doesn't have enough Ar
@@ -427,13 +432,15 @@ def run_all_scans(efit_pulse=None, efit_run=None):
     # pulses = [9850] * 2
     # efit_pulse = [11009850] * 2
     # efit_run = ["1016A2", "1013N"]
-    pulses = [9896, 9894]
+
+    pulses = [10014]
+    tlims = [(0.02, 0.10)] * len(pulses)
+    run_add = ["MID"]*len(pulses)
     efit_pulse = [efit_pulse]*len(pulses)
     efit_run = [0]*len(pulses)
     only_run = None  # :int = write only this run
-    # tlims = [(0.01, 0.08), (0.01, 0.12), (0.01, 0.1), (0.01, 0.1), (0.01, 0.1)]
-    tlims = [(0.02, 0.11)] * len(pulses)
-    for pulse, tlim, _efit_pulse, _efit_run in zip(pulses, tlims, efit_pulse, efit_run):
+
+    for pulse, tlim, _efit_pulse, _efit_run, _run_add in zip(pulses, tlims, efit_pulse, efit_run, run_add):
         print(pulse)
         scan_profiles(
             pulse,
@@ -455,13 +462,14 @@ def run_all_scans(efit_pulse=None, efit_run=None):
             savefig=False,
             modelling=True,
             xrcs_time=False,
-            force=True,
+            force=force,
             sxr=False,
             main_ion="h",
             proceed=True,
             efit_run=_efit_run,
             efit_pulse=_efit_pulse,
             only_run=only_run,
+            run_add=_run_add,
         )
 
 
@@ -581,14 +589,6 @@ def scan_profiles(
                     )
                     pl.calc_imp_dens()
 
-                    # pl.Nimp_prof.yspl.plot()
-                    # pl.ion_dens.sel(element="ar").sel(
-                    #     t=pl.time.mean(), method="nearest"
-                    # ).plot()
-
-                    # if iteration > 3:
-                    #     return
-
                     pl.match_xrcs_temperatures(
                         data,
                         bckc=bckc,
@@ -600,6 +600,7 @@ def scan_profiles(
                         use_ref=use_ref,
                     )
                     propagate(pl, raw_data, data, bckc, quant_ar="int_w")
+
                     pl_dict[run_name] = deepcopy(pl)
                     bckc_dict[run_name] = deepcopy(bckc)
 
@@ -813,12 +814,12 @@ def write_profile_scans(
         )
 
 
-def read_profile_scans(pulse, plotfig=False, savefig=False):
+def read_profile_scans(pulse, plotfig=False, savefig=False, run_add=""):
     runs = np.arange(60, 76 + 1)
     pl_dict = {}
     bckc_dict = {}
     for run in runs:
-        run_name = f"RUN{run}"
+        run_name = f"RUN{run}{run_add}"
         pl, raw_data, data, bckc = load_pickle(pulse, run_name)
         pl_dict[run_name] = deepcopy(pl)
         bckc_dict[run_name] = deepcopy(bckc)
@@ -903,8 +904,11 @@ def find_best_profiles(
     perc_err=0.2,
     savefig=False,
     sxr=True,
+    cxrs=True,
     minmax=False,
-    tmax=3.8,
+    tmax=4.01,
+    astra_rev="",
+    exclude=["63", "65", "67"],
 ):
     """
     pl_dict, raw_data, data, bckc_dict, astra_dict = tests.find_best_profiles(pulse=9783)
@@ -1338,7 +1342,7 @@ def find_best_profiles(
 
         plt.close("all")
         plt.ioff()
-        revision = "0"
+        revision = 0
         sxr = reader_st40.get(
             "sxr", "diode_arrays", revision=revision, quantities=["filter_4"]
         )
@@ -1476,6 +1480,14 @@ def find_best_profiles(
     if pl_dict is None:
         # Read scans from pickle files
         pl_dict, raw_data, data, bckc_dict = read_profile_scans(pulse)
+        runs = list(pl_dict)
+        if len(exclude) > 0:
+            for exc in exclude:
+                kpop = f"RUN{exc}"
+                if kpop in pl_dict.keys():
+                    pl_dict.pop(kpop)
+                if kpop in bckc_dict.keys():
+                    bckc_dict.pop(kpop)
 
         pl_avrg = pl_dict["RUN60"]
         pulse = 13100000 + pl_avrg.pulse
@@ -1493,7 +1505,7 @@ def find_best_profiles(
         reader_astra = ST40Reader(pulse, tstart, tend, tree="ASTRA")
         for run in pl_dict.keys():
             # Read ASTRA results
-            revision = run[3:]
+            revision = run[3:] + astra_rev
             astra_dict[run] = reader_astra.get("", "astra", revision)
 
             # find q=1 surface
@@ -1599,10 +1611,10 @@ def find_best_profiles(
             )
 
         # Read SXR data if it isn't already in the data structure
-        if sxr and "sxr" not in raw_data:
+        if sxr and ("sxr" not in raw_data):
             raw_data, data = add_missing_sxr(pl, raw_data, data)
 
-        if "princeton" not in data:
+        if cxrs and ("princeton" not in data):
             raw_data, data = add_missing_cxrs(pl, raw_data, data)
 
         if not hasattr(pl_avrg, "lz_sxr"):
@@ -1625,24 +1637,24 @@ def find_best_profiles(
     )
 
     # Central electron temperature < current atomic data limit of 4 keV
-    val = xr.full_like(data["efit"]["wp"], tmax)
-    good_dict, _ = compare_runs(
-        astra_dict,
-        val,
-        key="te",
-        good_dict=good_dict,
-        max_val=True,
-    )
+    # val = xr.full_like(data["efit"]["wp"], tmax)
+    # good_dict, _ = compare_runs(
+    #     astra_dict,
+    #     val,
+    #     key="te",
+    #     good_dict=good_dict,
+    #     max_val=True,
+    # )
 
     # Central electron temperature < current atomic data limit of 4 keV
-    val = xr.full_like(data["efit"]["wp"], 20)
-    good_dict, _ = compare_runs(
-        astra_dict,
-        val,
-        key="ti",
-        good_dict=good_dict,
-        max_val=True,
-    )
+    # val = xr.full_like(data["efit"]["wp"], 20)
+    # good_dict, _ = compare_runs(
+    #     astra_dict,
+    #     val,
+    #     key="ti",
+    #     good_dict=good_dict,
+    #     max_val=True,
+    # )
 
     all_runs = list(pl_dict)
 
@@ -1842,25 +1854,26 @@ def find_best_profiles(
         savefig=savefig,
     )
 
-    instrument = "sxr"
-    quantity = "filter_4"
-    plot_compare(
-        bckc_dict=bckc_dict,
-        data=data[instrument][quantity],
-        instrument=instrument,
-        quantity=quantity,
-        title="SXR camera",
-        ylabel="(a.u.)",
-        label="SXR filter 4",
-        profile=True,
-        perc_err=perc_err,
-        all_runs=all_runs,
-        good_runs=good_runs,
-        tgood=tgood,
-        ylim=(0, None),
-        savefig=savefig,
-        normalize=True,
-    )
+    if "sxr" in data.keys():
+        instrument = "sxr"
+        quantity = "filter_4"
+        plot_compare(
+            bckc_dict=bckc_dict,
+            data=data[instrument][quantity],
+            instrument=instrument,
+            quantity=quantity,
+            title="SXR camera",
+            ylabel="(a.u.)",
+            label="SXR filter 4",
+            profile=True,
+            perc_err=perc_err,
+            all_runs=all_runs,
+            good_runs=good_runs,
+            tgood=tgood,
+            ylim=(0, None),
+            savefig=savefig,
+            normalize=True,
+        )
 
     pl = average_runs(pl_dict, good_dict=good_dict, tgood=tgood, minmax=minmax)
 
@@ -1881,13 +1894,13 @@ def find_best_profiles(
     bckc["mag"]["vloop"] = pl.vloop
 
     name = "ASTRA_compare_average"
-    plots.profiles(
-        pl,
-        data=data,
-        bckc=bckc,
-        savefig=savefig,
-        name=best_run,
-    )
+    # plots.profiles(
+    #     pl,
+    #     data=data,
+    #     bckc=bckc,
+    #     savefig=savefig,
+    #     name=best_run,
+    # )
     plots.profiles(
         pl,
         data=data,
@@ -1905,15 +1918,15 @@ def find_best_profiles(
         name=name,
         ploterr=True,
     )
-    plots.compare_data_bckc(
-        data,
-        bckc,
-        raw_data=raw_data,
-        pulse=pulse,
-        savefig=savefig,
-        name=name,
-        ploterr=False,
-    )
+    # plots.compare_data_bckc(
+    #     data,
+    #     bckc,
+    #     raw_data=raw_data,
+    #     pulse=pulse,
+    #     savefig=savefig,
+    #     name=name,
+    #     ploterr=False,
+    # )
 
     # import pandas as pd
     # runs_csv = ["RUN64", "RUN69", "RUN70", "RUN71"]
