@@ -1748,7 +1748,7 @@ class DataReader(BaseIO):
 
         # Reorganise coordinate system to match Indica default rho-poloidal
         psin = database_results["psin"]
-        rhop_psin = np.sqrt(database_results["psin"])
+        rhop_psin = np.sqrt(psin)
         rhop_interp = np.linspace(0, 1.0, 65)
         rhot_astra = database_results["rho"] / np.max(database_results["rho"])
         rhot_rhop = []
