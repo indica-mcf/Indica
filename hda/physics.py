@@ -821,6 +821,7 @@ def calc_pressure(density, temperature):
 
     Returns
     -------
+    Pressure in Pascal
 
     """
 
