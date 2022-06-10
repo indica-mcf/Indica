@@ -994,6 +994,28 @@ def centrifugal_asymmetry(
         )
         raise ValueError
 
+def effective_charge(Ne:np.ndarray, Ni:np.ndarray, meanz:np.ndarray):
+    """
+    Calculate effective charge contribution of an ion
+
+    Parameters
+    ----------
+    Ne
+        Electron density
+    Ni
+        Ion density
+    meanz
+        Mean charge
+
+    Returns
+    -------
+    Effective charge for the specified ion
+
+    """
+
+    zeff = Ni * meanz ** 2 / Ne
+
+    return zeff
 
 def zeff_bremsstrahlung(
     Te,
