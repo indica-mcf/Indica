@@ -363,7 +363,8 @@ def get_tlabels_dt(tstart: float, tend: float, dt: float):
 
     """
     tlabels = np.arange(tstart, tend + dt, dt)
-    return tlabels
+    ind = np.where(tlabels <= tend)[0]
+    return tlabels[ind]
 
 
 def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):

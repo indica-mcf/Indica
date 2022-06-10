@@ -41,9 +41,9 @@ for pulse in pulses:
 
 def test_hda(
     pulse=9780,
-    tstart=0.025,
+    tstart=0.02,
     tend=0.14,
-    dt=0.015,
+    dt=0.02,
     diagn_ne="smmh1",
     diagn_te="xrcs",
     quant_ne="ne",
@@ -71,7 +71,7 @@ def test_hda(
     raw.get_all(sxr=sxr, efit_pulse=efit_pulse, efit_rev=efit_run)  # smmh1_rev=2)
     raw_data = raw.data
     dt_xrcs = (raw_data["xrcs"]["ti_w"].t[1] - raw_data["xrcs"]["ti_w"].t[0]).values
-    if "xrcs" in raw_data.keys() and xrcs_time:
+    if xrcs_time and ("xrcs" in raw_data.keys()):
         time = raw_data["xrcs"]["ti_w"].t.values
         tind = np.argwhere((time >= tstart) * (time <= tend)).flatten()
         tstart = time[tind[0]]
@@ -122,8 +122,8 @@ def test_hda(
         calc_error=calc_error,
     )
     # pl.el_dens.plot()
-    pl.calc_fz_lz()
-    pl.calc_meanz()
+    # pl.calc_fz_lz()
+    # pl.calc_meanz()
     pl.calc_imp_dens()
     bckc = pl.match_xrcs_intensity(
         data,
@@ -133,8 +133,8 @@ def test_hda(
         cal=cal_ar,
         dt=dt_xrcs,
     )
-    pl.calc_main_ion_dens()
-    pl.calc_zeff()
+    # pl.calc_main_ion_dens()
+    # pl.calc_zeff()
     pl.calc_pressure()
     pl.calc_rad_power()
     pl.map_to_midplane()
