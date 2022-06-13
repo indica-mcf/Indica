@@ -100,6 +100,33 @@ def _convert_coords(
     return array.coords[transform.x1_name], array.coords[transform.x2_name]
 
 
+def _inclusive_timeslice(
+    array: Union[xr.DataArray, xr.Dataset], t_start: float, t_end: float
+) -> Union[xr.DataArray, xr.Dataset]:
+    """
+    Returns a view into `array` containing `t_start` and `t_end`.
+
+    Parameters
+    ----------
+    array
+        The DataArray or Dataset to slice
+    t_start
+        The smallest time value to be included
+    t_end
+        The largest time value to be included
+
+    Returns
+    -------
+    View of DataArray containing range t_start and t_end
+
+    """
+    low_index, high_index = array.t.searchsorted((t_start, t_end))
+    # isel(t=-1) gives last entry, ensure low_index isn't negative:
+    low_index = max(low_index - 1, 0)
+    high_index = high_index + 1
+    return array.isel(t=slice(low_index, high_index))
+
+
 @xr.register_dataarray_accessor("indica")
 class InDiCAArrayAccessor:
     """Class providing additional functionality to
@@ -920,6 +947,25 @@ class InDiCAArrayAccessor:
                 )
         return result
 
+    def inclusive_timeslice(self, t_start: float, t_end: float) -> xr.DataArray:
+        """
+        Returns a view into this :py:class:`xarray.DataArray` containing
+        `t_start` and `t_end`.
+
+        Parameters
+        ----------
+        t_start
+            The smallest time value to be included
+        t_end
+            The largest time value to be included
+
+        Returns
+        -------
+        View of DataArray containing range t_start and t_end
+
+        """
+        return _inclusive_timeslice(self._obj, t_start, t_end)
+
 
 @xr.register_dataset_accessor("indica")
 class InDiCADatasetAccessor:
@@ -1068,7 +1114,8 @@ class InDiCADatasetAccessor:
         )
 
     def check_datatype(self, datatype: DatasetType) -> Tuple[bool, Optional[str]]:
-        """Checks that the dasta type of this :py:class:`xarray.DataArray`
+        """
+        Checks that the data type of this :py:class:`xarray.DataArray`
         matches the argument.
 
         This checks that all of the key/value pairs present in
@@ -1086,10 +1133,29 @@ class InDiCADatasetAccessor:
         status
             Whether the datatype of this array matches the argument.
         message
-            If ``status == False``, an explaination of why.
+            If ``status == False``, an explanation of why.
 
         """
         pass
+
+    def inclusive_timeslice(self, t_start: float, t_end: float) -> xr.Dataset:
+        """
+        Returns a view into this :py:class:`xarray.Dataset` containing
+        `t_start` and `t_end`.
+
+        Parameters
+        ----------
+        t_start
+            The smallest time value to be included
+        t_end
+            The largest time value to be included
+
+        Returns
+        -------
+        View of Dataset containing range t_start and t_end
+
+        """
+        return _inclusive_timeslice(self._obj, t_start, t_end)
 
 
 def aggregate(
