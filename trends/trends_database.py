@@ -104,7 +104,7 @@ class Database:
         -------
 
         """
-        binned, max_val, min_val, pulses = self.read_data(
+        binned, max_val, min_val, pulses = self.read_mdsplus(
             self.pulse_start, self.pulse_end
         )
         self.binned = binned
@@ -169,6 +169,7 @@ class Database:
                 filename = max(file_list, key=os.path.getctime)
         else:
             filename = f"{pulse_start}_{pulse_end}_trends_database"
+            path_file = f"{self.path_data}{filename} }"
 
         if filename is None:
             print(f"\n File not found: {path_file}")
@@ -342,7 +343,7 @@ class Database:
             return
 
         self.pulse_end = pulse_end
-        binned, max_val, min_val, pulses = self.read_data(
+        binned, max_val, min_val, pulses = self.read_mdsplus(
             pulse_start,
             pulse_end,
         )
@@ -361,13 +362,12 @@ class Database:
         Temporary: define info structure here
         """
         if info is None:
-            # TODO: add beam powers fo HNBI and RFX !!!
             print("No new items to add")
             return
 
         print(f"New items being added: {list(info)}")
 
-        binned, max_val, min_val, pulses = self.read_data(
+        binned, max_val, min_val, pulses = self.read_mdsplus(
             self.pulse_start,
             self.pulse_end,
             info=info,
@@ -384,7 +384,7 @@ class Database:
             self.max_val[k] = max_val[k]
             self.min_val[k] = min_val[k]
 
-    def read_data(
+    def read_mdsplus(
         self,
         pulse_start: int,
         pulse_end: int,
@@ -555,9 +555,6 @@ class Database:
                 if len(ifin) >= 1:
                     binned.value.loc[dict(t=t)] = np.mean(data_tmp[ifin])
                     binned.cumul.loc[dict(t=t)] = np.sum(data[tind_lt]) * dt
-                    # TODO: separate std from error propagation
-                    # TODO: deviation from a linear evolution?
-                    #  --> InMatlab: regress > error around linear reg
                     binned.stdev.loc[dict(t=t)] = np.std(data_tmp[ifin])
                     if err is not None:
                         err_tmp = err[tind]
