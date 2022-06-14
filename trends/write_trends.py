@@ -3,12 +3,11 @@ import pymysql.connector
 import mysql
 import numpy as np
 
-import hda.regression_analysis as regr
+from trends.trends_database import Database
 
 # Read "regression database" data in
 #regr_data = regr.Database(pulse_start=9169, pulse_end=9170, reload=False)
-regr_data = regr.Database(pulse_start=9207, pulse_end=9229, reload=False)
-regr_data()  # Simulating XRCS measurement for Te(0) re-scaling
+regr_data = Database(reload=True)
 
 # Connect to MySQL
 # mysql_conn = mysql.connector.connect(
