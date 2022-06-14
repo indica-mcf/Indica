@@ -1,0 +1,2016 @@
+{
+    "efit/f": {
+        "shape": [
+            110,
+            33
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/faxs": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/fbnd": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/ftor": {
+        "shape": [
+            110,
+            33
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/rgeo": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/rmji": {
+        "shape": [
+            110,
+            33
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/rmjo": {
+        "shape": [
+            110,
+            33
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/psi": {
+        "shape": [
+            110,
+            1089
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/psir": {
+        "shape": [
+            33
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/psiz": {
+        "shape": [
+            33
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/vjac": {
+        "shape": [
+            110,
+            33
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/rbnd": {
+        "shape": [
+            110,
+            105
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/rmag": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/wp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/zbnd": {
+        "shape": [
+            110,
+            105
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "efit/zmag": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/f": {
+        "shape": [
+            107,
+            65
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/faxs": {
+        "shape": [
+            107
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/fbnd": {
+        "shape": [
+            107
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/ftor": {
+        "shape": [
+            107,
+            65
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/rgeo": {
+        "shape": [
+            107
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/rmji": {
+        "shape": [
+            107,
+            65
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/rmjo": {
+        "shape": [
+            107,
+            65
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/psi": {
+        "shape": [
+            107,
+            4225
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/psir": {
+        "shape": [
+            65
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/psiz": {
+        "shape": [
+            65
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/vjac": {
+        "shape": [
+            107,
+            65
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/rbnd": {
+        "shape": [
+            107,
+            500
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/rmag": {
+        "shape": [
+            107
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/wp": {
+        "shape": [
+            107
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/zbnd": {
+        "shape": [
+            107,
+            500
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "eftp/zmag": {
+        "shape": [
+            107
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "hrts/ne": {
+        "shape": [
+            101,
+            63
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "hrts/dne": {
+        "shape": [
+            101,
+            63
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "hrts/te": {
+        "shape": [
+            101,
+            63
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "hrts/dte": {
+        "shape": [
+            101,
+            63
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "hrts/z": {
+        "shape": [
+            63
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "lidr/ne": {
+        "shape": [
+            57,
+            50
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "lidr/neu": {
+        "shape": [
+            57,
+            50
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "lidr/te": {
+        "shape": [
+            57,
+            50
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "lidr/teu": {
+        "shape": [
+            57,
+            50
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "lidr/z": {
+        "shape": [
+            50
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kg10/ne": {
+        "shape": [
+            101,
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kg10/r": {
+        "shape": [
+            101,
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kg10/z": {
+        "shape": [
+            1
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/gen": {
+        "shape": [
+            20,
+            96
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "bolo/kb5v": {
+        "shape": [
+            101,
+            32
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "bolo/kb5h": {
+        "shape": [
+            101,
+            24
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "ks3/zefh": {
+        "shape": [
+            146
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "ks3/zefv": {
+        "shape": [
+            146
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "edg7/losh": {
+        "shape": [
+            8
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "edg7/losv": {
+        "shape": [
+            8
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "xcs/cnc": {
+        "shape": [
+            79
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h02": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h03": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h04": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h05": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h06": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h07": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h08": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h09": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h10": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h11": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h12": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h13": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h14": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h15": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h16": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/h17": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t01": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t02": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t03": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t04": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t05": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t06": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t07": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t08": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t09": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t10": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t11": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t12": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t13": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t14": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t15": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t16": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t17": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t18": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t19": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t20": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t21": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t22": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t23": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t24": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t25": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t26": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t27": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t28": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t29": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t30": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t31": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t32": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t33": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t34": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/t35": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v01": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v02": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v03": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v04": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v05": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v06": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v07": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v08": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v09": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v10": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v11": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v12": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v13": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v14": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v15": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v16": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v17": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v18": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v19": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v20": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v21": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v22": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v23": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v24": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v25": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v26": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v27": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v28": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v29": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v30": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v31": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v32": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v33": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v34": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "sxr/v35": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te01": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te02": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te03": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te04": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te05": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te06": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te07": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te08": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te09": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te11": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te12": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te13": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te14": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te15": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te16": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te17": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te18": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te19": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te20": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te21": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te22": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te23": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te24": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te25": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te26": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te27": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te28": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te29": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te30": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te31": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te32": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te33": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te34": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te35": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te36": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te37": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te38": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te39": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te40": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te41": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te42": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te43": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te44": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te45": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te46": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te47": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te48": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te49": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te50": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te51": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te52": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te53": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te54": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te55": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te56": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te57": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te58": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te59": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te60": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te61": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te62": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te63": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te64": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te65": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te66": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te67": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te68": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te69": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te70": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te71": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te72": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te73": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te74": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te75": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te76": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te77": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te78": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te79": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te80": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te81": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te82": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te83": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te84": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te85": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te86": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te87": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te88": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te89": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te90": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te91": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te92": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te93": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te94": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te95": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te96": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxg6/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "kk3/te10": {
+        "shape": [
+            100
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxg6/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    }
+}
