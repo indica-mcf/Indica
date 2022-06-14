@@ -911,14 +911,14 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                database_results[quantity + "_xstart"],
-                database_results[quantity + "_ystart"],
-                database_results[quantity + "_zstart"],
-                database_results[quantity + "_xstop"],
-                database_results[quantity + "_ystop"],
-                database_results[quantity + "_zstop"],
-                f"{instrument}_{quantity}",
-                database_results["machine_dims"],
+                x_start=database_results[quantity + "_xstart"],
+                z_start=database_results[quantity + "_zstart"],
+                y_start=database_results[quantity + "_ystart"],
+                x_end=database_results[quantity + "_xstop"],
+                z_end=database_results[quantity + "_zstop"],
+                y_end=database_results[quantity + "_ystop"],
+                name=f"{instrument}_{quantity}",
+                machine_dimensions=database_results["machine_dims"],
             )
             # print(transform.x1_name, quantity)
             coords = [
@@ -1075,14 +1075,14 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                database_results[quantity + "_xstart"],
-                database_results[quantity + "_ystart"],
-                database_results[quantity + "_zstart"],
-                database_results[quantity + "_xstop"],
-                database_results[quantity + "_ystop"],
-                database_results[quantity + "_zstop"],
-                f"{instrument}_{quantity}",
-                database_results["machine_dims"],
+                x_start=database_results[quantity + "_xstart"],
+                z_start=database_results[quantity + "_zstart"],
+                y_start=database_results[quantity + "_ystart"],
+                x_end=database_results[quantity + "_xstop"],
+                z_end=database_results[quantity + "_zstop"],
+                y_end=database_results[quantity + "_ystop"],
+                name=f"{instrument}_{quantity}",
+                machine_dimensions=database_results["machine_dims"],
             )
             coords: Dict[Hashable, Any] = {"t": times}
             dims = ["t"]
@@ -1241,14 +1241,14 @@ class DataReader(BaseIO):
         times = database_results["times"]
         wavelength = database_results["wavelength"]
         transform = LinesOfSightTransform(
-            database_results["xstart"],
-            database_results["ystart"],
-            database_results["zstart"],
-            database_results["xstop"],
-            database_results["ystop"],
-            database_results["zstop"],
-            f"{instrument}",
-            database_results["machine_dims"],
+            x_start=database_results["xstart"],
+            z_start=database_results["zstart"],
+            y_start=database_results["ystart"],
+            x_end=database_results["xstop"],
+            z_end=database_results["zstop"],
+            y_end=database_results["ystop"],
+            name=f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1417,14 +1417,14 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
-            database_results["xstart"],
-            database_results["ystart"],
-            database_results["zstart"],
-            database_results["xstop"],
-            database_results["ystop"],
-            database_results["zstop"],
-            f"{instrument}",
-            database_results["machine_dims"],
+            x_start=database_results["xstart"],
+            z_start=database_results["zstart"],
+            y_start=database_results["ystart"],
+            x_end=database_results["xstop"],
+            z_end=database_results["zstop"],
+            y_end=database_results["ystop"],
+            name=f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1583,14 +1583,14 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         transform = LinesOfSightTransform(
-            database_results["xstart"],
-            database_results["ystart"],
-            database_results["zstart"],
-            database_results["xstop"],
-            database_results["ystop"],
-            database_results["zstop"],
-            f"{instrument}",
-            database_results["machine_dims"],
+            x_start=database_results["xstart"],
+            z_start=database_results["zstart"],
+            y_start=database_results["ystart"],
+            x_end=database_results["xstop"],
+            z_end=database_results["zstop"],
+            y_end=database_results["ystop"],
+            name=f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
