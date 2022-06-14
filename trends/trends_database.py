@@ -13,7 +13,6 @@ from xarray import Dataset
 
 from indica.readers import ST40Reader
 
-
 class Database:
     """
     Read and manage Trends database
