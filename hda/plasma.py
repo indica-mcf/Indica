@@ -393,8 +393,10 @@ class Plasma:
     def ion_dens(self):
         print("..getting ion dens")
         meanz = self.meanz
+        imp_dens = self.imp_dens
         main_ion_dens = self.el_dens - self.fast_dens * meanz.sel(element=self.main_ion)
         for elem in self.impurities:
+            self._ion_dens.loc[dict(element=elem)] = imp_dens.sel(element=elem).values
             main_ion_dens -= self._ion_dens.sel(element=elem) * meanz.sel(element=elem)
 
         self._ion_dens.loc[dict(element=self.main_ion)] = main_ion_dens.values
@@ -402,7 +404,7 @@ class Plasma:
 
     @ion_dens.setter
     def ion_dens(self, value):
-        print("..setting ion dens")
+        print("..setting meanz")
         self._ion_dens = value
 
     @property

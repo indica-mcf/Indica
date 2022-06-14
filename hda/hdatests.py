@@ -1599,6 +1599,8 @@ def find_best_profiles(
             pl_dict[run].vloop.values = (
                 astra_dict[run]["upl"].interp(t=pl_dict[run].t).values
             )
+            # TODO: ion_dens is now a property so set fast ion density from ASTRA and
+            #  calculate main ion density from property
             pl_dict[run].ion_dens.loc[dict(element=pl_dict[run].main_ion)] = (
                 (astra_dict[run]["ni"] * 1.0e19)
                 .interp(t=pl_dict[run].t)
