@@ -173,22 +173,22 @@ def test_get_thomson_scattering(
         results = reader._get_thomson_scattering(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    z_signal = reader._client.constructed_data[f"{instrument}/z"]
+    z_signal = reader._client.construct_signal(f"{instrument}/z")
     assert np.all(z_signal.data == results["z"])
     assert len(z_signal.data) == results["length"]
     assert np.all(z_signal.dimensions[0].data == results["R"])
     records = [get_record(reader, pulse, uid, instrument, "z", revision)]
     for q in quantities:
-        signal = reader._client.constructed_data[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q] == signal.data)
         assert np.all(results["times"] == signal.dimensions[0].data)
         if instrument == "lidr":
-            error_signal = reader._client.constructed_data[f"{instrument}/{q}u"]
+            error_signal = reader._client.construct_signal(f"{instrument}/{q}u")
             np.testing.assert_allclose(
                 results[q] + results[q + "_error"], error_signal.data
             )
         else:
-            error_signal = reader._client.constructed_data[f"{instrument}/d{q}"]
+            error_signal = reader._client.construct_signal(f"{instrument}/d{q}")
             np.testing.assert_allclose(results[q + "_error"], error_signal.data)
         assert np.all(results["times"] == error_signal.dimensions[0].data)
         expected = sorted(
@@ -244,14 +244,14 @@ def test_get_charge_exchange(
         results = reader._get_charge_exchange(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    z_signal = reader._client.constructed_data[f"{instrument}/pos"]
+    z_signal = reader._client.construct_signal(f"{instrument}/pos")
     assert np.all(z_signal.data[0, :] == results["z"])
     assert len(z_signal.data[0, :]) == results["length"]
     assert np.all(
-        reader._client.constructed_data[f"{instrument}/rpos"].data[0, :] == results["R"]
+        reader._client.construct_signal(f"{instrument}/rpos").data[0, :] == results["R"]
     )
     assert np.all(
-        reader._client.constructed_data[f"{instrument}/texp"].data == results["texp"]
+        reader._client.construct_signal(f"{instrument}/texp").data == results["texp"]
     )
     assert isinstance(results["element"], str)
     records = [
@@ -260,12 +260,12 @@ def test_get_charge_exchange(
     ]
     uncertainties = {"angf": "afhi", "conc": "cohi", "ti": "tihi"}
     for q in quantities:
-        signal = reader._client.constructed_data[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q] == signal.data)
         assert np.all(results["times"] == signal.dimensions[0].data)
-        error_signal = reader._client.constructed_data[
+        error_signal = reader._client.construct_signal(
             f"{instrument}/{uncertainties[q]}"
-        ]
+        )
         np.testing.assert_allclose(
             results[q + "_error"] + results[q], error_signal.data
         )
@@ -320,11 +320,11 @@ def test_get_equilibrium(
         results = reader._get_equilibrium(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    signal = reader._client.constructed_data[f"{instrument}/f"]
+    signal = reader._client.construct_signal(f"{instrument}/f")
     if len({"f", "ftor", "vjac", "rmji", "rmjo"} & quantities) > 0:
         assert np.all(signal.dimensions[1].data == results["psin"])
     for q in quantities:
-        signal = reader._client.constructed_data[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q].flatten() == signal.data.flatten())
         assert np.all(results["times"] == signal.dimensions[0].data)
         if q == "psi":
@@ -399,7 +399,7 @@ def test_get_cyclotron_emissions(
         get_record(reader, pulse, uid, instrument, "gen", revision),
     ]
     assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
-    gen = reader._client.constructed_data[f"{instrument}/gen"]
+    gen = reader._client.construct_signal(f"{instrument}/gen")
     for q in quantities:
         vals = results[q]
         channel_names = [
@@ -409,7 +409,7 @@ def test_get_cyclotron_emissions(
         for i, name in enumerate(channel_names):
             assert np.all(
                 vals[:, i]
-                == reader._client.constructed_data[f"{instrument}/{name}"].data
+                == reader._client.construct_signal(f"{instrument}/{name}").data
             )
         assert results["Btot"] * sc.e * gen.data[11, channel_indices] / (
             2 * np.pi * sc.m_e
@@ -476,8 +476,10 @@ def test_get_sxr(
         sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
         results = reader._get_radiation(uid, instrument, revision, quantities)
+
     if bad_rev:
         return
+
     assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
     # TODO: determine how best to describe the SURF data for PROV
     records = ["surf_los.dat"]
@@ -486,12 +488,12 @@ def test_get_sxr(
         assert results["length"][q] == radiation.shape[1]
         channel_names = [
             key.split("/")[-1]
-            for key in reader._client.constructed_data
+            for key in reader._client.data_specs
             if re.search(rf"{q}\d\d$", key, re.I)
         ]
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
-            signal = reader._client.constructed_data[f"{instrument}/{name}"]
+            signal = reader._client.construct_signal(f"{instrument}/{name}")
             assert np.all(radiation[:, i] == signal.data)
             assert np.all(results[q + "_times"] == signal.dimensions[0].data)
         assert np.all(results[q + "_xstart"] == los[0][channel_indices])
@@ -565,7 +567,7 @@ def test_get_radiation(
         radiation = results[q]
         length = results["length"][q]
         assert length == radiation.shape[1]
-        signal = reader._client.constructed_data[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(radiation == signal.data)
         assert np.all(results[q + "_times"] == signal.dimensions[0].data)
         assert np.all(results[q + "_xstart"] == los[0][:length])
@@ -623,16 +625,16 @@ def test_get_bremsstrahlung_spectroscopy(
         return
     assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
     for q in quantities:
-        signal = reader._client.constructed_data[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q] == signal.data)
         assert np.all(results["times"] == signal.dimensions[0].data)
-        # error_signal = reader._client.constructed_data[
+        # error_signal = reader._client.construct_signal(
         # f"{instrument}/{q[0]}{q[-1]}hi"
-        # ]
+        # )
         # TODO: Figure out what the correct error is supposed to be
         assert np.all(results[q + "_error"] == 0.0)
         # assert np.all(results["times"] == error_signal.dimensions[0].data)
-        los = reader._client.constructed_data[f"edg7/los{q[-1]}"]
+        los = reader._client.construct_signal(f"edg7/los{q[-1]}")
         assert results[q + "_xstart"].shape == (1,)
         assert results[q + "_xstop"].shape == (1,)
         assert results[q + "_zstart"].shape == (1,)

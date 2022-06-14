@@ -41,38 +41,7 @@ class BaseFakeSALClient(SALClient, ABC):
         self.authenticate = Mock(return_value=True)
 
         with open(self.data_file, "r") as f:
-            self.data: Dict[str, Tuple[int]] = json.load(f)
-
-        self.constructed_data: Dict[str, Signal] = {}
-
-        for key, specs in self.data.items():
-
-            # some data is stored e.g. cxg6/zqnn and cxg6/mass
-            if "data" in specs:
-                generated_data = specs["data"]
-            else:
-                # Set the PRNG state using the hash of the diagnotic/dda string
-                # Will reproduce the same data/dimensions for the same pair
-                hash = sha1(key.encode("utf-8"))
-                rng = default_rng(int.from_bytes(hash.digest()[-4:], "big"))
-
-                shape = specs["shape"]
-                dtype = specs["dtype"]
-                min_val = specs["min"]
-                max_val = specs["max"]
-
-                if dtype == "float64":
-                    generated_data = rng.uniform(size=shape, low=min_val, high=max_val)
-                elif dtype == "int64":
-                    generated_data = rng.integers(size=shape, low=min_val, high=max_val)
-                else:
-                    raise ValueError(f"dtype {dtype} in {self.data_file} unrecognised.")
-
-            dimensions = [
-                ArrayDimension(np.linspace(0, 1, size)) for size in specs["shape"]
-            ]
-            signal = Signal(dimensions, generated_data)
-            self.constructed_data[key] = signal
+            self.data_specs: Dict[str, Tuple[int]] = json.load(f)
 
     @property
     @abstractmethod
@@ -81,19 +50,53 @@ class BaseFakeSALClient(SALClient, ABC):
             "Data source file not implemented, use subclass of BaseFakeSALClient"
         )
 
+    def construct_signal(self, quantity):
+        spec = self.data_specs[quantity]
+        if "data" in spec:
+            # data is stored e.g. cxg6/zqnn and cxg6/mass
+            generated_data = spec["data"]
+        else:
+            # data not stored, generate it based on quantity name
+            generated_data = BaseFakeSALClient.generate_data(
+                quantity,
+                tuple(spec["shape"]),
+                spec["dtype"],
+                spec["min"],
+                spec["max"],
+                self.data_file,
+            )
+
+        dimensions = [ArrayDimension(np.linspace(0, 1, size)) for size in spec["shape"]]
+        return Signal(dimensions, generated_data)
+
+    @staticmethod
+    def generate_data(quantity, shape, dtype, min_val, max_val, data_file):
+        # Set the PRNG state using the hash of the diagnotic/dda string
+        # Will reproduce the same data/dimensions for the same pair
+        hash = sha1(quantity.encode("utf-8"))
+        rng = default_rng(int.from_bytes(hash.digest()[-4:], "big"))
+
+        if dtype == "float64":
+            return rng.uniform(size=shape, low=min_val, high=max_val)
+        elif dtype == "int64":
+            return rng.integers(size=shape, low=min_val, high=max_val)
+        else:
+            raise ValueError(f"dtype {dtype} in {data_file} unrecognised.")
+
     def get(self, path, summary=False):
         """Gets the node at the specified path."""
-        if len(self.data) == 0:
+        if len(self.data_specs) == 0:
             raise UserWarning("Data not loaded")
+
         path_components = path.split("/")
         if path_components[-1] and len(path_components) == 8:
             # Leaf node
             dda = path_components[-2]
             dtype = path_components[-1].split(":")[0]
             key = f"{dda}/{dtype}"
-            if key in self._blacklist or key not in self.constructed_data:
+            if key in self._blacklist or key not in self.data_specs:
                 raise NodeNotFound(f"Node {path} does not exist.")
-            signal = self.constructed_data[key]
+            signal = self.construct_signal(key)
             return signal.summary() if summary else signal
         else:
             # Branch node
@@ -124,7 +127,7 @@ class BaseFakeSALClient(SALClient, ABC):
         elif len(path_components) == 6:
             return BranchReport(
                 f"Branch {path}",
-                list({key.split("/")[0] for key in self.constructed_data}),
+                list({key.split("/")[0] for key in self.data_specs}),
                 [],
                 datetime.now(),
                 revision,
@@ -132,24 +135,28 @@ class BaseFakeSALClient(SALClient, ABC):
                 self._revisions,
             )
         elif len(path_components) == 7:
+            leaves = []
+            for key in self.data_specs:
+                if key.split("/")[0] == path_components[-1]:
+                    signal = self.construct_signal(key)
+                    leaves.append(
+                        (
+                            key.split("/"),
+                            ObjectReport(signal.CLASS, signal.GROUP, signal.VERSION),
+                        )
+                    )
+
             return BranchReport(
                 f"Branch {path}",
                 [],
-                [
-                    (
-                        key.split("/")[1],
-                        ObjectReport(value.CLASS, value.GROUP, value.VERSION),
-                    )
-                    for key, value in self.constructed_data.items()
-                    if key.split("/")[0] == path_components[-1]
-                ],
+                leaves,
                 datetime.now(),
                 revision,
                 self._revisions[-1],
                 self._revisions,
             )
-        elif len(path_components) == 8 and key in self.constructed_data:
-            node = self.constructed_data[key]
+        elif len(path_components) == 8 and key in self.data_specs:
+            node = self.construct_signal(key)
             return LeafReport(
                 f"Leaf {path}",
                 node.CLASS,
