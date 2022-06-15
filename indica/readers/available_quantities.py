@@ -29,7 +29,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te_n3w": ("temperature", "electrons"),
         "ti_w": ("temperature", "ions"),
         "ti_z": ("temperature", "ions"),
-        "ampl_w": ("amplitude", "ar_w"),
         "spectra": ("spectra", "passive"),
     },
     "get_filters": {
