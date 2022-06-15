@@ -53,7 +53,7 @@ def test_hda(
     main_ion="h",
     impurities=("c", "ar", "he"),
     imp_conc=(0.03, 0.001, 0.01),
-    cal_ar=1.0,
+    cal_ar=1.e3,
     savefig=False,
     ne_peaking=None,
     marchuk=True,
@@ -131,7 +131,6 @@ def test_hda(
         diagnostic="xrcs",
         quantity=quant_ar,
         cal=cal_ar,
-        dt=dt_xrcs,
     )
     pl.calc_main_ion_dens()
     pl.calc_zeff()
@@ -299,7 +298,6 @@ def plasma_workflow(
         diagnostic="xrcs",
         quantity=quant_ar,
         cal=cal_ar,
-        dt=dt_xrcs,
     )
     # Quasineutrality
     pl.calc_main_ion_dens()
@@ -405,7 +403,6 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
         diagnostic="xrcs",
         quantity=quant_ar,
         cal=cal_ar,
-        dt=dt_xrcs,
     )
     pl.calc_main_ion_dens()
     pl.calc_zeff()
@@ -2621,7 +2618,6 @@ def find_best_profiles(
 #             quantity=quant_ar,
 #             time=[t_pre],
 #             cal=cal_ar,
-#             dt=dt_xrcs,
 #         )
 #         int_pre_bckc.append(deepcopy(bckc["xrcs"][quant_ar].sel(t=t_pre).values))
 #         pre_crash = pl.ion_dens.sel(element="ar", t=t_pre)
@@ -2639,7 +2635,6 @@ def find_best_profiles(
 #             time=[t_post],
 #             scale=False,
 #             cal=cal_ar,
-#             dt=dt_xrcs,
 #         )
 #         int_post_bckc.append(deepcopy(bckc["xrcs"][quant_ar].sel(t=t_post).values))
 #
@@ -2701,7 +2696,6 @@ def find_best_profiles(
 #         quantity=quant_ar,
 #         scale=False,
 #         cal=cal_ar,
-#         dt=dt_xrcs,
 #     )
 #     pl.calc_main_ion_dens()
 #     pl.calc_zeff()

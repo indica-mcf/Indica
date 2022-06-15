@@ -778,9 +778,7 @@ class Plasma:
         diagnostic: str = "xrcs",
         quantity: str = "int_w",
         elem="ar",
-        cal=1.0e13,
-        dt_cal=0.007,
-        dt=None,
+        cal=1.e3,
         niter=2,
         time=None,
         scale=True,
@@ -822,9 +820,6 @@ class Plasma:
             f"Re-calculating Ar density profiles to match {diagnostic.upper()} values"
         )
 
-        if dt is None:
-            dt = dt_cal
-
         if time is None:
             time = self.t
 
@@ -856,7 +851,7 @@ class Plasma:
             for j in range(niter):
                 Nimp = {elem: self.ion_dens.sel(element=elem, t=t) * const}
                 _ = forward_model(Te, Ne, Nimp=Nimp, Nh=Nh, rho_los=rho_los, dl=dl,)
-                int_bckc = forward_model.intensity[line] * cal / dt_cal * dt
+                int_bckc = forward_model.intensity[line] * cal
                 const = (int_data / int_bckc).values
 
                 if (np.abs(1 - const) < 1.0e-4) or not (scale):
