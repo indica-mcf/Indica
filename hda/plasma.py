@@ -11,6 +11,7 @@ from scipy.optimize import least_squares
 import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
+import inspect
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.time import bin_in_time_dt
@@ -126,7 +127,6 @@ class Plasma:
 
         TODO: add units to each variable --> e.g. vtor in rad/s not in km/s
         """
-
         # Assign attributes
         self.machine_R = np.linspace(
             self.machine_dimensions[0][0], self.machine_dimensions[0][1], 100
@@ -162,25 +162,27 @@ class Plasma:
         coords_elem = ("element", list(self.elements))
         coords_imp = ("element", list(self.impurities))
 
-        data0d = DataArray(0.0)
-        data1d_theta = DataArray(np.zeros(nth), coords=[coords_theta])
-        data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
-        data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
-        data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
-        data2d_elem = DataArray(np.zeros((nel, nt)), coords=[coords_elem, coords_time])
-        data3d = DataArray(
+        self.data0d = DataArray(0.0)
+        self.data1d_theta = DataArray(np.zeros(nth), coords=[coords_theta])
+        self.data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
+        self.data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
+        self.data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
+        self.data2d_elem = DataArray(
+            np.zeros((nel, nt)), coords=[coords_elem, coords_time]
+        )
+        self.data3d = DataArray(
             np.zeros((nel, nt, nr)), coords=[coords_elem, coords_time, coords_radius]
         )
-        data3d_imp = DataArray(
+        self.data3d_imp = DataArray(
             np.zeros((nimp, nt, nr)), coords=[coords_imp, coords_time, coords_radius]
         )
 
-        self.time = deepcopy(data1d_time)
+        self.time = deepcopy(self.data1d_time)
         self.time.values = self.t
         assign_datatype(self.time, ("t", "plasma"))
         self.freq = 1.0 / self.dt
 
-        self.rho = deepcopy(data1d_rho)
+        self.rho = deepcopy(self.data1d_rho)
         self.rho.values = self.radial_coordinate
         rho_type = self.radial_coordinate_type.split("_")
         if rho_type[1] != "poloidal":
@@ -200,99 +202,99 @@ class Plasma:
 
         # TODO: add derivation of rho-toroidal
 
-        self.theta = deepcopy(data1d_theta)
+        self.theta = deepcopy(self.data1d_theta)
         self.theta.values = self.theta
         assign_datatype(self.theta, ("angle", "poloidal"))
 
-        self.ipla = deepcopy(data1d_time)
+        self.ipla = deepcopy(self.data1d_time)
         assign_datatype(self.ipla, ("current", "plasma"))
 
-        self.bt_0 = deepcopy(data1d_time)
+        self.bt_0 = deepcopy(self.data1d_time)
         assign_datatype(self.bt_0, ("field", "toroidal"))
 
-        self.R_bt_0 = deepcopy(data0d)
+        self.R_bt_0 = deepcopy(self.data0d)
         self.R_bt_0.values = self.R_bt_0
         assign_datatype(self.R_bt_0, ("major_radius", "toroidal_field"))
 
         # Geometric major radius
-        self.R_0 = deepcopy(data1d_time)
+        self.R_0 = deepcopy(self.data1d_time)
         assign_datatype(self.R_0, ("major_radius", "geometric"))
 
-        self.R_mag = deepcopy(data1d_time)
+        self.R_mag = deepcopy(self.data1d_time)
         assign_datatype(self.R_mag, ("major_radius", "magnetic"))
 
-        self.z_mag = deepcopy(data1d_time)
+        self.z_mag = deepcopy(self.data1d_time)
         assign_datatype(self.z_mag, ("z", "magnetic"))
 
         # Major radius array at midplane
-        self.maj_r_lfs = deepcopy(data2d)
+        self.maj_r_lfs = deepcopy(self.data2d)
         assign_datatype(self.maj_r_lfs, ("radius", "major"))
-        self.maj_r_hfs = deepcopy(data2d)
+        self.maj_r_hfs = deepcopy(self.data2d)
         assign_datatype(self.maj_r_hfs, ("radius", "major"))
 
         # Main plasma profiles
-        self.ne_0 = deepcopy(data1d_time)
+        self.ne_0 = deepcopy(self.data1d_time)
         assign_datatype(self.ne_0, ("density", "electron"))
 
-        self.te_0 = deepcopy(data1d_time)
+        self.te_0 = deepcopy(self.data1d_time)
         assign_datatype(self.te_0, ("temperature", "electron"))
 
-        self.ti_0 = deepcopy(data1d_time)
+        self.ti_0 = deepcopy(self.data1d_time)
         assign_datatype(self.ti_0, ("temperature", "ion"))
 
-        self.el_temp = deepcopy(data2d)
+        self.el_temp = deepcopy(self.data2d)
         assign_datatype(self.el_temp, ("temperature", "electron"))
-        self.el_dens = deepcopy(data2d)
+        self.el_dens = deepcopy(self.data2d)
         assign_datatype(self.el_dens, ("density", "electron"))
-        self.neutral_dens = deepcopy(data2d)
+        self.neutral_dens = deepcopy(self.data2d)
         assign_datatype(self.neutral_dens, ("density", "neutral"))
-        self.tau = deepcopy(data2d)
+        self.tau = deepcopy(self.data2d)
         assign_datatype(self.tau, ("time", "residence"))
 
         # Other geometrical quantities
-        self.min_r = deepcopy(data2d)
+        self.min_r = deepcopy(self.data2d)
         assign_datatype(self.min_r, ("minor_radius", "plasma"))
-        self.cr0 = deepcopy(data1d_time)
+        self.cr0 = deepcopy(self.data1d_time)
         assign_datatype(self.cr0, ("minor_radius", "separatrizx"))
-        self.volume = deepcopy(data2d)
+        self.volume = deepcopy(self.data2d)
         assign_datatype(self.volume, ("volume", "plasma"))
-        self.area = deepcopy(data2d)
+        self.area = deepcopy(self.data2d)
         assign_datatype(self.area, ("area", "plasma"))
 
-        self.r_a = deepcopy(data1d_time)
+        self.r_a = deepcopy(self.data1d_time)
         assign_datatype(self.r_a, ("minor_radius", "LFS"))
-        self.r_b = deepcopy(data1d_time)
+        self.r_b = deepcopy(self.data1d_time)
         assign_datatype(self.r_b, ("minor_radius", "top"))
-        self.r_c = deepcopy(data1d_time)
+        self.r_c = deepcopy(self.data1d_time)
         assign_datatype(self.r_c, ("minor_radius", "HFS"))
-        self.r_d = deepcopy(data1d_time)
+        self.r_d = deepcopy(self.data1d_time)
         assign_datatype(self.r_d, ("minor_radius", "bottom"))
 
-        self.kappa = deepcopy(data1d_time)
+        self.kappa = deepcopy(self.data1d_time)
         assign_datatype(self.kappa, ("elongation", "plasma"))
-        self.delta = deepcopy(data1d_time)
+        self.delta = deepcopy(self.data1d_time)
         assign_datatype(self.delta, ("triangularity", "plasma"))
 
         # Fast particle density and temperature
-        self.fast_temp = deepcopy(data2d)
+        self.fast_temp = deepcopy(self.data2d)
         assign_datatype(self.fast_temp, ("temperature", "fast"))
-        self.fast_dens = deepcopy(data2d)
+        self.fast_dens = deepcopy(self.data2d)
         assign_datatype(self.fast_dens, ("density", "fast"))
 
         # Current density, poloidal field, li, resistivity, vloop, q-profile
-        self.j_phi = deepcopy(data2d)
+        self.j_phi = deepcopy(self.data2d)
         assign_datatype(self.j_phi, ("current", "density"))
-        self.b_pol = deepcopy(data2d)
+        self.b_pol = deepcopy(self.data2d)
         assign_datatype(self.b_pol, ("field", "poloidal"))
-        self.b_tor_lfs = deepcopy(data2d)
+        self.b_tor_lfs = deepcopy(self.data2d)
         assign_datatype(self.b_tor_lfs, ("field", "toroidal"))
-        self.b_tor_hfs = deepcopy(data2d)
+        self.b_tor_hfs = deepcopy(self.data2d)
         assign_datatype(self.b_tor_hfs, ("field", "toroidal"))
-        self.q_prof = deepcopy(data2d)
+        self.q_prof = deepcopy(self.data2d)
         assign_datatype(self.q_prof, ("factor", "safety"))
-        self.conductivity = deepcopy(data2d)
+        self.conductivity = deepcopy(self.data2d)
         assign_datatype(self.conductivity, ("conductivity", "plasma"))
-        self.l_i = deepcopy(data1d_time)
+        self.l_i = deepcopy(self.data1d_time)
         assign_datatype(self.l_i, ("inductance", "internal"))
 
         # Ion densities
@@ -302,47 +304,17 @@ class Plasma:
         self.imp_conc = DataArray(np.zeros(len(self.impurities)), coords=[coords_imp])
         assign_datatype(self.imp_conc, ("concentration", "ion"))
 
-        self.ion_temp = deepcopy(data3d)
+        self.ion_temp = deepcopy(self.data3d)
         assign_datatype(self.ion_temp, ("temperature", "ion"))
-        self.vtor = deepcopy(data3d)
+        self.vtor = deepcopy(self.data3d)
         assign_datatype(self.vtor, ("toroidal_rotation", "ion"))
-        self.imp_dens = deepcopy(data3d_imp)
+        self.imp_dens = deepcopy(self.data3d_imp)
         assign_datatype(self.imp_dens, ("density", "ion"), "m^-3")
-
-        # Attributes that are properties
-        self._ion_dens = deepcopy(data3d)
-        assign_datatype(self._ion_dens, ("density", "ion"), "m^-3")
-        self._zeff = deepcopy(data3d)
-        assign_datatype(self._zeff, ("charge", "effective"))
-        self._meanz = deepcopy(data3d)
-        assign_datatype(self._meanz, ("charge", "mean"))
-        self.tot_rad = deepcopy(data3d)
-        assign_datatype(self.tot_rad, ("radiation_emission", "total"))
-        self.sxr_rad = deepcopy(data3d)
-        assign_datatype(self.sxr_rad, ("radiation_emission", "sxr"))
-        self.prad_tot = deepcopy(data2d_elem)
-        assign_datatype(self.tot_rad, ("radiation", "total"))
-        self.prad_sxr = deepcopy(data2d_elem)
-        assign_datatype(self.prad_sxr, ("radiation", "sxr"))
-        self._pressure_th = deepcopy(data2d)
-        assign_datatype(self._pressure_th, ("pressure", "thermal"))
-        self._pressure_tot = deepcopy(data2d)
-        assign_datatype(self._pressure_tot, ("pressure", "total"))
-        self.pth = deepcopy(data1d_time)
-        assign_datatype(self.pth, ("pressure", "thermal"))
-        self.ptot = deepcopy(data1d_time)
-        assign_datatype(self.ptot, ("pressure", "total"))
-        self.wth = deepcopy(data1d_time)
-        assign_datatype(self.wth, ("stored_energy", "thermal"))
-        self.wp = deepcopy(data1d_time)
-        assign_datatype(self.wp, ("stored_energy", "total"))
-        self.beta_pol = deepcopy(data1d_time)
-        assign_datatype(self.beta_pol, ("beta", "poloidal"))
 
     @property
     def fz(self):
         print("..getting fz")
-        dependencies = [self.el_temp, self.el_dens, self.tau, self.neutral_dens]
+        dependencies = ["el_temp", "el_dens", "tau", "neutral_dens"]
         if not hasattr(self, "_fz"):
             _fz = {}
             for elem in self.elements:
@@ -357,7 +329,7 @@ class Plasma:
                 )
                 self._fz = _fz
 
-        if data_changed(self._fz, dependencies):
+        if self.data_changed(self._fz, dependencies):
             _fz = {}
             for elem in self.elements:
                 for t in self.t:
@@ -384,10 +356,14 @@ class Plasma:
     @property
     def zeff(self):
         print("..getting ion zeff")
+        dependencies = ["el_dens", "ion_dens", "meanz"]
+        if not hasattr(self, "_zeff"):
+            self._zeff = deepcopy(self.data3d)
+            assign_datatype(self._zeff, ("charge", "effective"))
+
         ion_dens = self.ion_dens
         meanz = self.meanz
-        dependencies = [self.el_dens, ion_dens, meanz]
-        if data_changed(self._zeff, dependencies):
+        if self.data_changed(self._zeff, dependencies):
             for elem in self.elements:
                 self._zeff.loc[dict(element=elem)] = ph.effective_charge(
                     self.el_dens.values,
@@ -400,23 +376,27 @@ class Plasma:
     @property
     def ion_dens(self):
         print("..getting ion dens")
-        meanz = self.meanz
         dependencies = [
-            self.el_dens,
-            self.fast_dens,
-            meanz,
-            self.main_ion,
-            self.imp_dens,
+            "el_dens",
+            "fast_dens",
+            "meanz",
+            "main_ion",
+            "imp_dens",
         ]
-        if data_changed(self._ion_dens, dependencies):
-            main_ion_dens = self.el_dens - self.fast_dens * meanz.sel(
+        if not hasattr(self, "_ion_dens"):
+            self._ion_dens = deepcopy(self.data3d)
+            assign_datatype(self._ion_dens, ("density", "ion"), "m^-3")
+
+        if self.data_changed(self._ion_dens, dependencies):
+            print("..calculating ion dens..")
+            main_ion_dens = self.el_dens - self.fast_dens * self.meanz.sel(
                 element=self.main_ion
             )
             for elem in self.impurities:
                 self._ion_dens.loc[dict(element=elem)] = self.imp_dens.sel(
                     element=elem
                 ).values
-                main_ion_dens -= self._ion_dens.sel(element=elem) * meanz.sel(
+                main_ion_dens -= self._ion_dens.sel(element=elem) * self.meanz.sel(
                     element=elem
                 )
 
@@ -424,73 +404,165 @@ class Plasma:
 
         return self._ion_dens
 
-    @property
-    def pressure_el(self):
-        print("..getting electron pressure")
-        if not hasattr(self, "_pressure_el"):
-            self._pressure_el = xr.zeros_like(self._pressure_th)
-            assign_datatype(self._pressure_el, ("pressure", "electron"), "Pa")
-
-        dependencies = [self.el_dens, self.el_temp]
-        if data_changed(self._pressure_el, dependencies):
-            print("..calculating electron pressure..")
-            self._pressure_el.values = ph.calc_pressure(self.el_dens, self.el_temp)
-
-        return self._pressure_el
+    def set_private_var(self, data: DataArray, name: str, dtype: tuple, unit: str):
+        if not hasattr(self, name):
+            setattr(self, name, data)
+            assign_datatype(getattr(self, name), dtype, unit)
 
     @property
-    def pressure_th(self):
-        print("..getting theremal pressure")
-        ion_dens = self.ion_dens
-        dependencies = [self.el_dens, ion_dens, self.el_temp, self.ion_temp]
-        if data_changed(self._pressure_th, dependencies):
-            self._pressure_th.values = ph.calc_pressure(self.el_dens, self.el_temp)
+    def pressure_el(self, dependencies=("el_dens", "el_temp")):
+        name = f"_{func_name()}"
+        dtype = ("pressure", "electron")
+        unit = "Pa"
+        data = xr.zeros_like(self.data2d)
+
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
+            var.values = ph.calc_pressure(self.el_dens, self.el_temp)
+
+        setattr(self, name, var)
+        return getattr(self, name)
+
+    @property
+    def pressure_th(self, dependencies=("el_dens", "ion_dens", "el_temp", "ion_temp")):
+        name = f"_{func_name()}"
+        dtype = ("pressure", "thermal")
+        unit = "Pa"
+        data = xr.zeros_like(self.data2d)
+
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
+            ion_dens = self.ion_dens
+            var.values = ph.calc_pressure(self.el_dens, self.el_temp)
             for elem in self.elements:
-                self._pressure_th.values += ph.calc_pressure(
+                var.values += ph.calc_pressure(
                     ion_dens.sel(element=elem).values,
                     self.ion_temp.sel(element=elem).values,
                 )
 
-        return self._pressure_th
+        setattr(self, name, var)
+        return getattr(self, name)
 
     @property
-    def pressure_tot(self):
-        print("..getting total pressure")
-        pressure_th = self.pressure_th
-        dependencies = [pressure_th, self.fast_dens, self.fast_temp]
-        if data_changed(self._pressure_tot, dependencies):
-            self._pressure_tot.values = self.pressure_th + ph.calc_pressure(
+    def pressure_tot(self, dependencies=("pressure_th", "fast_dens", "fast_temp")):
+        name = f"_{func_name()}"
+        dtype = ("pressure", "total")
+        unit = "Pa"
+        data = xr.zeros_like(self.data2d)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
+            var.values = self.pressure_th + ph.calc_pressure(
                 self.fast_dens, self.fast_temp
             )
 
-        return self._pressure_tot
+        setattr(self, name, var)
+        return getattr(self, name)
 
     @property
-    def meanz(self):
-        print("..getting meanz")
-        dependencies = [self.fz]
-        if data_changed(self._meanz, dependencies):
+    def pth(self, dependencies=("pressure_th",)):
+        name = f"_{func_name()}"
+        dtype = ("integral_pressure", "thermal")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
+            pressure_th = self.pressure_th
+            for t in self.t:
+                var.loc[dict(t=t)] = np.trapz(
+                    pressure_th.sel(t=t), self.volume.sel(t=t)
+                )
+
+        setattr(self, name, var)
+        return getattr(self, name)
+
+    @property
+    def ptot(self, dependencies = ("pressure_tot")):
+        name = f"_{func_name()}"
+        dtype = ("integral_pressure", "total")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
+            pressure_tot = self.pressure_tot
+            for t in self.t:
+                var.loc[dict(t=t)] = np.trapz(
+                    pressure_tot.sel(t=t), self.volume.sel(t=t)
+                )
+
+        setattr(self, name, var)
+        return getattr(self, name)
+
+    @property
+    def wth(self, dependencies = ("pth",)):
+        name = f"_{func_name()}"
+        dtype = ("stored_energy", "thermal")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
+            var.values = 3 / 2 * self.pth.values
+
+        setattr(self, name, var)
+        return getattr(self, name)
+
+    @property
+    def wp(self, dependencies=("ptot",)):
+        name = f"_{func_name()}"
+        dtype = ("stored_energy", "total")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
+            var.values = 3 / 2 * self.ptot.values
+
+        setattr(self, name, var)
+        return getattr(self, name)
+
+    @property
+    def meanz(self, dependencies = ("fz",)):
+        name = f"_{func_name()}"
+        dtype = ("charge", "mean")
+        unit = ""
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
             fz = self.fz
             for elem in self.elements:
-                self._meanz.loc[dict(element=elem)] = (
+                var.loc[dict(element=elem)] = (
                     (fz[elem] * fz[elem].ion_charges).sum("ion_charges").values
                 )
-        return self._meanz
 
-    @meanz.setter
-    def meanz(self, value):
-        print("..setting meanz")
-        self._meanz = value
+        setattr(self, name, var)
+        return getattr(self, name)
 
     @property
-    def lz_tot(self):
-        print("..getting fz")
-        dependencies = [self.fz, self.el_dens, self.el_temp, self.neutral_dens]
-        if data_changed(self._meanz, dependencies):
+    def lz_tot(self, dependencies = ("fz", "el_dens", "el_temp", "neutral_dens")):
+        name = f"_{func_name()}"
+        dtype = ("cooling_factor", "total")
+        unit = "W m^3"
+        data = xr.zeros_like(self._fz)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(var, dependencies):
             fz = self.fz
-            _lz_tot = {}
             for elem in self.elements:
-                _lz_tot[elem] = deepcopy(fz[elem])
                 for t in self.t:
                     Ne = self.el_dens.sel(t=t)
                     Te = self.el_temp.sel(t=t)
@@ -500,25 +572,27 @@ class Plasma:
                     Nh = None
                     if np.any(self.neutral_dens.sel(t=t) != 0):
                         Nh = self.neutral_dens.sel(t=t)
-                    _lz_tot[elem].loc[dict(t=t)] = (
+                    var[elem].loc[dict(t=t)] = (
                         self.power_loss_tot[elem](Ne, Te, Fz, Nh=Nh, bounds_check=False)
                         .transpose()
                         .values
                     )
-            self._lz_tot.values = _lz_tot.values
 
-        return self._lz_tot
+        setattr(self, name, var)
+        return getattr(self, name)
 
-    @lz_tot.setter
-    def lz_tot(self, value):
-        print("..setting lz_tot")
-        self._lz_tot = value
+    # TODO: test up to here and continue from here
 
     @property
     def lz_sxr(self):
-        print("..getting fz")
-        dependencies = [self.fz, self.el_dens, self.el_temp, self.neutral_dens]
-        if data_changed(self._meanz, dependencies):
+        print("..getting lz_sxr")
+        dependencies = ["fz", "el_dens", "el_temp", "neutral_dens"]
+        if not hasattr(self, "_lz_sxr"):
+            self._lz_sxr = xr.zeros_like(self._fz)
+            assign_datatype(self._lz_sxr, ("cooling_factor", "sxr"), "W m^3")
+
+        if self.data_changed(self._meanz, dependencies):
+            print("..calculating lz_sxr")
             fz = self.fz
             _lz_sxr = {}
             for elem in self.elements:
@@ -537,10 +611,198 @@ class Plasma:
             self._lz_sxr.values = _lz_sxr.values
         return self._lz_sxr
 
-    @lz_sxr.setter
-    def lz_sxr(self, value):
-        print("..setting lz_sxr")
-        self._lz_sxr = value
+    @property
+    def tot_rad(self):
+        print("..getting tot_rad")
+        dependencies = ["lz_tot", "el_dens", "ion_dens"]
+        if not hasattr(self, "_tot_rad"):
+            self._tot_rad = xr.zeros_like(self._fz)
+            assign_datatype(self._tot_rad, ("radiated_power", "total"), "W m^3")
+
+        if self.data_changed(self._tot_rad, dependencies):
+            print("..calculating tot_rad")
+            lz_tot = self.lz_tot
+            ion_dens = self.ion_dens
+            for elem in self.elements:
+                tot_rad = (
+                    lz_tot[elem].sum("ion_charges")
+                    * self.el_dens
+                    * ion_dens.sel(element=elem)
+                )
+                tot_rad = xr.where(
+                    tot_rad >= 0,
+                    tot_rad,
+                    0.0,
+                )
+                self._tot_rad.loc[dict(element=elem)] = tot_rad.values
+
+            return self._tot_rad
+
+    @property
+    def sxr_rad(self):
+        print("..getting sxr_rad")
+        dependencies = ["lz_sxr", "el_dens", "ion_dens"]
+        if not hasattr(self, "_sxr_rad"):
+            self._sxr_rad = xr.zeros_like(self._fz)
+            assign_datatype(self._sxr_rad, ("radiated_power", "sxr"), "W m^3")
+
+        if self.data_changed(self._sxr_rad, dependencies):
+            print("..calculating sxr_rad..")
+            lz_sxr = self.lz_sxr
+            ion_dens = self.ion_dens
+            for elem in self.elements:
+                sxr_rad = (
+                    lz_sxr[elem].sum("ion_charges")
+                    * self.el_dens
+                    * ion_dens.sel(element=elem)
+                )
+                sxr_rad = xr.where(
+                    sxr_rad >= 0,
+                    sxr_rad,
+                    0.0,
+                )
+                self._sxr_rad.loc[dict(element=elem)] = sxr_rad.values
+
+            return self._sxr_rad
+
+    @property
+    def prad_tot(self):
+        print("..getting prad_tot")
+        dependencies = ["tot_rad"]
+        if not hasattr(self, "_prad_tot"):
+            self._prad_tot = xr.zeros_like(self.data3d)
+            assign_datatype(self._prad_tot, ("radiated_power", "total"), "W m^3")
+
+        if self.data_changed(self._prad_tot, dependencies):
+            print("..calculating prad_tot")
+            tot_rad = self.tot_rad
+            for elem in self.elements:
+                for t in self.t:
+                    self._prad_tot.loc[dict(element=elem, t=t)] = np.trapz(
+                        tot_rad.sel(element=elem, t=t), self.volume.sel(t=t)
+                    )
+
+        return self._prad_tot
+
+    @property
+    def prad_sxr(self):
+        print("..getting prad_tot")
+        dependencies = ["sxr_rad"]
+        if not hasattr(self, "_prad_sxr"):
+            self._prad_sxr = xr.zeros_like(self.data3d)
+            assign_datatype(self._prad_sxr, ("radiated_power", "sxr"), "W m^3")
+
+        if self.data_changed(self._prad_sxr, dependencies):
+            print("..calculating prad_tot")
+            sxr_rad = self.sxr_rad
+            for elem in self.elements:
+                for t in self.t:
+                    self._prad_sxr.loc[dict(element=elem, t=t)] = np.trapz(
+                        sxr_rad.sel(element=elem, t=t), self.volume.sel(t=t)
+                    )
+
+        return self._prad_sxr
+
+    def build_current_density(self):
+        """
+        Build current density profile (A/m**2) given the total plasma current,
+        plasma geometry and a shape parameter
+        """
+
+        for t in self.time:
+            rho = self.rho.values
+            ipla = self.ipla.sel(t=t).values
+            r_a = self.r_a.sel(t=t).values
+            area = self.area.sel(t=t).values
+            prof_shape = self.el_temp.sel(t=t) / self.el_temp.sel(t=t).max()
+
+            j_phi = ph.current_density(ipla, rho, r_a, area, prof_shape)
+
+            self.j_phi.loc[dict(t=t)] = (j_phi * 10).values
+
+    def calc_magnetic_field(self):
+        """
+        Calculate magnetic field profiles (poloidal & toroidal)
+        """
+
+        for t in self.time:
+            R_bt_0 = self.R_bt_0.values
+            R_mag = self.R_mag.sel(t=t).values
+            ipla = self.ipla.sel(t=t).values
+            bt_0 = self.bt_0.sel(t=t).values
+            # z_mag = self.z_mag.sel(t=t).values
+            maj_r_lfs = self.maj_r_lfs.sel(t=t).values
+            maj_r_hfs = self.maj_r_hfs.sel(t=t).values
+            j_phi = self.j_phi.sel(t=t).values
+            r_a = self.r_a.sel(t=t).values
+            min_r = self.min_r.sel(t=t).values
+            volume = self.volume.sel(t=t).values
+            area = self.area.sel(t=t).values
+
+            self.b_tor_lfs.loc[dict(t=t)] = ph.toroidal_field(
+                bt_0, R_bt_0, maj_r_lfs
+            ).values
+            self.b_tor_hfs.loc[dict(t=t)] = ph.toroidal_field(
+                bt_0, R_bt_0, maj_r_hfs
+            ).values
+
+            b_pol = ph.poloidal_field(j_phi, min_r, area)
+            self.b_pol.loc[dict(t=t)] = b_pol
+            self.l_i.loc[dict(t=t)] = ph.internal_inductance(
+                b_pol, ipla, volume, approx=2, R_mag=R_mag
+            ).values
+
+            b_tor = ((self.b_tor_lfs.sel(t=t) + self.b_tor_hfs.sel(t=t)) / 2.0).values
+
+            self.q_prof.loc[dict(t=t)] = ph.safety_factor(
+                b_tor, b_pol, min_r, r_a, R_mag
+            ).values
+
+    def calc_beta_poloidal(self):
+        """
+        Calculate Beta poloidal
+
+        ??? Use total or thermal pressure ???
+        """
+
+        for t in self.time:
+            b_pol = self.b_pol.sel(t=t).values
+            pressure = self.pressure_tot.sel(t=t).values
+            volume = self.volume.sel(t=t).values
+
+            self.beta_pol.loc[dict(t=t)] = ph.beta_poloidal(
+                b_pol, pressure, volume
+            ).values
+
+    def calc_vloop(self):
+        """
+        Given Zeff, Te and Ne: calculate resistivity and Vloop
+        """
+
+        zeff = self.zeff.sum("element")
+        self.conductivity = ph.conductivity_neo(
+            self.el_dens,
+            self.el_temp,
+            zeff,
+            self.min_r,
+            self.r_a,
+            self.R_mag,
+            self.q_prof,
+            approx="sauter",
+        )
+        vloop = []
+        for t in self.time:
+            resistivity = 1.0 / self.conductivity.sel(t=t)
+            ir = np.where(np.isfinite(resistivity))
+
+            j_phi = self.j_phi.sel(t=t)
+            area = self.area.sel(t=t)
+
+            vloop.append(ph.vloop(resistivity[ir], j_phi[ir], area[ir]))
+
+        vloop = DataArray(np.array(vloop), coords=[("t", self.t)])
+
+        return vloop
 
     def build_data(self, data, pulse: int = None, equil="efit", instrument=""):
         """
@@ -1416,21 +1678,6 @@ class Plasma:
         revision = get_prov_attribute(data[diagnostic][quantity].provenance, "revision")
         self.optimisation["stored_en"] = f"{diagnostic}.{quantity}:{revision}"
 
-    def propagate_parameters(self):
-        """
-        Propagate all parameters to maintain parameter consistency
-        """
-        self.build_current_density()
-        self.calc_magnetic_field()
-        # self.calc_meanz()
-        # self.calc_main_ion_dens(fast_dens=False)
-        self.impose_flat_zeff()
-        # self.calc_zeff()
-        # self.calc_rad_power()
-        self.calc_pressure()
-        self.calc_beta_poloidal()
-        # self.calc_vloop()
-
     def calc_ne_los_int(self, data, passes=2, t=None):
         """
         Calculate line of sight integral for a specified number of
@@ -1497,27 +1744,6 @@ class Plasma:
         los_int = value.sum(x2_name) * dl
 
         return los_int
-
-    # def calc_main_ion_dens(self, fast_dens=True):
-    #     """
-    #     Calculate main ion density from quasi-neutrality given electron
-    #     and impurity densities
-    #
-    #     Parameters
-    #     ----------
-    #     fast_dens
-    #         Include fast ion density in calculation
-    #     """
-    #
-    #     ion_dens_meanz = self.ion_dens * self.meanz
-    #     main_ion_dens = deepcopy(self.el_dens)
-    #     for elem in self.impurities:
-    #         main_ion_dens -= ion_dens_meanz.sel(element=elem)
-    #
-    #     if fast_dens is True:
-    #         main_ion_dens -= self.fast_dens
-    #
-    #     self.ion_dens.loc[dict(element=self.main_ion)] = main_ion_dens.values
 
     def calc_imp_dens(self, time=None):
         """
@@ -1592,7 +1818,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
+                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
             )
 
         self.ion_dens_2d = (
@@ -1624,54 +1850,6 @@ class Plasma:
         plt.axis("scaled")
         plt.xlim(0, 0.8)
         plt.ylim(-0.6, 0.6)
-
-    def calc_rad_power(self):
-        """
-        Calculate total and SXR filtered radiated power
-        """
-        lz_tot = self.lz_tot
-        lz_sxr = self.lz_sxr
-        for elem in self.elements:
-            tot_rad = (
-                lz_tot[elem].sum("ion_charges")
-                * self.el_dens
-                * self.ion_dens.sel(element=elem)
-            )
-            tot_rad = xr.where(
-                tot_rad >= 0,
-                tot_rad,
-                0.0,
-            )
-            self.tot_rad.loc[dict(element=elem)] = tot_rad.values
-
-            sxr_rad = (
-                lz_sxr[elem].sum("ion_charges")
-                * self.el_dens
-                * self.ion_dens.sel(element=elem)
-            )
-            sxr_rad = xr.where(
-                sxr_rad >= 0,
-                sxr_rad,
-                0.0,
-            )
-            self.sxr_rad.loc[dict(element=elem)] = sxr_rad.values
-
-            if not hasattr(self, "prad_tot"):
-                self.prad_tot = deepcopy(self.prad)
-                self.prad_sxr = deepcopy(self.prad)
-                assign_datatype(self.prad_sxr, ("radiation", "sxr"))
-
-            prad_tot = self.prad_tot.sel(element=elem)
-            prad_sxr = self.prad_sxr.sel(element=elem)
-            for t in self.t:
-                prad_tot.loc[dict(t=t)] = np.trapz(
-                    tot_rad.sel(t=t), self.volume.sel(t=t)
-                )
-                prad_sxr.loc[dict(t=t)] = np.trapz(
-                    sxr_rad.sel(t=t), self.volume.sel(t=t)
-                )
-            self.prad_tot.loc[dict(element=elem)] = prad_tot.values
-            self.prad_sxr.loc[dict(element=elem)] = prad_sxr.values
 
     def calc_rad_power_2d(self):
         """
@@ -1720,76 +1898,6 @@ class Plasma:
             self.prad_tot.loc[dict(element=elem)] = prad_tot.values
             self.prad_sxr.loc[dict(element=elem)] = prad_sxr.values
 
-    def calc_pressure(self):
-        """
-        Calculate pressure profiles (thermal and total), MHD and diamagnetic energies
-        """
-
-        # TODO: EFIT pressure weights on par and perp fast particle pressure
-
-        p_el = ph.calc_pressure(self.el_dens.values, self.el_temp.values)
-
-        p_ion = ph.calc_pressure(
-            self.ion_dens.sel(element=self.main_ion).values,
-            self.ion_temp.sel(element=self.main_ion).values,
-        )
-        for elem in self.impurities:
-            p_ion += ph.calc_pressure(
-                self.ion_dens.sel(element=elem).values,
-                self.ion_temp.sel(element=elem).values,
-            )
-        p_fast = ph.calc_pressure(self.fast_dens.values, self.fast_temp.values)
-
-        self.pressure_th.values = p_el + p_ion
-        self.pressure_tot.values = p_el + p_ion + p_fast
-
-        for t in self.t:
-            self.pth.loc[dict(t=t)] = np.trapz(
-                self.pressure_th.sel(t=t), self.volume.sel(t=t)
-            )
-            self.ptot.loc[dict(t=t)] = np.trapz(
-                self.pressure_tot.sel(t=t), self.volume.sel(t=t)
-            )
-            # self.pf_par.loc[dict(t=t)] = np.trapz(
-            #     self.fpressure_parallel.sel(t=t), self.volume.sel(t=t)
-            # )
-            # self.pf_perp.loc[dict(t=t)] = np.trapz(
-            #     self.fpressure_perp.sel(t=t), self.volume.sel(t=t)
-            # )
-        # self.wfast = 1/2 *self.pf_par + self.pf_perp
-        self.wth.values = 3 / 2 * self.pth.values
-        self.wp.values = 3 / 2 * self.ptot.values
-
-    def calc_vloop(self):
-        """
-        Given Zeff, Te and Ne: calculate resistivity and Vloop
-        """
-
-        zeff = self.zeff.sum("element")
-        self.conductivity = ph.conductivity_neo(
-            self.el_dens,
-            self.el_temp,
-            zeff,
-            self.min_r,
-            self.r_a,
-            self.R_mag,
-            self.q_prof,
-            approx="sauter",
-        )
-        vloop = []
-        for t in self.time:
-            resistivity = 1.0 / self.conductivity.sel(t=t)
-            ir = np.where(np.isfinite(resistivity))
-
-            j_phi = self.j_phi.sel(t=t)
-            area = self.area.sel(t=t)
-
-            vloop.append(ph.vloop(resistivity[ir], j_phi[ir], area[ir]))
-
-        vloop = DataArray(np.array(vloop), coords=[("t", self.t)])
-
-        return vloop
-
     def impose_flat_zeff(self):
         """
         Adapt impurity concentration to generate flat Zeff contribution
@@ -1804,90 +1912,6 @@ class Plasma:
                     self.meanz.sel(element=elem) ** 2 / self.el_dens
                 )
                 self.ion_dens.loc[dict(element=elem)] = ion_dens_tmp.values
-
-    def build_current_density(self):
-        """
-        Build current density profile (A/m**2) given the total plasma current,
-        plasma geometry and a shape parameter
-        """
-
-        for t in self.time:
-            rho = self.rho.values
-            ipla = self.ipla.sel(t=t).values
-            r_a = self.r_a.sel(t=t).values
-            area = self.area.sel(t=t).values
-            prof_shape = self.el_temp.sel(t=t) / self.el_temp.sel(t=t).max()
-
-            j_phi = ph.current_density(ipla, rho, r_a, area, prof_shape)
-
-            self.j_phi.loc[dict(t=t)] = (j_phi * 10).values
-
-    def calc_magnetic_field(self):
-        """
-        Calculate magnetic field profiles (poloidal & toroidal)
-        """
-
-        for t in self.time:
-            R_bt_0 = self.R_bt_0.values
-            R_mag = self.R_mag.sel(t=t).values
-            ipla = self.ipla.sel(t=t).values
-            bt_0 = self.bt_0.sel(t=t).values
-            # z_mag = self.z_mag.sel(t=t).values
-            maj_r_lfs = self.maj_r_lfs.sel(t=t).values
-            maj_r_hfs = self.maj_r_hfs.sel(t=t).values
-            j_phi = self.j_phi.sel(t=t).values
-            r_a = self.r_a.sel(t=t).values
-            min_r = self.min_r.sel(t=t).values
-            volume = self.volume.sel(t=t).values
-            area = self.area.sel(t=t).values
-
-            self.b_tor_lfs.loc[dict(t=t)] = ph.toroidal_field(
-                bt_0, R_bt_0, maj_r_lfs
-            ).values
-            self.b_tor_hfs.loc[dict(t=t)] = ph.toroidal_field(
-                bt_0, R_bt_0, maj_r_hfs
-            ).values
-
-            b_pol = ph.poloidal_field(j_phi, min_r, area)
-            self.b_pol.loc[dict(t=t)] = b_pol
-            self.l_i.loc[dict(t=t)] = ph.internal_inductance(
-                b_pol, ipla, volume, approx=2, R_mag=R_mag
-            ).values
-
-            b_tor = ((self.b_tor_lfs.sel(t=t) + self.b_tor_hfs.sel(t=t)) / 2.0).values
-
-            self.q_prof.loc[dict(t=t)] = ph.safety_factor(
-                b_tor, b_pol, min_r, r_a, R_mag
-            ).values
-
-    def calc_beta_poloidal(self):
-        """
-        Calculate Beta poloidal
-
-        ??? Use total or thermal pressure ???
-        """
-
-        for t in self.time:
-            b_pol = self.b_pol.sel(t=t).values
-            pressure = self.pressure_tot.sel(t=t).values
-            volume = self.volume.sel(t=t).values
-
-            self.beta_pol.loc[dict(t=t)] = ph.beta_poloidal(
-                b_pol, pressure, volume
-            ).values
-
-    def propagate_ion_dens(self, fast_dens=False):
-        """
-        After having modified anything in the ion_density data,
-        propagate the result to all other variables depending on it
-        """
-        self.calc_main_ion_dens(fast_dens=fast_dens)
-        self.impose_flat_zeff()
-        self.calc_pressure()
-        # self.calc_zeff()
-        # self.calc_vloop()
-        self.calc_beta_poloidal()
-        self.calc_rad_power()
 
     def add_transport(self):
         """
@@ -1951,14 +1975,19 @@ class Plasma:
                 f,
             )
 
-    def attrs_changed(self, data: DataArray):
-        changed = False
-        attrs = data.attrs
-        for k in attrs():
-            if not (attrs[k].equal(getattr(self, k))):
-                changed = True
-                break
-        return changed
+    def data_changed(self, variable: DataArray, dependencies: list):
+        dependants = [getattr(self, attr) for attr in dependencies]
+        hash = hash_vals(dependencies=dependants)
+        if "hash" not in variable.attrs:
+            variable.attrs["hash"] = None
+
+        if variable.attrs["hash"] != hash:
+            variable.attrs["hash"] = hash
+            recalculate = True
+        else:
+            recalculate = False
+
+        return recalculate
 
 
 def initialize_bckc(diagnostic, quantity, data, bckc={}):
@@ -2038,20 +2067,6 @@ def print_like(string):
     print(f"\n {string}")
 
 
-def data_changed(variable: DataArray, dependencies: list):
-    hash = hash_vals(dependencies=dependencies)
-    if "hash" not in variable.attrs:
-        variable.attrs["hash"] = None
-
-    if variable.attrs["hash"] != hash:
-        variable.attrs["hash"] = hash
-        recalculate = True
-    else:
-        recalculate = False
-
-    return recalculate
-
-
 def test_observabels():
     pl = Plasma()
 
@@ -2073,7 +2088,10 @@ def test_observabels():
                     dict(t=t, element=elem)
                 ] = pl.Ne_prof.yspl * pl.imp_conc.sel(element=elem)
     pl.set_neutral_density(y1=1.0e15, y0=1.0e9)
-    pl.set_neutral_density(y1=1.0e15, y0=1.0e9)
-    pl.build_atomic_data()
+    # pl.build_atomic_data()
 
     return pl
+
+
+def func_name():
+    return str(inspect.stack()[1][3])
