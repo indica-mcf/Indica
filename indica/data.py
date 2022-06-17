@@ -45,6 +45,7 @@ from .equilibrium import Equilibrium
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
 from .numpy_typing import OnlyArray
+from .numpy_typing import XarrayGeneric
 
 
 def _convert_coords(
@@ -101,8 +102,8 @@ def _convert_coords(
 
 
 def _inclusive_timeslice(
-    array: Union[xr.DataArray, xr.Dataset], t_start: float, t_end: float
-) -> Union[xr.DataArray, xr.Dataset]:
+    array: XarrayGeneric, t_start: float, t_end: float
+) -> XarrayGeneric:
     """
     Returns a view into `array` containing `t_start` and `t_end`.
 
