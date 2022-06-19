@@ -144,6 +144,8 @@ class Plasma:
         }
         self.pulse = None
 
+        self.hashes = {}
+
         nt = len(self.t)
         nr = len(self.radial_coordinate)
         nel = len(self.elements)
@@ -300,10 +302,8 @@ class Plasma:
         # Ion densities
         self.main_ion = self.elements[0]
         self.impurities = self.elements[1:]
-
         self.imp_conc = DataArray(np.zeros(len(self.impurities)), coords=[coords_imp])
         assign_datatype(self.imp_conc, ("concentration", "ion"))
-
         self.ion_temp = deepcopy(self.data3d)
         assign_datatype(self.ion_temp, ("temperature", "ion"))
         self.vtor = deepcopy(self.data3d)
@@ -311,26 +311,164 @@ class Plasma:
         self.imp_dens = deepcopy(self.data3d_imp)
         assign_datatype(self.imp_dens, ("density", "ion"), "m^-3")
 
-    @property
-    def fz(self):
-        print("..getting fz")
-        dependencies = ["el_temp", "el_dens", "tau", "neutral_dens"]
-        if not hasattr(self, "_fz"):
-            _fz = {}
-            for elem in self.elements:
-                ion_charges = np.arange(len(self.fract_abu[elem].SCD.ion_charges) + 1)
-                _fz[elem] = DataArray(
-                    np.full((len(self.t), len(self.rho), len(ion_charges)), np.nan),
-                    coords=[
-                        ("t", self.t),
-                        ("rho_poloidal", self.rho),
-                        ("ion_charges", ion_charges),
-                    ],
-                )
-                self._fz = _fz
+    def set_private_var(self, _data: DataArray, _name: str, _dtype: tuple, _unit: str):
+        """
+        Set private DataArray variable aimed at class properties
+        """
+        if not hasattr(self, _name):
+            setattr(self, _name, deepcopy(_data))
+            if type(_data) == DataArray:
+                assign_datatype(getattr(self, _name), _dtype, _unit)
 
-        if self.data_changed(self._fz, dependencies):
-            _fz = {}
+    def get_property_value(self, dependencies:list, var_name=None, func_name=None):
+        """
+        Get value of property defining dependencies, private variable name and function to call
+        """
+        called_from = str(inspect.stack()[1][3])
+        if var_name is None:
+            var_name = f"_{called_from}"
+        if func_name is None:
+            func_name = f"calc_{called_from}"
+
+        print(f"getting {var_name}")
+        if self.data_changed(var_name, dependencies):
+            print(f"..{var_name} dependencies have changed..")
+            getattr(self, func_name)(var_name)
+        return getattr(self, var_name)
+
+    def calc_pressure_el(self, var_name:str):
+        """
+        Function to calculate pressure and save it to var_name
+        """
+        dtype = ("pressure_profile", "electron")
+        unit = "Pa"
+        data = xr.zeros_like(self.data2d)
+
+        self.set_private_var(data, var_name, dtype, unit)
+
+        var = getattr(self, var_name)
+        var.values = ph.calc_pressure(self.el_dens, self.el_temp)
+        setattr(self, var_name, var)
+
+        return var
+
+    @property
+    def pressure_el(self, dependencies = ("el_dens", "el_temp")):
+        """
+        Example call to get a property value with defined dependencies
+        """
+        return self.get_property_value(dependencies)
+
+    @property
+    def pressure_th(self, dependencies=("el_dens", "ion_dens", "el_temp", "ion_temp")):
+        name = f"_{get_func_name()}"
+        dtype = ("pressure_profile", "thermal")
+        unit = "Pa"
+        data = xr.zeros_like(self.data2d)
+
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            ion_dens = self.ion_dens
+            var.values = ph.calc_pressure(self.el_dens, self.el_temp)
+            for elem in self.elements:
+                var.values += ph.calc_pressure(
+                    ion_dens.sel(element=elem).values,
+                    self.ion_temp.sel(element=elem).values,
+                )
+            setattr(self, name, var)
+        return var
+
+    @property
+    def pressure_tot(self, dependencies=("pressure_th", "fast_dens", "fast_temp")):
+        name = f"_{get_func_name()}"
+        dtype = ("pressure_profile", "total")
+        unit = "Pa"
+        data = xr.zeros_like(self.data2d)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            var.values = self.pressure_th + ph.calc_pressure(
+                self.fast_dens, self.fast_temp
+            )
+            setattr(self, name, var)
+        return var
+
+    @property
+    def pth(self, dependencies=("pressure_th",)):
+        name = f"_{get_func_name()}"
+        dtype = ("pressure", "thermal")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            pressure_th = self.pressure_th
+            for t in self.t:
+                var.loc[dict(t=t)] = np.trapz(
+                    pressure_th.sel(t=t), self.volume.sel(t=t)
+                )
+            setattr(self, name, var)
+        return var
+
+    @property
+    def ptot(self, dependencies=("pressure_tot")):
+        name = f"_{get_func_name()}"
+        dtype = ("pressure", "total")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            pressure_tot = self.pressure_tot
+            for t in self.t:
+                var.loc[dict(t=t)] = np.trapz(
+                    pressure_tot.sel(t=t), self.volume.sel(t=t)
+                )
+            setattr(self, name, var)
+        return var
+
+    @property
+    def wth(self, dependencies=("pth",)):
+        name = f"_{get_func_name()}"
+        dtype = ("stored_energy", "thermal")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            var.values = 3 / 2 * self.pth.values
+            setattr(self, name, var)
+        return var
+
+    @property
+    def wp(self, dependencies=("ptot",)):
+        name = f"_{get_func_name()}"
+        dtype = ("stored_energy", "total")
+        unit = "J"
+        data = xr.zeros_like(self.data1d_time)
+        self.set_private_var(data, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            var.values = 3 / 2 * self.ptot.values
+            setattr(self, name, var)
+        return var
+
+    @property
+    def fz(self, dependencies=("el_temp", "el_dens", "tau", "neutral_dens")):
+        name = f"_{get_func_name()}"
+        dtype = ("fractional_abundance", "ion")
+        unit = ""
+        self.set_private_var(self.data3d_fz, name, dtype, unit)
+
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
             for elem in self.elements:
                 for t in self.t:
                     Te = self.el_temp.sel(t=t)
@@ -344,223 +482,82 @@ class Plasma:
                     if any(np.logical_not((Te > 0) * (Ne > 0))):
                         continue
                     fz_tmp = self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau)
-                    _fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
-
-            self._fz.values = _fz.values
-        return self._fz
-
-    @fz.setter
-    def fz(self, value):
-        self._fz = value
+                    var[elem].loc[dict(t=t)] = fz_tmp.transpose().values
+            setattr(self, name, var)
+        return var
 
     @property
-    def zeff(self):
-        print("..getting ion zeff")
-        dependencies = ["el_dens", "ion_dens", "meanz"]
-        if not hasattr(self, "_zeff"):
-            self._zeff = deepcopy(self.data3d)
-            assign_datatype(self._zeff, ("charge", "effective"))
+    def zeff(self, dependencies=("el_dens", "ion_dens", "meanz")):
+        name = f"_{get_func_name()}"
+        dtype = ("charge", "effective")
+        unit = ""
+        self.set_private_var(self.data3d, name, dtype, unit)
 
-        ion_dens = self.ion_dens
-        meanz = self.meanz
-        if self.data_changed(self._zeff, dependencies):
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            ion_dens = self.ion_dens
+            meanz = self.meanz
             for elem in self.elements:
-                self._zeff.loc[dict(element=elem)] = ph.effective_charge(
+                var.loc[dict(element=elem)] = ph.effective_charge(
                     self.el_dens.values,
                     ion_dens.sel(element=elem).values,
                     meanz.sel(element=elem).values,
                 )
-
-        return self._zeff
+            setattr(self, name, var)
+        return var
 
     @property
-    def ion_dens(self):
-        print("..getting ion dens")
-        dependencies = [
-            "el_dens",
-            "fast_dens",
-            "meanz",
-            "main_ion",
-            "imp_dens",
-        ]
-        if not hasattr(self, "_ion_dens"):
-            self._ion_dens = deepcopy(self.data3d)
-            assign_datatype(self._ion_dens, ("density", "ion"), "m^-3")
+    def ion_dens(
+        self, dependencies=("el_dens", "fast_dens", "meanz", "main_ion", "imp_dens",)
+    ):
+        name = f"_{get_func_name()}"
+        dtype = ("density", "ion")
+        unit = "m^-3"
+        self.set_private_var(self.data3d, name, dtype, unit)
 
-        if self.data_changed(self._ion_dens, dependencies):
-            print("..calculating ion dens..")
-            main_ion_dens = self.el_dens - self.fast_dens * self.meanz.sel(
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
+            imp_dens = self.imp_dens
+            meanz = self.meanz
+            main_ion_dens = self.el_dens - self.fast_dens * meanz.sel(
                 element=self.main_ion
             )
             for elem in self.impurities:
-                self._ion_dens.loc[dict(element=elem)] = self.imp_dens.sel(
-                    element=elem
-                ).values
-                main_ion_dens -= self._ion_dens.sel(element=elem) * self.meanz.sel(
-                    element=elem
-                )
+                var.loc[dict(element=elem)] = imp_dens.values
+                main_ion_dens -= imp_dens.sel(element=elem) * meanz.sel(element=elem)
 
-            self._ion_dens.loc[dict(element=self.main_ion)] = main_ion_dens.values
-
-        return self._ion_dens
-
-    def set_private_var(self, data: DataArray, name: str, dtype: tuple, unit: str):
-        if not hasattr(self, name):
-            setattr(self, name, data)
-            assign_datatype(getattr(self, name), dtype, unit)
+            var.loc[dict(element=self.main_ion)] = main_ion_dens.values
+            setattr(self, name, var)
+        return var
 
     @property
-    def pressure_el(self, dependencies=("el_dens", "el_temp")):
-        name = f"_{func_name()}"
-        dtype = ("pressure", "electron")
-        unit = "Pa"
-        data = xr.zeros_like(self.data2d)
-
-        self.set_private_var(data, name, dtype, unit)
-
-        var = getattr(self, name)
-        if self.data_changed(var, dependencies):
-            var.values = ph.calc_pressure(self.el_dens, self.el_temp)
-
-        setattr(self, name, var)
-        return getattr(self, name)
-
-    @property
-    def pressure_th(self, dependencies=("el_dens", "ion_dens", "el_temp", "ion_temp")):
-        name = f"_{func_name()}"
-        dtype = ("pressure", "thermal")
-        unit = "Pa"
-        data = xr.zeros_like(self.data2d)
-
-        self.set_private_var(data, name, dtype, unit)
-
-        var = getattr(self, name)
-        if self.data_changed(var, dependencies):
-            ion_dens = self.ion_dens
-            var.values = ph.calc_pressure(self.el_dens, self.el_temp)
-            for elem in self.elements:
-                var.values += ph.calc_pressure(
-                    ion_dens.sel(element=elem).values,
-                    self.ion_temp.sel(element=elem).values,
-                )
-
-        setattr(self, name, var)
-        return getattr(self, name)
-
-    @property
-    def pressure_tot(self, dependencies=("pressure_th", "fast_dens", "fast_temp")):
-        name = f"_{func_name()}"
-        dtype = ("pressure", "total")
-        unit = "Pa"
-        data = xr.zeros_like(self.data2d)
-        self.set_private_var(data, name, dtype, unit)
-
-        var = getattr(self, name)
-        if self.data_changed(var, dependencies):
-            var.values = self.pressure_th + ph.calc_pressure(
-                self.fast_dens, self.fast_temp
-            )
-
-        setattr(self, name, var)
-        return getattr(self, name)
-
-    @property
-    def pth(self, dependencies=("pressure_th",)):
-        name = f"_{func_name()}"
-        dtype = ("integral_pressure", "thermal")
-        unit = "J"
-        data = xr.zeros_like(self.data1d_time)
-        self.set_private_var(data, name, dtype, unit)
-
-        var = getattr(self, name)
-        if self.data_changed(var, dependencies):
-            pressure_th = self.pressure_th
-            for t in self.t:
-                var.loc[dict(t=t)] = np.trapz(
-                    pressure_th.sel(t=t), self.volume.sel(t=t)
-                )
-
-        setattr(self, name, var)
-        return getattr(self, name)
-
-    @property
-    def ptot(self, dependencies = ("pressure_tot")):
-        name = f"_{func_name()}"
-        dtype = ("integral_pressure", "total")
-        unit = "J"
-        data = xr.zeros_like(self.data1d_time)
-        self.set_private_var(data, name, dtype, unit)
-
-        var = getattr(self, name)
-        if self.data_changed(var, dependencies):
-            pressure_tot = self.pressure_tot
-            for t in self.t:
-                var.loc[dict(t=t)] = np.trapz(
-                    pressure_tot.sel(t=t), self.volume.sel(t=t)
-                )
-
-        setattr(self, name, var)
-        return getattr(self, name)
-
-    @property
-    def wth(self, dependencies = ("pth",)):
-        name = f"_{func_name()}"
-        dtype = ("stored_energy", "thermal")
-        unit = "J"
-        data = xr.zeros_like(self.data1d_time)
-        self.set_private_var(data, name, dtype, unit)
-
-        var = getattr(self, name)
-        if self.data_changed(var, dependencies):
-            var.values = 3 / 2 * self.pth.values
-
-        setattr(self, name, var)
-        return getattr(self, name)
-
-    @property
-    def wp(self, dependencies=("ptot",)):
-        name = f"_{func_name()}"
-        dtype = ("stored_energy", "total")
-        unit = "J"
-        data = xr.zeros_like(self.data1d_time)
-        self.set_private_var(data, name, dtype, unit)
-
-        var = getattr(self, name)
-        if self.data_changed(var, dependencies):
-            var.values = 3 / 2 * self.ptot.values
-
-        setattr(self, name, var)
-        return getattr(self, name)
-
-    @property
-    def meanz(self, dependencies = ("fz",)):
-        name = f"_{func_name()}"
+    def meanz(self, dependencies=("fz",)):
+        name = f"_{get_func_name()}"
         dtype = ("charge", "mean")
         unit = ""
         data = xr.zeros_like(self.data1d_time)
         self.set_private_var(data, name, dtype, unit)
 
         var = getattr(self, name)
-        if self.data_changed(var, dependencies):
+        if self.data_changed(name, dependencies):
             fz = self.fz
             for elem in self.elements:
                 var.loc[dict(element=elem)] = (
                     (fz[elem] * fz[elem].ion_charges).sum("ion_charges").values
                 )
-
-        setattr(self, name, var)
+            setattr(self, name, var)
         return getattr(self, name)
 
     @property
-    def lz_tot(self, dependencies = ("fz", "el_dens", "el_temp", "neutral_dens")):
-        name = f"_{func_name()}"
+    def lz_tot(self, dependencies=("fz", "el_dens", "el_temp", "neutral_dens")):
+        name = f"_{get_func_name()}"
         dtype = ("cooling_factor", "total")
         unit = "W m^3"
         data = xr.zeros_like(self._fz)
         self.set_private_var(data, name, dtype, unit)
 
         var = getattr(self, name)
-        if self.data_changed(var, dependencies):
+        if self.data_changed(name, dependencies):
             fz = self.fz
             for elem in self.elements:
                 for t in self.t:
@@ -577,50 +574,47 @@ class Plasma:
                         .transpose()
                         .values
                     )
-
-        setattr(self, name, var)
+            setattr(self, name, var)
         return getattr(self, name)
 
     # TODO: test up to here and continue from here
 
     @property
-    def lz_sxr(self):
-        print("..getting lz_sxr")
-        dependencies = ["fz", "el_dens", "el_temp", "neutral_dens"]
-        if not hasattr(self, "_lz_sxr"):
-            self._lz_sxr = xr.zeros_like(self._fz)
-            assign_datatype(self._lz_sxr, ("cooling_factor", "sxr"), "W m^3")
+    def lz_sxr(self, dependencies = ("fz", "el_dens", "el_temp", "neutral_dens")):
+        name = f"_{get_func_name()}"
+        dtype = ("cooling_factor", "sxr")
+        unit = "W m^3"
+        data = xr.zeros_like(self._fz)
+        self.set_private_var(data, name, dtype, unit)
 
-        if self.data_changed(self._meanz, dependencies):
-            print("..calculating lz_sxr")
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
             fz = self.fz
-            _lz_sxr = {}
             for elem in self.elements:
-                _lz_sxr[elem] = deepcopy(fz[elem])
                 for t in self.t:
                     Ne = self.el_dens.sel(t=t)
                     Te = self.el_temp.sel(t=t)
                     if any(np.logical_not((Te > 0) * (Ne > 0))):
                         continue
                     Fz = fz[elem].sel(t=t).transpose()
-                    _lz_sxr[elem].loc[dict(t=t)] = (
+                    var[elem].loc[dict(t=t)] = (
                         self.power_loss_sxr[elem](Ne, Te, Fz, bounds_check=False)
                         .transpose()
                         .values
                     )
-            self._lz_sxr.values = _lz_sxr.values
-        return self._lz_sxr
+            setattr(self, name, var)
+        return getattr(self, name)
 
     @property
-    def tot_rad(self):
-        print("..getting tot_rad")
-        dependencies = ["lz_tot", "el_dens", "ion_dens"]
-        if not hasattr(self, "_tot_rad"):
-            self._tot_rad = xr.zeros_like(self._fz)
-            assign_datatype(self._tot_rad, ("radiated_power", "total"), "W m^3")
+    def tot_rad(self, dependencies = ("lz_tot", "el_dens", "ion_dens")):
+        name = f"_{get_func_name()}"
+        dtype = ("radiation_profile", "total")
+        unit = "W m^-3"
+        data = xr.zeros_like(self.data2d_elem)
+        self.set_private_var(data, name, dtype, unit)
 
-        if self.data_changed(self._tot_rad, dependencies):
-            print("..calculating tot_rad")
+        var = getattr(self, name)
+        if self.data_changed(name, dependencies):
             lz_tot = self.lz_tot
             ion_dens = self.ion_dens
             for elem in self.elements:
@@ -629,41 +623,42 @@ class Plasma:
                     * self.el_dens
                     * ion_dens.sel(element=elem)
                 )
-                tot_rad = xr.where(
-                    tot_rad >= 0,
-                    tot_rad,
-                    0.0,
-                )
-                self._tot_rad.loc[dict(element=elem)] = tot_rad.values
+                var.loc[dict(element=elem)] = xr.where(tot_rad >= 0, tot_rad, 0.0,).values
+            setattr(self, name, var)
+        return getattr(self, name)
 
-            return self._tot_rad
+    def calc_sxr_rad(self, var_name:str):
+        _name = f"_{var_name}"
+        dtype = ("radiation_profile", "sxr")
+        unit = "W"
+        data = xr.zeros_like(self.data2d_elem)
+        self.set_private_var(data, _name, dtype, unit)
 
-    @property
-    def sxr_rad(self):
-        print("..getting sxr_rad")
-        dependencies = ["lz_sxr", "el_dens", "ion_dens"]
-        if not hasattr(self, "_sxr_rad"):
-            self._sxr_rad = xr.zeros_like(self._fz)
-            assign_datatype(self._sxr_rad, ("radiated_power", "sxr"), "W m^3")
-
-        if self.data_changed(self._sxr_rad, dependencies):
-            print("..calculating sxr_rad..")
-            lz_sxr = self.lz_sxr
-            ion_dens = self.ion_dens
-            for elem in self.elements:
-                sxr_rad = (
+        var = getattr(self, _name)
+        lz_sxr = self.lz_sxr
+        ion_dens = self.ion_dens
+        for elem in self.elements:
+            sxr_rad = (
                     lz_sxr[elem].sum("ion_charges")
                     * self.el_dens
                     * ion_dens.sel(element=elem)
-                )
-                sxr_rad = xr.where(
-                    sxr_rad >= 0,
-                    sxr_rad,
-                    0.0,
-                )
-                self._sxr_rad.loc[dict(element=elem)] = sxr_rad.values
+            )
+            var.loc[dict(element=elem)] = xr.where(sxr_rad >= 0, sxr_rad, 0.0, ).values
+        setattr(self, _name, var)
 
-            return self._sxr_rad
+    # def get_property_value(self, dependencies:list, var_name=None, func_name=None):
+    #     called_from = str(inspect.stack()[1][3])
+    #     if var_name is None:
+    #         var_name = f"_{called_from}"
+    #     if func_name is None:
+    #         func_name = f"calc_{called_from}"
+    #     if self.data_changed(var_name, dependencies):
+    #         getattr(self, func_name)(var_name)
+    #     return getattr(self, var_name)
+
+    @property
+    def sxr_rad(self, dependencies = ("lz_sxr", "el_dens", "ion_dens")):
+        return self.get_property_value(dependencies)
 
     @property
     def prad_tot(self):
@@ -692,7 +687,7 @@ class Plasma:
             self._prad_sxr = xr.zeros_like(self.data3d)
             assign_datatype(self._prad_sxr, ("radiated_power", "sxr"), "W m^3")
 
-        if self.data_changed(self._prad_sxr, dependencies):
+        if self.data_changed("_prad_sxr", dependencies):
             print("..calculating prad_tot")
             sxr_rad = self.sxr_rad
             for elem in self.elements:
@@ -956,30 +951,21 @@ class Plasma:
 
             min_r /= len(self.theta)
             min_r = min_r.interp(rho_poloidal=self.rho.values, method="cubic")
-            min_r = bin_in_time_dt(
-                self.tstart,
-                self.tend,
-                self.dt,
-                min_r,
-            ).interp(t=self.time, method="linear")
+            min_r = bin_in_time_dt(self.tstart, self.tend, self.dt, min_r,).interp(
+                t=self.time, method="linear"
+            )
             self.min_r = min_r
 
             # TODO: fix volume and area for all devices to get the value from equilibrium
             # dpsin = self.equilibrium.psin[1] - self.equilibrium.psin[0]
             # volume = (self.equilibrium.vjac * dpsin).cumsum("rho_poloidal")
             volume, area, _ = self.equilibrium.enclosed_volume(self.rho)
-            volume = bin_in_time_dt(
-                self.tstart,
-                self.tend,
-                self.dt,
-                volume,
-            ).interp(t=self.time, method="linear")
-            area = bin_in_time_dt(
-                self.tstart,
-                self.tend,
-                self.dt,
-                area,
-            ).interp(t=self.time, method="linear")
+            volume = bin_in_time_dt(self.tstart, self.tend, self.dt, volume,).interp(
+                t=self.time, method="linear"
+            )
+            area = bin_in_time_dt(self.tstart, self.tend, self.dt, area,).interp(
+                t=self.time, method="linear"
+            )
             self.area.values = area.values
             self.volume.values = volume.values
 
@@ -1004,8 +990,7 @@ class Plasma:
             )
 
     def build_atomic_data(self, adf11: dict = None):
-        print_like("Initialize fractional abundance objects")
-        fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
+        fz, fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}, {}
         for elem in self.elements:
             if adf11 is None:
                 adf11 = ADF11
@@ -1024,6 +1009,16 @@ class Plasma:
             prs = self.ADASReader.get_adf11("prs", elem, adf11[elem]["prs"])
             power_loss_sxr[elem] = PowerLoss(pls, prs)
 
+            ion_charges = np.arange(len(fract_abu[elem].SCD.ion_charges) + 1)
+            fz[elem] = DataArray(
+                np.full((len(self.t), len(self.rho), len(ion_charges)), np.nan),
+                coords=[
+                    ("t", self.t),
+                    ("rho_poloidal", self.rho),
+                    ("ion_charges", ion_charges),
+                ],
+            )
+        self.data3d_fz = fz
         self.adf11 = adf11
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
@@ -1554,14 +1549,7 @@ class Plasma:
             const = 1.0
             for j in range(niter):
                 Nimp = {elem: self.ion_dens.sel(element=elem, t=t) * const}
-                _ = forward_model(
-                    Te,
-                    Ne,
-                    Nimp=Nimp,
-                    Nh=Nh,
-                    rho_los=rho_los,
-                    dl=dl,
-                )
+                _ = forward_model(Te, Ne, Nimp=Nimp, Nh=Nh, rho_los=rho_los, dl=dl,)
                 int_bckc = forward_model.intensity[line] * cal
                 const = (int_data / int_bckc).values
 
@@ -1636,11 +1624,7 @@ class Plasma:
         return bckc
 
     def recover_density(
-        self,
-        data,
-        diagnostic: str = "efit",
-        quantity: str = "wp",
-        niter=3,
+        self, data, diagnostic: str = "efit", quantity: str = "wp", niter=3,
     ):
         """
         Match stored energy by adapting electron density
@@ -1699,11 +1683,7 @@ class Plasma:
         if t is not None:
             el_dens = el_dens.sel(t=t, method="nearest")
             rho = rho.sel(t=t, method="nearest")
-        el_dens = xr.where(
-            rho <= 1,
-            el_dens,
-            0,
-        )
+        el_dens = xr.where(rho <= 1, el_dens, 0,)
         el_dens_int = passes * el_dens.sum(x2_name) * dl
 
         return el_dens_int
@@ -1736,11 +1716,7 @@ class Plasma:
         if t is not None:
             value = value.sel(t=t)
             rho = rho.sel(t=t)
-        value = xr.where(
-            rho <= 1,
-            value,
-            0,
-        )
+        value = xr.where(rho <= 1, value, 0,)
         los_int = value.sum(x2_name) * dl
 
         return los_int
@@ -1834,8 +1810,7 @@ class Plasma:
             z = self.z_mag.sel(t=t)
             rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
             plt.plot(
-                rho,
-                self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
+                rho, self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
             )
             self.ion_dens.sel(element=elem).sel(t=t).plot(linestyle="dashed")
             plt.title(elem)
@@ -1862,11 +1837,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            tot_rad = xr.where(
-                tot_rad >= 0,
-                tot_rad,
-                0.0,
-            )
+            tot_rad = xr.where(tot_rad >= 0, tot_rad, 0.0,)
             self.tot_rad.loc[dict(element=elem)] = tot_rad.values
 
             sxr_rad = (
@@ -1874,11 +1845,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            sxr_rad = xr.where(
-                sxr_rad >= 0,
-                sxr_rad,
-                0.0,
-            )
+            sxr_rad = xr.where(sxr_rad >= 0, sxr_rad, 0.0,)
             self.sxr_rad.loc[dict(element=elem)] = sxr_rad.values
 
             if not hasattr(self, "prad_tot"):
@@ -1971,18 +1938,17 @@ class Plasma:
 
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                self,
-                f,
+                self, f,
             )
 
-    def data_changed(self, variable: DataArray, dependencies: list):
-        dependants = [getattr(self, attr) for attr in dependencies]
-        hash = hash_vals(dependencies=dependants)
-        if "hash" not in variable.attrs:
-            variable.attrs["hash"] = None
+    def data_changed(self, var_name, dependencies: list):
+        var_hash = hash_vals(dependencies=[getattr(self, attr) for attr in dependencies])
 
-        if variable.attrs["hash"] != hash:
-            variable.attrs["hash"] = hash
+        if var_name not in self.hashes.keys():
+            self.hashes[var_name] = None
+
+        if self.hashes[var_name] != var_hash:
+            self.hashes[var_name] = var_hash
             recalculate = True
         else:
             recalculate = False
@@ -2093,5 +2059,5 @@ def test_observabels():
     return pl
 
 
-def func_name():
+def get_func_name():
     return str(inspect.stack()[1][3])
