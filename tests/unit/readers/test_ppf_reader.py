@@ -9,6 +9,7 @@ import tempfile
 from typing import Callable
 from typing import cast
 from typing import List
+from typing import Union
 from unittest.mock import DEFAULT
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -35,17 +36,17 @@ from indica.readers.selectors import choose_on_plot
 from indica.readers.selectors import DataSelector
 from indica.session import global_session
 from indica.session import Session
-from .fake_salclient import fake_sal_client
+from .fake_salclient import BaseFakeSALClient
 from ..strategies import sane_floats
 
 
-FAKE_DATA_PATH = pathlib.Path(__file__).parent.absolute() / "ppf_samples.pkl"
+FAKE_DATA_PATH = pathlib.Path(__file__).parent.absolute() / "ppf_samples.json"  # .pkl"
 
 
-@pytest.fixture(scope="module")
-def fake_sal():
-    """Loads data to create a fake SALClient class."""
-    return fake_sal_client(FAKE_DATA_PATH)
+class JETFakeSALClient(BaseFakeSALClient):
+    @property
+    def data_file(self) -> Union[str, pathlib.Path]:
+        return FAKE_DATA_PATH
 
 
 pulses = integers(1, 99999)
@@ -70,17 +71,16 @@ lines_of_sight = tuples(
 
 
 def patched_ppf_reader(
-    fake_database,
     pulse: int,
     tstart: float,
     tend: float,
-    server: str = "https://sal.jet.uk",
+    server: str = "FakeSAL",
     default_error: float = 0.05,
     max_freq: float = 1e6,
     selector: DataSelector = choose_on_plot,
     session: Session = global_session,
 ):
-    with patch("indica.readers.ppfreader.SALClient", fake_database):
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse, tstart, tend, server, default_error, max_freq, selector, session
         )
@@ -117,9 +117,9 @@ def test_needs_authentication():
 
 
 @given(pulses, times, errors, max_freqs, text(), text())
-def test_authentication(fake_sal, pulse, time_range, error, freq, user, password):
+def test_authentication(pulse, time_range, error, freq, user, password):
     """Test authentication method on client get called."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,
@@ -141,10 +141,13 @@ def test_authentication(fake_sal, pulse, time_range, error, freq, user, password
     sampled_from(["hrts", "lidr"]),
     revisions,
     edited_revisions,
-    lists(sampled_from(["te", "ne"]), min_size=1, unique=True).map(set),
+    lists(
+        sampled_from(list(PPFReader.available_quantities("hrts").keys())),
+        min_size=1,
+        unique=True,
+    ).map(set),
 )
 def test_get_thomson_scattering(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -157,7 +160,6 @@ def test_get_thomson_scattering(
 ):
     """Test quantities returned by _get_thomson_scattering are correct."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
@@ -171,21 +173,23 @@ def test_get_thomson_scattering(
         results = reader._get_thomson_scattering(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    z_signal = reader._client.DATA[f"{instrument}/z"]
+    z_signal = reader._client.construct_signal(f"{instrument}/z")
     assert np.all(z_signal.data == results["z"])
     assert len(z_signal.data) == results["length"]
     assert np.all(z_signal.dimensions[0].data == results["R"])
     records = [get_record(reader, pulse, uid, instrument, "z", revision)]
     for q in quantities:
-        signal = reader._client.DATA[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q] == signal.data)
         assert np.all(results["times"] == signal.dimensions[0].data)
         if instrument == "lidr":
-            error_signal = reader._client.DATA[f"{instrument}/{q}u"]
-            assert np.all(results[q] + results[q + "_error"] == error_signal.data)
+            error_signal = reader._client.construct_signal(f"{instrument}/{q}u")
+            np.testing.assert_allclose(
+                results[q] + results[q + "_error"], error_signal.data
+            )
         else:
-            error_signal = reader._client.DATA[f"{instrument}/d{q}"]
-            assert np.all(results[q + "_error"] == error_signal.data)
+            error_signal = reader._client.construct_signal(f"{instrument}/d{q}")
+            np.testing.assert_allclose(results[q + "_error"], error_signal.data)
         assert np.all(results["times"] == error_signal.dimensions[0].data)
         expected = sorted(
             records
@@ -208,10 +212,13 @@ def test_get_thomson_scattering(
     just("cxg6"),
     revisions,
     edited_revisions,
-    lists(sampled_from(["angf", "ti"]), min_size=1, unique=True).map(set),
+    lists(
+        sampled_from(list(PPFReader.available_quantities("cxg6").keys())),
+        min_size=1,
+        unique=True,
+    ).map(set),
 )
 def test_get_charge_exchange(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -224,7 +231,6 @@ def test_get_charge_exchange(
 ):
     """Test quantities returned by _get_charge_exchange are correct."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
@@ -238,11 +244,15 @@ def test_get_charge_exchange(
         results = reader._get_charge_exchange(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    z_signal = reader._client.DATA[f"{instrument}/pos"]
+    z_signal = reader._client.construct_signal(f"{instrument}/pos")
     assert np.all(z_signal.data[0, :] == results["z"])
     assert len(z_signal.data[0, :]) == results["length"]
-    assert np.all(reader._client.DATA[f"{instrument}/rpos"].data[0, :] == results["R"])
-    assert np.all(reader._client.DATA[f"{instrument}/texp"].data == results["texp"])
+    assert np.all(
+        reader._client.construct_signal(f"{instrument}/rpos").data[0, :] == results["R"]
+    )
+    assert np.all(
+        reader._client.construct_signal(f"{instrument}/texp").data == results["texp"]
+    )
     assert isinstance(results["element"], str)
     records = [
         get_record(reader, pulse, uid, instrument, q, revision)
@@ -250,11 +260,15 @@ def test_get_charge_exchange(
     ]
     uncertainties = {"angf": "afhi", "conc": "cohi", "ti": "tihi"}
     for q in quantities:
-        signal = reader._client.DATA[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q] == signal.data)
         assert np.all(results["times"] == signal.dimensions[0].data)
-        error_signal = reader._client.DATA[f"{instrument}/{uncertainties[q]}"]
-        assert np.all(results[q + "_error"] + results[q] == error_signal.data)
+        error_signal = reader._client.construct_signal(
+            f"{instrument}/{uncertainties[q]}"
+        )
+        np.testing.assert_allclose(
+            results[q + "_error"] + results[q], error_signal.data
+        )
         assert np.all(results["times"] == error_signal.dimensions[0].data)
         assert sorted(results[q + "_records"]) == sorted(
             records
@@ -275,28 +289,12 @@ def test_get_charge_exchange(
     revisions,
     edited_revisions,
     lists(
-        sampled_from(
-            [
-                "f",
-                "faxs",
-                "fbnd",
-                "ftor",
-                "rmji",
-                "rmjo",
-                "psi",
-                "rmag",
-                "rbnd",
-                "vjac",
-                "zmag",
-                "zbnd",
-            ]
-        ),
+        sampled_from(list(PPFReader.available_quantities("efit").keys())),
         min_size=1,
         unique=True,
     ).map(set),
 )
 def test_get_equilibrium(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -309,7 +307,6 @@ def test_get_equilibrium(
 ):
     """Test quantities returned by _get_equilibrium are correct."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
@@ -323,11 +320,11 @@ def test_get_equilibrium(
         results = reader._get_equilibrium(uid, instrument, revision, quantities)
     if bad_rev:
         return
-    signal = reader._client.DATA[f"{instrument}/f"]
+    signal = reader._client.construct_signal(f"{instrument}/f")
     if len({"f", "ftor", "vjac", "rmji", "rmjo"} & quantities) > 0:
         assert np.all(signal.dimensions[1].data == results["psin"])
     for q in quantities:
-        signal = reader._client.DATA[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q].flatten() == signal.data.flatten())
         assert np.all(results["times"] == signal.dimensions[0].data)
         if q == "psi":
@@ -357,7 +354,6 @@ def test_get_equilibrium(
 )
 @settings(deadline=2000)
 def test_get_cyclotron_emissions(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -371,7 +367,6 @@ def test_get_cyclotron_emissions(
 ):
     """Test quantities returned by _get_cyclotrons_emissions are correct."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
@@ -404,16 +399,17 @@ def test_get_cyclotron_emissions(
         get_record(reader, pulse, uid, instrument, "gen", revision),
     ]
     assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
-    gen = reader._client.DATA[f"{instrument}/gen"]
+    gen = reader._client.construct_signal(f"{instrument}/gen")
     for q in quantities:
         vals = results[q]
         channel_names = [
-            f"{q}{chan + 1:02d}" for chan, v in enumerate(gen.data[0, :]) if v != 0.0
+            f"{q}{chan + 1:02d}" for chan, v in enumerate(gen.data[0, :]) if v > 0.0
         ]
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
             assert np.all(
-                vals[:, i] == reader._client.DATA[f"{instrument}/{name}"].data
+                vals[:, i]
+                == reader._client.construct_signal(f"{instrument}/{name}").data
             )
         assert results["Btot"] * sc.e * gen.data[11, channel_indices] / (
             2 * np.pi * sc.m_e
@@ -442,11 +438,14 @@ def test_get_cyclotron_emissions(
     just("sxr"),
     revisions,
     edited_revisions,
-    lists(sampled_from(["h", "t", "v"]), min_size=1, unique=True).map(set),
+    lists(
+        sampled_from(list(PPFReader.available_quantities("sxr").keys())),
+        min_size=1,
+        unique=True,
+    ).map(set),
     lines_of_sight,
 )
 def test_get_sxr(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -460,7 +459,6 @@ def test_get_sxr(
 ):
     """Test SXR quantities returned by _get_radiation are correct."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
@@ -478,8 +476,10 @@ def test_get_sxr(
         sal.core.exception.NodeNotFound
     ) if bad_rev else nullcontext():
         results = reader._get_radiation(uid, instrument, revision, quantities)
+
     if bad_rev:
         return
+
     assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
     # TODO: determine how best to describe the SURF data for PROV
     records = ["surf_los.dat"]
@@ -488,12 +488,12 @@ def test_get_sxr(
         assert results["length"][q] == radiation.shape[1]
         channel_names = [
             key.split("/")[-1]
-            for key in reader._client.DATA
+            for key in reader._client.data_specs
             if re.search(rf"{q}\d\d$", key, re.I)
         ]
         channel_indices = [int(c[-2:]) - 1 for c in channel_names]
         for i, name in enumerate(channel_names):
-            signal = reader._client.DATA[f"{instrument}/{name}"]
+            signal = reader._client.construct_signal(f"{instrument}/{name}")
             assert np.all(radiation[:, i] == signal.data)
             assert np.all(results[q + "_times"] == signal.dimensions[0].data)
         assert np.all(results[q + "_xstart"] == los[0][channel_indices])
@@ -521,11 +521,14 @@ def test_get_sxr(
     just("bolo"),
     revisions,
     edited_revisions,
-    lists(sampled_from(["kb5h", "kb5v"]), min_size=1, unique=True).map(set),
+    lists(
+        sampled_from(list(PPFReader.available_quantities("bolo").keys())),
+        min_size=1,
+        unique=True,
+    ).map(set),
     lines_of_sight,
 )
 def test_get_radiation(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -539,7 +542,6 @@ def test_get_radiation(
 ):
     """Test bolometric quantities returned by _get_radiation are correct."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
@@ -565,7 +567,7 @@ def test_get_radiation(
         radiation = results[q]
         length = results["length"][q]
         assert length == radiation.shape[1]
-        signal = reader._client.DATA[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(radiation == signal.data)
         assert np.all(results[q + "_times"] == signal.dimensions[0].data)
         assert np.all(results[q + "_xstart"] == los[0][:length])
@@ -587,10 +589,13 @@ def test_get_radiation(
     just("ks3"),
     revisions,
     edited_revisions,
-    lists(sampled_from(["zefh", "zefv"]), min_size=1, unique=True).map(set),
+    lists(
+        sampled_from(list(PPFReader.available_quantities("ks3").keys())),
+        min_size=1,
+        unique=True,
+    ).map(set),
 )
 def test_get_bremsstrahlung_spectroscopy(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -603,7 +608,6 @@ def test_get_bremsstrahlung_spectroscopy(
 ):
     """Test data returned by _get_bremsstrahlung_spectroscopy is correct."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
@@ -621,14 +625,16 @@ def test_get_bremsstrahlung_spectroscopy(
         return
     assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
     for q in quantities:
-        signal = reader._client.DATA[f"{instrument}/{q}"]
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
         assert np.all(results[q] == signal.data)
         assert np.all(results["times"] == signal.dimensions[0].data)
-        # error_signal = reader._client.DATA[f"{instrument}/{q[0]}{q[-1]}hi"]
+        # error_signal = reader._client.construct_signal(
+        # f"{instrument}/{q[0]}{q[-1]}hi"
+        # )
         # TODO: Figure out what the correct error is supposed to be
         assert np.all(results[q + "_error"] == 0.0)
         # assert np.all(results["times"] == error_signal.dimensions[0].data)
-        los = reader._client.DATA[f"edg7/los{q[-1]}"]
+        los = reader._client.construct_signal(f"edg7/los{q[-1]}")
         assert results[q + "_xstart"].shape == (1,)
         assert results[q + "_xstop"].shape == (1,)
         assert results[q + "_zstart"].shape == (1,)
@@ -663,7 +669,7 @@ def test_get_bremsstrahlung_spectroscopy(
     lists(text(), min_size=1, unique=True).map(set),
 )
 def test_general_get(
-    fake_sal, pulse, time_range, error, freq, uid, instrument, revision, quantities
+    pulse, time_range, error, freq, uid, instrument, revision, quantities
 ):
     """Test the generic get method to ensure it calls the correct things."""
     with patch.multiple(
@@ -674,7 +680,7 @@ def test_general_get(
         get_cyclotron_emissions=DEFAULT,
         get_radiation=DEFAULT,
         get_bremsstrahlung_spectroscopy=DEFAULT,
-    ), patch("indica.readers.ppfreader.SALClient", fake_sal):
+    ), patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,
@@ -747,7 +753,6 @@ def test_get_revision(
     revisions,
 )
 def test_cache_read_write(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -757,7 +762,7 @@ def test_cache_read_write(
     revision,
 ):
     """Test that reading a cache produces the same data that was written to it."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,
@@ -804,7 +809,6 @@ def cachedir():
     revisions,
 )
 def test_get_signal_from_cache(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -814,7 +818,7 @@ def test_get_signal_from_cache(
     revision,
 ):
     """Test that reading a cache produces the same data that was written to it."""
-    with patch("indica.readers.ppfreader.SALClient", fake_sal):
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,
             *time_range,

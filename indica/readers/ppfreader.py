@@ -268,17 +268,8 @@ class PPFReader(DataReader):
             uid, instrument, "zqnn", revision
         )
 
-        mass_data = mass.data[0]
-        mass_int = (
-            int(mass_data) if (mass_data % int(mass_data)) < 0.5 else int(mass_data) + 1
-        )
-
-        atomic_num_data = atomic_num.data[0]
-        atomic_num_int = (
-            int(atomic_num_data)
-            if (atomic_num_data % int(atomic_num_data)) < 0.5
-            else int(atomic_num_data) + 1
-        )
+        mass_int = round(mass.data[0])
+        atomic_num_int = round(atomic_num.data[0])
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
@@ -412,6 +403,9 @@ class PPFReader(DataReader):
             SURF_PATH, self.pulse, instrument.lower()
         )
         assert zstart[0] == zend[0]
+
+        # gen contains accquisition parameters
+        # e.g. which channels are valid (gen[0,:] > 0)
         gen, gen_path = self._get_signal(uid, instrument, "gen", revision)
         channels = np.argwhere(gen.data[0, :] > 0)[:, 0]
         freq = gen.data[15, channels] * 1e9
