@@ -52,7 +52,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "rbnd": ("major_rad", "separatrix"),
         "zmag": ("z", "mag_axis"),
         "zbnd": ("z", "separatrix"),
-        "ipla": ("current", "plasma"),
         "wp": ("energy", "plasma"),
     },
     "get_cyclotron_emissions": {
