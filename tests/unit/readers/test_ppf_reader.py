@@ -702,6 +702,51 @@ def test_general_get(
     errors,
     max_freqs,
     just("jetppf"),
+    sampled_from(sorted(PPFReader.INSTRUMENT_METHODS.keys())),
+    integers(),
+    edited_revisions,
+)
+def test_get_revision(
+    pulse,
+    time_range,
+    error,
+    freq,
+    uid,
+    instrument,
+    revision,
+    available_revisions,
+):
+    """Test SAL provenance is being correctly saved in create_provenance."""
+    reader = patched_ppf_reader(
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+    )
+    reader._client._revisions = available_revisions
+    if revision < 0:
+        with pytest.raises(sal.core.exception.InvalidPath):
+            reader._get_revision(uid=uid, instrument=instrument, revision=revision)
+    elif 0 < revision < available_revisions[0]:
+        with pytest.raises(sal.core.exception.NodeNotFound):
+            reader._get_revision(uid=uid, instrument=instrument, revision=revision)
+    else:
+        expected_revision = reader._client.list(
+            f"/pulse/{reader.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
+        ).revision_current
+        assert (
+            reader._get_revision(uid=uid, instrument=instrument, revision=revision)
+            == expected_revision
+        )
+
+
+@given(
+    pulses,
+    times,
+    errors,
+    max_freqs,
+    just("jetppf"),
     sampled_from(["bolo", "efit", "lidr", "eftp", "cxg6"]),
     revisions,
 )
