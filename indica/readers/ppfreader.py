@@ -188,6 +188,18 @@ class PPFReader(DataReader):
             self._write_cached_ppf(cache_path, data)
         return data, path
 
+    def _get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> RevisionLike:
+        """
+        Get actual revision that's being read from database, converts relative revision
+        (e.g. 0, latest) to absolute
+        """
+        info = self._client.list(
+            f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
+        )
+        return info.revision_current
+
     def _read_cached_ppf(self, path: Path) -> Optional[Signal]:
         """Check if the PPF data specified by `sal_path` has been cached and,
         if so, load it.
@@ -296,7 +308,7 @@ class PPFReader(DataReader):
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_thomson_scattering(
@@ -342,20 +354,20 @@ class PPFReader(DataReader):
             if instrument != "kg10":
                 results["ne_records"].append(e_path)
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_equilibrium(
         self,
         uid: str,
-        calculation: str,
+        instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
         results: Dict[str, Any] = {}
         for q in quantities:
-            qval, q_path = self._get_signal(uid, calculation, q, revision)
+            qval, q_path = self._get_signal(uid, instrument, q, revision)
             self._set_times_item(results, qval.dimensions[0].data)
             if (
                 len(qval.dimensions) > 1
@@ -364,8 +376,8 @@ class PPFReader(DataReader):
             ):
                 results["psin"] = qval.dimensions[1].data
             if q == "psi":
-                r, r_path = self._get_signal(uid, calculation, "psir", revision)
-                z, z_path = self._get_signal(uid, calculation, "psiz", revision)
+                r, r_path = self._get_signal(uid, instrument, "psir", revision)
+                z, z_path = self._get_signal(uid, instrument, "psiz", revision)
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
@@ -376,7 +388,7 @@ class PPFReader(DataReader):
                 results[q] = qval.data
                 results[q + "_records"] = [q_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_cyclotron_emissions(
@@ -423,7 +435,7 @@ class PPFReader(DataReader):
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_radiation(
@@ -489,7 +501,7 @@ class PPFReader(DataReader):
             results[q + "_ystart"] = ystart[channels]
             results[q + "_ystop"] = yend[channels]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_bremsstrahlung_spectroscopy(
@@ -520,7 +532,7 @@ class PPFReader(DataReader):
             results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:
