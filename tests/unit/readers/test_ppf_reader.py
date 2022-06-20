@@ -707,7 +707,6 @@ def test_general_get(
     edited_revisions,
 )
 def test_get_revision(
-    fake_sal,
     pulse,
     time_range,
     error,
@@ -719,7 +718,6 @@ def test_get_revision(
 ):
     """Test SAL provenance is being correctly saved in create_provenance."""
     reader = patched_ppf_reader(
-        fake_sal,
         pulse,
         *time_range,
         default_error=error,
