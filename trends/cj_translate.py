@@ -83,6 +83,7 @@ def translate_to_json(database):
             """
             The following code adds the data to the 'max_val' and 'min_val'
             """
+
             base_json['static']['max_val'][key.replace('_', '#')] = {}
             base_json['static']['min_val'][key.replace('_', '#')] = {}
 
@@ -103,7 +104,7 @@ def translate_to_json(database):
             The following code adds the data to the 'binned' key
             """
 
-            base_json['binned']['time'] = list(time)
+            base_json['binned']['time'] = list(time)  # add time data
             base_json['binned']['pulseNo'] = [pulseNo] * len(time)  # add pulse * time
             base_json['binned'][key.replace('_', '#')] = {}  # insert json variable (e.g., ip#efit)
 
@@ -118,6 +119,7 @@ def translate_to_json(database):
         # ("NaN" is not in the json specification, but "null" is)
         json_str = json.dumps(base_json).replace('NaN', 'null')
         json_list.append(json_str)
+
     return json_list
 
 
@@ -133,7 +135,7 @@ def create_my_sql():
     cursor.execute("CREATE DATABASE `Trends`")
 
 
-def write_to_mysql(json_list):
+def write_to_mysql(json_list: list):
     """
     Writes json strings to the database
 
@@ -171,9 +173,9 @@ def write_to_mysql(json_list):
             with pymysql_connector.cursor() as cursor:
                 # Delete this pulse from MySQL if it already exists
                 # (nothing bad happens if pulse does not exist)
-                # sql = "DELETE FROM regression_database WHERE pulseNo = " + str(pulseNo)
-                # cursor.execute(sql)
-                # print('Removing duplicate pulse')
+                sql = "DELETE FROM regression_database WHERE pulseNo = " + str(pulseNo)
+                cursor.execute(sql)
+                print('Removing duplicate pulse')
 
                 # Add into MySQL
                 sql = "INSERT INTO `regression_database` (pulseNo, data) VALUES (%s, %s)"
@@ -185,55 +187,7 @@ def write_to_mysql(json_list):
     return print('Done')
 
 
-def test_read_from_mysql(query, key: str = None, variable: str = None, parameter: str = None):
-    """
-    Reads data from regression database
-
-    Parameters
-    ----------
-    parameter
-    variable
-    query
-    key
-
-    Base structure:
-    Database  = {'binned': {            (key)
-                            'time': []  (variable)
-                            'ip#efit': {
-                                        'data': Ip    (parameter)
-                                        'gradient': Ip_gradient}},
-
-                'static': {
-                            'max_val': {
-                                        'ip#efit': {
-                                                    data': Ip,
-                                                    'error_lower': Ip_error}}}
-                            'pulseNo': number}}
-    """
-
-    pymysql_connector = pymysql.connect(
-        user='marco.sertoli',
-        password='Marco3142!',
-        host='192.168.1.9',
-        database='st40_test',
-        port=3306,
-        cursorclass=pymysql.cursors.DictCursor
-    )
-
-    with pymysql_connector:
-        with pymysql_connector.cursor() as cursor:
-            sql = query
-            cursor.execute(sql)
-            result = cursor.fetchone()
-            return result
-
-
-# Extracting data
-
-
-# ipla_efit = json.loads(read_from_mysql("SELECT data FROM `regression_database`")['data'])['binned']['ip#efit']
-
-def read_from_mysql(query, key: str = None, variable: str = None, data_type: str = None, value: str = None):
+def read_from_mysql(query: str, key: str = None, variable: str = None, data_type: str = None, value: str = None):
     """
     Reads data from regression database
 
@@ -272,24 +226,31 @@ def read_from_mysql(query, key: str = None, variable: str = None, data_type: str
         with pymysql_connector.cursor() as cursor:
             cursor.execute(query)
             result = cursor.fetchone()
-            data = json.loads(result['data'])
+            database = json.loads(result['data'])
+
+            if key is None:
+                return database
+
+            if key != 'static' or 'binned':
+                return ValueError("You have not specified an appropriate key. Must be 'binned' or 'static'")
 
             if key == 'static':
-                call_static(data, variable, data_type, value)
+                return call_static(database, variable, data_type, value)
 
             if key == 'binned':
-                call_binned(data, variable, data_type)
+                return call_binned(database, variable, data_type)
 
     # TODO: the dictionary structure for this example is missing some sections such as the 'max_val' contents
     # TODO: e.g. the 'static' key has an extra layer of depth compared to 'binned'
 
 
-def call_binned(data: dict = None, variable: str = None, data_type: str = None):
+def call_binned(database, variable: str = None, data_type: str = None):
     """
+    Returns values from the 'binned' key
 
     Parameters
     ----------
-    data
+    database
     variable
     data_type
 
@@ -298,14 +259,15 @@ def call_binned(data: dict = None, variable: str = None, data_type: str = None):
     The desired values of your input
     """
     if data_type is not None:
-        return data['binned'][variable][data_type]
+        return database['binned'][variable][data_type]
     else:
-        return data['binned'][variable]
+        return database['binned'][variable]
 
 
 # TODO: this does not work for this dataset as the max_val -> ip#efit is empty
-def call_static(data: dict = None, variable: str = None, data_type: str = None, value: str = None):
+def call_static(data: dict, variable: str, data_type: str, value: str = None):
     """
+    Returns values from the 'static' key
 
     Parameters
     ----------
@@ -319,6 +281,6 @@ def call_static(data: dict = None, variable: str = None, data_type: str = None, 
 
     """
     if value is not None:
-        return print(data['static'][variable][data_type[value]])
+        return data['static'][variable][data_type][value]
     else:
-        return print(data['static'][variable])
+        return data['static'][variable]
