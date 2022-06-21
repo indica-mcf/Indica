@@ -260,7 +260,6 @@ def read_from_mysql(query, key: str = None, variable: str = None, data_type: str
                                                     'error_lower': [errors]}},
                             'pulseNo': number}}
     """
-
     pymysql_connector = pymysql.connect(
         user='marco.sertoli',
         password='Marco3142!',
@@ -275,20 +274,51 @@ def read_from_mysql(query, key: str = None, variable: str = None, data_type: str
             result = cursor.fetchone()
             data = json.loads(result['data'])
 
-            # print(type(data))
-            # print(data['static']['max_val'])
-
             if key == 'static':
-                if data_type is not None:
-                    return data[key][variable][data_type], 'yes'
-                else:
-                    return data[key][variable]
+                call_static(data, variable, data_type, value)
 
             if key == 'binned':
-                if data_type is not None:
-                    return data[key][variable][data_type], 'yes'
-                else:
-                    return data[key][variable]
+                call_binned(data, variable, data_type)
 
     # TODO: the dictionary structure for this example is missing some sections such as the 'max_val' contents
     # TODO: e.g. the 'static' key has an extra layer of depth compared to 'binned'
+
+
+def call_binned(data: dict = None, variable: str = None, data_type: str = None):
+    """
+
+    Parameters
+    ----------
+    data
+    variable
+    data_type
+
+    Returns
+    -------
+    The desired values of your input
+    """
+    if data_type is not None:
+        return data['binned'][variable][data_type]
+    else:
+        return data['binned'][variable]
+
+
+# TODO: this does not work for this dataset as the max_val -> ip#efit is empty
+def call_static(data: dict = None, variable: str = None, data_type: str = None, value: str = None):
+    """
+
+    Parameters
+    ----------
+    data
+    variable
+    data_type
+    value
+
+    Returns
+    -------
+
+    """
+    if value is not None:
+        return print(data['static'][variable][data_type[value]])
+    else:
+        return print(data['static'][variable])
