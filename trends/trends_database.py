@@ -6,6 +6,7 @@ import pathlib
 import pickle
 
 import numpy as np
+import pymysql
 from trends.info_dict import info_dict
 import xarray as xr
 from xarray import DataArray
@@ -28,8 +29,8 @@ class Database:
 
     def __init__(
         self,
-        pulse_start: int = 8207,
-        pulse_end: int = 10046,
+        pulse_start: int = 9770,
+        pulse_end: int = 9771,
         tlim: tuple = (-0.03, 0.3),
         dt: float = 0.01,
         overlap: float = 0.5,
@@ -586,23 +587,23 @@ def write_to_pickle(database: Database, pkl_file: str = None):
     pickle.dump(database, open(_file, "wb"))
 
 
-# def write_to_mysql(database: Database, database_name: str = "st40_test"):
-#     """
-#     Write database to file(s), update info file(s)
-#
-#     Parameters
-#     ----------
-#     database
-#         Database class to save to pickle
-#     """
-#     mysql_conn = pymysql.connect(
-#         user="marco.sertoli",
-#         password="Marco3142!",
-#         host="192.168.1.9",
-#         database="database_name",
-#         port=3306,
-#     )
-#     mysql_cursor = mysql_conn.cursor()
+def write_to_mysql(database: Database, database_name: str = "st40_test"):
+    """
+    Write database to file(s), update info file(s)
+
+    Parameters
+    ----------
+    database
+        Database class to save to pickle
+    """
+    mysql_conn = pymysql.connect(
+        user="marco.sertoli",
+        password="Marco3142!",
+        host="192.168.1.9",
+        database="database_name",
+        port=3306,
+    )
+    mysql_cursor = mysql_conn.cursor()
 
 
 def pulse_ok(reader: ST40Reader, tlim: tuple, ipla_min: float = 50.0e3):
@@ -709,8 +710,8 @@ def fix_things(database: Database, assign: bool = True):
 
 def test_flow(
     pulse_start: int = 9770,
-    pulse_end: int = 9790,
-    pulse_add: int = 9800,
+    pulse_end: int = 9771,
+    pulse_add: int = 9770,
 ):
     # Initialize class
     database = Database(
