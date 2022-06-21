@@ -192,3 +192,45 @@ def read_from_mysql(querie, key: str = None, variable: str = None, parameter: st
                     return data[key][variable][parameter], 'yes'
                 else:
                     return data[key][variable]
+
+def test_read_from_mysql(query, key: str = None, variable: str = None, parameter: str = None):
+    """
+    Reads data from regression database
+
+    Parameters
+    ----------
+    parameter
+    variable
+    query
+    key
+
+    Base structure:
+    Database  = {'binned': {            (key)
+                            'time': []  (variable)
+                            'ip#efit': {
+                                        'data': Ip    (parameter)
+                                        'gradient': Ip_gradient}},
+
+                'static': {
+                            'max_val': {
+                                        'ip#efit': {
+                                                    data': Ip,
+                                                    'error_lower': Ip_error}}}
+                            'pulseNo': number}}
+    """
+
+    pymysql_connector = pymysql.connect(
+        user='marco.sertoli',
+        password='Marco3142!',
+        host='192.168.1.9',
+        database='st40_test',
+        port=3306,
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
+    with pymysql_connector:
+        with pymysql_connector.cursor() as cursor:
+            sql = query
+            cursor.execute(sql)
+            result = cursor.fetchone()
+            return result
