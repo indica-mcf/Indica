@@ -40,11 +40,8 @@ def translate_to_json(database):
     for i in range(0, 2):
         keys_test.append((keys[i]))
 
-    param_list = ['data', 'gradient', 'error_lower', 'error_upper', 'display_unit', 'display_const', 'label']
-
-    # TODO: finalise these lists
-    stat_test_param_list = ['data', 'error_lower', 'error_upper', 'display_unit', 'display_const', 'label']
-    bin_test_param_list = ['display_unit', 'display_const', 'label']
+    stat_list_str = ['data', 'error_lower', 'error_upper', 'display_unit', 'display_const', 'label']
+    bin_test_param_list = ['data', 'gradient', 'error_lower', 'error_upper', 'display_unit', 'display_const', 'label']
 
     pulseNos = regr_data.binned['ipla_efit'].to_dict()['coords']['pulse']['data']  # find all pulse numbers
 
@@ -77,8 +74,8 @@ def translate_to_json(database):
             unit = param_dict[key]['units']
             label = param_dict[key]['label']
 
-            list_properties = [value, gradient, error_l, error_u, unit, const]  # list of all run properties
-            temp_list_properties = [unit, const, label]
+            stat_list_prop = [value, error_l, error_u, unit, const, label]
+            bin_list_properties = [value, gradient, error_l, error_u, unit, const, label]
 
             """
             The following code adds the data to the 'max_val' and 'min_val'
@@ -87,18 +84,18 @@ def translate_to_json(database):
             base_json['static']['max_val'][key.replace('_', '#')] = {}
             base_json['static']['min_val'][key.replace('_', '#')] = {}
 
-            for i in range(0, len(bin_test_param_list)):
-                if type(temp_list_properties[i]) == numpy.ndarray:
-                    base_json['static']['max_val'][key.replace('_', '#')][stat_test_param_list[i]] = list(
-                        temp_list_properties[i])
-                    base_json['static']['min_val'][key.replace('_', '#')][stat_test_param_list[i]] = list(
-                        temp_list_properties[i])
+            for i in range(0, len(stat_list_prop)):
+                if type(stat_list_prop[i]) == numpy.ndarray:
+                    base_json['static']['max_val'][key.replace('_', '#')][stat_list_str[i]] = list(
+                        stat_list_prop[i])
+                    base_json['static']['min_val'][key.replace('_', '#')][stat_list_str[i]] = list(
+                        stat_list_prop[i])
 
                 else:
-                    base_json['static']['max_val'][key.replace('_', '#')][stat_test_param_list[i]] = \
-                        temp_list_properties[i]
-                    base_json['static']['min_val'][key.replace('_', '#')][stat_test_param_list[i]] = \
-                        temp_list_properties[i]
+                    base_json['static']['max_val'][key.replace('_', '#')][stat_list_str[i]] = \
+                        stat_list_prop[i]
+                    base_json['static']['min_val'][key.replace('_', '#')][stat_list_str[i]] = \
+                        stat_list_prop[i]
 
             """
             The following code adds the data to the 'binned' key
@@ -108,11 +105,11 @@ def translate_to_json(database):
             base_json['binned']['pulseNo'] = [pulseNo] * len(time)  # add pulse * time
             base_json['binned'][key.replace('_', '#')] = {}  # insert json variable (e.g., ip#efit)
 
-            for i in range(0, len(bin_test_param_list)):
-                if type(temp_list_properties[i]) == numpy.ndarray:
-                    base_json['binned'][key.replace('_', '#')][bin_test_param_list[i]] = list(temp_list_properties[i])
+            for i in range(0, len(bin_list_properties)):
+                if type(bin_list_properties[i]) == numpy.ndarray:
+                    base_json['binned'][key.replace('_', '#')][bin_test_param_list[i]] = list(bin_list_properties[i])
                 else:
-                    base_json['binned'][key.replace('_', '#')][bin_test_param_list[i]] = temp_list_properties[i]
+                    base_json['binned'][key.replace('_', '#')][bin_test_param_list[i]] = bin_list_properties[i]
 
         # Convert python's json to a string (json encoding)
         # Note - python's default json package does not produce "correct" json
@@ -186,6 +183,23 @@ def write_to_mysql(json_list: list):
                 print('Adding pulse to MySQL = ', result)
     return print('Done')
 
+
+def delete_from_mysql():
+    pymysql_connector = pymysql.connect(
+        user='marco.sertoli',
+        password='Marco3142!',
+        host='192.168.1.9',
+        database='st40_test',
+        port=3306,
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    with pymysql_connector:
+        with pymysql_connector.cursor() as cursor:
+            cursor.execute("DELETE FROM `regression_database` WHERE pulseNo = 8207")
+            # cursor.execute("SELECT * FROM `regression_database`")
+            pymysql_connector.commit()
+            # pymysql_connector.close()
+            return read_from_mysql("SELECT data FROM `regression_database` WHERE pulseNo = 8207")
 
 def read_from_mysql(query: str, key: str = None, variable: str = None, data_type: str = None, value: str = None):
     """
