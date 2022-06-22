@@ -169,7 +169,7 @@ class Database:
                 filename = max(file_list, key=os.path.getctime)
         else:
             filename = f"{pulse_start}_{pulse_end}_trends_database"
-            path_file = f"{self.path_data}{filename} }"
+            path_file = f"{self.path_data}{filename}"
 
         if filename is None:
             print(f"\n File not found: {path_file}")
