@@ -430,8 +430,8 @@ def run_all_scans(efit_pulse=None, efit_run=None, run_add="", force=True):
     # efit_pulse = [11009850] * 2
     # efit_run = ["1016A2", "1013N"]
 
-    pulses = [10014]
-    tlims = [(0.02, 0.10)] * len(pulses)
+    pulses = [10009]
+    tlims = [(0.02, 0.11)] * len(pulses)
     run_add = ["MID"]*len(pulses)
     efit_pulse = [efit_pulse]*len(pulses)
     efit_run = [0]*len(pulses)
