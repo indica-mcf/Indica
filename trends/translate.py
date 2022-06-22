@@ -4,6 +4,18 @@ import numpy
 import pymysql
 from trends.info_dict import info_dict
 
+def login_to_mysql(username: str = None, password: str = None, database_name: str = "st40_test"):
+    pymysql_connector = pymysql.connect(
+        user=username,
+        password=password,
+        host='192.168.1.9',
+        database=database_name,
+        port=3306,
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    return pymysql_connector
+login = login_to_mysql("marco.sertoli", 'Marco3142!')
+
 
 def call_dict():
     """
@@ -19,11 +31,13 @@ def call_dict():
 
 def translate_to_json(database):
     """
-    Generates a JSON dictionary from python dictionary which includes all pulses and corresponding data
+    Convert python's json to a string (json encoding)
+    Note - python's default json package does not produce "correct" json
+    ("NaN" is not in the json specification, but "null" is)
 
     Returns
     -------
-    JSON string which can be pushed to mysql
+    A list of JSON strings which can be pushed to mysql database
     """
     regr_data = database(reload=True)  # Load in database
     time = regr_data.time  # global time values
@@ -31,7 +45,7 @@ def translate_to_json(database):
     param_dict = call_dict()  # Need the dictionary for specific parameters for each pulse (e.g., units)
     # print(param_dict)
 
-    keys = []  # list of all keys (e.g., ipla_efit)
+    keys = []
     for key in param_dict:
         keys.append(key)
 
@@ -46,6 +60,7 @@ def translate_to_json(database):
     pulseNos = regr_data.binned['ipla_efit'].to_dict()['coords']['pulse']['data']  # find all pulse numbers
 
     json_list = []  # a list of json string dictionaries
+
     for pulseNo in pulseNos:  # loop through all pulses and create json string
         # base JSON structure which we 'append' to the master json
 
@@ -121,18 +136,22 @@ def translate_to_json(database):
 
 
 def create_my_sql():
-    pymysql_connector = pymysql.connect(
-        user="marco.sertoli",
-        password='Marco3142!',
-        host='192.168.1.9',
-        port=3306,
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    cursor = pymysql_connector.cursor()
+    database_connector = login_to_mysql('marco.sertoli', 'Marco3142!')
+    cursor = database_connector.cursor()
     cursor.execute("CREATE DATABASE `Trends`")
 
 
-def write_to_mysql(json_list: list):
+def commit_to_mysql(query: str,
+                    entry):
+    database_connector = login_to_mysql('marco.sertoli', 'Marco3142!')
+    with database_connector:
+        with database_connector.cursor() as cursor:
+            cursor.execute(query, entry)
+            database_connector.commit()
+
+
+def write_to_mysql(json_list: list
+                   ):
     """
     Writes json strings to the database
 
@@ -144,74 +163,56 @@ def write_to_mysql(json_list: list):
     -------
     writes to pymysql
     """
-    # pymysql_connector = pymysql.connect(
-    #     user="marco.sertoli",
-    #     password="Marco3142!",
-    #     host="192.168.1.9",
-    #     database='st40_test',
-    #     port=3306,
-    # )
 
     for json_str in json_list:
         pulseNo = json.loads(json_str)['static']['pulseNo']
-        # print(pulseNo)
 
-        pymysql_connector = pymysql.connect(
-            user="marco.sertoli",
-            password="Marco3142!",
-            host="192.168.1.9",
-            database='st40_test',
-            port=3306,
-            cursorclass=pymysql.cursors.DictCursor
+        database_connector = login_to_mysql('marco.sertoli', 'Marco3142!')
 
-        )
-        # print(json_str)
-        with pymysql_connector:
-            with pymysql_connector.cursor() as cursor:
+        with database_connector:
+            with database_connector.cursor() as cursor:
                 # Delete this pulse from MySQL if it already exists
-                # (nothing bad happens if pulse does not exist)
-                sql = "DELETE FROM regression_database WHERE pulseNo = " + str(pulseNo)
-                cursor.execute(sql)
-                print('Removing duplicate pulse')
+                query = "DELETE FROM regression_database WHERE pulseNo = " + str(pulseNo)
+                commit_to_mysql(query, None)
 
                 # Add into MySQL
-                sql = "INSERT INTO `regression_database` (pulseNo, data) VALUES (%s, %s)"
+                query = "INSERT INTO `regression_database` (pulseNo, data) VALUES (%s, %s)"
                 val = (str(pulseNo), json_str)
-                print(val)
-                cursor.execute(sql, val)
-                result = cursor.fetchall()
-                print('Adding pulse to MySQL = ', result)
-    return print('Done')
+                cursor.execute(query, val)
+                database_connector.commit()
+                return 'yes'
+
 
 
 def delete_from_mysql():
-    pymysql_connector = pymysql.connect(
-        user='marco.sertoli',
-        password='Marco3142!',
-        host='192.168.1.9',
-        database='st40_test',
-        port=3306,
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    with pymysql_connector:
-        with pymysql_connector.cursor() as cursor:
-            cursor.execute("DELETE FROM `regression_database` WHERE pulseNo = 8207")
-            # cursor.execute("SELECT * FROM `regression_database`")
-            pymysql_connector.commit()
-            # pymysql_connector.close()
-            return read_from_mysql("SELECT data FROM `regression_database` WHERE pulseNo = 8207")
+    database_connector = login_to_mysql('marco.sertoli', 'Marco3142!')
 
-def read_from_mysql(query: str, key: str = None, variable: str = None, data_type: str = None, value: str = None):
+    with database_connector:
+        with database_connector.cursor() as cursor:
+            cursor.execute("DELETE FROM `regression_database`")
+            database_connector.commit()
+            return read_from_mysql("SELECT * FROM `regression_database`")
+
+
+# TODO: Able to extract just plasma current data from all pulses
+
+def read_from_mysql(pulseNo: int = None,
+                    key: str = None,
+                    variable: str = None,
+                    data_type: str = None,
+                    value: str = None,
+                    json_list: list = None):
     """
     Reads data from regression database
 
     Parameters
     ----------
-    query
+    pulseNo
     key
     variable
     data_type
     value
+    json_list
 
     Example structure:
     Database  = {'binned': {                (key)
@@ -228,37 +229,39 @@ def read_from_mysql(query: str, key: str = None, variable: str = None, data_type
                                                     'error_lower': [errors]}},
                             'pulseNo': number}}
     """
-    pymysql_connector = pymysql.connect(
-        user='marco.sertoli',
-        password='Marco3142!',
-        host='192.168.1.9',
-        database='st40_test',
-        port=3306,
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    with pymysql_connector:
-        with pymysql_connector.cursor() as cursor:
-            cursor.execute(query)
-            result = cursor.fetchone()
-            database = json.loads(result['data'])
 
-            if key is None:
-                return database
+    database_connector = login_to_mysql('marco.sertoli', 'Marco3142!')
 
-            if key != 'static' or 'binned':
-                return ValueError("You have not specified an appropriate key. Must be 'binned' or 'static'")
+    if pulseNo is not None:
+        with database_connector:
+            with database_connector.cursor() as cursor:
+                cursor.execute("SELECT data FROM `regression_database` WHERE pulseNo = " + str(pulseNo))
+                result = cursor.fetchall()
+                database = json.loads(result[0]['data'])
 
-            if key == 'static':
-                return call_static(database, variable, data_type, value)
+                if key is None:
+                    return database
 
-            if key == 'binned':
-                return call_binned(database, variable, data_type)
+                if key == 'static':
+                    return call_static(database, variable, data_type, value)
+
+                if key == 'binned':
+                    return call_binned(database, variable, data_type)
+
+    if pulseNo is None:
+
 
     # TODO: the dictionary structure for this example is missing some sections such as the 'max_val' contents
     # TODO: e.g. the 'static' key has an extra layer of depth compared to 'binned'
 
 
-def call_binned(database, variable: str = None, data_type: str = None):
+def update_mysql():
+    return
+
+
+def call_binned(database,
+                variable: str = None,
+                data_type: str = None):
     """
     Returns values from the 'binned' key
 
@@ -274,12 +277,19 @@ def call_binned(database, variable: str = None, data_type: str = None):
     """
     if data_type is not None:
         return database['binned'][variable][data_type]
-    else:
+
+    elif data_type is None and variable is not None:
         return database['binned'][variable]
+
+    elif variable is None:
+        return database['binned']
 
 
 # TODO: this does not work for this dataset as the max_val -> ip#efit is empty
-def call_static(data: dict, variable: str, data_type: str, value: str = None):
+def call_static(data: dict,
+                variable: str = None,
+                data_type: str = None,
+                value: str = None):
     """
     Returns values from the 'static' key
 
@@ -294,7 +304,12 @@ def call_static(data: dict, variable: str, data_type: str, value: str = None):
     -------
 
     """
+
     if value is not None:
         return data['static'][variable][data_type][value]
-    else:
+    elif value is None and data_type is not None and variable is not None:
+        return data['static'][variable][data_type]
+    elif value is None and data_type is None and variable is not None:
         return data['static'][variable]
+    elif value is None and data_type is None and variable is None:
+        return data['static']
