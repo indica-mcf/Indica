@@ -24,7 +24,6 @@ from ..converters import CoordinateTransform
 from ..converters import FluxMajorRadCoordinates
 from ..converters import FluxSurfaceCoordinates
 from ..converters import ImpactParameterCoordinates
-from ..converters import TrivialTransform
 from ..datatypes import DataType
 from ..datatypes import SpecificDataType
 from ..utilities import broadcast_spline
@@ -472,14 +471,9 @@ class InvertRadiation(Operator):
         # For some reason concat adds a `None` coordinate
         del symmetric_emissivity.coords[None]  # type: ignore
         del asymmetry_parameter.coords[None]  # type: ignore
-        estimate = EmissivityProfile(
+        emissivity = EmissivityProfile(
             symmetric_emissivity, asymmetry_parameter, flux_coords
         )
-        trivial = TrivialTransform()
-        emissivity = estimate(trivial, R, z, times)
-        emissivity.attrs["datatype"] = ("emissivity", self.datatype)
-        emissivity.attrs["emissivity_model"] = estimate
-        emissivity.name = self.datatype + "_emissivity"
 
         results: Dataset = Dataset(
             {
@@ -492,7 +486,7 @@ class InvertRadiation(Operator):
             i.attrs["datatype"] = ("luminous_flux", self.datatype)
             i.attrs["transform"] = c.camera.attrs["transform"]
             c["back_integral"] = i
-        self.assign_provenance(emissivity)
+        # self.assign_provenance(emissivity)
         self.assign_provenance(results)
         for cam in unfolded_cameras:
             self.assign_provenance(cam)
