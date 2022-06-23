@@ -121,24 +121,24 @@ class CrystalSpectrometer:
         Reads Marchuks Atomic data and builds DataArrays for each emission type
         with co-ordinates line label and electron temperature
 
-        Only input is the Te co-ordinate for dielectronic recombination data
+        Input is the Te vector for dielectronic recombination data
         """
-        head = "./Data_Argon/"
+        head = "./../Data_Argon/"
 
         lines_main = ["W", "X", "Y", "Z"]
         lines_ise = ["q", "r", "s", "t", "u", "v", "w"]
         lines_isi = ["Z"]
         lines_casc = ["q", "r", "s", "t"]
 
-        # wavelength -> nm
+        # Wavelengths from "Modelling of helium like spectra at TEXTOR and TORE SUPRA" (Marchuk's Thesis)
         w0 = .39492
         x0 = .39660
         y0 = .39695
         z0 = .39943
-        q0 = .398150
-        r0 = .398360
-        s0 = .396780
-        t0 = .396870
+        q0 = .39815
+        r0 = .39836
+        s0 = .39678
+        t0 = .39687
         u0 = 1  # Ignore
         v0 = 1  # Ignore
 

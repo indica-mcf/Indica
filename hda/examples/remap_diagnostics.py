@@ -42,8 +42,8 @@ def remap(diag_data, flux_transform, npts=100):
 def remap_xrcs(pulse, tstart, tend, plot=True):
     st40reader = ST40Reader(pulse, tstart, tend)
 
-    xrcs_revision = 0
-    efit_revision = 0
+    xrcs_revision = 1
+    efit_revision = 1
     xrcs = st40reader.get("sxr", "xrcs", xrcs_revision)
     efit = st40reader.get("", "efit", efit_revision)
 
