@@ -113,7 +113,7 @@ def conductivity_spitzer_todd(el_dens, el_temp, zeff):
 
 
 def conductivity_neo(
-    el_dens, el_temp, zeff, min_r, a, R_mag, q, vloop=None, approx="sauter"
+        el_dens, el_temp, zeff, min_r, a, R_mag, q, vloop=None, approx="sauter"
 ):
     """
     Calculate Spitzer conductivity
@@ -188,9 +188,9 @@ def conductivity_neo_sauter(el_dens, el_temp, zeff, min_r, a, R_mag, q):
         nu_e = collisionality_electrons_sauter(el_dens, el_temp, zeff, a, R_mag, q)
 
         return ft / (
-            1
-            + (0.55 - 0.1 * ft) * np.sqrt(nu_e)
-            + 0.45 * (1 - ft) * nu_e / zeff ** (3 / 2)
+                1
+                + (0.55 - 0.1 * ft) * np.sqrt(nu_e)
+                + 0.45 * (1 - ft) * nu_e / zeff ** (3 / 2)
         )
 
     def F33(x):
@@ -241,7 +241,7 @@ def conductivity_neo_todd(el_dens, el_temp, zeff, min_r, a, R_mag, q, vloop):
     xi = 0.58 + 0.2 * zeff
 
     conductivity = (
-        spitzer_cond * (1 - ft / (1 + xi * nu_e)) * (1 - cr * ft / (1 + xi * nu_e))
+            spitzer_cond * (1 - ft / (1 + xi * nu_e)) * (1 - cr * ft / (1 + xi * nu_e))
     )
 
     return conductivity
@@ -578,9 +578,9 @@ def poloidal_field(j_phi, min_r, area):
     for ir in range(len(min_r)):
         if ir > 0:
             b_pol[ir] = (
-                constants.mu_0
-                * np.trapz(j_phi[:ir], area[:ir])
-                / (2 * math.pi * min_r[ir])
+                    constants.mu_0
+                    * np.trapz(j_phi[:ir], area[:ir])
+                    / (2 * math.pi * min_r[ir])
             )
 
     b_pol[1] = b_pol[2] / 2.0
@@ -703,11 +703,11 @@ def internal_inductance(b_pol, ipla, volume, approx=2, **kwargs):
         return 2 * np.trapz(b_pol**2, volume) / (R_geo * (constants.mu_0 * ipla) ** 2)
 
     if (
-        approx == 1
-        and "min_r" in kwargs.keys()
-        and "a" in kwargs.keys()
-        and "R_geo" in kwargs.keys()
-        and "elongation" in kwargs.keys()
+            approx == 1
+            and "min_r" in kwargs.keys()
+            and "a" in kwargs.keys()
+            and "R_geo" in kwargs.keys()
+            and "elongation" in kwargs.keys()
     ):
         return li1(
             b_pol,
@@ -937,16 +937,15 @@ def ev_doppler(temperature, mass: float, fwhm=False):
 
 
 def centrifugal_asymmetry(
-    ion_temperature,
-    electron_temperature,
-    mass,
-    meanz,
-    zeff,
-    main_ion_mass,
-    toroidal_rotation=None,
-    asymmetry_parameter=None,
+        ion_temperature,
+        electron_temperature,
+        mass,
+        meanz,
+        zeff,
+        main_ion_mass,
+        toroidal_rotation=None,
+        asymmetry_parameter=None,
 ):
-
     """
     Calculate toroidal rotation or asymmetry parameter for given plasma parameters
 
@@ -978,7 +977,7 @@ def centrifugal_asymmetry(
 
     const = (mass * constants.proton_mass) / (2 * ion_temperature * constants.e)
     const *= 1 - (meanz / mass) * (main_ion_mass * zeff * electron_temperature) / (
-        ion_temperature + zeff * electron_temperature
+            ion_temperature + zeff * electron_temperature
     )
 
     if toroidal_rotation is not None:
@@ -1018,12 +1017,12 @@ def effective_charge(Ne:np.ndarray, Ni:np.ndarray, meanz:np.ndarray):
     return zeff
 
 def zeff_bremsstrahlung(
-    Te,
-    Ne,
-    wavelength,
-    zeff: float = None,
-    brems: float = None,
-    gaunt_approx="callahan",
+        Te,
+        Ne,
+        wavelength,
+        zeff: float = None,
+        brems: float = None,
+        gaunt_approx="callahan",
 ):
     """
     Calculate Bremsstrahlung or Zeff along LOS
@@ -1120,3 +1119,39 @@ def sawtooth_crash(xspl, yspl, volume, x_inv):
     print(f"Vol-int: {float(vol_int_pre)}, {float(vol_int_post)}")
 
     return yspl
+
+
+def calculate_Te_kw(R: float):
+    """
+    Use parameterisation of k/w line ratio to calculate electron temperature
+
+    Parameters
+    ----------
+    R
+        Ratio of k to w line used to calculate electron temperature
+
+    Returns
+    -------
+    Electron Temperature (eV)
+    """
+    return 1e3 * (
+            (4.1716913) + (-119.91436) * R + (2132.1279) * R ** 2 + (-21900.396) * R ** 3 + (138367.33) * R ** 4 + (
+        -560282.2) * R ** 5 + (1480395.4) * R ** 6 + (-2537587.3) * R ** 7 + (2718292.6) * R ** 8 + (
+                -1652671.4) * R ** 9 + (435199.6) * R ** 10)
+
+
+def calculate_Te_Rosen(R: float):
+    """
+    Use parameterisation of n3/(n3 + n4 + w) line ratio to calculate electron temperature
+    A.S Rosen et. al 2014 (0.0223<x<0.2449) for n3 / w + n3 + n4
+
+    Parameters
+    ----------
+    R
+        Ratio of n3 to w line used to calculate electron temperature
+
+    Returns
+    -------
+    Electron Temperature (eV)
+    """
+    return 1e3 * (0.1552 * (R ** (-0.7781)))
