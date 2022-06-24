@@ -6,19 +6,17 @@ etc.
 
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-import xarray as xr
-from scipy import constants
-
-from indica.readers import ADASReader, ST40Reader
-from indica.operators.atomic_data import FractionalAbundance
-
 from hda.profiles import Profiles
-from hda.physics import calculate_Te_kw, calculate_Te_Rosen
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import constants
+import xarray as xr
+
+from indica.operators.atomic_data import FractionalAbundance
+from indica.readers import ADASReader
 
 
-def diel_calc(atomic_data, Te, label="he"):
+def diel_calc(atomic_data, Te, label:str="he"):
     """
     Calculates intensity of dielectronic recombination
 
