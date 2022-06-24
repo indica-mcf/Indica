@@ -167,7 +167,7 @@ class ImpurityConcentration(Operator):
 
         R_arr, z_arr = transform.convert_to_Rz(x1, x2, t)
 
-        rho, _ = flux_surfaces.convert_from_Rz(R_arr, z_arr, t)
+        rho, theta = flux_surfaces.convert_from_Rz(R_arr, z_arr, t)
 
         if isinstance(R_arr, (DataArray, np.ndarray)):
             R_arr = R_arr.squeeze()
@@ -186,6 +186,12 @@ class ImpurityConcentration(Operator):
                 R=R_arr,
                 method="cubic",
                 assume_sorted=True,
+            )
+        elif set(["rho_poloidal", "theta"]).issubset(
+            set(list(impurity_densities.dims))
+        ):
+            impurity_densities = impurity_densities.interp(
+                rho_poloidal=rho, theta=theta, method="linear", assume_sorted=True
             )
         elif set(["rho_poloidal"]).issubset(set(list(impurity_densities.dims))):
             impurity_densities = impurity_densities.interp(
