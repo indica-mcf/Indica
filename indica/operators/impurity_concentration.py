@@ -200,7 +200,8 @@ class ImpurityConcentration(Operator):
         else:
             raise ValueError(
                 'Inputted impurity densities does not have any compatible\
-                    coordinates: ["rho_poloidal"] or ["R", "z"]'
+                    coordinates: ["rho_poloidal", "theta"], ["rho_poloidal"]\
+                    or ["R", "z"]'
             )
 
         impurity_densities = impurity_densities.interp(
