@@ -38,11 +38,11 @@ from indica.readers import ADASReader
 from indica.readers import PPFReader
 from indica.readers.selectors import ignore_channels_from_dict
 from indica.utilities import to_filename
-from indica.workflow.base_workflow import BaseTestAnalysis
+from indica.workflow.base_workflow import BaseWorkflow
 from indica.workflow.workflow_utilities import bolo_los
 
 
-class JetTestAnalysis(BaseTestAnalysis):
+class JetWorkflow(BaseWorkflow):
     """
     Setup and run standard analysis for benchmarking InDiCA against WSX on JET
     data, where JET data readers are available
@@ -105,7 +105,7 @@ class JetTestAnalysis(BaseTestAnalysis):
         return super().clean_cache()
 
     @classmethod
-    def restore(cls, filename: Optional[Union[str, Path]] = None) -> "JetTestAnalysis":
+    def restore(cls, filename: Optional[Union[str, Path]] = None) -> "JetWorkflow":
         filename = Path(filename or cls.cache_file).expanduser()
         with open(filename, "rb") as f:
             restore: Dict[str, Any] = pickle.load(f)

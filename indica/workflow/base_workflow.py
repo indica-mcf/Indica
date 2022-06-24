@@ -14,23 +14,23 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
-from observers import Observable
-from observers import Observer
 import xarray as xr
 from xarray import concat
 from xarray import DataArray
 
 from indica.utilities import coord_array
+from indica.workflow.observers import Observable
+from indica.workflow.observers import Observer
 
 
-class BaseTestAnalysis:
+class BaseWorkflow:
     """
     Common components of running a benchmark InDiCA analysis for continuous
     testing.
     Subclass and specialise for specific use cases
     """
 
-    cache_dir = Path(__file__).absolute().parent / "test_cache"
+    cache_dir = Path(".").absolute().parent / "test_cache"
     cache_file = cache_dir / "cache.json"
 
     def __init__(self, config_file: Union[str, Path] = "input.json"):
@@ -216,7 +216,7 @@ class BaseTestAnalysis:
         pass  # TODO
 
     @classmethod
-    def restore(cls, filename: Optional[Union[str, Path]] = None) -> "BaseTestAnalysis":
+    def restore(cls, filename: Optional[Union[str, Path]] = None) -> "BaseWorkflow":
         pass  # TODO
 
     @property
@@ -234,8 +234,6 @@ class BaseTestAnalysis:
     def _read_test_case(
         self, config_file: Union[str, Path] = "input.json"
     ) -> Dict[str, Any]:
-        if not Path(config_file).is_absolute():
-            config_file = Path(__file__).absolute().parent / config_file
         with open(config_file, "r") as f:
             return json.load(f)
 
