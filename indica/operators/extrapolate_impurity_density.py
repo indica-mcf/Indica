@@ -183,6 +183,10 @@ def asymmetry_from_rho_theta(
 
     derived_asymmetry_parameter = np.abs(derived_asymmetry_parameter)
 
+    derived_asymmetry_parameter = derived_asymmetry_parameter.transpose(
+        "rho_poloidal", "t"
+    )
+
     if threshold_rho is not None:
         for ind_t, it in enumerate(threshold_rho.coords["t"]):
             derived_asymmetry_parameter.loc[
@@ -951,7 +955,7 @@ class ExtrapolateImpurityDensity(Operator):
         ----------
         impurity_density_sxr
             xarray.DataArray of impurity density derived from soft X-ray emissivity.
-            Dimensions (R, z, t)
+            Dimensions (rho_poloidal, theta, t) or (R, z, t)
         electron_density
             xarray.DataArray of electron density. Dimensions (rho ,t)
         electron_temperature
@@ -1026,17 +1030,32 @@ class ExtrapolateImpurityDensity(Operator):
         # Transform impurity_density_sxr to (rho, theta) coordinates
         rho_arr = electron_density.coords["rho_poloidal"]
         t_arr = t
+        if set(["R", "z"]).issubset(set(list(impurity_density_sxr.dims))):
+            (
+                impurity_density_sxr_rho_theta,
+                R_deriv,
+                z_deriv,
+            ) = self.transform_to_rho_theta(
+                impurity_density_sxr,
+                flux_surfaces,
+                rho_arr,
+                t_arr=t_arr,
+            )
+        elif set(["rho_poloidal", "theta"]).issubset(
+            set(list(impurity_density_sxr.dims))
+        ):
+            impurity_density_sxr_rho_theta = impurity_density_sxr
 
-        (
-            impurity_density_sxr_rho_theta,
-            R_deriv,
-            z_deriv,
-        ) = self.transform_to_rho_theta(
-            impurity_density_sxr,
-            flux_surfaces,
-            rho_arr,
-            t_arr=t_arr,
-        )
+            R_deriv, z_deriv = flux_surfaces.convert_to_Rz(
+                impurity_density_sxr_rho_theta.coords["rho_poloidal"],
+                impurity_density_sxr_rho_theta.coords["theta"],
+                impurity_density_sxr_rho_theta.coords["t"],
+            )
+        else:
+            raise ValueError(
+                'Inputted impurity_density_sxr does not have any compatible\
+                    coordinates: ["rho_poloidal", "theta"] or ["R", "z"]'
+            )
 
         # Continue impurity_density_sxr following the shape of the electron density
         # profile and mitigate discontinuity.
@@ -1055,8 +1074,8 @@ class ExtrapolateImpurityDensity(Operator):
         )
 
         if asymmetry_parameter is None:
-            asymmetry_parameter = asymmetry_from_R_z(
-                impurity_density_sxr, flux_surfaces, rho_arr, self.threshold_rho, t_arr
+            asymmetry_parameter = asymmetry_from_rho_theta(
+                impurity_density_sxr_rho_theta, flux_surfaces, self.threshold_rho, t_arr
             )
         else:
             input_check(
