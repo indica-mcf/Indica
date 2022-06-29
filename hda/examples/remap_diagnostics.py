@@ -28,7 +28,7 @@ def remap(diag_data, flux_transform, npts=100):
         t = None
     rho_equil, _ = flux_transform.convert_from_Rz(R, z, t=t)
 
-    rho = convert_in_time_dt(diag_data.t[0], diag_data.t[-1], dt_data, rho_equil)
+    rho = convert_in_time_dt(diag_data.t[0].values, diag_data.t[-1].values, dt_data.values, rho_equil)
     rho = xr.where(rho >= 0, rho, 0.0)
     rho.coords[trans.x2_name] = x2
 

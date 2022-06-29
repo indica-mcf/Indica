@@ -337,7 +337,7 @@ if __name__ == "__main__":
                                "peak": lambda x: np.random.normal(x, 0.1),
                                "wc": lambda x: np.random.normal(x, 0.025),
                                 },
-                           "nuisance": {"int_scaling": lambda x: np.random.normal(x, 0.01),
+                           "nuisance": {"int_scaling": lambda x: np.random.normal(x, 0.005),
 
                                         },
                            },
@@ -354,7 +354,7 @@ if __name__ == "__main__":
                               "peak": np.array([1, 5]),
                               "wc": np.array([0.2, 0.5]),
                               },
-                       "nuisance": {"int_scaling": np.array([0.95, 1.05]),
+                       "nuisance": {"int_scaling": np.array([0.90, 1.05]),
 
                                     },
                    }, )
@@ -366,7 +366,7 @@ if __name__ == "__main__":
                          settings={"plot": False,
                                    "strahl": False})
 
-    metropolis_hastings(mh, model, iterations=1000)
+    metropolis_hastings(mh, model, iterations=100000)
 
     df = pd.json_normalize(mh.accepted)
     df_hist = df.loc[:, ["Ti.y0", "Ti.peak", "Ti.wc", "Te.y0", "Te.peak", "Te.wc",
@@ -504,8 +504,8 @@ if __name__ == "__main__":
     # profile_stats["raw_params"] = mh.history["profiles"]
     profile_stats["best"] = mh.history["accepted_bool"]
 
-    # with open("profile_stats.pkl", "wb") as handle:
-    #     pickle.dump(profile_stats, handle)
+    with open("profile_stats_nuis.pkl", "wb") as handle:
+        pickle.dump(profile_stats, handle)
 
     plt.show(block=True)
     print()
