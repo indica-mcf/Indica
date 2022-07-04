@@ -32,7 +32,6 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
         electron temperature (eV)
     label
         "he" for helium like collision or "li" for lithium like inner collision
-
     Returns
     -------
     Intensity along Te vector

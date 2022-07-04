@@ -1,5 +1,5 @@
 import numpy as np
-from hda.diagnostics.crystal_spectrometer import CrystalSpectrometer
+from hda.diagnostics.CrystalSpectrometer import CrystalSpectrometer
 from indica.readers import ST40Reader
 from MDSplus import Connection
 
@@ -18,7 +18,7 @@ import pickle
 from copy import deepcopy
 
 
-def char_disp(x, plot: bool = False):
+def disp_curve(x, plot: bool = False):
     pulse = 10009
     tstart = 0.02
     tend = 0.03
@@ -238,7 +238,7 @@ class CrystalModel:
         # Fix binning
         crude_spectra = spectra[0::2, ] + spectra[1::2, ]
         crude_time = (dims[0][0::2] + dims[0][1::2]) / 2
-        adjusted_wavelength = char_disp(np.arange(1, 1031))
+        adjusted_wavelength = disp_curve(np.arange(1, 1031))
 
         result = xr.DataArray(data=crude_spectra, coords=(crude_time, adjusted_wavelength), dims=["t", "wavelength"])
         spectrum = result.sel(t=tsample, method="nearest")
