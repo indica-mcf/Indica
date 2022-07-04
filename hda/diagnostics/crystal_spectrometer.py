@@ -1,8 +1,8 @@
 """
-Purpose of this code is to generate class for helike spectrum from Marchuk's atomic data
+Purpose of this code is to generate helike spectrum from Marchuk's atomic data
 
-methods including excitation, recombination, CX, cascades, dielectronic recombination, inner shell collisions, ion-ion collisions
-etc.
+methods including excitation, recombination, CX, cascades, dielectronic recombination, inner shell collisions,
+ion-ion collisions etc.
 
 """
 
@@ -16,7 +16,11 @@ from indica.operators.atomic_data import FractionalAbundance
 from indica.readers import ADASReader
 
 
-def diel_calc(atomic_data, Te, label: str = "he"):
+def gaussian(x, integral, center, sigma):
+    return integral / (sigma * np.sqrt(2 * np.pi)) * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
+
+
+def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "he"):
     """
     Calculates intensity of dielectronic recombination
 
@@ -36,7 +40,7 @@ def diel_calc(atomic_data, Te, label: str = "he"):
     a0 = 5.29E-9  # bohr radius / cm
     Te = Te / Ry
     Es = atomic_data[:, 1] * percmtoeV / Ry  # Ry
-    F2 = atomic_data[:, 4] * 1e13  # 1/sfrom hda.profiles import Profiles
+    F2 = atomic_data[:, 4] * 1e13  # 1/s
 
     if label == "he":
         g0 = 1
@@ -48,11 +52,10 @@ def diel_calc(atomic_data, Te, label: str = "he"):
         Es = Esli * percmtoeV / Ry
     else:
         return None
-    I = (1 / g0) * ((4 * np.pi ** (3 / 2) * a0 ** 3) / Te[:, None] ** (3 / 2)) * F2[None,] * np.exp(
+    intensity = (1 / g0) * ((4 * np.pi ** (3 / 2) * a0 ** 3) / Te[:, None] ** (3 / 2)) * F2[None,] * np.exp(
         -(Es[None,] / Te[:, None]))
 
-    return I
-    background = 0
+    return intensity
 
 
 # Constants
@@ -66,7 +69,7 @@ ADF11 = {"ar": {"scd": "89", "acd": "89", "ccd": "89"}}
 
 class CrystalSpectrometer:
     """
-    Class for the crystal spectrometer which generates a database of the line intensities from atomic data,
+    Crystal spectrometer class which generates a database of the line intensities from atomic data,
     and when given temperature and density profiles makes the xray spectrum.
 
     Parameters
@@ -88,7 +91,6 @@ class CrystalSpectrometer:
     spec.intensity = spec.make_intensity(spec.database_offset, el_temp=Te, el_dens=Ne, fract_abu=fz, Ar_dens=NAr,
                                              H_dens=Nh, int_cal=int_cal)
     spec.spectra = spec.make_spectra(spec.intensity, Ti, background)
-    spec.plot_spectrum(spec.spectra)
     """
 
     def __init__(self,
@@ -110,14 +112,12 @@ class CrystalSpectrometer:
         self.Mi = 39.948
 
         self.database = self.build_database()
-        self.database_offset = self.wavelength_offset(self.database, offset=2e-5)
-
         self.set_ion_data(ADF11)
 
-    def build_database(self, Te=np.linspace(200, 10000, 1000)):
+    def build_database(self, Te: np.typing.ArrayLike = np.linspace(200, 10000, 1000)):
         """
-        Reads Marchuks Atomic data and builds DataArrays for each emission type
-        with co-ordinates line label and electron temperature
+        Reads Marchuk's Atomic data and builds DataArrays for each emission type
+        with co-ordinates of line label and electron temperature
 
         Input is the Te vector for dielectronic recombination data
         """
@@ -252,16 +252,6 @@ class CrystalSpectrometer:
                                               shape=(len(Te), len(lin2[:, 0]))))},
                                   dims=["el_temp", "line_name"])
 
-        # Temporary !!! Adjust wavelengths for match with experiment
-        # n3_array = n3_array.assign_coords(wavelength=(n3_array.wavelength + offset_n3))
-        # n2_array = n2_array.assign_coords(wavelength=(n2_array.wavelength + offset_n2))
-        #
-        # a = xr.where((n2_array.wavelength>0.3985) & (n2_array.wavelength<0.3987), n2_array.wavelength-0.000025, n2_array.wavelength)
-        # n2_array = n2_array.assign_coords(wavelength=(a))
-        #
-        # k = xr.where((n2_array.wavelength>0.3989) & (n2_array.wavelength<0.3991), n2_array.wavelength+0.00003, n2_array.wavelength)
-        # n2_array = n2_array.assign_coords(wavelength=(k))
-
         # Cascade functions
         casc_factor = casc_factor_array.interp(el_temp=Te, method="quadratic")
 
@@ -283,72 +273,68 @@ class CrystalSpectrometer:
         database = dict(EXC=exc_array, REC=recom_array, CXR=cxr_array, ISE=ise_array,
                         ISI=isi_array, N2=n2_array, N3=n3_array, N4=n4_array,
                         N5=n5_array, LIN2=lin2_array, N2CASC=casc_array)
+
         LOG = "Finished building database"
         print(LOG)
         return database
 
-    def wavelength_offset(self, database, offset):
+    def wavelength_offset(self, database: dict, offset: float):
         # constant offset applied to wavelengths
         database_offset = {}
         for key, item in database.items():
             item = item.assign_coords(wavelength=(item.wavelength - offset))
             database_offset[key] = item
-
         return database_offset
 
-    def make_intensity(self, database, el_temp=None, el_dens=None, fract_abu=None,
-                       Ar_dens=None, H_dens=None, int_cal=None):
-
+    def make_intensity(self, database: dict, el_temp: xr.DataArray = None, el_dens: xr.DataArray = None,
+                       fract_abu: np.typing.ArrayLike = None, Ar_dens: xr.DataArray = None, H_dens: xr.DataArray = None,
+                       int_cal: float = None):
         """
-        Uses the intensity recipes to get intensity from Te/ne/f_abundance/H_dens/calibration_factor
-        and atomic data at each spatial point.
-        Returns DataArrays of emission type with co-ordinates of line label and rho co-ordinate
-        # """
-
+        Uses the intensity recipes to get intensity from Te/ne/f_abundance/H_dens/calibration_factor and atomic data.
+        Returns DataArrays of emission type with co-ordinates of line label and spatial co-ordinate
+        """
         intensity = {}
         for key, value in database.items():
             if value.type == "EXC":
-                I = value.interp(el_temp=el_temp) * fract_abu[16,] * \
-                    Ar_dens * el_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[16,] * \
+                      Ar_dens * el_dens * int_cal
             elif value.type == "REC":
                 # Truncate to max value at 4keV
                 el_temp = el_temp.where(el_temp < 4000, 4000)
-                I = value.interp(el_temp=el_temp) * fract_abu[17,] * \
-                    Ar_dens * el_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[17,] * \
+                      Ar_dens * el_dens * int_cal
             elif value.type == "CXR":
                 el_temp = el_temp.where(el_temp < 4000, 4000)
-                I = value.interp(el_temp=el_temp) * fract_abu[17,] * \
-                    Ar_dens * H_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[17,] * \
+                      Ar_dens * H_dens * int_cal
             elif value.type == "ISE":
-                I = value.interp(el_temp=el_temp) * fract_abu[15,] * \
-                    Ar_dens * el_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[15,] * \
+                      Ar_dens * el_dens * int_cal
             elif value.type == "ISI":
-                I = value.interp(el_temp=el_temp) * fract_abu[15,] * \
-                    Ar_dens * el_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[15,] * \
+                      Ar_dens * el_dens * int_cal
             elif value.type == "DIREC":
-                I = value.interp(el_temp=el_temp) * fract_abu[16,] * \
-                    Ar_dens * el_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[16,] * \
+                      Ar_dens * el_dens * int_cal
             elif value.type == "N2CASC":
-                I = value.interp(el_temp=el_temp) * fract_abu[16,] * \
-                    Ar_dens * el_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[16,] * \
+                      Ar_dens * el_dens * int_cal
             elif value.type == "LIDIREC":
-                I = value.interp(el_temp=el_temp) * fract_abu[15,] * \
-                    Ar_dens * el_dens * int_cal
+                int = value.interp(el_temp=el_temp) * fract_abu[15,] * \
+                      Ar_dens * el_dens * int_cal
             else:
                 print("Wrong Emission Type")
-            intensity[key] = I
+            intensity[key] = int
 
         print("Generated intensity profile")
         return intensity
 
-    def make_spectra(self, intensity: dict, ion_temp: xr.DataArray, background=0):
+    def make_spectra(self, intensity: dict, ion_temp: xr.DataArray, background: float = 0):
 
         # Add convolution of signals as wrapper
         # -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
         # instrument function / photon noise / photon -> counts
         # Background Noise
-        def gaussian(x, integral, center, sigma):
-            return integral / (sigma * np.sqrt(2 * np.pi)) * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
 
         def doppler_broaden(i):
             sigma = np.sqrt(constants.e / (Mi * constants.proton_mass * constants.c ** 2) * ion_temp) * i.wavelength
@@ -362,7 +348,6 @@ class CrystalSpectrometer:
             y = doppler_broaden(i)
             spectra[key] = y
             spectra["total"] = spectra["total"] + y.sum(["line_name"])
-
         spectra["total"] = spectra["total"].rename({"window": "wavelength"})
         spectra["total"] = spectra["total"].drop_vars(["type", "ion_charges"])
         spectra["background"] = self.window * 0 + background
@@ -396,7 +381,6 @@ class CrystalSpectrometer:
         """
 
         fract_abu = {}
-
         scd, acd, ccd = {}, {}, {}
         for elem in adf11.keys():
             scd[elem] = self.adasreader.get_adf11("scd", elem, adf11[elem]["scd"])
@@ -412,12 +396,6 @@ class CrystalSpectrometer:
         self.fract_abu = fract_abu
 
     def test_workflow(self):
-
-        # pulse = 25009780
-        # tstart = 0.05
-        # tend = 0.10
-        # reader = ST40Reader(pulse, tstart, tend)
-        # # spectra, dims = reader._get_data("hda", "run60", ":intensity", 0)
 
         Ne = Profiles(datatype=("density", "electron"))
         Ne.peaking = 1
@@ -462,7 +440,6 @@ class CrystalSpectrometer:
 
 
 if __name__ == "__main__":
-    spec = Crystal_Spectrometer()
+    spec = CrystalSpectrometer()
     spec.test_workflow()
-
     print()
