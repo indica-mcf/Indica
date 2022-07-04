@@ -42,6 +42,7 @@ class BaseWorkflow:
         :type config_key: Hashable
         """
         # Config parameters
+        self.config_file = config_file
         self.input = self._read_test_case(config_file=config_file)
         self.comparison_data = self.input.get("comparison_data", {})
 
@@ -104,6 +105,7 @@ class BaseWorkflow:
                 "sxr_rescale_factor", None
             )
         )
+        self._n_high_z = Observable()
 
         # Convenience quantities
         self._power_loss_charge_averaged = Observer(
@@ -116,16 +118,16 @@ class BaseWorkflow:
         )
 
         # Observable quantities
-        self._n_high_z = Observer(
-            operator=self._calculate_n_high_z,
-            depends_on=[
-                self._sxr_emissivity,
-                self._sxr_power_loss,
-                self._electron_density,
-                self._sxr_calibration_factor,
-                self._sxr_rescale_factor,
-            ],
-        )
+        # self._n_high_z = Observer(
+        #     operator=self._calculate_n_high_z,
+        #     depends_on=[
+        #         self._sxr_emissivity,
+        #         self._sxr_power_loss,
+        #         self._electron_density,
+        #         self._sxr_calibration_factor,
+        #         self._sxr_rescale_factor,
+        #     ],
+        # )
         self._asymmetry_parameter = Observer(
             operator=self._calculate_asymmetry_parameter,
             depends_on=[self._ion_temperature, self._toroidal_rotation],
@@ -176,13 +178,13 @@ class BaseWorkflow:
             ],
         )
 
-    def __call__(self, setup_only: bool = False, save_outputs: bool = True):
+    def __call__(self, setup_only: bool = False, save_outputs: bool = False):
         term_width = get_terminal_size(fallback=(80, 24)).columns - 1
         step_template = (
             "\n" + "*" * term_width + "\n" + "\t{}\n" + "*" * term_width + "\n"
         )
         for step_name, step_method, key_attr in self.setup_steps:
-            if hasattr(self, key_attr):
+            if getattr(self, key_attr, None) is not None:
                 continue
             print(step_template.format(step_name))
             step_method()
@@ -357,10 +359,10 @@ class BaseWorkflow:
         return xr.concat(
             [
                 val.sum("ion_charges").assign_attrs(val.attrs)
-                for val in self.power_loss.values()
+                for val in self.sxr_power_loss.values()
             ],
             dim="element",
-        ).assign_coords({"element": list(self.power_loss.keys())})
+        ).assign_coords({"element": list(self.sxr_power_loss.keys())})
 
     @property
     def sxr_power_loss_charge_averaged(self) -> DataArray:
@@ -387,13 +389,38 @@ class BaseWorkflow:
     def n_high_z(self) -> DataArray:
         return self._n_high_z.data
 
+    @n_high_z.setter
+    def n_high_z(self, data: DataArray) -> None:
+        self._n_high_z.data = data
+
     def _calculate_n_high_z(self) -> DataArray:
         raise NotImplementedError(
             f"{self.__class__} does not implement _calculate_n_high_z method"
         )
 
     def calculate_n_high_z(self) -> DataArray:
-        self._n_high_z.update()
+        # self._n_high_z.update()
+        self.n_high_z = self._calculate_n_high_z()
+        return self.n_high_z
+
+    def _extrapolate_n_high_z(self) -> DataArray:
+        raise NotImplementedError(
+            f"{self.__class__} does not implement _extrapolate_n_high_z method"
+        )
+
+    def extrapolate_n_high_z(self) -> DataArray:
+        # self._n_high_z.update()
+        self.n_high_z = self._extrapolate_n_high_z()
+        return self.n_high_z
+
+    def _rescale_n_high_z(self) -> DataArray:
+        raise NotImplementedError(
+            f"{self.__class__} does not implement _rescale_n_high_z method"
+        )
+
+    def rescale_n_high_z(self) -> DataArray:
+        # self._n_high_z.update()
+        self.n_high_z = self._rescale_n_high_z()
         return self.n_high_z
 
     @property

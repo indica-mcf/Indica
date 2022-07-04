@@ -5,13 +5,11 @@ Run with specific data source (e.g. JET JPF/PPF data)
 from copy import deepcopy
 import getpass
 from pathlib import Path
-import pickle
 from socket import getfqdn
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Tuple
 from typing import Union
 
@@ -74,19 +72,23 @@ class JetWorkflow(BaseWorkflow):
     def setup_steps(self) -> List[Tuple[str, Callable, str]]:
         return [
             ("Reading diagnostics", self.get_diagnostics, "diagnostics"),
-            ("Spline fitting diagnostic profiles", self.fit_diagnostic_profiles, "ne"),
-            ("Inverting radiation", self.invert_sxr, "emissivity"),
-            ("Reading ADAS data", self.get_adas, "PL"),
+            (
+                "Spline fitting diagnostic profiles",
+                self.fit_diagnostic_profiles,
+                "toroidal_rotation",
+            ),
+            ("Inverting radiation", self.invert_sxr, "sxr_emissivity"),
+            ("Reading ADAS data", self.get_adas, "SXRPL"),
             (
                 "Calculating FZT and power loss",
                 self.calculate_power_loss,
-                "power_loss_full",
+                "q",
             ),
         ]
 
     @property
     def analysis_steps(self) -> List[Tuple[str, Callable]]:
-        return [
+        return [  # TODO needs rework
             ("Calculating high-z density from SXR", self.calculate_n_high_z),
             # ("Rescaling high-z density from bolometry", self.rescale_n_high_z),
             # ("Smoothing and extrapolaing high-z density", self.extrapolate_n_high_z),
@@ -103,20 +105,6 @@ class JetWorkflow(BaseWorkflow):
         ):
             ppf_cache.unlink()
         return super().clean_cache()
-
-    @classmethod
-    def restore(cls, filename: Optional[Union[str, Path]] = None) -> "JetWorkflow":
-        filename = Path(filename or cls.cache_file).expanduser()
-        with open(filename, "rb") as f:
-            restore: Dict[str, Any] = pickle.load(f)
-        new = cls()
-        for key, val in restore.items():
-            try:
-                setattr(new, key, val)
-            except AttributeError:
-                pass
-        new.cache_file = filename
-        return new
 
     def authenticate_reader(self) -> None:
         if self.reader.requires_authentication:
@@ -423,7 +411,7 @@ class JetWorkflow(BaseWorkflow):
         )
         n_high_z: DataArray = (
             (
-                self.sxr_calibration_factor * self.sxr_emissivity
+                self.sxr_calibration_factor * self.sxr_emissivity  # type: ignore
                 - self.electron_density
                 * (other_densities * other_power_loss).sum("element")
             )
@@ -434,10 +422,15 @@ class JetWorkflow(BaseWorkflow):
                 )
             )
         ).assign_attrs({"transform": self.sxr_emissivity.attrs["transform"]})
-        rho_deriv, theta_deriv = n_high_z.transform.convert_from_Rz(
+        return n_high_z
+
+    def _extrapolate_n_high_z(self):
+        rho_deriv, theta_deriv = self.n_high_z.transform.convert_from_Rz(
             self.R, self.z, self.t
         )
-        n_high_z_Rz = n_high_z.interp({"rho_poloidal": rho_deriv, "theta": theta_deriv})
+        n_high_z_Rz = self.n_high_z.interp(
+            {"rho_poloidal": rho_deriv, "theta": theta_deriv}
+        )
         extrapolator = ExtrapolateImpurityDensity()
         (_, n_high_z_rho_theta, _,) = extrapolator(
             impurity_density_sxr=n_high_z_Rz.where(n_high_z_Rz > 0.0, other=1.0).fillna(
@@ -460,6 +453,12 @@ class JetWorkflow(BaseWorkflow):
         }
         return n_high_z_rho_theta
 
+    def _rescale_n_high_z(self) -> DataArray:
+        n_high_z: DataArray = (self.n_high_z * self.sxr_rescale_factor).assign_attrs(
+            {"transform": self.flux_surface}
+        )
+        return n_high_z
+
     def _calculate_sxr_calibration_factor(self) -> float:
         threshold_rho = self.additional_data.get("calculate_n_high_z", {}).get(
             "threshold_rho",
@@ -473,32 +472,26 @@ class JetWorkflow(BaseWorkflow):
         return np.nanmean(factor.where(factor.coords["rho_poloidal"] < threshold_rho))
 
     def _calculate_sxr_rescale_factor(self) -> float:
-        def obj_func(factor, bolo_deriv_object, bolo_diag_array, time):
-            modified_bolo_deriv_object = deepcopy(bolo_deriv_object)
-            modified_bolo_deriv_object.impurity_densities.loc[
-                self.high_z, :, :, :
-            ] *= factor
-            derived_emissivity = modified_bolo_deriv_object(
-                deriv_only=True, trim=False, t_val=time
+        def obj_func(factor, bolo_deriv_object, bolo_diag_array):
+            bolo_deriv_object.impurity_densities.loc[self.high_z, :, :, :] = (
+                self.n_high_z * factor
             )
-            residual = derived_emissivity.data - bolo_diag_array.interp(t=time).data
-            return np.abs(np.nanmean(residual[np.isfinite(residual)]))
+            derived_emissivity = bolo_deriv_object(deriv_only=True, trim=False)
+            residual = derived_emissivity.data - bolo_diag_array.data.T
+            return np.nansum(np.square(residual))
 
         if not hasattr(self, "bolo_derivation"):
             return 1.0
-        factor = []
-        for time in self.t:
-            fit = least_squares(
-                obj_func,
-                1,
-                args=(
-                    self.bolo_derivation,
-                    self.diagnostics["bolo"]["kb5v"],
-                    float(time.values),
-                ),
-            )
-            factor.append(fit.x[0])
-        return np.mean(factor)
+        fit = least_squares(
+            obj_func,
+            1,
+            bounds=(0, np.inf),
+            args=(
+                deepcopy(self.bolo_derivation),
+                self.diagnostics["bolo"]["kb5v"].interp(t=self.t),
+            ),
+        )
+        return fit.x[0]
 
     def _calculate_n_zeff_el(self) -> DataArray:
         zeff = self.diagnostics["zeff"]["zefh"].interp(t=self.t.values)
@@ -585,11 +578,9 @@ class JetWorkflow(BaseWorkflow):
         return (
             self.additional_data["calculate_n_high_z"]["extrapolator"]
             .optimize_perturbation(
-                extrapolated_smooth_data=self.n_high_z.where(
-                    self.n_high_z >= 0.0, other=0.0
-                ),
+                extrapolated_smooth_data=self.n_high_z.clip(min=0.0),
                 orig_bolometry_data=self.diagnostics["bolo"]["kb5v"],
-                bolometry_obj=self.bolo_derivation,
+                bolometry_obj=deepcopy(self.bolo_derivation),
                 impurity_element=self.high_z,
                 asymmetry_modifier=self.additional_data["calculate_n_high_z"][
                     "extrapolator"
