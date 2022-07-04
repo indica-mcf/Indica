@@ -317,19 +317,19 @@ class BaseWorkflow:
         self._extra_zeff_element_concentration.data = data
 
     @property
-    def sxr_calibration_factor(self) -> DataArray:
+    def sxr_calibration_factor(self) -> float:
         return self._sxr_calibration_factor.data
 
     @sxr_calibration_factor.setter
-    def sxr_calibration_factor(self, data: DataArray) -> None:
+    def sxr_calibration_factor(self, data: float) -> None:
         self._sxr_calibration_factor.data = data
 
     @property
-    def sxr_rescale_factor(self) -> DataArray:
+    def sxr_rescale_factor(self) -> float:
         return self._sxr_rescale_factor.data
 
     @sxr_rescale_factor.setter
-    def sxr_rescale_factor(self, data: DataArray) -> None:
+    def sxr_rescale_factor(self, data: float) -> None:
         self._sxr_rescale_factor.data = data
 
     @property
