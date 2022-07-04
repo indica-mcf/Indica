@@ -16,7 +16,7 @@ from indica.operators.atomic_data import FractionalAbundance
 from indica.readers import ADASReader
 
 
-def diel_calc(atomic_data, Te, label:str="he"):
+def diel_calc(atomic_data, Te, label: str = "he"):
     """
     Calculates intensity of dielectronic recombination
 
@@ -94,7 +94,7 @@ class CrystalSpectrometer:
     def __init__(self,
                  window: np.typing.ArrayLike = np.linspace(.394, .401, 1000),
                  int_cal: float = 1e-30,
-                 ADASReader = ADASReader
+                 ADASReader=ADASReader
                  # etendue / instrument function / geometry
                  # atomic data / build_database
                  ):
@@ -121,7 +121,7 @@ class CrystalSpectrometer:
 
         Input is the Te vector for dielectronic recombination data
         """
-        head = "./../Data_Argon/"
+        head = "/data/st40/atomic_data/helike_crystal/Marchuk_data/"
 
         lines_main = ["W", "X", "Y", "Z"]
         lines_ise = ["q", "r", "s", "t", "u", "v", "w"]
