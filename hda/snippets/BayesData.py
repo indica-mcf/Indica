@@ -17,8 +17,8 @@ import json as json
 import pickle
 from copy import deepcopy
 
-def char_disp(x, plot=False):
-    # pulse = 9747
+
+def char_disp(x, plot: bool = False):
     pulse = 10009
     tstart = 0.02
     tend = 0.03
@@ -41,15 +41,16 @@ def char_disp(x, plot=False):
     c_curve, res, _, _, _ = np.polyfit(pixels, wavelength, 2, full=True)
     p = np.poly1d(c_curve)
     if plot:
-        plt.title(f"chi squared: {res/(len(wavelength)-3)}")
+        plt.title(f"chi squared: {res / (len(wavelength) - 3)}")
         plt.plot(p(x), x, label="fit")
         plt.plot(wavelength, pixels, "x", label="peaks")
-        plt.plot(d_curve, np.arange(1,1031), label="original")
+        plt.plot(d_curve, np.arange(1, 1031), label="original")
         plt.xlabel("wavelength (nm)")
         plt.ylabel("pixel")
         plt.legend()
         plt.show()
     return p(x)
+
 
 def gaussian(x, mean, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
@@ -64,10 +65,10 @@ class BayesData:
 
     def __init__(self,
                  profiler=Profiles,
-                 coords=None,
-                 plasma={},
-                 sigmas={},
-                 bounds={},
+                 coords: xr.DataArray = None,
+                 plasma: dict = {},
+                 sigmas: dict = {},
+                 bounds: dict = {},
                  ):
         self.profiler = profiler
         self.plasma = plasma
@@ -92,7 +93,7 @@ class BayesData:
         self.accepted = []  # accepted parameters
         self.rejected = []  # rejected parameters
 
-    def build_profile(self, params):
+    def build_profile(self, params: dict):
         profile = self.profiler(xspl=self.coords)
         profile.y0 = params["y0"]
         profile.wcenter = params["wc"]
@@ -102,7 +103,7 @@ class BayesData:
         profile.build_profile()
         return profile.yspl
 
-    def update_profiles(self, plasma):
+    def update_profiles(self, plasma: dict):
         profiles = dict()
         for key in plasma.keys():  # paths to changed params
             if key != "nuisance":
@@ -110,7 +111,7 @@ class BayesData:
         # profiles["NAr"] = profiles["Ne"]  # temp hack
         return profiles
 
-    def transition_model(self, plasma, sigmas, bounds):
+    def transition_model(self, plasma: dict, sigmas: dict, bounds: dict):
         plasma = json.loads(json.dumps(plasma))  # makes copy so original is unaffected
         for prof_key, sigma_dict in sigmas.items():
             for param_key, trans_func in sigma_dict.items():
@@ -121,7 +122,7 @@ class BayesData:
         return plasma
 
 
-def acceptance(likelihood_current, likelihood_new):
+def acceptance(likelihood_current: float, likelihood_new: float):
     if likelihood_new > likelihood_current:
         return True
     else:
@@ -130,7 +131,7 @@ def acceptance(likelihood_current, likelihood_new):
     return accept < (np.exp(likelihood_new - likelihood_current))
 
 
-def metropolis_hastings(BayesClass, Model, iterations=10, verbose=True):
+def metropolis_hastings(BayesClass, Model, iterations: float = 10, verbose: bool = True):
     """
     TODO: change parameter boundary to prior distribution
     Parameters
@@ -192,20 +193,21 @@ class CrystalModel:
     """
 
     def __init__(self,
-                 settings={"strahl": False, "plot": False},
-                 profiles={},
-                 params={},
-                 pulse=10014,
-                 tsample=0.06,
-                 tstart=0.02,
-                 tend=0.10,
+                 settings: dict = {"strahl": False, "plot": False},
+                 profiles: dict = {},
+                 params: dict = {},
+                 pulse: float = 10014,
+                 tsample: float = 0.06,
+                 tstart: float = 0.02,
+                 tend: float = 0.10,
                  ):
         self.settings = settings
         self.profiles = profiles
         self.params = params
-        self.spec, self.spectrum = self.get_data(pulse, tsample, tstart, tend)
 
-        # default profiles
+        self.spectrum = self.get_data(pulse, tsample, tstart, tend)
+        self.spectrometer = CrystalSpectrometer(window=self.spectrum.wavelength.values)
+
         xrcs = remap_xrcs(pulse, tstart, tend, plot=False)
         rho = xrcs["te_kw"].rho
         xspl = rho.sel(t=tsample, method="nearest")
@@ -229,7 +231,7 @@ class CrystalModel:
         self.bg_mean = self.bg_data.mean(dim="wavelength")
         self.bg_std = self.bg_data.std()
 
-    def get_data(self, pulse, tsample, tstart, tend):
+    def get_data(self, pulse: float, tsample: float, tstart: float, tend: float):
         reader = ST40Reader(pulse, tstart, tend)
         spectra, dims = reader._get_data("sxr", "xrcs", ":intensity", 0)
 
@@ -241,19 +243,19 @@ class CrystalModel:
         result = xr.DataArray(data=crude_spectra, coords=(crude_time, adjusted_wavelength), dims=["t", "wavelength"])
         spectrum = result.sel(t=tsample, method="nearest")
         spectrum = spectrum.assign_coords(wavelength=(spectrum.wavelength * 0.1))
-        spec = CrystalSpectrometer(window=spectrum.wavelength.values)
+        return spectrum
 
-        return spec, spectrum
-
-    def likelihood(self, profiles, params):
+    def likelihood(self, profiles: dict, params: dict):
 
         """
         Parameters
         ----------
+        params
+            input parameters
         profiles
-            dictionary of kinetic profiles
+            kinetic profiles
         settings
-            dictionary of options for running model
+            options for running model
 
         Returns
         -------
@@ -265,7 +267,7 @@ class CrystalModel:
         if self.settings["strahl"]:
             interp_fz = self.fz.interp(el_temp=profiles["Te"], kwargs={"fill_value": "extrapolate"})
         else:
-            interp_fz = self.spec.fract_abu["ar"](profiles["Ne"], profiles["Te"], profiles["Nh"], tau=None)
+            interp_fz = self.spectrometer.fract_abu["ar"](profiles["Ne"], profiles["Te"], profiles["Nh"], tau=None)
 
         int_scaling = params["nuisance"]["int_scaling"]
         bg_scaling = params["nuisance"]["bg_scaling"]
@@ -273,30 +275,31 @@ class CrystalModel:
         # Interpolate to the xrcs_los coordinate
         interp_fz = interp_fz.interp(rho_poloidal=self.xspl)
         interp_prof = {}
-        for key in profiles:
-            interp_prof[key] = profiles[key].interp(rho_poloidal=self.xspl)
+        for prof_key in profiles:
+            interp_prof[prof_key] = profiles[prof_key].interp(rho_poloidal=self.xspl)
 
-        self.spec.intensity = self.spec.make_intensity(self.spec.database, el_temp=interp_prof["Te"],
-                                                       el_dens=interp_prof["Ne"],
-                                                       fract_abu=interp_fz, Ar_dens=interp_prof["NAr"],
-                                                       H_dens=interp_prof["Nh"], int_cal=1e-28)
-        self.spec.spectra = self.spec.make_spectra(self.spec.intensity, interp_prof["Ti"], background=0)
+        self.spectrometer.intensity = self.spectrometer.make_intensity(self.spectrometer.database,
+                                                                       el_temp=interp_prof["Te"],
+                                                                       el_dens=interp_prof["Ne"],
+                                                                       fract_abu=interp_fz, Ar_dens=interp_prof["NAr"],
+                                                                       H_dens=interp_prof["Nh"], int_cal=1e-28)
+        self.spectrometer.spectra = self.spectrometer.make_spectra(self.spectrometer.intensity, interp_prof["Ti"],
+                                                                   background=0)
 
-        emis = self.spec.spectra["total"].sum(["wavelength"])
-        integral = self.spec.spectra["total"].sum(["xrcs_los_position"])
+        emis = self.spectrometer.spectra["total"].sum(["wavelength"])
+        integral = self.spectrometer.spectra["total"].sum(["xrcs_los_position"])
         integral_norm = integral / integral.max()
-        intensity = (self.spline.max() * int_scaling - bg_scaling * self.bg_mean) * integral_norm / integral_norm.max() + bg_scaling * self.bg_mean
+        intensity = (self.spline.max() * int_scaling - bg_scaling * self.bg_mean) \
+                    * integral_norm / integral_norm.max() + bg_scaling * self.bg_mean
 
         data_slice = self.spectrum.sel(wavelength=self.wavelength_ranges["wn3_range"])
         model_slice = intensity.sel(wavelength=self.wavelength_ranges["wn3_range"])
         weights = np.sqrt(self.spectrum) + self.bg_std
 
         likelihood = np.sum(np.log(gaussian(model_slice, data_slice, weights))).values[()]
-        # print(likelihood)
+
         if self.settings["plot"]:
             # emis.plot()
-            # interp_prof["Ti"].plot()
-
             plt.figure()
             model_slice.plot()
             data_slice.plot()
@@ -349,7 +352,7 @@ if __name__ == "__main__":
 
                    },
                    sigmas={
-                        "Ti": {"y0": lambda x: np.random.normal(x, 1e2),
+                       "Ti": {"y0": lambda x: np.random.normal(x, 1e2),
                               "peak": lambda x: np.random.normal(x, 0.2),
                               "wc": lambda x: np.random.normal(x, 0.01),
                               },
@@ -361,11 +364,11 @@ if __name__ == "__main__":
                            # "y0": lambda x: np.random.normal(x, 1e18),
                            "peak": lambda x: np.random.normal(x, 0.1),
                            "wc": lambda x: np.random.normal(x, 0.025),
-                            },
+                       },
                        "nuisance": {
-                                    "int_scaling": lambda x: np.random.normal(x, 0.01),
-                                    "bg_scaling": lambda x: np.random.normal(x, 0.01),
-                                    },
+                           "int_scaling": lambda x: np.random.normal(x, 0.01),
+                           "bg_scaling": lambda x: np.random.normal(x, 0.01),
+                       },
                    },
                    bounds={
                        "Ti": {"y0": np.array([9.5e3, 10.1e3]),
@@ -385,7 +388,6 @@ if __name__ == "__main__":
                                     },
                    }, )
 
-
     model = CrystalModel(pulse=pulse,
                          tsample=tsample,
                          tstart=tstart,
@@ -401,7 +403,7 @@ if __name__ == "__main__":
     df = pd.json_normalize(mh.accepted)
     df_hist = df.loc[:, ["Ti.y0", "Ti.peak", "Ti.wc", "Te.y0", "Te.peak", "Te.wc",
                          "Ne.wc", "Ne.peak", "nuisance.int_scaling", "nuisance.bg_scaling"]]
-    df_hist.hist(bins=20, figsize=(4,6))
+    df_hist.hist(bins=20, figsize=(4, 6))
 
     #  plot model output
     profile_array = {}
