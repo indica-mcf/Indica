@@ -234,7 +234,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                ).indica.inclusive_timeslice(self._tstart, self._tend),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -242,7 +242,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -377,9 +377,9 @@ class DataReader(BaseIO):
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
         # TODO: why use ffill as method??? Temporarily removed...
-        texp = DataArray(database_results["texp"], coords=[("t", times)]).sel(
-            t=slice(self._tstart, self._tend)
-        )
+        texp = DataArray(
+            database_results["texp"], coords=[("t", times)]
+        ).indica.inclusive_timeslice(self._tstart, self._tend)
         if downsample_ratio > 1:
             # Seems to be some sort of bug setting the coordinate when
             # coarsening a 1-D array
@@ -405,7 +405,7 @@ class DataReader(BaseIO):
                 "transform": transform,
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                ).indica.inclusive_timeslice(self._tstart, self._tend),
                 "exposure_time": texp,
             }
             quant_data = DataArray(
@@ -413,7 +413,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -618,7 +618,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
 
             if len(times) != len(times_unique):
                 print(
@@ -769,7 +769,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                ).indica.inclusive_timeslice(self._tstart, self._tend),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -777,7 +777,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -927,8 +927,11 @@ class DataReader(BaseIO):
             ]
             meta = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(database_results[quantity + "_error"], coords).sel(
-                    t=slice(self._tstart, self._tend),
+                "error": DataArray(
+                    database_results[quantity + "_error"], coords
+                ).indica.inclusive_timeslice(
+                    self._tstart,
+                    self._tend,
                 ),
                 "transform": transform,
             }
@@ -936,7 +939,7 @@ class DataReader(BaseIO):
                 database_results[quantity],
                 coords,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1097,7 +1100,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                ).indica.inclusive_timeslice(self._tstart, self._tend),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -1105,7 +1108,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1290,13 +1293,13 @@ class DataReader(BaseIO):
             if quantity_error in database_results.keys():
                 meta["error"] = DataArray(
                     database_results[quantity_error], coords, dims
-                ).sel(t=slice(self._tstart, self._tend))
+                ).indica.inclusive_timeslice(self._tstart, self._tend)
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1450,7 +1453,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                ).indica.inclusive_timeslice(self._tstart, self._tend),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -1458,7 +1461,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1616,7 +1619,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                ).indica.inclusive_timeslice(self._tstart, self._tend),
                 "transform": transform,
             }
 
@@ -1625,7 +1628,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1762,7 +1765,7 @@ class DataReader(BaseIO):
     #         np.array(rhot_rhop),
     #         {"t": database_results["times"], "rho_poloidal": rhop_interp},
     #         dims=["t", "rho_poloidal"],
-    #     ).sel(t=slice(self._tstart, self._tend))
+    #     ).indica.inclusive_timeslice(self._tstart, self._tend)
     #
     #     radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
     #
@@ -1798,7 +1801,7 @@ class DataReader(BaseIO):
     #             coords,
     #             dims,
     #             attrs=meta,
-    #         ).sel(t=slice(self._tstart, self._tend))
+    #         ).indica.inclusive_timeslice(self._tstart, self._tend)
     #
     #         # TODO: careful with interpolation on new rho_poloidal array...
     #         # Interpolate ASTRA profiles on new rhop_interp array
