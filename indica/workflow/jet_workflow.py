@@ -60,7 +60,9 @@ class JetWorkflow(BaseWorkflow):
                 if "jetdata" in getfqdn().lower()
                 else "https://sal.jet.uk",
                 selector=ignore_channels_from_dict(
-                    ignore_dict=self.input.get("ignore_channels", {})
+                    ignore_dict=self.input.get("ignore_channels", {}),
+                    ignore_bad_channels=True,
+                    use_cached_ignore=False,
                 ),
             )
         except ConnectionError as e:
@@ -175,15 +177,15 @@ class JetWorkflow(BaseWorkflow):
 
         adas = ADASReader("/home/elitherl/Analysis/SXR/indica/sxr_filtered_adf11/")
         self.SXRPLT = {
-            element: adas.get_adf11("plsx", element, year)
+            element: adas.get_adf11("pls", element, year)
             for element, year in zip(impurities, ["5"] * len(impurities))
         }
-        self.SXRPLT[self.main_ion] = adas.get_adf11("plsx", "h", "5")
+        self.SXRPLT[self.main_ion] = adas.get_adf11("pls", "h", "5")
         self.SXRPRB = {
-            element: adas.get_adf11("prsx", element, year)
+            element: adas.get_adf11("prs", element, year)
             for element, year in zip(impurities, ["5"] * len(impurities))
         }
-        self.SXRPRB[self.main_ion] = adas.get_adf11("prsx", "h", "5")
+        self.SXRPRB[self.main_ion] = adas.get_adf11("prs", "h", "5")
         self.SXRPL = {
             element: PowerLoss(
                 PLT=self.SXRPLT.get(element), PRB=self.SXRPRB.get(element)
