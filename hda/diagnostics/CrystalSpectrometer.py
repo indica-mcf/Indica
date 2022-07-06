@@ -32,6 +32,7 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
         electron temperature (eV)
     label
         "he" for helium like collision or "li" for lithium like inner collision
+
     Returns
     -------
     Intensity along Te vector
@@ -49,11 +50,9 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
         Esli = 1 / (atomic_data[:, 0] * 1e-8) - atomic_data[:, 1]
         # Difference between energy levels
         Es = Esli * percmtoeV / Ry
-    else:
-        return None
+
     intensity = (1 / g0) * ((4 * np.pi ** (3 / 2) * a0 ** 3) / Te[:, None] ** (3 / 2)) * F2[None,] * np.exp(
         -(Es[None,] / Te[:, None]))
-
     return intensity
 
 
@@ -431,7 +430,7 @@ class CrystalSpectrometer:
 
         # self.database_offset = self.wavelength_offset(self.database, offset=1e-5)
 
-        self.intensity = self.make_intensity(self.database_offset, el_temp=Te, el_dens=Ne, fract_abu=fz, Ar_dens=NAr,
+        self.intensity = self.make_intensity(self.database, el_temp=Te, el_dens=Ne, fract_abu=fz, Ar_dens=NAr,
                                              H_dens=Nh, int_cal=int_cal)
         self.spectra = self.make_spectra(self.intensity, Ti, background)
         self.plot_spectrum(self.spectra)
