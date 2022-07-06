@@ -170,12 +170,20 @@ def use_cached_ignore_channels(
     return list(unselected_channels)
 
 
-def ignore_channels_from_dict(ignore_dict: Dict[str, List[Number]]) -> Callable:
+def ignore_channels_from_dict(
+    ignore_dict: Dict[str, List[Number]],
+    ignore_bad_channels: bool = False,
+    use_cached_ignore: bool = False,
+) -> Callable:
     """
     Ignore channels from dictionary of {instrument: list of channel} pairs
 
     :param ignore_dict: Dictionary of channels to ignore per instrument
                         Use keys of {instrument}_{quantity}
+    :param ignore_bad_channels: If True, combine ignored channel list with known
+                                bad channels for specific instrument/quantity
+    :param use_cached_ignore: If True, combine ignored channel list with previously
+                              ignored channels saved in reader cache file
     :return: Channel selection function to pass to reader
     """
 
@@ -185,9 +193,30 @@ def ignore_channels_from_dict(ignore_dict: Dict[str, List[Number]]) -> Callable:
         bad_channels: Collection[Number],
         unselected_channels: Iterable[Number] = [],
     ) -> Iterable[Number]:
-        return ignore_dict.get(str(data.name), [])
+        ignore_channels = ignore_dict.get(str(data.name), [])
+        return sorted(
+            set(
+                [
+                    *ignore_channels,
+                    *(bad_channels if ignore_bad_channels is True else []),
+                    *(unselected_channels if use_cached_ignore is True else []),
+                ]
+            )
+        )
 
     return ignore_channels
+
+
+def ignore_bad_channels(
+    data: DataArray,
+    channel_dim: str,
+    bad_channels: Collection[Number],
+    unselected_channels: Iterable[Number] = [],
+) -> Iterable[Number]:
+    """
+    Return known bad channels as ignored channels with no other modification/input
+    """
+    return sorted(set([*bad_channels, *unselected_channels]))
 
 
 def ignore_channels_from_file(filename: str) -> Callable:
