@@ -12,6 +12,8 @@ from typing import Optional
 
 from matplotlib.backend_bases import PickEvent
 from matplotlib.collections import PathCollection
+from matplotlib.legend_handler import HandlerPatch
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from xarray import DataArray
 
@@ -93,12 +95,17 @@ def choose_on_plot(
 
     channels_to_drop = list(unselected_channels)
 
+    unignored_bad_colour = "r"
+    ignored_colour = "#ADADAD"
+    included_colour = "b"
+
     # Get colour array
     original_colours = [
-        "r" if label in bad_channels else "b" for label in data.coords[channel_dim]
+        unignored_bad_colour if label in bad_channels else included_colour
+        for label in data.coords[channel_dim]
     ]
     colours = [
-        c if label not in channels_to_drop else "#ADADAD"
+        c if label not in channels_to_drop else ignored_colour
         for c, label in zip(original_colours, data.coords[channel_dim])
     ]
 
@@ -147,6 +154,35 @@ def choose_on_plot(
                     picker=True,
                 )
             )
+
+    # Handler for legend patches
+    class HandlerCircle(HandlerPatch):
+        def create_artists(
+            self,
+            legend,
+            orig_handle,
+            xdescent,
+            ydescent,
+            width,
+            height,
+            fontsize,
+            trans,
+        ):
+            center = 0.5 * width - 0.5 * xdescent, 0.5 * height - 0.5 * ydescent
+            p = mpatches.Circle(xy=center, radius=height / 2)
+            self.update_prop(p, orig_handle, legend)
+            p.set_transform(trans)
+            return [p]
+
+    unignored_patch = mpatches.Circle((0, 0), color=unignored_bad_colour)
+    ignored_patch = mpatches.Circle((0, 0), color=ignored_colour)
+    included_patch = mpatches.Circle((0, 0), color=included_colour)
+    legend_labels = ["Included channels", "Included bad channels", "Ignored channels"]
+    plt.legend(
+        [included_patch, unignored_patch, ignored_patch],
+        legend_labels,
+        handler_map={mpatches.Circle: HandlerCircle()},
+    )
 
     p = PickStack(plots, on_pick)
     plt.xlabel(channel_dim)
