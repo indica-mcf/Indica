@@ -26,9 +26,9 @@ from hypothesis.strategies import tuples
 import numpy as np
 from pytest import mark
 
+from indica.readers.selectors import ignore_channels_from_cache
 from indica.readers.selectors import ignore_channels_from_dict
 from indica.readers.selectors import ignore_channels_from_file
-from indica.readers.selectors import use_cached_ignore_channels
 from .mock_reader import ConcreteReader
 
 
@@ -202,7 +202,7 @@ def test_use_cached_ignore_channels(
 ):
     bad_channels, intrinsic_bad_channels = channel_args
     data = MagicMock()
-    selector = use_cached_ignore_channels
+    selector = ignore_channels_from_cache
     data.coords[dim].dtype = (
         type(bad_channels[0])
         if len(bad_channels) > 0

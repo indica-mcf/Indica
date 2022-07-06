@@ -158,7 +158,7 @@ def choose_on_plot(
     return channels_to_drop
 
 
-def use_cached_ignore_channels(
+def ignore_channels_from_cache(
     data: DataArray,
     channel_dim: str,
     bad_channels: Collection[Number],
