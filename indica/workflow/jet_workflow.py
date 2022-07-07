@@ -71,7 +71,14 @@ class JetWorkflow(BaseWorkflow):
         self.authenticate_reader()
         self.additional_data: Dict[str, Any] = {}
 
-    def __call__(self, setup_only: bool = False, n_loops: int = 3, *args, **kwargs):
+    def __call__(
+        self,
+        setup_only: bool = False,
+        n_loops: int = 3,
+        optimise: bool = True,
+        *args,
+        **kwargs,
+    ):
         super().__call__(*args, **kwargs)
         if setup_only is True:
             return
@@ -90,7 +97,6 @@ class JetWorkflow(BaseWorkflow):
         # Set initial densities to 0, using coords from sxr_emissivity
         self.initialise_default_values()
         output: Dict[str, List[DataArray]] = {key: [] for key in attrs_to_save}
-        old_rescale_factor = 0.0
         for i in range(n_loops):
             # Calculate initial high-z element density and extrapolate
             print(template.format("calculate_n_high_z"))
@@ -99,20 +105,25 @@ class JetWorkflow(BaseWorkflow):
             self.extrapolate_n_high_z()
             print(template.format("calculate_sxr_rescale_factor"))
             self.calculate_sxr_rescale_factor()
-            continue_optimise: bool = True
-            while continue_optimise:
+            print(template.format("rescale_n_high_z"))
+            self.rescale_n_high_z()
+            while optimise:
                 old_rescale_factor = deepcopy(self.sxr_rescale_factor)
-                print(template.format("rescale_n_high_z"))
-                self.rescale_n_high_z()
+                print(template.format("extrapolate_n_high_z"))
+                self.extrapolate_n_high_z()
                 print(template.format("optimise_n_high_z"))
                 self.n_high_z = self.optimise_n_high_z()
                 print(template.format("calculate_sxr_rescale_factor"))
                 self.calculate_sxr_rescale_factor()
+                print(template.format("rescale_n_high_z"))
+                self.rescale_n_high_z()
                 frac_diff = np.abs(
                     (self.sxr_rescale_factor - old_rescale_factor)
                     / self.sxr_rescale_factor
                 )
-                continue_optimise = frac_diff > 0.1
+                optimise = (
+                    frac_diff > 0.1 and np.abs(1 - self.sxr_rescale_factor) > 0.01
+                )
                 print(
                     template.format(
                         "{}\n\t{}, {}, {}, {}".format(
@@ -120,7 +131,7 @@ class JetWorkflow(BaseWorkflow):
                             self.sxr_rescale_factor,
                             old_rescale_factor,
                             frac_diff,
-                            continue_optimise,
+                            optimise,
                         )
                     )
                 )

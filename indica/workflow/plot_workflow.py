@@ -1,6 +1,7 @@
 from typing import Union
 
 from matplotlib import pyplot as plt
+import numpy as np
 from xarray import DataArray
 
 from .base_workflow import BaseWorkflow
@@ -41,7 +42,13 @@ class PlotWorkflow:
         ).sel({"t": time}, method="nearest").plot(x="R", ax=ax, *args, **kwargs)
         return fig, ax
 
-    def plot_midplane(self, time: Union[int, float] = None, *args, **kwargs):
+    def plot_midplane(
+        self,
+        threshold_rho: float = None,
+        time: Union[int, float] = None,
+        *args,
+        **kwargs
+    ):
         if time is None:
             time = self.default_time
         fig, ax = plt.subplots()
@@ -53,6 +60,15 @@ class PlotWorkflow:
         ).plot.line(
             x="R", ax=ax, *args, **kwargs
         )
+        if threshold_rho is not None:
+            threshold_R_outer, _ = self.workflow.sxr_emissivity.attrs[
+                "transform"
+            ].convert_to_Rz(threshold_rho, 0, self.workflow.t)
+            threshold_R_inner, _ = self.workflow.sxr_emissivity.attrs[
+                "transform"
+            ].convert_to_Rz(threshold_rho, np.pi, self.workflow.t)
+            ax.axvline(threshold_R_outer.sel({"t": time}, method="nearest"))
+            ax.axvline(threshold_R_inner.sel({"t": time}, method="nearest"))
         return fig, ax
 
     def plot_bolometry_emission(
