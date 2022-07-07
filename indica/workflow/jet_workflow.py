@@ -70,34 +70,44 @@ class JetWorkflow(BaseWorkflow):
         self.authenticate_reader()
         self.additional_data: Dict[str, Any] = {}
 
-    @property
-    def setup_steps(self) -> List[Tuple[str, Callable, str]]:
-        return [
-            ("Reading diagnostics", self.get_diagnostics, "diagnostics"),
-            (
-                "Spline fitting diagnostic profiles",
-                self.fit_diagnostic_profiles,
-                "toroidal_rotation",
-            ),
-            ("Inverting radiation", self.invert_sxr, "sxr_emissivity"),
-            ("Reading ADAS data", self.get_adas, "SXRPL"),
-            (
-                "Calculating FZT and power loss",
-                self.calculate_power_loss,
-                "q",
-            ),
-        ]
+    def __call__(self, setup_only: bool = False, *args, **kwargs):
+        super().__call__(*args, **kwargs)
+        if setup_only is True:
+            return
+        # Analysis steps
+        # Set initial densities to 0, using coords from sxr_emissivity
+        self.initialise_default_values()
+        output: Dict[int, Dict[str, DataArray]] = {}
+        for i in range(3):
+            # Calculate initial high-z element density and extrapolate
+            self.calculate_n_high_z()
+            self.extrapolate_n_high_z()
+            for j in range(5):
+                self.sxr_rescale_factor = self._calculate_sxr_rescale_factor()
+                self.rescale_n_high_z()
+                print("optimise_n_high_z")
+                self.n_high_z = self.optimise_n_high_z()
+            output[i] = {
+                key: getattr(self, key, None)
+                for key in [
+                    "n_high_z",
+                    "n_zeff_el",
+                    "n_zeff_el_extra",
+                    "n_other_z",
+                    "n_main_ion",
+                    "derived_bolometry",
+                ]
+            }
+        return output
 
     @property
-    def analysis_steps(self) -> List[Tuple[str, Callable]]:
-        return [  # TODO needs rework
-            ("Calculating high-z density from SXR", self.calculate_n_high_z),
-            # ("Rescaling high-z density from bolometry", self.rescale_n_high_z),
-            # ("Smoothing and extrapolaing high-z density", self.extrapolate_n_high_z),
-            ("Calculating Zeff element density", self.calculate_n_zeff_el),
-            ("Deriving bolometry losses", self.derive_bolo_power_loss),
-            ("Optimising high-z density", self.optimise_n_high_z),
-            ("Calculating main ion density", self.calculate_n_main_ion),
+    def setup_steps(self) -> List[Tuple[Callable, str]]:
+        return [
+            (self.get_diagnostics, "diagnostics"),
+            (self.fit_diagnostic_profiles, "toroidal_rotation"),
+            (self.invert_sxr, "sxr_emissivity"),
+            (self.get_adas, "SXRPL"),
+            (self.calculate_power_loss, "q"),
         ]
 
     def clean_cache(self):
@@ -482,8 +492,7 @@ class JetWorkflow(BaseWorkflow):
             residual = derived_emissivity.data - bolo_diag_array.data.T
             return np.nansum(np.square(residual))
 
-        if not hasattr(self, "bolo_derivation"):
-            return 1.0
+        self.calculate_derived_bolometry()
         fit = least_squares(
             obj_func,
             1,
@@ -530,7 +539,7 @@ class JetWorkflow(BaseWorkflow):
         )
 
     def _calculate_n_other_z(self) -> DataArray:
-        return xr.zeros_like(self.sxr_emissivity)
+        return xr.zeros_like(self.sxr_emissivity)  # TODO
 
     def _calculate_n_main_ion(self) -> DataArray:
         densities = xr.concat(
@@ -550,33 +559,38 @@ class JetWorkflow(BaseWorkflow):
             mean_charge=self.q.where(self.q.element != self.main_ion, drop=True),
         ).assign_attrs({"transform": self.flux_surface})
 
-    def derive_bolo_power_loss(self):
-        impurity_elements = [val for val in self.ion_species if val != self.main_ion]
+    def _calculate_derived_bolometry(self) -> DataArray:
+        if not hasattr(self, "bolo_derivation"):
+            impurity_elements = [
+                val for val in self.ion_species if val != self.main_ion
+            ]
 
-        self.bolo_derivation = BolometryDerivation(
-            flux_surfs=self.flux_surface,
-            LoS_bolometry_data=bolo_los(self.diagnostics["bolo"]["kb5v"]),
-            t_arr=self.t,
-            impurity_densities=self.ion_densities.where(
+            self.bolo_derivation = BolometryDerivation(
+                flux_surfs=self.flux_surface,
+                LoS_bolometry_data=bolo_los(self.diagnostics["bolo"]["kb5v"]),
+                t_arr=self.t,
+                impurity_densities=self.ion_densities.where(
+                    self.ion_densities >= 0, other=0.0
+                ),
+                frac_abunds=[self.fzt.get(element) for element in impurity_elements],
+                impurity_elements=impurity_elements,
+                electron_density=self.electron_density,
+                main_ion_power_loss=self.power_loss_charge_averaged.sel(
+                    element=self.main_ion
+                ),
+                impurities_power_loss=self.power_loss_charge_averaged.sel(
+                    {"element": self.ion_densities.coords["element"]}, drop=True
+                ),
+            )
+            self.bolo_derivation(trim=True)
+        else:
+            self.bolo_derivation.impurity_densities = self.ion_densities.where(
                 self.ion_densities >= 0, other=0.0
-            ),
-            frac_abunds=[self.fzt.get(element) for element in impurity_elements],
-            impurity_elements=impurity_elements,
-            electron_density=self.electron_density,
-            main_ion_power_loss=self.power_loss_charge_averaged.sel(
-                element=self.main_ion
-            ),
-            impurities_power_loss=self.power_loss_charge_averaged.sel(
-                {"element": self.ion_densities.coords["element"]}, drop=True
-            ),
-        )
-        self.bolo_derivation(trim=True)
+            )
+        return self.bolo_derivation(deriv_only=True, trim=False)
 
     def optimise_n_high_z(self):
-        if not hasattr(self, "bolo_derivation"):
-            raise UserWarning(
-                "derive_bolo_power_loss has not been run, required before optimising"
-            )
+        self.calculate_derived_bolometry()
         return (
             self.additional_data["calculate_n_high_z"]["extrapolator"]
             .optimize_perturbation(
@@ -590,5 +604,6 @@ class JetWorkflow(BaseWorkflow):
                     {"rho_poloidal": self.rho, "theta": self.theta}
                 ),
             )
+            .drop_vars("element", errors="ignore")
             .assign_attrs({"transform": self.flux_surface})
         )

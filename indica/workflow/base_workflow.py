@@ -157,16 +157,6 @@ class BaseWorkflow:
                 self._n_other_z,
             ],
         )
-        self._derived_bolometry = Observer(
-            operator=self._calculate_derived_bolometry,
-            depends_on=[
-                self._n_high_z,
-                self._n_zeff_el,
-                self._n_zeff_el_extra,
-                self._n_other_z,
-            ],
-        )
-
         self._ion_densities = Observer(
             operator=self._combine_ion_density_arrays,
             depends_on=[
@@ -177,27 +167,21 @@ class BaseWorkflow:
                 self._n_main_ion,
             ],
         )
-
-    def __call__(self, setup_only: bool = False, save_outputs: bool = False):
-        term_width = get_terminal_size(fallback=(80, 24)).columns - 1
-        step_template = (
-            "\n" + "*" * term_width + "\n" + "\t{}\n" + "*" * term_width + "\n"
+        self._derived_bolometry = Observer(
+            operator=self._calculate_derived_bolometry,
+            depends_on=[self._ion_densities],
         )
-        for step_name, step_method, key_attr in self.setup_steps:
+
+        self.setup_check: Dict[str, bool] = {}
+
+    def __call__(self, *args, **kwargs):
+        term_width = get_terminal_size(fallback=(80, 24)).columns - 1
+        template = "\n" + "*" * term_width + "\n" + "\t{}\n" + "*" * term_width + "\n"
+        for step_method, key_attr in self.setup_steps:
             if getattr(self, key_attr, None) is not None:
                 continue
-            print(step_template.format(step_name))
+            print(template.format("Call: {}".format(step_method.__name__)))
             step_method()
-            if save_outputs is True:
-                self.save(filename=self.cache_file, **self.__dict__)
-
-        if setup_only is False:
-            # TODO add some iterating and termination conditions here
-            for step_name, step_method in self.analysis_steps:
-                print(step_template.format(step_name))
-                step_method()
-                if save_outputs is True:
-                    self.save(filename=self.cache_file, **self.__dict__)
 
     def __str__(self) -> str:
         outp = ""
@@ -222,15 +206,9 @@ class BaseWorkflow:
         pass  # TODO
 
     @property
-    def setup_steps(self) -> List[Tuple[str, Callable, str]]:
+    def setup_steps(self) -> List[Tuple[Callable, str]]:
         raise NotImplementedError(
             f"{self.__class__} does not implemented setup_steps property"
-        )
-
-    @property
-    def analysis_steps(self) -> List[Tuple[str, Callable]]:
-        raise NotImplementedError(
-            f"{self.__class__} does not implemented analysis_steps property"
         )
 
     def _read_test_case(
@@ -399,7 +377,7 @@ class BaseWorkflow:
         )
 
     def calculate_n_high_z(self) -> DataArray:
-        # self._n_high_z.update()
+        print("calculate_n_high_z")
         self.n_high_z = self._calculate_n_high_z()
         return self.n_high_z
 
@@ -409,7 +387,7 @@ class BaseWorkflow:
         )
 
     def extrapolate_n_high_z(self) -> DataArray:
-        # self._n_high_z.update()
+        print("extrapolate_n_high_z")
         self.n_high_z = self._extrapolate_n_high_z()
         return self.n_high_z
 
@@ -419,7 +397,7 @@ class BaseWorkflow:
         )
 
     def rescale_n_high_z(self) -> DataArray:
-        # self._n_high_z.update()
+        print("rescale_n_high_z")
         self.n_high_z = self._rescale_n_high_z()
         return self.n_high_z
 
@@ -433,6 +411,7 @@ class BaseWorkflow:
         )
 
     def calculate_n_zeff_el(self) -> DataArray:
+        print("calculate_n_zeff_el")
         self._n_zeff_el.update()
         return self.n_zeff_el
 
@@ -446,6 +425,7 @@ class BaseWorkflow:
         )
 
     def calculate_n_zeff_el_extra(self) -> DataArray:
+        print("calculate_n_zeff_el_extra")
         self._n_zeff_el_extra.update()
         return self.n_zeff_el_extra
 
@@ -459,6 +439,7 @@ class BaseWorkflow:
         )
 
     def calculate_n_other_z(self) -> DataArray:
+        print("calculate_n_other_z")
         self._n_other_z.update()
         return self.n_other_z
 
@@ -472,6 +453,7 @@ class BaseWorkflow:
         )
 
     def calculate_n_main_ion(self) -> DataArray:
+        print("calculate_n_main_ion")
         self._n_main_ion.update()
         return self.n_main_ion
 
@@ -501,5 +483,6 @@ class BaseWorkflow:
         )
 
     def calculate_derived_bolometry(self) -> DataArray:
+        print("calculate_derived_bolometry")
         self._derived_bolometry.update()
         return self._derived_bolometry.data
