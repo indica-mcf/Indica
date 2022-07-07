@@ -5,6 +5,7 @@ from itertools import chain
 from itertools import repeat
 from itertools import tee
 from typing import cast
+from typing import Dict
 from typing import Hashable
 from typing import List
 from typing import Tuple
@@ -60,10 +61,8 @@ class Spline:
     ):
         self.dim = dim
         self.spline_dims = tuple(d for d in values.dims if d != dim)
-        self.spline_coords = {
-            k: np.asarray(v, dtype=float)
-            for k, v in values.coords.items()
-            if k != self.dim
+        self.spline_coords: Dict[Hashable, np.ndarray] = {
+            k: np.asarray(v) for k, v in values.coords.items() if k != self.dim
         }
         transpose_order = (self.dim,) + self.spline_dims
         self.spline = CubicSpline(
