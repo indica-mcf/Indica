@@ -304,6 +304,16 @@ class BaseWorkflow:
     def sxr_calibration_factor(self, data: float) -> None:
         self._sxr_calibration_factor.data = data
 
+    def _calculate_sxr_calibration_factor(self) -> float:
+        raise NotImplementedError(
+            f"{self.__class__} does not implement _calculate_sxr_calibration_factor"
+            " method"
+        )
+
+    def calculate_sxr_calibration_factor(self) -> float:
+        self.sxr_calibration_factor = self._calculate_sxr_calibration_factor()
+        return self.sxr_calibration_factor
+
     @property
     def sxr_rescale_factor(self) -> float:
         return self._sxr_rescale_factor.data
@@ -311,6 +321,15 @@ class BaseWorkflow:
     @sxr_rescale_factor.setter
     def sxr_rescale_factor(self, data: float) -> None:
         self._sxr_rescale_factor.data = data
+
+    def _calculate_sxr_rescale_factor(self) -> float:
+        raise NotImplementedError(
+            f"{self.__class__} does not implement _calculate_sxr_rescale_factor method"
+        )
+
+    def calculate_sxr_rescale_factor(self) -> float:
+        self.sxr_rescale_factor = self._calculate_sxr_rescale_factor()
+        return self.sxr_rescale_factor
 
     @property
     def power_loss_charge_averaged(self) -> DataArray:

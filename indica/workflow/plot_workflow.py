@@ -1,6 +1,7 @@
 from typing import Union
 
 from matplotlib import pyplot as plt
+from xarray import DataArray
 
 from .base_workflow import BaseWorkflow
 
@@ -26,6 +27,8 @@ class PlotWorkflow:
         self.rho_deriv, self.theta_deriv = self.workflow.sxr_emissivity.attrs[
             "transform"
         ].convert_from_Rz(self.workflow.R, self.workflow.z, self.workflow.t)
+        self.rmag = self.workflow.sxr_emissivity.attrs["transform"].equilibrium.rmag
+        self.zmag = self.workflow.sxr_emissivity.attrs["transform"].equilibrium.zmag
 
     def plot_density_2D(
         self, element: str, time: Union[int, float] = None, *args, **kwargs
@@ -44,6 +47,30 @@ class PlotWorkflow:
         fig, ax = plt.subplots()
         self.workflow.ion_densities.interp(
             {"rho_poloidal": self.rho_deriv, "theta": self.theta_deriv}
-        ).sel({"t": time, "z": 0.3}, method="nearest").plot.line(
+        ).sel(
+            {"t": time, "z": self.zmag.sel({"t": time}, method="nearest")},
+            method="nearest",
+        ).plot.line(
             x="R", ax=ax, *args, **kwargs
         )
+        return fig, ax
+
+    def plot_bolometry_emission(
+        self,
+        bolometry_diagnostic: DataArray,
+        time: Union[int, float] = None,
+        *args,
+        **kwargs
+    ):
+        kwargs.pop("label", None)
+        if time is None:
+            time = self.default_time
+        fig, ax = plt.subplots()
+        bolometry_diagnostic.sel({"t": time}, method="nearest").plot(
+            ax=ax, label="Bolometry diagnostic", *args, **kwargs
+        )
+        self.workflow.derived_bolometry.sel({"t": time}, method="nearest").plot(
+            ax=ax, label="Derived bolometry", *args, **kwargs
+        )
+        ax.legend()
+        return fig, ax

@@ -83,10 +83,11 @@ class JetWorkflow(BaseWorkflow):
             self.calculate_n_high_z()
             self.extrapolate_n_high_z()
             for j in range(5):
-                self.sxr_rescale_factor = self._calculate_sxr_rescale_factor()
+                self.calculate_sxr_rescale_factor()
                 self.rescale_n_high_z()
                 print("optimise_n_high_z")
                 self.n_high_z = self.optimise_n_high_z()
+            self.calculate_sxr_calibration_factor()
             output[i] = {
                 key: getattr(self, key, None)
                 for key in [
@@ -389,10 +390,6 @@ class JetWorkflow(BaseWorkflow):
         self._n_main_ion._data = xr.zeros_like(self.electron_density).expand_dims(
             {"theta": self.theta}
         )
-
-    def calculate_n_high_z_factors(self):
-        self.sxr_calibration_factor = self._calculate_sxr_calibration_factor()
-        self.sxr_rescale_factor = self._calculate_sxr_rescale_factor()
 
     def _calculate_n_high_z(self) -> DataArray:
         other_densities = xr.concat(
