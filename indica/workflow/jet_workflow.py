@@ -36,8 +36,9 @@ from indica.readers import ADASReader
 from indica.readers import PPFReader
 from indica.readers.selectors import ignore_channels_from_dict
 from indica.utilities import to_filename
-from indica.workflow.base_workflow import BaseWorkflow
-from indica.workflow.workflow_utilities import bolo_los
+from .base_workflow import BaseWorkflow
+from .workflow_utilities import bolo_los
+from .workflow_utilities import print_step_template
 
 
 class JetWorkflow(BaseWorkflow):
@@ -70,36 +71,75 @@ class JetWorkflow(BaseWorkflow):
         self.authenticate_reader()
         self.additional_data: Dict[str, Any] = {}
 
-    def __call__(self, setup_only: bool = False, *args, **kwargs):
+    def __call__(self, setup_only: bool = False, n_loops: int = 3, *args, **kwargs):
         super().__call__(*args, **kwargs)
         if setup_only is True:
             return
+        attrs_to_save = [
+            "n_high_z",
+            "n_zeff_el",
+            "n_zeff_el_extra",
+            "n_other_z",
+            "n_main_ion",
+            "derived_bolometry",
+            "sxr_rescale_factor",
+            "sxr_calibration_factor",
+        ]
+        template = print_step_template(fallback_size=(80, 24))
         # Analysis steps
         # Set initial densities to 0, using coords from sxr_emissivity
         self.initialise_default_values()
-        output: Dict[int, Dict[str, DataArray]] = {}
-        for i in range(3):
+        output: Dict[str, List[DataArray]] = {key: [] for key in attrs_to_save}
+        old_rescale_factor = 0.0
+        for i in range(n_loops):
             # Calculate initial high-z element density and extrapolate
+            print(template.format("calculate_n_high_z"))
             self.calculate_n_high_z()
+            print(template.format("extrapolate_n_high_z"))
             self.extrapolate_n_high_z()
-            for j in range(5):
-                self.calculate_sxr_rescale_factor()
+            print(template.format("calculate_sxr_rescale_factor"))
+            self.calculate_sxr_rescale_factor()
+            continue_optimise: bool = True
+            while continue_optimise:
+                old_rescale_factor = deepcopy(self.sxr_rescale_factor)
+                print(template.format("rescale_n_high_z"))
                 self.rescale_n_high_z()
-                print("optimise_n_high_z")
+                print(template.format("optimise_n_high_z"))
                 self.n_high_z = self.optimise_n_high_z()
+                print(template.format("calculate_sxr_rescale_factor"))
+                self.calculate_sxr_rescale_factor()
+                frac_diff = np.abs(
+                    (self.sxr_rescale_factor - old_rescale_factor)
+                    / self.sxr_rescale_factor
+                )
+                continue_optimise = frac_diff > 0.1
+                print(
+                    template.format(
+                        "{}\n\t{}, {}, {}, {}".format(
+                            "Rescale factor comparison",
+                            self.sxr_rescale_factor,
+                            old_rescale_factor,
+                            frac_diff,
+                            continue_optimise,
+                        )
+                    )
+                )
+            print(template.format("calculate_sxr_calibration_factor"))
             self.calculate_sxr_calibration_factor()
-            output[i] = {
-                key: getattr(self, key, None)
-                for key in [
-                    "n_high_z",
-                    "n_zeff_el",
-                    "n_zeff_el_extra",
-                    "n_other_z",
-                    "n_main_ion",
-                    "derived_bolometry",
-                ]
+            for key in attrs_to_save:
+                output[key].append(getattr(self, key, None))
+        try:
+            return {
+                key: xr.concat(val, dim="run").assign_coords(
+                    {"run": np.array(range(n_loops)) + 1}
+                )
+                if isinstance(val, DataArray)
+                else val
+                for key, val in output.items()
             }
-        return output
+        except Exception as e:
+            print(e)
+            return output
 
     @property
     def setup_steps(self) -> List[Tuple[Callable, str]]:
@@ -380,6 +420,8 @@ class JetWorkflow(BaseWorkflow):
         )
 
     def initialise_default_values(self):
+        self.sxr_rescale_factor = 1.0
+        self.sxr_calibration_factor = 1.0
         self._n_zeff_el._data = xr.zeros_like(self.electron_density).expand_dims(
             {"theta": self.theta}
         )
@@ -590,7 +632,7 @@ class JetWorkflow(BaseWorkflow):
             )
         return self.bolo_derivation(deriv_only=True, trim=False)
 
-    def optimise_n_high_z(self):
+    def _optimise_n_high_z(self) -> DataArray:
         if self.additional_data.get("calculate_n_high_z", None) is None:
             raise UserWarning(
                 "extrapolate_n_high_z has not yet been run,"

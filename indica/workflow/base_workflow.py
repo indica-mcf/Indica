@@ -4,7 +4,6 @@ Run with specific data source (e.g. JET JPF/PPF data)
 """
 import json
 from pathlib import Path
-from shutil import get_terminal_size
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -19,8 +18,9 @@ from xarray import concat
 from xarray import DataArray
 
 from indica.utilities import coord_array
-from indica.workflow.observers import Observable
-from indica.workflow.observers import Observer
+from .observers import Observable
+from .observers import Observer
+from .workflow_utilities import print_step_template
 
 
 class BaseWorkflow:
@@ -175,12 +175,12 @@ class BaseWorkflow:
         self.setup_check: Dict[str, bool] = {}
 
     def __call__(self, *args, **kwargs):
-        term_width = get_terminal_size(fallback=(80, 24)).columns - 1
-        template = "\n" + "*" * term_width + "\n" + "\t{}\n" + "*" * term_width + "\n"
         for step_method, key_attr in self.setup_steps:
             if getattr(self, key_attr, None) is not None:
                 continue
-            print(template.format("Call: {}".format(step_method.__name__)))
+            print(
+                print_step_template(fallback_size=(80, 24)).format(step_method.__name__)
+            )
             step_method()
 
     def __str__(self) -> str:
@@ -396,7 +396,6 @@ class BaseWorkflow:
         )
 
     def calculate_n_high_z(self) -> DataArray:
-        print("calculate_n_high_z")
         self.n_high_z = self._calculate_n_high_z()
         return self.n_high_z
 
@@ -406,7 +405,6 @@ class BaseWorkflow:
         )
 
     def extrapolate_n_high_z(self) -> DataArray:
-        print("extrapolate_n_high_z")
         self.n_high_z = self._extrapolate_n_high_z()
         return self.n_high_z
 
@@ -416,8 +414,16 @@ class BaseWorkflow:
         )
 
     def rescale_n_high_z(self) -> DataArray:
-        print("rescale_n_high_z")
         self.n_high_z = self._rescale_n_high_z()
+        return self.n_high_z
+
+    def _optimise_n_high_z(self) -> DataArray:
+        raise NotImplementedError(
+            f"{self.__class__} does not implement _optimise_n_high_z method"
+        )
+
+    def optimise_n_high_z(self) -> DataArray:
+        self.n_high_z = self._optimise_n_high_z()
         return self.n_high_z
 
     @property
@@ -430,7 +436,6 @@ class BaseWorkflow:
         )
 
     def calculate_n_zeff_el(self) -> DataArray:
-        print("calculate_n_zeff_el")
         self._n_zeff_el.update()
         return self.n_zeff_el
 
@@ -444,7 +449,6 @@ class BaseWorkflow:
         )
 
     def calculate_n_zeff_el_extra(self) -> DataArray:
-        print("calculate_n_zeff_el_extra")
         self._n_zeff_el_extra.update()
         return self.n_zeff_el_extra
 
@@ -458,7 +462,6 @@ class BaseWorkflow:
         )
 
     def calculate_n_other_z(self) -> DataArray:
-        print("calculate_n_other_z")
         self._n_other_z.update()
         return self.n_other_z
 
@@ -472,7 +475,6 @@ class BaseWorkflow:
         )
 
     def calculate_n_main_ion(self) -> DataArray:
-        print("calculate_n_main_ion")
         self._n_main_ion.update()
         return self.n_main_ion
 
@@ -502,6 +504,5 @@ class BaseWorkflow:
         )
 
     def calculate_derived_bolometry(self) -> DataArray:
-        print("calculate_derived_bolometry")
         self._derived_bolometry.update()
         return self._derived_bolometry.data

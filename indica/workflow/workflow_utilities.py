@@ -1,7 +1,9 @@
 """
 Utility functions for analysis workflow
 """
+from shutil import get_terminal_size
 from typing import List
+from typing import Tuple
 from typing import Union
 
 import numpy as np
@@ -9,6 +11,12 @@ from xarray import concat
 from xarray import DataArray
 
 from indica.operators import BolometryDerivation
+
+
+def print_step_template(fallback_size: Tuple[int, int] = (80, 24)) -> str:
+    term_width = get_terminal_size(fallback=fallback_size).columns - 1
+    template = "\n" + "*" * term_width + "\n" + "\tCall: {}\n" + "*" * term_width + "\n"
+    return template
 
 
 def bolo_los(bolo_diag_array: DataArray) -> List[List[Union[List, str]]]:
