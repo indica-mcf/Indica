@@ -437,6 +437,10 @@ class JetWorkflow(BaseWorkflow):
         return n_high_z
 
     def _extrapolate_n_high_z(self):
+        if self.n_high_z is None:
+            raise UserWarning(
+                "n_high_z has not yet been calculated, nothing to extrapolate"
+            )
         rho_deriv, theta_deriv = self.n_high_z.transform.convert_from_Rz(
             self.R, self.z, self.t
         )
@@ -590,6 +594,11 @@ class JetWorkflow(BaseWorkflow):
         return self.bolo_derivation(deriv_only=True, trim=False)
 
     def optimise_n_high_z(self):
+        if self.additional_data.get("calculate_n_high_z", None) is None:
+            raise UserWarning(
+                "extrapolate_n_high_z has not yet been run,"
+                " required to optimise n_high_z"
+            )
         self.calculate_derived_bolometry()
         return (
             self.additional_data["calculate_n_high_z"]["extrapolator"]
