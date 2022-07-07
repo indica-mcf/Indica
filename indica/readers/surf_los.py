@@ -222,8 +222,8 @@ def _parse_kj34(
     rend = np.concatenate(rend)
     zstart = np.concatenate(zstart)  # type: ignore
     zend = np.concatenate(zend)
-    Tstart = np.zeros_like(rstart)
-    Tend = np.zeros_like(rend)
+    Tstart = np.zeros_like(rstart, dtype=float)
+    Tend = np.zeros_like(rend, dtype=float)
     return rstart, rend, zstart, zend, Tstart, Tend  # type: ignore
 
 
