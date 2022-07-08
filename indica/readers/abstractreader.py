@@ -2021,7 +2021,7 @@ class DataReader(BaseIO):
             if cached_vals.ndim == 0:
                 cached_vals = np.array([cached_vals])
         else:
-            cached_vals = np.array(sorted(set([*intrinsic_bad, *bad_channels])))
+            cached_vals = sorted(set([*intrinsic_bad, *bad_channels]))
         ignored = self._selector(
             data, channel_dim, [*intrinsic_bad, *bad_channels], cached_vals
         )

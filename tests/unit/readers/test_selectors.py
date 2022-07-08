@@ -95,7 +95,7 @@ def cachedir():
     text(),
     sampled_from(
         [
-            integers(-2147483647, 2147483647),
+            integers(0, 2147483647),
             floats(allow_nan=False, allow_infinity=False),
         ]
     ).flatmap(
@@ -141,13 +141,13 @@ def test_select_channels(category, uid, instrument, quantity, dim, channel_args)
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == expected1)
+        assert not bool(set(channels).difference(set(expected1)))
         assert_called_with(
             selector,
             data,
             dim,
             intrinsic_bad_channels + bad_channels,
-            intrinsic_bad_channels,
+            sorted(set([*intrinsic_bad_channels, *bad_channels])),
         )
         assert os.path.isfile(cachefile)
         # Check when cache file present but select different channels
@@ -157,7 +157,7 @@ def test_select_channels(category, uid, instrument, quantity, dim, channel_args)
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == expected2)
+        assert not bool(set(channels).difference(set(expected2)))
         assert_called_with(
             selector, data, dim, intrinsic_bad_channels + bad_channels, expected1
         )
@@ -170,7 +170,7 @@ def test_select_channels(category, uid, instrument, quantity, dim, channel_args)
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == expected2)
+        assert not bool(set(channels).difference(set(expected2)))
         assert_called_with(
             selector, data, dim, intrinsic_bad_channels + bad_channels, expected2
         )
@@ -187,7 +187,7 @@ def test_select_channels(category, uid, instrument, quantity, dim, channel_args)
     text(),
     sampled_from(
         [
-            integers(-2147483647, 2147483647),
+            integers(0, 2147483647),
             floats(allow_nan=False, allow_infinity=False),
         ]
     ).flatmap(
@@ -228,7 +228,7 @@ def test_use_cached_ignore_channels(
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == intrinsic_bad_channels)
+        assert not bool(set(channels).difference(set(intrinsic_bad_channels)))
         assert os.path.isfile(cachefile)
         # Check when cache file present
         creation_time = os.path.getctime(cachefile)
@@ -237,7 +237,7 @@ def test_use_cached_ignore_channels(
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == intrinsic_bad_channels)
+        assert not bool(set(channels).difference(set(intrinsic_bad_channels)))
         mod_time1 = os.path.getmtime(cachefile)
         assert creation_time < mod_time1
 
@@ -251,7 +251,7 @@ def test_use_cached_ignore_channels(
     text(),
     sampled_from(
         [
-            integers(-2147483647, 2147483647),
+            integers(0, 2147483647),
             floats(allow_nan=False, allow_infinity=False),
         ]
     ).flatmap(
@@ -301,7 +301,7 @@ def test_ignore_channels_from_dict(
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == expected1)
+        assert not bool(set(channels).difference(set(expected1)))
         assert os.path.isfile(cachefile)
         # Check when cache file present but select different channels
         creation_time = os.path.getctime(cachefile)
@@ -310,7 +310,7 @@ def test_ignore_channels_from_dict(
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == expected2)
+        assert not bool(set(channels).difference(set(expected2)))
         mod_time1 = os.path.getmtime(cachefile)
         assert creation_time < mod_time1
 
@@ -324,7 +324,7 @@ def test_ignore_channels_from_dict(
     text(),
     sampled_from(
         [
-            integers(-2147483647, 2147483647),
+            integers(0, 2147483647),
             floats(allow_nan=False, allow_infinity=False),
         ]
     ).flatmap(
@@ -380,7 +380,7 @@ def test_ignore_channels_from_json(
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == expected1)
+        assert not bool(set(channels).difference(set(expected1)))
         assert os.path.isfile(cachefile)
         # Check when cache file present but select different channels
         creation_time = os.path.getctime(cachefile)
@@ -389,6 +389,6 @@ def test_ignore_channels_from_json(
         channels = reader._select_channels(
             category, uid, instrument, quantity, data, dim, bad_channels
         )
-        assert np.all(channels == expected2)
+        assert not bool(set(channels).difference(set(expected2)))
         mod_time1 = os.path.getmtime(cachefile)
         assert creation_time < mod_time1
