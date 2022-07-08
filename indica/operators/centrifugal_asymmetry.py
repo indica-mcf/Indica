@@ -236,7 +236,7 @@ class AsymmetryParameter(Operator):
             raise ValueError(f"impurity must be one of {list(ELEMENTS.keys())}")
 
         input_check(
-            "Zeff", Zeff, DataArray, ndim_to_check=2, greater_than_or_equal_zero=True
+            "Zeff", Zeff, DataArray, ndim_to_check=1, greater_than_or_equal_zero=True
         )
 
         input_check(

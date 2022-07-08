@@ -406,20 +406,28 @@ class JetWorkflow(BaseWorkflow):
             .assign_attrs(transform=self.flux_surface)
         )
 
-    def _calculate_asymmetry_parameter(self) -> DataArray:
-        toroidal_rotation = self.toroidal_rotation.expand_dims(
-            {"element": ["ne"]}  # type:ignore
-        ).copy()
-        ion_temperature = self.ion_temperature.expand_dims(
-            {"element": ["ne"]}  # type:ignore
-        ).copy()
+    def _calculate_asymmetry_parameter(self, element: str) -> DataArray:
+        toroidal_rotation = (
+            self.toroidal_rotation.expand_dims(
+                {"element": [element]}  # type:ignore
+            )
+            .fillna(0.0)
+            .copy()
+        )
+        ion_temperature = (
+            self.ion_temperature.expand_dims(
+                {"element": [element]}  # type:ignore
+            )
+            .fillna(1.0)
+            .copy()
+        )
         asymmetry = AsymmetryParameter()
         asymmetry_parameter = asymmetry(
             toroidal_rotations=toroidal_rotation,
             ion_temperature=ion_temperature,
             main_ion=self.main_ion,
-            impurity="ne",
-            Zeff=self.diagnostics["zeff"]["zefh"].interp(t=self.t.values),
+            impurity=element,
+            Zeff=self.diagnostics["zeff"]["zefh"].interp(t=self.t),
             electron_temp=self.electron_temperature,
         )
         return asymmetry_parameter.drop_vars(
@@ -429,6 +437,12 @@ class JetWorkflow(BaseWorkflow):
                 if val not in asymmetry_parameter.dims
             ]
         )
+
+    def _calculate_asymmetry_parameter_high_z(self) -> DataArray:
+        return self._calculate_asymmetry_parameter(element=self.high_z)
+
+    def _calculate_asymmetry_parameter_other_z(self) -> DataArray:
+        return self._calculate_asymmetry_parameter(element=self.other_z)
 
     def initialise_default_values(self):
         self.sxr_rescale_factor = 1.0
@@ -506,7 +520,7 @@ class JetWorkflow(BaseWorkflow):
             electron_temperature=self.electron_temperature,
             truncation_threshold=1.5e3,
             flux_surfaces=self.flux_surface,
-            asymmetry_parameter=None,  # self.asymmetry_parameter,
+            asymmetry_parameter=self.asymmetry_parameter_high_z,
             t=self.t,
         )
         n_high_z_rho_theta = (

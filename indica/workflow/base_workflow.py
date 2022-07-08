@@ -128,8 +128,12 @@ class BaseWorkflow:
         #         self._sxr_rescale_factor,
         #     ],
         # )
-        self._asymmetry_parameter = Observer(
-            operator=self._calculate_asymmetry_parameter,
+        self._asymmetry_parameter_high_z = Observer(
+            operator=self._calculate_asymmetry_parameter_high_z,
+            depends_on=[self._ion_temperature, self._toroidal_rotation],
+        )
+        self._asymmetry_parameter_other_z = Observer(
+            operator=self._calculate_asymmetry_parameter_other_z,
             depends_on=[self._ion_temperature, self._toroidal_rotation],
         )
 
@@ -144,7 +148,7 @@ class BaseWorkflow:
         )
         self._n_other_z = Observer(
             operator=self._calculate_n_other_z,
-            depends_on=[self._n_high_z, self._asymmetry_parameter],
+            depends_on=[self._n_high_z, self._asymmetry_parameter_other_z],
         )
 
         # Depends on all available impurity densities
@@ -370,17 +374,32 @@ class BaseWorkflow:
         self._sxr_power_loss_charge_averaged.data = data
 
     @property
-    def asymmetry_parameter(self) -> DataArray:
-        return self._asymmetry_parameter.data
+    def asymmetry_parameter_high_z(self) -> DataArray:
+        return self._asymmetry_parameter_high_z.data
 
-    def _calculate_asymmetry_parameter(self) -> DataArray:
+    def _calculate_asymmetry_parameter_high_z(self) -> DataArray:
         raise NotImplementedError(
-            f"{self.__class__} does not implement _calculate_asymmetry_parameter method"
+            f"{self.__class__} does not implement"
+            " _calculate_asymmetry_parameter_high_z method"
         )
 
-    def calculate_asymmetry_parameter(self) -> DataArray:
-        self._asymmetry_parameter.update()
-        return self.asymmetry_parameter
+    def calculate_asymmetry_parameter_high_z(self) -> DataArray:
+        self._asymmetry_parameter_high_z.update()
+        return self.asymmetry_parameter_high_z
+
+    @property
+    def asymmetry_parameter_other_z(self) -> DataArray:
+        return self._asymmetry_parameter_other_z.data
+
+    def _calculate_asymmetry_parameter_other_z(self) -> DataArray:
+        raise NotImplementedError(
+            f"{self.__class__} does not implement"
+            " _calculate_asymmetry_parameter_other_z method"
+        )
+
+    def calculate_asymmetry_parameter_other_z(self) -> DataArray:
+        self._asymmetry_parameter_other_z.update()
+        return self.asymmetry_parameter_other_z
 
     @property
     def n_high_z(self) -> DataArray:
