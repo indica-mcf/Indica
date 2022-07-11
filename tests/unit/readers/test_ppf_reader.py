@@ -102,20 +102,6 @@ def get_record(reader, pulse, uid, instrument, dtype, revision):
     return path + f":{rev}"
 
 
-def test_needs_authentication():
-    """Test that the if needs_authentication is true then will not be able
-    to fetch data.
-
-    TODO: consider whether I should use mocking so both possibilities are tested.
-    """
-    reader = PPFReader(90272, 0.0, 100.0, selector=MagicMock(), session=MagicMock())
-    if reader.requires_authentication:
-        with pytest.raises(sal.core.exception.AuthenticationFailed):
-            reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
-    else:
-        reader._get_thomson_scattering("jetppf", "hrts", 0, {"te"})
-
-
 @given(pulses, times, errors, max_freqs, text(), text())
 def test_authentication(pulse, time_range, error, freq, user, password):
     """Test authentication method on client get called."""
@@ -841,7 +827,8 @@ def test_get_signal_from_cache(
 def test_cache_read_bad_permissions():
     """Check that reading cached data fails if other users are allowed to
     write to the file. This is done for security reasons."""
-    reader = PPFReader(0, 0.0, 0.0)
+    with patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
+        reader = PPFReader(0, 0.0, 0.0)
     with tempfile.NamedTemporaryFile("w") as cachefile:
         path = pathlib.Path(cachefile.name)
         cachefile.write("Just some text so the file is not empty.")
