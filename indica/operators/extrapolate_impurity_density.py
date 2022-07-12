@@ -188,10 +188,13 @@ def asymmetry_from_rho_theta(
     )
 
     if threshold_rho is not None:
-        for ind_t, it in enumerate(threshold_rho.coords["t"]):
-            derived_asymmetry_parameter.loc[
-                threshold_rho[ind_t] :, it  # type:ignore
-            ] = derived_asymmetry_parameter.loc[threshold_rho[ind_t], it]
+        threshold_asymmetry = derived_asymmetry_parameter.sel(
+            rho_poloidal=threshold_rho, method="nearest"
+        )
+        derived_asymmetry_parameter = derived_asymmetry_parameter.where(
+            derived_asymmetry_parameter.rho_poloidal < threshold_rho,
+            other=threshold_asymmetry,
+        )
 
     return derived_asymmetry_parameter
 
