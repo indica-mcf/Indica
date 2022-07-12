@@ -237,7 +237,12 @@ class JetWorkflow(BaseWorkflow):
             for element in self.ion_species
         }
 
-        adas = ADASReader("/home/elitherl/Analysis/SXR/indica/sxr_filtered_adf11/")
+        adas = ADASReader(
+            self.input.get(
+                "sxr_filtered_adas",
+                "/home/elitherl/Analysis/SXR/indica/sxr_filtered_adf11/",
+            )
+        )
         self.SXRPLT = {
             element: adas.get_adf11("pls", element, year)
             for element, year in zip(impurities, ["5"] * len(impurities))
