@@ -69,7 +69,7 @@ def asymmetry_from_R_z(
     else:
         input_check("t_arr", t_arr, DataArray, 1, True)
 
-    theta_arr_ = np.array([0.0, np.pi])
+    theta_arr_ = np.array([0.0, np.pi], dtype=float)
     theta_arr = DataArray(data=theta_arr_, coords={"theta": theta_arr_}, dims=["theta"])
 
     R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
@@ -154,7 +154,7 @@ def asymmetry_from_rho_theta(
         input_check("t_arr", t_arr, DataArray, 1, True)
 
     rho_arr = data_rho_theta.coords["rho_poloidal"]
-    theta_arr_ = np.array([0.0, np.pi])
+    theta_arr_ = np.array([0.0, np.pi], dtype=float)
     theta_arr = DataArray(data=theta_arr_, coords={"theta": theta_arr_}, dims=["theta"])
 
     R_deriv, z_deriv = flux_surfaces.convert_to_Rz(rho_arr, theta_arr)
@@ -376,7 +376,7 @@ class ExtrapolateImpurityDensity(Operator):
             Dimensions (rho, theta, t)
         """
 
-        theta_arr = np.array([0.0, np.pi])
+        theta_arr = np.array([0.0, np.pi], dtype=float)
         theta_arr = DataArray(  # type: ignore
             data=theta_arr, coords={"theta": theta_arr}, dims=["theta"]
         )

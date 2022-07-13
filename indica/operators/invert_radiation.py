@@ -67,7 +67,7 @@ class EmissivityProfile:
             )
         self.sym_dims = tuple(d for d in symmetric_emissivity.dims if d != self._dim)
         self.sym_coords = {
-            k: np.asarray(v)
+            k: np.asarray(v, dtype=float)
             for k, v in symmetric_emissivity.coords.items()
             if k != self._dim
         }
@@ -84,7 +84,7 @@ class EmissivityProfile:
         )
         self.asym_dims = tuple(d for d in asymmetry_parameter.dims if d != self._dim)
         self.asym_coords = {
-            k: np.asarray(v)
+            k: np.asarray(v, dtype=float)
             for k, v in asymmetry_parameter.coords.items()
             if k != self._dim
         }
