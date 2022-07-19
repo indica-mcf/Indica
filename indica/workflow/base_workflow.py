@@ -154,13 +154,13 @@ class BaseWorkflow:
         )
         self._derived_asymmetry_high_z = Observer(
             operator=self._calculate_derived_asymmetry_high_z,
-            depends_on=[self.n_high_z],
+            depends_on=[self._n_high_z],
         )
 
         # Depends on n_other_z
         self._derived_asymmetry_other_z = Observer(
             operator=self._calculate_derived_asymmetry_other_z,
-            depends_on=[self.n_other_z],
+            depends_on=[self._n_other_z],
         )
 
         # Depends on all available impurity densities
