@@ -88,6 +88,8 @@ class BaseWorkflow:
         self._power_loss = Observable()
         self._sxr_power_loss = Observable()
         self._sxr_emissivity = Observable()
+        self._sxr_fitted_symmetric_emissivity = Observable()
+        self._sxr_fitted_asymmetry_parameter = Observable()
         self._electron_density = Observable()
         self._electron_temperature = Observable()
         self._ion_temperature = Observable()
@@ -269,6 +271,22 @@ class BaseWorkflow:
     @sxr_emissivity.setter
     def sxr_emissivity(self, data: DataArray) -> None:
         self._sxr_emissivity.data = data
+
+    @property
+    def sxr_fitted_symmetric_emissivity(self) -> DataArray:
+        return self._sxr_fitted_symmetric_emissivity.data
+
+    @sxr_fitted_symmetric_emissivity.setter
+    def sxr_fitted_symmetric_emissivity(self, data: DataArray) -> None:
+        self._sxr_fitted_symmetric_emissivity.data = data
+
+    @property
+    def sxr_fitted_asymmetry_parameter(self) -> DataArray:
+        return self._sxr_fitted_asymmetry_parameter.data
+
+    @sxr_fitted_asymmetry_parameter.setter
+    def sxr_fitted_asymmetry_parameter(self, data: DataArray) -> None:
+        self._sxr_fitted_asymmetry_parameter.data = data
 
     @property
     def electron_density(self) -> DataArray:

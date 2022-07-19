@@ -272,12 +272,14 @@ class JetWorkflow(BaseWorkflow):
             self.t,
             *[self.diagnostics["sxr"][key] for key in cameras],
         )
+        self.sxr_fitted_symmetric_emissivity = emiss_fit.symmetric_emissivity
+        self.sxr_fitted_asymmetry_parameter = emiss_fit.asymmetry_parameter
         # TEMP whilst discussing InvertRadiation changes for new coordinate schemes
         # transform = FluxMajorRadCoordinates(self.flux_surface)
         transform = self.flux_surface
         emiss_profile = EmissivityProfile(
-            emiss_fit.symmetric_emissivity,
-            emiss_fit.asymmetry_parameter,
+            self.sxr_fitted_symmetric_emissivity,
+            self.sxr_fitted_asymmetry_parameter,
             self.flux_surface,
         )
         self.sxr_emissivity = (
