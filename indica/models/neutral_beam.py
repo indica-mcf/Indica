@@ -8,6 +8,7 @@ from ..converters.line_of_sight import LinesOfSightTransform
 from ..numpy_typing import LabeledArray
 
 
+
 analytical_beam_defaults = {
     "element": "H",
     "amu": int(1),
@@ -18,6 +19,7 @@ analytical_beam_defaults = {
     "width": (0.025, 0.025),
     "location": (-0.3446, -0.9387, 0.0),
     "direction": (0.707, 0.707, 0.0),
+    "focus": 1.8,
 }
 
 
