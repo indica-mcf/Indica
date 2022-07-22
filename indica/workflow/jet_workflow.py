@@ -153,6 +153,30 @@ class JetWorkflow(BaseWorkflow):
             return output
 
     @property
+    def __external_properties__(self) -> List[str]:
+        """
+        List of properties that are externally obtained
+        """
+        base = super().__external_properties__()
+        return [
+            *base,
+            *[
+                "diagnostics",
+                "efit_equilibrium",
+                "flux_surface",
+                "SCD",
+                "ACD",
+                "FA",
+                "PLT",
+                "PRB",
+                "PL",
+                "SXRPLT",
+                "SXRPRB",
+                "SXRPL",
+            ],
+        ]
+
+    @property
     def setup_steps(self) -> List[Tuple[Callable, str]]:
         return [
             (self.get_diagnostics, "diagnostics"),

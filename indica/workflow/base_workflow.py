@@ -4,11 +4,11 @@ Run with specific data source (e.g. JET JPF/PPF data)
 """
 import json
 from pathlib import Path
+import pickle
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Tuple
 from typing import Union
 
@@ -197,17 +197,37 @@ class BaseWorkflow:
             )
         return outp.rstrip("\n")
 
+    @property
+    def __external_properties__(self) -> List[str]:
+        """
+        List of properties that are externally obtained
+        """
+        return []
+
     def save(
         self,
-        filename: Optional[Union[str, Path]] = None,
+        filename: Union[str, Path],
         overwrite: bool = False,
-        **kwargs,
     ) -> None:
-        pass  # TODO
+        if not overwrite:
+            with open(filename, "rb") as f:
+                current = pickle.load(f)
+        else:
+            current = {}
+        new = current.update(
+            {key: getattr(self, key, None) for key in self.__external_properties__}
+        )
+        with open(filename, "wb+") as f:
+            pickle.dump(new, f)
 
     @classmethod
-    def restore(cls, filename: Optional[Union[str, Path]] = None) -> "BaseWorkflow":
-        pass  # TODO
+    def restore(cls, filename: Union[str, Path]) -> "BaseWorkflow":
+        with open(filename, "rb") as f:
+            properties: Dict[str, Any] = pickle.load(f)
+        workflow = cls()
+        for key, value in properties.items():
+            setattr(workflow, key, value)
+        return workflow
 
     @property
     def setup_steps(self) -> List[Tuple[Callable, str]]:
