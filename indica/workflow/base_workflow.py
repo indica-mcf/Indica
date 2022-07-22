@@ -88,6 +88,8 @@ class BaseWorkflow:
         self._power_loss = Observable()
         self._sxr_power_loss = Observable()
         self._sxr_emissivity = Observable()
+        self._sxr_fitted_symmetric_emissivity = Observable()
+        self._sxr_fitted_asymmetry_parameter = Observable()
         self._electron_density = Observable()
         self._electron_temperature = Observable()
         self._ion_temperature = Observable()
@@ -149,6 +151,16 @@ class BaseWorkflow:
         self._n_other_z = Observer(
             operator=self._calculate_n_other_z,
             depends_on=[self._n_high_z, self._asymmetry_parameter_other_z],
+        )
+        self._derived_asymmetry_high_z = Observer(
+            operator=self._calculate_derived_asymmetry_high_z,
+            depends_on=[self._n_high_z],
+        )
+
+        # Depends on n_other_z
+        self._derived_asymmetry_other_z = Observer(
+            operator=self._calculate_derived_asymmetry_other_z,
+            depends_on=[self._n_other_z],
         )
 
         # Depends on all available impurity densities
@@ -279,6 +291,22 @@ class BaseWorkflow:
     @sxr_emissivity.setter
     def sxr_emissivity(self, data: DataArray) -> None:
         self._sxr_emissivity.data = data
+
+    @property
+    def sxr_fitted_symmetric_emissivity(self) -> DataArray:
+        return self._sxr_fitted_symmetric_emissivity.data
+
+    @sxr_fitted_symmetric_emissivity.setter
+    def sxr_fitted_symmetric_emissivity(self, data: DataArray) -> None:
+        self._sxr_fitted_symmetric_emissivity.data = data
+
+    @property
+    def sxr_fitted_asymmetry_parameter(self) -> DataArray:
+        return self._sxr_fitted_asymmetry_parameter.data
+
+    @sxr_fitted_asymmetry_parameter.setter
+    def sxr_fitted_asymmetry_parameter(self, data: DataArray) -> None:
+        self._sxr_fitted_asymmetry_parameter.data = data
 
     @property
     def electron_density(self) -> DataArray:
@@ -420,6 +448,38 @@ class BaseWorkflow:
     def calculate_asymmetry_parameter_other_z(self) -> DataArray:
         self._asymmetry_parameter_other_z.update()
         return self.asymmetry_parameter_other_z
+
+    def _derive_asymmetry_from_density(self, density: DataArray) -> DataArray:
+        """
+        Derive an asymmetry parameter from comparison of lfs (theta=0) and hfs (theta=1)
+        impurity density data
+        """
+        lfs = self.n_high_z.sel({"theta": 0}, method="nearest", drop=True).copy()
+        hfs = self.n_high_z.sel({"theta": np.pi}, method="nearest", drop=True).copy()
+        asymmetry: DataArray = (lfs - hfs) / (lfs + hfs)
+        return asymmetry
+
+    @property
+    def derived_asymmetry_high_z(self) -> DataArray:
+        return self._derived_asymmetry_high_z.data
+
+    def _calculate_derived_asymmetry_high_z(self) -> DataArray:
+        return self._derive_asymmetry_from_density(density=self.n_high_z)
+
+    def calculate_derived_asymmetry_high_z(self) -> DataArray:
+        self._derived_asymmetry_high_z.update()
+        return self.derived_asymmetry_high_z
+
+    @property
+    def derived_asymmetry_other_z(self) -> DataArray:
+        return self._derived_asymmetry_other_z.data
+
+    def _calculate_derived_asymmetry_other_z(self) -> DataArray:
+        return self._derive_asymmetry_from_density(density=self.n_other_z)
+
+    def calculate_derived_asymmetry_other_z(self) -> DataArray:
+        self._derived_asymmetry_other_z.update()
+        return self.derived_asymmetry_other_z
 
     @property
     def n_high_z(self) -> DataArray:
