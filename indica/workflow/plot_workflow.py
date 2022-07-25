@@ -33,6 +33,39 @@ class PlotWorkflow:
         self.rmag = self.workflow.sxr_emissivity.attrs["transform"].equilibrium.rmag
         self.zmag = self.workflow.sxr_emissivity.attrs["transform"].equilibrium.zmag
 
+    def plot_los(self, time: Union[int, float] = None, *args, **kwargs):
+        if time is None:
+            time = self.default_time
+        levels = kwargs.pop("levels", 20)
+        colors = kwargs.pop("colors", "black")
+        equil_name = kwargs.pop("equilibrium", "efit_equilibrium")
+        equilibrium = getattr(self.workflow, equil_name, None)
+        if equilibrium is None:
+            raise UserWarning(
+                "Equilibrium object {} does not exist in workflow".format(equil_name)
+            )
+        emissivity = self.workflow.sxr_emissivity.copy()
+        diagnostics = getattr(self.workflow, "diagnostics", None)
+        if diagnostics is None:
+            raise UserWarning("No diagnostic data in workflow")
+        los_zip = zip(
+            diagnostics["sxr"]["v"].transform.x_start.values,
+            diagnostics["sxr"]["v"].transform.x_end.values,
+            diagnostics["sxr"]["v"].transform.z_start.values,
+            diagnostics["sxr"]["v"].transform.z_end.values,
+        )
+
+        fig, ax = plt.subplots()
+        equilibrium.psi.sel({"t": time}, method="nearest").plot.contour(
+            ax=ax, x="R", levels=levels, colors=colors
+        )
+        emissivity.interp(
+            {"rho_poloidal": self.rho_deriv, "theta": self.theta_deriv}
+        ).sel({"t": time}, method="nearest").plot(ax=ax, x="R")
+        for coord in los_zip:
+            ax.plot(coord[:2], coord[2:], color="red", linestyle="dashed")
+        return fig, ax
+
     def plot_density_2D(
         self, element: str, time: Union[int, float] = None, *args, **kwargs
     ):

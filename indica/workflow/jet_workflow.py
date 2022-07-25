@@ -157,7 +157,7 @@ class JetWorkflow(BaseWorkflow):
         """
         List of properties that are externally obtained
         """
-        base = super().__external_properties__()
+        base = super().__external_properties__
         return [
             *base,
             *[
