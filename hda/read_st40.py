@@ -5,6 +5,8 @@ import matplotlib.pylab as plt
 import numpy as np
 from indica.readers import ST40Reader
 
+from indica.converters.lines_of_sight_jw import LinesOfSightTransform
+
 import xarray as xr
 from xarray import DataArray
 from MDSplus.mdsExceptions import TreeNNF
@@ -34,7 +36,7 @@ class ST40data:
         self.tstart = tstart
         self.tend = tend
         self.reader = ST40Reader(pulse, tstart, tend)
-        self.data = {}
+        self.data:dict = {}
 
     def get_all(
         self,
@@ -45,7 +47,9 @@ class ST40data:
         smmh1_rev=0,
         brems_rev=-1,
         sxr_rev=0,
+        cxrs_rev=0,
         sxr=False,
+        cxrs=False,
     ):
         plt.ioff()
         self.get_efit(revision=efit_rev, pulse=efit_pulse)
@@ -53,10 +57,14 @@ class ST40data:
         if sxr:
             self.get_sxr(revision=sxr_rev)
         self.get_brems(revision=brems_rev)
+        if cxrs:
+            self.get_cxrs(revision=cxrs_rev)
         self.get_nirh1(revision=nirh1_rev)
         self.get_smmh1(revision=smmh1_rev)
         self.get_other_data()
         plt.ion()
+
+        return self.data
 
     def get_sxr(self, revision=0):
         data = self.reader.get("sxr", "diode_arrays", revision, ["filter_4"])
@@ -126,10 +134,146 @@ class ST40data:
 
             self.data["xrcs"] = data
 
-    def get_princeton(self, revision=0):
-        data = self.reader.get("spectrom", "princeton", revision)
-        if len(data) > 0:
-            self.data["princeton"] = data
+    def get_cxrs(self, revision=0):
+        instrument = "princeton"
+        quantity = "ti"
+
+        R_orig, _ = self.reader._get_data(
+            "spectrom", "princeton.cxsfit", ".input:r_orig", 0
+        )
+        phi_orig, _ = self.reader._get_data(
+            "spectrom", "princeton.cxsfit", ".input:phi_orig", 0
+        )
+        x_orig = R_orig * np.cos(phi_orig)
+        y_orig = R_orig * np.sin(phi_orig)
+        z_orig, dims = self.reader._get_data(
+            "spectrom", "princeton.cxsfit", ".input:z_orig", 0
+        )
+
+        R_pos, _ = self.reader._get_data(
+            "spectrom", "princeton.cxsfit", ".input:r_pos", 0
+        )
+        phi_pos, _ = self.reader._get_data(
+            "spectrom", "princeton.cxsfit", ".input:phi_pos", 0
+        )
+        x_pos = R_pos * np.cos(phi_pos)
+        y_pos = R_pos * np.sin(phi_pos)
+        z_pos, dims = self.reader._get_data(
+            "spectrom", "princeton.cxsfit", ".input:z_pos", 0
+        )
+
+        location = np.array([x_orig, y_orig, z_orig]).transpose()
+        direction = np.array([x_pos, y_pos, z_pos]).transpose() - location
+
+        rev = "3"
+        values, dims = self.reader._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti", rev
+        )
+        # Loop on channels and times to non-nil values
+        ch_ind = []
+        t_ind = []
+        for i in range(values.shape[1]):
+            if any(values[:, i]):
+                ch_ind.append(i)
+                t_ind.append(np.where(values[:, i] > 0)[0])
+        t_ind = np.arange(np.min(t_ind), np.max(t_ind) + 1)
+
+        err, dims = self.reader._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti_err", rev
+        )
+        times = dims[1][t_ind]
+        location = location[ch_ind, :]
+        direction = direction[ch_ind, :]
+        R_nbi = dims[0][ch_ind]
+        x_nbi = x_pos[ch_ind]
+        values = values[t_ind, :]
+        values = values[:, ch_ind]
+        err = err[t_ind, :]
+        err = err[:, ch_ind]
+
+        # restrict to channels with data only
+        transform = []
+        dl_nbi = 0.2
+        for i in range(len(R_nbi)):
+            trans = LinesOfSightTransform(
+                location[i, :],
+                direction[i, :],
+                f"{instrument}_{quantity}",
+                self.reader.MACHINE_DIMS,
+            )
+            x, y, _ = trans.convert_to_xyz(0, trans.x2, 0)
+            R, z = trans.convert_to_Rz(0, trans.x2, 0)
+
+            trans.x, trans.y, trans.z, trans.R = x, y, z, R
+
+            trans.R_nbi = R_nbi[i]
+
+            transform.append(trans)
+
+        coords = [
+            ("t", times),
+            (transform[0].x1_name, ch_ind),
+        ]
+        error = DataArray(err, coords).sel(
+            t=slice(self.reader._tstart, self.reader._tend)
+        )
+        meta = {
+            "datatype": "ti",
+            "error": error,
+            "transform": transform,
+        }
+        quant_data = DataArray(
+            values,
+            coords,
+            attrs=meta,
+        ).sel(t=slice(self.reader._tstart, self.reader._tend))
+
+        quant_data.name = "princeton" + "_" + "ti"
+        quant_data.attrs["revision"] = rev
+
+        data = {}
+        data["cxsfit_bgnd"] = quant_data
+
+        # Multi-gaussian fit
+        values, dims = self.reader._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti", 5
+        )
+        err, dims = self.reader._get_data(
+            "spectrom", "princeton.cxsfit_out", ":ti_err", 5
+        )
+
+        values = values[t_ind, :]
+        values = values[:, ch_ind]
+        err = err[t_ind, :]
+        err = err[:, ch_ind]
+
+        error = DataArray(err, coords).sel(
+            t=slice(self.reader._tstart, self.reader._tend)
+        )
+        meta = {
+            "datatype": "ti",
+            "error": error,
+            "transform": transform,
+        }
+        quant_data = DataArray(
+            values,
+            coords,
+            attrs=meta,
+        ).sel(t=slice(self.reader._tstart, self.reader._tend))
+
+        quant_data.name = "princeton" + "_" + "ti"
+        quant_data.attrs["revision"] = rev
+
+        data["cxsfit_full"] = quant_data
+
+        self.data["cxrs"] = data
+
+        return data, data
+    #
+    # def get_princeton(self, revision=0):
+    #     data = self.reader.get("spectrom", "princeton", revision)
+    #     if len(data) > 0:
+    #         self.data["princeton"] = data
 
     def get_brems(self, revision=-1):
         data = self.reader.get("spectrom", "lines", revision)
