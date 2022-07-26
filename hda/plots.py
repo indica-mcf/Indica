@@ -300,6 +300,13 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
             ]
         ),
     )
+
+    ion_dens = plasma.ion_dens
+    zeff = plasma.zeff
+    tot_rad = plasma.tot_rad
+    # sxr_rad = plasma.sxr_rad
+    prad_tot = plasma.prad_tot
+    prad_sxr = plasma.prad_sxr
     if hasattr(plasma, "el_temp_hi") and ploterr:
         plt.fill_between(
             plasma.time,
@@ -365,7 +372,7 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
             ),
         )
     plasma.el_dens.sel(rho_poloidal=0).plot(label="Ne(0)", color="blue", alpha=0.8)
-    plasma.ion_dens.sel(element=plasma.main_ion, rho_poloidal=0).plot(
+    ion_dens.sel(element=plasma.main_ion, rho_poloidal=0).plot(
         color="red", label="Ni(0)", alpha=0.8
     )
     plt.title(f"{_title} Central densities")
@@ -377,12 +384,12 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         save_figure(fig_name=f"{figname}time_evol_central_densities")
 
     plt.figure()
-    plasma.prad_tot.sum("element").plot(label="Total", color="black")
-    plasma.prad_tot.sel(element=plasma.main_ion).plot(
+    prad_tot.sum("element").plot(label="Total", color="black")
+    prad_tot.sel(element=plasma.main_ion).plot(
         color="black", label=elem_str[plasma.main_ion], linestyle="dotted"
     )
     for j, elem in enumerate(plasma.elements):
-        plasma.prad_tot.sel(element=elem).plot(
+        prad_tot.sel(element=elem).plot(
             color=colors[j], label=elem_str[elem], linestyle="dashed"
         )
     plt.title(f"{_title} Total radiated power")
@@ -394,9 +401,9 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
 
     plt.figure()
     # TODO: using XRCS LOS, add SXR diode experimental value and LOS info
-    plasma.prad_sxr.sum("element").plot(label="Total", color="black")
+    prad_sxr.sum("element").plot(label="Total", color="black")
     for j, elem in enumerate(plasma.elements):
-        plasma.prad_sxr.sel(element=elem).plot(
+        prad_sxr.sel(element=elem).plot(
             color=colors[j], label=elem_str[elem], linestyle=linestyles[j]
         )
     plt.title(f"{_title} SXR radiated power")
@@ -407,13 +414,13 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         save_figure(fig_name=f"{figname}time_evol_sxr_rad_power")
 
     plt.figure()
-    zeff = plasma.zeff.mean("rho_poloidal")
-    zeff_main_ion = zeff.sel(element=plasma.main_ion)
-    zeff.sum("element").plot(label="Total", color="black")
+    zeff_mean = zeff.mean("rho_poloidal")
+    zeff_main_ion = zeff_mean.sel(element=plasma.main_ion)
+    zeff_mean.sum("element").plot(label="Total", color="black")
     zeff_main_ion.plot(color=colors[0], label=elem_str[elem], linestyle=linestyles[0])
     for j, elem in enumerate(plasma.elements):
         if elem != plasma.main_ion:
-            (zeff.sel(element=elem) + zeff_main_ion).plot(
+            (zeff_mean.sel(element=elem) + zeff_main_ion).plot(
                 color=colors[j], label=elem_str[elem], linestyle=linestyles[j]
             )
     plt.title(f"{_title} Average effective charge")
@@ -424,7 +431,7 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         save_figure(fig_name=f"{figname}time_evol_effective_charge")
 
     plt.figure()
-    c_ion = (plasma.ion_dens / plasma.el_dens).sel(rho_poloidal=0)
+    c_ion = (ion_dens / plasma.el_dens).sel(rho_poloidal=0)
     c_ion.sel(element=elem).plot(
         color=colors[0], label=elem_str[elem], linestyle=linestyles[0]
     )
@@ -441,23 +448,23 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
     if savefig:
         save_figure(fig_name=f"{figname}time_evol_central_ion_conc")
 
-    plt.figure()
-    plasma.q_prof.sel(rho_poloidal=0).plot(color="black")
-    plt.title(f"{_title} Safety factor on axis")
-    plt.xlabel("Time (s)")
-    plt.ylabel("")
-    plt.legend()
-    if savefig:
-        save_figure(fig_name=f"{figname}time_evol_axis_safety_factor")
-
-    plt.figure()
-    plasma.vloop.plot(color="black")
-    plt.title(f"{_title} Loop voltage")
-    plt.xlabel("Time (s)")
-    plt.ylabel("")
-    plt.legend()
-    if savefig:
-        save_figure(fig_name=f"{figname}time_evol_loop_voltage")
+    # plt.figure()
+    # plasma.q_prof.sel(rho_poloidal=0).plot(color="black")
+    # plt.title(f"{_title} Safety factor on axis")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("")
+    # plt.legend()
+    # if savefig:
+    #     save_figure(fig_name=f"{figname}time_evol_axis_safety_factor")
+    #
+    # plt.figure()
+    # plasma.vloop.plot(color="black")
+    # plt.title(f"{_title} Loop voltage")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("")
+    # plt.legend()
+    # if savefig:
+    #     save_figure(fig_name=f"{figname}time_evol_loop_voltage")
 
 
 def data_time_evol(
@@ -476,6 +483,11 @@ def data_time_evol(
     markersize = 5
     plt.rc("font", size=fontsize)
     fig, axs = plt.subplots(4)
+
+    ion_dens = plasma.ion_dens
+    zeff = plasma.zeff
+    tot_rad = plasma.tot_rad
+    # sxr_rad = plasma.sxr_rad
 
     iax = 0
     const = 1.0e-6
@@ -587,12 +599,17 @@ def profiles(
     linestyle_ion = "dotted"
     linestyle_fast = "dashed"
 
+    ion_dens = plasma.ion_dens
+    zeff = plasma.zeff
+    tot_rad = plasma.tot_rad
+    # sxr_rad = plasma.sxr_rad
+
     # Electron and ion density
     plt.figure()
     plasma.el_dens.sel(t=tplot[0], method="nearest").plot(
         color=colors[0], label="el.", alpha=alpha
     )
-    plasma.ion_dens.sel(element=plasma.main_ion).sel(t=tplot[0], method="nearest").plot(
+    ion_dens.sel(element=plasma.main_ion).sel(t=tplot[0], method="nearest").plot(
         color=colors[0], linestyle=linestyle_ion, label=plasma.main_ion, alpha=alpha
     )
     plasma.fast_dens.sel(t=tplot[0], method="nearest").plot(
@@ -616,7 +633,7 @@ def profiles(
                 alpha=0.5,
             )
             plt.fill_between(
-                plasma.ion_dens.rho_poloidal,
+                ion_dens.rho_poloidal,
                 plasma.ion_dens_hi.sel(element=plasma.main_ion).sel(
                     t=t, method="nearest"
                 ),
@@ -634,7 +651,7 @@ def profiles(
                 alpha=0.5,
             )
         plasma.el_dens.sel(t=t, method="nearest").plot(color=colors[i], alpha=alpha)
-        plasma.ion_dens.sel(element=plasma.main_ion).sel(t=t, method="nearest").plot(
+        ion_dens.sel(element=plasma.main_ion).sel(t=t, method="nearest").plot(
             color=colors[i], linestyle=linestyle_ion, alpha=alpha,
         )
         plasma.fast_dens.sel(t=t, method="nearest").plot(
@@ -861,10 +878,10 @@ def profiles(
     # Total radiated power
     const = 1.0e-3
     plt.figure()
-    (plasma.tot_rad * const).sum("element").sel(t=tplot[0], method="nearest").plot(
+    (tot_rad * const).sum("element").sel(t=tplot[0], method="nearest").plot(
         color=colors[0], label="Total"
     )
-    (plasma.tot_rad * const).sel(element=plasma.main_ion).sel(
+    (tot_rad * const).sel(element=plasma.main_ion).sel(
         t=tplot[0], method="nearest"
     ).plot(
         color=colors[0],
@@ -873,7 +890,7 @@ def profiles(
         label=elem_str[plasma.main_ion],
     )
     for j, elem in enumerate(plasma.impurities):
-        (plasma.tot_rad * const).sel(element=elem).sel(
+        (tot_rad * const).sel(element=elem).sel(
             t=tplot[0], method="nearest"
         ).plot(
             color=colors[0],
@@ -882,14 +899,14 @@ def profiles(
             alpha=alpha,
         )
     for i, t in enumerate(tplot):
-        (plasma.tot_rad * const).sum("element").sel(t=t, method="nearest").plot(
+        (tot_rad * const).sum("element").sel(t=t, method="nearest").plot(
             color=colors[i]
         )
-        (plasma.tot_rad * const).sel(element=plasma.main_ion).sel(
+        (tot_rad * const).sel(element=plasma.main_ion).sel(
             t=t, method="nearest"
         ).plot(color=colors[i], linestyle=linestyle_ion, alpha=alpha)
         for j, elem in enumerate(plasma.impurities):
-            (plasma.tot_rad * const).sel(element=elem).sel(t=t, method="nearest").plot(
+            (tot_rad * const).sel(element=elem).sel(t=t, method="nearest").plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha
             )
     plt.title(f"{_title} Total radiated power")
@@ -902,13 +919,14 @@ def profiles(
 
     # SXR radiated power
     const = 1.0e-3
-    if hasattr(plasma, "sxr_rad"):
+    plot_sxr = False
+    if hasattr(plasma, "_sxr_rad") and plot_sxr:
         plt.figure()
-        (plasma.sxr_rad.sum("element").sel(t=tplot[0], method="nearest") * const).plot(
+        (sxr_rad.sum("element").sel(t=tplot[0], method="nearest") * const).plot(
             color=colors[0], label="Total"
         )
         (
-            plasma.sxr_rad.sel(element=plasma.main_ion).sel(
+            sxr_rad.sel(element=plasma.main_ion).sel(
                 t=tplot[0], method="nearest"
             )
             * const
@@ -920,7 +938,7 @@ def profiles(
         )
         for j, elem in enumerate(plasma.impurities):
             (
-                plasma.sxr_rad.sel(element=elem).sel(t=tplot[0], method="nearest")
+                sxr_rad.sel(element=elem).sel(t=tplot[0], method="nearest")
                 * const
             ).plot(
                 color=colors[0],
@@ -929,16 +947,16 @@ def profiles(
                 alpha=alpha,
             )
         for i, t in enumerate(tplot):
-            (plasma.sxr_rad.sum("element").sel(t=t, method="nearest") * const).plot(
+            (sxr_rad.sum("element").sel(t=t, method="nearest") * const).plot(
                 color=colors[i]
             )
             (
-                plasma.sxr_rad.sel(element=plasma.main_ion).sel(t=t, method="nearest")
+                sxr_rad.sel(element=plasma.main_ion).sel(t=t, method="nearest")
                 * const
             ).plot(color=colors[i], linestyle=linestyle_ion, alpha=alpha)
             for j, elem in enumerate(plasma.impurities):
                 (
-                    plasma.sxr_rad.sel(element=elem).sel(t=t, method="nearest") * const
+                    sxr_rad.sel(element=elem).sel(t=t, method="nearest") * const
                 ).plot(color=colors[i], linestyle=linestyle_imp[j], alpha=alpha)
         plt.title(f"{_title} SXR radiated power")
         plt.xlabel("Rho-poloidal")
@@ -951,7 +969,7 @@ def profiles(
     # Impurity density
     plt.figure()
     for j, elem in enumerate(plasma.impurities):
-        plasma.ion_dens.sel(element=elem).sel(t=tplot[0], method="nearest").plot(
+        ion_dens.sel(element=elem).sel(t=tplot[0], method="nearest").plot(
             color=colors[0],
             linestyle=linestyle_imp[j],
             label=elem_str[elem],
@@ -959,7 +977,7 @@ def profiles(
         )
     for i, t in enumerate(tplot):
         for j, elem in enumerate(plasma.impurities):
-            plasma.ion_dens.sel(element=elem).sel(t=tplot[i], method="nearest").plot(
+            ion_dens.sel(element=elem).sel(t=tplot[i], method="nearest").plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha,
             )
     plt.title(f"{_title} Impurity density")
@@ -973,7 +991,7 @@ def profiles(
     # Impurity concentration
     plt.figure()
     for j, elem in enumerate(plasma.impurities):
-        (plasma.ion_dens.sel(element=elem) / plasma.el_dens).sel(
+        (ion_dens.sel(element=elem) / plasma.el_dens).sel(
             t=tplot[0], method="nearest"
         ).plot(
             color=colors[0],
@@ -983,7 +1001,7 @@ def profiles(
         )
     for i, t in enumerate(tplot):
         for j, elem in enumerate(plasma.impurities):
-            (plasma.ion_dens.sel(element=elem) / plasma.el_dens).sel(
+            (ion_dens.sel(element=elem) / plasma.el_dens).sel(
                 t=t, method="nearest"
             ).plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha,
@@ -998,14 +1016,14 @@ def profiles(
 
     # Effective charge
     plt.figure()
-    plasma.zeff.sum("element").sel(t=tplot[0], method="nearest").plot(
+    zeff.sum("element").sel(t=tplot[0], method="nearest").plot(
         color=colors[0], label="Total"
     )
-    plasma.zeff.sel(element=plasma.main_ion).sel(t=tplot[0], method="nearest").plot(
+    zeff.sel(element=plasma.main_ion).sel(t=tplot[0], method="nearest").plot(
         color=colors[0], linestyle=linestyle_ion, label=elem_str[plasma.main_ion]
     )
     for j, elem in enumerate(plasma.impurities):
-        (plasma.zeff.sel(element=elem) + plasma.zeff.sel(element=plasma.main_ion)).sel(
+        (zeff.sel(element=elem) + zeff.sel(element=plasma.main_ion)).sel(
             t=tplot[0], method="nearest"
         ).plot(
             color=colors[0],
@@ -1014,13 +1032,13 @@ def profiles(
             alpha=alpha,
         )
     for i, t in enumerate(tplot):
-        plasma.zeff.sum("element").sel(t=t, method="nearest").plot(color=colors[i])
-        plasma.zeff.sel(element=plasma.main_ion).sel(t=t, method="nearest").plot(
+        zeff.sum("element").sel(t=t, method="nearest").plot(color=colors[i])
+        zeff.sel(element=plasma.main_ion).sel(t=t, method="nearest").plot(
             color=colors[i], linestyle=linestyle_ion
         )
         for j, elem in enumerate(plasma.impurities):
             (
-                plasma.zeff.sel(element=elem) + plasma.zeff.sel(element=plasma.main_ion)
+                zeff.sel(element=elem) + zeff.sel(element=plasma.main_ion)
             ).sel(t=t, method="nearest").plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha
             )
