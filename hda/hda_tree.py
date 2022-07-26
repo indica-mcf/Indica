@@ -426,7 +426,7 @@ def organise_data(plasma, data={}, bckc={}):
                 temp_lo = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
 
             zeff = plasma.zeff.sel(element=elem)
-            if hasattr(plasma, "ion_temp_hi"):
+            if hasattr(plasma, "zeff_hi"):
                 zeff_hi = plasma.zeff_hi.sel(element=elem)
                 zeff_lo = plasma.zeff_lo.sel(element=elem)
             else:
