@@ -156,6 +156,8 @@ class ST40Reader(DataReader):
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
+            "wtherm": ".global:wtherm",
+            "wfast": ".global:wfast",
             "df": ".global.df",
             "elon": ".profiles.astra:elon",  # Elongation profile
             "j_bs": ".profiles.astra:j_bs",  # Bootstrap current density,MA/m2
