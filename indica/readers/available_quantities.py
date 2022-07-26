@@ -66,10 +66,18 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "upl": (
             "voltage",
             "loop",
-        ),  # Loop voltage V
+        ),
         "wth": (
             "stored_energy",
+            "equilibrium",
+        ),
+        "wtherm": (
+            "stored_energy",
             "thermal",
+        ),
+        "wfast": (
+            "stored_energy",
+            "fast",
         ),  # Thermal stored energy
         "df": (
             "flux",
