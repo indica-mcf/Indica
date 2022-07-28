@@ -47,7 +47,11 @@ class JetWorkflow(BaseWorkflow):
     data, where JET data readers are available
     """
 
-    def __init__(self, config_file: Union[str, Path] = "input.json"):
+    def __init__(
+        self,
+        config: Dict[str, Any] = None,
+        config_file: Union[str, Path] = "input.json",
+    ):
         super().__init__(config_file=config_file)
         self.pulse: int = int(self.input.get("pulse", 0))
         self.cache_file = self.cache_dir / f"{self.pulse}.json"
