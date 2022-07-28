@@ -33,7 +33,11 @@ class BaseWorkflow:
     cache_dir = Path(".").absolute().parent / "test_cache"
     cache_file = cache_dir / "cache.json"
 
-    def __init__(self, config_file: Union[str, Path] = "input.json"):
+    def __init__(
+        self,
+        config: Dict[str, Any] = None,
+        config_file: Union[str, Path] = "input.json",
+    ):
         """
         Get test parameters from json configuration file, sets defaults for values
         not present in file.
@@ -42,8 +46,10 @@ class BaseWorkflow:
         :type config_key: Hashable
         """
         # Config parameters
-        self.config_file = config_file
-        self.input = self._read_test_case(config_file=config_file)
+        if config is None:
+            self.input = self._read_test_case(config_file=config_file)
+        else:
+            self.input = config
         self.comparison_data = self.input.get("comparison_data", {})
 
         self.rho: DataArray = coord_array(
