@@ -220,7 +220,7 @@ class BaseWorkflow:
         """
         List of properties that are externally obtained
         """
-        return []
+        return ["input"]
 
     def save(
         self,
@@ -232,17 +232,17 @@ class BaseWorkflow:
                 current = pickle.load(f)
         else:
             current = {}
-        new = current.update(
+        current.update(
             {key: getattr(self, key, None) for key in self.__external_properties__}
         )
         with open(filename, "wb+") as f:
-            pickle.dump(new, f)
+            pickle.dump(current, f)
 
     @classmethod
     def restore(cls, filename: Union[str, Path]) -> "BaseWorkflow":
         with open(filename, "rb") as f:
             properties: Dict[str, Any] = pickle.load(f)
-        workflow = cls()
+        workflow = cls(config=properties.pop("input", None))
         for key, value in properties.items():
             setattr(workflow, key, value)
         return workflow
