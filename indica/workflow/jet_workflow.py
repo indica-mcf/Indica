@@ -52,7 +52,7 @@ class JetWorkflow(BaseWorkflow):
         config: Dict[str, Any] = None,
         config_file: Union[str, Path] = "input.json",
     ):
-        super().__init__(config_file=config_file)
+        super().__init__(config=config, config_file=config_file)
         self.pulse: int = int(self.input.get("pulse", 0))
         self.cache_file = self.cache_dir / f"{self.pulse}.json"
         # abstractreader.CACHE_DIR = str(self.cache_dir)
