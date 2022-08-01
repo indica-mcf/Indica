@@ -94,11 +94,24 @@ class PPFReader(DataReader):
         "efit": "get_equilibrium",
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
-        "cxg6": "get_charge_exchange",
+        # "cxg6": "get_charge_exchange",  # TODO make PR
         "ks3": "get_bremsstrahlung_spectroscopy",
         "sxr": "get_radiation",
         "bolo": "get_radiation",
         "kg10": "get_thomson_scattering",
+        # TODO make PR
+        **{
+            "cx{}m".format(val): "get_charge_exchange"
+            for val in ("s", "d", "f", "g", "h")
+        },
+        **{
+            "cx{}6".format(val): "get_charge_exchange"
+            for val in ("s", "d", "f", "g", "h")
+        },
+        **{
+            "cx{}4".format(val): "get_charge_exchange"
+            for val in ("s", "d", "f", "g", "h")
+        },
     }
     _IMPLEMENTATION_QUANTITIES = {
         "kg10": {"ne": ("number_density", "electron")},
