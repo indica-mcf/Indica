@@ -1166,3 +1166,55 @@ def plot_results(pl, raw_data, data, bckc, savefig=False, name=""):
     if savefig:
         plt.ion()
 
+
+def average_runs(plasma_dict: dict):
+    runs = list(plasma_dict)
+    pl_avrg = deepcopy(plasma_dict[runs[0]])
+    el_dens, imp_dens, neutral_dens, el_temp, ion_temp = (
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
+    runs = []
+    for run_name, pl in plasma_dict.items():
+        runs.append(run_name)
+        el_dens.append(pl.el_dens)
+        imp_dens.append(pl.imp_dens)
+        neutral_dens.append(pl.neutral_dens)
+        el_temp.append(pl.el_temp)
+        ion_temp.append(pl.ion_temp)
+
+    el_dens = xr.concat(el_dens, "run_name").assign_coords({"run_name": runs})
+    stdev = el_dens.std("run_name")
+    pl_avrg.el_dens = el_dens.mean("run_name")
+    pl_avrg.el_dens_hi = pl_avrg.el_dens + stdev
+    pl_avrg.el_dens_lo = pl_avrg.el_dens - stdev
+
+    ion_dens = xr.concat(imp_dens, "run_name").assign_coords({"run_name": runs})
+    stdev = ion_dens.std("run_name")
+    pl_avrg.imp_dens = ion_dens.mean("run_name")
+    pl_avrg.imp_dens_hi = pl_avrg.imp_dens + stdev
+    pl_avrg.imp_dens_lo = pl_avrg.imp_dens - stdev
+
+    neutral_dens = xr.concat(neutral_dens, "run_name").assign_coords({"run_name": runs})
+    stdev = neutral_dens.std("run_name")
+    pl_avrg.neutral_dens = neutral_dens.mean("run_name")
+    pl_avrg.neutral_dens_hi = pl_avrg.neutral_dens + stdev
+    pl_avrg.neutral_dens_lo = pl_avrg.neutral_dens - stdev
+
+    el_temp = xr.concat(el_temp, "run_name").assign_coords({"run_name": runs})
+    stdev = el_temp.std("run_name")
+    pl_avrg.el_temp = el_temp.mean("run_name")
+    pl_avrg.el_temp_hi = pl_avrg.el_temp + stdev
+    pl_avrg.el_temp_lo = pl_avrg.el_temp - stdev
+
+    ion_temp = xr.concat(ion_temp, "run_name").assign_coords({"run_name": runs})
+    stdev = ion_temp.std("run_name")
+    pl_avrg.ion_temp = ion_temp.mean("run_name")
+    pl_avrg.ion_temp_hi = pl_avrg.ion_temp + stdev
+    pl_avrg.ion_temp_lo = pl_avrg.ion_temp - stdev
+
+    return pl
+
