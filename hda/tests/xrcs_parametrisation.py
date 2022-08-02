@@ -12,7 +12,7 @@ import matplotlib.cm as cm
 
 import hda.simple_profiles as profiles
 from indica.readers import ADASReader
-from hda.diagnostics.spectrometer import XRCSpectrometer as Spectrometer
+from hda.models.spectrometer import XRCSpectrometer as Spectrometer
 
 plt.ion()
 

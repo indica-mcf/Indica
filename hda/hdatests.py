@@ -2,8 +2,7 @@ from copy import deepcopy
 import os
 import pickle
 
-from hda.diagnostics.PISpectrometer import PISpectrometer
-from hda.diagnostics.spectrometer import XRCSpectrometer
+from hda.models.spectrometer import XRCSpectrometer
 import hda.hda_tree as hda_tree
 from hda.plasma import initialize_bckc
 from hda.plasma import Plasma
@@ -105,8 +104,6 @@ def test_hda(
         pl.forward_models["xrcs"] = XRCSpectrometer(
             marchuk=marchuk, extrapolate=extrapolate
         )
-    if "princeton" in raw_data:
-        pl.forward_models["princeton"] = PISpectrometer()
 
     bckc = pl.match_interferometer(
         data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
@@ -248,8 +245,6 @@ def plasma_workflow(
         pl.forward_models["xrcs"] = XRCSpectrometer(
             marchuk=marchuk, extrapolate=extrapolate
         )
-    if "princeton" in raw_data:
-        pl.forward_models["princeton"] = PISpectrometer()
 
     # Rescale density to match interferometer
     bckc = pl.match_interferometer(
