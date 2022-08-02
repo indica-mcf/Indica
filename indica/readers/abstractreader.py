@@ -531,7 +531,7 @@ class DataReader(BaseIO):
             "df",
         }
         separatrix_quantities = {"rbnd", "zbnd"}
-        flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
+        flux_quantities = {"f", "ftor", "vjac", "ajac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(instrument)
         if len({"rmji", "rmjo"} & quantities) > 0:
             quantities.add("zmag")

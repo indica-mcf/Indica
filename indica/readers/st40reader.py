@@ -105,6 +105,7 @@ class ST40Reader(DataReader):
             "psi": ".psi2d:psi",
             "psin": ".profiles.psi_norm:xpsn",
             "vjac": ".profiles.psi_norm:vjac",
+            "ajac": ".profiles.psi_norm:ajac",
             "rmag": ".global:rmag",
             "rgeo": ".global:rgeo",
             "rbnd": ".p_boundary:rbnd",

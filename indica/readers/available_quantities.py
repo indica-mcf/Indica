@@ -47,6 +47,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "rmjo": ("major_rad", "lfs"),
         "psi": ("magnetic_flux", "plasma"),
         "vjac": ("volume_jacobian", "plasma"),
+        "ajac": ("area_jacobian", "plasma"),
         "rmag": ("major_rad", "mag_axis"),
         "rgeo": ("major_rad", "geometric"),
         "rbnd": ("major_rad", "separatrix"),
