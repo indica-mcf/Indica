@@ -18,11 +18,11 @@ from pytest import approx
 plt.ion()
 
 def initialize_plasma_class():
-    pulse = 10009
-    tstart = 0.015
-    tend = 0.125
+    pulse = 9408
+    tstart = 0.02
+    tend = 0.11
     dt = 0.01
-    st40_reader = ST40Reader(pulse, tstart-0.01, tend+0.01)
+    st40_reader = ST40Reader(pulse, tstart, tend)
     efit_data = st40_reader.get("", "efit", 0)
     equilibrium = Equilibrium(efit_data)
 
