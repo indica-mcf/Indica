@@ -3,7 +3,8 @@ import pickle
 
 import hda.physics as ph
 from hda.profiles import Profiles
-from hda.utils import assign_data, print_like
+from hda.utils import assign_data, assign_datatype, print_like
+
 from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -683,6 +684,95 @@ class Plasma:
 
         self.midplane_profs = midplane_profs
 
+    def calc_centrifugal_asymmetry(self, time=None, test_vtor=None, plot=False):
+        """
+        Calculate (R, z) maps of the ion densities caused by centrifugal asymmetry
+        """
+        if time is None:
+            time = self.t
+
+        # TODO: make this attribute creation a property and standardize?
+        if not hasattr(self, "ion_dens_2d"):
+            self.rho_2d = self.equilibrium.rho.interp(t=self.t, method="nearest")
+            tmp = deepcopy(self.rho_2d)
+            ion_dens_2d = []
+            for elem in self.elements:
+                ion_dens_2d.append(tmp)
+
+            self.ion_dens_2d = xr.concat(ion_dens_2d, "element").assign_coords(
+                element=self.elements
+            )
+            assign_datatype(self.ion_dens_2d, ("density", "ion"))
+            self.centrifugal_asymmetry = deepcopy(self.ion_dens)
+            assign_datatype(self.centrifugal_asymmetry, ("asymmetry", "centrifugal"))
+            self.asymmetry_multiplier = deepcopy(self.ion_dens_2d)
+            assign_datatype(
+                self.asymmetry_multiplier, ("asymmetry_multiplier", "centrifugal")
+            )
+
+        # If toroidal rotation != 0 calculate ion density on 2D poloidal plane
+        if test_vtor is not None:
+            vtor = deepcopy(self.ion_temp)
+            assign_datatype(vtor, ("rotation", "toroidal"), "rad/s")
+            vtor /= vtor.max("rho_poloidal")
+            vtor *= test_vtor  # rad/s
+            self.vtor = vtor
+
+        if not np.any(self.vtor != 0):
+            return
+
+        zeff = self.zeff.sum("element")
+        R_0 = self.maj_r_lfs.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
+        for elem in self.elements:
+            main_ion_mass = ELEMENTS[self.main_ion][1]
+            mass = ELEMENTS[elem][1]
+            asymm = ph.centrifugal_asymmetry(
+                self.ion_temp.sel(element=elem).drop("element"),
+                self.el_temp,
+                mass,
+                self.meanz.sel(element=elem).drop("element"),
+                zeff,
+                main_ion_mass,
+                toroidal_rotation=self.vtor.sel(element=elem).drop("element"),
+            )
+            self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
+            asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
+            self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
+                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
+            )
+
+        self.ion_dens_2d = (
+            self.ion_dens.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
+            * self.asymmetry_multiplier
+        )
+        assign_datatype(self.ion_dens_2d, ("density", "ion"), "m^-3")
+
+        if plot:
+            t = self.t[6]
+            for elem in self.elements:
+                plt.figure()
+                z = self.z_mag.sel(t=t)
+                rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
+                plt.plot(
+                    rho,
+                    self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
+                )
+                self.ion_dens.sel(element=elem).sel(t=t).plot(linestyle="dashed")
+                plt.title(elem)
+
+            elem = "ar"
+            plt.figure()
+            np.log(self.ion_dens_2d.sel(element=elem).sel(t=t, method="nearest")).plot()
+            self.rho_2d.sel(t=t, method="nearest").plot.contour(
+                levels=10, colors="white"
+            )
+            plt.xlabel("R (m)")
+            plt.ylabel("z (m)")
+            plt.title(f"log({elem} density")
+            plt.axis("scaled")
+            plt.xlim(0, 0.8)
+            plt.ylim(-0.6, 0.6)
+
     def calc_rad_power_2d(self):
         """
         Calculate total and SXR filtered radiated power on a 2D poloidal plane
@@ -730,60 +820,6 @@ class Plasma:
             self.prad_tot.loc[dict(element=elem)] = prad_tot.values
             self.prad_sxr.loc[dict(element=elem)] = prad_sxr.values
 
-    def add_transport(self):
-        """
-        Modify ionization distribution including transport
-        """
-
-        x_ped = 0.85
-        diffusion = (
-            xr.where(
-                self.rho < x_ped,
-                ph.gaussian(self.rho, 0.2, 0.02, x_ped, 0.3),
-                ph.gaussian(self.rho, 0.2, 0.01, x_ped, 0.04),
-            )
-            * 2
-        )
-
-        for elem in self.elements:
-            fz = (
-                self.atomic_data[elem]["fz"]
-                .interp(electron_temperature=self.el_temp, method="cubic")
-                .drop_vars(["electron_temperature"])
-            )
-            fz_transp = deepcopy(fz)
-            for t in self.time:
-                fz_tmp = fz_transp.sel(t=t, drop=True)
-                for i, rho in enumerate(self.rho):
-                    gauss = (
-                        ph.gaussian(self.rho, diffusion[i], 0, rho, diffusion[i] / 3)
-                        * diffusion
-                    )
-                    gauss /= np.sum(gauss)
-                    fz_tmp.loc[dict(rho_poloidal=rho)] = (
-                        (fz_tmp * gauss).sum("rho_poloidal").values
-                    )
-                for ir, rho in enumerate(self.rho):
-                    norm = np.nansum(fz_tmp.sel(rho_poloidal=rho), axis=0)
-                    fz_tmp.loc[dict(rho_poloidal=rho)] = (fz_tmp / norm).values
-                    fz_transp.loc[dict(t=t)] = fz_tmp.values
-
-                plt.figure()
-                colors = cm.rainbow(np.linspace(0, 1, len(fz.ion_charges)))
-                for i in fz.ion_charges:
-                    plt.plot(
-                        fz.rho_poloidal,
-                        fz.sel(ion_charges=i).sel(t=t),
-                        color=colors[i],
-                    )
-                    plt.plot(
-                        fz_transp.rho_poloidal,
-                        fz_transp.sel(ion_charges=i).sel(t=t),
-                        "--",
-                        color=colors[i],
-                    )
-                plt.title(f"Time = {t}")
-
     def write_to_pickle(self):
 
         with open(f"data_{self.pulse}.pkl", "wb") as f:
@@ -791,97 +827,3 @@ class Plasma:
                 self,
                 f,
             )
-
-
-def average_runs(plasma_dict: dict):
-    runs = list(plasma_dict)
-    pl_avrg = deepcopy(plasma_dict[runs[0]])
-    el_dens, imp_dens, neutral_dens, el_temp, ion_temp = (
-        [],
-        [],
-        [],
-        [],
-        [],
-    )
-    runs = []
-    for run_name, pl in plasma_dict.items():
-        runs.append(run_name)
-        el_dens.append(pl.el_dens)
-        imp_dens.append(pl.imp_dens)
-        neutral_dens.append(pl.neutral_dens)
-        el_temp.append(pl.el_temp)
-        ion_temp.append(pl.ion_temp)
-
-    el_dens = xr.concat(el_dens, "run_name").assign_coords({"run_name": runs})
-    stdev = el_dens.std("run_name")
-    pl_avrg.el_dens = el_dens.mean("run_name")
-    pl_avrg.el_dens_hi = pl_avrg.el_dens + stdev
-    pl_avrg.el_dens_lo = pl_avrg.el_dens - stdev
-
-    ion_dens = xr.concat(imp_dens, "run_name").assign_coords({"run_name": runs})
-    stdev = ion_dens.std("run_name")
-    pl_avrg.imp_dens = ion_dens.mean("run_name")
-    pl_avrg.imp_dens_hi = pl_avrg.imp_dens + stdev
-    pl_avrg.imp_dens_lo = pl_avrg.imp_dens - stdev
-
-    neutral_dens = xr.concat(neutral_dens, "run_name").assign_coords({"run_name": runs})
-    stdev = neutral_dens.std("run_name")
-    pl_avrg.neutral_dens = neutral_dens.mean("run_name")
-    pl_avrg.neutral_dens_hi = pl_avrg.neutral_dens + stdev
-    pl_avrg.neutral_dens_lo = pl_avrg.neutral_dens - stdev
-
-    el_temp = xr.concat(el_temp, "run_name").assign_coords({"run_name": runs})
-    stdev = el_temp.std("run_name")
-    pl_avrg.el_temp = el_temp.mean("run_name")
-    pl_avrg.el_temp_hi = pl_avrg.el_temp + stdev
-    pl_avrg.el_temp_lo = pl_avrg.el_temp - stdev
-
-    ion_temp = xr.concat(ion_temp, "run_name").assign_coords({"run_name": runs})
-    stdev = ion_temp.std("run_name")
-    pl_avrg.ion_temp = ion_temp.mean("run_name")
-    pl_avrg.ion_temp_hi = pl_avrg.ion_temp + stdev
-    pl_avrg.ion_temp_lo = pl_avrg.ion_temp - stdev
-
-    return pl
-
-
-def apply_limits(
-    data,
-    diagnostic: str,
-    quantity=None,
-    val_lim=(np.nan, np.nan),
-    err_lim=(np.nan, np.nan),
-):
-    """
-    Set to Nan all data whose value or relative error aren't within specified limits
-    """
-
-    if quantity is None:
-        quantity = list(data[diagnostic])
-    else:
-        quantity = list(quantity)
-
-    for q in quantity:
-        error = None
-        value = data[diagnostic][q]
-        if "error" in value.attrs.keys():
-            error = data[diagnostic][q].attrs["error"]
-
-        if np.isfinite(val_lim[0]):
-            print(val_lim[0])
-            value = xr.where(value >= val_lim[0], value, np.nan)
-        if np.isfinite(val_lim[1]):
-            print(val_lim[1])
-            value = xr.where(value <= val_lim[1], value, np.nan)
-
-        if error is not None:
-            if np.isfinite(err_lim[0]):
-                print(err_lim[0])
-                value = xr.where((error / value) >= err_lim[0], value, np.nan)
-            if np.isfinite(err_lim[1]):
-                print(err_lim[1])
-                value = xr.where((error / value) <= err_lim[1], value, np.nan)
-
-        data[diagnostic][q].values = value.values
-
-    return data
