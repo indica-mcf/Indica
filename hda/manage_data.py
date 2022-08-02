@@ -128,3 +128,44 @@ def build_data(plasma: Plasma, data, instrument=""):
             break
 
     return binned_data
+
+def apply_limits(
+    data,
+    diagnostic: str,
+    quantity=None,
+    val_lim=(np.nan, np.nan),
+    err_lim=(np.nan, np.nan),
+):
+    """
+    Set to Nan all data whose value or relative error aren't within specified limits
+    """
+
+    if quantity is None:
+        quantity = list(data[diagnostic])
+    else:
+        quantity = list(quantity)
+
+    for q in quantity:
+        error = None
+        value = data[diagnostic][q]
+        if "error" in value.attrs.keys():
+            error = data[diagnostic][q].attrs["error"]
+
+        if np.isfinite(val_lim[0]):
+            print(val_lim[0])
+            value = xr.where(value >= val_lim[0], value, np.nan)
+        if np.isfinite(val_lim[1]):
+            print(val_lim[1])
+            value = xr.where(value <= val_lim[1], value, np.nan)
+
+        if error is not None:
+            if np.isfinite(err_lim[0]):
+                print(err_lim[0])
+                value = xr.where((error / value) >= err_lim[0], value, np.nan)
+            if np.isfinite(err_lim[1]):
+                print(err_lim[1])
+                value = xr.where((error / value) <= err_lim[1], value, np.nan)
+
+        data[diagnostic][q].values = value.values
+
+    return data
