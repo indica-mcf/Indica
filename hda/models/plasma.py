@@ -124,30 +124,26 @@ class Plasma:
         self.build_atomic_data(ADF11)
         self.initialize_variables()
 
-    def set_equilibrium(self, equilibrium_data: dict, equilibrium_diagnostic: str):
+    def set_equilibrium(self, equilibrium: Equilibrium):
         """
         Assign equilibrium and flux surface transform objects, calculate geometry parameters
-
-        Parameters
-        ----------
-        data
-            Equilibrium data dictionary as returned by abstractreader.py
-        diagnostic
-            Identifier of equilibrium diagnostic/code used
-
-        Returns
-        -------
-
         """
-        equil_keys = list(equilibrium_data.keys())
-        revision = get_prov_attribute(equilibrium_data[equil_keys[0]].provenance, "revision")
-        self.optimisation["equil"] = f"{equilibrium_diagnostic}:{revision}"
+        self.equilibrium = equilibrium
 
-        self.equilibrium = Equilibrium(equilibrium_data)
-        self.flux_transform = FluxSurfaceCoordinates("poloidal")
-        self.flux_transform.set_equilibrium(self.equilibrium)
+    def set_flux_transform(self, flux_transform:FluxSurfaceCoordinates):
+        """
+        Assign flux surface transform class for geometry mapping
+        """
+        self.flux_transform = flux_transform
 
-        self.calculate_geometry()
+        if hasattr(self, "equilibrium"):
+            if not hasattr(self.flux_transform, "equilibrium"):
+                self.flux_transform.set_equilibrium(self.equilibrium)
+            if self.flux_transform.equilibrium != self.equilibrium:
+                raise ValueError("Plasma class equilibrium and flux_transform are not the same object...s")
+        else:
+            if hasattr(flux_transform, "equilibrium"):
+                self.equilibrium = flux_transform.equilibrium
 
     def initialize_variables(self):
         """
