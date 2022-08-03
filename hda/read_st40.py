@@ -61,8 +61,8 @@ class ST40data:
             self.get_cxrs(revision=cxrs_rev)
         self.get_nirh1(revision=nirh1_rev)
         self.get_smmh1(revision=smmh1_rev)
-        self.get_other_data()
-        plt.ion()
+        # self.get_other_data()
+        # plt.ion()
 
         return self.data
 
@@ -85,11 +85,13 @@ class ST40data:
 
         data = reader.get("", "efit", revision)
 
-        if len(data) > 0:
-            self.data["efit"] = data
-            self.data["ipla"] = data["ipla"]
-            self.data["R_0"] = data["rmag"]
-            self.data["wmhd"] = data["wp"]
+        self.data["efit"] = data
+
+        # if len(data) > 0:
+        #     self.data["efit"] = data
+        #     self.data["ipla"] = data["ipla"]
+        #     self.data["R_0"] = data["rmag"]
+        #     self.data["wmhd"] = data["wp"]
 
     def get_xrcs(self, revision=0):
         data = self.reader.get("sxr", "xrcs", revision)
