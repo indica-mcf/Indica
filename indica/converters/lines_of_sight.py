@@ -1,10 +1,13 @@
-"""Coordinate system representing a collection of lines of sight.
+"""
+Coordinate system representing a collection of lines of sight.
+TODO: modified with respect to master
 """
 
 from typing import Callable
 from typing import Optional
 from typing import Tuple
 
+import xarray as xr
 import numpy as np
 from scipy.optimize import root
 from xarray import DataArray
@@ -13,6 +16,7 @@ from xarray import zeros_like
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
+from indica.converters import FluxSurfaceCoordinates
 
 
 class LinesOfSightTransform(CoordinateTransform):
@@ -81,6 +85,7 @@ class LinesOfSightTransform(CoordinateTransform):
             (x_start - x_end) ** 2 + (y_start - y_end) ** 2 + (z_start - z_end) ** 2
         )
         factor = new_length / los_lengths
+        self.name = f"{name}_line_of_sight_transform"
         self.x_start = DataArray(x_start)
         self.y_start = DataArray(y_start)
         self.z_start = DataArray(z_start)
@@ -97,8 +102,12 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
-        self.x1_name = name + "_coords"
-        self.x2_name = name + "_los_position"
+        if len(x_start) == 1:
+            self.x1 = np.array(0)
+        else:
+            self.x1 = np.arange(0, len(x_start) + 1)
+        self.x1_name = "channel"
+        self.x2_name = "los_position"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -245,6 +254,44 @@ class LinesOfSightTransform(CoordinateTransform):
         result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
+
+    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates, force:bool=False):
+        """
+        Set flux surface transform to perform remapping from physical to flux space
+        """
+        if not hasattr(self, "flux_transform") or force:
+            self.flux_transform = flux_transform
+        elif self.flux_transform != flux_transform:
+            raise Exception("Attempt to set flux surface transform twice.")
+
+    def remap_los(
+        self, t: LabeledArray = None, npts: int = 100,
+    ):
+        """
+        Remap LOS from physical to flux space
+        """
+        if not hasattr(self, "flux_transform"):
+            return None
+        if not hasattr(self.flux_transform, "equilibrium"):
+            return None
+
+        geo_attrs = {}
+        x2_arr = np.linspace(0, 1, npts)
+        x2 = DataArray(x2_arr, dims=self.x2_name)
+        dl = self.distance(self.x2_name, DataArray(0), x2[0:2], 0)[1]
+        geo_attrs["x2"] = x2
+        geo_attrs["dl"] = dl
+        geo_attrs["R"], geo_attrs["z"] = self.convert_to_Rz(self.x1, x2, 0)
+
+        rho, _ = self.flux_transform.convert_from_Rz(geo_attrs["R"], geo_attrs["z"], t=t)
+        rho = xr.where(rho >= 0, rho, 0.0)
+        rho.coords[self.x2_name] = x2
+        geo_attrs["rho"] = rho
+
+        for name, value in geo_attrs.items():
+            setattr(self, name, value)
+
+        return geo_attrs
 
 
 def _get_wall_intersection_distances(
