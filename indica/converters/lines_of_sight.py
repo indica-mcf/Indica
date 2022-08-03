@@ -293,6 +293,40 @@ class LinesOfSightTransform(CoordinateTransform):
 
         return geo_attrs
 
+    def simple_los_int_1d(
+        self, profile_1d: DataArray, t:LabeledArray=None, passes=1, remap=False,
+    ):
+        """
+        Calculate LOS integral of a specified 1D profile
+
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        passes
+            Number of passes across the plasma for the integral
+
+        Returns
+        -------
+        Line of sight integral and value mapped along the LOS
+        """
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Missing flux surface transform")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Missing equilibrium in flux surface transform")
+        if not hasattr(self, "rho") or remap:
+            self.remap_los(t=t)
+
+        if t is not None:
+            rho = self.rho.interp(t=t, method="linear")
+        else:
+            rho = self.rho
+        along_los = profile_1d.interp(rho_poloidal=rho)
+        along_los = xr.where(rho <= 1, along_los, 0,)
+        los_integral = passes * along_los.sum(self.x2_name) * self.dl
+
+        return los_integral, along_los
+
 
 def _get_wall_intersection_distances(
     x_start: np.ndarray,
