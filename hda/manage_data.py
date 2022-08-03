@@ -10,42 +10,43 @@ from indica.converters import lines_of_sight, line_of_sight
 from copy import deepcopy
 
 
-def initialize_bckc(diagnostic, quantity, data, bckc={}):
+def initialize_bckc(data):
     """
-    Initialise back-calculated data with all info as original data, apart
-    from provenance and revision attributes
+    Initialise back-calculated data dictionary of dictionaries containing all info from
+    the original data, apart from provenance and revision attributes
 
     Parameters
     ----------
     data
-        DataArray of original data to be "cloned"
+        Dictionary of diagnostics and quantities as returned by manage_data
 
     Returns
     -------
+    bckc
+        New dictionary initialized to nans and with limited attributes
 
     """
-    if diagnostic not in bckc:
+    bckc = {}
+    for diagnostic in data.keys():
         bckc[diagnostic] = {}
-
-    bckc_tmp = initialize_bckc_quantity(data[diagnostic], quantity)
-    bckc[diagnostic][quantity] = bckc_tmp
+        for quantity in data[diagnostic].keys():
+            bckc[diagnostic][quantity] = initialize_bckc_dataarray(data[diagnostic][quantity])
 
     return bckc
 
 
-def initialize_bckc_quantity(diagnostic_data: dict, quantity):
-    data = diagnostic_data[quantity]
-    bckc = xr.full_like(data, np.nan)
-    attrs = bckc.attrs
-    if type(bckc) == DataArray:
+def initialize_bckc_dataarray(dataarray: DataArray):
+    bckc_data = xr.full_like(dataarray, np.nan)
+    attrs = bckc_data.attrs
+    if type(bckc_data) == DataArray:
         if "error" in attrs.keys():
             attrs["error"] = xr.full_like(attrs["error"], np.nan)
         if "partial_provenance" in attrs.keys():
             attrs.pop("partial_provenance")
             attrs.pop("provenance")
-    bckc.attrs = attrs
+    bckc_data.attrs = attrs
 
-    return bckc
+    return bckc_data
 
 
 def bin_data_in_time(
