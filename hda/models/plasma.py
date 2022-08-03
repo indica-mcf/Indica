@@ -124,7 +124,7 @@ class Plasma:
         self.build_atomic_data(ADF11)
         self.initialize_variables()
 
-    def set_equilibrium(self, data: dict, diagnostic: str):
+    def set_equilibrium(self, equilibrium_data: dict, equilibrium_diagnostic: str):
         """
         Assign equilibrium and flux surface transform objects, calculate geometry parameters
 
@@ -139,13 +139,13 @@ class Plasma:
         -------
 
         """
-        equil_keys = list(data.keys())
-        revision = get_prov_attribute(data[equil_keys[0]].provenance, "revision")
-        self.optimisation["equil"] = f"{diagnostic}:{revision}"
+        equil_keys = list(equilibrium_data.keys())
+        revision = get_prov_attribute(equilibrium_data[equil_keys[0]].provenance, "revision")
+        self.optimisation["equil"] = f"{equilibrium_diagnostic}:{revision}"
 
-        self.equilibrium = Equilibrium(data)
-        self.flux_coords = FluxSurfaceCoordinates("poloidal")
-        self.flux_coords.set_equilibrium(self.equilibrium)
+        self.equilibrium = Equilibrium(equilibrium_data)
+        self.flux_transform = FluxSurfaceCoordinates("poloidal")
+        self.flux_transform.set_equilibrium(self.equilibrium)
 
         self.calculate_geometry()
 
@@ -578,8 +578,8 @@ class Plasma:
             self.maj_r_hfs.values = bin_in_time(
                 equilibrium.rmji.interp(rho_poloidal=rho)
             )
-            self.R_mag.values = bin_in_time(equilibrium.rmag.interp(rho_poloidal=rho))
-            self.z_mag.values = bin_in_time(equilibrium.zmag.interp(rho_poloidal=rho))
+            self.R_mag.values = bin_in_time(equilibrium.rmag)
+            self.z_mag.values = bin_in_time(equilibrium.zmag)
             self.min_r.values = (self.maj_r_lfs - self.maj_r_hfs) / 2.0
         else:
             print_like(
@@ -590,7 +590,7 @@ class Plasma:
         binned = bin_in_time_dt(
             self.tstart,
             self.tend,
-            self.dtdt,
+            self.dt,
             value,
         ).interp(t=self.time, method=method)
 
