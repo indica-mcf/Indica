@@ -3,7 +3,7 @@ import xarray as xr
 from xarray import DataArray
 from indica.provenance import get_prov_attribute
 from hda.manage_data import initialize_bckc_dataarray
-from hda.utils import print_like, calc_los_int_1d
+from hda.utils import print_like
 from hda.profiles import Profiles
 from hda.models.interferometer import Interferometer
 from indica.numpy_typing import LabeledArray
