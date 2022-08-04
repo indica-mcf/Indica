@@ -6,14 +6,13 @@ import hda.profiles as profiles
 from hda.read_st40 import ST40data
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates, LinesOfSightTransform
+from indica.converters.line_of_sight import LineOfSightTransform
 from indica.provenance import get_prov_attribute
 
 from hda.optimizations.interferometer import match_interferometer_los_int
 
 import matplotlib.pylab as plt
-from copy import deepcopy
 import numpy as np
-from pytest import approx
 
 plt.ion()
 
@@ -39,6 +38,7 @@ equilibrium_diagnostic = "efit"
 extrapolate = None
 marchuk = True
 plot = True
+forward_models = {}
 
 # Read raw data
 raw = ST40data(pulse, tstart - dt / 2, tend + dt / 2)
@@ -56,6 +56,8 @@ pl.set_equilibrium(equilibrium)
 pl.set_flux_transform(flux_transform)
 pl.calculate_geometry()
 
+# Document the provenance of the equilibrium
+# TODO: add the diagnostic and revision info to the Equilibrium class so it can then be read directly
 revision = get_prov_attribute(
     equilibrium_data[list(equilibrium_data)[0]].provenance, "revision"
 )
@@ -77,48 +79,80 @@ for kinstr in raw_data.keys():
     map_on_equilibrium(data[kinstr], flux_transform=pl.flux_transform)
 
 # Initialize back-calculated (bckc) diactionary and forward model objects
-# Any transform can be associated to the model, also of non-existent systems
 bckc = initialize_bckc(data)
-forward_models = {}
 forward_models["xrcs"] = XRCSpectrometer(marchuk=marchuk, extrapolate=extrapolate)
 interferometers = ["smmh1", "nirh1"]
 for diag in interferometers:
     forward_models[diag] = Interferometer(name=diag)
     forward_models[diag].set_los_transform(data[diag]["ne"].attrs["transform"])
 
-# Optimize electron density to match interferometer
+# Optimize electron density to match interferometer and assign to plasma class
+# TODO: modify this optimisation to include a wider set of diagnostics (NIRH1, SMMH1, TS, ..)
 bckc[diagn_ne][quant_ne], Ne = match_interferometer_los_int(
     forward_models[diagn_ne], data[diagn_ne][quant_ne], pl.Ne_prof
 )
 pl.el_dens.values = Ne.values
 
-# Calculate the LOS-integral of all the interferometers
+# Back-calculate the LOS-integral of all the interferometers for consistency checks
 for diag in interferometers:
     los_integral, _ = forward_models[diag].line_integrated_density(pl.el_dens)
     bckc[diag][quant_ne].values = los_integral.values
 
+# Optimize electron temperature for XRCS line ratios
+
 # -------------------------------------------------------------------
 # Add invented interferometer with different LOS 20 cm above the SMMH1
-diag = "smmh2"
-forward_models[diag] = Interferometer(name=diag)
+forward_models["smmh2"] = Interferometer(name="smmh2")
 _trans = data["smmh1"]["ne"].attrs["transform"]
 los_transform = LinesOfSightTransform(
     x_start=_trans.x_start.values,
-    x_end=_trans.x_end.values,
     y_start=_trans.y_start.values,
-    y_end=_trans.y_end.values,
     z_start=_trans.z_start.values + 0.15,
+    x_end=_trans.x_end.values,
+    y_end=_trans.y_end.values,
     z_end=_trans.z_end.values + 0.15,
-    name=diag,
+    name="smmh2",
     machine_dimensions=_trans._machine_dims,
 )
-los_transform.set_equilibrium(flux_transform.equilibrium)
 los_transform.set_flux_transform(flux_transform)
-_ = los_transform.remap_los(t=data["smmh1"]["ne"].t)
-forward_models[diag].set_los_transform(los_transform)
+_ = los_transform.convert_to_rho(t=data["smmh1"]["ne"].t)
+forward_models["smmh2"].set_los_transform(los_transform)
 bckc["smmh2"] = {}
 los_integral, _ = forward_models["smmh2"].line_integrated_density(pl.el_dens)
 bckc["smmh2"][quant_ne] = los_integral
+
+# Test line_of_sight vs. lines_of_sight transforms
+start = [
+    los_transform.x_start.values,
+    los_transform.y_start.values,
+    los_transform.z_start.values,
+]
+finish = [
+    los_transform.x_end.values,
+    los_transform.y_end.values,
+    los_transform.z_end.values,
+]
+origin = np.array(start).flatten()
+direction = (np.array(finish) - np.array(start)).flatten()
+los_transform_jw = LineOfSightTransform(
+    origin_x=origin[0],
+    origin_y=origin[1],
+    origin_z=origin[2],
+    direction_x=direction[0],
+    direction_y=direction[1],
+    direction_z=direction[2],
+    name="smmh2_jw",
+    dl=0.006,
+    machine_dimensions=los_transform._machine_dims,
+)
+
+los_transform_jw.set_flux_transform(flux_transform)
+_ = los_transform_jw.convert_to_rho(t=data["smmh1"]["ne"].t)
+forward_models["smmh2_jw"] = Interferometer(name="smmh2_jw")
+forward_models["smmh2_jw"].set_los_transform(los_transform_jw)
+bckc["smmh2_jw"] = {}
+los_integral, _ = forward_models["smmh2_jw"].line_integrated_density(pl.el_dens)
+bckc["smmh2_jw"][quant_ne] = los_integral
 
 # if plot:
 # Plot comparison of raw data, binned data and back-calculated values
@@ -129,7 +163,10 @@ for diag in interferometers:
     data[diag][quant_ne].plot(color=colors[diag], marker="o")
     bckc[diag][quant_ne].plot(color=colors[diag], marker="x")
 
-bckc["smmh2"][quant_ne].plot(color="red", marker="D", label="smmh2")
+bckc["smmh2"][quant_ne].plot(color="red", marker="D", label="smmh2", alpha=0.5)
+bckc["smmh2_jw"][quant_ne].plot(
+    color="green", marker="*", label="smmh2", alpha=0.5, linestyle="dashed"
+)
 plt.legend()
 
 # Plot resulting density profiles
@@ -154,6 +191,15 @@ plt.plot(
     forward_models["smmh2"].los_transform.z,
     color="red",
     label="smmh2",
+    alpha=0.5,
+)
+plt.plot(
+    forward_models["smmh2_jw"].los_transform.R,
+    forward_models["smmh2_jw"].los_transform.z,
+    color="green",
+    label="smmh2_jw",
+    alpha=0.5,
+    linestyle="dashed",
 )
 plt.axis("scaled")
 plt.xlim(0.1, 0.8)
@@ -170,6 +216,17 @@ for diag in interferometers:
     )
 
 plt.plot(
-    forward_models["smmh2"].los_transform.rho.transpose(), color="red", label="smmh2"
+    forward_models["smmh2"].los_transform.rho.transpose(),
+    color="red",
+    label="smmh2",
+    alpha=0.5,
+)
+
+plt.plot(
+    forward_models["smmh2_jw"].los_transform.rho.transpose(),
+    color="green",
+    label="smmh2_jw",
+    alpha=0.5,
+    linestyle="dashed",
 )
 plt.legend()
