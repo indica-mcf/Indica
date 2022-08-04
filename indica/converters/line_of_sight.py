@@ -8,6 +8,7 @@ import numpy as np
 from scipy.optimize import root
 from xarray import DataArray
 from xarray import zeros_like
+import xarray as xr
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -15,7 +16,7 @@ from .flux_surfaces import FluxSurfaceCoordinates
 from ..numpy_typing import LabeledArray
 
 
-class LinesOfSightTransform(CoordinateTransform):
+class LineOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
@@ -90,6 +91,7 @@ class LinesOfSightTransform(CoordinateTransform):
         y_end = end_coords[1]
         z_end = end_coords[2]
 
+        self.name = f"{name}_line_of_sight_transform"
         self.x_start = DataArray(x_start)
         self.z_start = DataArray(z_start)
         self.y_start = DataArray(y_start)
@@ -99,6 +101,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.y_end = DataArray(y_end)
         self.x1_name = "channel"
         self.x2_name = "los_position"
+
+        self.x1 = np.array(0)
 
         # Set "dl"
         self.dl_target = dl
@@ -143,7 +147,7 @@ class LinesOfSightTransform(CoordinateTransform):
         x = self.x_start + (self.x_end - self.x_start) * x2
         y = self.y_start + (self.y_end - self.y_start) * x2
         z = self.z_start + (self.z_end - self.z_start) * x2
-        return np.sign(x) * np.sqrt(x**2 + y**2), z
+        return np.sign(x) * np.sqrt(x ** 2 + y ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -153,7 +157,7 @@ class LinesOfSightTransform(CoordinateTransform):
             x2 = x[1]
             x = self.x_start + (self.x_end - self.x_start) * x2
             y = self.y_start + (self.y_end - self.y_start) * x2
-            x = np.sign(x) * np.sqrt(x**2 + y**2)
+            x = np.sign(x) * np.sqrt(x ** 2 + y ** 2)
             dxdx1 = 0.0
             dxdx2 = self.x_end - self.x_start
             dydx1 = 0.0
@@ -161,10 +165,7 @@ class LinesOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [
-                    2 / x * (x * dxdx1 + y * dydx1),
-                    2 / x * (x * dxdx2 + y * dydx2),
-                ],
+                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
                 [dzdx1, dzdx2],
             ]
 
@@ -190,11 +191,7 @@ class LinesOfSightTransform(CoordinateTransform):
         # # inexact, as well as computationally expensive).
 
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -233,12 +230,111 @@ class LinesOfSightTransform(CoordinateTransform):
 
         return x2, dl
 
-    def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        self.flux_transform = flux_transform
+    def set_flux_transform(
+        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
+    ):
+        """
+        Set flux surface transform to perform remapping from physical to flux space
+        """
+        if not hasattr(self, "flux_transform") or force:
+            self.flux_transform = flux_transform
+        elif self.flux_transform != flux_transform:
+            raise Exception("Attempt to set flux surface transform twice.")
 
-    def convert_to_rho(self, t: float = None):
-        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+        """
+        Convert R, z to rho given the flux surface transform
+        """
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Set flux transform to convert (R,z) to rho")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
 
+        rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+        rho = xr.where(rho >= 0, rho, 0.0)
+        rho.coords[self.x2_name] = self.x2
+        theta.coords[self.x2_name] = self.x2
+
+        self.rho = rho
+        self.theta = theta
+
+        return rho, theta
+
+    def map_to_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+    ):
+        """
+        Map 1D profile to LOS
+        TODO: extend for 2D interpolation if coordinates of the profile are (R, z) instead of rho
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+
+        Returns
+        -------
+        Interpolation of the input profile along the LOS
+        """
+        self.check_flux_transform()
+        if not hasattr(self, "rho"):
+            self.convert_to_rho(t=t)
+
+        if t is not None:
+            rho = self.rho.interp(t=t, method="linear")
+        else:
+            rho = self.rho
+        along_los = profile_1d.interp(rho_poloidal=rho)
+        if limit_to_sep:
+            along_los = xr.where(rho <= 1, along_los, 0,)
+
+        return along_los
+
+    def integrate_on_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+        passes: int = 1,
+    ):
+        """
+        Integrate 1D profile along LOS
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+        passes
+            Number of passes across the plasma (e.g. interferometer with corner-cube will have passes=2)
+
+        Returns
+        -------
+        Line of sight integral along the LOS
+        """
+        along_los = self.map_to_los(
+            profile_1d,
+            t=t,
+            limit_to_sep=limit_to_sep,
+        )
+
+        los_integral = passes * along_los.sum(self.x2_name) * self.dl
+
+        return los_integral, along_los
+
+    def check_flux_transform(self):
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Missing flux surface transform")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Missing equilibrium in flux surface transform")
 
 def _find_wall_intersections(
     origin: Tuple,

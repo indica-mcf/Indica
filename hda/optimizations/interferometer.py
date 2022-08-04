@@ -49,7 +49,7 @@ def match_interferometer_los_int(
             ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
             Ne_prof.y0 = ne0.values
             Ne_prof.build_profile()
-            los_integral, _ = interferometer.line_integrated_density(Ne_prof.yspl, t=time)
+            los_integral, along_los = interferometer.line_integrated_density(Ne_prof.yspl, t=time)
             bckc.loc[dict(t=time)] = los_integral
             const = (data.sel(t=time) / bckc.sel(t=time)).values
         Ne.append(Ne_prof.yspl)

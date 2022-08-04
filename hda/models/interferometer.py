@@ -58,7 +58,7 @@ class Interferometer:
         Return line integral and interpolated density along the line of sight
 
         """
-        los_integral, along_los = self.los_transform.simple_los_int_1d(Ne, t=t, passes=self.passes)
+        los_integral, along_los = self.los_transform.integrate_on_los(Ne, t=t, passes=self.passes)
         return los_integral, along_los
 
     def line_integrated_phase_shift(self, Ne: LabeledArray, t: LabeledArray = None):

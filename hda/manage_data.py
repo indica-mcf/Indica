@@ -116,7 +116,7 @@ def map_on_equilibrium(
         transform.set_equilibrium(flux_transform.equilibrium, force=True)
         if "LinesOfSightTransform" in str(data.attrs["transform"]):
             transform.set_flux_transform(flux_transform)
-            transform.remap_los(t=data.t)
+            transform.convert_to_rho(t=data.t)
 
     for quantity in diagnostic_data.keys():
         diagnostic_data[quantity].attrs["transform"] = transform
