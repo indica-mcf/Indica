@@ -177,6 +177,18 @@ class JetWorkflow(BaseWorkflow):
                 "SXRPLT",
                 "SXRPRB",
                 "SXRPL",
+                "sxr_fitted_symmetric_emissivity",
+                "sxr_fitted_asymmetry_parameter",
+                "sxr_emissivity",
+                "electron_density",
+                "electron_temperature",
+                "ion_temperature",
+                "toroidal_rotation",
+                "fzt",
+                "power_loss",
+                "sxr_power_loss",
+                "q",
+                "additional_data",
             ],
         ]
 
@@ -441,7 +453,7 @@ class JetWorkflow(BaseWorkflow):
             .assign_attrs(transform=self.flux_surface)
         )
 
-    def _calculate_asymmetry_parameter(self, element: str) -> DataArray:
+    def _calculate_vtor_asymmetry(self, element: str) -> DataArray:
         toroidal_rotation = (
             self.toroidal_rotation.expand_dims(
                 {"element": [element]}  # type:ignore
@@ -464,6 +476,7 @@ class JetWorkflow(BaseWorkflow):
             impurity=element,
             Zeff=self.diagnostics["zeff"]["zefh"].interp(t=self.t),
             electron_temp=self.electron_temperature,
+            # mean_charge=self.q.copy(),
         )
         return asymmetry_parameter.drop_vars(
             [
@@ -473,11 +486,11 @@ class JetWorkflow(BaseWorkflow):
             ]
         )
 
-    def _calculate_asymmetry_parameter_high_z(self) -> DataArray:
-        return self._calculate_asymmetry_parameter(element=self.high_z)
+    def _calculate_asymmetry_high_z(self) -> DataArray:
+        return self._calculate_vtor_asymmetry(element=self.high_z)
 
-    def _calculate_asymmetry_parameter_other_z(self) -> DataArray:
-        return self._calculate_asymmetry_parameter(element=self.other_z)
+    def _calculate_asymmetry_other_z(self) -> DataArray:
+        return self._calculate_vtor_asymmetry(element=self.other_z)
 
     def initialise_default_values(self):
         self.sxr_rescale_factor = 1.0
@@ -555,7 +568,7 @@ class JetWorkflow(BaseWorkflow):
             electron_temperature=self.electron_temperature,
             truncation_threshold=1.5e3,
             flux_surfaces=self.flux_surface,
-            asymmetry_parameter=self.asymmetry_parameter_high_z,
+            asymmetry_parameter=None,
             t=self.t,
         )
         n_high_z_rho_theta = (

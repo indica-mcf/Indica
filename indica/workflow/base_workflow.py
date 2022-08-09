@@ -137,11 +137,11 @@ class BaseWorkflow:
         #     ],
         # )
         self._asymmetry_parameter_high_z = Observer(
-            operator=self._calculate_asymmetry_parameter_high_z,
+            operator=self._calculate_asymmetry_high_z,
             depends_on=[self._ion_temperature, self._toroidal_rotation],
         )
         self._asymmetry_parameter_other_z = Observer(
-            operator=self._calculate_asymmetry_parameter_other_z,
+            operator=self._calculate_asymmetry_other_z,
             depends_on=[self._ion_temperature, self._toroidal_rotation],
         )
 
@@ -431,13 +431,12 @@ class BaseWorkflow:
     def asymmetry_parameter_high_z(self) -> DataArray:
         return self._asymmetry_parameter_high_z.data
 
-    def _calculate_asymmetry_parameter_high_z(self) -> DataArray:
+    def _calculate_asymmetry_high_z(self) -> DataArray:
         raise NotImplementedError(
-            f"{self.__class__} does not implement"
-            " _calculate_asymmetry_parameter_high_z method"
+            f"{self.__class__} does not implement _calculate_asymmetry_high_z method"
         )
 
-    def calculate_asymmetry_parameter_high_z(self) -> DataArray:
+    def calculate_asymmetry_high_z(self) -> DataArray:
         self._asymmetry_parameter_high_z.update()
         return self.asymmetry_parameter_high_z
 
@@ -445,13 +444,13 @@ class BaseWorkflow:
     def asymmetry_parameter_other_z(self) -> DataArray:
         return self._asymmetry_parameter_other_z.data
 
-    def _calculate_asymmetry_parameter_other_z(self) -> DataArray:
+    def _calculate_asymmetry_other_z(self) -> DataArray:
         raise NotImplementedError(
             f"{self.__class__} does not implement"
-            " _calculate_asymmetry_parameter_other_z method"
+            " _calculate_asymmetry_other_z method"
         )
 
-    def calculate_asymmetry_parameter_other_z(self) -> DataArray:
+    def calculate_asymmetry_other_z(self) -> DataArray:
         self._asymmetry_parameter_other_z.update()
         return self.asymmetry_parameter_other_z
 
