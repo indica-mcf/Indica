@@ -3,6 +3,7 @@ import numpy as np
 
 import hda.diagnostics.CrystalSpectrometer as CrystalSpectrometer
 
+# TODO: Check if 2 different co-ordinates are passed to make_intensity
 
 
 class TestDielectronicRecombination(unittest.TestCase):
