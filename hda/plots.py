@@ -33,7 +33,8 @@ def compare_data_bckc(
         # Temperatures
         plt.figure()
         ylim0, ylim1 = [], []
-        for i, quant in enumerate(bckc["xrcs"].keys()):
+        icol = -1
+        for quant in bckc["xrcs"].keys():
             if ("ti" not in quant) and ("te" not in quant):
                 continue
             marker = "o"
@@ -42,18 +43,18 @@ def compare_data_bckc(
 
             if "xrcs" in raw_data.keys():
                 raw_data["xrcs"][quant].plot(
-                    color=colors[i], linestyle="dashed", alpha=0.5,
+                    color=colors[icol], linestyle="dashed", alpha=0.5,
                 )
             plt.fill_between(
                 data["xrcs"][quant].t,
                 data["xrcs"][quant].values + data["xrcs"][quant].attrs["error"],
                 data["xrcs"][quant].values - data["xrcs"][quant].attrs["error"],
-                color=colors[i],
+                color=colors[icol],
                 alpha=0.5,
             )
             data["xrcs"][quant].plot(
                 marker=marker,
-                color=colors[i],
+                color=colors[icol],
                 linestyle="dashed",
                 label=f"{quant.upper()} XRCS",
             )
@@ -62,7 +63,7 @@ def compare_data_bckc(
         for i, quant in enumerate(bckc["xrcs"].keys()):
             if ("ti" not in quant) and ("te" not in quant):
                 continue
-            bckc["xrcs"][quant].plot(color=colors[i], label="Back-calc", linewidth=3)
+            bckc["xrcs"][quant].plot(color=colors[icol], label="Back-calc", linewidth=3)
 
         plt.xlim(xlim)
         plt.ylim(0, np.max(ylim1))
@@ -75,36 +76,36 @@ def compare_data_bckc(
 
         # Intensity
         plt.figure()
-        i = -1
+        icol = -1
         ylim0, ylim1 = [], []
         for quant in bckc["xrcs"].keys():
-            if "int" not in quant:
+            if "int" not in quant or "/" in quant:
                 continue
-            i += 1
+            icol += 1
             marker = "o"
 
             plt.figure()
             if "xrcs" in raw_data.keys():
                 raw_data["xrcs"][quant].plot(
-                    color=colors[i], linestyle="dashed", alpha=0.5,
+                    color=colors[icol], linestyle="dashed", alpha=0.5,
                 )
             plt.fill_between(
                 data["xrcs"][quant].t,
                 data["xrcs"][quant].values + data["xrcs"][quant].attrs["error"],
                 data["xrcs"][quant].values - data["xrcs"][quant].attrs["error"],
-                color=colors[i],
+                color=colors[icol],
                 alpha=0.5,
             )
             data["xrcs"][quant].plot(
                 marker=marker,
-                color=colors[i],
+                color=colors[icol],
                 linestyle="dashed",
                 label=f"{quant.upper()} XRCS",
             )
             ylim0.append(np.nanmin(data["xrcs"][quant]))
             ylim1.append(np.nanmax(data["xrcs"][quant]) * 1.3)
 
-            bckc["xrcs"][quant].plot(color=colors[i], label="Back-calc", linewidth=3)
+            bckc["xrcs"][quant].plot(color=colors[icol], label="Back-calc", linewidth=3)
 
             plt.xlim(xlim)
             plt.ylim(0, np.max(ylim1))
