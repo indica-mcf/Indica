@@ -285,8 +285,13 @@ class PlotWorkflow:
         asymmetry_cxrs_midz = (1 - asymmetry_modifier_cxrs_hfs_midz) / (
             1 + asymmetry_modifier_cxrs_hfs_midz
         )
+        sxr_R_deriv, _ = flux_surface.convert_to_Rz(
+            self.workflow.sxr_fitted_asymmetry_parameter.rho_poloidal,
+            self.workflow.theta,
+            self.workflow.t,
+        )
         asymmetry_parameter_emiss = asymmetry_parameter_to_modifier(
-            self.workflow.sxr_fitted_asymmetry_parameter, R_deriv
+            self.workflow.sxr_fitted_asymmetry_parameter, sxr_R_deriv
         )
         asymmetry_emiss = (1 - asymmetry_parameter_emiss) / (
             1 + asymmetry_parameter_emiss
