@@ -1,5 +1,6 @@
 from xarray import DataArray
 from copy import deepcopy
+import inspect
 
 def assign_datatype(data_array: DataArray, datatype: tuple, unit=""):
     data_array.name = f"{datatype[1]}_{datatype[0]}"
@@ -24,3 +25,8 @@ def assign_data(data: DataArray, datatype: tuple, unit="", make_copy=True):
 
 def print_like(string):
     print(f"\n {string}")
+
+
+def get_funcion_name():
+    return str(inspect.stack()[1][3])
+
