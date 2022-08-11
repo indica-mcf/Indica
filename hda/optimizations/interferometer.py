@@ -10,49 +10,64 @@ from indica.numpy_typing import LabeledArray
 
 
 def match_interferometer_los_int(
-    interferometer: Interferometer,
-    data: DataArray,
+    model: Interferometer,
     Ne_prof: Profiles,
+    data: dict,
+    t:float,
+    quantities:list=["ne"],
+    bckc:dict=None,
+    ne0=5.e19,
     niter: int = 3,
-    t: LabeledArray = None,
 ):
     """
     Rescale density profiles to match the interferometer measurements
 
     Parameters
     ----------
-    interferometer
+    model
         Model to simulate an interferometer
-    data
-        Interferometer line of sight integral of the electron density
     Ne_prof
         Profile object to build electron density profile for optimization
+    data
+        Dictionary of Dataarrays of interferometer data as returned by ST40reader
     t
-        If None, run optimization for all time-points
+        Time for which optimisation must be performed
+    quantities
+        Measurement identifiers to be optimised
+    bckc
+        Dictionary where back-calculated values are to be saved (same structure as data)
+    ne0
+        Initial guess of central density
+    niter
+         Number of iterations
 
     Returns
     -------
 
     """
 
-    print_like(f"Re-calculating density profiles to match interferometer measurement")
+    data_value = {}
+    for quantity in quantities:
+        data_value[quantity] = data[quantity].sel(t=t).values
 
-    if t is None:
-        t = data.t
+    const = 1.0
+    for j in range(niter):
+        ne0 *= const
+        ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
+        Ne_prof.y0 = ne0
+        Ne_prof.build_profile()
+        bckc_tmp, _ = model.integrate_on_los(Ne_prof.yspl, t=t)
 
-    bckc = initialize_bckc_dataarray(data)
-    Ne = []
-    for time in t:
-        const = 1.0
-        for j in range(niter):
-            ne0 = Ne_prof.yspl.sel(rho_poloidal=0) * const
-            ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
-            Ne_prof.y0 = ne0.values
-            Ne_prof.build_profile()
-            los_integral, along_los = interferometer.line_integrated_density(Ne_prof.yspl, t=time)
-            bckc.loc[dict(t=time)] = los_integral
-            const = (data.sel(t=time) / bckc.sel(t=time)).values
-        Ne.append(Ne_prof.yspl)
-    Ne = xr.concat(Ne, "t").assign_coords({"t":t})
+        const = []
+        for quantity in quantities:
+            _const = (data_value[quantity] / bckc_tmp[quantity]).values
+            const.append(_const)
+        const = np.array(const).mean()
 
-    return bckc, Ne
+    if bckc is None:
+        bckc = bckc_tmp
+    else:
+        for quantity in quantities:
+            bckc[quantity].loc[dict(t=t)] = bckc_tmp[quantity]
+
+    return bckc, Ne_prof
