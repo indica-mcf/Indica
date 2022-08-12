@@ -78,6 +78,16 @@ ADF11 = {
         "pls": "15",
         "prs": "15",
     },
+    "w": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
 }
 
 
@@ -717,28 +727,33 @@ class Plasma:
         tau:DataArray = None,
         full_run = False,
     ):
-        print_like("Initialize fractional abundance objects")
+        print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
         for elem in self.elements:
             if adf11 is None:
-                adf11 = ADF11
+                adf11 = self.ADF11
 
             scd = self.ADASReader.get_adf11("scd", elem, adf11[elem]["scd"])
             acd = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
             ccd = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
             fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
             if not full_run and Te is not None and Ne is not None:
-                print_like("Calculating default ionisation balance")
-                fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
+                fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=True)
 
             plt = self.ADASReader.get_adf11("plt", elem, adf11[elem]["plt"])
             prb = self.ADASReader.get_adf11("prb", elem, adf11[elem]["prb"])
             prc = self.ADASReader.get_adf11("prc", elem, adf11[elem]["prc"])
             power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
+            if not full_run and Te is not None and Ne is not None:
+                F_z_t = fract_abu[elem].F_z_t
+                power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=True)
 
             pls = self.ADASReader.get_adf11("pls", elem, adf11[elem]["pls"])
             prs = self.ADASReader.get_adf11("prs", elem, adf11[elem]["prs"])
             power_loss_sxr[elem] = PowerLoss(pls, prs)
+            if not full_run and Te is not None and Ne is not None:
+                F_z_t = fract_abu[elem].F_z_t
+                power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=True)
 
         self.adf11 = adf11
         self.fract_abu = fract_abu
