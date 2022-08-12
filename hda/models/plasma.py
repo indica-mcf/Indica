@@ -98,7 +98,7 @@ class Plasma:
         tend=0.14,
         dt=0.01,
         ntheta=5,
-        machine_dimensions=((0.15, 0.9), (-0.8, 0.8)),
+        machine_dimensions=((0.15, 0.75), (-0.7, 0.7)),
         impurities=("c", "ar"),
         main_ion="h",
         imp_conc=(0.02, 0.001),
@@ -187,7 +187,7 @@ class Plasma:
         nimp = len(self.impurities)
         nth = len(self.theta)
 
-        R_midplane = np.linspace(self.machine_R.min(), self.machine_R.max(), 50)
+        R_midplane = np.linspace(self.machine_R.min(), self.machine_R.max(), 100)
         self.R_midplane = R_midplane
         z_midplane = np.full_like(R_midplane, 0.0)
         self.z_midplane = z_midplane
@@ -424,7 +424,8 @@ class Plasma:
 
         self._fz = deepcopy(self.data3d_fz)
         for elem in self.elements:
-            assign_data(self._fz[elem], ("fractional_abundance", "ion"), "")
+            self._fz[elem].attrs["datatype"] = ("fractional_abundance", "ion")
+            self._fz[elem].attrs["unit"] = ""
 
         for elem in self.elements:
             for t in self.time:
@@ -438,7 +439,7 @@ class Plasma:
                     Nh = self.neutral_dens.sel(t=t)
                 if any(np.logical_not((Te > 0) * (Ne > 0))):
                     continue
-                fz_tmp = self.fract_abu[elem](Ne, Te, Nh=Nh, tau=tau)
+                fz_tmp = self.fract_abu[elem](Te, Ne=Ne, Nh=Nh, tau=tau)
                 self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
         return self._fz
 
@@ -495,11 +496,11 @@ class Plasma:
         if value is not None:
             return value
 
-        self._lz_tot = assign_data(
-            self.data3d_fz, ("radiation_loss_parameter", "total"), "W m^3"
-        )
+        self._lz_tot = deepcopy(self.data3d_fz)
         for elem in self.elements:
-            assign_data(self._lz_tot[elem], ("cooling_factor", "total"), "")
+            self._lz_tot[elem].attrs["datatype"] = ("radiation_loss_parameter", "total")
+            self._lz_tot[elem].attrs["unit"] = "W m^3"
+
         fz = self.fz
         for elem in self.elements:
             for t in self.time:
@@ -512,7 +513,7 @@ class Plasma:
                 if np.any(self.neutral_dens.sel(t=t) != 0):
                     Nh = self.neutral_dens.sel(t=t)
                 self._lz_tot[elem].loc[dict(t=t)] = (
-                    self.power_loss_tot[elem](Ne, Te, Fz, Nh=Nh, bounds_check=False)
+                    self.power_loss_tot[elem](Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False)
                     .transpose()
                     .values
                 )
@@ -524,11 +525,11 @@ class Plasma:
         if value is not None:
             return value
 
-        self._lz_sxr = assign_data(
-            self.data3d_fz, ("radiation_loss_parameter", "sxr"), "W m^3"
-        )
+        self._lz_sxr = deepcopy(self.data3d_fz)
         for elem in self.elements:
-            assign_data(self._lz_sxr[elem], ("cooling_factor", "sxr"), "")
+            self._lz_sxr[elem].attrs["datatype"] = ("radiation_loss_parameter", "sxr")
+            self._lz_sxr[elem].attrs["unit"] = "W m^3"
+
         fz = self.fz
         for elem in self.elements:
             for t in self.time:
@@ -541,11 +542,11 @@ class Plasma:
                 if np.any(self.neutral_dens.sel(t=t) != 0):
                     Nh = self.neutral_dens.sel(t=t)
                 self._lz_sxr[elem].loc[dict(t=t)] = (
-                    self.power_loss_sxr[elem](Ne, Te, Fz, Nh=Nh, bounds_check=False)
+                    self.power_loss_sxr[elem](Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False)
                     .transpose()
                     .values
                 )
-        return self._lz_tot
+        return self._lz_sxr
 
     @property
     def tot_rad(self):
@@ -860,7 +861,7 @@ class Plasma:
             return
 
         ion_dens = self.ion_dens
-        meanz = self.meanz.sel(element=elem).drop("element")
+        meanz = self.meanz
         zeff = self.zeff.sum("element")
         R_0 = self.maj_r_lfs.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
         for elem in self.elements:

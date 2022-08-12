@@ -41,7 +41,7 @@ class XRCSpectrometer:
         marchuk: bool = True,
         adf15: dict = None,
         extrapolate: str = None,
-        fast: bool = True,
+        full_run: bool = False,
     ):
         """
         Read all atomic data and initialise objects
@@ -60,9 +60,9 @@ class XRCSpectrometer:
             set to true if Marchuk data to be used in place of ADAS adf15 files
         extrapolate
             Go beyond validity limit of machuk's data
-        fast
-            Reduce density dimension to single value to increase speed of interpolation
-
+        full_run
+            Applies to fractional abundance calculation (see FractAbu.. object) and to interpolation
+            of the PECs on electron density
 
         Returns
         -------
@@ -71,13 +71,14 @@ class XRCSpectrometer:
         self.etendue = etendue
         self.calibration = calibration
 
+        self.full_run = full_run
         if fract_abu is not None:
             self.set_fract_abu(fract_abu)
 
         if marchuk:
-            self.set_marchuk_pecs(extrapolate=extrapolate, fast=fast)
+            self.set_marchuk_pecs(extrapolate=extrapolate)
         else:
-            self.set_adas_pecs(adf15=adf15, extrapolate=extrapolate, fast=fast)
+            self.set_adas_pecs(adf15=adf15, extrapolate=extrapolate)
 
         self.name = name
 
@@ -107,7 +108,7 @@ class XRCSpectrometer:
         self.fract_abu = fract_abu
         self.elements = list(fract_abu)
 
-    def set_adas_pecs(self, adf15: dict = None, extrapolate: str = None, fast=True):
+    def set_adas_pecs(self, adf15: dict = None, extrapolate: str=None):
         """
         Read ADAS adf15 data
 
@@ -117,8 +118,6 @@ class XRCSpectrometer:
             Dictionary with details of photon emission coefficient data (see ADF15 class var)
         extrapolate
             Go beyond validity limit of machuk's data
-        fast
-            Reduce density dimension to single value to increase speed of interpolation
         """
         self.adasreader = ADASReader()
         if adf15 is None:
@@ -137,7 +136,7 @@ class XRCSpectrometer:
                 adf15_data, transition, wavelength
             )
 
-        if fast:
+        if not self.full_run:
             for line in pec:
                 pec[line]["emiss_coeff"] = (
                     pec[line]["emiss_coeff"]
@@ -147,7 +146,7 @@ class XRCSpectrometer:
 
         self.pec = pec
 
-    def set_marchuk_pecs(self, extrapolate: str = None, fast=True):
+    def set_marchuk_pecs(self, extrapolate: str = None):
         """
         Read marchuk PEC data
 
@@ -155,8 +154,6 @@ class XRCSpectrometer:
         ----------
         extrapolate
             Go beyond validity limit of machuk's data
-        fast
-            Reduce density dimension to single value to increase speed of interpolation
         """
 
         adf15, adf15_data = get_marchuk(extrapolate=extrapolate)
@@ -166,8 +163,7 @@ class XRCSpectrometer:
             element = adf15[line]["element"]
             pec[line]["emiss_coeff"] = adf15_data[line]
 
-        # For fast computation, drop electron density dimension
-        if fast:
+        if not self.full_run:
             for line in pec:
                 pec[line]["emiss_coeff"] = (
                     pec[line]["emiss_coeff"]
@@ -232,7 +228,7 @@ class XRCSpectrometer:
             coords = pec["emiss_coeff"].coords
 
             if elem not in self.fz.keys():
-                _fz = self.fract_abu[elem](Ne, Te, Nh, tau=tau)
+                _fz = self.fract_abu[elem](Te, Ne=Ne, Nh=Nh, tau=tau, full_run=self.full_run)
                 self.fz[elem] = xr.where(_fz >= 0, _fz, 0)
 
             # Sum contributions from all transition types
