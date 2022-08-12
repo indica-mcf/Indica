@@ -683,32 +683,7 @@ class FractionalAbundance(Operator):
 
             self.F_z_t = F_z_t
         else:
-            F_z_t = interpolate_results(self.F_z_t, Te)
-
-            # dim_old = [d for d in self.F_z_t.dims if d != "ion_charges"][0]
-            # F_z_t_tmp = deepcopy(self.F_z_t)
-            # F_z_t_tmp = F_z_t_tmp.assign_coords(electron_temperature=(dim_old, self.Te))
-            # F_z_t_tmp = F_z_t_tmp.swap_dims({"rho_poloidal": "electron_temperature"})
-            #
-            # F_z_t = []
-            # ion_charges = self.F_z_t.ion_charges
-            # for charge in ion_charges:
-            #     F_z_t.append(
-            #         F_z_t_tmp.sel(ion_charges=charge).interp(
-            #             electron_temperature=Te.values
-            #         )
-            #     )
-            #
-            # F_z_t = xr.concat(F_z_t, "ion_charges").assign_coords(
-            #     ion_charges=ion_charges
-            # )
-            # dim_new = Te.dims[0]
-            # F_z_t = F_z_t.assign_coords(
-            #     {dim_new: ("electron_temperature", Te[dim_new])}
-            # )
-            # F_z_t = F_z_t.swap_dims({"electron_temperature": dim_new}).drop_vars(
-            #     "electron_temperature"
-            # )
+            F_z_t = interpolate_results(self.F_z_t, self.Te, Te)
 
         return F_z_t
 
@@ -1135,36 +1110,11 @@ class PowerLoss(Operator):
             cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
             self.cooling_factor = cooling_factor
         else:
-            cooling_factor = interpolate_results(self.cooling_factor, Te)
-            # dim_old = [d for d in self.cooling_factor.dims if d != "ion_charges"][0]
-            # cooling_factor_tmp = deepcopy(self.cooling_factor)
-            # cooling_factor_tmp = cooling_factor_tmp.assign_coords(electron_temperature=(dim_old, self.Te))
-            # cooling_factor_tmp = cooling_factor_tmp.swap_dims({"rho_poloidal": "electron_temperature"})
-            #
-            # cooling_factor = []
-            # ion_charges = self.cooling_factor.ion_charges
-            # for charge in ion_charges:
-            #     cooling_factor.append(
-            #         cooling_factor_tmp.sel(ion_charges=charge).interp(
-            #             electron_temperature=Te.values
-            #         )
-            #     )
-            #
-            # cooling_factor = xr.concat(cooling_factor, "ion_charges").assign_coords(
-            #     ion_charges=ion_charges
-            # )
-            # dim_new = Te.dims[0]
-            # cooling_factor = cooling_factor.assign_coords(
-            #     {dim_new: ("electron_temperature", Te[dim_new])}
-            # )
-            # cooling_factor = cooling_factor.swap_dims({"electron_temperature": dim_new}).drop_vars(
-            #     "electron_temperature"
-            # )
-
+            cooling_factor = interpolate_results(self.cooling_factor, self.Te, Te)
 
         return cooling_factor
 
-def interpolate_results(atomic_data:DataArray, Te:DataArray):
+def interpolate_results(data:DataArray, Te_data:DataArray, Te_interp:DataArray):
     """
     Interpolate fractional abundance or cooling factor on electron temperature for fast processing
 
@@ -1180,26 +1130,26 @@ def interpolate_results(atomic_data:DataArray, Te:DataArray):
     Interpolated values
     """
     result = []
-    dim_old = [d for d in atomic_data.dims if d != "ion_charges"][0]
-    ion_charges = atomic_data.ion_charges
+    dim_old = [d for d in data.dims if d != "ion_charges"][0]
+    ion_charges = data.ion_charges
 
-    _atomic_data = deepcopy(atomic_data)
-    _atomic_data = _atomic_data.assign_coords(electron_temperature=(dim_old, Te))
-    _atomic_data = _atomic_data.swap_dims({"rho_poloidal": "electron_temperature"})
+    _data = deepcopy(data)
+    _data = _data.assign_coords(electron_temperature=(dim_old, Te_data))
+    _data = _data.swap_dims({dim_old: "electron_temperature"})
 
     for charge in ion_charges:
         result.append(
-            _atomic_data.sel(ion_charges=charge).interp(
-                electron_temperature=Te.values
+            _data.sel(ion_charges=charge).interp(
+                electron_temperature=Te_interp.values
             )
         )
 
     result = xr.concat(result, "ion_charges").assign_coords(
         ion_charges=ion_charges
     )
-    dim_new = Te.dims[0]
+    dim_new = Te_interp.dims[0]
     result = result.assign_coords(
-        {dim_new: ("electron_temperature", Te[dim_new])}
+        {dim_new: ("electron_temperature", Te_interp[dim_new])}
     )
     result = result.swap_dims({"electron_temperature": dim_new}).drop_vars(
         "electron_temperature"
