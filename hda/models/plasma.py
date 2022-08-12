@@ -92,7 +92,7 @@ class Plasma:
         impurities=("c", "ar"),
         main_ion="h",
         imp_conc=(0.02, 0.001),
-        pulse:int=None,
+        pulse: int = None,
     ):
         """
 
@@ -111,7 +111,7 @@ class Plasma:
             DataArray(np.array(imp_conc), coords=[("element", list(self.impurities))]),
             ("concentration", "impurity"),
         )
-
+        self.ADF11 = ADF11
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
@@ -123,7 +123,6 @@ class Plasma:
 
         self.forward_models = {}
 
-        self.build_atomic_data(ADF11)
         self.initialize_variables()
 
     def set_equilibrium(self, equilibrium: Equilibrium):
@@ -132,7 +131,7 @@ class Plasma:
         """
         self.equilibrium = equilibrium
 
-    def set_flux_transform(self, flux_transform:FluxSurfaceCoordinates):
+    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         """
         Assign flux surface transform class for geometry mapping
         """
@@ -142,7 +141,9 @@ class Plasma:
             if not hasattr(self.flux_transform, "equilibrium"):
                 self.flux_transform.set_equilibrium(self.equilibrium)
             if self.flux_transform.equilibrium != self.equilibrium:
-                raise ValueError("Plasma class equilibrium and flux_transform are not the same object...s")
+                raise ValueError(
+                    "Plasma class equilibrium and flux_transform are not the same object...s"
+                )
         else:
             if hasattr(flux_transform, "equilibrium"):
                 self.equilibrium = flux_transform.equilibrium
@@ -192,7 +193,9 @@ class Plasma:
         self.data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
         self.data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
         self.data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
-        self.data2d_elem = DataArray(np.zeros((nel, nt)), coords=[coords_elem, coords_time])
+        self.data2d_elem = DataArray(
+            np.zeros((nel, nt)), coords=[coords_elem, coords_time]
+        )
         self.data3d = DataArray(
             np.zeros((nel, nt, nr)), coords=[coords_elem, coords_time, coords_radius]
         )
@@ -306,7 +309,7 @@ class Plasma:
         # )
         # self._btot = assign_data(self.data1d_time, ("magnetic_field", "total"), "T")
 
-    def check_property(self, property_name:str):
+    def check_property(self, property_name: str):
         return None
         value = getattr(self, f"_{property_name}")
         if value is not None:
@@ -318,7 +321,9 @@ class Plasma:
         if value is not None:
             return value
 
-        self._pressure_el = assign_data(self.data2d, ("pressure", "electron"), "Pa m^-3")
+        self._pressure_el = assign_data(
+            self.data2d, ("pressure", "electron"), "Pa m^-3"
+        )
         self._pressure_el.values = ph.calc_pressure(self.el_dens, self.el_temp)
         return self._pressure_el
 
@@ -480,7 +485,9 @@ class Plasma:
         if value is not None:
             return value
 
-        self._lz_tot = assign_data(self.data3d_fz, ("radiation_loss_parameter", "total"), "W m^3")
+        self._lz_tot = assign_data(
+            self.data3d_fz, ("radiation_loss_parameter", "total"), "W m^3"
+        )
         for elem in self.elements:
             assign_data(self._lz_tot[elem], ("cooling_factor", "total"), "")
         fz = self.fz
@@ -507,7 +514,9 @@ class Plasma:
         if value is not None:
             return value
 
-        self._lz_sxr = assign_data(self.data3d_fz, ("radiation_loss_parameter", "sxr"), "W m^3")
+        self._lz_sxr = assign_data(
+            self.data3d_fz, ("radiation_loss_parameter", "sxr"), "W m^3"
+        )
         for elem in self.elements:
             assign_data(self._lz_sxr[elem], ("cooling_factor", "sxr"), "")
         fz = self.fz
@@ -534,7 +543,9 @@ class Plasma:
         if value is not None:
             return value
 
-        self._tot_rad = assign_data(self.data3d, ("radiation_emission", "total"), "W m^-3")
+        self._tot_rad = assign_data(
+            self.data3d, ("radiation_emission", "total"), "W m^-3"
+        )
         lz_tot = self.lz_tot
         ion_dens = self.ion_dens
         for elem in self.elements:
@@ -544,9 +555,7 @@ class Plasma:
                 * ion_dens.sel(element=elem)
             )
             self._tot_rad.loc[dict(element=elem)] = xr.where(
-                tot_rad >= 0,
-                tot_rad,
-                0.0,
+                tot_rad >= 0, tot_rad, 0.0,
             ).values
         return self._tot_rad
 
@@ -556,7 +565,9 @@ class Plasma:
         if value is not None:
             return value
 
-        self._sxr_rad = assign_data(self.data3d, ("radiation_emission", "sxr"), "W m^-3")
+        self._sxr_rad = assign_data(
+            self.data3d, ("radiation_emission", "sxr"), "W m^-3"
+        )
         lz_sxr = self.lz_sxr
         ion_dens = self.ion_dens
         for elem in self.elements:
@@ -566,9 +577,7 @@ class Plasma:
                 * ion_dens.sel(element=elem)
             )
             self._sxr_rad.loc[dict(element=elem)] = xr.where(
-                sxr_rad >= 0,
-                sxr_rad,
-                0.0,
+                sxr_rad >= 0, sxr_rad, 0.0,
             ).values
         return self._sxr_rad
 
@@ -693,16 +702,21 @@ class Plasma:
             )
 
     def bin_in_time(self, value: DataArray, method="linear"):
-        binned = bin_in_time_dt(
-            self.tstart,
-            self.tend,
-            self.dt,
-            value,
-        ).interp(t=self.time, method=method)
+        binned = bin_in_time_dt(self.tstart, self.tend, self.dt, value,).interp(
+            t=self.time, method=method
+        )
 
         return binned
 
-    def build_atomic_data(self, adf11: dict = None):
+    def build_atomic_data(
+        self,
+        adf11: dict = None,
+        Te: DataArray = None,
+        Ne: DataArray = None,
+        Nh: DataArray = None,
+        tau:DataArray = None,
+        full_run = False,
+    ):
         print_like("Initialize fractional abundance objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
         for elem in self.elements:
@@ -713,6 +727,9 @@ class Plasma:
             acd = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
             ccd = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
             fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
+            if not full_run and Te is not None and Ne is not None:
+                print_like("Calculating default ionisation balance")
+                fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
 
             plt = self.ADASReader.get_adf11("plt", elem, adf11[elem]["plt"])
             prb = self.ADASReader.get_adf11("prb", elem, adf11[elem]["prb"])
@@ -827,6 +844,8 @@ class Plasma:
         if not np.any(self.vtor != 0):
             return
 
+        ion_dens = self.ion_dens
+        meanz = self.meanz.sel(element=elem).drop("element")
         zeff = self.zeff.sum("element")
         R_0 = self.maj_r_lfs.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
         for elem in self.elements:
@@ -836,7 +855,7 @@ class Plasma:
                 self.ion_temp.sel(element=elem).drop("element"),
                 self.el_temp,
                 mass,
-                self.meanz.sel(element=elem).drop("element"),
+                meanz.sel(element=elem).drop("element"),
                 zeff,
                 main_ion_mass,
                 toroidal_rotation=self.vtor.sel(element=elem).drop("element"),
@@ -848,7 +867,7 @@ class Plasma:
             )
 
         self.ion_dens_2d = (
-            self.ion_dens.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
+            ion_dens.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
             * self.asymmetry_multiplier
         )
         assign_datatype(self.ion_dens_2d, ("density", "ion"), "m^-3")
@@ -890,11 +909,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            tot_rad = xr.where(
-                tot_rad >= 0,
-                tot_rad,
-                0.0,
-            )
+            tot_rad = xr.where(tot_rad >= 0, tot_rad, 0.0,)
             self.tot_rad.loc[dict(element=elem)] = tot_rad.values
 
             sxr_rad = (
@@ -902,11 +917,7 @@ class Plasma:
                 * self.el_dens
                 * self.ion_dens.sel(element=elem)
             )
-            sxr_rad = xr.where(
-                sxr_rad >= 0,
-                sxr_rad,
-                0.0,
-            )
+            sxr_rad = xr.where(sxr_rad >= 0, sxr_rad, 0.0,)
             self.sxr_rad.loc[dict(element=elem)] = sxr_rad.values
 
             if not hasattr(self, "prad_tot"):
@@ -930,6 +941,5 @@ class Plasma:
 
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                self,
-                f,
+                self, f,
             )
