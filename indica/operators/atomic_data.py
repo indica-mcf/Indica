@@ -623,8 +623,8 @@ class FractionalAbundance(Operator):
 
     def __call__(  # type: ignore
         self,
-        Ne: DataArray,
         Te: DataArray,
+        Ne: DataArray = None,
         Nh: DataArray = None,
         tau: LabeledArray = None,
         F_z_t0: DataArray = None,
@@ -651,9 +651,9 @@ class FractionalAbundance(Operator):
         F_z_t0
             Initial fractional abundance for given impurity element. (Optional)
         full_run
-            Boolean specifying whether to only run calculate_abundance(False) or to run
-            the entire ordered workflow(True) for calculating abundance from the start.
-            This is mostly only useful for unit testing and is set to True by default.
+            Boolean specifying whether to run the entire ordered workflow(True)
+            for calculating abundance from the start. If (False), fractional abundance
+            will be interpolated on input electron temperature
             (Optional)
         bounds_check
             Check bounds of inputted data
@@ -663,7 +663,7 @@ class FractionalAbundance(Operator):
         F_z_t
             Fractional abundance at tau.
         """
-        if full_run or not hasattr(self, "F_z_t") is None or self.Te is None:
+        if full_run or not hasattr(self, "F_z_t"):
             self.interpolate_rates(Ne, Te, bounds_check=bounds_check)
 
             self.calc_ionisation_balance_matrix(Ne, Nh)
@@ -683,16 +683,32 @@ class FractionalAbundance(Operator):
 
             self.F_z_t = F_z_t
         else:
-            # interpolate on electron temperature only
-            F_z_t_tmp = deepcopy(self.F_z_t)
-            F_z_t_tmp = F_z_t_tmp.assign_coords(electron_temperature=("rho_poloidal", self.Te))
-            F_z_t_tmp = F_z_t_tmp.swap_dims({"rho_poloidal": "electron_temperature"})
+            F_z_t = interpolate_results(self.F_z_t, Te)
 
-            F_z_t = []
-            ion_charges = self.F_z_t.ion_charges
-            for charge in ion_charges:
-                F_z_t.append(F_z_t_tmp.sel(ion_charges=charge).interp(electron_temperature=Te.values))
-            F_z_t = xr.concat(F_z_t, "ion_charges").assign_coords(ion_charges=ion_charges)
+            # dim_old = [d for d in self.F_z_t.dims if d != "ion_charges"][0]
+            # F_z_t_tmp = deepcopy(self.F_z_t)
+            # F_z_t_tmp = F_z_t_tmp.assign_coords(electron_temperature=(dim_old, self.Te))
+            # F_z_t_tmp = F_z_t_tmp.swap_dims({"rho_poloidal": "electron_temperature"})
+            #
+            # F_z_t = []
+            # ion_charges = self.F_z_t.ion_charges
+            # for charge in ion_charges:
+            #     F_z_t.append(
+            #         F_z_t_tmp.sel(ion_charges=charge).interp(
+            #             electron_temperature=Te.values
+            #         )
+            #     )
+            #
+            # F_z_t = xr.concat(F_z_t, "ion_charges").assign_coords(
+            #     ion_charges=ion_charges
+            # )
+            # dim_new = Te.dims[0]
+            # F_z_t = F_z_t.assign_coords(
+            #     {dim_new: ("electron_temperature", Te[dim_new])}
+            # )
+            # F_z_t = F_z_t.swap_dims({"electron_temperature": dim_new}).drop_vars(
+            #     "electron_temperature"
+            # )
 
         return F_z_t
 
@@ -1076,11 +1092,11 @@ class PowerLoss(Operator):
 
     def __call__(  # type: ignore
         self,
-        Ne: DataArray,
         Te: DataArray,
         F_z_t: DataArray,
+        Ne: DataArray=None,
         Nh: DataArray = None,
-        full_run: bool = True,
+        full_run: bool = False,
         bounds_check=True,
     ):
         """Executes all functions in correct order to calculate the total radiated
@@ -1114,9 +1130,79 @@ class PowerLoss(Operator):
             Total radiated power of all ionisation charges.
         """
 
-        if full_run:
+        if full_run or not hasattr(self, "cooling_factor"):
             self.interpolate_power(Ne, Te, bounds_check=bounds_check)
+            cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
+            self.cooling_factor = cooling_factor
+        else:
+            cooling_factor = interpolate_results(self.cooling_factor, Te)
+            # dim_old = [d for d in self.cooling_factor.dims if d != "ion_charges"][0]
+            # cooling_factor_tmp = deepcopy(self.cooling_factor)
+            # cooling_factor_tmp = cooling_factor_tmp.assign_coords(electron_temperature=(dim_old, self.Te))
+            # cooling_factor_tmp = cooling_factor_tmp.swap_dims({"rho_poloidal": "electron_temperature"})
+            #
+            # cooling_factor = []
+            # ion_charges = self.cooling_factor.ion_charges
+            # for charge in ion_charges:
+            #     cooling_factor.append(
+            #         cooling_factor_tmp.sel(ion_charges=charge).interp(
+            #             electron_temperature=Te.values
+            #         )
+            #     )
+            #
+            # cooling_factor = xr.concat(cooling_factor, "ion_charges").assign_coords(
+            #     ion_charges=ion_charges
+            # )
+            # dim_new = Te.dims[0]
+            # cooling_factor = cooling_factor.assign_coords(
+            #     {dim_new: ("electron_temperature", Te[dim_new])}
+            # )
+            # cooling_factor = cooling_factor.swap_dims({"electron_temperature": dim_new}).drop_vars(
+            #     "electron_temperature"
+            # )
 
-        cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
 
         return cooling_factor
+
+def interpolate_results(atomic_data:DataArray, Te:DataArray):
+    """
+    Interpolate fractional abundance or cooling factor on electron temperature for fast processing
+
+    Parameters
+    ----------
+    atomic_data
+        Fractional abundance or cooling factor DataArrays
+    Te
+        Electron temperature on which interpolation is to be performed
+
+    Returns
+    -------
+    Interpolated values
+    """
+    result = []
+    dim_old = [d for d in atomic_data.dims if d != "ion_charges"][0]
+    ion_charges = atomic_data.ion_charges
+
+    _atomic_data = deepcopy(atomic_data)
+    _atomic_data = _atomic_data.assign_coords(electron_temperature=(dim_old, Te))
+    _atomic_data = _atomic_data.swap_dims({"rho_poloidal": "electron_temperature"})
+
+    for charge in ion_charges:
+        result.append(
+            _atomic_data.sel(ion_charges=charge).interp(
+                electron_temperature=Te.values
+            )
+        )
+
+    result = xr.concat(result, "ion_charges").assign_coords(
+        ion_charges=ion_charges
+    )
+    dim_new = Te.dims[0]
+    result = result.assign_coords(
+        {dim_new: ("electron_temperature", Te[dim_new])}
+    )
+    result = result.swap_dims({"electron_temperature": dim_new}).drop_vars(
+        "electron_temperature"
+    )
+
+    return result
