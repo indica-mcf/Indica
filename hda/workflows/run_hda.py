@@ -15,6 +15,7 @@ from hda.optimizations.xray_crystal_spectrometer import (
     match_ion_temperature,
 )
 
+from copy import deepcopy
 import matplotlib.pylab as plt
 import numpy as np
 
@@ -61,18 +62,16 @@ def run_hda():
 
     # Initialize plasma class and assign equilibrium related objects
     pl = Plasma(
-        tstart=tstart, tend=tend, dt=dt, impurities=impurities, imp_conc=imp_conc, pulse=pulse,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        impurities=impurities,
+        imp_conc=imp_conc,
+        pulse=pulse,
     )
     pl.set_equilibrium(equilibrium)
     pl.set_flux_transform(flux_transform)
     pl.calculate_geometry()
-
-    # Document the provenance of the equilibrium
-    # TODO: add the diagnostic and revision info to the Equilibrium class so it can then be read directly
-    revision = get_prov_attribute(
-        equilibrium_data[list(equilibrium_data)[0]].provenance, "revision"
-    )
-    pl.optimisation["equil"] = f"{equilibrium_diagnostic}:{revision}"
 
     # Assign default profile values and objects to plasma class
     profs = profiles.profile_scans(rho=pl.rho)
@@ -81,7 +80,35 @@ def run_hda():
     pl.Ti_prof = profs["Ti"]["peaked"]
     pl.Nimp_prof = profs["Nimp"]["peaked"]
     pl.Vrot_prof = profs["Vrot"]["peaked"]
-    pl.set_neutral_density(y1=1.0e15, y0=1.0e9)
+    pl.set_neutral_density(y1=1.0e16, y0=1.0e13, decay=15)
+
+    # Calculate ionisation balance for standard profiles for interpolation
+    pl.Te_prof.y0 = 10.0e3
+    pl.Te_prof.build_profile()
+    pl.build_atomic_data(
+        pl.ADF11,
+        full_run=False,
+        Te=pl.Te_prof.yspl,
+        Ne=pl.Ne_prof.yspl,
+        Nh=pl.Nh_prof.yspl,
+    )
+    return pl
+
+    # Document the provenance of the equilibrium
+    # TODO: add the diagnostic and revision info to the Equilibrium class so it can then be read directly
+    revision = get_prov_attribute(
+        equilibrium_data[list(equilibrium_data)[0]].provenance, "revision"
+    )
+    pl.optimisation["equil"] = f"{equilibrium_diagnostic}:{revision}"
+
+    # Set Fractional abundance objects to interpolate instead of calculate
+    Te = deepcopy(pl.Te_prof.yspl) * 3.0
+    Ne = deepcopy(pl.Ne_prof.yspl)
+    Nh = deepcopy(pl.Nh_prof.yspl)
+    for elem in pl.elements:
+        pl.fract_abu[elem](Te=Te, Ne=Ne, Nh=Nh, full_run=True)
+
+    return pl
 
     # Bin data as required to match plasma class, assign equlibrium objects to
     data = {}
@@ -115,7 +142,7 @@ def run_hda():
     pl.optimisation["el_temp"] = f"{diagnostic_te}:{revision}"
 
     # Start optimisation
-    te0 = 1.e3
+    te0 = 1.0e3
     xrcs = forward_models["xrcs"]
     for i, t in enumerate(pl.t):
         print(float(t))
@@ -140,7 +167,7 @@ def run_hda():
         # Approach optimisation always from the below (te0 < previous time-point)
         pl.calc_imp_dens(t=t)
         if t > pl.t.min():
-            te0 = pl.el_temp.sel(t=pl.t[i - 1], rho_poloidal=0).values /2.
+            te0 = pl.el_temp.sel(t=pl.t[i - 1], rho_poloidal=0).values / 2.0
 
         Ne = pl.el_dens.sel(t=t)
         Nimp = pl.imp_dens.sel(t=t)
