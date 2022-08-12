@@ -5,6 +5,7 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
+from copy import deepcopy
 import numpy as np
 from numpy.core.numeric import zeros_like
 import scipy
@@ -17,7 +18,6 @@ from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
 from ..utilities import input_check
-
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -628,7 +628,7 @@ class FractionalAbundance(Operator):
         Nh: DataArray = None,
         tau: LabeledArray = None,
         F_z_t0: DataArray = None,
-        full_run: bool = True,
+        full_run: bool = False,
         bounds_check=True,
     ) -> DataArray:
         """Executes all functions in correct order to calculate the fractional
@@ -663,7 +663,7 @@ class FractionalAbundance(Operator):
         F_z_t
             Fractional abundance at tau.
         """
-        if full_run:
+        if full_run or not hasattr(self, "F_z_t") is None or self.Te is None:
             self.interpolate_rates(Ne, Te, bounds_check=bounds_check)
 
             self.calc_ionisation_balance_matrix(Ne, Nh)
@@ -679,9 +679,20 @@ class FractionalAbundance(Operator):
 
             self.calc_eigen_coeffs(F_z_t0)
 
-        F_z_t = self.calculate_abundance(tau)
+            F_z_t = self.calculate_abundance(tau)
 
-        self.F_z_t = F_z_t
+            self.F_z_t = F_z_t
+        else:
+            # interpolate on electron temperature only
+            F_z_t_tmp = deepcopy(self.F_z_t)
+            F_z_t_tmp = F_z_t_tmp.assign_coords(electron_temperature=("rho_poloidal", self.Te))
+            F_z_t_tmp = F_z_t_tmp.swap_dims({"rho_poloidal": "electron_temperature"})
+
+            F_z_t = []
+            ion_charges = self.F_z_t.ion_charges
+            for charge in ion_charges:
+                F_z_t.append(F_z_t_tmp.sel(ion_charges=charge).interp(electron_temperature=Te.values))
+            F_z_t = xr.concat(F_z_t, "ion_charges").assign_coords(ion_charges=ion_charges)
 
         return F_z_t
 
