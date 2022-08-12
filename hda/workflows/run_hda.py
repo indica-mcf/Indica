@@ -27,8 +27,11 @@ in hdatests.test_hda
 """
 
 
-def run_hda():
-    pulse = 9780
+def run_hda(
+    pulse: int = 9780,
+    impurities: tuple = ("c", "ar", "he"),
+    imp_conc: tuple = (0.03, 0.001, 0.01),
+):
     tstart = 0.025
     tend = 0.14
     dt = 0.015
@@ -41,24 +44,12 @@ def run_hda():
     lines_ti = ["w"]
     quantities_ar = ["int_w"]
     main_ion = "h"
-    impurities = ("c", "ar", "he")
-    imp_conc = (0.03, 0.001, 0.01)
     equilibrium_diagnostic = "efit"
     extrapolate = "constant"
     marchuk = True
     fast = True
     plot = True
     forward_models = {}
-
-    # Read raw data
-    raw = ST40data(pulse, tstart - dt / 2, tend + dt / 2)
-    raw_data = raw.get_all()
-
-    # Initialize equilibrium and flux transform objects
-    equilibrium_data = raw_data[equilibrium_diagnostic]
-    equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
 
     # Initialize plasma class and assign equilibrium related objects
     pl = Plasma(
@@ -69,9 +60,22 @@ def run_hda():
         imp_conc=imp_conc,
         pulse=pulse,
     )
-    pl.set_equilibrium(equilibrium)
-    pl.set_flux_transform(flux_transform)
-    pl.calculate_geometry()
+    raw_data = None
+
+    # Read raw data
+    if pulse is not None:
+        raw = ST40data(pulse, tstart - dt / 2, tend + dt / 2)
+        raw_data = raw.get_all()
+
+        # Initialize equilibrium and flux transform objects
+        equilibrium_data = raw_data[equilibrium_diagnostic]
+        equilibrium = Equilibrium(equilibrium_data)
+        flux_transform = FluxSurfaceCoordinates("poloidal")
+        flux_transform.set_equilibrium(equilibrium)
+
+        pl.set_equilibrium(equilibrium)
+        pl.set_flux_transform(flux_transform)
+        pl.calculate_geometry()
 
     # Assign default profile values and objects to plasma class
     profs = profiles.profile_scans(rho=pl.rho)
@@ -113,7 +117,12 @@ def run_hda():
     # Bin data as required to match plasma class, assign equlibrium objects to
     data = {}
     for kinstr in raw_data.keys():
-        data[kinstr] = bin_data_in_time(raw_data[kinstr], pl.tstart, pl.tend, pl.dt,)
+        data[kinstr] = bin_data_in_time(
+            raw_data[kinstr],
+            pl.tstart,
+            pl.tend,
+            pl.dt,
+        )
         map_on_equilibrium(data[kinstr], flux_transform=pl.flux_transform)
 
     # Initialize back-calculated (bckc) diactionary and forward model objects
@@ -158,7 +167,8 @@ def run_hda():
         # Back-calculate the LOS-integral of all the interferometers for consistency checks
         for diagnostic in interferometers:
             bckc_tmp, _ = forward_models[diagnostic].integrate_on_los(
-                pl.el_dens.sel(t=t), t=t,
+                pl.el_dens.sel(t=t),
+                t=t,
             )
             for quantity in quantities_ne:
                 bckc[diagnostic][quantity].loc[dict(t=t)] = bckc_tmp[quantity].values
