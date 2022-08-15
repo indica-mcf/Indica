@@ -99,8 +99,6 @@ def asymmetry_from_R_z(
         other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="nearest"),
     )
 
-    derived_asymmetry_parameter = np.abs(derived_asymmetry_parameter)
-
     if threshold_rho is not None:
         for ind_t, it in enumerate(threshold_rho.coords["t"]):
             derived_asymmetry_parameter.loc[
@@ -180,8 +178,6 @@ def asymmetry_from_rho_theta(
         derived_asymmetry_parameter.coords["rho_poloidal"] > 0.1,
         other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="nearest"),
     )
-
-    derived_asymmetry_parameter = np.abs(derived_asymmetry_parameter)
 
     derived_asymmetry_parameter = derived_asymmetry_parameter.transpose(
         "rho_poloidal", "t"
