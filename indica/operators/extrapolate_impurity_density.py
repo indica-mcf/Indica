@@ -791,18 +791,31 @@ class ExtrapolateImpurityDensity(Operator):
                 for the selected time point.
                 xarray.DataArray with dimensions (channels)
             """
-            amplitude, standard_dev, position = objective_array
+            amplitude1, amplitude2, standard_dev, position = objective_array
 
-            perturbation_signal = self.fitting_function(
-                amplitude, standard_dev, position
+            perturbation_signal_lfs = self.fitting_function(
+                amplitude1, standard_dev, position
+            )
+            perturbation_signal_hfs = self.fitting_function(
+                amplitude2, standard_dev, position
             )
 
             # trim perturbation_signal to only be valid within rho = 0.0 and rho = 1.0
-            perturbation_signal = perturbation_signal.interp(
+            perturbation_signal_lfs = perturbation_signal_lfs.interp(
+                rho_poloidal=rho_arr, method="linear"
+            )
+            perturbation_signal_hfs = perturbation_signal_hfs.interp(
                 rho_poloidal=rho_arr, method="linear"
             )
 
-            perturbation_signal = perturbation_signal * asymmetry_modifier.sel(t=time)
+            perturbation_signal = concat(
+                [
+                    perturbation_signal_hfs.expand_dims({"theta": [-np.pi]}),
+                    perturbation_signal_lfs.expand_dims({"theta": [0]}),
+                    perturbation_signal_hfs.expand_dims({"theta": [np.pi]}),
+                ],
+                "theta",
+            ).interp({"theta": asymmetry_modifier.coords["theta"]})
 
             modified_density = (
                 extrapolated_smooth_data.sel(t=time) + perturbation_signal
@@ -848,6 +861,7 @@ class ExtrapolateImpurityDensity(Operator):
             [
                 [
                     np.sqrt(lower_amp_bound * upper_amp_bound),
+                    0.0,
                     np.mean([lower_width_bound, upper_width_bound]),
                     np.mean([lower_pos_bound, upper_pos_bound]),
                 ]
@@ -858,12 +872,14 @@ class ExtrapolateImpurityDensity(Operator):
             np.array(
                 [
                     lower_amp_bound,
+                    0.0,
                     lower_width_bound,
                     lower_pos_bound,
                 ]
             ),
             np.array(
                 [
+                    upper_amp_bound,
                     upper_amp_bound,
                     upper_width_bound,
                     upper_pos_bound,
@@ -896,8 +912,8 @@ class ExtrapolateImpurityDensity(Operator):
 
             lower_pos_bound = self.threshold_rho[ind_t].data + drho
 
-            fitting_bounds[0][2] = lower_pos_bound
-            fitting_bounds[1][1] = upper_width_bound
+            fitting_bounds[0][3] = lower_pos_bound
+            fitting_bounds[1][2] = upper_width_bound
 
             if time_correlation:
                 result = least_squares(
