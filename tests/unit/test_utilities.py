@@ -173,13 +173,11 @@ class Compatible_Input_Type_Test_Case(unittest.TestCase):
     def value_check(self):
         Ne = 0 * self.Ne
         with self.assertRaises(ValueError):
-            utilities.input_check(
-                "Ne", Ne, np.ndarray, greater_than_or_equal_zero=False
-            )
+            utilities.input_check("Ne", Ne, np.ndarray, strictly_positive=True)
 
         Ne = -1 * self.Ne
         with self.assertRaises(ValueError):
-            utilities.input_check("Ne", Ne, np.ndarray, greater_than_or_equal_zero=True)
+            utilities.input_check("Ne", Ne, np.ndarray, strictly_positive=False)
 
         Ne = np.nan * self.Ne
         with self.assertRaises(ValueError):

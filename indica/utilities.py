@@ -186,12 +186,30 @@ def broadcast_spline(
         ).assign_coords({k: v for k, v in spline_coords.items()})
 
 
+def _check_positive(
+    var_name: str,
+    sliced_var_to_check,
+    strictly_positive: bool = True,
+):
+    if strictly_positive:
+        try:
+            assert np.all(sliced_var_to_check > 0)
+        except AssertionError:
+            raise ValueError(f"Cannot have any negative or zero values in {var_name}")
+    else:
+        try:
+            assert np.all(sliced_var_to_check >= 0)
+        except AssertionError:
+            raise ValueError(f"Cannot have any negative values in {var_name}")
+
+
 def input_check(
     var_name: str,
     var_to_check,
     var_type: Union[type, Tuple[type, ...]],
     ndim_to_check: Optional[int] = None,
-    greater_than_or_equal_zero: Optional[bool] = False,
+    positive: bool = True,
+    strictly_positive: bool = True,
 ):
     """Check validity of inputted variable - type check and
     various value checks(no infinities, greather than (or equal to) 0 or NaNs)
@@ -205,9 +223,11 @@ def input_check(
     var_type
         Type to check variable against, eg. DataArray
     ndim_to_check
-            Integer to check the number of dimensions of the variable.
-    greater_than_or_equal_zero
-        Boolean to check values in variable > 0 or >= 0.
+        Integer to check the number of dimensions of the variable.
+    positive
+        Boolean, if true will check values >= 0
+    strictly_positive
+        Boolean, if true will check values > 0
     """
 
     try:
@@ -243,18 +263,8 @@ def input_check(
         except AssertionError:
             raise ValueError(f"{var_name} cannot contain any infinities.")
 
-        if not greater_than_or_equal_zero:
-            try:
-                assert np.all(sliced_var_to_check > 0)
-            except AssertionError:
-                raise ValueError(
-                    f"Cannot have any negative or zero values in {var_name}"
-                )
-        else:
-            try:
-                assert np.all(sliced_var_to_check >= 0)
-            except AssertionError:
-                raise ValueError(f"Cannot have any negative values in {var_name}")
+        if positive:
+            _check_positive(var_name, sliced_var_to_check, strictly_positive)
 
         if ndim_to_check is not None and isinstance(
             sliced_var_to_check, (np.ndarray, DataArray)

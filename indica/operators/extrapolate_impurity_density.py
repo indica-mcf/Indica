@@ -55,19 +55,21 @@ def asymmetry_from_R_z(
         Derived asymmetry parameter. xarray.DataArray with dimensions (rho, t)
     """
 
-    input_check("data_R_z", data_R_z, DataArray, 3, True)
+    input_check("data_R_z", data_R_z, DataArray, 3, strictly_positive=False)
 
     input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 
-    input_check("rho_arr", rho_arr, DataArray, 1, True)
+    input_check("rho_arr", rho_arr, DataArray, 1, strictly_positive=False)
 
     if threshold_rho is not None:
-        input_check("threshold_rho", threshold_rho, DataArray, 1, True)
+        input_check(
+            "threshold_rho", threshold_rho, DataArray, 1, strictly_positive=True
+        )
 
     if t_arr is None:
         t_arr = data_R_z.coords["t"]
     else:
-        input_check("t_arr", t_arr, DataArray, 1, True)
+        input_check("t_arr", t_arr, DataArray, 1, strictly_positive=False)
 
     theta_arr_ = np.array([0.0, np.pi], dtype=float)
     theta_arr = DataArray(data=theta_arr_, coords={"theta": theta_arr_}, dims=["theta"])
@@ -139,17 +141,19 @@ def asymmetry_from_rho_theta(
         Derived asymmetry parameter. xarray.DataArray with dimensions (rho, t)
     """
 
-    input_check("data_rho_theta", data_rho_theta, DataArray, 3, True)
+    input_check("data_rho_theta", data_rho_theta, DataArray, 3, strictly_positive=False)
 
     input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 
     if threshold_rho is not None:
-        input_check("threshold_rho", threshold_rho, DataArray, 1, True)
+        input_check(
+            "threshold_rho", threshold_rho, DataArray, 1, strictly_positive=False
+        )
 
     if t_arr is None:
         t_arr = data_rho_theta.coords["t"]
     else:
-        input_check("t_arr", t_arr, DataArray, 1, True)
+        input_check("t_arr", t_arr, DataArray, 1, strictly_positive=False)
 
     rho_arr = data_rho_theta.coords["rho_poloidal"]
     theta_arr_ = np.array([0.0, np.pi], dtype=float)
@@ -218,7 +222,7 @@ def recover_threshold_rho(truncation_threshold: float, electron_temperature: Dat
         "truncation_threshold",
         truncation_threshold,
         float,
-        greater_than_or_equal_zero=False,
+        strictly_positive=True,
     )
 
     input_check(
@@ -226,7 +230,7 @@ def recover_threshold_rho(truncation_threshold: float, electron_temperature: Dat
         electron_temperature,
         DataArray,
         2,
-        greater_than_or_equal_zero=False,
+        strictly_positive=True,
     )
 
     try:
@@ -990,7 +994,7 @@ class ExtrapolateImpurityDensity(Operator):
             impurity_density_sxr,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
@@ -998,21 +1002,21 @@ class ExtrapolateImpurityDensity(Operator):
             electron_density,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
             "electron_temperature",
             electron_temperature,
             DataArray,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         input_check(
             "truncation_threshold",
             truncation_threshold,
             float,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
@@ -1020,7 +1024,7 @@ class ExtrapolateImpurityDensity(Operator):
         if t is None:
             t = electron_density.t
         else:
-            input_check("t", t, DataArray, greater_than_or_equal_zero=True)
+            input_check("t", t, DataArray, strictly_positive=False)
 
         self.threshold_rho = recover_threshold_rho(
             truncation_threshold, electron_temperature
@@ -1082,7 +1086,7 @@ class ExtrapolateImpurityDensity(Operator):
                 asymmetry_parameter,
                 DataArray,
                 ndim_to_check=2,
-                greater_than_or_equal_zero=True,
+                positive=False,
             )
 
         # Applying the asymmetry parameter to extrapolated density.
