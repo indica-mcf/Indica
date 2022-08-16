@@ -341,7 +341,7 @@ def test_centrifugal_asymmetry():
     """Test AsymmetryParameter.__call__ and ToroidalRotation.__call__."""
     example_asymmetry = AsymmetryParameter()
 
-    t = np.linspace(75.0, 80.0, 5)
+    t = np.linspace(75.0, 80.0, 6)
     rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
 
     example_equilib_dat, example_Te = equilibrium_dat_and_te()
@@ -384,7 +384,9 @@ def test_centrifugal_asymmetry():
     )
 
     mean_charges = DataArray(
-        data=np.tile(np.array([5, 4, 3, 2, 1]), (len(elements), len(t), 1)),
+        data=np.swapaxes(
+            np.tile(np.array([5, 4, 3, 2, 1]), (len(elements), len(t), 1)), 1, 2
+        ),
         coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
         dims=["element", "rho_poloidal", "t"],
     )
