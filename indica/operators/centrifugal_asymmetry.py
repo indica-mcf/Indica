@@ -53,7 +53,7 @@ class ToroidalRotation(Operator):
         impurity: str,
         Zeff: DataArray,
         electron_temp: DataArray,
-        mean_charge: DataArray,
+        mean_charges: DataArray,
     ):
         """Calculates the toroidal rotation frequency from the asymmetry parameter.
 
@@ -71,7 +71,7 @@ class ToroidalRotation(Operator):
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data. In units of eV.
-        mean_charge
+        mean_charges
             xarray.DataArray containing impurity mean charge data
 
         Returns
@@ -123,7 +123,7 @@ class ToroidalRotation(Operator):
 
         input_check(
             "mean_charge",
-            mean_charge,
+            mean_charges,
             DataArray,
             ndim_to_check=3,
             greater_than_or_equal_zero=False,
@@ -136,7 +136,7 @@ class ToroidalRotation(Operator):
         unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
-        mean_charge = mean_charge.sel({"element": impurity}, drop=True)
+        mean_charge = mean_charges.sel({"element": impurity}, drop=True)
 
         main_ion_mass_int = ELEMENTS[main_ion][1]
 
@@ -190,7 +190,7 @@ class AsymmetryParameter(Operator):
         impurity: str,
         Zeff: DataArray,
         electron_temp: DataArray,
-        mean_charge: DataArray,
+        mean_charges: DataArray,
     ):
         """Calculates the asymmetry parameter from the toroidal rotation frequency.
 
@@ -209,7 +209,7 @@ class AsymmetryParameter(Operator):
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data. In units of eV.
-        mean_charge
+        mean_charges
             xarray.DataArray containing impurity mean charge data
 
         Returns
@@ -260,7 +260,7 @@ class AsymmetryParameter(Operator):
 
         input_check(
             "mean_charge",
-            mean_charge,
+            mean_charges,
             DataArray,
             ndim_to_check=3,
             greater_than_or_equal_zero=False,
@@ -273,7 +273,7 @@ class AsymmetryParameter(Operator):
         unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
-        mean_charge = mean_charge.sel({"element": impurity}, drop=True)
+        mean_charge = mean_charges.sel({"element": impurity}, drop=True)
 
         main_ion_mass_int = ELEMENTS[main_ion][1]
 
