@@ -53,6 +53,7 @@ class ToroidalRotation(Operator):
         impurity: str,
         Zeff: DataArray,
         electron_temp: DataArray,
+        mean_charge: DataArray,
     ):
         """Calculates the toroidal rotation frequency from the asymmetry parameter.
 
@@ -70,6 +71,8 @@ class ToroidalRotation(Operator):
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data. In units of eV.
+        mean_charge
+            xarray.DataArray containing impurity mean charge data
 
         Returns
         -------
@@ -118,6 +121,14 @@ class ToroidalRotation(Operator):
             strictly_positive=True,
         )
 
+        input_check(
+            "mean_charge",
+            mean_charge,
+            DataArray,
+            ndim_to_check=3,
+            greater_than_or_equal_zero=False,
+        )
+
         asymmetry_parameter = asymmetry_parameters.sel(element=impurity)
 
         impurity_mass_int = ELEMENTS[impurity][1]
@@ -125,7 +136,7 @@ class ToroidalRotation(Operator):
         unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
-        mean_charge = ELEMENTS[impurity][0]
+        mean_charge = mean_charge.sel({"element": impurity}, drop=True)
 
         main_ion_mass_int = ELEMENTS[main_ion][1]
 
