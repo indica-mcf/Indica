@@ -27,6 +27,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         impurity,
         Zeff,
         electron_temp,
+        mean_charges,
     ):
         self.toroidal_rotations = toroidal_rotations
         self.ion_temperature = ion_temperature
@@ -34,6 +35,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         self.impurity = impurity
         self.Zeff = Zeff
         self.electron_temp = electron_temp
+        self.mean_charges = mean_charges
 
         self.nominal_inputs = [
             self.toroidal_rotations,
@@ -42,6 +44,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             self.impurity,
             self.Zeff,
             self.electron_temp,
+            self.mean_charges,
         ]
 
     def call_type_check(
@@ -52,6 +55,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         impurity=None,
         Zeff=None,
         electron_temp=None,
+        mean_charges=None,
     ):
         """Test TypeError for AsymmetryParameter call."""
         inputs = [
@@ -61,6 +65,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -74,6 +79,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ) = inputs
 
         with self.assertRaises(TypeError):
@@ -88,6 +94,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
         impurity=None,
         Zeff=None,
         electron_temp=None,
+        mean_charges=None,
     ):
         """Test ValueError for AsymmetryParameter call."""
         inputs = [
@@ -97,6 +104,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -110,6 +118,7 @@ class Exception_Asymmetry_Parameter_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ) = inputs
 
         with self.assertRaises(ValueError):
@@ -128,6 +137,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         impurity,
         Zeff,
         electron_temp,
+        mean_charges,
     ):
         self.asymmetry_parameters = asymmetry_parameters
         self.ion_temperature = ion_temperature
@@ -135,6 +145,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         self.impurity = impurity
         self.Zeff = Zeff
         self.electron_temp = electron_temp
+        self.mean_charges = mean_charges
 
         self.nominal_inputs = [
             self.asymmetry_parameters,
@@ -143,6 +154,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             self.impurity,
             self.Zeff,
             self.electron_temp,
+            self.mean_charges,
         ]
 
     def call_type_check(
@@ -153,6 +165,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         impurity=None,
         Zeff=None,
         electron_temp=None,
+        mean_charges=None,
     ):
         """Test TypeError for ToroidalRotation call."""
         inputs = [
@@ -162,6 +175,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -175,6 +189,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ) = inputs
 
         with self.assertRaises(TypeError):
@@ -189,6 +204,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
         impurity=None,
         Zeff=None,
         electron_temp=None,
+        mean_charges=None,
     ):
         """Test ValueError for ToroidalRotation call."""
         inputs = [
@@ -198,6 +214,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ]
 
         for i, iinput in enumerate(inputs):
@@ -211,6 +228,7 @@ class Exception_Toroidal_Rotation_Test_Case(unittest.TestCase):
             impurity,
             Zeff,
             electron_temp,
+            mean_charges,
         ) = inputs
 
         with self.assertRaises(ValueError):
@@ -365,6 +383,12 @@ def test_centrifugal_asymmetry():
         dims=["element", "rho_poloidal", "t"],
     )
 
+    mean_charges = DataArray(
+        data=np.tile(np.array([5, 4, 3, 2, 1]), (len(elements), len(t), 1)),
+        coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
+        dims=["element", "rho_poloidal", "t"],
+    )
+
     ion_temperature = np.array([2.0e3, 1.2e3, 0.5e3, 0.2e3, 0.1e3])
     ion_temperature = np.tile(ion_temperature, (len(elements), len(t), 1))
     ion_temperature = np.swapaxes(ion_temperature, 1, 2)
@@ -393,6 +417,7 @@ def test_centrifugal_asymmetry():
         "impurity": impurity,
         "Zeff": Zeff,
         "electron_temp": electron_temp,
+        "mean_charges": mean_charges,
     }
 
     # Checking outputs of AsymmetryParameter() and ToroidalRotation()
@@ -447,6 +472,7 @@ def test_centrifugal_asymmetry():
         "impurity": impurity,
         "Zeff": Zeff,
         "electron_temp": electron_temp,
+        "mean_charges": mean_charges,
     }
 
     test_case_asymmetry = Exception_Asymmetry_Parameter_Test_Case(**nominal_inputs)
@@ -477,6 +503,7 @@ def test_centrifugal_asymmetry():
         "impurity": impurity,
         "Zeff": Zeff,
         "electron_temp": electron_temp,
+        "mean_charges": mean_charges,
     }
 
     test_case_toroidal = Exception_Toroidal_Rotation_Test_Case(**nominal_inputs)
