@@ -611,14 +611,9 @@ class PPFReader(DataReader):
         Returns
         -------
         :
-            True if authenticationis needed, otherwise false.
+            True if authentication is needed, otherwise false.
         """
-        # Perform the necessary logic to know whether authentication is needed.
-        try:
-            self._client.list("/")
-            return False
-        except AuthenticationFailed:
-            return True
+        return self._client.auth_required
 
     def authenticate(self, name: str, password: str):
         """Log onto the JET/SAL system to access data.
