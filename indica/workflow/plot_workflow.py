@@ -1,3 +1,4 @@
+from typing import Dict
 from typing import Union
 
 from matplotlib import pyplot as plt
@@ -19,12 +20,16 @@ class PlotWorkflow:
         self,
         workflow: BaseWorkflow,
         default_time: Union[int, float] = None,
+        comparison_source: Dict[str, Union[int, str]] = None,
         plot_interactive: bool = True,
     ) -> None:
         self.workflow = workflow
         if default_time is None:
             default_time = float(self.workflow.sxr_emissivity.coords["t"].values[0])
         self.default_time = default_time
+        if comparison_source is None:
+            comparison_source = {}
+        self.comparison_source = comparison_source
         if plot_interactive is True:
             plt.ion()
 
@@ -34,88 +39,27 @@ class PlotWorkflow:
         self.rmag = self.workflow.sxr_emissivity.attrs["transform"].equilibrium.rmag
         self.zmag = self.workflow.sxr_emissivity.attrs["transform"].equilibrium.zmag
 
-    def __call__(self, *args, **kwargs) -> None:
-        """
-        Plot everything
-        """
-        attr: str
-        for attr in self.__dir__():
-            if attr == "plot_density_midplane":
-                self.plot_density_midplane(
-                    yscale="log",
-                    *args,
-                    **{key: val for key, val in kwargs.items() if key != "yscale"},
-                )
-            elif attr == "plot_density_2D":
-                self.plot_density_2D(  # type: ignore
-                    element=kwargs.get("element", "w"),
-                    *args,
-                    **{key: val for key, val in kwargs.items() if key != "element"},
-                )
-            elif attr == "plot_bolometry_emission":
-                bolo_diag = getattr(self.workflow, "diagnostics", None)
-                if bolo_diag is None:
-                    continue
-                self.plot_bolometry_emission(  # type: ignore
-                    bolometry_diagnostic=bolo_diag["bolo"]["kb5v"],
-                    *args,
-                    **kwargs,
-                )
-            elif attr.startswith("plot_"):
-                getattr(self, attr)(*args, **kwargs)
-
-    def plot_los(self, time: Union[int, float] = None, *args, **kwargs):
-        if time is None:
-            time = self.default_time
-        figsize = kwargs.pop("figsize", None)
-        levels = kwargs.pop("levels", 20)
-        colors = kwargs.pop("colors", "black")
-        equil_name = kwargs.pop("equilibrium", "efit_equilibrium")
-        equilibrium = getattr(self.workflow, equil_name, None)
-        if equilibrium is None:
-            raise UserWarning(
-                "Equilibrium object {} does not exist in workflow".format(equil_name)
-            )
-        emissivity = self.workflow.sxr_emissivity.copy()
-        diagnostics = getattr(self.workflow, "diagnostics", None)
-        if diagnostics is None:
-            raise UserWarning("No diagnostic data in workflow")
-        los_zip = zip(
-            diagnostics["sxr"]["v"].transform.x_start.values,
-            diagnostics["sxr"]["v"].transform.x_end.values,
-            diagnostics["sxr"]["v"].transform.z_start.values,
-            diagnostics["sxr"]["v"].transform.z_end.values,
-        )
-
-        fig, ax = plt.subplots(figsize=figsize)
-        equilibrium.psi.sel({"t": time}, method="nearest").plot.contour(
-            ax=ax, x="R", levels=levels, colors=colors
-        )
-        emissivity.interp(
-            {"rho_poloidal": self.rho_deriv, "theta": self.theta_deriv}
-        ).sel({"t": time}, method="nearest").plot(ax=ax, x="R")
-        for coord in los_zip:
-            ax.plot(coord[:2], coord[2:], color="red", linestyle="dashed")
-        return fig, ax
+    def get_comparison_data(
+        self, pulse: int, uid: str, instrument: str, quantity: str, **kwargs
+    ) -> DataArray:
+        raise NotImplementedError("No comparison fetcher")
 
     def plot_density_2D(
-        self, element: str, time: Union[int, float] = None, *args, **kwargs
+        self, element: str = None, time: Union[int, float] = None, **kwargs
     ):
+        if element is None:
+            element = self.workflow.high_z
         if time is None:
             time = self.default_time
         figsize = kwargs.pop("figsize", None)
         fig, ax = plt.subplots(figsize=figsize)
         self.workflow.ion_densities.sel({"element": element}, drop=True).interp(
             {"rho_poloidal": self.rho_deriv, "theta": self.theta_deriv}
-        ).sel({"t": time}, method="nearest").plot(x="R", ax=ax, *args, **kwargs)
+        ).sel({"t": time}, method="nearest").plot(x="R", ax=ax, **kwargs)
         return fig, ax
 
     def plot_density_midplane(
-        self,
-        threshold_rho: float = None,
-        time: Union[int, float] = None,
-        *args,
-        **kwargs
+        self, threshold_rho: float = None, time: Union[int, float] = None, **kwargs
     ):
         if time is None:
             time = self.default_time
@@ -127,7 +71,7 @@ class PlotWorkflow:
             {"t": time, "z": self.zmag.sel({"t": time}, method="nearest")},
             method="nearest",
         ).plot.line(
-            x="R", ax=ax, *args, **kwargs
+            x="R", ax=ax, **kwargs
         )
         if threshold_rho is not None:
             threshold_R_outer, _ = self.workflow.sxr_emissivity.attrs[
@@ -141,27 +85,25 @@ class PlotWorkflow:
         return fig, ax
 
     def plot_bolometry_emission(
-        self,
-        bolometry_diagnostic: DataArray,
-        time: Union[int, float] = None,
-        *args,
-        **kwargs
+        self, bolometry_diagnostic: DataArray, time: Union[int, float] = None, **kwargs
     ):
+        if bolometry_diagnostic.attrs.get("transform", None) is None:
+            return
         kwargs.pop("label", None)
         if time is None:
             time = self.default_time
         figsize = kwargs.pop("figsize", None)
         fig, ax = plt.subplots(figsize=figsize)
         bolometry_diagnostic.sel({"t": time}, method="nearest").plot(
-            ax=ax, label="Bolometry diagnostic", *args, **kwargs
+            ax=ax, label="Bolometry diagnostic", **kwargs
         )
         self.workflow.derived_bolometry.sel({"t": time}, method="nearest").plot(
-            ax=ax, label="Derived bolometry", *args, **kwargs
+            ax=ax, label="Derived bolometry", **kwargs
         )
         ax.legend()
         return fig, ax
 
-    def plot_sxr_los_fit(self, time: Union[int, float] = None, *args, **kwargs):
+    def plot_sxr_los_fit(self, time: Union[int, float] = None, **kwargs):
         if time is None:
             time = self.default_time
         additional_data = getattr(self.workflow, "additional_data", None)
@@ -179,11 +121,7 @@ class PlotWorkflow:
         return fig, ax
 
     def plot_emissivity_midplane_R(
-        self,
-        threshold_rho: float = None,
-        time: Union[int, float] = None,
-        *args,
-        **kwargs
+        self, threshold_rho: float = None, time: Union[int, float] = None, **kwargs
     ):
         if time is None:
             time = self.default_time
@@ -195,7 +133,7 @@ class PlotWorkflow:
             {"t": time, "z": self.zmag.sel({"t": time}, method="nearest")},
             method="nearest",
         ).plot.line(
-            x="R", ax=ax, *args, **kwargs
+            x="R", ax=ax, **kwargs
         )
         if threshold_rho is not None:
             threshold_R_outer, _ = self.workflow.sxr_emissivity.attrs[
@@ -208,9 +146,7 @@ class PlotWorkflow:
             ax.axvline(threshold_R_inner.sel({"t": time}, method="nearest"))
         return fig, ax
 
-    def plot_emissivity_midplane_rho(
-        self, time: Union[int, float] = None, *args, **kwargs
-    ):
+    def plot_emissivity_midplane_rho(self, time: Union[int, float] = None, **kwargs):
         if time is None:
             time = self.default_time
         figsize = kwargs.pop("figsize", None)
@@ -240,7 +176,7 @@ class PlotWorkflow:
 
         return fig, ax
 
-    def plot_asymmetry_high_z(self, time: Union[int, float] = None, *args, **kwargs):
+    def plot_asymmetry_high_z(self, time: Union[int, float] = None, **kwargs):
         def asymmetry_parameter_to_modifier(asymmetry_parameter, R):
             return np.exp(
                 asymmetry_parameter
