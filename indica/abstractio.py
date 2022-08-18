@@ -45,12 +45,12 @@ class BaseIO(ABC):
     @property
     @abstractmethod
     def requires_authentication(self) -> bool:
-        """Indicates whether authentication is required to write data.
+        """Indicates whether authentication is required to read data.
 
         Returns
         -------
         :
-            True if authenticationis needed, otherwise false.
+            True if authentication is needed, otherwise false.
         """
         raise NotImplementedError(
             "{} does not implement a "
