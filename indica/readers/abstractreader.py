@@ -13,6 +13,7 @@ from typing import Iterable
 from typing import List
 from typing import Set
 from typing import Tuple
+import warnings
 
 import numpy as np
 import prov.model as prov
@@ -439,6 +440,8 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
+
+        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_charge_exchange(
@@ -648,6 +651,7 @@ class DataReader(BaseIO):
                 quant_data.coords["z"] = data["zmag"]
 
             data[quantity] = quant_data
+
         return data
 
     def _get_equilibrium(
@@ -809,6 +813,8 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+
+        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_cyclotron_emissions(
@@ -965,6 +971,8 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+
+        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_radiation(
@@ -1142,6 +1150,8 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+
+        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_bremsstrahlung_spectroscopy(
@@ -1323,6 +1333,8 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+
+        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_helike_spectroscopy(
@@ -1651,6 +1663,8 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+
+        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_interferometry(
@@ -2069,6 +2083,13 @@ class DataReader(BaseIO):
 
         """
         return []
+
+    def _warn_less_than_zero(self, instrument: str, data: Dict[str, DataArray]):
+        for key, val in data.items():
+            if np.any(val < 0):
+                warnings.warn(
+                    f"{key} in {instrument} contains values less than 0.", UserWarning
+                )
 
     @classmethod
     def available_quantities(cls, instrument):
