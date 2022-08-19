@@ -186,23 +186,6 @@ def broadcast_spline(
         ).assign_coords({k: v for k, v in spline_coords.items()})
 
 
-def _check_positive(
-    var_name: str,
-    sliced_var_to_check,
-    strictly_positive: bool = True,
-):
-    if strictly_positive:
-        try:
-            assert np.all(sliced_var_to_check > 0)
-        except AssertionError:
-            raise ValueError(f"Cannot have any negative or zero values in {var_name}")
-    else:
-        try:
-            assert np.all(sliced_var_to_check >= 0)
-        except AssertionError:
-            raise ValueError(f"Cannot have any negative values in {var_name}")
-
-
 def input_check(
     var_name: str,
     var_to_check,
@@ -229,47 +212,48 @@ def input_check(
     strictly_positive
         Boolean, if true will check values > 0
     """
+    if strictly_positive and not positive:
+        raise ValueError("If checking for strictly_positive then set positive True.")
 
-    try:
-        assert isinstance(var_to_check, var_type)
-    except AssertionError:
+    if not isinstance(var_to_check, var_type):
         raise TypeError(f"{var_name} must be of type {var_type}.")
 
     # For some reason passing get_args(LabeledArray) to isinstance causes
     # mypy to complain but giving it the constituent types(and np.ndarray) solves this.
     # Guessing this is because LabeledArray isn't resolved/evaluated by mypy.
-    if isinstance(
+    # Return if not a numeric type, no additional checks required
+    if not isinstance(
         var_to_check, (float, int, DataArray, Dataset, Variable, np.ndarray)
-    ) and not isinstance(var_to_check, bool):
+    ) or isinstance(var_to_check, bool):
+        return
 
-        # Handles dropped channels, if present
-        sliced_var_to_check = deepcopy(var_to_check)
-        if (
-            isinstance(var_to_check, (DataArray, Dataset))
-            and "dropped" in var_to_check.attrs
-        ):
-            dropped_coords = var_to_check.attrs["dropped"].coords
-            for icoord in dropped_coords.keys():
-                dropped_coord = dropped_coords[icoord]
-                sliced_var_to_check = var_to_check.drop_sel({icoord: dropped_coord})
+    # Handles dropped channels, if present
+    sliced_var_to_check = deepcopy(var_to_check)
+    if (
+        isinstance(var_to_check, (DataArray, Dataset))
+        and "dropped" in var_to_check.attrs
+    ):
+        dropped_coords = var_to_check.attrs["dropped"].coords
+        for icoord in dropped_coords.keys():
+            dropped_coord = dropped_coords[icoord]
+            sliced_var_to_check = var_to_check.drop_sel({icoord: dropped_coord})
 
-        try:
-            assert np.all(np.logical_not(np.isnan(sliced_var_to_check)))
-        except AssertionError:
-            raise ValueError(f"{var_name} cannot contain any NaNs.")
+    if np.any(np.isnan(sliced_var_to_check)):
+        raise ValueError(f"{var_name} cannot contain any NaNs.")
 
-        try:
-            assert np.all(np.logical_not(np.isinf(np.abs(sliced_var_to_check))))
-        except AssertionError:
-            raise ValueError(f"{var_name} cannot contain any infinities.")
+    if np.any(np.isinf(sliced_var_to_check)):
+        raise ValueError(f"{var_name} cannot contain any infinities.")
 
-        if positive:
-            _check_positive(var_name, sliced_var_to_check, strictly_positive)
+    if positive and strictly_positive:
+        if not np.all(sliced_var_to_check > 0):
+            raise ValueError(f"Cannot have any negative or zero values in {var_name}")
+    elif positive:
+        if not np.all(sliced_var_to_check >= 0):
+            raise ValueError(f"Cannot have any negative values in {var_name}")
 
-        if ndim_to_check is not None and isinstance(
-            sliced_var_to_check, (np.ndarray, DataArray)
-        ):
-            try:
-                assert sliced_var_to_check.ndim == ndim_to_check
-            except AssertionError:
-                raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
+    if (
+        ndim_to_check is not None
+        and isinstance(sliced_var_to_check, (np.ndarray, DataArray))
+        and (sliced_var_to_check.ndim != ndim_to_check)
+    ):
+        raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")

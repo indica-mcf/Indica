@@ -229,3 +229,51 @@ def test_compatible_input_type():
     compatible_input_type = Compatible_Input_Type_Test_Case()
     compatible_input_type.type_check()
     compatible_input_type.value_check()
+
+
+def test_input_check_float_passes():
+    var_name = "test_var"
+    utilities.input_check(var_name, 5.0, float)
+
+
+def test_input_check_nan():
+    var_name = "test_var"
+    with pytest.raises(ValueError, match=f"{var_name} cannot contain any NaNs."):
+        utilities.input_check(var_name, float("nan"), float)
+
+
+def test_input_check_inf():
+    var_name = "test_var"
+    with pytest.raises(ValueError, match=f"{var_name} cannot contain any infinities."):
+        utilities.input_check(var_name, float("inf"), float)
+
+
+def test_input_check_neg_inf():
+    var_name = "test_var"
+    with pytest.raises(ValueError, match=f"{var_name} cannot contain any infinities."):
+        utilities.input_check(var_name, -float("inf"), float)
+
+
+def test_input_check_strictly_positive():
+    var_name = "test_var"
+    with pytest.raises(
+        ValueError, match=f"Cannot have any negative or zero values in {var_name}"
+    ):
+        utilities.input_check(
+            var_name, 0.0, float, positive=True, strictly_positive=True
+        )
+
+
+def test_input_check_positive_passes():
+    var_name = "test_var"
+    utilities.input_check(var_name, 0.0, float, positive=True, strictly_positive=False)
+
+
+def test_input_check_positive():
+    var_name = "test_var"
+    with pytest.raises(
+        ValueError, match=f"Cannot have any negative values in {var_name}"
+    ):
+        utilities.input_check(
+            var_name, -1.0, float, positive=True, strictly_positive=False
+        )
