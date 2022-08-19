@@ -1087,6 +1087,7 @@ class ExtrapolateImpurityDensity(Operator):
                 DataArray,
                 ndim_to_check=2,
                 positive=False,
+                strictly_positive=False,
             )
 
         # Applying the asymmetry parameter to extrapolated density.

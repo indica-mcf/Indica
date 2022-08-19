@@ -83,6 +83,7 @@ class ToroidalRotation(Operator):
             DataArray,
             ndim_to_check=3,
             positive=False,
+            strictly_positive=False,
         )
 
         input_check(
