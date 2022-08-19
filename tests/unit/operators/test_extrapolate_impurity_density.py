@@ -560,6 +560,8 @@ def input_data_setup():
         xarray.DataArray of electron temperature. Dimensions (rho, t)
     input_Ti
         xarray.DataArray of ion temperature. Dimensions (elements, rho, t)
+    mean_charges
+        xarray.DataArray of mean charges. Dimensions (elements, rho, t)
     toroidal_rotations
         xarray.DataArray of toroidal rotations (needed for calculating the centrifugal
         asymmetry parameter). Dimensions (elements, rho, t)
@@ -623,7 +625,19 @@ def input_data_setup():
         dims=["element", "rho_poloidal", "t"],
     )
 
-    toroidal_rotations = np.array([200.0e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
+    mean_charges = DataArray(
+        data=np.swapaxes(
+            np.tile(np.array([5, 4, 3, 2, 1]), (len(elements), len(base_t), 1)), 1, 2
+        ),
+        coords=[
+            ("element", elements),
+            ("rho_poloidal", base_rho_profile),
+            ("t", base_t),
+        ],
+        dims=["element", "rho_poloidal", "t"],
+    )
+
+    toroidal_rotations = np.array([200e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
 
     toroidal_rotations = np.tile(toroidal_rotations, (len(elements), len(base_t), 1))
     toroidal_rotations = np.swapaxes(toroidal_rotations, 1, 2)
@@ -669,6 +683,7 @@ def input_data_setup():
     input_Te = input_Te.interp(rho_poloidal=expanded_rho, method="linear")
     input_Ne = input_Ne.interp(rho_poloidal=expanded_rho, method="linear")
     input_Ti = input_Ti.interp(rho_poloidal=expanded_rho, method="linear")
+    mean_charges = mean_charges.interp(rho_poloidal=expanded_rho, method="linear")
     toroidal_rotations = toroidal_rotations.interp(
         rho_poloidal=expanded_rho, method="linear"
     )
@@ -687,6 +702,7 @@ def input_data_setup():
         input_Ne,
         input_Te,
         input_Ti,
+        mean_charges,
         toroidal_rotations,
         rho_arr,
         theta_arr,
@@ -774,6 +790,7 @@ def sxr_data_setup(input_data, sxr_truncation=True):
         input_Ne,
         input_Te,
         input_Ti,
+        mean_charges,
         toroidal_rotations,
         rho_arr,
         theta_arr,
@@ -814,16 +831,26 @@ def sxr_data_setup(input_data, sxr_truncation=True):
 
     example_asymmetry_obj = AsymmetryParameter()
     example_asymmetry = example_asymmetry_obj(
-        toroidal_rotations.copy(deep=True), input_Ti, "d", "w", Zeff, input_Te
+        toroidal_rotations.copy(deep=True),
+        input_Ti,
+        "d",
+        "w",
+        Zeff,
+        input_Te,
+        mean_charges,
     )
     example_asymmetry = example_asymmetry.transpose("rho_poloidal", "t")
 
     if sxr_truncation:
         threshold_rho = recover_threshold_rho(valid_truncation_threshold, input_Te)
 
-        example_asymmetry.loc[threshold_rho[0] :, :] = example_asymmetry.loc[
-            threshold_rho[0], :
-        ]
+        example_threshold_asymmetry = example_asymmetry.sel(
+            rho_poloidal=threshold_rho, method="nearest"
+        )
+        example_asymmetry = example_asymmetry.where(
+            example_asymmetry.rho_poloidal < threshold_rho,
+            other=example_threshold_asymmetry,
+        )
 
     rho_derived, theta_derived = flux_surfs.convert_from_Rz(R_arr, z_arr, base_t)
     rho_derived = abs(rho_derived)
@@ -882,10 +909,22 @@ def bolometry_input_data_setup(input_data):
     """
     initial_data = input_data
 
-    base_t = initial_data[9]
-    input_Te = initial_data[1]
-    input_Ne = initial_data[0]
-    elements = initial_data[12]
+    (
+        input_Ne,
+        input_Te,
+        input_Ti,
+        mean_charges,
+        toroidal_rotations,
+        rho_arr,
+        theta_arr,
+        flux_surfs,
+        valid_truncation_threshold,
+        Zeff,
+        base_t,
+        R_derived,
+        R_lfs_values,
+        elements,
+    ) = initial_data
 
     main_ion_power_loss = power_loss_setup("h", base_t, input_Te, input_Ne)
 
@@ -926,13 +965,23 @@ def test_extrapolate_impurity_density_call():
     sxr_data = sxr_data_setup(initial_data)
     bolometry_input_data = bolometry_input_data_setup(initial_data)
 
-    input_Ne = initial_data[0]
-    input_Te = initial_data[1]
-    valid_truncation_threshold = initial_data[7]
-    flux_surfs = initial_data[6]
-    base_t = initial_data[9]
-    R_derived = initial_data[10]
-    elements = initial_data[12]
+    (
+        input_Ne,
+        input_Te,
+        input_Ti,
+        mean_charges,
+        toroidal_rotations,
+        rho_arr,
+        theta_arr,
+        flux_surfs,
+        valid_truncation_threshold,
+        Zeff,
+        base_t,
+        R_derived,
+        R_lfs_values,
+        elements,
+    ) = initial_data
+
     impurity_sxr_density_asym_Rz = sxr_data[0]
     additional_sig = sxr_data[2]
     orig_asymmetry_param = sxr_data[3]
@@ -1160,10 +1209,23 @@ def test_asymmetry_from_profile():
     initial_data = input_data_setup()
     sxr_data = sxr_data_setup(initial_data, False)
 
-    input_Te = initial_data[1]
-    input_Ti = initial_data[2]
-    orig_toroidal_rotations = initial_data[3]
-    flux_surfs = initial_data[6]
+    (
+        input_Ne,
+        input_Te,
+        input_Ti,
+        mean_charges,
+        orig_toroidal_rotations,
+        rho_arr,
+        theta_arr,
+        flux_surfs,
+        valid_truncation_threshold,
+        Zeff,
+        base_t,
+        R_derived,
+        R_lfs_values,
+        elements,
+    ) = initial_data
+
     impurity_sxr_density_asym_Rz = sxr_data[0]
     impurity_sxr_density_asym_rho_theta = sxr_data[1]
 
@@ -1209,26 +1271,30 @@ def test_asymmetry_from_profile():
     derived_toroidal_rotation_rho_theta = ToroidalRotation()
 
     toroidal_rotation_results_rho_theta = derived_toroidal_rotation_rho_theta(
-        asymmetry_from_rho_theta_, input_Ti, main_ion, impurity, Zeff, input_Te
+        asymmetry_from_rho_theta_,
+        input_Ti,
+        main_ion,
+        impurity,
+        Zeff,
+        input_Te,
+        mean_charges,
     )
 
     assert np.allclose(
-        orig_toroidal_rotations, toroidal_rotation_results_rho_theta, rtol=0.05
+        toroidal_rotation_results_rho_theta, orig_toroidal_rotations, rtol=0.05
     )
 
     derived_toroidal_rotation_R_z = ToroidalRotation()
 
     toroidal_rotation_results_R_z = derived_toroidal_rotation_R_z(
-        asymmetry_from_R_z_, input_Ti, main_ion, impurity, Zeff, input_Te
+        asymmetry_from_R_z_, input_Ti, main_ion, impurity, Zeff, input_Te, mean_charges
     )
 
     # Last 3 rho points don't match most likely due to converison from R-z to rho-theta,
     # not much that can be done about that.
     assert np.allclose(
-        orig_toroidal_rotations[:-3, :], toroidal_rotation_results_R_z[:-3, :], rtol=0.1
+        toroidal_rotation_results_R_z[:-3, :], orig_toroidal_rotations[:-3, :], rtol=0.1
     )
-
-    valid_truncation_threshold = initial_data[7]
 
     valid_threshold_rho = recover_threshold_rho(valid_truncation_threshold, input_Te)
 
@@ -1302,8 +1368,22 @@ def test_asymmetry_from_profile():
 
 def test_recover_threshold_rho():
     initial_data = input_data_setup()
-    valid_input_Te = initial_data[1]
-    valid_truncation_threshold = initial_data[7]
+    (
+        input_Ne,
+        valid_input_Te,
+        input_Ti,
+        mean_charges,
+        toroidal_rotations,
+        rho_arr,
+        theta_arr,
+        flux_surfs,
+        valid_truncation_threshold,
+        Zeff,
+        base_t,
+        R_derived,
+        R_lfs_values,
+        elements,
+    ) = initial_data
 
     try:
         threshold_rho = recover_threshold_rho(
