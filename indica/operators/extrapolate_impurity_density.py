@@ -199,6 +199,42 @@ def asymmetry_from_rho_theta(
     return derived_asymmetry_parameter
 
 
+def asymmetry_modifier_from_parameter(
+    asymmetry_parameter: DataArray, R_deriv: DataArray
+):
+    """
+    Convert an asymmetry parameter to an asymmetry modifier.
+
+    Parameters
+    ----------
+    asymmetry_parameter
+        Asymmetry parameter on (rho, t)
+    R_deriv
+        Variable describing value of R for every coordinate on a (rho, theta) grid.
+        xarray.DataArray with dimensions (rho, theta, t)
+
+    Returns
+    -------
+    asymmetry_modifier
+        Asymmetry modifier used to transform a low-field side only rho-profile
+        of a poloidally asymmetric quantity to a full poloidal cross-sectional
+        profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
+        exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
+        radius as a function of (rho, theta, t) and R_lfs is the low-field-side
+        major radius as a function of (rho, t). xarray DataArray with dimensions
+        (rho, theta, t)
+    """
+    R_lfs_midplane = cast(DataArray, R_deriv).sel(theta=0, method="nearest")
+
+    asymmetry_modifier = np.exp(
+        asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
+    )
+
+    asymmetry_modifier = asymmetry_modifier.transpose("rho_poloidal", "theta", "t")
+
+    return asymmetry_modifier
+
+
 def recover_threshold_rho(truncation_threshold: float, electron_temperature: DataArray):
     """Recover the rho value for a given electron temperature threshold, as in
     at what rho location does the electron temperature drop below the specified
@@ -593,20 +629,16 @@ class ExtrapolateImpurityDensity(Operator):
             theta_arr, {"theta": theta_arr}, ["theta"]
         )  # type: ignore
 
-        R_lfs_midplane = cast(DataArray, R_deriv).sel(theta=0, method="nearest")
-
-        asymmetry_modifier = np.exp(
-            asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
+        asymmetry_modifier = asymmetry_modifier_from_parameter(
+            asymmetry_parameter, R_deriv
         )
-
-        asymmetry_modifier = asymmetry_modifier.transpose("rho_poloidal", "theta", "t")
 
         extrapolated_smooth_data = extrapolated_smooth_lfs * asymmetry_modifier
         extrapolated_smooth_data = extrapolated_smooth_data.transpose(
             "rho_poloidal", "theta", "t"
         )
 
-        return extrapolated_smooth_data, asymmetry_modifier
+        return extrapolated_smooth_data
 
     def transform_to_R_z(
         self,
@@ -711,7 +743,9 @@ class ExtrapolateImpurityDensity(Operator):
         orig_bolometry_data: DataArray,
         bolometry_obj: BolometryDerivation,
         impurity_element: str,
-        asymmetry_modifier: DataArray,
+        asymmetry_parameter: DataArray,
+        threshold_rho: DataArray,
+        R_deriv: DataArray,
         time_correlation: bool = True,
     ):
         """Optimizes a Gaussian-style perturbation to recover the over-density
@@ -730,14 +764,16 @@ class ExtrapolateImpurityDensity(Operator):
             BolometryDerivation object.
         impurity_element
             String of impurity element symbol.
-        asymmetry_modifier
-            Asymmetry modifier used to transform a low-field side only rho-profile
+        asymmetry_parameter
+            Asymmetry parameter used to transform a low-field side only rho-profile
             of a poloidally asymmetric quantity to a full poloidal cross-sectional
-            profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
-            exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
-            radius as a function of (rho, theta, t) and R_lfs is the low-field-side
-            major radius as a function of (rho, t). xarray DataArray with dimensions
-            (rho, theta, t)
+            profile ie. (rho, t) -> (rho, theta, t).
+        threshold_rho
+            Threshold rho value beyond which asymmetry parameter is invalid and
+            should be fitted from bolometry.
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
         time_correlation
             Boolean to indicate whether or not to use time correlated guesses during
             the optimization (ie. the result of the optimization for the previous
@@ -822,7 +858,13 @@ class ExtrapolateImpurityDensity(Operator):
                 for the selected time point.
                 xarray.DataArray with dimensions (channels)
             """
-            amplitude, standard_dev, position = objective_array
+            (
+                relative_amplitude,
+                standard_dev,
+                position,
+                edge_asymmetry_parameter,
+            ) = objective_array
+            amplitude = relative_amplitude * extrapolated_smooth_data_mean
 
             perturbation_signal = self.fitting_function(
                 amplitude, standard_dev, position
@@ -831,6 +873,14 @@ class ExtrapolateImpurityDensity(Operator):
             # trim perturbation_signal to only be valid within rho = 0.0 and rho = 1.0
             perturbation_signal = perturbation_signal.interp(
                 rho_poloidal=rho_arr, method="linear"
+            )
+
+            asymmetry_parameter_cont = asymmetry_parameter.where(
+                asymmetry_parameter.rho_poloidal > threshold_rho,
+                other=edge_asymmetry_parameter,
+            )
+            asymmetry_modifier = asymmetry_modifier_from_parameter(
+                asymmetry_parameter_cont, R_deriv
             )
 
             perturbation_signal = perturbation_signal * asymmetry_modifier.sel(t=time)
@@ -864,8 +914,8 @@ class ExtrapolateImpurityDensity(Operator):
 
         fitted_density = zeros_like(bolometry_obj.electron_density)
 
-        lower_amp_bound = 0.1 * extrapolated_smooth_data_mean
-        upper_amp_bound = 1e4 * extrapolated_smooth_data_mean
+        lower_rel_amp_bound = 0.1
+        upper_rel_amp_bound = 1e4
 
         lower_width_bound = (drho / self.halfwidthhalfmax_coeff) / 3
         upper_width_bound = (
@@ -878,9 +928,12 @@ class ExtrapolateImpurityDensity(Operator):
         initial_guesses = np.array(
             [
                 [
-                    np.sqrt(lower_amp_bound * upper_amp_bound),
+                    1,
                     np.mean([lower_width_bound, upper_width_bound]),
                     np.mean([lower_pos_bound, upper_pos_bound]),
+                    asymmetry_parameter.isel(t=0).sel(
+                        rho_poloidal=threshold_rho, method="ffill"
+                    ),
                 ]
             ]
         )
@@ -888,16 +941,18 @@ class ExtrapolateImpurityDensity(Operator):
         fitting_bounds = [
             np.array(
                 [
-                    lower_amp_bound,
+                    lower_rel_amp_bound,
                     lower_width_bound,
                     lower_pos_bound,
+                    asymmetry_parameter.min(),
                 ]
             ),
             np.array(
                 [
-                    upper_amp_bound,
+                    upper_rel_amp_bound,
                     upper_width_bound,
                     upper_pos_bound,
+                    asymmetry_parameter.max(),
                 ]
             ),
         ]
@@ -1118,10 +1173,7 @@ class ExtrapolateImpurityDensity(Operator):
         # Also extends the data beyond the hfs and lfs to be
         # the full poloidal angle range.
 
-        (
-            extrapolated_smooth_density_rho_theta,
-            asymmetry_modifier,
-        ) = self.apply_asymmetry(
+        extrapolated_smooth_density_rho_theta = self.apply_asymmetry(
             asymmetry_parameter,
             extrapolated_smooth_hfs,
             extrapolated_smooth_lfs,
@@ -1134,6 +1186,9 @@ class ExtrapolateImpurityDensity(Operator):
             R_deriv, z_deriv, extrapolated_smooth_density_rho_theta, flux_surfaces
         )
 
+        asymmetry_modifier = asymmetry_modifier_from_parameter(
+            asymmetry_parameter, R_deriv
+        )
         self.asymmetry_modifier = asymmetry_modifier
 
         return (
