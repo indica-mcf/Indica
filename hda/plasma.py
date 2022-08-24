@@ -76,6 +76,26 @@ ADF11 = {
         "pls": "15",
         "prs": "15",
     },
+    "mo": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "w": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
 }
 
 
@@ -778,9 +798,7 @@ class Plasma:
         diagnostic: str = "xrcs",
         quantity: str = "int_w",
         elem="ar",
-        cal=1.0e13,
-        dt_cal=0.007,
-        dt=None,
+        cal=2.e3,
         niter=2,
         time=None,
         scale=True,
@@ -822,9 +840,6 @@ class Plasma:
             f"Re-calculating Ar density profiles to match {diagnostic.upper()} values"
         )
 
-        if dt is None:
-            dt = dt_cal
-
         if time is None:
             time = self.t
 
@@ -856,7 +871,7 @@ class Plasma:
             for j in range(niter):
                 Nimp = {elem: self.ion_dens.sel(element=elem, t=t) * const}
                 _ = forward_model(Te, Ne, Nimp=Nimp, Nh=Nh, rho_los=rho_los, dl=dl,)
-                int_bckc = forward_model.intensity[line] * cal / dt_cal * dt
+                int_bckc = forward_model.intensity[line] * cal
                 const = (int_data / int_bckc).values
 
                 if (np.abs(1 - const) < 1.0e-4) or not (scale):
@@ -1145,26 +1160,26 @@ class Plasma:
 
         if plot:
             t = self.t[6]
-        for elem in self.elements:
-            plt.figure()
-            z = self.z_mag.sel(t=t)
-            rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
-            plt.plot(
-                rho, self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
-            )
-            self.ion_dens.sel(element=elem).sel(t=t).plot(linestyle="dashed")
-            plt.title(elem)
+            for elem in self.elements:
+                plt.figure()
+                z = self.z_mag.sel(t=t)
+                rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
+                plt.plot(
+                    rho, self.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
+                )
+                self.ion_dens.sel(element=elem).sel(t=t).plot(linestyle="dashed")
+                plt.title(elem)
 
-        elem = "ar"
-        plt.figure()
-        np.log(self.ion_dens_2d.sel(element=elem).sel(t=t, method="nearest")).plot()
-        self.rho_2d.sel(t=t, method="nearest").plot.contour(levels=10, colors="white")
-        plt.xlabel("R (m)")
-        plt.ylabel("z (m)")
-        plt.title(f"log({elem} density")
-        plt.axis("scaled")
-        plt.xlim(0, 0.8)
-        plt.ylim(-0.6, 0.6)
+            elem = "ar"
+            plt.figure()
+            np.log(self.ion_dens_2d.sel(element=elem).sel(t=t, method="nearest")).plot()
+            self.rho_2d.sel(t=t, method="nearest").plot.contour(levels=10, colors="white")
+            plt.xlabel("R (m)")
+            plt.ylabel("z (m)")
+            plt.title(f"log({elem} density")
+            plt.axis("scaled")
+            plt.xlim(0, 0.8)
+            plt.ylim(-0.6, 0.6)
 
     def calc_fz_lz(self, use_tau=False):
         """

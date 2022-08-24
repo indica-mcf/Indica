@@ -103,7 +103,9 @@ class ST40Reader(DataReader):
             "rmji": ".profiles.psi_norm:rmji",
             "rmjo": ".profiles.psi_norm:rmjo",
             "psi": ".psi2d:psi",
+            "psin": ".profiles.psi_norm:xpsn",
             "vjac": ".profiles.psi_norm:vjac",
+            "ajac": ".profiles.psi_norm:ajac",
             "rmag": ".global:rmag",
             "rgeo": ".global:rgeo",
             "rbnd": ".p_boundary:rbnd",
@@ -155,6 +157,8 @@ class ST40Reader(DataReader):
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
+            "wtherm": ".global:wtherm",
+            "wfast": ".global:wfast",
             "df": ".global.df",
             "elon": ".profiles.astra:elon",  # Elongation profile
             "j_bs": ".profiles.astra:j_bs",  # Bootstrap current density,MA/m2
@@ -509,6 +513,8 @@ class ST40Reader(DataReader):
             results[q + "_records"] = records
             results[q + "_error"] = self._default_error * results[q]
 
+            results[q + "location"] = np.array(location)
+            results[q + "direction"] = np.array(direction)
             results[q + "_xstart"] = np.array(xstart)
             results[q + "_xstop"] = np.array(xstop)
             results[q + "_ystart"] = np.array(ystart)

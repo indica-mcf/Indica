@@ -531,7 +531,7 @@ class DataReader(BaseIO):
             "df",
         }
         separatrix_quantities = {"rbnd", "zbnd"}
-        flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
+        flux_quantities = {"f", "ftor", "vjac", "ajac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(instrument)
         if len({"rmji", "rmjo"} & quantities) > 0:
             quantities.add("zmag")
@@ -1748,7 +1748,7 @@ class DataReader(BaseIO):
 
         # Reorganise coordinate system to match Indica default rho-poloidal
         psin = database_results["psin"]
-        rhop_psin = np.sqrt(database_results["psin"])
+        rhop_psin = np.sqrt(psin)
         rhop_interp = np.linspace(0, 1.0, 65)
         rhot_astra = database_results["rho"] / np.max(database_results["rho"])
         rhot_rhop = []

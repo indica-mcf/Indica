@@ -2,8 +2,7 @@ from copy import deepcopy
 import os
 import pickle
 
-from hda.diagnostics.PISpectrometer import PISpectrometer
-from hda.diagnostics.spectrometer import XRCSpectrometer
+from hda.models.spectrometer import XRCSpectrometer
 import hda.hda_tree as hda_tree
 from hda.plasma import initialize_bckc
 from hda.plasma import Plasma
@@ -53,7 +52,6 @@ def test_hda(
     main_ion="h",
     impurities=("c", "ar", "he"),
     imp_conc=(0.03, 0.001, 0.01),
-    cal_ar=1.0,
     savefig=False,
     ne_peaking=None,
     marchuk=True,
@@ -65,6 +63,7 @@ def test_hda(
     sxr=False,
     efit_pulse=None,
     efit_run=0,
+    plot=True,
 ):
 
     raw = ST40data(pulse, tstart - 0.01, tend + 0.01)
@@ -105,8 +104,6 @@ def test_hda(
         pl.forward_models["xrcs"] = XRCSpectrometer(
             marchuk=marchuk, extrapolate=extrapolate
         )
-    if "princeton" in raw_data:
-        pl.forward_models["princeton"] = PISpectrometer()
 
     bckc = pl.match_interferometer(
         data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
@@ -126,12 +123,7 @@ def test_hda(
     pl.calc_meanz()
     pl.calc_imp_dens()
     bckc = pl.match_xrcs_intensity(
-        data,
-        bckc=bckc,
-        diagnostic="xrcs",
-        quantity=quant_ar,
-        cal=cal_ar,
-        dt=dt_xrcs,
+        data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar,
     )
     pl.calc_main_ion_dens()
     pl.calc_zeff()
@@ -142,16 +134,12 @@ def test_hda(
     bckc = pl.interferometer(data, bckc=bckc)
     bckc = pl.bremsstrahlung(data, bckc=bckc)
 
-    plots.compare_data_bckc(
-        data,
-        bckc,
-        raw_data=raw_data,
-        pulse=pl.pulse,
-        savefig=savefig,
-        name=name,
-    )
-    plots.profiles(pl, data=data, bckc=bckc, savefig=savefig, name=name)
-    plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
+    if plot:
+        plots.compare_data_bckc(
+            data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
+        )
+        plots.profiles(pl, data=data, bckc=bckc, savefig=savefig, name=name)
+        plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
 
     return pl, raw_data, data, bckc
 
@@ -170,7 +158,6 @@ def plasma_workflow(
     main_ion="h",
     impurities=("c", "ar", "he"),
     imp_conc=(0.03, 0.001, 0.01),
-    cal_ar=1.0,
     write=False,
     save_pickle=False,
     savefig=False,
@@ -258,8 +245,6 @@ def plasma_workflow(
         pl.forward_models["xrcs"] = XRCSpectrometer(
             marchuk=marchuk, extrapolate=extrapolate
         )
-    if "princeton" in raw_data:
-        pl.forward_models["princeton"] = PISpectrometer()
 
     # Rescale density to match interferometer
     bckc = pl.match_interferometer(
@@ -294,12 +279,7 @@ def plasma_workflow(
 
     # Ar density from intensity of w line
     bckc = pl.match_xrcs_intensity(
-        data,
-        bckc=bckc,
-        diagnostic="xrcs",
-        quantity=quant_ar,
-        cal=cal_ar,
-        dt=dt_xrcs,
+        data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar,
     )
     # Quasineutrality
     pl.calc_main_ion_dens()
@@ -333,12 +313,7 @@ def plasma_workflow(
     # Compare diagnostic data with back-calculated data
     if plotfig or savefig:
         plots.compare_data_bckc(
-            data,
-            bckc,
-            raw_data=raw_data,
-            pulse=pl.pulse,
-            savefig=savefig,
-            name=name,
+            data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
         )
         plots.profiles(pl, data=data, savefig=savefig, name=name)
         plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
@@ -382,12 +357,7 @@ def plot_results(pl, raw_data, data, bckc, savefig=False, name=""):
     if savefig:
         plt.ioff()
     plots.compare_data_bckc(
-        data,
-        bckc,
-        raw_data=raw_data,
-        pulse=pl.pulse,
-        savefig=savefig,
-        name=name,
+        data, bckc, raw_data=raw_data, pulse=pl.pulse, savefig=savefig, name=name,
     )
     plots.profiles(pl, data=data, savefig=savefig, name=name)
     plots.time_evol(pl, data, bckc=bckc, savefig=savefig, name=name)
@@ -395,17 +365,12 @@ def plot_results(pl, raw_data, data, bckc, savefig=False, name=""):
         plt.ion()
 
 
-def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
+def propagate(pl, raw_data, data, bckc, quant_ar="int_w"):
     dt_xrcs = (raw_data["xrcs"]["ti_w"].t[1] - raw_data["xrcs"]["ti_w"].t[0]).values
     pl.calc_meanz()
     pl.calc_imp_dens()
     pl.match_xrcs_intensity(
-        data,
-        bckc=bckc,
-        diagnostic="xrcs",
-        quantity=quant_ar,
-        cal=cal_ar,
-        dt=dt_xrcs,
+        data, bckc=bckc, diagnostic="xrcs", quantity=quant_ar,
     )
     pl.calc_main_ion_dens()
     pl.calc_zeff()
@@ -418,11 +383,13 @@ def propagate(pl, raw_data, data, bckc, quant_ar="int_w", cal_ar=1):
     return pl, bckc
 
 
-def run_all_scans(efit_pulse=None, efit_run=None, run_add="", force=True):
-    # pulses = [8532, 8533, 8605, 8621, 9098, 9099, 9229, 9401, 9486, 9537, 9538, 9539, 9619, 9622,
+def run_all_scans(
+    efit_pulse=None, efit_run=None, run_add="", force=True, calc_error=False
+):
+    # pulses = [8532, 8533, 8605, 8621, 8875, 9098, 9099, 9229, 9401, 9486, 9537, 9538, 9539, 9619, 9622,
     # 9624, 9626, 9676, 9721, 9746, 9748, 9752, 9766, 9771, 9779, 9780, 9781, 9783, 9784, 9787, 9816,
-    # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9842, 9849, 9880, 9892, 9894, 9896, 9901, 9913,
-    # 10014]
+    # 9822, 9823, 9824, 9831, 9835, 9837, 9839, 9840, 9841, 9842, 9849, 9877, 9878, 9880, 9885, 9892,
+    # 9894, 9896, 9901, 9913, 9928, 10014]
 
     # 9818, 9820, 9389 - unknown issues
     # 9840 - doesn't have enough Ar
@@ -433,14 +400,16 @@ def run_all_scans(efit_pulse=None, efit_run=None, run_add="", force=True):
     # efit_pulse = [11009850] * 2
     # efit_run = ["1016A2", "1013N"]
 
-    pulses = [9841, 9877, 9878, 9885, 9928]
-    tlims = [(0.02, 0.11)] * len(pulses)
-    run_add = [""]*len(pulses)
-    efit_pulse = [efit_pulse]*len(pulses)
-    efit_run = [0]*len(pulses)
+    pulses = [9839, 9849]
+    tlims = [(0.02, 0.12)] * len(pulses)
+    run_add = ["MID"] * len(pulses)
+    efit_pulse = [efit_pulse] * len(pulses)
+    efit_run = [0] * len(pulses)
     only_run = None  # :int = write only this run
 
-    for pulse, tlim, _efit_pulse, _efit_run, _run_add in zip(pulses, tlims, efit_pulse, efit_run, run_add):
+    for pulse, tlim, _efit_pulse, _efit_run, _run_add in zip(
+        pulses, tlims, efit_pulse, efit_run, run_add
+    ):
         print(pulse)
         scan_profiles(
             pulse,
@@ -449,7 +418,7 @@ def run_all_scans(efit_pulse=None, efit_run=None, run_add="", force=True):
             dt=0.01,
             diagn_ne="smmh1",
             quant_ne="ne",
-            quant_te="te_n3w",
+            quant_te="te_kw",
             quant_ti="ti_w",
             c_c=0.03,
             c_ar=0.001,
@@ -470,6 +439,7 @@ def run_all_scans(efit_pulse=None, efit_run=None, run_add="", force=True):
             efit_pulse=_efit_pulse,
             only_run=only_run,
             run_add=_run_add,
+            calc_error=calc_error,
         )
 
 
@@ -502,6 +472,7 @@ def scan_profiles(
     efit_run=0,
     efit_pulse=None,
     only_run=None,
+    calc_error=False,
 ):
     print("Scanning combinations of profile shapes")
 
@@ -524,8 +495,7 @@ def scan_profiles(
             extrapolate=extrapolate,
             xrcs_time=xrcs_time,
             use_ratios=True,
-            calc_error=False,
-            cal_ar=1,
+            calc_error=calc_error,
             sxr=sxr,
             main_ion=main_ion,
             plotfig=False,
@@ -596,7 +566,7 @@ def scan_profiles(
                         quantity_te=quant_te,
                         quantity_ti=quant_ti,
                         use_ratios=True,
-                        calc_error=False,
+                        calc_error=calc_error,
                         use_ref=use_ref,
                     )
                     propagate(pl, raw_data, data, bckc, quant_ar="int_w")
@@ -832,6 +802,19 @@ def read_profile_scans(pulse, plotfig=False, savefig=False, run_add=""):
     return pl_dict, raw_data, data, bckc_dict
 
 
+def read_profile_scans_astra(pulse, run_add="", run_plus=500):
+    runs = np.arange(60, 76 + 1)
+    astra_dict = {}
+    astra_dict = {}
+    reader_astra = ST40Reader(pulse, 0, 0.2, tree="ASTRA")
+    for run in runs:
+        revision = f"{run+run_plus}{run_add}"
+        run_name = f"RUN{revision}"
+        astra_dict[run_name] = reader_astra.get("", "astra", revision)
+
+    return astra_dict
+
+
 def plot_profile_parametrisation(pl_dict, tgood=0.08, savefig=True):
     plt.figure()
     (1.0e-19 * pl_dict["RUN61"].el_dens.sel(t=tgood, method="nearest")).plot(
@@ -904,8 +887,11 @@ def find_best_profiles(
     perc_err=0.2,
     savefig=False,
     sxr=True,
+    cxrs=True,
     minmax=False,
-    tmax=3.8,
+    tmax=4.01,
+    astra_rev="",
+    exclude=["63", "65", "67"],
 ):
     """
     pl_dict, raw_data, data, bckc_dict, astra_dict = tests.find_best_profiles(pulse=9783)
@@ -1082,11 +1068,7 @@ def find_best_profiles(
                 err = err.swap_dims({dim: "rho_min"})
 
             value.plot(
-                linewidth=3,
-                color="black",
-                marker="o",
-                alpha=0.5,
-                label=label,
+                linewidth=3, color="black", marker="o", alpha=0.5, label=label,
             )
             plt.fill_between(
                 value.coords[value.dims[0]],
@@ -1288,11 +1270,9 @@ def find_best_profiles(
             "error": error,
             "transform": transform,
         }
-        quant_data = DataArray(
-            values,
-            coords,
-            attrs=meta,
-        ).sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        quant_data = DataArray(values, coords, attrs=meta,).sel(
+            t=slice(reader_st40._tstart, reader_st40._tend)
+        )
 
         quant_data.name = "princeton" + "_" + "ti"
         quant_data.attrs["revision"] = rev
@@ -1321,11 +1301,9 @@ def find_best_profiles(
             "error": error,
             "transform": transform,
         }
-        quant_data = DataArray(
-            values,
-            coords,
-            attrs=meta,
-        ).sel(t=slice(reader_st40._tstart, reader_st40._tend))
+        quant_data = DataArray(values, coords, attrs=meta,).sel(
+            t=slice(reader_st40._tstart, reader_st40._tend)
+        )
 
         quant_data.name = "princeton" + "_" + "ti"
         quant_data.attrs["revision"] = rev
@@ -1339,7 +1317,7 @@ def find_best_profiles(
 
         plt.close("all")
         plt.ioff()
-        revision = "0"
+        revision = 0
         sxr = reader_st40.get(
             "sxr", "diode_arrays", revision=revision, quantities=["filter_4"]
         )
@@ -1383,9 +1361,7 @@ def find_best_profiles(
                 )
 
                 rho_min.loc[dict(t=t)] = xr.where(
-                    zimpact < 0,
-                    -rho_min.sel(t=t),
-                    rho_min.sel(t=t),
+                    zimpact < 0, -rho_min.sel(t=t), rho_min.sel(t=t),
                 )
 
             geom_attrs["rho"] = rho
@@ -1460,9 +1436,7 @@ def find_best_profiles(
 
         sxr_rad_interp = pl.sxr_rad.sum("element").interp(rho_poloidal=bckc_tmp.rho)
         sxr_rad_interp = xr.where(
-            (bckc_tmp.rho <= 1) * np.isfinite(sxr_rad_interp),
-            sxr_rad_interp,
-            0,
+            (bckc_tmp.rho <= 1) * np.isfinite(sxr_rad_interp), sxr_rad_interp, 0,
         )
         x2_name = "diode_arrays_filter_4_los_position"
         bckc_tmp = sxr_rad_interp.sum(x2_name) * bckc_tmp.dl
@@ -1477,6 +1451,14 @@ def find_best_profiles(
     if pl_dict is None:
         # Read scans from pickle files
         pl_dict, raw_data, data, bckc_dict = read_profile_scans(pulse)
+        runs = list(pl_dict)
+        if len(exclude) > 0:
+            for exc in exclude:
+                kpop = f"RUN{exc}"
+                if kpop in pl_dict.keys():
+                    pl_dict.pop(kpop)
+                if kpop in bckc_dict.keys():
+                    bckc_dict.pop(kpop)
 
         pl_avrg = pl_dict["RUN60"]
         pulse = 13100000 + pl_avrg.pulse
@@ -1494,7 +1476,7 @@ def find_best_profiles(
         reader_astra = ST40Reader(pulse, tstart, tend, tree="ASTRA")
         for run in pl_dict.keys():
             # Read ASTRA results
-            revision = run[3:]
+            revision = run[3:] + astra_rev
             astra_dict[run] = reader_astra.get("", "astra", revision)
 
             # find q=1 surface
@@ -1600,10 +1582,10 @@ def find_best_profiles(
             )
 
         # Read SXR data if it isn't already in the data structure
-        if sxr and "sxr" not in raw_data:
+        if sxr and ("sxr" not in raw_data):
             raw_data, data = add_missing_sxr(pl, raw_data, data)
 
-        if "princeton" not in data:
+        if cxrs and ("princeton" not in data):
             raw_data, data = add_missing_cxrs(pl, raw_data, data)
 
         if not hasattr(pl_avrg, "lz_sxr"):
@@ -1626,24 +1608,24 @@ def find_best_profiles(
     )
 
     # Central electron temperature < current atomic data limit of 4 keV
-    val = xr.full_like(data["efit"]["wp"], tmax)
-    good_dict, _ = compare_runs(
-        astra_dict,
-        val,
-        key="te",
-        good_dict=good_dict,
-        max_val=True,
-    )
+    # val = xr.full_like(data["efit"]["wp"], tmax)
+    # good_dict, _ = compare_runs(
+    #     astra_dict,
+    #     val,
+    #     key="te",
+    #     good_dict=good_dict,
+    #     max_val=True,
+    # )
 
     # Central electron temperature < current atomic data limit of 4 keV
-    val = xr.full_like(data["efit"]["wp"], 20)
-    good_dict, _ = compare_runs(
-        astra_dict,
-        val,
-        key="ti",
-        good_dict=good_dict,
-        max_val=True,
-    )
+    # val = xr.full_like(data["efit"]["wp"], 20)
+    # good_dict, _ = compare_runs(
+    #     astra_dict,
+    #     val,
+    #     key="ti",
+    #     good_dict=good_dict,
+    #     max_val=True,
+    # )
 
     all_runs = list(pl_dict)
 
@@ -1843,25 +1825,26 @@ def find_best_profiles(
         savefig=savefig,
     )
 
-    instrument = "sxr"
-    quantity = "filter_4"
-    plot_compare(
-        bckc_dict=bckc_dict,
-        data=data[instrument][quantity],
-        instrument=instrument,
-        quantity=quantity,
-        title="SXR camera",
-        ylabel="(a.u.)",
-        label="SXR filter 4",
-        profile=True,
-        perc_err=perc_err,
-        all_runs=all_runs,
-        good_runs=good_runs,
-        tgood=tgood,
-        ylim=(0, None),
-        savefig=savefig,
-        normalize=True,
-    )
+    if "sxr" in data.keys():
+        instrument = "sxr"
+        quantity = "filter_4"
+        plot_compare(
+            bckc_dict=bckc_dict,
+            data=data[instrument][quantity],
+            instrument=instrument,
+            quantity=quantity,
+            title="SXR camera",
+            ylabel="(a.u.)",
+            label="SXR filter 4",
+            profile=True,
+            perc_err=perc_err,
+            all_runs=all_runs,
+            good_runs=good_runs,
+            tgood=tgood,
+            ylim=(0, None),
+            savefig=savefig,
+            normalize=True,
+        )
 
     pl = average_runs(pl_dict, good_dict=good_dict, tgood=tgood, minmax=minmax)
 
@@ -1882,39 +1865,28 @@ def find_best_profiles(
     bckc["mag"]["vloop"] = pl.vloop
 
     name = "ASTRA_compare_average"
+    # plots.profiles(
+    #     pl,
+    #     data=data,
+    #     bckc=bckc,
+    #     savefig=savefig,
+    #     name=best_run,
+    # )
     plots.profiles(
-        pl,
-        data=data,
-        bckc=bckc,
-        savefig=savefig,
-        name=best_run,
-    )
-    plots.profiles(
-        pl,
-        data=data,
-        bckc=bckc,
-        savefig=savefig,
-        name=name,
-        ploterr=True,
-        tplot=tgood,
+        pl, data=data, bckc=bckc, savefig=savefig, name=name, ploterr=True, tplot=tgood,
     )
     plots.time_evol(
-        pl,
-        data,
-        bckc=bckc,
-        savefig=savefig,
-        name=name,
-        ploterr=True,
+        pl, data, bckc=bckc, savefig=savefig, name=name, ploterr=True,
     )
-    plots.compare_data_bckc(
-        data,
-        bckc,
-        raw_data=raw_data,
-        pulse=pulse,
-        savefig=savefig,
-        name=name,
-        ploterr=False,
-    )
+    # plots.compare_data_bckc(
+    #     data,
+    #     bckc,
+    #     raw_data=raw_data,
+    #     pulse=pulse,
+    #     savefig=savefig,
+    #     name=name,
+    #     ploterr=False,
+    # )
 
     # import pandas as pd
     # runs_csv = ["RUN64", "RUN69", "RUN70", "RUN71"]
@@ -1938,6 +1910,94 @@ def find_best_profiles(
 
     print(f"Best run {best_run}")
     return pl, bckc
+
+
+def centrifugal_asymmetries(
+    pulse=10009, time=0.06, omega=350.0e3, hollow_imp=False, broad_profiles=False, plot_log=False
+):
+    from plot_hda_results import load_pickle_HDA, read_profile_scans_HDA
+
+    name = "centrifugal_asymmetries"
+    # pl_dict_all, raw_data, data, bckc_dict_all = read_profile_scans_HDA(
+    #     pulse, run_add="MID"
+    # )
+    # if broad_profiles:
+    #     pl = pl_dict_all["RUN61MID"]
+    # else:
+    #     pl = pl_dict_all["RUN73MID"]
+    try:
+        pl, raw_data, data, bckc = load_pickle_HDA(pulse, name)
+    except FileNotFoundError:
+        pl, raw_data, data, bckc = test_hda(
+            pulse=pulse,
+            tstart=0.02,
+            tend=0.11,
+            dt=0.01,
+            impurities=("c", "ar", "w"),
+            imp_conc=(0.03, 0.001, 0.0001),
+            quant_te="te_n3w",
+            name=name,
+        )
+        save_to_pickle(pl, raw_data, data, bckc, pulse=pulse, name=name, force=False)
+
+    t = pl.time.sel(t=time, method="nearest").values
+    if hollow_imp:
+        pl.Nimp_prof.y1 = pl.Nimp_prof.y0 / 2.0
+        pl.Nimp_prof.peaking = 0.6
+        pl.Nimp_prof.wcenter = 0.35
+        pl.Nimp_prof.build_profile()
+        pl.calc_imp_dens()
+
+    if broad_profiles:
+        for elem in pl.elements:
+            pl.ion_temp.loc[dict(element=elem, t=t)] = (
+                pl.el_dens.sel(t=t)
+                / pl.el_dens.sel(t=t, rho_poloidal=0)
+                * pl.ion_temp.loc[dict(element=elem, t=t, rho_poloidal=0)]
+            ).values
+    pl.calc_centrifugal_asymmetry(time=time, test_vtor=omega, plot=True)
+
+    plt.figure()
+    (pl.vtor.sel(element="ar", t=t) / 1.0e3).plot()
+    plt.ylabel("Omega (krad/s)")
+
+    plt.figure()
+    (pl.ion_temp.sel(element="ar", t=t) / 1.0e3).plot()
+    plt.ylabel("Ti (keV)")
+
+    for elem in ("ar", "w"):
+        plt.figure()
+        z = pl.z_mag.sel(t=t)
+        rho = pl.rho_2d.sel(t=t).sel(z=z, method="nearest")
+        dens = pl.ion_dens_2d.sel(element=elem).sel(t=t, z=z, method="nearest")
+        plt.plot(
+            rho, dens, label="midplane",
+        )
+        pl.ion_dens.sel(element=elem).sel(t=t).plot(
+            linestyle="dashed", label="LFS"
+        )
+        plt.title(f"pulse {pulse} @ {time} s")
+        plt.ylabel(f"{elem} density")
+        plt.legend()
+
+        plt.figure()
+        if plot_log:
+            np.log(pl.ion_dens_2d.sel(element=elem).sel(t=t, method="nearest")).plot(
+                cbar_kwargs={"label": f"log({elem} density)"}
+            )
+        else:
+            pl.ion_dens_2d.sel(element=elem).sel(t=t, method="nearest").plot(
+                cbar_kwargs={"label": f"{elem} density"}
+            )
+        pl.rho_2d.sel(t=t, method="nearest").plot.contour(
+            levels=[0.1, 0.3, 0.5, 0.7, 0.9, 0.99], colors="white"
+        )
+        plt.xlabel("R (m)")
+        plt.ylabel("z (m)")
+        plt.title(f"pulse {pulse} @ {time} s")
+        plt.axis("scaled")
+        plt.xlim(0, 0.8)
+        plt.ylim(-0.6, 0.6)
 
 
 #
@@ -2609,7 +2669,6 @@ def find_best_profiles(
 #             quantity=quant_ar,
 #             time=[t_pre],
 #             cal=cal_ar,
-#             dt=dt_xrcs,
 #         )
 #         int_pre_bckc.append(deepcopy(bckc["xrcs"][quant_ar].sel(t=t_pre).values))
 #         pre_crash = pl.ion_dens.sel(element="ar", t=t_pre)
@@ -2627,7 +2686,6 @@ def find_best_profiles(
 #             time=[t_post],
 #             scale=False,
 #             cal=cal_ar,
-#             dt=dt_xrcs,
 #         )
 #         int_post_bckc.append(deepcopy(bckc["xrcs"][quant_ar].sel(t=t_post).values))
 #
@@ -2689,7 +2747,6 @@ def find_best_profiles(
 #         quantity=quant_ar,
 #         scale=False,
 #         cal=cal_ar,
-#         dt=dt_xrcs,
 #     )
 #     pl.calc_main_ion_dens()
 #     pl.calc_zeff()

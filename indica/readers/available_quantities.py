@@ -29,7 +29,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te_n3w": ("temperature", "electrons"),
         "ti_w": ("temperature", "ions"),
         "ti_z": ("temperature", "ions"),
-        "ampl_w": ("amplitude", "ar_w"),
         "spectra": ("spectra", "passive"),
     },
     "get_filters": {
@@ -48,6 +47,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "rmjo": ("major_rad", "lfs"),
         "psi": ("magnetic_flux", "plasma"),
         "vjac": ("volume_jacobian", "plasma"),
+        "ajac": ("area_jacobian", "plasma"),
         "rmag": ("major_rad", "mag_axis"),
         "rgeo": ("major_rad", "geometric"),
         "rbnd": ("major_rad", "separatrix"),
@@ -67,10 +67,18 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "upl": (
             "voltage",
             "loop",
-        ),  # Loop voltage V
+        ),
         "wth": (
             "stored_energy",
+            "equilibrium",
+        ),
+        "wtherm": (
+            "stored_energy",
             "thermal",
+        ),
+        "wfast": (
+            "stored_energy",
+            "fast",
         ),  # Thermal stored energy
         "df": (
             "flux",
