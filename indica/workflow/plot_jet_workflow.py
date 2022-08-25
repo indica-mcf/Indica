@@ -17,6 +17,8 @@ DEFAULT_COMPARISON_SOURCE: Dict[str, str] = {
     "uid": "msertoli",
     "sxr_los_r": "sxlr",
     "sxr_los_z": "sxlz",
+    "sxr_los_r_shift": "ersh",
+    "sxr_los_z_shift": "ezsh",
     "n_high_z": "hzmp",
     "n_low_z": "lzav",
     "n_other_z": "ozmp",
@@ -125,17 +127,35 @@ class PlotJetWorkflow(PlotWorkflow):
             diagnostics["sxr"]["v"].transform.z_end.values,
         )
 
-        ppf_sxr_los_r = self.get_comparison_data(
+        ppf_los_r_shift = self.get_comparison_data(
             int(self.comparison_source["pulse"]),
             str(self.comparison_source["uid"]),
             str(self.comparison_source["instrument"]),
-            str(self.comparison_source["sxr_los_r"]),
+            str(self.comparison_source["sxr_los_r_shift"]),
         )
-        ppf_sxr_los_z = self.get_comparison_data(
+        ppf_sxr_los_r = (
+            self.get_comparison_data(
+                int(self.comparison_source["pulse"]),
+                str(self.comparison_source["uid"]),
+                str(self.comparison_source["instrument"]),
+                str(self.comparison_source["sxr_los_r"]),
+            )
+            + ppf_los_r_shift[0]
+        )
+        ppf_los_z_shift = self.get_comparison_data(
             int(self.comparison_source["pulse"]),
             str(self.comparison_source["uid"]),
             str(self.comparison_source["instrument"]),
-            str(self.comparison_source["sxr_los_z"]),
+            str(self.comparison_source["sxr_los_z_shift"]),
+        )
+        ppf_sxr_los_z = (
+            self.get_comparison_data(
+                int(self.comparison_source["pulse"]),
+                str(self.comparison_source["uid"]),
+                str(self.comparison_source["instrument"]),
+                str(self.comparison_source["sxr_los_z"]),
+            )
+            + ppf_los_z_shift[0]
         )
         ppf_los_zip = zip(
             ppf_sxr_los_r.isel(t=0).values,
@@ -143,6 +163,7 @@ class PlotJetWorkflow(PlotWorkflow):
             ppf_sxr_los_z.isel(t=0).values,
             ppf_sxr_los_z.isel(t=-1).values,
         )
+        ppf_los_shift = np.sqrt(ppf_los_r_shift[0] ** 2 + ppf_los_z_shift[0] ** 2)
 
         wall_data = np.genfromtxt(wall_coords_file)
         machine_dims = diagnostics["sxr"]["v"].transform._machine_dims
@@ -165,7 +186,7 @@ class PlotJetWorkflow(PlotWorkflow):
         ax.set_xlabel("R (m)")
         ax.set_ylabel("z (m)")
         line1[0].set_label("SXR LOS")
-        line2[0].set_label("PPF SXR LOS")
+        line2[0].set_label("PPF SXR LOS (shift: {:4.2f}m)".format(ppf_los_shift.values))
         ax.legend()
         return fig, ax
 
