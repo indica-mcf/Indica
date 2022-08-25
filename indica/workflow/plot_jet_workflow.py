@@ -83,7 +83,7 @@ class PlotJetWorkflow(PlotWorkflow):
         )
         coords, dims = [], []
         for dimension in signal.dimensions:
-            if signal.temporal:
+            if dimension.temporal:
                 dimname = "t"
             else:
                 dimname = "x"
@@ -118,6 +118,25 @@ class PlotJetWorkflow(PlotWorkflow):
             diagnostics["sxr"]["v"].transform.z_end.values,
         )
 
+        ppf_sxr_los_r = self.get_comparison_data(
+            int(self.comparison_source["pulse"]),
+            str(self.comparison_source["uid"]),
+            str(self.comparison_source["instrument"]),
+            str(self.comparison_source["sxr_los_r"]),
+        )
+        ppf_sxr_los_z = self.get_comparison_data(
+            int(self.comparison_source["pulse"]),
+            str(self.comparison_source["uid"]),
+            str(self.comparison_source["instrument"]),
+            str(self.comparison_source["sxr_los_z"]),
+        )
+        ppf_los_zip = zip(
+            ppf_sxr_los_r.isel(t=0).values,
+            ppf_sxr_los_r.isel(t=-1).values,
+            ppf_sxr_los_z.isel(t=0).values,
+            ppf_sxr_los_z.isel(t=-1).values,
+        )
+
         fig, ax = plt.subplots(figsize=figsize)
         equilibrium.psi.sel({"t": time}, method="nearest").plot.contour(
             ax=ax, x="R", levels=levels, colors=colors
@@ -127,6 +146,9 @@ class PlotJetWorkflow(PlotWorkflow):
         ).sel({"t": time}, method="nearest").plot(ax=ax, x="R")
         for coord in los_zip:
             ax.plot(coord[:2], coord[2:], color="red", linestyle="dashed")
+
+        for coord in ppf_los_zip:
+            ax.plot(coord[:2], coord[2:], color="green", linestyle="dashed")
         return fig, ax
 
     def plot_sxr_los_fit(self, time: Union[int, float] = None, **kwargs):
