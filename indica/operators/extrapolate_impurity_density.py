@@ -845,8 +845,9 @@ class ExtrapolateImpurityDensity(Operator):
             Parameters
             ----------
             objective_array
-                List of [amplitude, standard deviation and position] defining the
-                Gaussian perturbation.
+                List of:
+                [amplitude, standard deviation, position and asymmetry_parameter]
+                defining the Gaussian perturbation.
             time
                 Float specifying the time point of interest.
 
@@ -874,6 +875,7 @@ class ExtrapolateImpurityDensity(Operator):
                 rho_poloidal=rho_arr, method="linear"
             )
 
+            # fit asymmetry parameter for region where it was invalid
             asymmetry_parameter_cont = asymmetry_parameter.where(
                 asymmetry_parameter.rho_poloidal > threshold_rho,
                 other=edge_asymmetry_parameter,
@@ -930,6 +932,7 @@ class ExtrapolateImpurityDensity(Operator):
                     extrapolated_smooth_data_mean,
                     np.mean([lower_width_bound, upper_width_bound]),
                     np.mean([lower_pos_bound, upper_pos_bound]),
+                    # asymmetry initial guess is value at threshold
                     asymmetry_parameter.isel(t=0).sel(
                         rho_poloidal=threshold_rho, method="ffill"
                     ),
@@ -956,6 +959,7 @@ class ExtrapolateImpurityDensity(Operator):
             ),
         ]
 
+        # set scale of optimizer steps for amp, width, position and asymmetry
         x_scale = np.array(
             [
                 extrapolated_smooth_data_mean,
