@@ -859,12 +859,11 @@ class ExtrapolateImpurityDensity(Operator):
                 xarray.DataArray with dimensions (channels)
             """
             (
-                relative_amplitude,
+                amplitude,
                 standard_dev,
                 position,
                 edge_asymmetry_parameter,
             ) = objective_array
-            amplitude = relative_amplitude * extrapolated_smooth_data_mean
 
             perturbation_signal = self.fitting_function(
                 amplitude, standard_dev, position
@@ -914,8 +913,8 @@ class ExtrapolateImpurityDensity(Operator):
 
         fitted_density = zeros_like(bolometry_obj.electron_density)
 
-        lower_rel_amp_bound = 0.1
-        upper_rel_amp_bound = 1e4
+        lower_amp_bound = 0.1 * extrapolated_smooth_data_mean
+        upper_amp_bound = 1e4 * extrapolated_smooth_data_mean
 
         lower_width_bound = (drho / self.halfwidthhalfmax_coeff) / 3
         upper_width_bound = (
@@ -928,7 +927,7 @@ class ExtrapolateImpurityDensity(Operator):
         initial_guesses = np.array(
             [
                 [
-                    1,
+                    extrapolated_smooth_data_mean,
                     np.mean([lower_width_bound, upper_width_bound]),
                     np.mean([lower_pos_bound, upper_pos_bound]),
                     asymmetry_parameter.isel(t=0).sel(
@@ -941,21 +940,30 @@ class ExtrapolateImpurityDensity(Operator):
         fitting_bounds = [
             np.array(
                 [
-                    lower_rel_amp_bound,
+                    lower_amp_bound,
                     lower_width_bound,
                     lower_pos_bound,
-                    asymmetry_parameter.min(),
+                    0.1 * asymmetry_parameter.min(),
                 ]
             ),
             np.array(
                 [
-                    upper_rel_amp_bound,
+                    upper_amp_bound,
                     upper_width_bound,
                     upper_pos_bound,
-                    asymmetry_parameter.max(),
+                    10 * asymmetry_parameter.max(),
                 ]
             ),
         ]
+
+        x_scale = np.array(
+            [
+                extrapolated_smooth_data_mean,
+                0.3,
+                1,
+                asymmetry_parameter.mean(),
+            ]
+        )
 
         result = least_squares(
             fun=objective_func,
@@ -966,6 +974,7 @@ class ExtrapolateImpurityDensity(Operator):
             ftol=1e-15,
             xtol=1e-60,
             gtol=1e-60,
+            x_scale=x_scale,
         )
 
         gaussian_params = result.x
@@ -995,6 +1004,7 @@ class ExtrapolateImpurityDensity(Operator):
                     ftol=1e-60,
                     xtol=1e-3,
                     gtol=1e-60,
+                    x_scale=x_scale,
                 )
 
                 gaussian_params = result.x
@@ -1012,6 +1022,7 @@ class ExtrapolateImpurityDensity(Operator):
                     ftol=1e-15,
                     xtol=1e-60,
                     gtol=1e-60,
+                    x_scale=x_scale,
                 )
 
                 gaussian_params = result.x
