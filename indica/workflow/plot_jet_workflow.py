@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Dict
 from typing import Union
 
 from matplotlib import pyplot as plt
+import numpy as np
 from sal.client import SALClient
 from xarray import DataArray
 
@@ -21,6 +23,8 @@ DEFAULT_COMPARISON_SOURCE: Dict[str, str] = {
     "back_calc_bolometry": "blbc",
     "back_calc_sxr": "sxbc",
 }
+
+DEFAULT_WALL_COORDS_FILE = Path(__file__).parent / "wall_coords_jet.txt"
 
 
 class PlotJetWorkflow(PlotWorkflow):
@@ -102,6 +106,9 @@ class PlotJetWorkflow(PlotWorkflow):
         levels = kwargs.pop("levels", 20)
         colors = kwargs.pop("colors", "black")
         equil_name = kwargs.pop("equilibrium", "efit_equilibrium")
+        wall_coords_file = Path(
+            kwargs.pop("wall_coords_file", DEFAULT_WALL_COORDS_FILE)
+        ).expanduser()
         equilibrium = getattr(self.workflow, equil_name, None)
         if equilibrium is None:
             raise UserWarning(
@@ -137,6 +144,9 @@ class PlotJetWorkflow(PlotWorkflow):
             ppf_sxr_los_z.isel(t=-1).values,
         )
 
+        wall_data = np.genfromtxt(wall_coords_file)
+        machine_dims = diagnostics["sxr"]["v"].transform._machine_dims
+
         fig, ax = plt.subplots(figsize=figsize)
         equilibrium.psi.sel({"t": time}, method="nearest").plot.contour(
             ax=ax, x="R", levels=levels, colors=colors
@@ -145,10 +155,18 @@ class PlotJetWorkflow(PlotWorkflow):
             {"rho_poloidal": self.rho_deriv, "theta": self.theta_deriv}
         ).sel({"t": time}, method="nearest").plot(ax=ax, x="R")
         for coord in los_zip:
-            ax.plot(coord[:2], coord[2:], color="red", linestyle="dashed")
-
+            line1 = ax.plot(coord[:2], coord[2:], color="red", linestyle="dashed")
         for coord in ppf_los_zip:
-            ax.plot(coord[:2], coord[2:], color="green", linestyle="dashed")
+            line2 = ax.plot(coord[:2], coord[2:], color="green", linestyle="dashed")
+        ax.plot(wall_data[:, 0], wall_data[:, 1], color="black", linewidth=2.5)
+        ax.set_xlim(*machine_dims[0])
+        ax.set_ylim(*machine_dims[1])
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlabel("R (m)")
+        ax.set_ylabel("z (m)")
+        line1[0].set_label("SXR LOS")
+        line2[0].set_label("PPF SXR LOS")
+        ax.legend()
         return fig, ax
 
     def plot_sxr_los_fit(self, time: Union[int, float] = None, **kwargs):
