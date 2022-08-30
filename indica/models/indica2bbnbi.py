@@ -69,8 +69,8 @@ def indica2bbnbi(time, equil, el_dens, el_temp, ion_dens, ion_temp, beam):
     # create beam geometry input
     beam_loc = np.array(beam["location"])
     beam_dir = np.array(beam["direction"])
-    beam_R = np.sqrt(beam["location"][0]**2+beam["location"][0]**2)
-    beam_phi = np.arctan2(beam["location"][1], beam["location"][0])
+    beam_R = np.sqrt(beam["location"][0]**2+beam["location"][1]**2)
+    beam_phi = np.arctan2(beam["location"][1], beam["location"][0]) * 180.0 / np.pi
     beam_tanrad = np.linalg.norm(-beam_loc+np.dot(beam_loc,beam_dir)*beam_dir)
     generate_injector.generate(fn, beam_R, beam_phi, beam["location"][2], beam_tanrad, beam["focus"], beam["width"], 50000, beam["amu"], 1, beam["amu"], beam["energy"], beam["fractions"][0:3], beam["power"], beam["divergence"])
 
