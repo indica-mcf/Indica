@@ -50,26 +50,16 @@ def test_read_sxr_t_los_1(pulse, upper_case):
         == len(Tend)
         == 35
     )
-    angle = np.radians(-5.0)
+    theta_chip = np.radians(265 - 360)
     f = 0.03531
     assert np.all(rstart == pytest.approx(2.848))
     assert np.all(zstart == pytest.approx(2.172))
     assert np.all(Tstart == pytest.approx(0.0))
     assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(rstart[0] - rend[0], zstart[0] - zend[0])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -17 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -17 * PIXEL * np.sin(angle) + f,
-        )
-    )
-    theta = np.arctan2(rstart[10] - rend[10], zstart[10] - zend[10])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -7 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -7 * PIXEL * np.sin(angle) + f,
-        )
-    )
+    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
+    assert theta_chip - theta == pytest.approx(np.arctan2(-17 * PIXEL, f))
+    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
+    assert theta_chip - theta == pytest.approx(np.arctan2(-7 * PIXEL, f))
 
 
 @given(integers(63900, 87999), lists(booleans(), min_size=1))
@@ -87,26 +77,16 @@ def test_read_sxr_t_los_2(pulse, upper_case):
         == len(Tend)
         == 35
     )
-    angle = np.radians(5.0)
+    theta_chip = np.radians(275 - 360)
     f = 0.03531
     assert np.all(rstart == pytest.approx(2.848))
     assert np.all(zstart == pytest.approx(2.172))
     assert np.all(Tstart == pytest.approx(0.0))
     assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(rstart[0] - rend[0], zstart[0] - zend[0])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -17 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -17 * PIXEL * np.sin(angle) + f,
-        )
-    )
-    theta = np.arctan2(rstart[10] - rend[10], zstart[10] - zend[10])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -7 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -7 * PIXEL * np.sin(angle) + f,
-        )
-    )
+    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
+    assert theta_chip - theta == pytest.approx(np.arctan2(17 * PIXEL, f))
+    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
+    assert theta_chip - theta == pytest.approx(np.arctan2(7 * PIXEL, f))
 
 
 @given(integers(88000, 92504), lists(booleans(), min_size=1))
@@ -124,26 +104,16 @@ def test_read_sxr_t_los_3(pulse, upper_case):
         == len(Tend)
         == 35
     )
-    angle = np.radians(5.0)
+    theta_chip = np.radians(275 - 360)
     f = 0.03531
     assert np.all(rstart == pytest.approx(2.848))
     assert np.all(zstart == pytest.approx(2.182))
     assert np.all(Tstart == pytest.approx(0.0))
     assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(rstart[0] - rend[0], zstart[0] - zend[0])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -17 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -17 * PIXEL * np.sin(angle) + f,
-        )
-    )
-    theta = np.arctan2(rstart[10] - rend[10], zstart[10] - zend[10])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -7 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -7 * PIXEL * np.sin(angle) + f,
-        )
-    )
+    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
+    assert theta_chip - theta == pytest.approx(np.arctan2(17 * PIXEL, f))
+    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
+    assert theta_chip - theta == pytest.approx(np.arctan2(7 * PIXEL, f))
 
 
 @given(integers(92505, 10000000), lists(booleans(), min_size=1))
@@ -161,26 +131,18 @@ def test_read_sxr_t_los_4(pulse, upper_case):
         == len(Tend)
         == 35
     )
-    angle = np.radians(5.0)
+    theta_chip = np.radians(275 - 360)
     f = 0.03531
     assert np.all(rstart == pytest.approx(2.848))
     assert np.all(zstart == pytest.approx(2.172))
     assert np.all(Tstart == pytest.approx(0.0))
     assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(rstart[0] - rend[0], zstart[0] - zend[0])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -17 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -17 * PIXEL * np.sin(angle) + f,
-        )
+    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
+    assert theta_chip - theta == pytest.approx(
+        np.arctan2(17 * PIXEL, f),
     )
-    theta = np.arctan2(rstart[10] - rend[10], zstart[10] - zend[10])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -7 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -7 * PIXEL * np.sin(angle) + f,
-        )
-    )
+    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
+    assert theta_chip - theta == pytest.approx(np.arctan2(7 * PIXEL, f))
 
 
 @given(integers(28792, 10000000), lists(booleans(), min_size=1))
@@ -198,26 +160,16 @@ def test_read_sxr_v_los(pulse, upper_case):
         == len(Tend)
         == 35
     )
-    angle = np.radians(-5.0)
     f = 0.03531
+    theta_chip = np.radians(265 - 360)
     assert np.all(rstart == pytest.approx(2.848))
     assert np.all(zstart == pytest.approx(2.172))
     assert np.all(Tstart == pytest.approx(0.0))
     assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(rstart[0] - rend[0], zstart[0] - zend[0])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -17 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -17 * PIXEL * np.sin(angle) + f,
-        )
-    )
-    theta = np.arctan2(rstart[10] - rend[10], zstart[10] - zend[10])
-    assert theta == pytest.approx(
-        np.arctan2(
-            -7 * PIXEL * np.cos(angle) - f * np.tan(angle),
-            -7 * PIXEL * np.sin(angle) + f,
-        )
-    )
+    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
+    assert theta_chip - theta == pytest.approx(np.arctan2(-17 * PIXEL, f))
+    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
+    assert theta_chip - theta == pytest.approx(np.arctan2(-7 * PIXEL, f))
 
 
 @given(integers(35779, 10000000), lists(booleans(), min_size=1))
