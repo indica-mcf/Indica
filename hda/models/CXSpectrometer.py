@@ -3,6 +3,7 @@ from copy import deepcopy
 from hda.profiles import Profiles
 import matplotlib.pylab as plt
 import numpy as np
+from scipy.interpolate import interpn
 from xarray import DataArray
 
 from indica.converters import FluxSurfaceCoordinates
@@ -77,7 +78,7 @@ class CXSpectrometer:
         """
         self.transform = transform
 
-    def test_flow(self):
+    def test_flow(self, check_plots=True, run_bbnbi=False):
         """
         Test module with standard inputs
         """
@@ -105,7 +106,7 @@ class CXSpectrometer:
         location = np.array([1.077264, -0.36442098, 0.0], dtype=float)
         direction = np.array([-0.99663717, -0.08194118, 0.0], dtype=float)
         machine_dimensions = ((0.175, 0.8), (-0.6, 0.6))
-        dl = 0.01
+        dl = 0.002
         los_transform = LinesOfSightTransform(
             location[0],
             location[1],
@@ -122,10 +123,10 @@ class CXSpectrometer:
         # print(f'los_transform.x2 = {los_transform.x2}')
         # print(f'los_transform.dl = {los_transform.dl}')
 
-        if True:
+        if check_plots:
             # Test methods
             index = DataArray(np.linspace(0, 1.0, 100, dtype=float))
-            x, y = los_transform.convert_to_xy(0, index, 0)
+            x_los, y_los = los_transform.convert_to_xy(0, index, 0)
 
             # ivc
             angles = np.linspace(0, 2 * np.pi, 1000)
@@ -136,13 +137,13 @@ class CXSpectrometer:
             y_outer = machine_dimensions[0][1] * np.sin(angles)
 
             plt.figure()
-            plt.plot(x, y, "b.-", label="LOS")
+            plt.plot(x_los, y_los, "b.-", label="LOS")
             plt.plot(x_inner, y_inner, "k", label="machine dimensions")
             plt.plot(x_outer, y_outer, "k")
             plt.legend()
             plt.xlabel("X (m)")
             plt.ylabel("Y (m)")
-            plt.show(block=True)
+            plt.show(block=False)
 
         # Load Equilibrium... use EFIT ST40 data, initialise equilibrium class,
         # initialise flux coord transform,
@@ -173,22 +174,113 @@ class CXSpectrometer:
         zeff.build_profile()
 
         # Run BBNBI to calculate beam density
-        pl = np.load("/home/jari.varje/indica_bbnbi/pl.npy", allow_pickle=True).item()
-        time = 0.05
-        indica2bbnbi.indica2bbnbi(
-            time,
-            pl.equilibrium,
-            pl.el_dens,
-            pl.el_temp,
-            pl.ion_dens,
-            pl.ion_temp,
-            neutral_beam.analytical_beam_defaults,
-        )
-        indica2bbnbi.run()
+        if run_bbnbi:
+            pl = np.load(
+                "/home/jari.varje/indica_bbnbi/pl.npy", allow_pickle=True
+            ).item()
+            time = 0.05
+            indica2bbnbi.indica2bbnbi(
+                time,
+                equilibrium,
+                pl.el_dens,
+                pl.el_temp,
+                pl.ion_dens,
+                pl.ion_temp,
+                neutral_beam.analytical_beam_defaults,
+            )
+            indica2bbnbi.run()  # bypass if temp.h5 exists
         hist, dims = indica2bbnbi.bbnbi2indica()
 
-        print(hist)
-        print(dims)
+        # Extract data from bbnbi object -> make into DataArray variable
+        r_b = dims[0]
+        phi_b = dims[1] * np.pi / 180
+        z_b = dims[2]
+        n_b = DataArray(
+            data=hist,
+            dims=["R", "Phi", "Z"],
+            coords=dict(
+                R=(["R"], r_b),
+                Phi=(["Phi"], phi_b),
+                Z=(["Z"], z_b),
+            ),
+        )
+        i_min = np.argmin(np.abs(z_b - 0.0))
+
+        # Find beam density along line of sight chord
+        r_los = los_transform.R
+        phi_los = los_transform.phi
+        z_los = los_transform.z
+        nb_los = np.zeros(len(r_los))
+        for i_los in range(len(r_los)):
+            r_here = r_los[i_los]
+            phi_here = phi_los[i_los]
+            if phi_here < 0.0:
+                phi_here = (2 * np.pi) + phi_here
+            z_here = z_los[i_los]
+            try:
+                nb_los[i_los] = interpn(
+                    (r_b, phi_b, z_b),
+                    n_b.data,
+                    np.array([r_here, phi_here, z_here]),
+                )
+            except ValueError:
+                nb_los[i_los] = np.nan
+
+        x = np.linspace(-1.0, 1.0, 201)
+        y = np.linspace(-1.0, 1.0, 201)
+        nb_interp = np.zeros((len(y), len(x)))
+        for i in range(len(x)):
+            print(f"i = {i}")
+            for j in range(len(y)):
+                r_here = np.sqrt(x[i] ** 2 + y[j] ** 2)
+                phi_here = np.arctan2(y[j], x[i])
+                if phi_here < 0.0:
+                    phi_here = (2 * np.pi) + phi_here
+                try:
+                    nb_interp[j, i] = interpn(
+                        (r_b, phi_b, z_b),
+                        n_b.data,
+                        np.array([r_here, phi_here, 0.0]),
+                    )
+                except ValueError:
+                    nb_interp[j, i] = np.nan
+
+        if check_plots:
+            plt.figure()
+            plt.pcolor(phi_b, r_b, hist[:, :, i_min])
+            plt.xlabel("phi (rad)")
+            plt.ylabel("r (m)")
+
+            # Contour plot in ST40 reference
+            # Test methods
+            index = DataArray(np.linspace(0, 1.0, 100, dtype=float))
+            x_los, y_los = los_transform.convert_to_xy(0, index, 0)
+
+            # ivc
+            angles = np.linspace(0, 2 * np.pi, 1000)
+            x_inner = machine_dimensions[0][0] * np.cos(angles)
+            y_inner = machine_dimensions[0][0] * np.sin(angles)
+
+            x_outer = machine_dimensions[0][1] * np.cos(angles)
+            y_outer = machine_dimensions[0][1] * np.sin(angles)
+
+            plt.figure()
+            plt.pcolor(x, y, nb_interp)
+            plt.plot(x_inner, y_inner, "w")
+            plt.plot(x_outer, y_outer, "w")
+            plt.plot(x_los, y_los, "r")
+            plt.xlabel("x (m)")
+            plt.ylabel("y (m)")
+
+            x_los = los_transform.x
+            y_los = los_transform.y
+            d_los = np.sqrt((x_los - x_los[0]) ** 2 + (y_los - y_los[0]) ** 2)
+            plt.figure()
+            plt.plot(d_los, nb_los)
+            plt.xlabel("Distance along line of sight (m)")
+            plt.ylabel("Neutral beam density ()")
+
+            plt.show(block=True)
 
     def set_ion_data(self, adf11: dict = None):
         """
