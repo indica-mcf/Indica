@@ -67,7 +67,7 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")
 
-    rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
+    rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0], dtype=float)
     input_Ne = DataArray(
         data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
         coords=[("rho_poloidal", rho_profile), ("t", t)],

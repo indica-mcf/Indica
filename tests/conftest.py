@@ -2,8 +2,6 @@
 
 """
 
-import os
-
 from hypothesis import HealthCheck
 from hypothesis import settings
 from hypothesis import Verbosity
@@ -20,6 +18,3 @@ settings.register_profile(
     verbosity=Verbosity.verbose,
 )
 settings.register_profile("dev", max_examples=10)
-
-if os.getenv("CI", "false") == "true":
-    settings.load_profile("CI")
