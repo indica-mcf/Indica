@@ -10,7 +10,7 @@ from xarray import DataArray
 from .jet_workflow import JetWorkflow
 from .plot_workflow import PlotWorkflow
 
-SAL = SALClient("https://sal.jetdata.eu")
+SAL = SALClient("https://sal.jet.uk")
 
 DEFAULT_COMPARISON_SOURCE: Dict[str, str] = {
     "instrument": "wsxp",

@@ -224,7 +224,7 @@ class JetWorkflow(BaseWorkflow):
         -------
         """
         self.diagnostics = {
-            "efit": self.reader.get(uid="jetppf", instrument="eftp", revision=0),
+            "efit": self.reader.get(uid="jetppf", instrument="efit", revision=0),
             "hrts": self.reader.get(uid="jetppf", instrument="hrts", revision=0),
             "sxr": self.reader.get(uid="jetppf", instrument="sxr", revision=0),
             "zeff": self.reader.get(uid="jetppf", instrument="ks3", revision=0),
@@ -233,7 +233,9 @@ class JetWorkflow(BaseWorkflow):
                 uid="jetppf", instrument=self.cxrs_instrument, revision=0
             ),
         }
-        self.efit_equilibrium = Equilibrium(equilibrium_data=self.diagnostics["efit"])
+        self.efit_equilibrium = Equilibrium(
+            equilibrium_data=self.diagnostics["efit"], R_shift=0.03
+        )
         for key, diag in self.diagnostics.items():
             for data in diag.values():
                 if hasattr(data.attrs["transform"], "equilibrium"):

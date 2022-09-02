@@ -1,0 +1,66 @@
+{
+  "description": "Neon seeded",
+  "pulse": 90279,
+  "R": [
+    1.83,
+    3.9,
+    50
+  ],
+  "z": [
+    -1.75,
+    2.0,
+    50
+  ],
+  "t": [
+    45.0,
+    46.5,
+    10
+  ],
+  "high_z": "w",
+  "zeff_el": "ne",
+  "main_ion": "d",
+  "cxrs_instrument": "cxg6",
+  "spline_knots": {
+    "electron temperature": [
+      0.0,
+      0.3,
+      0.6,
+      0.85,
+      0.9,
+      0.98,
+      1.0,
+      1.05
+    ],
+    "electron density": [
+      0.0,
+      0.3,
+      0.6,
+      0.85,
+      0.95,
+      0.98,
+      1.0,
+      1.05
+    ],
+    "ion temperature": [
+      0.0,
+      0.3,
+      0.6,
+      0.85,
+      0.95
+    ],
+    "toroidal rotation": [
+      0.0,
+      0.3,
+      0.6,
+      0.85,
+      0.95
+    ]
+  },
+  "initial_values": {
+    "sxr_calibration_factor": 1.0,
+    "sxr_rescale_factor": 1.0
+  },
+  "ignore_channels": {
+    "sxr_v": [32, 31, 30, 28, 26]
+  }
+}
