@@ -7,8 +7,20 @@ from copy import deepcopy
 
 
 class Profiles:
-    def __init__(self, datatype=("temperature", "electron"), xspl=None):
-        # Radial arrays for building profiles and smoothing using splines
+    def __init__(
+        self, datatype: tuple = ("temperature", "electron"), xspl: np.ndarray = None
+    ):
+        """
+        Class to build general profiles e.g. temperature, density, rotation and neutral density
+
+        Parameters
+        ----------
+        datatype
+            Tuple defining what type of profile is to be built
+        xspl
+            normalised radial grid [0, 1]  on which profile is to be built
+        """
+
         self.x = np.linspace(0, 1, 15) ** 0.7
         if xspl is None:
             xspl = np.linspace(0, 1.0, 30)
@@ -18,20 +30,17 @@ class Profiles:
 
         self.datatype = datatype
 
-        params, vals = get_defaults(datatype[0])
+        params = get_defaults(datatype)
         for k, p in params.items():
-            setattr(self, k, p)
-        for k, p in vals.items():
             setattr(self, k, p)
 
         self.build_profile()
 
     def build_profile(
         self,
-        wcenter_exp=0.05,
         y0_fix=False,
         y0_ref=None,
-        plot=False,
+        wcenter_exp=0.05,
         coord="rho_poloidal",
         debug=False,
     ):
@@ -44,6 +53,8 @@ class Profiles:
             re-scale new profile to have central value = y0
         y0_ref
             reference y0 value
+        wcenter_exp
+            exponent for the additional peaking if y0_ref is not None
 
         Returns
         -------
@@ -86,15 +97,6 @@ class Profiles:
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
             y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
 
-        # iped = np.argmin(np.abs(x - 0.8))
-        # if y[iped] > edge and y[iped] / edge < 3:
-        #     print(y[iped], edge)
-        #     edge = y[iped] / 3
-        #     y = (centre - edge) * (1 - x ** wped) + edge
-        #
-        #     sigma = wcenter / (np.sqrt(2 * np.log(2)))
-        #     y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
-
         if debug:
             plt.plot(x, y, label="peaking")
 
@@ -133,9 +135,6 @@ class Profiles:
         name = self.datatype[1] + "_" + self.datatype[0]
         yspl.name = name
         yspl.attrs = attrs
-
-        if plot:
-            yspl.plot()
 
         self.yspl = yspl
 
@@ -193,104 +192,74 @@ class Profiles:
         self.yspl.plot()
 
 
-def get_defaults(identifier):
-
-    # parameters = {
-    #     "density": (12, 0.4, 1.3),
-    #     "temperature": (4, 0.4, 1.5),
-    #     "rotation": (4, 0.4, 1.4),
-    #     "neutral_density": (12, 0, 1),
-    # }
-    #
-    # values = {
-    #     "density": (5.0e19, 1.0e19, 0.0),
-    #     "temperature": (3.0e3, 50, 0.0),
-    #     "rotation": (200.0e3, 10.0e3, 0.0),
-    #     "neutral_density": (1.0e16, 1.0e18, 1.0e18),
-    # }
+def get_defaults(datatype: tuple) -> dict:
+    identifier = f"{datatype[0]}_{datatype[1]}"
     parameters = {
-        "density": (6, 0.4, 2),
-        "temperature": (3, 0.35, 1.5),
-        "rotation": (3, 0.35, 1.5),
-        "neutral_density": (12, 0, 1),
-    }
-
-    values = {
-        "density": (5.0e19, 0.1e19, 0.0),
-        "temperature": (3.0e3, 50, 0.0),
-        "rotation": (100.0e3, 10.0e3, 0.0),
-        "neutral_density": (1.0e16, 1.0e18, 1.0e18),
+        "density_electron": {
+            "y0": 5.0e19,
+            "y1": 0.1e19,
+            "yend": 0.0,
+            "peaking": 2,
+            "wcenter": 0.4,
+            "wped": 6,
+        },
+        "density_impurity": {
+            "y0": 5.0e16,
+            "y1": 3.0e16,
+            "yend": 3.0e16,
+            "peaking": 2,
+            "wcenter": 0.4,
+            "wped": 6,
+        },
+        "density_thermal_neutrals": {
+            "y0": 1.0e13,
+            "y1": 1.0e15,
+            "yend": 1.0e15,
+            "peaking": 1,
+            "wcenter": 0,
+            "wped": 18,
+        },
+        "temperature_electron": {
+            "y0": 3.0e3,
+            "y1": 50,
+            "yend": 0,
+            "peaking": 1.5,
+            "wcenter": 0.35,
+            "wped": 3,
+        },
+        "temperature_ion": {
+            "y0": 5.0e3,
+            "y1": 50,
+            "yend": 0,
+            "peaking": 1.5,
+            "wcenter": 0.35,
+            "wped": 3,
+            "ref": True,
+        },
+        "rotation_toroidal": {
+            "y0": 500.0e3,
+            "y1": 10.0e3,
+            "yend": 0.0,
+            "peaking": 1.5,
+            "wcenter": 0.35,
+            "wped": 3,
+        },
     }
 
     if identifier not in parameters.keys():
         print(
-            f"\n {prof_type} not in parameters' keys \n Using 'temperature' as default \n"
+            f"\n Profile {identifier} not available \n Using 'temperature_electron' as default \n"
         )
-        identifier = "temperature"
+        identifier = "temperature_electron"
 
-    params = parameters[identifier]
-    params = {"wped": params[0], "wcenter": params[1], "peaking": params[2]}
-    vals = {
-        "y0": values[identifier][0],
-        "y1": values[identifier][1],
-        "yend": values[identifier][2],
-    }
-
-    return params, vals
-
-
-def density_crash(
-    los_avrg=2.8e19,
-    drop=0.9,
-    rho=np.linspace(0, 1, 20),
-    rho_inv=0.4,
-    identifier="density",
-):
-    volume = DataArray(0.85 * rho ** 3, coords=[("rho_poloidal", rho)])
-
-    pre = Profiles(datatype=(identifier, "electron"), xspl=rho)
-    pre.wcenter = rho_inv / 1.5
-    pre.build_profile()
-
-    plt.figure()
-
-    drop_arr = []
-    scan = np.linspace(1.0, 5.0, 21)
-    for s in scan:
-        pre.peaking = s
-        pre.build_profile()
-        pre.y0 *= los_avrg / pre.yspl.mean().values
-        pre.build_profile()
-
-        post = deepcopy(pre)
-        pre.yspl.plot()
-        post.sawtooth_crash(rho_inv, volume)
-        drop_arr.append(post.yspl.mean().values / pre.yspl.mean().values)
-
-        post.yspl.plot(linestyle="dashed")
-
-    mn_ind = np.argmin(np.abs(np.array(drop_arr) - drop))
-    pre.peaking = scan[mn_ind]
-    pre.build_profile()
-    pre.y0 *= los_avrg / pre.yspl.mean().values
-    pre.build_profile()
-
-    post = deepcopy(pre)
-    post.sawtooth_crash(rho_inv, volume)
-
-    pre.yspl.plot(marker="o", color="black")
-    post.yspl.plot(marker="o", color="red")
-
-    print(drop, drop_arr[mn_ind])
-
-    return pre, post
+    return parameters[identifier]
 
 
 def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
     Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
     Ne = Profiles(datatype=("density", "electron"), xspl=rho)
     Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
-    Vrot = Profiles(datatype=("rotation", "ion"), xspl=rho)
+    Vrot = Profiles(datatype=("rotation", "toroidal"), xspl=rho)
 
     Te_list = {}
     Ti_list = {}
@@ -358,7 +327,7 @@ def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
     Nimp.wped = 6
     Nimp.y0 = 5.0e16
     Nimp.y1 = 3.0e16
-    Nimp.yend = 3.0e16
+    Nimp.yend = 2.0e16
     Nimp.build_profile()
     Nimp_list["flat"] = deepcopy(Nimp)
     if plot:
@@ -410,43 +379,48 @@ def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
     # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
 
 
-def scan_profile_parameter(profile:Profiles=None, parameter="wcenter", plim=(1.5, 5), y0_ref=None, plot=True):
-    """
-    Scan profile peaking
+def density_crash(
+    los_avrg=2.8e19,
+    drop=0.9,
+    rho=np.linspace(0, 1, 20),
+    rho_inv=0.4,
+    identifier="density",
+):
+    volume = DataArray(0.85 * rho ** 3, coords=[("rho_poloidal", rho)])
 
-    Parameters
-    ----------
-    prof
-        Profiles class
-    parameter
-        Name of parameter to scan
-    plim
-        Lower and upper limit of parameter
-    y0_ref
-        Reference central value for profile building
-    plot
-        Set to True to plot resulting profiles
+    pre = Profiles(datatype=(identifier, "electron"), xspl=rho)
+    pre.wcenter = rho_inv / 1.5
+    pre.build_profile()
 
-    Returns
-    -------
-    List of Profile objects
-    """
+    plt.figure()
 
-    if profile is None:
-        profile = Profiles()
+    drop_arr = []
+    scan = np.linspace(1.0, 5.0, 21)
+    for s in scan:
+        pre.peaking = s
+        pre.build_profile()
+        pre.y0 *= los_avrg / pre.yspl.mean().values
+        pre.build_profile()
 
-    params = np.linspace(plim[0], plim[1], 10)
+        post = deepcopy(pre)
+        pre.yspl.plot()
+        post.sawtooth_crash(rho_inv, volume)
+        drop_arr.append(post.yspl.mean().values / pre.yspl.mean().values)
 
-    profs = []
-    for param in params:
-        setattr(profile, parameter, param)
-        profile.build_profile(y0_ref=y0_ref)
-        profs.append(deepcopy(profile))
+        post.yspl.plot(linestyle="dashed")
 
-    if plot:
-        for prof in profs:
-            prof.yspl.plot(alpha=0.5)
-        prof.yspl.plot(alpha=0.5, label=parameter)
-        plt.legend()
+    mn_ind = np.argmin(np.abs(np.array(drop_arr) - drop))
+    pre.peaking = scan[mn_ind]
+    pre.build_profile()
+    pre.y0 *= los_avrg / pre.yspl.mean().values
+    pre.build_profile()
 
-    return profs
+    post = deepcopy(pre)
+    post.sawtooth_crash(rho_inv, volume)
+
+    pre.yspl.plot(marker="o", color="black")
+    post.yspl.plot(marker="o", color="red")
+
+    print(drop, drop_arr[mn_ind])
+
+    return pre, post
