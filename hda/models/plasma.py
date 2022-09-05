@@ -240,11 +240,8 @@ class Plasma:
         self.Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=self.rho)
         self.Ne_prof = Profiles(datatype=("density", "electron"), xspl=self.rho)
         self.Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
-        self.Nimp_prof.y1 = 3.0e19
-        self.Nimp_prof.yend = 2.0e19
-        self.Nimp_prof.build_profile()
-        self.Nh_prof = Profiles(datatype=("neutral_density", "neutrals"), xspl=self.rho)
-        self.Vrot_prof = Profiles(datatype=("rotation", "ion"), xspl=self.rho)
+        self.Nh_prof = Profiles(datatype=("density", "thermal_neutrals"), xspl=self.rho)
+        self.Vrot_prof = Profiles(datatype=("rotation", "toroidal"), xspl=self.rho)
 
         self.theta = assign_data(self.data1d_theta, ("angle", "poloidal"), "deg")
         self.ipla = assign_data(self.data1d_time, ("current", "plasma"), "A")
@@ -727,7 +724,16 @@ class Plasma:
         Nh: DataArray = None,
         tau:DataArray = None,
         full_run = False,
+        default=False,
     ):
+        if default:
+            Te = deepcopy(self.Te_prof)
+            Te.y0 = 10.0e3
+            Te.build_profile()
+            Te = Te.yspl
+            Ne = self.Ne_prof.yspl,
+            Nh = self.Nh_prof.yspl
+
         print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
         for elem in self.elements:
