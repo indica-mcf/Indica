@@ -118,6 +118,8 @@ def match_ion_temperature(
     lines: list = ["w", "z"],
     bckc:dict=None,
     ti0: float = 1.0e3,
+    te0_ref = None,
+    wcenter_exp=0.05,
     method="moment",
     bounds=(100.0, 10.0e3),
 ):
@@ -153,13 +155,17 @@ def match_ion_temperature(
         Dictionary where back-calculated values are to be saved (same structure as data)
     ti0
         Initial guess of central ion temperature (eV)
+    te0_ref
+        Increase peaking if Ti(0) > Te(0) as explained in Profiles
+    wcenter_exp
+        Exponent for central peaking when te0_ref is not None
     method
         Method for the calculation ("moment" = use moment_analysis, "gaussians" = sum gaussians, ...)
     """
 
     def residuals_moment(ti0):
         Ti_prof.y0 = ti0
-        Ti_prof.build_profile()
+        Ti_prof.build_profile(y0_ref=te0_ref, wcenter_exp=wcenter_exp)
 
         resid = []
         for quantity, line in zip(quantities, lines):
@@ -171,7 +177,7 @@ def match_ion_temperature(
     # Initialize variables
     if Ti_prof.y0 < 1.0e3:
         Ti_prof.y0 = 1.0e3
-        Ti_prof.build_profile()
+        Ti_prof.build_profile(y0_ref=te0_ref, wcenter_exp=wcenter_exp)
 
     # Calculate emission if inputs are different or not present in model
     if (
