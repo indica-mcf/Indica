@@ -103,6 +103,7 @@ class Plasma:
         main_ion="h",
         imp_conc=(0.02, 0.001),
         pulse: int = None,
+        full_run=False,
     ):
         """
 
@@ -110,7 +111,8 @@ class Plasma:
         ----------
 
         """
-
+        self.pulse = pulse
+        self.full_run = full_run
         self.ADASReader = ADASReader()
         self.main_ion = main_ion
         self.impurities = impurities
@@ -436,7 +438,7 @@ class Plasma:
                     Nh = self.neutral_dens.sel(t=t)
                 if any(np.logical_not((Te > 0) * (Ne > 0))):
                     continue
-                fz_tmp = self.fract_abu[elem](Te, Ne=Ne, Nh=Nh, tau=tau)
+                fz_tmp = self.fract_abu[elem](Te, Ne=Ne, Nh=Nh, tau=tau, full_run=self.full_run)
                 self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
         return self._fz
 
@@ -510,7 +512,7 @@ class Plasma:
                 if np.any(self.neutral_dens.sel(t=t) != 0):
                     Nh = self.neutral_dens.sel(t=t)
                 self._lz_tot[elem].loc[dict(t=t)] = (
-                    self.power_loss_tot[elem](Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False)
+                    self.power_loss_tot[elem](Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run)
                     .transpose()
                     .values
                 )
@@ -539,7 +541,7 @@ class Plasma:
                 if np.any(self.neutral_dens.sel(t=t) != 0):
                     Nh = self.neutral_dens.sel(t=t)
                 self._lz_sxr[elem].loc[dict(t=t)] = (
-                    self.power_loss_sxr[elem](Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False)
+                    self.power_loss_sxr[elem](Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run)
                     .transpose()
                     .values
                 )
@@ -723,7 +725,6 @@ class Plasma:
         Ne: DataArray = None,
         Nh: DataArray = None,
         tau:DataArray = None,
-        full_run = False,
         default=False,
     ):
         if default:
@@ -731,8 +732,10 @@ class Plasma:
             Te.y0 = 10.0e3
             Te.build_profile()
             Te = Te.yspl
-            Ne = self.Ne_prof.yspl,
-            Nh = self.Nh_prof.yspl
+            Ne = self.Ne_prof.yspl
+            Nh = self.Nh_prof.yspl * 0.
+            for t in self.t:
+                self.neutral_dens.loc[dict(t=t)] = Nh.values
 
         print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
@@ -744,23 +747,23 @@ class Plasma:
             acd = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
             ccd = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
             fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
-            if not full_run and Te is not None and Ne is not None:
-                fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=True)
+            if Te is not None and Ne is not None:
+                fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
 
             plt = self.ADASReader.get_adf11("plt", elem, adf11[elem]["plt"])
             prb = self.ADASReader.get_adf11("prb", elem, adf11[elem]["prb"])
             prc = self.ADASReader.get_adf11("prc", elem, adf11[elem]["prc"])
             power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
-            if not full_run and Te is not None and Ne is not None:
+            if Te is not None and Ne is not None:
                 F_z_t = fract_abu[elem].F_z_t
-                power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=True)
+                power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
 
             pls = self.ADASReader.get_adf11("pls", elem, adf11[elem]["pls"])
             prs = self.ADASReader.get_adf11("prs", elem, adf11[elem]["prs"])
             power_loss_sxr[elem] = PowerLoss(pls, prs)
-            if not full_run and Te is not None and Ne is not None:
+            if Te is not None and Ne is not None:
                 F_z_t = fract_abu[elem].F_z_t
-                power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=True)
+                power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
 
         self.adf11 = adf11
         self.fract_abu = fract_abu
@@ -808,6 +811,7 @@ class Plasma:
                 midplane_profs[k_lo] = []
 
         for k in midplane_profs.keys():
+            prof_rho = getattr(self, k)
             for t in self.t:
                 rho = (
                     self.equilibrium.rho.sel(t=t, method="nearest")
@@ -815,7 +819,7 @@ class Plasma:
                     .drop(["R", "z"])
                 )
                 midplane_profs[k].append(
-                    getattr(self, k)
+                    prof_rho
                     .sel(t=t, method="nearest")
                     .interp(rho_poloidal=rho)
                     .drop("rho_poloidal")
