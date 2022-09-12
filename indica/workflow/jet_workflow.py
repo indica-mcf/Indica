@@ -107,20 +107,23 @@ class JetWorkflow(BaseWorkflow):
             self.calculate_n_high_z()
             print(template.format("extrapolate_n_high_z"))
             self.extrapolate_n_high_z()
-            print(template.format("calculate_sxr_rescale_factor"))
-            self.calculate_sxr_rescale_factor()
-            print(template.format("rescale_n_high_z"))
-            self.rescale_n_high_z()
+            self.calculate_sxr_calibration_factor()
+            derived_emissivity = self.electron_density * (
+                self.ion_densities * self.sxr_power_loss_charge_averaged
+            ).sum("element")
+            calibrated_emissivity = (
+                self.sxr_calibration_factor * self.sxr_emissivity  # type: ignore
+            )
+            if np.any(derived_emissivity > calibrated_emissivity):
+                raise UserWarning(
+                    "Derived emissivity is greater than calibrated measurement"
+                )
             while optimise:
                 old_rescale_factor = deepcopy(self.sxr_rescale_factor)
                 print(template.format("extrapolate_n_high_z"))
                 self.extrapolate_n_high_z()
                 print(template.format("optimise_n_high_z"))
                 self.n_high_z = self.optimise_n_high_z()
-                print(template.format("calculate_sxr_rescale_factor"))
-                self.calculate_sxr_rescale_factor()
-                print(template.format("rescale_n_high_z"))
-                self.rescale_n_high_z()
                 frac_diff = np.abs(
                     (self.sxr_rescale_factor - old_rescale_factor)
                     / self.sxr_rescale_factor

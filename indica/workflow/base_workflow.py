@@ -77,7 +77,7 @@ class BaseWorkflow:
 
         self.high_z: str = self.input.get("high_z", "w")
         self.zeff_el: str = self.input.get("zeff_el", "be")
-        self.zeff_el_extra: str = self.input.get("zeff_el_2", "he")
+        self.zeff_el_extra: str = self.input.get("zeff_el_extra", "he")
         self.other_z: str = self.input.get("other_z", "ni")
         self.main_ion: str = self.input.get("main_ion", "d")
         self.ion_species: List[str] = [
