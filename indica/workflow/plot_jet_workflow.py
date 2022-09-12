@@ -192,6 +192,9 @@ class PlotJetWorkflow(PlotWorkflow):
 
     def plot_sxr_los_fit(self, time: Union[int, float] = None, **kwargs):
         fig, ax = super().plot_sxr_los_fit(time=time, **kwargs)
+        if time is None:
+            time = self.default_time
+        kwargs.pop("figsize", None)
         self.get_comparison_data(
             pulse=int(self.comparison_source["pulse"]),
             uid=str(self.comparison_source["uid"]),
@@ -205,6 +208,9 @@ class PlotJetWorkflow(PlotWorkflow):
 
     def plot_asymmetry_high_z(self, time: Union[int, float] = None, **kwargs):
         fig, ax = super().plot_asymmetry_high_z(time=time, **kwargs)
+        if time is None:
+            time = self.default_time
+        kwargs.pop("figsize", None)
         hzmp = self.get_comparison_data(
             pulse=int(self.comparison_source["pulse"]),
             uid=str(self.comparison_source["uid"]),
@@ -220,7 +226,7 @@ class PlotJetWorkflow(PlotWorkflow):
             hzmp_hfs = hzmp_hfs.interp({"x": self.workflow.rho})
             asymmetry_hzmp = (hzmp_lfs - hzmp_hfs) / (hzmp_lfs + hzmp_hfs)
             asymmetry_hzmp.sel({"t": time}, method="nearest").plot(
-                ax=ax, label="PPF comparison data"
+                ax=ax, label="PPF comparison data", **kwargs
             )
         ax.legend()
         return fig, ax
