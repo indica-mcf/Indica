@@ -110,3 +110,26 @@ class AsymmetricQuantity:
         lfs_values: xr.DataArray, hfs_values: xr.DataArray
     ):
         return hfs_values / lfs_values
+
+    # TODO: check values on same rho grids or interpolate
+    def __eq__(self, other) -> bool:
+        return (
+            self.lfs_values == other.lfs_values
+            and self.asymmetry_parameter == self.asymmetry_parameter
+        )
+
+    def __add__(self, other):
+        lfs_values = self.lfs_values + other.lfs_values
+        asymmetry_parameter = (
+            np.log(
+                (
+                    self.lfs_values
+                    * np.exp(self.asymmetry_parameter * self.R_square_diff)
+                    + other.lfs_values
+                    * np.exp(other.asymmetry_parameter * other.R_square_diff)
+                )
+                / (self.lfs_values + other.lfs_values)
+            )
+            / self.R_square_diff
+        )
+        return self.__class__(lfs_values, asymmetry_parameter, self.R_square_diff)
