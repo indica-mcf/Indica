@@ -6,6 +6,7 @@ Contents:
 .. toctree::
    :maxdepth: 3
 
+   api/asymmetric_quantity.rst
    api/converters.rst
    api/datatypes.rst
    api/equilibrium.rst
