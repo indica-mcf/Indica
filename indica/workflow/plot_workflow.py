@@ -11,6 +11,21 @@ from indica.operators.extrapolate_impurity_density import recover_threshold_rho
 from .base_workflow import BaseWorkflow
 
 
+def to_midplane(data: DataArray):
+    if "rho_poloidal" not in data.dims:
+        raise UserWarning("data on wrong coordinates")
+    if "theta" in data.coords:
+        data_lfs = data.sel(theta=0, method="nearest", drop=True)
+        data_hfs = data.reindex(
+            {"rho_poloidal": data.coords["rho_poloidal"][::-1]}
+        ).sel(theta=np.pi, method="nearest", drop=True)
+    else:
+        data_lfs = data
+        data_hfs = data.reindex({"rho_poloidal": data.coords["rho_poloidal"][::-1]})
+    data_hfs.coords["rho_poloidal"] = -data_hfs.coords["rho_poloidal"]  # type: ignore
+    return xr.concat([data_hfs[:-1], data_lfs], dim="rho_poloidal")
+
+
 class PlotWorkflow:
     """
     Methods for plotting common comparisons of workflow outputs
@@ -65,23 +80,13 @@ class PlotWorkflow:
             time = self.default_time
         figsize = kwargs.pop("figsize", None)
         fig, ax = plt.subplots(figsize=figsize)
-        self.workflow.ion_densities.interp(
-            {"rho_poloidal": self.rho_deriv, "theta": self.theta_deriv}
-        ).sel(
-            {"t": time, "z": self.zmag.sel({"t": time}, method="nearest")},
+        to_midplane(self.workflow.ion_densities).sel(
+            {"t": time},
             method="nearest",
-        ).plot.line(
-            x="R", ax=ax, **kwargs
-        )
+        ).plot.line(x="rho_poloidal", ax=ax, **kwargs)
         if threshold_rho is not None:
-            threshold_R_outer, _ = self.workflow.sxr_emissivity.attrs[
-                "transform"
-            ].convert_to_Rz(threshold_rho, 0, self.workflow.t)
-            threshold_R_inner, _ = self.workflow.sxr_emissivity.attrs[
-                "transform"
-            ].convert_to_Rz(threshold_rho, np.pi, self.workflow.t)
-            ax.axvline(threshold_R_outer.sel({"t": time}, method="nearest"))
-            ax.axvline(threshold_R_inner.sel({"t": time}, method="nearest"))
+            ax.axvline(threshold_rho, method="nearest")
+            ax.axvline(-threshold_rho, method="nearest")
         return fig, ax
 
     def plot_bolometry_emission(

@@ -14,7 +14,7 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
-from scipy.optimize import least_squares
+from sal.core.exception import NodeNotFound
 import xarray as xr
 from xarray import concat
 from xarray import DataArray
@@ -46,6 +46,8 @@ class JetWorkflow(BaseWorkflow):
     Setup and run standard analysis for benchmarking InDiCA against WSX on JET
     data, where JET data readers are available
     """
+
+    _sxr_calibration_factor: Dict[str, float] = {"v": 2.8, "t": 2.8, "h": 2.5}
 
     def __init__(
         self,
@@ -79,7 +81,6 @@ class JetWorkflow(BaseWorkflow):
         self,
         setup_only: bool = False,
         n_loops: int = 3,
-        optimise: bool = True,
         *args,
         **kwargs,
     ):
@@ -93,8 +94,6 @@ class JetWorkflow(BaseWorkflow):
             "n_other_z",
             "n_main_ion",
             "derived_bolometry",
-            "sxr_rescale_factor",
-            "sxr_calibration_factor",
         ]
         template = print_step_template(fallback_size=(80, 24))
         # Analysis steps
@@ -107,43 +106,15 @@ class JetWorkflow(BaseWorkflow):
             self.calculate_n_high_z()
             print(template.format("extrapolate_n_high_z"))
             self.extrapolate_n_high_z()
-            self.calculate_sxr_calibration_factor()
             derived_emissivity = self.electron_density * (
                 self.ion_densities * self.sxr_power_loss_charge_averaged
             ).sum("element")
-            calibrated_emissivity = (
-                self.sxr_calibration_factor * self.sxr_emissivity  # type: ignore
-            )
-            if np.any(derived_emissivity > calibrated_emissivity):
+            if np.any(derived_emissivity > self.sxr_emissivity):
                 raise UserWarning(
                     "Derived emissivity is greater than calibrated measurement"
                 )
-            while optimise:
-                old_rescale_factor = deepcopy(self.sxr_rescale_factor)
-                print(template.format("extrapolate_n_high_z"))
-                self.extrapolate_n_high_z()
-                print(template.format("optimise_n_high_z"))
-                self.n_high_z = self.optimise_n_high_z()
-                frac_diff = np.abs(
-                    (self.sxr_rescale_factor - old_rescale_factor)
-                    / self.sxr_rescale_factor
-                )
-                optimise = (
-                    frac_diff > 0.1 and np.abs(1 - self.sxr_rescale_factor) > 0.01
-                )
-                print(
-                    template.format(
-                        "{}\n\t{}, {}, {}, {}".format(
-                            "Rescale factor comparison",
-                            self.sxr_rescale_factor,
-                            old_rescale_factor,
-                            frac_diff,
-                            optimise,
-                        )
-                    )
-                )
-            print(template.format("calculate_sxr_calibration_factor"))
-            self.calculate_sxr_calibration_factor()
+            print(template.format("optimise_n_high_z"))
+            self.n_high_z = self.optimise_n_high_z()
             for key in attrs_to_save:
                 output[key].append(getattr(self, key, None))
         try:
@@ -180,6 +151,7 @@ class JetWorkflow(BaseWorkflow):
                 "SXRPLT",
                 "SXRPRB",
                 "SXRPL",
+                "sxr_diagnostic",
                 "sxr_fitted_symmetric_emissivity",
                 "sxr_fitted_asymmetry_parameter",
                 "sxr_emissivity",
@@ -187,6 +159,7 @@ class JetWorkflow(BaseWorkflow):
                 "electron_temperature",
                 "ion_temperature",
                 "toroidal_rotation",
+                "cxrs_concentration",
                 "fzt",
                 "power_loss",
                 "sxr_power_loss",
@@ -199,6 +172,7 @@ class JetWorkflow(BaseWorkflow):
     def setup_steps(self) -> List[Tuple[Callable, str]]:
         return [
             (self.get_diagnostics, "diagnostics"),
+            (self.calibrate_sxr, "sxr_diagnostic"),
             (self.fit_diagnostic_profiles, "toroidal_rotation"),
             (self.invert_sxr, "sxr_emissivity"),
             (self.get_adas, "SXRPL"),
@@ -233,9 +207,21 @@ class JetWorkflow(BaseWorkflow):
             "zeff": self.reader.get(uid="jetppf", instrument="ks3", revision=0),
             "bolo": self.reader.get(uid="jetppf", instrument="bolo", revision=0),
             "cxrs": self.reader.get(
-                uid="jetppf", instrument=self.cxrs_instrument, revision=0
+                uid="jetppf",
+                instrument=self.cxrs_instrument,
+                revision=0,
+                quantities={"ti", "angf"},
             ),
         }
+        try:
+            self.diagnostics["cxrs"]["conc"] = self.reader.get(
+                uid="jetppf",
+                instrument=self.cxrs_instrument,
+                revision=0,
+                quantities={"conc"},
+            )["conc"]
+        except (NodeNotFound, KeyError):
+            pass
         self.efit_equilibrium = Equilibrium(equilibrium_data=self.diagnostics["efit"])
         for key, diag in self.diagnostics.items():
             for data in diag.values():
@@ -313,7 +299,7 @@ class JetWorkflow(BaseWorkflow):
             self.R,
             self.z,
             self.t,
-            *[self.diagnostics["sxr"][key] for key in cameras],
+            *[self.sxr_diagnostic[key] for key in cameras],
         )
         self.sxr_fitted_symmetric_emissivity = emiss_fit.symmetric_emissivity
         self.sxr_fitted_asymmetry_parameter = emiss_fit.asymmetry_parameter
@@ -391,6 +377,24 @@ class JetWorkflow(BaseWorkflow):
         )
         results_angf = fitter_angf(self.rho, self.t, temp_angf)
         self.toroidal_rotation = results_angf[0]
+
+        try:
+            temp_conc = deepcopy(self.diagnostics["cxrs"]["conc"])
+            temp_conc.attrs["datatype"] = deepcopy(
+                self.diagnostics["hrts"]["te"].attrs["datatype"]
+            )  # TEMP for SplineFit checks
+            knots_conc = self.input.get("spline_knots", {}).get(
+                "toroidal rotation", default_knots
+            )
+            fitter_conc = SplineFit(
+                lower_bound=temp_conc.min() * 0.9,
+                upper_bound=temp_conc.max() * 1.1,
+                knots=knots_conc,
+            )
+            results_conc = fitter_conc(self.rho, self.t, temp_conc)
+            self.cxrs_concentration = results_conc[0]
+        except KeyError:
+            self.cxrs_concentration = None
 
     def calculate_power_loss(self):
         self.fzt = {
@@ -495,9 +499,15 @@ class JetWorkflow(BaseWorkflow):
     def _calculate_asymmetry_other_z(self) -> DataArray:
         return self._calculate_vtor_asymmetry(element=self.other_z)
 
+    def _calibrate_sxr(self) -> Dict[str, DataArray]:
+        return {
+            key: (self.sxr_calibration_factors.get(key, 1.0) * val).assign_attrs(
+                val.attrs
+            )
+            for key, val in self.diagnostics["sxr"].items()
+        }
+
     def initialise_default_values(self):
-        self.sxr_rescale_factor = 1.0
-        self.sxr_calibration_factor = 1.0
         self._n_zeff_el._data = xr.zeros_like(self.electron_density).expand_dims(
             {"theta": self.theta}
         )
@@ -538,7 +548,7 @@ class JetWorkflow(BaseWorkflow):
         )
         n_high_z: DataArray = (
             (
-                self.sxr_calibration_factor * self.sxr_emissivity  # type: ignore
+                self.sxr_emissivity  # type: ignore
                 - self.electron_density
                 * (other_densities * other_power_loss).sum("element")
             )
@@ -574,54 +584,11 @@ class JetWorkflow(BaseWorkflow):
             asymmetry_parameter=None,
             t=self.t,
         )
-        n_high_z_rho_theta = (
-            n_high_z_rho_theta.interp({"rho_poloidal": self.rho, "theta": self.theta})
-            * self.sxr_rescale_factor
-        ).assign_attrs({"transform": self.flux_surface})
         self.additional_data["calculate_n_high_z"] = {
             "extrapolator": extrapolator,
             "threshold_rho": extrapolator.threshold_rho,
         }
         return n_high_z_rho_theta
-
-    def _rescale_n_high_z(self) -> DataArray:
-        n_high_z: DataArray = (self.n_high_z * self.sxr_rescale_factor).assign_attrs(
-            {"transform": self.flux_surface}
-        )
-        return n_high_z
-
-    def _calculate_sxr_calibration_factor(self) -> float:
-        threshold_rho = self.additional_data.get("calculate_n_high_z", {}).get(
-            "threshold_rho",
-            xr.DataArray([1.0] * len(self.t), dims="t", coords={"t": self.t}),
-        )
-        factor = (
-            self.electron_density
-            * (self.ion_densities * self.sxr_power_loss_charge_averaged).sum("element")
-            / self.sxr_emissivity
-        )
-        return np.nanmean(factor.where(factor.coords["rho_poloidal"] < threshold_rho))
-
-    def _calculate_sxr_rescale_factor(self) -> float:
-        def obj_func(factor, bolo_deriv_object, bolo_diag_array):
-            bolo_deriv_object.impurity_densities.loc[self.high_z, :, :, :] = (
-                self.n_high_z * factor
-            )
-            derived_emissivity = bolo_deriv_object(deriv_only=True, trim=False)
-            residual = derived_emissivity.data - bolo_diag_array.data.T
-            return np.nansum(np.square(residual))
-
-        self.calculate_derived_bolometry()
-        fit = least_squares(
-            obj_func,
-            1,
-            bounds=(0, np.inf),
-            args=(
-                deepcopy(self.bolo_derivation),
-                self.diagnostics["bolo"]["kb5v"].interp(t=self.t),
-            ),
-        )
-        return fit.x[0]
 
     def _calculate_n_zeff_el(self) -> DataArray:
         zeff = self.diagnostics["zeff"]["zefh"].interp(t=self.t.values)
@@ -647,9 +614,8 @@ class JetWorkflow(BaseWorkflow):
             flux_surfaces=self.flux_surface,
         )[0]
         self.additional_data["calculate_n_zeff_el"] = {"concentration": conc_zeff_el}
-        return (conc_zeff_el.values * self.electron_density).assign_attrs(
-            {"transform": self.flux_surface}
-        )
+        n_zeff_el = conc_zeff_el.values * self.electron_density
+        return n_zeff_el.assign_attrs({"transform": self.flux_surface})  # type: ignore
 
     def _calculate_n_zeff_el_extra(self) -> DataArray:
         concentration = 0.0  # TODO fit fixed concentration value from Zeff

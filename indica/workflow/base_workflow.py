@@ -2,6 +2,7 @@
 Base script for running InDiCA analysis tests.
 Run with specific data source (e.g. JET JPF/PPF data)
 """
+from copy import deepcopy
 import json
 from pathlib import Path
 import pickle
@@ -32,6 +33,7 @@ class BaseWorkflow:
 
     cache_dir = Path(".").absolute().parent / "test_cache"
     cache_file = cache_dir / "cache.json"
+    _sxr_calibration_factor: Dict[str, float] = {}
 
     def __init__(
         self,
@@ -89,6 +91,10 @@ class BaseWorkflow:
         ]
 
         self.cxrs_instrument = self.input.get("cxrs_instrument", "cxg6").lower()
+        self.sxr_calibration_factors = deepcopy(self._sxr_calibration_factor)
+        self.sxr_calibration_factors.update(
+            self.input.get("sxr_calibration_factors", {})
+        )
 
         # Fixed quantities
         self._power_loss = Observable()
@@ -102,16 +108,6 @@ class BaseWorkflow:
         self._toroidal_rotation = Observable()
         self._extra_zeff_element_concentration = Observable(
             initial_value=self.input.get("conc_zeff_el_2", 0.0)
-        )
-        self._sxr_calibration_factor = Observable(
-            initial_value=self.input.get("initial_values", {}).get(
-                "sxr_calibration_factor", None
-            )
-        )
-        self._sxr_rescale_factor = Observable(
-            initial_value=self.input.get("initial_values", {}).get(
-                "sxr_rescale_factor", None
-            )
         )
         self._n_high_z = Observable()
 
@@ -274,6 +270,14 @@ class BaseWorkflow:
         except OSError as e:
             print(e)
 
+    def calibrate_sxr(self):
+        self.sxr_diagnostic = self._calibrate_sxr()
+
+    def _calibrate_sxr(self) -> Dict[str, DataArray]:
+        raise NotImplementedError(
+            f"{self.__class__} does not implemented _calibrate_sxr method"
+        )
+
     @property
     def power_loss(self) -> Dict[str, DataArray]:
         return self._power_loss.data
@@ -353,41 +357,6 @@ class BaseWorkflow:
     @extra_zeff_element_concentration.setter
     def extra_zeff_element_concentration(self, data: DataArray) -> None:
         self._extra_zeff_element_concentration.data = data
-
-    @property
-    def sxr_calibration_factor(self) -> float:
-        return self._sxr_calibration_factor.data
-
-    @sxr_calibration_factor.setter
-    def sxr_calibration_factor(self, data: float) -> None:
-        self._sxr_calibration_factor.data = data
-
-    def _calculate_sxr_calibration_factor(self) -> float:
-        raise NotImplementedError(
-            f"{self.__class__} does not implement _calculate_sxr_calibration_factor"
-            " method"
-        )
-
-    def calculate_sxr_calibration_factor(self) -> float:
-        self.sxr_calibration_factor = self._calculate_sxr_calibration_factor()
-        return self.sxr_calibration_factor
-
-    @property
-    def sxr_rescale_factor(self) -> float:
-        return self._sxr_rescale_factor.data
-
-    @sxr_rescale_factor.setter
-    def sxr_rescale_factor(self, data: float) -> None:
-        self._sxr_rescale_factor.data = data
-
-    def _calculate_sxr_rescale_factor(self) -> float:
-        raise NotImplementedError(
-            f"{self.__class__} does not implement _calculate_sxr_rescale_factor method"
-        )
-
-    def calculate_sxr_rescale_factor(self) -> float:
-        self.sxr_rescale_factor = self._calculate_sxr_rescale_factor()
-        return self.sxr_rescale_factor
 
     @property
     def power_loss_charge_averaged(self) -> DataArray:
