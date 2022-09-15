@@ -1,7 +1,9 @@
-
+import xarray as xr
+from xarray import Dataset
 import hda.hda_tree as hda_tree
 from hda.models.xray_crystal_spectrometer import XRCSpectrometer
 from hda.models.interferometer import Interferometer
+from hda.models.diode_filter import Diode_filter
 from hda.manage_data import bin_data_in_time, map_on_equilibrium, initialize_bckc
 from hda.models.plasma import Plasma
 from hda.read_st40 import ST40data
@@ -13,7 +15,9 @@ from hda.optimizations.interferometer import match_interferometer_los_int
 from hda.optimizations.xray_crystal_spectrometer import (
     match_line_ratios,
     match_ion_temperature,
+    match_intensity,
 )
+import hda.plots as plots
 import os
 import pickle
 
@@ -30,6 +34,7 @@ Refactored HDA workflows to check against hdatests.test_hda
 """
 
 INTERFEROMETERS = ["smmh1", "nirh1"]
+
 
 def run_default(pulse: int = 10009, use_ref=True):
     """
@@ -49,11 +54,18 @@ def run_default(pulse: int = 10009, use_ref=True):
     """
     plasma, raw_data, data, bckc = initialize_workflow(pulse)
     run_optimisations(plasma, data, bckc, use_ref=use_ref)
-    plot_results(plasma, data, bckc, raw_data)
+
+    # plot_results(plasma, data, bckc, raw_data)
+    plots.compare_data_bckc(data, bckc, raw_data=raw_data, pulse=plasma.pulse)
+    # plots.profiles(plasma, data=data, bckc=bckc)
+    # plots.time_evol(plasma, data, bckc=bckc)
 
     return plasma, data, bckc, raw_data
 
-def scan_profiles(pulse: int = 9780, write=False, run_add="", modelling=True, force=True):
+
+def scan_profiles(
+    pulse: int = 9780, write=False, run_add="", modelling=True, force=True
+):
 
     profs = profile_scans()
 
@@ -133,13 +145,17 @@ def scan_profiles(pulse: int = 9780, write=False, run_add="", modelling=True, fo
 
     return pl_dict, raw_data, data, bckc_dict, run_dict
 
+
 def run_optimisations(plasma, data, bckc, use_ref=False):
     opt = plasma.optimisation
 
-    # Start optimisation
+    # Initialize some optimisation parameters
     te0 = 1.0e3
     te0_ref = None
+
+    # Initialize other variables TODO: put these somewhere else...
     xrcs = plasma.forward_models["xrcs"]
+
     for i, t in enumerate(plasma.t):
         print(float(t))
         # Match chosen interferometer
@@ -160,7 +176,6 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
                 bckc[diagnostic][quantity].loc[dict(t=t)] = bckc_tmp[quantity].values
 
         # Optimize electron temperature for XRCS line ratios
-        # Approach optimisation always from the below (te0 < previous time-point)
         plasma.calc_imp_dens(t=t)
         if t > plasma.t.min():
             te0 = plasma.el_temp.sel(t=plasma.t[i - 1], rho_poloidal=0).values / 2.0
@@ -172,7 +187,7 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
         if not np.any(tau > 0):
             tau = None
 
-        bckc_tmp, Te_prof = match_line_ratios(
+        _, Te_prof = match_line_ratios(
             xrcs,
             plasma.Te_prof,
             data[opt["el_temp"]["diagnostic"]],
@@ -183,35 +198,46 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
             tau=tau,
             quantities=opt["el_temp"]["quantities"],
             te0=te0,
-            bckc=bckc[opt["el_temp"]["diagnostic"]],
         )
         plasma.el_temp.loc[dict(t=t)] = Te_prof.yspl.values
 
-        # Calculate moment analysis of the electron temperature
-        te_kw = xrcs.moment_analysis(plasma.el_temp.sel(t=t), t, line="kw")
-        bckc["xrcs"]["te_kw"].loc[dict(t=t)] = te_kw
-        pos_kw, err_in_kw, err_out_kw = xrcs.calculate_emission_position(t, line="kw")
-        te_n3w = xrcs.moment_analysis(plasma.el_temp.sel(t=t), t, line="n3w")
-        bckc["xrcs"]["te_n3w"].loc[dict(t=t)] = te_n3w
-        pos_n3w, err_in_n3w, err_out_n3w = xrcs.calculate_emission_position(
-            t, line="n3w"
-        )
-
         if use_ref:
             te0_ref = plasma.el_temp.sel(t=t, rho_poloidal=0).values
-        bckc_tmp, Ti_prof = match_ion_temperature(
+
+        _, Ti_prof = match_ion_temperature(
             xrcs,
             plasma.Ti_prof,
             data[opt["ion_temp"]["diagnostic"]],
             t,
             quantities=opt["ion_temp"]["quantities"],
             lines=opt["ion_temp"]["lines"],
-            bckc=bckc[opt["ion_temp"]["diagnostic"]],
             te0_ref=te0_ref,
         )
-
         for elem in plasma.elements:
             plasma.ion_temp.loc[dict(t=t, element=elem)] = Ti_prof.yspl.values
+
+        _, Nimp_prof = match_intensity(
+            xrcs,
+            plasma.Nimp_prof,
+            data[opt["ar_dens"]["diagnostic"]],
+            t,
+            quantities=opt["ar_dens"]["quantities"],
+            lines=opt["ar_dens"]["lines"],
+        )
+        plasma.imp_dens.loc[
+            dict(t=t, element=opt["ar_dens"]["element"])
+        ] = Nimp_prof.yspl.values
+
+        assign_xrcs_bckc(plasma, t, xrcs, bckc)
+
+        Bremss = plasma.forward_models["lines"]
+        Bremss.calculate_emission(
+            plasma.el_temp.sel(t=t),
+            plasma.el_dens.sel(t=t),
+            plasma.zeff.sum("element").sel(t=t),
+        )
+        los_integral, _ = Bremss.integrate_on_los(t=t)
+        bckc["lines"]["brems"].loc[dict(t=t)] = los_integral.values
 
     return plasma, data, bckc
 
@@ -228,7 +254,7 @@ def initialize_workflow(pulse):
 def initialize_plasma_object(
     pulse: int = 9780,
     tstart=0.02,
-    tend=0.11,
+    tend=0.10,
     dt=0.01,
     main_ion="h",
     impurities: tuple = ("c", "ar", "he"),
@@ -299,7 +325,7 @@ def initialize_plasma_data(
 
 
 def initialize_forward_models(
-    plasma: Plasma, data: dict, marchuk=True, extrapolate=None
+    plasma: Plasma, data: dict, marchuk=True, extrapolate="constant",  # None
 ):
 
     for diag in INTERFEROMETERS:
@@ -315,6 +341,11 @@ def initialize_forward_models(
         data["xrcs"][list(data["xrcs"])[0]].attrs["transform"]
     )
 
+    plasma.forward_models["lines"] = Diode_filter("brems")
+    plasma.forward_models["lines"].set_los_transform(
+        data["lines"]["brems"].attrs["transform"]
+    )
+
 
 def initialize_optimisations(
     plasma: Plasma,
@@ -324,10 +355,13 @@ def initialize_optimisations(
     diagnostic_ti="xrcs",
     diagnostic_ar="xrcs",
     quantities_ne=["ne"],
-    quantities_te=["int_k/int_w"],  # ["int_k/int_w", "int_n3/int_w", "int_n3/int_tot"]
+    quantities_te=[
+        "int_n3/int_tot"
+    ],  # ["int_k/int_w", "int_n3/int_w", "int_n3/int_tot"]
     quantities_ti=["ti_w"],
     lines_ti=["w"],
     quantities_ar=["int_w"],
+    lines_ar=["w"],
 ):
 
     revision = get_prov_attribute(
@@ -364,12 +398,82 @@ def initialize_optimisations(
     plasma.optimisation["ar_dens"] = {
         "diagnostic": diagnostic_ar,
         "quantities": quantities_ar,
+        "lines": lines_ar,
+        "element": "ar",
         "rev": revision,
     }
+
+
+def assign_xrcs_bckc(plasma: Plasma, t: float, xrcs: XRCSpectrometer, bckc: dict):
+    """
+    Map xrcs forward model results to desired bckc dictionary structure
+    """
+    xrcs_keys = list(bckc["xrcs"].keys())
+
+    # Initialize missing variables
+    if "emiss" not in bckc["xrcs"][xrcs_keys[0]].attrs.keys():
+        emiss = []
+        for _ in plasma.time:
+            emiss.append(xrcs.emission["w"] * 0.0)
+        emiss = xr.concat(emiss, "t").assign_coords(t=plasma.time)
+
+        pos = xr.full_like(plasma.time, np.nan)
+        for k in xrcs_keys:
+            bckc["xrcs"][k].attrs["emiss"] = deepcopy(emiss)
+            bckc["xrcs"][k].attrs["pos"] = {
+                "value": deepcopy(pos),
+                "err_in": deepcopy(pos),
+                "err_out": deepcopy(pos),
+            }
+
+    # Map quantities
+    los_int, _ = xrcs.integrate_on_los(t=t)
+    emiss_keys = xrcs.emission.keys()
+    for quantity in xrcs_keys:
+        tmp = quantity.split("_")
+        measurement = tmp[0]
+
+        if measurement != "te" and measurement != "ti" and measurement != "int":
+            continue
+
+        line = tmp[-1]
+        if line not in emiss_keys:
+            continue
+
+        if "/" in quantity:
+            tmp = quantity.split("/")
+            line = tmp[0].split("_")[1] + tmp[1].split("_")[1]
+        if line not in emiss_keys:
+            continue
+
+        bckc["xrcs"][quantity].emiss.loc[dict(t=t)] = xrcs.emission[line]
+
+        if measurement == "te":
+            bckc["xrcs"][quantity].loc[dict(t=t)] = xrcs.moment_analysis(
+                plasma.el_temp.sel(t=t), t, line=line
+            )
+        if measurement == "ti":
+            bckc["xrcs"][quantity].loc[dict(t=t)] = xrcs.moment_analysis(
+                plasma.ion_temp.sel(t=t, element=plasma.main_ion), t, line=line
+            )
+
+        if measurement == "int":
+            # TODO: make this clearer...still too messy
+            if quantity in los_int.keys():
+                bckc["xrcs"][quantity].loc[dict(t=t)] = los_int[quantity]
+            else:
+                bckc["xrcs"][quantity].loc[dict(t=t)] = los_int[line]
+
+        pos, err_in, err_out = xrcs.calculate_emission_position(t, line=line)
+        bckc["xrcs"][quantity].pos["value"].loc[dict(t=t)] = pos
+        bckc["xrcs"][quantity].pos["err_in"].loc[dict(t=t)] = err_in
+        bckc["xrcs"][quantity].pos["err_out"].loc[dict(t=t)] = err_out
+
 
 def calc_centrifugal_asymmetry(plasma: Plasma, vtor0=500.0e3):
     plasma.vtor.values = (plasma.ion_temp / plasma.ion_temp.max() * vtor0).values
     plasma.calc_centrifugal_asymmetry()
+
 
 def simulate_new_interferometer(
     plasma: Plasma, data: dict, bckc: dict, name: str = "smmh2"
