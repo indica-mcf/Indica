@@ -77,7 +77,6 @@ def compare_data_bckc(
         # Intensity
         plt.figure()
         icol = -1
-        ylim0, ylim1 = [], []
         for quant in bckc["xrcs"].keys():
             if "int" not in quant or "/" in quant:
                 continue
@@ -102,13 +101,11 @@ def compare_data_bckc(
                 linestyle="dashed",
                 label=f"{quant.upper()} XRCS",
             )
-            ylim0.append(np.nanmin(data["xrcs"][quant]))
-            ylim1.append(np.nanmax(data["xrcs"][quant]) * 1.3)
 
             bckc["xrcs"][quant].plot(color=colors[icol], label="Back-calc", linewidth=3)
 
             plt.xlim(xlim)
-            plt.ylim(0, np.max(ylim1))
+            plt.ylim(0, )
             plt.title(f"{_title} Spectral line intensities ({quant})")
             plt.xlabel("Time (s)")
             plt.ylabel("(a.u.)")
@@ -225,6 +222,8 @@ def compare_data_bckc(
 
         if diag in bckc.keys():
             bckc[diag][quant].plot(color=colors[i], label="Back-calc", linewidth=3)
+            ylim0.append(np.nanmin(bckc[diag][quant]) * 0.7)
+            ylim1.append(np.nanmax(bckc[diag][quant]) * 1.3)
         plt.xlim(xlim)
         plt.ylim(np.min(ylim0), np.max(ylim1))
         plt.title(f"{_title} Bremsstrahlung Intensity")
