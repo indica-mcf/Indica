@@ -728,14 +728,17 @@ class Plasma:
         default=False,
     ):
         if default:
+            rho = np.abs(np.linspace(1, 0, 100)**1.8 - 1)
             Te = deepcopy(self.Te_prof)
-            Te.y0 = 10.0e3
+            Te.y0 = 6.0e3
             Te.build_profile()
-            Te = Te.yspl
-            Ne = self.Ne_prof.yspl
-            Nh = self.Nh_prof.yspl * 0.
+            Te = Te.yspl.interp(rho_poloidal = rho)
+            Ne = self.Ne_prof.yspl.interp(rho_poloidal = rho)
+            Nh = self.Nh_prof.yspl
             for t in self.t:
                 self.neutral_dens.loc[dict(t=t)] = Nh.values
+            Nh = Nh.interp(rho_poloidal=rho)
+            tau = None
 
         print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
