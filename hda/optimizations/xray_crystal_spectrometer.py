@@ -22,6 +22,28 @@ from hda.models.xray_crystal_spectrometer import XRCSpectrometer
 
 plt.ion()
 
+def check_model_inputs(model, Te, Ne, Nh, Nimp, tau):
+    # Calculate emission if inputs are different or not present in model
+    if (
+            not hasattr(model, "Te")
+            or not hasattr(model, "Ne")
+            or not hasattr(model, "Nh")
+            or not hasattr(model, "Nimp")
+            or not hasattr(model, "tau")
+    ):
+        model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
+    else:
+        if (Te is not None) and (Ne is not None) and (Nh is not None) and (Nimp is not None):
+            if (
+                    np.array_equal(Te, model.Te)
+                    or np.array_equal(Ne, model.Ne)
+                    or np.array_equal(Nh, model.Nh)
+                    or np.array_equal(Nimp, model.Nimp)
+                    or np.array_equal(tau, model.tau)
+            ):
+                model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
+
+    return model.Te, model.Ne, model.Nh, model.Nimp, model.tau
 
 def match_line_ratios(
     model: XRCSpectrometer,
@@ -35,7 +57,7 @@ def match_line_ratios(
     quantities: list = ["int_k/int_w", "int_n3/int_w", "int_n3/int_tot"],
     te0: float = 1.0e3,
     bckc:dict=None,
-    bounds=(100.0, 10.0e3),
+    bounds=(100.0, 20.0e3),
 ):
 
     """
@@ -63,15 +85,14 @@ def match_line_ratios(
         Measurement identifiers to be optimised
     te0
         Initial guess of central electron temperature (eV)
-    bckc
-        Dictionary where back-calculated values are to be saved (same structure as data)
     """
 
     def residuals(te0):
         Te_prof.y0 = te0
         Te_prof.build_profile()
+        Te = Te_prof.yspl
 
-        model.calculate_emission(Te_prof.yspl, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
+        model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
         bckc_value, _ = model.integrate_on_los(t=t)
 
         resid = []
@@ -91,15 +112,9 @@ def match_line_ratios(
 
     least_squares(residuals, te0, bounds=bounds, method="dogbox")
 
-    bckc_tmp = {}
+    bckc = {}
     for quantity in quantities:
-        bckc_tmp[quantity] = model.los_integral[quantity]
-
-    if bckc is None:
-        bckc = bckc_tmp
-    else:
-        for quantity in quantities:
-            bckc[quantity].loc[dict(t=t)] = bckc_tmp[quantity]
+        bckc[quantity] = model.los_integral[quantity]
 
     return bckc, Te_prof
 
@@ -116,12 +131,11 @@ def match_ion_temperature(
     tau: DataArray = None,
     quantities: list = ["ti_w", "ti_z"],
     lines: list = ["w", "z"],
-    bckc:dict=None,
     ti0: float = 1.0e3,
     te0_ref = None,
     wcenter_exp=0.05,
     method="moment",
-    bounds=(100.0, 10.0e3),
+    bounds=(100.0, 20.0e3),
 ):
 
     """
@@ -151,8 +165,6 @@ def match_ion_temperature(
         Measurement identifiers to be optimised
     lines
         Spectral lines used to calculate the experimental ion temperature
-    bckc
-        Dictionary where back-calculated values are to be saved (same structure as data)
     ti0
         Initial guess of central ion temperature (eV)
     te0_ref
@@ -179,27 +191,7 @@ def match_ion_temperature(
         Ti_prof.y0 = 1.0e3
         Ti_prof.build_profile(y0_ref=te0_ref, wcenter_exp=wcenter_exp)
 
-    # Calculate emission if inputs are different or not present in model
-    if (
-        not hasattr(model, "Te")
-        or not hasattr(model, "Ne")
-        or not hasattr(model, "Nh")
-        or not hasattr(model, "Nimp")
-        or not hasattr(model, "tau")
-    ):
-        model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
-    else:
-        if (Te is not None) and (Ne is not None) and (Nh is not None) and (Nimp is not None):
-            if (
-                np.array_equal(Te, model.Te)
-                or np.array_equal(Ne, model.Ne)
-                or np.array_equal(Nh, model.Nh)
-                or np.array_equal(Nimp, model.Nimp)
-                or np.array_equal(tau, model.tau)
-            ):
-                model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
-
-    model.map_to_los(t=t)
+    check_model_inputs(model, Te, Ne, Nh, Nimp, tau)
 
     data_value = {}
     for quantity in quantities:
@@ -210,107 +202,88 @@ def match_ion_temperature(
     else:
         raise Exception("No other optimisation method currently supported...")
 
-    bckc_tmp = {}
+    bckc = {}
     for quantity, line in zip(quantities, lines):
-        bckc_tmp[quantity] = model.moment_analysis(Ti_prof.yspl, t, line=line)
-
-    if bckc is None:
-        bckc = bckc_tmp
-    else:
-        for quantity in quantities:
-            bckc[quantity].loc[dict(t=t)] = bckc_tmp[quantity]
+        bckc[quantity] = model.moment_analysis(Ti_prof.yspl, t, line=line)
 
     return bckc, Ti_prof
 
-
-def match_xrcs_intensity(
-    self,
-    data,
-    bckc={},
-    diagnostic: str = "xrcs",
-    quantity: str = "int_w",
-    elem="ar",
-    cal=2.0e3,
-    niter=2,
-    time=None,
-    scale=True,
+def match_intensity(
+    model: XRCSpectrometer,
+    Nimp_prof: Profiles,
+    data: dict,
+    t: float,
+    Te: DataArray = None,
+    Ne: DataArray = None,
+    Nimp: DataArray = None,
+    Nh: DataArray = None,
+    tau: DataArray = None,
+    quantities: list = ["int_w"],
+    lines: list = ["w"],
+    nimp0: float = 1.0e15,
+    bounds=(1.e12, 1.e21),
 ):
+
     """
-    TODO: separate calculation of line intensity from optimisation
-    TODO: tau currently not included in calculation
-    Compute Ar density to match the XRCS spectrometer measurements
+    Optimize line intensity to match XRCS measurements
 
     Parameters
     ----------
+    model
+        Forward model of the XRCS diagnostic
+    Nimp_prof
+        Profile object to build impurity temperture profile for optimization
     data
-        diagnostic data as returned by build_data()
-    bckc
-        back-calculated data
-    diagnostic
-        diagnostic name corresponding to xrcs
-    quantity_int
-        Measurement to be used for determining the impurity concentration
-        from line intensity
-    cal
-        Calibration factor for measurement
-        Default value calculated to match Zeff from LINES.BREMS_MP for pulse 9408
-    elem
-        Element responsible for measured spectra
-    niter
-        Number of iterations
-
-    Returns
-    -------
-
+        Dictionary of Dataarrays of XRCS data as returned by ST40reader
+    t
+        Time for which optimisation must be performed
+    Te
+        Electron temperature
+    Ne
+        Electron densit
+    Nh
+        Neutral (thermal) hydrogen density
+    tau
+        Residence time for the calculation of the ionisation balance
+    quantities
+        Measurement identifiers to be optimised
+    lines
+        Spectral lines used to calculate the experimental ion temperature
+    nimp0
+        Initial guess of central impurity density
     """
 
-    if diagnostic not in data.keys():
-        print_like(f"No {diagnostic.upper()} data available")
-        return
+    def residuals_intensity(nimp0):
+        # Scale whole profile
+        resid = []
 
-    if time is None:
-        time = self.t
+        element = model.adf15[lines[0]]["element"]
+        Nimp = model.Nimp
+        _Nimp = Nimp.sel(element=element) / Nimp.sel(element=element, rho_poloidal=0) * nimp0
+        Nimp.loc[dict(element=element)] = _Nimp
 
-    if diagnostic not in bckc:
-        bckc[diagnostic] = {}
-    if quantity not in bckc[diagnostic].keys():
-        bckc = initialize_bckc(diagnostic, quantity, data, bckc=bckc)
-    line = quantity.split("_")[1]
+        model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
+        model.integrate_on_los(t=t)
 
-    # Initialize back calculated values of diagnostic quantities
-    forward_model = self.forward_models[diagnostic]
-    dl = data[diagnostic][quantity].attrs["dl"]
-    for t in time:
-        print(t)
+        for quantity, line in zip(quantities, lines):
+            bckc_value = model.los_integral[line]
+            resid.append(data_value[quantity] - bckc_value)
 
-        int_data = data[diagnostic][quantity].sel(t=t)
-        Te = self.el_temp.sel(t=t)
-        if np.isnan(Te).any():
-            continue
+        return np.array(resid).sum()
 
-        Ne = self.el_dens.sel(t=t)
-        # tau = self.tau.sel(t=t)
-        Nh = self.neutral_dens.sel(t=t)
-        if np.isnan(Te).any():
-            continue
-        rho_los = data[diagnostic][quantity].attrs["rho"].sel(t=t)
+    Te, Ne, Nh, Nimp, tau = check_model_inputs(model, Te, Ne, Nh, Nimp, tau)
+    model.integrate_on_los(t=t)
 
-        const = 1.0
-        for j in range(niter):
-            Nimp = {elem: self.imp_dens.sel(element=elem, t=t) * const}
-            _ = forward_model(Te, Ne, Nimp=Nimp, Nh=Nh, rho_los=rho_los, dl=dl,)
-            int_bckc = forward_model.intensity[line] * cal
-            const = (int_data / int_bckc).values
+    data_value = {}
+    for quantity in quantities:
+        data_value[quantity] = data[quantity].sel(t=t)
 
-            if (np.abs(1 - const) < 1.0e-4) or not (scale):
-                break
+    least_squares(residuals_intensity, nimp0, bounds=bounds, method="dogbox")
 
-        self.imp_dens.loc[dict(element=elem, t=t)] = Nimp[elem].values
-        bckc[diagnostic][quantity].loc[dict(t=t)] = int_bckc.values
+    bckc = {}
+    for quantity, line in zip(quantities, lines):
+        bckc[quantity] = model.los_integral[line]
 
-    bckc[diagnostic][quantity].attrs["calibration"] = cal
+    return bckc, Nimp_prof
 
-    revision = get_prov_attribute(data[diagnostic][quantity].provenance, "revision")
-    self.optimisation["imp_dens"] = f"{diagnostic}.{quantity}:{revision}"
 
-    return bckc
