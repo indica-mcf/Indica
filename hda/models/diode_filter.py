@@ -6,10 +6,12 @@ from xarray import DataArray
 import hda.physics as ph
 
 
-class Bremsstrahlung_filter:
+class Diode_filter:
     """
-    Object representing an diode filter diagnostic measuring Bremsstrahlung
+    Object representing an diode filter diagnostic measuring
     in a specified spectral range
+
+    TODO: currently working only for Bremsstrahlung emission!!!
     """
 
     def __init__(
@@ -19,7 +21,7 @@ class Bremsstrahlung_filter:
         filter_fwhm: float = 10,
         filter_shape: str = "tophat",
         etendue: float = 1.0,
-        calibration: float = 1.0e-18,
+        calibration: float = 2.0e-5,
     ):
         self.name = name
         self.filter_wavelength = filter_wavelength
@@ -46,10 +48,12 @@ class Bremsstrahlung_filter:
         self.los_transform.set_flux_transform(flux_transform)
 
     def calculate_emission(
-        self, Te: DataArray, Ne: DataArray, Zeff: DataArray, t: LabeledArray = None
+        self, Te: DataArray, Ne: DataArray, Zeff: DataArray,
     ):
         """
         Calculate Bremsstrahlung emission
+
+        TODO: add set of spectral lines to model different line diodes
 
         Parameters
         ----------
@@ -58,7 +62,7 @@ class Bremsstrahlung_filter:
         Ne
             electron density
         Zeff
-            total effective charge
+            Total effective charge
         t
             time
 
@@ -67,7 +71,7 @@ class Bremsstrahlung_filter:
 
         """
 
-        emission = ph.zeff_bremsstrahlung(Te, Ne, self.central_wavelength, zeff=Zeff)
+        emission = ph.zeff_bremsstrahlung(Te, Ne, self.filter_wavelength, zeff=Zeff)
         self.emission = emission
 
         return emission
