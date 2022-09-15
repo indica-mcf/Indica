@@ -35,7 +35,7 @@ class XRCSpectrometer:
         self,
         name="",
         etendue: float = 1.0,
-        calibration: float = 1.e-15,
+        calibration: float = 1.e-18,
         fract_abu: dict = None,
         marchuk: bool = True,
         adf15: dict = None,
@@ -274,7 +274,7 @@ class XRCSpectrometer:
 
     def map_to_los(self, t: LabeledArray = None):
         """
-        Map emission and fractional abundance to LOS
+        Map emission  to LOS
 
         Parameters
         ----------
@@ -283,7 +283,7 @@ class XRCSpectrometer:
 
         Returns
         -------
-        Return line integral and interpolated density along the line of sight
+        Return emission along line of sight
 
         """
         if not hasattr(self, "emission"):
