@@ -22,28 +22,35 @@ from hda.models.xray_crystal_spectrometer import XRCSpectrometer
 
 plt.ion()
 
+
 def check_model_inputs(model, Te, Ne, Nh, Nimp, tau):
     # Calculate emission if inputs are different or not present in model
     if (
-            not hasattr(model, "Te")
-            or not hasattr(model, "Ne")
-            or not hasattr(model, "Nh")
-            or not hasattr(model, "Nimp")
-            or not hasattr(model, "tau")
+        not hasattr(model, "Te")
+        or not hasattr(model, "Ne")
+        or not hasattr(model, "Nh")
+        or not hasattr(model, "Nimp")
+        or not hasattr(model, "tau")
     ):
         model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
     else:
-        if (Te is not None) and (Ne is not None) and (Nh is not None) and (Nimp is not None):
+        if (
+            (Te is not None)
+            and (Ne is not None)
+            and (Nh is not None)
+            and (Nimp is not None)
+        ):
             if (
-                    np.array_equal(Te, model.Te)
-                    or np.array_equal(Ne, model.Ne)
-                    or np.array_equal(Nh, model.Nh)
-                    or np.array_equal(Nimp, model.Nimp)
-                    or np.array_equal(tau, model.tau)
+                np.array_equal(Te, model.Te)
+                or np.array_equal(Ne, model.Ne)
+                or np.array_equal(Nh, model.Nh)
+                or np.array_equal(Nimp, model.Nimp)
+                or np.array_equal(tau, model.tau)
             ):
                 model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
 
     return model.Te, model.Ne, model.Nh, model.Nimp, model.tau
+
 
 def match_line_ratios(
     model: XRCSpectrometer,
@@ -56,7 +63,7 @@ def match_line_ratios(
     tau: DataArray = None,
     quantities: list = ["int_k/int_w", "int_n3/int_w", "int_n3/int_tot"],
     te0: float = 1.0e3,
-    bckc:dict=None,
+    bckc: dict = None,
     bounds=(100.0, 20.0e3),
 ):
 
@@ -132,7 +139,7 @@ def match_ion_temperature(
     quantities: list = ["ti_w", "ti_z"],
     lines: list = ["w", "z"],
     ti0: float = 1.0e3,
-    te0_ref = None,
+    te0_ref=None,
     wcenter_exp=0.05,
     method="moment",
     bounds=(100.0, 20.0e3),
@@ -208,6 +215,7 @@ def match_ion_temperature(
 
     return bckc, Ti_prof
 
+
 def match_intensity(
     model: XRCSpectrometer,
     Nimp_prof: Profiles,
@@ -221,7 +229,7 @@ def match_intensity(
     quantities: list = ["int_w"],
     lines: list = ["w"],
     nimp0: float = 1.0e15,
-    bounds=(1.e12, 1.e21),
+    bounds=(1.0e12, 1.0e21),
 ):
 
     """
@@ -253,21 +261,36 @@ def match_intensity(
         Initial guess of central impurity density
     """
 
-    def residuals_intensity(nimp0):
+    def scale_impurity_density(nimp0, niter=3, bounds:tuple=(1.0e12, 1.0e21)):
         # Scale whole profile
         resid = []
 
         element = model.adf15[lines[0]]["element"]
-        Nimp = model.Nimp
-        _Nimp = Nimp.sel(element=element) / Nimp.sel(element=element, rho_poloidal=0) * nimp0
-        Nimp.loc[dict(element=element)] = _Nimp
 
-        model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
-        model.integrate_on_los(t=t)
+        mult = nimp0 / Nimp_prof.y0
+        for i in range(niter):
+            if Nimp_prof.y0 * mult < bounds[0]:
+                mult = bounds[0]/Nimp_prof.y0
+            if Nimp_prof.y0 * mult > bounds[1]:
+                mult = bounds[1]/Nimp_prof.y0
+            Nimp_prof.y0 *= mult
+            Nimp_prof.y1 *= mult
+            Nimp_prof.yend *= mult
+            Nimp_prof.build_profile()
 
-        for quantity, line in zip(quantities, lines):
-            bckc_value = model.los_integral[line]
-            resid.append(data_value[quantity] - bckc_value)
+            Nimp.loc[dict(element=element)] = Nimp_prof.yspl.interp(
+                rho_poloidal=Nimp.sel(element=element).rho_poloidal
+            )
+
+            model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
+            model.integrate_on_los(t=t)
+
+            _mult = []
+            for quantity, line in zip(quantities, lines):
+                bckc_value = model.los_integral[line]
+                _mult.append((data_value[quantity]/bckc_value).values)
+
+            mult = np.array(_mult).mean()
 
         return np.array(resid).sum()
 
@@ -278,12 +301,10 @@ def match_intensity(
     for quantity in quantities:
         data_value[quantity] = data[quantity].sel(t=t)
 
-    least_squares(residuals_intensity, nimp0, bounds=bounds, method="dogbox")
+    scale_impurity_density(nimp0, bounds=bounds)
 
     bckc = {}
     for quantity, line in zip(quantities, lines):
         bckc[quantity] = model.los_integral[line]
 
     return bckc, Nimp_prof
-
-
