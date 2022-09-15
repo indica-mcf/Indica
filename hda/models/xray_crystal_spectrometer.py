@@ -11,9 +11,6 @@ from indica.converters import LinesOfSightTransform, FluxSurfaceCoordinates
 from indica.numpy_typing import LabeledArray
 
 import hda.physics as ph
-from hda.profiles import Profiles
-
-from indica.numpy_typing import ArrayLike
 
 MARCHUK = "/home/marco.sertoli/python/Indica/hda/Marchuk_Argon_PEC.pkl"
 ADF15 = {
@@ -30,13 +27,15 @@ ADF15 = {
 class XRCSpectrometer:
     """
     Data and methods to model XRCS spectrometer measurements
+
+    TODO: calibration and Etendue to be correctly included
     """
 
     def __init__(
         self,
         name="",
         etendue: float = 1.0,
-        calibration: float = 1.0,
+        calibration: float = 1.e-15,
         fract_abu: dict = None,
         marchuk: bool = True,
         adf15: dict = None,
@@ -108,7 +107,7 @@ class XRCSpectrometer:
         self.fract_abu = fract_abu
         self.elements = list(fract_abu)
 
-    def set_adas_pecs(self, adf15: dict = None, extrapolate: str=None):
+    def set_adas_pecs(self, adf15: dict = None, extrapolate: str = None):
         """
         Read ADAS adf15 data
 
@@ -144,6 +143,7 @@ class XRCSpectrometer:
                     .drop("electron_density")
                 )
 
+        self.adf15 = adf15
         self.pec = pec
 
     def set_marchuk_pecs(self, extrapolate: str = None):
@@ -171,6 +171,7 @@ class XRCSpectrometer:
                     .drop("electron_density")
                 )
 
+        self.adf15 = adf15
         self.pec = pec
 
     # method previously called "radiation_characteristics"
@@ -228,7 +229,9 @@ class XRCSpectrometer:
             coords = pec["emiss_coeff"].coords
 
             if elem not in self.fz.keys():
-                _fz = self.fract_abu[elem](Te, Ne=Ne, Nh=Nh, tau=tau, full_run=self.full_run)
+                _fz = self.fract_abu[elem](
+                    Te, Ne=Ne, Nh=Nh, tau=tau, full_run=self.full_run
+                )
                 self.fz[elem] = xr.where(_fz >= 0, _fz, 0)
 
             # Sum contributions from all transition types
@@ -258,6 +261,14 @@ class XRCSpectrometer:
             self.emission["kw"] = self.emission["k"] * self.emission["w"]
         if "n3" in self.emission.keys() and "w" in self.emission.keys():
             self.emission["n3w"] = self.emission["n3"] * self.emission["w"]
+        if (
+            "n3" in self.emission.keys()
+            and "n345" in self.emission.keys()
+            and "w" in self.emission.keys()
+        ):
+            self.emission["n3tot"] = (
+                self.emission["n3"] * self.emission["n345"] * self.emission["w"]
+            )
 
         return self.emission, self.fz
 
@@ -309,7 +320,7 @@ class XRCSpectrometer:
             _los_integral, along_los[line] = self.los_transform.integrate_on_los(
                 self.emission[line], t=t
             )
-            los_integral[line] = _los_integral * self.etendue * 4 * np.pi
+            los_integral[line] = _los_integral * self.etendue * self.calibration
 
         if "k" in los_integral.keys() and "w" in los_integral.keys():
             los_integral["int_k/int_w"] = los_integral["k"] / los_integral["w"]
@@ -331,7 +342,7 @@ class XRCSpectrometer:
     def calculate_emission_position(
         self,
         t: float,
-        line: str="w",
+        line: str = "w",
         half_los: bool = True,
         distribution_function: LabeledArray = None,
     ):
@@ -390,7 +401,7 @@ class XRCSpectrometer:
         line="w",
         method="moment",
         half_los: bool = True,
-        distribution_function:LabeledArray=None,
+        distribution_function: LabeledArray = None,
     ):
         """
         Calculate measured ion temperature
@@ -444,11 +455,7 @@ class XRCSpectrometer:
             profile_interp = profile_interp.sel(t=t, method="nearest")
         profile_interp = profile_interp.values
         value, _, _, _, _ = ph.calc_moments(
-            dfunction,
-            profile_interp,
-            ind_in=ind_in,
-            ind_out=ind_out,
-            simmetry=False,
+            dfunction, profile_interp, ind_in=ind_in, ind_out=ind_out, simmetry=False,
         )
 
         return value
