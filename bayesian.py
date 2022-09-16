@@ -82,7 +82,10 @@ rho_maj_radius = FluxMajorRadCoordinates(flux_coords)
 
 # set up data
 
-binned_camera = bin_to_time_labels(t.data, diagnostics["sxr"]["v"])
+# bin camera data, drop excluded channels
+binned_camera = bin_to_time_labels(
+    t.data, diagnostics["sxr"]["v"].dropna(dim="sxr_v_coords")
+)
 
 x2 = np.linspace(0, 1, N_intervals)
 camera = xr.Dataset(
@@ -123,6 +126,12 @@ upper = rho_dropped[rho_indices + 1]
 
 rho_interp_lower_frac = (upper - rho_los_points) / (upper - lower)
 
+# weights:
+ip_coords = ImpactParameterCoordinates(camera.attrs["transform"], flux_coords, times=t)
+rho_max = ip_coords.rhomax()
+impact_param, _ = camera.indica.convert_coords(ip_coords)
+weights = camera.camera * (0.02 + 0.18 * np.abs(impact_param))
+
 # compile stan model
 
 model_file = os.path.join("emissivity.stan")
@@ -130,11 +139,6 @@ model = cmdstanpy.CmdStanModel(stan_file=model_file)
 
 N_los = len(binned_camera.sxr_v_coords)
 t_index = 0
-
-ip_coords = ImpactParameterCoordinates(camera.attrs["transform"], flux_coords, times=t)
-rho_max = ip_coords.rhomax()
-impact_param, _ = camera.indica.convert_coords(ip_coords)
-weights = camera.camera * (0.02 + 0.18 * np.abs(impact_param))
 
 data = {
     "N_rho": N_rho,
@@ -148,15 +152,22 @@ data = {
     "los_errors": weights.isel(t=t_index),
 }
 
-# samples = model.sample(data=data, chains=16, parallel_chains=8)
-opt_fit = model.optimize(data=data)
+samples = model.sample(data=data, chains=16, parallel_chains=8)
+# opt_fit = model.optimize(data=data)
+
+draws = samples.draws_xr()
 
 # plot fit
 
 plt.figure()
 plt.xlabel("rho")
 plt.ylabel("lfs_midplane emissivity")
-plt.plot(rho.data, opt_fit.lfs_values, "x")
+plt.errorbar(
+    rho.data,
+    draws.lfs_values.mean(dim=("chain", "draw")),
+    yerr=draws.lfs_values.std(dim=("chain", "draw")),
+    marker="x",
+)
 plt.grid()
 plt.show()
 
