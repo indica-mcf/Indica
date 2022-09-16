@@ -2,7 +2,7 @@ from copy import deepcopy
 import os
 import pickle
 
-from hda.models.spectrometer import XRCSpectrometer
+from hda.diagnostics.spectrometer import XRCSpectrometer
 import hda.hda_tree as hda_tree
 from hda.plasma import initialize_bckc
 from hda.plasma import Plasma
@@ -400,8 +400,8 @@ def run_all_scans(
     # efit_pulse = [11009850] * 2
     # efit_run = ["1016A2", "1013N"]
 
-    pulses = [9839, 9849]
-    tlims = [(0.02, 0.12)] * len(pulses)
+    pulses = [9519, 9539, 9787]
+    tlims = [(0.02, 0.11)] * len(pulses)
     run_add = ["MID"] * len(pulses)
     efit_pulse = [efit_pulse] * len(pulses)
     efit_run = [0] * len(pulses)
