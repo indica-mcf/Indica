@@ -8,6 +8,7 @@ import numpy as np
 from scipy.optimize import root
 from xarray import DataArray
 from xarray import zeros_like
+import xarray as xr
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -15,7 +16,7 @@ from .flux_surfaces import FluxSurfaceCoordinates
 from ..numpy_typing import LabeledArray
 
 
-class LinesOfSightTransform(CoordinateTransform):
+class LineOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
@@ -90,6 +91,7 @@ class LinesOfSightTransform(CoordinateTransform):
         y_end = end_coords[1]
         z_end = end_coords[2]
 
+        self.name = f"{name}_line_of_sight_transform"
         self.x_start = DataArray(x_start)
         self.z_start = DataArray(z_start)
         self.y_start = DataArray(y_start)
@@ -99,7 +101,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.y_end = DataArray(y_end)
         self.x1_name = "channel"
         self.x2_name = "los_position"
-        self.name = name
+
+        self.x1 = np.array(0)
 
         # Set "dl"
         self.dl_target = dl
@@ -144,7 +147,7 @@ class LinesOfSightTransform(CoordinateTransform):
         x = self.x_start + (self.x_end - self.x_start) * x2
         y = self.y_start + (self.y_end - self.y_start) * x2
         z = self.z_start + (self.z_end - self.z_start) * x2
-        return np.sqrt(x**2 + y**2), z
+        return np.sign(x) * np.sqrt(x ** 2 + y ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -154,7 +157,7 @@ class LinesOfSightTransform(CoordinateTransform):
             x2 = x[1]
             x = self.x_start + (self.x_end - self.x_start) * x2
             y = self.y_start + (self.y_end - self.y_start) * x2
-            x = np.sqrt(x**2 + y**2)
+            x = np.sign(x) * np.sqrt(x ** 2 + y ** 2)
             dxdx1 = 0.0
             dxdx2 = self.x_end - self.x_start
             dydx1 = 0.0
@@ -162,10 +165,7 @@ class LinesOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [
-                    2 / x * (x * dxdx1 + y * dydx1),
-                    2 / x * (x * dxdx2 + y * dydx2),
-                ],
+                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
                 [dzdx1, dzdx2],
             ]
 
@@ -191,11 +191,7 @@ class LinesOfSightTransform(CoordinateTransform):
         # # inexact, as well as computationally expensive).
 
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -234,12 +230,111 @@ class LinesOfSightTransform(CoordinateTransform):
 
         return x2, dl
 
-    def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        self.flux_transform = flux_transform
+    def set_flux_transform(
+        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
+    ):
+        """
+        Set flux surface transform to perform remapping from physical to flux space
+        """
+        if not hasattr(self, "flux_transform") or force:
+            self.flux_transform = flux_transform
+        elif self.flux_transform != flux_transform:
+            raise Exception("Attempt to set flux surface transform twice.")
 
-    def convert_to_rho(self, t: float = None):
-        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+        """
+        Convert R, z to rho given the flux surface transform
+        """
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Set flux transform to convert (R,z) to rho")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
 
+        rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+        rho = xr.where(rho >= 0, rho, 0.0)
+        rho.coords[self.x2_name] = self.x2
+        theta.coords[self.x2_name] = self.x2
+
+        self.rho = rho
+        self.theta = theta
+
+        return rho, theta
+
+    def map_to_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+    ):
+        """
+        Map 1D profile to LOS
+        TODO: extend for 2D interpolation if coordinates of the profile are (R, z) instead of rho
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+
+        Returns
+        -------
+        Interpolation of the input profile along the LOS
+        """
+        self.check_flux_transform()
+        if not hasattr(self, "rho"):
+            self.convert_to_rho(t=t)
+
+        if t is not None:
+            rho = self.rho.interp(t=t, method="linear")
+        else:
+            rho = self.rho
+        along_los = profile_1d.interp(rho_poloidal=rho)
+        if limit_to_sep:
+            along_los = xr.where(rho <= 1, along_los, 0,)
+
+        return along_los
+
+    def integrate_on_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+        passes: int = 1,
+    ):
+        """
+        Integrate 1D profile along LOS
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+        passes
+            Number of passes across the plasma (e.g. interferometer with corner-cube will have passes=2)
+
+        Returns
+        -------
+        Line of sight integral along the LOS
+        """
+        along_los = self.map_to_los(
+            profile_1d,
+            t=t,
+            limit_to_sep=limit_to_sep,
+        )
+
+        los_integral = passes * along_los.sum(self.x2_name) * self.dl
+
+        return los_integral, along_los
+
+    def check_flux_transform(self):
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Missing flux surface transform")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Missing equilibrium in flux surface transform")
 
 def _find_wall_intersections(
     origin: Tuple,
@@ -276,56 +371,23 @@ def _find_wall_intersections(
         A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
     """
 
-    # x_start, y_start, z_start
-    x_start = origin[0]
-    y_start = origin[1]
-    z_start = origin[2]
-
     # Define XYZ lines for LOS from origin and direction vectors
-    num_points = 500
-    length = 100.0
-    x_line = np.linspace(
-        origin[0] - length * direction[0],
-        origin[0] + length * direction[0],
-        num_points,
+    length = 10.0
+    x_line = np.array(
+        [origin[0] - length * direction[0], origin[0] + length * direction[0]],
         dtype=float,
     )
-    y_line = np.linspace(
-        origin[1] - length * direction[1],
-        origin[1] + length * direction[1],
-        num_points,
+    y_line = np.array(
+        [origin[1] - length * direction[1], origin[1] + length * direction[1]],
         dtype=float,
     )
-    z_line = np.linspace(
-        origin[2] - length * direction[2],
-        origin[2] + length * direction[2],
-        num_points,
-        dtype=float,
-    )
-    r_line = np.sqrt(x_line**2 + y_line**2)
 
     # Define XYZ lines for inner and outer walls
     angles = np.linspace(0.0, 2 * np.pi, 1000)
+    x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
     x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
     y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
-
-    z_wall_inner = np.linspace(
-        machine_dimensions[1][0], machine_dimensions[1][1], len(angles), dtype=float
-    )
-    r_wall_inner = machine_dimensions[0][0] * np.ones_like(z_wall_inner)
-
-    r_wall_outer = np.array(
-        [0.0, machine_dimensions[0][1], machine_dimensions[0][1], 0.0], dtype=float
-    )
-    z_wall_outer = np.array(
-        [
-            machine_dimensions[1][0],
-            machine_dimensions[1][0],
-            machine_dimensions[1][1],
-            machine_dimensions[1][1],
-        ],
-        dtype=float,
-    )
 
     # Find intersections, to calculate
     # R_start, z_start, T_start, R_end, z_end, T_end ...
@@ -333,30 +395,25 @@ def _find_wall_intersections(
     distance = np.sqrt(
         (xx - origin[0]) ** 2 + (yx - origin[1]) ** 2
     )  # Distance from intersections
+    i_closest = np.argmin(distance)
     i_furthest = np.argmax(distance)
+    x_start = xx[i_closest]
+    y_start = yx[i_closest]
+    z_start = origin[-1]
     x_end = xx[i_furthest]
     y_end = yx[i_furthest]
     z_end = origin[-1]
 
-    # Find intersection in z for outer wall
-    rx, zx, ix, jx = intersection(r_line, z_line, r_wall_outer, z_wall_outer)
-    if len(zx) == 2:
-        if (
-            (zx[0] == machine_dimensions[1][0])
-            or (zx[0] == machine_dimensions[1][1])
-            or (zx[1] == machine_dimensions[1][0])
-            or (zx[1] == machine_dimensions[1][1])
-        ):
-            z_end = zx[-1]
-            x_end = np.interp(ix[1], np.arange(0, len(x_line), 1), x_line)
-            y_end = np.interp(ix[1], np.arange(0, len(x_line), 1), y_line)
-
-    # Find intersection in z for inner wall (if exists)
-    rx, zx, ix, jx = intersection(r_line, z_line, r_wall_inner, z_wall_inner)
-    if len(zx) > 0:
-        z_end = zx[0]
-        x_end = np.interp(ix[0], np.arange(0, len(x_line), 1), x_line)
-        y_end = np.interp(ix[0], np.arange(0, len(y_line), 1), y_line)
+    # Find intersections with inner wall (if exists)
+    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
+    if len(xx) > 0:
+        distance = np.sqrt(
+            (xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2
+        )  # Distance from intersections
+        i_closest = np.argmin(distance)
+        x_end = xx[i_closest]
+        y_end = yx[i_closest]
+        z_end = origin[-1]
 
     return (x_start, y_start, z_start), (x_end, y_end, z_end)
 
