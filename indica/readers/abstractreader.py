@@ -13,7 +13,6 @@ from typing import Iterable
 from typing import List
 from typing import Set
 from typing import Tuple
-import warnings
 
 import numpy as np
 import prov.model as prov
@@ -24,7 +23,7 @@ from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
-from ..converters import LinesOfSightTransform
+from ..converters import LinesOfSightTransform, LineOfSightTransform
 from ..converters import MagneticCoordinates
 from ..converters import TransectCoordinates
 from ..converters import TrivialTransform
@@ -44,9 +43,9 @@ class DataReader(BaseIO):
 
     This defines the interface used by all concrete objects which read
     data from the disc, a database, etc. It is a `context manager
-    <https://docs.python.org/3/library/stdtypes.html#typecontextmanager>`_
+    <https://protect-eu.mimecast.com/s/f7vJCpzxoFzjOpcPXjtX?domain=docs.python.org>`_
     and can be used in a `with statement
-    <https://docs.python.org/3/reference/compound_stmts.html#with>`_.
+    <https://protect-eu.mimecast.com/s/ITLqCq2ypIOpkJuX7qUj?domain=docs.python.org>`_.
 
     Attributes
     ----------
@@ -194,6 +193,8 @@ class DataReader(BaseIO):
         -------
         :
             A dictionary containing the requested physical quantities.
+
+        TODO: change to line_of_sight transform
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_thomson_scattering(
@@ -235,7 +236,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).indica.inclusive_timeslice(self._tstart, self._tend),
+                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -243,7 +244,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -348,6 +349,8 @@ class DataReader(BaseIO):
         :
             A dictionary containing the requested physical quantities.
 
+        TODO: change to line_of_sight transform
+
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_charge_exchange(
@@ -378,9 +381,9 @@ class DataReader(BaseIO):
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
         )
         # TODO: why use ffill as method??? Temporarily removed...
-        texp = DataArray(
-            database_results["texp"], coords=[("t", times)]
-        ).indica.inclusive_timeslice(self._tstart, self._tend)
+        texp = DataArray(database_results["texp"], coords=[("t", times)]).sel(
+            t=slice(self._tstart, self._tend)
+        )
         if downsample_ratio > 1:
             # Seems to be some sort of bug setting the coordinate when
             # coarsening a 1-D array
@@ -406,7 +409,7 @@ class DataReader(BaseIO):
                 "transform": transform,
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).indica.inclusive_timeslice(self._tstart, self._tend),
+                ).sel(t=slice(self._tstart, self._tend)),
                 "exposure_time": texp,
             }
             quant_data = DataArray(
@@ -414,7 +417,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -440,8 +443,6 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
-
-        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_charge_exchange(
@@ -531,9 +532,10 @@ class DataReader(BaseIO):
             "fbnd",
             "ipla",
             "wp",
+            "df",
         }
         separatrix_quantities = {"rbnd", "zbnd"}
-        flux_quantities = {"f", "ftor", "vjac", "rmji", "rmjo"}
+        flux_quantities = {"f", "ftor", "vjac", "ajac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(instrument)
         if len({"rmji", "rmjo"} & quantities) > 0:
             quantities.add("zmag")
@@ -548,17 +550,13 @@ class DataReader(BaseIO):
         diagnostic_coord = "rho_poloidal"
         times = database_results["times"]
         times_unique, ind_unique = np.unique(times, return_index=True)
-        downsample_ratio = int(
-            np.ceil(
-                (len(times_unique) - 1)
-                / (times_unique[-1] - times_unique[0])
-                / self._max_freq
-            )
-        )
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
         dims_1d = ("t",)
         trivial_transform = TrivialTransform()
         if len(flux_quantities & quantities) > 0:
+            psin = database_results["psin"]
+            coords_psin: Dict[Hashable, ArrayLike] = {"psin": psin}
+            dims_psin = ("psin", )
             rho = np.sqrt(database_results["psin"])
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
         else:
@@ -590,6 +588,11 @@ class DataReader(BaseIO):
         if "zmag" in quantities:
             sorted_quantities.remove("zmag")
             sorted_quantities.insert(0, "zmag")
+        # TODO: add this in the available_quantities.py
+        if "psin" not in quantities:
+            sorted_quantities.insert(0, "psin")
+            available_quantities["psin"] = ("poloidal_flux", "normalised")
+
         # Get rmag, zmag if need any of rmji, rmjo, faxs
         for quantity in sorted_quantities:
             if quantity not in available_quantities:
@@ -613,26 +616,22 @@ class DataReader(BaseIO):
             elif quantity in separatrix_quantities:
                 coords = coords_sep
                 dims = dims_sep
+            elif quantity == "psin":
+                coords = coords_psin
+                dims = dims_psin
             else:
                 coords = coords_2d
                 dims = dims_2d
+
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            )
+            if "t" in dims:
+                quant_data = quant_data.sel(t=slice(self._tstart, self._tend))
 
-            if len(times) != len(times_unique):
-                print(
-                    """Equilibrium time axis does not have
-                    unique elements...correcting..."""
-                )
-                quant_data = quant_data.isel(t=ind_unique)
-            if downsample_ratio > 1:
-                quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
-                ).mean()
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "equilibrium",
@@ -650,6 +649,12 @@ class DataReader(BaseIO):
                 quant_data.coords["R"] = data["rmag"]
                 quant_data.coords["z"] = data["zmag"]
 
+            if len(times) != len(times_unique):
+                print(
+                    """Equilibrium time axis does not have
+                    unique elements...correcting..."""
+                )
+                quant_data = quant_data.isel(t=ind_unique)
             data[quantity] = quant_data
 
         return data
@@ -736,6 +741,8 @@ class DataReader(BaseIO):
         :
             A dictionary containing the electron temperature.
 
+        TODO: change to line_of_sight transform
+
         """
         available_quantities = self.available_quantities(instrument)
         for quantity in quantities:
@@ -773,7 +780,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).indica.inclusive_timeslice(self._tstart, self._tend),
+                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -781,7 +788,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -813,8 +820,6 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
-
-        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_cyclotron_emissions(
@@ -895,6 +900,8 @@ class DataReader(BaseIO):
         :
             A dictionary containing the requested radiation values.
 
+        TODO: change to line_of_sight transform
+
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_radiation(uid, instrument, revision, quantities)
@@ -917,14 +924,14 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                x_start=database_results[quantity + "_xstart"],
-                z_start=database_results[quantity + "_zstart"],
-                y_start=database_results[quantity + "_ystart"],
-                x_end=database_results[quantity + "_xstop"],
-                z_end=database_results[quantity + "_zstop"],
-                y_end=database_results[quantity + "_ystop"],
-                name=f"{instrument}_{quantity}",
-                machine_dimensions=database_results["machine_dims"],
+                database_results[quantity + "_xstart"],
+                database_results[quantity + "_ystart"],
+                database_results[quantity + "_zstart"],
+                database_results[quantity + "_xstop"],
+                database_results[quantity + "_ystop"],
+                database_results[quantity + "_zstop"],
+                f"{instrument}_{quantity}",
+                database_results["machine_dims"],
             )
             # print(transform.x1_name, quantity)
             coords = [
@@ -933,11 +940,8 @@ class DataReader(BaseIO):
             ]
             meta = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(
-                    database_results[quantity + "_error"], coords
-                ).indica.inclusive_timeslice(
-                    self._tstart,
-                    self._tend,
+                "error": DataArray(database_results[quantity + "_error"], coords).sel(
+                    t=slice(self._tstart, self._tend),
                 ),
                 "transform": transform,
             }
@@ -945,7 +949,7 @@ class DataReader(BaseIO):
                 database_results[quantity],
                 coords,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -971,8 +975,6 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
-
-        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_radiation(
@@ -1086,14 +1088,14 @@ class DataReader(BaseIO):
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
             transform = LinesOfSightTransform(
-                x_start=database_results[quantity + "_xstart"],
-                z_start=database_results[quantity + "_zstart"],
-                y_start=database_results[quantity + "_ystart"],
-                x_end=database_results[quantity + "_xstop"],
-                z_end=database_results[quantity + "_zstop"],
-                y_end=database_results[quantity + "_ystop"],
-                name=f"{instrument}_{quantity}",
-                machine_dimensions=database_results["machine_dims"],
+                database_results[quantity + "_xstart"],
+                database_results[quantity + "_ystart"],
+                database_results[quantity + "_zstart"],
+                database_results[quantity + "_xstop"],
+                database_results[quantity + "_ystop"],
+                database_results[quantity + "_zstop"],
+                f"{instrument}_{quantity}",
+                database_results["machine_dims"],
             )
             coords: Dict[Hashable, Any] = {"t": times}
             dims = ["t"]
@@ -1108,7 +1110,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).indica.inclusive_timeslice(self._tstart, self._tend),
+                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -1116,7 +1118,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1150,8 +1152,6 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
-
-        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_bremsstrahlung_spectroscopy(
@@ -1253,15 +1253,15 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         wavelength = database_results["wavelength"]
-        transform = LinesOfSightTransform(
-            x_start=database_results["xstart"],
-            z_start=database_results["zstart"],
-            y_start=database_results["ystart"],
-            x_end=database_results["xstop"],
-            z_end=database_results["zstop"],
-            y_end=database_results["ystop"],
-            name=f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
+        transform = LineOfSightTransform(
+            database_results["location"][0],
+            database_results["location"][1],
+            database_results["location"][2],
+            database_results["direction"][0],
+            database_results["direction"][1],
+            database_results["direction"][2],
+            f"{instrument}",
+            database_results["machine_dims"],
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1303,13 +1303,13 @@ class DataReader(BaseIO):
             if quantity_error in database_results.keys():
                 meta["error"] = DataArray(
                     database_results[quantity_error], coords, dims
-                ).indica.inclusive_timeslice(self._tstart, self._tend)
+                ).sel(t=slice(self._tstart, self._tend))
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1333,8 +1333,6 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
-
-        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_helike_spectroscopy(
@@ -1431,15 +1429,16 @@ class DataReader(BaseIO):
         _revision = database_results["revision"]
 
         times = database_results["times"]
-        transform = LinesOfSightTransform(
-            x_start=database_results["xstart"],
-            z_start=database_results["zstart"],
-            y_start=database_results["ystart"],
-            x_end=database_results["xstop"],
-            z_end=database_results["zstop"],
-            y_end=database_results["ystop"],
-            name=f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
+
+        transform = LineOfSightTransform(
+            database_results["location"][0],
+            database_results["location"][1],
+            database_results["location"][2],
+            database_results["direction"][0],
+            database_results["direction"][1],
+            database_results["direction"][2],
+            f"{instrument}",
+            database_results["machine_dims"],
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1465,7 +1464,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).indica.inclusive_timeslice(self._tstart, self._tend),
+                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -1473,7 +1472,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1597,15 +1596,15 @@ class DataReader(BaseIO):
             return database_results
 
         times = database_results["times"]
-        transform = LinesOfSightTransform(
-            x_start=database_results["xstart"],
-            z_start=database_results["zstart"],
-            y_start=database_results["ystart"],
-            x_end=database_results["xstop"],
-            z_end=database_results["zstop"],
-            y_end=database_results["ystop"],
-            name=f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
+        transform = LineOfSightTransform(
+            database_results["location"][0],
+            database_results["location"][1],
+            database_results["location"][2],
+            database_results["direction"][0],
+            database_results["direction"][1],
+            database_results["direction"][2],
+            f"{instrument}",
+            database_results["machine_dims"],
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1631,7 +1630,7 @@ class DataReader(BaseIO):
                 "datatype": available_quantities[quantity],
                 "error": DataArray(
                     database_results[quantity + "_error"], coords, dims
-                ).indica.inclusive_timeslice(self._tstart, self._tend),
+                ).sel(t=slice(self._tstart, self._tend)),
                 "transform": transform,
             }
 
@@ -1640,7 +1639,7 @@ class DataReader(BaseIO):
                 coords,
                 dims,
                 attrs=meta,
-            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -1663,8 +1662,6 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
-
-        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_interferometry(
@@ -1726,173 +1723,170 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    # TODO: method reading ASTRA data works, but requires tests to be written
-    # Astra reader is currently working but not tested, code will be uncommented
-    # when tests have been written
-    #
-    # def get_astra(
-    #     self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
-    # ) -> Dict[str, DataArray]:
-    #     """Reads ASTRA data.
-    #
-    #     Parameters
-    #     ----------
-    #     uid
-    #         User ID (i.e., which user created this data)
-    #     instrument
-    #         Name of the code used to calculate this data
-    #     revision
-    #         An object (of implementation-dependent type) specifying what
-    #         version of data to get. Default is the most recent.
-    #     quantities
-    #         Which physical quantitie(s) to read from the database.
-    #
-    #     Returns
-    #     -------
-    #     :
-    #         A dictionary containing the requested physical quantities.
-    #
-    #     """
-    #     available_quantities = self.available_quantities(instrument)
-    #     database_results = self._get_astra(uid, instrument, revision, quantities)
-    #     if len(database_results) == 0:
-    #         print(f"No data from {uid}.{instrument}:{revision}")
-    #         return database_results
-    #     _revision = database_results["revision"]
-    #
-    #     data: Dict[str, DataArray] = {}
-    #
-    #     # Reorganise coordinate system to match Indica default rho-poloidal
-    #     rhop_psin = np.sqrt(database_results["psin"])
-    #     rhop_interp = np.linspace(0, 1.0, 65)
-    #     rhot_astra = database_results["rho"] / np.max(database_results["rho"])
-    #     rhot_rhop = []
-    #     for it in range(len(database_results["times"])):
-    #         ftor_tmp = database_results["ftor"][it, :]
-    #         psi_tmp = database_results["psi"][it, :]
-    #         rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
-    #         rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
-    #         rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
-    #         rhot_rhop.append(rhot_xpsn)
-    #
-    #     rhot_rhop = DataArray(
-    #         np.array(rhot_rhop),
-    #         {"t": database_results["times"], "rho_poloidal": rhop_interp},
-    #         dims=["t", "rho_poloidal"],
-    #     ).indica.inclusive_timeslice(self._tstart, self._tend)
-    #
-    #     radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
-    #
-    #     sorted_quantities = sorted(quantities)
-    #     for quantity in sorted_quantities:
-    #         if quantity not in available_quantities:
-    #             raise ValueError(
-    #                 "{} can not read astra data for "
-    #                 "quantity {}".format(self.__class__.__name__, quantity)
-    #             )
-    #
-    #         if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
-    #             name_coord = "rho_toroidal"
-    #         elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
-    #             name_coord = "rho_poloidal"
-    #         else:
-    #             name_coord = ""
-    #
-    #         coords = {"t": database_results["times"]}
-    #         dims = ["t"]
-    #         if len(name_coord) > 0:
-    #             coords[name_coord] = radial_coords[name_coord]
-    #             dims.append(name_coord)
-    #
-    #         trivial_transform = TrivialTransform()
-    #         meta = {
-    #             "datatype": available_quantities[quantity],
-    #             "transform": trivial_transform,
-    #         }
-    #
-    #         quant_data = DataArray(
-    #             database_results[quantity],
-    #             coords,
-    #             dims,
-    #             attrs=meta,
-    #         ).indica.inclusive_timeslice(self._tstart, self._tend)
-    #
-    #         # TODO: careful with interpolation on new rho_poloidal array...
-    #         # Interpolate ASTRA profiles on new rhop_interp array
-    #         # Interpolate PSI_NORM profiles on same coordinate system
-    #         if name_coord == "rho_toroidal":
-    #             rho_toroidal_0 = quant_data.rho_toroidal.min()
-    #             quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop(
-    #                 "rho_toroidal"
-    #             )
-    #             quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
-    #                 rho_toroidal=rho_toroidal_0
-    #             )
-    #             quant_data = quant_interp.interpolate_na("rho_poloidal")
-    #         elif name_coord == "rho_poloidal":
-    #             quant_data = quant_data.interp(rho_poloidal=rhop_interp)
-    #
-    #         quant_data.name = instrument + "_" + quantity
-    #         quant_data.attrs["partial_provenance"] = self.create_provenance(
-    #             "astra",
-    #             uid,
-    #             instrument,
-    #             _revision,
-    #             quantity,
-    #             database_results[quantity + "_records"],
-    #             [],
-    #         )
-    #
-    #         quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-    #
-    #         data[quantity] = quant_data
-    #
-    #     return data
-    #
-    # def _get_astra(
-    #     self,
-    #     uid: str,
-    #     instrument: str,
-    #     revision: RevisionLike,
-    #     quantities: Set[str],
-    # ) -> Dict[str, Any]:
-    #     """Reads ASTRA data
-    #
-    #     Parameters
-    #     ----------
-    #     uid
-    #         User ID (i.e., which user created this data)
-    #     instrument
-    #         Name of the instrument which measured this data
-    #     revision
-    #         An object (of implementation-dependent type) specifying what
-    #         version of data to get. Default is the most recent.
-    #     quantities
-    #         Which physical quantitie(s) to read from the database.
-    #
-    #     Returns
-    #     -------
-    #     A dictionary containing the following items:
-    #
-    #     times : ndarray
-    #         The times at which measurements were taken
-    #     machine_dims
-    #         A tuple describing the size of the Tokamak domain. It should have
-    #         the form ``((Rmin, Rmax), (zmin, zmax))``.
-    #
-    #     For each requested quantity, the following items will also be present:
-    #
-    #     <quantity> : ndarray
-    #         The data itself (first axis is time, second channel)
-    #     <quantity>_records : List[str]
-    #         Representations (e.g., paths) for the records in the database used
-    #         to access data needed for this data.
-    #
-    #     """
-    #     raise NotImplementedError(
-    #         "{} does not implement a '_get_spectroscopy' "
-    #         "method.".format(self.__class__.__name__)
-    #     )
+    def get_astra(
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
+    ) -> Dict[str, DataArray]:
+        """Reads ASTRA data.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the code used to calculate this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        :
+            A dictionary containing the requested physical quantities.
+
+        """
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_astra(uid, instrument, revision, quantities)
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+        _revision = database_results["revision"]
+
+        data: Dict[str, DataArray] = {}
+
+        # Reorganise coordinate system to match Indica default rho-poloidal
+        psin = database_results["psin"]
+        rhop_psin = np.sqrt(psin)
+        rhop_interp = np.linspace(0, 1.0, 65)
+        rhot_astra = database_results["rho"] / np.max(database_results["rho"])
+        rhot_rhop = []
+        for it in range(len(database_results["times"])):
+            ftor_tmp = database_results["ftor"][it, :]
+            psi_tmp = database_results["psi"][it, :]
+            rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
+            rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
+            rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
+            rhot_rhop.append(rhot_xpsn)
+
+        rhot_rhop = DataArray(
+            np.array(rhot_rhop),
+            {"t": database_results["times"], "rho_poloidal": rhop_interp},
+            dims=["t", "rho_poloidal"],
+        ).sel(t=slice(self._tstart, self._tend))
+
+        radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
+
+        sorted_quantities = sorted(quantities)
+        for quantity in sorted_quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read astra data for "
+                    "quantity {}".format(self.__class__.__name__, quantity)
+                )
+
+            if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
+                name_coord = "rho_toroidal"
+            elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
+                name_coord = "rho_poloidal"
+            else:
+                name_coord = ""
+
+            coords = {"t": database_results["times"]}
+            dims = ["t"]
+            if len(name_coord) > 0:
+                coords[name_coord] = radial_coords[name_coord]
+                dims.append(name_coord)
+
+            trivial_transform = TrivialTransform()
+            meta = {
+                "datatype": available_quantities[quantity],
+                "transform": trivial_transform,
+            }
+
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                dims,
+                attrs=meta,
+            ).sel(t=slice(self._tstart, self._tend))
+
+            # TODO: careful with interpolation on new rho_poloidal array...
+            # Interpolate ASTRA profiles on new rhop_interp array
+            # Interpolate PSI_NORM profiles on same coordinate system
+            if name_coord == "rho_toroidal":
+                rho_toroidal_0 = quant_data.rho_toroidal.min()
+                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop(
+                    "rho_toroidal"
+                )
+                quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
+                    rho_toroidal=rho_toroidal_0
+                )
+                quant_data = quant_interp.interpolate_na("rho_poloidal")
+            elif name_coord == "rho_poloidal":
+                quant_data = quant_data.interp(rho_poloidal=rhop_interp)
+
+            quant_data.name = instrument + "_" + quantity
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
+                "astra",
+                uid,
+                instrument,
+                _revision,
+                quantity,
+                database_results[quantity + "_records"],
+                [],
+            )
+
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+
+            data[quantity] = quant_data
+
+        return data
+
+    def _get_astra(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Reads ASTRA data
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        times : ndarray
+            The times at which measurements were taken
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time, second channel)
+        <quantity>_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for this data.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_spectroscopy' "
+            "method.".format(self.__class__.__name__)
+        )
 
     def create_provenance(
         self,
@@ -2084,20 +2078,12 @@ class DataReader(BaseIO):
         """
         return []
 
-    def _warn_less_than_zero(self, instrument: str, data: Dict[str, DataArray]):
-        for key, val in data.items():
-            if np.any(val < 0):
-                warnings.warn(
-                    f"{key} in {instrument} contains values less than 0.", UserWarning
-                )
-
-    @classmethod
-    def available_quantities(cls, instrument):
+    def available_quantities(self, instrument):
         """Return the quantities which can be read for the specified
         instrument."""
-        if instrument not in cls.INSTRUMENT_METHODS:
+        if instrument not in self.INSTRUMENT_METHODS:
             raise ValueError("Can not read data for instrument {}".format(instrument))
-        if instrument in cls._IMPLEMENTATION_QUANTITIES:
-            return cls._IMPLEMENTATION_QUANTITIES[instrument]
+        if instrument in self._IMPLEMENTATION_QUANTITIES:
+            return self._IMPLEMENTATION_QUANTITIES[instrument]
         else:
-            return cls._AVAILABLE_QUANTITIES[cls.INSTRUMENT_METHODS[instrument]]
+            return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
