@@ -261,8 +261,6 @@ class LineOfSightTransform(CoordinateTransform):
         rho = DataArray(rho, coords=[("t", t), (self.x2_name, self.x2)])
         theta = DataArray(theta, coords=[("t", t), (self.x2_name, self.x2)])
         rho = xr.where(rho >= 0, rho, 0.0)
-        rho.coords[self.x2_name] = self.x2
-        theta.coords[self.x2_name] = self.x2
 
         self.rho = rho
         self.theta = theta

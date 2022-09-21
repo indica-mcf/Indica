@@ -23,7 +23,8 @@ from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
-from ..converters import LinesOfSightTransform, LineOfSightTransform
+from ..converters import LineOfSightTransform
+from ..converters import LinesOfSightTransform
 from ..converters import MagneticCoordinates
 from ..converters import TransectCoordinates
 from ..converters import TrivialTransform
@@ -556,7 +557,7 @@ class DataReader(BaseIO):
         if len(flux_quantities & quantities) > 0:
             psin = database_results["psin"]
             coords_psin: Dict[Hashable, ArrayLike] = {"psin": psin}
-            dims_psin = ("psin", )
+            dims_psin = ("psin",)
             rho = np.sqrt(database_results["psin"])
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
         else:
