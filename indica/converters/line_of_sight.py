@@ -258,6 +258,8 @@ class LineOfSightTransform(CoordinateTransform):
             raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
 
         rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+        rho = DataArray(rho, coords=[("t", t), (self.x2_name, self.x2)])
+        theta = DataArray(theta, coords=[("t", t), (self.x2_name, self.x2)])
         rho = xr.where(rho >= 0, rho, 0.0)
         rho.coords[self.x2_name] = self.x2
         theta.coords[self.x2_name] = self.x2
@@ -275,7 +277,7 @@ class LineOfSightTransform(CoordinateTransform):
     ):
         """
         Map 1D profile to LOS
-        TODO: extend for 2D interpolation if coordinates of the profile are (R, z) instead of rho
+        TODO: extend for 2D interpolation to (R, z) instead of rho
         Parameters
         ----------
         profile_1d
@@ -325,7 +327,7 @@ class LineOfSightTransform(CoordinateTransform):
         limit_to_sep
             Set to True if values outside of separatrix are to be set to 0
         passes
-            Number of passes across the plasma (e.g. interferometer with corner-cube will have passes=2)
+            Number of passes across the plasma (e.g. typical interferometer passes=2)
 
         Returns
         -------
