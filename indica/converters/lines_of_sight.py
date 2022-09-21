@@ -7,16 +7,16 @@ from typing import Callable
 from typing import Optional
 from typing import Tuple
 
-import xarray as xr
 import numpy as np
 from scipy.optimize import root
+import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
+from indica.converters import FluxSurfaceCoordinates
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
-from indica.converters import FluxSurfaceCoordinates
 
 
 class LinesOfSightTransform(CoordinateTransform):
@@ -102,10 +102,13 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2_inversion: Optional[
             Callable[[LabeledArray, LabeledArray], LabeledArray]
         ] = None
+
         if len(x_start) == 1:
-            self.x1 = np.array(0)
+            x1_arr = np.array(0)
         else:
-            self.x1 = np.arange(0, len(x_start) + 1)
+            x1_arr = np.arange(0, len(x_start) + 1)
+        self.x1 = x1_arr
+
         self.x1_name = "channel"
         self.x2_name = "los_position"
 
@@ -136,7 +139,7 @@ class LinesOfSightTransform(CoordinateTransform):
         x_0 = x_s + (x_e - x_s) * x2
         y_0 = y_s + (y_e - y_s) * x2
         z = z_s + (z_e - z_s) * x2
-        return np.sqrt(x_0 ** 2 + y_0 ** 2), z
+        return np.sqrt(x_0**2 + y_0**2), z
 
     def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -147,11 +150,8 @@ class LinesOfSightTransform(CoordinateTransform):
         x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
         y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
         y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
-        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
-        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
         x_0 = x_s + (x_e - x_s) * x2
         y_0 = y_s + (y_e - y_s) * x2
-        z = z_s + (z_e - z_s) * x2
         return x_0, y_0
 
     def convert_from_Rz(
@@ -170,7 +170,7 @@ class LinesOfSightTransform(CoordinateTransform):
             z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
             x_0 = x_s + (x_e - x_s) * x2
             y_0 = y_s + (y_e - y_s) * x2
-            x = np.sign(x_0) * np.sqrt(x_0 ** 2 + y_0 ** 2)
+            x = np.sign(x_0) * np.sqrt(x_0**2 + y_0**2)
             dx_0dx1 = (self.x_start[c] - self.x_start[f]) * (1 - x2) + (
                 self.x_end[c] - self.x_end[f]
             ) * x2
@@ -249,23 +249,18 @@ class LinesOfSightTransform(CoordinateTransform):
             raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
 
         x2_arr = np.linspace(0, 1, npts)
-        self.x2 = DataArray(x2_arr, dims=self.x2_name)
+        self.x2 = x2_arr
         self.dl = self.distance(self.x2_name, DataArray(0), self.x2[0:2], 0)[1]
         self.R, self.z = self.convert_to_Rz(self.x1, self.x2, 0)
 
         rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+
+        rho = DataArray(rho, coords=[self.x2_name, self.x2])
         rho = xr.where(rho >= 0, rho, 0.0)
         rho.coords[self.x2_name] = self.x2
-        theta.coords[self.x2_name] = self.x2
 
-        if "R" in rho.coords:
-            rho = rho.drop("R")
-        if "z" in rho.coords:
-            rho = rho.drop("z")
-        if "R" in theta.coords:
-            theta = theta.drop("R")
-        if "z" in theta.coords:
-            theta = theta.drop("z")
+        theta = DataArray(theta, coords=[self.x2_name, self.x2])
+        theta.coords[self.x2_name] = self.x2
 
         self.rho = rho
         self.theta = theta
@@ -293,7 +288,7 @@ class LinesOfSightTransform(CoordinateTransform):
     ):
         """
         Map 1D profile to LOS
-        TODO: extend for 2D interpolation if coordinates of the profile are (R, z) instead of rho
+        TODO: extend for 2D interpolation with coords (R, z) instead of rho
         Parameters
         ----------
         profile_1d
@@ -321,7 +316,11 @@ class LinesOfSightTransform(CoordinateTransform):
             rho = self.rho
         along_los = profile_1d.interp(rho_poloidal=rho)
         if limit_to_sep:
-            along_los = xr.where(rho <= 1, along_los, 0,)
+            along_los = xr.where(
+                rho <= 1,
+                along_los,
+                0,
+            )
 
         return along_los
 
@@ -349,7 +348,7 @@ class LinesOfSightTransform(CoordinateTransform):
         limit_to_sep
             Set to True if values outside of separatrix are to be set to 0
         passes
-            Number of passes across the plasma (e.g. interferometer with corner-cube will have passes=2)
+            Number of passes across plasma (e.g. usually interferometer passes=2)
 
         Returns
         -------
@@ -374,7 +373,11 @@ class LinesOfSightTransform(CoordinateTransform):
             raise Exception("Missing equilibrium in flux surface transform")
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> LabeledArray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -440,7 +443,7 @@ def _get_wall_intersection_distances(
         The length of each line of sight for it to intersect a Tokamak wall.
 
     """
-    # TODO: generalize for (x, y, z) plane looking for intersection with the inner column
+    # TODO: generalize for (x, y, z) plane: intersection with the inner column
     opposite_x = np.where(
         x_end - x_start < 0, machine_dimensions[0][0], machine_dimensions[0][1]
     )
@@ -450,9 +453,9 @@ def _get_wall_intersection_distances(
     # Calculate where LOS intersects opposite R-surface
     a = (x_end - x_start) ** 2 + (y_end - y_start) ** 2
     b = 2 * (x_start * (x_end - x_start) + y_start * (y_end - y_start))
-    c = x_start ** 2 + y_start ** 2 - opposite_x ** 2
+    c = x_start**2 + y_start**2 - opposite_x**2
     factor = np.where(x_end - x_start < 0, -1, 1)
-    mask = b ** 2 - 4 * a * c < 0
+    mask = b**2 - 4 * a * c < 0
     # Check line of sight actually intersects the expected wall
     opposite_x[mask] = machine_dimensions[0][1]
     a[mask] = (x_end[mask] - x_start[mask]) ** 2 + (y_end[mask] - y_start[mask]) ** 2
@@ -462,7 +465,7 @@ def _get_wall_intersection_distances(
     )
     c[mask] = x_start[mask] ** 2 + y_start[mask] ** 2 - opposite_x[mask] ** 2
     factor[mask] *= -1
-    x2_trial = (-b + factor * np.sqrt(b ** 2 - 4 * a * c)) / (2 * a)
+    x2_trial = (-b + factor * np.sqrt(b**2 - 4 * a * c)) / (2 * a)
     z_trial = z_start + x2_trial * (z_end - z_start)
 
     x2_opposite = np.zeros_like(x2_trial)
