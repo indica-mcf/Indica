@@ -23,7 +23,7 @@ from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
-from ..converters import LinesOfSightTransform
+from ..converters import LinesOfSightTransform, LineOfSightTransform
 from ..converters import MagneticCoordinates
 from ..converters import TransectCoordinates
 from ..converters import TrivialTransform
@@ -193,6 +193,8 @@ class DataReader(BaseIO):
         -------
         :
             A dictionary containing the requested physical quantities.
+
+        TODO: change to line_of_sight transform
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_thomson_scattering(
@@ -346,6 +348,8 @@ class DataReader(BaseIO):
         -------
         :
             A dictionary containing the requested physical quantities.
+
+        TODO: change to line_of_sight transform
 
         """
         available_quantities = self.available_quantities(instrument)
@@ -737,6 +741,8 @@ class DataReader(BaseIO):
         :
             A dictionary containing the electron temperature.
 
+        TODO: change to line_of_sight transform
+
         """
         available_quantities = self.available_quantities(instrument)
         for quantity in quantities:
@@ -893,6 +899,8 @@ class DataReader(BaseIO):
         -------
         :
             A dictionary containing the requested radiation values.
+
+        TODO: change to line_of_sight transform
 
         """
         available_quantities = self.available_quantities(instrument)
@@ -1245,13 +1253,13 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         wavelength = database_results["wavelength"]
-        transform = LinesOfSightTransform(
-            database_results["xstart"],
-            database_results["ystart"],
-            database_results["zstart"],
-            database_results["xstop"],
-            database_results["ystop"],
-            database_results["zstop"],
+        transform = LineOfSightTransform(
+            database_results["location"][0],
+            database_results["location"][1],
+            database_results["location"][2],
+            database_results["direction"][0],
+            database_results["direction"][1],
+            database_results["direction"][2],
             f"{instrument}",
             database_results["machine_dims"],
         )
@@ -1421,13 +1429,14 @@ class DataReader(BaseIO):
         _revision = database_results["revision"]
 
         times = database_results["times"]
-        transform = LinesOfSightTransform(
-            database_results["xstart"],
-            database_results["ystart"],
-            database_results["zstart"],
-            database_results["xstop"],
-            database_results["ystop"],
-            database_results["zstop"],
+
+        transform = LineOfSightTransform(
+            database_results["location"][0],
+            database_results["location"][1],
+            database_results["location"][2],
+            database_results["direction"][0],
+            database_results["direction"][1],
+            database_results["direction"][2],
             f"{instrument}",
             database_results["machine_dims"],
         )
@@ -1587,13 +1596,13 @@ class DataReader(BaseIO):
             return database_results
 
         times = database_results["times"]
-        transform = LinesOfSightTransform(
-            database_results["xstart"],
-            database_results["ystart"],
-            database_results["zstart"],
-            database_results["xstop"],
-            database_results["ystop"],
-            database_results["zstop"],
+        transform = LineOfSightTransform(
+            database_results["location"][0],
+            database_results["location"][1],
+            database_results["location"][2],
+            database_results["direction"][0],
+            database_results["direction"][1],
+            database_results["direction"][2],
             f"{instrument}",
             database_results["machine_dims"],
         )
