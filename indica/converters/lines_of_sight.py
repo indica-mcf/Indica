@@ -250,14 +250,15 @@ class LinesOfSightTransform(CoordinateTransform):
 
         x2_arr = np.linspace(0, 1, npts)
         self.x2 = x2_arr
-        self.dl = self.distance(self.x2_name, DataArray(0), self.x2[0:2], 0)[1]
+        dl = self.distance(self.x2_name, DataArray(0), self.x2, 0)
+        self.dl = dl[0]
         self.R, self.z = self.convert_to_Rz(self.x1, self.x2, 0)
 
         rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
 
-        rho = DataArray(rho, coords=[self.x2_name, self.x2])
+        rho = DataArray(rho, coords=[("t", t), (self.x2_name, self.x2)])
+        theta = DataArray(theta, coords=[("t", t), (self.x2_name, self.x2)])
         rho = xr.where(rho >= 0, rho, 0.0)
-        rho.coords[self.x2_name] = self.x2
 
         theta = DataArray(theta, coords=[self.x2_name, self.x2])
         theta.coords[self.x2_name] = self.x2
