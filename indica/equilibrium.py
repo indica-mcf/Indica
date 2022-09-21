@@ -651,12 +651,16 @@ class Equilibrium(AbstractEquilibrium):
             z + cast(np.ndarray, self.z_offset) - z_ax,
             R + cast(np.ndarray, self.R_offset) - R_ax,
         )
+        if len(np.shape(theta))  > 1:
+            theta = theta.transpose()
+
         if kind != "poloidal":
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
         # Set rho to be negative in the private flux region
         rho_interp = where(
             np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
         )
+
         return rho_interp, theta, t
 
     def spatial_coords(
