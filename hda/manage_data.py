@@ -30,7 +30,9 @@ def initialize_bckc(data):
     for diagnostic in data.keys():
         bckc[diagnostic] = {}
         for quantity in data[diagnostic].keys():
-            bckc[diagnostic][quantity] = initialize_bckc_dataarray(data[diagnostic][quantity])
+            bckc[diagnostic][quantity] = initialize_bckc_dataarray(
+                data[diagnostic][quantity]
+            )
 
     return bckc
 
@@ -50,10 +52,8 @@ def initialize_bckc_dataarray(dataarray: DataArray):
 
 
 def bin_data_in_time(
-    exp_data: dict,
-    tstart: float,
-    tend: float,
-    dt: float,):
+    exp_data: dict, tstart: float, tend: float, dt: float,
+):
     """
     Bin raw experimental data on the desired time axis, assign equilibrium to
     transform objects
@@ -88,8 +88,7 @@ def bin_data_in_time(
 
 
 def map_on_equilibrium(
-    diagnostic_data: dict,
-    flux_transform: FluxSurfaceCoordinates,
+    diagnostic_data: dict, flux_transform: FluxSurfaceCoordinates,
 ):
     """
     Assign equilibrium and transform, map viewing LOS
@@ -114,7 +113,7 @@ def map_on_equilibrium(
     transform = data.attrs["transform"]
     if hasattr(flux_transform, "equilibrium"):
         transform.set_equilibrium(flux_transform.equilibrium, force=True)
-        if "LinesOfSightTransform" in str(data.attrs["transform"]):
+        if "LineOfSightTransform" in str(data.attrs["transform"]):
             transform.set_flux_transform(flux_transform)
             transform.convert_to_rho(t=data.t)
 
