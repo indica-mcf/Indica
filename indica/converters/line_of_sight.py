@@ -6,9 +6,9 @@ from typing import Tuple
 
 import numpy as np
 from scipy.optimize import root
+import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
-import xarray as xr
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -147,7 +147,7 @@ class LineOfSightTransform(CoordinateTransform):
         x = self.x_start + (self.x_end - self.x_start) * x2
         y = self.y_start + (self.y_end - self.y_start) * x2
         z = self.z_start + (self.z_end - self.z_start) * x2
-        return np.sign(x) * np.sqrt(x ** 2 + y ** 2), z
+        return np.sign(x) * np.sqrt(x**2 + y**2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -157,7 +157,7 @@ class LineOfSightTransform(CoordinateTransform):
             x2 = x[1]
             x = self.x_start + (self.x_end - self.x_start) * x2
             y = self.y_start + (self.y_end - self.y_start) * x2
-            x = np.sign(x) * np.sqrt(x ** 2 + y ** 2)
+            x = np.sign(x) * np.sqrt(x**2 + y**2)
             dxdx1 = 0.0
             dxdx2 = self.x_end - self.x_start
             dydx1 = 0.0
@@ -165,7 +165,10 @@ class LineOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
+                [
+                    2 / x * (x * dxdx1 + y * dydx1),
+                    2 / x * (x * dxdx2 + y * dydx2),
+                ],
                 [dzdx1, dzdx2],
             ]
 
@@ -191,7 +194,11 @@ class LineOfSightTransform(CoordinateTransform):
         # # inexact, as well as computationally expensive).
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -251,6 +258,8 @@ class LineOfSightTransform(CoordinateTransform):
             raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
 
         rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+        rho = DataArray(rho, coords=[("t", t), (self.x2_name, self.x2)])
+        theta = DataArray(theta, coords=[("t", t), (self.x2_name, self.x2)])
         rho = xr.where(rho >= 0, rho, 0.0)
         rho.coords[self.x2_name] = self.x2
         theta.coords[self.x2_name] = self.x2
@@ -268,7 +277,7 @@ class LineOfSightTransform(CoordinateTransform):
     ):
         """
         Map 1D profile to LOS
-        TODO: extend for 2D interpolation if coordinates of the profile are (R, z) instead of rho
+        TODO: extend for 2D interpolation to (R, z) instead of rho
         Parameters
         ----------
         profile_1d
@@ -292,7 +301,11 @@ class LineOfSightTransform(CoordinateTransform):
             rho = self.rho
         along_los = profile_1d.interp(rho_poloidal=rho)
         if limit_to_sep:
-            along_los = xr.where(rho <= 1, along_los, 0,)
+            along_los = xr.where(
+                rho <= 1,
+                along_los,
+                0,
+            )
 
         return along_los
 
@@ -314,7 +327,7 @@ class LineOfSightTransform(CoordinateTransform):
         limit_to_sep
             Set to True if values outside of separatrix are to be set to 0
         passes
-            Number of passes across the plasma (e.g. interferometer with corner-cube will have passes=2)
+            Number of passes across the plasma (e.g. typical interferometer passes=2)
 
         Returns
         -------
@@ -335,6 +348,7 @@ class LineOfSightTransform(CoordinateTransform):
             raise Exception("Missing flux surface transform")
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Missing equilibrium in flux surface transform")
+
 
 def _find_wall_intersections(
     origin: Tuple,
