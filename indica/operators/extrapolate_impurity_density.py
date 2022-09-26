@@ -744,6 +744,30 @@ class ExtrapolateImpurityDensity(Operator):
             (rho, theta, t)
         """
 
+        input_check(
+            "extrapolated_smooth_data",
+            extrapolated_smooth_data,
+            DataArray,
+            ndim_to_check=3,
+            greater_than_or_equal_zero=True,
+        )
+
+        input_check(
+            "orig_bolometry_data",
+            orig_bolometry_data,
+            DataArray,
+            ndim_to_check=2,
+            greater_than_or_equal_zero=True,
+        )
+
+        input_check(
+            "asymmetry_modifier",
+            asymmetry_modifier,
+            DataArray,
+            ndim_to_check=3,
+            greater_than_or_equal_zero=True,
+        )
+
         rho_arr = self.rho_arr
         drho = np.max(np.diff(rho_arr))
 
