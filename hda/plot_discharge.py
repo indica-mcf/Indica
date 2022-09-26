@@ -137,7 +137,7 @@ def add_cxrs(st40_data: ST40data, raw_data: dict):
         rev = 9
         t_slice = slice(0.04, st40_data.tend)
     elif st40_data.pulse == 9780:
-        raise ValueError("What's the best run for 9780 bgnd-subtraction?")
+        # raise ValueError("What's the best run for 9780 bgnd-subtraction?")
         rev = 5
         t_slice = slice(st40_data.tstart, st40_data.tend)
     else:
@@ -211,6 +211,10 @@ def compare_pulses_prl(data=None):
 
     return data
 
+def plot_aps():
+    """
+    Produce plots for APS
+    """
 
 def compare_pulses(  # 9783, 9781, 9831, 10013,
     pulses: list = [9538, 9780, 9783, 9831, 10014],
@@ -220,15 +224,16 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
     alpha: float = 0.7,
     xlabel: str = "Time (s)",
     savefig: bool = False,
-    database: bool = False,
     qpop: list = [""],
     data: list = None,
 ):
     """
     Compare time traces of different pulses
+    for APS:
+    compare_pulses(qpop=["lines:h_alpha", "mhd:ampl_odd_n"])
     """
 
-    def plot_quantity(qkey: str):
+    def plot_quantity(qkey: str, linestyle="solid"):
         if "label" not in qdict[qkey]:
             qdict[qkey]["label"] = ""
         if "marker" not in qdict[qkey].keys():
@@ -264,6 +269,7 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
                     color=cols[i],
                     marker=qdict[qkey]["marker"],
                     label=label,
+                    linestyle=linestyle,
                 )
             else:
                 ind = np.where(np.isfinite(val.values))[0]
@@ -274,6 +280,7 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
                     color=cols[i],
                     label=label,
                     marker=qdict[qkey]["marker"],
+                    linestyle=linestyle,
                 )
         if type(qdict[qkey]["label"]) is str and len(qdict[qkey]["label"]) > 0:
             handlelength = 0
@@ -341,10 +348,12 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
             print(pulse)
             st40_data = ST40data(pulse, tstart, tend)
             st40_data.get_all()
+            st40_data.get_other_data()
             raw_data = st40_data.data
             add_cxrs(st40_data, raw_data)
             add_mhd(st40_data, raw_data)
             add_btot(raw_data)
+
             raw_data["nbi"] = {"pin": raw_data["hnbi1"]["pin"] + raw_data["rfx"]["pin"]}
 
             tmp = raw_data["xrcs"]["te_avrg"]
@@ -363,19 +372,9 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
             ax.xaxis.set_ticklabels([])
         else:
             ax.set_xlabel(xlabel)
-        # if key == "xrcs:ti_w":
-        #     for i in range(len(data)):
-        #         if "cxrs" in data[i].keys():
-        #             x = data[i]["cxrs"]["ti_full_max"].t.values.flatten()
-        #             y = data[i]["cxrs"]["ti_full_max"].values.flatten()*1.e-3
-        #             ax.plot(
-        #                 x, y, alpha=alpha, color=cols[i], marker="^", linestyle="dashed",
-        #             )
-        #     ax.plot(
-        #         x, y, alpha=alpha, color=cols[i], marker="^", label="CXRS", linestyle="dashed",
-        #     )
-        #     ax.set_ylim((0, 12))
-        #     ax.legend()
+
+        if key == "efit:ipla":
+            plot_quantity("nbi:pin")
 
     if savefig:
         figname = ""
