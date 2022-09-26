@@ -36,12 +36,11 @@ alpha = 0.8
 tlim = (0.02,)
 
 
-def set_sizes(fontsize=16, legendsize=14, markersize=9):
+def set_sizes(fontsize=15, legendsize=13, markersize=9):
     rcParams.update({"font.size": fontsize})
     rcParams.update({"font.size": fontsize})
     rcParams.update({"legend.fontsize": legendsize})
     rcParams.update({"lines.markersize": markersize})
-
 
 def save_figure(fig_name="", orientation="landscape", ext="jpg"):
     _file = f"/home/marco.sertoli/figures/Indica/{fig_name}.{ext}"
@@ -76,12 +75,19 @@ def add_cxrs(st40_data: ST40data, raw_data: dict, R_shift=0.02):
     R_corrected = np.array([0.6189, 0.5398, 0.48494, 0.4449, 0.4211]) + R_shift
     angle_correction = [1.0072, 1.0072, 1.0072, 1.0072, 1.0072]
 
+    # # Latest after discovery of flipped optics 23/09/2022
+    # R_corrected = np.array([0.8794, 0.6345, 0.5173, 0.4583, 0.4206]) + R_shift
+    # angle_correction = [1.0, 1.0, 1.0, 1.0, 1.0]
+
     # RUN numbers: ff=full-fit, bs=background-subtraction (status @ 04/07/2022)
     pulse_info = {
         10014: {"ff": 7, "bs": 9},
         10009: {"ff": 3, "bs": 1},
         9831: {"ff": 5, "bs": 5},
         9780: {"ff": 5, "bs": 6},
+        9520: {"ff": 2},
+        9539: {"ff": 2},
+        9787: {"ff": 3},
     }
 
     # Restrict data to channels 22-26
@@ -218,7 +224,6 @@ def read_fidasim_results():
 
     return ti_fidasim, vtor_fidasim
 
-
 def plot(
     pulse,
     savefig=False,
@@ -234,7 +239,7 @@ def plot(
     set_sizes()
 
     all_runs = [str(run) for run in np.arange(60, 76 + 1)]
-
+    R_shift = 0.0
     if pulse == 10014:
         tplot = 0.0675
         # tplot = 0.064
@@ -246,26 +251,11 @@ def plot(
         R_shift = 0.02
     elif pulse == 10009:
         tplot = 0.058
-        # keep = ["60", "64", "65", "73"]  # initial best runs sent to Stan
         keep = ["60", "64", "65", "66", "72", "73"]
         run_plus_astra = 500
         run_add_hda = "MID"
         omega_scaling = 440e3
         R_shift = 0.03
-        bckc_R = np.array([0.62, 0.54, 0.48, 0.44, 0.42]) + R_shift
-        bckc_vtor = [
-            np.array([44, 110, 177, 117, 74]) / bckc_R * 1.0e3,
-            # np.array([29, 86, 170, 104, 59]) / bckc_R * 1.0e3,
-            np.array([52, 126, 182, 128, 85]) / bckc_R * 1.0e3,
-            np.array([43, 113, 175, 118, 74]) / bckc_R * 1.0e3,
-        ]
-
-        bckc_ti = [
-            np.array([2119, 5420, 9328, 7228, 5138]),
-            # np.array([1334, 4286, 9125, 6526, 4068]),
-            np.array([2355, 5833, 8859, 7329, 5428]),
-            np.array([2217, 6102, 10216, 8291, 5840]),
-        ]
     elif pulse == 9831:
         tplot = 0.076
         keep = ["60", "71", "73"]
@@ -280,6 +270,28 @@ def plot(
         run_add_hda = "MID"
         omega_scaling = 550e3
         R_shift = 0.0
+    elif pulse == 9520:
+        tplot = 0.087
+        keep = ["61", "62", "69", "70"]
+        run_plus_astra = 500
+        run_add_hda = "MID"
+        omega_scaling = 550e3
+        R_shift = 0.0
+    elif pulse == 9539:
+        tplot = 0.072
+        keep = ["62", "64", "69", "70", "72"]
+        run_plus_astra = 500
+        run_add_hda = "MID"
+        omega_scaling = 550e3
+        R_shift = 0.03
+    elif pulse == 9787:
+        # raise ValueError("HDA systematically overestimates stored energy for pulse 9787!!!!")
+        tplot = 0.098
+        keep = ["60", "66", "68", "73", "74", "76"]
+        run_plus_astra = 500
+        run_add_hda = "MID"
+        omega_scaling = 550e3
+        R_shift = 0.03
     else:
         raise ValueError(f"...input missing for pulse {pulse}..")
 
@@ -367,7 +379,11 @@ def plot(
         Pnb_all.append(astra["pnb"])
         Ptot_all.append(astra["pabs"] + astra["p_oh"])
 
-        te_tmp = bckc_dict[run]["xrcs"]["te_n3w"].sel(t=tplot, method="nearest")
+        if "te_n3w" in bckc_dict[run]["xrcs"].keys():
+            te_key = "te_n3w"
+        else:
+            te_key = "te_kw"
+        te_tmp = bckc_dict[run]["xrcs"][te_key].sel(t=tplot, method="nearest")
         rho_tmp = te_tmp.pos.sel(t=tplot, method="nearest")
         te_xrcs_bckc.append(te_tmp)
         rho_mean_te.append(te_tmp.pos.sel(t=tplot, method="nearest").value)
@@ -408,11 +424,13 @@ def plot(
     # Calculate rho of PI LOS-beam intersection and add infor to data
     cxrs = deepcopy(raw_data["cxrs"])
     equilibrium = pl.equilibrium
-    bckc_rho = equilibrium.rho.interp(t=tplot, method="nearest").drop_vars("t")
-    bckc_rho = bckc_rho.interp(R=bckc_R, z=bckc_R * 0.0)[0].values
+    # bckc_rho = equilibrium.rho.interp(t=tplot, method="nearest").drop_vars("t")
+    # bckc_rho = bckc_rho.interp(R=bckc_R, z=bckc_R * 0.0)[0].values
     for analysis_key, analysis in cxrs_analyses.items():
         for quantity in ["ti", "vtor"]:
             key = f"{quantity}_{analysis_key}"
+            if key not in cxrs.keys():
+                continue
             cxrs[key].name = analysis
             cxrs[key] = cxrs[key].assign_coords(z=("R", xr.full_like(cxrs[key].R, 0)))
 
@@ -422,33 +440,35 @@ def plot(
 
     # Time evolution
     plt.figure()
-    value = raw_data["cxrs"]["ti_ff"][:, 2].sel(t=slice(tlim[0], tlim[1]))
-    error = raw_data["cxrs"]["ti_ff"].error[:, 2].sel(t=slice(tlim[0], tlim[1]))
-    value = xr.where(value > 0, value, np.nan)
-    error = xr.where(value > 0, error, np.nan)
-    plt.errorbar(
-        value.t,
-        value * const_temp,
-        error * const_temp,
-        marker=cxrs_markers["ff"],
-        color="red",
-        alpha=alpha,
-        label="Ti CXRS",
-    )
+    if "ti_ff" in raw_data["cxrs"].keys():
+        value = raw_data["cxrs"]["ti_ff"][:, 2].sel(t=slice(tlim[0], tlim[1]))
+        error = raw_data["cxrs"]["ti_ff"].error[:, 2].sel(t=slice(tlim[0], tlim[1]))
+        value = xr.where(value > 0, value, np.nan)
+        error = xr.where(value > 0, error, np.nan)
+        plt.errorbar(
+            value.t,
+            value * const_temp,
+            error * const_temp,
+            marker=cxrs_markers["ff"],
+            color="red",
+            alpha=alpha,
+            label="Ti CXRS",
+        )
 
-    value = raw_data["cxrs"]["ti_bs"][:, 2].sel(t=slice(tlim[0], tlim[1]))
-    error = raw_data["cxrs"]["ti_bs"].error[:, 2].sel(t=slice(tlim[0], tlim[1]))
-    value = xr.where(value > 0, value, np.nan)
-    error = xr.where(value > 0, error, np.nan)
-    plt.errorbar(
-        value.t,
-        value * const_temp,
-        error * const_temp,
-        marker=cxrs_markers["bs"],
-        color="red",
-        alpha=alpha,
-        label="Ti CXRS (bgnd-subtr)",
-    )
+    if "ti_bs" in raw_data["cxrs"].keys():
+        value = raw_data["cxrs"]["ti_bs"][:, 2].sel(t=slice(tlim[0], tlim[1]))
+        error = raw_data["cxrs"]["ti_bs"].error[:, 2].sel(t=slice(tlim[0], tlim[1]))
+        value = xr.where(value > 0, value, np.nan)
+        error = xr.where(value > 0, error, np.nan)
+        plt.errorbar(
+            value.t,
+            value * const_temp,
+            error * const_temp,
+            marker=cxrs_markers["bs"],
+            color="red",
+            alpha=alpha,
+            label="Ti CXRS (bgnd-subtr)",
+        )
 
     value = raw_data["xrcs"]["ti_w"].sel(t=slice(tlim[0], tlim[1]))
     error = raw_data["xrcs"]["ti_w"].error.sel(t=slice(tlim[0], tlim[1]))
@@ -461,8 +481,13 @@ def plot(
         alpha=alpha,
         label="Ti XRCS (w)",
     )
-    value = raw_data["xrcs"]["te_n3w"].sel(t=slice(tlim[0], tlim[1]))
-    error = raw_data["xrcs"]["te_n3w"].error.sel(t=slice(tlim[0], tlim[1]))
+
+    if "te_n3w" in bckc_dict[run]["xrcs"].keys():
+        te_key = "te_n3w"
+    else:
+        te_key = "te_kw"
+    value = raw_data["xrcs"][te_key].sel(t=slice(tlim[0], tlim[1]))
+    error = raw_data["xrcs"][te_key].error.sel(t=slice(tlim[0], tlim[1]))
     value = xr.where(value > 0, value, np.nan)
     plt.errorbar(
         value.t,
@@ -687,12 +712,12 @@ def plot(
     nTtaue_mean = (
         Ni_all.mean("run").interp(rho_poloidal=0)
         * Ti_all.mean("run").interp(rho_poloidal=0)
-        * taue_mean.sel(t=tplot, method="nearest")
+        * taue_mean#.sel(t=tplot, method="nearest")
     )
     nTtaue_low = (
         Ni_all.min("run").interp(rho_poloidal=0)
         * Ti_all.min("run").interp(rho_poloidal=0)
-        * taue_low.sel(t=tplot, method="nearest")
+        * taue_low#.sel(t=tplot, method="nearest")
     )
     plt.plot(
         nTtaue_mean.t,
@@ -704,12 +729,12 @@ def plot(
     nTtaue_mean_dw = (
         Ni_all.mean("run").interp(rho_poloidal=0)
         * Ti_all.mean("run").interp(rho_poloidal=0)
-        * taue_mean_dw.sel(t=tplot, method="nearest")
+        * taue_mean_dw#.sel(t=tplot, method="nearest")
     )
     nTtaue_low_dw = (
         Ni_all.min("run").interp(rho_poloidal=0)
         * Ti_all.min("run").interp(rho_poloidal=0)
-        * taue_low_dw.sel(t=tplot, method="nearest")
+        * taue_low_dw#.sel(t=tplot, method="nearest")
     )
     plt.plot(
         nTtaue_mean_dw.t,
@@ -722,12 +747,12 @@ def plot(
     nTtaue_th_mean = (
         Ni_all.mean("run").interp(rho_poloidal=0)
         * Ti_all.mean("run").interp(rho_poloidal=0)
-        * taue_th_mean.sel(t=tplot, method="nearest")
+        * taue_th_mean#.sel(t=tplot, method="nearest")
     )
     nTtaue_th_low = (
         Ni_all.min("run").interp(rho_poloidal=0)
         * Ti_all.min("run").interp(rho_poloidal=0)
-        * taue_th_low.sel(t=tplot, method="nearest")
+        * taue_th_low#.sel(t=tplot, method="nearest")
     )
     plt.plot(
         nTtaue_th_mean.t,
@@ -739,12 +764,12 @@ def plot(
     nTtaue_th_mean_dw = (
         Ni_all.mean("run").interp(rho_poloidal=0)
         * Ti_all.mean("run").interp(rho_poloidal=0)
-        * taue_th_mean_dw.sel(t=tplot, method="nearest")
+        * taue_th_mean_dw#.sel(t=tplot, method="nearest")
     )
     nTtaue_th_low_dw = (
         Ni_all.min("run").interp(rho_poloidal=0)
         * Ti_all.min("run").interp(rho_poloidal=0)
-        * taue_th_low_dw.sel(t=tplot, method="nearest")
+        * taue_th_low_dw#.sel(t=tplot, method="nearest")
     )
     plt.plot(
         nTtaue_th_mean_dw.t,
@@ -787,6 +812,7 @@ def plot(
     if savefig:
         save_figure(fig_name=f"{pulse}_time_evol_density", ext=ext)
 
+    profile_data = {}
     # Profiles
     if multiplot:
         fig, axs = plt.subplots(2, figsize=(7.5, 12))
@@ -794,6 +820,7 @@ def plot(
     else:
         fig, ax = plt.subplots(1)
     mean = Ne_all.mean("run")
+    std = Ne_all.std("run")
     if use_std:
         up = mean + Ne_all.std("run")
         low = mean - Ne_all.std("run")
@@ -806,8 +833,10 @@ def plot(
     )
     if plot_all:
         plot_all_runs(runs, Ne_all * const_dens, alpha, colors)
+    profile_data["Ne"] = {"mean": mean, "err": std}
 
     mean = Ni_all.mean("run")
+    std = Ni_all.std("run")
     if use_std:
         up = mean + Ni_all.std("run")
         low = mean - Ni_all.std("run")
@@ -820,8 +849,10 @@ def plot(
     )
     if plot_all:
         plot_all_runs(runs, Ni_all * const_dens, alpha, colors)
+    profile_data["Ni"] = {"mean": mean, "err": std}
 
     mean = Nf_all.mean("run")
+    std = Nf_all.std("run")
     if use_std:
         up = mean + Nf_all.std("run")
         low = mean - Nf_all.std("run")
@@ -838,6 +869,7 @@ def plot(
     )
     if plot_all:
         plot_all_runs(runs, Nf_all * const_dens, alpha, colors)
+    profile_data["Nf"] = {"mean": mean, "err": std}
     ax.legend()
     ax.set_xlabel(r"$\rho_{pol}$")
     ax.set_ylabel(label_dens)
@@ -853,6 +885,7 @@ def plot(
     else:
         fig, ax = plt.subplots(1)
     mean = Te_all.mean("run")
+    std = Te_all.std("run")
     if use_std:
         up = mean + Te_all.std("run")
         low = mean - Te_all.std("run")
@@ -865,6 +898,8 @@ def plot(
     )
     if plot_all:
         plot_all_runs(runs, Te_all * const_temp, alpha, colors)
+    profile_data["Te"] = {"mean": mean, "err": std}
+
     ax.errorbar(
         rho_mean_te.mean("run"),
         te_xrcs_bckc.mean("run") * const_temp,
@@ -886,8 +921,16 @@ def plot(
         rho_out_te.max("run"),
         color="blue",
     )
+    profile_data["Te_xrcs"] = {
+        "mean": te_xrcs_bckc.mean("run"),
+        "err": (te_xrcs_bckc.min("run") - te_xrcs_bckc.max("run")),
+        "rho_mean":rho_mean_te.mean("run"),
+        "rho_in":rho_in_te.min("run"),
+        "rho_out":rho_out_te.max("run"),
+    }
 
     mean = Ti_all.mean("run")
+    std = Ti_all.std("run")
     if use_std_ti:
         up = mean + Ti_all.std("run")
         low = mean - Ti_all.std("run")
@@ -902,6 +945,7 @@ def plot(
     )
     if plot_all:
         plot_all_runs(runs, Ti_all * const_temp, alpha, colors)
+    profile_data["Ti"] = {"mean": mean, "err": std}
     ax.errorbar(
         rho_mean_ti.mean("run"),
         ti_xrcs_bckc.mean("run") * const_temp,
@@ -924,9 +968,21 @@ def plot(
         rho_out_ti.max("run"),
         color="red",
     )
+    profile_data["Ti_xrcs"] = {
+        "mean": ti_xrcs_bckc.mean("run"),
+        "err": (ti_xrcs_bckc.min("run") - ti_xrcs_bckc.max("run")),
+        "rho_mean":rho_mean_ti.mean("run"),
+        "rho_in":rho_in_ti.min("run"),
+        "rho_out":rho_out_ti.max("run"),
+    }
     quantity = "ti"
+    ti_cxrs = []
+    ti_err_cxrs = []
+    ti_rho_cxrs = []
     for analysis_key in cxrs_analyses.keys():
         key = f"{quantity}_{analysis_key}"
+        if key not in cxrs.keys():
+            continue
         ti = (xr.where(cxrs[key] > 0, cxrs[key], np.nan) * const_temp).sel(
             t=tplot, method="nearest"
         )
@@ -941,12 +997,21 @@ def plot(
                 marker=cxrs_markers[analysis_key],
                 mfc="white",
                 color="red",
-                label="CXRS",#cxrs[key].name,
+                label="CXRS",  # cxrs[key].name,
                 linestyle="",
             )
-    if plot_bckc:
-        for ti in bckc_ti:
-            ax.scatter(bckc_rho, ti * const_temp, marker="x", color="black")
+            ti_cxrs.append(ti)
+            ti_err_cxrs.append(ti_error)
+            ti_rho_cxrs.append(cxrs[key].rho_poloidal)
+    if len(ti_cxrs) > 0:
+        profile_data["Ti_cxrs"] = {
+            "mean": np.array(ti_cxrs),
+            "err": np.array(ti_err_cxrs),
+            "rho_mean": ti_rho_cxrs,
+        }
+    # if plot_bckc:
+    #     for ti in bckc_ti:
+    #         ax.scatter(bckc_rho, ti * const_temp, marker="x", color="black")
     ax.legend()
     ax.set_xlabel(r"$\rho_{pol}$")
     ax.set_ylabel("(keV)")
@@ -956,7 +1021,9 @@ def plot(
             save_figure(fig_name=f"{pulse}_temperatures_HDA-CXRS", ext=ext)
     else:
         if savefig:
-            save_figure(fig_name=f"{pulse}_temperatures_and_densities_HDA-CXRS", ext=ext)
+            save_figure(
+                fig_name=f"{pulse}_temperatures_and_densities_HDA-CXRS", ext=ext
+            )
 
     const_rot = 1.0e-3
     plt.figure()
@@ -981,6 +1048,8 @@ def plot(
     )
     quantity = "vtor"
     for analysis_key in cxrs_analyses.keys():
+        if key not in cxrs.keys():
+            continue
         key = f"{quantity}_{analysis_key}"
         vtor = (xr.where(cxrs[key] > 0, cxrs[key], np.nan)).sel(
             t=tplot, method="nearest"
@@ -999,12 +1068,12 @@ def plot(
                 marker=cxrs_markers[analysis_key],
                 mfc="white",
                 color="red",
-                label="CXRS", #cxrs[key].name,
+                label="CXRS",  # cxrs[key].name,
                 linestyle="",
             )
-    if plot_bckc:
-        for vtor in bckc_vtor:
-            plt.scatter(bckc_rho, vtor * const_temp, marker="x", color="black")
+    # if plot_bckc:
+    #     for vtor in bckc_vtor:
+    #         plt.scatter(bckc_rho, vtor * const_temp, marker="x", color="black")
     plt.title(f"{pulse} Toroidal rotation @ {int(tplot*1.e3)} ms")
     plt.legend(fontsize=10)
     plt.xlabel(r"$\rho_{pol}$")
@@ -1066,22 +1135,30 @@ def plot(
     taue = taue_th_mean.sel(t=tplot, method="nearest").values * 1.0e3
     taue_dw = taue_th_mean_dw.sel(t=tplot, method="nearest").values * 1.0e3
     print(f"Tau_E(thermal) with/without dWp/dt (ms) = {taue_dw:.2f} / {taue:.2f}")
-    nttau = nTtaue_mean.values * 1.0e-3 * 1.0e-18
-    nttau_dw = nTtaue_mean_dw.values * 1.0e-3 * 1.0e-18
-    print(
-        f"EFIT Ni(0) Ti(0) Tau_E with/without dW/dt (1.e18 m^-3 keV s) = {nttau_dw:.2f} / {nttau:.2f}"
-    )
-    nttau = nTtaue_low.values * 1.0e-3 * 1.0e-18
-    nttau_dw = nTtaue_low_dw.values * 1.0e-3 * 1.0e-18
-    print(f"...low limits = {nttau_dw:.2f} / {nttau:.2f}")
-    nttau = nTtaue_th_mean.values * 1.0e-3 * 1.0e-18
-    nttau_dw = nTtaue_th_mean_dw.values * 1.0e-3 * 1.0e-18
-    print(
-        f"Thermal Ni(0) Ti(0) Tau_E with/without dW/dt (1.e18 m^-3 keV s) = {nttau_dw:.2f} / {nttau:.2f}"
-    )
-    nttau = nTtaue_th_low.values * 1.0e-3 * 1.0e-18
-    nttau_dw = nTtaue_th_low_dw.values * 1.0e-3 * 1.0e-18
-    print(f"...low limits = {nttau_dw:.2f} / {nttau:.2f}")
+
+    # return raw_data
+
+    # nttau = nTtaue_mean.values * 1.0e-3 * 1.0e-18
+    # nttau_dw = nTtaue_mean_dw.values * 1.0e-3 * 1.0e-18
+    # print(
+    #     f"EFIT Ni(0) Ti(0) Tau_E with/without dW/dt (1.e18 m^-3 keV s) = {nttau_dw:.2f} / {nttau:.2f}"
+    # )
+    # nttau = nTtaue_low.values * 1.0e-3 * 1.0e-18
+    # nttau_dw = nTtaue_low_dw.values * 1.0e-3 * 1.0e-18
+    # print(f"...low limits = {nttau_dw:.2f} / {nttau:.2f}")
+    # nttau = nTtaue_th_mean.values * 1.0e-3 * 1.0e-18
+    # nttau_dw = nTtaue_th_mean_dw.values * 1.0e-3 * 1.0e-18
+    # print(
+    #     f"Thermal Ni(0) Ti(0) Tau_E with/without dW/dt (1.e18 m^-3 keV s) = {nttau_dw:.2f} / {nttau:.2f}"
+    # )
+    # nttau = nTtaue_th_low.values * 1.0e-3 * 1.0e-18
+    # nttau_dw = nTtaue_th_low_dw.values * 1.0e-3 * 1.0e-18
+    # print(f"...low limits = {nttau_dw:.2f} / {nttau:.2f}")
+
+    import pickle
+    pickle.dump(profile_data, open(f"/home/marco.sertoli/data/Indica/{pulse}_profiles_for_Jon.pkl", "wb"))
+
+    return profile_data
 
 
 def plot_all_runs(runs, values, alpha, colors, label=True):
