@@ -102,14 +102,8 @@ class PPFReader(DataReader):
             "cx{}m".format(val): "get_charge_exchange"
             for val in ("s", "d", "f", "g", "h")
         },
-        **{
-            "cx{}6".format(val): "get_charge_exchange"
-            for val in ("s", "d", "f", "g", "h")
-        },
-        **{
-            "cx{}4".format(val): "get_charge_exchange"
-            for val in ("s", "d", "f", "g", "h")
-        },
+        **{"cx{}6".format(val): "get_charge_exchange" for val in ("s", "d", "f", "g")},
+        **{"cx{}4".format(val): "get_charge_exchange" for val in ("s", "d", "f", "h")},
     }
     _IMPLEMENTATION_QUANTITIES = {
         "kg10": {"ne": ("number_density", "electron")},
