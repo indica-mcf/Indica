@@ -2012,5 +2012,14 @@
         "min": 1,
         "max": 74,
         "dtype": "int64"
+    },
+    "cxg6/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
     }
 }
