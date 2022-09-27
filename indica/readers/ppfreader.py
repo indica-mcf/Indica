@@ -120,6 +120,30 @@ class PPFReader(DataReader):
             "zefh": ("effective_charge", "plasma"),
             "zefv": ("effective_charge", "plasma"),
         },
+        **{
+            "cx{}m".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "g", "h")
+        },
+        **{
+            "cx{}6".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "g")
+        },
+        **{
+            "cx{}4".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "h")
+        },
     }
     _BREMSSTRAHLUNG_LOS = {
         "ks3": "edg7",

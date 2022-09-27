@@ -2021,5 +2021,1607 @@
         "min": 0,
         "max": 0.5,
         "dtype": "float64"
+    },
+    "cxsm/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxsm/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxsm/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxsm/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxdm/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxdm/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxdm/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxdm/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxfm/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxfm/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxfm/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxfm/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxgm/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxgm/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxgm/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxgm/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxhm/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxhm/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxhm/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxhm/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxs6/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxs6/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs6/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxs6/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxd6/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxd6/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd6/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxd6/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxf6/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxf6/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf6/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxf6/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxs4/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxs4/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxs4/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxs4/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxd4/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxd4/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxd4/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxd4/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxf4/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxf4/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxf4/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxf4/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxh4/ti": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/tihi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/tilo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/angf": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/afhi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/aflo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/rpos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/pos": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/mass": {
+        "data": [
+            20.179
+        ],
+        "shape": [
+            1
+        ],
+        "min": 0,
+        "max": 184,
+        "dtype": "int64"
+    },
+    "cxh4/texp": {
+        "shape": [
+            110
+        ],
+        "min": -999,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cxh4/zqnn": {
+        "data": [
+            10,
+            10,
+            11,
+            10
+        ],
+        "shape": [
+            4
+        ],
+        "min": 1,
+        "max": 74,
+        "dtype": "int64"
+    },
+    "cxh4/conc": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxsm/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxsm/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxdm/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxdm/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxfm/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxfm/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxgm/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxgm/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxhm/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxhm/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxs6/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxs6/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxd6/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxd6/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxf6/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxf6/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxg6/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxg6/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxs4/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxs4/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxd4/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxd4/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxf4/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxf4/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxh4/cohi": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
+    },
+    "cxh4/colo": {
+        "shape": [
+            110,
+            11
+        ],
+        "min": 0,
+        "max": 0.5,
+        "dtype": "float64"
     }
 }
