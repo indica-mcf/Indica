@@ -36,7 +36,7 @@ class ST40data:
         self.tstart = tstart
         self.tend = tend
         self.reader = ST40Reader(pulse, tstart, tend)
-        self.data:dict = {}
+        self.data: dict = {}
 
     def get_all(
         self,
@@ -110,8 +110,8 @@ class ST40data:
                     (num.attrs["error"] * ratio_tmp / num) ** 2
                     + (denom.attrs["error"] * ratio_tmp / denom) ** 2
                 )
-                ratio_tmp = xr.where(ratio_tmp < 1., ratio_tmp, np.nan)
-                ratio_tmp_err = xr.where(ratio_tmp_err < 1., ratio_tmp_err, np.nan)
+                ratio_tmp = xr.where(ratio_tmp < 1.0, ratio_tmp, np.nan)
+                ratio_tmp_err = xr.where(ratio_tmp_err < 1.0, ratio_tmp_err, np.nan)
 
                 ratio_tmp.attrs["error"] = ratio_tmp_err
                 data[ratio_key] = ratio_tmp
@@ -121,20 +121,21 @@ class ST40data:
             data["te_avrg"].attrs["error"] = xr.full_like(data[keys[0]].error, np.nan)
             data["te_avrg"].name = "xrcs_te_avrg"
             for t in data["te_avrg"].t:
-                val = []
-                err = []
-                for k in keys:
-                    _val = data[k].sel(t=t)
-                    if np.isfinite(_val):
-                        val.append(_val)
-                    _err = data[k].error.sel(t=t)
-                    if np.isfinite(_err):
-                        err.append(_err)
+                val = np.array([
+                    data[k].sel(t=t).values
+                    for k in keys
+                    if np.isfinite(data[k].sel(t=t))
+                ])
+                err = np.array([
+                    data[k].error.sel(t=t).values
+                    for k in keys
+                    if np.isfinite(data[k].error.sel(t=t))
+                ])
+
                 if len(val) > 0:
-                    data["te_avrg"].loc[dict(t=t)] = np.sum(val) / len(val)
-                if len(err) > 0:
+                    data["te_avrg"].loc[dict(t=t)] = val.mean()
                     err_tmp = np.sqrt(
-                        np.sum((np.array(err) / len(err)) ** 2 + np.std(val) ** 2)
+                        np.sum(err.mean() ** 2 + val.std() ** 2)
                     )
                     data["te_avrg"].attrs["error"].loc[dict(t=t)] = err_tmp
 
@@ -228,11 +229,9 @@ class ST40data:
             "error": error,
             "transform": transform,
         }
-        quant_data = DataArray(
-            values,
-            coords,
-            attrs=meta,
-        ).sel(t=slice(self.reader._tstart, self.reader._tend))
+        quant_data = DataArray(values, coords, attrs=meta,).sel(
+            t=slice(self.reader._tstart, self.reader._tend)
+        )
 
         quant_data.name = "princeton" + "_" + "ti"
         quant_data.attrs["revision"] = rev
@@ -261,11 +260,9 @@ class ST40data:
             "error": error,
             "transform": transform,
         }
-        quant_data = DataArray(
-            values,
-            coords,
-            attrs=meta,
-        ).sel(t=slice(self.reader._tstart, self.reader._tend))
+        quant_data = DataArray(values, coords, attrs=meta,).sel(
+            t=slice(self.reader._tstart, self.reader._tend)
+        )
 
         quant_data.name = "princeton" + "_" + "ti"
         quant_data.attrs["revision"] = rev
@@ -275,6 +272,7 @@ class ST40data:
         self.data["cxrs"] = data
 
         return data, data
+
     #
     # def get_princeton(self, revision=0):
     #     data = self.reader.get("spectrom", "princeton", revision)
@@ -319,7 +317,7 @@ class ST40data:
                 "error": xr.zeros_like(vloop),
             }
             vloop.attrs = meta
-            self.data["mag"] = {"vloop":vloop}
+            self.data["mag"] = {"vloop": vloop}
 
         # TODO temporary BT reader --> to be calculated using equilibrium class
         tf_i, tf_i_dims = self.reader._get_data("", "psu", ".tf:i", -1)
@@ -366,4 +364,3 @@ class ST40data:
             data = data.sel(t=slice(self.reader._tstart, self.reader._tend))
             self.data["diode_detr"] = {}
             self.data["diode_detr"]["filter_001"] = data
-
