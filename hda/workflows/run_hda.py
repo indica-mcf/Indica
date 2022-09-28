@@ -64,7 +64,7 @@ def run_default(pulse: int = 10009, use_ref=True):
 
 
 def scan_profiles(
-    pulse: int = 9780, write=False, run_add="", modelling=True, force=True
+    pulse: int = 9780, write=False, run_add="REF", modelling=True, force=True
 ):
 
     profs = profile_scans()
