@@ -211,10 +211,13 @@ def compare_pulses_prl(data=None):
 
     return data
 
-def plot_aps():
-    """
-    Produce plots for APS
-    """
+def compare_pulses_aps(data=None):
+
+    # 9520, 9538, 9783, 9831
+
+    data = compare_pulses([9539, 9780, 10009], data=data, qpop=["mhd:ampl_odd_n", "lines:h_alpha"])
+
+    return data
 
 def compare_pulses(  # 9783, 9781, 9831, 10013,
     pulses: list = [9538, 9780, 9783, 9831, 10014],
@@ -373,8 +376,8 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
         else:
             ax.set_xlabel(xlabel)
 
-        if key == "efit:ipla":
-            plot_quantity("nbi:pin")
+        # if key == "efit:ipla":
+        #     plot_quantity("nbi:pin")
 
     if savefig:
         figname = ""
@@ -391,6 +394,7 @@ def data_time_evol(
     dt = 0.01
     st40_data = ST40data(pulse, tstart, tend)
     st40_data.get_all()
+    st40_data.get_other_data()
     raw_data = st40_data.data
     add_cxrs(st40_data, raw_data)
     add_btot(raw_data)
@@ -471,6 +475,7 @@ def data_time_evol(
     )
     ax.plot(tmp.t, tmp.values, label="P$_{SXR}}$", alpha=0.9)
     const = 1.0e-3
+
     tmp = raw_data["diode_detr"]["filter_001"] * const
     binned = np.append(
         binned, bin_in_time_dt(tmp.t.min() + dt / 2, tmp.t.max() - dt / 2, dt, tmp)
@@ -500,6 +505,8 @@ def data_time_evol(
     ax.errorbar(
         tmp.t, tmp.values, err.values, label="T$_i$(Ar)", marker="o", alpha=0.9,
     )
+
+    return raw_data
 
     tmp = raw_data["cxrs"]["ti_full_max"] * const
     err = raw_data["cxrs"]["ti_full_max"].error * const
