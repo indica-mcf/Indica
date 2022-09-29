@@ -108,16 +108,14 @@ class BolometryDerivation(Operator):
 
         input_check("LoS_bolometry_data", LoS_bolometry_data, Sequence)
 
-        input_check(
-            "t_arr", t_arr, DataArray, ndim_to_check=1, greater_than_or_equal_zero=True
-        )
+        input_check("t_arr", t_arr, DataArray, ndim_to_check=1, strictly_positive=False)
 
         input_check(
             "impurity_densities",
             impurity_densities,
             DataArray,
             ndim_to_check=4,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check("frac_abunds", frac_abunds, Sequence)
@@ -129,7 +127,7 @@ class BolometryDerivation(Operator):
             electron_density,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
@@ -137,7 +135,7 @@ class BolometryDerivation(Operator):
             main_ion_power_loss,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
@@ -145,7 +143,7 @@ class BolometryDerivation(Operator):
             impurities_power_loss,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         self.flux_surfaces = flux_surfs
@@ -525,7 +523,7 @@ class BolometryDerivation(Operator):
         input_check("trim", trim, bool)
 
         if t_val is not None:
-            input_check("t_val", t_val, float, greater_than_or_equal_zero=True)
+            input_check("t_val", t_val, float, strictly_positive=False)
 
         if not deriv_only:
             self.__bolometry_coord_transforms()

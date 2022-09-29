@@ -82,7 +82,8 @@ class ToroidalRotation(Operator):
             asymmetry_parameters,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            positive=False,
+            strictly_positive=False,
         )
 
         input_check(
@@ -90,7 +91,7 @@ class ToroidalRotation(Operator):
             ion_temperature,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         input_check("main_ion", main_ion, str)
@@ -107,16 +108,14 @@ class ToroidalRotation(Operator):
         except AssertionError:
             raise ValueError(f"impurity must be one of {list(ELEMENTS.keys())}")
 
-        input_check(
-            "Zeff", Zeff, DataArray, ndim_to_check=2, greater_than_or_equal_zero=True
-        )
+        input_check("Zeff", Zeff, DataArray, ndim_to_check=2, strictly_positive=False)
 
         input_check(
             "electron_temp",
             electron_temp,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         asymmetry_parameter = asymmetry_parameters.sel(element=impurity)
@@ -210,7 +209,7 @@ class AsymmetryParameter(Operator):
             toroidal_rotations,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
@@ -218,7 +217,7 @@ class AsymmetryParameter(Operator):
             ion_temperature,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         input_check("main_ion", main_ion, str)
@@ -235,16 +234,14 @@ class AsymmetryParameter(Operator):
         except AssertionError:
             raise ValueError(f"impurity must be one of {list(ELEMENTS.keys())}")
 
-        input_check(
-            "Zeff", Zeff, DataArray, ndim_to_check=2, greater_than_or_equal_zero=True
-        )
+        input_check("Zeff", Zeff, DataArray, ndim_to_check=2, strictly_positive=False)
 
         input_check(
             "electron_temp",
             electron_temp,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         toroidal_rotations = toroidal_rotations.sel(element=impurity)

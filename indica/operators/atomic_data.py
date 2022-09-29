@@ -144,10 +144,10 @@ class FractionalAbundance(Operator):
 
         inputted_data = {}
 
-        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+        input_check("Ne", Ne, DataArray, strictly_positive=False)
         inputted_data["Ne"] = Ne
 
-        input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
+        input_check("Te", Te, DataArray, strictly_positive=True)
         inputted_data["Te"] = Te
 
         shape_check(inputted_data)
@@ -308,7 +308,7 @@ class FractionalAbundance(Operator):
         """
         inputted_data = {}
 
-        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+        input_check("Ne", Ne, DataArray, strictly_positive=False)
         inputted_data["Ne"] = Ne
 
         if Nh is not None:
@@ -318,7 +318,7 @@ class FractionalAbundance(Operator):
                     CCD (effective charge exchange recombination) at initialisation \
                     is None."
                 )
-            input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
+            input_check("Nh", Nh, DataArray, strictly_positive=False)
             inputted_data["Nh"] = Nh
         elif self.CCD is not None:
             Nh = cast(DataArray, zeros_like(Ne))
@@ -511,7 +511,7 @@ class FractionalAbundance(Operator):
                 dims=["ion_charges", x1_coord.dims[0]],
             )
         else:
-            input_check("F_z_t0", F_z_t0, DataArray, greater_than_or_equal_zero=True)
+            input_check("F_z_t0", F_z_t0, DataArray, strictly_positive=False)
 
             try:
                 assert F_z_t0.ndim < 3
@@ -576,7 +576,7 @@ class FractionalAbundance(Operator):
             "tau",
             tau,
             get_args(LabeledArray),
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         x1_coord = self.x1_coord
@@ -761,10 +761,10 @@ class PowerLoss(Operator):
 
         inputted_data = {}
 
-        input_check("Ne", Ne, DataArray, greater_than_or_equal_zero=True)
+        input_check("Ne", Ne, DataArray, strictly_positive=False)
         inputted_data["Ne"] = Ne
 
-        input_check("Te", Te, DataArray, greater_than_or_equal_zero=False)
+        input_check("Te", Te, DataArray, strictly_positive=True)
         inputted_data["Te"] = Te
 
         shape_check(inputted_data)
@@ -928,7 +928,7 @@ class PowerLoss(Operator):
                     PRC (effective charge exchange power) at initialisation \
                     is None."
                 )
-            input_check("Nh", Nh, DataArray, greater_than_or_equal_zero=True)
+            input_check("Nh", Nh, DataArray, strictly_positive=False)
             inputted_data["Nh"] = Nh
         elif self.PRC is not None:
             Nh = cast(DataArray, zeros_like(Ne))
@@ -947,7 +947,7 @@ class PowerLoss(Operator):
             shape_check(inputted_data)
 
         if F_z_t is not None:
-            input_check("F_z_t", F_z_t, DataArray, greater_than_or_equal_zero=True)
+            input_check("F_z_t", F_z_t, DataArray, strictly_positive=False)
             try:
                 assert not np.iscomplexobj(F_z_t)
             except AssertionError:

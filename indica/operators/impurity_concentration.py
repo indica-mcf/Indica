@@ -110,7 +110,7 @@ class ImpurityConcentration(Operator):
             "impurity_densities",
             impurity_densities,
             DataArray,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check("element", element, str)
@@ -128,30 +128,28 @@ class ImpurityConcentration(Operator):
         if t is None:
             t = Zeff_LoS.t
         else:
-            input_check(
-                "t", t, DataArray, ndim_to_check=1, greater_than_or_equal_zero=True
-            )
+            input_check("t", t, DataArray, ndim_to_check=1, strictly_positive=False)
 
         input_check(
             "Zeff_LoS",
             Zeff_LoS,
             DataArray,
             ndim_to_check=1,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
         input_check(
             "electron_density",
             electron_density,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
         input_check(
             "mean_charge",
             mean_charge,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
         input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 

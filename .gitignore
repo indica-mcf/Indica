@@ -16,3 +16,4 @@ indica/git_version
 *.png
 *.prof
 *.lprof
+.ropeproject/
