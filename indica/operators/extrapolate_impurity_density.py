@@ -756,7 +756,7 @@ class ExtrapolateImpurityDensity(Operator):
             extrapolated_smooth_data,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
@@ -764,7 +764,7 @@ class ExtrapolateImpurityDensity(Operator):
             orig_bolometry_data,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
@@ -772,7 +772,7 @@ class ExtrapolateImpurityDensity(Operator):
             asymmetry_modifier,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         rho_arr = self.rho_arr
