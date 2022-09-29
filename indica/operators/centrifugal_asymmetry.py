@@ -128,7 +128,7 @@ class ToroidalRotation(Operator):
             mean_charges,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         asymmetry_parameter = asymmetry_parameters.sel(element=impurity)
@@ -267,7 +267,7 @@ class AsymmetryParameter(Operator):
             mean_charges,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         toroidal_rotations = toroidal_rotations.sel(element=impurity)
