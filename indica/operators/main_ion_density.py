@@ -81,21 +81,21 @@ class MainIonDensity(Operator):
             "impurity_densities",
             impurity_densities,
             DataArray,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
             "electron_density",
             electron_density,
             DataArray,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
             "mean_charge",
             mean_charge,
             DataArray,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         main_ion_density = electron_density - (mean_charge * impurity_densities).sum(

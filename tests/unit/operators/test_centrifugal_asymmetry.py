@@ -297,8 +297,10 @@ def input_checking(
     erroneous_input = {var_name: nominal_inputs[var_name].data}
     test_case.call_type_check(**erroneous_input)
 
-    erroneous_input = {var_name: nominal_inputs[var_name] * -1}
-    test_case.call_value_check(**erroneous_input)
+    # all inputs must be positive except asymmetry_parameters
+    if var_name != "asymmetry_parameters":
+        erroneous_input = {var_name: nominal_inputs[var_name] * -1}
+        test_case.call_value_check(**erroneous_input)
 
     erroneous_input = {var_name: nominal_inputs[var_name] * np.inf}
     test_case.call_value_check(**erroneous_input)
