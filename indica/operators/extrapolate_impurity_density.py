@@ -767,7 +767,7 @@ class ExtrapolateImpurityDensity(Operator):
         asymmetry_parameter
             Asymmetry parameter used to transform a low-field side only rho-profile
             of a poloidally asymmetric quantity to a full poloidal cross-sectional
-            profile ie. (rho, t) -> (rho, theta, t).
+            profile ie. (rho, t) -> (rho, theta, t). Dimensions (rho, t)
         threshold_rho
             Threshold rho value beyond which asymmetry parameter is invalid and
             should be fitted from bolometry.
@@ -804,10 +804,11 @@ class ExtrapolateImpurityDensity(Operator):
         )
 
         input_check(
-            "asymmetry_modifier",
-            asymmetry_modifier,
+            "asymmetry_parameter",
+            asymmetry_parameter,
             DataArray,
-            ndim_to_check=3,
+            ndim_to_check=2,
+            positive=False,
             strictly_positive=False,
         )
 
