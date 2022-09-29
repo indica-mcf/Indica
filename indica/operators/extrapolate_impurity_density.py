@@ -877,7 +877,7 @@ class ExtrapolateImpurityDensity(Operator):
 
             # fit asymmetry parameter for region where it was invalid
             asymmetry_parameter_cont = asymmetry_parameter.where(
-                asymmetry_parameter.rho_poloidal > threshold_rho,
+                asymmetry_parameter.rho_poloidal < threshold_rho,
                 other=edge_asymmetry_parameter,
             )
             asymmetry_modifier = asymmetry_modifier_from_parameter(
