@@ -35,11 +35,12 @@ def change_case(string, is_uppercase):
     )
 
 
-@given(integers(28792, 63899), lists(booleans(), min_size=1))
-def test_read_sxr_t_los_1(pulse, upper_case):
-    """Test reading of lines of sight for SXR camera T"""
+def assert_read_sxr_loss(
+    pulse, upper_case, camera, r_start_expected, z_start_expected, theta_chip, gamma
+):
+    """Test reading of lines of sight for SXR cameras"""
     rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
-        filepath, pulse, change_case("sxr/t", upper_case)
+        filepath, pulse, change_case("sxr/" + camera, upper_case)
     )
     assert (
         len(rstart)
@@ -50,126 +51,46 @@ def test_read_sxr_t_los_1(pulse, upper_case):
         == len(Tend)
         == 35
     )
-    theta_chip = np.radians(265 - 360)
+    theta_chip = np.radians(theta_chip - 360)
     f = 0.03531
-    assert np.all(rstart == pytest.approx(2.848))
-    assert np.all(zstart == pytest.approx(2.172))
+    assert np.all(rstart == pytest.approx(r_start_expected))
+    assert np.all(zstart == pytest.approx(z_start_expected))
     assert np.all(Tstart == pytest.approx(0.0))
     assert np.all(Tend == pytest.approx(0.0))
     theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
-    assert theta_chip - theta == pytest.approx(np.arctan2(-17 * PIXEL, f))
+    assert theta_chip - theta == pytest.approx(np.arctan2(gamma * 17 * PIXEL, f))
     theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
-    assert theta_chip - theta == pytest.approx(np.arctan2(-7 * PIXEL, f))
+    assert theta_chip - theta == pytest.approx(np.arctan2(gamma * 7 * PIXEL, f))
+
+
+@given(integers(28792, 63899), lists(booleans(), min_size=1))
+def test_read_sxr_t_los_1(pulse, upper_case):
+    """Test reading of lines of sight for SXR camera T"""
+    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.172, 265, -1)
 
 
 @given(integers(63900, 87999), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_2(pulse, upper_case):
     """Test reading of lines of sight for SXR camera T"""
-    rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
-        filepath, pulse, change_case("sxr/t", upper_case)
-    )
-    assert (
-        len(rstart)
-        == len(rend)
-        == len(zstart)
-        == len(zend)
-        == len(Tstart)
-        == len(Tend)
-        == 35
-    )
-    theta_chip = np.radians(275 - 360)
-    f = 0.03531
-    assert np.all(rstart == pytest.approx(2.848))
-    assert np.all(zstart == pytest.approx(2.172))
-    assert np.all(Tstart == pytest.approx(0.0))
-    assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
-    assert theta_chip - theta == pytest.approx(np.arctan2(17 * PIXEL, f))
-    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
-    assert theta_chip - theta == pytest.approx(np.arctan2(7 * PIXEL, f))
+    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.172, 275, 1)
 
 
 @given(integers(88000, 92504), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_3(pulse, upper_case):
     """Test reading of lines of sight for SXR camera T"""
-    rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
-        filepath, pulse, change_case("sxr/t", upper_case)
-    )
-    assert (
-        len(rstart)
-        == len(rend)
-        == len(zstart)
-        == len(zend)
-        == len(Tstart)
-        == len(Tend)
-        == 35
-    )
-    theta_chip = np.radians(275 - 360)
-    f = 0.03531
-    assert np.all(rstart == pytest.approx(2.848))
-    assert np.all(zstart == pytest.approx(2.182))
-    assert np.all(Tstart == pytest.approx(0.0))
-    assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
-    assert theta_chip - theta == pytest.approx(np.arctan2(17 * PIXEL, f))
-    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
-    assert theta_chip - theta == pytest.approx(np.arctan2(7 * PIXEL, f))
+    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.182, 275, 1)
 
 
 @given(integers(92505, 10000000), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_4(pulse, upper_case):
     """Test reading of lines of sight for SXR camera T"""
-    rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
-        filepath, pulse, change_case("sxr/t", upper_case)
-    )
-    assert (
-        len(rstart)
-        == len(rend)
-        == len(zstart)
-        == len(zend)
-        == len(Tstart)
-        == len(Tend)
-        == 35
-    )
-    theta_chip = np.radians(275 - 360)
-    f = 0.03531
-    assert np.all(rstart == pytest.approx(2.848))
-    assert np.all(zstart == pytest.approx(2.172))
-    assert np.all(Tstart == pytest.approx(0.0))
-    assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
-    assert theta_chip - theta == pytest.approx(
-        np.arctan2(17 * PIXEL, f),
-    )
-    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
-    assert theta_chip - theta == pytest.approx(np.arctan2(7 * PIXEL, f))
+    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.172, 275, 1)
 
 
 @given(integers(28792, 10000000), lists(booleans(), min_size=1))
 def test_read_sxr_v_los(pulse, upper_case):
     """Test reading of lines of sight for SXR camera V"""
-    rstart, rend, zstart, zend, Tstart, Tend = surf_los.read_surf_los(
-        filepath, pulse, change_case("sxr/v", upper_case)
-    )
-    assert (
-        len(rstart)
-        == len(rend)
-        == len(zstart)
-        == len(zend)
-        == len(Tstart)
-        == len(Tend)
-        == 35
-    )
-    f = 0.03531
-    theta_chip = np.radians(265 - 360)
-    assert np.all(rstart == pytest.approx(2.848))
-    assert np.all(zstart == pytest.approx(2.172))
-    assert np.all(Tstart == pytest.approx(0.0))
-    assert np.all(Tend == pytest.approx(0.0))
-    theta = np.arctan2(zend[0] - zstart[0], rend[0] - rstart[0])
-    assert theta_chip - theta == pytest.approx(np.arctan2(-17 * PIXEL, f))
-    theta = np.arctan2(zend[10] - zstart[10], rend[10] - rstart[10])
-    assert theta_chip - theta == pytest.approx(np.arctan2(-7 * PIXEL, f))
+    assert_read_sxr_loss(pulse, upper_case, "v", 2.848, 2.172, 265, -1)
 
 
 @given(integers(35779, 10000000), lists(booleans(), min_size=1))
