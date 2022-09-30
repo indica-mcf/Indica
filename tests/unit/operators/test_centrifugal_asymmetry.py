@@ -7,6 +7,7 @@ import numpy as np
 from xarray.core.common import zeros_like
 from xarray.core.dataarray import DataArray
 
+from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
@@ -383,13 +384,18 @@ def test_centrifugal_asymmetry():
         dims=["element", "rho_poloidal", "t"],
     )
 
-    mean_charges = DataArray(
-        data=np.swapaxes(
-            np.tile(np.array([5, 4, 3, 2, 1]), (len(elements), len(t), 1)), 1, 2
-        ),
-        coords=[("element", elements), ("rho_poloidal", rho_profile), ("t", t)],
-        dims=["element", "rho_poloidal", "t"],
+    charge_profile = DataArray(
+        data=np.swapaxes(np.tile(np.array([1, 0.9, 0.8, 0.5, 0.3]), (len(t), 1)), 0, 1),
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
+
+    max_charges = DataArray(
+        data=np.array([ELEMENTS[element][0] for element in elements]),
+        coords=[("element", elements)],
+        dims=["element"],
+    )
+    mean_charges = max_charges * charge_profile
 
     ion_temperature = np.array([2.0e3, 1.2e3, 0.5e3, 0.2e3, 0.1e3])
     ion_temperature = np.tile(ion_temperature, (len(elements), len(t), 1))
