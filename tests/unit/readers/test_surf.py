@@ -35,7 +35,7 @@ def change_case(string, is_uppercase):
     )
 
 
-def assert_read_sxr_loss(
+def assert_read_sxr_los(
     pulse, upper_case, camera, r_start_expected, z_start_expected, theta_chip, gamma
 ):
     """Test reading of lines of sight for SXR cameras"""
@@ -66,31 +66,31 @@ def assert_read_sxr_loss(
 @given(integers(28792, 63899), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_1(pulse, upper_case):
     """Test reading of lines of sight for SXR camera T"""
-    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.172, 265, -1)
+    assert_read_sxr_los(pulse, upper_case, "t", 2.848, 2.172, 265, -1)
 
 
 @given(integers(63900, 87999), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_2(pulse, upper_case):
     """Test reading of lines of sight for SXR camera T"""
-    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.172, 275, 1)
+    assert_read_sxr_los(pulse, upper_case, "t", 2.848, 2.172, 275, 1)
 
 
 @given(integers(88000, 92504), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_3(pulse, upper_case):
     """Test reading of lines of sight for SXR camera T"""
-    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.182, 275, 1)
+    assert_read_sxr_los(pulse, upper_case, "t", 2.848, 2.182, 275, 1)
 
 
 @given(integers(92505, 10000000), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_4(pulse, upper_case):
     """Test reading of lines of sight for SXR camera T"""
-    assert_read_sxr_loss(pulse, upper_case, "t", 2.848, 2.172, 275, 1)
+    assert_read_sxr_los(pulse, upper_case, "t", 2.848, 2.172, 275, 1)
 
 
 @given(integers(28792, 10000000), lists(booleans(), min_size=1))
 def test_read_sxr_v_los(pulse, upper_case):
     """Test reading of lines of sight for SXR camera V"""
-    assert_read_sxr_loss(pulse, upper_case, "v", 2.848, 2.172, 265, -1)
+    assert_read_sxr_los(pulse, upper_case, "v", 2.848, 2.172, 265, -1)
 
 
 @given(integers(35779, 10000000), lists(booleans(), min_size=1))
