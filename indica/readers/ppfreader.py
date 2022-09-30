@@ -94,11 +94,16 @@ class PPFReader(DataReader):
         "efit": "get_equilibrium",
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
-        "cxg6": "get_charge_exchange",
         "ks3": "get_bremsstrahlung_spectroscopy",
         "sxr": "get_radiation",
         "bolo": "get_radiation",
         "kg10": "get_thomson_scattering",
+        **{
+            "cx{}m".format(val): "get_charge_exchange"
+            for val in ("s", "d", "f", "g", "h")
+        },
+        **{"cx{}6".format(val): "get_charge_exchange" for val in ("s", "d", "f", "g")},
+        **{"cx{}4".format(val): "get_charge_exchange" for val in ("s", "d", "f", "h")},
     }
     _IMPLEMENTATION_QUANTITIES = {
         "kg10": {"ne": ("number_density", "electron")},
@@ -114,6 +119,30 @@ class PPFReader(DataReader):
         "ks3": {
             "zefh": ("effective_charge", "plasma"),
             "zefv": ("effective_charge", "plasma"),
+        },
+        **{
+            "cx{}m".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "g", "h")
+        },
+        **{
+            "cx{}6".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "g")
+        },
+        **{
+            "cx{}4".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "h")
         },
     }
     _BREMSSTRAHLUNG_LOS = {
