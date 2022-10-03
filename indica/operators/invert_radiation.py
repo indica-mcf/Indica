@@ -377,7 +377,7 @@ class InvertRadiation(Operator):
                 start = end
                 x1_name = c.attrs["transform"].x1_name
                 self.integral.append(
-                    DataArray(integral, coords=[(x1_name, c.coords[x1_name])])
+                    DataArray(integral, coords=[(x1_name, c.coords[x1_name].data)])
                 )
             assert np.all(np.isfinite(resid))
             return resid

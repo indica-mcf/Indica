@@ -70,9 +70,9 @@ pytestmark = mark.filterwarnings("ignore:Mean of empty slice")
 
 def linear_data_array(a, b, times, abs_err):
     """Create a DataArray where values are ``a*times + b``."""
-    result = DataArray(a * times + b, coords=[("t", times)])
+    result = DataArray(a * times + b, coords=[("t", times.data)])
     result.attrs["error"] = DataArray(
-        np.ones_like(times) * abs_err, coords=[("t", times)]
+        np.ones_like(times) * abs_err, coords=[("t", times.data)]
     )
     return result
 

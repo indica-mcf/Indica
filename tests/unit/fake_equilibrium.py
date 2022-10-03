@@ -77,7 +77,7 @@ class FakeEquilibrium(Equilibrium):
         Bmax=1.0,
         **kwargs
     ):
-        ones = DataArray(np.ones_like(default_t), coords=[("t", default_t)])
+        ones = DataArray(np.ones_like(default_t), coords=[("t", default_t.data)])
         self.rmag = np.abs(Rmag) * ones
         self.zmag = zmag * ones
         self.parameters = kwargs
