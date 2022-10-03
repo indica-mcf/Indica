@@ -947,7 +947,7 @@ class ExtrapolateImpurityDensity(Operator):
                     lower_amp_bound,
                     lower_width_bound,
                     lower_pos_bound,
-                    0.1 * asymmetry_parameter.min(),
+                    -10 * np.abs(asymmetry_parameter.max()),
                 ]
             ),
             np.array(
@@ -955,7 +955,7 @@ class ExtrapolateImpurityDensity(Operator):
                     upper_amp_bound,
                     upper_width_bound,
                     upper_pos_bound,
-                    10 * asymmetry_parameter.max(),
+                    10 * np.abs(asymmetry_parameter.max()),
                 ]
             ),
         ]
@@ -966,7 +966,7 @@ class ExtrapolateImpurityDensity(Operator):
                 extrapolated_smooth_data_mean,
                 0.3,
                 1,
-                asymmetry_parameter.mean(),
+                asymmetry_parameter.std(),
             ]
         )
 
@@ -1007,7 +1007,7 @@ class ExtrapolateImpurityDensity(Operator):
                     max_nfev=50,
                     args=(it,),
                     ftol=1e-60,
-                    xtol=1e-3,
+                    xtol=1e-5,
                     gtol=1e-60,
                     x_scale=x_scale,
                 )
