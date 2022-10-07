@@ -931,6 +931,7 @@ def test_extrapolate_impurity_density_call():
     valid_truncation_threshold = initial_data[7]
     flux_surfs = initial_data[6]
     base_t = initial_data[9]
+    R_derived = initial_data[10]
     elements = initial_data[12]
     impurity_sxr_density_asym_Rz = sxr_data[0]
     additional_sig = sxr_data[2]
@@ -955,8 +956,6 @@ def test_extrapolate_impurity_density_call():
         )
     except Exception as e:
         raise e
-
-    example_asym_modifier = example_extrapolate_impurity_density.asymmetry_modifier
 
     perturbed_impurity_sxr_density_rho_theta = (
         example_result_rho_theta.copy(deep=True) + additional_sig
@@ -1025,7 +1024,9 @@ def test_extrapolate_impurity_density_call():
             original_bolometry.copy(deep=True),
             example_bolometry_derivation,
             "w",
-            example_asym_modifier,
+            orig_asymmetry_param,
+            threshold_rho=0.6,
+            R_deriv=R_derived,
             time_correlation=True,
         )
     )
