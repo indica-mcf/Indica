@@ -1056,6 +1056,21 @@ def zeff_bremsstrahlung(
 
     return result
 
+def nm_eV_conversion(nm=None, ev=None):
+    if nm is None and ev is None:
+        return None
+    if nm is not None and ev is not None:
+        raise Exception("Input either nm or eV, not both")
+
+    nm_to_m = 1.e-9
+    const = constants.h * constants.c / constants.e / nm_to_m
+
+    if ev is None:
+        result = const / nm
+    else:
+        result = const / ev
+
+    return result
 
 def derivative(y, x):
     nlen = len(x)
@@ -1098,3 +1113,24 @@ def sawtooth_crash(xspl, yspl, volume, x_inv):
     print(f"Vol-int: {float(vol_int_pre)}, {float(vol_int_post)}")
 
     return yspl
+
+
+def calc_moments(y: np.array, x: np.array, ind_in=None, ind_out=None, simmetry=False):
+    x_avrg = np.nansum(y * x) / np.nansum(y)
+
+    if (ind_in is None) and (ind_out is None):
+        ind_in = x <= x_avrg
+        ind_out = x >= x_avrg
+        if simmetry is True:
+            ind_in = ind_in + ind_out
+            ind_out = ind_in
+
+    x_err_in = np.sqrt(
+        np.nansum(y[ind_in] * (x[ind_in] - x_avrg) ** 2) / np.nansum(y[ind_in])
+    )
+
+    x_err_out = np.sqrt(
+        np.nansum(y[ind_out] * (x[ind_out] - x_avrg) ** 2) / np.nansum(y[ind_out])
+    )
+
+    return x_avrg, x_err_in, x_err_out, ind_in, ind_out

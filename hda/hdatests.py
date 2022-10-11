@@ -892,6 +892,7 @@ def find_best_profiles(
     tmax=4.01,
     astra_rev="",
     exclude=["63", "65", "67"],
+    run_add = "MID",
 ):
     """
     pl_dict, raw_data, data, bckc_dict, astra_dict = tests.find_best_profiles(pulse=9783)
@@ -1450,7 +1451,7 @@ def find_best_profiles(
 
     if pl_dict is None:
         # Read scans from pickle files
-        pl_dict, raw_data, data, bckc_dict = read_profile_scans(pulse)
+        pl_dict, raw_data, data, bckc_dict = read_profile_scans(pulse, run_add=run_add)
         runs = list(pl_dict)
         if len(exclude) > 0:
             for exc in exclude:
@@ -1460,7 +1461,7 @@ def find_best_profiles(
                 if kpop in bckc_dict.keys():
                     bckc_dict.pop(kpop)
 
-        pl_avrg = pl_dict["RUN60"]
+        pl_avrg = pl_dict["RUN60"+run_add]
         pulse = 13100000 + pl_avrg.pulse
         tstart = 0
         tend = 0.2

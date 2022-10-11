@@ -330,6 +330,20 @@ def organise_data(plasma, data={}, bckc={}):
         HDA data dictionary
     """
 
+    plasma.map_to_midplane()
+
+    Te = plasma.el_temp
+    Ti = plasma.ion_temp
+    Ne = plasma.el_dens
+    Ni = plasma.ion_dens
+    Nh = plasma.neutral_dens
+    Zeff = plasma.zeff
+    MeanZ = plasma.meanz
+    Vol = plasma.volume
+    Wth = plasma.wth
+    Wp = plasma.wp
+    Pth = plasma.pressure_th
+
     tev = []
     tiv = []
     nev = []
@@ -337,33 +351,31 @@ def organise_data(plasma, data={}, bckc={}):
     zeffv = []
     for t in plasma.time.values:
         tev.append(
-            np.trapz(plasma.el_temp.sel(t=t).values, plasma.volume.sel(t=t).values)
-            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
+            np.trapz(Te.sel(t=t).values, Vol.sel(t=t).values)
+            / Vol.sel(t=t).sel(rho_poloidal=1).values,
         )
         tiv.append(
             np.trapz(
-                plasma.ion_temp.sel(element=plasma.main_ion).sel(t=t).values,
-                plasma.volume.sel(t=t).values,
+                Ti.sel(element=plasma.main_ion).sel(t=t).values, Vol.sel(t=t).values,
             )
-            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
+            / Vol.sel(t=t).sel(rho_poloidal=1).values,
         )
         nev.append(
-            np.trapz(plasma.el_dens.sel(t=t).values, plasma.volume.sel(t=t).values)
-            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
+            np.trapz(Ne.sel(t=t).values, Vol.sel(t=t).values)
+            / Vol.sel(t=t).sel(rho_poloidal=1).values,
         )
         niv.append(
             np.trapz(
-                plasma.ion_dens.sel(element=plasma.main_ion).sel(t=t).values,
-                plasma.volume.sel(t=t).values,
+                Ni.sel(element=plasma.main_ion).sel(t=t).values,
+                Vol.sel(t=t).values,
             )
-            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
+            / Vol.sel(t=t).sel(rho_poloidal=1).values,
         )
         zeffv.append(
             np.trapz(
-                plasma.zeff.sum("element").sel(t=t).values,
-                plasma.volume.sel(t=t).values,
+                Zeff.sum("element").sel(t=t).values, Vol.sel(t=t).values,
             )
-            / plasma.volume.sel(t=t).sel(rho_poloidal=1).values,
+            / Vol.sel(t=t).sel(rho_poloidal=1).values,
         )
     tev = np.array(tev)
     tiv = np.array(tiv)
@@ -375,7 +387,10 @@ def organise_data(plasma, data={}, bckc={}):
     opt_el_dens = plasma.optimisation["el_dens"]
     opt_el_temp = plasma.optimisation["el_temp"]
     opt_ion_temp = plasma.optimisation["ion_temp"]
-    opt_stored_en = plasma.optimisation["stored_en"]
+    if "stored_en" in plasma.optimisation.keys():
+        opt_stored_en = plasma.optimisation["stored_en"]
+    else:
+        opt_stored_en = ""
 
     elements = [plasma.main_ion]
     impurities = [""] * 3
@@ -385,109 +400,29 @@ def organise_data(plasma, data={}, bckc={}):
 
     ion_conc = []
     ion_meanz = []
-    ion_meanz_hi = []
-    ion_meanz_lo = []
     ion_dens = []
-    ion_dens_hi = []
-    ion_dens_lo = []
     ion_temp = []
-    ion_temp_hi = []
-    ion_temp_lo = []
     ion_zeff = []
-    ion_zeff_hi = []
-    ion_zeff_lo = []
     for elem in elements:
         if len(elem) > 0:
-            conc = (plasma.ion_dens.sel(element=elem) / plasma.el_dens).mean(
-                "rho_poloidal"
-            )
-            meanz = plasma.meanz.sel(element=elem)
-            if hasattr(plasma, "meanz_hi"):
-                meanz_hi = plasma.meanz_hi.sel(element=elem)
-                meanz_lo = plasma.meanz_lo.sel(element=elem)
-            else:
-                meanz_hi = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
-                meanz_lo = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
-
-            dens = plasma.ion_dens.sel(element=elem)
-            if hasattr(plasma, "ion_dens_hi"):
-                dens_hi = plasma.ion_dens_hi.sel(element=elem)
-                dens_lo = plasma.ion_dens_lo.sel(element=elem)
-            else:
-                dens_hi = xr.zeros_like(plasma.ion_dens.sel(element=elements[0]))
-                dens_lo = xr.zeros_like(plasma.ion_dens.sel(element=elements[0]))
-
-            temp = plasma.ion_temp.sel(element=elem)
-            if hasattr(plasma, "ion_temp_hi"):
-                temp_hi = plasma.ion_temp_hi.sel(element=elem)
-                temp_lo = plasma.ion_temp_lo.sel(element=elem)
-            else:
-                temp_hi = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
-                temp_lo = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
-
-            zeff = plasma.zeff.sel(element=elem)
-            if hasattr(plasma, "zeff_hi"):
-                zeff_hi = plasma.zeff_hi.sel(element=elem)
-                zeff_lo = plasma.zeff_lo.sel(element=elem)
-            else:
-                zeff_hi = xr.zeros_like(plasma.zeff.sel(element=elements[0]))
-                zeff_lo = xr.zeros_like(plasma.zeff.sel(element=elements[0]))
+            _conc = (Ni.sel(element=elem) / Ne).mean("rho_poloidal")
+            _meanz = MeanZ.sel(element=elem)
+            _dens = Ni.sel(element=elem)
+            _temp = Ti.sel(element=elem)
+            _zeff = Zeff.sel(element=elem)
         else:
-            conc = xr.zeros_like(plasma.t)
-            meanz = xr.zeros_like(plasma.meanz.sel(element=elements[0]))
-            zeff = xr.zeros_like(plasma.zeff.sel(element=elements[0]))
-            dens = xr.zeros_like(plasma.ion_dens.sel(element=elements[0]))
-            temp = xr.zeros_like(plasma.ion_temp.sel(element=elements[0]))
-        ion_conc.append(conc)
-        ion_temp.append(temp)
-        ion_temp_hi.append(temp_hi)
-        ion_temp_lo.append(temp_lo)
-        ion_dens.append(dens)
-        ion_dens_hi.append(dens_hi)
-        ion_dens_lo.append(dens_lo)
-        ion_meanz.append(meanz)
-        ion_meanz_hi.append(meanz_hi)
-        ion_meanz_lo.append(meanz_lo)
-        ion_zeff.append(zeff)
-        ion_zeff_hi.append(zeff_hi)
-        ion_zeff_lo.append(zeff_lo)
+            _conc = xr.zeros_like(plasma.t)
+            _meanz = xr.zeros_like(MeanZ.sel(element=elements[0]))
+            _zeff = xr.zeros_like(Zeff.sel(element=elements[0]))
+            _dens = xr.zeros_like(Ni.sel(element=elements[0]))
+            _temp = xr.zeros_like(Ti.sel(element=elements[0]))
+        ion_conc.append(_conc)
+        ion_temp.append(_temp)
+        ion_dens.append(_dens)
+        ion_meanz.append(_meanz)
+        ion_zeff.append(_zeff)
 
     # TODO: distinguish between Zeff from different elements in MDS+
-    if hasattr(plasma, "zeff_hi"):
-        zeff_hi = plasma.zeff_hi
-        zeff_lo = plasma.zeff_lo
-    else:
-        zeff_hi = xr.zeros_like(plasma.zeff)
-        zeff_lo = xr.zeros_like(plasma.zeff)
-
-    if hasattr(plasma, "el_dens_hi"):
-        el_dens_hi = plasma.el_dens_hi
-        el_dens_lo = plasma.el_dens_lo
-    else:
-        el_dens_hi = xr.zeros_like(plasma.el_dens)
-        el_dens_lo = xr.zeros_like(plasma.el_dens)
-
-    if hasattr(plasma, "el_temp_hi"):
-        el_temp_hi = plasma.el_temp_hi
-        el_temp_lo = plasma.el_temp_lo
-    else:
-        el_temp_hi = xr.zeros_like(plasma.el_temp)
-        el_temp_lo = xr.zeros_like(plasma.el_temp)
-
-    if hasattr(plasma, "neutral_dens_hi"):
-        neutral_dens_hi = plasma.neutral_dens_hi
-        neutral_dens_lo = plasma.neutral_dens_lo
-    else:
-        neutral_dens_hi = xr.zeros_like(plasma.neutral_dens)
-        neutral_dens_lo = xr.zeros_like(plasma.neutral_dens)
-
-    if hasattr(plasma, "pressure_th_hi"):
-        pressure_th_hi = plasma.pressure_th_hi
-        pressure_th_lo = plasma.pressure_th_lo
-    else:
-        pressure_th_hi = xr.zeros_like(plasma.pressure_th)
-        pressure_th_lo = xr.zeros_like(plasma.pressure_th)
-
     glob_coord = ["TIME"]
     prof_coord = ["PROFILES.PSI_NORM.RHOP", "TIME"]
     midplane_coord = ["PROFILES.R_MIDPLANE.XRAD", "TIME"]
@@ -509,17 +444,17 @@ def organise_data(plasma, data={}, bckc={}):
             "IMPURITY3": (String(impurities[2]), "", []),
         },
         ".GLOBAL": {
-            "CR0": (Float32(plasma.cr0.values), "m", glob_coord,),
+            "CR0": (Float32(plasma.min_r.values), "m", glob_coord,),
             "RMAG": (Float32(plasma.R_mag.values), "m", glob_coord,),
             "ZMAG": (Float32(plasma.z_mag.values), "m", glob_coord,),
             "VOLM": (
-                Float32(plasma.volume.sel(rho_poloidal=1).values),
+                Float32(Vol.sel(rho_poloidal=1).values),
                 "m^3",
                 glob_coord,
             ),
             "IP": (Float32(plasma.ipla.values), "A", glob_coord,),
             "TE0": (
-                Float32(plasma.el_temp.sel(rho_poloidal=0).values),
+                Float32(Te.sel(rho_poloidal=0).values),
                 "eV",
                 glob_coord,
             ),
@@ -540,7 +475,7 @@ def organise_data(plasma, data={}, bckc={}):
                 glob_coord,
             ),
             "NE0": (
-                Float32(plasma.el_dens.sel(rho_poloidal=0).values),
+                Float32(Ne.sel(rho_poloidal=0).values),
                 "m^-3 ",
                 glob_coord,
             ),
@@ -550,7 +485,7 @@ def organise_data(plasma, data={}, bckc={}):
                 glob_coord,
             ),
             "ZEFF": (
-                Float32(plasma.zeff.sum("element").sel(rho_poloidal=0).values),
+                Float32(Zeff.sum("element").sel(rho_poloidal=0).values),
                 "",
                 glob_coord,
             ),
@@ -559,9 +494,9 @@ def organise_data(plasma, data={}, bckc={}):
             "NEV": (Float32(nev), "m^-3", glob_coord),
             "NIV": (Float32(niv), "m^-3", glob_coord),
             "ZEFFV": (Float32(zeffv), "", glob_coord,),
-            "WTH": (Float32(plasma.wth.values), "J", glob_coord),
-            "WP": (Float32(plasma.wp.values), "J", glob_coord),
-            "UPL": (Float32(plasma.vloop.values), "V", glob_coord),
+            "WTH": (Float32(Wth.values), "J", glob_coord),
+            "WP": (Float32(Wp.values), "J", glob_coord),
+            # "UPL": (Float32(plasma.vloop.values), "V", glob_coord),
             "CION": (Float32(ion_conc[0].values), "", glob_coord),
             "CIM1": (Float32(ion_conc[1].values), "", glob_coord),
             "CIM2": (Float32(ion_conc[2].values), "", glob_coord),
@@ -570,46 +505,20 @@ def organise_data(plasma, data={}, bckc={}):
         ".PROFILES.PSI_NORM": {
             "RHOP": (Float32(plasma.rho.values), "", ()),
             "XPSN": (Float32(plasma.rho.values ** 2), "", ()),
-            "P": (Float32(plasma.pressure_th.values), "Pa", prof_coord,),
-            "P_HI": (Float32(pressure_th_hi.values), "Pa", prof_coord,),
-            "P_LO": (Float32(pressure_th_lo.values), "Pa", prof_coord,),
-            "VOLUME": (Float32(plasma.volume.values), "m^3", prof_coord,),
-            "NE": (Float32(plasma.el_dens.values), "m^-3", prof_coord,),
-            "NE_HI": (Float32(el_dens_hi.values), "m^-3", prof_coord,),
-            "NE_LO": (Float32(el_dens_lo.values), "m^-3", prof_coord,),
+            "P": (Float32(Pth.values), "Pa", prof_coord,),
+            "VOLUME": (Float32(Vol.values), "m^3", prof_coord,),
+            "NE": (Float32(Ne.values), "m^-3", prof_coord,),
             "NI": (Float32(ion_dens[0].values), "m^-3", prof_coord,),
-            "NI_HI": (Float32(ion_dens_hi[0].values), "m^-3", prof_coord,),
-            "NI_LO": (Float32(ion_dens_lo[0].values), "m^-3", prof_coord,),
             "NIZ1": (Float32(ion_dens[1].values), "", prof_coord,),
-            "NIZ1_HI": (Float32(ion_dens_hi[0].values), "m^-3", prof_coord,),
-            "NIZ1_LO": (Float32(ion_dens_lo[0].values), "m^-3", prof_coord,),
             "NIZ2": (Float32(ion_dens[2].values), "", prof_coord,),
-            "NIZ2_HI": (Float32(ion_dens_hi[2].values), "m^-3", prof_coord,),
-            "NIZ2_LO": (Float32(ion_dens_lo[2].values), "m^-3", prof_coord,),
             "NIZ3": (Float32(ion_dens[3].values), "", prof_coord,),
-            "NIZ3_HI": (Float32(ion_dens_hi[3].values), "m^-3", prof_coord,),
-            "NIZ3_LO": (Float32(ion_dens_lo[3].values), "m^-3", prof_coord,),
-            "NNEUTR": (Float32(plasma.neutral_dens.values), "m^-3", prof_coord,),
-            "NNEUTR_HI": (Float32(neutral_dens_hi.values), "m^-3", prof_coord,),
-            "NNEUTR_LO": (Float32(neutral_dens_lo.values), "m^-3", prof_coord,),
+            "NNEUTR": (Float32(Nh.values), "m^-3", prof_coord,),
             "TE": (Float32(plasma.el_temp.values), "eV", prof_coord,),
-            "TE_HI": (Float32(el_temp_hi.values), "eV", prof_coord,),
-            "TE_LO": (Float32(el_temp_lo.values), "eV", prof_coord,),
             "TI": (Float32(ion_temp[0].values), "eV", prof_coord,),
-            "TI_HI": (Float32(ion_temp_hi[0].values), "eV", prof_coord,),
-            "TI_LO": (Float32(ion_temp_lo[0].values), "eV", prof_coord,),
             "TIZ1": (Float32(ion_temp[1].values), "eV", prof_coord,),
-            "TIZ1_HI": (Float32(ion_temp_hi[1].values), "eV", prof_coord,),
-            "TIZ1_LO": (Float32(ion_temp_lo[1].values), "eV", prof_coord,),
             "TIZ2": (Float32(ion_temp[2].values), "eV", prof_coord,),
-            "TIZ2_HI": (Float32(ion_temp_hi[2].values), "eV", prof_coord,),
-            "TIZ2_LO": (Float32(ion_temp_lo[2].values), "eV", prof_coord,),
             "TIZ3": (Float32(ion_temp[3].values), "eV", prof_coord,),
-            "TIZ3_HI": (Float32(ion_temp_hi[3].values), "eV", prof_coord,),
-            "TIZ1_LO": (Float32(ion_temp_lo[3].values), "eV", prof_coord,),
-            "ZEFF": (Float32(plasma.zeff.sum("element").values), "", prof_coord,),
-            "ZEFF_HI": (Float32(zeff_hi.sum("element").values), "", prof_coord,),
-            "ZEFF_LO": (Float32(zeff_lo.sum("element").values), "", prof_coord,),
+            "ZEFF": (Float32(Zeff.sum("element").values), "", prof_coord,),
             "ZI": (Float32(ion_meanz[0].values), "", prof_coord,),
             "ZIM1": (Float32(ion_meanz[1].values), "", prof_coord,),
             "ZIM2": (Float32(ion_meanz[2].values), "", prof_coord,),
@@ -621,21 +530,77 @@ def organise_data(plasma, data={}, bckc={}):
             "P": (Float32(mid_profs["pressure_th"].values), "Pa", midplane_coord,),
             "VOLUME": (Float32(mid_profs["volume"].values), "m^3", midplane_coord,),
             "NE": (Float32(mid_profs["el_dens"].values), "m^-3", midplane_coord,),
-            "NI": (Float32(mid_profs["ion_dens"].sel(element=plasma.main_ion).values), "m^-3", midplane_coord,),
-            "NIZ1": (Float32(mid_profs["ion_dens"].sel(element=plasma.impurities[0]).values), "m^-3", midplane_coord,),
-            "NIZ2": (Float32(mid_profs["ion_dens"].sel(element=plasma.impurities[1]).values), "m^-3", midplane_coord,),
-            "NIZ3": (Float32(mid_profs["ion_dens"].sel(element=plasma.impurities[2]).values), "m^-3", midplane_coord,),
-            "NNEUTR": (Float32(mid_profs["neutral_dens"].values), "m^-3", midplane_coord,),
+            "NI": (
+                Float32(mid_profs["ion_dens"].sel(element=plasma.main_ion).values),
+                "m^-3",
+                midplane_coord,
+            ),
+            "NIZ1": (
+                Float32(mid_profs["ion_dens"].sel(element=plasma.impurities[0]).values),
+                "m^-3",
+                midplane_coord,
+            ),
+            "NIZ2": (
+                Float32(mid_profs["ion_dens"].sel(element=plasma.impurities[1]).values),
+                "m^-3",
+                midplane_coord,
+            ),
+            "NIZ3": (
+                Float32(mid_profs["ion_dens"].sel(element=plasma.impurities[2]).values),
+                "m^-3",
+                midplane_coord,
+            ),
+            "NNEUTR": (
+                Float32(mid_profs["neutral_dens"].values),
+                "m^-3",
+                midplane_coord,
+            ),
             "TE": (Float32(mid_profs["el_temp"].values), "eV", midplane_coord,),
-            "TI": (Float32(mid_profs["ion_temp"].sel(element=plasma.main_ion).values), "eV", midplane_coord,),
-            "TIZ1": (Float32(mid_profs["ion_temp"].sel(element=plasma.impurities[0]).values), "eV", midplane_coord,),
-            "TIZ2": (Float32(mid_profs["ion_temp"].sel(element=plasma.impurities[1]).values), "eV", midplane_coord,),
-            "TIZ3": (Float32(mid_profs["ion_temp"].sel(element=plasma.impurities[2]).values), "eV", midplane_coord,),
-            "ZEFF": (Float32(mid_profs["zeff"].sum("element").values), "", midplane_coord,),
-            "ZI": (Float32(mid_profs["ion_temp"].sel(element=plasma.main_ion).values), "", midplane_coord,),
-            "ZIM1": (Float32(mid_profs["meanz"].sel(element=plasma.impurities[0]).values), "", midplane_coord,),
-            "ZIM2": (Float32(mid_profs["meanz"].sel(element=plasma.impurities[1]).values), "", midplane_coord,),
-            "ZIM3": (Float32(mid_profs["meanz"].sel(element=plasma.impurities[2]).values), "", midplane_coord,),
+            "TI": (
+                Float32(mid_profs["ion_temp"].sel(element=plasma.main_ion).values),
+                "eV",
+                midplane_coord,
+            ),
+            "TIZ1": (
+                Float32(mid_profs["ion_temp"].sel(element=plasma.impurities[0]).values),
+                "eV",
+                midplane_coord,
+            ),
+            "TIZ2": (
+                Float32(mid_profs["ion_temp"].sel(element=plasma.impurities[1]).values),
+                "eV",
+                midplane_coord,
+            ),
+            "TIZ3": (
+                Float32(mid_profs["ion_temp"].sel(element=plasma.impurities[2]).values),
+                "eV",
+                midplane_coord,
+            ),
+            "ZEFF": (
+                Float32(mid_profs["zeff"].sum("element").values),
+                "",
+                midplane_coord,
+            ),
+            "ZI": (
+                Float32(mid_profs["ion_temp"].sel(element=plasma.main_ion).values),
+                "",
+                midplane_coord,
+            ),
+            "ZIM1": (
+                Float32(mid_profs["meanz"].sel(element=plasma.impurities[0]).values),
+                "",
+                midplane_coord,
+            ),
+            "ZIM2": (
+                Float32(mid_profs["meanz"].sel(element=plasma.impurities[1]).values),
+                "",
+                midplane_coord,
+            ),
+            "ZIM3": (
+                Float32(mid_profs["meanz"].sel(element=plasma.impurities[2]).values),
+                "",
+                midplane_coord,
+            ),
         },
     }
     # "RHOT": (

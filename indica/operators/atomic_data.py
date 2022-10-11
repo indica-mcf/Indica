@@ -5,6 +5,7 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
+from copy import deepcopy
 import numpy as np
 from numpy.core.numeric import zeros_like
 import scipy
@@ -17,7 +18,6 @@ from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
 from ..utilities import input_check
-
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -623,12 +623,12 @@ class FractionalAbundance(Operator):
 
     def __call__(  # type: ignore
         self,
-        Ne: DataArray,
         Te: DataArray,
+        Ne: DataArray = None,
         Nh: DataArray = None,
         tau: LabeledArray = None,
         F_z_t0: DataArray = None,
-        full_run: bool = True,
+        full_run: bool = False,
         bounds_check=True,
     ) -> DataArray:
         """Executes all functions in correct order to calculate the fractional
@@ -651,9 +651,9 @@ class FractionalAbundance(Operator):
         F_z_t0
             Initial fractional abundance for given impurity element. (Optional)
         full_run
-            Boolean specifying whether to only run calculate_abundance(False) or to run
-            the entire ordered workflow(True) for calculating abundance from the start.
-            This is mostly only useful for unit testing and is set to True by default.
+            Boolean specifying whether to run the entire ordered workflow(True)
+            for calculating abundance from the start. If (False), fractional abundance
+            will be interpolated on input electron temperature
             (Optional)
         bounds_check
             Check bounds of inputted data
@@ -663,7 +663,7 @@ class FractionalAbundance(Operator):
         F_z_t
             Fractional abundance at tau.
         """
-        if full_run:
+        if full_run or not hasattr(self, "F_z_t"):
             self.interpolate_rates(Ne, Te, bounds_check=bounds_check)
 
             self.calc_ionisation_balance_matrix(Ne, Nh)
@@ -679,9 +679,11 @@ class FractionalAbundance(Operator):
 
             self.calc_eigen_coeffs(F_z_t0)
 
-        F_z_t = self.calculate_abundance(tau)
+            F_z_t = self.calculate_abundance(tau)
 
-        self.F_z_t = F_z_t
+            self.F_z_t = F_z_t
+        else:
+            F_z_t = interpolate_results(self.F_z_t, self.Te, Te)
 
         return F_z_t
 
@@ -1065,11 +1067,11 @@ class PowerLoss(Operator):
 
     def __call__(  # type: ignore
         self,
-        Ne: DataArray,
         Te: DataArray,
         F_z_t: DataArray,
+        Ne: DataArray=None,
         Nh: DataArray = None,
-        full_run: bool = True,
+        full_run: bool = False,
         bounds_check=True,
     ):
         """Executes all functions in correct order to calculate the total radiated
@@ -1103,9 +1105,54 @@ class PowerLoss(Operator):
             Total radiated power of all ionisation charges.
         """
 
-        if full_run:
+        if full_run or not hasattr(self, "cooling_factor"):
             self.interpolate_power(Ne, Te, bounds_check=bounds_check)
-
-        cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
+            cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
+            self.cooling_factor = cooling_factor
+        else:
+            cooling_factor = interpolate_results(self.cooling_factor, self.Te, Te)
 
         return cooling_factor
+
+def interpolate_results(data:DataArray, Te_data:DataArray, Te_interp:DataArray):
+    """
+    Interpolate fractional abundance or cooling factor on electron temperature for fast processing
+
+    Parameters
+    ----------
+    atomic_data
+        Fractional abundance or cooling factor DataArrays
+    Te
+        Electron temperature on which interpolation is to be performed
+
+    Returns
+    -------
+    Interpolated values
+    """
+    result = []
+    dim_old = [d for d in data.dims if d != "ion_charges"][0]
+    ion_charges = data.ion_charges
+
+    _data = deepcopy(data)
+    _data = _data.assign_coords(electron_temperature=(dim_old, Te_data))
+    _data = _data.swap_dims({dim_old: "electron_temperature"})
+
+    for charge in ion_charges:
+        result.append(
+            _data.sel(ion_charges=charge).interp(
+                electron_temperature=Te_interp.values
+            )
+        )
+
+    result = xr.concat(result, "ion_charges").assign_coords(
+        ion_charges=ion_charges
+    )
+    dim_new = Te_interp.dims[0]
+    result = result.assign_coords(
+        {dim_new: ("electron_temperature", Te_interp[dim_new])}
+    )
+    result = result.swap_dims({"electron_temperature": dim_new}).drop_vars(
+        "electron_temperature"
+    )
+
+    return result
