@@ -6,6 +6,7 @@ from typing import Tuple
 
 import numpy as np
 from scipy.optimize import root
+import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
@@ -15,7 +16,7 @@ from .flux_surfaces import FluxSurfaceCoordinates
 from ..numpy_typing import LabeledArray
 
 
-class LinesOfSightTransform(CoordinateTransform):
+class LineOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
@@ -90,6 +91,7 @@ class LinesOfSightTransform(CoordinateTransform):
         y_end = end_coords[1]
         z_end = end_coords[2]
 
+        self.name = f"{name}_line_of_sight_transform"
         self.x_start = DataArray(x_start)
         self.z_start = DataArray(z_start)
         self.y_start = DataArray(y_start)
@@ -99,6 +101,8 @@ class LinesOfSightTransform(CoordinateTransform):
         self.y_end = DataArray(y_end)
         self.x1_name = "channel"
         self.x2_name = "los_position"
+
+        self.x1 = np.array(0)
 
         # Set "dl"
         self.dl_target = dl
@@ -233,11 +237,115 @@ class LinesOfSightTransform(CoordinateTransform):
 
         return x2, dl
 
-    def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        self.flux_transform = flux_transform
+    def set_flux_transform(
+        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
+    ):
+        """
+        Set flux surface transform to perform remapping from physical to flux space
+        """
+        if not hasattr(self, "flux_transform") or force:
+            self.flux_transform = flux_transform
+        elif self.flux_transform != flux_transform:
+            raise Exception("Attempt to set flux surface transform twice.")
 
-    def convert_to_rho(self, t: float = None):
-        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+        """
+        Convert R, z to rho given the flux surface transform
+        """
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Set flux transform to convert (R,z) to rho")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
+
+        rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+        rho = DataArray(rho, coords=[("t", t), (self.x2_name, self.x2)])
+        theta = DataArray(theta, coords=[("t", t), (self.x2_name, self.x2)])
+        rho = xr.where(rho >= 0, rho, 0.0)
+
+        self.rho = rho
+        self.theta = theta
+
+        return rho, theta
+
+    def map_to_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+    ):
+        """
+        Map 1D profile to LOS
+        TODO: extend for 2D interpolation to (R, z) instead of rho
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+
+        Returns
+        -------
+        Interpolation of the input profile along the LOS
+        """
+        self.check_flux_transform()
+        if not hasattr(self, "rho"):
+            self.convert_to_rho(t=t)
+
+        if t is not None:
+            rho = self.rho.interp(t=t, method="linear")
+        else:
+            rho = self.rho
+        along_los = profile_1d.interp(rho_poloidal=rho)
+        if limit_to_sep:
+            along_los = xr.where(
+                rho <= 1,
+                along_los,
+                0,
+            )
+
+        return along_los
+
+    def integrate_on_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+        passes: int = 1,
+    ):
+        """
+        Integrate 1D profile along LOS
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+        passes
+            Number of passes across the plasma (e.g. typical interferometer passes=2)
+
+        Returns
+        -------
+        Line of sight integral along the LOS
+        """
+        along_los = self.map_to_los(
+            profile_1d,
+            t=t,
+            limit_to_sep=limit_to_sep,
+        )
+
+        los_integral = passes * along_los.sum(self.x2_name) * self.dl
+
+        return los_integral, along_los
+
+    def check_flux_transform(self):
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Missing flux surface transform")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Missing equilibrium in flux surface transform")
 
 
 def _find_wall_intersections(
