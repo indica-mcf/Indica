@@ -63,6 +63,31 @@ def run_default(pulse: int = 10009, use_ref=True):
     return plasma, data, bckc, raw_data
 
 
+def save_hda(
+    pulse: int,
+    plasma: Plasma,
+    raw_data: dict,
+    data: dict,
+    bckc: dict,
+    descr: str,
+    run_name: str,
+    force: bool = False,
+):
+    hda_tree.write(
+        plasma,
+        pulse,
+        "HDA",
+        data=data,
+        bckc=bckc,
+        descr=descr,
+        run_name=run_name,
+        force=force,
+    )
+
+    save_to_pickle(
+        plasma, raw_data, data, bckc, pulse=plasma.pulse, name=run_name, force=force,
+    )
+
 def scan_profiles(
     pulse: int = 9780, write=False, run_add="REF", modelling=True, force=True
 ):
@@ -119,31 +144,67 @@ def scan_profiles(
                     pl_dict[run_name] = deepcopy(plasma)
                     bckc_dict[run_name] = deepcopy(bckc)
 
-                    if write:
-                        hda_tree.write(
-                            plasma,
+                    save_hda(
                             pulse_to_write,
-                            "HDA",
-                            data=data,
-                            bckc=bckc,
-                            descr=descr,
-                            run_name=run_name,
-                            force=force,
-                        )
-
-                        save_to_pickle(
                             plasma,
                             raw_data,
                             data,
                             bckc,
-                            pulse=plasma.pulse,
-                            name=run_name,
-                            force=force,
-                        )
+                            descr,
+                            run_name,
+                            force=force)
 
                     iteration += 1
 
+
+    print("Averaging of all runs in RUN60 not consistent...")
+
+    runs = list(pl_dict)
+    plasma = average_runs(pl_dict)
+    for t in plasma.t:
+        assign_bckc(plasma, t, bckc)
+
+    if write:
+        run_name = f"RUN{run}{run_add}"
+        descr = f"Average of runs {runs[0]}-{runs[-1]}"
+        save_hda(
+                pulse_to_write,
+                plasma,
+                raw_data,
+                data,
+                bckc,
+                descr,
+                run_name,
+                force=force)
+
     return pl_dict, raw_data, data, bckc_dict, run_dict
+
+
+def average_runs(pl_dict: dict):
+
+    plasma = pl_dict[list(pl_dict)[-1]]
+
+    attrs = ["el_dens", "imp_dens", "neutral_dens", "el_temp", "ion_temp"]
+
+    lists = {}
+    for attr in attrs:
+        lists[attr] = []
+
+    runs = []
+    for run_name, pl in pl_dict.items():
+        runs.append(run_name)
+        for attr in attrs:
+            lists[attr].append(getattr(pl, attr))
+
+    for attr in attrs:
+        dataarray = xr.concat(lists[attr], "run_name").assign_coords({"run_name": runs})
+        _mean = dataarray.mean("run_name")
+        _stdev = dataarray.std("run_name")
+        setattr(plasma, attr, _mean)
+        setattr(plasma, f"{attr}_up", _mean + _stdev)
+        setattr(plasma, f"{attr}_lo", _mean - _stdev)
+
+    return plasma
 
 
 def run_optimisations(plasma, data, bckc, use_ref=False):
@@ -167,13 +228,6 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
             quantities=opt["el_dens"]["quantities"],
         )
         plasma.el_dens.loc[dict(t=t)] = Ne_prof.yspl.values
-        # Back-calculate the LOS-integral of all the interferometers for consistency checks
-        for diagnostic in INTERFEROMETERS:
-            bckc_tmp, _ = plasma.forward_models[diagnostic].integrate_on_los(
-                plasma.el_dens.sel(t=t), t=t,
-            )
-            for quantity in opt["el_dens"]["quantities"]:
-                bckc[diagnostic][quantity].loc[dict(t=t)] = bckc_tmp[quantity].values
 
         # Optimize electron temperature for XRCS line ratios
         plasma.calc_imp_dens(t=t)
@@ -228,16 +282,8 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
             dict(t=t, element=opt["ar_dens"]["element"])
         ] = Nimp_prof.yspl.values
 
-        assign_xrcs_bckc(plasma, t, xrcs, bckc)
-
-        Bremss = plasma.forward_models["lines"]
-        Bremss.calculate_emission(
-            plasma.el_temp.sel(t=t),
-            plasma.el_dens.sel(t=t),
-            plasma.zeff.sum("element").sel(t=t),
-        )
-        los_integral, _ = Bremss.integrate_on_los(t=t)
-        bckc["lines"]["brems"].loc[dict(t=t)] = los_integral.values
+        # Calculate all BCKC values
+        assign_bckc(plasma, t, bckc)
 
     return plasma, data, bckc
 
@@ -403,14 +449,37 @@ def initialize_optimisations(
         "rev": revision,
     }
 
-
-def assign_xrcs_bckc(plasma: Plasma, t: float, xrcs: XRCSpectrometer, bckc: dict):
+def assign_bckc(plasma: Plasma, t: float, bckc: dict):
     """
     Map xrcs forward model results to desired bckc dictionary structure
+
+    TODO: make this more general for all quantities!
     """
+
+    # Interferometers
+    for diagnostic in INTERFEROMETERS:
+        bckc_tmp, _ = plasma.forward_models[diagnostic].integrate_on_los(
+            plasma.el_dens.sel(t=t), t=t,
+        )
+        for quantity in plasma.optimisation["el_dens"]["quantities"]:
+            bckc[diagnostic][quantity].loc[dict(t=t)] = bckc_tmp[quantity].values
+
+    # Bremsstrahlung
+    Bremss = plasma.forward_models["lines"]
+    Bremss.calculate_emission(
+        plasma.el_temp.sel(t=t),
+        plasma.el_dens.sel(t=t),
+        plasma.zeff.sum("element").sel(t=t),
+    )
+    los_integral, _ = Bremss.integrate_on_los(t=t)
+
+    bckc["lines"]["brems"].loc[dict(t=t)] = los_integral.values
+
+    # XRCS
+    xrcs = plasma.forward_models["xrcs"]
     xrcs_keys = list(bckc["xrcs"].keys())
 
-    # Initialize missing variables
+    # ...initialize missing variables
     if "emiss" not in bckc["xrcs"][xrcs_keys[0]].attrs.keys():
         emiss = []
         for _ in plasma.time:
@@ -426,7 +495,7 @@ def assign_xrcs_bckc(plasma: Plasma, t: float, xrcs: XRCSpectrometer, bckc: dict
                 "err_out": deepcopy(pos),
             }
 
-    # Map quantities
+    # ...map quantities
     los_int, _ = xrcs.integrate_on_los(t=t)
     emiss_keys = xrcs.emission.keys()
     for quantity in xrcs_keys:
@@ -469,6 +538,7 @@ def assign_xrcs_bckc(plasma: Plasma, t: float, xrcs: XRCSpectrometer, bckc: dict
         bckc["xrcs"][quantity].pos["err_in"].loc[dict(t=t)] = err_in
         bckc["xrcs"][quantity].pos["err_out"].loc[dict(t=t)] = err_out
 
+    return bckc
 
 def calc_centrifugal_asymmetry(plasma: Plasma, vtor0=500.0e3):
     plasma.vtor.values = (plasma.ion_temp / plasma.ion_temp.max() * vtor0).values

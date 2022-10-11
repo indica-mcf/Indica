@@ -1,7 +1,7 @@
 import matplotlib.pylab as plt
 import numpy as np
 from matplotlib import rcParams, cm
-from xarray import DataArray
+from xarray import DataArray, Dataset
 import xarray as xr
 from copy import deepcopy
 from scipy import constants
@@ -30,23 +30,51 @@ const_imp = 1.0e-16
 const_rot = 1.0e-3
 label_nTtaue = "($10^{18} m^{-3}$ keV s)"
 label_taue = "(ms)"
-label_power = "(MW)"
-label_wp = "(kJ)"
-label_temp = "(eV)"
-label_dens = "($10^{19}$ $m^{-3}$)"
+label_power = "P (MW)"
+label_wp = "W (kJ)"
+label_temp = "T (keV)"
+label_dens = "N ($10^{19}$ $m^{-3}$)"
 label_time = "Time (s)"
-alpha = 0.8
+alpha = 0.9
 tlim = (0.02,)
+
+CMAP = cm.gnuplot2
+
+
+def calc_mean_std(dataarray: DataArray, runs: list, use_std=False):
+    _data = []
+    for run in runs:
+        _data.append(dataarray.sel(run=run))
+
+    data = xr.concat(_data, "run").assign_coords({"run": runs})
+
+    mean = data.mean("run")
+    std = data.std("run")
+    if use_std:
+        up = mean + std
+        low = mean - std
+    else:
+        up = data.max("run")
+        low = data.min("run")
+
+    return mean, std, up, low
 
 
 def set_sizes_profiles(fontsize=15, legendsize=13, markersize=9):
     rcParams.update({"font.size": fontsize})
     rcParams.update({"legend.fontsize": legendsize})
     rcParams.update({"lines.markersize": markersize})
-    rcParams.update({"lines.width": markersize})
+    rcParams.update({"lines.linewidth": 2})
 
 
-def set_sizes_time_evol(fontsize=10, weight=600, legendsize=10, markersize=5):
+def set_sizes_multiprofs(fontsize=19, legendsize=13, markersize=9):
+    rcParams.update({"font.size": fontsize})
+    rcParams.update({"legend.fontsize": legendsize})
+    rcParams.update({"lines.markersize": markersize})
+    rcParams.update({"lines.linewidth": 2})
+
+
+def set_sizes_time_evol(fontsize=12, weight=600, legendsize=10, markersize=5):
     rcParams.update({"font.size": fontsize})
     rcParams.update({"font.weight": weight})
     rcParams.update({"legend.fontsize": legendsize})
@@ -59,78 +87,78 @@ def available_quantities():
     qdict = {
         "efit:ipla": {
             "const": 1.0e-6,
-            "label": "$I_P$ EFIT",
-            "ylabel": "(MA)",
+            "label": "$I_P$ $EFIT$",
+            "ylabel": "$(MA)$",
             "ylim": (0, None),
         },
         "efit:wp": {
             "const": 1.0e-3,
-            "label": "$W_P$ EFIT",
-            "ylabel": "(kJ)",
+            "label": "$W_P$ $EFIT$",
+            "ylabel": "$(kJ)$",
             "ylim": (0, None),
         },
         "nbi:pin": {
             "const": 1.0e-6,
             "label": "$P_{NBI}$",
-            "ylabel": "(MW)",
+            "ylabel": "$(MW)$",
             "ylim": (0, None),
-            "add_pulse_label":True,
+            "add_pulse_label": True,
         },
-        "mag:vloop": {"const": 1.0, "ylabel": "$V_{loop}$ (V)", "ylim": (0, None),},
+        "mag:vloop": {"const": 1.0, "ylabel": "$V_{loop}$ $(V)$", "ylim": (0, None),},
         "smmh1:ne_bar": {
             "const": 1.0e-19,
-            "label": "$\overline{N}_e$ SMM",
+            "label": "$\overline{N}_e$ $SMM$",
             "ylabel": "($10^{19}$ $m^{-3}$)",
             "ylim": (0, 7),
         },
         "lines:h_alpha": {
             "const": 1.0,
-            "label": r"$H_\alpha$ Filter",
-            "ylabel": r"(a.u.)",
+            "label": r"$H_\alpha$ $Filter$",
+            "ylabel": r"($a.u.)$",
             "ylim": (0, 0.5),
         },
         "diode_detr:filter_001": {
             "const": 1.0e-3,
             "label": "$P_{SXR}$",
-            "ylabel": "(a.u.)",
+            "ylabel": "$(a.u.)$",
             "ylim": (0, None),
         },
         "xrcs:te_avrg": {
             "const": 1.0e-3,
-            "label": "$T_e$ XRCS",
-            "ylabel": "(keV)",
+            "label": "$T_e$ $XRCS$",
+            "ylabel": "$(keV)$",
             "ylim": (0, None),
             "error": True,
             "marker": "o",
         },
         "xrcs:ti_w": {
             "const": 1.0e-3,
-            "label": "$T_i$ XRCS",
-            "ylabel": "(keV)",
+            "label": "$T_i$ $XRCS$",
+            "ylabel": "$(keV)$",
             "ylim": (0, 10),
             "error": True,
             "marker": "o",
         },
         "cxrs:ti_ff": {
             "const": 1.0e-3,
-            "label": "$T_i$ CXRS",
-            "ylabel": "(keV)",
+            "label": "$T_i$ $CXRS$",
+            "ylabel": "$(keV)$",
             "ylim": (0, 10),
             "error": True,
             "marker": "x",
         },
         "cxrs:vtor_ff": {
             "const": 1.0e-3,
-            "label": "$V_{tor}$ CXRS",
-            "ylabel": "(km/s)",
+            "label": "$V_{tor}$ $CXRS$",
+            "ylabel": "$(km/s)$",
             "ylim": (0, 300),
             "error": True,
             "marker": "x",
         },
         "mhd:ampl_odd_n": {
             "const": 1.0,
-            "label": "Odd n MHD",
-            "ylabel": "(a.u.)",
+            "label": "$Odd$ $n$ $MHD$",
+            "ylabel": "$(a.u.)$",
             "ylim": (0, None),
         },
     }
@@ -139,7 +167,10 @@ def available_quantities():
 
 
 def save_figure(fig_name="", orientation="landscape", ext="png"):
-    _file = f"/home/marco.sertoli/figures/Indica/{fig_name}.{ext}"
+    _fig_name = deepcopy(fig_name)
+    if "/" in _fig_name:
+        _fig_name = _fig_name.replace("/", "_ov_")
+    _file = f"/home/marco.sertoli/figures/Indica/{_fig_name}.{ext}"
     plt.savefig(
         _file, orientation=orientation, dpi=300, pil_kwargs={"quality": 95},
     )
@@ -331,44 +362,275 @@ def read_profile_scans_ASTRA(pulse, run_add="", run_plus=500):
     return astra_dict
 
 
-def plot(
-    pulse,
-    savefig=False,
-    plot_all=False,
-    use_std=False,
-    use_std_ti=True,
-    use_std_vtor=True,
-    plot_bckc=False,
-    tlim=(0.02, 0.1),
-    ext="jpg",
-    multiplot=False,
+def plot_all_runs(ax, runs, values, alpha=0.7, color="gray", label=True):
+    for i, run in enumerate(runs):
+        ax.plot(
+            values.sel(run=run).rho_poloidal,
+            values.sel(run=run).values,
+            alpha=alpha,
+            linestyle="dashed",
+            color=color,
+        )
+    if label:
+        ax.plot(
+            values.sel(run=run).rho_poloidal,
+            values.sel(run=run).values,
+            alpha=alpha,
+            linestyle="dashed",
+            color=color,
+            label="Discarded profiles",
+        )
+
+
+def compare_pulses_prl(data=None):
+
+    data = compare_pulses(data=data, qpop=["mhd:ampl_odd_n", "lines:h_alpha"])
+
+    return data
+
+
+def plot_aps(data=None, savefig=False, ext="png"):
+
+    pulses = [9520, 9539, 9783, 10009]
+
+    data = compare_pulses(
+        pulses,
+        data=data,
+        qpop=[
+            "mhd:ampl_odd_n",
+            "mag:vloop",
+            "diode_detr:filter_001",
+            "xrcs:te_avrg",
+            "xrcs:ti_w",
+            "cxrs:ti_ff",
+            "cxrs:vtor_ff",
+            # "lines:h_alpha",
+        ],
+        savefig=savefig,
+        ext=ext,
+    )
+
+    data = compare_pulses(
+        pulses,
+        data=data,
+        qpop=[
+            # "diode_detr:filter_001",
+            "mhd:ampl_odd_n",
+            "mag:vloop",
+            "efit:ipla",
+            "efit:wp",
+            "smmh1:ne_bar",
+            "lines:h_alpha",
+            "nbi:pin",
+        ],
+        figname="kinetics",
+        savefig=savefig,
+        ext=ext,
+    )
+
+    plot_HDA_results(
+        10009, plot_all=True, savefig=savefig, ext=ext,
+    )
+    plot_HDA_results(
+        10009, plot_all=True, multiplot=True, savefig=savefig, ext=ext,
+    )
+
+    return data
+
+
+def compare_pulses(  # 9783, 9781, 9831, 10013,
+    pulses: list = [9538, 9780, 9783, 9831, 10014],
+    tstart: float = 0,
+    tend: float = 0.15,
+    dt: float = 0.003,
+    alpha: float = 0.9,
+    xlabel: str = "Time (s)",
+    figname="",
+    savefig: bool = False,
+    qpop: list = [""],
+    data: list = None,
+    R_cxrs: float = 0.4649,
+    ext: str = "png",
 ):
-    def calc_mean_std(dataarray: DataArray, runs: list, use_std=False):
-        _data = []
-        for run in runs:
-            _data.append(dataarray.sel(run=run))
+    """
+    Compare time traces of different pulses
+    for APS:
+    compare_pulses(qpop=["lines:h_alpha", "mhd:ampl_odd_n"])
+    """
 
-        data = xr.concat(_data, "run").assign_coords({"run": runs})
+    ncols = 4
+    if len(pulses) > ncols:
+        ncols = len(pulses)
+    cols = CMAP(np.linspace(0.1, 0.75, ncols, dtype=float))
 
-        mean = data.mean("run")
-        std = data.std("run")
-        if use_std:
-            up = mean + std
-            low = mean - std
+    def plot_quantity(
+        qkey: str, linestyle="solid",
+    ):
+
+        if "label" not in qdict[qkey]:
+            qdict[qkey]["label"] = ""
+        if "marker" not in qdict[qkey].keys():
+            qdict[qkey]["marker"] = ""
+
+        diag, quant = qkey.split(":")
+        label = ""
+        binned = np.array([])
+        add_pulse_label = False
+        if "add_pulse_label" in qdict[qkey].keys():
+            add_pulse_label = qdict[qkey]["add_pulse_label"]
+        for i in range(len(data)):
+            if add_pulse_label:
+                label = str(pulses[i])
+            val = data[i][diag][quant] * qdict[qkey]["const"]
+            try:
+                _binned = bin_in_time_dt(val.t.min() + dt, val.t.max() - dt, dt, val)
+                binned = np.append(binned, _binned.values).flatten()
+            except ValueError:
+                _ = np.nan
+
+            if "error" in data[i][diag][quant].attrs.keys():
+                err = data[i][diag][quant].error * qdict[qkey]["const"]
+                ind = np.where(np.isfinite(val.values) * np.isfinite(err.values))[0]
+                ax.errorbar(
+                    val.t[ind],
+                    val.values[ind],
+                    err.values[ind],
+                    alpha=alpha,
+                    color=cols[i],
+                    marker=qdict[qkey]["marker"],
+                    label=label,
+                    linestyle=linestyle,
+                )
+            else:
+                ind = np.where(np.isfinite(val.values))[0]
+                ax.plot(
+                    val.t[ind],
+                    val.values[ind],
+                    alpha=alpha,
+                    color=cols[i],
+                    label=label,
+                    marker=qdict[qkey]["marker"],
+                    linestyle=linestyle,
+                )
+
+        ax.set_ylabel(qdict[qkey]["ylabel"])
+
+        # add pulses label
+        if add_pulse_label:
+            loc = "upper right"
+            plt.gca()
+            ax.legend(frameon=True, handlelength=None, loc=loc)
+
+        # add quantity label
+        if len(qdict[qkey]["label"]) > 0:
+            ax_label = ax.twinx()
+            ax_label.plot(
+                [np.nan], [np.nan], label=qdict[qkey]["label"],
+            )
+            ax_label.get_yaxis().set_visible(False)
+            ax_label.legend(frameon=False, handlelength=0, loc="upper left")
+
+        ax.set_xlim(tstart, tend)
+        if np.size(binned) > 0:
+            ylim_bin = (np.min(binned) * 0.7, np.max(binned) * 1.3)
+        if "ylim" in qdict[qkey].keys():
+            ylim = qdict[qkey]["ylim"]
+            if ylim[0] is None and np.isfinite(ylim_bin[0]):
+                ylim = (ylim_bin[1], ylim[1])
+            if ylim[1] is None and np.isfinite(ylim_bin[1]):
+                ylim = (ylim[0], ylim_bin[1])
         else:
-            up = data.max("run")
-            low = data.min("run")
+            ylim = ylim_bin
+        ax.set_ylim(ylim)
 
-        return mean, std, up, low
+    qdict = available_quantities()
+    for q in qpop:
+        if q in qdict.keys():
+            qdict.pop(q)
 
-    set_sizes()
+    iax = -1
+    set_sizes_time_evol()
 
-    all_runs = [str(run) for run in np.arange(60, 76 + 1)]
+    hh = range(8000, 9677 + 1)
+    dh = range(9685, 9787 + 1)
+    dd = range(9802, 10050 + 1)
+    pulse_labels = []
+    for p in pulses:
+        if p in hh:
+            pulse_labels.append("HH")
+        elif p in dh:
+            pulse_labels.append("DH")
+        elif p in dd:
+            pulse_labels.append("DD")
+        else:
+            pulse_labels.append("")
+
+    if data is None:
+        data = []
+        for pulse in pulses:
+            print(pulse)
+            st40_data = ST40data(pulse, tstart, tend)
+            st40_data.get_all()
+            st40_data.get_other_data()
+            raw_data = st40_data.data
+            add_cxrs(st40_data, raw_data)
+            add_mhd(st40_data, raw_data)
+            add_btot(raw_data)
+
+            _data = raw_data["cxrs"]["ti_ff"].sel(R=R_cxrs, method="nearest")
+            _data = xr.where(_data > 0, _data, np.nan)
+            _error = raw_data["cxrs"]["ti_ff"].error.sel(R=R_cxrs, method="nearest")
+            _error = xr.where(_error > 0, _error, np.nan)
+            raw_data["cxrs"]["ti_ff"] = _data
+            raw_data["cxrs"]["ti_ff"].attrs["error"] = _error
+
+            _data = raw_data["cxrs"]["vtor_ff"].sel(R=R_cxrs, method="nearest")
+            _data = xr.where(_data > 0, _data, np.nan)
+            _error = raw_data["cxrs"]["vtor_ff"].error.sel(R=R_cxrs, method="nearest")
+            _error = xr.where(_error > 0, _error, np.nan)
+            raw_data["cxrs"]["vtor_ff"] = _data
+            raw_data["cxrs"]["vtor_ff"].attrs["error"] = _error
+
+            raw_data["nbi"] = {"pin": raw_data["hnbi1"]["pin"] + raw_data["rfx"]["pin"]}
+
+            smmh1_l = 2 * (raw_data["efit"]["rmjo"] - raw_data["efit"]["rmji"]).sel(
+                rho_poloidal=1
+            )
+            raw_data["smmh1"]["ne_bar"] = raw_data["smmh1"]["ne"] / smmh1_l.interp(
+                t=raw_data["smmh1"]["ne"].t
+            )
+
+            data.append(raw_data)
+
+    fig, axs = plt.subplots(len(qdict.keys()), figsize=(6, 8))
+
+    for key in qdict.keys():
+        iax += 1
+        ax = axs[iax]
+        plot_quantity(key)
+        if iax != (len(axs) - 1):
+            ax.xaxis.set_ticklabels([])
+        else:
+            ax.set_xlabel(xlabel)
+
+    if savefig:
+        name = ""
+        for pulse in pulses:
+            name += f"_{pulse}"
+        if len(figname) > 1:
+            name += f"_{figname}"
+        save_figure(fig_name=f"time_evolution_comparison{name}", ext=ext)
+
+    return data
+
+
+def data_details(pulse: int, all_runs: list):
     R_shift = 0.0
+    omega_scaling = 0.0
     if pulse == 10014:
         tplot = 0.0675
-        # tplot = 0.064
-        keep = ["60", "64", "65", "73"]
+        # keep = ["60", "64", "65", "73"]
+        keep = ["64", "65", "73"]
         keep = all_runs[:5]
         run_plus_astra = 500
         run_add_hda = "MID"
@@ -376,25 +638,36 @@ def plot(
         R_shift = 0.02
     elif pulse == 10009:
         tplot = 0.058
-        keep = ["60", "64", "65", "66", "72", "73"]
+        # keep = ["60", "64", "65", "66", "72", "73"]
+        keep = ["64", "65", "66", "72", "73"]
         run_plus_astra = 500
-        run_add_hda = "MID"
+        run_add_hda = "REF" #"MID" #
         omega_scaling = 440e3
         R_shift = 0.03
     elif pulse == 9831:
         tplot = 0.076
-        keep = ["60", "71", "73"]
+        # keep = ["60", "71", "73"]
+        keep = ["71", "73"]
         run_plus_astra = 500
-        run_add_hda = ""
+        run_add_hda = "MID"
         omega_scaling = 450e3
         R_shift = 0.02
-    elif pulse == 9780:
-        tplot = 0.084
-        keep = ["60", "71", "73"]
+    elif pulse == 9787:
+        # raise ValueError("HDA systematically overestimates stored energy for pulse 9787!!!!")
+        tplot = 0.098
+        # keep = ["60", "66", "68", "73", "74", "76"]
+        keep = ["66", "68", "73", "74", "76"]
         run_plus_astra = 500
         run_add_hda = "MID"
         omega_scaling = 550e3
-        R_shift = 0.0
+        R_shift = 0.03
+    elif pulse == 9780:
+        tplot = 0.080
+        keep = ["64", "66", "72", "73", "74"]
+        run_plus_astra = 500
+        run_add_hda = "MID"
+        omega_scaling = 550e3
+        R_shift = 0.03
     elif pulse == 9520:
         tplot = 0.087
         keep = ["61", "62", "69", "70"]
@@ -409,26 +682,66 @@ def plot(
         run_add_hda = "MID"
         omega_scaling = 550e3
         R_shift = 0.03
-    elif pulse == 9787:
-        # raise ValueError("HDA systematically overestimates stored energy for pulse 9787!!!!")
-        tplot = 0.098
-        keep = ["60", "66", "68", "73", "74", "76"]
+    elif pulse == 9229:
+        tplot = 0.07
+        keep = all_runs  # ["62", "64", "69", "70", "72"]
         run_plus_astra = 500
         run_add_hda = "MID"
-        omega_scaling = 550e3
-        R_shift = 0.03
     else:
         raise ValueError(f"...input missing for pulse {pulse}..")
 
-    cmap = cm.rainbow
-    varr = np.linspace(0, 1, len(all_runs))
-    colors = cmap(varr)
+    return (
+        tplot,
+        keep,
+        run_plus_astra,
+        run_plus_astra,
+        run_add_hda,
+        omega_scaling,
+        R_shift,
+    )
+
+
+def plot_HDA_results(
+    pulse,
+    savefig=False,
+    plot_all=False,
+    use_std=False,
+    use_std_ti=True,
+    use_std_vtor=True,
+    plot_bckc=False,
+    tlim=(0.02, 0.1),
+    ext="png",
+    multiplot=False,
+):
+
+    col_el = CMAP(0.1)
+    col_ion = CMAP(0.75)
+    col_fast = CMAP(0.4)
+    col_imp = CMAP(0.0)
+
+    all_runs = [str(run) for run in np.arange(61, 76 + 1)]
+
+    (
+        tplot,
+        keep,
+        run_plus_astra,
+        run_plus_astra,
+        run_add_hda,
+        omega_scaling,
+        R_shift,
+    ) = data_details(pulse, all_runs)
+
+    t_ms = int(tplot * 1.0e3)
 
     astra_pulse = int(pulse + 13.1e6)
 
     pl_dict_all, raw_data, data, bckc_dict_all = read_profile_scans_HDA(
         pulse, run_add=run_add_hda
     )
+    run_pop = f"RUN60{run_add_hda}"
+    if run_pop in pl_dict_all.keys():
+        pl_dict_all.pop(run_pop)
+        bckc_dict_all.pop(run_pop)
     astra_dict_all = read_profile_scans_ASTRA(astra_pulse, run_plus=run_plus_astra)
 
     for run in all_runs:
@@ -447,15 +760,40 @@ def plot(
     pl_dict = {}
     bckc_dict = {}
     astra_dict = {}
-    # for run in keep:
     for run in pl_dict_all.keys():
         pl_dict[run] = pl_dict_all[run]
         bckc_dict[run] = bckc_dict_all[run]
         astra_dict[run] = astra_dict_all[run]
 
-    st40_data = ST40data(pulse, tlim[0], tlim[1])
+    dt = pl_dict[run].dt
+    t0 = pl_dict[run].t[0]
+    t1 = pl_dict[run].t[-1]
+    st40_data = ST40data(pulse, tlim[0] - dt * 2, tlim[1] + dt * 2)
+    # st40_data = ST40data(pulse, 0.0, 0.12)
     st40_data.get_all()
+    st40_data.get_other_data()
+    raw_data = st40_data.data
     add_cxrs(st40_data, raw_data, R_shift=R_shift)
+
+    data = {}
+    for diag in raw_data.keys():
+        data[diag] = {}
+        if type(raw_data[diag]) != dict:
+            continue
+        for quant in raw_data[diag].keys():
+            _data = deepcopy(raw_data[diag][quant])
+            if "t" not in _data.dims:
+                continue
+            if diag == "efit" and quant == "wp":
+                _data.attrs["error"] = _data * 0.2
+            binned_data = bin_in_time_dt(t0, t1, dt, _data)
+            if "error" in _data.attrs:
+                binned_error = bin_in_time_dt(t0, t1, dt, _data.error)
+            else:
+                binned_error = binned_data * 0.0
+
+            data[diag][quant] = binned_data
+            data[diag][quant].attrs["error"] = binned_error
 
     P_oh_all = []
     Pnb_all = []
@@ -470,18 +808,17 @@ def plot(
     Weq_all = []
     Wth_all = []
     Wastra_all = []
+    Vloop_all = []
     te_xrcs_bckc = []
     ti_xrcs_bckc = []
-    rho_mean_te = []
-    rho_in_te = []
-    rho_out_te = []
-    rho_mean_ti = []
-    rho_in_ti = []
-    rho_out_ti = []
+    rho_mean_xrcs = []
+    rho_in_xrcs = []
+    rho_out_xrcs = []
     runs = list(pl_dict)
     for run in runs:
         pl = pl_dict[run]
         astra = astra_dict[run]
+        bckc = bckc_dict[run]
 
         Te_all.append(pl.el_temp.sel(t=tplot, method="nearest"))
         Ti_all.append(pl.ion_temp.sel(element="ar").sel(t=tplot, method="nearest"))
@@ -504,24 +841,41 @@ def plot(
         Pabs_all.append(astra["pabs"])
         Pnb_all.append(astra["pnb"])
         Ptot_all.append(astra["pabs"] + astra["p_oh"])
+        Vloop_all.append(astra["upl"])
+
+        if "mag" not in bckc.keys():
+            bckc["mag"] = {}
+        bckc["mag"]["vloop"] = astra["upl"].interp(t=pl.t)
+        if "efit" not in bckc.keys():
+            bckc["efit"] = {}
+        bckc["efit"]["wp"] = astra["weq"].interp(t=pl.t)
 
         if "te_n3w" in bckc_dict[run]["xrcs"].keys():
             te_key = "te_n3w"
         else:
             te_key = "te_kw"
+
+        if pulse == 10009:
+            te_key = "te_n3w"
         te_tmp = bckc_dict[run]["xrcs"][te_key].sel(t=tplot, method="nearest")
-        rho_tmp = te_tmp.pos.sel(t=tplot, method="nearest")
         te_xrcs_bckc.append(te_tmp)
-        rho_mean_te.append(te_tmp.pos.sel(t=tplot, method="nearest").value)
-        rho_in_te.append(rho_tmp.value - rho_tmp.err_in)
-        rho_out_te.append(rho_tmp.value + rho_tmp.err_out)
 
         ti_tmp = bckc_dict[run]["xrcs"]["ti_w"].sel(t=tplot, method="nearest")
-        rho_tmp = ti_tmp.pos.sel(t=tplot, method="nearest")
         ti_xrcs_bckc.append(ti_tmp)
-        rho_mean_ti.append(rho_tmp.value)
-        rho_in_ti.append(rho_tmp.value - rho_tmp.err_in)
-        rho_out_ti.append(rho_tmp.value + rho_tmp.err_out)
+
+        _pos = bckc_dict[run]["xrcs"]["ti_w"].pos
+        if type(_pos) == Dataset:
+            rho_tmp = _pos.sel(t=tplot, method="nearest")
+            rho_mean_xrcs.append(rho_tmp.value)
+            rho_in_xrcs.append(rho_tmp.value - rho_tmp.err_in)
+            rho_out_xrcs.append(rho_tmp.value + rho_tmp.err_out)
+        else:
+            val = _pos["value"].sel(t=tplot, method="nearest")
+            err_in = _pos["err_in"].sel(t=tplot, method="nearest")
+            err_out = _pos["err_out"].sel(t=tplot, method="nearest")
+            rho_mean_xrcs.append(val)
+            rho_in_xrcs.append(val - err_in)
+            rho_out_xrcs.append(val + err_out)
 
     Te_all = xr.concat(Te_all, "run").assign_coords({"run": runs})
     Ti_all = xr.concat(Ti_all, "run").assign_coords({"run": runs})
@@ -539,13 +893,10 @@ def plot(
     Ptot_all = xr.concat(Ptot_all, "run").assign_coords({"run": runs})
 
     te_xrcs_bckc = xr.concat(te_xrcs_bckc, "run").assign_coords({"run": runs})
-    rho_mean_te = xr.concat(rho_mean_te, "run").assign_coords({"run": runs})
-    rho_out_te = xr.concat(rho_out_te, "run").assign_coords({"run": runs})
-    rho_in_te = xr.concat(rho_in_te, "run").assign_coords({"run": runs})
+    rho_mean_xrcs = xr.concat(rho_mean_xrcs, "run").assign_coords({"run": runs})
+    rho_out_xrcs = xr.concat(rho_out_xrcs, "run").assign_coords({"run": runs})
+    rho_in_xrcs = xr.concat(rho_in_xrcs, "run").assign_coords({"run": runs})
     ti_xrcs_bckc = xr.concat(ti_xrcs_bckc, "run").assign_coords({"run": runs})
-    rho_mean_ti = xr.concat(rho_mean_ti, "run").assign_coords({"run": runs})
-    rho_out_ti = xr.concat(rho_out_ti, "run").assign_coords({"run": runs})
-    rho_in_ti = xr.concat(rho_in_ti, "run").assign_coords({"run": runs})
 
     # Calculate rho of PI LOS-beam intersection and add infor to data
     cxrs = deepcopy(raw_data["cxrs"])
@@ -562,7 +913,432 @@ def plot(
             cxrs_rho = cxrs_rho.interp(R=cxrs[key].R, z=cxrs[key].z)
             cxrs[key] = cxrs[key].assign_coords(rho_poloidal=("R", cxrs_rho))
 
-    # Time evolution
+    # Profiles
+    if multiplot:
+        set_sizes_multiprofs()
+    else:
+        set_sizes_profiles()
+
+    profile_data = {}
+    if multiplot:
+        fig, axs = plt.subplots(2, figsize=(7.5, 12))
+        ax = axs[0]
+    else:
+        fig, ax = plt.subplots(1)
+
+    mean, std, up, low = calc_mean_std(Ne_all, keep)
+    ax.plot(mean.rho_poloidal, mean * const_dens, color=col_el, label="Electrons")
+    ax.fill_between(
+        mean.rho_poloidal, up * const_dens, low * const_dens, alpha=alpha, color=col_el,
+    )
+    if plot_all:
+        plot_all_runs(ax, runs, Ne_all * const_dens, color=col_el, label=False)
+    profile_data["Ne"] = {"mean": mean, "err": std}
+
+    mean, std, up, low = calc_mean_std(Ni_all, keep)
+    ax.plot(mean.rho_poloidal, mean * const_dens, color=col_ion, label="Thermal ions")
+    ax.fill_between(
+        mean.rho_poloidal,
+        up * const_dens,
+        low * const_dens,
+        alpha=alpha,
+        color=col_ion,
+    )
+    if plot_all:
+        plot_all_runs(ax, runs, Ni_all * const_dens, color=col_ion)
+    profile_data["Ni"] = {"mean": mean, "err": std}
+
+    mean = Nf_all.mean("run")
+    std = Nf_all.std("run")
+    if use_std:
+        up = mean + Nf_all.std("run")
+        low = mean - Nf_all.std("run")
+    else:
+        up = Nf_all.max("run")
+        low = Nf_all.min("run")
+    ax.plot(mean.rho_poloidal, mean * const_dens, color=col_fast, label="Fast ions")
+    ax.fill_between(
+        mean.rho_poloidal,
+        up * const_dens,
+        low * const_dens,
+        alpha=alpha,
+        color=col_fast,
+    )
+    if plot_all:
+        plot_all_runs(ax, runs, Nf_all * const_dens, alpha, color=col_fast, label=False)
+    profile_data["Nf"] = {"mean": mean, "err": std}
+    plt.title("")
+    ax.legend()
+    ax.set_xlabel(r"$\rho_{pol}$")
+    ax.set_ylabel("$N$ ($10^{19}$ $m^{-3}$)")
+    plt.tight_layout()
+    if not multiplot:
+        if savefig:
+            save_figure(
+                fig_name=f"{pulse}_{t_ms}_ms_el_and_ion_densities_HDA-CXRS", ext=ext
+            )
+
+    if multiplot:
+        ax = axs[1]
+    else:
+        fig, ax = plt.subplots(1)
+    mean, std, up, low = calc_mean_std(Te_all, keep)
+    ax.plot(mean.rho_poloidal, mean * const_temp, color=col_el, label="Electrons")
+    ax.fill_between(
+        mean.rho_poloidal, up * const_temp, low * const_temp, alpha=alpha, color=col_el,
+    )
+    if plot_all:
+        plot_all_runs(ax, runs, Te_all * const_temp, color=col_el, label=False)
+    profile_data["Te"] = {"mean": mean, "err": std}
+
+    rho_xrcs_mean, _, _, _ = calc_mean_std(rho_mean_xrcs, keep)
+    rho_xrcs_in, _, _, _ = calc_mean_std(rho_in_xrcs, keep)
+    rho_xrcs_out, _, _, _ = calc_mean_std(rho_out_xrcs, keep)
+    te_xrcs_mean, _, te_xrcs_up, te_xrcs_low = calc_mean_std(te_xrcs_bckc, keep)
+    ax.errorbar(
+        rho_xrcs_mean,
+        te_xrcs_mean * const_temp,
+        (te_xrcs_up - te_xrcs_low) * const_temp,
+        marker=xrcs_marker,
+        mfc="white",
+        color=col_el,
+    )
+    ax.hlines(
+        te_xrcs_mean * const_temp,
+        rho_xrcs_in,
+        rho_xrcs_out,
+        color="white",
+        linewidth=3,
+    )
+    ax.hlines(
+        te_xrcs_mean * const_temp, rho_xrcs_in, rho_xrcs_out, color=col_el,
+    )
+    profile_data["Te_xrcs"] = {
+        "mean": te_xrcs_mean,
+        "err": (te_xrcs_up - te_xrcs_low),
+        "rho_mean": rho_xrcs_mean,
+        "rho_in": rho_xrcs_in,
+        "rho_out": rho_xrcs_out,
+    }
+
+    mean, std, up, low = calc_mean_std(Ti_all, keep, use_std=use_std_ti)
+    print(f"Ti(0)   = {mean.sel(rho_poloidal=0).values}")
+    print(f"  error = {(up - mean).sel(rho_poloidal=0).values}")
+    ax.plot(mean.rho_poloidal, mean * const_temp, color=col_ion, label="Ions")
+    ax.fill_between(
+        mean.rho_poloidal,
+        up * const_temp,
+        low * const_temp,
+        alpha=alpha,
+        color=col_ion,
+    )
+    if plot_all:
+        plot_all_runs(ax, runs, Ti_all * const_temp, color=col_ion)
+    profile_data["Ti"] = {"mean": mean, "err": std}
+
+    rho_xrcs_mean, _, _, _ = calc_mean_std(rho_mean_xrcs, keep)
+    rho_xrcs_in, _, _, _ = calc_mean_std(rho_in_xrcs, keep)
+    rho_xrcs_out, _, _, _ = calc_mean_std(rho_out_xrcs, keep)
+    ti_xrcs_mean, _, ti_xrcs_up, ti_xrcs_low = calc_mean_std(ti_xrcs_bckc, keep)
+    ax.errorbar(
+        rho_xrcs_mean,
+        ti_xrcs_mean * const_temp,
+        (ti_xrcs_up - ti_xrcs_low) * const_temp,
+        marker=xrcs_marker,
+        mfc="white",
+        color=col_ion,
+        label="XRCS",
+    )
+    ax.hlines(
+        ti_xrcs_mean * const_temp,
+        rho_xrcs_in,
+        rho_xrcs_out,
+        color="white",
+        linewidth=3,
+    )
+    ax.hlines(
+        ti_xrcs_mean * const_temp, rho_xrcs_in, rho_xrcs_out, color=col_ion,
+    )
+    profile_data["Ti_xrcs"] = {
+        "mean": ti_xrcs_mean,
+        "err": (ti_xrcs_up - ti_xrcs_low),
+        "rho_mean": rho_xrcs_mean,
+        "rho_in": rho_xrcs_in,
+        "rho_out": rho_xrcs_out,
+    }
+
+    quantity = "ti"
+    ti_cxrs = []
+    ti_err_cxrs = []
+    ti_rho_cxrs = []
+    for analysis_key in cxrs_analyses.keys():
+        key = f"{quantity}_{analysis_key}"
+        if key not in cxrs.keys():
+            continue
+        ti = (xr.where(cxrs[key] > 0, cxrs[key], np.nan) * const_temp).sel(
+            t=tplot, method="nearest"
+        )
+        ti_error = (
+            xr.where(cxrs[key] > 0, cxrs[key].attrs["error"], np.nan) * const_temp
+        ).sel(t=tplot, method="nearest")
+        if np.any(ti > 0):
+            ax.errorbar(
+                cxrs[key].rho_poloidal,
+                ti,
+                ti_error,
+                marker=cxrs_markers[analysis_key],
+                mfc="white",
+                color=col_ion,
+                label="CXRS",
+                linestyle="",
+            )
+            ti_cxrs.append(ti)
+            ti_err_cxrs.append(ti_error)
+            ti_rho_cxrs.append(cxrs[key].rho_poloidal)
+    if len(ti_cxrs) > 0:
+        profile_data["Ti_cxrs"] = {
+            "mean": np.array(ti_cxrs),
+            "err": np.array(ti_err_cxrs),
+            "rho_mean": ti_rho_cxrs,
+        }
+
+    plt.title("")
+    ax.legend()
+    ax.set_xlabel(r"$\rho_{pol}$")
+    ax.set_ylabel("$T$ $(keV)$")
+    plt.tight_layout()
+    if not multiplot:
+        if savefig:
+            save_figure(fig_name=f"{pulse}_{t_ms}_ms_temperatures_HDA-CXRS", ext=ext)
+    else:
+        if savefig:
+            save_figure(
+                fig_name=f"{pulse}_{t_ms}_ms_temperatures_and_densities_HDA-CXRS",
+                ext=ext,
+            )
+
+    set_sizes_profiles()
+    plt.figure()
+    mean, std, up, low = calc_mean_std(NAr_all, keep)
+    plt.plot(mean.rho_poloidal, mean * const_imp, color=col_imp, label="Impurity")
+    plt.fill_between(
+        mean.rho_poloidal, up * const_imp, low * const_imp, alpha=alpha, color=col_imp,
+    )
+    if plot_all:
+        plot_all_runs(plt, runs, NAr_all * const_imp, color=col_imp)
+
+    plt.title("")
+    plt.legend()
+    plt.xlabel(r"$\rho_{pol}$")
+    plt.ylabel("$N$ ($10^{16}$ $m^{-3}$)")
+    if savefig:
+        save_figure(fig_name=f"{pulse}_{t_ms}_ms_argon_density_HDA-CXRS", ext=ext)
+
+    # Data & Bckc comparison time evolution
+    to_plot = {
+        "efit": {"wp": ["$W_{P}$", "$(kJ)$", 1.0e-3]},
+        "smmh1": {"ne": ["$SMM$ $N_e$", "$(10^{19} m^{-3})$", 1.0e-19]},
+        "mag": {"vloop": ["$V_{loop}$", "$(V)$", 1.0]},
+        "xrcs": {
+            "ti_w": ["$T_i$ $XRCS$", "($keV)$", 1.0e-3],
+            # "te_n3w": ["$n3/w$ $T_e$", "$(keV)$", 1.0e-3],
+            # "te_kw": ["$k/w$ $T_e$", "$(keV)$", 1.0e-3],
+            "int_w": ["$I_w$", "$(a.u.)$", 1.0e-2],
+            "int_k": ["$I_k$", "$(a.u.)$", 1.0e-2],
+            "int_n3": ["$I_{n3}$", "$(a.u.)$", 1.0e-2],
+            # "int_n3/int_w": ["$I_{n3}/I_w$", "", 1.0],
+            "int_k/int_w": ["$I_{k}/I_w$", "", 1.],
+        },
+        # "lines": {"brems": ["", 1.0]},
+    }
+
+    nplots = 1
+    if multiplot:
+        nplots = 4
+        set_sizes_time_evol()  # fontsize=14, legendsize=13)
+        fig, axs = plt.subplots(nplots, figsize=(6, 8))
+    else:
+        set_sizes_profiles()
+
+    iax = -1
+    igroup = 1
+    for diag in to_plot.keys():
+        for quant, details in to_plot[diag].items():
+            label = ""
+            if multiplot:
+                iax += 1
+                if iax == nplots:
+                    igroup += 1
+                    iax = 0
+                    fig, axs = plt.subplots(nplots, figsize=(6, 8))
+                ax = axs[iax]
+            else:
+                iax = 0
+                fig, ax = plt.subplots(1)
+
+            quant_label = details[0]
+            ylabel = details[1]
+            const = details[2]
+            if diag not in raw_data.keys():
+                continue
+
+            if quant == "vloop":
+                label = "Data"
+            # Raw data
+            _raw = raw_data[diag][quant]
+            ax.plot(
+                _raw.t, (const * _raw), color="gray", label=label, linestyle="dashed",
+            )
+
+            # Binned data & error
+            _data = data[diag][quant]
+            ax.plot(
+                _data.t,
+                (const * _data),
+                color="black",
+                label=label,
+                linestyle="dashed",
+                marker="o",
+            )
+            if "error" in _data.attrs.keys():
+                _err = _data.error
+                ax.fill_between(
+                    _data.t,
+                    const * (_data - _err),
+                    const * (_data + _err),
+                    color="gray",
+                    alpha=0.5,
+                )
+
+            for run in all_runs:
+                if diag not in bckc_dict_all[run].keys():
+                    break
+                if quant in bckc_dict_all[run][diag]:
+                    _bckc = bckc_dict_all[run][diag][quant]
+                    ax.plot(
+                        _bckc.t,
+                        (const * _bckc),
+                        color="red",
+                        linestyle="dashed",
+                        alpha=0.6,
+                    )
+            if quant == "vloop":
+                label = "Bckc (discarded)"
+                ax.plot(
+                    _bckc.t,
+                    (const * _bckc),
+                    color="red",
+                    linestyle="dashed",
+                    alpha=0.6,
+                    label=label,
+                )
+            for run in keep:
+                if diag not in bckc_dict_all[run].keys():
+                    break
+                if quant in bckc_dict_all[run][diag]:
+                    _bckc = bckc_dict_all[run][diag][quant]
+                    ax.plot(
+                        _bckc.t, (const * _bckc), alpha=0.8, color="blue", linewidth=3
+                    )
+
+            if quant == "vloop":
+                label = "Bckc (retained)"
+                ax.plot(
+                    _bckc.t,
+                    (const * _bckc),
+                    alpha=0.6,
+                    color="blue",
+                    linewidth=3,
+                    label=label,
+                )
+
+            if quant == "vloop":
+                loc = "upper right"
+                plt.gca()
+                ax.legend(frameon=True, handlelength=None, loc=loc)
+
+            ax_label = ax.twinx()
+            ax_label.plot(
+                [np.nan], [np.nan], label=quant_label,
+            )
+            ax_label.get_yaxis().set_visible(False)
+            ax_label.legend(
+                frameon=False, handlelength=0, loc="upper left", fontsize=14
+            )
+
+            ax.set_xlim(0.01, 0.1)
+            ax.set_ylim(0, const * _data.max() * 1.25)
+            if quant == "wp":
+                ax.set_ylim(0, const * _data.max() * 1.3)
+            ax.set_ylabel(ylabel)
+            plt.title("")
+
+            if iax == nplots - 1 or not multiplot:
+                if not multiplot:
+                    igroup = f"{diag}_{quant}"
+
+                ax.set_xlabel("$Time$ $(s)$")
+                plt.tight_layout()
+                if savefig:
+                    save_figure(
+                        fig_name=f"{pulse}_HDA_data_bckc_{nplots}_{igroup}", ext=ext
+                    )
+            else:
+                ax.xaxis.set_ticklabels([])
+
+    return raw_data, data, bckc_dict_all
+
+    plt.figure()
+    const_rot = 1.0e-3
+    _mean, _std, _up, _low = calc_mean_std(Ti_all, keep)
+    mean = _mean / _mean.sel(rho_poloidal=0) * omega_scaling
+    if use_std_vtor:
+        up = (_mean + _std) / _mean.sel(rho_poloidal=0) * omega_scaling
+        low = (_mean - _std) / _mean.sel(rho_poloidal=0) * omega_scaling
+    else:
+        up = _up / _mean.sel(rho_poloidal=0) * omega_scaling
+        low = _low / _mean.sel(rho_poloidal=0) * omega_scaling
+    plt.plot(mean.rho_poloidal, mean * const_rot, color=col_ion, label="Ions")
+    plt.fill_between(
+        mean.rho_poloidal, up * const_rot, low * const_rot, alpha=alpha, color=col_ion,
+    )
+    quantity = "vtor"
+    for analysis_key in cxrs_analyses.keys():
+        if key not in cxrs.keys():
+            continue
+        key = f"{quantity}_{analysis_key}"
+        vtor = (xr.where(cxrs[key] > 0, cxrs[key], np.nan)).sel(
+            t=tplot, method="nearest"
+        )
+        vtor_error = (xr.where(cxrs[key] > 0, cxrs[key].attrs["error"], np.nan)).sel(
+            t=tplot, method="nearest"
+        )
+        omega = vtor / vtor.R  # 0.5 #
+        omega_error = vtor_error / omega.R
+
+        if np.any(omega > 0):
+            plt.errorbar(
+                cxrs[key].rho_poloidal,
+                omega * const_rot,
+                omega_error * const_rot,
+                marker=cxrs_markers[analysis_key],
+                mfc="white",
+                color=col_ion,
+                label="CXRS",
+                linestyle="",
+            )
+    plt.title("")
+    plt.legend(fontsize=10)
+    plt.xlabel(r"$\rho_{pol}$")
+    plt.ylabel("$V_{tor}$ $(krad/s)$")
+    if savefig:
+        save_figure(fig_name=f"{pulse}_{t_ms}_ms_toroidal_rotation_HDA-CXRS", ext=ext)
+
+    return
+
+    set_sizes_time_evol()
+
+    # Time evolution of data and back-calculated quantities
     plt.figure()
     if "ti_ff" in raw_data["cxrs"].keys():
         value = raw_data["cxrs"]["ti_ff"][:, 2].sel(t=slice(tlim[0], tlim[1]))
@@ -662,13 +1438,13 @@ def plot(
     plt.plot(mean.t, mean * const_weq, color="blue", label="model")
     plt.fill_between(mean.t, up * const_weq, low * const_weq, alpha=alpha, color="blue")
     if plot_all:
-        plot_all_runs(runs, Wastra_all * const_weq, alpha, colors)
+        plot_all_runs(ax, runs, Wastra_all * const_weq, color="blue")
 
     mean, std, up, low = calc_mean_std(Wth_all, keep)
     plt.plot(mean.t, mean * const_weq, color="red", label="ASTRA thermal")
     plt.fill_between(mean.t, up * const_weq, low * const_weq, alpha=alpha, color="red")
     if plot_all:
-        plot_all_runs(runs, Wth_all * const_weq, alpha, colors)
+        plot_all_runs(ax, runs, Wth_all * const_weq, color="red")
 
     ylim = plt.ylim()
     plt.xlim(tlim)
@@ -687,7 +1463,7 @@ def plot(
         mean.t, up * const_power, low * const_power, alpha=alpha, color="red"
     )
     if plot_all:
-        plot_all_runs(runs, Ptot_all * const_power, alpha, colors)
+        plot_all_runs(ax, runs, Ptot_all * const_power, color="red")
 
     mean, std, up, low = calc_mean_std(Pabs_all, keep)
     plt.plot(mean.t, mean * const_power, color="orange", label="$P_{abs}(NBI)$")
@@ -695,7 +1471,7 @@ def plot(
         mean.t, up * const_power, low * const_power, alpha=alpha, color="orange"
     )
     if plot_all:
-        plot_all_runs(runs, Pabs_all * const_power, alpha, colors)
+        plot_all_runs(ax, runs, Pabs_all * const_power, color="orange")
 
     mean, std, up, low = calc_mean_std(P_oh_all, keep)
     plt.plot(mean.t, mean * const_power, color="blue", label="$P(OH)$")
@@ -703,7 +1479,7 @@ def plot(
         mean.t, up * const_power, low * const_power, alpha=alpha, color="blue"
     )
     if plot_all:
-        plot_all_runs(runs, P_oh_all * const_power, alpha, colors)
+        plot_all_runs(ax, runs, P_oh_all * const_power, color="blue")
 
     ylim = plt.ylim()
     plt.xlim(tlim)
@@ -738,639 +1514,152 @@ def plot(
     if savefig:
         save_figure(fig_name=f"{pulse}_time_evol_density", ext=ext)
 
-    # Profiles
-    profile_data = {}
-    if multiplot:
-        fig, axs = plt.subplots(2, figsize=(7.5, 12))
-        ax = axs[0]
-    else:
-        fig, ax = plt.subplots(1)
-
-    mean, std, up, low = calc_mean_std(Ne_all, keep)
-    ax.plot(mean.rho_poloidal, mean * const_dens, color="blue", label="Electrons")
-    ax.fill_between(
-        mean.rho_poloidal, up * const_dens, low * const_dens, alpha=alpha, color="blue",
-    )
-    if plot_all:
-        plot_all_runs(runs, Ne_all * const_dens, alpha, colors)
-    profile_data["Ne"] = {"mean": mean, "err": std}
-
-    mean, std, up, low = calc_mean_std(Ni_all, keep)
-    ax.plot(mean.rho_poloidal, mean * const_dens, color="red", label="Thermal ions")
-    ax.fill_between(
-        mean.rho_poloidal, up * const_dens, low * const_dens, alpha=alpha, color="red",
-    )
-    if plot_all:
-        plot_all_runs(runs, Ni_all * const_dens, alpha, colors)
-    profile_data["Ni"] = {"mean": mean, "err": std}
-
-    mean = Nf_all.mean("run")
-    std = Nf_all.std("run")
-    if use_std:
-        up = mean + Nf_all.std("run")
-        low = mean - Nf_all.std("run")
-    else:
-        up = Nf_all.max("run")
-        low = Nf_all.min("run")
-    ax.plot(mean.rho_poloidal, mean * const_dens, color="green", label="Fast ions")
-    ax.fill_between(
-        mean.rho_poloidal,
-        up * const_dens,
-        low * const_dens,
-        alpha=alpha,
-        color="green",
-    )
-    if plot_all:
-        plot_all_runs(runs, Nf_all * const_dens, alpha, colors)
-    profile_data["Nf"] = {"mean": mean, "err": std}
-    ax.legend()
-    ax.set_xlabel(r"$\rho_{pol}$")
-    ax.set_ylabel(label_dens)
-    if not multiplot:
-        ax.set_title(f"{pulse} Densities @ {int(tplot*1.e3)} ms")
-        if savefig:
-            save_figure(fig_name=f"{pulse}_el_and_ion_densities_HDA-CXRS", ext=ext)
-
-    if multiplot:
-        ax = axs[1]
-    else:
-        fig, ax = plt.subplots(1)
-
-    mean, std, up, low = calc_mean_std(Te_all, keep)
-    ax.plot(mean.rho_poloidal, mean * const_temp, color="blue", label="Electrons")
-    ax.fill_between(
-        mean.rho_poloidal, up * const_temp, low * const_temp, alpha=alpha, color="blue",
-    )
-    if plot_all:
-        plot_all_runs(runs, Te_all * const_temp, alpha, colors)
-    profile_data["Te"] = {"mean": mean, "err": std}
-
-    rho_xrcs_mean, _, _, _ = calc_mean_std(rho_mean_te, keep)
-    rho_xrcs_in, _, _, _ = calc_mean_std(rho_in_te, keep)
-    rho_xrcs_out, _, _, _ = calc_mean_std(rho_out_te, keep)
-    te_xrcs_mean, _, te_xrcs_up, te_xrcs_low = calc_mean_std(te_xrcs_bckc, keep)
-    ax.errorbar(
-        rho_xrcs_mean,
-        te_xrcs_mean * const_temp,
-        (te_xrcs_up - te_xrcs_low) * const_temp,
-        marker=xrcs_marker,
-        mfc="white",
-        color="blue",
-    )
-    ax.hlines(
-        te_xrcs_mean * const_temp,
-        rho_xrcs_in,
-        rho_xrcs_out,
-        color="white",
-        linewidth=3,
-    )
-    ax.hlines(
-        te_xrcs_mean * const_temp, rho_xrcs_in, rho_xrcs_out, color="blue",
-    )
-    profile_data["Te_xrcs"] = {
-        "mean": te_xrcs_mean,
-        "err": (te_xrcs_up - te_xrcs_low),
-        "rho_mean": rho_xrcs_mean,
-        "rho_in": rho_xrcs_in,
-        "rho_out": rho_xrcs_out,
-    }
-
-    mean, std, up, low = calc_mean_std(Ti_all, keep, use_std=use_std_ti)
-    print(f"Ti(0)   = {mean.sel(rho_poloidal=0).values}")
-    print(f"  error = {(up - mean).sel(rho_poloidal=0).values}")
-    ax.plot(mean.rho_poloidal, mean * const_temp, color="red", label="Ions")
-    ax.fill_between(
-        mean.rho_poloidal, up * const_temp, low * const_temp, alpha=alpha, color="red",
-    )
-    if plot_all:
-        plot_all_runs(runs, Ti_all * const_temp, alpha, colors)
-    profile_data["Ti"] = {"mean": mean, "err": std}
-
-    rho_xrcs_mean, _, _, _ = calc_mean_std(rho_mean_ti, keep)
-    rho_xrcs_in, _, _, _ = calc_mean_std(rho_in_ti, keep)
-    rho_xrcs_out, _, _, _ = calc_mean_std(rho_out_ti, keep)
-    ti_xrcs_mean, _, ti_xrcs_up, ti_xrcs_low = calc_mean_std(ti_xrcs_bckc, keep)
-    ax.errorbar(
-        rho_xrcs_mean,
-        ti_xrcs_mean * const_temp,
-        (ti_xrcs_up - ti_xrcs_low) * const_temp,
-        marker=xrcs_marker,
-        mfc="white",
-        color="red",
-    )
-    ax.hlines(
-        ti_xrcs_mean * const_temp,
-        rho_xrcs_in,
-        rho_xrcs_out,
-        color="white",
-        linewidth=3,
-    )
-    ax.hlines(
-        ti_xrcs_mean * const_temp, rho_xrcs_in, rho_xrcs_out, color="red",
-    )
-    profile_data["Ti_xrcs"] = {
-        "mean": ti_xrcs_mean,
-        "err": (ti_xrcs_up - ti_xrcs_low),
-        "rho_mean": rho_xrcs_mean,
-        "rho_in": rho_xrcs_in,
-        "rho_out": rho_xrcs_out,
-    }
-
-    quantity = "ti"
-    ti_cxrs = []
-    ti_err_cxrs = []
-    ti_rho_cxrs = []
-    for analysis_key in cxrs_analyses.keys():
-        key = f"{quantity}_{analysis_key}"
-        if key not in cxrs.keys():
-            continue
-        ti = (xr.where(cxrs[key] > 0, cxrs[key], np.nan) * const_temp).sel(
-            t=tplot, method="nearest"
-        )
-        ti_error = (
-            xr.where(cxrs[key] > 0, cxrs[key].attrs["error"], np.nan) * const_temp
-        ).sel(t=tplot, method="nearest")
-        if np.any(ti > 0):
-            ax.errorbar(
-                cxrs[key].rho_poloidal,
-                ti,
-                ti_error,
-                marker=cxrs_markers[analysis_key],
-                mfc="white",
-                color="red",
-                label="CXRS",  # cxrs[key].name,
-                linestyle="",
-            )
-            ti_cxrs.append(ti)
-            ti_err_cxrs.append(ti_error)
-            ti_rho_cxrs.append(cxrs[key].rho_poloidal)
-    if len(ti_cxrs) > 0:
-        profile_data["Ti_cxrs"] = {
-            "mean": np.array(ti_cxrs),
-            "err": np.array(ti_err_cxrs),
-            "rho_mean": ti_rho_cxrs,
-        }
-    ax.legend()
-    ax.set_xlabel(r"$\rho_{pol}$")
-    ax.set_ylabel("(keV)")
-    if not multiplot:
-        if savefig:
-            plt.title(f"{pulse} temperatures @ {int(tplot*1.e3)} ms")
-            save_figure(fig_name=f"{pulse}_temperatures_HDA-CXRS", ext=ext)
-    else:
-        if savefig:
-            save_figure(
-                fig_name=f"{pulse}_temperatures_and_densities_HDA-CXRS", ext=ext
-            )
-
-    const_rot = 1.0e-3
-    plt.figure()
-
-    _mean, _std, _up, _low = calc_mean_std(Ti_all, keep)
-    mean = _mean / _mean.sel(rho_poloidal=0) * omega_scaling
-    if use_std_vtor:
-        up = (_mean + _std) / _mean.sel(rho_poloidal=0) * omega_scaling
-        low = (_mean - _std) / _mean.sel(rho_poloidal=0) * omega_scaling
-    else:
-        up = _up / _mean.sel(rho_poloidal=0) * omega_scaling
-        low = _low / _mean.sel(rho_poloidal=0) * omega_scaling
-    plt.plot(mean.rho_poloidal, mean * const_rot, color="red", label="Ions")
-    plt.fill_between(
-        mean.rho_poloidal, up * const_rot, low * const_rot, alpha=alpha, color="red"
-    )
-    quantity = "vtor"
-    for analysis_key in cxrs_analyses.keys():
-        if key not in cxrs.keys():
-            continue
-        key = f"{quantity}_{analysis_key}"
-        vtor = (xr.where(cxrs[key] > 0, cxrs[key], np.nan)).sel(
-            t=tplot, method="nearest"
-        )
-        vtor_error = (xr.where(cxrs[key] > 0, cxrs[key].attrs["error"], np.nan)).sel(
-            t=tplot, method="nearest"
-        )
-        omega = vtor / vtor.R  # 0.5 #
-        omega_error = vtor_error / omega.R
-
-        if np.any(omega > 0):
-            plt.errorbar(
-                cxrs[key].rho_poloidal,
-                omega * const_rot,
-                omega_error * const_rot,
-                marker=cxrs_markers[analysis_key],
-                mfc="white",
-                color="red",
-                label="CXRS",  # cxrs[key].name,
-                linestyle="",
-            )
-    plt.title(f"{pulse} Toroidal rotation @ {int(tplot*1.e3)} ms")
-    plt.legend(fontsize=10)
-    plt.xlabel(r"$\rho_{pol}$")
-    plt.ylabel("(krad/s)")
-    if savefig:
-        save_figure(fig_name=f"{pulse}_toroidal_rotation_HDA-CXRS", ext=ext)
-
-    plt.figure()
-
-    mean, std, up, low = calc_mean_std(NAr_all, keep)
-    plt.plot(mean.rho_poloidal, mean * const_imp, color="orange", label="Argon")
-    plt.fill_between(
-        mean.rho_poloidal, up * const_imp, low * const_imp, alpha=alpha, color="orange",
-    )
-    if plot_all:
-        plot_all_runs(runs, NAr_all * const_imp, alpha, colors)
-    plt.title(f"{pulse} Impurity density @ {int(tplot*1.e3)} ms")
-    plt.legend()
-    plt.xlabel(r"$\rho_{pol}$")
-    plt.ylabel("($10^{16}$ $m^{-3}$)")
-    if savefig:
-        save_figure(fig_name=f"{pulse}_argon_density_HDA-CXRS", ext=ext)
-
-    plt.figure()
-    Wp_mean = raw_data["efit"]["wp"].sel(t=slice(tlim[0], tlim[1]))
-    dWp_dt = Wp_mean.differentiate("t", edge_order=2)
-
-    Ptot_mean, _, Ptot_up, Ptot_low = calc_mean_std(Ptot_all.interp(t=Wp_mean.t), keep)
-    taue_mean = Wp_mean / Ptot_mean
-    taue_up = Wp_mean / Ptot_low
-    taue_low = Wp_mean / Ptot_up
-    plt.plot(
-        taue_mean.t,
-        taue_mean * const_taue,
-        color="blue",
-        label=r"$\tau_E(EFIT)$ no dW/dt",
-    )
-    plt.fill_between(
-        taue_mean.t,
-        taue_up * const_taue,
-        taue_low * const_taue,
-        alpha=alpha,
-        color="blue",
-    )
-    taue_mean_dw = Wp_mean / (Ptot_mean - dWp_dt.interp(t=Wp_mean.t))
-    taue_up_dw = Wp_mean / (Ptot_low - dWp_dt.interp(t=Wp_mean.t))
-    taue_low_dw = Wp_mean / (Ptot_up - dWp_dt.interp(t=Wp_mean.t))
-    plt.plot(
-        taue_mean_dw.t,
-        taue_mean_dw * const_taue,
-        color="red",
-        label=r"$\tau_E(EFIT)$ with dW/dt",
-    )
-    plt.fill_between(
-        taue_mean_dw.t,
-        taue_up_dw * const_taue,
-        taue_low_dw * const_taue,
-        alpha=alpha,
-        color="red",
-    )
-
-    Wth_mean, _, Wth_up, Wth_low = calc_mean_std(Wth_all.interp(t=Wp_mean.t), keep)
-    dWth_dt = Wth_mean.differentiate("t", edge_order=2)
-    taue_th_mean = Wth_mean / Ptot_mean
-    taue_th_up = Wth_mean / Ptot_low
-    taue_th_low = Wth_mean / Ptot_up
-    plt.plot(
-        taue_th_mean.t,
-        taue_th_mean * const_taue,
-        color="cyan",
-        label=r"$\tau_E(thermal)$ no dW/dt",
-    )
-    plt.fill_between(
-        taue_th_mean.t,
-        taue_th_up * const_taue,
-        taue_th_low * const_taue,
-        alpha=alpha,
-        color="cyan",
-    )
-    taue_th_mean_dw = Wth_mean / (Ptot_mean - dWth_dt.interp(t=Wth_mean.t))
-    taue_th_up_dw = Wth_mean / (Ptot_low - dWth_dt.interp(t=Wth_mean.t))
-    taue_th_low_dw = Wth_mean / (Ptot_up - dWth_dt.interp(t=Wth_mean.t))
-    plt.plot(
-        taue_th_mean_dw.t,
-        taue_th_mean_dw * const_taue,
-        color="orange",
-        label=r"$\tau_E(thermal)$ with dW/dt",
-    )
-    plt.fill_between(
-        taue_th_mean_dw.t,
-        taue_th_up_dw * const_taue,
-        taue_th_low_dw * const_taue,
-        alpha=alpha,
-        color="orange",
-    )
-
-    ylim = plt.ylim()
-    plt.xlim(tlim)
-    plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
-    plt.ylabel(label_taue)
-    plt.xlabel(label_time)
-    plt.legend()
-    plt.title(f"Pulse {pulse}")
-    if savefig:
-        save_figure(fig_name=f"{pulse}_taue", ext=ext)
-
-    plt.figure()
-    Ni_mean, _, Ni_up, Ni_low = calc_mean_std(Ni_all.interp(rho_poloidal=0), keep)
-    Ti_mean, _, Ti_up, Ti_low = calc_mean_std(Ti_all.interp(rho_poloidal=0), keep)
-    nTtaue_mean = Ni_mean * Ti_mean * taue_mean
-    nTtaue_low = Ni_low * Ti_low * taue_low
-    nTtaue_mean_dw = Ni_mean * Ti_mean * taue_mean_dw
-    plt.plot(
-        nTtaue_mean.t,
-        nTtaue_mean * const_nTtaue,
-        color="blue",
-        label=r"$n_i(0) T_i(0) \tau_E$(no dWp/dt)",
-        marker=default_marker,
-    )
-    nTtaue_low_dw = Ni_low * Ti_low * taue_low_dw
-    plt.plot(
-        nTtaue_mean_dw.t,
-        nTtaue_mean_dw * const_nTtaue,
-        color="red",
-        label=r"$n_i(0) T_i(0) \tau_E$(with dWp/dt)",
-        marker=default_marker,
-    )
-
-    nTtaue_th_mean = (
-        Ni_all.mean("run").interp(rho_poloidal=0)
-        * Ti_all.mean("run").interp(rho_poloidal=0)
-        * taue_th_mean
-    )
-    nTtaue_th_low = Ni_low * Ti_low * taue_th_low
-    plt.plot(
-        nTtaue_th_mean.t,
-        nTtaue_th_mean * const_nTtaue,
-        color="blue",
-        label=r"$n_i(0) T_i(0) \tau_E(thermal)$(no dWp/dt)",
-        marker=default_marker,
-    )
-    nTtaue_th_mean_dw = Ni_mean * Ti_mean * taue_th_mean_dw
-    nTtaue_th_low_dw = Ni_low * Ti_low * taue_th_low_dw
-    plt.plot(
-        nTtaue_th_mean_dw.t,
-        nTtaue_th_mean_dw * const_nTtaue,
-        color="red",
-        label=r"$n_i(0) T_i(0) \tau_E$(with dWp/dt)",
-        marker=default_marker,
-    )
-
-    ylim = plt.ylim()
-    plt.xlim(tlim)
-    plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
-    plt.ylabel(label_nTtaue)
-    plt.xlabel(label_time)
-    plt.legend()
-    plt.title(f"Pulse {pulse}")
-    if savefig:
-        save_figure(fig_name=f"{pulse}_n_T_taue", ext=ext)
-
-    import pickle
-
-    pickle.dump(
-        profile_data,
-        open(f"/home/marco.sertoli/data/Indica/{pulse}_profiles_for_Jon.pkl", "wb"),
-    )
-
-    return profile_data
-
-
-def plot_all_runs(runs, values, alpha, colors, label=True):
-    for i, run in enumerate(runs):
-        values.sel(run=run).plot(
-            alpha=alpha, linestyle="dashed", color=colors[i], label=run,
-        )
-
-
-def compare_pulses_prl(data=None):
-
-    data = compare_pulses(data=data, qpop=["mhd:ampl_odd_n", "lines:h_alpha"])
-
-    return data
-
-
-def compare_pulses_aps(data=None, savefig=False):
-
-    # 9520, 9538, 9783, 9831
-
-    data = compare_pulses(
-        [9520, 9539, 9783, 10009],
-        data=data,
-        qpop=[
-            "mhd:ampl_odd_n",
-            "mag:vloop",
-            "diode_detr:filter_001",
-            "xrcs:te_avrg",
-            "xrcs:ti_w",
-            "cxrs:ti_ff",
-            "cxrs:vtor_ff",
-        ],
-        figname="kinetics",
-        savefig=savefig,
-    )
-
-    data = compare_pulses(
-        [9520, 9539, 9783, 10009],
-        data=data,
-        qpop=[
-            "mhd:ampl_odd_n",
-            "mag:vloop",
-            "efit:ipla",
-            "efit:wp",
-            "smmh1:ne_bar",
-            "lines:h_alpha",
-            "nbi:pin",
-        ],
-        savefig=savefig,
-    )
-
-    return data
-
-
-def compare_pulses(  # 9783, 9781, 9831, 10013,
-    pulses: list = [9538, 9780, 9783, 9831, 10014],
-    tstart: float = 0,
-    tend: float = 0.15,
-    dt: float = 0.003,
-    alpha: float = 0.9,
-    xlabel: str = "Time (s)",
-    figname="",
-    savefig: bool = False,
-    qpop: list = [""],
-    data: list = None,
-    R_cxrs: float = 0.4649,
-):
-    """
-    Compare time traces of different pulses
-    for APS:
-    compare_pulses(qpop=["lines:h_alpha", "mhd:ampl_odd_n"])
-    """
-
-    def plot_quantity(qkey: str, linestyle="solid", ):
-        if "label" not in qdict[qkey]:
-            qdict[qkey]["label"] = ""
-        if "marker" not in qdict[qkey].keys():
-            qdict[qkey]["marker"] = ""
-
-        diag, quant = qkey.split(":")
-        label = ""
-        binned = np.array([])
-        add_pulse_label = False
-        if "add_pulse_label" in qdict[qkey].keys():
-            add_pulse_label = qdict[qkey]["add_pulse_label"]
-        for i in range(len(data)):
-            if add_pulse_label:
-                label = str(pulses[i])
-            val = data[i][diag][quant] * qdict[qkey]["const"]
-            try:
-                _binned = bin_in_time_dt(val.t.min() + dt, val.t.max() - dt, dt, val)
-                binned = np.append(binned, _binned.values).flatten()
-            except ValueError:
-                _ = np.nan
-
-            if "error" in data[i][diag][quant].attrs.keys():
-                err = data[i][diag][quant].error * qdict[qkey]["const"]
-                ind = np.where(np.isfinite(val.values) * np.isfinite(err.values))[0]
-                ax.errorbar(
-                    val.t[ind],
-                    val.values[ind],
-                    err.values[ind],
-                    alpha=alpha,
-                    color=cols[i],
-                    marker=qdict[qkey]["marker"],
-                    label=label,
-                    linestyle=linestyle,
-                )
-            else:
-                ind = np.where(np.isfinite(val.values))[0]
-                ax.plot(
-                    val.t[ind],
-                    val.values[ind],
-                    alpha=alpha,
-                    color=cols[i],
-                    label=label,
-                    marker=qdict[qkey]["marker"],
-                    linestyle=linestyle,
-                )
-
-        ax.set_ylabel(qdict[qkey]["ylabel"])
-
-        # add pulses label
-        if add_pulse_label:
-            loc = "upper right"
-            plt.gca()
-            ax.legend(frameon=True, handlelength=None, loc=loc)
-
-        # add quantity label
-        if len(qdict[qkey]["label"]) > 0:
-            ax_label = ax.twinx()
-            ax_label.plot(
-                [np.nan],
-                [np.nan],
-                label=qdict[qkey]["label"],
-            )
-            ax_label.get_yaxis().set_visible(False)
-            ax_label.legend(frameon=False, handlelength=0, loc="upper left")
-
-        ax.set_xlim(tstart, tend)
-        if np.size(binned) > 0:
-            ylim_bin = (np.min(binned) * 0.7, np.max(binned) * 1.3)
-        if "ylim" in qdict[qkey].keys():
-            ylim = qdict[qkey]["ylim"]
-            if ylim[0] is None and np.isfinite(ylim_bin[0]):
-                ylim = (ylim_bin[1], ylim[1])
-            if ylim[1] is None and np.isfinite(ylim_bin[1]):
-                ylim = (ylim[0], ylim_bin[1])
-        else:
-            ylim = ylim_bin
-        ax.set_ylim(ylim)
-
-    qdict = available_quantities()
-    for q in qpop:
-        if q in qdict.keys():
-            qdict.pop(q)
-
-    iax = -1
-    set_sizes_time_evol()
-
-    ncols = 4
-    npulses = len(pulses)
-    if npulses > ncols:
-        ncols = npulses
-    cmap = cm.gnuplot2
-    varr = np.linspace(0.1, 0.75, ncols, dtype=float)
-    cols = cmap(varr)
-
-    hh = range(8000, 9677 + 1)
-    dh = range(9685, 9787 + 1)
-    dd = range(9802, 10050 + 1)
-    pulse_labels = []
-    for p in pulses:
-        if p in hh:
-            pulse_labels.append("HH")
-        elif p in dh:
-            pulse_labels.append("DH")
-        elif p in dd:
-            pulse_labels.append("DD")
-        else:
-            pulse_labels.append("")
-
-    if data is None:
-        data = []
-        for pulse in pulses:
-            print(pulse)
-            st40_data = ST40data(pulse, tstart, tend)
-            st40_data.get_all()
-            st40_data.get_other_data()
-            raw_data = st40_data.data
-            add_cxrs(st40_data, raw_data)
-            add_mhd(st40_data, raw_data)
-            add_btot(raw_data)
-
-            _data = raw_data["cxrs"]["ti_ff"].sel(R=R_cxrs, method="nearest")
-            _data = xr.where(_data > 0, _data, np.nan)
-            _error = raw_data["cxrs"]["ti_ff"].error.sel(R=R_cxrs, method="nearest")
-            _error = xr.where(_error > 0, _error, np.nan)
-            raw_data["cxrs"]["ti_ff"] = _data
-            raw_data["cxrs"]["ti_ff"].attrs["error"] = _error
-
-            _data = raw_data["cxrs"]["vtor_ff"].sel(R=R_cxrs, method="nearest")
-            _data = xr.where(_data > 0, _data, np.nan)
-            _error = raw_data["cxrs"]["vtor_ff"].error.sel(R=R_cxrs, method="nearest")
-            _error = xr.where(_error > 0, _error, np.nan)
-            raw_data["cxrs"]["vtor_ff"] = _data
-            raw_data["cxrs"]["vtor_ff"].attrs["error"] = _error
-
-            raw_data["nbi"] = {"pin": raw_data["hnbi1"]["pin"] + raw_data["rfx"]["pin"]}
-
-            smmh1_l = 2 * (raw_data["efit"]["rmjo"] - raw_data["efit"]["rmji"]).sel(
-                rho_poloidal=1
-            )
-            raw_data["smmh1"]["ne_bar"] = raw_data["smmh1"]["ne"] / smmh1_l.interp(
-                t=raw_data["smmh1"]["ne"].t
-            )
-
-            data.append(raw_data)
-
-    fig, axs = plt.subplots(len(qdict.keys()), figsize=(6, 8))
-
-    for key in qdict.keys():
-        iax += 1
-        ax = axs[iax]
-        plot_quantity(key)
-        if iax != (len(axs) - 1):
-            ax.xaxis.set_ticklabels([])
-        else:
-            ax.set_xlabel(xlabel)
-
-    if savefig:
-        name = ""
-        for pulse in pulses:
-            name += f"_{pulse}"
-        if len(figname) >1:
-            name += f"_{figname}"
-        save_figure(fig_name=f"time_evolution_comparison{name}")
-
-    return data
+    # plt.figure()
+    # Wp_mean = raw_data["efit"]["wp"].sel(t=slice(tlim[0], tlim[1]))
+    # dWp_dt = Wp_mean.differentiate("t", edge_order=2)
+    #
+    # Ptot_mean, _, Ptot_up, Ptot_low = calc_mean_std(Ptot_all.interp(t=Wp_mean.t), keep)
+    # taue_mean = Wp_mean / Ptot_mean
+    # taue_up = Wp_mean / Ptot_low
+    # taue_low = Wp_mean / Ptot_up
+    # plt.plot(
+    #     taue_mean.t,
+    #     taue_mean * const_taue,
+    #     color="blue",
+    #     label=r"$\tau_E(EFIT)$ no dW/dt",
+    # )
+    # plt.fill_between(
+    #     taue_mean.t,
+    #     taue_up * const_taue,
+    #     taue_low * const_taue,
+    #     alpha=alpha,
+    #     color=icol_el,
+    # )
+    # taue_mean_dw = Wp_mean / (Ptot_mean - dWp_dt.interp(t=Wp_mean.t))
+    # taue_up_dw = Wp_mean / (Ptot_low - dWp_dt.interp(t=Wp_mean.t))
+    # taue_low_dw = Wp_mean / (Ptot_up - dWp_dt.interp(t=Wp_mean.t))
+    # plt.plot(
+    #     taue_mean_dw.t,
+    #     taue_mean_dw * const_taue,
+    #     color=icol_el,
+    #     label=r"$\tau_E(EFIT)$ with dW/dt",
+    # )
+    # plt.fill_between(
+    #     taue_mean_dw.t,
+    #     taue_up_dw * const_taue,
+    #     taue_low_dw * const_taue,
+    #     alpha=alpha,
+    #     color=icol_el,
+    # )
+    #
+    # Wth_mean, _, Wth_up, Wth_low = calc_mean_std(Wth_all.interp(t=Wp_mean.t), keep)
+    # dWth_dt = Wth_mean.differentiate("t", edge_order=2)
+    # taue_th_mean = Wth_mean / Ptot_mean
+    # taue_th_up = Wth_mean / Ptot_low
+    # taue_th_low = Wth_mean / Ptot_up
+    # plt.plot(
+    #     taue_th_mean.t,
+    #     taue_th_mean * const_taue,
+    #     color=icol_ion,
+    #     label=r"$\tau_E(thermal)$ no dW/dt",
+    # )
+    # plt.fill_between(
+    #     taue_th_mean.t,
+    #     taue_th_up * const_taue,
+    #     taue_th_low * const_taue,
+    #     alpha=alpha,
+    #     color=icol_ion,
+    # )
+    # taue_th_mean_dw = Wth_mean / (Ptot_mean - dWth_dt.interp(t=Wth_mean.t))
+    # taue_th_up_dw = Wth_mean / (Ptot_low - dWth_dt.interp(t=Wth_mean.t))
+    # taue_th_low_dw = Wth_mean / (Ptot_up - dWth_dt.interp(t=Wth_mean.t))
+    # plt.plot(
+    #     taue_th_mean_dw.t,
+    #     taue_th_mean_dw * const_taue,
+    #     color=icol_imp,
+    #     label=r"$\tau_E(thermal)$ with dW/dt",
+    # )
+    # plt.fill_between(
+    #     taue_th_mean_dw.t,
+    #     taue_th_up_dw * const_taue,
+    #     taue_th_low_dw * const_taue,
+    #     alpha=alpha,
+    #     color=icol_el,
+    # )
+    #
+    # ylim = plt.ylim()
+    # plt.xlim(tlim)
+    # plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
+    # plt.ylabel(label_taue)
+    # plt.xlabel(label_time)
+    # plt.legend()
+    # plt.title(f"Pulse {pulse}")
+    # if savefig:
+    #     save_figure(fig_name=f"{pulse}_taue", ext=ext)
+    #
+    # plt.figure()
+    # Ni_mean, _, Ni_up, Ni_low = calc_mean_std(Ni_all.interp(rho_poloidal=0), keep)
+    # Ti_mean, _, Ti_up, Ti_low = calc_mean_std(Ti_all.interp(rho_poloidal=0), keep)
+    # nTtaue_mean = Ni_mean * Ti_mean * taue_mean
+    # nTtaue_low = Ni_low * Ti_low * taue_low
+    # nTtaue_mean_dw = Ni_mean * Ti_mean * taue_mean_dw
+    # plt.plot(
+    #     nTtaue_mean.t,
+    #     nTtaue_mean * const_nTtaue,
+    #     color="blue",
+    #     label=r"$n_i(0) T_i(0) \tau_E$(no dWp/dt)",
+    #     marker=default_marker,
+    # )
+    # nTtaue_low_dw = Ni_low * Ti_low * taue_low_dw
+    # plt.plot(
+    #     nTtaue_mean_dw.t,
+    #     nTtaue_mean_dw * const_nTtaue,
+    #     color="red",
+    #     label=r"$n_i(0) T_i(0) \tau_E$(with dWp/dt)",
+    #     marker=default_marker,
+    # )
+    #
+    # nTtaue_th_mean = (
+    #     Ni_all.mean("run").interp(rho_poloidal=0)
+    #     * Ti_all.mean("run").interp(rho_poloidal=0)
+    #     * taue_th_mean
+    # )
+    # nTtaue_th_low = Ni_low * Ti_low * taue_th_low
+    # plt.plot(
+    #     nTtaue_th_mean.t,
+    #     nTtaue_th_mean * const_nTtaue,
+    #     color="blue",
+    #     label=r"$n_i(0) T_i(0) \tau_E(thermal)$(no dWp/dt)",
+    #     marker=default_marker,
+    # )
+    # nTtaue_th_mean_dw = Ni_mean * Ti_mean * taue_th_mean_dw
+    # nTtaue_th_low_dw = Ni_low * Ti_low * taue_th_low_dw
+    # plt.plot(
+    #     nTtaue_th_mean_dw.t,
+    #     nTtaue_th_mean_dw * const_nTtaue,
+    #     color="red",
+    #     label=r"$n_i(0) T_i(0) \tau_E$(with dWp/dt)",
+    #     marker=default_marker,
+    # )
+    #
+    # ylim = plt.ylim()
+    # plt.xlim(tlim)
+    # plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
+    # plt.ylabel(label_nTtaue)
+    # plt.xlabel(label_time)
+    # plt.legend()
+    # plt.title(f"Pulse {pulse}")
+    # if savefig:
+    #     save_figure(fig_name=f"{pulse}_n_T_taue", ext=ext)
+    #
+    # import pickle
+    #
+    # pickle.dump(
+    #     profile_data,
+    #     open(f"/home/marco.sertoli/data/Indica/{pulse}_profiles_for_Jon.pkl", "wb"),
+    # )
+    #
+    # return profile_data
 
 
 def data_time_evol(
@@ -1596,12 +1885,12 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     Ni_all = []
     te_xrcs_bckc = []
     ti_xrcs_bckc = []
-    rho_mean_te = []
-    rho_in_te = []
-    rho_out_te = []
-    rho_mean_ti = []
-    rho_in_ti = []
-    rho_out_ti = []
+    rho_mean_xrcs = []
+    rho_in_xrcs = []
+    rho_out_xrcs = []
+    rho_mean_xrcs = []
+    rho_in_xrcs = []
+    rho_out_xrcs = []
     runs = list(pl_dict)
     for run in keep:
         pl = pl_dict[run]
@@ -1625,16 +1914,16 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
         te_tmp = bckc_dict[run]["xrcs"]["te_n3w"].sel(t=tplot, method="nearest")
         rho_tmp = te_tmp.pos.sel(t=tplot, method="nearest")
         te_xrcs_bckc.append(te_tmp)
-        rho_mean_te.append(te_tmp.pos.sel(t=tplot, method="nearest").value)
-        rho_in_te.append(rho_tmp.value - rho_tmp.err_in)
-        rho_out_te.append(rho_tmp.value + rho_tmp.err_out)
+        rho_mean_xrcs.append(te_tmp.pos.sel(t=tplot, method="nearest").value)
+        rho_in_xrcs.append(rho_tmp.value - rho_tmp.err_in)
+        rho_out_xrcs.append(rho_tmp.value + rho_tmp.err_out)
 
         ti_tmp = bckc_dict[run]["xrcs"]["ti_w"].sel(t=tplot, method="nearest")
         rho_tmp = ti_tmp.pos.sel(t=tplot, method="nearest")
         ti_xrcs_bckc.append(ti_tmp)
-        rho_mean_ti.append(rho_tmp.value)
-        rho_in_ti.append(rho_tmp.value - rho_tmp.err_in)
-        rho_out_ti.append(rho_tmp.value + rho_tmp.err_out)
+        rho_mean_xrcs.append(rho_tmp.value)
+        rho_in_xrcs.append(rho_tmp.value - rho_tmp.err_in)
+        rho_out_xrcs.append(rho_tmp.value + rho_tmp.err_out)
 
     Te_all = xr.concat(Te_all, "run").assign_coords({"run": runs})
     Ti_all = xr.concat(Ti_all, "run").assign_coords({"run": runs})
@@ -1643,13 +1932,13 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     Nf_all = xr.concat(Nf_all, "run").assign_coords({"run": runs})
     Ni_all = xr.concat(Ni_all, "run").assign_coords({"run": runs})
     te_xrcs_bckc = xr.concat(te_xrcs_bckc, "run").assign_coords({"run": runs})
-    rho_mean_te = xr.concat(rho_mean_te, "run").assign_coords({"run": runs})
-    rho_out_te = xr.concat(rho_out_te, "run").assign_coords({"run": runs})
-    rho_in_te = xr.concat(rho_in_te, "run").assign_coords({"run": runs})
+    rho_mean_xrcs = xr.concat(rho_mean_xrcs, "run").assign_coords({"run": runs})
+    rho_out_xrcs = xr.concat(rho_out_xrcs, "run").assign_coords({"run": runs})
+    rho_in_xrcs = xr.concat(rho_in_xrcs, "run").assign_coords({"run": runs})
     ti_xrcs_bckc = xr.concat(ti_xrcs_bckc, "run").assign_coords({"run": runs})
-    rho_mean_ti = xr.concat(rho_mean_ti, "run").assign_coords({"run": runs})
-    rho_out_ti = xr.concat(rho_out_ti, "run").assign_coords({"run": runs})
-    rho_in_ti = xr.concat(rho_in_ti, "run").assign_coords({"run": runs})
+    rho_mean_xrcs = xr.concat(rho_mean_xrcs, "run").assign_coords({"run": runs})
+    rho_out_xrcs = xr.concat(rho_out_xrcs, "run").assign_coords({"run": runs})
+    rho_in_xrcs = xr.concat(rho_in_xrcs, "run").assign_coords({"run": runs})
 
     # R_shift_cxrs = 0.04
     # ti_cxrs_full = (
@@ -1745,7 +2034,7 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     plt.plot(mean.rho_poloidal, mean, color="blue", label="Electrons")
     plt.fill_between(mean.rho_poloidal, up, low, alpha=0.5, color="blue")
     plt.errorbar(
-        rho_mean_te.mean("run"),
+        rho_mean_xrcs.mean("run"),
         te_xrcs_bckc.mean("run") * const,
         (te_xrcs_bckc.min("run") - te_xrcs_bckc.max("run")) * const,
         marker="o",
@@ -1753,8 +2042,8 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     )
     plt.hlines(
         te_xrcs_bckc.mean("run") * const,
-        rho_in_te.min("run"),
-        rho_out_te.max("run"),
+        rho_in_xrcs.min("run"),
+        rho_out_xrcs.max("run"),
         color="blue",
     )
 
@@ -1764,7 +2053,7 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     plt.plot(mean.rho_poloidal, mean, color="red", label="Ions")
     plt.fill_between(mean.rho_poloidal, up, low, alpha=0.5, color="red")
     plt.errorbar(
-        rho_mean_ti.mean("run"),
+        rho_mean_xrcs.mean("run"),
         ti_xrcs_bckc.mean("run") * const,
         (ti_xrcs_bckc.min("run") - ti_xrcs_bckc.max("run")) * const,
         marker="o",
@@ -1773,8 +2062,8 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     )
     plt.hlines(
         ti_xrcs_bckc.mean("run") * const,
-        rho_in_ti.min("run"),
-        rho_out_ti.max("run"),
+        rho_in_xrcs.min("run"),
+        rho_out_xrcs.max("run"),
         color="red",
     )
     plt.errorbar(
