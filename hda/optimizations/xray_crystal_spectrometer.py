@@ -70,6 +70,18 @@ def match_line_ratios(
     """
     Optimize electron temperature profile to match XRCS line ratios.
 
+        _, Te_prof = match_line_ratios(
+            xrcs,
+            plasma.Te_prof,
+            data[opt["el_temp"]["diagnostic"]],
+            t,
+            Ne,
+            Nimp=Nimp,
+            Nh=Nh,
+            tau=tau,
+            quantities=opt["el_temp"]["quantities"],
+            te0=te0,
+        )
     Parameters
     ----------
     model

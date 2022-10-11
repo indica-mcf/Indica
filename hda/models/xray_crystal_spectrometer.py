@@ -12,6 +12,8 @@ from indica.numpy_typing import LabeledArray
 
 import hda.physics as ph
 
+#TODO: add Marchuk PECs to repo or to .indica/ (more easily available to others)
+
 MARCHUK = "/home/marco.sertoli/python/Indica/hda/Marchuk_Argon_PEC.pkl"
 ADF15 = {
     "w": {
