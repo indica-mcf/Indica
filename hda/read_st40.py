@@ -102,9 +102,11 @@ class ST40data:
                 if l[0] not in data.keys() or l[1] not in data.keys():
                     continue
                 ratio_key = f"{l[0]}/{l[1]}"
+                # TODO: Ratios cannot be > 1: add this to PPAC XRCS analysis!
+                data[l[0]].values = xr.where(data[l[0]] < data[l[1]], data[l[0]], np.nan).values
                 num = data[l[0]]
                 denom = data[l[1]]
-                # TODO: Ratios cannot be > 1: add this to PPAC XRCS analysis!
+
                 ratio_tmp = num / denom
                 ratio_tmp_err = np.sqrt(
                     (num.attrs["error"] * ratio_tmp / num) ** 2
