@@ -1,6 +1,14 @@
+"""
+source .venv/bin/activate.fish
+ipython
+%load_ext autoreload
+%autoreload 2
+"""
+
 # %% imports
 
 from copy import deepcopy
+import getpass
 from socket import getfqdn
 
 import matplotlib.pyplot as plt
@@ -16,6 +24,8 @@ from indica.operators import ImpurityConcentration
 from indica.operators import InvertRadiation
 from indica.operators import PowerLoss
 from indica.operators import SplineFit
+from indica.operators.extrapolate_impurity_density import asymmetry_from_rho_theta
+from indica.operators.invert_radiation import EmissivityProfile
 from indica.operators.main_ion_density import MainIonDensity
 from indica.operators.mean_charge import MeanCharge
 from indica.readers import ADASReader
@@ -24,17 +34,18 @@ from indica.utilities import coord_array
 
 # %% set up
 
-pulse = 96375
+pulse = 90279
 trange = (49.0, 50.5)
 
 R = coord_array(np.linspace(1.83, 3.9, 50), "R")
-rho = coord_array(np.linspace(0, 1, 25), "rho_poloidal")
 z = coord_array(np.linspace(-1.75, 2.0, 50), "z")
+rho = coord_array(np.linspace(0, 1, 25), "rho_poloidal")
+theta = coord_array(np.linspace(-np.pi, np.pi, 25), "theta")
 t = coord_array(np.linspace(*trange, 5), "t")
 
 main_ion = "d"
 high_z = "w"
-zeff_el = "be"
+zeff_el = "ne"
 impurities = [high_z, zeff_el]
 elements = impurities + [main_ion]
 
@@ -45,6 +56,7 @@ server = (
 # %% reading the data
 
 reader = PPFReader(pulse=pulse, tstart=trange[0], tend=trange[1], server=server)
+reader.authenticate("kcollie", password=getpass.getpass())
 
 diagnostics = {
     "efit": reader.get(uid="jetppf", instrument="eftp", revision=0),
@@ -91,12 +103,20 @@ cameras = ["v"]
 n_knots = 7
 inverter = InvertRadiation(num_cameras=len(cameras), datatype="sxr", n_knots=n_knots)
 
-emissivity, emiss_fit, *camera_results = inverter(
+_, emiss_fit, *camera_results = inverter(
     R,
     z,
     t,
     *[diagnostics["sxr"][key] for key in cameras],
 )
+
+sxr_emiss_profile = EmissivityProfile(
+    emiss_fit.symmetric_emissivity,
+    emiss_fit.asymmetry_parameter,
+    flux_surface,
+)
+
+sxr_emissivity = sxr_emiss_profile(flux_surface, rho, theta, t).drop("z").drop("r")
 
 # %% read ADAS
 
@@ -129,6 +149,24 @@ PRB = {
 PRB[main_ion] = adas.get_adf11("prb", "h", "89")
 PL = {
     element: PowerLoss(PLT=PLT.get(element), PRB=PRB.get(element))
+    for element in elements
+}
+
+# Read in SXR data filtered for SXR camera window
+sxr_adas = ADASReader("/home/elitherl/Analysis/SXR/indica/sxr_filtered_adf11/")
+
+SXRPLT = {
+    element: sxr_adas.get_adf11("pls", element, year)
+    for element, year in zip(impurities, ["5"] * len(impurities))
+}
+SXRPLT[main_ion] = sxr_adas.get_adf11("pls", "h", "5")
+SXRPRB = {
+    element: sxr_adas.get_adf11("prs", element, year)
+    for element, year in zip(impurities, ["5"] * len(impurities))
+}
+SXRPRB[main_ion] = sxr_adas.get_adf11("prs", "h", "5")
+SXRPL = {
+    element: PowerLoss(PLT=SXRPLT.get(element), PRB=SXRPRB.get(element))
     for element in elements
 }
 
@@ -179,11 +217,10 @@ q = (
 
 # %% Initial assumptions
 
-n_zeff_el = xr.zeros_like(emissivity).assign_coords({"element": zeff_el})
-n_main_ion = xr.zeros_like(emissivity).assign_coords({"element": main_ion})
+n_zeff_el = xr.zeros_like(sxr_emissivity).assign_coords({"element": zeff_el})
+n_main_ion = xr.zeros_like(sxr_emissivity).assign_coords({"element": main_ion})
 
-M = 1
-sxr_rescale_factor = 2.5
+sxr_calibration_factor = 2.8
 
 # %% High Z impurity density
 
@@ -193,30 +230,22 @@ other_densities = xr.concat(
         n_main_ion.expand_dims({"element": [main_ion]}, -1),
     ],
     dim="element",
-).indica.remap_like(emissivity)
+)
 
 other_power_loss = xr.concat(
-    [
-        val.indica.remap_like(emissivity).sum("ion_charges")
-        for key, val in power_loss.items()
-        if key != high_z
-    ],
+    [val.sum("ion_charges") for key, val in power_loss.items() if key != high_z],
     dim="element",
 ).assign_coords({"element": [key for key in power_loss.keys() if key != high_z]})
 
 n_high_z = (
-    sxr_rescale_factor * M * emissivity
-    - ne.indica.remap_like(emissivity)
-    * (other_densities * other_power_loss).sum("element")
-) / (
-    ne.indica.remap_like(emissivity)
-    * power_loss[high_z].indica.remap_like(emissivity).sum("ion_charges")
-).assign_attrs(
+    sxr_calibration_factor * sxr_emissivity
+    - ne * (other_densities * other_power_loss).sum("element")
+) / (ne * power_loss[high_z].sum("ion_charges")).assign_attrs(
     {"transform": flux_surface}
 )
 
 extrapolator = ExtrapolateImpurityDensity()
-n_high_z, *high_z_extrapolate_params = extrapolator(
+_, n_high_z, _ = extrapolator(
     impurity_density_sxr=n_high_z.where(n_high_z > 0.0, other=1.0).fillna(1.0),
     electron_density=ne,
     electron_temperature=te,
@@ -233,10 +262,10 @@ conc_zeff_el, _ = ImpurityConcentration()(
     element=zeff_el,
     Zeff_LoS=zeff,
     impurity_densities=xr.concat(
-        [n_high_z, n_zeff_el.indica.remap_like(emissivity)],
+        [n_high_z, n_zeff_el],
         dim="element",
     )
-    .transpose("element", "R", "z", "t")
+    .transpose("element", "rho_poloidal", "theta", "t")
     .assign_coords({"element": impurities})
     .fillna(0.0),
     electron_density=ne.where(ne > 0.0, other=1.0),
@@ -267,13 +296,11 @@ def bolo_los(bolo_diag_array):
     ]
 
 
-nhz_rho_theta = high_z_extrapolate_params[0].assign_coords({"element": high_z})
-
 bolo_derivation = BolometryDerivation(
     flux_surfs=flux_surface,
     LoS_bolometry_data=bolo_los(diagnostics["bolo"]["kb5v"]),
     t_arr=t,
-    impurity_densities=xr.concat([nhz_rho_theta, n_zeff_el], dim="element")
+    impurity_densities=xr.concat([n_high_z, n_zeff_el], dim="element")
     .assign_coords({"element": [high_z, zeff_el]})
     .transpose("element", "rho_poloidal", "theta", "t"),
     frac_abunds=[fzt.get(high_z), fzt.get(zeff_el)],
@@ -292,12 +319,18 @@ derived_power_los = bolo_derivation(trim=False)
 
 # %% optimise high z density profile
 
+n_high_z_asymmetry = asymmetry_from_rho_theta(n_high_z, flux_surface, t)
+
+R_deriv, _ = flux_surface.convert_to_Rz(rho, theta, t)
+
+# TODO: fix bad bolometry channels
 n_high_z = extrapolator.optimize_perturbation(
-    extrapolated_smooth_data=nhz_rho_theta,
-    orig_bolometry_data=diagnostics["bolo"]["kb5v"],
+    extrapolated_smooth_data=n_high_z,
+    orig_bolometry_data=diagnostics["bolo"]["kb5v"].clip(min=0).fillna(0),
     bolometry_obj=bolo_derivation,
     impurity_element=high_z,
-    asymmetry_modifier=extrapolator.asymmetry_modifier,
+    asymmetry_parameter=n_high_z_asymmetry,
+    R_deriv=R_deriv,
 )
 
 n_high_z.attrs["transform"] = flux_surface
@@ -318,34 +351,15 @@ n_main_ion = (
 
 # %% remap densities
 
-electron_density = ne.indica.remap_like(emissivity)
-main_ion_density = n_main_ion.indica.remap_like(emissivity)
+electron_density = ne.indica.remap_like(sxr_emissivity)
+main_ion_density = n_main_ion.indica.remap_like(sxr_emissivity)
 impurity_density = xr.concat(
     [
-        n_high_z.indica.remap_like(emissivity),
-        n_zeff_el.indica.remap_like(emissivity),
+        n_high_z.indica.remap_like(sxr_emissivity),
+        n_zeff_el.indica.remap_like(sxr_emissivity),
     ],
     dim="element",
 ).assign_coords({"element": impurities})
-
-# %% calculate the SXR calibration factor
-
-densities = xr.concat(
-    [
-        impurity_density,
-        main_ion_density.expand_dims({"element": [main_ion]}, -1),
-    ],
-    dim="element",
-    coords="minimal",
-    compat="override",
-)
-M = (
-    ne.indica.remap_like(emissivity)
-    * (
-        densities * xr.concat(power_loss.values(), dim="element").sum("ion_charges")
-    ).sum("element")
-    / emissivity
-).mean()
 
 # %% plot
 

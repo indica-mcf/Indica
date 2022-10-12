@@ -747,7 +747,6 @@ class ExtrapolateImpurityDensity(Operator):
         bolometry_obj: BolometryDerivation,
         impurity_element: str,
         asymmetry_parameter: DataArray,
-        threshold_rho: DataArray,
         R_deriv: DataArray,
         time_correlation: bool = True,
     ):
@@ -771,9 +770,6 @@ class ExtrapolateImpurityDensity(Operator):
             Asymmetry parameter used to transform a low-field side only rho-profile
             of a poloidally asymmetric quantity to a full poloidal cross-sectional
             profile ie. (rho, t) -> (rho, theta, t). Dimensions (rho, t)
-        threshold_rho
-            Threshold rho value beyond which asymmetry parameter is invalid and
-            should be fitted from bolometry.
         R_deriv
             Variable describing value of R in every coordinate on a (rho, theta) grid.
             xarray.DataArray with dimensions (rho, theta, t)
@@ -881,7 +877,7 @@ class ExtrapolateImpurityDensity(Operator):
 
             # fit asymmetry parameter for region where it was invalid
             asymmetry_parameter_cont = asymmetry_parameter.where(
-                asymmetry_parameter.rho_poloidal < threshold_rho,
+                asymmetry_parameter.rho_poloidal < self.threshold_rho,
                 other=edge_asymmetry_parameter,
             )
             asymmetry_modifier = asymmetry_modifier_from_parameter(
@@ -938,7 +934,7 @@ class ExtrapolateImpurityDensity(Operator):
                     np.mean([lower_pos_bound, upper_pos_bound]),
                     # asymmetry initial guess is value at threshold
                     asymmetry_parameter.isel(t=0).sel(
-                        rho_poloidal=threshold_rho, method="ffill"
+                        rho_poloidal=self.threshold_rho.isel(t=0), method="ffill"
                     ),
                 ]
             ]

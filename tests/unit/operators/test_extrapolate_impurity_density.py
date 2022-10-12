@@ -1025,7 +1025,6 @@ def test_extrapolate_impurity_density_call():
             example_bolometry_derivation,
             "w",
             orig_asymmetry_param,
-            threshold_rho=0.6,
             R_deriv=R_derived,
             time_correlation=True,
         )
