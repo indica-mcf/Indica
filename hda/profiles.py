@@ -205,8 +205,8 @@ def get_defaults(datatype: tuple) -> dict:
         },
         "density_impurity": {
             "y0": 5.0e16,
-            "y1": 3.0e16,
-            "yend": 2.e16,
+            "y1": 1.0e16,
+            "yend": 1.e15,
             "peaking": 2,
             "wcenter": 0.4,
             "wped": 6,

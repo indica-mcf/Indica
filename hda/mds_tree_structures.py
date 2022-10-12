@@ -225,14 +225,14 @@ def hda():
         ".METADATA": {
             "USER": ("TEXT", "Username of owner"),
             "PULSE": ("NUMERIC", "Pulse number analysed"),
-            "EQUIL": ("TEXT", "Equilibrium used"),
-            "EL_DENS": ("TEXT", "Electron density diagnostic used for optimization"),
-            "EL_TEMP": (
+            "EQUILIBRIUM": ("TEXT", "Equilibrium used"),
+            "NE": ("TEXT", "Electron density diagnostic used for optimization"),
+            "TE": (
                 "TEXT",
                 "Electron temperature diagnostic used for optimization",
             ),
-            "ION_TEMP": ("TEXT", "Ion temperature diagnostic used for optimization"),
-            "STORED_EN": ("TEXT", "Stored energy diagnostic used for optimization"),
+            "TI": ("TEXT", "Ion temperature diagnostic used for optimization"),
+            "WP": ("TEXT", "Stored energy diagnostic used for optimization"),
             "MAIN_ION": ("TEXT", "Main ion element"),
             "IMPURITY1": ("TEXT", "Impurity element chosen for Z1"),
             "IMPURITY2": ("TEXT", "Impurity element chosen for Z2"),
