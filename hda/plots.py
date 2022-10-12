@@ -295,30 +295,30 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         0,
         np.max(
             [
-                plasma.el_temp.max() * 1.05,
-                plasma.ion_temp.sel(element=plasma.main_ion).max() * 1.05,
+                plasma.electron_temperature.max() * 1.05,
+                plasma.ion_temperature.sel(element=plasma.main_ion).max() * 1.05,
             ]
         ),
     )
 
-    ion_dens = plasma.ion_dens
+    ion_density = plasma.ion_density
     zeff = plasma.zeff
-    tot_rad = plasma.tot_rad
-    # sxr_rad = plasma.sxr_rad
+    total_radiation = plasma.total_radiation
+    # sxr_radiation = plasma.sxr_radiation
     prad_tot = plasma.prad_tot
     prad_sxr = plasma.prad_sxr
-    if hasattr(plasma, "el_temp_hi") and ploterr:
+    if hasattr(plasma, "electron_temperature_hi") and ploterr:
         plt.fill_between(
             plasma.time,
-            plasma.el_temp_hi.sel(rho_poloidal=0),
-            plasma.el_temp_lo.sel(rho_poloidal=0),
+            plasma.electron_temperature_hi.sel(rho_poloidal=0),
+            plasma.electron_temperature_lo.sel(rho_poloidal=0),
             color="blue",
             alpha=0.5,
         )
         plt.fill_between(
             plasma.time,
-            plasma.ion_temp_hi.sel(element=plasma.main_ion, rho_poloidal=0),
-            plasma.ion_temp_lo.sel(element=plasma.main_ion, rho_poloidal=0),
+            plasma.ion_temperature_hi.sel(element=plasma.main_ion, rho_poloidal=0),
+            plasma.ion_temperature_lo.sel(element=plasma.main_ion, rho_poloidal=0),
             color="red",
             alpha=0.5,
         )
@@ -326,14 +326,14 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
             0,
             np.max(
                 [
-                    plasma.el_temp_hi.max() * 1.05,
-                    plasma.ion_temp_hi.sel(element=plasma.main_ion).max() * 1.05,
+                    plasma.electron_temperature_hi.max() * 1.05,
+                    plasma.ion_temperature_hi.sel(element=plasma.main_ion).max() * 1.05,
                     ylim[1],
                 ]
             ),
         )
-    plasma.el_temp.sel(rho_poloidal=0).plot(label="Te(0)", color="blue", alpha=0.8)
-    plasma.ion_temp.sel(element=plasma.main_ion, rho_poloidal=0).plot(
+    plasma.electron_temperature.sel(rho_poloidal=0).plot(label="Te(0)", color="blue", alpha=0.8)
+    plasma.ion_temperature.sel(element=plasma.main_ion, rho_poloidal=0).plot(
         color="red", label="Ti(0)", alpha=0.8
     )
     plt.title(f"{_title} Central temperatures")
@@ -345,19 +345,19 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         save_figure(fig_name=f"{figname}time_evol_central_temperatures")
 
     plt.figure()
-    ylim = (0, plasma.el_dens.max() * 1.05)
-    if hasattr(plasma, "el_dens_hi") and ploterr:
+    ylim = (0, plasma.electron_density.max() * 1.05)
+    if hasattr(plasma, "electron_density_hi") and ploterr:
         plt.fill_between(
             plasma.time,
-            plasma.el_dens_hi.sel(rho_poloidal=0),
-            plasma.el_dens_lo.sel(rho_poloidal=0),
+            plasma.electron_density_hi.sel(rho_poloidal=0),
+            plasma.electron_density_lo.sel(rho_poloidal=0),
             color="blue",
             alpha=0.5,
         )
         plt.fill_between(
             plasma.time,
-            plasma.ion_dens_hi.sel(element=plasma.main_ion, rho_poloidal=0),
-            plasma.ion_dens_lo.sel(element=plasma.main_ion, rho_poloidal=0),
+            plasma.ion_density_hi.sel(element=plasma.main_ion, rho_poloidal=0),
+            plasma.ion_density_lo.sel(element=plasma.main_ion, rho_poloidal=0),
             color="red",
             alpha=0.5,
         )
@@ -365,14 +365,14 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
             0,
             np.max(
                 [
-                    plasma.el_dens_hi.max() * 1.05,
-                    plasma.ion_dens_hi.max() * 1.05,
+                    plasma.electron_density_hi.max() * 1.05,
+                    plasma.ion_density_hi.max() * 1.05,
                     ylim[1],
                 ]
             ),
         )
-    plasma.el_dens.sel(rho_poloidal=0).plot(label="Ne(0)", color="blue", alpha=0.8)
-    ion_dens.sel(element=plasma.main_ion, rho_poloidal=0).plot(
+    plasma.electron_density.sel(rho_poloidal=0).plot(label="Ne(0)", color="blue", alpha=0.8)
+    ion_density.sel(element=plasma.main_ion, rho_poloidal=0).plot(
         color="red", label="Ni(0)", alpha=0.8
     )
     plt.title(f"{_title} Central densities")
@@ -411,7 +411,7 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
     plt.ylabel("")
     plt.legend()
     if savefig:
-        save_figure(fig_name=f"{figname}time_evol_sxr_rad_power")
+        save_figure(fig_name=f"{figname}time_evol_sxr_radiation_power")
 
     plt.figure()
     zeff_mean = zeff.mean("rho_poloidal")
@@ -431,7 +431,7 @@ def time_evol(plasma, data, bckc={}, savefig=False, name="", title="", ploterr=T
         save_figure(fig_name=f"{figname}time_evol_effective_charge")
 
     plt.figure()
-    c_ion = (ion_dens / plasma.el_dens).sel(rho_poloidal=0)
+    c_ion = (ion_density / plasma.electron_density).sel(rho_poloidal=0)
     c_ion.sel(element=elem).plot(
         color=colors[0], label=elem_str[elem], linestyle=linestyles[0]
     )
@@ -484,10 +484,10 @@ def data_time_evol(
     plt.rc("font", size=fontsize)
     fig, axs = plt.subplots(4)
 
-    ion_dens = plasma.ion_dens
+    ion_density = plasma.ion_density
     zeff = plasma.zeff
-    tot_rad = plasma.tot_rad
-    # sxr_rad = plasma.sxr_rad
+    total_radiation = plasma.total_radiation
+    # sxr_radiation = plasma.sxr_radiation
 
     iax = 0
     const = 1.0e-6
@@ -599,62 +599,62 @@ def profiles(
     linestyle_ion = "dotted"
     linestyle_fast = "dashed"
 
-    ion_dens = plasma.ion_dens
+    ion_density = plasma.ion_density
     zeff = plasma.zeff
-    tot_rad = plasma.tot_rad
-    # sxr_rad = plasma.sxr_rad
+    total_radiation = plasma.total_radiation
+    # sxr_radiation = plasma.sxr_radiation
 
     # Electron and ion density
     plt.figure()
-    plasma.el_dens.sel(t=tplot[0], method="nearest").plot(
+    plasma.electron_density.sel(t=tplot[0], method="nearest").plot(
         color=colors[0], label="el.", alpha=alpha
     )
-    ion_dens.sel(element=plasma.main_ion).sel(t=tplot[0], method="nearest").plot(
+    ion_density.sel(element=plasma.main_ion).sel(t=tplot[0], method="nearest").plot(
         color=colors[0], linestyle=linestyle_ion, label=plasma.main_ion, alpha=alpha
     )
-    plasma.fast_dens.sel(t=tplot[0], method="nearest").plot(
+    plasma.fast_density.sel(t=tplot[0], method="nearest").plot(
         color=colors[0], linestyle=linestyle_fast, label="Fast ion", alpha=alpha,
     )
 
-    if len(plasma.optimisation["el_temp"]) > 0 and bckc is not None:
-        diagn = plasma.optimisation["el_dens"]["diagnostic"]
-        quant = plasma.optimisation["el_dens"]["quantities"][0]
+    if len(plasma.optimisation["electron_temperature"]) > 0 and bckc is not None:
+        diagn = plasma.optimisation["electron_density"]["diagnostic"]
+        quant = plasma.optimisation["electron_density"]["quantities"][0]
         value = bckc[diagn][quant]
         error = xr.zeros_like(value)
         if "error" in value.attrs.keys():
             error = value.error
     for i, t in enumerate(tplot):
-        if hasattr(plasma, "el_dens_hi") and ploterr:
+        if hasattr(plasma, "electron_density_hi") and ploterr:
             plt.fill_between(
-                plasma.el_dens.rho_poloidal,
-                plasma.el_dens_hi.sel(t=t, method="nearest"),
-                plasma.el_dens_lo.sel(t=t, method="nearest"),
+                plasma.electron_density.rho_poloidal,
+                plasma.electron_density_hi.sel(t=t, method="nearest"),
+                plasma.electron_density_lo.sel(t=t, method="nearest"),
                 color=colors[i],
                 alpha=0.5,
             )
             plt.fill_between(
-                ion_dens.rho_poloidal,
-                plasma.ion_dens_hi.sel(element=plasma.main_ion).sel(
+                ion_density.rho_poloidal,
+                plasma.ion_density_hi.sel(element=plasma.main_ion).sel(
                     t=t, method="nearest"
                 ),
-                plasma.ion_dens_lo.sel(element=plasma.main_ion).sel(
+                plasma.ion_density_lo.sel(element=plasma.main_ion).sel(
                     t=t, method="nearest"
                 ),
                 color=colors[i],
                 alpha=0.5,
             )
             plt.fill_between(
-                plasma.fast_dens.rho_poloidal,
-                plasma.fast_dens_hi.sel(t=t, method="nearest"),
-                plasma.fast_dens_lo.sel(t=t, method="nearest"),
+                plasma.fast_density.rho_poloidal,
+                plasma.fast_density_hi.sel(t=t, method="nearest"),
+                plasma.fast_density_lo.sel(t=t, method="nearest"),
                 color=colors[i],
                 alpha=0.5,
             )
-        plasma.el_dens.sel(t=t, method="nearest").plot(color=colors[i], alpha=alpha)
-        ion_dens.sel(element=plasma.main_ion).sel(t=t, method="nearest").plot(
+        plasma.electron_density.sel(t=t, method="nearest").plot(color=colors[i], alpha=alpha)
+        ion_density.sel(element=plasma.main_ion).sel(t=t, method="nearest").plot(
             color=colors[i], linestyle=linestyle_ion, alpha=alpha,
         )
-        plasma.fast_dens.sel(t=t, method="nearest").plot(
+        plasma.fast_density.sel(t=t, method="nearest").plot(
             color=colors[i], linestyle=linestyle_fast, alpha=alpha,
         )
 
@@ -668,15 +668,15 @@ def profiles(
     # Neutral density
     plt.figure()
     for i, t in enumerate(tplot):
-        if hasattr(plasma, "neutral_dens_hi") and ploterr:
+        if hasattr(plasma, "neutral_density_hi") and ploterr:
             plt.fill_between(
-                plasma.neutral_dens.rho_poloidal,
-                plasma.neutral_dens_hi.sel(t=t, method="nearest"),
-                plasma.neutral_dens_lo.sel(t=t, method="nearest"),
+                plasma.neutral_density.rho_poloidal,
+                plasma.neutral_density_hi.sel(t=t, method="nearest"),
+                plasma.neutral_density_lo.sel(t=t, method="nearest"),
                 color=colors[i],
                 alpha=0.5,
             )
-        plasma.neutral_dens.sel(t=t, method="nearest").plot(
+        plasma.neutral_density.sel(t=t, method="nearest").plot(
             color=colors[i], alpha=alpha
         )
     plt.title(f"{_title} Neutral density")
@@ -688,11 +688,11 @@ def profiles(
 
     # Electron temperature
     plt.figure()
-    ylim = (0, np.max([plasma.el_temp.max(), plasma.ion_temp.max() * 1.05]))
+    ylim = (0, np.max([plasma.electron_temperature.max(), plasma.ion_temperature.max() * 1.05]))
     value = None
-    if len(plasma.optimisation["el_temp"]) > 0 and bckc is not None:
-        diagn = plasma.optimisation["el_temp"]["diagnostic"]
-        quant = plasma.optimisation["el_temp"]["quantities"][0]
+    if len(plasma.optimisation["electron_temperature"]) > 0 and bckc is not None:
+        diagn = plasma.optimisation["electron_temperature"]["diagnostic"]
+        quant = plasma.optimisation["electron_temperature"]["quantities"][0]
         value = bckc[diagn][quant]
         error = xr.zeros_like(value)
         if "error" in value.attrs.keys():
@@ -701,16 +701,16 @@ def profiles(
         pos_in = bckc[diagn][quant].pos["value"] - bckc[diagn][quant].pos["err_in"]
         pos_out = bckc[diagn][quant].pos["value"] + bckc[diagn][quant].pos["err_out"]
     for i, t in enumerate(tplot):
-        if hasattr(plasma, "el_temp_hi") and ploterr:
+        if hasattr(plasma, "electron_temperature_hi") and ploterr:
             plt.fill_between(
-                plasma.el_temp.rho_poloidal,
-                plasma.el_temp_hi.sel(t=t, method="nearest"),
-                plasma.el_temp_lo.sel(t=t, method="nearest"),
+                plasma.electron_temperature.rho_poloidal,
+                plasma.electron_temperature_hi.sel(t=t, method="nearest"),
+                plasma.electron_temperature_lo.sel(t=t, method="nearest"),
                 color=colors[i],
                 alpha=0.5,
             )
-            ylim = (0, plasma.el_temp_hi.max() * 1.05)
-        plasma.el_temp.sel(t=t, method="nearest").plot(color=colors[i], alpha=alpha)
+            ylim = (0, plasma.electron_temperature_hi.max() * 1.05)
+        plasma.electron_temperature.sel(t=t, method="nearest").plot(color=colors[i], alpha=alpha)
         if value is not None:
             plt.errorbar(
                 pos.sel(t=t, method="nearest"),
@@ -737,9 +737,9 @@ def profiles(
     # Ion temperature
     plt.figure()
     value = None
-    if len(plasma.optimisation["ion_temp"]) > 0 and bckc is not None:
-        diagn = plasma.optimisation["ion_temp"]["diagnostic"]
-        quant = plasma.optimisation["ion_temp"]["quantities"][0]
+    if len(plasma.optimisation["ion_temperature"]) > 0 and bckc is not None:
+        diagn = plasma.optimisation["ion_temperature"]["diagnostic"]
+        quant = plasma.optimisation["ion_temperature"]["quantities"][0]
         value = bckc[diagn][quant]
         error = xr.zeros_like(value)
         if "error" in value.attrs.keys():
@@ -748,16 +748,16 @@ def profiles(
         pos_in = bckc[diagn][quant].pos["value"] - bckc[diagn][quant].pos["err_in"]
         pos_out = bckc[diagn][quant].pos["value"] + bckc[diagn][quant].pos["err_out"]
     for i, t in enumerate(tplot):
-        if hasattr(plasma, "ion_temp_hi") and ploterr:
+        if hasattr(plasma, "ion_temperature_hi") and ploterr:
             plt.fill_between(
-                plasma.ion_temp.rho_poloidal,
-                plasma.ion_temp_hi.sel(element="h").sel(t=t, method="nearest"),
-                plasma.ion_temp_lo.sel(element="h").sel(t=t, method="nearest"),
+                plasma.ion_temperature.rho_poloidal,
+                plasma.ion_temperature_hi.sel(element="h").sel(t=t, method="nearest"),
+                plasma.ion_temperature_lo.sel(element="h").sel(t=t, method="nearest"),
                 color=colors[i],
                 alpha=0.5,
             )
-            ylim = (0, plasma.ion_temp_hi.max() * 1.05)
-        plasma.ion_temp.sel(element="h").sel(t=t, method="nearest").plot(
+            ylim = (0, plasma.ion_temperature_hi.max() * 1.05)
+        plasma.ion_temperature.sel(element="h").sel(t=t, method="nearest").plot(
             color=colors[i], alpha=alpha
         )
         if value is not None:
@@ -860,7 +860,7 @@ def profiles(
                 fig_name=f"{figname}profiles_{diagn.upper()}_{quant.upper()}_emission"
             )
 
-        if len(plasma.optimisation["ion_temp"]) > 0 and data is not None:
+        if len(plasma.optimisation["ion_temperature"]) > 0 and data is not None:
             fz = plasma.fz
             plt.figure()
             ylim = (0, 1.05)
@@ -879,10 +879,10 @@ def profiles(
     # Total radiated power
     const = 1.0e-3
     plt.figure()
-    (tot_rad * const).sum("element").sel(t=tplot[0], method="nearest").plot(
+    (total_radiation * const).sum("element").sel(t=tplot[0], method="nearest").plot(
         color=colors[0], label="Total"
     )
-    (tot_rad * const).sel(element=plasma.main_ion).sel(
+    (total_radiation * const).sel(element=plasma.main_ion).sel(
         t=tplot[0], method="nearest"
     ).plot(
         color=colors[0],
@@ -891,7 +891,7 @@ def profiles(
         label=elem_str[plasma.main_ion],
     )
     for j, elem in enumerate(plasma.impurities):
-        (tot_rad * const).sel(element=elem).sel(
+        (total_radiation * const).sel(element=elem).sel(
             t=tplot[0], method="nearest"
         ).plot(
             color=colors[0],
@@ -900,14 +900,14 @@ def profiles(
             alpha=alpha,
         )
     for i, t in enumerate(tplot):
-        (tot_rad * const).sum("element").sel(t=t, method="nearest").plot(
+        (total_radiation * const).sum("element").sel(t=t, method="nearest").plot(
             color=colors[i]
         )
-        (tot_rad * const).sel(element=plasma.main_ion).sel(
+        (total_radiation * const).sel(element=plasma.main_ion).sel(
             t=t, method="nearest"
         ).plot(color=colors[i], linestyle=linestyle_ion, alpha=alpha)
         for j, elem in enumerate(plasma.impurities):
-            (tot_rad * const).sel(element=elem).sel(t=t, method="nearest").plot(
+            (total_radiation * const).sel(element=elem).sel(t=t, method="nearest").plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha
             )
     plt.title(f"{_title} Total radiated power")
@@ -921,13 +921,13 @@ def profiles(
     # SXR radiated power
     const = 1.0e-3
     plot_sxr = False
-    if hasattr(plasma, "_sxr_rad") and plot_sxr:
+    if hasattr(plasma, "_sxr_radiation") and plot_sxr:
         plt.figure()
-        (sxr_rad.sum("element").sel(t=tplot[0], method="nearest") * const).plot(
+        (sxr_radiation.sum("element").sel(t=tplot[0], method="nearest") * const).plot(
             color=colors[0], label="Total"
         )
         (
-            sxr_rad.sel(element=plasma.main_ion).sel(
+            sxr_radiation.sel(element=plasma.main_ion).sel(
                 t=tplot[0], method="nearest"
             )
             * const
@@ -939,7 +939,7 @@ def profiles(
         )
         for j, elem in enumerate(plasma.impurities):
             (
-                sxr_rad.sel(element=elem).sel(t=tplot[0], method="nearest")
+                sxr_radiation.sel(element=elem).sel(t=tplot[0], method="nearest")
                 * const
             ).plot(
                 color=colors[0],
@@ -948,16 +948,16 @@ def profiles(
                 alpha=alpha,
             )
         for i, t in enumerate(tplot):
-            (sxr_rad.sum("element").sel(t=t, method="nearest") * const).plot(
+            (sxr_radiation.sum("element").sel(t=t, method="nearest") * const).plot(
                 color=colors[i]
             )
             (
-                sxr_rad.sel(element=plasma.main_ion).sel(t=t, method="nearest")
+                sxr_radiation.sel(element=plasma.main_ion).sel(t=t, method="nearest")
                 * const
             ).plot(color=colors[i], linestyle=linestyle_ion, alpha=alpha)
             for j, elem in enumerate(plasma.impurities):
                 (
-                    sxr_rad.sel(element=elem).sel(t=t, method="nearest") * const
+                    sxr_radiation.sel(element=elem).sel(t=t, method="nearest") * const
                 ).plot(color=colors[i], linestyle=linestyle_imp[j], alpha=alpha)
         plt.title(f"{_title} SXR radiated power")
         plt.xlabel("Rho-poloidal")
@@ -970,7 +970,7 @@ def profiles(
     # Impurity density
     plt.figure()
     for j, elem in enumerate(plasma.impurities):
-        ion_dens.sel(element=elem).sel(t=tplot[0], method="nearest").plot(
+        ion_density.sel(element=elem).sel(t=tplot[0], method="nearest").plot(
             color=colors[0],
             linestyle=linestyle_imp[j],
             label=elem_str[elem],
@@ -978,7 +978,7 @@ def profiles(
         )
     for i, t in enumerate(tplot):
         for j, elem in enumerate(plasma.impurities):
-            ion_dens.sel(element=elem).sel(t=tplot[i], method="nearest").plot(
+            ion_density.sel(element=elem).sel(t=tplot[i], method="nearest").plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha,
             )
     plt.title(f"{_title} Impurity density")
@@ -992,7 +992,7 @@ def profiles(
     # Impurity concentration
     plt.figure()
     for j, elem in enumerate(plasma.impurities):
-        (ion_dens.sel(element=elem) / plasma.el_dens).sel(
+        (ion_density.sel(element=elem) / plasma.electron_density).sel(
             t=tplot[0], method="nearest"
         ).plot(
             color=colors[0],
@@ -1002,7 +1002,7 @@ def profiles(
         )
     for i, t in enumerate(tplot):
         for j, elem in enumerate(plasma.impurities):
-            (ion_dens.sel(element=elem) / plasma.el_dens).sel(
+            (ion_density.sel(element=elem) / plasma.electron_density).sel(
                 t=t, method="nearest"
             ).plot(
                 color=colors[i], linestyle=linestyle_imp[j], alpha=alpha,

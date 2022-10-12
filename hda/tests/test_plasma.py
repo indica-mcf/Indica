@@ -28,14 +28,14 @@ EQUILIBRIUM = Equilibrium(EFIT_DATA)
 PL = Plasma(tstart=TSTART, tend=TEND, dt=DT)
 PL.set_equilibrium(EQUILIBRIUM)
 PL.set_neutral_density(y1=1.0e15, y0=1.0e9)
-PL.imp_conc.loc[dict(element="c")] = 0.03
-PL.imp_conc.loc[dict(element="ar")] = 0.001
+PL.impurity_concentration.loc[dict(element="c")] = 0.03
+PL.impurity_concentration.loc[dict(element="ar")] = 0.001
 for t in PL.t:
     PL.el_temp.loc[dict(t=t)] = PL.Te_prof.yspl.values
     PL.el_dens.loc[dict(t=t)] = PL.Ne_prof.yspl.values
     for elem in PL.impurities:
-        PL.imp_dens.loc[dict(t=t, element=elem)] = (
-            (PL.el_dens * PL.imp_conc.sel(element=elem)).sel(t=t).values
+        PL.impurity_density.loc[dict(t=t, element=elem)] = (
+            (PL.el_dens * PL.impurity_concentration.sel(element=elem)).sel(t=t).values
         )
 
 
@@ -53,7 +53,7 @@ def test_hda():
     quant_ar = "int_w"
     main_ion = "h"
     impurities = ("c", "ar", "he")
-    imp_conc = (0.03, 0.001, 0.01)
+    impurity_concentration = (0.03, 0.001, 0.01)
     savefig = False
     marchuk = True
     extrapolate = None
@@ -75,7 +75,7 @@ def test_hda():
         dt=dt,
         main_ion=main_ion,
         impurities=impurities,
-        imp_conc=imp_conc,
+        impurity_concentration=impurity_concentration,
     )
 
     # Build data
@@ -89,8 +89,8 @@ def test_hda():
     pl.Nimp_prof = profs["Nimp"]["peaked"]
     pl.Vrot_prof = profs["Vrot"]["peaked"]
     for i, elem in enumerate(impurities):
-        if elem in pl.imp_conc.element:
-            pl.imp_conc.loc[dict(element=elem)] = imp_conc[i]
+        if elem in pl.impurity_concentration.element:
+            pl.impurity_concentration.loc[dict(element=elem)] = impurity_concentration[i]
     pl.set_neutral_density(y1=1.0e15, y0=1.0e9)
     pl.build_atomic_data()
     pl.calculate_geometry()
@@ -104,7 +104,7 @@ def test_hda():
         data, bckc=bckc, diagnostic=diagn_ne, quantity=quant_ne
     )
     # TODO: add the impurity concentrations to the __init__ of the plasma class
-    pl.calc_imp_dens()
+    pl.calc_impurity_density()
 
     bckc = pl.match_xrcs_temperatures(
         data,

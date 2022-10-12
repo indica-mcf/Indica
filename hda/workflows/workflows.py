@@ -35,7 +35,7 @@ def plasma_workflow(
     quant_ar="int_w",
     main_ion="h",
     impurities=("c", "ar", "he"),
-    imp_conc=(0.03, 0.001, 0.01),
+    impurity_concentration=(0.03, 0.001, 0.01),
     write=False,
     modelling=True,
     ne_peaking=None,
@@ -67,7 +67,7 @@ def plasma_workflow(
     elements = list(main_ion)
     elements.extend(list(impurities))
 
-    pl = Plasma(tstart=tstart, tend=tend, dt=dt, main_ion=main_ion, impurities=impurities, imp_conc=imp_conc)
+    pl = Plasma(tstart=tstart, tend=tend, dt=dt, main_ion=main_ion, impurities=impurities, impurity_concentration=impurity_concentration)
     data = build_data(pl, raw_data, pulse=pulse)
 
     if ne_peaking is not None:
@@ -223,7 +223,7 @@ def scan_profiles(
             quant_ne=quant_ne,
             diagn_te="xrcs",
             quant_te=quant_te,
-            imp_conc=(c_c, c_ar, c_he),
+            impurity_concentration=(c_c, c_ar, c_he),
             marchuk=marchuk,
             extrapolate=extrapolate,
             xrcs_time=xrcs_time,
