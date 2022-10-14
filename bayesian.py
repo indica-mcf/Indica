@@ -27,12 +27,10 @@ from indica.utilities import coord_array
 # config
 
 pulse = 90279
-trange = (45, 47)
 
 N_rho = 7
 # N_R = 25
 N_z = 25
-N_t = 5
 N_intervals = 65
 
 main_ion = "d"
@@ -46,14 +44,13 @@ server = "https://sal.jet.uk"
 # R = coord_array(np.linspace(1.83, 3.9, N_R), "R")
 rho = coord_array(np.linspace(0, 1, N_rho), "rho_poloidal")
 z = coord_array(np.linspace(-1.75, 2.0, N_z), "z")
-t = coord_array(np.linspace(*trange, N_t), "t")
+t = coord_array(np.array([45.17, 45.85, 46.17]), "t")
 
 # read PPF data
-
 reader = PPFReader(
     pulse=pulse,
-    tstart=trange[0],
-    tend=trange[1],
+    tstart=float(t.isel(t=0)),
+    tend=float(t.isel(t=-1)),
     server=server,
 )
 reader.authenticate(getpass.getuser(), getpass.getpass())
