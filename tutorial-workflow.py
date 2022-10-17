@@ -35,11 +35,11 @@ from indica.utilities import coord_array
 # %% set up
 
 pulse = 90279
-trange = (49.0, 50.5)
+trange = (45, 46.8)
 
 R = coord_array(np.linspace(1.83, 3.9, 50), "R")
 z = coord_array(np.linspace(-1.75, 2.0, 50), "z")
-rho = coord_array(np.linspace(0, 1, 25), "rho_poloidal")
+rho = coord_array(np.linspace(0, 0.95, 25), "rho_poloidal")
 theta = coord_array(np.linspace(-np.pi, np.pi, 25), "theta")
 t = coord_array(np.linspace(*trange, 5), "t")
 
