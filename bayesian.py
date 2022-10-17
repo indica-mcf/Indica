@@ -135,7 +135,7 @@ model_file = os.path.join("emissivity.stan")
 model = cmdstanpy.CmdStanModel(stan_file=model_file)
 
 N_los = len(binned_camera.sxr_v_coords)
-t_index = 0
+t_index = 1
 
 data = {
     "N_rho": N_rho,
