@@ -12,6 +12,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+import warnings
 
 import numpy as np
 from sal.core.exception import NodeNotFound
@@ -110,8 +111,9 @@ class JetWorkflow(BaseWorkflow):
                 self.ion_densities * self.sxr_power_loss_charge_averaged
             ).sum("element")
             if np.any(derived_emissivity > self.sxr_emissivity):
-                raise UserWarning(
-                    "Derived emissivity is greater than calibrated measurement"
+                warnings.warn(
+                    "Derived emissivity is greater than calibrated measurement",
+                    UserWarning,
                 )
             print(template.format("optimise_n_high_z"))
             self.n_high_z = self.optimise_n_high_z()
@@ -563,8 +565,9 @@ class JetWorkflow(BaseWorkflow):
 
     def _extrapolate_n_high_z(self):
         if self.n_high_z is None:
-            raise UserWarning(
-                "n_high_z has not yet been calculated, nothing to extrapolate"
+            warnings.warn(
+                "n_high_z has not yet been calculated, nothing to extrapolate",
+                UserWarning,
             )
         rho_deriv, theta_deriv = self.n_high_z.transform.convert_from_Rz(
             self.R, self.z, self.t
@@ -676,9 +679,10 @@ class JetWorkflow(BaseWorkflow):
 
     def _optimise_n_high_z(self) -> DataArray:
         if self.additional_data.get("calculate_n_high_z", None) is None:
-            raise UserWarning(
+            warnings.warn(
                 "extrapolate_n_high_z has not yet been run,"
-                " required to optimise n_high_z"
+                " required to optimise n_high_z",
+                UserWarning,
             )
         self.calculate_derived_bolometry()
         return (

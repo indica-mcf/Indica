@@ -12,6 +12,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -368,7 +369,7 @@ class BaseWorkflow:
 
     def _calculate_power_loss_charge_averaged(self) -> DataArray:
         if self.power_loss is None:
-            raise UserWarning("Power loss not yet calculated")
+            warnings.warn("Power loss not yet calculated", UserWarning)
         return xr.concat(
             [
                 val.sum("ion_charges").assign_attrs(val.attrs)
@@ -379,7 +380,7 @@ class BaseWorkflow:
 
     def _calculate_sxr_power_loss_charge_averaged(self) -> DataArray:
         if self.sxr_power_loss is None:
-            raise UserWarning("Power loss not yet calculated")
+            warnings.warn("Power loss not yet calculated", UserWarning)
         return xr.concat(
             [
                 val.sum("ion_charges").assign_attrs(val.attrs)
