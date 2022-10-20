@@ -6,7 +6,7 @@ from indica.equilibrium import Equilibrium
 
 
 def check_grids(a: xr.DataArray, b: xr.DataArray):
-    if a.rho_poloidal != b.rho_poloidal:
+    if np.any(a.rho_poloidal != b.rho_poloidal):
         raise ValueError("Values must be on the same rho grid.")
 
 
@@ -139,7 +139,7 @@ class AsymmetricQuantity:
     def from_rho_R(cls, values_rho_R: xr.DataArray):
         raise NotImplementedError
 
-    def to_R_z(self):
+    def to_R_z(self, R, z):
         raise NotImplementedError
 
     def to_rho_theta(self):
