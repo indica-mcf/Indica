@@ -6,7 +6,7 @@ from indica.asymmetric_quantity import AsymmetricQuantity
 from indica.utilities import coord_array
 
 
-def test_to_R_z():
+def test_to_rho_R():
     rho_poloidal = coord_array(np.array([0, 0.2, 0.4, 0.75, 1]), "rho_poloidal")
     lfs = xr.DataArray(
         np.array([4, 3, 2, 1, 0]),
@@ -21,6 +21,7 @@ def test_to_R_z():
     equil = FakeEquilibrium()
     quant = AsymmetricQuantity(lfs, asym, equil)
 
+    rho = coord_array(np.linspace(0, 1, 10), "rho")
     R = coord_array(np.linspace(1.83, 3.9, 10), "R")
-    z = coord_array(np.linspace(-1.75, 2.0, 10), "z")
-    quant.to_R_z(R, z)
+    quant.to_rho_R(rho, R)
+    breakpoint()

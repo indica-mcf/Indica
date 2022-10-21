@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 
+from indica.converters import FluxMajorRadCoordinates
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 
@@ -70,7 +71,8 @@ class AsymmetricQuantity:
     Parameters
     ----------
     lfs_values: xr.DataArray
-        The (low field side) values of n_s(rho, R_0; t) on coordinates (rho_poloidal, t)
+        The low field side midplane values of n_s(rho, R_0; t) on coordinates
+        (rho_poloidal, t)
     asymmetry_parameter: xr.DataArray
         The values of lambda_s(rho; t) on coordinates (rho_poloidal, t)
     equilibrium: Equilibrium
@@ -139,14 +141,38 @@ class AsymmetricQuantity:
     def from_rho_R(cls, values_rho_R: xr.DataArray):
         raise NotImplementedError
 
-    def to_R_z(self, R, z):
+    def to_R_z(self, R, z, t):
+        flux_surface = FluxSurfaceCoordinates(kind="poloidal")
+        flux_surface.set_equilibrium(self.equilibrium)
+
+        R_deriv_lfs, _ = flux_surface.convert_to_Rz(
+            self.lfs_values.rho_poloidal, 0, self.lfs_values.t
+        )
+        R_deriv_hfs, _ = flux_surface.convert_to_Rz(
+            self.lfs_values.rho_poloidal, np.pi, self.lfs_values.t
+        )
+
+        rho_deriv, theta_deriv = flux_surface.convert_from_Rz(R, z, t)
         raise NotImplementedError
 
     def to_rho_theta(self):
         raise NotImplementedError
 
-    def to_rho_R(self):
-        raise NotImplementedError
+    def to_rho_R(self, rho, R):
+        flux_surfaces = FluxSurfaceCoordinates(kind="poloidal")
+        flux_surfaces.set_equilibrium(self.equilibrium)
+
+        flux_major_rad = FluxMajorRadCoordinates(flux_surfaces)
+        rho_lfs, R_lfs = flux_surfaces.convert_to(
+            flux_major_rad, rho, xr.zeros_like(rho), 0
+        )
+
+        breakpoint()
+        asymmetry_modifier = np.exp(
+            self.asymmetry_parameter.interp({"rho_poloidal": rho})
+            * (R**2 - R_lfs**2)
+        )
+        return self.lfs_values.interp({"rho_poloidal": rho}) * asymmetry_modifier
 
     def asymmetry_modifier(self, R_square_diff):
         return np.exp(self.asymmetry_parameter * R_square_diff)
