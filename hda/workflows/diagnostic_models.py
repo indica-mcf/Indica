@@ -4,7 +4,6 @@ from hda.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.line_of_sight import LineOfSightTransform
-from indica.converters.lines_of_sight import LinesOfSightTransform
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -21,6 +20,23 @@ MAIN_ION = "h"
 IMPURITIES = ("c", "ar", "he")
 IMPURITY_CONCENTRATION = (0.03, 0.001, 0.01)
 FULL_RUN = False
+# Create default plasma object
+TSTART = 0.02
+TEND = 0.1
+DT = 0.01
+PLASMA = Plasma(
+    tstart=TSTART,
+    tend=TEND,
+    dt=DT,
+    main_ion=MAIN_ION,
+    impurities=IMPURITIES,
+    impurity_concentration=IMPURITY_CONCENTRATION,
+    full_run=FULL_RUN,
+)
+
+
+
+def fake_interferometer():
 
 def interferometer(tstart:float=0.02, tend:float=0.1, dt:float=0.01, pulse:int = 10009):
 
