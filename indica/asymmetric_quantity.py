@@ -1,7 +1,6 @@
 import numpy as np
 import xarray as xr
 
-from indica.converters import FluxMajorRadCoordinates
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 
@@ -19,6 +18,9 @@ def check_equilibria(a: Equilibrium, b: Equilibrium):
 def calc_R_square_diff(
     rho_grid: xr.DataArray, time_grid: xr.DataArray, equilibrium: Equilibrium
 ):
+    """
+    Calculates the 1D R square difference of a rho grid
+    """
     flux_coords = FluxSurfaceCoordinates(kind="poloidal")
     flux_coords.set_equilibrium(equilibrium)
     R_lfs, _ = flux_coords.convert_to_Rz(
@@ -142,37 +144,49 @@ class AsymmetricQuantity:
         raise NotImplementedError
 
     def to_R_z(self, R, z, t):
-        flux_surface = FluxSurfaceCoordinates(kind="poloidal")
-        flux_surface.set_equilibrium(self.equilibrium)
-
-        R_deriv_lfs, _ = flux_surface.convert_to_Rz(
-            self.lfs_values.rho_poloidal, 0, self.lfs_values.t
-        )
-        R_deriv_hfs, _ = flux_surface.convert_to_Rz(
-            self.lfs_values.rho_poloidal, np.pi, self.lfs_values.t
-        )
-
-        rho_deriv, theta_deriv = flux_surface.convert_from_Rz(R, z, t)
         raise NotImplementedError
 
-    def to_rho_theta(self):
-        raise NotImplementedError
+    def to_rho_theta(
+        self, rho_poloidal: xr.DataArray, theta: xr.DataArray
+    ) -> xr.DataArray:
+        """
+        Interpolate the quantity onto a 2D rho-theta grid.
 
-    def to_rho_R(self, rho, R):
+        Parameters
+        ----------
+        rho_poloidal
+            rho coordinate array
+        theta
+            theta coordinate array
+
+        Returns
+        -------
+        quantity_rho_theta
+            The quantity interpolated onto a rho-theta grid
+        """
+        # TODO: fix t
+        t = 0
+
+        # interpolate quantities onto desired rho array (still 1D)
+        lfs_values = self.lfs_values.interp({"rho_poloidal": rho_poloidal})
+        asymmetry_parameter = self.asymmetry_parameter.interp(
+            {"rho_poloidal": rho_poloidal}
+        )
+
+        # create 2D R_square_diff array
         flux_surfaces = FluxSurfaceCoordinates(kind="poloidal")
         flux_surfaces.set_equilibrium(self.equilibrium)
+        R, _ = flux_surfaces.convert_to_Rz(rho_poloidal, theta, t)
+        R_lfs, _ = flux_surfaces.convert_to_Rz(rho_poloidal, 0, t)
+        R_square_diff = R**2 - R_lfs**2
 
-        flux_major_rad = FluxMajorRadCoordinates(flux_surfaces)
-        rho_lfs, R_lfs = flux_surfaces.convert_to(
-            flux_major_rad, rho, xr.zeros_like(rho), 0
-        )
+        # use 2D R_square_diff to broadcast out asymmetry parameter into modifier
+        asymmetry_modifier = np.exp(asymmetry_parameter * R_square_diff)
+        # apply 2D modifier to 1D LFS values
+        return lfs_values * asymmetry_modifier
 
-        breakpoint()
-        asymmetry_modifier = np.exp(
-            self.asymmetry_parameter.interp({"rho_poloidal": rho})
-            * (R**2 - R_lfs**2)
-        )
-        return self.lfs_values.interp({"rho_poloidal": rho}) * asymmetry_modifier
+    def to_rho_R(self, rho, R):
+        raise NotImplementedError
 
     def asymmetry_modifier(self, R_square_diff):
         return np.exp(self.asymmetry_parameter * R_square_diff)
