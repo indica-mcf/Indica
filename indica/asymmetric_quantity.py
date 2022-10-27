@@ -4,6 +4,9 @@ import xarray as xr
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 
+# TODO: fix t
+temp_t = 0
+
 
 def check_grids(a: xr.DataArray, b: xr.DataArray):
     if np.any(a.rho_poloidal != b.rho_poloidal):
@@ -197,12 +200,14 @@ class AsymmetricQuantity:
         R_lfs, _ = flux_coords.convert_to_Rz(
             self.lfs_values.rho_poloidal,
             xr.zeros_like(self.lfs_values.rho_poloidal),
-            self.lfs_values.t,
+            # TODO: fix t
+            temp_t,
         )
         R_hfs, _ = flux_coords.convert_to_Rz(
             self.lfs_values.rho_poloidal,
             np.pi * xr.ones_like(self.lfs_values.rho_poloidal),
-            self.lfs_values.t,
+            # TODO: fix t
+            temp_t,
         )
         return R_hfs**2 - R_lfs**2
 

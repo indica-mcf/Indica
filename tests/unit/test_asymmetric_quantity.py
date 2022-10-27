@@ -41,6 +41,24 @@ def asym_quant(lfs_vals, asym_param, equil):
     return AsymmetricQuantity(lfs_vals, asym_param, equil)
 
 
+# need second asym_quant for arithmetic:
+@pytest.fixture
+def asym_quant_2(rho_poloidal, equil):
+    lfs_2 = xr.DataArray(
+        np.array([5, 3, 2.5, 1, 0]),
+        dims="rho_poloidal",
+        coords=dict(rho_poloidal=rho_poloidal),
+    )
+
+    asy_param_2 = xr.DataArray(
+        np.array([0, 0.5, 1.1, 0.9, 1.3]),
+        dims="rho_poloidal",
+        coords=dict(rho_poloidal=rho_poloidal),
+    )
+
+    return AsymmetricQuantity(lfs_2, asy_param_2, equil)
+
+
 def test_to_rho_theta(rho_poloidal, lfs_vals, asym_param, equil, asym_quant):
     """
     Test to_rho_theta for certain theta values and interpolation is sensible.
@@ -92,19 +110,14 @@ def test_to_rho_theta(rho_poloidal, lfs_vals, asym_param, equil, asym_quant):
     )
 
 
-# need second asym_quant for arithmetic:
-asym_quant2 = asym_quant
-
-
-def test_add(asym_quant, asym_quant2):
+def test_add(asym_quant, asym_quant_2):
     """
     Test adding two asymmetric quantities is identical to adding two 2D profiles
     """
     rho = coord_array(np.linspace(0, 1, 11), "rho_poloidal")
     theta = coord_array(np.linspace(-np.pi, np.pi, 11), "theta")
 
-    result = (asym_quant + asym_quant2).to_rho_theta(rho, theta)
-    expected = asym_quant.to_rho_theta(rho, theta)
-    +asym_quant2.to_rho_theta(rho, theta)
+    result = (asym_quant + asym_quant_2).to_rho_theta(rho, theta)
+    expect = asym_quant.to_rho_theta(rho, theta) + asym_quant_2.to_rho_theta(rho, theta)
 
-    np.assert_allclose(result, expected)
+    np.testing.assert_allclose(result, expect)
