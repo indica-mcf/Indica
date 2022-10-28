@@ -1000,3 +1000,53 @@ class Plasma:
             pickle.dump(
                 self, f,
             )
+
+def example_plasma():
+    from hda.profiles_gauss import Profiles
+
+    tstart = 0.02
+    tend = 0.1
+    dt = 0.01
+    main_ion = "h"
+    impurities = ("c", "ar", "he")
+    impurity_concentration = (0.03, 0.001, 0.01)
+    full_run = False
+
+    plasma = Plasma(
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        main_ion=main_ion,
+        impurities=impurities,
+        impurity_concentration=impurity_concentration,
+        full_run=full_run,
+    )
+
+    Te_prof = Profiles(datatype=("temperature", "electron"), xspl=plasma.rho, set_defaults=True)
+    Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=plasma.rho, set_defaults=True)
+    Ne_prof = Profiles(datatype=("density", "electron"), xspl=plasma.rho, set_defaults=True)
+    Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=plasma.rho, set_defaults=True)
+    Nh_prof = Profiles(datatype=("density", "thermal_neutrals"), xspl=plasma.rho, set_defaults=True)
+    Vrot_prof = Profiles(datatype=("rotation", "toroidal"), xspl=plasma.rho, set_defaults=True)
+
+    nt = len(plasma.t)
+    ne_peaking = np.linspace(1, 2, nt)
+    te_peaking = np.linspace(1, 2, nt)
+    ti0 = np.linspace(Ti_prof.y0 * 1.1, Te_prof.y0 * 2.5, nt)
+    nimp_peaking = np.linspace(1, 2, nt)
+    for i, t in enumerate(plasma.t):
+        Te_prof.peaking = te_peaking[i]
+        plasma.electron_temperature.loc[dict(t=t)] = Te_prof().values
+
+        Ti_prof.peaking = te_peaking[i]
+        Ti_prof.y0 = ti0[i]
+        plasma.ion_temperature.loc[dict(t=t)] = Ti_prof(y0_ref = plasma.electron_temperature.sel(t=t, rho_poloidal=0).values)
+
+        Ne_prof.peaking = ne_peaking[i]
+        plasma.electron_density.loc[dict(t=t)] = Ne_prof().values
+
+        Nimp_prof.peaking = nimp_peaking[i]
+        for elem in plasma.impurities:
+            plasma.impurity_density.loc[dict(t=t, element=elem)] = Nimp_prof().values
+
+    return plasma
