@@ -13,7 +13,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import FluxSurfaceCoordinates
-from indica.converters.time import bin_in_time_dt
+from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
@@ -77,6 +77,14 @@ ADF11 = {
         "prc": "96",
         "pls": "15",
         "prs": "15",
+    },
+    "mo": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
     },
     "w": {
         "scd": "89",
@@ -536,6 +544,10 @@ class Plasma:
             return value
 
         self._lz_sxr = deepcopy(self.data3d_fz)
+
+        if not hasattr(self, "power_loss_sxr"):
+            return self._lz_sxr
+
         for elem in self.elements:
             self._lz_sxr[elem].attrs["datatype"] = ("radiation_loss_parameter", "sxr")
             self._lz_sxr[elem].attrs["unit"] = "W m^3"
@@ -591,6 +603,9 @@ class Plasma:
         self._sxr_radiation = assign_data(
             self.data3d, ("radiation_emission", "sxr"), "W m^-3"
         )
+        if not hasattr(self, "power_loss_sxr"):
+            return self._sxr_radiation
+
         lz_sxr = self.lz_sxr
         ion_density = self.ion_density
         for elem in self.elements:
@@ -626,6 +641,9 @@ class Plasma:
             return value
 
         self._prad_sxr = assign_data(self.data2d_elem, ("radiation", "sxr"), "W")
+        if not hasattr(self, "power_loss_sxr"):
+            return self._prad_sxr
+
         sxr_radiation = self.sxr_radiation
         for elem in self.elements:
             for t in self.time:
@@ -699,31 +717,30 @@ class Plasma:
 
     def calculate_geometry(self):
         if hasattr(self, "equilibrium"):
-            bin_in_time = self.bin_in_time
             rho = self.rho
             equilibrium = self.equilibrium
             print_like("Calculate geometric quantities")
 
-            self.volume.values = bin_in_time(
+            self.volume.values = self.convert_in_time(
                 equilibrium.volume.interp(rho_poloidal=rho)
             )
-            self.area.values = bin_in_time(equilibrium.area.interp(rho_poloidal=rho))
-            self.maj_r_lfs.values = bin_in_time(
+            self.area.values = self.convert_in_time(equilibrium.area.interp(rho_poloidal=rho))
+            self.maj_r_lfs.values = self.convert_in_time(
                 equilibrium.rmjo.interp(rho_poloidal=rho)
             )
-            self.maj_r_hfs.values = bin_in_time(
+            self.maj_r_hfs.values = self.convert_in_time(
                 equilibrium.rmji.interp(rho_poloidal=rho)
             )
-            self.R_mag.values = bin_in_time(equilibrium.rmag)
-            self.z_mag.values = bin_in_time(equilibrium.zmag)
+            self.R_mag.values = self.convert_in_time(equilibrium.rmag)
+            self.z_mag.values = self.convert_in_time(equilibrium.zmag)
             self.minor_radius.values = (self.maj_r_lfs - self.maj_r_hfs) / 2.0
         else:
             print_like(
                 "Plasma class doesn't have equilibrium: skipping geometry assignments..."
             )
 
-    def bin_in_time(self, value: DataArray, method="linear"):
-        binned = bin_in_time_dt(self.tstart, self.tend, self.dt, value,).interp(
+    def convert_in_time(self, value: DataArray, method="linear"):
+        binned = convert_in_time_dt(self.tstart, self.tend, self.dt, value).interp(
             t=self.time, method=method
         )
 
@@ -739,16 +756,15 @@ class Plasma:
         default=False,
     ):
         if default:
-            rho = np.abs(np.linspace(1, 0, 100) ** 1.8 - 1)
-            Te = deepcopy(self.Te_prof)
-            Te.y0 = 6.0e3
+            xend = 1.02
+            rho_end = 1.01
+            rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end-0.01)
+            Te = Profiles(datatype=("temperature", "electron"), xspl=rho, xend=xend)
+            Te.y0 = 10.0e3
             Te.build_profile()
-            Te = Te.yspl.interp(rho_poloidal=rho)
-            Ne = self.Ne_prof.yspl.interp(rho_poloidal=rho)
-            Nh = self.Nh_prof.yspl
-            for t in self.t:
-                self.neutral_density.loc[dict(t=t)] = Nh.values
-            Nh = Nh.interp(rho_poloidal=rho)
+            Te = Te.yspl
+            Ne = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend).yspl
+            Nh = Profiles(datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend).yspl
             tau = None
 
         print_like("Initialize fractional abundance and power loss objects")
@@ -772,17 +788,19 @@ class Plasma:
                 F_z_t = fract_abu[elem].F_z_t
                 power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
 
-            pls = self.ADASReader.get_adf11("pls", elem, adf11[elem]["pls"])
-            prs = self.ADASReader.get_adf11("prs", elem, adf11[elem]["prs"])
-            power_loss_sxr[elem] = PowerLoss(pls, prs)
-            if Te is not None and Ne is not None:
-                F_z_t = fract_abu[elem].F_z_t
-                power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
+            if "pls" in adf11[elem].keys() and "prs" in adf11[elem].keys():
+                pls = self.ADASReader.get_adf11("pls", elem, adf11[elem]["pls"])
+                prs = self.ADASReader.get_adf11("prs", elem, adf11[elem]["prs"])
+                power_loss_sxr[elem] = PowerLoss(pls, prs)
+                if Te is not None and Ne is not None:
+                    F_z_t = fract_abu[elem].F_z_t
+                    power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
 
         self.adf11 = adf11
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
-        self.power_loss_sxr = power_loss_sxr
+        if "pls" in adf11[elem].keys() and "prs" in adf11[elem].keys():
+            self.power_loss_sxr = power_loss_sxr
 
     def set_neutral_density(self, y0=1.0e10, y1=1.0e15, decay=12):
         self.Nh_prof.y0 = y0
