@@ -1,12 +1,8 @@
 import numpy as np
 import xarray as xr
 from xarray import DataArray
-from hda.utils import print_like
-from hda.models.plasma import Plasma
-from indica.converters.time import bin_in_time_dt, get_tlabels_dt
-from indica.equilibrium import Equilibrium
+from indica.converters.time import bin_in_time_dt, convert_in_time_dt
 from indica.converters import FluxSurfaceCoordinates
-from indica.converters import lines_of_sight, line_of_sight
 from copy import deepcopy
 
 
@@ -78,7 +74,8 @@ def bin_data_in_time(
         data = deepcopy(exp_data[quant])
         attrs = data.attrs
         if "t" in data.coords:
-            data = bin_in_time_dt(tstart, tend, dt, data)
+            # data = bin_in_time_dt(tstart, tend, dt, data)
+            data = convert_in_time_dt(tstart, tend, dt, data)
         if "provenance" in attrs:
             data.attrs["provenance"] = attrs["provenance"]
 
