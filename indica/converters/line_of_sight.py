@@ -37,10 +37,18 @@ class LineOfSightTransform(CoordinateTransform):
 
     Parameters
     ----------
-    origin
-        A Tuple (1x3) giving the X, Y and Z origin positions of the line-of-sight
-    direction
-        A Tuple (1x3) giving the X, Y and Z direction of the line-of-sight
+    origin_x
+        A float giving x position for the origin of the line-of-sight.
+    origin_y
+        A float giving y position for the origin of the line-of-sight.
+    origin_z
+        A float giving z position for the origin of the line-of-sight.
+    direction_x
+        A float giving x position for the direction of the line-of-sight.
+    direction_y
+        A float giving y position for the direction of the line-of-sight.
+    direction_z
+        A float giving z position for the direction of the line-of-sight.
     name
         The name to refer to this coordinate system by, typically taken
         from the instrument it describes.
@@ -55,8 +63,12 @@ class LineOfSightTransform(CoordinateTransform):
 
     def __init__(
         self,
-        origin:Tuple,
-        direction: Tuple,
+        origin_x:float,
+        origin_y:float,
+        origin_z:float,
+        direction_x: float,
+        direction_y: float,
+        direction_z: float,
         name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
@@ -64,6 +76,8 @@ class LineOfSightTransform(CoordinateTransform):
         ),
         dl: float = 0.01,
     ):
+        origin: Tuple[float, float, float] = (origin_x, origin_y, origin_z)
+        direction: Tuple[float, float, float] = (direction_x, direction_y, direction_z)
 
         # Calculate x_start, y_start, z_start, x_end, y_end and z_end
         start_coords, end_coords = _find_wall_intersections(
@@ -389,12 +403,13 @@ def _find_wall_intersections(
     R_line = np.sqrt(x_line**2 + y_line**2)
     indices = np.where((R_line >= machine_dimensions[0][0]) * (R_line <= machine_dimensions[0][1]) *
                        (z_line >= machine_dimensions[1][0]) * (z_line <= machine_dimensions[1][1]))[0]
-    x_start = x_line[indices][0]
-    x_end = x_line[indices][-1]
-    y_start = y_line[indices][0]
-    y_end = y_line[indices][-1]
-    z_start = z_line[indices][0]
-    z_end = z_line[indices][-1]
+    if len(indices) > 0:
+        x_start = x_line[indices][0]
+        x_end = x_line[indices][-1]
+        y_start = y_line[indices][0]
+        y_end = y_line[indices][-1]
+        z_start = z_line[indices][0]
+        z_end = z_line[indices][-1]
 
     # Find intersections with inner wall
     xx, yx, ix, jx = intersection(
