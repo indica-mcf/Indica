@@ -4,6 +4,7 @@
 from typing import cast
 from typing import Tuple
 
+import matplotlib.pylab as plt
 import numpy as np
 from scipy.optimize import root
 import xarray as xr
@@ -36,18 +37,10 @@ class LineOfSightTransform(CoordinateTransform):
 
     Parameters
     ----------
-    origin_x
-        A float giving x position for the origin of the line-of-sight.
-    origin_y
-        A float giving y position for the origin of the line-of-sight.
-    origin_z
-        A float giving z position for the origin of the line-of-sight.
-    direction_x
-        A float giving x position for the direction of the line-of-sight.
-    direction_y
-        A float giving y position for the direction of the line-of-sight.
-    direction_z
-        A float giving z position for the direction of the line-of-sight.
+    origin
+        A Tuple (1x3) giving the X, Y and Z origin positions of the line-of-sight
+    direction
+        A Tuple (1x3) giving the X, Y and Z direction of the line-of-sight
     name
         The name to refer to this coordinate system by, typically taken
         from the instrument it describes.
@@ -62,12 +55,8 @@ class LineOfSightTransform(CoordinateTransform):
 
     def __init__(
         self,
-        origin_x: float,
-        origin_y: float,
-        origin_z: float,
-        direction_x: float,
-        direction_y: float,
-        direction_z: float,
+        origin:Tuple,
+        direction: Tuple,
         name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
@@ -75,10 +64,6 @@ class LineOfSightTransform(CoordinateTransform):
         ),
         dl: float = 0.01,
     ):
-
-        # Origin and Direction vectors
-        origin: Tuple[float, float, float] = (origin_x, origin_y, origin_z)
-        direction: Tuple[float, float, float] = (direction_x, direction_y, direction_z)
 
         # Calculate x_start, y_start, z_start, x_end, y_end and z_end
         start_coords, end_coords = _find_wall_intersections(
@@ -147,7 +132,7 @@ class LineOfSightTransform(CoordinateTransform):
         x = self.x_start + (self.x_end - self.x_start) * x2
         y = self.y_start + (self.y_end - self.y_start) * x2
         z = self.z_start + (self.z_end - self.z_start) * x2
-        return np.sign(x) * np.sqrt(x**2 + y**2), z
+        return np.sign(x) * np.sqrt(x ** 2 + y ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -157,7 +142,7 @@ class LineOfSightTransform(CoordinateTransform):
             x2 = x[1]
             x = self.x_start + (self.x_end - self.x_start) * x2
             y = self.y_start + (self.y_end - self.y_start) * x2
-            x = np.sign(x) * np.sqrt(x**2 + y**2)
+            x = np.sign(x) * np.sqrt(x ** 2 + y ** 2)
             dxdx1 = 0.0
             dxdx2 = self.x_end - self.x_start
             dydx1 = 0.0
@@ -165,10 +150,7 @@ class LineOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [
-                    2 / x * (x * dxdx1 + y * dydx1),
-                    2 / x * (x * dxdx2 + y * dydx2),
-                ],
+                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
                 [dzdx1, dzdx2],
             ]
 
@@ -194,11 +176,7 @@ class LineOfSightTransform(CoordinateTransform):
         # # inexact, as well as computationally expensive).
 
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -268,10 +246,7 @@ class LineOfSightTransform(CoordinateTransform):
         return rho, theta
 
     def map_to_los(
-        self,
-        profile_1d: DataArray,
-        t: LabeledArray = None,
-        limit_to_sep=True,
+        self, profile_1d: DataArray, t: LabeledArray = None, limit_to_sep=True,
     ):
         """
         Map 1D profile to LOS
@@ -299,11 +274,7 @@ class LineOfSightTransform(CoordinateTransform):
             rho = self.rho
         along_los = profile_1d.interp(rho_poloidal=rho)
         if limit_to_sep:
-            along_los = xr.where(
-                rho <= 1,
-                along_los,
-                0,
-            )
+            along_los = xr.where(rho <= 1, along_los, 0,)
 
         return along_los
 
@@ -331,11 +302,7 @@ class LineOfSightTransform(CoordinateTransform):
         -------
         Line of sight integral along the LOS
         """
-        along_los = self.map_to_los(
-            profile_1d,
-            t=t,
-            limit_to_sep=limit_to_sep,
-        )
+        along_los = self.map_to_los(profile_1d, t=t, limit_to_sep=limit_to_sep,)
 
         los_integral = passes * along_los.sum(self.x2_name) * self.dl
 
@@ -355,6 +322,7 @@ def _find_wall_intersections(
         (1.83, 3.9),
         (-1.75, 2.0),
     ),
+    plot=False,
 ):
     """Function for calculating "start" and "end" positions of the line-of-sight
     given the machine dimensions.
@@ -383,49 +351,106 @@ def _find_wall_intersections(
         A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
     """
 
-    # Define XYZ lines for LOS from origin and direction vectors
-    length = 10.0
-    x_line = np.array(
-        [origin[0] - length * direction[0], origin[0] + length * direction[0]],
-        dtype=float,
-    )
-    y_line = np.array(
-        [origin[1] - length * direction[1], origin[1] + length * direction[1]],
-        dtype=float,
-    )
-
     # Define XYZ lines for inner and outer walls
-    angles = np.linspace(0.0, 2 * np.pi, 1000)
+    npts = 1000
+    angles = np.linspace(0.0, 2 * np.pi, npts)
     x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
-    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
     x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
+    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
     y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
+    z_wall_lower = machine_dimensions[1][0]
+    z_wall_upper = machine_dimensions[1][1]
 
-    # Find intersections, to calculate
-    # R_start, z_start, T_start, R_end, z_end, T_end ...
-    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_outer, y_wall_outer)
-    distance = np.sqrt(
-        (xx - origin[0]) ** 2 + (yx - origin[1]) ** 2
-    )  # Distance from intersections
-    i_closest = np.argmin(distance)
-    i_furthest = np.argmax(distance)
-    x_start = xx[i_closest]
-    y_start = yx[i_closest]
-    z_start = origin[-1]
-    x_end = xx[i_furthest]
-    y_end = yx[i_furthest]
-    z_end = origin[-1]
+    # Define XYZ lines for LOS from origin and direction vectors
+    length = (
+        np.ceil(
+            np.max(
+                [
+                    machine_dimensions[0][1] * 2,
+                    machine_dimensions[1][1] - machine_dimensions[1][0],
+                ]
+            )
+        )
+        * 2
+    )
+    x_start = origin[0]
+    x_end = origin[0] + length * direction[0]
+    y_start = origin[1]
+    y_end = origin[1] + length * direction[1]
+    z_start = origin[2]
+    z_end = origin[2] + length * direction[2]
+    line = lambda _start, _end: np.linspace(_start, _end, npts)
+    extremes = lambda _start, _end: np.array([_start, _end], dtype=float,)
 
-    # Find intersections with inner wall (if exists)
-    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
+    # Find intersections in R, z plane
+    x_line = line(x_start, x_end)
+    y_line = line(y_start, y_end)
+    z_line = line(z_start, z_end)
+    R_line = np.sqrt(x_line**2 + y_line**2)
+    indices = np.where((R_line >= machine_dimensions[0][0]) * (R_line <= machine_dimensions[0][1]) *
+                       (z_line >= machine_dimensions[1][0]) * (z_line <= machine_dimensions[1][1]))[0]
+    x_start = x_line[indices][0]
+    x_end = x_line[indices][-1]
+    y_start = y_line[indices][0]
+    y_end = y_line[indices][-1]
+    z_start = z_line[indices][0]
+    z_end = z_line[indices][-1]
+
+    # Find intersections with inner wall
+    xx, yx, ix, jx = intersection(
+        extremes(x_start, x_end), extremes(y_start, y_end), x_wall_inner, y_wall_inner
+    )
     if len(xx) > 0:
-        distance = np.sqrt(
-            (xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2
-        )  # Distance from intersections
-        i_closest = np.argmin(distance)
-        x_end = xx[i_closest]
-        y_end = yx[i_closest]
-        z_end = origin[-1]
+        x_line = line(x_start, x_end)
+        y_line = line(y_start, y_end)
+        z_line = line(z_start, z_end)
+        index = []
+        for i in range(len(xx)):
+            index.append(
+                np.argmin(np.sqrt((xx[i] - x_line) ** 2 + (yx[i] - y_line) ** 2))
+            )
+        indices = np.arange(np.min(index))
+        x_start = x_line[indices][0]
+        x_end = x_line[indices][-1]
+        y_start = y_line[indices][0]
+        y_end = y_line[indices][-1]
+        z_start = z_line[indices][0]
+        z_end = z_line[indices][-1]
+
+    if plot:
+        x_line = line(x_start, x_end)
+        y_line = line(y_start, y_end)
+        z_line = line(z_start, z_end)
+        R_line = np.sqrt(x_line**2 + y_line**2)
+
+        plt.figure()
+        plt.plot(x_wall_inner, y_wall_inner, color="orange")
+        plt.plot(x_wall_outer, y_wall_outer, color="orange")
+        plt.plot(x_line, y_line, "k", linewidth=3)
+        plt.xlabel("x")
+        plt.ylabel("y")
+
+        plt.figure()
+        plt.plot(x_wall_outer, [z_wall_upper] * npts, color="orange")
+        plt.plot(x_wall_outer, [z_wall_lower] * npts, color="orange")
+        plt.plot(x_wall_inner, [z_wall_upper] * npts, "w")
+        plt.plot(x_wall_inner, [z_wall_lower] * npts, "w")
+        plt.plot([x_wall_outer.max()] * 2, [z_wall_lower, z_wall_upper], color="orange")
+        plt.plot([x_wall_inner.max()] * 2, [z_wall_lower, z_wall_upper], color="orange")
+        plt.plot([x_wall_outer.min()] * 2, [z_wall_lower, z_wall_upper], color="orange")
+        plt.plot([x_wall_inner.min()] * 2, [z_wall_lower, z_wall_upper], color="orange")
+        plt.plot(x_line, z_line, "k", linewidth=3)
+        plt.xlabel("x")
+        plt.ylabel("z")
+
+        plt.figure()
+        plt.plot([x_wall_outer.max()] * 2, [z_wall_lower, z_wall_upper], color="orange")
+        plt.plot([x_wall_inner.max()] * 2, [z_wall_lower, z_wall_upper], color="orange")
+        plt.plot([x_wall_inner.max(), x_wall_outer.max()], [z_wall_lower] * 2, color="orange")
+        plt.plot([x_wall_inner.max(), x_wall_outer.max()], [z_wall_upper] * 2, color="orange")
+        plt.plot(R_line, z_line, "k", linewidth=3)
+        plt.xlabel("R")
+        plt.ylabel("z")
 
     return (x_start, y_start, z_start), (x_end, y_end, z_end)
 
