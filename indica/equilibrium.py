@@ -63,7 +63,6 @@ class Equilibrium(AbstractEquilibrium):
     def __init__(
         self,
         equilibrium_data: Dict[str, DataArray],
-        T_e: Optional[DataArray] = None,
         R_shift: float = 0.0,
         z_shift: float = 0.0,
         sess: session.Session = session.global_session,
@@ -93,69 +92,7 @@ class Equilibrium(AbstractEquilibrium):
         self.zmag = equilibrium_data["zmag"]
         self.zbnd = equilibrium_data["zbnd"]
         self.zx = self.zbnd.min("arbitrary_index")
-        if T_e is not None:
-            offsets = coord_array(np.linspace(0.0, 0.04, 9), "offset")
-            t = T_e.coords["t"].assign_attrs(datatype=("time", "plasma"))
-            separatrix = DataArray(1.0, attrs={"datatype": ("norm_flux_pol", "plasma")})
-            separatrix.coords["norm_flux_pol"] = 1.0
-            Rmag = self.rmag.interp(t=T_e.coords["t"], method="nearest") - offsets
-            zmag = self.zmag.interp(t=T_e.coords["t"], method="nearest") - z_shift
-            rhos = concat(
-                [
-                    self.rho.interp(t=t, method="nearest").indica.interp2d(
-                        R=T_e.coords["index"] - offset,
-                        z=T_e.coords["index_z_offset"] - z_shift,
-                        zero_coords={
-                            "R": Rmag.sel(offset=offset),
-                            "z": zmag,
-                        },
-                        method="cubic",
-                        assume_sorted=True,
-                    )
-                    for offset in offsets
-                ],
-                offsets,
-            )
-            del rhos.coords[None]
-
-            thetas = np.arctan2(
-                T_e.coords["index_z_offset"] + z_shift - zmag,
-                T_e.coords["index"] + offsets - Rmag,
-            )
-            T_e_with_rho = T_e.expand_dims(
-                cast(Dict[Hashable, Any], {"offset": offsets})
-            ).assign_coords(rho_poloidal=rhos, theta=thetas)
-            fitter = SplineFit(lower_bound=0.0, sess=sess)
-
-            T_e_sep = concat(
-                [
-                    fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
-                    for offset in offsets
-                ],
-                offsets,
-            )
-
-            square_residuals = (T_e_sep - 100.0) ** 2
-            best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
-            overall_best = best_fits.mean()
-            fluxes = rhos.sel(offset=overall_best, method="nearest")
-            offset = float(fluxes.offset)
-            offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            while not accept:
-                fluxes = self.rho.interp(
-                    t=T_e.coords["t"], method="nearest"
-                ).indica.interp2d(
-                    R=T_e.coords["index"] - offset,
-                    z=T_e.coords["index_z_offset"] - z_shift,
-                    method="cubic",
-                    assume_sorted=True,
-                )
-                offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-
-            self.R_offset = offset
-        else:
-            self.R_offset = R_shift
-
+        self.R_offset = R_shift
         self.z_offset = z_shift
 
         self.Rmin = min(self.rho.coords["R"])
@@ -187,8 +124,69 @@ class Equilibrium(AbstractEquilibrium):
         for val in equilibrium_data.values():
             if "provenance" in val.attrs:
                 self.provenance.wasDerivedFrom(val.attrs["provenance"])
-        if (T_e is not None) and ("provenance" in T_e.attrs):
-            self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
+
+    def Bfield(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray, LabeledArray, LabeledArray]:
+        """Magnetic field components at this location in space.
+
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+
+        Returns
+        -------
+        Br, Bz, Bt
+            Magnetic field components at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        _R = convert_to_dataarray(R, ("R", R))
+        _z = convert_to_dataarray(z, ("z", z))
+        if t is not None:
+            psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
+            f = self.f.interp(t=t, method="nearest", assume_sorted=True)
+            rho_, theta_, _ = self.flux_coords(_R, _z, t)
+        else:
+            t = self.rho.coords["t"]
+            psi = self.psi
+            f = self.f
+            rho_, theta_, _ = self.flux_coords(_R, _z)
+
+        dpsi_dR = psi.differentiate("R").indica.interp2d(
+            R=_R,
+            z=_z,
+            method="cubic",
+            assume_sorted=True,
+        )
+        dpsi_dz = psi.differentiate("z").indica.interp2d(
+            R=R,
+            z=z,
+            method="cubic",
+            assume_sorted=True,
+        )
+        b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
+        b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
+        rho_ = where(
+            rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
+        )
+        f = f.indica.interp2d(
+            rho_poloidal=rho_,
+            method="cubic",
+            assume_sorted=True,
+        )
+        f.name = self.f.name
+        b_T = f / _R
+
+        return b_R, b_z, b_T, t
 
     def Btot(
         self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
@@ -214,64 +212,121 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        if t is not None:
-            interp1d_method = "linear"
-            if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (
-                t.shape[0] > 1
-            ):
-                if t.shape[0] > 3:
-                    interp1d_method = "cubic"
-
-            psi = self.psi.interp(t=t, method=interp1d_method, assume_sorted=True)
-
-            f = self.f.interp(t=t, method=interp1d_method, assume_sorted=True)
-
-            rho_, theta_, _ = self.flux_coords(R, z, t)
-        else:
-            t = self.rho.coords["t"]
-            psi = self.psi
-            f = self.f
-            rho_, theta_, _ = self.flux_coords(R, z)
-
-        dpsi_dR = psi.differentiate("R").indica.interp2d(
-            R=R,
-            z=z,
-            method="cubic",
-            assume_sorted=True,
-        )
-        dpsi_dz = psi.differentiate("z").indica.interp2d(
-            R=R,
-            z=z,
-            method="cubic",
-            assume_sorted=True,
-        )
-
-        # Components of poloidal field
-        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
-        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
-        b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
-
-        # Need this as the current flux_coords function
-        # returns some negative values for rho
-        rho_ = where(
-            rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
-        )
-
-        f = f.indica.interp2d(
-            rho_poloidal=rho_,
-            method="cubic",
-            assume_sorted=True,
-        )
-        f.name = self.f.name
-
-        # Toroidal field
-        b_T = f / R
-
-        b_Tot = np.sqrt(b_Pol ** np.float64(2.0) + b_T ** np.float64(2.0))
-
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+        b_Tot = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0) + b_T ** np.float64(2.0))
         b_Tot.name = "Total Magnetic Field (T)"
 
         return b_Tot, t
+
+    def Br(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Radial magnetic field strength at this location in space.
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertial position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength.
+        Returns
+        -------
+        Br
+            Radial magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+        b_R.name = "Radial Magnetic Field (T)"
+
+        return b_R, t
+
+    def Bz(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Vertical magnetic field strength at this location in space.
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength.
+        Returns
+        -------
+        Bz
+            Vertical magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+        b_z.name = "Vertical Magnetic Field (T)"
+
+        return b_z, t
+
+
+    def Bt(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Toroidal magnetic field strength at this location in space.
+
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+
+        Returns
+        -------
+        Bt
+            Toroidal magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+        b_T.name = "Toroidal Magnetic Field (T)"
+
+        return b_T, t
+
+    def Bp(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Poloidal magnetic field strength at this location in space.
+
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+
+        Returns
+        -------
+        Bp
+            Poloidal magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+        b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
+        b_Pol.name = "Poloidal Magnetic Field (T)"
+
+        return b_Pol, t
 
     def R_lfs(
         self,
@@ -469,15 +524,9 @@ class Equilibrium(AbstractEquilibrium):
         """
         if t is None:
             t = self.rho.coords["t"]
-
-        interp1d_method = "linear"
-        if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
-            if t.shape[0] > 3:
-                interp1d_method = "cubic"
-
         major_radius_axis = self.rmag.interp(
             t=t,
-            method=interp1d_method,
+            method="nearest",
             assume_sorted=True,
         )
 
@@ -645,21 +694,25 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
+
+        _R = convert_to_dataarray(R, ("R", R))
+        _z = convert_to_dataarray(z, ("z", z))
         if t is not None:
-            rho = self.rho.interp(t=t, method="nearest")
-            R_ax = self.rmag.interp(t=t, method="nearest")
-            z_ax = self.zmag.interp(t=t, method="nearest")
-            z_x_point = self.zx.interp(t=t, method="nearest")
-            t = t
+            t = self.rho.t.sel(t=t, method="nearest")
+            rho = self.rho.interp(t=t)
+            R_ax = self.rmag.interp(t=t)
+            z_ax = self.zmag.interp(t=t)
+            z_x_point = self.zx.interp(t=t)
         else:
             rho = self.rho
             R_ax = self.rmag
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
+
         rho_interp = rho.indica.interp2d(
-            R=R + self.R_offset,
-            z=z + self.z_offset,
+            R=_R + self.R_offset,
+            z=_z + self.z_offset,
             zero_coords={"R": R_ax, "z": z_ax},
             method="cubic",
             assume_sorted=True,
@@ -669,8 +722,8 @@ class Equilibrium(AbstractEquilibrium):
             np.logical_and(rho_interp < 0.0, rho_interp > -1e-12), 0.0, rho_interp
         )
         theta = np.arctan2(
-            z + cast(np.ndarray, self.z_offset) - z_ax,
-            R + cast(np.ndarray, self.R_offset) - R_ax,
+            _z + cast(np.ndarray, self.z_offset) - z_ax,
+            _R + cast(np.ndarray, self.R_offset) - R_ax,
         )
         if len(np.shape(theta)) > 1:
             theta = theta.transpose()
@@ -780,3 +833,9 @@ class Equilibrium(AbstractEquilibrium):
                 np.abs(rho), "rho_poloidal", method="cubic"
             )
         return flux, t
+
+def convert_to_dataarray(value, coords):
+    if type(value) != DataArray:
+        return DataArray(value, [coords])
+    else:
+        return value
