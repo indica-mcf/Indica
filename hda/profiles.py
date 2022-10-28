@@ -8,8 +8,7 @@ from copy import deepcopy
 
 class Profiles:
     def __init__(
-        self, datatype: tuple = ("temperature", "electron"), xspl: np.ndarray = None
-    ):
+        self, datatype: tuple = ("temperature", "electron"), xspl: np.ndarray = None, xend:float=1.05):
         """
         Class to build general profiles e.g. temperature, density, rotation and neutral density
 
@@ -19,13 +18,15 @@ class Profiles:
             Tuple defining what type of profile is to be built
         xspl
             normalised radial grid [0, 1]  on which profile is to be built
+        xend
+            last point in the grid for extrapolation outside of the separatrix
         """
 
         self.x = np.linspace(0, 1, 15) ** 0.7
         if xspl is None:
             xspl = np.linspace(0, 1.0, 30)
         self.xspl = xspl
-        self.xend = 1.05
+        self.xend = xend
         self.yend = 0
 
         self.datatype = datatype
@@ -197,8 +198,8 @@ def get_defaults(datatype: tuple) -> dict:
     parameters = {
         "density_electron": {
             "y0": 5.0e19,
-            "y1": 0.1e19,
-            "yend": 0.0,
+            "y1": 5.e18,
+            "yend": 2.e18,
             "peaking": 2,
             "wcenter": 0.4,
             "wped": 6,
@@ -222,7 +223,7 @@ def get_defaults(datatype: tuple) -> dict:
         "temperature_electron": {
             "y0": 3.0e3,
             "y1": 50,
-            "yend": 0,
+            "yend": 5.,
             "peaking": 1.5,
             "wcenter": 0.35,
             "wped": 3,
@@ -230,7 +231,7 @@ def get_defaults(datatype: tuple) -> dict:
         "temperature_ion": {
             "y0": 5.0e3,
             "y1": 50,
-            "yend": 0,
+            "yend": 5.,
             "peaking": 1.5,
             "wcenter": 0.35,
             "wped": 3,
