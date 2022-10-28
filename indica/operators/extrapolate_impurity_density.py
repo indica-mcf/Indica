@@ -55,19 +55,21 @@ def asymmetry_from_R_z(
         Derived asymmetry parameter. xarray.DataArray with dimensions (rho, t)
     """
 
-    input_check("data_R_z", data_R_z, DataArray, 3, True)
+    input_check("data_R_z", data_R_z, DataArray, 3, strictly_positive=False)
 
     input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 
-    input_check("rho_arr", rho_arr, DataArray, 1, True)
+    input_check("rho_arr", rho_arr, DataArray, 1, strictly_positive=False)
 
     if threshold_rho is not None:
-        input_check("threshold_rho", threshold_rho, DataArray, 1, True)
+        input_check(
+            "threshold_rho", threshold_rho, DataArray, 1, strictly_positive=True
+        )
 
     if t_arr is None:
         t_arr = data_R_z.coords["t"]
     else:
-        input_check("t_arr", t_arr, DataArray, 1, True)
+        input_check("t_arr", t_arr, DataArray, 1, strictly_positive=False)
 
     theta_arr_ = np.array([0.0, np.pi], dtype=float)
     theta_arr = DataArray(data=theta_arr_, coords={"theta": theta_arr_}, dims=["theta"])
@@ -98,8 +100,6 @@ def asymmetry_from_R_z(
         derived_asymmetry_parameter.coords["rho_poloidal"] > 0.1,
         other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="nearest"),
     )
-
-    derived_asymmetry_parameter = np.abs(derived_asymmetry_parameter)
 
     if threshold_rho is not None:
         for ind_t, it in enumerate(threshold_rho.coords["t"]):
@@ -141,17 +141,19 @@ def asymmetry_from_rho_theta(
         Derived asymmetry parameter. xarray.DataArray with dimensions (rho, t)
     """
 
-    input_check("data_rho_theta", data_rho_theta, DataArray, 3, True)
+    input_check("data_rho_theta", data_rho_theta, DataArray, 3, strictly_positive=False)
 
     input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 
     if threshold_rho is not None:
-        input_check("threshold_rho", threshold_rho, DataArray, 1, True)
+        input_check(
+            "threshold_rho", threshold_rho, DataArray, 1, strictly_positive=False
+        )
 
     if t_arr is None:
         t_arr = data_rho_theta.coords["t"]
     else:
-        input_check("t_arr", t_arr, DataArray, 1, True)
+        input_check("t_arr", t_arr, DataArray, 1, strictly_positive=False)
 
     rho_arr = data_rho_theta.coords["rho_poloidal"]
     theta_arr_ = np.array([0.0, np.pi], dtype=float)
@@ -181,15 +183,56 @@ def asymmetry_from_rho_theta(
         other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="nearest"),
     )
 
-    derived_asymmetry_parameter = np.abs(derived_asymmetry_parameter)
+    derived_asymmetry_parameter = derived_asymmetry_parameter.transpose(
+        "rho_poloidal", "t"
+    )
 
     if threshold_rho is not None:
-        for ind_t, it in enumerate(threshold_rho.coords["t"]):
-            derived_asymmetry_parameter.loc[
-                threshold_rho[ind_t] :, it  # type:ignore
-            ] = derived_asymmetry_parameter.loc[threshold_rho[ind_t], it]
+        threshold_asymmetry = derived_asymmetry_parameter.sel(
+            rho_poloidal=threshold_rho, method="nearest"
+        )
+        derived_asymmetry_parameter = derived_asymmetry_parameter.where(
+            derived_asymmetry_parameter.rho_poloidal < threshold_rho,
+            other=threshold_asymmetry,
+        )
 
     return derived_asymmetry_parameter
+
+
+def asymmetry_modifier_from_parameter(
+    asymmetry_parameter: DataArray, R_deriv: DataArray
+):
+    """
+    Convert an asymmetry parameter to an asymmetry modifier.
+
+    Parameters
+    ----------
+    asymmetry_parameter
+        Asymmetry parameter on (rho, t)
+    R_deriv
+        Variable describing value of R for every coordinate on a (rho, theta) grid.
+        xarray.DataArray with dimensions (rho, theta, t)
+
+    Returns
+    -------
+    asymmetry_modifier
+        Asymmetry modifier used to transform a low-field side only rho-profile
+        of a poloidally asymmetric quantity to a full poloidal cross-sectional
+        profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
+        exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
+        radius as a function of (rho, theta, t) and R_lfs is the low-field-side
+        major radius as a function of (rho, t). xarray DataArray with dimensions
+        (rho, theta, t)
+    """
+    R_lfs_midplane = cast(DataArray, R_deriv).sel(theta=0, method="nearest")
+
+    asymmetry_modifier = np.exp(
+        asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
+    )
+
+    asymmetry_modifier = asymmetry_modifier.transpose("rho_poloidal", "theta", "t")
+
+    return asymmetry_modifier
 
 
 def recover_threshold_rho(truncation_threshold: float, electron_temperature: DataArray):
@@ -215,7 +258,7 @@ def recover_threshold_rho(truncation_threshold: float, electron_temperature: Dat
         "truncation_threshold",
         truncation_threshold,
         float,
-        greater_than_or_equal_zero=False,
+        strictly_positive=True,
     )
 
     input_check(
@@ -223,7 +266,7 @@ def recover_threshold_rho(truncation_threshold: float, electron_temperature: Dat
         electron_temperature,
         DataArray,
         2,
-        greater_than_or_equal_zero=False,
+        strictly_positive=True,
     )
 
     try:
@@ -586,20 +629,16 @@ class ExtrapolateImpurityDensity(Operator):
             theta_arr, {"theta": theta_arr}, ["theta"]
         )  # type: ignore
 
-        R_lfs_midplane = cast(DataArray, R_deriv).sel(theta=0, method="nearest")
-
-        asymmetry_modifier = np.exp(
-            asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
+        asymmetry_modifier = asymmetry_modifier_from_parameter(
+            asymmetry_parameter, R_deriv
         )
-
-        asymmetry_modifier = asymmetry_modifier.transpose("rho_poloidal", "theta", "t")
 
         extrapolated_smooth_data = extrapolated_smooth_lfs * asymmetry_modifier
         extrapolated_smooth_data = extrapolated_smooth_data.transpose(
             "rho_poloidal", "theta", "t"
         )
 
-        return extrapolated_smooth_data, asymmetry_modifier
+        return extrapolated_smooth_data
 
     def transform_to_R_z(
         self,
@@ -704,7 +743,9 @@ class ExtrapolateImpurityDensity(Operator):
         orig_bolometry_data: DataArray,
         bolometry_obj: BolometryDerivation,
         impurity_element: str,
-        asymmetry_modifier: DataArray,
+        asymmetry_parameter: DataArray,
+        threshold_rho: DataArray,
+        R_deriv: DataArray,
         time_correlation: bool = True,
     ):
         """Optimizes a Gaussian-style perturbation to recover the over-density
@@ -723,14 +764,16 @@ class ExtrapolateImpurityDensity(Operator):
             BolometryDerivation object.
         impurity_element
             String of impurity element symbol.
-        asymmetry_modifier
-            Asymmetry modifier used to transform a low-field side only rho-profile
+        asymmetry_parameter
+            Asymmetry parameter used to transform a low-field side only rho-profile
             of a poloidally asymmetric quantity to a full poloidal cross-sectional
-            profile ie. (rho, t) -> (rho, theta, t). Also can be defined as:
-            exp(asymmetry_parameter * (R ** 2 - R_lfs ** 2)), where R is the major
-            radius as a function of (rho, theta, t) and R_lfs is the low-field-side
-            major radius as a function of (rho, t). xarray DataArray with dimensions
-            (rho, theta, t)
+            profile ie. (rho, t) -> (rho, theta, t). Dimensions (rho, t)
+        threshold_rho
+            Threshold rho value beyond which asymmetry parameter is invalid and
+            should be fitted from bolometry.
+        R_deriv
+            Variable describing value of R in every coordinate on a (rho, theta) grid.
+            xarray.DataArray with dimensions (rho, theta, t)
         time_correlation
             Boolean to indicate whether or not to use time correlated guesses during
             the optimization (ie. the result of the optimization for the previous
@@ -743,6 +786,31 @@ class ExtrapolateImpurityDensity(Operator):
             matches the original bolometry data. xarray DataArray with dimensions
             (rho, theta, t)
         """
+
+        input_check(
+            "extrapolated_smooth_data",
+            extrapolated_smooth_data,
+            DataArray,
+            ndim_to_check=3,
+            strictly_positive=False,
+        )
+
+        input_check(
+            "orig_bolometry_data",
+            orig_bolometry_data,
+            DataArray,
+            ndim_to_check=2,
+            strictly_positive=False,
+        )
+
+        input_check(
+            "asymmetry_parameter",
+            asymmetry_parameter,
+            DataArray,
+            ndim_to_check=2,
+            positive=False,
+            strictly_positive=False,
+        )
 
         rho_arr = self.rho_arr
         drho = np.max(np.diff(rho_arr))
@@ -778,8 +846,9 @@ class ExtrapolateImpurityDensity(Operator):
             Parameters
             ----------
             objective_array
-                List of [amplitude, standard deviation and position] defining the
-                Gaussian perturbation.
+                List of:
+                [amplitude, standard deviation, position and asymmetry_parameter]
+                defining the Gaussian perturbation.
             time
                 Float specifying the time point of interest.
 
@@ -791,7 +860,12 @@ class ExtrapolateImpurityDensity(Operator):
                 for the selected time point.
                 xarray.DataArray with dimensions (channels)
             """
-            amplitude, standard_dev, position = objective_array
+            (
+                amplitude,
+                standard_dev,
+                position,
+                edge_asymmetry_parameter,
+            ) = objective_array
 
             perturbation_signal = self.fitting_function(
                 amplitude, standard_dev, position
@@ -800,6 +874,15 @@ class ExtrapolateImpurityDensity(Operator):
             # trim perturbation_signal to only be valid within rho = 0.0 and rho = 1.0
             perturbation_signal = perturbation_signal.interp(
                 rho_poloidal=rho_arr, method="linear"
+            )
+
+            # fit asymmetry parameter for region where it was invalid
+            asymmetry_parameter_cont = asymmetry_parameter.where(
+                asymmetry_parameter.rho_poloidal < threshold_rho,
+                other=edge_asymmetry_parameter,
+            )
+            asymmetry_modifier = asymmetry_modifier_from_parameter(
+                asymmetry_parameter_cont, R_deriv
             )
 
             perturbation_signal = perturbation_signal * asymmetry_modifier.sel(t=time)
@@ -847,9 +930,13 @@ class ExtrapolateImpurityDensity(Operator):
         initial_guesses = np.array(
             [
                 [
-                    np.sqrt(lower_amp_bound * upper_amp_bound),
+                    extrapolated_smooth_data_mean,
                     np.mean([lower_width_bound, upper_width_bound]),
                     np.mean([lower_pos_bound, upper_pos_bound]),
+                    # asymmetry initial guess is value at threshold
+                    asymmetry_parameter.isel(t=0).sel(
+                        rho_poloidal=threshold_rho, method="ffill"
+                    ),
                 ]
             ]
         )
@@ -860,6 +947,7 @@ class ExtrapolateImpurityDensity(Operator):
                     lower_amp_bound,
                     lower_width_bound,
                     lower_pos_bound,
+                    -10 * np.abs(asymmetry_parameter.max()),
                 ]
             ),
             np.array(
@@ -867,9 +955,20 @@ class ExtrapolateImpurityDensity(Operator):
                     upper_amp_bound,
                     upper_width_bound,
                     upper_pos_bound,
+                    10 * np.abs(asymmetry_parameter.max()),
                 ]
             ),
         ]
+
+        # set scale of optimizer steps for amp, width, position and asymmetry
+        x_scale = np.array(
+            [
+                extrapolated_smooth_data_mean,
+                0.3,
+                1,
+                asymmetry_parameter.std(),
+            ]
+        )
 
         result = least_squares(
             fun=objective_func,
@@ -880,6 +979,7 @@ class ExtrapolateImpurityDensity(Operator):
             ftol=1e-15,
             xtol=1e-60,
             gtol=1e-60,
+            x_scale=x_scale,
         )
 
         gaussian_params = result.x
@@ -907,8 +1007,9 @@ class ExtrapolateImpurityDensity(Operator):
                     max_nfev=50,
                     args=(it,),
                     ftol=1e-60,
-                    xtol=1e-3,
+                    xtol=1e-5,
                     gtol=1e-60,
+                    x_scale=x_scale,
                 )
 
                 gaussian_params = result.x
@@ -926,6 +1027,7 @@ class ExtrapolateImpurityDensity(Operator):
                     ftol=1e-15,
                     xtol=1e-60,
                     gtol=1e-60,
+                    x_scale=x_scale,
                 )
 
                 gaussian_params = result.x
@@ -951,7 +1053,7 @@ class ExtrapolateImpurityDensity(Operator):
         ----------
         impurity_density_sxr
             xarray.DataArray of impurity density derived from soft X-ray emissivity.
-            Dimensions (R, z, t)
+            Dimensions (rho_poloidal, theta, t) or (R, z, t)
         electron_density
             xarray.DataArray of electron density. Dimensions (rho ,t)
         electron_temperature
@@ -987,7 +1089,7 @@ class ExtrapolateImpurityDensity(Operator):
             impurity_density_sxr,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
@@ -995,21 +1097,21 @@ class ExtrapolateImpurityDensity(Operator):
             electron_density,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
             "electron_temperature",
             electron_temperature,
             DataArray,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         input_check(
             "truncation_threshold",
             truncation_threshold,
             float,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
 
         input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
@@ -1017,7 +1119,7 @@ class ExtrapolateImpurityDensity(Operator):
         if t is None:
             t = electron_density.t
         else:
-            input_check("t", t, DataArray, greater_than_or_equal_zero=True)
+            input_check("t", t, DataArray, strictly_positive=False)
 
         self.threshold_rho = recover_threshold_rho(
             truncation_threshold, electron_temperature
@@ -1026,17 +1128,32 @@ class ExtrapolateImpurityDensity(Operator):
         # Transform impurity_density_sxr to (rho, theta) coordinates
         rho_arr = electron_density.coords["rho_poloidal"]
         t_arr = t
+        if set(["R", "z"]).issubset(set(list(impurity_density_sxr.dims))):
+            (
+                impurity_density_sxr_rho_theta,
+                R_deriv,
+                z_deriv,
+            ) = self.transform_to_rho_theta(
+                impurity_density_sxr,
+                flux_surfaces,
+                rho_arr,
+                t_arr=t_arr,
+            )
+        elif set(["rho_poloidal", "theta"]).issubset(
+            set(list(impurity_density_sxr.dims))
+        ):
+            impurity_density_sxr_rho_theta = impurity_density_sxr
 
-        (
-            impurity_density_sxr_rho_theta,
-            R_deriv,
-            z_deriv,
-        ) = self.transform_to_rho_theta(
-            impurity_density_sxr,
-            flux_surfaces,
-            rho_arr,
-            t_arr=t_arr,
-        )
+            R_deriv, z_deriv = flux_surfaces.convert_to_Rz(
+                impurity_density_sxr_rho_theta.coords["rho_poloidal"],
+                impurity_density_sxr_rho_theta.coords["theta"],
+                impurity_density_sxr_rho_theta.coords["t"],
+            )
+        else:
+            raise ValueError(
+                'Inputted impurity_density_sxr does not have any compatible\
+                    coordinates: ["rho_poloidal", "theta"] or ["R", "z"]'
+            )
 
         # Continue impurity_density_sxr following the shape of the electron density
         # profile and mitigate discontinuity.
@@ -1055,8 +1172,8 @@ class ExtrapolateImpurityDensity(Operator):
         )
 
         if asymmetry_parameter is None:
-            asymmetry_parameter = asymmetry_from_R_z(
-                impurity_density_sxr, flux_surfaces, rho_arr, self.threshold_rho, t_arr
+            asymmetry_parameter = asymmetry_from_rho_theta(
+                impurity_density_sxr_rho_theta, flux_surfaces, self.threshold_rho, t_arr
             )
         else:
             input_check(
@@ -1064,17 +1181,15 @@ class ExtrapolateImpurityDensity(Operator):
                 asymmetry_parameter,
                 DataArray,
                 ndim_to_check=2,
-                greater_than_or_equal_zero=True,
+                positive=False,
+                strictly_positive=False,
             )
 
         # Applying the asymmetry parameter to extrapolated density.
         # Also extends the data beyond the hfs and lfs to be
         # the full poloidal angle range.
 
-        (
-            extrapolated_smooth_density_rho_theta,
-            asymmetry_modifier,
-        ) = self.apply_asymmetry(
+        extrapolated_smooth_density_rho_theta = self.apply_asymmetry(
             asymmetry_parameter,
             extrapolated_smooth_hfs,
             extrapolated_smooth_lfs,
@@ -1087,6 +1202,9 @@ class ExtrapolateImpurityDensity(Operator):
             R_deriv, z_deriv, extrapolated_smooth_density_rho_theta, flux_surfaces
         )
 
+        asymmetry_modifier = asymmetry_modifier_from_parameter(
+            asymmetry_parameter, R_deriv
+        )
         self.asymmetry_modifier = asymmetry_modifier
 
         return (

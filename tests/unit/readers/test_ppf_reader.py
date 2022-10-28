@@ -195,7 +195,9 @@ def test_get_thomson_scattering(
     errors,
     max_freqs,
     just("cgiroud"),
-    just("cxg6"),
+    sampled_from(
+        [key for key in PPFReader.INSTRUMENT_METHODS.keys() if "cx" in key.lower()[:2]]
+    ),
     revisions,
     edited_revisions,
     lists(
