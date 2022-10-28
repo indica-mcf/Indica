@@ -105,16 +105,6 @@ class JetWorkflow(BaseWorkflow):
             print(template.format("calculate_n_high_z"))
             self.calculate_n_high_z()
             print(template.format("extrapolate_n_high_z"))
-            self.extrapolate_n_high_z()
-            derived_emissivity = self.electron_density * (
-                self.ion_densities * self.sxr_power_loss_charge_averaged
-            ).sum("element")
-            if np.any(derived_emissivity > self.sxr_emissivity):
-                raise UserWarning(
-                    "Derived emissivity is greater than calibrated measurement"
-                )
-            print(template.format("optimise_n_high_z"))
-            self.n_high_z = self.optimise_n_high_z()
             for key in attrs_to_save:
                 output[key].append(getattr(self, key, None))
         try:
@@ -508,41 +498,35 @@ class JetWorkflow(BaseWorkflow):
         }
 
     def initialise_default_values(self):
-        self._n_zeff_el._data = xr.zeros_like(self.electron_density).expand_dims(
-            {"theta": self.theta}
-        )
-        self._n_zeff_el_extra._data = xr.zeros_like(self.electron_density).expand_dims(
-            {"theta": self.theta}
-        )
+        self._n_high_z._data = xr.zeros_like(self.sxr_emissivity)
+        self._n_zeff_el._data = xr.zeros_like(self.electron_density)
+        self._n_zeff_el_extra._data = xr.zeros_like(self.electron_density)
         self._n_other_z._data = xr.zeros_like(self.sxr_emissivity)
-        self._n_main_ion._data = xr.zeros_like(self.electron_density).expand_dims(
-            {"theta": self.theta}
-        )
+        self._n_main_ion._data = xr.zeros_like(self.electron_density)
 
     def _calculate_n_high_z(self) -> DataArray:
         other_densities = xr.concat(
             [
-                self._n_zeff_el._data
-                if self._n_zeff_el._data is not None
-                else xr.zeros_like(self.electron_density).expand_dims(
-                    {"theta": self.theta}
-                ),
-                self._n_zeff_el_extra._data
-                if self._n_zeff_el_extra._data is not None
-                else xr.zeros_like(self.electron_density).expand_dims(
-                    {"theta": self.theta}
-                ),
-                self._n_other_z._data
-                if self._n_other_z._data is not None
-                else xr.zeros_like(self.sxr_emissivity),
-                self._n_main_ion._data
-                if self._n_main_ion._data is not None
-                else xr.zeros_like(self.sxr_emissivity),
+                self.n_zeff_el,
+                self.n_zeff_el_extra,
+                self.n_other_z,
+                self.n_main_ion,
             ],
             dim="element",
         ).assign_coords(
             {"element": [self.zeff_el, self.zeff_el_extra, self.other_z, self.main_ion]}
         )
+        n_high_z_initial = self._calculate_initial_n_high_z(
+            other_densities=other_densities
+        )
+        n_high_z_extrapolated, extrapolator = self._extrapolate_n_high_z(
+            n_high_z=n_high_z_initial
+        )
+        return self._optimise_n_high_z(
+            n_high_z=n_high_z_extrapolated, extrapolator=extrapolator
+        )
+
+    def _calculate_initial_n_high_z(self, other_densities: DataArray) -> DataArray:
         other_power_loss = self.sxr_power_loss_charge_averaged.sel(
             {"element": other_densities.coords["element"]}, drop=True
         )
@@ -561,17 +545,15 @@ class JetWorkflow(BaseWorkflow):
         ).assign_attrs({"transform": self.sxr_emissivity.attrs["transform"]})
         return n_high_z
 
-    def _extrapolate_n_high_z(self):
-        if self.n_high_z is None:
-            raise UserWarning(
-                "n_high_z has not yet been calculated, nothing to extrapolate"
-            )
-        rho_deriv, theta_deriv = self.n_high_z.transform.convert_from_Rz(
+    def _extrapolate_n_high_z(self, n_high_z: DataArray):
+        # if self.n_high_z is None:
+        #     raise UserWarning(
+        #         "n_high_z has not yet been calculated, nothing to extrapolate"
+        #     )
+        rho_deriv, theta_deriv = n_high_z.transform.convert_from_Rz(
             self.R, self.z, self.t
         )
-        n_high_z_Rz = self.n_high_z.interp(
-            {"rho_poloidal": rho_deriv, "theta": theta_deriv}
-        )
+        n_high_z_Rz = n_high_z.interp({"rho_poloidal": rho_deriv, "theta": theta_deriv})
         extrapolator = ExtrapolateImpurityDensity()
         (_, n_high_z_rho_theta, _,) = extrapolator(
             impurity_density_sxr=n_high_z_Rz.where(n_high_z_Rz > 0.0, other=1.0).fillna(
@@ -584,11 +566,41 @@ class JetWorkflow(BaseWorkflow):
             asymmetry_parameter=None,
             t=self.t,
         )
-        self.additional_data["calculate_n_high_z"] = {
-            "extrapolator": extrapolator,
-            "threshold_rho": extrapolator.threshold_rho,
-        }
-        return n_high_z_rho_theta
+        # self.additional_data["calculate_n_high_z"] = {
+        #     "extrapolator": extrapolator,
+        #     "threshold_rho": extrapolator.threshold_rho,
+        # }
+        return n_high_z_rho_theta, extrapolator
+
+    def _optimise_n_high_z(
+        self, n_high_z: DataArray, extrapolator: ExtrapolateImpurityDensity
+    ) -> DataArray:
+        # if self.additional_data.get("calculate_n_high_z", None) is None:
+        #     raise UserWarning(
+        #         "extrapolate_n_high_z has not yet been run,"
+        #         " required to optimise n_high_z"
+        #     )
+        self.calculate_derived_bolometry()
+        R_deriv: DataArray = self.flux_surface.convert_to_Rz(
+            self.rho, self.theta, self.t
+        )[0]
+        return (
+            extrapolator.optimize_perturbation(
+                extrapolated_smooth_data=n_high_z.interp(
+                    {"rho_poloidal": self.rho, "theta": self.theta}
+                ),
+                orig_bolometry_data=self.diagnostics["bolo"]["kb5v"],
+                bolometry_obj=deepcopy(self.bolo_derivation),
+                impurity_element=self.high_z,
+                asymmetry_parameter=self.sxr_fitted_asymmetry_parameter.interp(
+                    {"rho_poloidal": self.rho}
+                ),
+                threshold_rho=extrapolator.threshold_rho,
+                R_deriv=R_deriv,
+            )
+            .drop_vars("element", errors="ignore")
+            .assign_attrs({"transform": self.flux_surface})
+        )
 
     def _calculate_n_zeff_el(self) -> DataArray:
         zeff = self.diagnostics["zeff"]["zefh"].interp(t=self.t.values)
@@ -654,8 +666,8 @@ class JetWorkflow(BaseWorkflow):
                 flux_surfs=self.flux_surface,
                 LoS_bolometry_data=bolo_los(self.diagnostics["bolo"]["kb5v"]),
                 t_arr=self.t,
-                impurity_densities=self.ion_densities.where(
-                    self.ion_densities >= 0, other=0.0
+                impurity_densities=self.ion_densities.transpose(
+                    "element", "rho_poloidal", "theta", "t"
                 ),
                 frac_abunds=[self.fzt.get(element) for element in impurity_elements],
                 impurity_elements=impurity_elements,
@@ -669,31 +681,7 @@ class JetWorkflow(BaseWorkflow):
             )
             self.bolo_derivation(trim=True)
         else:
-            self.bolo_derivation.impurity_densities = self.ion_densities.where(
-                self.ion_densities >= 0, other=0.0
+            self.bolo_derivation.impurity_densities = self.ion_densities.transpose(
+                "element", "rho_poloidal", "theta", "t"
             )
         return self.bolo_derivation(deriv_only=True, trim=False)
-
-    def _optimise_n_high_z(self) -> DataArray:
-        if self.additional_data.get("calculate_n_high_z", None) is None:
-            raise UserWarning(
-                "extrapolate_n_high_z has not yet been run,"
-                " required to optimise n_high_z"
-            )
-        self.calculate_derived_bolometry()
-        return (
-            self.additional_data["calculate_n_high_z"]["extrapolator"]
-            .optimize_perturbation(
-                extrapolated_smooth_data=self.n_high_z.clip(min=0.0),
-                orig_bolometry_data=self.diagnostics["bolo"]["kb5v"],
-                bolometry_obj=deepcopy(self.bolo_derivation),
-                impurity_element=self.high_z,
-                asymmetry_modifier=self.additional_data["calculate_n_high_z"][
-                    "extrapolator"
-                ].asymmetry_modifier.interp(
-                    {"rho_poloidal": self.rho, "theta": self.theta}
-                ),
-            )
-            .drop_vars("element", errors="ignore")
-            .assign_attrs({"transform": self.flux_surface})
-        )

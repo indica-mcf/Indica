@@ -472,33 +472,6 @@ class BaseWorkflow:
         self.n_high_z = self._calculate_n_high_z()
         return self.n_high_z
 
-    def _extrapolate_n_high_z(self) -> DataArray:
-        raise NotImplementedError(
-            f"{self.__class__} does not implement _extrapolate_n_high_z method"
-        )
-
-    def extrapolate_n_high_z(self) -> DataArray:
-        self.n_high_z = self._extrapolate_n_high_z()
-        return self.n_high_z
-
-    def _rescale_n_high_z(self) -> DataArray:
-        raise NotImplementedError(
-            f"{self.__class__} does not implement _rescale_n_high_z method"
-        )
-
-    def rescale_n_high_z(self) -> DataArray:
-        self.n_high_z = self._rescale_n_high_z()
-        return self.n_high_z
-
-    def _optimise_n_high_z(self) -> DataArray:
-        raise NotImplementedError(
-            f"{self.__class__} does not implement _optimise_n_high_z method"
-        )
-
-    def optimise_n_high_z(self) -> DataArray:
-        self.n_high_z = self._optimise_n_high_z()
-        return self.n_high_z
-
     @property
     def n_zeff_el(self) -> DataArray:
         return self._n_zeff_el.data
@@ -562,7 +535,7 @@ class BaseWorkflow:
                 self.n_zeff_el.expand_dims({"theta": self.theta}),  # type: ignore
                 self.n_zeff_el_extra.expand_dims({"theta": self.theta}),  # type: ignore
                 self.n_other_z,
-                self.n_main_ion,
+                self.n_main_ion.expand_dims({"theta": self.theta}),  # type: ignore
             ],
             dim="element",
         ).assign_coords({"element": self.ion_species})

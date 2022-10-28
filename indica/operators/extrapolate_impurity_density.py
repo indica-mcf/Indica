@@ -935,7 +935,7 @@ class ExtrapolateImpurityDensity(Operator):
                     np.mean([lower_pos_bound, upper_pos_bound]),
                     # asymmetry initial guess is value at threshold
                     asymmetry_parameter.isel(t=0).sel(
-                        rho_poloidal=threshold_rho, method="ffill"
+                        rho_poloidal=threshold_rho.isel(t=0), method="ffill"
                     ),
                 ]
             ]
