@@ -38,7 +38,7 @@ def load_los_default():
     name = "los_test"
 
     # Set-up line of sight class
-    los = line_of_sight.LinesOfSightTransform(
+    los = line_of_sight.LineOfSightTransform(
         origin[0],
         origin[1],
         origin[2],
@@ -250,7 +250,7 @@ def test_missing_los():
 
     # Set-up line of sight class
     try:
-        _ = line_of_sight.LinesOfSightTransform(
+        _ = line_of_sight.LineOfSightTransform(
             origin[0],
             origin[1],
             origin[2],
