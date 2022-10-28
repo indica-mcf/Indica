@@ -433,11 +433,11 @@ def organise_data(plasma, data={}, bckc={}):
         },  # (values, units, coordinate node name)
         ".METADATA": {
             "PULSE": (Float32(plasma.pulse), "", []),
-            "EQUILIBRIUM": (String(opt_equilibrium), "", []),
-            "NE": (String(opt_electron_density), "", []),
-            "TE": (String(opt_electron_temperature), "", []),
-            "TI": (String(opt_ion_temperature), "", []),
-            "WP": (String(opt_stored_energy), "", []),
+            "EQUIL": (String(opt_equilibrium), "", []),
+            "EL_DENS": (String(opt_electron_density), "", []),
+            "EL_TEMP": (String(opt_electron_temperature), "", []),
+            "ION_TEMP": (String(opt_ion_temperature), "", []),
+            "STORED_EN": (String(opt_stored_energy), "", []),
             "MAIN_ION": (String(plasma.main_ion), "", []),
             "IMPURITY1": (String(impurities[0]), "", []),
             "IMPURITY2": (String(impurities[1]), "", []),
