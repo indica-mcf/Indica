@@ -840,7 +840,9 @@ class ExtrapolateImpurityDensity(Operator):
             orig_bolometry = orig_bolometry_data
 
         extrapolated_smooth_data_mean = np.mean(
-            extrapolated_smooth_data.loc[threshold_rho[0] :, :, :]
+            extrapolated_smooth_data.sel(
+                rho_poloidal=slice(threshold_rho.isel(t=0), None)
+            )
         )
 
         def objective_func(objective_array: Sequence, time: float):
