@@ -75,7 +75,7 @@ def run_default(
             pulse_to_write = pulse + 25000000
         else:
             pulse_to_write = pulse
-        run_name=f"RUN{run}{run_add}"
+        run_name = f"RUN{run}{run_add}"
 
         save_hda(
             pulse_to_write, plasma, raw_data, data, bckc, descr, run_name, force=force
@@ -111,12 +111,21 @@ def save_hda(
 
 
 def scan_profiles(
-    pulse: int = 9780, write=False, run_add="REF", modelling=True, force=True
+    pulse: int = 9780,
+    tstart=0.02,
+    tend=0.10,
+    dt=0.01,
+    write=False,
+    run_add="REF",
+    modelling=True,
+    force=True,
 ):
 
     profs = profile_scans()
 
-    plasma, raw_data, data, bckc = initialize_workflow(pulse)
+    plasma, raw_data, data, bckc = initialize_workflow(
+        pulse, tstart=tstart, tend=tend, dt=dt
+    )
 
     pulse = plasma.pulse
     if modelling:
@@ -200,7 +209,13 @@ def average_runs(pl_dict: dict):
 
     plasma = pl_dict[list(pl_dict)[-1]]
 
-    attrs = ["electron_density", "impurity_density", "neutral_density", "electron_temperature", "ion_temperature"]
+    attrs = [
+        "electron_density",
+        "impurity_density",
+        "neutral_density",
+        "electron_temperature",
+        "ion_temperature",
+    ]
 
     lists = {}
     for attr in attrs:
@@ -248,7 +263,12 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
         # Optimize electron temperature for XRCS line ratios
         plasma.calc_impurity_density(t=t)
         if t > plasma.t.min():
-            te0 = plasma.electron_temperature.sel(t=plasma.t[i - 1], rho_poloidal=0).values / 2.0
+            te0 = (
+                plasma.electron_temperature.sel(
+                    t=plasma.t[i - 1], rho_poloidal=0
+                ).values
+                / 2.0
+            )
 
         Ne = plasma.electron_density.sel(t=t)
         Nimp = plasma.impurity_density.sel(t=t)
@@ -304,8 +324,10 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
     return plasma, data, bckc
 
 
-def initialize_workflow(pulse):
-    plasma = initialize_plasma_object()
+def initialize_workflow(
+    pulse, tstart=0.02, tend=0.10, dt=0.01,
+):
+    plasma = initialize_plasma_object(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
     raw_data, data, bckc = initialize_plasma_data(pulse=pulse, plasma=plasma)
     initialize_forward_models(plasma, data)
     initialize_optimisations(plasma, data)
@@ -359,7 +381,7 @@ def initialize_plasma_data(
     Raw data and binned data dictionaries
     """
     plasma.pulse = pulse
-    raw = ST40data(pulse, plasma.tstart - plasma.dt / 2, plasma.tend + plasma.dt / 2)
+    raw = ST40data(pulse, plasma.tstart - plasma.dt * 4, plasma.tend + plasma.dt * 4)
     raw_data = raw.get_all()
 
     equilibrium_data = raw_data[equilibrium_diagnostic]
@@ -559,7 +581,9 @@ def assign_bckc(plasma: Plasma, t: float, bckc: dict):
 
 
 def calc_centrifugal_asymmetry(plasma: Plasma, toroidal_rotation0=500.0e3):
-    plasma.toroidal_rotation.values = (plasma.ion_temperature / plasma.ion_temperature.max() * toroidal_rotation0).values
+    plasma.toroidal_rotation.values = (
+        plasma.ion_temperature / plasma.ion_temperature.max() * toroidal_rotation0
+    ).values
     plasma.calc_centrifugal_asymmetry()
 
 
@@ -587,7 +611,9 @@ def simulate_new_interferometer(
     _ = los_transform.convert_to_rho(t=data["smmh1"]["ne"].t)
     plasma.forward_models[name].set_los_transform(los_transform)
     bckc[name] = {}
-    los_integral, _ = plasma.forward_models[name].integrate_on_los(plasma.electron_density)
+    los_integral, _ = plasma.forward_models[name].integrate_on_los(
+        plasma.electron_density
+    )
     for quantity in opt["electron_density"]["quantities"]:
         bckc[name][quantity] = los_integral[quantity]
 
@@ -621,7 +647,9 @@ def simulate_new_interferometer(
     plasma.forward_models["smmh2_jw"] = Interferometer(name="smmh2_jw")
     plasma.forward_models["smmh2_jw"].set_los_transform(los_transform_jw)
     bckc["smmh2_jw"] = {}
-    los_integral, _ = plasma.forward_models["smmh2_jw"].integrate_on_los(plasma.electron_density)
+    los_integral, _ = plasma.forward_models["smmh2_jw"].integrate_on_los(
+        plasma.electron_density
+    )
     for quantity in opt["electron_density"]["quantities"]:
         bckc["smmh2_jw"][quantity] = los_integral[quantity]
 
@@ -660,7 +688,9 @@ def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
 
     # Plot resulting ion temperature profiles
     plt.figure()
-    plt.plot(plasma.ion_temperature.sel(element="h").sel(t=slice(0.02, 0.12)).transpose())
+    plt.plot(
+        plasma.ion_temperature.sel(element="h").sel(t=slice(0.02, 0.12)).transpose()
+    )
 
     # Plot lines of sights and equilibrium on (R, z) plane
     plt.figure()
@@ -728,9 +758,15 @@ def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
 
     electron_density_2d = plasma.electron_density.sel(t=t).interp(rho_poloidal=rho_2d)
     neutral_density_2d = plasma.neutral_density.sel(t=t).interp(rho_poloidal=rho_2d)
-    electron_temperature_2d = plasma.electron_temperature.sel(t=t).interp(rho_poloidal=rho_2d)
-    ion_temperature_2d = plasma.ion_temperature.sel(t=t, element="h").interp(rho_poloidal=rho_2d)
-    toroidal_rotation_2d = plasma.toroidal_rotation.sel(t=t, element="h").interp(rho_poloidal=rho_2d)
+    electron_temperature_2d = plasma.electron_temperature.sel(t=t).interp(
+        rho_poloidal=rho_2d
+    )
+    ion_temperature_2d = plasma.ion_temperature.sel(t=t, element="h").interp(
+        rho_poloidal=rho_2d
+    )
+    toroidal_rotation_2d = plasma.toroidal_rotation.sel(t=t, element="h").interp(
+        rho_poloidal=rho_2d
+    )
 
     results = {}
     for elem in plasma.impurities:
