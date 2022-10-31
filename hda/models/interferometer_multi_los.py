@@ -151,17 +151,13 @@ def example_interferometer():
     plasma.set_equilibrium(equilibrium)
     plasma.set_flux_transform(flux_transform)
 
-    origin_multi = []
-    direction_multi = []
     # Create new interferometers diagnostics
-    # TODO: los_transform still has to be re-adapted for multi-LOS measurement!
     diagnostic_name = "smmh1"
-    smmh1 = Interferometer(name=diagnostic_name)
+    smm = Interferometer(name=diagnostic_name)
     los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
     origin = los_start
     direction = los_end - los_start
-    smm = Interferometer(name=diagnostic_name)
     los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
@@ -181,36 +177,19 @@ def example_interferometer():
     # Calculate the forward model of the measurement
     smm(plasma.electron_density)
 
-    return smm
-
     # Plot lines of sight on the poloidal plane
     plt.figure()
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
         levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
     )
-    plt.plot(
-        smmh1.los_transform.R,
-        smmh1.los_transform.z,
-        linewidth=3,
-        alpha=0.7,
-        label="SMMH1",
-    )
-    plt.plot(
-        smmh2.los_transform.R,
-        smmh2.los_transform.z,
-        linewidth=3,
-        alpha=0.7,
-        label="SMMH2",
-        linestyle="dashed",
-    )
-    plt.plot(
-        smmh3.los_transform.R,
-        smmh3.los_transform.z,
-        linewidth=3,
-        alpha=0.7,
-        label="SMMH3",
-        linestyle="dotted",
-    )
+    for channel in los_transform.x1:
+        plt.plot(
+            smm.los_transform.R[channel],
+            smm.los_transform.z[channel],
+            linewidth=3,
+            alpha=0.7,
+            label=f"SMM chan {channel}",
+        )
     plt.xlim(0, 1.0)
     plt.ylim(-0.6, 0.6)
     plt.axis("scaled")
@@ -232,11 +211,17 @@ def example_interferometer():
 
     # Plot the ratios of the LOS-integrals from the different lines of sight
     plt.figure()
-    (smmh1.bckc["ne"] / smmh2.bckc["ne"]).plot(label="SMMH1/SMMH2")
-    (smmh1.bckc["ne"] / smmh3.bckc["ne"]).plot(label="SMMH1/SMMH3", linestyle="dashed")
-    (smmh2.bckc["ne"] / smmh3.bckc["ne"]).plot(label="SMMH2/SMMH3", linestyle="dotted")
+    reference = [0, 1]
+    for channel in los_transform.x1:
+        for ref in reference:
+            if channel == ref or channel < ref:
+                continue
+            (smm.bckc["ne"].sel(channel=channel) / smm.bckc["ne"].sel(channel=ref)).plot(
+                label=f"SMM chan {channel}/{ref}"
+            )
+
     plt.xlabel("Time (s)")
     plt.ylabel("Ne LOS-integral ratios")
     plt.legend()
 
-    return plasma, smmh1, smmh2, smmh3
+    return plasma, smm
