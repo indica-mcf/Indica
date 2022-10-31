@@ -5,7 +5,7 @@ import matplotlib.pylab as plt
 import numpy as np
 from indica.readers import ST40Reader
 
-from indica.converters.lines_of_sight_jw import LinesOfSightTransform
+from indica.converters.line_of_sight import LineOfSightTransform
 
 import xarray as xr
 from xarray import DataArray
@@ -204,9 +204,13 @@ class ST40data:
         transform = []
         dl_nbi = 0.2
         for i in range(len(R_nbi)):
-            trans = LinesOfSightTransform(
-                location[i, :],
+            trans = LineOfSightTransform(
+                location[i, 0],
+                location[i, 1],
+                location[i, 2],
                 direction[i, :],
+                direction[i, 1],
+                direction[i, 2],
                 f"{instrument}_{quantity}",
                 self.reader.MACHINE_DIMS,
             )
