@@ -120,6 +120,42 @@ def map_on_equilibrium(
     return diagnostic_data
 
 
+def assign_flux_transform(
+    diagnostic_data: dict, flux_transform: FluxSurfaceCoordinates,
+):
+    """
+    Assign transform necessary to map viewing LOS from Cartesian to Flux space
+
+    Parameters
+    ----------
+    diagnostic_data
+        Experimental data of a specific instrument as returned by Indica's abstractreader.py
+    flux_transform
+        Indica's FluxSurfaceTransform object
+
+    Returns
+    -------
+    Data dictionary identical to input with transforms set for remapping
+    and remapping
+    """
+
+    data = diagnostic_data[list(diagnostic_data)[0]]
+    if "transform" not in data.attrs:
+        return data
+
+    transform = data.attrs["transform"]
+    if hasattr(flux_transform, "equilibrium"):
+        transform.set_equilibrium(flux_transform.equilibrium, force=True)
+        if "LineOfSightTransform" in str(data.attrs["transform"]):
+            transform.set_flux_transform(flux_transform)
+            transform.convert_to_rho(t=data.t)
+
+    for quantity in diagnostic_data.keys():
+        diagnostic_data[quantity].attrs["transform"] = transform
+
+    return diagnostic_data
+
+
 def apply_limits(
     data,
     diagnostic: str,
