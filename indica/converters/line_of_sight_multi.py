@@ -50,6 +50,9 @@ class LineOfSightTransform(CoordinateTransform):
     dl
         A float giving the distance between coordinates along the
         line-of-sight. Default to 0.01 metres.
+    passes
+        Number of passes across the plasma (e.g. typical interferometer
+        with corner cube has passes=2)
 
     """
 
@@ -67,6 +70,7 @@ class LineOfSightTransform(CoordinateTransform):
             (-1.75, 2.0),
         ),
         dl: float = 0.01,
+        passes: int = 1,
     ):
 
         self.name = f"{name}_line_of_sight_transform"
@@ -74,6 +78,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.x2_name = "los_position"
         self._machine_dims = machine_dimensions
         self.dl_target = dl
+        self.passes = passes
 
         self.x = None
         self.y = None
@@ -315,6 +320,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.theta = None
         self.along_los = None
         self.los_integral = None
+        self.t = None
 
         return x2, dl_new
 
@@ -361,8 +367,17 @@ class LineOfSightTransform(CoordinateTransform):
         if x2 is None:
             x2 = self.x2
 
-        if not hasattr(self, "rho"):
+        if hasattr(self, "rho"):
+            if (
+                not np.array_equal(x1, self.x1)
+                or not np.array_equal(x2, self.x2)
+                or not np.array_equal(t, self.t)
+            ):
+                self.convert_to_rho(x1, x2, t=t)
+                self.t = t
+        else:
             self.convert_to_rho(x1, x2, t=t)
+            self.t = t
 
         along_los = []
         for channel in x1:
@@ -386,7 +401,6 @@ class LineOfSightTransform(CoordinateTransform):
         x2: LabeledArray = None,
         t: LabeledArray = None,
         limit_to_sep=True,
-        passes: int = 1,
     ) -> DataArray:
         """
         Integrate 1D profile along LOS
@@ -398,8 +412,6 @@ class LineOfSightTransform(CoordinateTransform):
             Time for interpolation
         limit_to_sep
             Set to True if values outside of separatrix are to be set to 0
-        passes
-            Number of passes across the plasma (e.g. typical interferometer passes=2)
 
         Returns
         -------
@@ -413,7 +425,7 @@ class LineOfSightTransform(CoordinateTransform):
         for channel in x1:
             _along_los = along_los[channel].drop_vars("rho_poloidal")
             _los_integral.append(
-                passes * _along_los.sum(self.x2_name) * self.dl[channel]
+                self.passes * _along_los.sum(self.x2_name) * self.dl[channel]
             )
 
         los_integral = xr.concat(_los_integral, self.x1_name).assign_coords(
