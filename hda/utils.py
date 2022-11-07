@@ -27,6 +27,6 @@ def print_like(string):
     print(f"\n {string}")
 
 
-def get_funcion_name():
+def get_function_name():
     return str(inspect.stack()[1][3])
 
