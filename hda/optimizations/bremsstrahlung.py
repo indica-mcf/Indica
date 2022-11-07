@@ -1,5 +1,5 @@
 
-import hda.physics as ph
+import indica.physics as ph
 from hda.manage_data import initialize_bckc
 
 def bremsstrahlung(
