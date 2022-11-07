@@ -23,6 +23,9 @@ from .selectors import choose_on_plot
 from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
+from indica.converters.line_of_sight_multi import (
+    LineOfSightTransform as LineOfSightTransform_multi,
+)
 from ..converters import LineOfSightTransform
 from ..converters import LinesOfSightTransform
 from ..converters import MagneticCoordinates
@@ -136,6 +139,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike = 0,
         quantities: Set[str] = set(),
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads data for the requested instrument. In general this will be
         the method you want to use when reading.
@@ -167,7 +171,7 @@ class DataReader(BaseIO):
         method = getattr(self, self.INSTRUMENT_METHODS[instrument])
         if not quantities:
             quantities = set(self.available_quantities(instrument))
-        return method(uid, instrument, revision, quantities)
+        return method(uid, instrument, revision, quantities, dl)
 
     def get_thomson_scattering(
         self,
@@ -175,6 +179,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads data based on Thomson Scattering.
 
@@ -199,7 +204,7 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_thomson_scattering(
-            uid, instrument, revision, quantities
+            uid, instrument, revision, quantities, dl
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -241,10 +246,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -279,6 +281,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Gets raw data for Thomson scattering from the database. Data outside
         the desired time range will be discarded.
@@ -330,6 +333,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads charge exchange data.
 
@@ -355,7 +359,7 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_charge_exchange(
-            uid, instrument, revision, quantities
+            uid, instrument, revision, quantities, dl,
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -414,10 +418,7 @@ class DataReader(BaseIO):
                 "exposure_time": texp,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -452,6 +453,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Gets raw data for charge exchange from the database. Data outside
         the desired time range will be discarded.
@@ -502,7 +504,12 @@ class DataReader(BaseIO):
         )
 
     def get_equilibrium(
-        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads equilibrium data.
 
@@ -538,7 +545,7 @@ class DataReader(BaseIO):
         separatrix_quantities = {"rbnd", "zbnd"}
         flux_quantities = {"f", "ftor", "vjac", "ajac", "rmji", "rmjo"}
         available_quantities = self.available_quantities(instrument)
-        if len({"rmji", "rmjo"} & quantities) > 0:
+        if "rmji" in quantities and "rmjo" in quantities:
             quantities.add("zmag")
         if "faxs" in quantities:
             quantities |= {"rmag", "zmag"}
@@ -563,9 +570,7 @@ class DataReader(BaseIO):
         else:
             rho = None
             coords_2d = {}
-        flux_transform = FluxSurfaceCoordinates(
-            "poloidal",
-        )
+        flux_transform = FluxSurfaceCoordinates("poloidal",)
         dims_2d = ("t", diagnostic_coord)
         if len(separatrix_quantities & quantities):
             coords_sep: Dict[Hashable, ArrayLike] = {"t": times}
@@ -625,10 +630,7 @@ class DataReader(BaseIO):
                 dims = dims_2d
 
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             )
             if "t" in dims:
                 quant_data = quant_data.sel(t=slice(self._tstart, self._tend))
@@ -666,6 +668,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Gets raw data for equilibrium from the database. Data outside
         the desired time range will be discarded.
@@ -722,6 +725,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads electron temperature measurements from cyclotron data.
 
@@ -754,7 +758,7 @@ class DataReader(BaseIO):
                 )
 
         database_results = self._get_cyclotron_emissions(
-            uid, instrument, revision, quantities
+            uid, instrument, revision, quantities, dl
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -785,10 +789,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -824,7 +825,12 @@ class DataReader(BaseIO):
         return data
 
     def _get_cyclotron_emissions(
-        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Gets raw data for cyclotron resonance from the database. Data
         outside the desired time range will be discarded.
@@ -881,6 +887,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads data on irradiance.
 
@@ -905,7 +912,9 @@ class DataReader(BaseIO):
 
         """
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_radiation(uid, instrument, revision, quantities)
+        database_results = self._get_radiation(
+            uid, instrument, revision, quantities, dl
+        )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -924,17 +933,17 @@ class DataReader(BaseIO):
             downsample_ratio = int(
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
-            transform = LinesOfSightTransform(
-                database_results[quantity + "_xstart"],
-                database_results[quantity + "_ystart"],
-                database_results[quantity + "_zstart"],
-                database_results[quantity + "_xstop"],
-                database_results[quantity + "_ystop"],
-                database_results[quantity + "_zstop"],
+            transform = LineOfSightTransform_multi(
+                database_results[f"{quantity}_location"][:, 0],
+                database_results[f"{quantity}_location"][:, 1],
+                database_results[f"{quantity}_location"][:, 2],
+                database_results[f"{quantity}_direction"][:, 0],
+                database_results[f"{quantity}_direction"][:, 1],
+                database_results[f"{quantity}_direction"][:, 2],
                 f"{instrument}_{quantity}",
                 database_results["machine_dims"],
+                dl=dl,
             )
-            # print(transform.x1_name, quantity)
             coords = [
                 ("t", times),
                 (transform.x1_name, np.arange(database_results["length"][quantity])),
@@ -946,11 +955,9 @@ class DataReader(BaseIO):
                 ),
                 "transform": transform,
             }
-            quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
+            quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
+                t=slice(self._tstart, self._tend)
+            )
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -962,9 +969,7 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            drop = self._select_channels(
-                "radiation", uid, instrument, quantity, quant_data, transform.x1_name
-            )
+            drop = []
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "radiation",
                 uid,
@@ -984,6 +989,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Gets raw data for irradiance from the database. Data outside
         the desired time range will be discarded.
@@ -1046,6 +1052,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads spectroscopic measurements of effective charge.
 
@@ -1069,7 +1076,7 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_bremsstrahlung_spectroscopy(
-            uid, instrument, revision, quantities
+            uid, instrument, revision, quantities, dl
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -1115,10 +1122,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1161,6 +1165,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Gets raw spectroscopic data for effective charge from the
         database. Data outside the desired time range will be
@@ -1222,6 +1227,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads spectroscopic measurements of He-like emission.
 
@@ -1245,7 +1251,7 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_helike_spectroscopy(
-            uid, instrument, revision, quantities
+            uid, instrument, revision, quantities, dl
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -1254,13 +1260,13 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         wavelength = database_results["wavelength"]
-        transform = LineOfSightTransform(
-            database_results["location"][0],
-            database_results["location"][1],
-            database_results["location"][2],
-            database_results["direction"][0],
-            database_results["direction"][1],
-            database_results["direction"][2],
+        transform = LineOfSightTransform_multi(
+            database_results["location"][:, 0],
+            database_results["location"][:, 1],
+            database_results["location"][:, 2],
+            database_results["direction"][:, 0],
+            database_results["direction"][:, 1],
+            database_results["direction"][:, 2],
             f"{instrument}",
             database_results["machine_dims"],
         )
@@ -1306,10 +1312,7 @@ class DataReader(BaseIO):
                     database_results[quantity_error], coords, dims
                 ).sel(t=slice(self._tstart, self._tend))
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1342,6 +1345,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Reads spectroscopic measurements of He-like emission.
 
@@ -1401,6 +1405,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads filtered radiation diodes
 
@@ -1423,7 +1428,7 @@ class DataReader(BaseIO):
 
         """
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_filters(uid, instrument, revision, quantities)
+        database_results = self._get_filters(uid, instrument, revision, quantities, dl)
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -1431,15 +1436,16 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
 
-        transform = LineOfSightTransform(
-            database_results["location"][0],
-            database_results["location"][1],
-            database_results["location"][2],
-            database_results["direction"][0],
-            database_results["direction"][1],
-            database_results["direction"][2],
+        transform = LineOfSightTransform_multi(
+            database_results["location"][:,0],
+            database_results["location"][:,1],
+            database_results["location"][:,2],
+            database_results["direction"][:,0],
+            database_results["direction"][:,1],
+            database_results["direction"][:,2],
             f"{instrument}",
             database_results["machine_dims"],
+            dl=dl,
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1469,10 +1475,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1504,6 +1507,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Reads filtered radiation diodes
 
@@ -1563,6 +1567,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads interferometer electron density.
 
@@ -1586,7 +1591,7 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_interferometry(
-            uid, instrument, revision, quantities
+            uid, instrument, revision, quantities, dl
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -1597,13 +1602,13 @@ class DataReader(BaseIO):
             return database_results
 
         times = database_results["times"]
-        transform = LineOfSightTransform(
-            database_results["location"][0],
-            database_results["location"][1],
-            database_results["location"][2],
-            database_results["direction"][0],
-            database_results["direction"][1],
-            database_results["direction"][2],
+        transform = LineOfSightTransform_multi(
+            database_results["location"][:,0],
+            database_results["location"][:,1],
+            database_results["location"][:,2],
+            database_results["direction"][:,0],
+            database_results["direction"][:,1],
+            database_results["direction"][:,2],
             f"{instrument}",
             database_results["machine_dims"],
         )
@@ -1636,10 +1641,7 @@ class DataReader(BaseIO):
             }
 
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1671,6 +1673,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Reads interferometer electron density
 
@@ -1725,7 +1728,12 @@ class DataReader(BaseIO):
         )
 
     def get_astra(
-        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str]
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads ASTRA data.
 
@@ -1748,7 +1756,7 @@ class DataReader(BaseIO):
 
         """
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_astra(uid, instrument, revision, quantities)
+        database_results = self._get_astra(uid, instrument, revision, quantities, dl)
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -1806,10 +1814,7 @@ class DataReader(BaseIO):
             }
 
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
 
             # TODO: careful with interpolation on new rho_poloidal array...
@@ -1850,6 +1855,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Reads ASTRA data
 
@@ -1951,10 +1957,7 @@ class DataReader(BaseIO):
         }
         activity_id = hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(
-            activity_id,
-            self._start_time,
-            end_time,
-            {prov.PROV_TYPE: "ReadData"},
+            activity_id, self._start_time, end_time, {prov.PROV_TYPE: "ReadData"},
         )
         activity.wasAssociatedWith(self.session.agent)
         activity.wasAssociatedWith(self.agent)
@@ -2042,9 +2045,7 @@ class DataReader(BaseIO):
         return ignored
 
     def _set_times_item(
-        self,
-        results: Dict[str, Any],
-        times: np.ndarray,
+        self, results: Dict[str, Any], times: np.ndarray,
     ):
         """Add the "times" data to the dictionary, if not already
         present.

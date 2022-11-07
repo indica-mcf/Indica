@@ -60,8 +60,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te": ("temperature", "electrons"),
     },
     "get_radiation": {
-        "h": ("luminous_flux", None),
-        "v": ("luminous_flux", None),
+        "brightness": ("luminous_flux", None),
     },
     "get_astra": {
         "upl": (

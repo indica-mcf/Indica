@@ -71,7 +71,7 @@ class ST40Reader(DataReader):
 
     """
 
-    MACHINE_DIMS = ((0.17, 0.8), (-0.75, 0.75))
+    MACHINE_DIMS = ((0.15, 0.8), (-0.75, 0.75))
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
@@ -141,19 +141,10 @@ class ST40Reader(DataReader):
             "times": ".time",
             "exposure": ".exposure",
         },
-        "lines": {
-            "brems": ".brem_mp1:intensity",
-            "h_alpha": ".h_alpha_mp1:intensity",
-        },
-        "nirh1": {
-            "ne": ".line_int:ne",
-        },
-        "nirh1_bin": {
-            "ne": ".line_int:ne",
-        },
-        "smmh1": {
-            "ne": ".line_int:ne",
-        },
+        "lines": {"brems": ".brem_mp1:intensity", "h_alpha": ".h_alpha_mp1:intensity",},
+        "nirh1": {"ne": ".line_int:ne",},
+        "nirh1_bin": {"ne": ".line_int:ne",},
+        "smmh1": {"ne": ".line_int:ne",},
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
@@ -220,7 +211,7 @@ class ST40Reader(DataReader):
         },
     }
 
-    _IMPLEMENTATION_QUANTITIES = {
+    _IMPLEMENTATION_QUANTITIES = {  # TODO: these will be different diagnostics!!!!!!!
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
             "filter_1": ("sxr_radiation", "no_filter"),
             "filter_2": ("sxr_radiation", "50_Al"),
@@ -322,9 +313,7 @@ class ST40Reader(DataReader):
         return data, path
 
     def _get_signal_dims(
-        self,
-        mds_path: str,
-        ndims: int,
+        self, mds_path: str, ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
@@ -362,6 +351,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
 
@@ -405,6 +395,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch data from ASTRA run."""
 
@@ -455,6 +446,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch data from SXR camera."""
 
@@ -476,7 +468,6 @@ class ST40Reader(DataReader):
         for q in quantities:
             luminosities = []
             records = []
-            xstart, xstop, ystart, ystop, zstart, zstop = [], [], [], [], [], []
 
             times, t_path = self._get_signal(
                 uid,
@@ -496,34 +487,19 @@ class ST40Reader(DataReader):
                     self.QUANTITIES_MDS[instrument][q] + "ch" + str(chan).zfill(3),
                     revision,
                 )
-
                 records.append(q_path)
                 luminosities.append(qval)
-
-                los_start, los_stop = self.get_los(
-                    location[chan - chan_start], direction[chan - chan_start]
-                )
-                xstart.append(los_start[0])
-                xstop.append(los_stop[0])
-                ystart.append(los_start[1])
-                ystop.append(los_stop[1])
-                zstart.append(los_start[2])
-                zstop.append(los_stop[2])
 
             results["length"][q] = nchan
             results[q] = np.array(luminosities).T
             results[q + "_records"] = records
             results[q + "_error"] = self._default_error * results[q]
-
-            results[q + "location"] = np.array(location)
-            results[q + "direction"] = np.array(direction)
-            results[q + "_xstart"] = np.array(xstart)
-            results[q + "_xstop"] = np.array(xstop)
-            results[q + "_ystart"] = np.array(ystart)
-            results[q + "_ystop"] = np.array(ystop)
-            results[q + "_zstart"] = np.array(zstart)
-            results[q + "_zstop"] = np.array(zstop)
-
+            results[q + "_location"] = np.array(
+                location[chan_start - 1 : chan_start + nchan]
+            )
+            results[q + "_direction"] = np.array(
+                direction[chan_start - 1 : chan_start + nchan]
+            )
             # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
         results["quantities"] = quantities
 
@@ -535,6 +511,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -549,15 +526,12 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         # TODO: update when new MDS+ structure becomes available
-        # position, position_path = self._get_signal(uid, position,
-        # ".geometry:position", revision)
-        # direction, position_path = self._get_signal(uid, position,
-        # ".geometry:direction", revision)
-        if instrument == "xrcs":
-            location = np.array([1.0, 0, 0])
-            direction = np.array([0.17, 0, 0]) - location
-        else:
-            raise ValueError(f"No geometry available for {instrument}")
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, direction_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
         times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
         wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
         results["wavelength"] = wavelength
@@ -588,8 +562,8 @@ class ST40Reader(DataReader):
             results[q + "_error" + "_records"] = q_path_err
 
         results["length"] = 1
-        results["location"] = np.array(location)
-        results["direction"] = np.array(direction)
+        results["location"] = location
+        results["direction"] = direction
 
         return results
 
@@ -599,6 +573,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -652,10 +627,6 @@ class ST40Reader(DataReader):
             results[q + "_records"] = q_path
             results[q] = qval
 
-        print(results)
-        print(results["times"])
-        print(results["exposure"])
-
         # Export coordinates
         results["length"] = len(rstart)
         results["Rstart"] = rstart
@@ -673,6 +644,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -687,16 +659,17 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         # TODO: update when new MDS+ structure becomes available
-        # position, position_path = self._get_signal(uid, instrument,
-        # ".geometry:position", revision)
-        # direction, position_path = self._get_signal(uid, instrument,
-        # ".geometry:direction", revision)
+        # location, location_path = self._get_signal(
+        #     uid, instrument, ".geometry:location", revision
+        # )
+        # direction, position_path = self._get_signal(
+        #     uid, instrument, ".geometry:direction", revision
+        # )
         if instrument == "lines":
-            location = np.array([1.0, 0, 0])
-            direction = np.array([0.17, 0, 0]) - location
+            location = np.array([[1.0, 0, 0],])
+            direction = np.array([[0.17, 0, 0],]) - location
         else:
             raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_stop = self.get_los(location, direction)
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -728,6 +701,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -742,19 +716,12 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         # TODO: update when new MDS+ structure becomes available
-        # position, position_path = self._get_signal(uid, instrument,
-        # ".geometry:position", revision)
-        # direction, position_path = self._get_signal(uid, instrument,
-        # ".geometry:direction", revision)
-
-        if instrument == "smmh1":
-            location = np.array([1.0, 0, 0])
-            direction = np.array([0.17, 0, 0]) - location
-        elif instrument == "nirh1" or instrument == "nirh1_bin":
-            location = np.array([-0.07, 0.9, 0])
-            direction = np.array([0.37, -0.75, 0]) - location
-        else:
-            raise ValueError(f"No geometry available for {instrument}")
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, position_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
         times, _ = self._get_signal(uid, instrument, ":time", revision)
 
         if np.array_equal(times, "FAILED"):
@@ -786,7 +753,7 @@ class ST40Reader(DataReader):
                 revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):
-                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
+                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
 
         results["length"] = 1
