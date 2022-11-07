@@ -76,7 +76,7 @@ class ST40Reader(DataReader):
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
         "princeton": "get_charge_exchange",
-        "lines": "get_filters",
+        "lines": "get_diode_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
@@ -638,7 +638,7 @@ class ST40Reader(DataReader):
 
         return results
 
-    def _get_filters(
+    def _get_diode_filters(
         self,
         uid: str,
         instrument: str,
