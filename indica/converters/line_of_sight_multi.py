@@ -10,6 +10,7 @@ from scipy.optimize import root
 import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
+from matplotlib import cm
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -99,6 +100,8 @@ class LineOfSightTransform(CoordinateTransform):
         self.direction_x = direction_x
         self.direction_y = direction_y
         self.direction_z = direction_z
+        self.origin = np.array([origin_x, origin_y, origin_z]).transpose()
+        self.direction = np.array([direction_x, direction_y, direction_z]).transpose()
 
         # Number of lines of sight
         self.x1 = list(np.arange(0, len(origin_x)))
@@ -162,7 +165,7 @@ class LineOfSightTransform(CoordinateTransform):
         x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
         y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
         z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
-        return np.sign(x) * np.sqrt(x ** 2 + y ** 2), z
+        return np.sqrt(x ** 2 + y ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -172,7 +175,7 @@ class LineOfSightTransform(CoordinateTransform):
             x2 = x[1]
             x = self.x_start + (self.x_end - self.x_start) * x2
             y = self.y_start + (self.y_end - self.y_start) * x2
-            x = np.sign(x) * np.sqrt(x ** 2 + y ** 2)
+            z = self.z_start + (self.z_end - self.z_start) * x2
             dxdx1 = 0.0
             dxdx2 = self.x_end - self.x_start
             dydx1 = 0.0
@@ -217,8 +220,9 @@ class LineOfSightTransform(CoordinateTransform):
             raise Exception("Set flux transform to convert (R,z) to rho")
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
-        if x2 is None:
-            x2 = self.x2
+
+        if np.size(t) == 1:
+            t = np.array([t])
 
         rho = []
         theta = []
@@ -226,11 +230,18 @@ class LineOfSightTransform(CoordinateTransform):
             _rho, _theta = self.flux_transform.convert_from_Rz(
                 self.R[channel], self.z[channel], t=t
             )
-            _rho = DataArray(_rho, coords=[("t", _rho.t), (self.x2_name, x2[channel])])
-            rho.append(xr.where(_rho >= 0, _rho, 0.0))
-            theta.append(
-                DataArray(_theta, coords=[("t", _rho.t), (self.x2_name, x2[channel])])
-            )
+            drop_vars = ["R", "z"]
+            for var in drop_vars:
+                if var in _rho.coords:
+                    _rho = _rho.drop_vars(var)
+                if var in _theta.coords:
+                    _theta = _theta.drop_vars(var)
+
+            _rho.assign_coords({self.x2_name: x2[channel].values})
+            _theta.assign_coords({self.x2_name: x2[channel].values})
+
+            rho.append(xr.where(_rho >= 0, _rho, np.nan))
+            theta.append(xr.where(_rho >= 0, _theta, np.nan))
 
         if x2 == self.x2:
             self.rho = rho
@@ -447,6 +458,101 @@ class LineOfSightTransform(CoordinateTransform):
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Missing equilibrium in flux surface transform")
 
+    def plot_los(self, tplot: float = None):
+        channels = self.x1
+        cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
+
+        line = lambda _start, _end: np.linspace(_start, _end, npts)
+
+        npts = 1000
+        angles = np.linspace(0.0, 2 * np.pi, npts)
+        x_wall_inner = self._machine_dims[0][0] * np.cos(angles)
+        x_wall_outer = self._machine_dims[0][1] * np.cos(angles)
+        y_wall_inner = self._machine_dims[0][0] * np.sin(angles)
+        y_wall_outer = self._machine_dims[0][1] * np.sin(angles)
+        z_wall_lower = self._machine_dims[1][0]
+        z_wall_upper = self._machine_dims[1][1]
+
+        x_line = line(self.x_start, self.x_end)
+        y_line = line(self.y_start, self.y_end)
+        z_line = line(self.z_start, self.z_end)
+        R_line = np.sqrt(x_line ** 2 + y_line ** 2)
+
+        equil = None
+        if hasattr(self, "flux_transform"):
+            if hasattr(self.flux_transform, "equilibrium"):
+                equil = self.flux_transform.equilibrium
+                if tplot is None:
+                    if self.rho is not None:
+                        _rho = self.rho[0]
+                    else:
+                        _rho = self.flux_transform.equilibrium.rho
+                    tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
+
+                if self.rho is None:
+                    self.convert_to_rho(self.x1, self.x2, t=tplot)
+
+                rho_equil = equil.rho.sel(t=tplot, method="nearest")
+                rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
+                core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
+                R_lfs = rho_equil.R[core_ind[0]].values
+                R_hfs = rho_equil.R[core_ind[-1]].values
+                x_plasma_inner = R_hfs * np.cos(angles)
+                x_plasma_outer = R_lfs * np.cos(angles)
+                y_plasma_inner = R_hfs * np.sin(angles)
+                y_plasma_outer = R_lfs * np.sin(angles)
+
+        plt.figure()
+        plt.plot(x_wall_inner, y_wall_inner, color="k")
+        plt.plot(x_wall_outer, y_wall_outer, color="k")
+        if equil is not None:
+            plt.plot(x_plasma_inner, y_plasma_inner, color="red")
+            plt.plot(x_plasma_outer, y_plasma_outer, color="red")
+        for ch in self.x1:
+            plt.plot(x_line[:,ch], y_line[:,ch], color=cols[ch], linewidth=2)
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.axis("scaled")
+
+        plt.figure()
+        plt.plot(x_wall_outer, [z_wall_upper] * npts, color="k")
+        plt.plot(x_wall_outer, [z_wall_lower] * npts, color="k")
+        plt.plot(x_wall_inner, [z_wall_upper] * npts, "w")
+        plt.plot(x_wall_inner, [z_wall_lower] * npts, "w")
+        plt.plot([x_wall_outer.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
+        plt.plot([x_wall_inner.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
+        plt.plot([x_wall_outer.min()] * 2, [z_wall_lower, z_wall_upper], color="k")
+        plt.plot([x_wall_inner.min()] * 2, [z_wall_lower, z_wall_upper], color="k")
+        for ch in self.x1:
+            plt.plot(x_line[:,ch], z_line[:,ch], color=cols[ch], linewidth=2)
+        plt.xlabel("x")
+        plt.ylabel("z")
+        plt.axis("scaled")
+
+        plt.figure()
+        plt.plot([x_wall_outer.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
+        plt.plot([x_wall_inner.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
+        plt.plot(
+            [x_wall_inner.max(), x_wall_outer.max()], [z_wall_lower] * 2, color="k"
+        )
+        plt.plot(
+            [x_wall_inner.max(), x_wall_outer.max()], [z_wall_upper] * 2, color="k"
+        )
+        if equil is not None:
+            rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
+        for ch in self.x1:
+            plt.plot(R_line[:,ch], z_line[:,ch], color=cols[ch], linewidth=2)
+        plt.xlabel("R")
+        plt.ylabel("z")
+        plt.axis("scaled")
+
+        if equil is not None:
+            plt.figure()
+            for ch in self.x1:
+                self.rho[ch].sel(t=tplot, method="nearest").plot(color=cols[ch], linewidth=2)
+            plt.xlabel("Path along LOS")
+            plt.ylabel("Rho")
+
 
 def _find_wall_intersections(
     origin: Tuple,
@@ -564,7 +670,7 @@ def _find_wall_intersections(
         plt.figure()
         plt.plot(x_wall_inner, y_wall_inner, color="orange")
         plt.plot(x_wall_outer, y_wall_outer, color="orange")
-        plt.plot(x_line, y_line, "k", linewidth=3)
+        plt.plot(x_line, y_line, "k", linewidth=2)
         plt.xlabel("x")
         plt.ylabel("y")
 
@@ -577,7 +683,7 @@ def _find_wall_intersections(
         plt.plot([x_wall_inner.max()] * 2, [z_wall_lower, z_wall_upper], color="orange")
         plt.plot([x_wall_outer.min()] * 2, [z_wall_lower, z_wall_upper], color="orange")
         plt.plot([x_wall_inner.min()] * 2, [z_wall_lower, z_wall_upper], color="orange")
-        plt.plot(x_line, z_line, "k", linewidth=3)
+        plt.plot(x_line, z_line, "k", linewidth=2)
         plt.xlabel("x")
         plt.ylabel("z")
 
@@ -590,7 +696,7 @@ def _find_wall_intersections(
         plt.plot(
             [x_wall_inner.max(), x_wall_outer.max()], [z_wall_upper] * 2, color="orange"
         )
-        plt.plot(R_line, z_line, "k", linewidth=3)
+        plt.plot(R_line, z_line, "k", linewidth=2)
         plt.xlabel("R")
         plt.ylabel("z")
 
