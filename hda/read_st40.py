@@ -71,7 +71,6 @@ class ST40data:
         self.data["sxr"] = data
 
     def get_efit(self, revision=0, pulse=None):
-
         if pulse is None:
             pulse = self.pulse
         if pulse == 8303 or pulse == 8322 or pulse == 8323 or pulse == 8324:
