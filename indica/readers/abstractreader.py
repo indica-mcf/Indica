@@ -1399,7 +1399,7 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def get_filters(
+    def get_diode_filters(
         self,
         uid: str,
         instrument: str,
@@ -1428,7 +1428,7 @@ class DataReader(BaseIO):
 
         """
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_filters(uid, instrument, revision, quantities, dl)
+        database_results = self._get_diode_filters(uid, instrument, revision, quantities, dl)
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -1501,7 +1501,7 @@ class DataReader(BaseIO):
             data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
-    def _get_filters(
+    def _get_diode_filters(
         self,
         uid: str,
         instrument: str,
@@ -1557,7 +1557,7 @@ class DataReader(BaseIO):
 
         """
         raise NotImplementedError(
-            "{} does not implement a '_get_filters' "
+            "{} does not implement a '_get_diode_filters' "
             "method.".format(self.__class__.__name__)
         )
 

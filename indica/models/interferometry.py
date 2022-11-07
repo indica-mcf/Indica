@@ -31,8 +31,9 @@ class Interferometry:
 
         self.name = name
         self.instrument_method = instrument_method
-        self.bckc = {}
-        self.los_integral_ne = None
+
+        self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
+
         self.los_transform = LineOfSightTransform(
             origin[:, 0],
             origin[:, 1],
@@ -46,6 +47,10 @@ class Interferometry:
             passes=passes,
         )
 
+        self.bckc = {}
+        self.Ne = None
+        self.los_integral_ne = None
+
     def set_los_transform(self, transform: LineOfSightTransform):
         """
         Parameters
@@ -57,7 +62,6 @@ class Interferometry:
         """
         self.los_transform = transform
         self.bckc = {}
-        self.los_integral_ne = None
 
     def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         """
@@ -65,34 +69,27 @@ class Interferometry:
         """
         self.los_transform.set_flux_transform(flux_transform)
         self.bckc = {}
-        self.los_integral_ne = None
 
     def _build_bckc_dictionary(self):
-        bckc = {}
+        self.bckc = {}
 
-        available_quantities = AVAILABLE_QUANTITIES[self.instrument_method]
-
-        quantity = "ne"
-        data_type = ("density", "electrons")
-        bckc[quantity] = self.los_integral_ne
-        for quant in bckc.keys():
-            if quant not in available_quantities:
-                raise ValueError(
-                    f"Quantity {quantity} not in AVAILABLE_QUANTITIES "
-                    f"({list(available_quantities)})"
-                )
-            error = xr.full_like(bckc[quantity], 0.0)
-            stdev = xr.full_like(bckc[quantity], 0.0)
-            bckc[quantity].attrs = {
-                "datatype": data_type,
-                "transform": self.los_transform,
-                "error": error,
-                "stdev": stdev,
-                "provenance": str(self),
-            }
-
-        self.bckc = bckc
-        return bckc
+        for quant in self.quantities:
+            datatype = self.quantities[quant]
+            if quant == "ne":
+                quantity = quant
+                self.bckc[quantity] = self.los_integral_ne
+                error = xr.full_like(self.bckc[quantity], 0.0)
+                stdev = xr.full_like(self.bckc[quantity], 0.0)
+                self.bckc[quantity].attrs = {
+                    "datatype": datatype,
+                    "transform": self.los_transform,
+                    "error": error,
+                    "stdev": stdev,
+                    "provenance": str(self),
+                }
+            else:
+                print(f"{quant} not available in model for {self.instrument_method}")
+                continue
 
     def __call__(self, Ne: DataArray, t: LabeledArray = None):
         """
@@ -109,17 +106,21 @@ class Interferometry:
 
         """
 
+        self.Ne = Ne
+
         x1 = self.los_transform.x1
         x2 = self.los_transform.x2
         los_integral_ne = self.los_transform.integrate_on_los(Ne, x1, x2, t=t,)
+
         self.los_integral_ne = los_integral_ne
+        self.t = los_integral_ne.t
 
-        bckc = self._build_bckc_dictionary()
+        self._build_bckc_dictionary()
 
-        return bckc
+        return self.bckc
 
 
-def example_interferometer():
+def example_run():
     from indica.readers import ST40Reader
     from hda.models.plasma import example_plasma
     from indica.equilibrium import Equilibrium
@@ -149,26 +150,26 @@ def example_interferometer():
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
     origin = los_start
     direction = los_end - los_start
-    smm = Interferometry(
+    model = Interferometry(
         diagnostic_name,
         origin,
         direction,
         passes=2,
         machine_dimensions=plasma.machine_dimensions,
     )
-    smm.set_flux_transform(plasma.flux_transform)
-    bckc = smm(plasma.electron_density, t=plasma.t,)
+    model.set_flux_transform(plasma.flux_transform)
+    bckc = model(plasma.electron_density, t=plasma.t,)
 
     plt.figure()
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
         levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
     )
-    channels = smm.los_transform.x1
+    channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
     for chan in channels:
         plt.plot(
-            smm.los_transform.R[chan],
-            smm.los_transform.z[chan],
+            model.los_transform.R[chan],
+            model.los_transform.z[chan],
             linewidth=3,
             color=cols[chan],
             alpha=0.7,
@@ -183,7 +184,7 @@ def example_interferometer():
     # Plot LOS mapping on equilibrium
     plt.figure()
     for chan in channels:
-        smm.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
+        model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
             color=cols[chan], label=f"CH{chan}",
         )
     plt.xlabel("Path along the LOS")
@@ -198,4 +199,18 @@ def example_interferometer():
     plt.ylabel("Ne LOS-integrals (m^-2)")
     plt.legend()
 
-    return plasma, smm
+    # Plot the profiles
+    cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+    plt.figure()
+    for i, t in enumerate(plasma.t):
+        plt.plot(
+            model.Ne.rho_poloidal,
+            model.Ne.sel(t=t),
+            color=cols_time[i],
+            label=f"t={t:1.2f} s",
+        )
+    plt.xlabel("rho")
+    plt.ylabel("Ne (m^-3)")
+    plt.legend()
+
+    return plasma, model, bckc
