@@ -1,7 +1,13 @@
 from indica.converters.line_of_sight_multi import LineOfSightTransform
-from indica.converters import FluxSurfaceCoordinates
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+
+from indica.readers import ST40Reader
+from indica.models.plasma import example_run as example_plasma
+from indica.equilibrium import Equilibrium
+from indica.converters import FluxSurfaceCoordinates
+
+import matplotlib.cm as cm
 
 import xarray as xr
 from xarray import DataArray
@@ -18,8 +24,8 @@ class Bolometer:
     def __init__(
         self,
         name: str,
-        origin: LabeledArray,
-        direction: LabeledArray,
+        origin: LabeledArray = None,
+        direction: LabeledArray = None,
         dl: float = 0.005,
         passes: int = 1,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
@@ -32,21 +38,21 @@ class Bolometer:
         self.name = name
         self.instrument_method = instrument_method
         self.bckc = {}
-        self.los_transform = LineOfSightTransform(
-            origin[:, 0],
-            origin[:, 1],
-            origin[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            name=name,
-            dl=dl,
-            machine_dimensions=machine_dimensions,
-            passes=passes,
-        )
+        if origin is not None and direction is not None:
+            self.los_transform = LineOfSightTransform(
+                origin[:, 0],
+                origin[:, 1],
+                origin[:, 2],
+                direction[:, 0],
+                direction[:, 1],
+                direction[:, 2],
+                name=name,
+                dl=dl,
+                machine_dimensions=machine_dimensions,
+                passes=passes,
+            )
 
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
-
 
     def set_los_transform(self, transform: LineOfSightTransform):
         """
@@ -60,7 +66,6 @@ class Bolometer:
         self.los_transform = transform
         self.bckc = {}
         self.los_integral_radiation = None
-
 
     def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         """
@@ -142,11 +147,6 @@ class Bolometer:
 
 
 def example_run():
-    from indica.readers import ST40Reader
-    from hda.models.plasma import example_plasma
-    from indica.equilibrium import Equilibrium
-    from indica.converters import FluxSurfaceCoordinates
-    import matplotlib.cm as cm
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
 
@@ -174,12 +174,15 @@ def example_run():
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.43, -0.43, nchannels)
+    los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
     los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
     origin = los_start
     direction = los_end - los_start
     model = Bolometer(
-        diagnostic_name, origin, direction, machine_dimensions=plasma.machine_dimensions
+        diagnostic_name,
+        origin=origin,
+        direction=direction,
+        machine_dimensions=plasma.machine_dimensions,
     )
     model.set_flux_transform(plasma.flux_transform)
     bckc = model(
@@ -224,9 +227,7 @@ def example_run():
     # Plot back-calculated values
     plt.figure()
     for chan in channels:
-        bckc["brightness"].sel(channel=chan).plot(
-            label=f"CH{chan}", color=cols[chan]
-        )
+        bckc["brightness"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
     plt.xlabel("Time (s)")
     plt.ylabel("BOLO LOS-integrals (W/m^2)")
     plt.legend()

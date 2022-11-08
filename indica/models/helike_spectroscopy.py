@@ -8,10 +8,15 @@ from scipy.interpolate import interp1d
 from typing import Tuple
 
 from indica.readers import ADASReader
-from indica.converters import FluxSurfaceCoordinates
 from indica.converters.line_of_sight_multi import LineOfSightTransform
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+
+from indica.readers import ST40Reader
+from indica.models.plasma import example_run as example_plasma
+from indica.equilibrium import Equilibrium
+from indica.converters import FluxSurfaceCoordinates
+import matplotlib.cm as cm
 
 import indica.physics as ph
 
@@ -39,10 +44,10 @@ class Helike_spectroscopy:
     def __init__(
         self,
         name: str,
-        origin: LabeledArray,
-        direction: LabeledArray,
+        origin: LabeledArray = None,
+        direction: LabeledArray = None,
         dl: float = 0.005,
-        passes: int = 2,
+        passes: int = 1,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
@@ -79,18 +84,19 @@ class Helike_spectroscopy:
         self.name = name
         self.instrument_method = instrument_method
 
-        self.los_transform = LineOfSightTransform(
-            origin[:, 0],
-            origin[:, 1],
-            origin[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            name=name,
-            dl=dl,
-            machine_dimensions=machine_dimensions,
-            passes=passes,
-        )
+        if origin is not None and direction is not None:
+            self.los_transform = LineOfSightTransform(
+                origin[:, 0],
+                origin[:, 1],
+                origin[:, 2],
+                direction[:, 0],
+                direction[:, 1],
+                direction[:, 2],
+                name=name,
+                dl=dl,
+                machine_dimensions=machine_dimensions,
+                passes=passes,
+            )
 
         self.etendue = etendue
         self.calibration = calibration
@@ -108,7 +114,7 @@ class Helike_spectroscopy:
         self.measured_intensity = {}
         self.measured_Te = {}
         self.measured_Ti = {}
-        self.pos =  {}
+        self.pos = {}
         self.err_in = {}
         self.err_out = {}
 
@@ -289,9 +295,12 @@ class Helike_spectroscopy:
                 self.emission[line], x1, x2, t=self.emission[line].t,
             )
             self.emission_los[line] = self.los_transform.along_los
-            _, self.pos[line], self.err_in[line], self.err_out[line] = self._moment_analysis(
-                line, self.t
-            )
+            (
+                _,
+                self.pos[line],
+                self.err_in[line],
+                self.err_out[line],
+            ) = self._moment_analysis(line, self.t)
 
         self.t = self.measured_intensity[line].t
 
@@ -303,16 +312,26 @@ class Helike_spectroscopy:
             datatype = self.quantities[quant]
             if datatype == ("temperature", "ions"):
                 line = str(quant.split("_")[1])
-                Ti_tmp, self.pos[line], self.err_in[line], self.err_out[line] = self._moment_analysis(
-                    line, self.t, profile_1d=self.Ti
+                (
+                    Ti_tmp,
+                    self.pos[line],
+                    self.err_in[line],
+                    self.err_out[line],
+                ) = self._moment_analysis(line, self.t, profile_1d=self.Ti)
+                self.measured_Ti[line] = xr.concat(Ti_tmp, x1_name).assign_coords(
+                    {x1_name: x1}
                 )
-                self.measured_Ti[line] = xr.concat(Ti_tmp, x1_name).assign_coords({x1_name:x1})
             elif datatype == ("temperature", "electrons"):
                 line = str(quant.split("_")[1])
-                Te_tmp, self.pos[line], self.err_in[line], self.err_out[line] = self._moment_analysis(
-                    line, self.t, profile_1d=self.Te
+                (
+                    Te_tmp,
+                    self.pos[line],
+                    self.err_in[line],
+                    self.err_out[line],
+                ) = self._moment_analysis(line, self.t, profile_1d=self.Te)
+                self.measured_Te[line] = xr.concat(Te_tmp, x1_name).assign_coords(
+                    {x1_name: x1}
                 )
-                self.measured_Te[line] = xr.concat(Te_tmp, x1_name).assign_coords({x1_name:x1})
 
     def _moment_analysis(
         self, line: str, t: float, profile_1d: DataArray = None, half_los: bool = True,
@@ -703,11 +722,6 @@ def get_marchuk(extrapolate: str = None, as_is=False):
 
 
 def example_run(use_real_transform=False):
-    from indica.readers import ST40Reader
-    from hda.models.plasma import example_plasma
-    from indica.equilibrium import Equilibrium
-    from indica.converters import FluxSurfaceCoordinates
-    import matplotlib.cm as cm
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
 
@@ -748,7 +762,10 @@ def example_run(use_real_transform=False):
         direction = los_end - los_start
 
     model = Helike_spectroscopy(
-        diagnostic_name, origin, direction, machine_dimensions=plasma.machine_dimensions
+        diagnostic_name,
+        origin=origin,
+        direction=direction,
+        machine_dimensions=plasma.machine_dimensions,
     )
     model.set_flux_transform(plasma.flux_transform)
     model.los_transform.convert_to_rho(
@@ -799,18 +816,14 @@ def example_run(use_real_transform=False):
     # Plot back-calculated values
     plt.figure()
     for chan in channels:
-        bckc["int_w"].sel(channel=chan).plot(
-            label=f"CH{chan}", color=cols[chan]
-        )
+        bckc["int_w"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
     plt.xlabel("Time (s)")
     plt.ylabel("w-line intensity (W/m^2)")
     plt.legend()
 
     plt.figure()
     for chan in channels:
-        bckc["ti_w"].sel(channel=chan).plot(
-            label=f"CH{chan} ti_w", color=cols[chan]
-        )
+        bckc["ti_w"].sel(channel=chan).plot(label=f"CH{chan} ti_w", color=cols[chan])
         bckc["te_kw"].sel(channel=chan).plot(
             label=f"CH{chan} te_kw", color=cols[chan], linestyle="dashed"
         )
@@ -824,9 +837,7 @@ def example_run(use_real_transform=False):
     elem = model.Ti.element[0].values
     for i, t in enumerate(plasma.t):
         plt.plot(
-            model.Ti.rho_poloidal,
-            model.Ti.sel(t=t, element=elem),
-            color=cols_time[i],
+            model.Ti.rho_poloidal, model.Ti.sel(t=t, element=elem), color=cols_time[i],
         )
         plt.plot(
             model.Te.rho_poloidal,

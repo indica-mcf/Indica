@@ -1,6 +1,6 @@
-from hda.profiles import Profiles
-from hda.utils import print_like
-from hda.manage_data import initialize_bckc_dataarray
+from indica.profiles import Profiles
+from indica.utilities import print_like
+from indica.readers.manage_data import initialize_bckc_dataarray
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.optimize import least_squares
@@ -18,7 +18,7 @@ from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 from indica.provenance import get_prov_attribute
 from indica.readers import ADASReader
-from hda.models.xray_crystal_spectrometer import XRCSpectrometer
+from indica.models.helike_spectroscopy import Helike_spectroscopy
 
 plt.ion()
 
@@ -53,7 +53,7 @@ def check_model_inputs(model, Te, Ne, Nh, Nimp, tau):
 
 
 def match_line_ratios(
-    model: XRCSpectrometer,
+    model: Helike_spectroscopy,
     Te_prof: Profiles,
     data: dict,
     t: float,
@@ -139,7 +139,7 @@ def match_line_ratios(
 
 
 def match_ion_temperature(
-    model: XRCSpectrometer,
+    model: Helike_spectroscopy,
     Ti_prof: Profiles,
     data: dict,
     t: float,
@@ -229,7 +229,7 @@ def match_ion_temperature(
 
 
 def match_intensity(
-    model: XRCSpectrometer,
+    model: Helike_spectroscopy,
     Nimp_prof: Profiles,
     data: dict,
     t: float,

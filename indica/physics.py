@@ -9,7 +9,7 @@ import numpy as np
 import scipy.constants as constants
 from scipy.interpolate import CubicSpline
 from scipy.interpolate import interp1d
-
+from numpy.typing import ArrayLike
 
 def conductivity_spitzer(el_dens, el_temp, zeff, approx="sauter"):
     """
@@ -999,8 +999,8 @@ def zeff_bremsstrahlung(
     Te,
     Ne,
     wavelength,
-    zeff: float = None,
-    brems: float = None,
+    zeff: ArrayLike = None,
+    brems: ArrayLike = None,
     gaunt_approx="callahan",
 ):
     """
