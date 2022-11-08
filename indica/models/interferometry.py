@@ -1,7 +1,12 @@
 from indica.converters.line_of_sight_multi import LineOfSightTransform
-from indica.converters import FluxSurfaceCoordinates
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+
+from indica.readers import ST40Reader
+from indica.models.plasma import example_run as example_plasma
+from indica.equilibrium import Equilibrium
+from indica.converters import FluxSurfaceCoordinates
+import matplotlib.cm as cm
 
 import xarray as xr
 from xarray import DataArray
@@ -18,8 +23,8 @@ class Interferometry:
     def __init__(
         self,
         name: str,
-        origin: LabeledArray,
-        direction: LabeledArray,
+        origin: LabeledArray = None,
+        direction: LabeledArray = None,
         dl: float = 0.005,
         passes: int = 2,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
@@ -34,18 +39,19 @@ class Interferometry:
 
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
-        self.los_transform = LineOfSightTransform(
-            origin[:, 0],
-            origin[:, 1],
-            origin[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            name=name,
-            dl=dl,
-            machine_dimensions=machine_dimensions,
-            passes=passes,
-        )
+        if origin is not None and direction is not None:
+            self.los_transform = LineOfSightTransform(
+                origin[:, 0],
+                origin[:, 1],
+                origin[:, 2],
+                direction[:, 0],
+                direction[:, 1],
+                direction[:, 2],
+                name=name,
+                dl=dl,
+                machine_dimensions=machine_dimensions,
+                passes=passes,
+            )
 
         self.bckc = {}
         self.Ne = None
@@ -121,12 +127,6 @@ class Interferometry:
 
 
 def example_run():
-    from indica.readers import ST40Reader
-    from hda.models.plasma import example_plasma
-    from indica.equilibrium import Equilibrium
-    from indica.converters import FluxSurfaceCoordinates
-    import matplotlib.cm as cm
-
     plasma = example_plasma()
     plasma.build_atomic_data()
 
@@ -152,8 +152,8 @@ def example_run():
     direction = los_end - los_start
     model = Interferometry(
         diagnostic_name,
-        origin,
-        direction,
+        origin=origin,
+        direction=direction,
         passes=2,
         machine_dimensions=plasma.machine_dimensions,
     )

@@ -1,12 +1,10 @@
 from copy import deepcopy
 import pickle
-from hda.utils import get_function_name
+from indica.utilities import get_function_name, assign_data, assign_datatype, print_like
 
 import indica.physics as ph
-from hda.profiles import Profiles
-from hda.utils import assign_data, assign_datatype, print_like
+from indica.profiles import Profiles
 
-from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -17,7 +15,6 @@ from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
-from indica.provenance import get_prov_attribute
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 from indica.readers import ADASReader
@@ -278,7 +275,9 @@ class Plasma:
         self.ne_0 = assign_data(self.data1d_time, ("density", "electron"))
         self.te_0 = assign_data(self.data1d_time, ("temperature", "electron"))
         self.ti_0 = assign_data(self.data1d_time, ("temperature", "ion"))
-        self.electron_temperature = assign_data(self.data2d, ("temperature", "electron"))
+        self.electron_temperature = assign_data(
+            self.data2d, ("temperature", "electron")
+        )
         self.electron_density = assign_data(self.data2d, ("density", "electron"))
         self.neutral_density = assign_data(self.data2d, ("density", "neutral"))
         self.tau = assign_data(self.data2d, ("time", "residence"))
@@ -297,7 +296,9 @@ class Plasma:
 
         self.ion_temperature = assign_data(self.data3d, ("temperature", "ion"))
         self.toroidal_rotation = assign_data(self.data3d, ("toroidal_rotation", "ion"))
-        self.impurity_density = assign_data(self.data3d_imp, ("density", "impurity"), "m^-3")
+        self.impurity_density = assign_data(
+            self.data3d_imp, ("density", "impurity"), "m^-3"
+        )
         self.fast_temperature = assign_data(self.data2d, ("temperature", "fast"))
         self.fast_density = assign_data(self.data2d, ("density", "fast"))
 
@@ -305,10 +306,21 @@ class Plasma:
         # TODO: transpose in dependencies, i.e. what depends on e.g. electron_density?
         # self.dependencies = {"electron_density":("ion_densityity", "zeff", "fz", )}
         self.properties = {
-            "ion_densityity": ("electron_density", "fast_density", "meanz", "main_ion", "impurity_density",),
+            "ion_densityity": (
+                "electron_density",
+                "fast_density",
+                "meanz",
+                "main_ion",
+                "impurity_density",
+            ),
             "zeff": ("electron_density", "ion_densityity", "meanz"),
             "meanz": ("fz",),
-            "fz": ("electron_temperature", "electron_density", "tau", "neutral_density",),
+            "fz": (
+                "electron_temperature",
+                "electron_density",
+                "tau",
+                "neutral_density",
+            ),
             "lz_tot": ("electron_temperature, electron_density, neutral_density", "fz"),
             "lz_sxr": ("electron_temperature, electron_density, neutral_density", "fz"),
             "total_radiation": ("lz_tot", "electron_density", "ion_densityity"),
@@ -316,7 +328,12 @@ class Plasma:
             "prad_tot": ("total_radiation"),
             "prad_sxr": ("sxr_radiation"),
             "pressure_el": ("electron_density", "electron_temperature"),
-            "pressure_th": ("electron_density", "ion_densityity", "electron_temperature", "ion_temperature"),
+            "pressure_th": (
+                "electron_density",
+                "ion_densityity",
+                "electron_temperature",
+                "ion_temperature",
+            ),
             "pressure_tot": ("pressure_th", "fast_density", "fast_temperature"),
             "pth": ("pressure_th",),
             "ptot": ("pressure_tot",),
@@ -348,7 +365,9 @@ class Plasma:
         self._pressure_el = assign_data(
             self.data2d, ("pressure", "electron"), "Pa m^-3"
         )
-        self._pressure_el.values = ph.calc_pressure(self.electron_density, self.electron_temperature)
+        self._pressure_el.values = ph.calc_pressure(
+            self.electron_density, self.electron_temperature
+        )
         return self._pressure_el
 
     @property
@@ -484,10 +503,16 @@ class Plasma:
         self._ion_density = assign_data(self.data3d, ("density", "ion"), "m^-3")
         impurity_density = self.impurity_density
         meanz = self.meanz
-        main_ion_density = self.electron_density - self.fast_density * meanz.sel(element=self.main_ion)
+        main_ion_density = self.electron_density - self.fast_density * meanz.sel(
+            element=self.main_ion
+        )
         for elem in self.impurities:
-            self._ion_density.loc[dict(element=elem)] = impurity_density.sel(element=elem).values
-            main_ion_density -= impurity_density.sel(element=elem) * meanz.sel(element=elem)
+            self._ion_density.loc[dict(element=elem)] = impurity_density.sel(
+                element=elem
+            ).values
+            main_ion_density -= impurity_density.sel(element=elem) * meanz.sel(
+                element=elem
+            )
 
         self._ion_density.loc[dict(element=self.main_ion)] = main_ion_density.values
         return self._ion_density
@@ -724,7 +749,9 @@ class Plasma:
             self.volume.values = self.convert_in_time(
                 equilibrium.volume.interp(rho_poloidal=rho)
             )
-            self.area.values = self.convert_in_time(equilibrium.area.interp(rho_poloidal=rho))
+            self.area.values = self.convert_in_time(
+                equilibrium.area.interp(rho_poloidal=rho)
+            )
             self.maj_r_lfs.values = self.convert_in_time(
                 equilibrium.rmjo.interp(rho_poloidal=rho)
             )
@@ -758,13 +785,15 @@ class Plasma:
         if default:
             xend = 1.02
             rho_end = 1.01
-            rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end-0.01)
+            rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
             Te = Profiles(datatype=("temperature", "electron"), xspl=rho, xend=xend)
             Te.y0 = 10.0e3
             Te.build_profile()
             Te = Te.yspl
             Ne = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend).yspl
-            Nh = Profiles(datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend).yspl
+            Nh = Profiles(
+                datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend
+            ).yspl
             tau = None
 
         print_like("Initialize fractional abundance and power loss objects")
@@ -864,7 +893,9 @@ class Plasma:
 
         self.midplane_profiles = midplane_profiles
 
-    def calc_centrifugal_asymmetry(self, time=None, test_toroidal_rotation=None, plot=False):
+    def calc_centrifugal_asymmetry(
+        self, time=None, test_toroidal_rotation=None, plot=False
+    ):
         """
         Calculate (R, z) maps of the ion densities caused by centrifugal asymmetry
         """
@@ -915,7 +946,9 @@ class Plasma:
                 meanz.sel(element=elem).drop("element"),
                 zeff,
                 main_ion_mass,
-                toroidal_rotation=self.toroidal_rotation.sel(element=elem).drop("element"),
+                toroidal_rotation=self.toroidal_rotation.sel(element=elem).drop(
+                    "element"
+                ),
             )
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
@@ -937,14 +970,18 @@ class Plasma:
                 rho = self.rho_2d.sel(t=t).sel(z=z, method="nearest")
                 plt.plot(
                     rho,
-                    self.ion_density_2d.sel(element=elem).sel(t=t, z=z, method="nearest"),
+                    self.ion_density_2d.sel(element=elem).sel(
+                        t=t, z=z, method="nearest"
+                    ),
                 )
                 self.ion_density.sel(element=elem).sel(t=t).plot(linestyle="dashed")
                 plt.title(elem)
 
             elem = "ar"
             plt.figure()
-            np.log(self.ion_density_2d.sel(element=elem).sel(t=t, method="nearest")).plot()
+            np.log(
+                self.ion_density_2d.sel(element=elem).sel(t=t, method="nearest")
+            ).plot()
             self.rho_2d.sel(t=t, method="nearest").plot.contour(
                 levels=10, colors="white"
             )
@@ -1001,8 +1038,10 @@ class Plasma:
                 self, f,
             )
 
-def example_plasma():
-    from hda.profiles_gauss import Profiles
+
+def example_run():
+    # TODO: swap all profiles to new version!
+    from indica.profiles_gauss import Profiles
 
     tstart = 0.02
     tend = 0.1
@@ -1022,12 +1061,24 @@ def example_plasma():
         full_run=full_run,
     )
 
-    Te_prof = Profiles(datatype=("temperature", "electron"), xspl=plasma.rho, set_defaults=True)
-    Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=plasma.rho, set_defaults=True)
-    Ne_prof = Profiles(datatype=("density", "electron"), xspl=plasma.rho, set_defaults=True)
-    Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=plasma.rho, set_defaults=True)
-    Nh_prof = Profiles(datatype=("density", "thermal_neutrals"), xspl=plasma.rho, set_defaults=True)
-    Vrot_prof = Profiles(datatype=("rotation", "toroidal"), xspl=plasma.rho, set_defaults=True)
+    Te_prof = Profiles(
+        datatype=("temperature", "electron"), xspl=plasma.rho, set_defaults=True
+    )
+    Ti_prof = Profiles(
+        datatype=("temperature", "ion"), xspl=plasma.rho, set_defaults=True
+    )
+    Ne_prof = Profiles(
+        datatype=("density", "electron"), xspl=plasma.rho, set_defaults=True
+    )
+    Nimp_prof = Profiles(
+        datatype=("density", "impurity"), xspl=plasma.rho, set_defaults=True
+    )
+    Nh_prof = Profiles(
+        datatype=("density", "thermal_neutrals"), xspl=plasma.rho, set_defaults=True
+    )
+    Vrot_prof = Profiles(
+        datatype=("rotation", "toroidal"), xspl=plasma.rho, set_defaults=True
+    )
 
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
@@ -1040,7 +1091,9 @@ def example_plasma():
 
         Ti_prof.peaking = te_peaking[i]
         Ti_prof.y0 = ti0[i]
-        plasma.ion_temperature.loc[dict(t=t)] = Ti_prof(y0_ref = plasma.electron_temperature.sel(t=t, rho_poloidal=0).values)
+        plasma.ion_temperature.loc[dict(t=t)] = Ti_prof(
+            y0_ref=plasma.electron_temperature.sel(t=t, rho_poloidal=0).values
+        )
 
         Ne_prof.peaking = ne_peaking[i]
         plasma.electron_density.loc[dict(t=t)] = Ne_prof().values

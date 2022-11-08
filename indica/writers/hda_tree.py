@@ -4,8 +4,8 @@ from MDSplus import *
 from MDSplus.mdsExceptions import TreeALREADY_THERE, TreeFOPENW, TreeNNF
 import numpy as np
 from MDSplus import Tree, Float32, Int32, String
-import hda.mdsHelpers as mh
-import hda.mds_tree_structures as trees
+import indica.writers.mdsHelpers as mh
+import indica.writers.mds_tree_structures as trees
 import getpass
 import xarray as xr
 from xarray import DataArray

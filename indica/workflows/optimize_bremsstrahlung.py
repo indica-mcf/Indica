@@ -1,6 +1,6 @@
 
 import indica.physics as ph
-from hda.manage_data import initialize_bckc
+from indica.readers.manage_data import initialize_bckc
 
 def bremsstrahlung(
     self,
