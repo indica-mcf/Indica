@@ -1,27 +1,26 @@
 import xarray as xr
-from xarray import Dataset
-import hda.hda_tree as hda_tree
-from hda.models.xray_crystal_spectrometer import XRCSpectrometer
-from hda.models.interferometer import Interferometer
-from hda.models.diode_filter import Diode_filter
-from hda.manage_data import bin_data_in_time, map_on_equilibrium, initialize_bckc
-from hda.models.plasma import Plasma
-from hda.read_st40 import ST40data
+import indica.writers.hda_tree as hda_tree
+from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.interferometry import Interferometry
+from indica.models.diode_filters import Diode_filters
+from indica.readers.manage_data import bin_data_in_time
+from indica.models.plasma import Plasma
+from indica.readers.read_st40 import ST40data
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates, LinesOfSightTransform
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.provenance import get_prov_attribute
-from hda.optimizations.interferometer import match_interferometer_los_int
-from hda.optimizations.xray_crystal_spectrometer import (
+from indica.workflows.optimize_interferometer import match_interferometer_los_int
+from indica.workflows.optimize_helike_spectroscopy import (
     match_line_ratios,
     match_ion_temperature,
     match_intensity,
 )
-import hda.plots as plots
+import indica.plotters.plots as plots
 import os
 import pickle
 
-from hda.profiles import profile_scans
+from indica.profiles import profile_scans
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -61,9 +60,11 @@ def run_default(
     plasma class, binned data and back-calculated values from optimisations, raw experimental data
 
     """
-    plasma, raw_data, data, bckc = initialize_workflow(pulse)
+    plasma, raw_data, data = initialize_workflow(pulse)
 
-    run_optimisations(plasma, data, bckc, use_ref=use_ref)
+    bckc = run_optimisations(plasma, data, use_ref=use_ref)
+
+    return plasma, raw_data, data, bckc
 
     # plot_results(plasma, data, bckc, raw_data)
     plots.compare_data_bckc(data, bckc, raw_data=raw_data, pulse=plasma.pulse)
@@ -321,18 +322,18 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
         # Calculate all BCKC values
         assign_bckc(plasma, t, bckc)
 
-    return plasma, data, bckc
+    return bckc
 
 
 def initialize_workflow(
     pulse, tstart=0.02, tend=0.10, dt=0.01,
 ):
     plasma = initialize_plasma_object(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
-    raw_data, data, bckc = initialize_plasma_data(pulse=pulse, plasma=plasma)
+    raw_data, data = initialize_plasma_data(pulse=pulse, plasma=plasma)
     initialize_forward_models(plasma, data)
     initialize_optimisations(plasma, data)
 
-    return plasma, raw_data, data, bckc
+    return plasma, raw_data, data
 
 
 def initialize_plasma_object(
@@ -393,19 +394,26 @@ def initialize_plasma_data(
     plasma.calculate_geometry()
 
     data = {}
-    for kinstr in raw_data.keys():
-        data[kinstr] = bin_data_in_time(
-            raw_data[kinstr], plasma.tstart, plasma.tend, plasma.dt,
+    for instrument in raw_data.keys():
+        quantities = list(raw_data[instrument])
+        data[instrument] = bin_data_in_time(
+            raw_data[instrument], plasma.tstart, plasma.tend, plasma.dt,
         )
-        map_on_equilibrium(data[kinstr], flux_transform=plasma.flux_transform)
-    bckc = initialize_bckc(data)
+
+        transform = data[instrument][quantities[0]].attrs["transform"]
+        transform.set_equilibrium(flux_transform.equilibrium, force=True)
+        if "LineOfSightTransform" in str(data[instrument][quantities[0]].attrs["transform"]):
+            transform.set_flux_transform(flux_transform)
+
+        for quantity in quantities:
+            data[instrument][quantity].attrs["transform"] = transform
 
     revision = get_prov_attribute(
         equilibrium_data[list(equilibrium_data)[0]].provenance, "revision"
     )
     plasma.optimisation["equilibrium"] = f"{equilibrium_diagnostic}:{revision}"
 
-    return raw_data, data, bckc
+    return raw_data, data
 
 
 def initialize_forward_models(
@@ -413,22 +421,19 @@ def initialize_forward_models(
 ):
 
     for diag in INTERFEROMETERS:
-        plasma.forward_models[diag] = Interferometer(name=diag)
-        plasma.forward_models[diag].set_los_transform(
-            data[diag]["ne"].attrs["transform"]
-        )
+        _trans = data[diag]["ne"].attrs["transform"]
+        plasma.forward_models[diag] = Interferometry(diag,)
+        plasma.forward_models[diag].set_los_transform(_trans)
 
-    plasma.forward_models["xrcs"] = XRCSpectrometer(
-        marchuk=marchuk, extrapolate=extrapolate, fract_abu=plasma.fract_abu,
+    _trans = data["xrcs"][list(data["xrcs"])[0]].attrs["transform"]
+    plasma.forward_models["xrcs"] = Helike_spectroscopy(
+        "xrcs", marchuk=marchuk, extrapolate=extrapolate,
     )
-    plasma.forward_models["xrcs"].set_los_transform(
-        data["xrcs"][list(data["xrcs"])[0]].attrs["transform"]
-    )
+    plasma.forward_models["xrcs"].set_los_transform(_trans)
 
-    plasma.forward_models["lines"] = Diode_filter("brems")
-    plasma.forward_models["lines"].set_los_transform(
-        data["lines"]["brems"].attrs["transform"]
-    )
+    _trans = data["lines"]["brems"].attrs["transform"]
+    plasma.forward_models["lines"] = Diode_filters("brems")
+    plasma.forward_models["lines"].set_los_transform(_trans)
 
 
 def initialize_optimisations(
@@ -439,9 +444,7 @@ def initialize_optimisations(
     diagnostic_ti="xrcs",
     diagnostic_ar="xrcs",
     quantities_ne=["ne"],
-    quantities_te=[
-        "int_n3/int_tot"
-    ],  # ["int_k/int_w", "int_n3/int_w", "int_n3/int_tot"]
+    quantities_te=["int_n3/int_tot"],
     quantities_ti=["ti_w"],
     lines_ti=["w"],
     quantities_ar=["int_w"],
