@@ -45,8 +45,8 @@ data {
 	array[N_sxr_los, N_points] real<lower=0, upper=1> rho_interp_lower_frac;
 	// TODO: verify upper=0 here:
 	array[N_sxr_los, N_points] real<upper=0> R_square_diff;
-	array[N_sxr_los] real<lower=0> sxr_los_values;
-	array[N_sxr_los] real<lower=0> sxr_los_errors;
+	vector<lower=0>[N_sxr_los] sxr_los_values;
+	vector<lower=0>[N_sxr_los] sxr_los_errors;
 }
 
 parameters {
@@ -55,11 +55,9 @@ parameters {
 }
 
 transformed parameters {
-	vector[N_sxr_los] predicted_sxr_los_vals = predict_los_vals(N_sxr_los, N_points, lfs_values, asym_params, rho_lower_indices, rho_interp_lower_frac, R_square_diff);
+	vector<lower=0>[N_sxr_los] predicted_sxr_los_vals = predict_los_vals(N_sxr_los, N_points, lfs_values, asym_params, rho_lower_indices, rho_interp_lower_frac, R_square_diff);
 }
 
 model {
-	for (i_los in 1:N_sxr_los) {
-		predicted_sxr_los_vals[i_los] ~ normal(sxr_los_values[i_los], sxr_los_errors[i_los]);
-	}
+	predicted_sxr_los_vals ~ normal(sxr_los_values, sxr_los_errors);
 }

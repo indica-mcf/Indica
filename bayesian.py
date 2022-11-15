@@ -139,14 +139,14 @@ t_index = 1
 
 data = {
     "N_rho": N_rho,
-    "N_los": N_los,
+    "N_sxr_los": N_los,
     "N_points": N_intervals,
     "rho_lower_indices": rho_indices.isel(t=t_index) + 1,  # stan is 1-based so add 1
     "rho_interp_lower_frac": rho_interp_lower_frac.isel(t=t_index),
     "R_square_diff": R_square_diff.isel(t=t_index),
-    "los_values": binned_camera.isel(t=t_index),
+    "sxr_los_values": binned_camera.isel(t=t_index),
     #    "los_errors": binned_camera.error.isel(t=t_index),
-    "los_errors": weights.isel(t=t_index),
+    "sxr_los_errors": weights.isel(t=t_index),
 }
 
 samples = model.sample(data=data, chains=16, parallel_chains=8)
