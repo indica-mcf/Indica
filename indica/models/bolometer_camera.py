@@ -65,7 +65,6 @@ class Bolometer:
         """
         self.los_transform = transform
         self.bckc = {}
-        self.los_integral_radiation = None
 
     def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         """
@@ -73,7 +72,6 @@ class Bolometer:
         """
         self.los_transform.set_flux_transform(flux_transform)
         self.bckc = {}
-        self.los_integral_radiation = None
 
     def _build_bckc_dictionary(self):
         self.bckc = {}

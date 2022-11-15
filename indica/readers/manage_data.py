@@ -74,7 +74,6 @@ def bin_data_in_time(
         data = deepcopy(exp_data[quant])
         attrs = data.attrs
         if "t" in data.coords:
-            # data = bin_in_time_dt(tstart, tend, dt, data)
             data = convert_in_time_dt(tstart, tend, dt, data)
         if "provenance" in attrs:
             data.attrs["provenance"] = attrs["provenance"]
