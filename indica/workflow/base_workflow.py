@@ -2,7 +2,6 @@
 Base script for running InDiCA analysis tests.
 Run with specific data source (e.g. JET JPF/PPF data)
 """
-from copy import deepcopy
 import json
 from pathlib import Path
 import pickle
@@ -33,7 +32,7 @@ class BaseWorkflow:
 
     cache_dir = Path(".").absolute().parent / "test_cache"
     cache_file = cache_dir / "cache.json"
-    _sxr_calibration_factor: Dict[str, float] = {}
+    _initial_sxr_calibration_factor: float = 1.0
 
     def __init__(
         self,
@@ -91,10 +90,6 @@ class BaseWorkflow:
         ]
 
         self.cxrs_instrument = self.input.get("cxrs_instrument", "cxg6").lower()
-        self.sxr_calibration_factors = deepcopy(self._sxr_calibration_factor)
-        self.sxr_calibration_factors.update(
-            self.input.get("sxr_calibration_factors", {})
-        )
 
         # Fixed quantities
         self._power_loss = Observable()
@@ -185,6 +180,19 @@ class BaseWorkflow:
                 self._n_main_ion,
             ],
         )
+        self._sxr_calibration_factor = Observer(
+            operator=self._calibrate_sxr_emissivity,
+            depends_on=[
+                self._n_high_z,
+                self._n_zeff_el,
+                self._n_zeff_el_extra,
+                self._n_other_z,
+                self._n_main_ion,
+            ],
+            initial_value=self.input.get(
+                "sxr_calibration_factors", self._initial_sxr_calibration_factor
+            ),
+        )
         self._derived_bolometry = Observer(
             operator=self._calculate_derived_bolometry,
             depends_on=[self._ion_densities],
@@ -269,14 +277,6 @@ class BaseWorkflow:
                 self.cache_file.unlink()
         except OSError as e:
             print(e)
-
-    def calibrate_sxr(self):
-        self.sxr_diagnostic = self._calibrate_sxr()
-
-    def _calibrate_sxr(self) -> Dict[str, DataArray]:
-        raise NotImplementedError(
-            f"{self.__class__} does not implemented _calibrate_sxr method"
-        )
 
     @property
     def power_loss(self) -> Dict[str, DataArray]:
@@ -535,10 +535,21 @@ class BaseWorkflow:
                 self.n_zeff_el.expand_dims({"theta": self.theta}),  # type: ignore
                 self.n_zeff_el_extra.expand_dims({"theta": self.theta}),  # type: ignore
                 self.n_other_z,
-                self.n_main_ion.expand_dims({"theta": self.theta}),  # type: ignore
+                self.n_main_ion
+                if "theta" in self.n_main_ion.coords
+                else self.n_main_ion.expand_dims({"theta": self.theta}),  # type: ignore
             ],
             dim="element",
         ).assign_coords({"element": self.ion_species})
+
+    @property
+    def sxr_calibration_factor(self) -> float:
+        return self._sxr_calibration_factor.data
+
+    def _calibrate_sxr_emissivity(self) -> float:
+        raise NotImplementedError(
+            f"{self.__class__} does not implement _calibrate_sxr_emissivity method"
+        )
 
     @property
     def derived_bolometry(self) -> DataArray:

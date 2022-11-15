@@ -28,6 +28,7 @@ from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
+from indica.operators.extrapolate_impurity_density import recover_threshold_rho
 from indica.operators.impurity_concentration import ImpurityConcentration
 from indica.operators.invert_radiation import EmissivityProfile
 from indica.operators.main_ion_density import MainIonDensity
@@ -47,7 +48,7 @@ class JetWorkflow(BaseWorkflow):
     data, where JET data readers are available
     """
 
-    _sxr_calibration_factor: Dict[str, float] = {"v": 2.8, "t": 2.8, "h": 2.5}
+    _initial_sxr_calibration_factor: float = 2.8
 
     def __init__(
         self,
@@ -87,38 +88,14 @@ class JetWorkflow(BaseWorkflow):
         super().__call__(*args, **kwargs)
         if setup_only is True:
             return
-        attrs_to_save = [
-            "n_high_z",
-            "n_zeff_el",
-            "n_zeff_el_extra",
-            "n_other_z",
-            "n_main_ion",
-            "derived_bolometry",
-        ]
         template = print_step_template(fallback_size=(80, 24))
         # Analysis steps
         # Set initial densities to 0, using coords from sxr_emissivity
         self.initialise_default_values()
-        output: Dict[str, List[DataArray]] = {key: [] for key in attrs_to_save}
         for i in range(n_loops):
-            # Calculate initial high-z element density and extrapolate
             print(template.format("calculate_n_high_z"))
             self.calculate_n_high_z()
-            print(template.format("extrapolate_n_high_z"))
-            for key in attrs_to_save:
-                output[key].append(getattr(self, key, None))
-        try:
-            return {
-                key: xr.concat(val, dim="run").assign_coords(
-                    {"run": np.array(range(n_loops)) + 1}
-                )
-                if isinstance(val, DataArray)
-                else val
-                for key, val in output.items()
-            }
-        except Exception as e:
-            print(e)
-            return output
+        return self.n_high_z
 
     @property
     def __external_properties__(self) -> List[str]:
@@ -141,7 +118,6 @@ class JetWorkflow(BaseWorkflow):
                 "SXRPLT",
                 "SXRPRB",
                 "SXRPL",
-                "sxr_diagnostic",
                 "sxr_fitted_symmetric_emissivity",
                 "sxr_fitted_asymmetry_parameter",
                 "sxr_emissivity",
@@ -162,7 +138,6 @@ class JetWorkflow(BaseWorkflow):
     def setup_steps(self) -> List[Tuple[Callable, str]]:
         return [
             (self.get_diagnostics, "diagnostics"),
-            (self.calibrate_sxr, "sxr_diagnostic"),
             (self.fit_diagnostic_profiles, "toroidal_rotation"),
             (self.invert_sxr, "sxr_emissivity"),
             (self.get_adas, "SXRPL"),
@@ -289,7 +264,7 @@ class JetWorkflow(BaseWorkflow):
             self.R,
             self.z,
             self.t,
-            *[self.sxr_diagnostic[key] for key in cameras],
+            *[self.diagnostics["sxr"][key] for key in cameras],
         )
         self.sxr_fitted_symmetric_emissivity = emiss_fit.symmetric_emissivity
         self.sxr_fitted_asymmetry_parameter = emiss_fit.asymmetry_parameter
@@ -489,14 +464,6 @@ class JetWorkflow(BaseWorkflow):
     def _calculate_asymmetry_other_z(self) -> DataArray:
         return self._calculate_vtor_asymmetry(element=self.other_z)
 
-    def _calibrate_sxr(self) -> Dict[str, DataArray]:
-        return {
-            key: (self.sxr_calibration_factors.get(key, 1.0) * val).assign_attrs(
-                val.attrs
-            )
-            for key, val in self.diagnostics["sxr"].items()
-        }
-
     def initialise_default_values(self):
         self._n_high_z._data = xr.zeros_like(self.sxr_emissivity)
         self._n_zeff_el._data = xr.zeros_like(self.electron_density)
@@ -519,12 +486,21 @@ class JetWorkflow(BaseWorkflow):
         n_high_z_initial = self._calculate_initial_n_high_z(
             other_densities=other_densities
         )
-        n_high_z_extrapolated, extrapolator = self._extrapolate_n_high_z(
-            n_high_z=n_high_z_initial
-        )
-        return self._optimise_n_high_z(
-            n_high_z=n_high_z_extrapolated, extrapolator=extrapolator
-        )
+        # TODO add check for VUV
+        try:
+            n_high_z_extrapolated, extrapolator = self._extrapolate_n_high_z(
+                n_high_z=n_high_z_initial
+            )
+        except Exception as e:
+            print("Error extrapolating n_high_z: {}".format(e))
+            return n_high_z_initial
+        try:
+            return self._optimise_n_high_z(
+                n_high_z=n_high_z_extrapolated, extrapolator=extrapolator
+            )
+        except Exception as e:
+            print("Error optimizing perturbation: {}".format(e))
+            return n_high_z_extrapolated
 
     def _calculate_initial_n_high_z(self, other_densities: DataArray) -> DataArray:
         other_power_loss = self.sxr_power_loss_charge_averaged.sel(
@@ -532,7 +508,7 @@ class JetWorkflow(BaseWorkflow):
         )
         n_high_z: DataArray = (
             (
-                self.sxr_emissivity  # type: ignore
+                self.sxr_calibration_factor * self.sxr_emissivity  # type: ignore
                 - self.electron_density
                 * (other_densities * other_power_loss).sum("element")
             )
@@ -655,6 +631,25 @@ class JetWorkflow(BaseWorkflow):
             electron_density=self.electron_density,
             mean_charge=self.q.where(self.q.element != self.main_ion, drop=True),
         ).assign_attrs({"transform": self.flux_surface})
+
+    def _calibrate_sxr_emissivity(self) -> float:
+        threshold_rho = recover_threshold_rho(
+            truncation_threshold=1.5e3, electron_temperature=self.electron_temperature
+        )
+        derived_emissivity = (
+            self.ion_densities
+            * self.electron_density
+            * self.sxr_power_loss_charge_averaged
+        ).sum("element")
+        calibration_factor = derived_emissivity / self.sxr_emissivity
+        calibration_factor = calibration_factor.where(
+            calibration_factor.coords["rho_poloidal"] < threshold_rho, drop=True
+        ).mean(skipna=True)
+        if calibration_factor == np.inf:
+            raise UserWarning(
+                "SXR calibration factor calculated as infinity, check data"
+            )
+        return calibration_factor
 
     def _calculate_derived_bolometry(self) -> DataArray:
         if not hasattr(self, "bolo_derivation"):
