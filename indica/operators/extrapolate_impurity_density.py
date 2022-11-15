@@ -94,9 +94,9 @@ def asymmetry_from_R_z(
     data_hfs = data_rho_theta.isel(theta=1)
 
     derived_asymmetry_parameter = np.log(data_hfs / data_lfs)
-    # if both lfs and hfs density are 0 then set asymmetry parameter to 1
+    # if both lfs and hfs density are 0 then set asymmetry parameter to 0
     derived_asymmetry_parameter = derived_asymmetry_parameter.where(
-        np.logical_and(data_lfs != 0, data_hfs != 0), other=1
+        np.logical_and(data_lfs != 0, data_hfs != 0), other=0
     )
 
     derived_asymmetry_parameter /= R_hfs_midplane**2 - R_lfs_midplane**2
@@ -180,9 +180,9 @@ def asymmetry_from_rho_theta(
     data_hfs = data_rho_theta.interp(theta=np.pi, method="linear")
 
     derived_asymmetry_parameter = np.log(data_hfs / data_lfs)
-    # if both lfs and hfs density are 0 then set asymmetry parameter to 1
+    # if both lfs and hfs density are 0 then set asymmetry parameter to 0
     derived_asymmetry_parameter = derived_asymmetry_parameter.where(
-        np.logical_and(data_lfs != 0, data_hfs != 0), other=1
+        np.logical_and(data_lfs != 0, data_hfs != 0), other=0
     )
     # assert for mypy, numpy array predicted
     assert isinstance(derived_asymmetry_parameter, DataArray)
