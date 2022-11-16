@@ -22,6 +22,7 @@ from indica.converters import ImpactParameterCoordinates
 from indica.converters.time import bin_to_time_labels
 from indica.equilibrium import Equilibrium
 from indica.readers import PPFReader
+from indica.readers.selectors import use_cached_ignore_channels
 from indica.utilities import coord_array
 
 # config
@@ -52,6 +53,7 @@ reader = PPFReader(
     tstart=float(t.isel(t=0)),
     tend=float(t.isel(t=-1)),
     server=server,
+    selector=use_cached_ignore_channels,
 )
 reader.authenticate(getpass.getuser(), getpass.getpass())
 
@@ -138,12 +140,15 @@ N_los = len(binned_camera.sxr_v_coords)
 t_index = 1
 
 data = {
+    # Impurity densities data:
     "N_rho": N_rho,
-    "N_sxr_los": N_los,
-    "N_points": N_intervals,
-    "rho_lower_indices": rho_indices.isel(t=t_index) + 1,  # stan is 1-based so add 1
-    "rho_interp_lower_frac": rho_interp_lower_frac.isel(t=t_index),
-    "R_square_diff": R_square_diff.isel(t=t_index),
+    # Lines of sight data:
+    "N_los_points": N_intervals,
+    # SXR data:
+    "sxr_N_los": N_los,
+    "sxr_rho_lower_indices": rho_indices.isel(t=t_index) + 1,  # stan 1-based so add 1
+    "sxr_rho_interp_lower_frac": rho_interp_lower_frac.isel(t=t_index),
+    "sxr_R_square_diff": R_square_diff.isel(t=t_index),
     "sxr_los_values": binned_camera.isel(t=t_index),
     #    "los_errors": binned_camera.error.isel(t=t_index),
     "sxr_los_errors": weights.isel(t=t_index),
