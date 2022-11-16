@@ -3,6 +3,7 @@ Utility functions for running Stan Bayesian analysis script
 """
 
 from dataclasses import dataclass
+from typing import List
 
 import numpy as np
 import xarray as xr
@@ -11,6 +12,9 @@ from indica.converters import FluxMajorRadCoordinates
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import ImpactParameterCoordinates
 from indica.converters.time import bin_to_time_labels
+from indica.operators.atomic_data import FractionalAbundance
+from indica.operators.atomic_data import PowerLoss
+from indica.readers import ADASReader
 
 
 @dataclass
@@ -103,3 +107,117 @@ def create_LOSData(
         # los_errors=binned_camera.error.isel(t=t_index),
         los_errors=weights,
     )
+
+
+def get_power_loss(
+    elements: List[str],
+    flux_surface: FluxSurfaceCoordinates,
+    ne: xr.DataArray,
+    te: xr.DataArray,
+    t: xr.DataArray,
+    sxr_filtered: bool,
+) -> xr.DataArray:
+    """
+    Calculate the power loss values at the points sampled for LOS calculations
+    """
+    # TODO: put on correct grid, not rho-theta or whatever
+
+    # deuterium and trititum are hydrogen
+    elements = [
+        "h" if element == "d" or element == "t" else element for element in elements
+    ]
+
+    adas = ADASReader()
+
+    SCD = {
+        element: adas.get_adf11("scd", element, year)
+        for element, year in zip(elements, ["89"] * len(elements))
+    }
+    ACD = {
+        element: adas.get_adf11("acd", element, year)
+        for element, year in zip(elements, ["89"] * len(elements))
+    }
+    FA = {
+        element: FractionalAbundance(SCD=SCD.get(element), ACD=ACD.get(element))
+        for element in elements
+    }
+
+    if sxr_filtered:
+        # Read in SXR data filtered for SXR camera window
+        sxr_adas = ADASReader("/home/elitherl/Analysis/SXR/indica/sxr_filtered_adf11/")
+
+        PLT = {
+            element: sxr_adas.get_adf11("pls", element, year)
+            for element, year in zip(elements, ["5"] * len(elements))
+        }
+        PRB = {
+            element: sxr_adas.get_adf11("prs", element, year)
+            for element, year in zip(elements, ["5"] * len(elements))
+        }
+        PL = {
+            element: PowerLoss(PLT=PLT.get(element), PRB=PRB.get(element))
+            for element in elements
+        }
+    else:
+        PLT = {
+            element: adas.get_adf11("plt", element, year)
+            for element, year in zip(elements, ["89"] * len(elements))
+        }
+        PRB = {
+            element: adas.get_adf11("prb", element, year)
+            for element, year in zip(elements, ["89"] * len(elements))
+        }
+        PL = {
+            element: PowerLoss(PLT=PLT.get(element), PRB=PRB.get(element))
+            for element in elements
+        }
+
+    # %% Calculating power loss
+
+    fzt = {
+        elem: xr.concat(
+            [
+                FA[elem](
+                    Ne=ne.interp(t=time),
+                    Te=te.interp(t=time),
+                    tau=time,
+                ).expand_dims("t", -1)
+                for time in t.values
+            ],
+            dim="t",
+        )
+        .assign_coords({"t": t.values})
+        .assign_attrs(transform=flux_surface)
+        for elem in elements
+    }
+
+    power_loss = {
+        elem: xr.concat(
+            [
+                PL[elem](
+                    Ne=ne.interp(t=time),
+                    Te=te.interp(t=time),
+                    F_z_t=fzt[elem].sel(t=time, method="nearest"),
+                ).expand_dims("t", -1)
+                for time in t.values
+            ],
+            dim="t",
+        )
+        .assign_coords({"t": t.values})
+        .assign_attrs(transform=flux_surface)
+        for elem in elements
+    }
+
+    power_loss = xr.concat(
+        [val.sum("ion_charges") for key, val in power_loss.items()],
+        dim="element",
+    ).assign_coords({"element": [key for key in power_loss.keys()]})
+
+    return power_loss
+
+    # n_high_z = (
+    #     sxr_calibration_factor * sxr_emissivity
+    #     - ne * (other_densities * other_power_loss).sum("element")
+    # ) / (ne * power_loss[high_z].sum("ion_charges")).assign_attrs(
+    #     {"transform": flux_surface}
+    # )
