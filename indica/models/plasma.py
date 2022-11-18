@@ -3,7 +3,7 @@ import pickle
 from indica.utilities import get_function_name, assign_data, assign_datatype, print_like
 
 import indica.physics as ph
-from indica.profiles import Profiles
+from indica.profiles_gauss import Profiles
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -786,14 +786,15 @@ class Plasma:
             xend = 1.02
             rho_end = 1.01
             rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
-            Te = Profiles(datatype=("temperature", "electron"), xspl=rho, xend=xend)
-            Te.y0 = 10.0e3
-            Te.build_profile()
-            Te = Te.yspl
-            Ne = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend).yspl
-            Nh = Profiles(
+            Te_prof = Profiles(datatype=("temperature", "electron"), xspl=rho, xend=xend)
+            Te_prof.y0 = 10.0e3
+            Te = Te_prof()
+            Ne_prof = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend)
+            Ne = Ne_prof()
+            Nh_prof = Profiles(
                 datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend
-            ).yspl
+            )
+            Nh = Nh_prof()
             tau = None
 
         print_like("Initialize fractional abundance and power loss objects")
