@@ -9,12 +9,6 @@ from copy import deepcopy
 class Profiles:
     def __init__(
         self,
-        y0: float = 3.0e3,
-        y1: float = 50,
-        yend: float = 0,
-        peaking: float = 1.5,
-        wcenter: float = 0.35,
-        wped: float = 3,
         datatype: tuple = ("temperature", "electron"),
         xend:float=1.05,
         xspl: np.ndarray = None,
@@ -31,12 +25,6 @@ class Profiles:
         xspl
             normalised radial grid [0, 1]  on which profile is to be built
         """
-        self.y0 = y0
-        self.y1 = y1
-        self.yend = yend
-        self.peaking = peaking
-        self.wcenter = wcenter
-        self.wped = wped
         self.xend = xend
         self.coord = f"rho_{coord}"
         self.x = np.linspace(0, 1, 15) ** 0.7
@@ -46,12 +34,18 @@ class Profiles:
             xspl = DataArray(xspl, coords=[(self.coord, xspl)])
         self.xspl = xspl
 
-        if set_defaults:
-            params = get_defaults(datatype)
-            for k, p in params.items():
-                setattr(self, k, p)
+        params = get_defaults(datatype)
+        for k, p in params.items():
+            setattr(self, k, p)
 
         self.__call__()
+
+    def set_parameters(self, **kwargs):
+        """
+        Set any of the shaping parameters
+        """
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def __call__(
         self,
@@ -173,8 +167,8 @@ def get_defaults(datatype: tuple) -> dict:
     parameters = {
         "density_electron": {
             "y0": 5.0e19,
-            "y1": 0.1e19,
-            "yend": 0.0,
+            "y1": 5.e18,
+            "yend": 2.e18,
             "peaking": 2,
             "wcenter": 0.4,
             "wped": 6,
@@ -198,7 +192,7 @@ def get_defaults(datatype: tuple) -> dict:
         "temperature_electron": {
             "y0": 3.0e3,
             "y1": 50,
-            "yend": 0,
+            "yend": 5,
             "peaking": 1.5,
             "wcenter": 0.35,
             "wped": 3,
@@ -206,7 +200,7 @@ def get_defaults(datatype: tuple) -> dict:
         "temperature_ion": {
             "y0": 5.0e3,
             "y1": 50,
-            "yend": 0,
+            "yend": 5,
             "peaking": 1.5,
             "wcenter": 0.35,
             "wped": 3,
