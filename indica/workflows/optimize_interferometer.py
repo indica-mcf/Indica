@@ -4,19 +4,19 @@ from xarray import DataArray
 from indica.provenance import get_prov_attribute
 from indica.readers.manage_data import initialize_bckc_dataarray
 from indica.utilities import print_like
-from indica.profiles import Profiles
+from indica.profiles_gauss import Profiles
 from indica.models.interferometry import Interferometry
 from indica.numpy_typing import LabeledArray
 
 
 def match_interferometer_los_int(
-    model: Interferometry,
+    models: dict,
     Ne_prof: Profiles,
     data: dict,
-    t:float,
-    quantities:list=["ne"],
-    bckc:dict=None,
-    ne0=5.e19,
+    t: float,
+    instruments: list = ["smmh1"],
+    quantities: list = ["ne"],
+    ne0=5.0e19,
     niter: int = 3,
 ):
     """
@@ -46,28 +46,31 @@ def match_interferometer_los_int(
 
     """
 
-    data_value = {}
-    for quantity in quantities:
-        data_value[quantity] = data[quantity].sel(t=t).values
+    list_data = []
+    list_model = []
+    list_quantity = []
+    for instrument in instruments:
+        if instrument in models:
+            for quantity in quantities:
+                list_model.append(models[instrument])
+                list_data.append(data[instrument])
+                list_quantity.append(quantity)
 
     const = 1.0
     for j in range(niter):
         ne0 *= const
         ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
-        Ne_prof.y0 = ne0
-        Ne_prof.build_profile()
-        bckc_tmp, _ = model.integrate_on_los(Ne_prof.yspl, t=t)
+        Ne_prof.set_parameters(y0=ne0)
 
-        const = []
-        for quantity in quantities:
-            _const = (data_value[quantity] / bckc_tmp[quantity]).values
-            const.append(_const)
-        const = np.array(const).mean()
+        list_const = []
+        for _model, _data, _quantity in zip(list_model, list_data, list_quantity):
+            _bckc = _model(Ne_prof(), t=t)
+            list_const.append(
+                (
+                    _data[_quantity].sel(t=t, method="nearest")
+                    / _bckc[_quantity].sel(t=t, method="nearest")
+                ).values
+            )
+        const = np.array(list_const).mean()
 
-    if bckc is None:
-        bckc = bckc_tmp
-    else:
-        for quantity in quantities:
-            bckc[quantity].loc[dict(t=t)] = bckc_tmp[quantity]
-
-    return bckc, Ne_prof
+    return Ne_prof
