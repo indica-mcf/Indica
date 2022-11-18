@@ -44,6 +44,9 @@ def run_default(
     run="00",
     run_add="REF",
     force=True,
+    plasma=None,
+    data=None,
+    raw_data=None,
 ):
     """
     Run HDA workflow with default settings (corresponding to RUN63 of HDA < Oct 2022)
@@ -60,11 +63,118 @@ def run_default(
     plasma class, binned data and back-calculated values from optimisations, raw experimental data
 
     """
-    plasma, raw_data, data = initialize_workflow(pulse)
 
-    bckc = run_optimisations(plasma, data, use_ref=use_ref)
+    # Initialize Plasma class
+    if plasma is None:
+        tstart = 0.02
+        tend = 0.10
+        dt = 0.01
+        main_ion = "h"
+        impurities = ("c", "ar", "he")
+        impurity_concentration = (0.03, 0.001, 0.01)
+        full_run = False
+        plasma = Plasma(
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            main_ion=main_ion,
+            impurities=impurities,
+            impurity_concentration=impurity_concentration,
+            pulse=pulse,
+            full_run=full_run,
+        )
+        plasma.build_atomic_data(default=True)
 
-    return plasma, raw_data, data, bckc
+    # Read data and bin to desired time axis
+    if data is None or raw_data is None:
+        raw_data, data = initialize_plasma_data(pulse=pulse, plasma=plasma)
+
+    # Initialize forward models
+    models = {}
+    machine_dims = plasma.machine_dimensions
+    models["xrcs"] = Helike_spectroscopy("xrcs", machine_dimensions=machine_dims)
+    models["lines"] = Diode_filters("brems", machine_dimensions=machine_dims)
+    for diag in INTERFEROMETERS:
+        models[diag] = Interferometry(diag, machine_dimensions=machine_dims)
+
+    for diag in models.keys():
+        quant = list(data[diag])[0]
+        models[diag].set_transform(data[diag][quant].attrs["transform"])
+        models[diag].set_flux_transform(plasma.flux_transform)
+
+    for t in plasma.t:
+        Ne_prof = match_interferometer_los_int(
+            models,
+            plasma.Ne_prof,
+            data,
+            t,
+            instruments=["smmh1"],
+            quantities=["ne"],
+        )
+        plasma.electron_density.loc[dict(t=t)] = Ne_prof().values
+
+    # Optimize electron temperature for XRCS line ratios
+    for t in plasma.t:
+        plasma.calc_impurity_density(t=t)
+
+    return plasma, raw_data, data
+
+    for t in plasma.t:
+        if t > plasma.t.min():
+            te0 = (
+                    plasma.electron_temperature.sel(
+                        t=plasma.t[i - 1], rho_poloidal=0
+                    ).values
+                    / 2.0
+            )
+        Ne = plasma.electron_density.sel(t=t)
+        Nimp = plasma.impurity_density.sel(t=t)
+        Nh = plasma.neutral_density.sel(t=t)
+        tau = plasma.tau.sel(t=t)
+        if not np.any(tau > 0):
+            tau = None
+
+        _, Te_prof = match_line_ratios(
+            models,
+            plasma.Te_prof,
+            data,
+            t,
+            Ne,
+            Nimp=Nimp,
+            Nh=Nh,
+            tau=tau,
+            instruments=["xrcs"],
+            quantities=["te_n3w"],
+            te0=te0,
+        )
+        plasma.electron_temperature.loc[dict(t=t)] = Te_prof.yspl.values
+
+    if use_ref:
+        te0_ref = plasma.electron_temperature.sel(t=t, rho_poloidal=0).values
+
+    _, Ti_prof = match_ion_temperature(
+        models,
+        plasma.Ti_prof,
+        data,
+        t,
+        quantities=["ti_w", "ti_z"],
+        lines=["w, "z""],
+        te0_ref=te0_ref,
+    )
+    for elem in plasma.elements:
+        plasma.ion_temperature.loc[dict(t=t, element=elem)] = Ti_prof.yspl.values
+
+    _, Nimp_prof = match_intensity(
+        models,
+        plasma.Nimp_prof,
+        data,
+        t,
+        quantities=["int_w"],
+        lines=["w"],
+    )
+    plasma.impurity_density.loc[
+        dict(t=t, element=opt["ar_dens"]["element"])
+    ] = Nimp_prof.yspl.values
 
     # plot_results(plasma, data, bckc, raw_data)
     plots.compare_data_bckc(data, bckc, raw_data=raw_data, pulse=plasma.pulse)
@@ -83,6 +193,61 @@ def run_default(
         )
 
     return plasma, data, bckc, raw_data
+
+
+def initialize_plasma_data(
+    pulse: int, plasma: Plasma = None, equilibrium_diagnostic="efit",
+):
+    """
+    Read ST40 data, initialize Equilibrium class and Flux Transforms,
+    map all diagnostics to equilibrium
+
+    Parameters
+    ----------
+    plasma
+        Plasma class
+    equilibrium_diagnostic
+        Diagnostic to be used as Equilibrium
+
+    Returns
+    -------
+    Raw data and binned data dictionaries
+    """
+    plasma.pulse = pulse
+    raw = ST40data(pulse, plasma.tstart - plasma.dt * 4, plasma.tend + plasma.dt * 4)
+    raw_data = raw.get_all()
+
+    equilibrium_data = raw_data[equilibrium_diagnostic]
+    equilibrium = Equilibrium(equilibrium_data)
+    flux_transform = FluxSurfaceCoordinates("poloidal")
+    flux_transform.set_equilibrium(equilibrium)
+    plasma.set_equilibrium(equilibrium)
+    plasma.set_flux_transform(flux_transform)
+    plasma.calculate_geometry()
+
+    data = {}
+    for instrument in raw_data.keys():
+        quantities = list(raw_data[instrument])
+        data[instrument] = bin_data_in_time(
+            raw_data[instrument], plasma.tstart, plasma.tend, plasma.dt,
+        )
+
+        transform = data[instrument][quantities[0]].attrs["transform"]
+        transform.set_equilibrium(flux_transform.equilibrium, force=True)
+        if "LineOfSightTransform" in str(
+            data[instrument][quantities[0]].attrs["transform"]
+        ):
+            transform.set_flux_transform(flux_transform)
+
+        for quantity in quantities:
+            data[instrument][quantity].attrs["transform"] = transform
+
+    revision = get_prov_attribute(
+        equilibrium_data[list(equilibrium_data)[0]].provenance, "revision"
+    )
+    plasma.optimisation["equilibrium"] = f"{equilibrium_diagnostic}:{revision}"
+
+    return raw_data, data
 
 
 def save_hda(
@@ -258,6 +423,7 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
             data[opt["electron_density"]["diagnostic"]],
             t,
             quantities=opt["electron_density"]["quantities"],
+            bckc=bckc,
         )
         plasma.electron_density.loc[dict(t=t)] = Ne_prof.yspl.values
 
@@ -323,117 +489,6 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
         assign_bckc(plasma, t, bckc)
 
     return bckc
-
-
-def initialize_workflow(
-    pulse, tstart=0.02, tend=0.10, dt=0.01,
-):
-    plasma = initialize_plasma_object(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
-    raw_data, data = initialize_plasma_data(pulse=pulse, plasma=plasma)
-    initialize_forward_models(plasma, data)
-    initialize_optimisations(plasma, data)
-
-    return plasma, raw_data, data
-
-
-def initialize_plasma_object(
-    pulse: int = 9780,
-    tstart=0.02,
-    tend=0.10,
-    dt=0.01,
-    main_ion="h",
-    impurities: tuple = ("c", "ar", "he"),
-    impurity_concentration: tuple = (0.03, 0.001, 0.01),
-    full_run=False,
-):
-
-    plasma = Plasma(
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        main_ion=main_ion,
-        impurities=impurities,
-        impurity_concentration=impurity_concentration,
-        pulse=pulse,
-        full_run=full_run,
-    )
-    plasma.build_atomic_data(default=True)
-    plasma.forward_models = {}
-
-    return plasma
-
-
-def initialize_plasma_data(
-    pulse: int, plasma: Plasma = None, equilibrium_diagnostic="efit",
-):
-    """
-    Read ST40 data, initialize Equilibrium class and Flux Transforms,
-    map all diagnostics to equilibrium
-
-    Parameters
-    ----------
-    plasma
-        Plasma class
-    equilibrium_diagnostic
-        Diagnostic to be used as Equilibrium
-
-    Returns
-    -------
-    Raw data and binned data dictionaries
-    """
-    plasma.pulse = pulse
-    raw = ST40data(pulse, plasma.tstart - plasma.dt * 4, plasma.tend + plasma.dt * 4)
-    raw_data = raw.get_all()
-
-    equilibrium_data = raw_data[equilibrium_diagnostic]
-    equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
-    plasma.set_equilibrium(equilibrium)
-    plasma.set_flux_transform(flux_transform)
-    plasma.calculate_geometry()
-
-    data = {}
-    for instrument in raw_data.keys():
-        quantities = list(raw_data[instrument])
-        data[instrument] = bin_data_in_time(
-            raw_data[instrument], plasma.tstart, plasma.tend, plasma.dt,
-        )
-
-        transform = data[instrument][quantities[0]].attrs["transform"]
-        transform.set_equilibrium(flux_transform.equilibrium, force=True)
-        if "LineOfSightTransform" in str(data[instrument][quantities[0]].attrs["transform"]):
-            transform.set_flux_transform(flux_transform)
-
-        for quantity in quantities:
-            data[instrument][quantity].attrs["transform"] = transform
-
-    revision = get_prov_attribute(
-        equilibrium_data[list(equilibrium_data)[0]].provenance, "revision"
-    )
-    plasma.optimisation["equilibrium"] = f"{equilibrium_diagnostic}:{revision}"
-
-    return raw_data, data
-
-
-def initialize_forward_models(
-    plasma: Plasma, data: dict, marchuk=True, extrapolate="constant",  # None
-):
-
-    for diag in INTERFEROMETERS:
-        _trans = data[diag]["ne"].attrs["transform"]
-        plasma.forward_models[diag] = Interferometry(diag,)
-        plasma.forward_models[diag].set_los_transform(_trans)
-
-    _trans = data["xrcs"][list(data["xrcs"])[0]].attrs["transform"]
-    plasma.forward_models["xrcs"] = Helike_spectroscopy(
-        "xrcs", marchuk=marchuk, extrapolate=extrapolate,
-    )
-    plasma.forward_models["xrcs"].set_los_transform(_trans)
-
-    _trans = data["lines"]["brems"].attrs["transform"]
-    plasma.forward_models["lines"] = Diode_filters("brems")
-    plasma.forward_models["lines"].set_los_transform(_trans)
 
 
 def initialize_optimisations(
@@ -588,74 +643,6 @@ def calc_centrifugal_asymmetry(plasma: Plasma, toroidal_rotation0=500.0e3):
         plasma.ion_temperature / plasma.ion_temperature.max() * toroidal_rotation0
     ).values
     plasma.calc_centrifugal_asymmetry()
-
-
-def simulate_new_interferometer(
-    plasma: Plasma, data: dict, bckc: dict, name: str = "smmh2"
-):
-    # Add invented interferometer with different LOS 20 cm above the SMMH1
-    # using the new LOS transform from Jon
-
-    opt = plasma.optimisation
-
-    plasma.forward_models[name] = Interferometer(name="smmh2")
-    _trans = data["smmh1"]["ne"].attrs["transform"]
-    los_transform = LinesOfSightTransform(
-        x_start=_trans.x_start.values,
-        y_start=_trans.y_start.values,
-        z_start=_trans.z_start.values + 0.15,
-        x_end=_trans.x_end.values,
-        y_end=_trans.y_end.values,
-        z_end=_trans.z_end.values + 0.15,
-        name=name,
-        machine_dimensions=_trans._machine_dims,
-    )
-    los_transform.set_flux_transform(plasma.flux_transform)
-    _ = los_transform.convert_to_rho(t=data["smmh1"]["ne"].t)
-    plasma.forward_models[name].set_los_transform(los_transform)
-    bckc[name] = {}
-    los_integral, _ = plasma.forward_models[name].integrate_on_los(
-        plasma.electron_density
-    )
-    for quantity in opt["electron_density"]["quantities"]:
-        bckc[name][quantity] = los_integral[quantity]
-
-    # Test line_of_sight vs. lines_of_sight transforms
-    start = [
-        los_transform.x_start.values,
-        los_transform.y_start.values,
-        los_transform.z_start.values,
-    ]
-    finish = [
-        los_transform.x_end.values,
-        los_transform.y_end.values,
-        los_transform.z_end.values,
-    ]
-    origin = np.array(start).flatten()
-    direction = (np.array(finish) - np.array(start)).flatten()
-    los_transform_jw = LineOfSightTransform(
-        origin_x=origin[0],
-        origin_y=origin[1],
-        origin_z=origin[2],
-        direction_x=direction[0],
-        direction_y=direction[1],
-        direction_z=direction[2],
-        name="smmh2_jw",
-        dl=0.006,
-        machine_dimensions=los_transform._machine_dims,
-    )
-
-    los_transform_jw.set_flux_transform(plasma.flux_transform)
-    _ = los_transform_jw.convert_to_rho(t=data["smmh1"]["ne"].t)
-    plasma.forward_models["smmh2_jw"] = Interferometer(name="smmh2_jw")
-    plasma.forward_models["smmh2_jw"].set_los_transform(los_transform_jw)
-    bckc["smmh2_jw"] = {}
-    los_integral, _ = plasma.forward_models["smmh2_jw"].integrate_on_los(
-        plasma.electron_density
-    )
-    for quantity in opt["electron_density"]["quantities"]:
-        bckc["smmh2_jw"][quantity] = los_integral[quantity]
-
 
 def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
 
