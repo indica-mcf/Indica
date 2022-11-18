@@ -379,11 +379,10 @@ class LineOfSightTransform(CoordinateTransform):
             x2 = self.x2
 
         if hasattr(self, "rho"):
-            if (
-                not np.array_equal(x1, self.x1)
-                or not np.array_equal(x2, self.x2)
-                or not np.array_equal(t, self.t)
-            ):
+            x1_equal = x1 == self.x1
+            x2_equal = all([all(_x2 == self_x2) for _x2, self_x2 in zip(x2, self.x2)])
+            t_equal = np.array_equal(t, self.t)
+            if not x1_equal or not x2_equal or not t_equal:
                 self.convert_to_rho(x1, x2, t=t)
                 self.t = t
         else:
@@ -392,9 +391,10 @@ class LineOfSightTransform(CoordinateTransform):
 
         along_los = []
         for channel in x1:
-            rho = self.rho[channel]
             if t is not None:
                 rho = self.rho[channel].interp(t=t, method="linear")
+            else:
+                rho = self.rho[channel]
             _along_los = profile_1d.interp(rho_poloidal=rho)
             if limit_to_sep:
                 _along_los = xr.where(rho <= 1, _along_los, 0,)
@@ -509,7 +509,7 @@ class LineOfSightTransform(CoordinateTransform):
             plt.plot(x_plasma_inner, y_plasma_inner, color="red")
             plt.plot(x_plasma_outer, y_plasma_outer, color="red")
         for ch in self.x1:
-            plt.plot(x_line[:,ch], y_line[:,ch], color=cols[ch], linewidth=2)
+            plt.plot(x_line[:, ch], y_line[:, ch], color=cols[ch], linewidth=2)
         plt.xlabel("x")
         plt.ylabel("y")
         plt.axis("scaled")
@@ -524,7 +524,7 @@ class LineOfSightTransform(CoordinateTransform):
         plt.plot([x_wall_outer.min()] * 2, [z_wall_lower, z_wall_upper], color="k")
         plt.plot([x_wall_inner.min()] * 2, [z_wall_lower, z_wall_upper], color="k")
         for ch in self.x1:
-            plt.plot(x_line[:,ch], z_line[:,ch], color=cols[ch], linewidth=2)
+            plt.plot(x_line[:, ch], z_line[:, ch], color=cols[ch], linewidth=2)
         plt.xlabel("x")
         plt.ylabel("z")
         plt.axis("scaled")
@@ -541,7 +541,7 @@ class LineOfSightTransform(CoordinateTransform):
         if equil is not None:
             rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
         for ch in self.x1:
-            plt.plot(R_line[:,ch], z_line[:,ch], color=cols[ch], linewidth=2)
+            plt.plot(R_line[:, ch], z_line[:, ch], color=cols[ch], linewidth=2)
         plt.xlabel("R")
         plt.ylabel("z")
         plt.axis("scaled")
@@ -549,7 +549,9 @@ class LineOfSightTransform(CoordinateTransform):
         if equil is not None:
             plt.figure()
             for ch in self.x1:
-                self.rho[ch].sel(t=tplot, method="nearest").plot(color=cols[ch], linewidth=2)
+                self.rho[ch].sel(t=tplot, method="nearest").plot(
+                    color=cols[ch], linewidth=2
+                )
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
 
