@@ -5,6 +5,7 @@ import xarray as xr
 import pickle
 from xarray import DataArray
 from scipy.interpolate import interp1d
+from scipy import constants
 from typing import Tuple
 
 from indica.readers import ADASReader
@@ -16,6 +17,10 @@ from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
+from indica.readers.marchuk import MARCHUKReader
+
+from indica.datatypes import ELEMENTS
+
 import matplotlib.cm as cm
 
 import indica.physics as ph
@@ -55,10 +60,14 @@ class Helike_spectroscopy:
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
         calibration: float = 1.0e-18,
+        int_cal: float = 1.3e-27,
         marchuk: bool = True,
         adf15: dict = None,
         extrapolate: str = None,
         full_run: bool = False,
+        element: str = "ar",
+        window_len: int = 1030,
+        window_lim: list = [0.394, 0.401],
     ):
         """
         Read all atomic data and initialise objects
@@ -80,9 +89,15 @@ class Helike_spectroscopy:
         -------
 
         """
-
+        window = np.linspace(window_lim[0], window_lim[1], window_len)
+        self.window = DataArray(window, coords=[("wavelength", window)])
         self.name = name
         self.instrument_method = instrument_method
+        self.marchuk = marchuk
+
+        self.element = element
+        self.ion_charge = ELEMENTS[element][0] - 2  # He-like
+        self.ion_mass = ELEMENTS[element][1]
 
         if origin is not None and direction is not None:
             self.los_transform = LineOfSightTransform(
@@ -100,12 +115,20 @@ class Helike_spectroscopy:
 
         self.etendue = etendue
         self.calibration = calibration
+        self.int_cal = int_cal  # TODO: absolute calibration? use only this or above
         self.full_run = full_run
 
-        if marchuk:
-            self._set_marchuk_pecs(extrapolate=extrapolate)
+        if self.marchuk:
+            marchuck_reader = MARCHUKReader()
+            self.pec_database = marchuck_reader.pec_database
+            self.pec = marchuck_reader.pec_lines
         else:
-            self._set_adas_pecs(adf15=adf15, extrapolate=extrapolate)
+            self.pec = self._set_adas_pecs(adf15=adf15, extrapolate=extrapolate)
+
+        # if marchuk:
+        #     self._set_marchuk_pecs(extrapolate=extrapolate)
+        # else:
+        #     self._set_adas_pecs(adf15=adf15, extrapolate=extrapolate)
 
         self.bckc = {}
         self.emission = {}
@@ -302,6 +325,10 @@ class Helike_spectroscopy:
                 self.err_out[line],
             ) = self._moment_analysis(line, self.t)
 
+
+        self.measured_spectra = self.los_transform.integrate_on_los(
+            self.spectra["total"], x1, x2, t=self.spectra["total"].t,
+        )
         self.t = self.measured_intensity[line].t
 
     def _calculate_temperatures(self):
@@ -427,6 +454,130 @@ class Helike_spectroscopy:
 
         return result, pos, err_in, err_out
 
+    def _make_intensity(
+        self,
+    ):
+        """
+        Uses the intensity recipes to get intensity from
+        Te/ne/f_abundance/hydrogen_density/calibration_factor and atomic data.
+        Returns DataArrays of emission type with co-ordinates of line label and
+        spatial co-ordinate
+        TODO: selection criteri, element and charge have to follow atomic data (see _calculate_emission)
+        """
+        calibration = self.int_cal
+        database = self.pec_database
+        Te = self.Te
+        electron_density = self.Ne
+        fz = self.fz["ar"]
+        argon_density = self.Nimp.sel(element="ar")
+        hydrogen_density = self.Nh
+
+        intensity = {}
+        for key, value in database.items():
+            _Te = Te
+
+            if value.type == "excit" or value.type == "diel":
+                _ion_charge = self.ion_charge
+                _density = electron_density
+            elif value.type == "recom":
+                if self.ion_charge == 16:  # TODO: do we still not have newest data?
+                    _Te = Te.where(Te < 4000, 4000)
+                _ion_charge = self.ion_charge + 1
+                _density = electron_density
+            elif value.type == "cxr":
+                _ion_charge = self.ion_charge + 1
+                _density = hydrogen_density
+                if self.ion_charge == 16:
+                    _Te = Te.where(Te < 4000, 4000)
+            elif value.type == "ise" or value.type == "isi" or value.type == "li_diel":
+                _ion_charge = self.ion_charge - 1
+                _density = electron_density
+            else:
+                print(f"Emission type {value.type} not recognised")
+
+            intensity[key] = (
+                value.interp(electron_temperature=_Te)
+                * fz.sel(ion_charges=_ion_charge)
+                * argon_density
+                * _density
+                * calibration
+            )
+
+        return intensity
+
+    def _make_spectra(
+        self, window: LabeledArray = None,
+    ):
+
+        # Add convolution of broadening
+        # -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
+        # instrument function / photon noise / photon -> counts
+        # Background Noise
+        """
+        TODO: Doppler Shift / Add make_intensity to this method / Background moved to plot
+        Parameters
+        ----------
+        window
+
+        Returns
+        -------
+
+        """
+        if window is None:
+            window = self.window
+
+        intensity = self.intensity
+        spectra = {}
+        spectra["total"] = 0.0  # TODO: incorrect assignment
+        ion_mass = self.ion_mass
+        for key, value in intensity.items():
+            line_name = value.line_name
+            # TODO: substitute with value.element
+            element = self.element
+            _spectra = []
+            for t in self.t:
+                Ti = self.Ti.sel(element=element, t=t)
+                integral = value.sel(t=t)
+                center = integral.wavelength
+                ion_temp = Ti.expand_dims(dict(line_name=line_name)).transpose()
+                x = window.expand_dims(dict(line_name=line_name)).transpose()
+                y = doppler_broaden(x, integral, center, ion_mass, ion_temp)
+                # TODO: include also doppler shift
+                # y = doppler_broaden(x, integral, center, ion_mass, ion_temp)
+                _spectra.append(y)
+            spectra[key] = xr.concat(_spectra, "t")
+            spectra["total"] = spectra["total"] + spectra[key].sum(["line_name"])
+        # print(spectra["total"])
+        # spectra["total"] = spectra["total"].rename({"window": "wavelength"})
+        return spectra
+
+    def _plot_spectrum(self, spectra: dict, background: float = 0.0):
+
+        plt.figure()
+        spectra["background"] = self.window * 0 + background
+
+        avoid = ["total", "background"]
+        for key, value in spectra.items():
+            if not any([x in key for x in avoid]):
+                plt.plot(
+                    self.window,
+                    value.sum(["rho_poloidal"]).sum("line_name")
+                    + spectra["background"],
+                    label=key,
+                )
+
+        plt.plot(
+            self.window,
+            spectra["total"].sum(["rho_poloidal"]) + spectra["background"],
+            "k*",
+            label="Total",
+        )
+        plt.xlabel("Wavelength (nm)")
+        plt.ylabel("Intensity (AU)")
+        plt.legend()
+        plt.show(block=True)
+        return
+
     def _build_bckc_dictionary(self):
         self.bckc = {}
         for quant in self.quantities:
@@ -446,16 +597,20 @@ class Helike_spectroscopy:
                 quantity = f"ti_{line}"
                 self.bckc[quantity] = self.measured_Ti[line]
                 self.bckc[quantity].attrs["emiss"] = self.emission[line]
+            elif datatype == ("spectra", "passive"):
+                quantity = quant
+                self.bckc["spectra"] = self.measured_spectra
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
 
-            self.bckc[quantity].attrs["pos"] = {
-                "value": self.pos[line],
-                "err_in": self.err_in[line],
-                "err_out": self.err_out[line],
-            }
             self.bckc[quantity].attrs["datatype"] = datatype
+            if quant != "spectra":
+                self.bckc[quantity].attrs["pos"] = {
+                    "value": self.pos[line],
+                    "err_in": self.err_in[line],
+                    "err_out": self.err_out[line],
+                }
 
     def __call__(
         self,
@@ -472,9 +627,13 @@ class Helike_spectroscopy:
 
         Parameters
         ----------
-        Ne
-            Electron density profile
-        t
+        Te - electron temperature (eV)
+        Ti - ion temperature (eV)
+        Ne - electron density (m**-3)
+        Nimp - impurity density (m**-3)
+        fractional_abundance - fractional abundance
+        Nh - neutral density (m**-3)
+        t - time (s)
 
         Returns
         -------
@@ -482,21 +641,24 @@ class Helike_spectroscopy:
         """
 
         self.Te = Te
-        self.Ti = Ti
         self.Ne = Ne
-        self.Nimp = Nimp
-        self.fz = fractional_abundance
         if Nh is None:
             Nh = xr.full_like(Ne, 0.0)
         self.Nh = Nh
         self.t = t
-
+        self.fz = fractional_abundance
+        self.Ti = Ti
+        self.Nimp = Nimp
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
         # TODO: check that inputs have compatible dimensions/coordinates
 
         # Calculate emission on natural coordinates of input profiles
         self._calculate_emission()
+
+        # Make spectra
+        self.intensity = self._make_intensity()
+        self.spectra = self._make_spectra()
 
         # Integrate emission along the LOS
         self._calculate_los_integral()
@@ -508,6 +670,27 @@ class Helike_spectroscopy:
         self._build_bckc_dictionary()
 
         return self.bckc
+
+
+def doppler_broaden(x, integral, center, ion_mass, ion_temp):
+    sigma = (
+        np.sqrt(
+            constants.e
+            / (ion_mass * constants.proton_mass * constants.c ** 2)
+            * ion_temp
+        )
+        * center
+    )
+    gaussian_broadened = gaussian(x, integral, center, sigma,)
+    return gaussian_broadened
+
+
+def gaussian(x, integral, center, sigma):
+    return (
+        integral
+        / (sigma * np.sqrt(2 * np.pi))
+        * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
+    )
 
 
 def interp_pec(pec, Ne, Te):
@@ -781,6 +964,8 @@ def example_run(use_real_transform=False):
         Nh=plasma.neutral_density,
         t=plasma.t,
     )
+
+    return model
 
     plt.figure()
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
