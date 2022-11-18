@@ -86,6 +86,6 @@ def interferometer(tstart:float=0.02, tend:float=0.1, dt:float=0.01, pulse:int =
 
     los_transform.set_flux_transform(plasma.flux_transform)
     _ = los_transform.convert_to_rho(t=plasma.t)
-    smmh2.set_los_transform(los_transform)
+    smmh2.set_transform(los_transform)
 
     return plasma, smmh2

@@ -40,7 +40,7 @@ class Interferometry:
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
         if origin is not None and direction is not None:
-            self.los_transform = LineOfSightTransform(
+            self.transform = LineOfSightTransform(
                 origin[:, 0],
                 origin[:, 1],
                 origin[:, 2],
@@ -57,7 +57,7 @@ class Interferometry:
         self.Ne = None
         self.los_integral_ne = None
 
-    def set_los_transform(self, transform: LineOfSightTransform):
+    def set_transform(self, transform: LineOfSightTransform):
         """
         Parameters
         ----------
@@ -66,14 +66,14 @@ class Interferometry:
         passes
             number of passes along the line of sight
         """
-        self.los_transform = transform
+        self.transform = transform
         self.bckc = {}
 
     def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         """
         set flux surface transform for flux mapping of the line of sight
         """
-        self.los_transform.set_flux_transform(flux_transform)
+        self.transform.set_flux_transform(flux_transform)
         self.bckc = {}
 
     def _build_bckc_dictionary(self):
@@ -88,7 +88,7 @@ class Interferometry:
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
                     "datatype": datatype,
-                    "transform": self.los_transform,
+                    "transform": self.transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
@@ -114,9 +114,9 @@ class Interferometry:
 
         self.Ne = Ne
 
-        x1 = self.los_transform.x1
-        x2 = self.los_transform.x2
-        los_integral_ne = self.los_transform.integrate_on_los(Ne, x1, x2, t=t,)
+        x1 = self.transform.x1
+        x2 = self.transform.x2
+        los_integral_ne = self.transform.integrate_on_los(Ne, x1, x2, t=t,)
 
         self.los_integral_ne = los_integral_ne
         self.t = los_integral_ne.t
@@ -164,12 +164,12 @@ def example_run():
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
         levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
     )
-    channels = model.los_transform.x1
+    channels = model.transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
     for chan in channels:
         plt.plot(
-            model.los_transform.R[chan],
-            model.los_transform.z[chan],
+            model.transform.R[chan],
+            model.transform.z[chan],
             linewidth=3,
             color=cols[chan],
             alpha=0.7,
@@ -184,7 +184,7 @@ def example_run():
     # Plot LOS mapping on equilibrium
     plt.figure()
     for chan in channels:
-        model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
+        model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
             color=cols[chan], label=f"CH{chan}",
         )
     plt.xlabel("Path along the LOS")

@@ -148,7 +148,7 @@ class Helike_spectroscopy:
         self.Nh = None
         self.t = None
 
-    def set_los_transform(self, transform: LineOfSightTransform):
+    def set_transform(self, transform: LineOfSightTransform):
         """
         Parameters
         ----------
@@ -908,7 +908,7 @@ def example_run(use_real_transform=False):
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
 
-    plasma = example_plasma()
+    plasma = _plasma()
     plasma.build_atomic_data()
 
     # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
@@ -964,8 +964,6 @@ def example_run(use_real_transform=False):
         Nh=plasma.neutral_density,
         t=plasma.t,
     )
-
-    return model
 
     plt.figure()
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(

@@ -391,10 +391,7 @@ class LineOfSightTransform(CoordinateTransform):
 
         along_los = []
         for channel in x1:
-            if t is not None:
-                rho = self.rho[channel].interp(t=t, method="linear")
-            else:
-                rho = self.rho[channel]
+            rho = self.rho[channel]
             _along_los = profile_1d.interp(rho_poloidal=rho)
             if limit_to_sep:
                 _along_los = xr.where(rho <= 1, _along_los, 0,)
@@ -442,6 +439,9 @@ class LineOfSightTransform(CoordinateTransform):
         los_integral = xr.concat(_los_integral, self.x1_name).assign_coords(
             {self.x1_name: x1}
         )
+
+        if len(los_integral.channel) == 1:
+            los_integral = los_integral.sel(channel=0)
 
         if x1 == self.x1 and x2 == self.x2:
             self.along_los = along_los
