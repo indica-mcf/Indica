@@ -12,6 +12,7 @@ import getpass
 import os
 
 from bayes_utils import create_LOSData
+from bayes_utils import LOSType
 import cmdstanpy
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,7 +43,11 @@ server = "https://sal.jet.uk"
 # R = coord_array(np.linspace(1.83, 3.9, N_R), "R")
 rho = coord_array(np.linspace(0, 1, N_rho), "rho_poloidal")
 z = coord_array(np.linspace(-1.75, 2.0, N_z), "z")
-t = coord_array(np.array([45.17, 45.85, 46.17]), "t")
+# equally spaced times to mitigate equally spaced assumption of
+# half_interval in bin_to_time_labels
+# TODO: raise issue
+# t = coord_array(np.array([45.17, 45.85, 46.17]), "t")
+t = coord_array(np.linspace(45.17, 46.17, 3), "t")
 
 # read PPF data
 reader = PPFReader(
@@ -52,14 +57,14 @@ reader = PPFReader(
     server=server,
     selector=use_cached_ignore_channels,
 )
-reader.authenticate(getpass.getuser(), getpass.getpass())
+reader.authenticate("kcollie", getpass.getpass())
 
 diagnostics = {
     "efit": reader.get(uid="jetppf", instrument="eftp", revision=0),
-    #    "hrts": reader.get(uid="jetppf", instrument="hrts", revision=0),
+    "hrts": reader.get(uid="jetppf", instrument="hrts", revision=0),
     "sxr": reader.get(uid="jetppf", instrument="sxr", revision=0),
-    #    "zeff": reader.get(uid="jetppf", instrument="ks3", revision=0),
-    #    "bolo": reader.get(uid="jetppf", instrument="bolo", revision=0),
+    "zeff": reader.get(uid="jetppf", instrument="ks3", revision=0),
+    "bolo": reader.get(uid="jetppf", instrument="bolo", revision=0),
 }
 efit_equilibrium = Equilibrium(equilibrium_data=diagnostics["efit"])
 for key, diag in diagnostics.items():
@@ -75,12 +80,15 @@ flux_coords.set_equilibrium(efit_equilibrium)
 
 # set up data
 sxr_los_data = create_LOSData(
-    diagnostic_data=diagnostics["sxr"]["v"],
+    los_diagnostic=diagnostics["sxr"]["v"],
     los_coord_name="sxr_v_coords",
+    hrts_diagnostic=diagnostics["hrts"],
     flux_coords=flux_coords,
     rho=rho,
     t=t,
     N_los_points=N_los_points,
+    elements=["W"],
+    los_type=LOSType.SXR,
 )
 
 # compile stan model
