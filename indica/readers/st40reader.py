@@ -71,7 +71,7 @@ class ST40Reader(DataReader):
 
     """
 
-    MACHINE_DIMS = ((0.15, 0.8), (-0.75, 0.75))
+    MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
