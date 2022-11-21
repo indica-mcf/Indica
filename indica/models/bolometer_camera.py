@@ -144,45 +144,61 @@ class Bolometer:
         return self.bckc
 
 
-def example_run():
+def example_run(
+    diagnostic_name: str = "bolo_Rz",
+    origin: LabeledArray = None,
+    direction: LabeledArray = None,
+    plasma=None,
+    plot=False,
+):
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
 
-    plasma = example_plasma()
-    plasma.build_atomic_data()
+    if plasma is None:
+        plasma = example_plasma()
+        plasma.build_atomic_data()
 
-    # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
-    pulse = 9229
-    it = int(len(plasma.t) / 2)
-    tplot = plasma.t[it]
-    reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
+        # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
+        pulse = 9229
+        it = int(len(plasma.t) / 2)
+        tplot = plasma.t[it]
+        reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
 
-    equilibrium_data = reader.get("", "efit", 0)
-    equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
+        equilibrium_data = reader.get("", "efit", 0)
+        equilibrium = Equilibrium(equilibrium_data)
+        flux_transform = FluxSurfaceCoordinates("poloidal")
+        flux_transform.set_equilibrium(equilibrium)
 
-    # Assign transforms to plasma object
-    plasma.set_equilibrium(equilibrium)
-    plasma.set_flux_transform(flux_transform)
+        # Assign transforms to plasma object
+        plasma.set_equilibrium(equilibrium)
+        plasma.set_flux_transform(flux_transform)
 
     # Create new interferometers diagnostics
-    diagnostic_name = "bolo_Rz"
-    nchannels = 11
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.17
-    los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
-    los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
-    origin = los_start
-    direction = los_end - los_start
-    model = Bolometer(
-        diagnostic_name,
-        origin=origin,
-        direction=direction,
+    if origin is None or direction is None:
+        nchannels = 11
+        los_end = np.full((nchannels, 3), 0.0)
+        los_end[:, 0] = 0.17
+        los_end[:, 1] = 0.0
+        los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
+        los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
+        origin = los_start
+        direction = los_end - los_start
+
+    transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name=diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
+        passes=1,
     )
+    model = Bolometer(diagnostic_name,)
+    model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
+
     bckc = model(
         plasma.electron_density,
         plasma.impurity_density,
@@ -191,52 +207,164 @@ def example_run():
         t=plasma.t,
     )
 
-    plt.figure()
-    equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
-        levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-    )
-    channels = model.transform.x1
-    cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
-    for chan in channels:
-        plt.plot(
-            model.transform.R[chan],
-            model.transform.z[chan],
-            linewidth=3,
-            color=cols[chan],
-            alpha=0.7,
-            label=f"CH{chan}",
+    if plot:
+        plt.figure()
+        plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
+            levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
+        )
+        channels = model.transform.x1
+        cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
+        for chan in channels:
+            plt.plot(
+                model.transform.R[chan],
+                model.transform.z[chan],
+                linewidth=3,
+                color=cols[chan],
+                alpha=0.7,
+                label=f"CH{chan}",
+            )
+
+        plt.xlim(0, 1.0)
+        plt.ylim(-0.6, 0.6)
+        plt.axis("scaled")
+        plt.legend()
+
+        # Plot LOS mapping on equilibrium
+        plt.figure()
+        for chan in channels:
+            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
+                color=cols[chan], label=f"CH{chan}",
+            )
+        plt.xlabel("Path along the LOS")
+        plt.ylabel("Rho-poloidal")
+        plt.legend()
+
+        # Plot back-calculated profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+        plt.figure()
+        for i, t in enumerate(plasma.t):
+            bckc["brightness"].sel(t=t, method="nearest").plot(
+                label=f"t={t:1.2f} s", color=cols_time[i]
+            )
+        plt.xlabel("Channel")
+        plt.ylabel("Measured brightness (W/m^2)")
+        plt.legend()
+
+        # Plot the radiation profiles
+        plt.figure()
+        for i, t in enumerate(plasma.t):
+            plt.plot(
+                model.emission.rho_poloidal,
+                model.emission.sum("element").sel(t=t),
+                color=cols_time[i],
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("rho")
+        plt.ylabel("Local radiated power (W/m^3)")
+        plt.legend()
+
+    return plasma, model, bckc
+
+
+def xy_camera_views(diagnostic_name="bolo_xy", option: int = 0, side: int = 0, plasma=None):
+    from copy import deepcopy
+
+    def get_geometry(option: int, side: int):
+        # Option 0 = SXR as is
+        # Option 1 = 0.4 - 0.8
+        # Option 2 = SXR modified
+        geometry = {}
+        nsensors = [8, 8, 8]
+
+        sensor_size = [5.08, 5.08, 5.08]
+        sensor_distance = [5.08, 2.54, 5.08]
+        pinhole_width = [1.0, 1.5, 3.5]
+
+        sensor_center = [
+            [365.26, -1295.21, 0],
+            [444.31, -1212.53, 0],
+            [444.0, -1258.62, 0],
+        ]
+        pinhole_center = [
+            [369.54, -1225.34, 0],
+            [451.46, -1162.12, 0],
+            [447.1, -1188.84, 0],
+        ]
+
+        x_shifts = (
+            +(np.arange(nsensors[option]) - (nsensors[option] - 1) / 2.0)
+            * sensor_distance[option]
+        )
+        sensor_locations = []
+        for x in x_shifts:
+            xyz = deepcopy(sensor_center[option])
+            xyz[0] += x
+            sensor_locations.append(xyz)
+        geometry["sensor_location"] = np.array(sensor_locations) * 1.0e-3
+
+        pinhole_location = pinhole_center[option]
+        pinhole_location[0] += pinhole_width[option] / 2.0 * side
+        geometry["pinhole_location"] = (
+            np.array([pinhole_location] * nsensors[option]) * 1.0e-3
         )
 
-    plt.xlim(0, 1.0)
-    plt.ylim(-0.6, 0.6)
-    plt.axis("scaled")
-    plt.legend()
+        return geometry
 
-    # Plot LOS mapping on equilibrium
-    plt.figure()
-    for chan in channels:
-        model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-            color=cols[chan], label=f"CH{chan}",
-        )
-    plt.xlabel("Path along the LOS")
-    plt.ylabel("Rho-poloidal")
-    plt.legend()
+        # import pandas as pd
+        #
+        # _file = "/home/marco.sertoli/data/xy_bolometer_senario_parameters.csv"
+        # df = pd.read_csv(_file)
+        #
+        # value = df["Pinhole Location (x,y,z) [mm]"][option]
+        # geometry["pinhole_location"] = np.array([np.array(
+        #     [float(v) * 1.0e-3 for v in value.split(",")]
+        # )]*nsensors[option])
+        #
+        # sensor_locations = []
+        # for chan in range(8):
+        #     value = df[f"Sensor {chan+1} Location (x,y,z) [mm]"][option]
+        #     sensor_locations.append([float(v) * 1.0e-3 for v in value.split(",")])
+        # geometry["sensor_location"] = np.array(sensor_locations)
+        #
+        # value = df["Pinhole Size [mm]: width"][option]
+        # geometry["pinhole_size"] = float(value) * 1.e3
+        #
+        # value = df["Sensor Size w"][option]
+        # geometry["sensor_size"] = float(value) * 1.e3
+        #
+        # value = df["Solid Angle (sr) "][option]
+        # geometry["solid_angle"] = float(value)
+        #
+        # return geometry
 
-    # Plot back-calculated values
-    plt.figure()
-    for chan in channels:
-        bckc["brightness"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
-    plt.xlabel("Time (s)")
-    plt.ylabel("BOLO LOS-integrals (W/m^2)")
-    plt.legend()
+    geometry = get_geometry(option, side)
+
+    sensors = geometry["sensor_location"]
+    pinhole = geometry["pinhole_location"]
+    origin = pinhole
+    direction = pinhole - sensors
+
+    _start = origin
+    _end = origin + 10 * direction
+    direction = _end - _start
+
+    return example_run("bolo_xy", origin=origin, direction=direction, plasma=plasma)
+
+
+def viewing_cone(option:int=2, plasma=None):
+    plasma, model0, bckc0 = xy_camera_views(option=option, side=0, plasma=plasma)
+    _, model1, bckc1 = xy_camera_views(option=option, side=1, plasma=plasma)
+    _, model2, bckc2 = xy_camera_views(option=option, side=-1, plasma=plasma)
+
+    cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+    tind_plot = [0, int(len(plasma.t)/2.), len(plasma.t)-1]
 
     # Plot the radiation profiles
-    cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
     for i, t in enumerate(plasma.t):
         plt.plot(
-            model.emission.rho_poloidal,
-            model.emission.sum("element").sel(t=t),
+            model0.emission.rho_poloidal,
+            model0.emission.sum("element").sel(t=t),
             color=cols_time[i],
             label=f"t={t:1.2f} s",
         )
@@ -244,4 +372,21 @@ def example_run():
     plt.ylabel("Local radiated power (W/m^3)")
     plt.legend()
 
-    return plasma, model, bckc
+    # Plot forward model
+    plt.figure()
+    channel = bckc1["brightness"].channel
+    for i in tind_plot:
+        bckc0["brightness"].sel(t=plasma.t[i], method="nearest").plot(
+            label=f"t={plasma.t[i]:1.2f} s", color=cols_time[i], linestyle="dashed"
+        )
+        y0 = bckc1["brightness"].sel(t=plasma.t[i], method="nearest")
+        y1 = bckc2["brightness"].sel(t=plasma.t[i], method="nearest")
+        plt.fill_between(channel, y0, y1, color=cols_time[i], alpha=0.5)
+    plt.xlabel("Channel")
+    plt.ylabel("Measured brightness (W/m^2)")
+    plt.title("Centre (dashed) and side of cones (shaded)")
+    plt.legend()
+
+    model0.transform.plot_los()
+
+    return plasma, model0, bckc0

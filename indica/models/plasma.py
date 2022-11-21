@@ -102,7 +102,7 @@ class Plasma:
         tstart: float = 0.01,
         tend: float = 0.14,
         dt: float = 0.01,
-        machine_dimensions=((0.15, 0.75), (-0.7, 0.7)),
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
         impurities: tuple = ("c", "ar"),
         main_ion: str = "h",
         impurity_concentration: tuple = (0.02, 0.001),
@@ -1085,7 +1085,9 @@ def example_run():
     ne_peaking = np.linspace(1, 2, nt)
     te_peaking = np.linspace(1, 2, nt)
     ti0 = np.linspace(Ti_prof.y0 * 1.1, Te_prof.y0 * 2.5, nt)
-    nimp_peaking = np.linspace(1, 2, nt)
+    nimp_peaking = np.linspace(1, 5, nt)
+    nimp_y0 = Nimp_prof.y0*np.linspace(1, 8, nt)
+    nimp_wcenter = np.linspace(0.4, 0.1, nt)
     for i, t in enumerate(plasma.t):
         Te_prof.peaking = te_peaking[i]
         plasma.electron_temperature.loc[dict(t=t)] = Te_prof().values
@@ -1100,6 +1102,8 @@ def example_run():
         plasma.electron_density.loc[dict(t=t)] = Ne_prof().values
 
         Nimp_prof.peaking = nimp_peaking[i]
+        Nimp_prof.y0 = nimp_y0[i]
+        Nimp_prof.wcenter = nimp_wcenter[i]
         for elem in plasma.impurities:
             plasma.impurity_density.loc[dict(t=t, element=elem)] = Nimp_prof().values
 

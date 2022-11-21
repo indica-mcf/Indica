@@ -72,6 +72,7 @@ class LineOfSightTransform(CoordinateTransform):
         ),
         dl: float = 0.01,
         passes: int = 1,
+        debug=False,
     ):
 
         self.name = f"{name}_line_of_sight_transform"
@@ -117,8 +118,12 @@ class LineOfSightTransform(CoordinateTransform):
                 direction_z[channel],
             )
             _start, _end = _find_wall_intersections(
-                origin, direction, machine_dimensions=machine_dimensions
+                origin, direction, machine_dimensions=machine_dimensions, plot=debug
             )
+            if debug:
+                print(f"Channel {channel}")
+                print(_start)
+                print(_end)
             x_start.append(_start[0])
             y_start.append(_start[1])
             z_start.append(_start[2])
@@ -612,7 +617,7 @@ def _find_wall_intersections(
                 ]
             )
         )
-        * 2
+        * 5
     )
     x_start = origin[0]
     x_end = origin[0] + length * direction[0]
