@@ -351,7 +351,6 @@ class FractionalAbundance(Operator):
         ionisation_balance_matrix = np.zeros(dims)
 
         icharge = 0
-        breakpoint()
         ionisation_balance_matrix[icharge, icharge : icharge + 2] = np.array(
             [
                 -Ne * SCD[icharge],  # type: ignore

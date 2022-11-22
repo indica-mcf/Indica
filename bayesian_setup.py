@@ -9,12 +9,12 @@ ipython
 # imports
 
 import getpass
-import os
+import pickle
+from typing import Any
+from typing import Dict
 
 from bayes_utils import create_LOSData
 from bayes_utils import LOSType
-import cmdstanpy
-import matplotlib.pyplot as plt
 import numpy as np
 
 from indica.converters import FluxSurfaceCoordinates
@@ -91,45 +91,12 @@ sxr_los_data = create_LOSData(
     los_type=LOSType.SXR,
 )
 
-# compile stan model
-model_file = os.path.join("emissivity.stan")
-model = cmdstanpy.CmdStanModel(stan_file=model_file)
-
-# run stan model
-
-t_index = 1
-
-data = {
-    # Impurity densities data:
-    "N_rho": N_rho,
-    # Lines of sight data:
-    "N_los_points": N_los_points,
-    # SXR data:
-    "sxr_N_los": sxr_los_data.N_los,
-    # stan 1-based
-    "sxr_rho_lower_indices": sxr_los_data.rho_lower_indices.isel(t=t_index) + 1,
-    "sxr_rho_interp_lower_frac": sxr_los_data.rho_interp_lower_frac.isel(t=t_index),
-    "sxr_R_square_diff": sxr_los_data.R_square_diff.isel(t=t_index),
-    "sxr_los_values": sxr_los_data.los_values.isel(t=t_index),
-    #    "los_errors": binned_camera.error.isel(t=t_index),
-    "sxr_los_errors": sxr_los_data.los_errors.isel(t=t_index),
-}
-
-samples = model.sample(data=data, chains=16, parallel_chains=8)
-# opt_fit = model.optimize(data=data)
-
-draws = samples.draws_xr()
-
-# plot fit
-
-plt.figure()
-plt.xlabel("rho")
-plt.ylabel("lfs_midplane emissivity")
-plt.errorbar(
-    rho.data,
-    draws.lfs_values.mean(dim=("chain", "draw")),
-    yerr=draws.lfs_values.std(dim=("chain", "draw")),
-    marker="x",
-)
-plt.grid()
-plt.show()
+# write out data required for run
+pre_computed: Dict[str, Any] = {}
+pre_computed["sxr_los_data"] = sxr_los_data
+pre_computed["N_rho"] = N_rho
+pre_computed["N_los_points"] = N_los_points
+pre_computed["rho"] = rho
+pre_computed["t"] = t
+with open("stan_model_data.pkl", "wb") as pkl_file:
+    pickle.dump(pre_computed, pkl_file)

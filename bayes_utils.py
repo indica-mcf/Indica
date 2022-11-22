@@ -25,8 +25,8 @@ from indica.readers import ADASReader
 
 @unique
 class LOSType(Enum):
-    SXR = (auto(),)
     BOLO = (auto(),)
+    SXR = (auto(),)
 
 
 def fit_electron_profiles(
@@ -75,6 +75,8 @@ def get_power_loss(
     Calculate the power loss values at the points sampled for LOS calculations
     """
     # TODO: put on correct grid, not rho-theta or whatever
+    # TODO: consider doing power loss calculations on rho grid then interpolating
+    #       onto correct time, los_coord, los_point grid
 
     # deuterium and trititum are hydrogen
     elements = [
@@ -130,15 +132,22 @@ def get_power_loss(
 
     # %% Calculating power loss
 
-    breakpoint()
     fzt = {
         elem: xr.concat(
             [
-                FA[elem](
-                    Ne=ne.interp(t=time),
-                    Te=te.interp(t=time),
-                    tau=time,
-                ).expand_dims("t", -1)
+                xr.concat(
+                    [
+                        FA[elem](
+                            Ne=ne.interp(t=time).interp(sxr_v_coords=los_coord),
+                            Te=te.interp(t=time).interp(sxr_v_coords=los_coord),
+                            tau=time,
+                        ).expand_dims("sxr_v_coords", -1)
+                        for los_coord in ne.sxr_v_coords
+                    ],
+                    dim="sxr_v_coords",
+                )
+                .assign_coords({"sxr_v_coords": ne.sxr_v_coords})
+                .expand_dims("t", -1)
                 for time in t.values
             ],
             dim="t",
@@ -151,11 +160,19 @@ def get_power_loss(
     power_loss = {
         elem: xr.concat(
             [
-                PL[elem](
-                    Ne=ne.interp(t=time),
-                    Te=te.interp(t=time),
-                    F_z_t=fzt[elem].sel(t=time, method="nearest"),
-                ).expand_dims("t", -1)
+                xr.concat(
+                    [
+                        PL[elem](
+                            Ne=ne.interp(t=time).sel(sxr_v_coords=los_coord),
+                            Te=te.interp(t=time).sel(sxr_v_coords=los_coord),
+                            F_z_t=fzt[elem].sel(t=time).sel(sxr_v_coords=los_coord),
+                        ).expand_dims("sxr_v_coords", -1)
+                        for los_coord in ne.sxr_v_coords
+                    ],
+                    dim="sxr_v_coords",
+                )
+                .assign_coords({"sxr_v_coords": ne.sxr_v_coords})
+                .expand_dims("t", -1)
                 for time in t.values
             ],
             dim="t",
