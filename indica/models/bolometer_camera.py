@@ -266,29 +266,37 @@ def example_run(
     return plasma, model, bckc
 
 
-def xy_camera_views(diagnostic_name="bolo_xy", option: int = 0, side: int = 0, plasma=None):
+def xy_camera_views(
+    diagnostic_name="bolo_xy", option: int = 0, side: int = 0, plasma=None
+):
     from copy import deepcopy
 
     def get_geometry(option: int, side: int):
         # Option 0 = SXR as is
         # Option 1 = 0.4 - 0.8
-        # Option 2 = SXR modified
+        # Option 2 = SXR modified, wide slit
+        # Option 3 = SXR modified, thin slit
+        # Option 4 = 12 channels, thin slit
         geometry = {}
-        nsensors = [8, 8, 8]
+        nsensors = [8, 8, 8, 8, 12]
 
-        sensor_size = [5.08, 5.08, 5.08]
-        sensor_distance = [5.08, 2.54, 5.08]
-        pinhole_width = [1.0, 1.5, 3.5]
+        sensor_size = [5.08, 5.08, 5.08, 5.08, 5.08]
+        sensor_distance = [5.08, 2.54, 5.08, 5.08, 5.08]
+        pinhole_width = [1.0, 1.5, 3.5, 1.0, 1.0]
 
         sensor_center = [
             [365.26, -1295.21, 0],
             [444.31, -1212.53, 0],
             [444.0, -1258.62, 0],
+            [444.0, -1258.62, 0],
+            [454.57, -1283.49, 0],
         ]
         pinhole_center = [
             [369.54, -1225.34, 0],
             [451.46, -1162.12, 0],
-            [447.1, -1188.84, 0],
+            [448.1, -1188.84, 0],
+            [448.1, -1188.84, 0],
+            [461.51, -1159.99, 0],
         ]
 
         x_shifts = (
@@ -351,13 +359,13 @@ def xy_camera_views(diagnostic_name="bolo_xy", option: int = 0, side: int = 0, p
     return example_run("bolo_xy", origin=origin, direction=direction, plasma=plasma)
 
 
-def viewing_cone(option:int=2, plasma=None):
+def viewing_cone(option: int = 2, plasma=None):
     plasma, model0, bckc0 = xy_camera_views(option=option, side=0, plasma=plasma)
     _, model1, bckc1 = xy_camera_views(option=option, side=1, plasma=plasma)
     _, model2, bckc2 = xy_camera_views(option=option, side=-1, plasma=plasma)
 
     cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-    tind_plot = [0, int(len(plasma.t)/2.), len(plasma.t)-1]
+    tind_plot = [0, int(len(plasma.t) / 2.0), len(plasma.t) - 1]
 
     # Plot the radiation profiles
     plt.figure()
@@ -372,21 +380,47 @@ def viewing_cone(option:int=2, plasma=None):
     plt.ylabel("Local radiated power (W/m^3)")
     plt.legend()
 
+    # Plot the radiation profiles on minor radius
+    plt.figure()
+    for i, t in enumerate(plasma.t):
+        R_lfs = plasma.equilibrium.rmjo.sel(t=t, method="nearest").interp(
+            rho_poloidal=model0.emission.rho_poloidal
+        )
+        R_hfs = plasma.equilibrium.rmji.sel(t=t, method="nearest").interp(
+            rho_poloidal=model0.emission.rho_poloidal
+        )
+        min_r = (R_lfs - R_hfs) / 2.0
+        plt.plot(
+            min_r,
+            model0.emission.sum("element").sel(t=t),
+            color=cols_time[i],
+            label=f"t={t:1.2f} s",
+        )
+    plt.xlabel("Minor radius (m)")
+    plt.ylabel("Local radiated power (W/m^3)")
+    plt.legend()
+
     # Plot forward model
     plt.figure()
-    channel = bckc1["brightness"].channel
     for i in tind_plot:
-        bckc0["brightness"].sel(t=plasma.t[i], method="nearest").plot(
-            label=f"t={plasma.t[i]:1.2f} s", color=cols_time[i], linestyle="dashed"
+        impact = model0.transform.impact_xyz.value
+        plt.plot(
+            impact,
+            bckc0["brightness"].sel(t=plasma.t[i], method="nearest"),
+            label=f"t={plasma.t[i]:1.2f} s",
+            color=cols_time[i],
         )
         y0 = bckc1["brightness"].sel(t=plasma.t[i], method="nearest")
         y1 = bckc2["brightness"].sel(t=plasma.t[i], method="nearest")
-        plt.fill_between(channel, y0, y1, color=cols_time[i], alpha=0.5)
-    plt.xlabel("Channel")
+        plt.fill_between(impact, y0, y1, color=cols_time[i], alpha=0.5)
+    plt.xlabel("Impact parameter (m)")
     plt.ylabel("Measured brightness (W/m^2)")
     plt.title("Centre (dashed) and side of cones (shaded)")
     plt.legend()
 
-    model0.transform.plot_los()
+    model0.transform.plot_los(tplot=np.mean(plasma.t))
+    for chan in model0.transform.x1:
+        plt.plot(model1.transform.x[chan], model1.transform.y[chan], color="gray", linestyle="dashed")
+        plt.plot(model2.transform.x[chan], model2.transform.y[chan], color="gray", linestyle="dotted")
 
     return plasma, model0, bckc0

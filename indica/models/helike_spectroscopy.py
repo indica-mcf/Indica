@@ -325,7 +325,6 @@ class Helike_spectroscopy:
                 self.err_out[line],
             ) = self._moment_analysis(line, self.t)
 
-
         self.measured_spectra = self.los_transform.integrate_on_los(
             self.spectra["total"], x1, x2, t=self.spectra["total"].t,
         )
@@ -397,7 +396,9 @@ class Helike_spectroscopy:
                 _rho_los = _rho_los[rho_ind]
                 rho_min = np.min(_rho_los)
 
-                distribution_function = self.emission_los[line][chan].sel(t=_t).values
+                distribution_function = (
+                    self.emission_los[line][chan].sel(t=_t, method="nearest").values
+                )
                 dfunction = distribution_function[rho_ind]
                 indices = np.arange(0, len(dfunction))
                 avrg, dlo, dhi, ind_in, ind_out = ph.calc_moments(
@@ -454,9 +455,7 @@ class Helike_spectroscopy:
 
         return result, pos, err_in, err_out
 
-    def _make_intensity(
-        self,
-    ):
+    def _make_intensity(self,):
         """
         Uses the intensity recipes to get intensity from
         Te/ne/f_abundance/hydrogen_density/calibration_factor and atomic data.
@@ -908,7 +907,7 @@ def example_run(use_real_transform=False):
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
 
-    plasma = _plasma()
+    plasma = example_plasma()
     plasma.build_atomic_data()
 
     # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
@@ -965,12 +964,24 @@ def example_run(use_real_transform=False):
         t=plasma.t,
     )
 
+    channels = model.los_transform.x1
+    cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
+
+    # Plot spectra
+    plt.figure()
+    for chan in channels:
+        if (chan % 2) == 0:
+            bckc["spectra"].sel(channel=chan, t=plasma.t.mean(), method="nearest").plot(
+                label=f"CH{chan}", color=cols[chan]
+            )
+    plt.xlabel("Time (s)")
+    plt.ylabel("Te and Ti from moment analysis (eV)")
+    plt.legend()
+
     plt.figure()
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
         levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
     )
-    channels = model.los_transform.x1
-    cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
     for chan in channels:
         plt.plot(
             model.los_transform.R[chan],
