@@ -8,7 +8,7 @@ import matplotlib.pylab as plt
 import numpy as np
 from scipy.optimize import root
 import xarray as xr
-from xarray import DataArray
+from xarray import DataArray, Dataset
 from xarray import zeros_like
 from matplotlib import cm
 
@@ -104,6 +104,16 @@ class LineOfSightTransform(CoordinateTransform):
         self.origin = np.array([origin_x, origin_y, origin_z]).transpose()
         self.direction = np.array([direction_x, direction_y, direction_z]).transpose()
 
+        # Wall boundaries
+        npts = 1000
+        self.angles = np.linspace(0.0, 2 * np.pi, npts)
+        self.x_wall_inner = self._machine_dims[0][0] * np.cos(self.angles)
+        self.x_wall_outer = self._machine_dims[0][1] * np.cos(self.angles)
+        self.y_wall_inner = self._machine_dims[0][0] * np.sin(self.angles)
+        self.y_wall_outer = self._machine_dims[0][1] * np.sin(self.angles)
+        self.z_wall_lower = self._machine_dims[1][0]
+        self.z_wall_upper = self._machine_dims[1][1]
+
         # Number of lines of sight
         self.x1 = list(np.arange(0, len(origin_x)))
 
@@ -132,11 +142,11 @@ class LineOfSightTransform(CoordinateTransform):
             z_end.append(_end[2])
 
         self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1)])
-        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
         self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1)])
+        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
         self.x_end = DataArray(x_end, coords=[(self.x1_name, self.x1)])
-        self.z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
         self.y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
+        self.z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
 
         self.x2, self.dl = self.set_dl(dl)
 
@@ -324,14 +334,14 @@ class LineOfSightTransform(CoordinateTransform):
             phi.append(_phi)
 
         self.x2 = x2
-        self.x = x
-        self.y = y
         self.dl = dl_new
         self.x = x
         self.y = y
         self.z = z
         self.R = R
         self.phi = phi
+        self.impact_xyz = self._impact_parameter_xyz()
+
         self.rho = None
         self.theta = None
         self.along_los = None
@@ -454,8 +464,22 @@ class LineOfSightTransform(CoordinateTransform):
 
         return los_integral
 
-    def impact_parameter_Rz(self):
-        """Calculate the impact parameter on """
+    def _impact_parameter_xyz(self):
+        """Calculate the impact parameter in Cartesian space"""
+        value = []
+        index = []
+        for ch in self.x1:
+            distance = np.sqrt(self.x[ch] ** 2 + self.y[ch] ** 2 + self.z[ch] ** 2)
+            _index = distance.argmin()
+            index.append(_index)
+            value.append(distance[_index])
+
+        index = xr.concat(index, "channel")
+        value = xr.concat(value, "channel")
+
+        impact_xyz = Dataset({"index": index, "value": value})
+
+        return impact_xyz
 
     def check_flux_transform(self):
         if not hasattr(self, "flux_transform"):
@@ -463,27 +487,8 @@ class LineOfSightTransform(CoordinateTransform):
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Missing equilibrium in flux surface transform")
 
-    def plot_los(self, tplot: float = None):
-        channels = self.x1
-        cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
-
-        line = lambda _start, _end: np.linspace(_start, _end, npts)
-
-        npts = 1000
-        angles = np.linspace(0.0, 2 * np.pi, npts)
-        x_wall_inner = self._machine_dims[0][0] * np.cos(angles)
-        x_wall_outer = self._machine_dims[0][1] * np.cos(angles)
-        y_wall_inner = self._machine_dims[0][0] * np.sin(angles)
-        y_wall_outer = self._machine_dims[0][1] * np.sin(angles)
-        z_wall_lower = self._machine_dims[1][0]
-        z_wall_upper = self._machine_dims[1][1]
-
-        x_line = line(self.x_start, self.x_end)
-        y_line = line(self.y_start, self.y_end)
-        z_line = line(self.z_start, self.z_end)
-        R_line = np.sqrt(x_line ** 2 + y_line ** 2)
-
-        equil = None
+    def get_plasma_boundaries(self, tplot: float = None):
+        boundaries = None
         if hasattr(self, "flux_transform"):
             if hasattr(self.flux_transform, "equilibrium"):
                 equil = self.flux_transform.equilibrium
@@ -502,56 +507,127 @@ class LineOfSightTransform(CoordinateTransform):
                 core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
                 R_lfs = rho_equil.R[core_ind[0]].values
                 R_hfs = rho_equil.R[core_ind[-1]].values
-                x_plasma_inner = R_hfs * np.cos(angles)
-                x_plasma_outer = R_lfs * np.cos(angles)
-                y_plasma_inner = R_hfs * np.sin(angles)
-                y_plasma_outer = R_lfs * np.sin(angles)
+                x_plasma_inner = R_hfs * np.cos(self.angles)
+                x_plasma_outer = R_lfs * np.cos(self.angles)
+                y_plasma_inner = R_hfs * np.sin(self.angles)
+                y_plasma_outer = R_lfs * np.sin(self.angles)
 
-        plt.figure()
-        plt.plot(x_wall_inner, y_wall_inner, color="k")
-        plt.plot(x_wall_outer, y_wall_outer, color="k")
-        if equil is not None:
-            plt.plot(x_plasma_inner, y_plasma_inner, color="red")
-            plt.plot(x_plasma_outer, y_plasma_outer, color="red")
-        for ch in self.x1:
-            plt.plot(x_line[:, ch], y_line[:, ch], color=cols[ch], linewidth=2)
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.axis("scaled")
+                boundaries = (
+                    x_plasma_inner,
+                    x_plasma_outer,
+                    y_plasma_inner,
+                    y_plasma_outer,
+                )
 
-        plt.figure()
-        plt.plot(x_wall_outer, [z_wall_upper] * npts, color="k")
-        plt.plot(x_wall_outer, [z_wall_lower] * npts, color="k")
-        plt.plot(x_wall_inner, [z_wall_upper] * npts, "w")
-        plt.plot(x_wall_inner, [z_wall_lower] * npts, "w")
-        plt.plot([x_wall_outer.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
-        plt.plot([x_wall_inner.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
-        plt.plot([x_wall_outer.min()] * 2, [z_wall_lower, z_wall_upper], color="k")
-        plt.plot([x_wall_inner.min()] * 2, [z_wall_lower, z_wall_upper], color="k")
-        for ch in self.x1:
-            plt.plot(x_line[:, ch], z_line[:, ch], color=cols[ch], linewidth=2)
-        plt.xlabel("x")
-        plt.ylabel("z")
-        plt.axis("scaled")
+        return boundaries
 
-        plt.figure()
-        plt.plot([x_wall_outer.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
-        plt.plot([x_wall_inner.max()] * 2, [z_wall_lower, z_wall_upper], color="k")
-        plt.plot(
-            [x_wall_inner.max(), x_wall_outer.max()], [z_wall_lower] * 2, color="k"
-        )
-        plt.plot(
-            [x_wall_inner.max(), x_wall_outer.max()], [z_wall_upper] * 2, color="k"
-        )
-        if equil is not None:
-            rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
-        for ch in self.x1:
-            plt.plot(R_line[:, ch], z_line[:, ch], color=cols[ch], linewidth=2)
-        plt.xlabel("R")
-        plt.ylabel("z")
-        plt.axis("scaled")
+    def plot_los(self, tplot: float = None, orientation: str = "xy"):
+        channels = self.x1
+        cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
 
-        if equil is not None:
+        equil = None
+        if hasattr(self, "flux_transform"):
+            if hasattr(self.flux_transform, "equilibrium"):
+                equil = self.flux_transform.equilibrium
+                if tplot is None:
+                    if self.rho is not None:
+                        _rho = self.rho[0]
+                    else:
+                        _rho = self.flux_transform.equilibrium.rho
+                    tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
+
+                if self.rho is None:
+                    self.convert_to_rho(self.x1, self.x2, t=tplot)
+
+                rho_equil = equil.rho.sel(t=tplot, method="nearest")
+                rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
+                R_lfs = equil.rmjo.sel(rho_poloidal=1, t=tplot, method="nearest").values
+                R_hfs = equil.rmji.sel(rho_poloidal=1, t=tplot, method="nearest").values
+                x_plasma_inner = R_hfs * np.cos(self.angles)
+                x_plasma_outer = R_lfs * np.cos(self.angles)
+                y_plasma_inner = R_hfs * np.sin(self.angles)
+                y_plasma_outer = R_lfs * np.sin(self.angles)
+                x_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.cos(self.angles)
+                y_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.sin(self.angles)
+
+        if orientation is not None and orientation == "xy":
+            plt.figure()
+            npts = len(self.x_wall_inner)
+            plt.plot(self.x_wall_inner, self.y_wall_inner, color="k")
+            plt.plot(self.x_wall_outer, self.y_wall_outer, color="k")
+            if equil is not None:
+                plt.plot(x_plasma_inner, y_plasma_inner, color="red")
+                plt.plot(x_plasma_outer, y_plasma_outer, color="red")
+                plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
+            for ch in self.x1:
+                plt.plot(self.x[ch], self.y[ch], color=cols[ch], linewidth=2)
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.axis("scaled")
+
+        if orientation is not None and orientation == "xz":
+            plt.figure()
+            plt.plot(self.x_wall_outer, [self.z_wall_upper] * npts, color="k")
+            plt.plot(self.x_wall_outer, [self.z_wall_lower] * npts, color="k")
+            plt.plot(self.x_wall_inner, [self.z_wall_upper] * npts, "w")
+            plt.plot(self.x_wall_inner, [self.z_wall_lower] * npts, "w")
+            plt.plot(
+                [self.x_wall_outer.max()] * 2,
+                [self.z_wall_lower, self.z_wall_upper],
+                color="k",
+            )
+            plt.plot(
+                [self.x_wall_inner.max()] * 2,
+                [self.z_wall_lower, self.z_wall_upper],
+                color="k",
+            )
+            plt.plot(
+                [self.x_wall_outer.min()] * 2,
+                [self.z_wall_lower, self.z_wall_upper],
+                color="k",
+            )
+            plt.plot(
+                [self.x_wall_inner.min()] * 2,
+                [self.z_wall_lower, self.z_wall_upper],
+                color="k",
+            )
+            for ch in self.x1:
+                plt.plot(self.x[ch], self.z[ch], color=cols[ch], linewidth=2)
+            plt.xlabel("x")
+            plt.ylabel("z")
+            plt.axis("scaled")
+
+        if orientation is not None and orientation == "Rz":
+            plt.figure()
+            plt.plot(
+                [self.x_wall_outer.max()] * 2,
+                [self.z_wall_lower, self.z_wall_upper],
+                color="k",
+            )
+            plt.plot(
+                [self.x_wall_inner.max()] * 2,
+                [self.z_wall_lower, self.z_wall_upper],
+                color="k",
+            )
+            plt.plot(
+                [self.x_wall_inner.max(), self.x_wall_outer.max()],
+                [self.z_wall_lower] * 2,
+                color="k",
+            )
+            plt.plot(
+                [self.x_wall_inner.max(), self.x_wall_outer.max()],
+                [self.z_wall_upper] * 2,
+                color="k",
+            )
+            if equil is not None:
+                rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
+            for ch in self.x1:
+                plt.plot(self.R[ch], self.z[ch], color=cols[ch], linewidth=2)
+            plt.xlabel("R")
+            plt.ylabel("z")
+            plt.axis("scaled")
+
+        if equil is not None and orientation is None:
             plt.figure()
             for ch in self.x1:
                 self.rho[ch].sel(t=tplot, method="nearest").plot(
