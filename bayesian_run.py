@@ -25,6 +25,7 @@ t_index = 1
 
 data = {
     # Impurity densities data:
+    "N_elements": 1,
     "N_rho": N_rho,
     # Lines of sight data:
     "N_los_points": N_los_points,
@@ -34,26 +35,27 @@ data = {
     "sxr_rho_lower_indices": sxr_los_data.rho_lower_indices.isel(t=t_index) + 1,
     "sxr_rho_interp_lower_frac": sxr_los_data.rho_interp_lower_frac.isel(t=t_index),
     "sxr_R_square_diff": sxr_los_data.R_square_diff.isel(t=t_index),
+    "sxr_ne_x_power_loss": sxr_los_data.premult_values.isel(t=t_index),
     "sxr_los_values": sxr_los_data.los_values.isel(t=t_index),
     #    "los_errors": binned_camera.error.isel(t=t_index),
     "sxr_los_errors": sxr_los_data.los_errors.isel(t=t_index),
 }
 
-# likelihood-maximization (faster, worse results, no errors)
-opt_fit = model.optimize(data=data)
-
-# plot results
-plt.figure()
-plt.title("Optimization Results")
-plt.xlabel("rho")
-plt.ylabel("lfs_midplane emissivity")
-plt.plot(
-    rho.data,
-    opt_fit.lfs_values,
-    marker="x",
-)
-plt.grid()
-plt.show()
+# # likelihood-maximization (faster, worse results, no errors)
+# opt_fit = model.optimize(data=data)
+#
+# # plot results
+# plt.figure()
+# plt.title("Optimization Results")
+# plt.xlabel("rho")
+# plt.ylabel("lfs_midplane emissivity")
+# plt.plot(
+#     rho.data,
+#     opt_fit.lfs_values[0],
+#     marker="x",
+# )
+# plt.grid()
+# plt.show()
 
 # Full Bayesian sampling (slower, better results, errors)
 samples = model.sample(data=data, chains=16, parallel_chains=8)
@@ -67,8 +69,8 @@ plt.xlabel("rho")
 plt.ylabel("lfs_midplane emissivity")
 plt.errorbar(
     rho.data,
-    draws.lfs_values.mean(dim=("chain", "draw")),
-    yerr=draws.lfs_values.std(dim=("chain", "draw")),
+    draws.lfs_values.mean(dim=("chain", "draw"))[0],
+    yerr=draws.lfs_values.std(dim=("chain", "draw"))[0],
     marker="x",
 )
 plt.grid()

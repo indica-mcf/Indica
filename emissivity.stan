@@ -12,28 +12,37 @@ functions {
 
 	/// Predict a set of LOS values given model parameters
 	vector predict_los_vals(
+		int N_elements,
 		int N_los,
 		int N_los_points,
-		array[] real lfs_values,
-		array[] real asym_params,
+		array[,] real lfs_values,
+		array[,] real asym_params,
 		array[,] int rho_lower_indices,
 		array[,] real rho_interp_lower_frac,
-		array[,] real R_square_diff
+		array[,] real R_square_diff,
+		array[,,] real ne_x_power_loss
 	){
 		vector[N_los] predicted_los_vals;
 
+		// predict each line of sight
 		for (i_los in 1:N_los) {
 			real los_val = 0;
+
+			// sum over points in LOS
 			for (i_point in 1:N_los_points) {
 				int i_low = rho_lower_indices[i_los, i_point];
-				los_val += interp_asymmetric(
-					lfs_values[i_low],
-					lfs_values[i_low+1],
-					asym_params[i_low],
-					asym_params[i_low + 1],
-					rho_interp_lower_frac[i_los, i_point],
-					R_square_diff[i_los, i_point]
-				);
+
+				// sum over elements
+				for (i_element in 1:N_elements) {
+					los_val += ne_x_power_loss[i_los, i_point, i_element] * interp_asymmetric(
+						lfs_values[i_element, i_low],
+						lfs_values[i_element, i_low+1],
+						asym_params[i_element, i_low],
+						asym_params[i_element, i_low + 1],
+						rho_interp_lower_frac[i_los, i_point],
+						R_square_diff[i_los, i_point]
+					);
+				}
 			}
 			predicted_los_vals[i_los] = los_val;
 		}
@@ -44,6 +53,7 @@ functions {
 
 data {
 	// Data affecting impurity densities
+	int<lower=1> N_elements;
 	// Number of rho points in impurity density grids
 	int<lower=1> N_rho;
 
@@ -57,21 +67,27 @@ data {
 	array[sxr_N_los, N_los_points] real<lower=0, upper=1> sxr_rho_interp_lower_frac;
 	// TODO: verify upper=0 here:
 	array[sxr_N_los, N_los_points] real<upper=0> sxr_R_square_diff;
+	// ne*power_loss for each los, los_point, element
+	array[sxr_N_los, N_los_points, N_elements] real<lower=0> sxr_ne_x_power_loss;
 	vector<lower=0>[sxr_N_los] sxr_los_values;
 	vector<lower=0>[sxr_N_los] sxr_los_errors;
 }
 
 parameters {
-	array[N_rho] real<lower=0> lfs_values;
-	array[N_rho] real asym_params;
+	array[N_elements, N_rho] real<lower=0> lfs_values;
+	array[N_elements, N_rho] real asym_params;
 }
 
 transformed parameters {
 	// Predict SXR LOS values
-	vector<lower=0>[sxr_N_los] predicted_sxr_los_vals = predict_los_vals(sxr_N_los, N_los_points, lfs_values, asym_params, sxr_rho_lower_indices, sxr_rho_interp_lower_frac, sxr_R_square_diff);
+	vector<lower=0>[sxr_N_los] predicted_sxr_los_vals = predict_los_vals(N_elements, sxr_N_los, N_los_points, lfs_values, asym_params, sxr_rho_lower_indices, sxr_rho_interp_lower_frac, sxr_R_square_diff, sxr_ne_x_power_loss);
 }
 
 model {
+	// TODO: check priors
+	lfs_values ~ exponential(2.5e16)
+	asym_params ~ normal(0, 5)
+
 	// LOS values should be distributed like this:
 	predicted_sxr_los_vals ~ normal(sxr_los_values, sxr_los_errors);
 }
