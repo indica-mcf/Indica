@@ -4,6 +4,7 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 import matplotlib.cm as cm
@@ -55,6 +56,7 @@ class Interferometry:
 
         self.bckc = {}
         self.Ne = None
+        self.plasma:Plasma = None
         self.los_integral_ne = None
 
     def set_transform(self, transform: LineOfSightTransform):
@@ -75,6 +77,12 @@ class Interferometry:
         """
         self.transform.set_flux_transform(flux_transform)
         self.bckc = {}
+
+    def set_plasma(self, plasma:Plasma):
+        """
+        Assign Plasma class to use for computation of forward model
+        """
+        self.plasma = plasma
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -97,7 +105,7 @@ class Interferometry:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
 
-    def __call__(self, Ne: DataArray, t: LabeledArray = None):
+    def __call__(self, Ne: DataArray=None, t: LabeledArray = None):
         """
         Calculate diagnostic measured values
 
@@ -111,8 +119,16 @@ class Interferometry:
         -------
 
         """
-
+        if self.plasma is not None:
+            if t is None:
+                t = self.plasma.t
+            Ne = self.plasma.electron_density.sel(t=t)
+        else:
+            if Ne is None:
+                raise ValueError("Give inputs or assign plasma class!")
         self.Ne = Ne
+        if len(np.shape(t)) == 0:
+            t = np.array([t])
 
         x1 = self.transform.x1
         x2 = self.transform.x2
@@ -158,7 +174,9 @@ def example_run():
         machine_dimensions=plasma.machine_dimensions,
     )
     model.set_flux_transform(plasma.flux_transform)
-    bckc = model(plasma.electron_density, t=plasma.t,)
+    model.set_plasma(plasma)
+    bckc = model()
+    # bckc = model(Ne=plasma.electron_density, t=plasma.t)
 
     plt.figure()
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
@@ -202,7 +220,7 @@ def example_run():
     # Plot the profiles
     cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
-    for i, t in enumerate(plasma.t):
+    for i, t in enumerate(plasma.t.values):
         plt.plot(
             model.Ne.rho_poloidal,
             model.Ne.sel(t=t),

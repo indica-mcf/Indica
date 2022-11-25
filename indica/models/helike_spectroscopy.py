@@ -15,6 +15,7 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.readers.marchuk import MARCHUKReader
@@ -140,11 +141,12 @@ class Helike_spectroscopy:
         self.pos = {}
         self.err_in = {}
         self.err_out = {}
+        self.plasma: Plasma = None
 
         self.Te = None
         self.Ne = None
         self.Nimp = None
-        self.fz = None
+        self.Fz = None
         self.Nh = None
         self.t = None
 
@@ -166,6 +168,12 @@ class Helike_spectroscopy:
         """
         self.los_transform.set_flux_transform(flux_transform)
         self.bckc = {}
+
+    def set_plasma(self, plasma: Plasma):
+        """
+        Assign Plasma class to use for computation of forward model
+        """
+        self.plasma = plasma
 
     def _set_adas_pecs(self, adf15: dict = None, extrapolate: str = None):
         """
@@ -272,7 +280,7 @@ class Helike_spectroscopy:
                     )
                     mult = transition_rules(
                         pec_type,
-                        self.fz[elem],
+                        self.Fz[elem],
                         charge,
                         self.Ne,
                         self.Nh,
@@ -283,7 +291,7 @@ class Helike_spectroscopy:
                 _pec = interp_pec(pec["emiss_coeff"], self.Ne, self.Te)
                 _emission.append(
                     _pec
-                    * self.fz[elem].sel(ion_charges=charge)
+                    * self.Fz[elem].sel(ion_charges=charge)
                     * self.Ne
                     * self.Nimp.sel(element=elem)
                 )
@@ -467,7 +475,7 @@ class Helike_spectroscopy:
         database = self.pec_database
         Te = self.Te
         electron_density = self.Ne
-        fz = self.fz["ar"]
+        fz = self.Fz["ar"]
         argon_density = self.Nimp.sel(element="ar")
         hydrogen_density = self.Nh
 
@@ -613,11 +621,11 @@ class Helike_spectroscopy:
 
     def __call__(
         self,
-        Te: DataArray,
-        Ti: DataArray,
-        Ne: DataArray,
-        Nimp: DataArray,
-        fractional_abundance: dict,
+        Te: DataArray = None,
+        Ti: DataArray = None,
+        Ne: DataArray = None,
+        Nimp: DataArray = None,
+        Fz: dict = None,
         Nh: DataArray = None,
         t: LabeledArray = None,
     ):
@@ -639,13 +647,36 @@ class Helike_spectroscopy:
 
         """
 
+        if self.plasma is not None:
+            if t is None:
+                t = self.plasma.t
+            Te = self.plasma.electron_temperature.sel(t=t)
+            Ne = self.plasma.electron_density.sel(t=t)
+            Nh = self.plasma.neutral_density.sel(t=t)
+            Fz = {}
+            _Fz = self.plasma.fz
+            for elem in _Fz.keys():
+                Fz[elem] = _Fz[elem].sel(t=t)
+            Ti = self.plasma.ion_temperature.sel(t=t)
+            Nimp = self.plasma.impurity_density.sel(t=t)
+        else:
+            if (
+                Ne is None
+                or Te is None
+                or Nh is None
+                or Fz is None
+                or Ti is None
+                or Nimp is None
+            ):
+                raise ValueError("Give inputs of assign plasma class!")
+
         self.Te = Te
         self.Ne = Ne
-        if Nh is None:
-            Nh = xr.full_like(Ne, 0.0)
         self.Nh = Nh
+        if len(np.shape(t)) == 0:
+            t = np.array([t])
         self.t = t
-        self.fz = fractional_abundance
+        self.Fz = Fz
         self.Ti = Ti
         self.Nimp = Nimp
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -950,19 +981,23 @@ def example_run(use_real_transform=False):
         machine_dimensions=plasma.machine_dimensions,
     )
     model.set_flux_transform(plasma.flux_transform)
-    model.los_transform.convert_to_rho(
-        model.los_transform.x1, model.los_transform.x2, t=tplot
-    )
+    # model.los_transform.convert_to_rho(
+    #     model.los_transform.x1, model.los_transform.x2, t=tplot
+    # )
+    model.set_plasma(plasma)
 
-    bckc = model(
-        plasma.electron_temperature,
-        plasma.ion_temperature,
-        plasma.electron_density,
-        plasma.impurity_density,
-        plasma.fz,
-        Nh=plasma.neutral_density,
-        t=plasma.t,
-    )
+    bckc = model()
+    
+    # TODO: other possibility is to call using input profiles
+    # bckc = model(
+    #     plasma.electron_temperature,
+    #     plasma.ion_temperature,
+    #     plasma.electron_density,
+    #     plasma.impurity_density,
+    #     plasma.fz,
+    #     Nh=plasma.neutral_density,
+    #     t=plasma.t,
+    # )
 
     channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
@@ -1029,7 +1064,7 @@ def example_run(use_real_transform=False):
     cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
     elem = model.Ti.element[0].values
-    for i, t in enumerate(plasma.t):
+    for i, t in enumerate(plasma.t.values):
         plt.plot(
             model.Ti.rho_poloidal, model.Ti.sel(t=t, element=elem), color=cols_time[i],
         )
@@ -1059,7 +1094,7 @@ def example_run(use_real_transform=False):
     # Plot the emission profiles
     cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
-    for i, t in enumerate(plasma.t):
+    for i, t in enumerate(plasma.t.values):
         plt.plot(
             model.emission["w"].rho_poloidal,
             model.emission["w"].sel(t=t),

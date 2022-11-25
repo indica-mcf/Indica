@@ -5,6 +5,7 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 import matplotlib.cm as cm
@@ -66,8 +67,9 @@ class Diode_filters:
                 passes=passes,
             )
 
-        self.bckc = {}
-        self.los_integral = None
+        self.bckc:dict = {}
+        self.los_integral:DataArray = None
+        self.plasma:Plasma = None
 
     def set_transform(self, transform: LineOfSightTransform):
         """
@@ -87,6 +89,12 @@ class Diode_filters:
         """
         self.transform.set_flux_transform(flux_transform)
         self.bckc = {}
+
+    def set_plasma(self, plasma:Plasma):
+        """
+        Assign Plasma class to use for computation of forward model
+        """
+        self.plasma = plasma
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -110,7 +118,11 @@ class Diode_filters:
                 continue
 
     def __call__(
-        self, Te: DataArray, Ne: DataArray, Zeff: DataArray, t: LabeledArray = None
+        self,
+        Te: DataArray = None,
+        Ne: DataArray = None,
+        Zeff: DataArray = None,
+        t: LabeledArray = None,
     ):
         """
         Calculate Bremsstrahlung emission and model measurement
@@ -129,9 +141,21 @@ class Diode_filters:
             time
         """
 
+        if self.plasma is not None:
+            if t is None:
+                t = self.plasma.t
+            Ne = self.plasma.electron_density.sel(t=t)
+            Te = self.plasma.electron_temperature.sel(t=t)
+            Zeff = self.plasma.zeff.sel(t=t)
+        else:
+            if Ne is None or Te is None or Zeff is None:
+                raise ValueError("Give inputs of assign plasma class!")
+
         self.Te = Te
         self.Ne = Ne
         self.Zeff = Zeff
+        if len(np.shape(t)) == 0:
+            t = np.array([t])
 
         emission = ph.zeff_bremsstrahlung(Te, Ne, self.filter_wavelength, zeff=Zeff)
         self.emission = emission
@@ -182,10 +206,12 @@ def example_run():
         machine_dimensions=plasma.machine_dimensions,
     )
     model.set_flux_transform(plasma.flux_transform)
-    zeff = plasma.zeff
-    bckc = model(
-        plasma.electron_temperature, plasma.electron_density, zeff, t=plasma.t,
-    )
+    model.set_plasma(plasma)
+    bckc = model()
+    # zeff = plasma.zeff
+    # bckc = model(
+    #     plasma.electron_temperature, plasma.electron_density, zeff, t=plasma.t,
+    # )
 
     plt.figure()
     equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
@@ -229,7 +255,7 @@ def example_run():
     # Plot the profiles
     cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
-    for i, t in enumerate(plasma.t):
+    for i, t in enumerate(plasma.t.values):
         plt.plot(
             model.emission.sum("element").rho_poloidal,
             model.emission.sum("element").sel(t=t),
