@@ -157,7 +157,6 @@ class Plasma:
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
-        self.t = get_tlabels_dt(self.tstart, self.tend, self.dt)
         self.radial_coordinate = np.linspace(0, 1.0, 41)
         self.radial_coordinate_type = "rho_poloidal"
         self.machine_dimensions = machine_dimensions
@@ -205,7 +204,9 @@ class Plasma:
             self.machine_dimensions[1][0], self.machine_dimensions[1][1], 100
         )
 
-        nt = len(self.t)
+        time = get_tlabels_dt(self.tstart, self.tend, self.dt)
+
+        nt = len(time)
         nr = len(self.radial_coordinate)
         nel = len(self.elements)
         nimp = len(self.impurities)
@@ -216,7 +217,7 @@ class Plasma:
         self.z_midplane = z_midplane
 
         coords_radius = (self.radial_coordinate_type, self.radial_coordinate)
-        coords_time = ("t", self.t)
+        coords_time = ("t", time)
         coords_elem = ("element", list(self.elements))
         coords_imp = ("element", list(self.impurities))
 
@@ -234,8 +235,11 @@ class Plasma:
             np.zeros((nimp, nt, nr)), coords=[coords_imp, coords_time, coords_radius]
         )
 
-        self.time = assign_data(self.data1d_time, ("t", "plasma"), "s")
-        self.time.values = self.t
+        self.t = assign_data(self.data1d_time, ("t", "plasma"), "s")
+        self.t.values = time
+
+        # TODO: dependent quantities will be computed only at time-points included in self.time!!!!
+        self.time = deepcopy(self.t)
 
         rho_type = self.radial_coordinate_type.split("_")
         if rho_type[1] != "poloidal":
@@ -695,7 +699,7 @@ class Plasma:
             self.q_prof,
             approx="sauter",
         )
-        for t in self.t:
+        for t in self.time:
             resistivity = 1.0 / self.conductivity.sel(t=t)
             ir = np.where(np.isfinite(resistivity))
             vloop = ph.vloop(
@@ -838,7 +842,7 @@ class Plasma:
         self.Nh_prof.yend = y1
         self.Nh_prof.wped = decay
         self.Nh_prof.build_profile()
-        for t in self.t:
+        for t in self.time:
             self.neutral_density.loc[dict(t=t)] = self.Nh_prof.yspl.values
 
     def map_to_midplane(self):
@@ -874,7 +878,7 @@ class Plasma:
 
         for k in midplane_profiles.keys():
             prof_rho = getattr(self, k)
-            for t in self.t:
+            for t in self.time:
                 rho = (
                     self.equilibrium.rho.sel(t=t, method="nearest")
                     .interp(R=R, z=z)
@@ -1022,7 +1026,7 @@ class Plasma:
 
             prad_tot = self.prad_tot.sel(element=elem)
             prad_sxr = self.prad_sxr.sel(element=elem)
-            for t in self.t:
+            for t in self.time:
                 prad_tot.loc[dict(t=t)] = np.trapz(
                     total_radiation.sel(t=t), self.volume.sel(t=t)
                 )
