@@ -4,6 +4,7 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 
@@ -38,6 +39,7 @@ class Bolometer:
         self.name = name
         self.instrument_method = instrument_method
         self.bckc = {}
+        self.plasma:Plasma = None
         if origin is not None and direction is not None:
             self.transform = LineOfSightTransform(
                 origin[:, 0],
@@ -73,6 +75,12 @@ class Bolometer:
         self.transform.set_flux_transform(flux_transform)
         self.bckc = {}
 
+    def set_plasma(self, plasma:Plasma):
+        """
+        Assign Plasma class to use for computation of forward model
+        """
+        self.plasma = plasma
+
     def _build_bckc_dictionary(self):
         self.bckc = {}
 
@@ -96,10 +104,9 @@ class Bolometer:
 
     def __call__(
         self,
-        Ne: DataArray,
-        Nimp: DataArray,
-        fractional_abundance: dict,
-        cooling_factor: DataArray,
+        Ne: DataArray=None,
+        Nimp: DataArray=None,
+        Lz: {}=None,
         t: LabeledArray = None,
     ):
         """
@@ -111,9 +118,7 @@ class Bolometer:
             Electron density profile (dims = "rho", "t")
         Nimp
             Impurity density profiles (dims = "rho", "t", "element")
-        fractional_abundance
-            Fractional abundance dictionary of DataArrays of each element to be included
-        cooling_factor
+        Lz
             Cooling factor dictionary of DataArrays of each element to be included
         t
             Time (s) for remapping on equilibrium reconstruction
@@ -123,13 +128,37 @@ class Bolometer:
         Dictionary of back-calculated quantities (identical structure returned by abstractreader.py)
 
         """
+        if self.plasma is not None:
+            if t is None:
+                t = self.plasma.t
+            Ne = self.plasma.electron_density.sel(t=t)
+            _Lz = self.plasma.lz_tot
+            Lz = {}
+            for elem in _Lz.keys():
+                Lz[elem] = _Lz[elem].sel(t=t)
+            Nimp = self.plasma.impurity_density.sel(t=t)
+        else:
+            if (
+                Ne is None
+                or Nimp is None
+                or Lz is None
+            ):
+                raise ValueError("Give inputs of assign plasma class!")
+
+        self.Ne = Ne
+        self.Nimp = Nimp
+        self.Lz = Lz
+
         x1 = self.transform.x1
         x2 = self.transform.x2
         elements = Nimp.element.values
-        fz, lz, = fractional_abundance, cooling_factor
+
+        if len(np.shape(t)) == 0:
+            t = np.array([t])
+
         emission = []
         for ielem, elem in enumerate(elements):
-            emission.append(lz[elem].sum("ion_charges") * Nimp.sel(element=elem) * Ne)
+            emission.append(self.Lz[elem].sum("ion_charges") * self.Nimp.sel(element=elem) * self.Ne)
         emission = xr.concat(emission, "element")
         los_integral = self.transform.integrate_on_los(
             emission.sum("element"), x1, x2, t=t,
@@ -198,14 +227,15 @@ def example_run(
     model = Bolometer(diagnostic_name,)
     model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
+    model.set_plasma(plasma)
 
-    bckc = model(
-        plasma.electron_density,
-        plasma.impurity_density,
-        plasma.fz,
-        plasma.lz_tot,
-        t=plasma.t,
-    )
+    bckc = model()
+    # bckc = model(
+    #     Ne=plasma.electron_density,
+    #     Nimp=plasma.impurity_density,
+    #     Lz=plasma.lz_tot,
+    #     t=plasma.t,
+    # )
 
     if plot:
         plt.figure()
@@ -242,7 +272,7 @@ def example_run(
         # Plot back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
         plt.figure()
-        for i, t in enumerate(plasma.t):
+        for i, t in enumerate(plasma.t.values):
             bckc["brightness"].sel(t=t, method="nearest").plot(
                 label=f"t={t:1.2f} s", color=cols_time[i]
             )
@@ -252,7 +282,7 @@ def example_run(
 
         # Plot the radiation profiles
         plt.figure()
-        for i, t in enumerate(plasma.t):
+        for i, t in enumerate(plasma.t.values):
             plt.plot(
                 model.emission.rho_poloidal,
                 model.emission.sum("element").sel(t=t),
@@ -369,7 +399,7 @@ def viewing_cone(option: int = 2, plasma=None):
 
     # Plot the radiation profiles
     plt.figure()
-    for i, t in enumerate(plasma.t):
+    for i, t in enumerate(plasma.t.values):
         plt.plot(
             model0.emission.rho_poloidal,
             model0.emission.sum("element").sel(t=t),
@@ -382,7 +412,7 @@ def viewing_cone(option: int = 2, plasma=None):
 
     # Plot the radiation profiles on minor radius
     plt.figure()
-    for i, t in enumerate(plasma.t):
+    for i, t in enumerate(plasma.t.values):
         R_lfs = plasma.equilibrium.rmjo.sel(t=t, method="nearest").interp(
             rho_poloidal=model0.emission.rho_poloidal
         )
@@ -407,7 +437,7 @@ def viewing_cone(option: int = 2, plasma=None):
         plt.plot(
             impact,
             bckc0["brightness"].sel(t=plasma.t[i], method="nearest"),
-            label=f"t={plasma.t[i]:1.2f} s",
+            label=f"t={plasma.t[i].values:1.2f} s",
             color=cols_time[i],
         )
         y0 = bckc1["brightness"].sel(t=plasma.t[i], method="nearest")
