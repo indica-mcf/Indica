@@ -238,9 +238,6 @@ class Plasma:
         self.t = assign_data(self.data1d_time, ("t", "plasma"), "s")
         self.t.values = time
 
-        # TODO: dependent quantities will be computed only at time-points included in self.time!!!!
-        self.time = deepcopy(self.t)
-
         rho_type = self.radial_coordinate_type.split("_")
         if rho_type[1] != "poloidal":
             print_like("Only poloidal rho in input for the time being...")
@@ -423,7 +420,7 @@ class Plasma:
     @property
     def pth(self):
         pressure_th = self.pressure_th
-        for t in self.time:
+        for t in self.t:
             self._pth.loc[dict(t=t)] = np.trapz(
                 pressure_th.sel(t=t), self.volume.sel(t=t)
             )
@@ -432,7 +429,7 @@ class Plasma:
     @property
     def ptot(self):
         pressure_tot = self.pressure_tot
-        for t in self.time:
+        for t in self.t:
             self._ptot.loc[dict(t=t)] = np.trapz(
                 pressure_tot.sel(t=t), self.volume.sel(t=t)
             )
@@ -453,7 +450,7 @@ class Plasma:
     @property
     def fz(self):
         for elem in self.elements:
-            for t in self.time:
+            for t in self.t:
                 Te = self.electron_temperature.sel(t=t)
                 Ne = self.electron_density.sel(t=t)
                 tau = None
@@ -512,7 +509,7 @@ class Plasma:
     def lz_tot(self):
         fz = self.fz
         for elem in self.elements:
-            for t in self.time:
+            for t in self.t:
                 Ne = self.electron_density.sel(t=t)
                 Te = self.electron_temperature.sel(t=t)
                 if any(np.logical_not((Te > 0) * (Ne > 0))):
@@ -537,7 +534,7 @@ class Plasma:
 
         fz = self.fz
         for elem in self.elements:
-            for t in self.time:
+            for t in self.t:
                 Ne = self.electron_density.sel(t=t)
                 Te = self.electron_temperature.sel(t=t)
                 if any(np.logical_not((Te > 0) * (Ne > 0))):
@@ -592,7 +589,7 @@ class Plasma:
     def prad_tot(self):
         total_radiation = self.total_radiation
         for elem in self.elements:
-            for t in self.time:
+            for t in self.t:
                 self._prad_tot.loc[dict(element=elem, t=t)] = np.trapz(
                     total_radiation.sel(element=elem, t=t), self.volume.sel(t=t)
                 )
@@ -605,7 +602,7 @@ class Plasma:
 
         sxr_radiation = self.sxr_radiation
         for elem in self.elements:
-            for t in self.time:
+            for t in self.t:
                 self._prad_sxr.loc[dict(element=elem, t=t)] = np.trapz(
                     sxr_radiation.sel(element=elem, t=t), self.volume.sel(t=t)
                 )
@@ -625,7 +622,7 @@ class Plasma:
             self.q_prof,
             approx="sauter",
         )
-        for t in self.time:
+        for t in self.t:
             resistivity = 1.0 / self.conductivity.sel(t=t)
             ir = np.where(np.isfinite(resistivity))
             vloop = ph.vloop(
@@ -698,7 +695,7 @@ class Plasma:
 
     def convert_in_time(self, value: DataArray, method="linear"):
         binned = convert_in_time_dt(self.tstart, self.tend, self.dt, value).interp(
-            t=self.time, method=method
+            t=self.t, method=method
         )
 
         return binned
@@ -769,9 +766,9 @@ class Plasma:
         self.Nh_prof.y1 = y1
         self.Nh_prof.yend = y1
         self.Nh_prof.wped = decay
-        self.Nh_prof.build_profile()
-        for t in self.time:
-            self.neutral_density.loc[dict(t=t)] = self.Nh_prof.yspl.values
+        self.Nh_prof()
+        for t in self.t:
+            self.neutral_density.loc[dict(t=t)] = self.Nh_prof()
 
     def map_to_midplane(self):
         # TODO: streamline this to avoid continuously re-calculating quantities e.g. ion_density..
@@ -806,7 +803,7 @@ class Plasma:
 
         for k in midplane_profiles.keys():
             prof_rho = getattr(self, k)
-            for t in self.time:
+            for t in self.t:
                 rho = (
                     self.equilibrium.rho.sel(t=t, method="nearest")
                     .interp(R=R, z=z)
@@ -954,7 +951,7 @@ class Plasma:
 
             prad_tot = self.prad_tot.sel(element=elem)
             prad_sxr = self.prad_sxr.sel(element=elem)
-            for t in self.time:
+            for t in self.t:
                 prad_tot.loc[dict(t=t)] = np.trapz(
                     total_radiation.sel(t=t), self.volume.sel(t=t)
                 )
@@ -972,13 +969,10 @@ class Plasma:
             )
 
 
-def example_run():
+def example_run(tstart=0.02, tend=0.1, dt=0.01):
     # TODO: swap all profiles to new version!
     from indica.profiles_gauss import Profiles
 
-    tstart = 0.02
-    tend = 0.1
-    dt = 0.01
     main_ion = "h"
     impurities = ("c", "ar", "he")
     impurity_concentration = (0.03, 0.001, 0.01)
@@ -993,6 +987,7 @@ def example_run():
         impurity_concentration=impurity_concentration,
         full_run=full_run,
     )
+    plasma.build_atomic_data()
 
     # Assign profiles to time-points
     nt = len(plasma.t)
