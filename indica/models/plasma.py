@@ -221,42 +221,29 @@ class Plasma:
         coords_elem = ("element", list(self.elements))
         coords_imp = ("element", list(self.impurities))
 
-        self.data0d = DataArray(0.0)
-        self.data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
-        self.data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
-        self.data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
-        self.data2d_elem = DataArray(
+        data0d = DataArray(0.0)
+        data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
+        data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
+        data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
+        data2d_elem = DataArray(
             np.zeros((nel, nt)), coords=[coords_elem, coords_time]
         )
-        self.data3d = DataArray(
+        data3d = DataArray(
             np.zeros((nel, nt, nr)), coords=[coords_elem, coords_time, coords_radius]
         )
-        self.data3d_imp = DataArray(
+        data3d_imp = DataArray(
             np.zeros((nimp, nt, nr)), coords=[coords_imp, coords_time, coords_radius]
         )
 
-        self.t = assign_data(self.data1d_time, ("t", "plasma"), "s")
+        self.t = assign_data(data1d_time, ("t", "plasma"), "s")
         self.t.values = time
 
         rho_type = self.radial_coordinate_type.split("_")
         if rho_type[1] != "poloidal":
             print_like("Only poloidal rho in input for the time being...")
             raise AssertionError
-        self.rho = assign_data(self.data1d_rho, (rho_type[0], rho_type[1]))
+        self.rho = assign_data(data1d_rho, (rho_type[0], rho_type[1]))
         self.rho.values = self.radial_coordinate
-
-        self.data3d_fz = {}
-        for elem in self.elements:
-            nz = ELEMENTS[elem][0] + 1
-            ion_charges = np.arange(nz)
-            self.data3d_fz[elem] = DataArray(
-                np.full((len(self.t), len(self.rho), nz), np.nan),
-                coords=[
-                    ("t", self.t),
-                    ("rho_poloidal", self.rho),
-                    ("ion_charges", ion_charges),
-                ],
-            )
 
         self.Te_prof = Profiles(datatype=("temperature", "electron"), xspl=self.rho)
         self.Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=self.rho)
@@ -265,112 +252,81 @@ class Plasma:
         self.Nh_prof = Profiles(datatype=("density", "thermal_neutrals"), xspl=self.rho)
         self.Vrot_prof = Profiles(datatype=("rotation", "toroidal"), xspl=self.rho)
 
-        self.ipla = assign_data(self.data1d_time, ("current", "plasma"), "A")
-        self.R_0 = assign_data(self.data1d_time, ("major_radius", "geometric"), "m")
-        self.R_mag = assign_data(self.data1d_time, ("major_radius", "magnetic"))
-        self.z_mag = assign_data(self.data1d_time, ("z", "magnetic"))
-        self.maj_r_lfs = assign_data(self.data2d, ("radius", "major"))
-        self.maj_r_hfs = assign_data(self.data2d, ("radius", "major"))
-        self.ne_0 = assign_data(self.data1d_time, ("density", "electron"))
-        self.te_0 = assign_data(self.data1d_time, ("temperature", "electron"))
-        self.ti_0 = assign_data(self.data1d_time, ("temperature", "ion"))
+        self.ipla = assign_data(data1d_time, ("current", "plasma"), "A")
+        self.R_0 = assign_data(data1d_time, ("major_radius", "geometric"), "m")
+        self.R_mag = assign_data(data1d_time, ("major_radius", "magnetic"))
+        self.z_mag = assign_data(data1d_time, ("z", "magnetic"))
+        self.maj_r_lfs = assign_data(data2d, ("radius", "major"))
+        self.maj_r_hfs = assign_data(data2d, ("radius", "major"))
+        self.ne_0 = assign_data(data1d_time, ("density", "electron"))
+        self.te_0 = assign_data(data1d_time, ("temperature", "electron"))
+        self.ti_0 = assign_data(data1d_time, ("temperature", "ion"))
         self.electron_temperature = assign_data(
-            self.data2d, ("temperature", "electron")
+            data2d, ("temperature", "electron")
         )
-        self.electron_density = assign_data(self.data2d, ("density", "electron"))
-        self.neutral_density = assign_data(self.data2d, ("density", "neutral"))
-        self.tau = assign_data(self.data2d, ("time", "residence"))
+        self.electron_density = assign_data(data2d, ("density", "electron"))
+        self.neutral_density = assign_data(data2d, ("density", "neutral"))
+        self.tau = assign_data(data2d, ("time", "residence"))
         self.minor_radius = assign_data(
-            self.data2d, ("minor_radius", "plasma")
+            data2d, ("minor_radius", "plasma")
         )  # LFS-HFS averaged value
-        self.volume = assign_data(self.data2d, ("volume", "plasma"))
-        self.area = assign_data(self.data2d, ("area", "plasma"))
-        self.j_phi = assign_data(self.data2d, ("current", "density"))
-        self.b_pol = assign_data(self.data2d, ("field", "poloidal"))
-        self.b_tor_lfs = assign_data(self.data2d, ("field", "toroidal"))
-        self.b_tor_hfs = assign_data(self.data2d, ("field", "toroidal"))
-        self.q_prof = assign_data(self.data2d, ("factor", "safety"))
-        self.conductivity = assign_data(self.data2d, ("conductivity", "plasma"))
-        self.l_i = assign_data(self.data1d_time, ("inductance", "internal"))
+        self.volume = assign_data(data2d, ("volume", "plasma"))
+        self.area = assign_data(data2d, ("area", "plasma"))
+        self.j_phi = assign_data(data2d, ("current", "density"))
+        self.b_pol = assign_data(data2d, ("field", "poloidal"))
+        self.b_tor_lfs = assign_data(data2d, ("field", "toroidal"))
+        self.b_tor_hfs = assign_data(data2d, ("field", "toroidal"))
+        self.q_prof = assign_data(data2d, ("factor", "safety"))
+        self.conductivity = assign_data(data2d, ("conductivity", "plasma"))
+        self.l_i = assign_data(data1d_time, ("inductance", "internal"))
 
-        self.ion_temperature = assign_data(self.data3d, ("temperature", "ion"))
-        self.toroidal_rotation = assign_data(self.data3d, ("toroidal_rotation", "ion"))
+        self.ion_temperature = assign_data(data3d, ("temperature", "ion"))
+        self.toroidal_rotation = assign_data(data3d, ("toroidal_rotation", "ion"))
         self.impurity_density = assign_data(
-            self.data3d_imp, ("density", "impurity"), "m^-3"
+            data3d_imp, ("density", "impurity"), "m^-3"
         )
-        self.fast_temperature = assign_data(self.data2d, ("temperature", "fast"))
-        self.fast_density = assign_data(self.data2d, ("density", "fast"))
+        self.fast_temperature = assign_data(data2d, ("temperature", "fast"))
+        self.fast_density = assign_data(data2d, ("density", "fast"))
 
         # Private variables for class property variables
-        # TODO: transpose in dependencies, i.e. what depends on e.g. electron_density?
-        # self.dependencies = {"electron_density":("ion_densityity", "zeff", "fz", )}
-        self.properties = {
-            "ion_densityity": (
-                "electron_density",
-                "fast_density",
-                "meanz",
-                "main_ion",
-                "impurity_density",
-            ),
-            "zeff": ("electron_density", "ion_densityity", "meanz"),
-            "meanz": ("fz",),
-            "fz": (
-                "electron_temperature",
-                "electron_density",
-                "tau",
-                "neutral_density",
-            ),
-            "lz_tot": ("electron_temperature, electron_density, neutral_density", "fz"),
-            "lz_sxr": ("electron_temperature, electron_density, neutral_density", "fz"),
-            "total_radiation": ("lz_tot", "electron_density", "ion_densityity"),
-            "sxr_radiation": ("lz_sxr", "electron_density", "ion_densityity"),
-            "prad_tot": ("total_radiation"),
-            "prad_sxr": ("sxr_radiation"),
-            "pressure_el": ("electron_density", "electron_temperature"),
-            "pressure_th": (
-                "electron_density",
-                "ion_densityity",
-                "electron_temperature",
-                "ion_temperature",
-            ),
-            "pressure_tot": ("pressure_th", "fast_density", "fast_temperature"),
-            "pth": ("pressure_th",),
-            "ptot": ("pressure_tot",),
-            "wth": ("pth",),
-            "wp": ("ptot",),
-        }
-
         self._pressure_el = assign_data(
-            self.data2d, ("pressure", "electron"), "Pa m^-3"
+            data2d, ("pressure", "electron"), "Pa m^-3"
         )
-        self._pressure_th = assign_data(self.data2d, ("pressure", "thermal"), "Pa m^-3")
-        self._ion_density = assign_data(self.data3d, ("density", "ion"), "m^-3")
-        self._pressure_tot = assign_data(self.data2d, ("pressure", "total"), "Pa m^-3")
-        self._pth = assign_data(self.data1d_time, ("pressure", "thermal"), "Pa")
-        self._ptot = assign_data(self.data1d_time, ("pressure", "total"), "Pa")
-        self._wth = assign_data(self.data1d_time, ("stored_energy", "thermal"), "J")
-        self._wp = assign_data(self.data1d_time, ("stored_energy", "total"), "J")
-        self._zeff = assign_data(self.data3d, ("charge", "effective"), "")
-        self._ion_density = assign_data(self.data3d, ("density", "ion"), "m^-3")
-        self._meanz = assign_data(self.data3d, ("charge", "mean"), "")
+        self._pressure_th = assign_data(data2d, ("pressure", "thermal"), "Pa m^-3")
+        self._ion_density = assign_data(data3d, ("density", "ion"), "m^-3")
+        self._pressure_tot = assign_data(data2d, ("pressure", "total"), "Pa m^-3")
+        self._pth = assign_data(data1d_time, ("pressure", "thermal"), "Pa")
+        self._ptot = assign_data(data1d_time, ("pressure", "total"), "Pa")
+        self._wth = assign_data(data1d_time, ("stored_energy", "thermal"), "J")
+        self._wp = assign_data(data1d_time, ("stored_energy", "total"), "J")
+        self._zeff = assign_data(data3d, ("charge", "effective"), "")
+        self._ion_density = assign_data(data3d, ("density", "ion"), "m^-3")
+        self._meanz = assign_data(data3d, ("charge", "mean"), "")
         self._total_radiation = assign_data(
-            self.data3d, ("radiation_emission", "total"), "W m^-3"
+            data3d, ("radiation_emission", "total"), "W m^-3"
         )
         self._sxr_radiation = assign_data(
-            self.data3d, ("radiation_emission", "sxr"), "W m^-3"
+            data3d, ("radiation_emission", "sxr"), "W m^-3"
         )
-        self._prad_tot = assign_data(self.data2d_elem, ("radiation", "total"), "W")
-        self._prad_sxr = assign_data(self.data2d_elem, ("radiation", "sxr"), "W")
-        self._lz_tot = deepcopy(self.data3d_fz)
-        self._fz = deepcopy(self.data3d_fz)
-        self._lz_sxr = deepcopy(self.data3d_fz)
+        self._prad_tot = assign_data(data2d_elem, ("radiation", "total"), "W")
+        self._prad_sxr = assign_data(data2d_elem, ("radiation", "sxr"), "W")
+        self._fz = {}
+        self._lz_tot = {}
+        self._lz_sxr = {}
         for elem in self.elements:
-            self._fz[elem].attrs["datatype"] = ("fractional_abundance", "ion")
-            self._fz[elem].attrs["unit"] = ""
-            self._lz_tot[elem].attrs["datatype"] = ("radiation_loss_parameter", "total")
-            self._lz_tot[elem].attrs["unit"] = "W m^3"
-            self._lz_sxr[elem].attrs["datatype"] = ("radiation_loss_parameter", "sxr")
-            self._lz_sxr[elem].attrs["unit"] = "W m^3"
+            nz = ELEMENTS[elem][0] + 1
+            ion_charges = np.arange(nz)
+            data3d_fz = DataArray(
+                np.full((len(self.t), len(self.rho), nz), np.nan),
+                coords=[
+                    ("t", self.t),
+                    ("rho_poloidal", self.rho),
+                    ("ion_charges", ion_charges),
+                ],
+            )
+            self._fz[elem] = assign_data(data3d_fz, ("fractional_abundance", "ion"), "")
+            self._lz_tot[elem] = assign_data(data3d_fz, ("radiation_loss_parameter", "total"), "W m^3")
+            self._lz_sxr[elem] = assign_data(data3d_fz, ("radiation_loss_parameter", "sxr"), "W m^3")
 
     def assign_profiles(
         self, profile: str = "electron_density", t: float = None, element: str = "ar"

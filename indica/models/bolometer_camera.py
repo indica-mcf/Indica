@@ -4,7 +4,7 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
-from indica.models.plasma import Plasma
+from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 
@@ -14,10 +14,9 @@ import xarray as xr
 from xarray import DataArray
 import matplotlib.pylab as plt
 import numpy as np
-from typing import Tuple
 
 
-class Bolometer:
+class Bolometer(DiagnosticModel):
     """
     Object representing a bolometer camera diagnostic
     """
@@ -25,61 +24,12 @@ class Bolometer:
     def __init__(
         self,
         name: str,
-        origin: LabeledArray = None,
-        direction: LabeledArray = None,
-        dl: float = 0.005,
-        passes: int = 1,
-        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-            (1.83, 3.9),
-            (-1.75, 2.0),
-        ),
         instrument_method="get_radiation",
     ):
 
         self.name = name
         self.instrument_method = instrument_method
-        self.bckc = {}
-        self.plasma:Plasma = None
-        if origin is not None and direction is not None:
-            self.transform = LineOfSightTransform(
-                origin[:, 0],
-                origin[:, 1],
-                origin[:, 2],
-                direction[:, 0],
-                direction[:, 1],
-                direction[:, 2],
-                name=name,
-                dl=dl,
-                machine_dimensions=machine_dimensions,
-                passes=passes,
-            )
-
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
-
-    def set_transform(self, transform: LineOfSightTransform):
-        """
-        Set line of sight transform of diagnostic
-
-        Parameters
-        ----------
-        transform
-            line of sight transform of the modelled diagnostic
-        """
-        self.transform = transform
-        self.bckc = {}
-
-    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        """
-        set flux surface transform for flux mapping of the line of sight
-        """
-        self.transform.set_flux_transform(flux_transform)
-        self.bckc = {}
-
-    def set_plasma(self, plasma:Plasma):
-        """
-        Assign Plasma class to use for computation of forward model
-        """
-        self.plasma = plasma
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -104,9 +54,9 @@ class Bolometer:
 
     def __call__(
         self,
-        Ne: DataArray=None,
-        Nimp: DataArray=None,
-        Lz: {}=None,
+        Ne: DataArray = None,
+        Nimp: DataArray = None,
+        Lz: {} = None,
         t: LabeledArray = None,
     ):
         """
@@ -138,11 +88,7 @@ class Bolometer:
                 Lz[elem] = _Lz[elem].sel(t=t)
             Nimp = self.plasma.impurity_density.sel(t=t)
         else:
-            if (
-                Ne is None
-                or Nimp is None
-                or Lz is None
-            ):
+            if Ne is None or Nimp is None or Lz is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
         self.Ne = Ne
@@ -158,7 +104,9 @@ class Bolometer:
 
         emission = []
         for ielem, elem in enumerate(elements):
-            emission.append(self.Lz[elem].sum("ion_charges") * self.Nimp.sel(element=elem) * self.Ne)
+            emission.append(
+                self.Lz[elem].sum("ion_charges") * self.Nimp.sel(element=elem) * self.Ne
+            )
         emission = xr.concat(emission, "element")
         los_integral = self.transform.integrate_on_los(
             emission.sum("element"), x1, x2, t=t,
@@ -185,7 +133,6 @@ def example_run(
 
     if plasma is None:
         plasma = example_plasma()
-        plasma.build_atomic_data()
 
         # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
         pulse = 9229
@@ -450,7 +397,17 @@ def viewing_cone(option: int = 2, plasma=None):
 
     model0.transform.plot_los(tplot=np.mean(plasma.t))
     for chan in model0.transform.x1:
-        plt.plot(model1.transform.x[chan], model1.transform.y[chan], color="gray", linestyle="dashed")
-        plt.plot(model2.transform.x[chan], model2.transform.y[chan], color="gray", linestyle="dotted")
+        plt.plot(
+            model1.transform.x[chan],
+            model1.transform.y[chan],
+            color="gray",
+            linestyle="dashed",
+        )
+        plt.plot(
+            model2.transform.x[chan],
+            model2.transform.y[chan],
+            color="gray",
+            linestyle="dotted",
+        )
 
     return plasma, model0, bckc0

@@ -1,10 +1,10 @@
+from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.converters.line_of_sight_multi import LineOfSightTransform
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
-from indica.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 import matplotlib.cm as cm
@@ -13,26 +13,15 @@ import xarray as xr
 from xarray import DataArray
 import matplotlib.pylab as plt
 import numpy as np
-from typing import Tuple
 
 
-class Interferometry:
+class Interferometry(DiagnosticModel):
     """
     Object representing an interferometer diagnostics
     """
 
     def __init__(
-        self,
-        name: str,
-        origin: LabeledArray = None,
-        direction: LabeledArray = None,
-        dl: float = 0.005,
-        passes: int = 2,
-        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-            (1.83, 3.9),
-            (-1.75, 2.0),
-        ),
-        instrument_method="get_interferometry",
+        self, name: str, instrument_method="get_interferometry",
     ):
 
         self.name = name
@@ -40,49 +29,8 @@ class Interferometry:
 
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
-        if origin is not None and direction is not None:
-            self.transform = LineOfSightTransform(
-                origin[:, 0],
-                origin[:, 1],
-                origin[:, 2],
-                direction[:, 0],
-                direction[:, 1],
-                direction[:, 2],
-                name=name,
-                dl=dl,
-                machine_dimensions=machine_dimensions,
-                passes=passes,
-            )
-
-        self.bckc = {}
         self.Ne = None
-        self.plasma:Plasma = None
         self.los_integral_ne = None
-
-    def set_transform(self, transform: LineOfSightTransform):
-        """
-        Parameters
-        ----------
-        transform
-            line of sight transform of the modelled diagnostic
-        passes
-            number of passes along the line of sight
-        """
-        self.transform = transform
-        self.bckc = {}
-
-    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        """
-        set flux surface transform for flux mapping of the line of sight
-        """
-        self.transform.set_flux_transform(flux_transform)
-        self.bckc = {}
-
-    def set_plasma(self, plasma:Plasma):
-        """
-        Assign Plasma class to use for computation of forward model
-        """
-        self.plasma = plasma
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -105,7 +53,7 @@ class Interferometry:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
 
-    def __call__(self, Ne: DataArray=None, t: LabeledArray = None):
+    def __call__(self, Ne: DataArray = None, t: LabeledArray = None):
         """
         Calculate diagnostic measured values
 
@@ -144,7 +92,6 @@ class Interferometry:
 
 def example_run():
     plasma = example_plasma()
-    plasma.build_atomic_data()
 
     # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
     pulse = 9229
@@ -166,13 +113,19 @@ def example_run():
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
     origin = los_start
     direction = los_end - los_start
-    model = Interferometry(
-        diagnostic_name,
-        origin=origin,
-        direction=direction,
-        passes=2,
+    model = Interferometry(diagnostic_name,)
+    transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name=diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
+        passes=1,
     )
+    model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
     bckc = model()
