@@ -13,7 +13,6 @@ class Profiles:
         xend:float=1.05,
         xspl: np.ndarray = None,
         coord="poloidal",
-        set_defaults = False,
     ):
         """
         Class to build general profiles e.g. temperature, density, rotation and neutral density
@@ -226,10 +225,10 @@ def get_defaults(datatype: tuple) -> dict:
 
 
 def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
-    Te = Profiles(datatype=("temperature", "electron"), xspl=rho, set_defaults=True)
-    Ne = Profiles(datatype=("density", "electron"), xspl=rho, set_defaults=True)
-    Nimp = Profiles(datatype=("density", "impurity"), xspl=rho, set_defaults=True)
-    Vrot = Profiles(datatype=("rotation", "toroidal"), xspl=rho, set_defaults=True)
+    Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
+    Ne = Profiles(datatype=("density", "electron"), xspl=rho)
+    Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
+    Vrot = Profiles(datatype=("rotation", "toroidal"), xspl=rho)
 
     Te_list = {}
     Ti_list = {}
