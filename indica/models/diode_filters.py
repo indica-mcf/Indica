@@ -1,11 +1,11 @@
 import indica.physics as ph
+from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.converters.line_of_sight_multi import LineOfSightTransform
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
-from indica.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 import matplotlib.cm as cm
@@ -14,10 +14,9 @@ import xarray as xr
 from xarray import DataArray
 import matplotlib.pylab as plt
 import numpy as np
-from typing import Tuple
 
 
-class Diode_filters:
+class Diode_filters(DiagnosticModel):
     """
     Object representing an diode filter diagnostic measuring
     in a specified spectral range
@@ -28,19 +27,11 @@ class Diode_filters:
     def __init__(
         self,
         name: str,
-        origin: LabeledArray = None,
-        direction: LabeledArray = None,
         filter_wavelength: float = 530.0,
         filter_fwhm: float = 10,
         filter_shape: str = "tophat",
         etendue: float = 1.0,
         calibration: float = 2.0e-5,
-        dl: float = 0.005,
-        passes: int = 2,
-        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-            (1.83, 3.9),
-            (-1.75, 2.0),
-        ),
         instrument_method="get_diode_filters",
     ):
         self.name = name
@@ -50,51 +41,9 @@ class Diode_filters:
         self.etendue = etendue
         self.calibration = calibration
         self.instrument_method = instrument_method
+        self.los_integral: DataArray = None
 
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
-
-        if origin is not None and direction is not None:
-            self.transform = LineOfSightTransform(
-                origin[:, 0],
-                origin[:, 1],
-                origin[:, 2],
-                direction[:, 0],
-                direction[:, 1],
-                direction[:, 2],
-                name=name,
-                dl=dl,
-                machine_dimensions=machine_dimensions,
-                passes=passes,
-            )
-
-        self.bckc:dict = {}
-        self.los_integral:DataArray = None
-        self.plasma:Plasma = None
-
-    def set_transform(self, transform: LineOfSightTransform):
-        """
-        Parameters
-        ----------
-        transform
-            line of sight transform of the modelled diagnostic
-        passes
-            number of passes along the line of sight
-        """
-        self.transform = transform
-        self.bckc = {}
-
-    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        """
-        set flux surface transform for flux mapping of the line of sight
-        """
-        self.transform.set_flux_transform(flux_transform)
-        self.bckc = {}
-
-    def set_plasma(self, plasma:Plasma):
-        """
-        Assign Plasma class to use for computation of forward model
-        """
-        self.plasma = plasma
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -176,7 +125,6 @@ class Diode_filters:
 
 def example_run():
     plasma = example_plasma()
-    plasma.build_atomic_data()
 
     # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
     pulse = 9229
@@ -198,13 +146,19 @@ def example_run():
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
     origin = los_start
     direction = los_end - los_start
-    model = Diode_filters(
-        diagnostic_name,
-        origin=origin,
-        direction=direction,
-        passes=1,
+    transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name=diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
+        passes=1,
     )
+    model = Diode_filters(diagnostic_name,)
+    model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
     bckc = model()

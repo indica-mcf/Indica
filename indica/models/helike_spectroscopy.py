@@ -2,20 +2,17 @@ from copy import deepcopy
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
-import pickle
 from xarray import DataArray
-from scipy.interpolate import interp1d
 from scipy import constants
-from typing import Tuple
 
 from indica.readers import ADASReader
+from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.converters.line_of_sight_multi import LineOfSightTransform
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 from indica.readers import ST40Reader
 from indica.models.plasma import example_run as example_plasma
-from indica.models.plasma import Plasma
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.readers.marchuk import MARCHUKReader
@@ -40,7 +37,7 @@ ADF15 = {
 }
 
 
-class Helike_spectroscopy:
+class Helike_spectroscopy(DiagnosticModel):
     """
     Data and methods to model XRCS spectrometer measurements
 
@@ -50,14 +47,6 @@ class Helike_spectroscopy:
     def __init__(
         self,
         name: str,
-        origin: LabeledArray = None,
-        direction: LabeledArray = None,
-        dl: float = 0.005,
-        passes: int = 1,
-        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-            (1.83, 3.9),
-            (-1.75, 2.0),
-        ),
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
         calibration: float = 1.0e-18,
@@ -100,20 +89,6 @@ class Helike_spectroscopy:
         self.ion_charge = ELEMENTS[element][0] - 2  # He-like
         self.ion_mass = ELEMENTS[element][1]
 
-        if origin is not None and direction is not None:
-            self.los_transform = LineOfSightTransform(
-                origin[:, 0],
-                origin[:, 1],
-                origin[:, 2],
-                direction[:, 0],
-                direction[:, 1],
-                direction[:, 2],
-                name=name,
-                dl=dl,
-                machine_dimensions=machine_dimensions,
-                passes=passes,
-            )
-
         self.etendue = etendue
         self.calibration = calibration
         self.int_cal = int_cal  # TODO: absolute calibration? use only this or above
@@ -126,12 +101,6 @@ class Helike_spectroscopy:
         else:
             self.pec = self._set_adas_pecs(adf15=adf15, extrapolate=extrapolate)
 
-        # if marchuk:
-        #     self._set_marchuk_pecs(extrapolate=extrapolate)
-        # else:
-        #     self._set_adas_pecs(adf15=adf15, extrapolate=extrapolate)
-
-        self.bckc = {}
         self.emission = {}
         self.emission_los = {}
         self.los_integral_intensity = {}
@@ -141,7 +110,6 @@ class Helike_spectroscopy:
         self.pos = {}
         self.err_in = {}
         self.err_out = {}
-        self.plasma: Plasma = None
 
         self.Te = None
         self.Ne = None
@@ -149,31 +117,6 @@ class Helike_spectroscopy:
         self.Fz = None
         self.Nh = None
         self.t = None
-
-    def set_transform(self, transform: LineOfSightTransform):
-        """
-        Parameters
-        ----------
-        transform
-            line of sight transform of the modelled diagnostic
-        passes
-            number of passes along the line of sight
-        """
-        self.los_transform = transform
-        self.bckc = {}
-
-    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        """
-        set flux surface transform for flux mapping of the line of sight
-        """
-        self.los_transform.set_flux_transform(flux_transform)
-        self.bckc = {}
-
-    def set_plasma(self, plasma: Plasma):
-        """
-        Assign Plasma class to use for computation of forward model
-        """
-        self.plasma = plasma
 
     def _set_adas_pecs(self, adf15: dict = None, extrapolate: str = None):
         """
@@ -318,14 +261,14 @@ class Helike_spectroscopy:
         return emission
 
     def _calculate_los_integral(self):
-        x1 = self.los_transform.x1
-        x2 = self.los_transform.x2
+        x1 = self.transform.x1
+        x2 = self.transform.x2
 
         for line in self.emission.keys():
-            self.measured_intensity[line] = self.los_transform.integrate_on_los(
+            self.measured_intensity[line] = self.transform.integrate_on_los(
                 self.emission[line], x1, x2, t=self.emission[line].t,
             )
-            self.emission_los[line] = self.los_transform.along_los
+            self.emission_los[line] = self.transform.along_los
             (
                 _,
                 self.pos[line],
@@ -333,14 +276,14 @@ class Helike_spectroscopy:
                 self.err_out[line],
             ) = self._moment_analysis(line, self.t)
 
-        self.measured_spectra = self.los_transform.integrate_on_los(
+        self.measured_spectra = self.transform.integrate_on_los(
             self.spectra["total"], x1, x2, t=self.spectra["total"].t,
         )
         self.t = self.measured_intensity[line].t
 
     def _calculate_temperatures(self):
-        x1 = self.los_transform.x1
-        x1_name = self.los_transform.x1_name
+        x1 = self.transform.x1
+        x1_name = self.transform.x1_name
 
         for quant in self.quantities:
             datatype = self.quantities[quant]
@@ -388,10 +331,10 @@ class Helike_spectroscopy:
         """
 
         element = self.emission[line].element.values
-        rho_los = self.los_transform.rho
+        rho_los = self.transform.rho
         result = []
         pos, err_in, err_out = [], [], []
-        for chan in self.los_transform.x1:
+        for chan in self.transform.x1:
             _value = None
             _result = []
             _pos, _err_in, _err_out = [], [], []
@@ -448,17 +391,17 @@ class Helike_spectroscopy:
             err_in.append(DataArray(np.array(_err_in), coords=[("t", t)]))
             err_out.append(DataArray(np.array(_err_out), coords=[("t", t)]))
 
-        result = xr.concat(result, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
+        result = xr.concat(result, self.transform.x1_name).assign_coords(
+            {self.transform.x1_name: self.transform.x1}
         )
-        pos = xr.concat(pos, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
+        pos = xr.concat(pos, self.transform.x1_name).assign_coords(
+            {self.transform.x1_name: self.transform.x1}
         )
-        err_in = xr.concat(err_in, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
+        err_in = xr.concat(err_in, self.transform.x1_name).assign_coords(
+            {self.transform.x1_name: self.transform.x1}
         )
-        err_out = xr.concat(err_out, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
+        err_out = xr.concat(err_out, self.transform.x1_name).assign_coords(
+            {self.transform.x1_name: self.transform.x1}
         )
 
         return result, pos, err_in, err_out
@@ -794,152 +737,11 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def get_marchuk(extrapolate: str = None, as_is=False):
-    print("Using Marchukc PECs")
-
-    el_dens = np.array([1.0e15, 1.0e17, 1.0e19, 1.0e21, 1.0e23])
-    adf15 = {
-        "w": {
-            "element": "ar",
-            "file": MARCHUK,
-            "charge": 16,
-            "transition": "",
-            "wavelength": 4.0,
-        },
-        "z": {
-            "element": "ar",
-            "file": MARCHUK,
-            "charge": 16,
-            "transition": "",
-            "wavelength": 4.0,
-        },
-        "k": {
-            "element": "ar",
-            "file": MARCHUK,
-            "charge": 16,
-            "transition": "",
-            "wavelength": 4.0,
-        },
-        "n3": {
-            "element": "ar",
-            "file": MARCHUK,
-            "charge": 16,
-            "transition": "",
-            "wavelength": 4.0,
-        },
-        "n345": {
-            "element": "ar",
-            "file": MARCHUK,
-            "charge": 16,
-            "transition": "",
-            "wavelength": 4.0,
-        },
-        "qra": {
-            "element": "ar",
-            "file": MARCHUK,
-            "charge": 15,
-            "transition": "",
-            "wavelength": 4.0,
-        },
-    }
-
-    data = pickle.load(open(MARCHUK, "rb"))
-    data *= 1.0e-6  # cm**3 --> m**3
-    data = data.rename({"el_temp": "electron_temperature"})
-
-    if as_is:
-        return data
-
-    Te = data.electron_temperature.values
-    if extrapolate is not None:
-        new_data = data.interp(electron_temperature=Te)
-        for line in data.line_name:
-            y = data.sel(line_name=line).values
-            ifin = np.where(np.isfinite(y))[0]
-            extrapolate_method = {
-                "extrapolate": "extrapolate",
-                "constant": (np.log(y[ifin[0]]), np.log(y[ifin[-1]])),
-            }
-            fill_value = extrapolate_method[extrapolate]
-
-            func = interp1d(
-                np.log(Te[ifin]),
-                np.log(y[ifin]),
-                fill_value=fill_value,
-                bounds_error=False,
-            )
-            new_data.loc[dict(line_name=line)] = np.exp(func(np.log(Te)))
-            data = new_data
-    else:
-        # Restrict data to where all are finite
-        ifin = np.array([True] * len(Te))
-        for line in data.line_name:
-            ifin *= np.where(np.isfinite(data.sel(line_name=line).values), True, False)
-        ifin = np.where(ifin == True)[0]
-        Te = Te[ifin]
-        line_name = data.line_name.values
-        new_data = []
-        for line in data.line_name:
-            y = data.sel(line_name=line).values[ifin]
-            new_data.append(DataArray(y, coords=[("electron_temperature", Te)]))
-        data = xr.concat(new_data, "line_name").assign_coords(line_name=line_name)
-
-    data = data.expand_dims({"electron_density": el_dens})
-
-    # Reorder data in correct format
-    pecs = {}
-    w, z, k, n3, n345, qra = [], [], [], [], [], []
-    for t in ["w_exc", "w_rec", "w_cxr"]:
-        w.append(data.sel(line_name=t, drop=True))
-    pecs["w"] = (
-        xr.concat(w, "index")
-        .assign_coords(index=[0, 1, 2])
-        .assign_coords(type=("index", ["excit", "recom", "cxr"]))
-    )
-
-    for t in ["z_exc", "z_rec", "z_cxr", "z_isi", "z_diel"]:
-        z.append(data.sel(line_name=t, drop=True))
-    pecs["z"] = (
-        xr.concat(z, "index")
-        .assign_coords(index=[0, 1, 2, 3, 4])
-        .assign_coords(type=("index", ["excit", "recom", "cxr", "isi", "diel"]))
-    )
-
-    pecs["k"] = (
-        xr.concat([data.sel(line_name="k_diel", drop=True)], "index")
-        .assign_coords(index=[0])
-        .assign_coords(type=("index", ["diel"]))
-    )
-
-    pecs["n3"] = (
-        xr.concat([data.sel(line_name="n3_diel", drop=True)], "index")
-        .assign_coords(index=[0])
-        .assign_coords(type=("index", ["diel"]))
-    )
-
-    pecs["n345"] = (
-        xr.concat([data.sel(line_name="n345_diel", drop=True)], "index")
-        .assign_coords(index=[0])
-        .assign_coords(type=("index", ["diel"]))
-    )
-
-    for t in ["qra_ise", "qra_lidiel"]:
-        qra.append(data.sel(line_name=t, drop=True))
-    pecs["qra"] = (
-        xr.concat(qra, "index")
-        .assign_coords(index=[0, 1])
-        .assign_coords(type=("index", ["ise", "diel"]))
-    )
-
-    return adf15, pecs
-
-
 def example_run(use_real_transform=False):
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
 
     plasma = example_plasma()
-    plasma.build_atomic_data()
 
     # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
     pulse = 9229
@@ -974,20 +776,23 @@ def example_run(use_real_transform=False):
         origin = los_start
         direction = los_end - los_start
 
-    model = Helike_spectroscopy(
-        diagnostic_name,
-        origin=origin,
-        direction=direction,
+    transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name=diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
+        passes=1,
     )
+    model = Helike_spectroscopy(diagnostic_name,)
+    model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
-    # model.los_transform.convert_to_rho(
-    #     model.los_transform.x1, model.los_transform.x2, t=tplot
-    # )
     model.set_plasma(plasma)
 
     bckc = model()
-    
     # TODO: other possibility is to call using input profiles
     # bckc = model(
     #     plasma.electron_temperature,
@@ -999,7 +804,7 @@ def example_run(use_real_transform=False):
     #     t=plasma.t,
     # )
 
-    channels = model.los_transform.x1
+    channels = model.transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
     # Plot spectra
@@ -1019,8 +824,8 @@ def example_run(use_real_transform=False):
     )
     for chan in channels:
         plt.plot(
-            model.los_transform.R[chan],
-            model.los_transform.z[chan],
+            model.transform.R[chan],
+            model.transform.z[chan],
             linewidth=3,
             color=cols[chan],
             alpha=0.7,
@@ -1035,7 +840,7 @@ def example_run(use_real_transform=False):
     # Plot LOS mapping on equilibrium
     plt.figure()
     for chan in channels:
-        model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
+        model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
             color=cols[chan], label=f"CH{chan}",
         )
     plt.xlabel("Path along the LOS")
