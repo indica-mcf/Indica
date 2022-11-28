@@ -5,10 +5,14 @@ from scipy.interpolate import interp1d
 from xarray import DataArray
 from xarray import Dataset
 from xarray import Variable
+import xarray as xr
+
+from typing import Tuple
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
+from .flux_surfaces import FluxSurfaceCoordinates
 
 
 class TransectCoordinates(CoordinateTransform):
@@ -43,26 +47,75 @@ class TransectCoordinates(CoordinateTransform):
 
     """
 
-    def __init__(self, R_positions: LabeledArray, z_positions: LabeledArray):
-        assert isinstance(R_positions, (DataArray, Dataset, Variable))
-        indices = DataArray(np.arange(len(R_positions)))
-        self.R_vals = interp1d(
-            indices, R_positions, copy=False, fill_value="extrapolate"
-        )
-        self.z_vals = interp1d(
-            indices, z_positions, copy=False, fill_value="extrapolate"
-        )
-        self.invert = interp1d(
-            R_positions, indices, copy=False, fill_value="extrapolate"
-        )
-        if isinstance(z_positions, DataArray):
-            if R_positions.dims != z_positions.dims:
-                raise ValueError(
-                    "R_positions and z_positions must have the same dimensiosn."
-                )
+    def __init__(
+        self,
+        x_positions: LabeledArray,
+        y_positions: LabeledArray,
+        z_positions: LabeledArray,
+        name:str,
+        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+                (1.83, 3.9),
+                (-1.75, 2.0),
+        ),
+    ):
+        if np.shape(x_positions) != np.shape(z_positions) or np.shape(
+            y_positions
+        ) != np.shape(z_positions):
+            raise ValueError("x_, y_ and z_positions must have the same dimensions.")
 
-        self.x1_name = str(R_positions.dims[0])
-        self.x2_name = self.x1_name + "_z_offset"
+        self.x1_name = "channel"
+        self.x2_name = ""
+        self.name = f"{name}_transect_transform"
+
+        x1 = np.arange(len(x_positions))
+        self.x1 = DataArray(x1, coords=[(self.x1_name, x1)])
+        self.x2 = DataArray(None)
+
+        # TODO: add intersection with first walls to restrict possible coordinates
+        self._machine_dims = machine_dimensions
+
+        R_positions = np.sqrt(x_positions**2 + y_positions**2)
+        self.x_interp = interp1d(
+            self.x1, x_positions, copy=False, fill_value="extrapolate"
+        )
+        self.y_interp = interp1d(
+            self.x1, y_positions, copy=False, fill_value="extrapolate"
+        )
+        self.z_interp = interp1d(
+            self.x1, z_positions, copy=False, fill_value="extrapolate"
+        )
+
+        self.invert_x = interp1d(
+            x_positions, self.x1, copy=False, fill_value="extrapolate"
+        )
+        self.invert_y = interp1d(
+            y_positions, self.x1, copy=False, fill_value="extrapolate"
+        )
+        self.invert_z = interp1d(
+            z_positions, self.x1, copy=False, fill_value="extrapolate"
+        )
+        self.invert_R = interp1d(
+            R_positions, self.x1, copy=False, fill_value="extrapolate",
+        )
+
+        x, y = self.convert_to_xy(self.x1, self.x2, None)
+        R, z = self.convert_to_Rz(self.x1, self.x2, None)
+        self.x = x
+        self.y = y
+        self.z = z
+        self.R = R
+
+
+    def set_flux_transform(
+        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
+    ):
+        """
+        Set flux surface transform to perform remapping from physical to flux space
+        """
+        if not hasattr(self, "flux_transform") or force:
+            self.flux_transform = flux_transform
+        elif self.flux_transform != flux_transform:
+            raise Exception("Attempt to set flux surface transform twice.")
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -72,9 +125,9 @@ class TransectCoordinates(CoordinateTransform):
         Parameters
         ----------
         x1
-            The first spatial coordinate in this system.
+            The channel
         x2
-            The second spatial coordinate in this system.
+            Set to None: not needed in this coordinate transform
         t
             The time coordinate (if there is one, otherwise ``None``)
 
@@ -88,9 +141,39 @@ class TransectCoordinates(CoordinateTransform):
         """
         dims = x1.dims if isinstance(x1, (DataArray, Variable, Dataset)) else None
         coords = x1.coords if isinstance(x1, (DataArray, Dataset)) else None
-        R = DataArray(self.R_vals(x1), coords, dims)
-        z = DataArray(self.z_vals(x1), coords, dims) + x2
+        R = DataArray(
+            np.sqrt(self.x_interp(x1) ** 2 + self.y_interp(x1) ** 2), coords, dims
+        )
+        z = DataArray(self.z_interp(x1), coords, dims)
         return R, z
+
+    def convert_to_xy(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
+    ) -> Coordinates:
+        """Convert from this coordinate to the R-z coordinate system.
+
+        Parameters
+        ----------
+        x1
+            The channel
+        x2
+            Set to None: not needed in this coordinate transform
+        t
+            The time coordinate (if there is one, otherwise ``None``)
+
+        Returns
+        -------
+        x
+            x Cartesian coordinate
+        y
+            y Cartesian coordinate
+
+        """
+        dims = x1.dims if isinstance(x1, (DataArray, Variable, Dataset)) else None
+        coords = x1.coords if isinstance(x1, (DataArray, Dataset)) else None
+        x = DataArray(self.x_interp(x1), coords, dims)
+        y = DataArray(self.y_interp(x1), coords, dims)
+        return x, y
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -102,24 +185,111 @@ class TransectCoordinates(CoordinateTransform):
         R
             Major radius coordinate
         z
-            Height coordinate
+            z coordinate
         t
             Time coordinate)
 
         Returns
         -------
         x1
-            The first spatial coordinate in this system.
+            The channel
         x2
-            The second spatial coordinate in this system.
+            Not applicable to this transform: None
 
         """
         dims = R.dims if isinstance(R, (DataArray, Variable, Dataset)) else None
         coords = R.coords if isinstance(R, (DataArray, Dataset)) else None
         x1 = DataArray(self.invert(R), coords, dims)
-        tmp = DataArray(self.z_vals(x1), coords, dims)
-        x2 = z - tmp  # type: ignore
+        x2 = DataArray(None)
+
         return x1, x2
+
+    def convert_to_rho(
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray = None
+    ) -> Coordinates:
+        """
+        Convert R, z to rho given the flux surface transform
+        """
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Set flux transform to convert (R,z) to rho")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
+
+        if np.array_equal(x1, self.x1):
+            R = self.R
+            z = self.z
+        else:
+            R, z = self.convert_to_Rz(x1, x2, t)
+
+        rho, theta = self.flux_transform.convert_from_Rz(R, z, t=t)
+        drop_vars = ["R", "z"]
+        for var in drop_vars:
+            if var in rho.coords:
+                rho = rho.drop_vars(var)
+            if var in theta.coords:
+                theta = theta.drop_vars(var)
+
+        if np.array_equal(x1, self.x1):
+            self.rho = rho
+            self.theta = theta
+
+        return rho, theta
+
+    def map_to_channels(
+        self,
+        profile_1d: DataArray,
+        x1: LabeledArray,
+        x2: LabeledArray = None,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+    ) -> list:
+        """
+        Map 1D profile to measurement coordinates
+
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        x1
+            List of channels to map
+        x2
+            None for this transform
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+
+        Returns
+        -------
+            Interpolation of the input profile on the diagnostic channels
+        """
+        self.check_flux_transform()
+
+        x2 = DataArray(None)
+        if hasattr(self, "rho"):
+            x1_equal = np.array_equal(x1, self.x1)
+            t_equal = np.array_equal(t, self.t)
+            if not x1_equal  or not t_equal:
+                self.convert_to_rho(x1, x2, t=t)
+                self.t = t
+        else:
+            self.convert_to_rho(x1, x2, t=t)
+            self.t = t
+
+        value_at_channels = profile_1d.interp(rho_poloidal=self.rho)
+        if limit_to_sep:
+            value_at_channels = xr.where(self.rho <= 1, value_at_channels, 0,)
+
+        if np.array_equal(x1, self.x1):
+            self.value_at_channels = value_at_channels
+
+        return value_at_channels
+
+    def check_flux_transform(self):
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Missing flux surface transform")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Missing equilibrium in flux surface transform")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
