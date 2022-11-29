@@ -19,6 +19,8 @@ from xarray import DataArray
 from xarray.core.dataset import Dataset
 from xarray.core.variable import Variable
 
+from indica.numpy_typing import LabeledArray
+
 from .numpy_typing import ArrayLike
 from .numpy_typing import OnlyArray
 
@@ -70,7 +72,7 @@ def sum_squares(x: OnlyArray, axis: int, **kwargs: Any) -> OnlyArray:
         Additiona keyword arguments (unused)
 
     """
-    return np.sum(x**2, axis=axis)
+    return np.sum(x ** 2, axis=axis)
 
 
 def get_slice_limits(low: float, high: float, data: OnlyArray) -> Tuple[int, int]:
@@ -179,10 +181,7 @@ def broadcast_spline(
         return result
     else:
         return apply_ufunc(
-            spline,
-            interp_coord,
-            input_core_dims=[[]],
-            output_core_dims=[spline_dims],
+            spline, interp_coord, input_core_dims=[[]], output_core_dims=[spline_dims],
         ).assign_coords({k: v for k, v in spline_coords.items()})
 
 
@@ -262,6 +261,7 @@ def input_check(
         except AssertionError:
             raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
 
+
 def assign_datatype(data_array: DataArray, datatype: tuple, unit=""):
     data_array.name = f"{datatype[1]}_{datatype[0]}"
     data_array.attrs["datatype"] = datatype
@@ -269,24 +269,43 @@ def assign_datatype(data_array: DataArray, datatype: tuple, unit=""):
         data_array.attrs["unit"] = unit
 
 
-def assign_data(data: DataArray, datatype: tuple, unit="", make_copy=True):
+def assign_data(
+    data: LabeledArray,
+    datatype: tuple,
+    units:str="",
+    make_copy=True,
+    coords: list = None,
+    long_name: str = None,
+):
     if make_copy:
         new_data = deepcopy(data)
     else:
         new_data = data
 
+    if type(new_data) is not DataArray and coords is not None:
+        new_data = DataArray(new_data, coords)
+
     new_data.name = f"{datatype[1]}_{datatype[0]}"
+    datatype0 = datatype[0].replace("_", " ")
+    datatype1 = datatype[1].replace("_", " ")
+    datatype1 = f"{str.upper(datatype1[0])}{datatype1[1:]}"
+
+    if long_name is not None:
+        new_data.attrs["long_name"] = long_name
+    else:
+        new_data.attrs["long_name"] = f"{datatype1} {datatype0}"
+
     new_data.attrs["datatype"] = datatype
-    if len(unit) > 0:
-        new_data.attrs["unit"] = unit
+
+    if len(units) > 0:
+        new_data.attrs["units"] = units
 
     return new_data
 
 
-def print_like(string:str):
+def print_like(string: str):
     print(f"\n {string}")
 
 
 def get_function_name():
     return str(inspect.stack()[1][3])
-
