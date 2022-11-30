@@ -26,7 +26,6 @@ class Interferometry(DiagnosticModel):
 
         self.name = name
         self.instrument_method = instrument_method
-
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
         self.Ne = None
@@ -183,5 +182,11 @@ def example_run():
     plt.xlabel("rho")
     plt.ylabel("Ne (m^-3)")
     plt.legend()
+    plt.show(block=True)
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+
+    example_run()
