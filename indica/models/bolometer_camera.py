@@ -244,7 +244,7 @@ def example_run(
 
 
 def xy_camera_views(
-    diagnostic_name="bolo_xy", option: int = 0, side: int = 0, plasma=None
+    diagnostic_name="bolo_xy", option: int = 0, side: int = 0, plasma=None,
 ):
     from copy import deepcopy
 
