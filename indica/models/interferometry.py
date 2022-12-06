@@ -74,12 +74,16 @@ class Interferometry(DiagnosticModel):
             if Ne is None:
                 raise ValueError("Give inputs or assign plasma class!")
         self.Ne = Ne
-        if len(np.shape(t)) == 0:
-            t = np.array([t])
+        # if len(np.shape(t)) == 0:
+        #     t = np.array([t])
 
         x1 = self.transform.x1
         x2 = self.transform.x2
-        los_integral_ne = self.transform.integrate_on_los(Ne, x1, x2, t=t,)
+        # los_integral_ne = self.transform.integrate_on_los(Ne, x1, x2, t=t,)
+        R = self.transform.R
+        dR = R[0][0] - R[0][-1]
+        los_integral_ne = Ne.mean()*dR
+
 
         self.los_integral_ne = los_integral_ne
         self.t = los_integral_ne.t
