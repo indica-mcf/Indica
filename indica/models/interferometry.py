@@ -52,7 +52,7 @@ class Interferometry(DiagnosticModel):
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
 
-    def __call__(self, Ne: DataArray = None, t: LabeledArray = None):
+    def __call__(self, Ne: DataArray = None, t: LabeledArray = None, **kwargs):
         """
         Calculate diagnostic measured values
 
