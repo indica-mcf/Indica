@@ -378,6 +378,28 @@ class Plasma:
                 f"{profile} currently not found in possible Plasma properties"
             )
 
+    def update_profiles(self, parameters:dict,
+                        profile_prefixs:list = ["Te_prof", "Ti_prof", "Ne_prof", "Nimp_prof", "Vrot_prof"],
+                        ):
+        """
+        Update plasma profiles with profile parameters i.e. Ne_prof_y0 -> Ne_prof.y0
+        """
+        for param, value in parameters.items():
+            prefix = [prefix for prefix in profile_prefixs if prefix in param]
+            if prefix:
+                prefix = prefix[0]
+                key = param.replace(prefix+"_", "")
+                profile = getattr(self, prefix)
+                if hasattr(profile, key):
+                    setattr(profile, key, value)
+                else:
+                    raise ValueError(
+                        f"parameter: {key} not found in {prefix}"
+                    )
+
+        for key in ["electron_density", "electron_density", "ion_temperature", "toroidal_rotation", "impurity_density",]:
+            self.assign_profiles(key, t=self.time_to_calculate)
+
     @property
     def pressure_el(self):
         self._pressure_el.values = ph.calc_pressure(
