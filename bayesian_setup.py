@@ -32,9 +32,7 @@ N_rho = 7
 N_z = 25
 N_los_points = 65
 
-main_ion = "d"
-high_z = "w"
-zeff_el = "ne"
+elements = ["W"]
 
 server = "https://sal.jet.uk"
 
@@ -87,16 +85,30 @@ sxr_los_data = create_LOSData(
     rho=rho,
     t=t,
     N_los_points=N_los_points,
-    elements=["W"],
+    elements=elements,
     los_type=LOSType.SXR,
+)
+
+bolo_los_data = create_LOSData(
+    los_diagnostic=diagnostics["bolo"]["kb5v"],
+    los_coord_name="bolo_kb5v_coords",
+    hrts_diagnostic=diagnostics["hrts"],
+    flux_coords=flux_coords,
+    rho=rho,
+    t=t,
+    N_los_points=N_los_points,
+    elements=elements,
+    los_type=LOSType.BOLO,
 )
 
 # write out data required for run
 pre_computed: Dict[str, Any] = {}
 pre_computed["sxr_los_data"] = sxr_los_data
+pre_computed["bolo_los_data"] = bolo_los_data
 pre_computed["N_rho"] = N_rho
 pre_computed["N_los_points"] = N_los_points
 pre_computed["rho"] = rho
 pre_computed["t"] = t
+pre_computed["elements"] = elements
 with open("stan_model_data.pkl", "wb") as pkl_file:
     pickle.dump(pre_computed, pkl_file)

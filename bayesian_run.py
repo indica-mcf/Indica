@@ -7,13 +7,20 @@ import matplotlib.pyplot as plt
 plt.ion()
 
 # read run data
-with open("pre_computed.pkl", "rb") as pkl_file:
+with open("stan_model_data.pkl", "rb") as pkl_file:
     pre_computed = pickle.load(pkl_file)
 
 rho = pre_computed["rho"]
 N_rho = pre_computed["N_rho"]
 N_los_points = pre_computed["N_los_points"]
 sxr_los_data = pre_computed["sxr_los_data"]
+bolo_los_data = pre_computed["bolo_los_data"]
+
+# apply calibration fudge factor
+
+calibration_fudge = 2.8
+sxr_los_data.los_values = calibration_fudge * sxr_los_data.los_values
+sxr_los_data.los_errors = calibration_fudge * sxr_los_data.los_errors
 
 # compile stan model
 model_file = os.path.join("emissivity.stan")
@@ -39,6 +46,16 @@ data = {
     "sxr_los_values": sxr_los_data.los_values.isel(t=t_index),
     #    "los_errors": binned_camera.error.isel(t=t_index),
     "sxr_los_errors": sxr_los_data.los_errors.isel(t=t_index),
+    # BOLO data:
+    "bolo_N_los": bolo_los_data.N_los,
+    # stan 1-based
+    "bolo_rho_lower_indices": bolo_los_data.rho_lower_indices.isel(t=t_index) + 1,
+    "bolo_rho_interp_lower_frac": bolo_los_data.rho_interp_lower_frac.isel(t=t_index),
+    "bolo_R_square_diff": bolo_los_data.R_square_diff.isel(t=t_index),
+    "bolo_ne_x_power_loss": bolo_los_data.premult_values.isel(t=t_index),
+    "bolo_los_values": bolo_los_data.los_values.isel(t=t_index),
+    #    "los_errors": binned_camera.error.isel(t=t_index),
+    "bolo_los_errors": bolo_los_data.los_errors.isel(t=t_index),
 }
 
 # # likelihood-maximization (faster, worse results, no errors)

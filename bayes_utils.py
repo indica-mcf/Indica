@@ -70,6 +70,7 @@ def get_power_loss(
     te: xr.DataArray,
     t: xr.DataArray,
     los_type: LOSType,
+    los_coord_name: str,
 ) -> xr.DataArray:
     """
     Calculate the power loss values at the points sampled for LOS calculations
@@ -138,15 +139,15 @@ def get_power_loss(
                 xr.concat(
                     [
                         FA[elem](
-                            Ne=ne.interp(t=time).interp(sxr_v_coords=los_coord),
-                            Te=te.interp(t=time).interp(sxr_v_coords=los_coord),
+                            Ne=ne.interp(t=time).interp({los_coord_name: los_coord}),
+                            Te=te.interp(t=time).interp({los_coord_name: los_coord}),
                             tau=time,
-                        ).expand_dims("sxr_v_coords", -1)
-                        for los_coord in ne.sxr_v_coords
+                        )
+                        for los_coord in ne.coords[los_coord_name]
                     ],
-                    dim="sxr_v_coords",
+                    dim=los_coord_name,
                 )
-                .assign_coords({"sxr_v_coords": ne.sxr_v_coords})
+                .assign_coords({los_coord_name: ne.coords[los_coord_name]})
                 .expand_dims("t", -1)
                 for time in t.values
             ],
@@ -163,15 +164,17 @@ def get_power_loss(
                 xr.concat(
                     [
                         PL[elem](
-                            Ne=ne.interp(t=time).sel(sxr_v_coords=los_coord),
-                            Te=te.interp(t=time).sel(sxr_v_coords=los_coord),
-                            F_z_t=fzt[elem].sel(t=time).sel(sxr_v_coords=los_coord),
-                        ).expand_dims("sxr_v_coords", -1)
-                        for los_coord in ne.sxr_v_coords
+                            Ne=ne.interp(t=time).sel({los_coord_name: los_coord}),
+                            Te=te.interp(t=time).sel({los_coord_name: los_coord}),
+                            F_z_t=fzt[elem]
+                            .sel(t=time)
+                            .sel({los_coord_name: los_coord}),
+                        ).expand_dims(los_coord_name, -1)
+                        for los_coord in ne.coords[los_coord_name]
                     ],
-                    dim="sxr_v_coords",
+                    dim=los_coord_name,
                 )
-                .assign_coords({"sxr_v_coords": ne.sxr_v_coords})
+                .assign_coords({los_coord_name: ne.coords[los_coord_name]})
                 .expand_dims("t", -1)
                 for time in t.values
             ],
@@ -285,6 +288,7 @@ def create_LOSData(
         te,
         t,
         los_type,
+        los_coord_name,
     )
 
     premult_values = ne * power_loss
