@@ -1129,7 +1129,7 @@ def interpolate_results(data:DataArray, Te_data:DataArray, Te_interp:DataArray):
     -------
     Interpolated values
     """
-    result = []
+    _result = []
     dim_old = [d for d in data.dims if d != "ion_charges"][0]
     ion_charges = data.ion_charges
 
@@ -1138,13 +1138,13 @@ def interpolate_results(data:DataArray, Te_data:DataArray, Te_interp:DataArray):
     _data = _data.swap_dims({dim_old: "electron_temperature"})
 
     for charge in ion_charges:
-        result.append(
+        _result.append(
             _data.sel(ion_charges=charge).interp(
                 electron_temperature=Te_interp.values
             )
         )
 
-    result = xr.concat(result, "ion_charges").assign_coords(
+    result = xr.concat(_result, "ion_charges").assign_coords(
         ion_charges=ion_charges
     )
     dim_new = Te_interp.dims[0]

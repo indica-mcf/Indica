@@ -277,6 +277,8 @@ def assign_data(
     coords: list = None,
     long_name: str = None,
 ):
+    new_data:DataArray
+
     if make_copy:
         new_data = deepcopy(data)
     else:
