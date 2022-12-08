@@ -1,5 +1,7 @@
 import numpy as np
 import xarray as xr
+from indica.models.plasma import Plasma
+from scipy.optimize import least_squares
 from xarray import DataArray
 from indica.provenance import get_prov_attribute
 from indica.readers.manage_data import initialize_bckc_dataarray
@@ -11,66 +13,37 @@ from indica.numpy_typing import LabeledArray
 
 def match_interferometer_los_int(
     models: dict,
-    Ne_prof: Profiles,
+    plasma: Plasma,
     data: dict,
     t: float,
-    instruments: list = ["smmh1"],
-    quantities: list = ["ne"],
-    ne0=5.0e19,
-    niter: int = 3,
+    optimise_for: dict = {"smmh1": ["ne"]},
+    ne0: float = 5.0e19,
+    bounds: tuple = (1.0e17, 1.0e21),
+    bckc: dict = {},
 ):
     """
     Rescale density profiles to match the interferometer measurements
-
-    Parameters
-    ----------
-    model
-        Model to simulate an interferometer
-    Ne_prof
-        Profile object to build electron density profile for optimization
-    data
-        Dictionary of Dataarrays of interferometer data as returned by ST40reader
-    t
-        Time for which optimisation must be performed
-    quantities
-        Measurement identifiers to be optimised
-    bckc
-        Dictionary where back-calculated values are to be saved (same structure as data)
-    ne0
-        Initial guess of central density
-    niter
-         Number of iterations
-
-    Returns
-    -------
-
     """
 
-    list_data = []
-    list_model = []
-    list_quantity = []
-    for instrument in instruments:
-        if instrument in models:
-            for quantity in quantities:
-                list_model.append(models[instrument])
-                list_data.append(data[instrument])
-                list_quantity.append(quantity)
+    def residuals(ne0):
+        plasma.Ne_prof.y0 = ne0
+        plasma.assign_profiles("electron_density", t=t)
 
-    const = 1.0
-    for j in range(niter):
-        ne0 *= const
-        ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
-        Ne_prof.set_parameters(y0=ne0)
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                bckc[instrument] = models[instrument](t=t)
 
-        list_const = []
-        for _model, _data, _quantity in zip(list_model, list_data, list_quantity):
-            _bckc = _model(Ne_prof(), t=t)
-            list_const.append(
-                (
-                    _data[_quantity].sel(t=t, method="nearest")
-                    / _bckc[_quantity].sel(t=t, method="nearest")
-                ).values
-            )
-        const = np.array(list_const).mean()
+        resid = []
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                for quantity in optimise_for[instrument]:
+                    resid.append(
+                        data[instrument][quantity].sel(t=t)
+                        - bckc[instrument][quantity]
+                    )
 
-    return Ne_prof
+        return (np.array(resid) ** 2).sum()
+
+    least_squares(residuals, ne0, bounds=bounds, method="dogbox")
+
+    return plasma, bckc

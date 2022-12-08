@@ -19,6 +19,7 @@ from indica.operators.atomic_data import PowerLoss
 from indica.provenance import get_prov_attribute
 from indica.readers import ADASReader
 from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.plasma import Plasma
 
 plt.ion()
 
@@ -53,66 +54,37 @@ def check_model_inputs(model, Te, Ne, Nh, Nimp, tau):
 
 
 def match_line_ratios(
-    model: Helike_spectroscopy,
-    Te_prof: Profiles,
+    models: dict,
+    plasma:Plasma,
     data: dict,
     t: float,
-    Ne: DataArray,
-    Nimp: DataArray = None,
-    Nh: DataArray = None,
-    tau: DataArray = None,
+    instruments: list = ["xrcs"],
     quantities: list = ["int_k/int_w", "int_n3/int_w", "int_n3/int_tot"],
     te0: float = 1.0e3,
-    bckc: dict = None,
     bounds=(100.0, 20.0e3),
 ):
+    model = models["xrcs"]
+    list_data = []
+    list_model = []
+    list_quantity = []
+    for instrument in instruments:
+        if instrument in models:
+            for quantity in quantities:
+                list_model.append(models[instrument])
+                list_data.append(data[instrument])
+                list_quantity.append(quantity)
 
     """
     Optimize electron temperature profile to match XRCS line ratios.
-
-        _, Te_prof = match_line_ratios(
-            xrcs,
-            plasma.Te_prof,
-            data[opt["el_temp"]["diagnostic"]],
-            t,
-            Ne,
-            Nimp=Nimp,
-            Nh=Nh,
-            tau=tau,
-            quantities=opt["el_temp"]["quantities"],
-            te0=te0,
-        )
-    Parameters
-    ----------
-    model
-        Forward model of the XRCS diagnostic
-    Te_prof
-        Profile object to build electron temperature profile for optimization
-    data
-        Dictionary of Dataarrays of XRCS data as returned by ST40reader
-    t
-        Time for which optimisation must be performed
-    Ne
-        Electron densit
-    Nh
-        Neutral (thermal) hydrogen density
-    Nimp
-        Total impurity densities as defined in plasma.py
-    tau
-        Residence time for the calculation of the ionisation balance
-    quantities
-        Measurement identifiers to be optimised
-    te0
-        Initial guess of central electron temperature (eV)
     """
+
 
     def residuals(te0):
         Te_prof.y0 = te0
         Te_prof.build_profile()
         Te = Te_prof.yspl
 
-        model.calculate_emission(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
-        bckc_value, _ = model.integrate_on_los(t=t)
+        bckc = model(Te, Ne, Nimp=Nimp, Nh=Nh, tau=tau)
 
         resid = []
         for quantity in quantities:
