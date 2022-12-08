@@ -455,6 +455,8 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
+        #TODO: location, direction out of the loop  as soon as new MDS+ structure available
+
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
@@ -501,6 +503,9 @@ class ST40Reader(DataReader):
                 direction[chan_start - 1 : chan_start + nchan]
             )
             # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
+
+        # results["location"] = location
+        # results["direction"] = direction
         results["quantities"] = quantities
 
         return results
@@ -561,7 +566,7 @@ class ST40Reader(DataReader):
             results[q + "_error"] = qval_err
             results[q + "_error" + "_records"] = q_path_err
 
-        results["length"] = 1
+        results["length"] = np.shape(location)[0]
         results["location"] = location
         results["direction"] = direction
 
@@ -575,6 +580,8 @@ class ST40Reader(DataReader):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
+
+        raise NotImplementedError("CXRS reader still to be implemented!!!")
 
         if len(uid) == 0:
             uid = self.UIDS_MDS[instrument]
@@ -689,7 +696,7 @@ class ST40Reader(DataReader):
             results[q + "_error"] = qval_err
             results[q + "_error" + "_records"] = q_path_err
 
-        results["length"] = 1
+        results["length"] = np.shape(location)[0]
         results["location"] = np.array(location)
         results["direction"] = np.array(direction)
 
@@ -756,7 +763,7 @@ class ST40Reader(DataReader):
                 results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
 
-        results["length"] = 1
+        results["length"] = np.shape(location)[0]
         results["location"] = np.array(location)
         results["direction"] = np.array(direction)
 

@@ -15,7 +15,6 @@ FLUX_TRANSFORM = FluxSurfaceCoordinates("poloidal")
 FLUX_TRANSFORM.set_equilibrium(EQUILIBRIUM)
 
 INSTRUMENT_INFO = {
-    "sxr_camera": ("sxr", "diode_arrays", 0, ["filter_4"]),
     "xrcs": ("sxr", "xrcs", 0, set()),
     "brems": ("spectrom", "lines", -1, ["brems"]),
     "smmh1": ("interferom", "smmh1", 0, set()),
@@ -23,6 +22,7 @@ INSTRUMENT_INFO = {
     "efit": ("", "efit", 0, set()),
 }
 
+# "sxr_camera": ("sxr", "diode_arrays", 0, ["filter_4"]),
 
 def run_reader_get_methods(
     instrument_name: str, mds_only=False, plot=False,
@@ -73,7 +73,7 @@ def run_reader_get_methods(
     trans = data[quantities[0]].transform
     if hasattr(trans, "set_flux_transform"):
         trans.set_flux_transform(FLUX_TRANSFORM)
-        trans.convert_to_rho(trans.x1, trans.x2, t=np.array([0.02, 0.03, 0.04]))
+        trans._convert_to_rho(t=np.array([0.02, 0.03, 0.04]))
         if plot:
             trans.plot_los()
 
@@ -83,6 +83,7 @@ def run_reader_get_methods(
 def test_all(interactive=False, plot=False):
     plt.ion()
     for instrument_name in INSTRUMENT_INFO.keys():
+        print(f"\n Testing {instrument_name} \n")
         data, database_resutls = run_reader_get_methods(instrument_name, plot=plot)
 
         for quant in data.keys():
