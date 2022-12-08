@@ -7,13 +7,13 @@ from copy import deepcopy
 from indica.readers.read_st40 import ST40data
 from indica.equilibrium import Equilibrium
 from indica.converters import FluxSurfaceCoordinates
+from indica.readers.manage_data import bin_data_in_time
 
 from indica.models.plasma import Plasma
 from indica.models.interferometry import Interferometry
 
-from indica.readers.manage_data import bin_data_in_time
-
 import emcee
+import corner
 np.seterr(divide="ignore")
 
 
@@ -62,6 +62,12 @@ class BayesModels:
         for diag_model in self.diagnostic_models:
             diag_model.plasma = self.plasma
 
+        missing_data = list(set(quant_to_optimise).difference(data.keys()))  # list of keys in quant_to_optimise but not data
+        if missing_data:
+            raise ValueError(
+                f"{missing_data} not found in data given"
+            )
+
     def _build_bkcv(self, params={}):
         self.bkcv = {}
         for model in self.diagnostic_models:
@@ -71,9 +77,9 @@ class BayesModels:
     def _ln_likelihood(self):
         ln_likelihood = 0
         for key in self.quant_to_optimise:
-            # TODO: What to use as error?  std as placeholder
+            # TODO: What to use as error?  Assume percentage error if none given...
             ln_likelihood += np.log(gaussian(self.bkcv[key], self.data[key].sel(t=self.plasma.time_to_calculate),
-                                             self.data[key].stdev.sel(t=self.plasma.time_to_calculate) * 1e2))
+                                             self.data[key].sel(t=self.plasma.time_to_calculate)*0.10))
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
@@ -107,6 +113,9 @@ class BayesModels:
         ln_posterior = ln_likelihood + ln_prior
 
         kin_profs = {"electron_density": self.plasma.electron_density.sel(t=self.plasma.time_to_calculate),
+                     "electron_temperature": self.plasma.electron_temperature.sel(t=self.plasma.time_to_calculate),
+                     "ion_temperature": self.plasma.ion_temperature.sel(t=self.plasma.time_to_calculate),
+                     #TODO: add ion / neutral / impurity densities when fz property works with single timepoint
                      }
         blob = deepcopy({**self.bkcv, **kin_profs})
         return ln_posterior, blob
@@ -129,6 +138,7 @@ if __name__ == "__main__":
         full_run=False,
     )
     plasma.time_to_calculate = plasma.t[1]
+
     # Initialise Data
     raw = ST40data(9229, tstart - dt * 4, tend + dt * 4)
     raw_data = raw.get_all()
@@ -139,49 +149,69 @@ if __name__ == "__main__":
     plasma.set_equilibrium(equilibrium)
     plasma.set_flux_transform(flux_transform)
 
-    data = {}
-    data["smmh1"] = bin_data_in_time(
-        raw_data["smmh1"], plasma.tstart, plasma.tend, plasma.dt,
-    )
-    transform = data["smmh1"]["ne"].attrs["transform"]
-    data = data["smmh1"]
     # TODO: Get data as flat dict
+    data = {}
+    for instrument in raw_data.keys():
+        quantities = list(raw_data[instrument])
+        data[instrument] = bin_data_in_time(
+            raw_data[instrument], plasma.tstart, plasma.tend, plasma.dt,
+        )
+
+        transform = data[instrument][quantities[0]].attrs["transform"]
+        transform.set_equilibrium(flux_transform.equilibrium, force=True)
+        if "LineOfSightTransform" in str(
+            data[instrument][quantities[0]].attrs["transform"]
+        ):
+            transform.set_flux_transform(flux_transform)
+
+        for quantity in quantities:
+            data[instrument][quantity].attrs["transform"] = transform
+
+
     # Initialise Diagnostic Models
+    transform = data["smmh1"]["ne"].transform
     smmh1 = Interferometry(name="smmh1")
     smmh1.set_transform(transform)
     smmh1.set_flux_transform(flux_transform)
 
+
+
+
     priors = {
-        "Ne_prof_y0": lambda x: gaussian(x, 5e19, 5e19) *
+        "Ne_prof_y0": lambda x:
+                                # gaussian(x, 5e19, 5e19) *
                                 uniform(x, 1e18, 5e20),
-        "Ne_prof_peaking": lambda x: gaussian(x, 2, 3) *
+        "Ne_prof_peaking": lambda x:
+                                     # gaussian(x, 5, 2) *
                                      uniform(x, 0, 10),
-        "Ne_prof_wcenter": lambda x: gaussian(x, 0.4, 0.2) *
+
+        "Ne_prof_wcenter": lambda x:
+                                     # gaussian(x, 0.4, 0.2) *
                                      uniform(x, 0.1, 0.9),
-        "Ne_prof_y1": lambda x: gaussian(x, 1e19, 1e19) *
+        "Ne_prof_y1": lambda x:
+                                # gaussian(x, 1e19, 1e19) *
                                 uniform(x, 1e16, 1e20),
     }
 
     bm = BayesModels(plasma=plasma, data=data, diagnostic_models=[smmh1],
-                     quant_to_optimise=["ne"], priors=priors)
+                     quant_to_optimise=["ne", ], priors=priors)
 
-    # ln_post, blob = bm.ln_posterior(parameters={"Ne_prof_y0":5e19})
-    # print(ln_post,)
+    # Setup Optimiser
 
     params_names = ["Ne_prof_y0",
                     "Ne_prof_peaking",
-                    "Ne_prof_wcenter",
-                    "Ne_prof_y1"
+                    # "Ne_prof_wcenter",
+                    # "Ne_prof_y1"
                     ]
-    nwalk = 8
+    nwalk = 4
     y0 = np.random.normal(5e19, 1e19, nwalk).reshape((nwalk, 1,))
     peaking = np.random.normal(3, 1, nwalk).reshape((nwalk, 1,))
-    wcenter = np.random.normal(0.4, 0.1, nwalk).reshape((nwalk, 1,))
-    y1 = np.random.normal(1e19, 1e18, nwalk).reshape((nwalk, 1,))
+    # wcenter = np.random.normal(0.4, 0.1, nwalk).reshape((nwalk, 1,))
+    # y1 = np.random.normal(1e19, 1e18, nwalk).reshape((nwalk, 1,))
     start_points = np.concatenate([y0,
                                    peaking,
-                                   wcenter,
-                                   y1
+                                   # wcenter,
+                                   # y1
                                    ], axis=1)
 
     nwalkers, ndim = start_points.shape
@@ -207,8 +237,6 @@ if __name__ == "__main__":
     plt.errorbar(ne_prof.dim_1, ne_prof.mean("dim_0"), yerr=ne_prof.std("dim_0"))
 
     samples = sampler.get_chain(flat=True)
-
-    import corner
     fig = corner.corner(samples, labels=params_names)
 
     print(sampler.acceptance_fraction)
