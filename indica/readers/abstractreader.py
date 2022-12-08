@@ -214,16 +214,20 @@ class DataReader(BaseIO):
         ticks = np.arange(database_results["length"])
         diagnostic_coord = instrument + "_coord"
         times = database_results["times"]
-        R = database_results["R"]
+        x = database_results["x"]
+        y = database_results["y"]
         z = database_results["z"]
-        R_coord = DataArray(R, coords=[(diagnostic_coord, ticks)])
+        x_coord = DataArray(x, coords=[(diagnostic_coord, ticks)])
+        y_coord = DataArray(y, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
-        transform = TransectCoordinates(R_coord, z_coord)
+        R_coord = np.sqrt(x_coord ** 2 + y_coord ** 2)
+        transform = TransectCoordinates(x_coord, y_coord, z_coord, instrument)
         coords: Dict[Hashable, ArrayLike] = {
             "t": times,
             diagnostic_coord: ticks,
             transform.x2_name: 0,
-            "R": R_coord,
+            "x": x_coord,
+            "y": y_coord,
             "z": z_coord,
         }
         dims = ["t", diagnostic_coord]
@@ -370,15 +374,17 @@ class DataReader(BaseIO):
         diagnostic_coord = instrument + "_coord"
         data = {}
         # needs change (see GET_RADIATION) - but must still work for other readers
-        R_coord = DataArray(database_results["R"], coords=[(diagnostic_coord, ticks)])
+        x_coord = DataArray(database_results["x"], coords=[(diagnostic_coord, ticks)])
+        y_coord = DataArray(database_results["y"], coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(database_results["z"], coords=[(diagnostic_coord, ticks)])
-        transform = TransectCoordinates(R_coord, z_coord)
+        transform = TransectCoordinates(x_coord, y_coord, z_coord, instrument)
         times = database_results["times"]
         coords: Dict[Hashable, Any] = {
             "t": times,
             diagnostic_coord: ticks,
             transform.x2_name: 0,
-            "R": R_coord,
+            "x": x_coord,
+            "y": y_coord,
             "z": z_coord,
         }
         dims = ["t", diagnostic_coord]
@@ -911,6 +917,8 @@ class DataReader(BaseIO):
         TODO: change to line_of_sight transform
 
         """
+        raise NotImplementedError("Get radiation needs testing after refactoring!!")
+
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_radiation(
             uid, instrument, revision, quantities, dl
@@ -920,6 +928,19 @@ class DataReader(BaseIO):
             return database_results
         _revision = database_results["revision"]
 
+        location = database_results["location"]
+        direction = database_results["direction"]
+        transform = LineOfSightTransform_multi(
+            location[:, 0],
+            location[:, 1],
+            location[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
+            f"{instrument}",
+            database_results["machine_dims"],
+            dl=dl,
+        )
         data = {}
         for quantity in quantities:
             if quantity not in available_quantities:
@@ -932,17 +953,6 @@ class DataReader(BaseIO):
             times = database_results[quantity + "_times"]
             downsample_ratio = int(
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
-            )
-            transform = LineOfSightTransform_multi(
-                database_results[f"{quantity}_location"][:, 0],
-                database_results[f"{quantity}_location"][:, 1],
-                database_results[f"{quantity}_location"][:, 2],
-                database_results[f"{quantity}_direction"][:, 0],
-                database_results[f"{quantity}_direction"][:, 1],
-                database_results[f"{quantity}_direction"][:, 2],
-                f"{instrument}_{quantity}",
-                database_results["machine_dims"],
-                dl=dl,
             )
             coords = [
                 ("t", times),
@@ -969,7 +979,7 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            drop = []
+            drop: list = []
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "radiation",
                 uid,
@@ -1084,6 +1094,19 @@ class DataReader(BaseIO):
         _revision = database_results["revision"]
 
         times = database_results["times"]
+        location = database_results["location"]
+        direction = database_results["direction"]
+        transform = LineOfSightTransform_multi(
+            location[:, 0],
+            location[:, 1],
+            location[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
+            f"{instrument}",
+            database_results["machine_dims"],
+            dl=dl,
+        )
         data = {}
         for quantity in quantities:
             if quantity not in available_quantities:
@@ -1094,16 +1117,6 @@ class DataReader(BaseIO):
                 )
             downsample_ratio = int(
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
-            )
-            transform = LinesOfSightTransform(
-                database_results[quantity + "_xstart"],
-                database_results[quantity + "_ystart"],
-                database_results[quantity + "_zstart"],
-                database_results[quantity + "_xstop"],
-                database_results[quantity + "_ystop"],
-                database_results[quantity + "_zstop"],
-                f"{instrument}_{quantity}",
-                database_results["machine_dims"],
             )
             coords: Dict[Hashable, Any] = {"t": times}
             dims = ["t"]
@@ -1260,15 +1273,18 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
         wavelength = database_results["wavelength"]
+        location = database_results["location"]
+        direction = database_results["direction"]
         transform = LineOfSightTransform_multi(
-            database_results["location"][:, 0],
-            database_results["location"][:, 1],
-            database_results["location"][:, 2],
-            database_results["direction"][:, 0],
-            database_results["direction"][:, 1],
-            database_results["direction"][:, 2],
+            location[:, 0],
+            location[:, 1],
+            location[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
             f"{instrument}",
             database_results["machine_dims"],
+            dl=dl,
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1428,7 +1444,9 @@ class DataReader(BaseIO):
 
         """
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_diode_filters(uid, instrument, revision, quantities, dl)
+        database_results = self._get_diode_filters(
+            uid, instrument, revision, quantities, dl
+        )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -1436,13 +1454,15 @@ class DataReader(BaseIO):
 
         times = database_results["times"]
 
+        location = database_results["location"]
+        direction = database_results["direction"]
         transform = LineOfSightTransform_multi(
-            database_results["location"][:,0],
-            database_results["location"][:,1],
-            database_results["location"][:,2],
-            database_results["direction"][:,0],
-            database_results["direction"][:,1],
-            database_results["direction"][:,2],
+            location[:, 0],
+            location[:, 1],
+            location[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
             f"{instrument}",
             database_results["machine_dims"],
             dl=dl,
@@ -1602,15 +1622,18 @@ class DataReader(BaseIO):
             return database_results
 
         times = database_results["times"]
+        location = database_results[f"location"]
+        direction = database_results[f"direction"]
         transform = LineOfSightTransform_multi(
-            database_results["location"][:,0],
-            database_results["location"][:,1],
-            database_results["location"][:,2],
-            database_results["direction"][:,0],
-            database_results["direction"][:,1],
-            database_results["direction"][:,2],
+            location[:, 0],
+            location[:, 1],
+            location[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
             f"{instrument}",
             database_results["machine_dims"],
+            dl=dl,
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)

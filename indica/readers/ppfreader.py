@@ -241,6 +241,7 @@ class PPFReader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Return temperature, angular frequency, or concentration data for an
         ion, measured using charge exchange recombination
@@ -314,6 +315,7 @@ class PPFReader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for electron temperature or number density
         calculated from Thomson scattering.
@@ -360,6 +362,7 @@ class PPFReader(DataReader):
         calculation: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
         results: Dict[str, Any] = {}
@@ -394,6 +397,7 @@ class PPFReader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for electron cyclotron emissin diagnostics."""
         _, _, zstart, zend, _, _ = surf_los.read_surf_los(
@@ -438,6 +442,7 @@ class PPFReader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for radiation quantities such as SXR and bolometric
         fluxes..
@@ -504,6 +509,7 @@ class PPFReader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         results: Dict[str, Any] = {
             "length": {},
