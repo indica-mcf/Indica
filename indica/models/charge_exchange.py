@@ -11,18 +11,19 @@ from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
-class ThomsonScattering(DiagnosticModel):
+class ChargeExchange(DiagnosticModel):
     """
-    Object representing a Thomson scattering diagnostic
+    Object representing a CXRS diagnostic
     """
 
     transform: TransectCoordinates
 
     def __init__(
-        self, name: str, instrument_method="get_thomson_scattering",
+        self, name: str, element: str = "c", instrument_method="get_charge_exchange",
     ):
 
         self.name = name
+        self.element = element
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
@@ -31,12 +32,12 @@ class ThomsonScattering(DiagnosticModel):
 
         for quant in self.quantities:
             datatype = self.quantities[quant]
-            if quant == "ne":
+            if quant == "angf":
                 quantity = quant
-                self.bckc[quantity] = self.Ne_at_channels
-            elif quant == "te":
+                self.bckc[quantity] = self.Vtor_at_channels
+            elif quant == "ti":
                 quantity = quant
-                self.bckc[quantity] = self.Te_at_channels
+                self.bckc[quantity] = self.Ti_at_channels
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -53,8 +54,8 @@ class ThomsonScattering(DiagnosticModel):
 
     def __call__(
         self,
-        Ne: DataArray = None,
-        Te: DataArray = None,
+        Ti: DataArray = None,
+        Vtor: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
     ):
@@ -63,10 +64,10 @@ class ThomsonScattering(DiagnosticModel):
 
         Parameters
         ----------
-        Ne
-            Electron density profile (dims = "rho", "t")
-        Te
-            Electron temperature profile (dims = "rho", "t")
+        Ti
+            Ion temperature profile (dims = "rho", "t")
+        Vtor
+            Toroidal rotation profile (dims = "rho", "t")
 
         Returns
         -------
@@ -76,21 +77,26 @@ class ThomsonScattering(DiagnosticModel):
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.t
-            Ne = self.plasma.electron_density.interp(t=t)
-            Te = self.plasma.electron_temperature.interp(t=t)
+            Ti = self.plasma.ion_temperature.interp(t=t)
+            Vtor = self.plasma.toroidal_rotation.interp(t=t)
         else:
-            if Ne is None or Te is None:
+            if Ti is None or Vtor is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
-        self.Ne = Ne
-        self.Te = Te
+        if "element" in Vtor.dims:
+            Vtor = Vtor.sel(element=self.element)
+        if "element" in Ti.dims:
+            Ti = Ti.sel(element=self.element)
+
+        self.Vtor = Vtor
+        self.Ti = Ti
         self.transform.check_rho(t=t)
 
-        Ne_at_channels = self.transform.map_to_rho(Ne, t=t, calc_rho=calc_rho,)
-        Te_at_channels = self.transform.map_to_rho(Te, t=t, calc_rho=calc_rho,)
+        Ti_at_channels = self.transform.map_to_rho(Ti, t=t, calc_rho=calc_rho,)
+        Vtor_at_channels = self.transform.map_to_rho(Vtor, t=t, calc_rho=calc_rho,)
 
-        self.Ne_at_channels = Ne_at_channels
-        self.Te_at_channels = Te_at_channels
+        self.Ti_at_channels = Ti_at_channels
+        self.Vtor_at_channels = Vtor_at_channels
         self.t = t
 
         self._build_bckc_dictionary()
@@ -99,7 +105,7 @@ class ThomsonScattering(DiagnosticModel):
 
 
 def example_run(
-    diagnostic_name: str = "ts", plasma=None, plot=False,
+    diagnostic_name: str = "cxrs", plasma=None, plot=False,
 ):
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
@@ -108,7 +114,7 @@ def example_run(
         plasma = example_plasma()
 
     # Create new interferometers diagnostics
-    nchannels = 11
+    nchannels = 5
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)
@@ -120,7 +126,7 @@ def example_run(
         diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
     )
-    model = ThomsonScattering(diagnostic_name,)
+    model = ChargeExchange(diagnostic_name,)
     model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
@@ -129,7 +135,6 @@ def example_run(
 
     if plot:
         it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
 
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
         levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
@@ -167,24 +172,26 @@ def example_run(
         # Plot back-calculated profiles
         plt.figure()
         for i, t in enumerate(plasma.t.values):
-            plasma.electron_density.sel(t=t).plot(
+            plasma.toroidal_rotation.sel(t=t, element=model.element).plot(
                 color=cols_time[i], label=f"t={t:1.2f} s", alpha=0.7,
             )
-            Ne = bckc["ne"].sel(t=t, method="nearest")
-            plt.scatter(Ne.rho_poloidal, Ne, color=cols_time[i], marker="o", alpha=0.7)
+            Vtor = bckc["angf"].sel(t=t, method="nearest")
+            plt.scatter(
+                Vtor.rho_poloidal, Vtor, color=cols_time[i], marker="o", alpha=0.7
+            )
         plt.xlabel("Channel")
-        plt.ylabel("Measured electron density (m^-3)")
+        plt.ylabel("Measured toroidal rotation (rad/s)")
         plt.legend()
 
         plt.figure()
         for i, t in enumerate(plasma.t.values):
-            plasma.electron_temperature.sel(t=t).plot(
+            plasma.ion_temperature.sel(t=t, element=model.element).plot(
                 color=cols_time[i], label=f"t={t:1.2f} s", alpha=0.7,
             )
-            Te = bckc["te"].sel(t=t, method="nearest")
-            plt.scatter(Te.rho_poloidal, Te, color=cols_time[i], marker="o", alpha=0.7)
+            Ti = bckc["ti"].sel(t=t, method="nearest")
+            plt.scatter(Ti.rho_poloidal, Ti, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
-        plt.ylabel("Measured electron temperature (eV)")
+        plt.ylabel("Measured ion temperature (eV)")
         plt.legend()
 
     return plasma, model, bckc

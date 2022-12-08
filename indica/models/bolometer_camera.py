@@ -1,26 +1,21 @@
-from indica.converters.line_of_sight_multi import LineOfSightTransform
-from indica.numpy_typing import LabeledArray
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-
-from indica.readers import ST40Reader
-from indica.models.plasma import example_run as example_plasma
-from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates
-
 import matplotlib.cm as cm
-
-import xarray as xr
-from xarray import DataArray
 import matplotlib.pylab as plt
 import numpy as np
+import xarray as xr
+from xarray import DataArray
+
+from indica.converters.line_of_sight_multi import LineOfSightTransform
+from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.plasma import example_run as example_plasma
+from indica.numpy_typing import LabeledArray
+from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
 class Bolometer(DiagnosticModel):
     """
     Object representing a bolometer camera diagnostic
     """
-
+    transform: LineOfSightTransform
     def __init__(
         self,
         name: str,
@@ -58,6 +53,7 @@ class Bolometer(DiagnosticModel):
         Nimp: DataArray = None,
         Lz: {} = None,
         t: LabeledArray = None,
+        calc_rho=False,
     ):
         """
         Calculate diagnostic measured values
@@ -75,18 +71,18 @@ class Bolometer(DiagnosticModel):
 
         Returns
         -------
-        Dictionary of back-calculated quantities (identical structure returned by abstractreader.py)
+        Dictionary of back-calculated quantities (as abstractreader.py)
 
         """
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.t
-            Ne = self.plasma.electron_density.sel(t=t)
+            Ne = self.plasma.electron_density.interp(t=t)
             _Lz = self.plasma.lz_tot
             Lz = {}
             for elem in _Lz.keys():
-                Lz[elem] = _Lz[elem].sel(t=t)
-            Nimp = self.plasma.impurity_density.sel(t=t)
+                Lz[elem] = _Lz[elem].interp(t=t)
+            Nimp = self.plasma.impurity_density.interp(t=t)
         else:
             if Ne is None or Nimp is None or Lz is None:
                 raise ValueError("Give inputs of assign plasma class!")
@@ -94,13 +90,9 @@ class Bolometer(DiagnosticModel):
         self.Ne = Ne
         self.Nimp = Nimp
         self.Lz = Lz
+        self.transform.check_rho(t=t)
 
-        x1 = self.transform.x1
-        x2 = self.transform.x2
         elements = Nimp.element.values
-
-        if len(np.shape(t)) == 0:
-            t = np.array([t])
 
         emission = []
         for ielem, elem in enumerate(elements):
@@ -109,12 +101,14 @@ class Bolometer(DiagnosticModel):
             )
         emission = xr.concat(emission, "element")
         los_integral = self.transform.integrate_on_los(
-            emission.sum("element"), x1, x2, t=t,
+            emission.sum("element"),
+            t=t,
+            calc_rho=calc_rho,
         )
 
         self.emission = emission
         self.los_integral_radiation = los_integral
-        self.t = los_integral.t
+        self.t = t
 
         self._build_bckc_dictionary()
 
@@ -129,25 +123,8 @@ def example_run(
     plot=False,
 ):
 
-    # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
-
     if plasma is None:
         plasma = example_plasma()
-
-        # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
-        pulse = 9229
-        it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
-        reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
-
-        equilibrium_data = reader.get("", "efit", 0)
-        equilibrium = Equilibrium(equilibrium_data)
-        flux_transform = FluxSurfaceCoordinates("poloidal")
-        flux_transform.set_equilibrium(equilibrium)
-
-        # Assign transforms to plasma object
-        plasma.set_equilibrium(equilibrium)
-        plasma.set_flux_transform(flux_transform)
 
     # Create new interferometers diagnostics
     if origin is None or direction is None:
@@ -171,20 +148,19 @@ def example_run(
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
     )
-    model = Bolometer(diagnostic_name,)
+    model = Bolometer(
+        diagnostic_name,
+    )
     model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
 
     bckc = model()
-    # bckc = model(
-    #     Ne=plasma.electron_density,
-    #     Nimp=plasma.impurity_density,
-    #     Lz=plasma.lz_tot,
-    #     t=plasma.t,
-    # )
 
     if plot:
+        it = int(len(plasma.t) / 2)
+        tplot = plasma.t[it]
+
         plt.figure()
         plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
             levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
@@ -210,7 +186,8 @@ def example_run(
         plt.figure()
         for chan in channels:
             model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-                color=cols[chan], label=f"CH{chan}",
+                color=cols[chan],
+                label=f"CH{chan}",
             )
         plt.xlabel("Path along the LOS")
         plt.ylabel("Rho-poloidal")
@@ -244,7 +221,10 @@ def example_run(
 
 
 def xy_camera_views(
-    diagnostic_name="bolo_xy", option: int = 0, side: int = 0, plasma=None,
+    diagnostic_name="bolo_xy",
+    option: int = 0,
+    side: int = 0,
+    plasma=None,
 ):
     from copy import deepcopy
 
@@ -257,7 +237,7 @@ def xy_camera_views(
         geometry = {}
         nsensors = [8, 8, 8, 8, 12]
 
-        sensor_size = [5.08, 5.08, 5.08, 5.08, 5.08]
+        # sensor_size = [5.08, 5.08, 5.08, 5.08, 5.08]
         sensor_distance = [5.08, 2.54, 5.08, 5.08, 5.08]
         pinhole_width = [1.0, 1.5, 3.5, 1.0, 1.0]
 
