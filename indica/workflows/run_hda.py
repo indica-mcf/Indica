@@ -7,10 +7,14 @@ from indica.readers.manage_data import bin_data_in_time
 from indica.models.plasma import Plasma
 from indica.readers.read_st40 import ST40data
 from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates, LinesOfSightTransform
-from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import FluxSurfaceCoordinates
 from indica.provenance import get_prov_attribute
-from indica.workflows.optimize_interferometer import match_interferometer_los_int
+from indica.workflows.example_optimisation import (
+    match_helike_spectroscopy_intensity,
+    match_helike_spectroscopy_ion_temperature,
+    match_helike_spectroscopy_line_ratios,
+    match_interferometer_los_int,
+)
 from indica.workflows.optimize_helike_spectroscopy import (
     match_line_ratios,
     match_ion_temperature,
@@ -91,90 +95,60 @@ def run_default(
 
     # Initialize forward models
     models = {}
-    machine_dims = plasma.machine_dimensions
-    models["xrcs"] = Helike_spectroscopy("xrcs", machine_dimensions=machine_dims)
-    models["lines"] = Diode_filters("brems", machine_dimensions=machine_dims)
+    bckc = {}
+    models["xrcs"] = Helike_spectroscopy("xrcs")
+    models["lines"] = Diode_filters("brems")
     for diag in INTERFEROMETERS:
-        models[diag] = Interferometry(diag, machine_dimensions=machine_dims)
+        models[diag] = Interferometry(diag)
 
     for diag in models.keys():
         quant = list(data[diag])[0]
         models[diag].set_transform(data[diag][quant].attrs["transform"])
         models[diag].set_flux_transform(plasma.flux_transform)
+        models[diag].set_plasma(plasma)
+        x1 = models[diag].transform.x1
+        x2 = models[diag].transform.x2
+        models[diag].transform.convert_to_rho(x1, x2, t=plasma.t)
 
+    print("Optimizing electron density vs SMMH1")
     for t in plasma.t:
-        Ne_prof = match_interferometer_los_int(
-            models,
-            plasma.Ne_prof,
-            data,
-            t,
-            instruments=["smmh1"],
-            quantities=["ne"],
+        match_interferometer_los_int(
+            models, plasma, data, t, guess=plasma.Ne_prof.y0,
         )
-        plasma.electron_density.loc[dict(t=t)] = Ne_prof().values
+    bckc["smmh1"] = models["smmh1"]()
 
-    # Optimize electron temperature for XRCS line ratios
     for t in plasma.t:
         plasma.calc_impurity_density(t=t)
 
-    return plasma, raw_data, data
+    return models, plasma, raw_data, data, bckc
 
+    print("Optimizing electron temperature vs XRCS")
     for t in plasma.t:
-        if t > plasma.t.min():
-            te0 = (
-                    plasma.electron_temperature.sel(
-                        t=plasma.t[i - 1], rho_poloidal=0
-                    ).values
-                    / 2.0
-            )
-        Ne = plasma.electron_density.sel(t=t)
-        Nimp = plasma.impurity_density.sel(t=t)
-        Nh = plasma.neutral_density.sel(t=t)
-        tau = plasma.tau.sel(t=t)
-        if not np.any(tau > 0):
-            tau = None
-
-        _, Te_prof = match_line_ratios(
-            models,
-            plasma.Te_prof,
-            data,
-            t,
-            Ne,
-            Nimp=Nimp,
-            Nh=Nh,
-            tau=tau,
-            instruments=["xrcs"],
-            quantities=["te_n3w"],
-            te0=te0,
+        match_helike_spectroscopy_line_ratios(
+            models, plasma, data, t, guess=plasma.Te_prof.y0,
         )
-        plasma.electron_temperature.loc[dict(t=t)] = Te_prof.yspl.values
 
-    if use_ref:
-        te0_ref = plasma.electron_temperature.sel(t=t, rho_poloidal=0).values
+    bckc["xrcs"] = models["xrcs"]()
+    for t in plasma.t:
+        plasma.calc_impurity_density(t=t)
 
-    _, Ti_prof = match_ion_temperature(
-        models,
-        plasma.Ti_prof,
-        data,
-        t,
-        quantities=["ti_w", "ti_z"],
-        lines=["w, "z""],
-        te0_ref=te0_ref,
-    )
-    for elem in plasma.elements:
-        plasma.ion_temperature.loc[dict(t=t, element=elem)] = Ti_prof.yspl.values
+    return models, plasma, raw_data, data, bckc
 
-    _, Nimp_prof = match_intensity(
-        models,
-        plasma.Nimp_prof,
-        data,
-        t,
-        quantities=["int_w"],
-        lines=["w"],
-    )
-    plasma.impurity_density.loc[
-        dict(t=t, element=opt["ar_dens"]["element"])
-    ] = Nimp_prof.yspl.values
+    print("Optimizing ion temperature vs XRCS")
+    for t in plasma.t:
+        match_helike_spectroscopy_ion_temperature(
+            models, plasma, data, t, guess=plasma.Ti_prof.y0,
+        )
+    print("Optimizing Ar density vs XRCS")
+    for t in plasma.t:
+        match_helike_spectroscopy_intensity(
+            models, plasma, data, t, guess=plasma.Nimp_prof.y0,
+        )
+    bckc["xrcs"] = models["xrcs"]()
+    for t in plasma.t:
+        plasma.calc_impurity_density(t=t)
+
+    return models, plasma, raw_data, data, bckc
 
     # plot_results(plasma, data, bckc, raw_data)
     plots.compare_data_bckc(data, bckc, raw_data=raw_data, pulse=plasma.pulse)
@@ -643,6 +617,7 @@ def calc_centrifugal_asymmetry(plasma: Plasma, toroidal_rotation0=500.0e3):
         plasma.ion_temperature / plasma.ion_temperature.max() * toroidal_rotation0
     ).values
     plasma.calc_centrifugal_asymmetry()
+
 
 def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
 

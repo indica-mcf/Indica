@@ -1,83 +1,138 @@
 import numpy as np
-import xarray as xr
-import indica.models.interferometry as interferometry
-from indica.models.plasma import example_run as example_plasma
 from indica.models.plasma import Plasma
-
-from indica.readers import ST40Reader
-from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates
+from scipy.optimize import least_squares
 
 
 def match_interferometer_los_int(
     models: dict,
+    plasma: Plasma,
     data: dict,
     t: float,
-    optimize_for: dict = {"smmh1": ["ne"]},
-    optimize: dict = {"Ne_prof": ["y0"]},
-    guesses: dict = {"Ne_prof": {"y0": 5.0e19}},
-    bounds:dict = {"Ne_prof": {"y0": (1.e17, 1.e21)}},
-    niter: int = 3,
+    optimise_for: dict = {"smmh1": ["ne"]},
+    guess: float = 5.0e19,
+    bounds: tuple = (1.0e17, 1.0e21),
+    bckc: dict = {},
 ):
+    def residuals(guess):
+        plasma.Ne_prof.y0 = guess
+        plasma.assign_profiles("electron_density", t=t)
 
-    list_data = []
-    list_model = []
-    list_quantity = []
-    for instrument in optimize_for.keys():
-        if instrument in models:
-            list_model.append(models[instrument])
-            for quantity in optimize_for[instrument]:
-                key = f"{instrument}_{quantity}"
-                list_data[key] = data[instrument][quantity]
-                list_quantity.append(quantity)
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                bckc[instrument] = models[instrument](t=t)
 
-    plasma = models
-    Ne_prof = plasma.Ne_prof
-    const = 1.0
-    for j in range(niter):
-        ne0 *= const
-        ne0 = xr.where((ne0 <= 0) or (not np.isfinite(ne0)), 5.0e19, ne0)
-        Ne_prof.set_parameters(y0=ne0)
+        resid = []
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                for quantity in optimise_for[instrument]:
+                    resid.append(
+                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity]
+                    )
 
-        list_const = []
-        for _model, _data, _quantity in zip(list_model, list_data, list_quantity):
-            _bckc = _model(Ne_prof(), t=t)
-            list_const.append(
-                (
-                    _data[_quantity].sel(t=t, method="nearest")
-                    / _bckc[_quantity].sel(t=t, method="nearest")
-                ).values
-            )
-        const = np.array(list_const).mean()
+        return (np.array(resid) ** 2).sum()
 
-    plasma.electron_density.loc[dict(t=t)] = Ne_prof().values
+    least_squares(residuals, guess, bounds=bounds, method="dogbox")
 
-    return plasma
+    return plasma, bckc
 
 
-def example_run():
-    instrument = "smmh1"
-    plasma = example_plasma()
+def match_helike_spectroscopy_line_ratios(
+    models: dict,
+    plasma: Plasma,
+    data: dict,
+    t: float,
+    optimise_for: dict = {"xrcs": ["int_k/int_w"]},
+    guess: float = 1.0e3,
+    bounds: tuple = (1.0e2, 10e4),
+    bckc: dict = {},
+):
+    def residuals(guess):
+        plasma.Te_prof.y0 = guess
+        plasma.assign_profiles("electron_temperature", t=t)
+        plasma.Ti_prof.y0 = guess
+        plasma.assign_profiles("ion_temperature", t=t)
 
-    pulse = 9229
-    reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                bckc[instrument] = models[instrument](t=t)
 
-    equilibrium_data = reader.get("", "efit", 0)
-    equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
+        resid = []
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                for quantity in optimise_for[instrument]:
+                    resid.append(
+                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity]
+                    )
 
-    plasma.set_equilibrium(equilibrium)
-    plasma.set_flux_transform(flux_transform)
+        return (np.array(resid) ** 2).sum()
 
-    _data = reader.get("interferom", instrument, 0)
-    trans = _data[list(_data)[0]].transform
-    data = {}
-    data[instrument] = _data
+    least_squares(residuals, guess, bounds=bounds, method="dogbox")
 
-    model = interferometry.Interferometry(instrument)
-    model.set_transform(trans)
-    model.set_flux_transform(plasma.flux_transform)
-    model.set_plasma(plasma)
+    return plasma, bckc
 
-    return plasma, model, data
+
+def match_helike_spectroscopy_ion_temperature(
+    models: dict,
+    plasma: Plasma,
+    data: dict,
+    t: float,
+    optimise_for: dict = {"xrcs": ["ti_w"]},
+    guess: float = 1.0e3,
+    bounds: tuple = (1.0e2, 1.5e3),
+    bckc: dict = {},
+):
+    def residuals(guess):
+        plasma.Ti_prof.y0 = guess
+        plasma.assign_profiles("ion_temperature", t=t)
+
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                bckc[instrument] = models[instrument](t=t)
+
+        resid = []
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                for quantity in optimise_for[instrument]:
+                    resid.append(
+                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity]
+                    )
+
+        return (np.array(resid) ** 2).sum()
+
+    least_squares(residuals, guess, bounds=bounds, method="dogbox")
+
+    return plasma, bckc
+
+
+def match_helike_spectroscopy_intensity(
+    models: dict,
+    plasma: Plasma,
+    data: dict,
+    t: float,
+    optimise_for: dict = {"xrcs": ["int_w"]},
+    guess: float = 1.0e15,
+    bounds: tuple = (1.0e13, 1.0e19),
+    bckc: dict = {},
+    element: str = "ar",
+):
+    def residuals(guess):
+        plasma.Nimp_prof.y0 = guess
+        plasma.assign_profiles("impurity_density", t=t, element=element)
+
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                bckc[instrument] = models[instrument](t=t)
+
+        resid = []
+        for instrument in optimise_for.keys():
+            if instrument in models.keys():
+                for quantity in optimise_for[instrument]:
+                    resid.append(
+                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity]
+                    )
+
+        return (np.array(resid) ** 2).sum()
+
+    least_squares(residuals, guess, bounds=bounds, method="dogbox")
+
+    return plasma, bckc
