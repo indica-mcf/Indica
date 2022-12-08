@@ -4,13 +4,14 @@
 from typing import cast
 from typing import Tuple
 
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.optimize import root
 import xarray as xr
-from xarray import DataArray, Dataset
+from xarray import DataArray
+from xarray import Dataset
 from xarray import zeros_like
-from matplotlib import cm
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -82,18 +83,18 @@ class LineOfSightTransform(CoordinateTransform):
         self.dl_target = dl
         self.passes = passes
 
-        self.x = None
-        self.y = None
-        self.dl = None
-        self.x = None
-        self.y = None
-        self.z = None
-        self.R = None
-        self.phi = None
-        self.rho = None
-        self.theta = None
-        self.along_los = None
-        self.los_integral = None
+        self.dl: list
+        self.x: list
+        self.y: list
+        self.z: list
+        self.R: list
+        self.phi: list
+        self.rho: list
+        self.theta: list
+        self.along_los: list
+        self.los_integral: DataArray
+        self.t: LabeledArray
+        self.x2: list
 
         self.origin_x = origin_x
         self.origin_y = origin_y
@@ -115,7 +116,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.z_wall_upper = self._machine_dims[1][1]
 
         # Number of lines of sight
-        self.x1 = list(np.arange(0, len(origin_x)))
+        self.x1: list = list(np.arange(0, len(origin_x)))
 
         # Calculate start and end coordinates, R, z and phi for all LOS
         x_start, y_start, z_start = [], [], []
@@ -190,7 +191,7 @@ class LineOfSightTransform(CoordinateTransform):
             x2 = x[1]
             x = self.x_start + (self.x_end - self.x_start) * x2
             y = self.y_start + (self.y_end - self.y_start) * x2
-            z = self.z_start + (self.z_end - self.z_start) * x2
+            # z = self.z_start + (self.z_end - self.z_start) * x2
             dxdx1 = 0.0
             dxdx2 = self.x_end - self.x_start
             dydx1 = 0.0
@@ -225,9 +226,7 @@ class LineOfSightTransform(CoordinateTransform):
         # # rather than rely on interpolation (which is necessarily
         # # inexact, as well as computationally expensive).
 
-    def convert_to_rho(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray = None
-    ) -> Coordinates:
+    def _convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
         """
         Convert R, z to rho given the flux surface transform
         """
@@ -236,12 +235,11 @@ class LineOfSightTransform(CoordinateTransform):
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
 
-        if np.size(t) == 1:
-            t = np.array([t])
-
         rho = []
         theta = []
-        for channel in x1:
+        _rho: DataArray
+        _theta: DataArray
+        for channel in self.x1:
             _rho, _theta = self.flux_transform.convert_from_Rz(
                 self.R[channel], self.z[channel], t=t
             )
@@ -252,15 +250,15 @@ class LineOfSightTransform(CoordinateTransform):
                 if var in _theta.coords:
                     _theta = _theta.drop_vars(var)
 
-            _rho.assign_coords({self.x2_name: x2[channel].values})
-            _theta.assign_coords({self.x2_name: x2[channel].values})
+            _rho.assign_coords({self.x2_name: self.x2[channel].values})
+            _theta.assign_coords({self.x2_name: self.x2[channel].values})
 
             rho.append(xr.where(_rho >= 0, _rho, np.nan))
             theta.append(xr.where(_rho >= 0, _theta, np.nan))
 
-        if x2 == self.x2:
-            self.rho = rho
-            self.theta = theta
+        self.t = t
+        self.rho = rho
+        self.theta = theta
 
         return rho, theta
 
@@ -301,11 +299,13 @@ class LineOfSightTransform(CoordinateTransform):
             Recomputed dl to fit an integral number of points in-between start & end
         """
 
-        x, y, z = [], [], []
-        R, z = [], []
-        phi = []
-        x2 = []
-        dl_new = []
+        x: list = []
+        y: list = []
+        z: list = []
+        R: list = []
+        phi: list = []
+        x2: list = []
+        dl_new: list = []
 
         # Length of the lines of sight
         los_length = np.sqrt(
@@ -342,9 +342,9 @@ class LineOfSightTransform(CoordinateTransform):
         self.phi = phi
         self.impact_xyz = self._impact_parameter_xyz()
 
-        self.rho = None
-        self.theta = None
-        self.along_los = None
+        self.rho = []
+        self.theta = []
+        self.along_los = []
         self.los_integral = None
         self.t = None
 
@@ -364,10 +364,9 @@ class LineOfSightTransform(CoordinateTransform):
     def map_to_los(
         self,
         profile_1d: DataArray,
-        x1: LabeledArray,
-        x2: LabeledArray = None,
         t: LabeledArray = None,
-        limit_to_sep=True,
+        limit_to_sep: bool = True,
+        calc_rho: bool = False,
     ) -> list:
         """
         Map 1D profile to lines-of-sight
@@ -376,54 +375,47 @@ class LineOfSightTransform(CoordinateTransform):
         ----------
         profile_1d
             DataArray of the 1D profile to integrate
-        x1
-            List of channels to map
-        x2
-            The array of points along the LOS [0, 1]
         t
             Time for interpolation
         limit_to_sep
             Set to True if values outside of separatrix are to be set to 0
+        calc_rho
+            Calculate rho for specified time-points
 
         Returns
         -------
             Interpolation of the input profile along the LOS
         """
         self.check_flux_transform()
-        if x2 is None:
-            x2 = self.x2
-
-        if hasattr(self, "rho"):
-            x1_equal = x1 == self.x1
-            x2_equal = all([all(_x2 == self_x2) for _x2, self_x2 in zip(x2, self.x2)])
-            t_equal = np.array_equal(t, self.t)
-            if not x1_equal or not x2_equal or not t_equal:
-                self.convert_to_rho(x1, x2, t=t)
-                self.t = t
-        else:
-            self.convert_to_rho(x1, x2, t=t)
-            self.t = t
+        self.check_rho(t, calc_rho)
 
         along_los = []
-        for channel in x1:
-            rho = self.rho[channel]
-            _along_los = profile_1d.interp(rho_poloidal=rho)
+        for channel in self.x1:
+            if "t" in self.rho[channel].dims:
+                rho = self.rho[channel].interp(t=t)
+            else:
+                rho = self.rho[channel]
+
+            if "t" in profile_1d.dims:
+                profile = profile_1d.interp(t=t)
+            else:
+                profile = profile_1d
+
+            _along_los = profile.interp(rho_poloidal=rho)
             if limit_to_sep:
                 _along_los = xr.where(rho <= 1, _along_los, 0,)
             along_los.append(_along_los)
 
-        if x1 == self.x1 and x2 == self.x2:
-            self.along_los = along_los
+        self.along_los = along_los
 
         return along_los
 
     def integrate_on_los(
         self,
         profile_1d: DataArray,
-        x1: LabeledArray,
-        x2: LabeledArray = None,
         t: LabeledArray = None,
         limit_to_sep=True,
+        calc_rho=False,
     ) -> DataArray:
         """
         Integrate 1D profile along LOS
@@ -441,26 +433,24 @@ class LineOfSightTransform(CoordinateTransform):
         Line of sight integral along the LOS
         """
         along_los = self.map_to_los(
-            profile_1d, x1, x2=x2, t=t, limit_to_sep=limit_to_sep,
+            profile_1d, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
         )
 
         _los_integral = []
-        for channel in x1:
+        for channel in self.x1:
             _along_los = along_los[channel].drop_vars("rho_poloidal")
             _los_integral.append(
                 self.passes * _along_los.sum(self.x2_name) * self.dl[channel]
             )
 
         los_integral = xr.concat(_los_integral, self.x1_name).assign_coords(
-            {self.x1_name: x1}
+            {self.x1_name: self.x1}
         )
 
         if len(los_integral.channel) == 1:
             los_integral = los_integral.sel(channel=0)
 
-        if x1 == self.x1 and x2 == self.x2:
-            self.along_los = along_los
-            self.los_integral = los_integral
+        self.los_integral = los_integral
 
         return los_integral
 
@@ -487,6 +477,28 @@ class LineOfSightTransform(CoordinateTransform):
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Missing equilibrium in flux surface transform")
 
+    def check_rho(self, t: LabeledArray, calc_rho: bool = False):
+        """
+        Check requested times
+        """
+        if len(self.rho) == 0 or calc_rho:
+            self._convert_to_rho(t=t)
+            return
+
+        rho_t = self.rho[0].t
+        if np.array_equal(rho_t, t):
+            return
+
+        if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
+            return
+
+        equil_t = self.flux_transform.equilibrium.rho.t
+        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
+        if equil_ok:
+            self._convert_to_rho(t=t)
+        else:
+            raise ValueError("Inserted time is not available in Equilibrium object")
+
     def get_plasma_boundaries(self, tplot: float = None):
         boundaries = None
         if hasattr(self, "flux_transform"):
@@ -500,7 +512,7 @@ class LineOfSightTransform(CoordinateTransform):
                     tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
 
                 if self.rho is None:
-                    self.convert_to_rho(self.x1, self.x2, t=tplot)
+                    self._convert_to_rho(t=tplot)
 
                 rho_equil = equil.rho.sel(t=tplot, method="nearest")
                 rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
@@ -537,7 +549,7 @@ class LineOfSightTransform(CoordinateTransform):
                     tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
 
                 if self.rho is None:
-                    self.convert_to_rho(self.x1, self.x2, t=tplot)
+                    self._convert_to_rho(t=tplot)
 
                 rho_equil = equil.rho.sel(t=tplot, method="nearest")
                 rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
@@ -547,8 +559,12 @@ class LineOfSightTransform(CoordinateTransform):
                 x_plasma_outer = R_lfs * np.cos(self.angles)
                 y_plasma_inner = R_hfs * np.sin(self.angles)
                 y_plasma_outer = R_lfs * np.sin(self.angles)
-                x_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.cos(self.angles)
-                y_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.sin(self.angles)
+                x_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.cos(
+                    self.angles
+                )
+                y_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.sin(
+                    self.angles
+                )
 
         if orientation is not None and orientation == "xy":
             plt.figure()
@@ -673,6 +689,12 @@ def _find_wall_intersections(
         A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
     """
 
+    def line(_start, _end):
+        return np.linspace(_start, _end, npts)
+
+    def extremes(_start, _end):
+        return np.array([_start, _end], dtype=float,)
+
     # Define XYZ lines for inner and outer walls
     npts = 1000
     angles = np.linspace(0.0, 2 * np.pi, npts)
@@ -701,8 +723,6 @@ def _find_wall_intersections(
     y_end = origin[1] + length * direction[1]
     z_start = origin[2]
     z_end = origin[2] + length * direction[2]
-    line = lambda _start, _end: np.linspace(_start, _end, npts)
-    extremes = lambda _start, _end: np.array([_start, _end], dtype=float,)
 
     # Find intersections in R, z plane
     x_line = line(x_start, x_end)

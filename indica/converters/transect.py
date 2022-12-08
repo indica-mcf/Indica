@@ -104,7 +104,7 @@ class TransectCoordinates(CoordinateTransform):
         self.y = y
         self.z = z
         self.R = R
-
+        self.rho: list = []
 
     def set_flux_transform(
         self, flux_transform: FluxSurfaceCoordinates, force: bool = False
@@ -204,8 +204,8 @@ class TransectCoordinates(CoordinateTransform):
 
         return x1, x2
 
-    def convert_to_rho(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray = None
+    def _convert_to_rho(
+        self, t: LabeledArray = None
     ) -> Coordinates:
         """
         Convert R, z to rho given the flux surface transform
@@ -215,13 +215,7 @@ class TransectCoordinates(CoordinateTransform):
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
 
-        if np.array_equal(x1, self.x1):
-            R = self.R
-            z = self.z
-        else:
-            R, z = self.convert_to_Rz(x1, x2, t)
-
-        rho, theta = self.flux_transform.convert_from_Rz(R, z, t=t)
+        rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
         drop_vars = ["R", "z"]
         for var in drop_vars:
             if var in rho.coords:
@@ -229,19 +223,17 @@ class TransectCoordinates(CoordinateTransform):
             if var in theta.coords:
                 theta = theta.drop_vars(var)
 
-        if np.array_equal(x1, self.x1):
-            self.rho = rho
-            self.theta = theta
+        self.rho = rho
+        self.theta = theta
 
         return rho, theta
 
-    def map_to_channels(
+    def map_to_rho(
         self,
         profile_1d: DataArray,
-        x1: LabeledArray,
-        x2: LabeledArray = None,
         t: LabeledArray = None,
         limit_to_sep=True,
+        calc_rho=False,
     ) -> list:
         """
         Map 1D profile to measurement coordinates
@@ -250,38 +242,25 @@ class TransectCoordinates(CoordinateTransform):
         ----------
         profile_1d
             DataArray of the 1D profile to integrate
-        x1
-            List of channels to map
-        x2
-            None for this transform
         t
             Time for interpolation
         limit_to_sep
             Set to True if values outside of separatrix are to be set to 0
+        calc_rho
+            Calculate rho for specified time-point
 
         Returns
         -------
             Interpolation of the input profile on the diagnostic channels
         """
         self.check_flux_transform()
-
-        x2 = DataArray(None)
-        if hasattr(self, "rho"):
-            x1_equal = np.array_equal(x1, self.x1)
-            t_equal = np.array_equal(t, self.t)
-            if not x1_equal  or not t_equal:
-                self.convert_to_rho(x1, x2, t=t)
-                self.t = t
-        else:
-            self.convert_to_rho(x1, x2, t=t)
-            self.t = t
+        self.check_rho(t, calc_rho)
 
         value_at_channels = profile_1d.interp(rho_poloidal=self.rho)
         if limit_to_sep:
             value_at_channels = xr.where(self.rho <= 1, value_at_channels, 0,)
 
-        if np.array_equal(x1, self.x1):
-            self.value_at_channels = value_at_channels
+        self.value_at_channels = value_at_channels
 
         return value_at_channels
 
@@ -290,6 +269,28 @@ class TransectCoordinates(CoordinateTransform):
             raise Exception("Missing flux surface transform")
         if not hasattr(self.flux_transform, "equilibrium"):
             raise Exception("Missing equilibrium in flux surface transform")
+
+    def check_rho(self, t: LabeledArray, calc_rho: bool = False):
+        """
+        Check requested times
+        """
+        if len(self.rho) == 0 or calc_rho:
+            self._convert_to_rho(t=t)
+            return
+
+        rho_t = self.rho[0].t
+        if np.array_equal(rho_t, t):
+            return
+
+        if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
+            return
+
+        equil_t = self.flux_transform.equilibrium.rho.t
+        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
+        if equil_ok:
+            self._convert_to_rho(t=t)
+        else:
+            raise ValueError("Inserted time is not available in Equilibrium object")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
