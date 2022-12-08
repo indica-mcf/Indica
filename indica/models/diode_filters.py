@@ -1,28 +1,26 @@
-import indica.physics as ph
-from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.converters.line_of_sight_multi import LineOfSightTransform
-from indica.numpy_typing import LabeledArray
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-
-from indica.readers import ST40Reader
-from indica.models.plasma import example_run as example_plasma
-from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates
 import matplotlib.cm as cm
-
-import xarray as xr
-from xarray import DataArray
 import matplotlib.pylab as plt
 import numpy as np
+import xarray as xr
+from xarray import DataArray
+
+from indica.converters.line_of_sight_multi import LineOfSightTransform
+from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.plasma import example_run as example_plasma
+from indica.numpy_typing import LabeledArray
+import indica.physics as ph
+from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
-class Diode_filters(DiagnosticModel):
+class Bremsstrahlung_filtered_diode(DiagnosticModel):
     """
     Object representing an diode filter diagnostic measuring
-    in a specified spectral range
+    Bremsstrahlung radiation in a specified wavelength range
 
     TODO: currently working only for Bremsstrahlung emission!!!
     """
+    transform: LineOfSightTransform
+    los_integral: DataArray
 
     def __init__(
         self,
@@ -41,8 +39,6 @@ class Diode_filters(DiagnosticModel):
         self.etendue = etendue
         self.calibration = calibration
         self.instrument_method = instrument_method
-        self.los_integral: DataArray = None
-
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self):
@@ -72,6 +68,7 @@ class Diode_filters(DiagnosticModel):
         Ne: DataArray = None,
         Zeff: DataArray = None,
         t: LabeledArray = None,
+        calc_rho:bool=False,
     ):
         """
         Calculate Bremsstrahlung emission and model measurement
@@ -93,9 +90,9 @@ class Diode_filters(DiagnosticModel):
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.t
-            Ne = self.plasma.electron_density.sel(t=t)
-            Te = self.plasma.electron_temperature.sel(t=t)
-            Zeff = self.plasma.zeff.sel(t=t)
+            Ne = self.plasma.electron_density.interp(t=t)
+            Te = self.plasma.electron_temperature.interp(t=t)
+            Zeff = self.plasma.zeff.interp(t=t)
         else:
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
@@ -103,42 +100,28 @@ class Diode_filters(DiagnosticModel):
         self.Te = Te
         self.Ne = Ne
         self.Zeff = Zeff
-        if len(np.shape(t)) == 0:
-            t = np.array([t])
+        self.transform.check_rho(t=t)
 
         emission = ph.zeff_bremsstrahlung(Te, Ne, self.filter_wavelength, zeff=Zeff)
         self.emission = emission
 
-        x1 = self.transform.x1
-        x2 = self.transform.x2
         los_integral = self.transform.integrate_on_los(
-            emission.sum("element"), x1, x2, t=t,
+            emission.sum("element"),
+            t=t,
+            calc_rho=calc_rho,
         )
 
         self.los_integral = los_integral
-        self.t = los_integral.t
+        self.t = t
 
         self._build_bckc_dictionary()
 
         return self.bckc
 
 
-def example_run():
-    plasma = example_plasma()
-
-    # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
-    pulse = 9229
-    it = int(len(plasma.t) / 2)
-    tplot = plasma.t[it]
-    reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
-
-    equilibrium_data = reader.get("", "efit", 0)
-    equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
-
-    plasma.set_equilibrium(equilibrium)
-    plasma.set_flux_transform(flux_transform)
+def example_run(plasma=None, plot:bool=False):
+    if plasma is None:
+        plasma = example_plasma()
 
     # Create new interferometers diagnostics
     diagnostic_name = "diode_brems"
@@ -157,67 +140,70 @@ def example_run():
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
     )
-    model = Diode_filters(diagnostic_name,)
+    model = Bremsstrahlung_filtered_diode(
+        diagnostic_name,
+    )
     model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
     bckc = model()
-    # zeff = plasma.zeff
-    # bckc = model(
-    #     plasma.electron_temperature, plasma.electron_density, zeff, t=plasma.t,
-    # )
 
-    plt.figure()
-    equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
-        levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-    )
-    channels = model.transform.x1
-    cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
-    for chan in channels:
-        plt.plot(
-            model.transform.R[chan],
-            model.transform.z[chan],
-            linewidth=3,
-            color=cols[chan],
-            alpha=0.7,
-            label=f"CH{chan}",
+    if plot:
+        it = int(len(plasma.t) / 2)
+        tplot = plasma.t[it]
+
+        plt.figure()
+        plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
+            levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
         )
+        channels = model.transform.x1
+        cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
+        for chan in channels:
+            plt.plot(
+                model.transform.R[chan],
+                model.transform.z[chan],
+                linewidth=3,
+                color=cols[chan],
+                alpha=0.7,
+                label=f"CH{chan}",
+            )
 
-    plt.xlim(0, 1.0)
-    plt.ylim(-0.6, 0.6)
-    plt.axis("scaled")
-    plt.legend()
+        plt.xlim(0, 1.0)
+        plt.ylim(-0.6, 0.6)
+        plt.axis("scaled")
+        plt.legend()
 
-    # Plot LOS mapping on equilibrium
-    plt.figure()
-    for chan in channels:
-        model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-            color=cols[chan], label=f"CH{chan}",
-        )
-    plt.xlabel("Path along the LOS")
-    plt.ylabel("Rho-poloidal")
-    plt.legend()
+        # Plot LOS mapping on equilibrium
+        plt.figure()
+        for chan in channels:
+            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
+                color=cols[chan],
+                label=f"CH{chan}",
+            )
+        plt.xlabel("Path along the LOS")
+        plt.ylabel("Rho-poloidal")
+        plt.legend()
 
-    # Plot back-calculated values
-    plt.figure()
-    for chan in channels:
-        bckc["brems"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
-    plt.xlabel("Time (s)")
-    plt.ylabel("Bremsstrahlung LOS-integrals (W/m^2)")
-    plt.legend()
+        # Plot back-calculated values
+        plt.figure()
+        for chan in channels:
+            bckc["brems"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
+        plt.xlabel("Time (s)")
+        plt.ylabel("Bremsstrahlung LOS-integrals (W/m^2)")
+        plt.legend()
 
-    # Plot the profiles
-    cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-    plt.figure()
-    for i, t in enumerate(plasma.t.values):
-        plt.plot(
-            model.emission.sum("element").rho_poloidal,
-            model.emission.sum("element").sel(t=t),
-            color=cols_time[i],
-            label=f"t={t:1.2f} s",
-        )
-    plt.xlabel("rho")
-    plt.ylabel("Bremsstrahlung emission (W/m^3)")
-    plt.legend()
+        # Plot the profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+        plt.figure()
+        for i, t in enumerate(plasma.t.values):
+            plt.plot(
+                model.emission.sum("element").rho_poloidal,
+                model.emission.sum("element").sel(t=t),
+                color=cols_time[i],
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("rho")
+        plt.ylabel("Bremsstrahlung emission (W/m^3)")
+        plt.legend()
 
     return plasma, model, bckc
