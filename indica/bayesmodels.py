@@ -3,6 +3,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 from copy import deepcopy
+import flatdict
 
 from indica.readers.read_st40 import ST40data
 from indica.equilibrium import Equilibrium
@@ -149,7 +150,6 @@ if __name__ == "__main__":
     plasma.set_equilibrium(equilibrium)
     plasma.set_flux_transform(flux_transform)
 
-    # TODO: Get data as flat dict
     data = {}
     for instrument in raw_data.keys():
         quantities = list(raw_data[instrument])
@@ -167,15 +167,14 @@ if __name__ == "__main__":
         for quantity in quantities:
             data[instrument][quantity].attrs["transform"] = transform
 
+    # Get data as flat dict
+    flat_data = flatdict.FlatDict(data, delimiter="_")
 
     # Initialise Diagnostic Models
-    transform = data["smmh1"]["ne"].transform
-    smmh1 = Interferometry(name="smmh1")
+    transform = flat_data["smmh1_ne"].transform
+    smmh1 = Interferometry(name="smmh1", flat_bkcv=True)
     smmh1.set_transform(transform)
     smmh1.set_flux_transform(flux_transform)
-
-
-
 
     priors = {
         "Ne_prof_y0": lambda x:
@@ -193,8 +192,8 @@ if __name__ == "__main__":
                                 uniform(x, 1e16, 1e20),
     }
 
-    bm = BayesModels(plasma=plasma, data=data, diagnostic_models=[smmh1],
-                     quant_to_optimise=["ne", ], priors=priors)
+    bm = BayesModels(plasma=plasma, data=flat_data, diagnostic_models=[smmh1],
+                     quant_to_optimise=["smmh1_ne", ], priors=priors)
 
     # Setup Optimiser
 
