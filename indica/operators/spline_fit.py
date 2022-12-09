@@ -20,11 +20,13 @@ from xarray import DataArray
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
+from .abstractoperator import OperatorError
 from .. import session
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
 from ..converters import FluxSurfaceCoordinates
 from ..datatypes import DataType
+from ..datatypes import GeneralDataType
 from ..numpy_typing import ArrayLike
 from ..utilities import broadcast_spline
 from ..utilities import coord_array
@@ -125,15 +127,10 @@ class SplineFit(Operator):
     sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
+    general_datatype : GeneralDataType
+        The datatype for which the fitting is being performed.
 
     """
-
-    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("norm_flux_pol", "plasma"),
-        ("time", "plasma"),
-        ("temperature", "electrons"),
-        ...,
-    ]
 
     def __init__(
         self,
@@ -141,6 +138,7 @@ class SplineFit(Operator):
         lower_bound: ArrayLike = -np.inf,
         upper_bound: ArrayLike = np.inf,
         sess: session.Session = session.global_session,
+        general_datatype: GeneralDataType = "temperature",
     ):
         self.knots = coord_array(knots, "rho_poloidal")
         self.lower_bound = lower_bound
@@ -155,6 +153,32 @@ class SplineFit(Operator):
             )
         self.spline: Spline
         self.spline_vals: DataArray
+
+        accepted_general_datatypes = [
+            "angular_freq",
+            "asymmetry",
+            "concentration",
+            "effective_charge",
+            "emissivity",
+            "luminous_flux",
+            "number_density",
+            "temperature",
+        ]
+
+        if general_datatype not in accepted_general_datatypes:
+
+            raise OperatorError(
+                f"Datatype {general_datatype} not accepted for SplineFit."
+                f"Accepted datatypes are: {accepted_general_datatypes}."
+            )
+
+        self.ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
+            ("norm_flux_pol", "plasma"),
+            ("time", "plasma"),
+            (general_datatype, None),
+            ...,
+        ]
+
         super().__init__(
             sess,
             knots=str(knots),

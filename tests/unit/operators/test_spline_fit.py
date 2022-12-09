@@ -1,12 +1,14 @@
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 from xarray import DataArray
 from xarray.testing import assert_allclose
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
+from indica.operators.abstractoperator import OperatorError
 from indica.operators.spline_fit import Spline
 from indica.operators.spline_fit import SplineFit
 from indica.utilities import coord_array
@@ -97,3 +99,20 @@ def test_spline_fit():
     assert "provenance" in result.attrs
     assert "provenance" in spline_fit.attrs
     assert "provenance" in binned_input.attrs
+
+
+def test_accepted_datatype():
+    """
+    Check no error raised for accepted datatype
+    """
+    knot_locations = [0.0, 0.5, 0.8, 1.05]
+    SplineFit(knot_locations, general_datatype="number_density")
+
+
+def test_unaccepted_datatype():
+    """
+    Check error raised for unaccepted datatype
+    """
+    knot_locations = [0.0, 0.5, 0.8, 1.05]
+    with pytest.raises(OperatorError):
+        SplineFit(knot_locations, general_datatype="banana")
