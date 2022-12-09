@@ -27,7 +27,7 @@ jobs:
     - name: Lint the code
       env:
         SKIP: no-commit-to-branch
-      uses: pre-commit/action@v2.0.0
+      uses: pre-commit/action@v3.0.0
 
   static-analysis:
 
