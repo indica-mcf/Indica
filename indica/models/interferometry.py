@@ -1,18 +1,15 @@
-from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.converters.line_of_sight_multi import LineOfSightTransform
-from indica.numpy_typing import LabeledArray
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-
-from indica.readers import ST40Reader
-from indica.models.plasma import example_run as example_plasma
-from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates
 import matplotlib.cm as cm
-
-import xarray as xr
-from xarray import DataArray
 import matplotlib.pylab as plt
 import numpy as np
+import xarray as xr
+from xarray import DataArray
+import flatdict
+
+from indica.converters.line_of_sight_multi import LineOfSightTransform
+from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.plasma import example_run as example_plasma
+from indica.numpy_typing import LabeledArray
+from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
 class Interferometry(DiagnosticModel):
@@ -20,18 +17,23 @@ class Interferometry(DiagnosticModel):
     Object representing an interferometer diagnostics
     """
 
+    transform: LineOfSightTransform
+    Ne: DataArray
+    los_integral_ne: DataArray
+
     def __init__(
-        self, name: str, instrument_method="get_interferometry",
+        self,
+            name: str,
+            instrument_method="get_interferometry",
+            flat_bkcv: bool = False,
     ):
 
         self.name = name
         self.instrument_method = instrument_method
+        self.flat_bkcv = flat_bkcv
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
-        self.Ne = None
-        self.los_integral_ne = None
-
-    def _build_bckc_dictionary(self):
+    def _build_bckc_dictionary(self, ):
         self.bckc = {}
 
         for quant in self.quantities:
@@ -51,8 +53,11 @@ class Interferometry(DiagnosticModel):
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
+        if self.flat_bkcv:
+            self.bkcv = flatdict.FlatDict(self.bkcv, delimiter="_")
 
-    def __call__(self, Ne: DataArray = None, t: LabeledArray = None, **kwargs):
+
+    def __call__(self, Ne: DataArray = None, t: LabeledArray = None, calc_rho=False, **kwargs):
         """
         Calculate diagnostic measured values
 
@@ -66,49 +71,28 @@ class Interferometry(DiagnosticModel):
         -------
 
         """
+        # TODO: decide whether to select nearest time-points or interpolate in time!!
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            Ne = self.plasma.electron_density.sel(t=t)
+            Ne = self.plasma.electron_density.interp(t=t)
         else:
             if Ne is None:
                 raise ValueError("Give inputs or assign plasma class!")
         self.Ne = Ne
-        # if len(np.shape(t)) == 0:
-        #     t = np.array([t])
+        self.transform.check_rho(t=t)
 
-        x1 = self.transform.x1
-        x2 = self.transform.x2
-        # los_integral_ne = self.transform.integrate_on_los(Ne, x1, x2, t=t,)
-        R = self.transform.R
-        dR = R[0][0] - R[0][-1]
-        los_integral_ne = Ne.mean()*dR
-
-
+        los_integral_ne = self.transform.integrate_on_los(Ne, t=t, calc_rho=calc_rho,)
         self.los_integral_ne = los_integral_ne
-        self.t = los_integral_ne.t
 
         self._build_bckc_dictionary()
 
         return self.bckc
 
 
-def example_run():
-    plasma = example_plasma()
-
-    # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
-    pulse = 9229
-    it = int(len(plasma.t) / 2)
-    tplot = plasma.t[it]
-    reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
-
-    equilibrium_data = reader.get("", "efit", 0)
-    equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
-
-    plasma.set_equilibrium(equilibrium)
-    plasma.set_flux_transform(flux_transform)
+def example_run(plasma=None, plot=False):
+    if plasma is None:
+        plasma = example_plasma()
 
     # Create new interferometers diagnostics
     diagnostic_name = "smmh1"
@@ -131,66 +115,70 @@ def example_run():
     model.set_transform(transform)
     model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
+
     bckc = model()
-    # bckc = model(Ne=plasma.electron_density, t=plasma.t)
 
-    plt.figure()
-    equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
-        levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-    )
-    channels = model.transform.x1
-    cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
-    for chan in channels:
-        plt.plot(
-            model.transform.R[chan],
-            model.transform.z[chan],
-            linewidth=3,
-            color=cols[chan],
-            alpha=0.7,
-            label=f"CH{chan}",
+    if plot:
+        it = int(len(plasma.t) / 2)
+        tplot = plasma.t[it]
+
+        plt.figure()
+        plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
+            levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
         )
+        channels = model.transform.x1
+        cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
+        for chan in channels:
+            plt.plot(
+                model.transform.R[chan],
+                model.transform.z[chan],
+                linewidth=3,
+                color=cols[chan],
+                alpha=0.7,
+                label=f"CH{chan}",
+            )
 
-    plt.xlim(0, 1.0)
-    plt.ylim(-0.6, 0.6)
-    plt.axis("scaled")
-    plt.legend()
+        plt.xlim(0, 1.0)
+        plt.ylim(-0.6, 0.6)
+        plt.axis("scaled")
+        plt.legend()
 
-    # Plot LOS mapping on equilibrium
-    plt.figure()
-    for chan in channels:
-        model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-            color=cols[chan], label=f"CH{chan}",
-        )
-    plt.xlabel("Path along the LOS")
-    plt.ylabel("Rho-poloidal")
-    plt.legend()
+        # Plot LOS mapping on equilibrium
+        plt.figure()
+        for chan in channels:
+            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
+                color=cols[chan], label=f"CH{chan}",
+            )
+        plt.xlabel("Path along the LOS")
+        plt.ylabel("Rho-poloidal")
+        plt.legend()
 
-    # Plot back-calculated values
-    plt.figure()
-    for chan in channels:
-        bckc["ne"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
-    plt.xlabel("Time (s)")
-    plt.ylabel("Ne LOS-integrals (m^-2)")
-    plt.legend()
+        # Plot back-calculated values
+        plt.figure()
+        for chan in channels:
+            bckc["ne"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
+        plt.xlabel("Time (s)")
+        plt.ylabel("Ne LOS-integrals (m^-2)")
+        plt.legend()
 
-    # Plot the profiles
-    cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-    plt.figure()
-    for i, t in enumerate(plasma.t.values):
-        plt.plot(
-            model.Ne.rho_poloidal,
-            model.Ne.sel(t=t),
-            color=cols_time[i],
-            label=f"t={t:1.2f} s",
-        )
-    plt.xlabel("rho")
-    plt.ylabel("Ne (m^-3)")
-    plt.legend()
-    plt.show(block=True)
+        # Plot the profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+        plt.figure()
+        for i, t in enumerate(plasma.t.values):
+            plt.plot(
+                model.Ne.rho_poloidal,
+                model.Ne.sel(t=t),
+                color=cols_time[i],
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("rho")
+        plt.ylabel("Ne (m^-3)")
+        plt.legend()
+        plt.show(block=True)
 
     return plasma, model, bckc
 
 
 if __name__ == "__main__":
 
-    example_run()
+    example_run(plot=True)

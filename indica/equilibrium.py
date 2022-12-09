@@ -2,10 +2,8 @@
 """
 
 import datetime
-from typing import Any
 from typing import cast
 from typing import Dict
-from typing import Hashable
 from typing import Optional
 from typing import Tuple
 
@@ -13,22 +11,17 @@ import numpy as np
 import prov.model as prov
 from scipy.integrate import trapz
 from xarray import apply_ufunc
-from xarray import concat
 from xarray import DataArray
 from xarray import where
 
 from . import session
-from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
-from .offset import interactive_offset_choice
-from .offset import OffsetPicker
-from .operators import SplineFit
-from .utilities import coord_array
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
+#TODO: this class works best if it's not an abstract class: why should it?
 
-class Equilibrium(AbstractEquilibrium):
+class Equilibrium():
     """Class to hold and interpolate equilibrium data.
 
     At instantiation it will require calibration to select an offset
@@ -66,7 +59,6 @@ class Equilibrium(AbstractEquilibrium):
         R_shift: float = 0.0,
         z_shift: float = 0.0,
         sess: session.Session = session.global_session,
-        offset_picker: OffsetPicker = interactive_offset_choice,
     ):
 
         self._session = sess
@@ -174,7 +166,9 @@ class Equilibrium(AbstractEquilibrium):
             assume_sorted=True,
         )
         b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
+        b_R.name = "Radial magnetic field"
         b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
+        b_z.name = "Vertical Magnetic Field (T)"
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
@@ -185,6 +179,7 @@ class Equilibrium(AbstractEquilibrium):
         )
         f.name = self.f.name
         b_T = f / _R
+        b_T.name = "Toroidal Magnetic Field (T)"
 
         return b_R, b_z, b_T, t
 
@@ -239,7 +234,6 @@ class Equilibrium(AbstractEquilibrium):
             results are given for. Otherwise return the argument.
         """
         b_R, b_z, b_T, t = self.Bfield(R, z, t)
-        b_R.name = "Radial Magnetic Field (T)"
 
         return b_R, t
 
@@ -264,7 +258,6 @@ class Equilibrium(AbstractEquilibrium):
             results are given for. Otherwise return the argument.
         """
         b_R, b_z, b_T, t = self.Bfield(R, z, t)
-        b_z.name = "Vertical Magnetic Field (T)"
 
         return b_z, t
 
@@ -294,7 +287,6 @@ class Equilibrium(AbstractEquilibrium):
             results are given for. Otherwise return the argument.
         """
         b_R, b_z, b_T, t = self.Bfield(R, z, t)
-        b_T.name = "Toroidal Magnetic Field (T)"
 
         return b_T, t
 
@@ -445,6 +437,7 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
+
         if t is None:
             t = self.rho.coords["t"]
 
@@ -473,7 +466,7 @@ class Equilibrium(AbstractEquilibrium):
         # where the rho value is below the precision possible through
         # the trapz() function.
         zero_check = np.where(rho < 1e-18)[0]
-        if zero_check.size > 0:
+        if np.size(zero_check) > 0:
             for i in zero_check:
                 for k, itheta in enumerate(theta):
                     minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
@@ -698,11 +691,10 @@ class Equilibrium(AbstractEquilibrium):
         _R = convert_to_dataarray(R, ("R", R))
         _z = convert_to_dataarray(z, ("z", z))
         if t is not None:
-            t = self.rho.t.sel(t=t, method="nearest")
-            rho = self.rho.interp(t=t)
-            R_ax = self.rmag.interp(t=t)
-            z_ax = self.zmag.interp(t=t)
-            z_x_point = self.zx.interp(t=t)
+            rho = self.rho.interp(t=t, method="nearest")
+            R_ax = self.rmag.interp(t=t, method="nearest")
+            z_ax = self.zmag.interp(t=t, method="nearest")
+            z_x_point = self.zx.interp(t=t, method="nearest")
         else:
             rho = self.rho
             R_ax = self.rmag
@@ -730,6 +722,7 @@ class Equilibrium(AbstractEquilibrium):
 
         if kind != "poloidal":
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
+
         # Set rho to be negative in the private flux region
         rho_interp = where(
             np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp

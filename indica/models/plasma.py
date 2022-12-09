@@ -1,9 +1,5 @@
 from copy import deepcopy
 import pickle
-from indica.utilities import get_function_name, assign_data, assign_datatype, print_like
-
-import indica.physics as ph
-from indica.profiles_gauss import Profiles
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -15,10 +11,16 @@ from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
+from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
+import indica.physics as ph
+from indica.profiles_gauss import Profiles
 from indica.readers import ADASReader
-from indica.numpy_typing import LabeledArray
+from indica.readers import ST40Reader
+from indica.utilities import assign_data
+from indica.utilities import assign_datatype
+from indica.utilities import print_like
 
 plt.ion()
 
@@ -160,6 +162,9 @@ class Plasma:
 
         self.initialize_variables(tstart, tend, dt)
 
+        self.equilibrium: Equilibrium
+        self.flux_transform: FluxSurfaceCoordinates
+
     def set_equilibrium(self, equilibrium: Equilibrium):
         """
         Assign equilibrium object
@@ -176,9 +181,7 @@ class Plasma:
             if not hasattr(self.flux_transform, "equilibrium"):
                 self.flux_transform.set_equilibrium(self.equilibrium)
             if self.flux_transform.equilibrium != self.equilibrium:
-                raise ValueError(
-                    "Plasma class equilibrium and flux_transform are not the same object...s"
-                )
+                raise ValueError("Equilibrium is not the same in flux_transform")
         else:
             if hasattr(flux_transform, "equilibrium"):
                 self.equilibrium = flux_transform.equilibrium
@@ -207,8 +210,8 @@ class Plasma:
         self.dt = dt
 
         # Dictionary keeping track of deta use for optimisations
-        self.optimisation = {}
-        self.forward_models = {}
+        self.optimisation: dict = {}
+        self.forward_models: dict = {}
 
         # Assign plasma and machine attributes
         self.machine_R = np.linspace(
@@ -235,7 +238,12 @@ class Plasma:
             ("poloidal", "rho"),
             coords=[(self.radial_coordinate_type, self.radial_coordinate)],
         )
-        coords_time = assign_data(time, ("", "time"), "s", coords=[("t", time)],)
+        coords_time = assign_data(
+            time,
+            ("", "time"),
+            "s",
+            coords=[("t", time)],
+        )
         coords_elem = assign_data(
             list(self.elements),
             ("", "element"),
@@ -249,7 +257,6 @@ class Plasma:
             coords=[("element", list(self.impurities))],
         )
 
-        data0d = DataArray(0.0)
         data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
         data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
         data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
@@ -571,7 +578,9 @@ class Plasma:
                 * ion_density.sel(element=elem)
             )
             self._total_radiation.loc[dict(element=elem)] = xr.where(
-                total_radiation >= 0, total_radiation, 0.0,
+                total_radiation >= 0,
+                total_radiation,
+                0.0,
             ).values
         return self._total_radiation
 
@@ -589,7 +598,9 @@ class Plasma:
                 * ion_density.sel(element=elem)
             )
             self._sxr_radiation.loc[dict(element=elem)] = xr.where(
-                sxr_radiation >= 0, sxr_radiation, 0.0,
+                sxr_radiation >= 0,
+                sxr_radiation,
+                0.0,
             ).values
         return self._sxr_radiation
 
@@ -698,7 +709,8 @@ class Plasma:
             self.minor_radius.values = (self.maj_r_lfs - self.maj_r_hfs) / 2.0
         else:
             print_like(
-                "Plasma class doesn't have equilibrium: skipping geometry assignments..."
+                "Plasma class doesn't have equilibrium: "
+                "skipping geometry assignments..."
             )
 
     def convert_in_time(self, value: DataArray, method="linear"):
@@ -722,14 +734,18 @@ class Plasma:
             rho_end = 1.01
             rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
             Te_prof = Profiles(
-                datatype=("temperature", "electron"), xspl=rho, xend=xend,
+                datatype=("temperature", "electron"),
+                xspl=rho,
+                xend=xend,
             )
             Te_prof.y0 = 10.0e3
             Te = Te_prof()
             Ne_prof = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend)
             Ne = Ne_prof()
             Nh_prof = Profiles(
-                datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend,
+                datatype=("density", "thermal_neutrals"),
+                xspl=rho,
+                xend=xend,
             )
             Nh = Nh_prof()
             tau = None
@@ -779,7 +795,7 @@ class Plasma:
             self.neutral_density.loc[dict(t=t)] = self.Nh_prof()
 
     def map_to_midplane(self):
-        # TODO: streamline this to avoid continuously re-calculating quantities e.g. ion_density..
+        # TODO: streamline to avoid re-calculating quantities e.g. ion_density..
         keys = [
             "electron_density",
             "ion_density",
@@ -891,7 +907,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
+                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
             )
 
         self.ion_density_2d = (
@@ -941,7 +957,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            total_radiation = xr.where(total_radiation >= 0, total_radiation, 0.0,)
+            total_radiation = xr.where(
+                total_radiation >= 0,
+                total_radiation,
+                0.0,
+            )
             self.total_radiation.loc[dict(element=elem)] = total_radiation.values
 
             sxr_radiation = (
@@ -949,7 +969,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            sxr_radiation = xr.where(sxr_radiation >= 0, sxr_radiation, 0.0,)
+            sxr_radiation = xr.where(
+                sxr_radiation >= 0,
+                sxr_radiation,
+                0.0,
+            )
             self.sxr_radiation.loc[dict(element=elem)] = sxr_radiation.values
 
             if not hasattr(self, "prad_tot"):
@@ -973,13 +997,13 @@ class Plasma:
 
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                self, f,
+                self,
+                f,
             )
 
 
-def example_run(tstart=0.02, tend=0.1, dt=0.01):
+def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse:int=9229):
     # TODO: swap all profiles to new version!
-    from indica.profiles_gauss import Profiles
 
     main_ion = "h"
     impurities = ("c", "ar", "he")
@@ -1001,6 +1025,8 @@ def example_run(tstart=0.02, tend=0.1, dt=0.01):
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
     te_peaking = np.linspace(1, 2, nt)
+    vrot_peaking = np.linspace(1, 2, nt)
+    vrot0 = np.linspace(plasma.Vrot_prof.y0 * 1.1, plasma.Vrot_prof.y0 * 2.5, nt)
     ti0 = np.linspace(plasma.Ti_prof.y0 * 1.1, plasma.Te_prof.y0 * 2.5, nt)
     nimp_peaking = np.linspace(1, 5, nt)
     nimp_y0 = plasma.Nimp_prof.y0 * np.linspace(1, 8, nt)
@@ -1013,6 +1039,10 @@ def example_run(tstart=0.02, tend=0.1, dt=0.01):
         plasma.Ti_prof.y0 = ti0[i]
         plasma.assign_profiles(profile="ion_temperature", t=t)
 
+        plasma.Vrot_prof.peaking = vrot_peaking[i]
+        plasma.Vrot_prof.y0 = vrot0[i]
+        plasma.assign_profiles(profile="toroidal_rotation", t=t)
+
         plasma.Ne_prof.peaking = ne_peaking[i]
         plasma.assign_profiles(profile="electron_density", t=t)
 
@@ -1024,5 +1054,16 @@ def example_run(tstart=0.02, tend=0.1, dt=0.01):
 
         for elem in plasma.elements:
             plasma.assign_profiles(profile="toroidal_rotation", t=t, element=elem)
+
+    if pulse is not None:
+        reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
+
+        equilibrium_data = reader.get("", "efit", 0)
+        equilibrium = Equilibrium(equilibrium_data)
+        flux_transform = FluxSurfaceCoordinates("poloidal")
+        flux_transform.set_equilibrium(equilibrium)
+
+        plasma.set_equilibrium(equilibrium)
+        plasma.set_flux_transform(flux_transform)
 
     return plasma

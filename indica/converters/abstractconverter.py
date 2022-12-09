@@ -13,7 +13,7 @@ import numpy as np
 from xarray import DataArray
 from xarray import zeros_like
 
-from ..abstract_equilibrium import AbstractEquilibrium
+from ..equilibrium import Equilibrium
 from ..numpy_typing import LabeledArray
 
 Coordinates = Tuple[LabeledArray, LabeledArray]
@@ -72,11 +72,13 @@ class CoordinateTransform(ABC):
     _CONVERSION_METHODS: Dict[str, str] = {}
     _INVERSE_CONVERSION_METHODS: Dict[str, str] = {}
 
-    equilibrium: AbstractEquilibrium
+    equilibrium: Equilibrium
     x1_name: str
     x2_name: str
+    x1:LabeledArray
+    x2:LabeledArray
 
-    def set_equilibrium(self, equilibrium: AbstractEquilibrium, force: bool = False):
+    def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
 
         If it has already been initialised with the same equilibrium
@@ -203,6 +205,37 @@ class CoordinateTransform(ABC):
         """
         raise NotImplementedError(
             "{} does not implement a 'convert_to_Rz' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def convert_to_xy(
+        self,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
+    ) -> Coordinates:
+        """Convert from this coordinate to the x-y coordinate system. Each
+        subclass must implement this method.
+
+        Parameters
+        ----------
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+        t
+            The time coordinate
+
+        Returns
+        -------
+        R
+            Major radius coordinate
+        z
+            Height coordinate
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a 'convert_to_xy' "
             "method.".format(self.__class__.__name__)
         )
 

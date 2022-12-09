@@ -1,27 +1,21 @@
 from copy import deepcopy
-import matplotlib.pylab as plt
-import numpy as np
-import xarray as xr
-from xarray import DataArray
-from scipy import constants
-
-from indica.readers import ADASReader
-from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.converters.line_of_sight_multi import LineOfSightTransform
-from indica.numpy_typing import LabeledArray
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-
-from indica.readers import ST40Reader
-from indica.models.plasma import example_run as example_plasma
-from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates
-from indica.readers.marchuk import MARCHUKReader
-
-from indica.datatypes import ELEMENTS
 
 import matplotlib.cm as cm
+import matplotlib.pylab as plt
+import numpy as np
+from scipy import constants
+import xarray as xr
+from xarray import DataArray
 
+from indica.converters.line_of_sight_multi import LineOfSightTransform
+from indica.datatypes import ELEMENTS
+from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.plasma import example_run as example_plasma
+from indica.numpy_typing import LabeledArray
 import indica.physics as ph
+from indica.readers import ADASReader
+from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.readers.marchuk import MARCHUKReader
 
 # TODO: add Marchuk PECs to repo or to .indica/ (more easily available to others)
 
@@ -43,6 +37,8 @@ class Helike_spectroscopy(DiagnosticModel):
 
     TODO: calibration and Etendue to be correctly included
     """
+
+    transform: LineOfSightTransform
 
     def __init__(
         self,
@@ -260,13 +256,10 @@ class Helike_spectroscopy(DiagnosticModel):
 
         return emission
 
-    def _calculate_los_integral(self):
-        x1 = self.transform.x1
-        x2 = self.transform.x2
-
+    def _calculate_los_integral(self, calc_rho=False):
         for line in self.emission.keys():
             self.measured_intensity[line] = self.transform.integrate_on_los(
-                self.emission[line], x1, x2, t=self.emission[line].t,
+                self.emission[line], t=self.emission[line].t, calc_rho=calc_rho,
             )
             self.emission_los[line] = self.transform.along_los
             (
@@ -274,11 +267,13 @@ class Helike_spectroscopy(DiagnosticModel):
                 self.pos[line],
                 self.err_in[line],
                 self.err_out[line],
-            ) = self._moment_analysis(line, self.t)
+            ) = self._moment_analysis(line)
 
-        self.measured_spectra = self.transform.integrate_on_los(
-            self.spectra["total"], x1, x2, t=self.spectra["total"].t,
-        )
+        if self.calc_spectra:
+            self.measured_spectra = self.transform.integrate_on_los(
+                self.spectra["total"], t=self.spectra["total"].t, calc_rho=calc_rho,
+            )
+
         self.t = self.measured_intensity[line].t
 
     def _calculate_temperatures(self):
@@ -294,7 +289,7 @@ class Helike_spectroscopy(DiagnosticModel):
                     self.pos[line],
                     self.err_in[line],
                     self.err_out[line],
-                ) = self._moment_analysis(line, self.t, profile_1d=self.Ti)
+                ) = self._moment_analysis(line, profile_1d=self.Ti)
                 self.measured_Ti[line] = xr.concat(Ti_tmp, x1_name).assign_coords(
                     {x1_name: x1}
                 )
@@ -305,13 +300,13 @@ class Helike_spectroscopy(DiagnosticModel):
                     self.pos[line],
                     self.err_in[line],
                     self.err_out[line],
-                ) = self._moment_analysis(line, self.t, profile_1d=self.Te)
+                ) = self._moment_analysis(line, profile_1d=self.Te)
                 self.measured_Te[line] = xr.concat(Te_tmp, x1_name).assign_coords(
                     {x1_name: x1}
                 )
 
     def _moment_analysis(
-        self, line: str, t: float, profile_1d: DataArray = None, half_los: bool = True,
+        self, line: str, profile_1d: DataArray = None, half_los: bool = True,
     ):
         """
         Perform moment analysis using a specific line emission as distribution function
@@ -331,25 +326,36 @@ class Helike_spectroscopy(DiagnosticModel):
         """
 
         element = self.emission[line].element.values
-        rho_los = self.transform.rho
-        result = []
-        pos, err_in, err_out = [], [], []
+        result: list = []
+        pos: list = []
+        err_in: list = []
+        err_out: list = []
+        if np.size(self.t) ==1:
+            times = np.array([self.t])
+        else:
+            times = self.t
+
         for chan in self.transform.x1:
             _value = None
             _result = []
             _pos, _err_in, _err_out = [], [], []
-            for _t in t:
-                _rho_los = rho_los[chan].sel(t=_t, method="nearest").values
-                if half_los:
-                    rho_ind = slice(0, np.argmin(_rho_los) + 1)
+            for t in times:
+                if "t" in self.emission_los[line][chan].dims:
+                    distribution_function = self.emission_los[line][chan].sel(t=t).values
                 else:
-                    rho_ind = slice(0, len(_rho_los))
-                _rho_los = _rho_los[rho_ind]
-                rho_min = np.min(_rho_los)
+                    distribution_function = self.emission_los[line][chan].values
 
-                distribution_function = (
-                    self.emission_los[line][chan].sel(t=_t, method="nearest").values
-                )
+                if "t" in self.transform.rho[chan].dims:
+                    rho_los = self.transform.rho[chan].sel(t=t, method="nearest").values
+                else:
+                    rho_los = self.transform.rho[chan].values
+                if half_los:
+                    rho_ind = slice(0, np.argmin(rho_los) + 1)
+                else:
+                    rho_ind = slice(0, len(rho_los))
+                rho_los = rho_los[rho_ind]
+                rho_min = np.min(rho_los)
+
                 dfunction = distribution_function[rho_ind]
                 indices = np.arange(0, len(dfunction))
                 avrg, dlo, dhi, ind_in, ind_out = ph.calc_moments(
@@ -357,25 +363,25 @@ class Helike_spectroscopy(DiagnosticModel):
                 )
 
                 # Position of emissivity
-                pos_tmp = _rho_los[int(avrg)]
-                err_in_tmp = np.abs(_rho_los[int(avrg)] - _rho_los[int(avrg - dlo)])
+                pos_tmp = rho_los[int(avrg)]
+                err_in_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg - dlo)])
                 if pos_tmp <= rho_min:
                     pos_tmp = rho_min
                     err_in_tmp = 0.0
                 if (err_in_tmp > pos_tmp) and (err_in_tmp > (pos_tmp - rho_min)):
                     err_in_tmp = pos_tmp - rho_min
-                err_out_tmp = np.abs(_rho_los[int(avrg)] - _rho_los[int(avrg + dhi)])
+                err_out_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg + dhi)])
                 _pos.append(pos_tmp)
                 _err_in.append(err_in_tmp)
                 _err_out.append(err_out_tmp)
 
                 # Moment analysis of input 1D profile
                 if profile_1d is not None:
-                    profile_interp = profile_1d.interp(rho_poloidal=_rho_los)
+                    profile_interp = profile_1d.interp(rho_poloidal=rho_los)
                     if "element" in profile_interp.dims:
                         profile_interp = profile_interp.sel(element=element)
                     if "t" in profile_1d.dims:
-                        profile_interp = profile_interp.sel(t=_t, method="nearest")
+                        profile_interp = profile_interp.sel(t=t, method="nearest")
                     profile_interp = profile_interp.values
                     _value, _, _, _, _ = ph.calc_moments(
                         dfunction,
@@ -386,10 +392,10 @@ class Helike_spectroscopy(DiagnosticModel):
                     )
                 _result.append(_value)
 
-            result.append(DataArray(np.array(_result), coords=[("t", t)]))
-            pos.append(DataArray(np.array(_pos), coords=[("t", t)]))
-            err_in.append(DataArray(np.array(_err_in), coords=[("t", t)]))
-            err_out.append(DataArray(np.array(_err_out), coords=[("t", t)]))
+            result.append(DataArray(np.array(_result), coords=[("t", times)]))
+            pos.append(DataArray(np.array(_pos), coords=[("t", times)]))
+            err_in.append(DataArray(np.array(_err_in), coords=[("t", times)]))
+            err_out.append(DataArray(np.array(_err_out), coords=[("t", times)]))
 
         result = xr.concat(result, self.transform.x1_name).assign_coords(
             {self.transform.x1_name: self.transform.x1}
@@ -485,20 +491,30 @@ class Helike_spectroscopy(DiagnosticModel):
             # TODO: substitute with value.element
             element = self.element
             _spectra = []
-            for t in self.t:
-                Ti = self.Ti.sel(element=element, t=t)
-                integral = value.sel(t=t)
+            if len(np.shape(self.t)) == 0:
+                times = np.array([self.t])
+            else:
+                times = self.t
+
+            for t in times:
+                Ti = self.Ti.sel(element=element)
+                if "t" in self.Ti.dims:
+                    Ti = Ti.sel(t=t)
+
+                if "t" in self.Ti.dims:
+                    integral = value.sel(t=t)
+                else:
+                    integral = value
+
                 center = integral.wavelength
                 ion_temp = Ti.expand_dims(dict(line_name=line_name)).transpose()
                 x = window.expand_dims(dict(line_name=line_name)).transpose()
                 y = doppler_broaden(x, integral, center, ion_mass, ion_temp)
                 # TODO: include also doppler shift
-                # y = doppler_broaden(x, integral, center, ion_mass, ion_temp)
+                # y = doppler_shift(x, integral, center, ion_mass, ion_temp)
                 _spectra.append(y)
             spectra[key] = xr.concat(_spectra, "t")
             spectra["total"] = spectra["total"] + spectra[key].sum(["line_name"])
-        # print(spectra["total"])
-        # spectra["total"] = spectra["total"].rename({"window": "wavelength"})
         return spectra
 
     def _plot_spectrum(self, spectra: dict, background: float = 0.0):
@@ -548,8 +564,9 @@ class Helike_spectroscopy(DiagnosticModel):
                 self.bckc[quantity] = self.measured_Ti[line]
                 self.bckc[quantity].attrs["emiss"] = self.emission[line]
             elif datatype == ("spectra", "passive"):
-                quantity = quant
-                self.bckc["spectra"] = self.measured_spectra
+                if self.calc_spectra:
+                    quantity = quant
+                    self.bckc["spectra"] = self.measured_spectra
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -562,6 +579,10 @@ class Helike_spectroscopy(DiagnosticModel):
                     "err_out": self.err_out[line],
                 }
 
+        self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
+        self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
+        self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
+
     def __call__(
         self,
         Te: DataArray = None,
@@ -571,6 +592,8 @@ class Helike_spectroscopy(DiagnosticModel):
         Fz: dict = None,
         Nh: DataArray = None,
         t: LabeledArray = None,
+        calc_spectra=False,
+        calc_rho: bool = False,
     ):
         """
         Calculate diagnostic measured values
@@ -589,19 +612,20 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-
+        self.calc_spectra = calc_spectra
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.t
-            Te = self.plasma.electron_temperature.sel(t=t)
-            Ne = self.plasma.electron_density.sel(t=t)
-            Nh = self.plasma.neutral_density.sel(t=t)
+            Te = self.plasma.electron_temperature.interp(t=t)
+            Ne = self.plasma.electron_density.interp(t=t)
+            Nh = self.plasma.neutral_density.interp(t=t)
             Fz = {}
             _Fz = self.plasma.fz
             for elem in _Fz.keys():
-                Fz[elem] = _Fz[elem].sel(t=t)
-            Ti = self.plasma.ion_temperature.sel(t=t)
-            Nimp = self.plasma.impurity_density.sel(t=t)
+                Fz[elem] = _Fz[elem].interp(t=t)
+
+            Ti = self.plasma.ion_temperature.interp(t=t)
+            Nimp = self.plasma.impurity_density.interp(t=t)
         else:
             if (
                 Ne is None
@@ -613,16 +637,15 @@ class Helike_spectroscopy(DiagnosticModel):
             ):
                 raise ValueError("Give inputs of assign plasma class!")
 
+        self.t = t
         self.Te = Te
         self.Ne = Ne
         self.Nh = Nh
-        if len(np.shape(t)) == 0:
-            t = np.array([t])
-        self.t = t
         self.Fz = Fz
         self.Ti = Ti
         self.Nimp = Nimp
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
+        self.transform.check_rho(t=t)
 
         # TODO: check that inputs have compatible dimensions/coordinates
 
@@ -630,11 +653,12 @@ class Helike_spectroscopy(DiagnosticModel):
         self._calculate_emission()
 
         # Make spectra
-        self.intensity = self._make_intensity()
-        self.spectra = self._make_spectra()
+        if calc_spectra:
+            self.intensity = self._make_intensity()
+            self.spectra = self._make_spectra()
 
         # Integrate emission along the LOS
-        self._calculate_los_integral()
+        self._calculate_los_integral(calc_rho=calc_rho,)
 
         # Estimate temperatures from moment analysis
         self._calculate_temperatures()
@@ -737,44 +761,22 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def example_run(use_real_transform=False):
+def example_run(plasma=None, plot=False, calc_spectra=False):
 
     # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
-
-    plasma = example_plasma()
-
-    # Read equilibrium data and initialize Equilibrium and Flux-surface transform objects
-    pulse = 9229
-    it = int(len(plasma.t) / 2)
-    tplot = plasma.t[it]
-    reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
-
-    equilibrium_data = reader.get("", "efit", 0)
-    equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
-
-    # Assign transforms to plasma object
-    plasma.set_equilibrium(equilibrium)
-    plasma.set_flux_transform(flux_transform)
+    if plasma is None:
+        plasma = example_plasma()
 
     # Create new diagnostic
-    data = None
     diagnostic_name = "xrcs"
-    if use_real_transform:
-        data = reader.get("sxr", diagnostic_name, 0)
-        trans = data[list(data)[0]].transform
-        origin = trans.origin
-        direction = trans.direction
-    else:
-        nchannels = 11
-        los_end = np.full((nchannels, 3), 0.0)
-        los_end[:, 0] = 0.17
-        los_end[:, 1] = 0.0
-        los_end[:, 2] = np.linspace(0.43, -0.43, nchannels)
-        los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
-        origin = los_start
-        direction = los_end - los_start
+    nchannels = 3
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.17
+    los_end[:, 1] = 0.0
+    los_end[:, 2] = np.linspace(0.43, -0.43, nchannels)
+    los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
+    origin = los_start
+    direction = los_end - los_start
 
     transform = LineOfSightTransform(
         origin[:, 0],
@@ -792,122 +794,119 @@ def example_run(use_real_transform=False):
     model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
 
-    bckc = model()
-    # TODO: other possibility is to call using input profiles
-    # bckc = model(
-    #     plasma.electron_temperature,
-    #     plasma.ion_temperature,
-    #     plasma.electron_density,
-    #     plasma.impurity_density,
-    #     plasma.fz,
-    #     Nh=plasma.neutral_density,
-    #     t=plasma.t,
-    # )
+    bckc = model(calc_spectra=calc_spectra)
 
     channels = model.transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
     # Plot spectra
-    plt.figure()
-    for chan in channels:
-        if (chan % 2) == 0:
-            bckc["spectra"].sel(channel=chan, t=plasma.t.mean(), method="nearest").plot(
-                label=f"CH{chan}", color=cols[chan]
+    if plot:
+        it = int(len(plasma.t) / 2)
+        tplot = plasma.t[it]
+        plt.figure()
+        for chan in channels:
+            if (chan % 2) == 0:
+                bckc["spectra"].sel(
+                    channel=chan, t=plasma.t.mean(), method="nearest"
+                ).plot(label=f"CH{chan}", color=cols[chan])
+        plt.xlabel("Time (s)")
+        plt.ylabel("Te and Ti from moment analysis (eV)")
+        plt.legend()
+
+        plt.figure()
+        plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
+            levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
+        )
+        for chan in channels:
+            plt.plot(
+                model.transform.R[chan],
+                model.transform.z[chan],
+                linewidth=3,
+                color=cols[chan],
+                alpha=0.7,
+                label=f"CH{chan}",
             )
-    plt.xlabel("Time (s)")
-    plt.ylabel("Te and Ti from moment analysis (eV)")
-    plt.legend()
 
-    plt.figure()
-    equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
-        levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-    )
-    for chan in channels:
+        plt.xlim(0, 1.0)
+        plt.ylim(-0.6, 0.6)
+        plt.axis("scaled")
+        plt.legend()
+
+        # Plot LOS mapping on equilibrium
+        plt.figure()
+        for chan in channels:
+            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
+                color=cols[chan], label=f"CH{chan}",
+            )
+        plt.xlabel("Path along the LOS")
+        plt.ylabel("Rho-poloidal")
+        plt.legend()
+
+        # Plot back-calculated values
+        plt.figure()
+        for chan in channels:
+            bckc["int_w"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
+        plt.xlabel("Time (s)")
+        plt.ylabel("w-line intensity (W/m^2)")
+        plt.legend()
+
+        plt.figure()
+        for chan in channels:
+            bckc["ti_w"].sel(channel=chan).plot(
+                label=f"CH{chan} ti_w", color=cols[chan]
+            )
+            bckc["te_kw"].sel(channel=chan).plot(
+                label=f"CH{chan} te_kw", color=cols[chan], linestyle="dashed"
+            )
+        plt.xlabel("Time (s)")
+        plt.ylabel("Te and Ti from moment analysis (eV)")
+        plt.legend()
+
+        # Plot the temperatures profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+        plt.figure()
+        elem = model.Ti.element[0].values
+        for i, t in enumerate(plasma.t.values):
+            plt.plot(
+                model.Ti.rho_poloidal,
+                model.Ti.sel(t=t, element=elem),
+                color=cols_time[i],
+            )
+            plt.plot(
+                model.Te.rho_poloidal,
+                model.Te.sel(t=t),
+                color=cols_time[i],
+                linestyle="dashed",
+            )
         plt.plot(
-            model.transform.R[chan],
-            model.transform.z[chan],
-            linewidth=3,
-            color=cols[chan],
-            alpha=0.7,
-            label=f"CH{chan}",
-        )
-
-    plt.xlim(0, 1.0)
-    plt.ylim(-0.6, 0.6)
-    plt.axis("scaled")
-    plt.legend()
-
-    # Plot LOS mapping on equilibrium
-    plt.figure()
-    for chan in channels:
-        model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-            color=cols[chan], label=f"CH{chan}",
-        )
-    plt.xlabel("Path along the LOS")
-    plt.ylabel("Rho-poloidal")
-    plt.legend()
-
-    # Plot back-calculated values
-    plt.figure()
-    for chan in channels:
-        bckc["int_w"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
-    plt.xlabel("Time (s)")
-    plt.ylabel("w-line intensity (W/m^2)")
-    plt.legend()
-
-    plt.figure()
-    for chan in channels:
-        bckc["ti_w"].sel(channel=chan).plot(label=f"CH{chan} ti_w", color=cols[chan])
-        bckc["te_kw"].sel(channel=chan).plot(
-            label=f"CH{chan} te_kw", color=cols[chan], linestyle="dashed"
-        )
-    plt.xlabel("Time (s)")
-    plt.ylabel("Te and Ti from moment analysis (eV)")
-    plt.legend()
-
-    # Plot the temperatures profiles
-    cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-    plt.figure()
-    elem = model.Ti.element[0].values
-    for i, t in enumerate(plasma.t.values):
-        plt.plot(
-            model.Ti.rho_poloidal, model.Ti.sel(t=t, element=elem), color=cols_time[i],
+            model.Ti.rho_poloidal,
+            model.Ti.sel(t=t, element=elem),
+            color=cols_time[i],
+            label=f"Ti",
         )
         plt.plot(
             model.Te.rho_poloidal,
             model.Te.sel(t=t),
             color=cols_time[i],
+            label=f"Te",
             linestyle="dashed",
         )
-    plt.plot(
-        model.Ti.rho_poloidal,
-        model.Ti.sel(t=t, element=elem),
-        color=cols_time[i],
-        label=f"Ti",
-    )
-    plt.plot(
-        model.Te.rho_poloidal,
-        model.Te.sel(t=t),
-        color=cols_time[i],
-        label=f"Te",
-        linestyle="dashed",
-    )
-    plt.xlabel("rho")
-    plt.ylabel("Ti and Te profiles (eV)")
-    plt.legend()
+        plt.xlabel("rho")
+        plt.ylabel("Ti and Te profiles (eV)")
+        plt.legend()
 
-    # Plot the emission profiles
-    cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-    plt.figure()
-    for i, t in enumerate(plasma.t.values):
-        plt.plot(
-            model.emission["w"].rho_poloidal,
-            model.emission["w"].sel(t=t),
-            color=cols_time[i],
-            label=f"t={t:1.2f} s",
-        )
-    plt.xlabel("rho")
-    plt.ylabel("w-line local radiated power (W/m^3)")
-    plt.legend()
+        # Plot the emission profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+        plt.figure()
+        for i, t in enumerate(plasma.t.values):
+            plt.plot(
+                model.emission["w"].rho_poloidal,
+                model.emission["w"].sel(t=t),
+                color=cols_time[i],
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("rho")
+        plt.ylabel("w-line local radiated power (W/m^3)")
+        plt.legend()
 
     return plasma, model, bckc
