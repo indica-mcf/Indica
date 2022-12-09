@@ -25,12 +25,12 @@ class Interferometry(DiagnosticModel):
         self,
             name: str,
             instrument_method="get_interferometry",
-            flat_bkcv: bool = False,
+            flat_bckc: bool = False,
     ):
 
         self.name = name
         self.instrument_method = instrument_method
-        self.flat_bkcv = flat_bkcv
+        self.flat_bckc = flat_bckc
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self, ):
@@ -53,8 +53,10 @@ class Interferometry(DiagnosticModel):
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
-        if self.flat_bkcv:
-            self.bkcv = flatdict.FlatDict(self.bkcv, delimiter="_")
+        if self.bckc:
+            #TODO: add instrument name for general usage too...
+            self.bckc ={self.name:self.bckc}
+            self.bckc = flatdict.FlatDict(self.bckc, delimiter="_")
 
 
     def __call__(self, Ne: DataArray = None, t: LabeledArray = None, calc_rho=False, **kwargs):
