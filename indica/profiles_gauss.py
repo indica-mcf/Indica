@@ -33,6 +33,13 @@ class Profiles:
             xspl = DataArray(xspl, coords=[(self.coord, xspl)])
         self.xspl = xspl
 
+        self.y0:float
+        self.y1:float
+        self.yend:float
+        self.ypeaking:float
+        self.wcenter:float
+        self.wped:float
+
         params = get_defaults(datatype)
         for k, p in params.items():
             setattr(self, k, p)
