@@ -210,6 +210,7 @@ def add_cxrs(st40_data: ST40data, raw_data: dict, R_shift=0.02):
     pulse_info = {
         10014: {"ff": 7, "bs": 9},
         10009: {"ff": 3, "bs": 1},
+        9849: {"ff": 2},
         9831: {"ff": 5, "bs": 5},
         9787: {"ff": 3},
         9783: {"ff": 2},
@@ -317,7 +318,7 @@ def read_profile_scans_HDA(pulse, run_add=""):
 
 
 def read_profile_scans_ASTRA(pulse, run_add="", run_plus=500):
-    runs = np.arange(60, 76 + 1)
+    runs = np.arange(61, 76 + 1)
     astra_dict = {}
     reader_astra = ST40Reader(pulse, 0, 0.2, tree="ASTRA")
     for run in runs:
@@ -638,11 +639,19 @@ def data_details(pulse: int, all_runs: list):
         R_shift = 0.02
     elif pulse == 10009:
         tplot = 0.058
-        # keep = ["60", "64", "65", "66", "72", "73"]
-        keep = ["64", "65", "66", "72", "73"]
+        # keep = ["60", "64", "65", "66", "72", "73"] # for "MID"
+        keep = ["64", "65", "66", "71", "72", "73"]
         run_plus_astra = 500
-        run_add_hda = "REF" #"MID" #
-        omega_scaling = 440e3
+        # run_add_hda = "MID"
+        run_add_hda = "REF"
+        omega_scaling = 380e3
+        R_shift = 0.03
+    elif pulse == 9849:
+        tplot = 0.116
+        keep = ["65", "66", "68", "74", "76"]
+        run_plus_astra = 500
+        run_add_hda = "REF"
+        omega_scaling = 500e3
         R_shift = 0.03
     elif pulse == 9831:
         tplot = 0.076
@@ -709,7 +718,7 @@ def plot_HDA_results(
     use_std_ti=True,
     use_std_vtor=True,
     plot_bckc=False,
-    tlim=(0.02, 0.1),
+    tlim=(0.02, 0.12),
     ext="png",
     multiplot=False,
 ):
@@ -744,9 +753,19 @@ def plot_HDA_results(
         bckc_dict_all.pop(run_pop)
     astra_dict_all = read_profile_scans_ASTRA(astra_pulse, run_plus=run_plus_astra)
 
+    # return  pl_dict_all
     for run in all_runs:
         run_name = f"RUN{run}{run_add_hda}"
         pl_dict_all[run] = pl_dict_all[run_name]
+        if not hasattr(pl_dict_all[run], "electron_temperature"):
+            pl_dict_all[run].electron_temperature = pl_dict_all[run].el_temp
+            pl_dict_all[run].ion_temperature = pl_dict_all[run].ion_temp
+            pl_dict_all[run].impurity_density = pl_dict_all[run].imp_dens
+            pl_dict_all[run].electron_density = pl_dict_all[run].el_dens
+            pl_dict_all[run].neutral_density = pl_dict_all[run].neutral_dens
+            pl_dict_all[run].fast_density = pl_dict_all[run].fast_dens
+            pl_dict_all[run].fast_temperature = pl_dict_all[run].fast_temp
+
         bckc_dict_all[run] = bckc_dict_all[run_name]
         if run != run_name:
             pl_dict_all.pop(run_name)
@@ -773,6 +792,8 @@ def plot_HDA_results(
     st40_data.get_all()
     st40_data.get_other_data()
     raw_data = st40_data.data
+
+    time_interp = raw_data["efit"]["wp"].t
     add_cxrs(st40_data, raw_data, R_shift=R_shift)
 
     data = {}
@@ -818,37 +839,38 @@ def plot_HDA_results(
     for run in runs:
         pl = pl_dict[run]
         astra = astra_dict[run]
+    for run in runs:
+        pl = pl_dict[run]
+        astra = astra_dict[run]
         bckc = bckc_dict[run]
 
-        Te_all.append(pl.el_temp.sel(t=tplot, method="nearest"))
-        Ti_all.append(pl.ion_temp.sel(element="ar").sel(t=tplot, method="nearest"))
-        Ne_all.append(pl.el_dens.sel(t=tplot, method="nearest"))
-        NAr_all.append(pl.ion_dens.sel(element="ar").sel(t=tplot, method="nearest"))
+        bckc = bckc_dict[run]
+
+        Te_all.append(pl.electron_temperature.interp(t=time_interp))
+        Ti_all.append(pl.ion_temperature.sel(element="ar").interp(t=time_interp))
+        Ne_all.append(pl.electron_density.interp(t=time_interp))
+        NAr_all.append(pl.ion_density.sel(element="ar").interp(t=time_interp))
         Nf_all.append(
-            (astra["nf"] * 1.0e19)
-            .interp(t=tplot, method="nearest")
-            .interp(rho_poloidal=pl.rho)
+            (astra["nf"] * 1.0e19).interp(rho_poloidal=pl.rho).interp(t=time_interp)
         )
         Ni_all.append(
-            (astra["ni"] * 1.0e19)
-            .interp(t=tplot, method="nearest")
-            .interp(rho_poloidal=pl.rho)
+            (astra["ni"] * 1.0e19).interp(rho_poloidal=pl.rho).interp(t=time_interp)
         )
-        Weq_all.append(astra["weq"])
-        Wastra_all.append(astra["wastra"])
-        Wth_all.append(astra["wtherm"])
-        P_oh_all.append(astra["p_oh"])
-        Pabs_all.append(astra["pabs"])
-        Pnb_all.append(astra["pnb"])
-        Ptot_all.append(astra["pabs"] + astra["p_oh"])
-        Vloop_all.append(astra["upl"])
+        Weq_all.append(astra["weq"].interp(t=time_interp))
+        Wastra_all.append(astra["wastra"].interp(t=time_interp))
+        Wth_all.append(astra["wtherm"].interp(t=time_interp))
+        P_oh_all.append(astra["p_oh"].interp(t=time_interp))
+        Pabs_all.append(astra["pabs"].interp(t=time_interp))
+        Pnb_all.append(astra["pnb"].interp(t=time_interp))
+        Ptot_all.append((astra["pabs"] + astra["p_oh"]).interp(t=time_interp))
+        Vloop_all.append(astra["upl"].interp(t=time_interp))
 
         if "mag" not in bckc.keys():
             bckc["mag"] = {}
-        bckc["mag"]["vloop"] = astra["upl"].interp(t=pl.t)
+        bckc["mag"]["vloop"] = astra["upl"].interp(t=time_interp)
         if "efit" not in bckc.keys():
             bckc["efit"] = {}
-        bckc["efit"]["wp"] = astra["weq"].interp(t=pl.t)
+        bckc["efit"]["wp"] = astra["weq"].interp(t=time_interp)
 
         if "te_n3w" in bckc_dict[run]["xrcs"].keys():
             te_key = "te_n3w"
@@ -857,10 +879,10 @@ def plot_HDA_results(
 
         if pulse == 10009:
             te_key = "te_n3w"
-        te_tmp = bckc_dict[run]["xrcs"][te_key].sel(t=tplot, method="nearest")
+        te_tmp = bckc_dict[run]["xrcs"][te_key].interp(t=time_interp)
         te_xrcs_bckc.append(te_tmp)
 
-        ti_tmp = bckc_dict[run]["xrcs"]["ti_w"].sel(t=tplot, method="nearest")
+        ti_tmp = bckc_dict[run]["xrcs"]["ti_w"].interp(t=time_interp)
         ti_xrcs_bckc.append(ti_tmp)
 
         _pos = bckc_dict[run]["xrcs"]["ti_w"].pos
@@ -926,16 +948,22 @@ def plot_HDA_results(
     else:
         fig, ax = plt.subplots(1)
 
-    mean, std, up, low = calc_mean_std(Ne_all, keep)
+    mean, std, up, low = calc_mean_std(Ne_all.sel(t=tplot, method="nearest"), keep)
     ax.plot(mean.rho_poloidal, mean * const_dens, color=col_el, label="Electrons")
     ax.fill_between(
         mean.rho_poloidal, up * const_dens, low * const_dens, alpha=alpha, color=col_el,
     )
     if plot_all:
-        plot_all_runs(ax, runs, Ne_all * const_dens, color=col_el, label=False)
+        plot_all_runs(
+            ax,
+            runs,
+            Ne_all.sel(t=tplot, method="nearest") * const_dens,
+            color=col_el,
+            label=False,
+        )
     profile_data["Ne"] = {"mean": mean, "err": std}
 
-    mean, std, up, low = calc_mean_std(Ni_all, keep)
+    mean, std, up, low = calc_mean_std(Ni_all.sel(t=tplot, method="nearest"), keep)
     ax.plot(mean.rho_poloidal, mean * const_dens, color=col_ion, label="Thermal ions")
     ax.fill_between(
         mean.rho_poloidal,
@@ -945,17 +973,22 @@ def plot_HDA_results(
         color=col_ion,
     )
     if plot_all:
-        plot_all_runs(ax, runs, Ni_all * const_dens, color=col_ion)
+        plot_all_runs(
+            ax,
+            runs,
+            Ni_all.sel(t=tplot, method="nearest") * const_dens,
+            color=col_ion,
+        )
     profile_data["Ni"] = {"mean": mean, "err": std}
 
-    mean = Nf_all.mean("run")
-    std = Nf_all.std("run")
+    mean = Nf_all.sel(t=tplot, method="nearest").mean("run")
+    std = Nf_all.sel(t=tplot, method="nearest").std("run")
     if use_std:
-        up = mean + Nf_all.std("run")
-        low = mean - Nf_all.std("run")
+        up = mean + Nf_all.sel(t=tplot, method="nearest").std("run")
+        low = mean - Nf_all.sel(t=tplot, method="nearest").std("run")
     else:
-        up = Nf_all.max("run")
-        low = Nf_all.min("run")
+        up = Nf_all.sel(t=tplot, method="nearest").max("run")
+        low = Nf_all.sel(t=tplot, method="nearest").min("run")
     ax.plot(mean.rho_poloidal, mean * const_dens, color=col_fast, label="Fast ions")
     ax.fill_between(
         mean.rho_poloidal,
@@ -965,7 +998,14 @@ def plot_HDA_results(
         color=col_fast,
     )
     if plot_all:
-        plot_all_runs(ax, runs, Nf_all * const_dens, alpha, color=col_fast, label=False)
+        plot_all_runs(
+            ax,
+            runs,
+            Nf_all.sel(t=tplot, method="nearest") * const_dens,
+            alpha,
+            color=col_fast,
+            label=False,
+        )
     profile_data["Nf"] = {"mean": mean, "err": std}
     plt.title("")
     ax.legend()
@@ -982,19 +1022,27 @@ def plot_HDA_results(
         ax = axs[1]
     else:
         fig, ax = plt.subplots(1)
-    mean, std, up, low = calc_mean_std(Te_all, keep)
+    mean, std, up, low = calc_mean_std(Te_all.sel(t=tplot, method="nearest"), keep)
     ax.plot(mean.rho_poloidal, mean * const_temp, color=col_el, label="Electrons")
     ax.fill_between(
         mean.rho_poloidal, up * const_temp, low * const_temp, alpha=alpha, color=col_el,
     )
     if plot_all:
-        plot_all_runs(ax, runs, Te_all * const_temp, color=col_el, label=False)
+        plot_all_runs(
+            ax,
+            runs,
+            Te_all.sel(t=tplot, method="nearest") * const_temp,
+            color=col_el,
+            label=False,
+        )
     profile_data["Te"] = {"mean": mean, "err": std}
 
     rho_xrcs_mean, _, _, _ = calc_mean_std(rho_mean_xrcs, keep)
     rho_xrcs_in, _, _, _ = calc_mean_std(rho_in_xrcs, keep)
     rho_xrcs_out, _, _, _ = calc_mean_std(rho_out_xrcs, keep)
-    te_xrcs_mean, _, te_xrcs_up, te_xrcs_low = calc_mean_std(te_xrcs_bckc, keep)
+    te_xrcs_mean, _, te_xrcs_up, te_xrcs_low = calc_mean_std(
+        te_xrcs_bckc.sel(t=tplot, method="nearest"), keep
+    )
     ax.errorbar(
         rho_xrcs_mean,
         te_xrcs_mean * const_temp,
@@ -1021,7 +1069,9 @@ def plot_HDA_results(
         "rho_out": rho_xrcs_out,
     }
 
-    mean, std, up, low = calc_mean_std(Ti_all, keep, use_std=use_std_ti)
+    mean, std, up, low = calc_mean_std(
+        Ti_all.sel(t=tplot, method="nearest"), keep, use_std=use_std_ti
+    )
     print(f"Ti(0)   = {mean.sel(rho_poloidal=0).values}")
     print(f"  error = {(up - mean).sel(rho_poloidal=0).values}")
     ax.plot(mean.rho_poloidal, mean * const_temp, color=col_ion, label="Ions")
@@ -1033,13 +1083,20 @@ def plot_HDA_results(
         color=col_ion,
     )
     if plot_all:
-        plot_all_runs(ax, runs, Ti_all * const_temp, color=col_ion)
+        plot_all_runs(
+            ax,
+            runs,
+            Ti_all.sel(t=tplot, method="nearest") * const_temp,
+            color=col_ion,
+        )
     profile_data["Ti"] = {"mean": mean, "err": std}
 
     rho_xrcs_mean, _, _, _ = calc_mean_std(rho_mean_xrcs, keep)
     rho_xrcs_in, _, _, _ = calc_mean_std(rho_in_xrcs, keep)
     rho_xrcs_out, _, _, _ = calc_mean_std(rho_out_xrcs, keep)
-    ti_xrcs_mean, _, ti_xrcs_up, ti_xrcs_low = calc_mean_std(ti_xrcs_bckc, keep)
+    ti_xrcs_mean, _, ti_xrcs_up, ti_xrcs_low = calc_mean_std(
+        ti_xrcs_bckc.sel(t=tplot, method="nearest"), keep
+    )
     ax.errorbar(
         rho_xrcs_mean,
         ti_xrcs_mean * const_temp,
@@ -1119,13 +1176,18 @@ def plot_HDA_results(
 
     set_sizes_profiles()
     plt.figure()
-    mean, std, up, low = calc_mean_std(NAr_all, keep)
+    mean, std, up, low = calc_mean_std(NAr_all.sel(t=tplot, method="nearest"), keep)
     plt.plot(mean.rho_poloidal, mean * const_imp, color=col_imp, label="Impurity")
     plt.fill_between(
         mean.rho_poloidal, up * const_imp, low * const_imp, alpha=alpha, color=col_imp,
     )
     if plot_all:
-        plot_all_runs(plt, runs, NAr_all * const_imp, color=col_imp)
+        plot_all_runs(
+            plt,
+            runs,
+            NAr_all.sel(t=tplot, method="nearest") * const_imp,
+            color=col_imp,
+        )
 
     plt.title("")
     plt.legend()
@@ -1146,8 +1208,8 @@ def plot_HDA_results(
             "int_w": ["$I_w$", "$(a.u.)$", 1.0e-2],
             "int_k": ["$I_k$", "$(a.u.)$", 1.0e-2],
             "int_n3": ["$I_{n3}$", "$(a.u.)$", 1.0e-2],
-            # "int_n3/int_w": ["$I_{n3}/I_w$", "", 1.0],
-            "int_k/int_w": ["$I_{k}/I_w$", "", 1.],
+            "int_n3/int_w": ["$I_{n3}/I_w$", "", 1.0],
+            "int_k/int_w": ["$I_{k}/I_w$", "", 1.0],
         },
         # "lines": {"brems": ["", 1.0]},
     }
@@ -1266,7 +1328,7 @@ def plot_HDA_results(
                 frameon=False, handlelength=0, loc="upper left", fontsize=14
             )
 
-            ax.set_xlim(0.01, 0.1)
+            ax.set_xlim(tlim[0], tlim[1])
             ax.set_ylim(0, const * _data.max() * 1.25)
             if quant == "wp":
                 ax.set_ylim(0, const * _data.max() * 1.3)
@@ -1286,11 +1348,11 @@ def plot_HDA_results(
             else:
                 ax.xaxis.set_ticklabels([])
 
-    return raw_data, data, bckc_dict_all
-
     plt.figure()
     const_rot = 1.0e-3
-    _mean, _std, _up, _low = calc_mean_std(Ti_all, keep)
+    _mean, _std, _up, _low = calc_mean_std(
+        Ti_all.sel(t=tplot, method="nearest"), keep
+    )
     mean = _mean / _mean.sel(rho_poloidal=0) * omega_scaling
     if use_std_vtor:
         up = (_mean + _std) / _mean.sel(rho_poloidal=0) * omega_scaling
@@ -1304,9 +1366,9 @@ def plot_HDA_results(
     )
     quantity = "vtor"
     for analysis_key in cxrs_analyses.keys():
+        key = f"{quantity}_{analysis_key}"
         if key not in cxrs.keys():
             continue
-        key = f"{quantity}_{analysis_key}"
         vtor = (xr.where(cxrs[key] > 0, cxrs[key], np.nan)).sel(
             t=tplot, method="nearest"
         )
@@ -1333,8 +1395,6 @@ def plot_HDA_results(
     plt.ylabel("$V_{tor}$ $(krad/s)$")
     if savefig:
         save_figure(fig_name=f"{pulse}_{t_ms}_ms_toroidal_rotation_HDA-CXRS", ext=ext)
-
-    return
 
     set_sizes_time_evol()
 
@@ -1514,152 +1574,131 @@ def plot_HDA_results(
     if savefig:
         save_figure(fig_name=f"{pulse}_time_evol_density", ext=ext)
 
-    # plt.figure()
-    # Wp_mean = raw_data["efit"]["wp"].sel(t=slice(tlim[0], tlim[1]))
-    # dWp_dt = Wp_mean.differentiate("t", edge_order=2)
-    #
-    # Ptot_mean, _, Ptot_up, Ptot_low = calc_mean_std(Ptot_all.interp(t=Wp_mean.t), keep)
-    # taue_mean = Wp_mean / Ptot_mean
-    # taue_up = Wp_mean / Ptot_low
-    # taue_low = Wp_mean / Ptot_up
-    # plt.plot(
-    #     taue_mean.t,
-    #     taue_mean * const_taue,
-    #     color="blue",
-    #     label=r"$\tau_E(EFIT)$ no dW/dt",
-    # )
-    # plt.fill_between(
-    #     taue_mean.t,
-    #     taue_up * const_taue,
-    #     taue_low * const_taue,
-    #     alpha=alpha,
-    #     color=icol_el,
-    # )
-    # taue_mean_dw = Wp_mean / (Ptot_mean - dWp_dt.interp(t=Wp_mean.t))
-    # taue_up_dw = Wp_mean / (Ptot_low - dWp_dt.interp(t=Wp_mean.t))
-    # taue_low_dw = Wp_mean / (Ptot_up - dWp_dt.interp(t=Wp_mean.t))
-    # plt.plot(
-    #     taue_mean_dw.t,
-    #     taue_mean_dw * const_taue,
-    #     color=icol_el,
-    #     label=r"$\tau_E(EFIT)$ with dW/dt",
-    # )
-    # plt.fill_between(
-    #     taue_mean_dw.t,
-    #     taue_up_dw * const_taue,
-    #     taue_low_dw * const_taue,
-    #     alpha=alpha,
-    #     color=icol_el,
-    # )
-    #
-    # Wth_mean, _, Wth_up, Wth_low = calc_mean_std(Wth_all.interp(t=Wp_mean.t), keep)
-    # dWth_dt = Wth_mean.differentiate("t", edge_order=2)
-    # taue_th_mean = Wth_mean / Ptot_mean
-    # taue_th_up = Wth_mean / Ptot_low
-    # taue_th_low = Wth_mean / Ptot_up
-    # plt.plot(
-    #     taue_th_mean.t,
-    #     taue_th_mean * const_taue,
-    #     color=icol_ion,
-    #     label=r"$\tau_E(thermal)$ no dW/dt",
-    # )
-    # plt.fill_between(
-    #     taue_th_mean.t,
-    #     taue_th_up * const_taue,
-    #     taue_th_low * const_taue,
-    #     alpha=alpha,
-    #     color=icol_ion,
-    # )
-    # taue_th_mean_dw = Wth_mean / (Ptot_mean - dWth_dt.interp(t=Wth_mean.t))
-    # taue_th_up_dw = Wth_mean / (Ptot_low - dWth_dt.interp(t=Wth_mean.t))
-    # taue_th_low_dw = Wth_mean / (Ptot_up - dWth_dt.interp(t=Wth_mean.t))
-    # plt.plot(
-    #     taue_th_mean_dw.t,
-    #     taue_th_mean_dw * const_taue,
-    #     color=icol_imp,
-    #     label=r"$\tau_E(thermal)$ with dW/dt",
-    # )
-    # plt.fill_between(
-    #     taue_th_mean_dw.t,
-    #     taue_th_up_dw * const_taue,
-    #     taue_th_low_dw * const_taue,
-    #     alpha=alpha,
-    #     color=icol_el,
-    # )
-    #
-    # ylim = plt.ylim()
-    # plt.xlim(tlim)
-    # plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
-    # plt.ylabel(label_taue)
-    # plt.xlabel(label_time)
-    # plt.legend()
-    # plt.title(f"Pulse {pulse}")
-    # if savefig:
-    #     save_figure(fig_name=f"{pulse}_taue", ext=ext)
-    #
-    # plt.figure()
-    # Ni_mean, _, Ni_up, Ni_low = calc_mean_std(Ni_all.interp(rho_poloidal=0), keep)
-    # Ti_mean, _, Ti_up, Ti_low = calc_mean_std(Ti_all.interp(rho_poloidal=0), keep)
-    # nTtaue_mean = Ni_mean * Ti_mean * taue_mean
-    # nTtaue_low = Ni_low * Ti_low * taue_low
-    # nTtaue_mean_dw = Ni_mean * Ti_mean * taue_mean_dw
-    # plt.plot(
-    #     nTtaue_mean.t,
-    #     nTtaue_mean * const_nTtaue,
-    #     color="blue",
-    #     label=r"$n_i(0) T_i(0) \tau_E$(no dWp/dt)",
-    #     marker=default_marker,
-    # )
-    # nTtaue_low_dw = Ni_low * Ti_low * taue_low_dw
-    # plt.plot(
-    #     nTtaue_mean_dw.t,
-    #     nTtaue_mean_dw * const_nTtaue,
-    #     color="red",
-    #     label=r"$n_i(0) T_i(0) \tau_E$(with dWp/dt)",
-    #     marker=default_marker,
-    # )
-    #
-    # nTtaue_th_mean = (
-    #     Ni_all.mean("run").interp(rho_poloidal=0)
-    #     * Ti_all.mean("run").interp(rho_poloidal=0)
-    #     * taue_th_mean
-    # )
-    # nTtaue_th_low = Ni_low * Ti_low * taue_th_low
-    # plt.plot(
-    #     nTtaue_th_mean.t,
-    #     nTtaue_th_mean * const_nTtaue,
-    #     color="blue",
-    #     label=r"$n_i(0) T_i(0) \tau_E(thermal)$(no dWp/dt)",
-    #     marker=default_marker,
-    # )
-    # nTtaue_th_mean_dw = Ni_mean * Ti_mean * taue_th_mean_dw
-    # nTtaue_th_low_dw = Ni_low * Ti_low * taue_th_low_dw
-    # plt.plot(
-    #     nTtaue_th_mean_dw.t,
-    #     nTtaue_th_mean_dw * const_nTtaue,
-    #     color="red",
-    #     label=r"$n_i(0) T_i(0) \tau_E$(with dWp/dt)",
-    #     marker=default_marker,
-    # )
-    #
-    # ylim = plt.ylim()
-    # plt.xlim(tlim)
-    # plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
-    # plt.ylabel(label_nTtaue)
-    # plt.xlabel(label_time)
-    # plt.legend()
-    # plt.title(f"Pulse {pulse}")
-    # if savefig:
-    #     save_figure(fig_name=f"{pulse}_n_T_taue", ext=ext)
-    #
-    # import pickle
-    #
-    # pickle.dump(
-    #     profile_data,
-    #     open(f"/home/marco.sertoli/data/Indica/{pulse}_profiles_for_Jon.pkl", "wb"),
-    # )
-    #
-    # return profile_data
+    plt.figure()
+    Wp_mean = (
+        raw_data["efit"]["wp"].sel(t=slice(tlim[0], tlim[1])).interp(t=time_interp)
+    )
+    dWp_dt = Wp_mean.differentiate("t", edge_order=2)
+    Ptot_mean, _, Ptot_up, Ptot_low = calc_mean_std(Ptot_all, keep)
+
+    taue_mean = Wp_mean / Ptot_mean
+    taue_up = Wp_mean / Ptot_low
+    taue_low = Wp_mean / Ptot_up
+    plt.fill_between(
+        taue_mean.t,
+        taue_up * const_taue,
+        taue_low * const_taue,
+        alpha=alpha,
+        label=r"$\tau_E(EFIT)$ no dW/dt",
+    )
+    taue_mean_dw = Wp_mean / (Ptot_mean - dWp_dt)
+    taue_up_dw = Wp_mean / (Ptot_low - dWp_dt)
+    taue_low_dw = Wp_mean / (Ptot_up - dWp_dt)
+    plt.fill_between(
+        taue_mean_dw.t,
+        taue_up_dw * const_taue,
+        taue_low_dw * const_taue,
+        alpha=alpha,
+        label=r"$\tau_E(EFIT)$ with dW/dt",
+    )
+
+    Wth_mean, _, Wth_up, Wth_low = calc_mean_std(Wth_all, keep)
+    dWth_dt = Wth_mean.differentiate("t", edge_order=2)
+    taue_th_mean = Wth_mean / Ptot_mean
+    taue_th_up = Wth_mean / Ptot_low
+    taue_th_low = Wth_mean / Ptot_up
+    plt.fill_between(
+        taue_th_mean.t,
+        taue_th_up * const_taue,
+        taue_th_low * const_taue,
+        alpha=alpha,
+        label=r"$\tau_E(thermal)$ no dW/dt",
+    )
+    taue_th_mean_dw = Wth_mean / (Ptot_mean - dWth_dt)
+    taue_th_up_dw = Wth_mean / (Ptot_low - dWth_dt)
+    taue_th_low_dw = Wth_mean / (Ptot_up - dWth_dt)
+    plt.fill_between(
+        taue_th_mean_dw.t,
+        taue_th_up_dw * const_taue,
+        taue_th_low_dw * const_taue,
+        alpha=alpha,
+        label=r"$\tau_E(thermal)$ with dW/dt",
+    )
+
+    ylim = plt.ylim()
+    plt.xlim(tlim)
+    plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
+    plt.ylabel(label_taue)
+    plt.xlabel(label_time)
+    plt.legend()
+    plt.title(f"Pulse {pulse}")
+    if savefig:
+        save_figure(fig_name=f"{pulse}_taue", ext=ext)
+
+    plt.figure()
+    Ni_mean, _, Ni_up, Ni_low = calc_mean_std(Ni_all.interp(rho_poloidal=0), keep)
+    Ti_mean, _, Ti_up, Ti_low = calc_mean_std(Ti_all.interp(rho_poloidal=0), keep)
+
+    nTtaue_mean = Ni_mean * Ti_mean * taue_mean
+    nTtaue_low = Ni_low * Ti_low * taue_low
+    nTtaue_mean_dw = Ni_mean * Ti_mean * taue_mean_dw
+    plt.fill_between(
+        nTtaue_mean.t,
+        nTtaue_low * const_nTtaue,
+        nTtaue_mean * const_nTtaue,
+        alpha=0.5,
+        label=r"$n_i(0) T_i(0) \tau_E$ (no dWp/dt)",
+    )
+    nTtaue_low_dw = Ni_low * Ti_low * taue_low_dw
+    plt.fill_between(
+        nTtaue_mean_dw.t,
+        nTtaue_mean_dw * const_nTtaue,
+        nTtaue_low_dw * const_nTtaue,
+        alpha=0.5,
+        label=r"$n_i(0) T_i(0) \tau_E$ (with dWp/dt)",
+    )
+
+    nTtaue_th_mean = (
+        Ni_all.mean("run").interp(rho_poloidal=0)
+        * Ti_all.mean("run").interp(rho_poloidal=0)
+        * taue_th_mean
+    )
+    nTtaue_th_low = Ni_low * Ti_low * taue_th_low
+    plt.fill_between(
+        nTtaue_th_mean.t,
+        nTtaue_th_mean * const_nTtaue,
+        nTtaue_th_low * const_nTtaue,
+        alpha=0.5,
+        label=r"$n_i(0) T_i(0) \tau_E(thermal)$ (no dWp/dt)",
+    )
+    nTtaue_th_mean_dw = Ni_mean * Ti_mean * taue_th_mean_dw
+    nTtaue_th_low_dw = Ni_low * Ti_low * taue_th_low_dw
+    plt.fill_between(
+        nTtaue_th_mean_dw.t,
+        nTtaue_th_mean_dw * const_nTtaue,
+        nTtaue_th_low_dw * const_nTtaue,
+        alpha=0.5,
+        label=r"$n_i(0) T_i(0) \tau_E(thermal)$ (with dWp/dt)",
+    )
+
+    ylim = plt.ylim()
+    plt.xlim(tlim)
+    plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
+    plt.ylabel(label_nTtaue)
+    plt.xlabel(label_time)
+    plt.legend()
+    plt.title(f"Pulse {pulse}")
+    if savefig:
+        save_figure(fig_name=f"{pulse}_n_T_taue", ext=ext)
+
+    import pickle
+
+    pickle.dump(
+        profile_data,
+        open(f"/home/marco.sertoli/data/Indica/{pulse}_profiles_for_Jon.pkl", "wb"),
+    )
+
+    return profile_data
 
 
 def data_time_evol(
@@ -1896,18 +1935,20 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
         pl = pl_dict[run]
         astra = astra_dict[run]
 
-        Te_all.append(pl.el_temp.sel(t=tplot, method="nearest"))
-        Ti_all.append(pl.ion_temp.sel(element="ar").sel(t=tplot, method="nearest"))
-        Ne_all.append(pl.el_dens.sel(t=tplot, method="nearest"))
-        NAr_all.append(pl.ion_dens.sel(element="ar").sel(t=tplot, method="nearest"))
+        Te_all.append(pl.electron_temperature.sel(t=tplot, method="nearest"))
+        Ti_all.append(
+            pl.ion_temperature.sel(element="ar").sel(t=tplot, method="nearest")
+        )
+        Ne_all.append(pl.electron_density.sel(t=tplot, method="nearest"))
+        NAr_all.append(pl.ion_density.sel(element="ar").sel(t=tplot, method="nearest"))
         Nf_all.append(
             (astra["nf"] * 1.0e19)
-            .interp(t=tplot, method="nearest")
+            .sel(t=tplot, method="nearest")
             .interp(rho_poloidal=pl.rho)
         )
         Ni_all.append(
             (astra["ni"] * 1.0e19)
-            .interp(t=tplot, method="nearest")
+            .sel(t=tplot, method="nearest")
             .interp(rho_poloidal=pl.rho)
         )
 
@@ -2105,7 +2146,7 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     cols = cmap(np.linspace(0, 1, len(runs)))
     for run, col in zip(runs, cols):
         pl = pl_dict[run]
-        ne_nimp = pl.el_dens.sel(t=t, method="nearest") * pl.ion_dens.sel(
+        ne_nimp = pl.electron_density.sel(t=t, method="nearest") * pl.ion_density.sel(
             element="ar"
         ).sel(t=t, method="nearest")
         (ne_nimp / ne_nimp.max() * 1.0e19 * 1.0e19).plot(
@@ -2127,27 +2168,31 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
         for run, col in zip(runs, cols):
             pl = pl_dict[run]
             if k == "Te":
-                Te = pl.el_temp.sel(t=t, method="nearest")
+                Te = pl.electron_temperature.sel(t=t, method="nearest")
                 Te.plot(
                     color=col, label=run, linestyle="dashed", linewidth=3,
                 )
                 if best_hda in run and hasattr(pl, "el_temp_hi"):
                     Te_err = (
-                        pl.el_temp_hi.sel(t=t, method="nearest")
-                        - pl.el_temp_lo.sel(t=t, method="nearest")
+                        pl.electron_temperature_hi.sel(t=t, method="nearest")
+                        - pl.electron_temperature_lo.sel(t=t, method="nearest")
                     ) / 2.0
                     plt.fill_between(
                         pl.rho, Te - Te_err, Te + Te_err, color=col, alpha=0.8,
                     )
             if k == "Ti":
-                Ti = pl.ion_temp.sel(element="ar").sel(t=t, method="nearest")
+                Ti = pl.ion_temperature.sel(element="ar").sel(t=t, method="nearest")
                 Ti.plot(
                     color=col, label=run, linestyle="dashed", linewidth=3,
                 )
                 if best_hda in run and hasattr(pl, "el_temp_hi"):
                     Ti_err = (
-                        pl.ion_temp_hi.sel(element="ar").sel(t=t, method="nearest")
-                        - pl.ion_temp_lo.sel(element="ar").sel(t=t, method="nearest")
+                        pl.ion_temperature_hi.sel(element="ar").sel(
+                            t=t, method="nearest"
+                        )
+                        - pl.ion_temperature_lo.sel(element="ar").sel(
+                            t=t, method="nearest"
+                        )
                     ) / 2.0
                     plt.fill_between(
                         pl.rho, Ti - Ti_err, Ti + Ti_err, color=col, alpha=0.8,
