@@ -72,11 +72,10 @@ class Interferometry(DiagnosticModel):
         else:
             if Ne is None:
                 raise ValueError("Give inputs or assign plasma class!")
-        self.Ne = Ne
-        self.transform.check_rho(t=t)
-
-        los_integral_ne = self.transform.integrate_on_los(Ne, t=t, calc_rho=calc_rho,)
         self.t = t
+        self.Ne = Ne
+
+        los_integral_ne = self.transform.integrate_on_los(Ne, t=self.t, calc_rho=calc_rho,)
         self.los_integral_ne = los_integral_ne
 
         self._build_bckc_dictionary()

@@ -168,6 +168,23 @@ class LineOfSightTransform(CoordinateTransform):
         result = result and self._machine_dims == other._machine_dims
         return result
 
+    def set_flux_transform(
+        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
+    ):
+        """
+        Set flux surface transform to perform remapping from physical to flux space
+        """
+        if not hasattr(self, "flux_transform") or force:
+            self.flux_transform = flux_transform
+        elif self.flux_transform != flux_transform:
+            raise Exception("Attempt to set flux surface transform twice.")
+
+    def check_flux_transform(self):
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Missing flux surface transform")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Missing equilibrium in flux surface transform")
+
     def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Tuple:
@@ -342,24 +359,13 @@ class LineOfSightTransform(CoordinateTransform):
         self.phi = phi
         self.impact_xyz = self._impact_parameter_xyz()
 
-        self.rho = []
-        self.theta = []
-        self.along_los = []
-        self.los_integral = None
-        self.t = None
+        self.rho:list = []
+        self.theta:list = []
+        self.along_los:list = []
+        self.los_integral:DataArray = None
+        self.t:LabeledArray = None
 
         return x2, dl_new
-
-    def set_flux_transform(
-        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
-    ):
-        """
-        Set flux surface transform to perform remapping from physical to flux space
-        """
-        if not hasattr(self, "flux_transform") or force:
-            self.flux_transform = flux_transform
-        elif self.flux_transform != flux_transform:
-            raise Exception("Attempt to set flux surface transform twice.")
 
     def map_to_los(
         self,
@@ -409,6 +415,28 @@ class LineOfSightTransform(CoordinateTransform):
         self.along_los = along_los
 
         return along_los
+
+    def check_rho(self, t: LabeledArray, calc_rho: bool = False):
+        """
+        Check requested times
+        """
+        if len(self.rho) == 0 or calc_rho:
+            self._convert_to_rho(t=t)
+            return
+
+        rho_t = self.rho[0].t
+        if np.array_equal(rho_t, t):
+            return
+
+        if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
+            return
+
+        equil_t = self.flux_transform.equilibrium.rho.t
+        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
+        if equil_ok:
+            self._convert_to_rho(t=t)
+        else:
+            raise ValueError("Inserted time is not available in Equilibrium object")
 
     def integrate_on_los(
         self,
@@ -470,34 +498,6 @@ class LineOfSightTransform(CoordinateTransform):
         impact_xyz = Dataset({"index": index, "value": value})
 
         return impact_xyz
-
-    def check_flux_transform(self):
-        if not hasattr(self, "flux_transform"):
-            raise Exception("Missing flux surface transform")
-        if not hasattr(self.flux_transform, "equilibrium"):
-            raise Exception("Missing equilibrium in flux surface transform")
-
-    def check_rho(self, t: LabeledArray, calc_rho: bool = False):
-        """
-        Check requested times
-        """
-        if len(self.rho) == 0 or calc_rho:
-            self._convert_to_rho(t=t)
-            return
-
-        rho_t = self.rho[0].t
-        if np.array_equal(rho_t, t):
-            return
-
-        if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
-            return
-
-        equil_t = self.flux_transform.equilibrium.rho.t
-        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
-        if equil_ok:
-            self._convert_to_rho(t=t)
-        else:
-            raise ValueError("Inserted time is not available in Equilibrium object")
 
     def get_plasma_boundaries(self, tplot: float = None):
         boundaries = None

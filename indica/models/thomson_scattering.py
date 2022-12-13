@@ -82,16 +82,15 @@ class ThomsonScattering(DiagnosticModel):
             if Ne is None or Te is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
+        self.t = t
         self.Ne = Ne
         self.Te = Te
-        self.transform.check_rho(t=t)
 
-        Ne_at_channels = self.transform.map_to_rho(Ne, t=t, calc_rho=calc_rho,)
-        Te_at_channels = self.transform.map_to_rho(Te, t=t, calc_rho=calc_rho,)
+        Ne_at_channels = self.transform.map_to_rho(Ne, t=self.t, calc_rho=calc_rho,)
+        Te_at_channels = self.transform.map_to_rho(Te, t=self.t, calc_rho=calc_rho,)
 
         self.Ne_at_channels = Ne_at_channels
         self.Te_at_channels = Te_at_channels
-        self.t = t
 
         self._build_bckc_dictionary()
 

@@ -52,10 +52,10 @@ class TransectCoordinates(CoordinateTransform):
         x_positions: LabeledArray,
         y_positions: LabeledArray,
         z_positions: LabeledArray,
-        name:str,
+        name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-                (1.83, 3.9),
-                (-1.75, 2.0),
+            (1.83, 3.9),
+            (-1.75, 2.0),
         ),
     ):
         if np.shape(x_positions) != np.shape(z_positions) or np.shape(
@@ -74,7 +74,7 @@ class TransectCoordinates(CoordinateTransform):
         # TODO: add intersection with first walls to restrict possible coordinates
         self._machine_dims = machine_dimensions
 
-        R_positions = np.sqrt(x_positions**2 + y_positions**2)
+        R_positions = np.sqrt(x_positions ** 2 + y_positions ** 2)
         self.x_interp = interp1d(
             self.x1, x_positions, copy=False, fill_value="extrapolate"
         )
@@ -104,7 +104,7 @@ class TransectCoordinates(CoordinateTransform):
         self.y = y
         self.z = z
         self.R = R
-        self.rho: list = []
+        self.rho: DataArray = None
 
     def set_flux_transform(
         self, flux_transform: FluxSurfaceCoordinates, force: bool = False
@@ -116,6 +116,12 @@ class TransectCoordinates(CoordinateTransform):
             self.flux_transform = flux_transform
         elif self.flux_transform != flux_transform:
             raise Exception("Attempt to set flux surface transform twice.")
+
+    def check_flux_transform(self):
+        if not hasattr(self, "flux_transform"):
+            raise Exception("Missing flux surface transform")
+        if not hasattr(self.flux_transform, "equilibrium"):
+            raise Exception("Missing equilibrium in flux surface transform")
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
@@ -204,9 +210,7 @@ class TransectCoordinates(CoordinateTransform):
 
         return x1, x2
 
-    def _convert_to_rho(
-        self, t: LabeledArray = None
-    ) -> Coordinates:
+    def _convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
         """
         Convert R, z to rho given the flux surface transform
         """
@@ -223,6 +227,7 @@ class TransectCoordinates(CoordinateTransform):
             if var in theta.coords:
                 theta = theta.drop_vars(var)
 
+        self.t = t
         self.rho = rho
         self.theta = theta
 
@@ -256,37 +261,37 @@ class TransectCoordinates(CoordinateTransform):
         self.check_flux_transform()
         self.check_rho(t, calc_rho)
 
-        value_at_channels = profile_1d.interp(rho_poloidal=self.rho)
+        if "t" in self.rho.dims:
+            rho = self.rho.interp(t=t)
+        else:
+            rho = self.rho
+
+        value_at_channels = profile_1d.interp(rho_poloidal=rho)
         if limit_to_sep:
-            value_at_channels = xr.where(self.rho <= 1, value_at_channels, 0,)
+            value_at_channels = xr.where(rho <= 1, value_at_channels, 0,)
 
         self.value_at_channels = value_at_channels
 
         return value_at_channels
 
-    def check_flux_transform(self):
-        if not hasattr(self, "flux_transform"):
-            raise Exception("Missing flux surface transform")
-        if not hasattr(self.flux_transform, "equilibrium"):
-            raise Exception("Missing equilibrium in flux surface transform")
-
     def check_rho(self, t: LabeledArray, calc_rho: bool = False):
         """
         Check requested times
         """
-        if len(self.rho) == 0 or calc_rho:
+        if self.rho is None or calc_rho:
             self._convert_to_rho(t=t)
             return
 
-        rho_t = self.rho[0].t
-        if np.array_equal(rho_t, t):
+        if np.array_equal(self.t, t):
             return
 
-        if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
+        t_min = np.min(t)
+        t_max = np.max(t)
+        if (t_min >= np.min(self.t)) * (t_max <= np.max(self.t)):
             return
 
         equil_t = self.flux_transform.equilibrium.rho.t
-        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
+        equil_ok = (t_min >= np.min(equil_t)) * (t_max <= np.max(equil_t))
         if equil_ok:
             self._convert_to_rho(t=t)
         else:

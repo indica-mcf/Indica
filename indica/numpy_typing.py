@@ -7,6 +7,8 @@ labeled dimensions and to scalar.
 
 import numbers
 import typing
+from typing import Tuple
+from typing import Optional
 
 import numpy as np
 import xarray
@@ -32,3 +34,7 @@ OnlyArray = typing.Union[
 OnlyXarray = typing.Union[xarray.DataArray, xarray.Dataset, xarray.Variable]
 
 RevisionLike = typing.Union[str, int]
+
+Coordinates = Tuple[LabeledArray, LabeledArray]
+
+OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]

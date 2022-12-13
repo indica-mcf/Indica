@@ -87,10 +87,10 @@ class Bolometer(DiagnosticModel):
             if Ne is None or Nimp is None or Lz is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
+        self.t = t
         self.Ne = Ne
         self.Nimp = Nimp
         self.Lz = Lz
-        self.transform.check_rho(t=t)
 
         elements = Nimp.element.values
 
@@ -108,7 +108,6 @@ class Bolometer(DiagnosticModel):
 
         self.emission = emission
         self.los_integral_radiation = los_integral
-        self.t = t
 
         self._build_bckc_dictionary()
 

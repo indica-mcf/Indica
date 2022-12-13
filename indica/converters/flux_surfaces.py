@@ -5,7 +5,7 @@ from typing import Optional
 
 import numpy as np
 
-from .abstractconverter import Coordinates
+from indica.numpy_typing import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
 

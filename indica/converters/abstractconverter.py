@@ -14,10 +14,7 @@ from xarray import DataArray
 from xarray import zeros_like
 
 from ..equilibrium import Equilibrium
-from ..numpy_typing import LabeledArray
-
-Coordinates = Tuple[LabeledArray, LabeledArray]
-OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]
+from ..numpy_typing import LabeledArray, Coordinates
 
 
 class EquilibriumException(Exception):
@@ -77,6 +74,8 @@ class CoordinateTransform(ABC):
     x2_name: str
     x1:LabeledArray
     x2:LabeledArray
+    rho:LabeledArray
+    t:LabeledArray = None
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
@@ -267,6 +266,29 @@ class CoordinateTransform(ABC):
         """
         raise NotImplementedError(
             "{} does not implement a 'convert_from_Rz' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def _convert_to_rho(
+        self, t: LabeledArray = None
+    ) -> Coordinates:
+        """Convert from spatial to flux coordinates
+
+        Parameters
+        ----------
+        t
+            The time coordinate
+
+        Returns
+        -------
+        rho
+            Flux coordinate
+        theta
+            time
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a 'convert_to_xy' "
             "method.".format(self.__class__.__name__)
         )
 

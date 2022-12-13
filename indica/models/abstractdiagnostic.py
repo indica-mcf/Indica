@@ -1,15 +1,18 @@
 from abc import ABC
 from abc import abstractmethod
+import numpy as np
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters.abstractconverter import CoordinateTransform
 from indica.models.plasma import Plasma
+from indica.numpy_typing import LabeledArray
 
 
 class DiagnosticModel(ABC):
     name: str = ""
     bckc: dict = {}
     plasma: Plasma = None
+    _t: LabeledArray
 
     def set_transform(self, transform: CoordinateTransform):
         """
@@ -40,8 +43,7 @@ class DiagnosticModel(ABC):
 
     @abstractmethod
     def __call__(
-        self,
-        **kwargs,
+        self, **kwargs,
     ):
         """
         Calculate and return diagnostic measured values

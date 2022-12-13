@@ -274,8 +274,6 @@ class Helike_spectroscopy(DiagnosticModel):
                 self.spectra["total"], t=self.spectra["total"].t, calc_rho=calc_rho,
             )
 
-        self.t = self.measured_intensity[line].t
-
     def _calculate_temperatures(self):
         x1 = self.transform.x1
         x1_name = self.transform.x1_name
@@ -330,8 +328,9 @@ class Helike_spectroscopy(DiagnosticModel):
         pos: list = []
         err_in: list = []
         err_out: list = []
-        if np.size(self.t) ==1:
-            times = np.array([self.t])
+
+        if len(np.shape(self.t)) == 0:
+            times = np.array([self.t, ])
         else:
             times = self.t
 
@@ -491,12 +490,7 @@ class Helike_spectroscopy(DiagnosticModel):
             # TODO: substitute with value.element
             element = self.element
             _spectra = []
-            if len(np.shape(self.t)) == 0:
-                times = np.array([self.t])
-            else:
-                times = self.t
-
-            for t in times:
+            for t in self.t:
                 Ti = self.Ti.sel(element=element)
                 if "t" in self.Ti.dims:
                     Ti = Ti.sel(t=t)
@@ -645,7 +639,6 @@ class Helike_spectroscopy(DiagnosticModel):
         self.Ti = Ti
         self.Nimp = Nimp
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
-        self.transform.check_rho(t=t)
 
         # TODO: check that inputs have compatible dimensions/coordinates
 
