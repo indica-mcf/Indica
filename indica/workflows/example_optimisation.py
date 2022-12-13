@@ -61,7 +61,7 @@ def match_helike_spectroscopy_line_ratios(
             if instrument in models.keys():
                 for quantity in optimise_for[instrument]:
                     resid.append(
-                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity]
+                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity].sel(t=t)
                     )
 
         return (np.array(resid) ** 2).sum()

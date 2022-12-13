@@ -226,7 +226,7 @@ class Plasma:
         self.z_midplane = z_midplane
 
         time = get_tlabels_dt(self.tstart, self.tend, self.dt)
-        self.time_to_calculate = time
+        self._time_to_calculate = time
 
         nt = len(time)
         nr = len(self.radial_coordinate)
@@ -384,6 +384,41 @@ class Plasma:
             raise ValueError(
                 f"{profile} currently not found in possible Plasma properties"
             )
+
+    def update_profiles(self, parameters:dict,
+                        profile_prefixs:list = ["Te_prof", "Ti_prof", "Ne_prof", "Nimp_prof", "Vrot_prof"],
+                        ):
+        """
+        Update plasma profiles with profile parameters i.e. Ne_prof_y0 -> Ne_prof.y0
+        """
+        for param, value in parameters.items():
+            prefix = [prefix for prefix in profile_prefixs if prefix in param]
+            if prefix:
+                prefix = prefix[0]
+                key = param.replace(prefix+"_", "")
+                profile = getattr(self, prefix)
+                if hasattr(profile, key):
+                    setattr(profile, key, value)
+                else:
+                    raise ValueError(
+                        f"parameter: {key} not found in {prefix}"
+                    )
+
+        for key in ["electron_density", "electron_density", "ion_temperature", "toroidal_rotation", "impurity_density",]:
+            self.assign_profiles(key, t=self.time_to_calculate)
+
+    @property
+    def time_to_calculate(self):
+        return self._time_to_calculate
+
+    @time_to_calculate.setter
+    def time_to_calculate(self, value):
+        if len(np.shape(value)) == 0:
+            _time_to_calculate = np.array([value])
+        else:
+            _time_to_calculate = value
+
+        self._time_to_calculate = _time_to_calculate
 
     @property
     def pressure_el(self):
