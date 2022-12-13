@@ -414,7 +414,7 @@ class Plasma:
     @time_to_calculate.setter
     def time_to_calculate(self, value):
         if len(np.shape(value)) == 0:
-            _time_to_calculate = np.array([value])
+            _time_to_calculate = np.array([value,])
         else:
             _time_to_calculate = value
 

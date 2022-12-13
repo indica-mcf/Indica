@@ -97,10 +97,10 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
+        self.t = t
         self.Te = Te
         self.Ne = Ne
         self.Zeff = Zeff
-        self.transform.check_rho(t=t)
 
         emission = ph.zeff_bremsstrahlung(Te, Ne, self.filter_wavelength, zeff=Zeff)
         self.emission = emission
@@ -112,7 +112,6 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
         )
 
         self.los_integral = los_integral
-        self.t = t
 
         self._build_bckc_dictionary()
 
