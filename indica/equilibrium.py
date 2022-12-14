@@ -9,7 +9,6 @@ from typing import Tuple
 
 import numpy as np
 import prov.model as prov
-from scipy.integrate import trapz
 from xarray import apply_ufunc
 from xarray import DataArray
 from xarray import where
@@ -19,9 +18,10 @@ from .numpy_typing import LabeledArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
-#TODO: this class works best if it's not an abstract class: why should it?
+# TODO: this class works best if it's not an abstract class: why should it?
 
-class Equilibrium():
+
+class Equilibrium:
     """Class to hold and interpolate equilibrium data.
 
     At instantiation it will require calibration to select an offset
@@ -208,7 +208,9 @@ class Equilibrium():
             results are given for. Otherwise return the argument.
         """
         b_R, b_z, b_T, t = self.Bfield(R, z, t)
-        b_Tot = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0) + b_T ** np.float64(2.0))
+        b_Tot = np.sqrt(
+            b_R ** np.float64(2.0) + b_z ** np.float64(2.0) + b_T ** np.float64(2.0)
+        )
         b_Tot.name = "Total Magnetic Field (T)"
 
         return b_Tot, t
@@ -260,7 +262,6 @@ class Equilibrium():
         b_R, b_z, b_T, t = self.Bfield(R, z, t)
 
         return b_z, t
-
 
     def Bt(
         self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
@@ -406,166 +407,6 @@ class Equilibrium():
 
         return R, t
 
-    def cross_sectional_area(
-        self,
-        rho: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        ntheta: int = 12,
-        kind: str = "poloidal",
-    ) -> Tuple[DataArray, LabeledArray]:
-        """Calculates the cross-sectional area inside the flux surface rho and at
-        given time t.
-
-        Parameters
-        ----------
-        rho
-            Values of rho at which to calculate the cross-sectional area.
-        t
-            Values of time at which to calculate the cross-sectional area.
-        ntheta
-            Number subdivisions of 2 * pi to integrate over for the cross-
-            sectional area.
-        kind
-            The type of flux surface to use. May be "toroidal", "poloidal",
-            plus optional extras depending on implementation.
-
-        Returns
-        -------
-        area
-            Cross-sectional areas calculated at rho and t.
-        t
-            If ``t`` was not specified as an argument, return the time the
-            results are given for. Otherwise return the argument.
-        """
-
-        if t is None:
-            t = self.rho.coords["t"]
-
-        if np.isscalar(rho):
-            rho = np.array([rho])
-
-        if np.isscalar(t):
-            t = np.array([t])
-
-        theta = np.linspace(0.0, 2.0 * np.pi, ntheta)
-        # Reassignment to a different type is not recognised by mypy.
-        theta = DataArray(  # type: ignore
-            data=theta,
-            coords={"theta": theta},
-            dims=[
-                "theta",
-            ],
-        )
-
-        minor_radii = np.empty(ntheta, dtype=DataArray)
-
-        for i, itheta in enumerate(theta):
-            minor_radii[i], _ = self.minor_radius(rho, itheta, t, kind)
-
-        # This sets minor_radii to zero in the rho positions (in the minor_radii array)
-        # where the rho value is below the precision possible through
-        # the trapz() function.
-        zero_check = np.where(rho < 1e-18)[0]
-        if np.size(zero_check) > 0:
-            for i in zero_check:
-                for k, itheta in enumerate(theta):
-                    minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
-
-        minor_radii = minor_radii**2
-        minor_radii = minor_radii * 0.5
-
-        area = trapz(minor_radii, theta, axis=0)
-
-        result = DataArray(
-            data=area,
-            coords=[("t", t), ("rho", rho)],
-            dims=["t", "rho"],
-        )
-
-        return (
-            result,
-            cast(LabeledArray, t),
-        )
-
-    def enclosed_volume(
-        self,
-        rho: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        kind: str = "poloidal",
-    ) -> Tuple[DataArray, DataArray, LabeledArray]:
-        """Returns the volume enclosed by the specified flux surface.
-
-        Parameters
-        ----------
-        rho
-            Flux surfaces to get the enclosed volumes for.
-        t
-            Times at which to get the enclosed volume. Defaults to the
-            time range specified when equilibrium object was instantiated and
-            frequency the equilibrium data was calculated at.
-        kind
-            The type of flux surface to use. May be "toroidal", "poloidal",
-            plus optional extras depending on implementation.
-
-        Returns
-        -------
-        vol
-            Volumes of space enclosed by the flux surfaces.
-        t
-            If ``t`` was not specified as an argument, return the time the
-            results are given for. Otherwise return the argument.
-        """
-        if t is None:
-            t = self.rho.coords["t"]
-        major_radius_axis = self.rmag.interp(
-            t=t,
-            method="nearest",
-            assume_sorted=True,
-        )
-
-        # Cross-sectional area calculated by integrating:
-        # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
-        area_arr, _ = self.cross_sectional_area(rho, t, kind=kind)
-
-        # Vol = area * toroidal circumference measure at the magnetic axis
-        vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
-        vol_enclosed.name = "Enclosed volumes (m^3)"
-
-        return vol_enclosed, area_arr, t
-
-    def invert_enclosed_volume(
-        self,
-        vol: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        kind: str = "poloidal",
-    ) -> Tuple[LabeledArray, LabeledArray]:
-        """Returns the value of the flux surface enclosing the specified volume.
-
-        Parameters
-        ----------
-        vol
-            Volumes of space enclosed by the flux surfaces.
-        t
-            Times at which to get the enclosed volume. Defaults to the
-            time range specified when equilibrium object was instantiated and
-            frequency the equilibrium data was calculated at.
-        kind
-            The type of flux surface to use. May be "toroidal", "poloidal",
-            plus optional extras depending on implementation.
-
-        Returns
-        -------
-        rho
-            Flux surfaces for the enclosed volumes.
-        t
-            If ``t`` was not specified as an argument, return the time the
-            results are given for. Otherwise return the argument.
-        """
-        raise NotImplementedError(
-            "{} does not implement an 'invert_enclosed_volume' "
-            "method.".format(self.__class__.__name__)
-        )
-
     def minor_radius(
         self,
         rho: LabeledArray,
@@ -660,7 +501,7 @@ class Equilibrium():
         z: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[LabeledArray, LabeledArray, LabeledArray]:
+    ) -> Tuple[DataArray, DataArray, LabeledArray]:
         """Convert to the flux surface coordinate system.
 
         Parameters
@@ -826,6 +667,7 @@ class Equilibrium():
                 np.abs(rho), "rho_poloidal", method="cubic"
             )
         return flux, t
+
 
 def convert_to_dataarray(value, coords):
     if type(value) != DataArray:

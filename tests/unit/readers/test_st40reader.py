@@ -1,8 +1,9 @@
-from indica.readers import ST40Reader
+import matplotlib.pylab as plt
+import numpy as np
+
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
-import numpy as np
-import matplotlib.pylab as plt
+from indica.readers import ST40Reader
 
 PULSE = 9229
 TSTART = 0.01
@@ -24,8 +25,11 @@ INSTRUMENT_INFO = {
 
 # "sxr_camera": ("sxr", "diode_arrays", 0, ["filter_4"]),
 
+
 def run_reader_get_methods(
-    instrument_name: str, mds_only=False, plot=False,
+    instrument_name: str,
+    mds_only=False,
+    plot=False,
 ):
     """
     General test script to read data from MDS+ and calculate LOS information
@@ -61,7 +65,10 @@ def run_reader_get_methods(
         database_quantities = quantities
 
     database_results = getattr(READER, f"_{instrument_method}")(
-        uid, instrument, revision, database_quantities,
+        uid,
+        instrument,
+        revision,
+        database_quantities,
     )
 
     if mds_only:
@@ -91,7 +98,8 @@ def test_all(interactive=False, plot=False):
                 if "LineOfSightTransform" in str(data[quant].transform):
                     if "line_of_sight_multi" not in str(data[quant].transform):
                         raise ValueError(
-                            f"{instrument_name}:{quant} using \n {str(data[quant].transform)}"
+                            f"{instrument_name}:{quant} using"
+                            f" \n {str(data[quant].transform)}"
                         )
         plt.show()
         if interactive:

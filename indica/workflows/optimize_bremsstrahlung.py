@@ -1,6 +1,6 @@
-
 import indica.physics as ph
 from indica.readers.manage_data import initialize_bckc
+
 
 def bremsstrahlung(
     self,
@@ -51,4 +51,3 @@ def bremsstrahlung(
 
     bckc[diagnostic][quantity].attrs["calibration"] = cal
     return bckc
-

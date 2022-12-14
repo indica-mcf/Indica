@@ -1,19 +1,19 @@
 # Script for creating the model tree for ST40 HDA tree
 
-from MDSplus import *
-from MDSplus.mdsExceptions import TreeALREADY_THERE, TreeFOPENW, TreeNNF
-import numpy as np
-from MDSplus import Tree, Float32, Int32, String
-import indica.writers.mdsHelpers as mh
-import indica.writers.mds_tree_structures as trees
 import getpass
+
+from MDSplus import Float32
+from MDSplus import String
+from MDSplus import Tree
+from MDSplus.mdsExceptions import TreeFOPENW
+from MDSplus.mdsExceptions import TreeNNF
+import numpy as np
 import xarray as xr
 from xarray import DataArray
 
 from indica.readers import ST40Reader
-
-from typing import Tuple
-from typing import List
+import indica.writers.mds_tree_structures as trees
+import indica.writers.mdsHelpers as mh
 
 
 user = getpass.getuser()
@@ -356,7 +356,8 @@ def organise_data(plasma, data={}, bckc={}):
         )
         tiv.append(
             np.trapz(
-                Ti.sel(element=plasma.main_ion).sel(t=t).values, Vol.sel(t=t).values,
+                Ti.sel(element=plasma.main_ion).sel(t=t).values,
+                Vol.sel(t=t).values,
             )
             / Vol.sel(t=t).sel(rho_poloidal=1).values,
         )
@@ -373,7 +374,8 @@ def organise_data(plasma, data={}, bckc={}):
         )
         zeffv.append(
             np.trapz(
-                Zeff.sum("element").sel(t=t).values, Vol.sel(t=t).values,
+                Zeff.sum("element").sel(t=t).values,
+                Vol.sel(t=t).values,
             )
             / Vol.sel(t=t).sel(rho_poloidal=1).values,
         )
@@ -444,21 +446,41 @@ def organise_data(plasma, data={}, bckc={}):
             "IMPURITY3": (String(impurities[2]), "", []),
         },
         ".GLOBAL": {
-            "CR0": (Float32(plasma.minor_radius.sel(rho_poloidal=1.).values), "m", glob_coord,),
-            "RMAG": (Float32(plasma.R_mag.values), "m", glob_coord,),
-            "ZMAG": (Float32(plasma.z_mag.values), "m", glob_coord,),
+            "CR0": (
+                Float32(plasma.minor_radius.sel(rho_poloidal=1.0).values),
+                "m",
+                glob_coord,
+            ),
+            "RMAG": (
+                Float32(plasma.R_mag.values),
+                "m",
+                glob_coord,
+            ),
+            "ZMAG": (
+                Float32(plasma.z_mag.values),
+                "m",
+                glob_coord,
+            ),
             "VOLM": (
                 Float32(Vol.sel(rho_poloidal=1).values),
                 "m^3",
                 glob_coord,
             ),
-            "IP": (Float32(plasma.ipla.values), "A", glob_coord,),
+            "IP": (
+                Float32(plasma.ipla.values),
+                "A",
+                glob_coord,
+            ),
             "TE0": (
                 Float32(Te.sel(rho_poloidal=0).values),
                 "eV",
                 glob_coord,
             ),
-            "TI0": (Float32(ion_temperature[0].sel(rho_poloidal=0).values), "eV", glob_coord,),
+            "TI0": (
+                Float32(ion_temperature[0].sel(rho_poloidal=0).values),
+                "eV",
+                glob_coord,
+            ),
             "TI0_Z1": (
                 Float32(ion_temperature[1].sel(rho_poloidal=0).values),
                 "eV",
@@ -493,7 +515,11 @@ def organise_data(plasma, data={}, bckc={}):
             "TIV": (Float32(tiv), "eV", glob_coord),
             "NEV": (Float32(nev), "m^-3", glob_coord),
             "NIV": (Float32(niv), "m^-3", glob_coord),
-            "ZEFFV": (Float32(zeffv), "", glob_coord,),
+            "ZEFFV": (
+                Float32(zeffv),
+                "",
+                glob_coord,
+            ),
             "WTH": (Float32(Wth.values), "J", glob_coord),
             "WP": (Float32(Wp.values), "J", glob_coord),
             # "UPL": (Float32(plasma.vloop.values), "V", glob_coord),
@@ -504,49 +530,139 @@ def organise_data(plasma, data={}, bckc={}):
         },
         ".PROFILES.PSI_NORM": {
             "RHOP": (Float32(plasma.rho.values), "", ()),
-            "XPSN": (Float32(plasma.rho.values ** 2), "", ()),
-            "P": (Float32(Pth.values), "Pa", prof_coord,),
-            "VOLUME": (Float32(Vol.values), "m^3", prof_coord,),
-            "NE": (Float32(Ne.values), "m^-3", prof_coord,),
-            "NI": (Float32(ion_density[0].values), "m^-3", prof_coord,),
-            "NIZ1": (Float32(ion_density[1].values), "", prof_coord,),
-            "NIZ2": (Float32(ion_density[2].values), "", prof_coord,),
-            "NIZ3": (Float32(ion_density[3].values), "", prof_coord,),
-            "NNEUTR": (Float32(Nh.values), "m^-3", prof_coord,),
-            "TE": (Float32(plasma.electron_temperature.values), "eV", prof_coord,),
-            "TI": (Float32(ion_temperature[0].values), "eV", prof_coord,),
-            "TIZ1": (Float32(ion_temperature[1].values), "eV", prof_coord,),
-            "TIZ2": (Float32(ion_temperature[2].values), "eV", prof_coord,),
-            "TIZ3": (Float32(ion_temperature[3].values), "eV", prof_coord,),
-            "ZEFF": (Float32(Zeff.sum("element").values), "", prof_coord,),
-            "ZI": (Float32(ion_meanz[0].values), "", prof_coord,),
-            "ZIM1": (Float32(ion_meanz[1].values), "", prof_coord,),
-            "ZIM2": (Float32(ion_meanz[2].values), "", prof_coord,),
-            "ZIM3": (Float32(ion_meanz[3].values), "", prof_coord,),
+            "XPSN": (Float32(plasma.rho.values**2), "", ()),
+            "P": (
+                Float32(Pth.values),
+                "Pa",
+                prof_coord,
+            ),
+            "VOLUME": (
+                Float32(Vol.values),
+                "m^3",
+                prof_coord,
+            ),
+            "NE": (
+                Float32(Ne.values),
+                "m^-3",
+                prof_coord,
+            ),
+            "NI": (
+                Float32(ion_density[0].values),
+                "m^-3",
+                prof_coord,
+            ),
+            "NIZ1": (
+                Float32(ion_density[1].values),
+                "",
+                prof_coord,
+            ),
+            "NIZ2": (
+                Float32(ion_density[2].values),
+                "",
+                prof_coord,
+            ),
+            "NIZ3": (
+                Float32(ion_density[3].values),
+                "",
+                prof_coord,
+            ),
+            "NNEUTR": (
+                Float32(Nh.values),
+                "m^-3",
+                prof_coord,
+            ),
+            "TE": (
+                Float32(plasma.electron_temperature.values),
+                "eV",
+                prof_coord,
+            ),
+            "TI": (
+                Float32(ion_temperature[0].values),
+                "eV",
+                prof_coord,
+            ),
+            "TIZ1": (
+                Float32(ion_temperature[1].values),
+                "eV",
+                prof_coord,
+            ),
+            "TIZ2": (
+                Float32(ion_temperature[2].values),
+                "eV",
+                prof_coord,
+            ),
+            "TIZ3": (
+                Float32(ion_temperature[3].values),
+                "eV",
+                prof_coord,
+            ),
+            "ZEFF": (
+                Float32(Zeff.sum("element").values),
+                "",
+                prof_coord,
+            ),
+            "ZI": (
+                Float32(ion_meanz[0].values),
+                "",
+                prof_coord,
+            ),
+            "ZIM1": (
+                Float32(ion_meanz[1].values),
+                "",
+                prof_coord,
+            ),
+            "ZIM2": (
+                Float32(ion_meanz[2].values),
+                "",
+                prof_coord,
+            ),
+            "ZIM3": (
+                Float32(ion_meanz[3].values),
+                "",
+                prof_coord,
+            ),
         },
         ".PROFILES.R_MIDPLANE": {
             "RPOS": (Float32(plasma.R_midplane), "m", ()),
             "ZPOS": (Float32(plasma.z_midplane), "m", ()),
-            "P": (Float32(mid_profs["pressure_th"].values), "Pa", midplane_coord,),
-            "VOLUME": (Float32(mid_profs["volume"].values), "m^3", midplane_coord,),
-            "NE": (Float32(mid_profs["electron_density"].values), "m^-3", midplane_coord,),
+            "P": (
+                Float32(mid_profs["pressure_th"].values),
+                "Pa",
+                midplane_coord,
+            ),
+            "VOLUME": (
+                Float32(mid_profs["volume"].values),
+                "m^3",
+                midplane_coord,
+            ),
+            "NE": (
+                Float32(mid_profs["electron_density"].values),
+                "m^-3",
+                midplane_coord,
+            ),
             "NI": (
                 Float32(mid_profs["ion_density"].sel(element=plasma.main_ion).values),
                 "m^-3",
                 midplane_coord,
             ),
             "NIZ1": (
-                Float32(mid_profs["ion_density"].sel(element=plasma.impurities[0]).values),
+                Float32(
+                    mid_profs["ion_density"].sel(element=plasma.impurities[0]).values
+                ),
                 "m^-3",
                 midplane_coord,
             ),
             "NIZ2": (
-                Float32(mid_profs["ion_density"].sel(element=plasma.impurities[1]).values),
+                Float32(
+                    mid_profs["ion_density"].sel(element=plasma.impurities[1]).values
+                ),
                 "m^-3",
                 midplane_coord,
             ),
             "NIZ3": (
-                Float32(mid_profs["ion_density"].sel(element=plasma.impurities[2]).values),
+                Float32(
+                    mid_profs["ion_density"].sel(element=plasma.impurities[2]).values
+                ),
                 "m^-3",
                 midplane_coord,
             ),
@@ -555,24 +671,42 @@ def organise_data(plasma, data={}, bckc={}):
                 "m^-3",
                 midplane_coord,
             ),
-            "TE": (Float32(mid_profs["electron_temperature"].values), "eV", midplane_coord,),
+            "TE": (
+                Float32(mid_profs["electron_temperature"].values),
+                "eV",
+                midplane_coord,
+            ),
             "TI": (
-                Float32(mid_profs["ion_temperature"].sel(element=plasma.main_ion).values),
+                Float32(
+                    mid_profs["ion_temperature"].sel(element=plasma.main_ion).values
+                ),
                 "eV",
                 midplane_coord,
             ),
             "TIZ1": (
-                Float32(mid_profs["ion_temperature"].sel(element=plasma.impurities[0]).values),
+                Float32(
+                    mid_profs["ion_temperature"]
+                    .sel(element=plasma.impurities[0])
+                    .values
+                ),
                 "eV",
                 midplane_coord,
             ),
             "TIZ2": (
-                Float32(mid_profs["ion_temperature"].sel(element=plasma.impurities[1]).values),
+                Float32(
+                    mid_profs["ion_temperature"]
+                    .sel(element=plasma.impurities[1])
+                    .values
+                ),
                 "eV",
                 midplane_coord,
             ),
             "TIZ3": (
-                Float32(mid_profs["ion_temperature"].sel(element=plasma.impurities[2]).values),
+                Float32(
+                    mid_profs["ion_temperature"]
+                    .sel(element=plasma.impurities[2])
+                    .values
+                ),
                 "eV",
                 midplane_coord,
             ),
@@ -582,7 +716,9 @@ def organise_data(plasma, data={}, bckc={}):
                 midplane_coord,
             ),
             "ZI": (
-                Float32(mid_profs["ion_temperature"].sel(element=plasma.main_ion).values),
+                Float32(
+                    mid_profs["ion_temperature"].sel(element=plasma.main_ion).values
+                ),
                 "",
                 midplane_coord,
             ),

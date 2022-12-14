@@ -1,16 +1,17 @@
+from copy import deepcopy
+
 import matplotlib.pylab as plt
 import numpy as np
-import xarray as xr
 from scipy.interpolate import CubicSpline
+import xarray as xr
 from xarray import DataArray
-from copy import deepcopy
 
 
 class Profiles:
     def __init__(
         self,
         datatype: tuple = ("temperature", "electron"),
-        xend:float=1.05,
+        xend: float = 1.05,
         xspl: np.ndarray = None,
         coord="poloidal",
     ):
@@ -33,12 +34,12 @@ class Profiles:
             xspl = DataArray(xspl, coords=[(self.coord, xspl)])
         self.xspl = xspl
 
-        self.y0:float
-        self.y1:float
-        self.yend:float
-        self.ypeaking:float
-        self.wcenter:float
-        self.wped:float
+        self.y0: float
+        self.y1: float
+        self.yend: float
+        self.peaking: float
+        self.wcenter: float
+        self.wped: float
 
         params = get_defaults(datatype)
         for k, p in params.items():
@@ -78,7 +79,7 @@ class Profiles:
         """
 
         def gaussian(x, A, B, x_0, w):
-            return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
+            return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
 
         centre = deepcopy(self.y0)
         edge = deepcopy(self.y1)
@@ -95,14 +96,14 @@ class Profiles:
 
         if peaking2 > 1:
             centre = y0_ref
-            wcenter = wcenter - (peaking2 ** wcenter_exp - 1)
+            wcenter = wcenter - (peaking2**wcenter_exp - 1)
 
         centre = centre / peaking
 
         x = self.x[np.where(self.x <= 1.0)[0]]
 
         # baseline profile shape
-        y = (centre - edge) * (1 - x ** wped) + edge
+        y = (centre - edge) * (1 - x**wped) + edge
 
         if debug:
             plt.figure()
@@ -171,15 +172,15 @@ class Profiles:
 def get_defaults(datatype: tuple) -> dict:
     identifier = f"{datatype[0]}_{datatype[1]}"
     parameters = {
-        "density_electron": { # (m**-3)
+        "density_electron": {  # (m**-3)
             "y0": 5.0e19,
-            "y1": 5.e18,
-            "yend": 2.e18,
+            "y1": 5.0e18,
+            "yend": 2.0e18,
             "peaking": 2,
             "wcenter": 0.4,
             "wped": 6,
         },
-        "density_impurity": { # (m**-3)
+        "density_impurity": {  # (m**-3)
             "y0": 5.0e16,
             "y1": 1.0e16,
             "yend": 1.0e15,
@@ -187,7 +188,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wcenter": 0.4,
             "wped": 6,
         },
-        "density_thermal_neutrals": { # (m**-3)
+        "density_thermal_neutrals": {  # (m**-3)
             "y0": 1.0e13,
             "y1": 1.0e15,
             "yend": 1.0e15,
@@ -195,7 +196,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wcenter": 0,
             "wped": 18,
         },
-        "temperature_electron": { # (eV)
+        "temperature_electron": {  # (eV)
             "y0": 3.0e3,
             "y1": 50,
             "yend": 5,
@@ -203,7 +204,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wcenter": 0.35,
             "wped": 3,
         },
-        "temperature_ion": { # (eV)
+        "temperature_ion": {  # (eV)
             "y0": 5.0e3,
             "y1": 50,
             "yend": 5,
@@ -212,7 +213,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wped": 3,
             "ref": True,
         },
-        "rotation_toroidal": { # (rad/s)
+        "rotation_toroidal": {  # (rad/s)
             "y0": 500.0e3,
             "y1": 10.0e3,
             "yend": 0.0,
@@ -355,7 +356,8 @@ def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
     # df = pd.DataFrame(to_write)
     # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
 
-def sawtooth_crash(pre:Profiles, rho_inv: float, volume: DataArray = None):
+
+def sawtooth_crash(pre: Profiles, rho_inv: float, volume: DataArray = None):
     """
     Model a sawtooth crash, without resetting the internal quantities
 
@@ -372,7 +374,7 @@ def sawtooth_crash(pre:Profiles, rho_inv: float, volume: DataArray = None):
     post = deepcopy(pre)
 
     if volume is None:
-        volume = DataArray(0.85 * pre.xspl ** 3, coords=[("rho_poloidal", pre.xspl)])
+        volume = DataArray(0.85 * pre.xspl**3, coords=[("rho_poloidal", pre.xspl)])
     vol = volume.interp(rho_poloidal=pre.yspl.rho_poloidal)
     vol_int_pre = np.trapz(pre.yspl, vol)
 
@@ -415,7 +417,7 @@ def density_crash(
     rho_inv=0.4,
     identifier="density",
 ):
-    volume = DataArray(0.85 * rho ** 3, coords=[("rho_poloidal", rho)])
+    volume = DataArray(0.85 * rho**3, coords=[("rho_poloidal", rho)])
 
     pre = Profiles(datatype=(identifier, "electron"), xspl=rho)
     pre.wcenter = rho_inv / 1.5

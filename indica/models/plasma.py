@@ -26,7 +26,7 @@ plt.ion()
 
 # TODO: add elongation and triangularity in all equations
 
-ADF11 = {
+ADF11: dict = {
     "h": {
         "scd": "96",
         "acd": "96",
@@ -155,7 +155,7 @@ class Plasma:
             ),
             ("concentration", "impurity"),
         )
-        self.ADF11 = ADF11
+        self.set_adf11(ADF11)
         self.radial_coordinate = np.linspace(0, 1.0, 41)
         self.radial_coordinate_type = "rho_poloidal"
         self.machine_dimensions = machine_dimensions
@@ -185,6 +185,9 @@ class Plasma:
         else:
             if hasattr(flux_transform, "equilibrium"):
                 self.equilibrium = flux_transform.equilibrium
+
+    def set_adf11(self, adf11: dict):
+        self.adf11 = adf11
 
     def initialize_variables(self, tstart: float, tend: float, dt: float):
         """
@@ -347,7 +350,8 @@ class Plasma:
         self._lz_tot = {}
         self._lz_sxr = {}
         for elem in self.elements:
-            nz = ELEMENTS[elem][0] + 1
+            z_elem, a_elem, name_elem = ELEMENTS[elem]
+            nz = z_elem + 1
             ion_charges = np.arange(nz)
             data3d_fz = DataArray(
                 np.full((len(self.t), len(self.rho), nz), np.nan),
@@ -385,26 +389,38 @@ class Plasma:
                 f"{profile} currently not found in possible Plasma properties"
             )
 
-    def update_profiles(self, parameters:dict,
-                        profile_prefixs:list = ["Te_prof", "Ti_prof", "Ne_prof", "Nimp_prof", "Vrot_prof"],
-                        ):
+    def update_profiles(
+        self,
+        parameters: dict,
+        profile_prefixs: list = [
+            "Te_prof",
+            "Ti_prof",
+            "Ne_prof",
+            "Nimp_prof",
+            "Vrot_prof",
+        ],
+    ):
         """
         Update plasma profiles with profile parameters i.e. Ne_prof_y0 -> Ne_prof.y0
         """
         for param, value in parameters.items():
-            prefix = [prefix for prefix in profile_prefixs if prefix in param]
-            if prefix:
-                prefix = prefix[0]
-                key = param.replace(prefix+"_", "")
+            _prefix = [prefix for prefix in profile_prefixs if prefix in param]
+            if len(_prefix) != 0:
+                prefix = _prefix[0]
+                key = param.replace(prefix + "_", "")
                 profile = getattr(self, prefix)
                 if hasattr(profile, key):
                     setattr(profile, key, value)
                 else:
-                    raise ValueError(
-                        f"parameter: {key} not found in {prefix}"
-                    )
+                    raise ValueError(f"parameter: {key} not found in {prefix}")
 
-        for key in ["electron_density", "electron_density", "ion_temperature", "toroidal_rotation", "impurity_density",]:
+        for key in [
+            "electron_density",
+            "electron_density",
+            "ion_temperature",
+            "toroidal_rotation",
+            "impurity_density",
+        ]:
             self.assign_profiles(key, t=self.time_to_calculate)
 
     @property
@@ -414,7 +430,11 @@ class Plasma:
     @time_to_calculate.setter
     def time_to_calculate(self, value):
         if len(np.shape(value)) == 0:
-            _time_to_calculate = np.array([value,])
+            _time_to_calculate = np.array(
+                [
+                    value,
+                ]
+            )
         else:
             _time_to_calculate = value
 
@@ -735,7 +755,6 @@ class Plasma:
 
     def build_atomic_data(
         self,
-        adf11: dict = None,
         Te: DataArray = None,
         Ne: DataArray = None,
         Nh: DataArray = None,
@@ -766,36 +785,33 @@ class Plasma:
         print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
         for elem in self.elements:
-            if adf11 is None:
-                adf11 = self.ADF11
-
-            scd = self.ADASReader.get_adf11("scd", elem, adf11[elem]["scd"])
-            acd = self.ADASReader.get_adf11("acd", elem, adf11[elem]["acd"])
-            ccd = self.ADASReader.get_adf11("ccd", elem, adf11[elem]["ccd"])
+            scd = self.ADASReader.get_adf11("scd", elem, self.adf11[elem]["scd"])
+            acd = self.ADASReader.get_adf11("acd", elem, self.adf11[elem]["acd"])
+            ccd = self.ADASReader.get_adf11("ccd", elem, self.adf11[elem]["ccd"])
             fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
             if Te is not None and Ne is not None:
                 fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
 
-            plt = self.ADASReader.get_adf11("plt", elem, adf11[elem]["plt"])
-            prb = self.ADASReader.get_adf11("prb", elem, adf11[elem]["prb"])
-            prc = self.ADASReader.get_adf11("prc", elem, adf11[elem]["prc"])
+            plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
+            prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
+            prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
             power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
             if Te is not None and Ne is not None:
                 F_z_t = fract_abu[elem].F_z_t
                 power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
 
-            if "pls" in adf11[elem].keys() and "prs" in adf11[elem].keys():
-                pls = self.ADASReader.get_adf11("pls", elem, adf11[elem]["pls"])
-                prs = self.ADASReader.get_adf11("prs", elem, adf11[elem]["prs"])
+            if "pls" in self.adf11[elem].keys() and "prs" in self.adf11[elem].keys():
+                pls = self.ADASReader.get_adf11("pls", elem, self.adf11[elem]["pls"])
+                prs = self.ADASReader.get_adf11("prs", elem, self.adf11[elem]["prs"])
                 power_loss_sxr[elem] = PowerLoss(pls, prs)
                 if Te is not None and Ne is not None:
                     F_z_t = fract_abu[elem].F_z_t
                     power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
 
-        self.adf11 = adf11
+        self.adf11 = self.adf11
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
-        if "pls" in adf11[elem].keys() and "prs" in adf11[elem].keys():
+        if "pls" in self.adf11[elem].keys() and "prs" in self.adf11[elem].keys():
             self.power_loss_sxr = power_loss_sxr
 
     def set_neutral_density(self, y0=1.0e10, y1=1.0e15, decay=12):
@@ -1015,7 +1031,7 @@ class Plasma:
             )
 
 
-def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse:int=9229):
+def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse: int = 9229):
     # TODO: swap all profiles to new version!
 
     main_ion = "h"

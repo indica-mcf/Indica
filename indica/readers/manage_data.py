@@ -1,9 +1,11 @@
+from copy import deepcopy
+
 import numpy as np
 import xarray as xr
 from xarray import DataArray
-from indica.converters.time import bin_in_time_dt, convert_in_time_dt
+
 from indica.converters import FluxSurfaceCoordinates
-from copy import deepcopy
+from indica.converters.time import convert_in_time_dt
 
 
 def initialize_bckc(data):
@@ -48,7 +50,10 @@ def initialize_bckc_dataarray(dataarray: DataArray):
 
 
 def bin_data_in_time(
-    exp_data: dict, tstart: float, tend: float, dt: float,
+    exp_data: dict,
+    tstart: float,
+    tend: float,
+    dt: float,
 ):
     """
     Bin raw experimental data on the desired time axis, assign equilibrium to
@@ -84,7 +89,8 @@ def bin_data_in_time(
 
 
 def map_on_equilibrium(
-    diagnostic_data: dict, flux_transform: FluxSurfaceCoordinates,
+    diagnostic_data: dict,
+    flux_transform: FluxSurfaceCoordinates,
 ):
     """
     Assign equilibrium and transform, map viewing LOS
@@ -120,7 +126,8 @@ def map_on_equilibrium(
 
 
 def assign_flux_transform(
-    diagnostic_data: dict, flux_transform: FluxSurfaceCoordinates,
+    diagnostic_data: dict,
+    flux_transform: FluxSurfaceCoordinates,
 ):
     """
     Assign transform necessary to map viewing LOS from Cartesian to Flux space

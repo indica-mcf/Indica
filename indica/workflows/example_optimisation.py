@@ -1,6 +1,7 @@
 import numpy as np
-from indica.models.plasma import Plasma
 from scipy.optimize import least_squares
+
+from indica.models.plasma import Plasma
 
 
 def match_interferometer_los_int(
@@ -61,7 +62,8 @@ def match_helike_spectroscopy_line_ratios(
             if instrument in models.keys():
                 for quantity in optimise_for[instrument]:
                     resid.append(
-                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity].sel(t=t)
+                        data[instrument][quantity].sel(t=t)
+                        - bckc[instrument][quantity].sel(t=t)
                     )
 
         return (np.array(resid) ** 2).sum()

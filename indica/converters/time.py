@@ -159,7 +159,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
                 lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
             )
         )
-        error = np.sqrt(uncertainty**2)# + (stdev)**2)
+        error = np.sqrt(uncertainty**2)  # + (stdev)**2)
         averaged.attrs["error"] = error.rename(t_bins="t")
         stdev = np.sqrt(stdev**2)
         averaged.attrs["stdev"] = stdev.rename(t_bins="t")
@@ -185,7 +185,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
                     lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
                 )
             )
-            error = np.sqrt(uncertainty**2)# + (stdev)**2)
+            error = np.sqrt(uncertainty**2)  # + (stdev)**2)
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
             stdev = np.sqrt(stdev**2)
             averaged.attrs["dropped"].attrs["stdev"] = stdev.rename(t_bins="t")

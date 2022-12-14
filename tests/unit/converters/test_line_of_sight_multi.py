@@ -10,7 +10,8 @@ from xarray import DataArray
 from indica import equilibrium
 from indica.converters import flux_surfaces
 from indica.converters import FluxSurfaceCoordinates
-from indica.converters import line_of_sight, line_of_sight_multi
+from indica.converters import line_of_sight
+from indica.converters import line_of_sight_multi
 from indica.converters import TrivialTransform
 
 
@@ -51,12 +52,13 @@ def load_los_default():
 
     return los, machine_dims
 
+
 def load_los_default_multi():
     # Line of sight origin tuple
-    origin = np.array([[3.8, -2.0, 0.5], [3.8, -2.0, 0.]])  # [xyz]
+    origin = np.array([[3.8, -2.0, 0.5], [3.8, -2.0, 0.0]])  # [xyz]
 
     # Line of sight direction
-    direction = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]]) # [xyz]
+    direction = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]])  # [xyz]
 
     # machine dimensions
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
@@ -129,6 +131,7 @@ def convert_to_rho(plot=False):
         plt.xlabel("x (m)")
         plt.ylabel("y (m)")
         plt.show(block=True)
+
 
 # Test convert_to_xy method
 def test_convert_to_xy(debug=False):

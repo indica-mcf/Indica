@@ -1,14 +1,15 @@
+from hda.read_st40 import ST40data
+from matplotlib import cm
+from matplotlib import rcParams
 import matplotlib.pylab as plt
 import numpy as np
-from matplotlib import cm, rcParams
-from xarray import DataArray
 import xarray as xr
+from xarray import DataArray
+
+from indica.converters.time import bin_in_time_dt
+from indica.equilibrium import Equilibrium
 
 plt.ion()
-
-from hda.read_st40 import ST40data
-from indica.equilibrium import Equilibrium
-from indica.converters.time import bin_in_time_dt
 
 
 def set_sizes(fontsize=9, legendsize=7, markersize=3):
@@ -39,7 +40,11 @@ def available_quantities():
             "ylabel": "$P_{NBI}$ (MW)",
             "ylim": (0, None),
         },
-        "mag:vloop": {"const": 1.0, "ylabel": "$V_{loop}$ (V)", "ylim": (0, None),},
+        "mag:vloop": {
+            "const": 1.0,
+            "ylabel": "$V_{loop}$ (V)",
+            "ylim": (0, None),
+        },
         "smmh1:ne": {
             "const": 1.0e-19,
             "label": "SMM",
@@ -211,13 +216,17 @@ def compare_pulses_prl(data=None):
 
     return data
 
+
 def compare_pulses_aps(data=None):
 
     # 9520, 9538, 9783, 9831
 
-    data = compare_pulses([9539, 9780, 10009], data=data, qpop=["mhd:ampl_odd_n", "lines:h_alpha"])
+    data = compare_pulses(
+        [9539, 9780, 10009], data=data, qpop=["mhd:ampl_odd_n", "lines:h_alpha"]
+    )
 
     return data
+
 
 def compare_pulses(  # 9783, 9781, 9831, 10013,
     pulses: list = [9538, 9780, 9783, 9831, 10014],
@@ -389,7 +398,13 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
 
 
 def data_time_evol(
-    pulse, tstart=-0.01, tend=0.2, savefig=False, name="", title="", plot_100M=False,
+    pulse,
+    tstart=-0.01,
+    tend=0.2,
+    savefig=False,
+    name="",
+    title="",
+    plot_100M=False,
 ):
     dt = 0.01
     st40_data = ST40data(pulse, tstart, tend)
@@ -424,7 +439,8 @@ def data_time_evol(
     ax.plot(tmp.t, tmp.values, label="B$_{tot}(0)$", alpha=0.9)
     binned = bin_in_time_dt(tmp.t.min() + dt / 2, tmp.t.max() - dt / 2, dt, tmp)
     ax.set_ylim(
-        bottom=np.floor(binned.min().values), top=np.ceil(binned.max()),
+        bottom=np.floor(binned.min().values),
+        top=np.ceil(binned.max()),
     )
     ax.set_ylabel("(T)")
     ax.xaxis.set_ticklabels([])
@@ -496,14 +512,24 @@ def data_time_evol(
     err = raw_data["xrcs"]["te_kw"].error * const
     err = xr.where(err > 0, err, np.nan)
     ax.errorbar(
-        tmp.t, tmp.values, err.values, label="T$_e$(Ar)", marker="o", alpha=0.9,
+        tmp.t,
+        tmp.values,
+        err.values,
+        label="T$_e$(Ar)",
+        marker="o",
+        alpha=0.9,
     )
 
     tmp = raw_data["xrcs"]["ti_w"] * const
     err = raw_data["xrcs"]["ti_w"].error * const
     err = xr.where(err > 0, err, np.nan)
     ax.errorbar(
-        tmp.t, tmp.values, err.values, label="T$_i$(Ar)", marker="o", alpha=0.9,
+        tmp.t,
+        tmp.values,
+        err.values,
+        label="T$_i$(Ar)",
+        marker="o",
+        alpha=0.9,
     )
 
     return raw_data
@@ -628,7 +654,10 @@ def data_time_evol(
 def save_figure(fig_name="", orientation="landscape", ext=".jpg"):
     _file = "/home/marco.sertoli/figures/Indica/" + fig_name + ext
     plt.savefig(
-        _file, orientation=orientation, dpi=600, pil_kwargs={"quality": 95},
+        _file,
+        orientation=orientation,
+        dpi=600,
+        pil_kwargs={"quality": 95},
     )
     print(f"Saving picture to {_file}")
 
@@ -892,7 +921,7 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     )
     plt.errorbar(
         ti_cxrs_bgnd.rho_poloidal,
-        xr.where(ti_cxrs_bgnd>0, ti_cxrs_bgnd * const, np.nan),
+        xr.where(ti_cxrs_bgnd > 0, ti_cxrs_bgnd * const, np.nan),
         ti_cxrs_bgnd.error * const,
         marker="s",
         mfc="white",
@@ -902,7 +931,7 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
     )
     plt.errorbar(
         ti_cxrs_full.rho_poloidal,
-        xr.where(ti_cxrs_full>0, ti_cxrs_full * const, np.nan),
+        xr.where(ti_cxrs_full > 0, ti_cxrs_full * const, np.nan),
         ti_cxrs_full.error * const,
         marker="^",
         mfc="white",
@@ -933,7 +962,10 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
             element="ar"
         ).sel(t=t, method="nearest")
         (ne_nimp / ne_nimp.max() * 1.0e19 * 1.0e19).plot(
-            color=col, label=run, linestyle="dashed", linewidth=3,
+            color=col,
+            label=run,
+            linestyle="dashed",
+            linewidth=3,
         )
     plt.title("Ne * NAr")
     plt.legend(fontsize=9)
@@ -953,7 +985,10 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
             if k == "Te":
                 Te = pl.el_temp.sel(t=t, method="nearest")
                 Te.plot(
-                    color=col, label=run, linestyle="dashed", linewidth=3,
+                    color=col,
+                    label=run,
+                    linestyle="dashed",
+                    linewidth=3,
                 )
                 if best_hda in run and hasattr(pl, "el_temp_hi"):
                     Te_err = (
@@ -961,12 +996,19 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
                         - pl.el_temp_lo.sel(t=t, method="nearest")
                     ) / 2.0
                     plt.fill_between(
-                        pl.rho, Te - Te_err, Te + Te_err, color=col, alpha=0.8,
+                        pl.rho,
+                        Te - Te_err,
+                        Te + Te_err,
+                        color=col,
+                        alpha=0.8,
                     )
             if k == "Ti":
                 Ti = pl.ion_temp.sel(element="ar").sel(t=t, method="nearest")
                 Ti.plot(
-                    color=col, label=run, linestyle="dashed", linewidth=3,
+                    color=col,
+                    label=run,
+                    linestyle="dashed",
+                    linewidth=3,
                 )
                 if best_hda in run and hasattr(pl, "el_temp_hi"):
                     Ti_err = (
@@ -974,7 +1016,11 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
                         - pl.ion_temp_lo.sel(element="ar").sel(t=t, method="nearest")
                     ) / 2.0
                     plt.fill_between(
-                        pl.rho, Ti - Ti_err, Ti + Ti_err, color=col, alpha=0.8,
+                        pl.rho,
+                        Ti - Ti_err,
+                        Ti + Ti_err,
+                        color=col,
+                        alpha=0.8,
                     )
 
         plt.title(k)

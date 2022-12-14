@@ -141,10 +141,19 @@ class ST40Reader(DataReader):
             "times": ".time",
             "exposure": ".exposure",
         },
-        "lines": {"brems": ".brem_mp1:intensity", "h_alpha": ".h_alpha_mp1:intensity",},
-        "nirh1": {"ne": ".line_int:ne",},
-        "nirh1_bin": {"ne": ".line_int:ne",},
-        "smmh1": {"ne": ".line_int:ne",},
+        "lines": {
+            "brems": ".brem_mp1:intensity",
+            "h_alpha": ".h_alpha_mp1:intensity",
+        },
+        "nirh1": {
+            "ne": ".line_int:ne",
+        },
+        "nirh1_bin": {
+            "ne": ".line_int:ne",
+        },
+        "smmh1": {
+            "ne": ".line_int:ne",
+        },
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
@@ -313,7 +322,9 @@ class ST40Reader(DataReader):
         return data, path
 
     def _get_signal_dims(
-        self, mds_path: str, ndims: int,
+        self,
+        mds_path: str,
+        ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
@@ -455,7 +466,7 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        #TODO: location, direction out of the loop  as soon as new MDS+ structure available
+        # TODO: location, direction out of the loop  as soon as new MDS+ structure available
 
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
@@ -673,8 +684,19 @@ class ST40Reader(DataReader):
         #     uid, instrument, ".geometry:direction", revision
         # )
         if instrument == "lines":
-            location = np.array([[1.0, 0, 0],])
-            direction = np.array([[0.17, 0, 0],]) - location
+            location = np.array(
+                [
+                    [1.0, 0, 0],
+                ]
+            )
+            direction = (
+                np.array(
+                    [
+                        [0.17, 0, 0],
+                    ]
+                )
+                - location
+            )
         else:
             raise ValueError(f"No geometry available for {instrument}")
         for q in quantities:
@@ -760,7 +782,7 @@ class ST40Reader(DataReader):
                 revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):
-                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
+                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
 
         results["length"] = np.shape(location)[0]

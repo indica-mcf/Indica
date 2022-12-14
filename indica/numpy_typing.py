@@ -7,8 +7,8 @@ labeled dimensions and to scalar.
 
 import numbers
 import typing
-from typing import Tuple
 from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import xarray

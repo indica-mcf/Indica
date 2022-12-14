@@ -21,7 +21,9 @@ class Interferometry(DiagnosticModel):
     los_integral_ne: DataArray
 
     def __init__(
-        self, name: str, instrument_method="get_interferometry",
+        self,
+        name: str,
+        instrument_method="get_interferometry",
     ):
 
         self.name = name
@@ -75,7 +77,11 @@ class Interferometry(DiagnosticModel):
         self.t = t
         self.Ne = Ne
 
-        los_integral_ne = self.transform.integrate_on_los(Ne, t=self.t, calc_rho=calc_rho,)
+        los_integral_ne = self.transform.integrate_on_los(
+            Ne,
+            t=self.t,
+            calc_rho=calc_rho,
+        )
         self.los_integral_ne = los_integral_ne
 
         self._build_bckc_dictionary()
@@ -93,7 +99,9 @@ def example_run(plasma=None, plot=False):
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
     origin = los_start
     direction = los_end - los_start
-    model = Interferometry(diagnostic_name,)
+    model = Interferometry(
+        diagnostic_name,
+    )
     transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
@@ -140,7 +148,8 @@ def example_run(plasma=None, plot=False):
         plt.figure()
         for chan in channels:
             model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-                color=cols[chan], label=f"CH{chan}",
+                color=cols[chan],
+                label=f"CH{chan}",
             )
         plt.xlabel("Path along the LOS")
         plt.ylabel("Rho-poloidal")

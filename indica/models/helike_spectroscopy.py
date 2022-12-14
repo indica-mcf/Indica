@@ -48,7 +48,6 @@ class Helike_spectroscopy(DiagnosticModel):
         calibration: float = 1.0e-18,
         int_cal: float = 1.3e-27,
         marchuk: bool = True,
-        adf15: dict = None,
         extrapolate: str = None,
         full_run: bool = False,
         element: str = "ar",
@@ -63,11 +62,9 @@ class Helike_spectroscopy(DiagnosticModel):
         name
             String identifier for the spectrometer
         fract_abu
-            dictionary of fractional abundance objects FractionalAbundance to calculate ionisation balance
+            dictionary of fractional abundance objects
         marchuk
             Use Marchuk PECs instead of ADAS adf15 files
-        adf15
-            ADAS PEC file identifier dictionary
         extrapolate
             Go beyond validity limit of Machuk's data
 
@@ -81,55 +78,52 @@ class Helike_spectroscopy(DiagnosticModel):
         self.instrument_method = instrument_method
         self.marchuk = marchuk
 
-        self.element = element
-        self.ion_charge = ELEMENTS[element][0] - 2  # He-like
-        self.ion_mass = ELEMENTS[element][1]
+        self.element: str = element
+        z_elem, a_elem, name_elem = ELEMENTS[element]
+        self.ion_charge: int = z_elem - 2  # He-like
+        self.ion_mass: float = a_elem
 
         self.etendue = etendue
         self.calibration = calibration
         self.int_cal = int_cal  # TODO: absolute calibration? use only this or above
         self.full_run = full_run
+        self.adf15 = ADF15
+        self.pec: dict
 
         if self.marchuk:
             marchuck_reader = MARCHUKReader()
             self.pec_database = marchuck_reader.pec_database
             self.pec = marchuck_reader.pec_lines
         else:
-            self.pec = self._set_adas_pecs(adf15=adf15, extrapolate=extrapolate)
+            self.pec = self._set_adas_pecs()
 
-        self.emission = {}
-        self.emission_los = {}
-        self.los_integral_intensity = {}
-        self.measured_intensity = {}
-        self.measured_Te = {}
-        self.measured_Ti = {}
-        self.pos = {}
-        self.err_in = {}
-        self.err_out = {}
+        self.emission: dict = {}
+        self.emission_los: dict = {}
+        self.los_integral_intensity: dict = {}
+        self.measured_intensity: dict = {}
+        self.measured_Te: dict = {}
+        self.measured_Ti: dict = {}
+        self.pos: dict = {}
+        self.err_in: dict = {}
+        self.err_out: dict = {}
 
-        self.Te = None
-        self.Ne = None
-        self.Nimp = None
-        self.Fz = None
-        self.Nh = None
-        self.t = None
+        self.Te: DataArray
+        self.Ne: DataArray
+        self.Nimp: DataArray
+        self.Fz: dict
+        self.Nh: DataArray
 
-    def _set_adas_pecs(self, adf15: dict = None, extrapolate: str = None):
+    def set_adf15(self, adf15: dict):
+        self.adf15 = adf15
+
+    def _set_adas_pecs(self):
         """
         Read ADAS adf15 data
-
-        Parameters
-        ----------
-        adf15
-            Dictionary with details of photon emission coefficient data (see ADF15 class var)
-        extrapolate
-            Go beyond validity limit of machuk's data
         """
         self.adasreader = ADASReader()
-        if adf15 is None:
-            self.adf15 = ADF15
 
-        pec = deepcopy(adf15)
+        adf15 = self.adf15
+        pec: dict = deepcopy(adf15)
         for line in adf15.keys():
             element = adf15[line]["element"]
             transition = adf15[line]["transition"]
@@ -150,35 +144,6 @@ class Helike_spectroscopy(DiagnosticModel):
                     .drop("electron_density")
                 )
 
-        self.adf15 = adf15
-        self.pec = pec
-
-    def _set_marchuk_pecs(self, extrapolate: str = None):
-        """
-        Read marchuk PEC data
-
-        Parameters
-        ----------
-        extrapolate
-            Go beyond validity limit of machuk's data
-        """
-
-        adf15, adf15_data = get_marchuk(extrapolate=extrapolate)
-        pec = deepcopy(adf15)
-        for line in adf15.keys():
-            # TODO: add the element layer to the pec dictionary (as for fract_abu)
-            element = adf15[line]["element"]
-            pec[line]["emiss_coeff"] = adf15_data[line]
-
-        if not self.full_run:
-            for line in pec:
-                pec[line]["emiss_coeff"] = (
-                    pec[line]["emiss_coeff"]
-                    .sel(electron_density=4.0e19, method="nearest")
-                    .drop("electron_density")
-                )
-
-        self.adf15 = adf15
         self.pec = pec
 
     def _calculate_emission(self):
@@ -236,7 +201,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 )
 
             _emission = xr.concat(_emission, "type").sum("type")
-            # TODO: convert all wavelengths when reading PECs to nm as per convention at TE!
+            # TODO: convert PEC wavelengths to nm as per convention at TE!
             ev_wavelength = ph.nm_eV_conversion(nm=wavelength / 10.0)
             emission[line] = xr.where(_emission >= 0, _emission, 0) * ev_wavelength
 
@@ -259,7 +224,9 @@ class Helike_spectroscopy(DiagnosticModel):
     def _calculate_los_integral(self, calc_rho=False):
         for line in self.emission.keys():
             self.measured_intensity[line] = self.transform.integrate_on_los(
-                self.emission[line], t=self.emission[line].t, calc_rho=calc_rho,
+                self.emission[line],
+                t=self.emission[line].t,
+                calc_rho=calc_rho,
             )
             self.emission_los[line] = self.transform.along_los
             (
@@ -271,7 +238,9 @@ class Helike_spectroscopy(DiagnosticModel):
 
         if self.calc_spectra:
             self.measured_spectra = self.transform.integrate_on_los(
-                self.spectra["total"], t=self.spectra["total"].t, calc_rho=calc_rho,
+                self.spectra["total"],
+                t=self.spectra["total"].t,
+                calc_rho=calc_rho,
             )
 
     def _calculate_temperatures(self):
@@ -304,7 +273,10 @@ class Helike_spectroscopy(DiagnosticModel):
                 )
 
     def _moment_analysis(
-        self, line: str, profile_1d: DataArray = None, half_los: bool = True,
+        self,
+        line: str,
+        profile_1d: DataArray = None,
+        half_los: bool = True,
     ):
         """
         Perform moment analysis using a specific line emission as distribution function
@@ -330,7 +302,11 @@ class Helike_spectroscopy(DiagnosticModel):
         err_out: list = []
 
         if len(np.shape(self.t)) == 0:
-            times = np.array([self.t, ])
+            times = np.array(
+                [
+                    self.t,
+                ]
+            )
         else:
             times = self.t
 
@@ -340,7 +316,9 @@ class Helike_spectroscopy(DiagnosticModel):
             _pos, _err_in, _err_out = [], [], []
             for t in times:
                 if "t" in self.emission_los[line][chan].dims:
-                    distribution_function = self.emission_los[line][chan].sel(t=t).values
+                    distribution_function = (
+                        self.emission_los[line][chan].sel(t=t).values
+                    )
                 else:
                     distribution_function = self.emission_los[line][chan].values
 
@@ -411,13 +389,16 @@ class Helike_spectroscopy(DiagnosticModel):
 
         return result, pos, err_in, err_out
 
-    def _make_intensity(self,):
+    def _make_intensity(
+        self,
+    ):
         """
         Uses the intensity recipes to get intensity from
         Te/ne/f_abundance/hydrogen_density/calibration_factor and atomic data.
         Returns DataArrays of emission type with co-ordinates of line label and
         spatial co-ordinate
-        TODO: selection criteri, element and charge have to follow atomic data (see _calculate_emission)
+        TODO: selection criteria
+        TODO: element and charge to follow atomic data (see _calculate_emission)
         """
         calibration = self.int_cal
         database = self.pec_database
@@ -461,7 +442,9 @@ class Helike_spectroscopy(DiagnosticModel):
         return intensity
 
     def _make_spectra(
-        self, window: LabeledArray = None,
+        self,
+        window_lim: tuple = (None, None),
+        window_len: int = None,
     ):
 
         # Add convolution of broadening
@@ -469,7 +452,9 @@ class Helike_spectroscopy(DiagnosticModel):
         # instrument function / photon noise / photon -> counts
         # Background Noise
         """
-        TODO: Doppler Shift / Add make_intensity to this method / Background moved to plot
+        TODO: Doppler Shift
+        TODO: Add make_intensity to this method
+        TODO: Background moved to plot
         Parameters
         ----------
         window
@@ -478,19 +463,29 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        if window is None:
-            window = self.window
+
+        if window_lim[0] is None and window_len is not None:
+            window = np.linspace(window_lim[0], window_lim[1], window_len)
+            self.window = DataArray(window, coords=[("wavelength", window)])
+
+        if len(np.shape(self.t)) == 0:
+            times = np.array(
+                [
+                    self.t,
+                ]
+            )
+        else:
+            times = self.t
 
         intensity = self.intensity
         spectra = {}
-        spectra["total"] = 0.0  # TODO: incorrect assignment
         ion_mass = self.ion_mass
         for key, value in intensity.items():
             line_name = value.line_name
             # TODO: substitute with value.element
             element = self.element
             _spectra = []
-            for t in self.t:
+            for t in times:
                 Ti = self.Ti.sel(element=element)
                 if "t" in self.Ti.dims:
                     Ti = Ti.sel(t=t)
@@ -508,6 +503,8 @@ class Helike_spectroscopy(DiagnosticModel):
                 # y = doppler_shift(x, integral, center, ion_mass, ion_temp)
                 _spectra.append(y)
             spectra[key] = xr.concat(_spectra, "t")
+            if "total" not in spectra.keys():
+                spectra["total"] = xr.zeros_like(spectra[key])
             spectra["total"] = spectra["total"] + spectra[key].sum(["line_name"])
         return spectra
 
@@ -651,7 +648,9 @@ class Helike_spectroscopy(DiagnosticModel):
             self.spectra = self._make_spectra()
 
         # Integrate emission along the LOS
-        self._calculate_los_integral(calc_rho=calc_rho,)
+        self._calculate_los_integral(
+            calc_rho=calc_rho,
+        )
 
         # Estimate temperatures from moment analysis
         self._calculate_temperatures()
@@ -666,12 +665,17 @@ def doppler_broaden(x, integral, center, ion_mass, ion_temp):
     sigma = (
         np.sqrt(
             constants.e
-            / (ion_mass * constants.proton_mass * constants.c ** 2)
+            / (ion_mass * constants.proton_mass * constants.c**2)
             * ion_temp
         )
         * center
     )
-    gaussian_broadened = gaussian(x, integral, center, sigma,)
+    gaussian_broadened = gaussian(
+        x,
+        integral,
+        center,
+        sigma,
+    )
     return gaussian_broadened
 
 
@@ -679,7 +683,7 @@ def gaussian(x, integral, center, sigma):
     return (
         integral
         / (sigma * np.sqrt(2 * np.pi))
-        * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
+        * np.exp(-((x - center) ** 2) / (2 * sigma**2))
     )
 
 
@@ -692,7 +696,10 @@ def interp_pec(pec, Ne, Te):
             assume_sorted=True,
         )
     else:
-        pec_interp = pec.interp(electron_temperature=Te, method="cubic",)
+        pec_interp = pec.interp(
+            electron_temperature=Te,
+            method="cubic",
+        )
 
     return pec_interp
 
@@ -756,7 +763,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
 
 def example_run(plasma=None, plot=False, calc_spectra=False):
 
-    # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
+    # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
         plasma = example_plasma()
 
@@ -783,7 +790,9 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
         passes=1,
     )
     transform.set_equilibrium(plasma.equilibrium)
-    model = Helike_spectroscopy(diagnostic_name,)
+    model = Helike_spectroscopy(
+        diagnostic_name,
+    )
     model.set_transform(transform)
     model.set_plasma(plasma)
 
@@ -830,7 +839,8 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
         plt.figure()
         for chan in channels:
             model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-                color=cols[chan], label=f"CH{chan}",
+                color=cols[chan],
+                label=f"CH{chan}",
             )
         plt.xlabel("Path along the LOS")
         plt.ylabel("Rho-poloidal")
@@ -876,13 +886,13 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
             model.Ti.rho_poloidal,
             model.Ti.sel(t=t, element=elem),
             color=cols_time[i],
-            label=f"Ti",
+            label="Ti",
         )
         plt.plot(
             model.Te.rho_poloidal,
             model.Te.sel(t=t),
             color=cols_time[i],
-            label=f"Te",
+            label="Te",
             linestyle="dashed",
         )
         plt.xlabel("rho")

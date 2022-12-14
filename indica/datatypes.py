@@ -216,7 +216,8 @@ ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
 
 # Format is {str(element_symbol):
 # [int(charge), int(mass of most common isotope), str(element_name)]}
-ELEMENTS: Dict[SpecificDataType, List[Union[int, int, SpecificDataType]]] = {
+# TODO: change mass to float value
+ELEMENTS: dict = {
     "h": [1, 1, "hydrogen"],
     "d": [1, 2, "deuterium"],
     "t": [1, 3, "tritium"],

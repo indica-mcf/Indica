@@ -1,17 +1,19 @@
+from copy import deepcopy
+import pickle
+
+from hda.read_st40 import ST40data
+from matplotlib import cm
+from matplotlib import rcParams
 import matplotlib.pylab as plt
 import numpy as np
-from matplotlib import rcParams, cm
-from xarray import DataArray, Dataset
-import xarray as xr
-from copy import deepcopy
 from scipy import constants
+import xarray as xr
+from xarray import DataArray
+from xarray import Dataset
 
-from indica.readers import ST40Reader
-from hda.read_st40 import ST40data
-from indica.equilibrium import Equilibrium
 from indica.converters.time import bin_in_time_dt
-
-import pickle
+from indica.equilibrium import Equilibrium
+from indica.readers import ST40Reader
 
 plt.ion()
 
@@ -104,7 +106,11 @@ def available_quantities():
             "ylim": (0, None),
             "add_pulse_label": True,
         },
-        "mag:vloop": {"const": 1.0, "ylabel": "$V_{loop}$ $(V)$", "ylim": (0, None),},
+        "mag:vloop": {
+            "const": 1.0,
+            "ylabel": "$V_{loop}$ $(V)$",
+            "ylim": (0, None),
+        },
         "smmh1:ne_bar": {
             "const": 1.0e-19,
             "label": "$\overline{N}_e$ $SMM$",
@@ -172,7 +178,10 @@ def save_figure(fig_name="", orientation="landscape", ext="png"):
         _fig_name = _fig_name.replace("/", "_ov_")
     _file = f"/home/marco.sertoli/figures/Indica/{_fig_name}.{ext}"
     plt.savefig(
-        _file, orientation=orientation, dpi=300, pil_kwargs={"quality": 95},
+        _file,
+        orientation=orientation,
+        dpi=300,
+        pil_kwargs={"quality": 95},
     )
     print(f"Saving picture to {_file}")
 
@@ -429,10 +438,17 @@ def plot_aps(data=None, savefig=False, ext="png"):
     )
 
     plot_HDA_results(
-        10009, plot_all=True, savefig=savefig, ext=ext,
+        10009,
+        plot_all=True,
+        savefig=savefig,
+        ext=ext,
     )
     plot_HDA_results(
-        10009, plot_all=True, multiplot=True, savefig=savefig, ext=ext,
+        10009,
+        plot_all=True,
+        multiplot=True,
+        savefig=savefig,
+        ext=ext,
     )
 
     return data
@@ -464,7 +480,8 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
     cols = CMAP(np.linspace(0.1, 0.75, ncols, dtype=float))
 
     def plot_quantity(
-        qkey: str, linestyle="solid",
+        qkey: str,
+        linestyle="solid",
     ):
 
         if "label" not in qdict[qkey]:
@@ -525,7 +542,9 @@ def compare_pulses(  # 9783, 9781, 9831, 10013,
         if len(qdict[qkey]["label"]) > 0:
             ax_label = ax.twinx()
             ax_label.plot(
-                [np.nan], [np.nan], label=qdict[qkey]["label"],
+                [np.nan],
+                [np.nan],
+                label=qdict[qkey]["label"],
             )
             ax_label.get_yaxis().set_visible(False)
             ax_label.legend(frameon=False, handlelength=0, loc="upper left")
@@ -641,7 +660,7 @@ def data_details(pulse: int, all_runs: list):
         # keep = ["60", "64", "65", "66", "72", "73"]
         keep = ["64", "65", "66", "72", "73"]
         run_plus_astra = 500
-        run_add_hda = "REF" #"MID" #
+        run_add_hda = "REF"  # "MID" #
         omega_scaling = 440e3
         R_shift = 0.03
     elif pulse == 9831:
@@ -929,7 +948,11 @@ def plot_HDA_results(
     mean, std, up, low = calc_mean_std(Ne_all, keep)
     ax.plot(mean.rho_poloidal, mean * const_dens, color=col_el, label="Electrons")
     ax.fill_between(
-        mean.rho_poloidal, up * const_dens, low * const_dens, alpha=alpha, color=col_el,
+        mean.rho_poloidal,
+        up * const_dens,
+        low * const_dens,
+        alpha=alpha,
+        color=col_el,
     )
     if plot_all:
         plot_all_runs(ax, runs, Ne_all * const_dens, color=col_el, label=False)
@@ -985,7 +1008,11 @@ def plot_HDA_results(
     mean, std, up, low = calc_mean_std(Te_all, keep)
     ax.plot(mean.rho_poloidal, mean * const_temp, color=col_el, label="Electrons")
     ax.fill_between(
-        mean.rho_poloidal, up * const_temp, low * const_temp, alpha=alpha, color=col_el,
+        mean.rho_poloidal,
+        up * const_temp,
+        low * const_temp,
+        alpha=alpha,
+        color=col_el,
     )
     if plot_all:
         plot_all_runs(ax, runs, Te_all * const_temp, color=col_el, label=False)
@@ -1011,7 +1038,10 @@ def plot_HDA_results(
         linewidth=3,
     )
     ax.hlines(
-        te_xrcs_mean * const_temp, rho_xrcs_in, rho_xrcs_out, color=col_el,
+        te_xrcs_mean * const_temp,
+        rho_xrcs_in,
+        rho_xrcs_out,
+        color=col_el,
     )
     profile_data["Te_xrcs"] = {
         "mean": te_xrcs_mean,
@@ -1057,7 +1087,10 @@ def plot_HDA_results(
         linewidth=3,
     )
     ax.hlines(
-        ti_xrcs_mean * const_temp, rho_xrcs_in, rho_xrcs_out, color=col_ion,
+        ti_xrcs_mean * const_temp,
+        rho_xrcs_in,
+        rho_xrcs_out,
+        color=col_ion,
     )
     profile_data["Ti_xrcs"] = {
         "mean": ti_xrcs_mean,
@@ -1122,7 +1155,11 @@ def plot_HDA_results(
     mean, std, up, low = calc_mean_std(NAr_all, keep)
     plt.plot(mean.rho_poloidal, mean * const_imp, color=col_imp, label="Impurity")
     plt.fill_between(
-        mean.rho_poloidal, up * const_imp, low * const_imp, alpha=alpha, color=col_imp,
+        mean.rho_poloidal,
+        up * const_imp,
+        low * const_imp,
+        alpha=alpha,
+        color=col_imp,
     )
     if plot_all:
         plot_all_runs(plt, runs, NAr_all * const_imp, color=col_imp)
@@ -1147,7 +1184,7 @@ def plot_HDA_results(
             "int_k": ["$I_k$", "$(a.u.)$", 1.0e-2],
             "int_n3": ["$I_{n3}$", "$(a.u.)$", 1.0e-2],
             # "int_n3/int_w": ["$I_{n3}/I_w$", "", 1.0],
-            "int_k/int_w": ["$I_{k}/I_w$", "", 1.],
+            "int_k/int_w": ["$I_{k}/I_w$", "", 1.0],
         },
         # "lines": {"brems": ["", 1.0]},
     }
@@ -1187,7 +1224,11 @@ def plot_HDA_results(
             # Raw data
             _raw = raw_data[diag][quant]
             ax.plot(
-                _raw.t, (const * _raw), color="gray", label=label, linestyle="dashed",
+                _raw.t,
+                (const * _raw),
+                color="gray",
+                label=label,
+                linestyle="dashed",
             )
 
             # Binned data & error
@@ -1259,7 +1300,9 @@ def plot_HDA_results(
 
             ax_label = ax.twinx()
             ax_label.plot(
-                [np.nan], [np.nan], label=quant_label,
+                [np.nan],
+                [np.nan],
+                label=quant_label,
             )
             ax_label.get_yaxis().set_visible(False)
             ax_label.legend(
@@ -1300,7 +1343,11 @@ def plot_HDA_results(
         low = _low / _mean.sel(rho_poloidal=0) * omega_scaling
     plt.plot(mean.rho_poloidal, mean * const_rot, color=col_ion, label="Ions")
     plt.fill_between(
-        mean.rho_poloidal, up * const_rot, low * const_rot, alpha=alpha, color=col_ion,
+        mean.rho_poloidal,
+        up * const_rot,
+        low * const_rot,
+        alpha=alpha,
+        color=col_ion,
     )
     quantity = "vtor"
     for analysis_key in cxrs_analyses.keys():
@@ -1507,8 +1554,12 @@ def plot_HDA_results(
     plt.vlines(tplot, ylim[0], ylim[1], color="black", linestyle="dashed")
     plt.ylabel(label_dens)
     plt.xlabel(label_time)
-    plt.ylim(0,)
-    plt.xlim(0.02,)
+    plt.ylim(
+        0,
+    )
+    plt.xlim(
+        0.02,
+    )
     plt.legend()
     plt.title(f"Pulse {pulse}")
     if savefig:
@@ -1663,7 +1714,13 @@ def plot_HDA_results(
 
 
 def data_time_evol(
-    pulse, tstart=-0.01, tend=0.2, savefig=False, name="", title="", plot_100M=False,
+    pulse,
+    tstart=-0.01,
+    tend=0.2,
+    savefig=False,
+    name="",
+    title="",
+    plot_100M=False,
 ):
     dt = 0.01
     st40_data = ST40data(pulse, tstart, tend)
@@ -1698,7 +1755,8 @@ def data_time_evol(
     ax.plot(tmp.t, tmp.values, label="B$_{tot}(0)$", alpha=0.9)
     binned = bin_in_time_dt(tmp.t.min() + dt / 2, tmp.t.max() - dt / 2, dt, tmp)
     ax.set_ylim(
-        bottom=np.floor(binned.min().values), top=np.ceil(binned.max()),
+        bottom=np.floor(binned.min().values),
+        top=np.ceil(binned.max()),
     )
     ax.set_ylabel("(T)")
     ax.xaxis.set_ticklabels([])
@@ -1770,14 +1828,24 @@ def data_time_evol(
     err = raw_data["xrcs"]["te_kw"].error * const
     err = xr.where(err > 0, err, np.nan)
     ax.errorbar(
-        tmp.t, tmp.values, err.values, label="T$_e$(Ar)", marker="o", alpha=0.9,
+        tmp.t,
+        tmp.values,
+        err.values,
+        label="T$_e$(Ar)",
+        marker="o",
+        alpha=0.9,
     )
 
     tmp = raw_data["xrcs"]["ti_w"] * const
     err = raw_data["xrcs"]["ti_w"].error * const
     err = xr.where(err > 0, err, np.nan)
     ax.errorbar(
-        tmp.t, tmp.values, err.values, label="T$_i$(Ar)", marker="o", alpha=0.9,
+        tmp.t,
+        tmp.values,
+        err.values,
+        label="T$_i$(Ar)",
+        marker="o",
+        alpha=0.9,
     )
 
     return raw_data
@@ -2109,7 +2177,10 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
             element="ar"
         ).sel(t=t, method="nearest")
         (ne_nimp / ne_nimp.max() * 1.0e19 * 1.0e19).plot(
-            color=col, label=run, linestyle="dashed", linewidth=3,
+            color=col,
+            label=run,
+            linestyle="dashed",
+            linewidth=3,
         )
     plt.title("Ne * NAr")
     plt.legend(fontsize=9)
@@ -2129,7 +2200,10 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
             if k == "Te":
                 Te = pl.el_temp.sel(t=t, method="nearest")
                 Te.plot(
-                    color=col, label=run, linestyle="dashed", linewidth=3,
+                    color=col,
+                    label=run,
+                    linestyle="dashed",
+                    linewidth=3,
                 )
                 if best_hda in run and hasattr(pl, "el_temp_hi"):
                     Te_err = (
@@ -2137,12 +2211,19 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
                         - pl.el_temp_lo.sel(t=t, method="nearest")
                     ) / 2.0
                     plt.fill_between(
-                        pl.rho, Te - Te_err, Te + Te_err, color=col, alpha=0.8,
+                        pl.rho,
+                        Te - Te_err,
+                        Te + Te_err,
+                        color=col,
+                        alpha=0.8,
                     )
             if k == "Ti":
                 Ti = pl.ion_temp.sel(element="ar").sel(t=t, method="nearest")
                 Ti.plot(
-                    color=col, label=run, linestyle="dashed", linewidth=3,
+                    color=col,
+                    label=run,
+                    linestyle="dashed",
+                    linewidth=3,
                 )
                 if best_hda in run and hasattr(pl, "el_temp_hi"):
                     Ti_err = (
@@ -2150,7 +2231,11 @@ def plot_10014(savefig=False, run_add_hda="", tplot=0.063):
                         - pl.ion_temp_lo.sel(element="ar").sel(t=t, method="nearest")
                     ) / 2.0
                     plt.fill_between(
-                        pl.rho, Ti - Ti_err, Ti + Ti_err, color=col, alpha=0.8,
+                        pl.rho,
+                        Ti - Ti_err,
+                        Ti + Ti_err,
+                        color=col,
+                        alpha=0.8,
                     )
 
         plt.title(k)

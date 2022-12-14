@@ -1,11 +1,11 @@
 import copy
+from copy import deepcopy
 from typing import cast
 from typing import get_args
 from typing import List
 from typing import Tuple
 from typing import Union
 
-from copy import deepcopy
 import numpy as np
 from numpy.core.numeric import zeros_like
 import scipy
@@ -1069,7 +1069,7 @@ class PowerLoss(Operator):
         self,
         Te: DataArray,
         F_z_t: DataArray,
-        Ne: DataArray=None,
+        Ne: DataArray = None,
         Nh: DataArray = None,
         full_run: bool = False,
         bounds_check=True,
@@ -1114,7 +1114,8 @@ class PowerLoss(Operator):
 
         return cooling_factor
 
-def interpolate_results(data:DataArray, Te_data:DataArray, Te_interp:DataArray):
+
+def interpolate_results(data: DataArray, Te_data: DataArray, Te_interp: DataArray):
     """
     Interpolate fractional abundance or cooling factor on electron temperature for fast processing
 
@@ -1139,14 +1140,10 @@ def interpolate_results(data:DataArray, Te_data:DataArray, Te_interp:DataArray):
 
     for charge in ion_charges:
         _result.append(
-            _data.sel(ion_charges=charge).interp(
-                electron_temperature=Te_interp.values
-            )
+            _data.sel(ion_charges=charge).interp(electron_temperature=Te_interp.values)
         )
 
-    result = xr.concat(_result, "ion_charges").assign_coords(
-        ion_charges=ion_charges
-    )
+    result = xr.concat(_result, "ion_charges").assign_coords(ion_charges=ion_charges)
     dim_new = Te_interp.dims[0]
     result = result.assign_coords(
         {dim_new: ("electron_temperature", Te_interp[dim_new])}
