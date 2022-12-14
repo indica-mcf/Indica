@@ -48,7 +48,6 @@ class Helike_spectroscopy(DiagnosticModel):
         calibration: float = 1.0e-18,
         int_cal: float = 1.3e-27,
         marchuk: bool = True,
-        extrapolate: str = None,
         full_run: bool = False,
         element: str = "ar",
         window_len: int = 1030,
@@ -455,13 +454,6 @@ class Helike_spectroscopy(DiagnosticModel):
         TODO: Doppler Shift
         TODO: Add make_intensity to this method
         TODO: Background moved to plot
-        Parameters
-        ----------
-        window
-
-        Returns
-        -------
-
         """
 
         if window_lim[0] is None and window_len is not None:
@@ -476,6 +468,8 @@ class Helike_spectroscopy(DiagnosticModel):
             )
         else:
             times = self.t
+
+        window = deepcopy(self.window)
 
         intensity = self.intensity
         spectra = {}
