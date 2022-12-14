@@ -566,7 +566,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 continue
 
             self.bckc[quantity].attrs["datatype"] = datatype
-            if quant != "spectra":
+            if quant != "spectra" and hasattr(self, "spectra"):
                 self.bckc[quantity].attrs["pos"] = {
                     "value": self.pos[line],
                     "err_in": self.err_in[line],
@@ -782,9 +782,9 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
     )
+    transform.set_equilibrium(plasma.equilibrium)
     model = Helike_spectroscopy(diagnostic_name,)
     model.set_transform(transform)
-    model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
 
     bckc = model(calc_spectra=calc_spectra)
@@ -796,15 +796,16 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
     if plot:
         it = int(len(plasma.t) / 2)
         tplot = plasma.t[it]
-        plt.figure()
-        for chan in channels:
-            if (chan % 2) == 0:
-                bckc["spectra"].sel(
-                    channel=chan, t=plasma.t.mean(), method="nearest"
-                ).plot(label=f"CH{chan}", color=cols[chan])
-        plt.xlabel("Time (s)")
-        plt.ylabel("Te and Ti from moment analysis (eV)")
-        plt.legend()
+        if "spectra" in bckc.keys():
+            plt.figure()
+            for chan in channels:
+                if (chan % 2) == 0:
+                    bckc["spectra"].sel(
+                        channel=chan, t=plasma.t.mean(), method="nearest"
+                    ).plot(label=f"CH{chan}", color=cols[chan])
+            plt.xlabel("Time (s)")
+            plt.ylabel("Te and Ti from moment analysis (eV)")
+            plt.legend()
 
         plt.figure()
         plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(

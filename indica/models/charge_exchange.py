@@ -125,9 +125,9 @@ def example_run(
         diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
     )
+    transform.set_equilibrium(plasma.equilibrium)
     model = ChargeExchange(diagnostic_name,)
     model.set_transform(transform)
-    model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
 
     bckc = model()

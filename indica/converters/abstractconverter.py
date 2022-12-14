@@ -101,6 +101,10 @@ class CoordinateTransform(ABC):
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
 
+    def check_equilibrium(self):
+        if not hasattr(self, "equilibrium"):
+            raise Exception("Missing equilibrium object")
+
     def get_converter(
         self, other: "CoordinateTransform", reverse=False
     ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
@@ -269,7 +273,7 @@ class CoordinateTransform(ABC):
             "method.".format(self.__class__.__name__)
         )
 
-    def _convert_to_rho(
+    def convert_to_rho(
         self, t: LabeledArray = None
     ) -> Coordinates:
         """Convert from spatial to flux coordinates

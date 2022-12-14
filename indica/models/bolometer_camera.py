@@ -147,11 +147,11 @@ def example_run(
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
     )
+    transform.set_equilibrium(plasma.equilibrium)
     model = Bolometer(
         diagnostic_name,
     )
     model.set_transform(transform)
-    model.set_flux_transform(plasma.flux_transform)
     model.set_plasma(plasma)
 
     bckc = model()
