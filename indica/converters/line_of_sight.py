@@ -131,13 +131,6 @@ class LineOfSightTransform(CoordinateTransform):
         result = result and self._machine_dims == other._machine_dims
         return result
 
-    def convert_to_xy(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
-    ) -> Tuple:
-        x = self.x_start + (self.x_end - self.x_start) * x2
-        y = self.y_start + (self.y_end - self.y_start) * x2
-        return x, y
-
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
@@ -236,9 +229,6 @@ class LineOfSightTransform(CoordinateTransform):
 
     def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         self.flux_transform = flux_transform
-
-    def convert_to_rho(self, t: float = None):
-        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
 
 
 def _find_wall_intersections(

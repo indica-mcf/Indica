@@ -3,7 +3,8 @@ Set of functions to work with PROV provenance
 """
 import prov.model as prov
 
-def get_prov_attribute(provenance:prov.ProvEntity, attr:str=""):
+
+def get_prov_attribute(provenance: prov.ProvEntity, attr: str = ""):
     try:
         attr_value = list(provenance.get_attribute(attr))
         attr_value = attr_value[0]

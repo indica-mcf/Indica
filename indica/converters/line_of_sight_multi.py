@@ -15,8 +15,8 @@ from xarray import zeros_like
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
-from .flux_surfaces import FluxSurfaceCoordinates
 from ..numpy_typing import LabeledArray
+from ..numpy_typing import OnlyArray
 
 
 class LineOfSightTransform(CoordinateTransform):
@@ -60,12 +60,12 @@ class LineOfSightTransform(CoordinateTransform):
 
     def __init__(
         self,
-        origin_x: LabeledArray,
-        origin_y: LabeledArray,
-        origin_z: LabeledArray,
-        direction_x: LabeledArray,
-        direction_y: LabeledArray,
-        direction_z: LabeledArray,
+        origin_x: OnlyArray,
+        origin_y: OnlyArray,
+        origin_z: OnlyArray,
+        direction_x: OnlyArray,
+        direction_y: OnlyArray,
+        direction_z: OnlyArray,
         name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
@@ -170,7 +170,7 @@ class LineOfSightTransform(CoordinateTransform):
 
     def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
-    ) -> Tuple:
+    ) -> Coordinates:
         x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
         y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
         return x, y
@@ -181,7 +181,7 @@ class LineOfSightTransform(CoordinateTransform):
         x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
         y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
         z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
-        return np.sqrt(x ** 2 + y ** 2), z
+        return np.sqrt(x**2 + y**2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -199,7 +199,10 @@ class LineOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
+                [
+                    2 / x * (x * dxdx1 + y * dydx1),
+                    2 / x * (x * dxdx2 + y * dydx2),
+                ],
                 [dzdx1, dzdx2],
             ]
 
@@ -260,7 +263,11 @@ class LineOfSightTransform(CoordinateTransform):
         return rho, theta
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -277,7 +284,10 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def set_dl(self, dl: float,) -> tuple:
+    def set_dl(
+        self,
+        dl: float,
+    ) -> tuple:
         """
         Set spatial resolutions of the lines of sight, and calculate spatial
         coordinates along the LOS
@@ -339,12 +349,6 @@ class LineOfSightTransform(CoordinateTransform):
         self.phi = phi
         self.impact_xyz = self._impact_parameter_xyz()
 
-        self.rho:list = []
-        self.theta:list = []
-        self.along_los:list = []
-        self.los_integral:DataArray = None
-        self.t:LabeledArray = None
-
         return x2, dl_new
 
     def map_to_los(
@@ -389,7 +393,11 @@ class LineOfSightTransform(CoordinateTransform):
 
             _along_los = profile.interp(rho_poloidal=rho)
             if limit_to_sep:
-                _along_los = xr.where(rho <= 1, _along_los, 0,)
+                _along_los = xr.where(
+                    rho <= 1,
+                    _along_los,
+                    0,
+                )
             along_los.append(_along_los)
 
         self.along_los = along_los
@@ -443,7 +451,10 @@ class LineOfSightTransform(CoordinateTransform):
         Line of sight integral along the LOS
         """
         along_los = self.map_to_los(
-            profile_1d, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
+            profile_1d,
+            t=t,
+            limit_to_sep=limit_to_sep,
+            calc_rho=calc_rho,
         )
 
         _los_integral = []
@@ -530,8 +541,12 @@ class LineOfSightTransform(CoordinateTransform):
 
             rho_equil = self.equilibrium.rho.sel(t=tplot, method="nearest")
             rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
-            R_lfs = self.equilibrium.rmjo.sel(rho_poloidal=1, t=tplot, method="nearest").values
-            R_hfs = self.equilibrium.rmji.sel(rho_poloidal=1, t=tplot, method="nearest").values
+            R_lfs = self.equilibrium.rmjo.sel(
+                rho_poloidal=1, t=tplot, method="nearest"
+            ).values
+            R_hfs = self.equilibrium.rmji.sel(
+                rho_poloidal=1, t=tplot, method="nearest"
+            ).values
             x_plasma_inner = R_hfs * np.cos(self.angles)
             x_plasma_outer = R_lfs * np.cos(self.angles)
             y_plasma_inner = R_hfs * np.sin(self.angles)
@@ -670,7 +685,10 @@ def _find_wall_intersections(
         return np.linspace(_start, _end, npts)
 
     def extremes(_start, _end):
-        return np.array([_start, _end], dtype=float,)
+        return np.array(
+            [_start, _end],
+            dtype=float,
+        )
 
     # Define XYZ lines for inner and outer walls
     npts = 1000
@@ -705,7 +723,7 @@ def _find_wall_intersections(
     x_line = line(x_start, x_end)
     y_line = line(y_start, y_end)
     z_line = line(z_start, z_end)
-    R_line = np.sqrt(x_line ** 2 + y_line ** 2)
+    R_line = np.sqrt(x_line**2 + y_line**2)
     indices = np.where(
         (R_line >= machine_dimensions[0][0])
         * (R_line <= machine_dimensions[0][1])
@@ -745,7 +763,7 @@ def _find_wall_intersections(
         x_line = line(x_start, x_end)
         y_line = line(y_start, y_end)
         z_line = line(z_start, z_end)
-        R_line = np.sqrt(x_line ** 2 + y_line ** 2)
+        R_line = np.sqrt(x_line**2 + y_line**2)
 
         plt.figure()
         plt.plot(x_wall_inner, y_wall_inner, color="orange")

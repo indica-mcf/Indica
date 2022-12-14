@@ -1,16 +1,21 @@
+from copy import deepcopy
+
 import matplotlib.pylab as plt
 import numpy as np
-import xarray as xr
 from scipy.interpolate import CubicSpline
+import xarray as xr
 from xarray import DataArray
-from copy import deepcopy
 
 
 class Profiles:
     def __init__(
-        self, datatype: tuple = ("temperature", "electron"), xspl: np.ndarray = None, xend:float=1.05):
+        self,
+        datatype: tuple = ("temperature", "electron"),
+        xspl: np.ndarray = None,
+        xend: float = 1.05,
+    ):
         """
-        Class to build general profiles e.g. temperature, density, rotation and neutral density
+        Class to build general profiles
 
         Parameters
         ----------
@@ -63,7 +68,7 @@ class Profiles:
         """
 
         def gaussian(x, A, B, x_0, w):
-            return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
+            return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
 
         centre = deepcopy(self.y0)
         edge = deepcopy(self.y1)
@@ -80,14 +85,14 @@ class Profiles:
 
         if peaking2 > 1:
             centre = y0_ref
-            wcenter = wcenter - (peaking2 ** wcenter_exp - 1)
+            wcenter = wcenter - (peaking2**wcenter_exp - 1)
 
         centre = centre / peaking
 
         x = self.x[np.where(self.x <= 1.0)[0]]
 
         # baseline profile shape
-        y = (centre - edge) * (1 - x ** wped) + edge
+        y = (centre - edge) * (1 - x**wped) + edge
 
         if debug:
             plt.figure()
@@ -124,7 +129,13 @@ class Profiles:
         if debug:
             plt.plot(x, y, label="0 point at 1.05")
 
-        self.cubicspline = CubicSpline(x, y, 0, "clamped", False,)
+        self.cubicspline = CubicSpline(
+            x,
+            y,
+            0,
+            "clamped",
+            False,
+        )
         yspl = self.cubicspline(self.xspl)
 
         if debug:
@@ -181,7 +192,13 @@ class Profiles:
 
         x = np.append(x, self.xend)
         y = np.append(y, self.yend)
-        cubicspline = CubicSpline(x, y, 0, "clamped", False,)
+        cubicspline = CubicSpline(
+            x,
+            y,
+            0,
+            "clamped",
+            False,
+        )
         self.yspl.values = cubicspline(self.xspl)
         vol_int_post = np.trapz(self.yspl, self.vol)
 
@@ -198,8 +215,8 @@ def get_defaults(datatype: tuple) -> dict:
     parameters = {
         "density_electron": {
             "y0": 5.0e19,
-            "y1": 5.e18,
-            "yend": 2.e18,
+            "y1": 5.0e18,
+            "yend": 2.0e18,
             "peaking": 2,
             "wcenter": 0.4,
             "wped": 6,
@@ -207,7 +224,7 @@ def get_defaults(datatype: tuple) -> dict:
         "density_impurity": {
             "y0": 5.0e16,
             "y1": 1.0e16,
-            "yend": 1.e15,
+            "yend": 1.0e15,
             "peaking": 2,
             "wcenter": 0.4,
             "wped": 6,
@@ -223,7 +240,7 @@ def get_defaults(datatype: tuple) -> dict:
         "temperature_electron": {
             "y0": 3.0e3,
             "y1": 50,
-            "yend": 5.,
+            "yend": 5.0,
             "peaking": 1.5,
             "wcenter": 0.35,
             "wped": 3,
@@ -231,7 +248,7 @@ def get_defaults(datatype: tuple) -> dict:
         "temperature_ion": {
             "y0": 5.0e3,
             "y1": 50,
-            "yend": 5.,
+            "yend": 5.0,
             "peaking": 1.5,
             "wcenter": 0.35,
             "wped": 3,
@@ -249,7 +266,8 @@ def get_defaults(datatype: tuple) -> dict:
 
     if identifier not in parameters.keys():
         print(
-            f"\n Profile {identifier} not available \n Using 'temperature_electron' as default \n"
+            f"\n Profile {identifier} not available \n "
+            f"Using 'temperature_electron' as default \n"
         )
         identifier = "temperature_electron"
 
@@ -387,7 +405,7 @@ def density_crash(
     rho_inv=0.4,
     identifier="density",
 ):
-    volume = DataArray(0.85 * rho ** 3, coords=[("rho_poloidal", rho)])
+    volume = DataArray(0.85 * rho**3, coords=[("rho_poloidal", rho)])
 
     pre = Profiles(datatype=(identifier, "electron"), xspl=rho)
     pre.wcenter = rho_inv / 1.5

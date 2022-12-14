@@ -20,7 +20,6 @@ from xarray.core.dataset import Dataset
 from xarray.core.variable import Variable
 
 from indica.numpy_typing import LabeledArray
-
 from .numpy_typing import ArrayLike
 from .numpy_typing import OnlyArray
 
@@ -72,7 +71,7 @@ def sum_squares(x: OnlyArray, axis: int, **kwargs: Any) -> OnlyArray:
         Additiona keyword arguments (unused)
 
     """
-    return np.sum(x ** 2, axis=axis)
+    return np.sum(x**2, axis=axis)
 
 
 def get_slice_limits(low: float, high: float, data: OnlyArray) -> Tuple[int, int]:
@@ -181,7 +180,10 @@ def broadcast_spline(
         return result
     else:
         return apply_ufunc(
-            spline, interp_coord, input_core_dims=[[]], output_core_dims=[spline_dims],
+            spline,
+            interp_coord,
+            input_core_dims=[[]],
+            output_core_dims=[spline_dims],
         ).assign_coords({k: v for k, v in spline_coords.items()})
 
 
@@ -272,12 +274,12 @@ def assign_datatype(data_array: DataArray, datatype: tuple, unit=""):
 def assign_data(
     data: LabeledArray,
     datatype: tuple,
-    units:str="",
+    units: str = "",
     make_copy=True,
     coords: list = None,
     long_name: str = None,
 ):
-    new_data:DataArray
+    new_data: DataArray
 
     if make_copy:
         new_data = deepcopy(data)

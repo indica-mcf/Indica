@@ -14,7 +14,8 @@ from xarray import DataArray
 from xarray import zeros_like
 
 from ..equilibrium import Equilibrium
-from ..numpy_typing import LabeledArray, Coordinates
+from ..numpy_typing import Coordinates
+from ..numpy_typing import LabeledArray
 
 
 class EquilibriumException(Exception):
@@ -72,10 +73,10 @@ class CoordinateTransform(ABC):
     equilibrium: Equilibrium
     x1_name: str
     x2_name: str
-    x1:LabeledArray
-    x2:LabeledArray
-    rho:LabeledArray
-    t:LabeledArray = None
+    x1: LabeledArray
+    x2: LabeledArray
+    rho: LabeledArray
+    t: LabeledArray = None
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
@@ -273,9 +274,7 @@ class CoordinateTransform(ABC):
             "method.".format(self.__class__.__name__)
         )
 
-    def convert_to_rho(
-        self, t: LabeledArray = None
-    ) -> Coordinates:
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
         """Convert from spatial to flux coordinates
 
         Parameters

@@ -2,13 +2,13 @@
 #
 #  !!!!!!!! Please dont change the first line in file ......!!!!!!!!!!!!!
 #   The name of the line should coincide with the name of fit file !!
-#    
+#
 # The calculation of Effective excitation rates are based on R-matrix calculations from ADAS
 # All the transitions except for between n=2 are taken from R-matrix calculatios .
 # The transitions between n=2 are taken fromthe book of "Relativistic calculations of transitions
 # amplitudes in the He- isoelectronic sequence" Johnson, Plante Sapirstein. Adv in Ato, Mol and Opt physic
 # vol 35,1995
-# 
+#
 0.20	4.4236E-18	1.0865E-18	1.4391E-18	3.3383E-18
 0.30	7.2258E-16	1.6253E-16	2.1469E-16	4.8141E-16
 0.40	9.0580E-15	1.8790E-15	2.4901E-15	5.5725E-15

@@ -1,14 +1,8 @@
 import numpy as np
-import xarray as xr
-from indica.models.plasma import Plasma
 from scipy.optimize import least_squares
-from xarray import DataArray
-from indica.provenance import get_prov_attribute
-from indica.readers.manage_data import initialize_bckc_dataarray
-from indica.utilities import print_like
-from indica.profiles_gauss import Profiles
-from indica.models.interferometry import Interferometry
-from indica.numpy_typing import LabeledArray
+import xarray as xr
+
+from indica.models.plasma import Plasma
 
 
 def match_interferometer_los_int(
@@ -38,8 +32,7 @@ def match_interferometer_los_int(
             if instrument in models.keys():
                 for quantity in optimise_for[instrument]:
                     resid.append(
-                        data[instrument][quantity].sel(t=t)
-                        - bckc[instrument][quantity]
+                        data[instrument][quantity].sel(t=t) - bckc[instrument][quantity]
                     )
 
         return (np.array(resid) ** 2).sum()

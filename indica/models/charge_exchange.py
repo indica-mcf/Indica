@@ -19,7 +19,10 @@ class ChargeExchange(DiagnosticModel):
     transform: TransectCoordinates
 
     def __init__(
-        self, name: str, element: str = "c", instrument_method="get_charge_exchange",
+        self,
+        name: str,
+        element: str = "c",
+        instrument_method="get_charge_exchange",
     ):
 
         self.name = name
@@ -71,7 +74,7 @@ class ChargeExchange(DiagnosticModel):
 
         Returns
         -------
-        Dictionary of back-calculated quantities (identical structure returned by abstractreader.py)
+        Dictionary of back-calculated quantities (identical to abstractreader.py)
 
         """
         if self.plasma is not None:
@@ -92,8 +95,16 @@ class ChargeExchange(DiagnosticModel):
         self.Vtor = Vtor
         self.Ti = Ti
 
-        Ti_at_channels = self.transform.map_to_rho(Ti, t=t, calc_rho=calc_rho,)
-        Vtor_at_channels = self.transform.map_to_rho(Vtor, t=t, calc_rho=calc_rho,)
+        Ti_at_channels = self.transform.map_to_rho(
+            Ti,
+            t=t,
+            calc_rho=calc_rho,
+        )
+        Vtor_at_channels = self.transform.map_to_rho(
+            Vtor,
+            t=t,
+            calc_rho=calc_rho,
+        )
 
         self.Ti_at_channels = Ti_at_channels
         self.Vtor_at_channels = Vtor_at_channels
@@ -104,10 +115,12 @@ class ChargeExchange(DiagnosticModel):
 
 
 def example_run(
-    diagnostic_name: str = "cxrs", plasma=None, plot=False,
+    diagnostic_name: str = "cxrs",
+    plasma=None,
+    plot=False,
 ):
 
-    # TODO: solve issue of LOS sometimes crossing bad EFIT reconstruction outside of the separatrix
+    # TODO: LOS sometimes crossing bad EFIT reconstruction
 
     if plasma is None:
         plasma = example_plasma()
@@ -126,15 +139,15 @@ def example_run(
         machine_dimensions=plasma.machine_dimensions,
     )
     transform.set_equilibrium(plasma.equilibrium)
-    model = ChargeExchange(diagnostic_name,)
+    model = ChargeExchange(
+        diagnostic_name,
+    )
     model.set_transform(transform)
     model.set_plasma(plasma)
 
     bckc = model()
 
     if plot:
-        it = int(len(plasma.t) / 2)
-
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
         levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
         plt.figure()
@@ -145,7 +158,7 @@ def example_run(
         plt.scatter(
             model.transform.R,
             model.transform.z,
-            label=f"Channels",
+            label="Channels",
             marker="*",
             color="k",
         )
@@ -172,7 +185,9 @@ def example_run(
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plasma.toroidal_rotation.sel(t=t, element=model.element).plot(
-                color=cols_time[i], label=f"t={t:1.2f} s", alpha=0.7,
+                color=cols_time[i],
+                label=f"t={t:1.2f} s",
+                alpha=0.7,
             )
             Vtor = bckc["angf"].sel(t=t, method="nearest")
             plt.scatter(
@@ -185,7 +200,9 @@ def example_run(
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plasma.ion_temperature.sel(t=t, element=model.element).plot(
-                color=cols_time[i], label=f"t={t:1.2f} s", alpha=0.7,
+                color=cols_time[i],
+                label=f"t={t:1.2f} s",
+                alpha=0.7,
             )
             Ti = bckc["ti"].sel(t=t, method="nearest")
             plt.scatter(Ti.rho_poloidal, Ti, color=cols_time[i], marker="o", alpha=0.7)
@@ -194,4 +211,3 @@ def example_run(
         plt.legend()
 
     return plasma, model, bckc
-

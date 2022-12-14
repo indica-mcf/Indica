@@ -6,10 +6,11 @@ from copy import deepcopy
 import math
 
 import numpy as np
+from numpy.typing import ArrayLike
 import scipy.constants as constants
 from scipy.interpolate import CubicSpline
 from scipy.interpolate import interp1d
-from numpy.typing import ArrayLike
+
 
 def conductivity_spitzer(el_dens, el_temp, zeff, approx="sauter"):
     """
@@ -356,6 +357,7 @@ def collisionality_electrons_todd(el_dens, el_temp, a, R_mag, q, vloop):
         / tau_ee
     )
     return nu
+
 
 def collision_time_el_el(el_dens, el_temp):
     """
@@ -1056,13 +1058,14 @@ def zeff_bremsstrahlung(
 
     return result
 
+
 def nm_eV_conversion(nm=None, ev=None):
     if nm is None and ev is None:
         return None
     if nm is not None and ev is not None:
         raise Exception("Input either nm or eV, not both")
 
-    nm_to_m = 1.e-9
+    nm_to_m = 1.0e-9
     const = constants.h * constants.c / constants.e / nm_to_m
 
     if ev is None:
@@ -1071,6 +1074,7 @@ def nm_eV_conversion(nm=None, ev=None):
         result = const / ev
 
     return result
+
 
 def derivative(y, x):
     nlen = len(x)

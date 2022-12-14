@@ -8,9 +8,9 @@ functionality for a different format of data.
 from .abstractreader import DataReader
 from .adas import ADASReader
 from .ppfreader import PPFReader
-from .st40reader import ST40Reader
 from .selectors import choose_on_plot
 from .selectors import DataSelector
+from .st40reader import ST40Reader
 
 __all__ = [
     "ADASReader",

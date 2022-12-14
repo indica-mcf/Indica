@@ -1,25 +1,12 @@
-from indica.profiles import Profiles
-from indica.utilities import print_like
-from indica.readers.manage_data import initialize_bckc_dataarray
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.optimize import least_squares
 import xarray as xr
 from xarray import DataArray
-from xarray import Dataset
 
-from indica.converters import FluxSurfaceCoordinates
-from indica.converters.time import bin_in_time_dt
-from indica.converters.time import get_tlabels_dt
-from indica.datatypes import ELEMENTS
-from indica.numpy_typing import LabeledArray
-from indica.equilibrium import Equilibrium
-from indica.operators.atomic_data import FractionalAbundance
-from indica.operators.atomic_data import PowerLoss
-from indica.provenance import get_prov_attribute
-from indica.readers import ADASReader
 from indica.models.helike_spectroscopy import Helike_spectroscopy
 from indica.models.plasma import Plasma
+from indica.profiles import Profiles
 
 plt.ion()
 
@@ -55,7 +42,7 @@ def check_model_inputs(model, Te, Ne, Nh, Nimp, tau):
 
 def match_line_ratios(
     models: dict,
-    plasma:Plasma,
+    plasma: Plasma,
     data: dict,
     t: float,
     instruments: list = ["xrcs"],
@@ -77,7 +64,6 @@ def match_line_ratios(
     """
     Optimize electron temperature profile to match XRCS line ratios.
     """
-
 
     def residuals(te0):
         Te_prof.y0 = te0
@@ -245,7 +231,7 @@ def match_intensity(
         Initial guess of central impurity density
     """
 
-    def scale_impurity_density(nimp0, niter=3, bounds:tuple=(1.0e12, 1.0e21)):
+    def scale_impurity_density(nimp0, niter=3, bounds: tuple = (1.0e12, 1.0e21)):
         # Scale whole profile
         resid = []
 
@@ -254,9 +240,9 @@ def match_intensity(
         mult = nimp0 / Nimp_prof.y0
         for i in range(niter):
             if Nimp_prof.y0 * mult < bounds[0]:
-                mult = bounds[0]/Nimp_prof.y0
+                mult = bounds[0] / Nimp_prof.y0
             if Nimp_prof.y0 * mult > bounds[1]:
-                mult = bounds[1]/Nimp_prof.y0
+                mult = bounds[1] / Nimp_prof.y0
             Nimp_prof.y0 *= mult
             Nimp_prof.y1 *= mult
             Nimp_prof.yend *= mult
@@ -272,7 +258,7 @@ def match_intensity(
             _mult = []
             for quantity, line in zip(quantities, lines):
                 bckc_value = model.los_integral[line]
-                _mult.append((data_value[quantity]/bckc_value).values)
+                _mult.append((data_value[quantity] / bckc_value).values)
 
             mult = np.array(_mult).mean()
 

@@ -15,7 +15,9 @@ class Bolometer(DiagnosticModel):
     """
     Object representing a bolometer camera diagnostic
     """
+
     transform: LineOfSightTransform
+
     def __init__(
         self,
         name: str,
@@ -51,7 +53,7 @@ class Bolometer(DiagnosticModel):
         self,
         Ne: DataArray = None,
         Nimp: DataArray = None,
-        Lz: {} = None,
+        Lz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
     ):
@@ -94,12 +96,12 @@ class Bolometer(DiagnosticModel):
 
         elements = Nimp.element.values
 
-        emission = []
+        _emission = []
         for ielem, elem in enumerate(elements):
-            emission.append(
+            _emission.append(
                 self.Lz[elem].sum("ion_charges") * self.Nimp.sel(element=elem) * self.Ne
             )
-        emission = xr.concat(emission, "element")
+        emission = xr.concat(_emission, "element")
         los_integral = self.transform.integrate_on_los(
             emission.sum("element"),
             t=t,

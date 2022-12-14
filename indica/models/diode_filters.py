@@ -19,6 +19,7 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
 
     TODO: currently working only for Bremsstrahlung emission!!!
     """
+
     transform: LineOfSightTransform
     los_integral: DataArray
 
@@ -68,7 +69,7 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
         Ne: DataArray = None,
         Zeff: DataArray = None,
         t: LabeledArray = None,
-        calc_rho:bool=False,
+        calc_rho: bool = False,
     ):
         """
         Calculate Bremsstrahlung emission and model measurement
@@ -118,7 +119,7 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
         return self.bckc
 
 
-def example_run(plasma=None, plot:bool=False):
+def example_run(plasma=None, plot: bool = False):
     if plasma is None:
         plasma = example_plasma()
 

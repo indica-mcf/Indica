@@ -1,34 +1,32 @@
-import xarray as xr
-import indica.writers.hda_tree as hda_tree
-from indica.models.helike_spectroscopy import Helike_spectroscopy
-from indica.models.interferometry import Interferometry
-from indica.models.diode_filters import Diode_filters
-from indica.readers.manage_data import bin_data_in_time
-from indica.models.plasma import Plasma
-from indica.readers.read_st40 import ST40data
-from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates
-from indica.provenance import get_prov_attribute
-from indica.workflows.example_optimisation import (
-    match_helike_spectroscopy_intensity,
-    match_helike_spectroscopy_ion_temperature,
-    match_helike_spectroscopy_line_ratios,
-    match_interferometer_los_int,
-)
-from indica.workflows.optimize_helike_spectroscopy import (
-    match_line_ratios,
-    match_ion_temperature,
-    match_intensity,
-)
-import indica.plotters.plots as plots
+from copy import deepcopy
 import os
 import pickle
 
-from indica.profiles import profile_scans
-
 import matplotlib.pylab as plt
 import numpy as np
-from copy import deepcopy
+import xarray as xr
+
+from indica.converters import FluxSurfaceCoordinates
+from indica.equilibrium import Equilibrium
+from indica.models.diode_filters import Diode_filters
+from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.interferometry import Interferometry
+from indica.models.plasma import Plasma
+import indica.plotters.plots as plots
+from indica.profiles import profile_scans
+from indica.provenance import get_prov_attribute
+from indica.readers.manage_data import bin_data_in_time
+from indica.readers.read_st40 import ST40data
+from indica.workflows.example_optimisation import match_helike_spectroscopy_intensity
+from indica.workflows.example_optimisation import (
+    match_helike_spectroscopy_ion_temperature,
+)
+from indica.workflows.example_optimisation import match_helike_spectroscopy_line_ratios
+from indica.workflows.example_optimisation import match_interferometer_los_int
+from indica.workflows.optimize_helike_spectroscopy import match_intensity
+from indica.workflows.optimize_helike_spectroscopy import match_ion_temperature
+from indica.workflows.optimize_helike_spectroscopy import match_line_ratios
+import indica.writers.hda_tree as hda_tree
 
 plt.ion()
 
@@ -113,7 +111,11 @@ def run_default(
     print("Optimizing electron density vs SMMH1")
     for t in plasma.t:
         match_interferometer_los_int(
-            models, plasma, data, t, guess=plasma.Ne_prof.y0,
+            models,
+            plasma,
+            data,
+            t,
+            guess=plasma.Ne_prof.y0,
         )
     bckc["smmh1"] = models["smmh1"]()
 
@@ -125,7 +127,11 @@ def run_default(
     print("Optimizing electron temperature vs XRCS")
     for t in plasma.t:
         match_helike_spectroscopy_line_ratios(
-            models, plasma, data, t, guess=plasma.Te_prof.y0,
+            models,
+            plasma,
+            data,
+            t,
+            guess=plasma.Te_prof.y0,
         )
 
     bckc["xrcs"] = models["xrcs"]()
@@ -137,12 +143,20 @@ def run_default(
     print("Optimizing ion temperature vs XRCS")
     for t in plasma.t:
         match_helike_spectroscopy_ion_temperature(
-            models, plasma, data, t, guess=plasma.Ti_prof.y0,
+            models,
+            plasma,
+            data,
+            t,
+            guess=plasma.Ti_prof.y0,
         )
     print("Optimizing Ar density vs XRCS")
     for t in plasma.t:
         match_helike_spectroscopy_intensity(
-            models, plasma, data, t, guess=plasma.Nimp_prof.y0,
+            models,
+            plasma,
+            data,
+            t,
+            guess=plasma.Nimp_prof.y0,
         )
     bckc["xrcs"] = models["xrcs"]()
     for t in plasma.t:
@@ -170,7 +184,9 @@ def run_default(
 
 
 def initialize_plasma_data(
-    pulse: int, plasma: Plasma = None, equilibrium_diagnostic="efit",
+    pulse: int,
+    plasma: Plasma = None,
+    equilibrium_diagnostic="efit",
 ):
     """
     Read ST40 data, initialize Equilibrium class and Flux Transforms,
@@ -203,7 +219,10 @@ def initialize_plasma_data(
     for instrument in raw_data.keys():
         quantities = list(raw_data[instrument])
         data[instrument] = bin_data_in_time(
-            raw_data[instrument], plasma.tstart, plasma.tend, plasma.dt,
+            raw_data[instrument],
+            plasma.tstart,
+            plasma.tend,
+            plasma.dt,
         )
 
         transform = data[instrument][quantities[0]].attrs["transform"]
@@ -246,7 +265,13 @@ def save_hda(
     )
 
     save_to_pickle(
-        plasma, raw_data, data, bckc, pulse=plasma.pulse, name=run_name, force=force,
+        plasma,
+        raw_data,
+        data,
+        bckc,
+        pulse=plasma.pulse,
+        name=run_name,
+        force=force,
     )
 
 
@@ -530,7 +555,8 @@ def assign_bckc(plasma: Plasma, t: float, bckc: dict):
     # Interferometers
     for diagnostic in INTERFEROMETERS:
         bckc_tmp, _ = plasma.forward_models[diagnostic].integrate_on_los(
-            plasma.electron_density.sel(t=t), t=t,
+            plasma.electron_density.sel(t=t),
+            t=t,
         )
         for quantity in plasma.optimisation["electron_density"]["quantities"]:
             bckc[diagnostic][quantity].loc[dict(t=t)] = bckc_tmp[quantity].values

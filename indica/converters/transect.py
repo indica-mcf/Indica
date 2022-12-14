@@ -1,17 +1,18 @@
 """Coordinate system for data collected on a 1-D along through the Tokamak"""
 
+from typing import Tuple
+
 import numpy as np
 from scipy.interpolate import interp1d
+import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 from xarray import Variable
-import xarray as xr
-
-from typing import Tuple
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
+from ..numpy_typing import OnlyArray
 
 
 class TransectCoordinates(CoordinateTransform):
@@ -48,9 +49,9 @@ class TransectCoordinates(CoordinateTransform):
 
     def __init__(
         self,
-        x_positions: LabeledArray,
-        y_positions: LabeledArray,
-        z_positions: LabeledArray,
+        x_positions: OnlyArray,
+        y_positions: OnlyArray,
+        z_positions: OnlyArray,
         name: str,
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
@@ -73,7 +74,7 @@ class TransectCoordinates(CoordinateTransform):
         # TODO: add intersection with first walls to restrict possible coordinates
         self._machine_dims = machine_dimensions
 
-        R_positions = np.sqrt(x_positions ** 2 + y_positions ** 2)
+        R_positions = np.sqrt(x_positions**2 + y_positions**2)
         self.x_interp = interp1d(
             self.x1, x_positions, copy=False, fill_value="extrapolate"
         )
@@ -94,7 +95,10 @@ class TransectCoordinates(CoordinateTransform):
             z_positions, self.x1, copy=False, fill_value="extrapolate"
         )
         self.invert_R = interp1d(
-            R_positions, self.x1, copy=False, fill_value="extrapolate",
+            R_positions,
+            self.x1,
+            copy=False,
+            fill_value="extrapolate",
         )
 
         x, y = self.convert_to_xy(self.x1, self.x2, None)
@@ -187,7 +191,7 @@ class TransectCoordinates(CoordinateTransform):
         """
         dims = R.dims if isinstance(R, (DataArray, Variable, Dataset)) else None
         coords = R.coords if isinstance(R, (DataArray, Dataset)) else None
-        x1 = DataArray(self.invert(R), coords, dims)
+        x1 = DataArray(self.invert_R(R), coords, dims)
         x2 = DataArray(None)
 
         return x1, x2
@@ -248,7 +252,11 @@ class TransectCoordinates(CoordinateTransform):
 
         value_at_channels = profile_1d.interp(rho_poloidal=rho)
         if limit_to_sep:
-            value_at_channels = xr.where(rho <= 1, value_at_channels, 0,)
+            value_at_channels = xr.where(
+                rho <= 1,
+                value_at_channels,
+                0,
+            )
 
         self.value_at_channels = value_at_channels
 

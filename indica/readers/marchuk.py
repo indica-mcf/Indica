@@ -1,6 +1,7 @@
+from copy import deepcopy
+
 import numpy as np
 import xarray as xr
-from copy import deepcopy
 
 
 # Constants
@@ -9,6 +10,7 @@ PERCMTOEV = 1.239841e-4  # Convert 1/cm to eV
 
 # TODO: make this dependent on project only!!
 FILEHEAD = "/home/marco.sertoli/python/Indica/indica/data/Data_Argon/"
+
 
 def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "he"):
     """
@@ -41,11 +43,21 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
 
     intensity = (
         (1 / g0)
-        * ((4 * np.pi ** (3 / 2) * a0 ** 3) / Te[:, None] ** (3 / 2))
-        * F2[None,]
-        * np.exp(-(Es[None,] / Te[:, None]))
+        * ((4 * np.pi ** (3 / 2) * a0**3) / Te[:, None] ** (3 / 2))
+        * F2[
+            None,
+        ]
+        * np.exp(
+            -(
+                Es[
+                    None,
+                ]
+                / Te[:, None]
+            )
+        )
     )
     return intensity
+
 
 class MARCHUKReader:
     """
@@ -56,7 +68,7 @@ class MARCHUKReader:
     def __init__(
         self,
         extrapolate: bool = True,
-        filehead:str=None,
+        filehead: str = None,
     ):
 
         if filehead is None:
@@ -71,7 +83,8 @@ class MARCHUKReader:
         self.pec_lines = self.set_marchuk_pecs(pec_lines)
 
     def build_marchuk_pecs(
-        self, Te: np.typing.ArrayLike = np.linspace(200, 10000, 1000),
+        self,
+        Te: np.typing.ArrayLike = np.linspace(200, 10000, 1000),
     ):
         """
         Reads Marchuk's Atomic data and builds DataArrays for each emission type
@@ -84,7 +97,8 @@ class MARCHUKReader:
         lines_isi = ["Z"]
         lines_casc = ["q", "r", "s", "t"]
 
-        # Wavelengths from "Modelling of helium like spectra at TEXTOR and TORE SUPRA" (Marchuk's Thesis)
+        # Wavelengths from the paper from O. Marchuk
+        # "Modelling of helium like spectra at TEXTOR and TORE SUPRA"
         w0 = 0.39492
         x0 = 0.39660
         y0 = 0.39695
@@ -102,7 +116,8 @@ class MARCHUKReader:
         wavelengths_casc = np.array([q0, r0, s0, t0])
 
         # Read in atomic data
-        # Excitation / Recombination / Charge Exchange / Inner-Shell Excitation / Inner-Shell Ionisation / Cascades
+        # Excitation / Recombination / Charge Exchange /
+        # Inner-Shell Excitation / Inner-Shell Ionisation / Cascades
         # Missing ion - ion excitation (not relevant till ne>>1E20 1/m3)
 
         # exc = np.loadtxt(head + "DirectRates.dat", skiprows=1)
@@ -353,7 +368,11 @@ class MARCHUKReader:
 
     def build_pec_lines(self, pec_database, extrapolate=True):
         # Add ADAS format
-        el_dens = np.array([1.0e19,])
+        el_dens = np.array(
+            [
+                1.0e19,
+            ]
+        )
         pec_lines = self.calc_pec_lines(pec_database, extrapolate=extrapolate)
 
         for key, item in pec_lines.items():
@@ -364,14 +383,13 @@ class MARCHUKReader:
                 index=("type", np.arange(item.type.__len__()))
             )
             pec_lines[key] = pec_lines[key].swap_dims({"type": "index"})
-            # if extrapolate:
-            #     line_pecs[key] = line_pecs[key].interp(electron_temperature=Te, kwargs={"fill_value":"extrapolate"})
         return pec_lines
 
     def calc_pec_lines(self, pec_database, extrapolate=True):
         """
-        line PECS include all contributions from different processes within the wavelength range of that line
-        these ranges are based on visual observation of which lines contribute to the observed peaks
+        line PECS include all contributions from different processes
+        within the wavelength range of that line these ranges are based on
+        visual observation of which lines contribute to the observed peaks
 
         """
         line_ranges = {
@@ -475,7 +493,6 @@ class MARCHUKReader:
         pec = deepcopy(adf15)
         for line in adf15.keys():
             # TODO: add the element layer to the pec dictionary (as for fract_abu)
-            element = adf15[line]["element"]
             pec[line]["emiss_coeff"] = pec_lines[line]
 
         for line in pec:
