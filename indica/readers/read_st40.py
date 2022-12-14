@@ -97,16 +97,16 @@ class ST40data:
         if len(data) > 0:
             # Calculate line ratios to data, propagate uncertainties
             lines = [("int_k", "int_w"), ("int_n3", "int_w"), ("int_n3", "int_tot")]
-            for l in lines:
-                if l[0] not in data.keys() or l[1] not in data.keys():
+            for line in lines:
+                if line[0] not in data.keys() or line[1] not in data.keys():
                     continue
-                ratio_key = f"{l[0]}/{l[1]}"
+                ratio_key = f"{line[0]}/{line[1]}"
                 # TODO: Ratios cannot be > 1: add this to PPAC XRCS analysis!
-                data[l[0]].values = xr.where(
-                    data[l[0]] < data[l[1]], data[l[0]], np.nan
+                data[line[0]].values = xr.where(
+                    data[line[0]] < data[line[1]], data[line[0]], np.nan
                 ).values
-                num = data[l[0]]
-                denom = data[l[1]]
+                num = data[line[0]]
+                denom = data[line[1]]
 
                 ratio_tmp = num / denom
                 ratio_tmp_err = np.sqrt(
@@ -197,7 +197,6 @@ class ST40data:
         location = location[ch_ind, :]
         direction = direction[ch_ind, :]
         R_nbi = dims[0][ch_ind]
-        x_nbi = x_pos[ch_ind]
         values = values[t_ind, :]
         values = values[:, ch_ind]
         err = err[t_ind, :]
@@ -205,7 +204,6 @@ class ST40data:
 
         # restrict to channels with data only
         transform = []
-        dl_nbi = 0.2
         for i in range(len(R_nbi)):
             trans = LineOfSightTransform(
                 location[i, 0],

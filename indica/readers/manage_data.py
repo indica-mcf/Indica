@@ -98,7 +98,7 @@ def map_on_equilibrium(
     Parameters
     ----------
     diagnostic_data
-        Experimental data of a specific instrument as returned by Indica's abstractreader.py
+        Experimental data of a specific instrument (see abstractreader.py)
     flux_transform
         Indica's FluxSurfaceTransform object
 
@@ -135,7 +135,7 @@ def assign_flux_transform(
     Parameters
     ----------
     diagnostic_data
-        Experimental data of a specific instrument as returned by Indica's abstractreader.py
+        Experimental data of a specific instrument (see abstractreader.py)
     flux_transform
         Indica's FluxSurfaceTransform object
 

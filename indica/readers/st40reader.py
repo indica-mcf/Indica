@@ -466,8 +466,6 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        # TODO: location, direction out of the loop  as soon as new MDS+ structure available
-
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 

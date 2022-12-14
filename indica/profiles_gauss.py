@@ -16,7 +16,7 @@ class Profiles:
         coord="poloidal",
     ):
         """
-        Class to build general profiles e.g. temperature, density, rotation and neutral density
+        Class to build general profiles
 
         Parameters
         ----------
@@ -225,7 +225,8 @@ def get_defaults(datatype: tuple) -> dict:
 
     if identifier not in parameters.keys():
         print(
-            f"\n Profile {identifier} not available \n Using 'temperature_electron' as default \n"
+            f"\n Profile {identifier} not available "
+            f"\n Using 'temperature_electron' as default \n"
         )
         identifier = "temperature_electron"
 

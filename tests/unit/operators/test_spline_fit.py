@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import numpy as np
+import xarray as xr
 from xarray import DataArray
 from xarray.testing import assert_allclose
 
@@ -17,13 +18,14 @@ from ..fake_equilibrium import FakeEquilibrium
 
 fake_equilib = FakeEquilibrium(0.6, 0.0)
 
-R_positions = DataArray(
+x_positions = DataArray(
     np.linspace(1.0, 0.1, 10), coords=[("alpha", np.arange(10))]
 ).assign_attrs(datatype=("major_rad", "plasma"))
+y_positions = xr.zeros_like(x_positions)
 z_positions = DataArray(
     np.linspace(-0.1, 0.2, 10), coords=[("alpha", np.arange(10))]
 ).assign_attrs(datatype=("z", "plasma"))
-coords = TransectCoordinates(R_positions, z_positions)
+coords = TransectCoordinates(x_positions, y_positions, z_positions, "")
 coords.set_equilibrium(fake_equilib)
 
 trivial = TrivialTransform()
@@ -56,7 +58,7 @@ def test_spline_transect_coords_x1():
     alpha = coord_array(indices, coords.x1_name)
     alpha_z_offset = coord_array([0.2, 0.1], coords.x2_name)
     result = spline(coords, alpha, alpha_z_offset, t_grid)
-    assert_allclose(result, func(R_positions[indices], 0.0, t_grid))
+    assert_allclose(result, func(x_positions[indices], 0.0, t_grid))
 
 
 def test_spline_transect_coords_x2():
@@ -82,7 +84,7 @@ def test_spline_fit():
     knot_vals.loc[knot_locations[-1]] = 0.0
     expected_spline = Spline(knot_vals, "rho_poloidal", flux_coords)
     input_vals = expected_spline(
-        coords, R_positions.coords["alpha"], 0.0, t_grid
+        coords, x_positions.coords["alpha"], 0.0, t_grid
     ).assign_coords(alpha_z_offset=0)
     input_vals.attrs["datatype"] = ("temperature", "electrons")
     fitter = SplineFit(knot_locations, sess=MagicMock())

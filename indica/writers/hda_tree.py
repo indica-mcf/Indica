@@ -90,7 +90,7 @@ def create(
         if answer.lower() == "yes":
             delete(t, write_path, force=force)
     except TreeNNF:
-        _user = user
+        _ = user
 
     # Create RUN structure
     write_path = f"{code_path}.{run_name}"

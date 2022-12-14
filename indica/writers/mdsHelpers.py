@@ -1,13 +1,9 @@
-#! Module for MDSplus helper functions
-#! Otto Asunta -- 02/03/2018
+from MDSplus import Float32
+from MDSplus import String
+from numpy import NaN
 
-
-from MDSplus import *
-from numpy import *
-
-# import openpyxl
-# import pandas as pd
-# import matplotlib.pyplot as plt
+# Module for MDSplus helper functions
+# Otto Asunta -- 02/03/2018
 
 
 def getOrCreateNode(t, nodeName, nodeType, nodeHelp, **kwargs):
@@ -17,7 +13,7 @@ def getOrCreateNode(t, nodeName, nodeType, nodeHelp, **kwargs):
     ################################################################"""
     try:
         return t.getNode(nodeName)
-    except:
+    except ValueError:
         print("Node " + nodeName + " is created.")
         return createNode(t, nodeName, nodeType, nodeHelp, **kwargs)
 
@@ -118,94 +114,3 @@ def createNode(t, nodeName, nodeType, nodeHelp, **kwargs):
     # Return to the point in the tree from which the function was called.
     t.setDefault(defaultNode)
     return t.getNode(nodeName)
-
-
-# Function for adding a list of nodes to existing trees
-def addNodes(pulseNo, which_tree, nodes_to_add, quiet=True):
-    """
-    Inputs:
-        -> pulseNo: integer. Shot number you want to add nodes to.
-        -> which_tree: string. Which tree do you want to add nodes to. e.g. 'spectrom'.
-        -> nodes_to_add: list. List of nodes you want to add.
-
-    Notes:
-        -> The nodes you want to add to MDSplus must be in -1 tree for this function to work.
-        -> HELP nodes are added automatically.
-        -> Cannot add to 'spectrom' tree if which_tree='st40'.
-        -> If a node of the same name already exists - they are skipped
-
-    Example:
-        import mdsHelpers as mh
-        pulseNo = 5691
-        which_tree = 'st40'
-        add_nodes = [
-            'summary.diag_quality',
-            'summary.diag_quality.princeton',
-            'summary.diag_quality.princeton.ti_q',
-            'summary.diag_quality.princeton.v_q',
-            'summary.diag_quality.avantes',
-            'summary.diag_quality.avantes.data_q',
-            'summary.diag_quality.ocean',
-            'summary.diag_quality.ocean.data_q',
-            'summary.diag_quality.spectr_lines',
-            'summary.diag_quality.spectr_lines.data_q',
-            'summary.diag_quality.xrcs',
-            'summary.diag_quality.xrcs.ti_q',
-            'summary.diag_quality.xrcs.te_q',
-        ]
-        mh.addNodes(pulseNo, which_tree, add_nodes)
-
-    """
-
-    # Connect to -1 tree
-    t1 = Tree(which_tree, -1)
-    nodes = []
-    for node in nodes_to_add:
-        n = t1.getNode(node)
-        nodes.append(n)
-
-    # Connect to the tree
-    try:
-        t = Tree(which_tree, pulseNo, "edit")
-    except:
-        print("No " + str(which_tree) + " --> or read/write access not granted")
-        t1.close()
-        return
-
-    # Extract data from dictionary 'nodes_dict'
-    for n in nodes:
-        if not (quiet):
-            print(n)
-        try:
-            t.getNode(n.getPath())
-            status = False
-            print(n.getPath() + " already exists. Skipped.")
-        except:
-            status = True
-
-        if status:
-            # Get help node
-            try:
-                n_help = n.HELP
-                help_status = True
-            except:
-                help_status = False
-                print("No HELP node")
-
-            # Add node
-            n_temp = t.addNode(n.getPath(), n.getUsage())
-            if n.getUsage() != "STRUCTURE":
-                n_temp.putData(n.getData())
-
-            # Add help node
-            if help_status:
-                n_temp = t.addNode(n_help.getPath(), n_help.getUsage())
-                n_temp.putData(n_help.getData())
-
-    # Write to the tree
-    t.write()
-    t.close()
-
-    # Disconnect from -1 tree
-    t1.close()
-    return

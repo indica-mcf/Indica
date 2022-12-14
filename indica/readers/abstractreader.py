@@ -218,7 +218,6 @@ class DataReader(BaseIO):
         x_coord = DataArray(x, coords=[(diagnostic_coord, ticks)])
         y_coord = DataArray(y, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
-        R_coord = np.sqrt(x_coord**2 + y_coord**2)
         transform = TransectCoordinates(x_coord, y_coord, z_coord, instrument)
         coords: Dict[Hashable, ArrayLike] = {
             "t": times,
@@ -567,6 +566,7 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+
         _revision = database_results["revision"]
 
         diagnostic_coord = "rho_poloidal"
@@ -574,15 +574,16 @@ class DataReader(BaseIO):
         times_unique, ind_unique = np.unique(times, return_index=True)
         coords_1d: Dict[Hashable, ArrayLike] = {"t": times}
         dims_1d = ("t",)
+        coords_psin: dict = {}
+        dims_psin: tuple = ()
         trivial_transform = TrivialTransform()
         if len(flux_quantities & quantities) > 0:
             psin = database_results["psin"]
-            coords_psin: Dict[Hashable, ArrayLike] = {"psin": psin}
+            coords_psin = {"psin": psin}
             dims_psin = ("psin",)
             rho = np.sqrt(database_results["psin"])
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
         else:
-            rho = None
             coords_2d = {}
         flux_transform = FluxSurfaceCoordinates(
             "poloidal",
@@ -593,6 +594,7 @@ class DataReader(BaseIO):
         else:
             coords_sep = {}
         dims_sep = ("t", "arbitrary_index")
+
         if "psi" in quantities:
             coords_3d: Dict[Hashable, ArrayLike] = {
                 "t": database_results["times"],
@@ -615,7 +617,6 @@ class DataReader(BaseIO):
             sorted_quantities.insert(0, "psin")
             available_quantities["psin"] = ("poloidal_flux", "normalised")
 
-        # Get rmag, zmag if need any of rmji, rmjo, faxs
         for quantity in sorted_quantities:
             if quantity not in available_quantities:
                 raise ValueError(
@@ -1649,8 +1650,8 @@ class DataReader(BaseIO):
             return database_results
 
         times = database_results["times"]
-        location = database_results[f"location"]
-        direction = database_results[f"direction"]
+        location = database_results["location"]
+        direction = database_results["direction"]
         transform = LineOfSightTransform_multi(
             location[:, 0],
             location[:, 1],
