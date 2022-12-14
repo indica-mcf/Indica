@@ -81,6 +81,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -125,6 +126,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -163,6 +165,7 @@ class Reader(DataReader):
         calculation: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -216,6 +219,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
@@ -248,6 +252,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         _, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -299,6 +304,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -341,6 +347,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -388,6 +395,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -429,6 +437,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]

@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.optimize import least_squares
-import xarray as xr
 
 from indica.models.plasma import Plasma
 

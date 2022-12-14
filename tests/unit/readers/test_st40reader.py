@@ -74,7 +74,7 @@ def run_reader_get_methods(
     if mds_only:
         return database_results
 
-    data = READER.get(uid, instrument, revision, quantities)
+    data = READER.get(uid, instrument, revision, set(quantities))
 
     quantities = list(data)
     trans = data[quantities[0]].transform

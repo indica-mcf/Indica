@@ -1117,7 +1117,8 @@ class PowerLoss(Operator):
 
 def interpolate_results(data: DataArray, Te_data: DataArray, Te_interp: DataArray):
     """
-    Interpolate fractional abundance or cooling factor on electron temperature for fast processing
+    Interpolate fractional abundance or cooling factor on electron
+    temperature for fast processing
 
     Parameters
     ----------
