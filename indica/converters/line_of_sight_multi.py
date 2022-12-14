@@ -83,18 +83,18 @@ class LineOfSightTransform(CoordinateTransform):
         self.dl_target = dl
         self.passes = passes
 
-        self.dl: list
-        self.x: list
-        self.y: list
-        self.z: list
-        self.R: list
-        self.phi: list
-        self.rho: list
-        self.theta: list
-        self.along_los: list
+        self.dl: list = []
+        self.x: list = []
+        self.y: list = []
+        self.z: list = []
+        self.R: list = []
+        self.phi: list = []
+        self.rho: list = []
+        self.theta: list = []
+        self.along_los: list = []
         self.los_integral: DataArray
         self.t: LabeledArray
-        self.x2: list
+        self.x2: list = []
 
         self.origin_x = origin_x
         self.origin_y = origin_y
