@@ -12,7 +12,6 @@ from typing import Tuple
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
-from .flux_surfaces import FluxSurfaceCoordinates
 
 
 class TransectCoordinates(CoordinateTransform):
@@ -106,23 +105,6 @@ class TransectCoordinates(CoordinateTransform):
         self.R = R
         self.rho: DataArray = None
 
-    def set_flux_transform(
-        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
-    ):
-        """
-        Set flux surface transform to perform remapping from physical to flux space
-        """
-        if not hasattr(self, "flux_transform") or force:
-            self.flux_transform = flux_transform
-        elif self.flux_transform != flux_transform:
-            raise Exception("Attempt to set flux surface transform twice.")
-
-    def check_flux_transform(self):
-        if not hasattr(self, "flux_transform"):
-            raise Exception("Missing flux surface transform")
-        if not hasattr(self.flux_transform, "equilibrium"):
-            raise Exception("Missing equilibrium in flux surface transform")
-
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
@@ -210,16 +192,14 @@ class TransectCoordinates(CoordinateTransform):
 
         return x1, x2
 
-    def _convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
         """
-        Convert R, z to rho given the flux surface transform
+        Convert R, z to rho given the equilibrium object
         """
-        if not hasattr(self, "flux_transform"):
-            raise Exception("Set flux transform to convert (R,z) to rho")
-        if not hasattr(self.flux_transform, "equilibrium"):
-            raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
+        if not hasattr(self, "equilibrium"):
+            raise Exception("Set equilibrium object to convert (R,z) to rho")
 
-        rho, theta = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
         drop_vars = ["R", "z"]
         for var in drop_vars:
             if var in rho.coords:
@@ -258,7 +238,7 @@ class TransectCoordinates(CoordinateTransform):
         -------
             Interpolation of the input profile on the diagnostic channels
         """
-        self.check_flux_transform()
+        self.check_equilibrium()
         self.check_rho(t, calc_rho)
 
         if "t" in self.rho.dims:
@@ -279,7 +259,7 @@ class TransectCoordinates(CoordinateTransform):
         Check requested times
         """
         if self.rho is None or calc_rho:
-            self._convert_to_rho(t=t)
+            self.convert_to_rho(t=t)
             return
 
         if np.array_equal(self.t, t):
@@ -290,10 +270,10 @@ class TransectCoordinates(CoordinateTransform):
         if (t_min >= np.min(self.t)) * (t_max <= np.max(self.t)):
             return
 
-        equil_t = self.flux_transform.equilibrium.rho.t
+        equil_t = self.equilibrium.rho.t
         equil_ok = (t_min >= np.min(equil_t)) * (t_max <= np.max(equil_t))
         if equil_ok:
-            self._convert_to_rho(t=t)
+            self.convert_to_rho(t=t)
         else:
             raise ValueError("Inserted time is not available in Equilibrium object")
 

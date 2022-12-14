@@ -168,23 +168,6 @@ class LineOfSightTransform(CoordinateTransform):
         result = result and self._machine_dims == other._machine_dims
         return result
 
-    def set_flux_transform(
-        self, flux_transform: FluxSurfaceCoordinates, force: bool = False
-    ):
-        """
-        Set flux surface transform to perform remapping from physical to flux space
-        """
-        if not hasattr(self, "flux_transform") or force:
-            self.flux_transform = flux_transform
-        elif self.flux_transform != flux_transform:
-            raise Exception("Attempt to set flux surface transform twice.")
-
-    def check_flux_transform(self):
-        if not hasattr(self, "flux_transform"):
-            raise Exception("Missing flux surface transform")
-        if not hasattr(self.flux_transform, "equilibrium"):
-            raise Exception("Missing equilibrium in flux surface transform")
-
     def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Tuple:
@@ -243,21 +226,18 @@ class LineOfSightTransform(CoordinateTransform):
         # # rather than rely on interpolation (which is necessarily
         # # inexact, as well as computationally expensive).
 
-    def _convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
         """
         Convert R, z to rho given the flux surface transform
         """
-        if not hasattr(self, "flux_transform"):
-            raise Exception("Set flux transform to convert (R,z) to rho")
-        if not hasattr(self.flux_transform, "equilibrium"):
-            raise Exception("Set equilibrium in flux transform to convert (R,z) to rho")
+        self.check_equilibrium()
 
         rho = []
         theta = []
         _rho: DataArray
         _theta: DataArray
         for channel in self.x1:
-            _rho, _theta = self.flux_transform.convert_from_Rz(
+            _rho, _theta, _ = self.equilibrium.flux_coords(
                 self.R[channel], self.z[channel], t=t
             )
             drop_vars = ["R", "z"]
@@ -392,7 +372,7 @@ class LineOfSightTransform(CoordinateTransform):
         -------
             Interpolation of the input profile along the LOS
         """
-        self.check_flux_transform()
+        self.check_equilibrium()
         self.check_rho(t, calc_rho)
 
         along_los = []
@@ -420,8 +400,10 @@ class LineOfSightTransform(CoordinateTransform):
         """
         Check requested times
         """
+        self.check_equilibrium()
+
         if len(self.rho) == 0 or calc_rho:
-            self._convert_to_rho(t=t)
+            self.convert_to_rho(t=t)
             return
 
         rho_t = self.rho[0].t
@@ -431,10 +413,10 @@ class LineOfSightTransform(CoordinateTransform):
         if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
             return
 
-        equil_t = self.flux_transform.equilibrium.rho.t
+        equil_t = self.equilibrium.rho.t
         equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
         if equil_ok:
-            self._convert_to_rho(t=t)
+            self.convert_to_rho(t=t)
         else:
             raise ValueError("Inserted time is not available in Equilibrium object")
 
@@ -501,35 +483,33 @@ class LineOfSightTransform(CoordinateTransform):
 
     def get_plasma_boundaries(self, tplot: float = None):
         boundaries = None
-        if hasattr(self, "flux_transform"):
-            if hasattr(self.flux_transform, "equilibrium"):
-                equil = self.flux_transform.equilibrium
-                if tplot is None:
-                    if self.rho is not None:
-                        _rho = self.rho[0]
-                    else:
-                        _rho = self.flux_transform.equilibrium.rho
-                    tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
+        if hasattr(self, "equilibrium"):
+            if tplot is None:
+                if self.rho is not None:
+                    _rho = self.rho[0]
+                else:
+                    _rho = self.equilibrium.rho
+                tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
 
-                if self.rho is None:
-                    self._convert_to_rho(t=tplot)
+            if self.rho is None:
+                self.convert_to_rho(t=tplot)
 
-                rho_equil = equil.rho.sel(t=tplot, method="nearest")
-                rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
-                core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
-                R_lfs = rho_equil.R[core_ind[0]].values
-                R_hfs = rho_equil.R[core_ind[-1]].values
-                x_plasma_inner = R_hfs * np.cos(self.angles)
-                x_plasma_outer = R_lfs * np.cos(self.angles)
-                y_plasma_inner = R_hfs * np.sin(self.angles)
-                y_plasma_outer = R_lfs * np.sin(self.angles)
+            rho_equil = self.equilibrium.rho.sel(t=tplot, method="nearest")
+            rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
+            core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
+            R_lfs = rho_equil.R[core_ind[0]].values
+            R_hfs = rho_equil.R[core_ind[-1]].values
+            x_plasma_inner = R_hfs * np.cos(self.angles)
+            x_plasma_outer = R_lfs * np.cos(self.angles)
+            y_plasma_inner = R_hfs * np.sin(self.angles)
+            y_plasma_outer = R_lfs * np.sin(self.angles)
 
-                boundaries = (
-                    x_plasma_inner,
-                    x_plasma_outer,
-                    y_plasma_inner,
-                    y_plasma_outer,
-                )
+            boundaries = (
+                x_plasma_inner,
+                x_plasma_outer,
+                y_plasma_inner,
+                y_plasma_outer,
+            )
 
         return boundaries
 
@@ -537,41 +517,38 @@ class LineOfSightTransform(CoordinateTransform):
         channels = self.x1
         cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
 
-        equil = None
-        if hasattr(self, "flux_transform"):
-            if hasattr(self.flux_transform, "equilibrium"):
-                equil = self.flux_transform.equilibrium
-                if tplot is None:
-                    if self.rho is not None:
-                        _rho = self.rho[0]
-                    else:
-                        _rho = self.flux_transform.equilibrium.rho
-                    tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
+        if hasattr(self, "equilibrium"):
+            if tplot is None:
+                if self.rho is not None:
+                    _rho = self.rho[0]
+                else:
+                    _rho = self.equilibrium.rho
+                tplot = _rho.t.sel(t=_rho.t.mean(), method="nearest").values
 
-                if self.rho is None:
-                    self._convert_to_rho(t=tplot)
+            if self.rho is None:
+                self.convert_to_rho(t=tplot)
 
-                rho_equil = equil.rho.sel(t=tplot, method="nearest")
-                rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
-                R_lfs = equil.rmjo.sel(rho_poloidal=1, t=tplot, method="nearest").values
-                R_hfs = equil.rmji.sel(rho_poloidal=1, t=tplot, method="nearest").values
-                x_plasma_inner = R_hfs * np.cos(self.angles)
-                x_plasma_outer = R_lfs * np.cos(self.angles)
-                y_plasma_inner = R_hfs * np.sin(self.angles)
-                y_plasma_outer = R_lfs * np.sin(self.angles)
-                x_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.cos(
-                    self.angles
-                )
-                y_ax = equil.rmag.sel(t=tplot, method="nearest").values * np.sin(
-                    self.angles
-                )
+            rho_equil = self.equilibrium.rho.sel(t=tplot, method="nearest")
+            rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
+            R_lfs = self.equilibrium.rmjo.sel(rho_poloidal=1, t=tplot, method="nearest").values
+            R_hfs = self.equilibrium.rmji.sel(rho_poloidal=1, t=tplot, method="nearest").values
+            x_plasma_inner = R_hfs * np.cos(self.angles)
+            x_plasma_outer = R_lfs * np.cos(self.angles)
+            y_plasma_inner = R_hfs * np.sin(self.angles)
+            y_plasma_outer = R_lfs * np.sin(self.angles)
+            x_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.cos(
+                self.angles
+            )
+            y_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.sin(
+                self.angles
+            )
 
         if orientation is not None and orientation == "xy":
             plt.figure()
             npts = len(self.x_wall_inner)
             plt.plot(self.x_wall_inner, self.y_wall_inner, color="k")
             plt.plot(self.x_wall_outer, self.y_wall_outer, color="k")
-            if equil is not None:
+            if hasattr(self, "equilibrium"):
                 plt.plot(x_plasma_inner, y_plasma_inner, color="red")
                 plt.plot(x_plasma_outer, y_plasma_outer, color="red")
                 plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
@@ -635,7 +612,7 @@ class LineOfSightTransform(CoordinateTransform):
                 [self.z_wall_upper] * 2,
                 color="k",
             )
-            if equil is not None:
+            if hasattr(self, "equilibrium"):
                 rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
             for ch in self.x1:
                 plt.plot(self.R[ch], self.z[ch], color=cols[ch], linewidth=2)
@@ -643,7 +620,7 @@ class LineOfSightTransform(CoordinateTransform):
             plt.ylabel("z")
             plt.axis("scaled")
 
-        if equil is not None and orientation is None:
+        if hasattr(self, "equilibrium") and orientation is None:
             plt.figure()
             for ch in self.x1:
                 self.rho[ch].sel(t=tplot, method="nearest").plot(

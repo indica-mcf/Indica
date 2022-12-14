@@ -17,18 +17,10 @@ class DiagnosticModel(ABC):
     def set_transform(self, transform: CoordinateTransform):
         """
         Set diagnostic coordinate transform of diagnostic
+        TODO: some diagnostics should have both trivial and los transforms!!!
         """
         self.transform = transform
         self.bckc = {}
-
-    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        """
-        set flux surface transform for flux mapping of the line of sight
-        """
-        if hasattr(self, "transform"):
-            if hasattr(self.transform, "set_flux_transform"):
-                self.transform.set_flux_transform(flux_transform)
-                self.bckc = {}
 
     def set_plasma(self, plasma: Plasma):
         """
