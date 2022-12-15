@@ -7,7 +7,7 @@ from scipy import constants
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight_multi import LineOfSightTransform
+from indica.converters.line_of_sight import LineOfSightTransform
 from indica.datatypes import ELEMENTS
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
@@ -498,8 +498,9 @@ class Helike_spectroscopy(DiagnosticModel):
                 _spectra.append(y)
             spectra[key] = xr.concat(_spectra, "t")
             if "total" not in spectra.keys():
-                spectra["total"] = xr.zeros_like(spectra[key])
-            spectra["total"] = spectra["total"] + spectra[key].sum(["line_name"])
+                spectra["total"] = spectra[key].sum(["line_name"])
+            else:
+                spectra["total"] += spectra[key].sum(["line_name"])
         return spectra
 
     def _plot_spectrum(self, spectra: dict, background: float = 0.0):

@@ -18,7 +18,7 @@ import numpy as np
 import prov.model as prov
 from xarray import DataArray
 
-from indica.converters.line_of_sight_multi import (
+from indica.converters.line_of_sight import (
     LineOfSightTransform as LineOfSightTransform_multi,
 )
 from .available_quantities import AVAILABLE_QUANTITIES
