@@ -66,7 +66,7 @@ class LineOfSightTransform(CoordinateTransform):
         direction_x: OnlyArray,
         direction_y: OnlyArray,
         direction_z: OnlyArray,
-        name: str="",
+        name: str = "",
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),

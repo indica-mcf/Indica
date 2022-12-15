@@ -1048,7 +1048,7 @@ def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse: int = 9229):
         impurity_concentration=impurity_concentration,
         full_run=full_run,
     )
-    plasma.build_atomic_data()
+    plasma.build_atomic_data(default=True)
 
     # Assign profiles to time-points
     nt = len(plasma.t)

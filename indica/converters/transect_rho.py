@@ -10,7 +10,9 @@ from xarray import Dataset
 from xarray import Variable
 
 from .abstractconverter_rho import CoordinateTransform
-from ..numpy_typing import OnlyArray, Coordinates, LabeledArray
+from ..numpy_typing import Coordinates
+from ..numpy_typing import LabeledArray
+from ..numpy_typing import OnlyArray
 
 
 class TransectCoordinates(CoordinateTransform):
