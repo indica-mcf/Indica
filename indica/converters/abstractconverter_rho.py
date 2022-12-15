@@ -13,11 +13,9 @@ import numpy as np
 from xarray import DataArray
 from xarray import zeros_like
 
-from ..abstract_equilibrium import AbstractEquilibrium
+from ..equilibrium import Equilibrium
+from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
-
-Coordinates = Tuple[LabeledArray, LabeledArray]
-OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]
 
 
 class EquilibriumException(Exception):
@@ -72,11 +70,15 @@ class CoordinateTransform(ABC):
     _CONVERSION_METHODS: Dict[str, str] = {}
     _INVERSE_CONVERSION_METHODS: Dict[str, str] = {}
 
-    equilibrium: AbstractEquilibrium
+    equilibrium: Equilibrium
     x1_name: str
     x2_name: str
+    x1: LabeledArray
+    x2: LabeledArray
+    rho: LabeledArray
+    t: LabeledArray = None
 
-    def set_equilibrium(self, equilibrium: AbstractEquilibrium, force: bool = False):
+    def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
 
         If it has already been initialised with the same equilibrium
@@ -99,6 +101,10 @@ class CoordinateTransform(ABC):
             self.equilibrium = equilibrium
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
+
+    def check_equilibrium(self):
+        if not hasattr(self, "equilibrium"):
+            raise Exception("Missing equilibrium object")
 
     def get_converter(
         self, other: "CoordinateTransform", reverse=False
@@ -206,6 +212,37 @@ class CoordinateTransform(ABC):
             "method.".format(self.__class__.__name__)
         )
 
+    def convert_to_xy(
+        self,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
+    ) -> Coordinates:
+        """Convert from this coordinate to the x-y coordinate system. Each
+        subclass must implement this method.
+
+        Parameters
+        ----------
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+        t
+            The time coordinate
+
+        Returns
+        -------
+        R
+            Major radius coordinate
+        z
+            Height coordinate
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a 'convert_to_xy' "
+            "method.".format(self.__class__.__name__)
+        )
+
     def convert_from_Rz(
         self,
         R: LabeledArray,
@@ -234,6 +271,27 @@ class CoordinateTransform(ABC):
         """
         raise NotImplementedError(
             "{} does not implement a 'convert_from_Rz' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+        """Convert from spatial to flux coordinates
+
+        Parameters
+        ----------
+        t
+            The time coordinate
+
+        Returns
+        -------
+        rho
+            Flux coordinate
+        theta
+            time
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a 'convert_to_xy' "
             "method.".format(self.__class__.__name__)
         )
 

@@ -13,7 +13,7 @@ from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
 
-from .abstractconverter import Coordinates
+from .abstractconverter_rho import Coordinates
 from .abstractconverter_rho import CoordinateTransform
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
