@@ -66,7 +66,8 @@ class MainIonDensity(Operator):
             xarray.DataArray of electron density
         mean_charge
             xarray.DataArray of mean charge of all impurity elements of interest.
-            This can be provided manually (with dimensions of ["element", "rho", "t]),
+            This can be provided manually
+            (with dimensions of ["element", "rho_poloidal", "t]),
             or can be passed as the results of MeanCharge.__call__
 
         Returns
@@ -80,23 +81,21 @@ class MainIonDensity(Operator):
             "impurity_densities",
             impurity_densities,
             DataArray,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
             "electron_density",
             electron_density,
             DataArray,
-            ndim_to_check=2,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check(
             "mean_charge",
             mean_charge,
             DataArray,
-            ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         main_ion_density = electron_density - (mean_charge * impurity_densities).sum(

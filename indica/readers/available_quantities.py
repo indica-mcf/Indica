@@ -13,11 +13,12 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te": ("temperature", "electrons"),
     },
     "get_charge_exchange": {
-        "angf": ("angular_freq", None),
-        "ti": ("temperature", None),
+        "angf": ("angular_freq", "ions"),
+        "ti": ("temperature", "ions"),
     },
     "get_bremsstrahlung_spectroscopy": {
-        "zeff": ("effective_charge", "plasma"),
+        "h": ("effective_charge", "plasma"),
+        "v": ("effective_charge", "plasma"),
     },
     "get_helike_spectroscopy": {
         "int_w": ("intensity", "spectral_line"),
@@ -65,7 +66,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "upl": (
             "voltage",
             "loop",
-        ),
+        ),  # Loop voltage V
         "wth": (
             "stored_energy",
             "equilibrium",
@@ -78,10 +79,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
             "stored_energy",
             "fast",
         ),  # Thermal stored energy
-        "df": (
-            "flux",
-            "diamagnetic",
-        ),
         "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
         "j_nbi": (
             "current_density",

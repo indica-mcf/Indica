@@ -208,22 +208,20 @@ def _parse_kj34(
             rs[:] = float(R_pinhole) / 1e3
             zs = np.empty(len(indices))
             zs[:] = float(z_pinhole) / 1e3
-            theta_d = np.radians(float(theta_chip) - 270.0)
             f = float(focal_length) / 1e3
-            theta = np.arctan2(
-                indices * PIXEL_WIDTH * np.cos(theta_d) - f * np.tan(theta_d),
-                indices * PIXEL_WIDTH * np.sin(theta_d) + f,
+            theta = np.radians(float(theta_chip)) + int(gamma) * np.arctan2(
+                indices * PIXEL_WIDTH, f
             )
             rstart.append(rs)
             zstart.append(zs)
-            rend.append(rs - np.sin(theta))
-            zend.append(zs - np.cos(theta))
+            rend.append(rs + np.cos(theta))
+            zend.append(zs + np.sin(theta))
     rstart = np.concatenate(rstart)  # type: ignore
     rend = np.concatenate(rend)
     zstart = np.concatenate(zstart)  # type: ignore
     zend = np.concatenate(zend)
-    Tstart = np.zeros_like(rstart)
-    Tend = np.zeros_like(rend)
+    Tstart = np.zeros_like(rstart, dtype=float)
+    Tend = np.zeros_like(rend, dtype=float)
     return rstart, rend, zstart, zend, Tstart, Tend  # type: ignore
 
 

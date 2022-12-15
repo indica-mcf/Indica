@@ -94,11 +94,16 @@ class PPFReader(DataReader):
         "efit": "get_equilibrium",
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
-        "cxg6": "get_charge_exchange",
         "ks3": "get_bremsstrahlung_spectroscopy",
         "sxr": "get_radiation",
         "bolo": "get_radiation",
         "kg10": "get_thomson_scattering",
+        **{
+            "cx{}m".format(val): "get_charge_exchange"
+            for val in ("s", "d", "f", "g", "h")
+        },
+        **{"cx{}6".format(val): "get_charge_exchange" for val in ("s", "d", "f", "g")},
+        **{"cx{}4".format(val): "get_charge_exchange" for val in ("s", "d", "f", "h")},
     }
     _IMPLEMENTATION_QUANTITIES = {
         "kg10": {"ne": ("number_density", "electron")},
@@ -114,6 +119,30 @@ class PPFReader(DataReader):
         "ks3": {
             "zefh": ("effective_charge", "plasma"),
             "zefv": ("effective_charge", "plasma"),
+        },
+        **{
+            "cx{}m".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "g", "h")
+        },
+        **{
+            "cx{}6".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "g")
+        },
+        **{
+            "cx{}4".format(val): {
+                "angf": ("angular_freq", "ions"),
+                "ti": ("temperature", "ions"),
+                "conc": ("concentration", "ions"),
+            }
+            for val in ("s", "d", "f", "h")
         },
     }
     _BREMSSTRAHLUNG_LOS = {
@@ -188,6 +217,18 @@ class PPFReader(DataReader):
             self._write_cached_ppf(cache_path, data)
         return data, path
 
+    def _get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> RevisionLike:
+        """
+        Get actual revision that's being read from database, converts relative revision
+        (e.g. 0, latest) to absolute
+        """
+        info = self._client.list(
+            f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
+        )
+        return info.revision_current
+
     def _read_cached_ppf(self, path: Path) -> Optional[Signal]:
         """Check if the PPF data specified by `sal_path` has been cached and,
         if so, load it.
@@ -257,17 +298,8 @@ class PPFReader(DataReader):
             uid, instrument, "zqnn", revision
         )
 
-        mass_data = mass.data[0]
-        mass_int = (
-            int(mass_data) if (mass_data % int(mass_data)) < 0.5 else int(mass_data) + 1
-        )
-
-        atomic_num_data = atomic_num.data[0]
-        atomic_num_int = (
-            int(atomic_num_data)
-            if (atomic_num_data % int(atomic_num_data)) < 0.5
-            else int(atomic_num_data) + 1
-        )
+        mass_int = round(mass.data[0])
+        atomic_num_int = round(atomic_num.data[0])
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
@@ -306,7 +338,7 @@ class PPFReader(DataReader):
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_thomson_scattering(
@@ -353,13 +385,13 @@ class PPFReader(DataReader):
             if instrument != "kg10":
                 results["ne_records"].append(e_path)
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_equilibrium(
         self,
         uid: str,
-        calculation: str,
+        instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
@@ -367,7 +399,7 @@ class PPFReader(DataReader):
         """Fetch raw data for plasma equilibrium."""
         results: Dict[str, Any] = {}
         for q in quantities:
-            qval, q_path = self._get_signal(uid, calculation, q, revision)
+            qval, q_path = self._get_signal(uid, instrument, q, revision)
             self._set_times_item(results, qval.dimensions[0].data)
             if (
                 len(qval.dimensions) > 1
@@ -376,8 +408,8 @@ class PPFReader(DataReader):
             ):
                 results["psin"] = qval.dimensions[1].data
             if q == "psi":
-                r, r_path = self._get_signal(uid, calculation, "psir", revision)
-                z, z_path = self._get_signal(uid, calculation, "psiz", revision)
+                r, r_path = self._get_signal(uid, instrument, "psir", revision)
+                z, z_path = self._get_signal(uid, instrument, "psiz", revision)
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
@@ -388,7 +420,7 @@ class PPFReader(DataReader):
                 results[q] = qval.data
                 results[q + "_records"] = [q_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_cyclotron_emissions(
@@ -404,6 +436,9 @@ class PPFReader(DataReader):
             SURF_PATH, self.pulse, instrument.lower()
         )
         assert zstart[0] == zend[0]
+
+        # gen contains accquisition parameters
+        # e.g. which channels are valid (gen[0,:] > 0)
         gen, gen_path = self._get_signal(uid, instrument, "gen", revision)
         channels = np.argwhere(gen.data[0, :] > 0)[:, 0]
         freq = gen.data[15, channels] * 1e9
@@ -433,7 +468,7 @@ class PPFReader(DataReader):
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_radiation(
@@ -500,7 +535,7 @@ class PPFReader(DataReader):
             results[q + "_ystart"] = ystart[channels]
             results[q + "_ystop"] = yend[channels]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     def _get_bremsstrahlung_spectroscopy(
@@ -532,7 +567,7 @@ class PPFReader(DataReader):
             results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
 
-        results["revision"] = revision
+        results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
     # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:
@@ -611,14 +646,9 @@ class PPFReader(DataReader):
         Returns
         -------
         :
-            True if authenticationis needed, otherwise false.
+            True if authentication is needed, otherwise false.
         """
-        # Perform the necessary logic to know whether authentication is needed.
-        try:
-            self._client.list("/")
-            return False
-        except AuthenticationFailed:
-            return True
+        return self._client.auth_required
 
     def authenticate(self, name: str, password: str):
         """Log onto the JET/SAL system to access data.

@@ -15,7 +15,7 @@ class Test_time:
     time = np.linspace(0, 0.1, nt)
     values = np.sin(np.linspace(0, np.pi * 3, nt)) + np.random.random(nt) - 0.5
     data = DataArray(values, coords=[("t", time)])
-    channels = np.array([0, 1, 2, 3])
+    channels = np.array([0, 1, 2, 3], dtype=int)
     d = []
     for c in channels:
         d.append(deepcopy(data))

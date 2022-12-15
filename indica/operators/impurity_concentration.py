@@ -87,7 +87,8 @@ class ImpurityConcentration(Operator):
             xarray.DataArray of electron density
         mean_charge
             xarray.DataArray of mean charge of all impurity elements of interest.
-            This can be provided manually (with dimensions of ["element", "rho", "t]),
+            This can be provided manually (with dimensions of
+            ["element", "rho_poloidal", "t]),
             or can be passed as the results of MeanCharge.__call__
         flux_surfaces
             FluxSurfaceCoordinates object that defines the flux surface geometry
@@ -109,7 +110,7 @@ class ImpurityConcentration(Operator):
             "impurity_densities",
             impurity_densities,
             DataArray,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
 
         input_check("element", element, str)
@@ -127,30 +128,28 @@ class ImpurityConcentration(Operator):
         if t is None:
             t = Zeff_LoS.t
         else:
-            input_check(
-                "t", t, DataArray, ndim_to_check=1, greater_than_or_equal_zero=True
-            )
+            input_check("t", t, DataArray, ndim_to_check=1, strictly_positive=False)
 
         input_check(
             "Zeff_LoS",
             Zeff_LoS,
             DataArray,
             ndim_to_check=1,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
         input_check(
             "electron_density",
             electron_density,
             DataArray,
             ndim_to_check=2,
-            greater_than_or_equal_zero=False,
+            strictly_positive=True,
         )
         input_check(
             "mean_charge",
             mean_charge,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
         input_check("flux_surfaces", flux_surfaces, FluxSurfaceCoordinates)
 
@@ -166,7 +165,7 @@ class ImpurityConcentration(Operator):
 
         R_arr, z_arr = transform.convert_to_Rz(x1, x2, t)
 
-        rho, _ = flux_surfaces.convert_from_Rz(R_arr, z_arr, t)
+        rho, theta = flux_surfaces.convert_from_Rz(R_arr, z_arr, t)
 
         if isinstance(R_arr, (DataArray, np.ndarray)):
             R_arr = R_arr.squeeze()
@@ -179,21 +178,28 @@ class ImpurityConcentration(Operator):
                 rho = rho.drop_vars("z")
                 rho = rho.fillna(2.0)
 
-        if set(["R", "z"]).issubset(set(list(impurity_densities.coords.keys()))):
+        if set(["R", "z"]).issubset(set(list(impurity_densities.dims))):
             impurity_densities = impurity_densities.indica.interp2d(
                 z=z_arr,
                 R=R_arr,
                 method="cubic",
                 assume_sorted=True,
             )
-        elif set(["rho"]).issubset(set(list(impurity_densities.coords.keys()))):
+        elif set(["rho_poloidal", "theta"]).issubset(
+            set(list(impurity_densities.dims))
+        ):
             impurity_densities = impurity_densities.interp(
-                rho=rho, method="linear", assume_sorted=True
+                rho_poloidal=rho, theta=theta, method="linear", assume_sorted=True
+            )
+        elif set(["rho_poloidal"]).issubset(set(list(impurity_densities.dims))):
+            impurity_densities = impurity_densities.interp(
+                rho_poloidal=rho, method="linear", assume_sorted=True
             )
         else:
             raise ValueError(
                 'Inputted impurity densities does not have any compatible\
-                    coordinates: ["rho"] or ["R", "z"]'
+                    coordinates: ["rho_poloidal", "theta"], ["rho_poloidal"]\
+                    or ["R", "z"]'
             )
 
         impurity_densities = impurity_densities.interp(
@@ -201,14 +207,16 @@ class ImpurityConcentration(Operator):
         )
 
         electron_density = electron_density.interp(
-            rho=rho, method="linear", assume_sorted=True
+            rho_poloidal=rho, method="linear", assume_sorted=True
         )
 
         electron_density = electron_density.interp(
             t=t, method="linear", assume_sorted=True
         )
 
-        mean_charge = mean_charge.interp(rho=rho, method="linear", assume_sorted=True)
+        mean_charge = mean_charge.interp(
+            rho_poloidal=rho, method="linear", assume_sorted=True
+        )
 
         mean_charge = mean_charge.interp(t=t, method="linear", assume_sorted=True)
 
