@@ -25,8 +25,16 @@ def default_inputs():
 
 
 def load_los_default():
-    origin = np.array([[3.8, -2.0, 0.5], ])  # [xyz]
-    direction = np.array([[-1.0, 0.0, 0.0],])  # [xyz]
+    origin = np.array(
+        [
+            [3.8, -2.0, 0.5],
+        ]
+    )  # [xyz]
+    direction = np.array(
+        [
+            [-1.0, 0.0, 0.0],
+        ]
+    )  # [xyz]
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
     name = "los_test"
     los = line_of_sight.LineOfSightTransform(
@@ -192,9 +200,6 @@ def test_distance(debug=False):
 def test_set_dl(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
-    x1, x2, t = los.x1, los.x2, 0
-    _x1 = 0
-    _x2 = x2[0]
 
     # Test inputs
     dl = 0.002
@@ -243,10 +248,18 @@ def test_intersections(debug=False):
 # Test LOS missing vessel
 def test_missing_los():
     # Line of sight origin tuple
-    origin = np.array([[4.0, -2.0, 0.5], ])  # [xyz]
+    origin = np.array(
+        [
+            [4.0, -2.0, 0.5],
+        ]
+    )  # [xyz]
 
     # Line of sight direction
-    direction = np.array([[0.0, 1.0, 0.0],])  # [xyz]
+    direction = np.array(
+        [
+            [0.0, 1.0, 0.0],
+        ]
+    )  # [xyz]
 
     # machine dimensions
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
@@ -257,12 +270,12 @@ def test_missing_los():
     # Set-up line of sight class
     try:
         _ = line_of_sight.LineOfSightTransform(
-            origin[:,0],
-            origin[:,1],
-            origin[:,2],
-            direction[:,0],
-            direction[:,1],
-            direction[:,2],
+            origin[:, 0],
+            origin[:, 1],
+            origin[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
             machine_dimensions=machine_dims,
             name=name,
         )
