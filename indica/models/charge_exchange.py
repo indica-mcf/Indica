@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.transect import TransectCoordinates
+from indica.converters.transect_rho import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray

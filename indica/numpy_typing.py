@@ -33,6 +33,9 @@ OnlyArray = typing.Union[
 
 OnlyXarray = typing.Union[xarray.DataArray, xarray.Dataset, xarray.Variable]
 
+# Type for generic functions that e.g. return same type as input
+XarrayGeneric = typing.TypeVar("XarrayGeneric", xarray.DataArray, xarray.Dataset)
+
 RevisionLike = typing.Union[str, int]
 
 Coordinates = Tuple[LabeledArray, LabeledArray]

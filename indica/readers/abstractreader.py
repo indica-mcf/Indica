@@ -18,9 +18,7 @@ import numpy as np
 import prov.model as prov
 from xarray import DataArray
 
-from indica.converters.line_of_sight import (
-    LineOfSightTransform as LineOfSightTransform_multi,
-)
+from indica.converters.line_of_sight import LineOfSightTransform
 from .available_quantities import AVAILABLE_QUANTITIES
 from .selectors import choose_on_plot
 from .selectors import DataSelector
@@ -947,7 +945,7 @@ class DataReader(BaseIO):
 
         location = database_results["location"]
         direction = database_results["direction"]
-        transform = LineOfSightTransform_multi(
+        transform = LineOfSightTransform(
             location[:, 0],
             location[:, 1],
             location[:, 2],
@@ -1115,7 +1113,7 @@ class DataReader(BaseIO):
         times = database_results["times"]
         location = database_results["location"]
         direction = database_results["direction"]
-        transform = LineOfSightTransform_multi(
+        transform = LineOfSightTransform(
             location[:, 0],
             location[:, 1],
             location[:, 2],
@@ -1297,7 +1295,7 @@ class DataReader(BaseIO):
         wavelength = database_results["wavelength"]
         location = database_results["location"]
         direction = database_results["direction"]
-        transform = LineOfSightTransform_multi(
+        transform = LineOfSightTransform(
             location[:, 0],
             location[:, 1],
             location[:, 2],
@@ -1481,7 +1479,7 @@ class DataReader(BaseIO):
 
         location = database_results["location"]
         direction = database_results["direction"]
-        transform = LineOfSightTransform_multi(
+        transform = LineOfSightTransform(
             location[:, 0],
             location[:, 1],
             location[:, 2],
@@ -1652,7 +1650,7 @@ class DataReader(BaseIO):
         times = database_results["times"]
         location = database_results["location"]
         direction = database_results["direction"]
-        transform = LineOfSightTransform_multi(
+        transform = LineOfSightTransform(
             location[:, 0],
             location[:, 1],
             location[:, 2],
