@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight_multi import LineOfSightTransform
+from indica.converters.line_of_sight import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray

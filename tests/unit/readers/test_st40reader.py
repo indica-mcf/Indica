@@ -96,7 +96,7 @@ def test_all(interactive=False, plot=False):
         for quant in data.keys():
             if hasattr(data[quant], "transform"):
                 if "LineOfSightTransform" in str(data[quant].transform):
-                    if "line_of_sight_multi" not in str(data[quant].transform):
+                    if "line_of_sight" not in str(data[quant].transform):
                         raise ValueError(
                             f"{instrument_name}:{quant} using"
                             f" \n {str(data[quant].transform)}"
