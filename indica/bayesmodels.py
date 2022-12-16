@@ -29,6 +29,7 @@ def uniform(x, lower, upper):
         return 0
 
 
+
 class BayesModels:
     """
     Class which operates with Plasma class to create ln_posterior method
@@ -69,6 +70,15 @@ class BayesModels:
                 f"{missing_data} not found in data given"
             )
 
+    def _outside_bounds(self, parameters):
+        for param_name, param_value in parameters.items():
+            if param_name in self.priors:  # if no prior is defined then ignore
+                prior = np.log(self.priors[param_name](param_value))
+                if prior == -np.inf:
+                    return True
+        return False
+
+
     def _build_bckc(self, params={}):
         self.bckc = {}
         for model in self.diagnostic_models:
@@ -79,8 +89,8 @@ class BayesModels:
         ln_likelihood = 0
         for key in self.quant_to_optimise:
             # TODO: What to use as error?  Assume percentage error if none given...
-            ln_likelihood += np.log(gaussian(self.bckc[key], self.data[key].sel(t=self.plasma.time_to_calculate),
-                                             self.data[key].sel(t=self.plasma.time_to_calculate)*0.10))
+            ln_likelihood += np.log(gaussian(self.bckc[key].values, self.data[key].sel(t=self.plasma.time_to_calculate).values,
+                                             self.data[key].sel(t=self.plasma.time_to_calculate).values*0.10))
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
@@ -107,6 +117,10 @@ class BayesModels:
         blob
             model outputs from bckc and kinetic profiles
         """
+        outside_bounds = self._outside_bounds(parameters)
+        if outside_bounds:
+            return -np.inf, {}
+
         plasma.update_profiles(parameters)
         self._build_bckc(parameters)  # model calls
         ln_likelihood = self._ln_likelihood()  # compare results to data
@@ -116,11 +130,11 @@ class BayesModels:
         kin_profs = {"electron_density": self.plasma.electron_density.sel(t=self.plasma.time_to_calculate),
                      "electron_temperature": self.plasma.electron_temperature.sel(t=self.plasma.time_to_calculate),
                      "ion_temperature": self.plasma.ion_temperature.sel(t=self.plasma.time_to_calculate),
+                     "impurity_density": self.plasma.impurity_density.sel(t=self.plasma.time_to_calculate),
                      #TODO: add ion / neutral / impurity densities when fz property works with single timepoint
                      }
         blob = deepcopy({**self.bckc, **kin_profs})
         return ln_posterior, blob
-
 
 if __name__ == "__main__":
     # First example to optimise the ne_int for the smm_interferom
