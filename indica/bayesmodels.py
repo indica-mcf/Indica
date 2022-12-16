@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as stats
 from copy import deepcopy
 import flatdict
+import pickle
 
 from indica.readers.read_st40 import ST40data
 from indica.equilibrium import Equilibrium
@@ -223,44 +224,92 @@ if __name__ == "__main__":
                      quant_to_optimise=["smmh1_ne", ], priors=priors)
 
     # Setup Optimiser
+    params_names = [
+        "Ne_prof_y0",
+        "Ne_prof_peaking",
+        "Ne_prof_y1",
+        "Nimp_prof_y0",
+        "Nimp_prof_peaking",
+        "Nimp_prof_y1",
+        "Te_prof_y0",
+        "Te_prof_peaking",
+        "Ti_prof_y0",
+        "Ti_prof_peaking",
+    ]
+    nwalk = 20
 
-    params_names = ["Ne_prof_y0",
-                    "Ne_prof_peaking",
-                    # "Ne_prof_wcenter",
-                    # "Ne_prof_y1"
-                    ]
-    nwalk = 10
-    y0 = np.random.normal(5e19, 1e19, nwalk).reshape((nwalk, 1,))
-    peaking = np.random.normal(3, 1, nwalk).reshape((nwalk, 1,))
-    wcenter = np.random.normal(0.4, 0.1, nwalk).reshape((nwalk, 1,))
-    y1 = np.random.normal(1e19, 1e18, nwalk).reshape((nwalk, 1,))
-    start_points = np.concatenate([y0,
-                                   peaking,
-                                   # wcenter,
-                                   # y1
-                                   ], axis=1)
+    Ne_y0 = np.random.normal(5e19, 1e19, size=(nwalk, 1,))
+    Ne_peaking = np.random.normal(3, 0.5, size=(nwalk, 1,))
+    Ne_y1 = np.random.normal(1e19, 1e18, size=(nwalk, 1,))
+    Nimp_y0 = np.random.normal(1e16, 1e15, size=(nwalk, 1,))
+    Nimp_peaking = np.random.normal(3, 0.5, size=(nwalk, 1,))
+    Nimp_y1 = np.random.normal(1e16, 1e15, size=(nwalk, 1,))
+    Te_y0 = np.random.normal(2e3, 2e2, size=(nwalk, 1,))
+    Te_peaking = np.random.normal(3, 0.5, size=(nwalk, 1,))
+    Ti_y0 = np.random.normal(6e3, 2e3, size=(nwalk, 1,))
+    Ti_peaking = np.random.normal(3, 0.5, size=(nwalk, 1,))
+
+    start_points = np.concatenate([
+        Ne_y0,
+        Ne_peaking,
+        Ne_y1,
+        Nimp_y0,
+        Nimp_peaking,
+        Nimp_y1,
+        Te_y0,
+        Te_peaking,
+        Ti_y0,
+        Ti_peaking,
+    ], axis=1)
 
     nwalkers, ndim = start_points.shape
 
     move = [emcee.moves.StretchMove()]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob_fn=bm.ln_posterior, parameter_names=params_names,
                                     moves=move)
-    sampler.run_mcmc(start_points, 2000, progress=True)
+    sampler.run_mcmc(start_points, 400, progress=True)
 
     blobs = sampler.get_blobs()
     blobs = blobs.flatten()
 
+    # save result
+    with open("bayesresult.pkl", "wb") as handle:
+        pickle.dump({"blobs": blobs, "flat_data": flat_data, "samples": sampler.get_chain(flat=True),
+                     "param_names": params_names}, handle)
+
     # ------------- plotting --------------
+    plt.figure()
     ne_data = np.array([data["smmh1_ne"].values for data in blobs])
-    ne_data_std = np.std(ne_data)
     plt.ylabel("smmh1_ne_int (m^-2)")
     plt.plot(ne_data, )
     plt.axhline(y=flat_data["smmh1_ne"].sel(t=plasma.time_to_calculate).values, color="red", linestyle="-")
+    plt.figure()
+    Te_data = np.array([data["xrcs_te_kw"].values for data in blobs])
+    plt.ylabel("electron temperature (eV)")
+    plt.plot(Te_data, )
+    plt.axhline(y=flat_data["xrcs_te_kw"].sel(t=plasma.time_to_calculate).values, color="red", linestyle="-")
+    plt.figure()
+    Ti_data = np.array([data["xrcs_ti_w"].values for data in blobs])
+    plt.ylabel("ion temperature (eV)")
+    plt.plot(Ti_data, )
+    plt.axhline(y=flat_data["xrcs_ti_w"].sel(t=plasma.time_to_calculate).values, color="red", linestyle="-")
 
     plt.figure()
-
     ne_prof = xr.DataArray([data["electron_density"] for data in blobs])
-    plt.errorbar(ne_prof.dim_1, ne_prof.mean("dim_0"), yerr=ne_prof.std("dim_0"))
+    plt.errorbar(ne_prof.dim_1, ne_prof.mean("dim_0"), yerr=ne_prof.std("dim_0"), label="ne")
+    plt.legend()
+    plt.figure()
+    Te_prof = xr.DataArray([data["electron_temperature"] for data in blobs])
+    plt.errorbar(Te_prof.dim_1, Te_prof.mean("dim_0"), yerr=Te_prof.std("dim_0"), label="te")
+    Ti_prof = xr.DataArray([data["ion_temperature"] for data in blobs])
+    plt.errorbar(Ti_prof.dim_2, Ti_prof.mean(["dim_0", "dim_1"]), yerr=Ti_prof.std(["dim_0", "dim_1"]), label="ti")
+    plt.legend()
+
+    plt.figure()
+    nimp_prof = xr.DataArray([data["impurity_density"] for data in blobs])
+    plt.errorbar(nimp_prof.dim_2, nimp_prof.mean(["dim_0", "dim_1"]), yerr=nimp_prof.std(["dim_0", "dim_1"]),
+                 label="NAr")
+    plt.legend()
 
     samples = sampler.get_chain(flat=True)
     fig = corner.corner(samples, labels=params_names)
