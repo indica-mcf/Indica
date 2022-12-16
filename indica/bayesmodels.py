@@ -192,18 +192,31 @@ if __name__ == "__main__":
 
     priors = {
         "Ne_prof_y0": lambda x:
-                                # gaussian(x, 5e19, 5e19) *
-                                uniform(x, 0, 5e20),
+        # gaussian(x, 5e19, 5e19) *
+        uniform(x, 1e19, 5e20),
         "Ne_prof_peaking": lambda x:
-                                     # gaussian(x, 5, 2) *
-                                     uniform(x, 0, 10),
-
+        uniform(x, 1, 5),
         "Ne_prof_wcenter": lambda x:
-                                     # gaussian(x, 0.4, 0.2) *
-                                     uniform(x, 0.1, 0.9),
+        uniform(x, 0.1, 0.9),
         "Ne_prof_y1": lambda x:
-                                # gaussian(x, 1e19, 1e19) *
-                                uniform(x, 0, 1e20),
+        uniform(x, 0, 1e20),
+        "Nimp_prof_y0": lambda x:
+        gaussian(x, 1e16, 1e15) *
+        uniform(x, 1e15, 1e17),
+        "Nimp_prof_peaking": lambda x:
+        uniform(x, 1, 5),
+        "Nimp_prof_y1": lambda x:
+        uniform(x, 1e15, 1e17),
+        "Te_prof_y0": lambda x:
+        uniform(x, 1000, 1e4),
+        "Te_prof_peaking": lambda x:
+        uniform(x, 1, 5),
+
+        "Ti_prof_y0": lambda x:
+        uniform(x, 1000, 2e4),
+        "Ti_prof_peaking": lambda x:
+        uniform(x, 1, 5),
+
     }
 
     bm = BayesModels(plasma=plasma, data=flat_data, diagnostic_models=[smmh1],
