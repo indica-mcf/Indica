@@ -25,7 +25,8 @@ y_positions = xr.zeros_like(x_positions)
 z_positions = DataArray(
     np.linspace(-0.1, 0.2, 10), coords=[("alpha", np.arange(10))]
 ).assign_attrs(datatype=("z", "plasma"))
-coords = TransectCoordinates(x_positions, y_positions, z_positions, "")
+R_positions = x_positions
+coords = TransectCoordinates(R_positions, z_positions)
 coords.set_equilibrium(fake_equilib)
 
 trivial = TrivialTransform()

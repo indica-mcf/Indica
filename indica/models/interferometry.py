@@ -111,7 +111,7 @@ def example_run(plasma=None, plot=False):
         direction[:, 2],
         name=diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
-        passes=1,
+        passes=2,
     )
     transform.set_equilibrium(plasma.equilibrium)
     model.set_transform(transform)
