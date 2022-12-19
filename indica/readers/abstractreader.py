@@ -1215,6 +1215,115 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    def get_vuv_spectroscopy(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, DataArray]:
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_vuv_spectroscopy(
+            uid, instrument, revision, quantities
+        )
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+        _revision = database_results["revision"]
+
+        times = database_results["times"]
+        data: Dict[str, DataArray] = {}
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read VUV data for quantity {}".format(
+                        self.__class__.__name__, quantity
+                    )
+                )
+            downsample_ratio = int(
+                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+            )
+            # transform = LinesOfSightTransform(
+            #     x_start=database_results[quantity + "_xstart"],
+            #     z_start=database_results[quantity + "_zstart"],
+            #     y_start=database_results[quantity + "_ystart"],
+            #     x_end=database_results[quantity + "_xstop"],
+            #     z_end=database_results[quantity + "_zstop"],
+            #     y_end=database_results[quantity + "_ystop"],
+            #     name=f"{instrument}_{quantity}",
+            #     machine_dimensions=database_results["machine_dims"],
+            # )
+            coords: Dict[Hashable, Any] = {"t": times}
+            dims = ["t"]
+            # if database_results["length"][quantity] > 1:
+            #     dims.append(transform.x1_name)
+            #     coords[transform.x1_name] = np.arange(
+            #         database_results["length"][quantity]
+            #     )
+            # else:
+            #     coords[transform.x1_name] = 0
+            meta = {
+                "datatype": available_quantities[quantity],
+                # "error": DataArray(
+                #     database_results[quantity + "_error"], coords, dims
+                # ).indica.inclusive_timeslice(self._tstart, self._tend),
+                # "transform": transform,
+            }
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                dims,
+                attrs=meta,
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                ).mean()
+                quant_data.attrs["error"] = np.sqrt(
+                    (quant_data.attrs["error"] ** 2)
+                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .mean()
+                    / downsample_ratio
+                )
+            quant_data.name = instrument + "_" + quantity
+            # if len(database_results[quantity + "_xstart"]) > 1:
+            #     drop = self._select_channels(
+            #         "bremsstrahlung",
+            #         uid,
+            #         instrument,
+            #         quantity,
+            #         quant_data,
+            #         transform.x1_name,
+            #     )
+            # else:
+            #     drop = []
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
+                "bremsstrahlung_spectroscopy",
+                uid,
+                instrument,
+                _revision,
+                quantity,
+                database_results[quantity + "_records"],
+                [],  # drop,
+            )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            data[quantity] = quant_data  # .indica.ignore_data(drop, transform.x1_name)
+
+        # self._warn_less_than_zero(instrument, data)
+        return data
+
+    def _get_vuv_spectroscopy(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        raise NotImplementedError(
+            "{} does not implement a '_get_vuv_spectroscopy' "
+            "method.".format(self.__class__.__name__)
+        )
+
     def get_helike_spectroscopy(
         self,
         uid: str,

@@ -95,6 +95,7 @@ class PPFReader(DataReader):
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
         "ks3": "get_bremsstrahlung_spectroscopy",
+        "cwup": "get_vuv_spectroscopy",
         "sxr": "get_radiation",
         "bolo": "get_radiation",
         "kg10": "get_thomson_scattering",
@@ -561,6 +562,23 @@ class PPFReader(DataReader):
             results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
 
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        return results
+
+    def _get_vuv_spectroscopy(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        results: Dict[str, Any] = {}
+        for q in quantities:
+            qval, q_path = self._get_signal(uid, instrument, q, revision)
+            if "times" not in results:
+                results["times"] = qval.dimensions[0].data
+            results[q] = qval.data
+            results[q + "_records"] = q_path
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
