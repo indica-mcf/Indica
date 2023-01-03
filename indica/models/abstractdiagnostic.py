@@ -10,8 +10,8 @@ class DiagnosticModel(ABC):
     name: str = ""
     bckc: dict = {}
     plasma: Plasma = None
-    los_transform:LineOfSightTransform
-    transect_transform:TransectCoordinates
+    los_transform: LineOfSightTransform
+    transect_transform: TransectCoordinates
 
     def set_los_transform(self, los_transform: LineOfSightTransform):
         """
