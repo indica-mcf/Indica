@@ -16,7 +16,6 @@ class Interferometry(DiagnosticModel):
     Object representing an interferometer diagnostics
     """
 
-    transform: LineOfSightTransform
     Ne: DataArray
     los_integral_ne: DataArray
 
@@ -43,7 +42,7 @@ class Interferometry(DiagnosticModel):
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
                     "datatype": datatype,
-                    "transform": self.transform,
+                    "transform": self.los_transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
@@ -77,7 +76,7 @@ class Interferometry(DiagnosticModel):
         self.t = t
         self.Ne = Ne
 
-        los_integral_ne = self.transform.integrate_on_los(
+        los_integral_ne = self.los_transform.integrate_on_los(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
@@ -102,7 +101,7 @@ def example_run(plasma=None, plot=False):
     model = Interferometry(
         diagnostic_name,
     )
-    transform = LineOfSightTransform(
+    los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
         origin[:, 2],
@@ -113,8 +112,8 @@ def example_run(plasma=None, plot=False):
         machine_dimensions=plasma.machine_dimensions,
         passes=2,
     )
-    transform.set_equilibrium(plasma.equilibrium)
-    model.set_transform(transform)
+    los_transform.set_equilibrium(plasma.equilibrium)
+    model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
     bckc = model()
@@ -127,12 +126,12 @@ def example_run(plasma=None, plot=False):
         plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
             levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
         )
-        channels = model.transform.x1
+        channels = model.los_transform.x1
         cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
         for chan in channels:
             plt.plot(
-                model.transform.R[chan],
-                model.transform.z[chan],
+                model.los_transform.R[chan],
+                model.los_transform.z[chan],
                 linewidth=3,
                 color=cols[chan],
                 alpha=0.7,
@@ -147,7 +146,7 @@ def example_run(plasma=None, plot=False):
         # Plot LOS mapping on equilibrium
         plt.figure()
         for chan in channels:
-            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
+            model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
                 color=cols[chan],
                 label=f"CH{chan}",
             )

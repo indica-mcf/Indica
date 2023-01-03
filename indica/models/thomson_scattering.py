@@ -16,8 +16,6 @@ class ThomsonScattering(DiagnosticModel):
     Object representing a Thomson scattering diagnostic
     """
 
-    transform: TransectCoordinates
-
     def __init__(
         self,
         name: str,
@@ -47,7 +45,7 @@ class ThomsonScattering(DiagnosticModel):
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
                 "datatype": datatype,
-                "transform": self.transform,
+                "transform": self.transect_transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
@@ -88,12 +86,12 @@ class ThomsonScattering(DiagnosticModel):
         self.Ne = Ne
         self.Te = Te
 
-        Ne_at_channels = self.transform.map_to_rho(
+        Ne_at_channels = self.transect_transform.map_to_rho(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
         )
-        Te_at_channels = self.transform.map_to_rho(
+        Te_at_channels = self.transect_transform.map_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
@@ -124,18 +122,18 @@ def example_run(
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)
 
-    transform = TransectCoordinates(
+    transect_transform = TransectCoordinates(
         x_positions,
         y_positions,
         z_positions,
         diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
     )
-    transform.set_equilibrium(plasma.equilibrium)
+    transect_transform.set_equilibrium(plasma.equilibrium)
     model = ThomsonScattering(
         diagnostic_name,
     )
-    model.set_transform(transform)
+    model.set_transect_transform(transect_transform)
     model.set_plasma(plasma)
 
     bckc = model()
@@ -149,8 +147,8 @@ def example_run(
                 levels=levels, alpha=0.5, colors=[cols_time[i]] * len(levels)
             )
         plt.scatter(
-            model.transform.R,
-            model.transform.z,
+            model.transect_transform.R,
+            model.transect_transform.z,
             label="Channels",
             marker="*",
             color="k",
@@ -164,8 +162,8 @@ def example_run(
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plt.plot(
-                model.transform.R,
-                model.transform.rho.sel(t=t, method="nearest"),
+                model.transect_transform.R,
+                model.transect_transform.rho.sel(t=t, method="nearest"),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
                 marker="o",

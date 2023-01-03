@@ -3,6 +3,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
+from copy import deepcopy
 
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
@@ -12,15 +13,13 @@ import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
-class Bremsstrahlung_filtered_diode(DiagnosticModel):
+class BremsstrahlungDiode(DiagnosticModel):
     """
     Object representing an diode filter diagnostic measuring
     Bremsstrahlung radiation in a specified wavelength range
 
     TODO: currently working only for Bremsstrahlung emission!!!
     """
-
-    transform: LineOfSightTransform
     los_integral: DataArray
 
     def __init__(
@@ -28,15 +27,36 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
         name: str,
         filter_wavelength: float = 530.0,
         filter_fwhm: float = 10,
-        filter_shape: str = "tophat",
+        filter_type: str = "boxcar",
         etendue: float = 1.0,
         calibration: float = 2.0e-5,
         instrument_method="get_diode_filters",
     ):
+        """
+        Filtered diode diagnostic measuring Bremsstrahlung
+        TODO: does not account for contaminating spectral lines
+
+        Parameters
+        ----------
+        name
+            Diagnostic name
+        filter_wavelength
+            Central wavelength of transmission filter
+        filter_fwhm
+            FWHM of transmission filter
+        filter_type
+            Function describing filter shape
+        etendue
+            Etendue of system
+        calibration
+            Absolute calibration to convert from Watts -> counts
+        instrument_method
+            Name of indica reader method to read experimental diagnostic data
+        """
         self.name = name
         self.filter_wavelength = filter_wavelength
         self.filter_fwhm = filter_fwhm
-        self.filter_shape = filter_shape
+        self.filter_type = filter_type
         self.etendue = etendue
         self.calibration = calibration
         self.instrument_method = instrument_method
@@ -54,7 +74,7 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
                     "datatype": datatype,
-                    "transform": self.transform,
+                    "transform": self.los_transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
@@ -93,7 +113,7 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
                 t = self.plasma.t
             Ne = self.plasma.electron_density.interp(t=t)
             Te = self.plasma.electron_temperature.interp(t=t)
-            Zeff = self.plasma.zeff.interp(t=t)
+            Zeff = self.plasma.zeff.interp(t=t).sum("element")
         else:
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
@@ -103,13 +123,29 @@ class Bremsstrahlung_filtered_diode(DiagnosticModel):
         self.Ne = Ne
         self.Zeff = Zeff
 
-        emission = ph.zeff_bremsstrahlung(Te, Ne, self.filter_wavelength, zeff=Zeff)
-        self.emission = emission
+        # Wavelength axis
+        wavelength = np.linspace(
+            self.filter_wavelength - self.filter_fwhm * 2,
+            self.filter_wavelength + self.filter_fwhm * 2,
+        )
+        self.wavelength = DataArray(wavelength, coords=[("wavelength", wavelength)])
 
-        los_integral = self.transform.integrate_on_los(
-            emission.sum("element"),
-            t=t,
-            calc_rho=calc_rho,
+        # Transmission filter function
+        self.transmission = ph.make_window(
+            wavelength,
+            self.filter_wavelength,
+            self.filter_fwhm,
+            window=self.filter_type,
+        )
+
+        # Bremsstrahlung emission for each time, radial position and wavelength
+        wlength = deepcopy(self.wavelength)
+        for dim in Ne.dims:
+            wlength = wlength.expand_dims(dim={dim: self.Ne[dim]})
+        self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
+
+        los_integral = self.los_transform.integrate_on_los(
+            (self.emission * self.transmission).integrate("wavelength"), t=t, calc_rho=calc_rho,
         )
 
         self.los_integral = los_integral
@@ -129,7 +165,7 @@ def example_run(plasma=None, plot: bool = False):
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
     origin = los_start
     direction = los_end - los_start
-    transform = LineOfSightTransform(
+    los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
         origin[:, 2],
@@ -140,11 +176,9 @@ def example_run(plasma=None, plot: bool = False):
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
     )
-    transform.set_equilibrium(plasma.equilibrium)
-    model = Bremsstrahlung_filtered_diode(
-        diagnostic_name,
-    )
-    model.set_transform(transform)
+    los_transform.set_equilibrium(plasma.equilibrium)
+    model = BremsstrahlungDiode(diagnostic_name,)
+    model.set_los_transform(los_transform)
     model.set_plasma(plasma)
     bckc = model()
 
@@ -156,13 +190,13 @@ def example_run(plasma=None, plot: bool = False):
         plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
             levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
         )
-        channels = model.transform.x1
+        channels = model.los_transform.x1
         cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
         for chan in channels:
             plt.plot(
-                model.transform.R[chan],
-                model.transform.z[chan],
-                linewidth=3,
+                model.los_transform.R[chan],
+                model.los_transform.z[chan],
+                linewidth=2,
                 color=cols[chan],
                 alpha=0.7,
                 label=f"CH{chan}",
@@ -176,9 +210,8 @@ def example_run(plasma=None, plot: bool = False):
         # Plot LOS mapping on equilibrium
         plt.figure()
         for chan in channels:
-            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
-                color=cols[chan],
-                label=f"CH{chan}",
+            model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
+                color=cols[chan], label=f"CH{chan}",
             )
         plt.xlabel("Path along the LOS")
         plt.ylabel("Rho-poloidal")
@@ -197,8 +230,8 @@ def example_run(plasma=None, plot: bool = False):
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plt.plot(
-                model.emission.sum("element").rho_poloidal,
-                model.emission.sum("element").sel(t=t),
+                model.emission.rho_poloidal,
+                model.emission.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )

@@ -1,7 +1,8 @@
 from abc import ABC
 from abc import abstractmethod
 
-from indica.converters.abstractconverter import CoordinateTransform
+from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters.transect_rho import TransectCoordinates
 from indica.models.plasma import Plasma
 
 
@@ -9,14 +10,20 @@ class DiagnosticModel(ABC):
     name: str = ""
     bckc: dict = {}
     plasma: Plasma = None
+    los_transform:LineOfSightTransform
+    transect_transform:TransectCoordinates
 
-    def set_transform(self, transform: CoordinateTransform):
+    def set_los_transform(self, los_transform: LineOfSightTransform):
         """
-        Set diagnostic coordinate transform of diagnostic
-        TODO: some diagnostics should have both trivial and los transforms!!!
+        Line-of-sight coordinate transform
         """
-        self.transform = transform
-        self.bckc = {}
+        self.los_transform = los_transform
+
+    def set_transect_transform(self, transect_transform: TransectCoordinates):
+        """
+        Transect coordinate transform
+        """
+        self.transect_transform = transect_transform
 
     def set_plasma(self, plasma: Plasma):
         """
