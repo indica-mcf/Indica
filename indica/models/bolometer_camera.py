@@ -16,8 +16,6 @@ class Bolometer(DiagnosticModel):
     Object representing a bolometer camera diagnostic
     """
 
-    transform: LineOfSightTransform
-
     def __init__(
         self,
         name: str,
@@ -40,7 +38,7 @@ class Bolometer(DiagnosticModel):
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
                     "datatype": datatype,
-                    "transform": self.transform,
+                    "transform": self.los_transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
@@ -102,7 +100,7 @@ class Bolometer(DiagnosticModel):
                 self.Lz[elem].sum("ion_charges") * self.Nimp.sel(element=elem) * self.Ne
             )
         emission = xr.concat(_emission, "element")
-        los_integral = self.transform.integrate_on_los(
+        los_integral = self.los_transform.integrate_on_los(
             emission.sum("element"),
             t=t,
             calc_rho=calc_rho,
@@ -138,7 +136,7 @@ def example_run(
         origin = los_start
         direction = los_end - los_start
 
-    transform = LineOfSightTransform(
+    los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
         origin[:, 2],
@@ -149,11 +147,11 @@ def example_run(
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
     )
-    transform.set_equilibrium(plasma.equilibrium)
+    los_transform.set_equilibrium(plasma.equilibrium)
     model = Bolometer(
         diagnostic_name,
     )
-    model.set_transform(transform)
+    model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
     bckc = model()
@@ -166,12 +164,12 @@ def example_run(
         plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
             levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
         )
-        channels = model.transform.x1
+        channels = model.los_transform.x1
         cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
         for chan in channels:
             plt.plot(
-                model.transform.R[chan],
-                model.transform.z[chan],
+                model.los_transform.R[chan],
+                model.los_transform.z[chan],
                 linewidth=3,
                 color=cols[chan],
                 alpha=0.7,
@@ -186,7 +184,7 @@ def example_run(
         # Plot LOS mapping on equilibrium
         plt.figure()
         for chan in channels:
-            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
+            model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
                 color=cols[chan],
                 label=f"CH{chan}",
             )
@@ -361,7 +359,7 @@ def viewing_cone(option: int = 2, plasma=None):
     # Plot forward model
     plt.figure()
     for i in tind_plot:
-        impact = model0.transform.impact_xyz.value
+        impact = model0.los_transform.impact_xyz.value
         plt.plot(
             impact,
             bckc0["brightness"].sel(t=plasma.t[i], method="nearest"),
@@ -376,17 +374,17 @@ def viewing_cone(option: int = 2, plasma=None):
     plt.title("Centre (dashed) and side of cones (shaded)")
     plt.legend()
 
-    model0.transform.plot_los(tplot=np.mean(plasma.t))
-    for chan in model0.transform.x1:
+    model0.los_transform.plot_los(tplot=np.mean(plasma.t))
+    for chan in model0.los_transform.x1:
         plt.plot(
-            model1.transform.x[chan],
-            model1.transform.y[chan],
+            model1.los_transform.x[chan],
+            model1.los_transform.y[chan],
             color="gray",
             linestyle="dashed",
         )
         plt.plot(
-            model2.transform.x[chan],
-            model2.transform.y[chan],
+            model2.los_transform.x[chan],
+            model2.los_transform.y[chan],
             color="gray",
             linestyle="dotted",
         )

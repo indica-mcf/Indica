@@ -38,8 +38,6 @@ class Helike_spectroscopy(DiagnosticModel):
     TODO: calibration and Etendue to be correctly included
     """
 
-    transform: LineOfSightTransform
-
     def __init__(
         self,
         name: str,
@@ -222,12 +220,12 @@ class Helike_spectroscopy(DiagnosticModel):
 
     def _calculate_los_integral(self, calc_rho=False):
         for line in self.emission.keys():
-            self.measured_intensity[line] = self.transform.integrate_on_los(
+            self.measured_intensity[line] = self.los_transform.integrate_on_los(
                 self.emission[line],
                 t=self.emission[line].t,
                 calc_rho=calc_rho,
             )
-            self.emission_los[line] = self.transform.along_los
+            self.emission_los[line] = self.los_transform.along_los
             (
                 _,
                 self.pos[line],
@@ -236,15 +234,15 @@ class Helike_spectroscopy(DiagnosticModel):
             ) = self._moment_analysis(line)
 
         if self.calc_spectra:
-            self.measured_spectra = self.transform.integrate_on_los(
+            self.measured_spectra = self.los_transform.integrate_on_los(
                 self.spectra["total"],
                 t=self.spectra["total"].t,
                 calc_rho=calc_rho,
             )
 
     def _calculate_temperatures(self):
-        x1 = self.transform.x1
-        x1_name = self.transform.x1_name
+        x1 = self.los_transform.x1
+        x1_name = self.los_transform.x1_name
 
         for quant in self.quantities:
             datatype = self.quantities[quant]
@@ -309,7 +307,7 @@ class Helike_spectroscopy(DiagnosticModel):
         else:
             times = self.t
 
-        for chan in self.transform.x1:
+        for chan in self.los_transform.x1:
             _value = None
             _result = []
             _pos, _err_in, _err_out = [], [], []
@@ -321,10 +319,10 @@ class Helike_spectroscopy(DiagnosticModel):
                 else:
                     distribution_function = self.emission_los[line][chan].values
 
-                if "t" in self.transform.rho[chan].dims:
-                    rho_los = self.transform.rho[chan].sel(t=t, method="nearest").values
+                if "t" in self.los_transform.rho[chan].dims:
+                    rho_los = self.los_transform.rho[chan].sel(t=t, method="nearest").values
                 else:
-                    rho_los = self.transform.rho[chan].values
+                    rho_los = self.los_transform.rho[chan].values
                 if half_los:
                     rho_ind = slice(0, np.argmin(rho_los) + 1)
                 else:
@@ -373,17 +371,17 @@ class Helike_spectroscopy(DiagnosticModel):
             err_in.append(DataArray(np.array(_err_in), coords=[("t", times)]))
             err_out.append(DataArray(np.array(_err_out), coords=[("t", times)]))
 
-        result = xr.concat(result, self.transform.x1_name).assign_coords(
-            {self.transform.x1_name: self.transform.x1}
+        result = xr.concat(result, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
         )
-        pos = xr.concat(pos, self.transform.x1_name).assign_coords(
-            {self.transform.x1_name: self.transform.x1}
+        pos = xr.concat(pos, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
         )
-        err_in = xr.concat(err_in, self.transform.x1_name).assign_coords(
-            {self.transform.x1_name: self.transform.x1}
+        err_in = xr.concat(err_in, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
         )
-        err_out = xr.concat(err_out, self.transform.x1_name).assign_coords(
-            {self.transform.x1_name: self.transform.x1}
+        err_out = xr.concat(err_out, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
         )
 
         return result, pos, err_in, err_out
@@ -773,7 +771,7 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
     origin = los_start
     direction = los_end - los_start
 
-    transform = LineOfSightTransform(
+    los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
         origin[:, 2],
@@ -784,16 +782,16 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
     )
-    transform.set_equilibrium(plasma.equilibrium)
+    los_transform.set_equilibrium(plasma.equilibrium)
     model = Helike_spectroscopy(
         diagnostic_name,
     )
-    model.set_transform(transform)
+    model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
     bckc = model(calc_spectra=calc_spectra)
 
-    channels = model.transform.x1
+    channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
     # Plot spectra
@@ -817,8 +815,8 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
         )
         for chan in channels:
             plt.plot(
-                model.transform.R[chan],
-                model.transform.z[chan],
+                model.los_transform.R[chan],
+                model.los_transform.z[chan],
                 linewidth=3,
                 color=cols[chan],
                 alpha=0.7,
@@ -833,7 +831,7 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
         # Plot LOS mapping on equilibrium
         plt.figure()
         for chan in channels:
-            model.transform.rho[chan].sel(t=tplot, method="nearest").plot(
+            model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
                 color=cols[chan],
                 label=f"CH{chan}",
             )
