@@ -320,7 +320,9 @@ class Helike_spectroscopy(DiagnosticModel):
                     distribution_function = self.emission_los[line][chan].values
 
                 if "t" in self.los_transform.rho[chan].dims:
-                    rho_los = self.los_transform.rho[chan].sel(t=t, method="nearest").values
+                    rho_los = (
+                        self.los_transform.rho[chan].sel(t=t, method="nearest").values
+                    )
                 else:
                     rho_los = self.los_transform.rho[chan].values
                 if half_los:
