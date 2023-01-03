@@ -269,9 +269,6 @@ class Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        _, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
         results: Dict[str, Any] = {
             "length": np.random.randint(4, 20),
             "machine_dims": self.MACHINE_DIMS,
@@ -301,9 +298,6 @@ class Reader(DataReader):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
 
         results: Dict[str, Any] = {
             "length": np.random.randint(4, 20),
@@ -338,9 +332,6 @@ class Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
         nwavelength = np.random.randint(256, 1024)
         wavelength_start, wavelength_end = 3.8, 4.0
 
@@ -363,7 +354,9 @@ class Reader(DataReader):
 
         for quantity in quantities:
             if quantity == "spectra":
-                results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"], nwavelength))
+                results[quantity] = np.random.uniform(
+                    0, 1.0e6, (nt, results["length"], nwavelength)
+                )
             else:
                 results[quantity] = np.random.uniform(0, 1.0e4, (nt, results["length"]))
             results[f"{quantity}_error"] = np.sqrt(results[quantity])
@@ -382,9 +375,6 @@ class Reader(DataReader):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
 
         results: Dict[str, Any] = {
             "length": np.random.randint(4, 20),
@@ -422,9 +412,6 @@ class Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
         results: Dict[str, Any] = {
             "length": np.random.randint(4, 20),
             "machine_dims": self.MACHINE_DIMS,
@@ -457,7 +444,9 @@ class Reader(DataReader):
         return []
 
     def _set_times_item(
-        self, results: Dict[str, Any], times: np.ndarray,
+        self,
+        results: Dict[str, Any],
+        times: np.ndarray,
     ):
         if "times" not in results:
             times = times
@@ -470,14 +459,19 @@ class Reader(DataReader):
 
 
 def _test_get_methods(
-    instrument="ts", nsamples=1,
+    instrument="ts",
+    nsamples=1,
 ):
     """
     Generalised test for all get methods of the abstractreader
     """
 
     for i in range(nsamples):
-        reader = Reader(1, TSTART, TEND,)
+        reader = Reader(
+            1,
+            TSTART,
+            TEND,
+        )
 
         quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
 
@@ -510,23 +504,27 @@ def test_get_radiation():
 
 def test_get_bremsstrahlung_spectroscopy():
     _test_get_methods(
-        instrument="bremsstrahlung_spectroscopy", nsamples=10,
+        instrument="bremsstrahlung_spectroscopy",
+        nsamples=10,
     )
 
 
 def test_get_helike_spectroscopy():
     _test_get_methods(
-        instrument="helike_spectroscopy", nsamples=10,
+        instrument="helike_spectroscopy",
+        nsamples=10,
     )
 
 
 def test_get_diode_filters():
     _test_get_methods(
-        instrument="filters", nsamples=10,
+        instrument="filters",
+        nsamples=10,
     )
 
 
 def test_get_interferometry():
     _test_get_methods(
-        instrument="interferometry", nsamples=10,
+        instrument="interferometry",
+        nsamples=10,
     )

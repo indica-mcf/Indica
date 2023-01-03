@@ -398,7 +398,7 @@ class DataReader(BaseIO):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
-        Gets raw data for charge-exchange-recombination-spectroscopy diagnostic from the database
+        Gets raw data for CXRS diagnostic from the database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_charge_exchange' "
@@ -710,7 +710,7 @@ class DataReader(BaseIO):
             dl=dl,
         )
         data = {}
-        quantity="brightness"
+        quantity = "brightness"
         if quantity not in available_quantities:
             raise ValueError(
                 "{} can not read radiation data for quantity {}".format(
@@ -815,7 +815,7 @@ class DataReader(BaseIO):
             dl=dl,
         )
         data = {}
-        quantity="zeff"
+        quantity = "zeff"
         if quantity not in available_quantities:
             raise ValueError(
                 "{} can not read bremsstrahlung data for quantity {}".format(
@@ -829,16 +829,14 @@ class DataReader(BaseIO):
         dims = ["t"]
         if database_results["length"] > 1:
             dims.append(transform.x1_name)
-            coords[transform.x1_name] = np.arange(
-                database_results["length"]
-            )
+            coords[transform.x1_name] = np.arange(database_results["length"])
         else:
             coords[transform.x1_name] = 0
         meta = {
             "datatype": available_quantities[quantity],
-            "error": DataArray(
-                database_results[quantity + "_error"], coords, dims
-            ).sel(t=slice(self._tstart, self._tend)),
+            "error": DataArray(database_results[quantity + "_error"], coords, dims).sel(
+                t=slice(self._tstart, self._tend)
+            ),
             "transform": transform,
         }
         quant_data = DataArray(
@@ -858,7 +856,7 @@ class DataReader(BaseIO):
                 / downsample_ratio
             )
         quant_data.name = instrument + "_" + quantity
-        drop = []
+        drop: list = []
         quant_data.attrs["partial_provenance"] = self.create_provenance(
             "bremsstrahlung_spectroscopy",
             uid,
@@ -1069,9 +1067,9 @@ class DataReader(BaseIO):
             )
         meta = {
             "datatype": available_quantities[quantity],
-            "error": DataArray(
-                database_results[quantity + "_error"], coords, dims
-            ).sel(t=slice(self._tstart, self._tend)),
+            "error": DataArray(database_results[quantity + "_error"], coords, dims).sel(
+                t=slice(self._tstart, self._tend)
+            ),
             "transform": transform,
         }
         quant_data = DataArray(

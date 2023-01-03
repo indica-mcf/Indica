@@ -157,17 +157,29 @@ class ST40Reader(DataReader):
             "times": ".time",
             "exposure": ".exposure",
         },
-        "nirh1": {"ne": ".line_int:ne",},
-        "nirh1_bin": {"ne": ".line_int:ne",},
-        "smmh1": {"ne": ".line_int:ne",},
-        "brems": {"brightness": ".brem_mp1:intensity",},
-        "halpha": {"brightness": ".h_alpha_mp1:intensity",},
+        "nirh1": {
+            "ne": ".line_int:ne",
+        },
+        "nirh1_bin": {
+            "ne": ".line_int:ne",
+        },
+        "smmh1": {
+            "ne": ".line_int:ne",
+        },
+        "brems": {
+            "brightness": ".brem_mp1:intensity",
+        },
+        "halpha": {
+            "brightness": ".h_alpha_mp1:intensity",
+        },
         "sxr_camera_4": {
             "brightness": ".middle_head.filter_4:",
             "location": ".middle_head.geometry:location",
             "direction": ".middle_head.geometry:direction",
         },
-        "sxr_diode_4": {"brightness": ".filter_004:signal",},
+        "sxr_diode_4": {
+            "brightness": ".filter_004:signal",
+        },
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
@@ -324,7 +336,9 @@ class ST40Reader(DataReader):
         return data, path
 
     def _get_signal_dims(
-        self, mds_path: str, ndims: int,
+        self,
+        mds_path: str,
+        ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
@@ -501,12 +515,8 @@ class ST40Reader(DataReader):
         results[quantity] = np.array(brightness).T
         results[quantity + "_records"] = records
         results[quantity + "_error"] = self._default_error * results[quantity]
-        results["location"] = np.array(
-            location[chan_start - 1 : chan_start + nchan]
-        )
-        results["direction"] = np.array(
-            direction[chan_start - 1 : chan_start + nchan]
-        )
+        results["location"] = np.array(location[chan_start - 1 : chan_start + nchan])
+        results["direction"] = np.array(direction[chan_start - 1 : chan_start + nchan])
         # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
 
         results["quantities"] = quantities
@@ -667,8 +677,19 @@ class ST40Reader(DataReader):
         # direction, position_path = self._get_signal(
         #     uid, instrument, ".geometry:direction", revision
         # )
-        location = np.array([[1.0, 0, 0],])
-        direction = np.array([[0.17, 0, 0],]) - location
+        location = np.array(
+            [
+                [1.0, 0, 0],
+            ]
+        )
+        direction = (
+            np.array(
+                [
+                    [0.17, 0, 0],
+                ]
+            )
+            - location
+        )
         length = location[:, 0].size
         if instrument == "brems":
             _instrument = "lines"
@@ -772,7 +793,7 @@ class ST40Reader(DataReader):
                 revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):
-                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
+                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
 
         results["length"] = np.shape(location)[0]
