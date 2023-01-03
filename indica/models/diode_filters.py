@@ -1,9 +1,10 @@
+from copy import deepcopy
+
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
-from copy import deepcopy
 
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
@@ -20,6 +21,7 @@ class BremsstrahlungDiode(DiagnosticModel):
 
     TODO: currently working only for Bremsstrahlung emission!!!
     """
+
     los_integral: DataArray
 
     def __init__(
@@ -145,7 +147,9 @@ class BremsstrahlungDiode(DiagnosticModel):
         self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
 
         los_integral = self.los_transform.integrate_on_los(
-            (self.emission * self.transmission).integrate("wavelength"), t=t, calc_rho=calc_rho,
+            (self.emission * self.transmission).integrate("wavelength"),
+            t=t,
+            calc_rho=calc_rho,
         )
 
         self.los_integral = los_integral
@@ -177,7 +181,9 @@ def example_run(plasma=None, plot: bool = False):
         passes=1,
     )
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = BremsstrahlungDiode(diagnostic_name,)
+    model = BremsstrahlungDiode(
+        diagnostic_name,
+    )
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
     bckc = model()
@@ -211,7 +217,8 @@ def example_run(plasma=None, plot: bool = False):
         plt.figure()
         for chan in channels:
             model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
-                color=cols[chan], label=f"CH{chan}",
+                color=cols[chan],
+                label=f"CH{chan}",
             )
         plt.xlabel("Path along the LOS")
         plt.ylabel("Rho-poloidal")

@@ -22,9 +22,7 @@ from ..utilities import input_check
 np.set_printoptions(edgeitems=10, linewidth=100)
 
 
-def shape_check(
-    data_to_check: dict,
-):
+def shape_check(data_to_check: dict,):
     """Check to make sure all items in a given dictionary
     have the same dimensions as each other.
     Parameters
@@ -132,21 +130,19 @@ class FractionalAbundance(Operator):
         self.ACD = ACD
         self.CCD = CCD
 
-        imported_data = {}
-        imported_data["SCD"] = self.SCD
-        imported_data["ACD"] = self.ACD
-        if self.CCD is not None:
-            imported_data["CCD"] = self.CCD
-
         if check_input:
+            imported_data = {}
+            imported_data["SCD"] = self.SCD
+            imported_data["ACD"] = self.ACD
+            if self.CCD is not None:
+                imported_data["CCD"] = self.CCD
+
             for ikey, ival in imported_data.items():
                 input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
-            # shape_check(imported_data)
+            shape_check(imported_data)
 
     def interpolation_bounds_check(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
+        self, Ne: DataArray, Te: DataArray,
     ):
         """Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
@@ -171,7 +167,7 @@ class FractionalAbundance(Operator):
         input_check("Ne", Ne, DataArray, strictly_positive=False)
         inputted_data["Ne"] = Ne
 
-        input_check("Te", Te, DataArray, strictly_positive=False)
+        input_check("Te", Te, DataArray, strictly_positive=True)
         inputted_data["Te"] = Te
 
         shape_check(inputted_data)
@@ -243,10 +239,7 @@ class FractionalAbundance(Operator):
         return (("fractional abundance", "impurity_element"),)
 
     def interpolate_rates(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
-        bounds_check=True,
+        self, Ne: DataArray, Te: DataArray, bounds_check=True,
     ):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
@@ -309,9 +302,7 @@ class FractionalAbundance(Operator):
         return SCD_spec, ACD_spec, CCD_spec, self.num_of_ion_charges
 
     def calc_ionisation_balance_matrix(
-        self,
-        Ne: DataArray,
-        Nh: DataArray = None,
+        self, Ne: DataArray, Nh: DataArray = None,
     ):
         """Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
@@ -406,9 +397,7 @@ class FractionalAbundance(Operator):
 
         return ionisation_balance_matrix
 
-    def calc_F_z_tinf(
-        self,
-    ):
+    def calc_F_z_tinf(self,):
         """Calculates the equilibrium fractional abundance of all ionisation charges,
         F_z(t=infinity) used for the final time evolution equation.
 
@@ -452,9 +441,7 @@ class FractionalAbundance(Operator):
 
         return np.real(F_z_tinf)
 
-    def calc_eigen_vals_and_vecs(
-        self,
-    ):
+    def calc_eigen_vals_and_vecs(self,):
         """Calculates the eigenvalues and eigenvectors of the ionisation balance
         matrix.
 
@@ -485,8 +472,7 @@ class FractionalAbundance(Operator):
         return eig_vals, eig_vecs
 
     def calc_eigen_coeffs(
-        self,
-        F_z_t0: DataArray = None,
+        self, F_z_t0: DataArray = None,
     ):
         """Calculates the coefficients from the eigenvalues and eigenvectors for the
         time evolution equation.
@@ -590,10 +576,7 @@ class FractionalAbundance(Operator):
         """
 
         input_check(
-            "tau",
-            tau,
-            get_args(LabeledArray),
-            strictly_positive=False,
+            "tau", tau, get_args(LabeledArray), strictly_positive=False,
         )
 
         x1_coord = self.x1_coord
@@ -775,9 +758,7 @@ class PowerLoss(Operator):
         # shape_check(imported_data)
 
     def interpolation_bounds_check(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
+        self, Ne: DataArray, Te: DataArray,
     ):
         """Checks that inputted data (Ne and Te) has values that are within the
         interpolation ranges specified inside imported_data(PLT,PRC,PRB).
@@ -872,10 +853,7 @@ class PowerLoss(Operator):
         return (("total_radiated power loss", "impurity_element"),)
 
     def interpolate_power(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
-        bounds_check=True,
+        self, Ne: DataArray, Te: DataArray, bounds_check=True,
     ):
         """Interpolates the various powers based on inputted Ne and Te.
 
@@ -958,10 +936,7 @@ class PowerLoss(Operator):
         return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
 
     def calculate_power_loss(
-        self,
-        Ne: DataArray,
-        F_z_t: DataArray,
-        Nh: DataArray = None,
+        self, Ne: DataArray, F_z_t: DataArray, Nh: DataArray = None,
     ):
         """Calculates total radiated power of all ionisation charges of a given
         impurity element.
@@ -1038,28 +1013,30 @@ class PowerLoss(Operator):
             )
             for icharge in range(1, self.num_of_ion_charges - 1):
                 cooling_factor[icharge, ix1] = (
-                    PLT[icharge, ix1]
-                    + (
+                    (
+                        PLT[icharge, ix1]
+                        + (
+                            (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
+                            if (PRC is not None) and (Nh is not None)
+                            else 0.0
+                        )
+                        + PRB[icharge - 1, ix1]
+                    )
+                    * self.F_z_t[icharge, ix1]
+                )  # type: ignore
+
+            icharge = self.num_of_ion_charges - 1
+            cooling_factor[icharge, ix1] = (
+                (
+                    (
                         (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
                         if (PRC is not None) and (Nh is not None)
                         else 0.0
                     )
                     + PRB[icharge - 1, ix1]
-                ) * self.F_z_t[
-                    icharge, ix1
-                ]  # type: ignore
-
-            icharge = self.num_of_ion_charges - 1
-            cooling_factor[icharge, ix1] = (
-                (
-                    (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
-                    if (PRC is not None) and (Nh is not None)
-                    else 0.0
                 )
-                + PRB[icharge - 1, ix1]
-            ) * self.F_z_t[
-                icharge, ix1
-            ]  # type: ignore
+                * self.F_z_t[icharge, ix1]
+            )  # type: ignore
 
         self.cooling_factor = cooling_factor
 
@@ -1115,7 +1092,7 @@ class PowerLoss(Operator):
         return cooling_factor
 
 
-def interpolate_results(data: DataArray, Te_data: DataArray, Te_interp: DataArray):
+def interpolate_results(data: DataArray, Te_data: DataArray, Te_interp: DataArray, method="cubic"):
     """
     Interpolate fractional abundance or cooling factor on electron
     temperature for fast processing
@@ -1132,12 +1109,10 @@ def interpolate_results(data: DataArray, Te_data: DataArray, Te_interp: DataArra
     Interpolated values
     """
     _result = []
-    dim_old = [d for d in data.dims if d != "ion_charges"][0]
     ion_charges = data.ion_charges
-
-    _data = deepcopy(data)
-    _data = _data.assign_coords(electron_temperature=(dim_old, Te_data))
-    _data = _data.swap_dims({dim_old: "electron_temperature"})
+    dim_old = [d for d in data.dims if d != "ion_charges"][0]
+    _data = data.assign_coords(electron_temperature=(dim_old, Te_data))
+    _data = _data.swap_dims({dim_old: "electron_temperature"}).drop(dim_old)
 
     for charge in ion_charges:
         _result.append(

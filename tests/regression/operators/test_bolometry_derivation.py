@@ -73,9 +73,8 @@ def input_data_setup():
 
     flux_surfs = FluxSurfaceCoordinates("poloidal")
 
-    offset = MagicMock(return_value=0.02)
     equilib_dat, Te = equilibrium_dat_and_te()
-    equilib = Equilibrium(equilib_dat, Te, sess=MagicMock(), offset_picker=offset)
+    equilib = Equilibrium(equilib_dat, sess=MagicMock())
 
     flux_surfs.set_equilibrium(equilib)
 

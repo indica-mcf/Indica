@@ -668,8 +668,103 @@ class Equilibrium:
             )
         return flux, t
 
+    def cross_sectional_area(
+        self,
+        rho: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        kind: str = "poloidal",
+    ) -> Tuple[DataArray, LabeledArray]:
+        """Calculates the cross-sectional area inside the flux surface rho and at
+        given time t.
 
-def convert_to_dataarray(value, coords):
+        Parameters
+        ----------
+        rho
+            Values of rho at which to calculate the cross-sectional area.
+        t
+            Values of time at which to calculate the cross-sectional area.
+        kind
+            The type of flux surface to use. May be "toroidal", "poloidal",
+            plus optional extras depending on implementation.
+
+        Returns
+        -------
+        area
+            Cross-sectional areas calculated at rho and t.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+
+        if t is None:
+            t = self.rho.coords["t"]
+
+        if kind == "toroidal":
+            _rho, _ = self.convert_flux_coords(
+                rho, t, from_kind="toroidal", to_kind="poloidal"
+            )
+        elif kind == "poloidal":
+            _rho = rho
+        else:
+            raise ValueError("kind must be either poloidal or toroidal")
+
+        result = self.area.interp(rho_poloidal=_rho).interp(t=t)
+
+        return (
+            result,
+            cast(LabeledArray, t),
+        )
+
+    def enclosed_volume(
+        self,
+        rho: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        kind: str = "poloidal",
+    ) -> Tuple[DataArray, LabeledArray]:
+        """Returns the volume enclosed by the specified flux surface.
+
+        Parameters
+        ----------
+        rho
+            Flux surfaces to get the enclosed volumes for.
+        t
+            Times at which to get the enclosed volume. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+        kind
+            The type of flux surface to use. May be "toroidal", "poloidal",
+            plus optional extras depending on implementation.
+
+        Returns
+        -------
+        vol
+            Volumes of space enclosed by the flux surfaces.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        if t is None:
+            t = self.rho.coords["t"]
+
+        _rho: LabeledArray
+        if kind == "toroidal":
+            _rho, _ = self.convert_flux_coords(
+                rho, t, from_kind="toroidal", to_kind="poloidal"
+            )
+        elif kind == "poloidal":
+            _rho = rho
+        else:
+            raise ValueError("kind must be either poloidal or toroidal")
+
+        result = self.volume.interp(rho_poloidal=_rho).interp(t=t)
+
+        return (
+            result,
+            cast(LabeledArray, t),
+        )
+
+
+def convert_to_dataarray(value, coords) -> DataArray:
     if type(value) != DataArray:
         return DataArray(value, [coords])
     else:

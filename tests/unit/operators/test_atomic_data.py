@@ -651,7 +651,7 @@ def test_interpolate_rates(test_fractional_abundance_init):
             ACD_spec,
             CCD_spec,
             num_of_ion_charges,
-        ) = example_frac_abundance.interpolate_rates(input_Ne, input_Te)
+        ) = example_frac_abundance.interpolate_rates(input_Te, input_Ne)
     except Exception as e:
         raise e
 
@@ -1076,8 +1076,8 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
 
     try:
         F_z_t = example_frac_abundance_no_optional(
-            input_Ne,
             input_Te,
+            input_Ne,
             tau=tau,
             full_run=False,
         )
@@ -1095,6 +1095,7 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
 
     try:
         F_z_t = example_frac_abundance_no_optional(
+            input_Te,
             input_Ne,
             input_Te,
             tau=tau,
@@ -1124,8 +1125,8 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
 
     try:
         F_z_t = example_frac_abundance_no_optional(
-            input_Ne,
             input_Te,
+            input_Ne,
             tau=tau,
             full_run=False,
         )
@@ -1149,8 +1150,8 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
     tau = 1e-16
     try:
         F_z_t = example_frac_abundance(
-            input_Ne,
             input_Te,
+            input_Ne,
             input_Nh,
             tau=tau,
             full_run=False,
@@ -1169,8 +1170,8 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
 
     try:
         F_z_t = example_frac_abundance(
-            input_Ne,
             input_Te,
+            input_Ne,
             input_Nh,
             tau=tau,
             full_run=False,
@@ -1199,8 +1200,8 @@ def test_frac_abund_call(test_calc_eigen_coeffs):
 
     try:
         F_z_t = example_frac_abundance(
-            input_Ne,
             input_Te,
+            input_Ne,
             input_Nh,
             tau=tau,
             full_run=False,
@@ -1287,8 +1288,8 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
 
     try:
         F_z_t = example_frac_abundance_no_optional(
-            input_Ne,
             input_Te,
+            input_Ne,
             tau=tau,
             full_run=True,
         )
@@ -1319,8 +1320,8 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
     tau = 1e-16
     try:
         F_z_t = example_frac_abundance(
-            input_Ne,
             input_Te,
+            input_Ne,
             input_Nh,
             tau=tau,
             full_run=True,
@@ -1339,8 +1340,8 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
 
     try:
         F_z_t = example_frac_abundance(
-            input_Ne,
             input_Te,
+            input_Ne,
             input_Nh,
             tau=tau,
             full_run=True,
@@ -1369,8 +1370,8 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
 
     try:
         F_z_t = example_frac_abundance(
-            input_Ne,
             input_Te,
+            input_Ne,
             input_Nh,
             tau=tau,
             full_run=True,

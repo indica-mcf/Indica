@@ -291,9 +291,14 @@ class ST40data:
     #         self.data["princeton"] = data
 
     def get_brems(self, revision=-1):
-        data = self.reader.get("spectrom", "lines", revision)
+        data = self.reader.get("spectrom", "brems", revision)
         if len(data) > 0:
-            self.data["lines"] = data
+            self.data["brems"] = data
+
+    def get_halpha(self, revision=-1):
+        data = self.reader.get("spectrom", "halpha", revision)
+        if len(data) > 0:
+            self.data["halpha"] = data
 
     def get_nirh1(self, revision=0):
         data = self.reader.get("", "nirh1", revision)
@@ -309,10 +314,10 @@ class ST40data:
         if len(data) > 0:
             self.data["smmh1"] = data
 
-    # def get_sxr(self, revision=0):
-    #     data = self.reader.get("sxr", "diode_arrays", revision)
-    #     if len(data) > 0:
-    #         self.data["sxr"] = data
+    def get_sxr(self, revision=0):
+        data = self.reader.get("sxr", "diode_arrays", revision)
+        if len(data) > 0:
+            self.data["sxr"] = data
 
     def get_other_data(self):
         # Read Vloop and toroidal field
