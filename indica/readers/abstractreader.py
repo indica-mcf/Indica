@@ -152,6 +152,8 @@ class DataReader(BaseIO):
         quantities
             Which physical quantitie(s) to read from the database. Defaults to
             all available quantities for that instrument.
+        dl
+            spatial precision for line-of-sight coordinate transform
 
         Returns
         -------
@@ -177,26 +179,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads data based on Thomson Scattering.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database..
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested physical quantities.
-
-        TODO: change to line_of_sight transform
+        """
+        Reads data based on Thomson Scattering.
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_thomson_scattering(
@@ -216,7 +200,8 @@ class DataReader(BaseIO):
         x_coord = DataArray(x, coords=[(diagnostic_coord, ticks)])
         y_coord = DataArray(y, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
-        transform = TransectCoordinates(x_coord, y_coord, z_coord, instrument)
+        R_coord = DataArray(x, coords=[(diagnostic_coord, ticks)])
+        transform = TransectCoordinates(R_coord, z_coord)
         coords: Dict[Hashable, ArrayLike] = {
             "t": times,
             diagnostic_coord: ticks,
@@ -285,44 +270,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Gets raw data for Thomson scattering from the database. Data outside
-        the desired time range will be discarded.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        length : int
-            Number of channels in data
-        R : ndarray
-            Major radius positions for each channel
-        z : ndarray
-            Vertical position of each channel
-        times : ndarray
-            The times at which measurements were taken
-
-        For each quantity requested there will also be the items:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-
+        """
+        Gets raw data for Thomson scattering from the database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_thomson_scattering' "
@@ -337,27 +286,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads charge exchange data.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested physical quantities.
-
-        TODO: change to line_of_sight transform
-
+        """
+        Reads Charge-exchange-spectroscopy data
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_charge_exchange(
@@ -379,7 +309,8 @@ class DataReader(BaseIO):
         x_coord = DataArray(database_results["x"], coords=[(diagnostic_coord, ticks)])
         y_coord = DataArray(database_results["y"], coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(database_results["z"], coords=[(diagnostic_coord, ticks)])
-        transform = TransectCoordinates(x_coord, y_coord, z_coord, instrument)
+        R_coord = DataArray(database_results["x"], coords=[(diagnostic_coord, ticks)])
+        transform = TransectCoordinates(R_coord, z_coord)
         times = database_results["times"]
         coords: Dict[Hashable, Any] = {
             "t": times,
@@ -466,48 +397,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Gets raw data for charge exchange from the database. Data outside
-        the desired time range will be discarded.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        length : int
-            Number of channels in data
-        R : ndarrays
-            Major radius positions for each channel
-        z : ndarray
-            Vertical position of each channel
-        element : str
-            The element this ion data is for
-        texp : ndarray
-            Exposure times
-        times : ndarray
-            The times at which measurements were taken
-
-        For each quantity requested there will also be the items:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-
+        """
+        Gets raw data for charge-exchange-recombination-spectroscopy diagnostic from the database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_charge_exchange' "
@@ -522,25 +413,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads equilibrium data.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the code used to calculate this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested physical quantities.
-
+        """
+        Reads equilibrium data
         """
         global_quantities = {
             "psi",
@@ -688,49 +562,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Gets raw data for equilibrium from the database. Data outside
-        the desired time range will be discarded.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the code used to calculate this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        times : ndarray
-            Times at which data is sampled.
-
-        For each quantity requested there will also be items
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-
-        When ``psi`` is requested, the following will be present as well:
-
-        psi_r : ndarray (optional)
-            Major radii at which psi is given
-        psi_z : ndarray (optional)
-            Vertical positions at which psi is given
-
-        When at least one of "f", "ftor", or "vjac" is requested then
-        the results will also include:
-
-        psin : ndarray
-            Normalised poloidal flux locations at which data is sampled.
-
+        """
+        Gets raw data for equilibrium from the database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_equilibrium' "
@@ -745,27 +578,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads electron temperature measurements from cyclotron data.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to fetch the data for.
-
-        Returns
-        -------
-        :
-            A dictionary containing the electron temperature.
-
-        TODO: change to line_of_sight transform
-
+        """
+        Reads electron cyclotron emission data
         """
         available_quantities = self.available_quantities(instrument)
         for quantity in quantities:
@@ -853,49 +667,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Gets raw data for cyclotron resonance from the database. Data
-        outside the desired time range will be discarded.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to fetch the data for.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        length : int
-            Number of channels in data.
-        z : float
-            Vertical position of line of sight
-        Btot : ndarray
-            The magnetic field strengths at which measurements were taken
-        times : ndarray
-            The times at which measurements were taken
-        bad_channels : List[float]
-            Btot values for channels which have not been properly calibrated.
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-
+        """
+        Gets raw data for electron cyclotron emission diagnostic data from the database.
         """
         raise NotImplementedError(
             "{} does not implement a '_get_cyclotron' "
@@ -910,29 +683,9 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads data on irradiance.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which cameras to read quantitie(s) from.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested radiation values.
-
-        TODO: change to line_of_sight transform
-
         """
-        raise NotImplementedError("Get radiation needs testing after refactoring!!")
+        Reads data from radiation diagnostics e.g. bolometry and SXR
+        """
 
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_radiation(
@@ -957,57 +710,58 @@ class DataReader(BaseIO):
             dl=dl,
         )
         data = {}
-        for quantity in quantities:
-            if quantity not in available_quantities:
-                raise ValueError(
-                    "{} can not read radiation data for quantity {}".format(
-                        self.__class__.__name__, quantity
-                    )
+        quantity="brightness"
+        if quantity not in available_quantities:
+            raise ValueError(
+                "{} can not read radiation data for quantity {}".format(
+                    self.__class__.__name__, quantity
                 )
+            )
 
-            times = database_results[quantity + "_times"]
-            downsample_ratio = int(
-                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+        times = database_results["times"]
+        downsample_ratio = int(
+            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+        )
+        coords = [
+            ("t", times),
+            (transform.x1_name, np.arange(database_results["length"])),
+        ]
+        meta = {
+            "datatype": available_quantities[quantity],
+            "error": DataArray(database_results[quantity + "_error"], coords).sel(
+                t=slice(self._tstart, self._tend),
+            ),
+            "transform": transform,
+        }
+        quant_data = DataArray(
+            database_results[quantity],
+            coords,
+            attrs=meta,
+        ).sel(t=slice(self._tstart, self._tend))
+        if downsample_ratio > 1:
+            quant_data = quant_data.coarsen(
+                t=downsample_ratio, boundary="trim", keep_attrs=True
+            ).mean()
+            quant_data.attrs["error"] = np.sqrt(
+                (quant_data.attrs["error"] ** 2)
+                .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                .mean()
+                / downsample_ratio
             )
-            coords = [
-                ("t", times),
-                (transform.x1_name, np.arange(database_results["length"][quantity])),
-            ]
-            meta = {
-                "datatype": available_quantities[quantity],
-                "error": DataArray(database_results[quantity + "_error"], coords).sel(
-                    t=slice(self._tstart, self._tend),
-                ),
-                "transform": transform,
-            }
-            quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
-            if downsample_ratio > 1:
-                quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
-                ).mean()
-                quant_data.attrs["error"] = np.sqrt(
-                    (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
-                    .mean()
-                    / downsample_ratio
-                )
-            quant_data.name = instrument + "_" + quantity
-            drop: list = []
-            quant_data.attrs["partial_provenance"] = self.create_provenance(
-                "radiation",
-                uid,
-                instrument,
-                _revision,
-                quantity,
-                database_results[quantity + "_records"],
-                drop,
-            )
-            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+        quant_data.name = instrument + "_" + quantity
+        drop: list = []
+        quant_data.attrs["partial_provenance"] = self.create_provenance(
+            "radiation",
+            uid,
+            instrument,
+            _revision,
+            quantity,
+            database_results[quantity + "_records"],
+            drop,
+        )
+        quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+        data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+
         return data
 
     def _get_radiation(
@@ -1018,55 +772,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Gets raw data for irradiance from the database. Data outside
-        the desired time range will be discarded.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        length : Dict[str, int]
-            Number of channels in data for each camera
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_times : ndarray
-            The times at which measurements were taken
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-        <quantity>_xstart : ndarray
-            x value of start positions for lines of sight for this data.
-        <quantity>_xstop : ndarray
-            x value of stop positions for lines of sight for this data.
-        <quantity>_ystart : ndarray
-            y value of start positions for lines of sight for this data.
-        <quantity>_ystop : ndarray
-            y value of stop positions for lines of sight for this data.
-        <quantity>_zstart : ndarray
-            Vertical location of start positions for lines of sight for this data.
-        <quantity>_zstop : ndarray
-            Vertical location of stop positions for lines of sight for this data.
-
+        """
+        Gets raw data for radiation diagnostics from the database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_radiation' "
@@ -1081,25 +788,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads spectroscopic measurements of effective charge.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested effective charge data.
-
+        """
+        Reads spectroscopic measurements of effective charge
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_bremsstrahlung_spectroscopy(
@@ -1125,71 +815,61 @@ class DataReader(BaseIO):
             dl=dl,
         )
         data = {}
-        for quantity in quantities:
-            if quantity not in available_quantities:
-                raise ValueError(
-                    "{} can not read bremsstrahlung data for quantity {}".format(
-                        self.__class__.__name__, quantity
-                    )
+        quantity="zeff"
+        if quantity not in available_quantities:
+            raise ValueError(
+                "{} can not read bremsstrahlung data for quantity {}".format(
+                    self.__class__.__name__, quantity
                 )
-            downsample_ratio = int(
-                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
-            coords: Dict[Hashable, Any] = {"t": times}
-            dims = ["t"]
-            if database_results["length"][quantity] > 1:
-                dims.append(transform.x1_name)
-                coords[transform.x1_name] = np.arange(
-                    database_results["length"][quantity]
-                )
-            else:
-                coords[transform.x1_name] = 0
-            meta = {
-                "datatype": available_quantities[quantity],
-                "error": DataArray(
-                    database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
-                "transform": transform,
-            }
-            quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
-            if downsample_ratio > 1:
-                quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
-                ).mean()
-                quant_data.attrs["error"] = np.sqrt(
-                    (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
-                    .mean()
-                    / downsample_ratio
-                )
-            quant_data.name = instrument + "_" + quantity
-            if len(database_results[quantity + "_xstart"]) > 1:
-                drop = self._select_channels(
-                    "bremsstrahlung",
-                    uid,
-                    instrument,
-                    quantity,
-                    quant_data,
-                    transform.x1_name,
-                )
-            else:
-                drop = []
-            quant_data.attrs["partial_provenance"] = self.create_provenance(
-                "bremsstrahlung_spectroscopy",
-                uid,
-                instrument,
-                _revision,
-                quantity,
-                database_results[quantity + "_records"],
-                drop,
+        downsample_ratio = int(
+            np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+        )
+        coords: Dict[Hashable, Any] = {"t": times}
+        dims = ["t"]
+        if database_results["length"] > 1:
+            dims.append(transform.x1_name)
+            coords[transform.x1_name] = np.arange(
+                database_results["length"]
             )
-            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+        else:
+            coords[transform.x1_name] = 0
+        meta = {
+            "datatype": available_quantities[quantity],
+            "error": DataArray(
+                database_results[quantity + "_error"], coords, dims
+            ).sel(t=slice(self._tstart, self._tend)),
+            "transform": transform,
+        }
+        quant_data = DataArray(
+            database_results[quantity],
+            coords,
+            dims,
+            attrs=meta,
+        ).sel(t=slice(self._tstart, self._tend))
+        if downsample_ratio > 1:
+            quant_data = quant_data.coarsen(
+                t=downsample_ratio, boundary="trim", keep_attrs=True
+            ).mean()
+            quant_data.attrs["error"] = np.sqrt(
+                (quant_data.attrs["error"] ** 2)
+                .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                .mean()
+                / downsample_ratio
+            )
+        quant_data.name = instrument + "_" + quantity
+        drop = []
+        quant_data.attrs["partial_provenance"] = self.create_provenance(
+            "bremsstrahlung_spectroscopy",
+            uid,
+            instrument,
+            _revision,
+            quantity,
+            database_results[quantity + "_records"],
+            drop,
+        )
+        quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+        data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         return data
 
     def _get_bremsstrahlung_spectroscopy(
@@ -1200,54 +880,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Gets raw spectroscopic data for effective charge from the
-        database. Data outside the desired time range will be
-        discarded.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        times : ndarray
-            The times at which measurements were taken
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-        <quantity>_xstart : ndarray
-            x value of start positions for lines of sight for this data.
-        <quantity>_xstop : ndarray
-            x value of stop positions for lines of sight for this data.
-        <quantity>_ystart : ndarray
-            y value of start positions for lines of sight for this data.
-        <quantity>_ystop : ndarray
-            y value of stop positions for lines of sight for this data.
-        <quantity>_zstart : ndarray
-            Vertical location of start positions for lines of sight for this data.
-        <quantity>_zstop : ndarray
-            Vertical location of stop positions for lines of sight for this data.
-
+        """
+        Gets raw spectroscopic data for effective charge from the database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_spectroscopy' "
@@ -1262,33 +896,17 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads spectroscopic measurements of He-like emission.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested data.
-
         """
+        Reads spectroscopic measurements of He-like emission
+        """
+
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_helike_spectroscopy(
             uid, instrument, revision, quantities, dl
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
-            return database_results
+            return {}
         _revision = database_results["revision"]
 
         times = database_results["times"]
@@ -1386,52 +1004,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Reads spectroscopic measurements of He-like emission.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        times : ndarray
-            The times at which measurements were taken
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-        <quantity>_xstart : ndarray
-            x value of start positions for lines of sight for this data.
-        <quantity>_xstop : ndarray
-            x value of stop positions for lines of sight for this data.
-        <quantity>_ystart : ndarray
-            y value of start positions for lines of sight for this data.
-        <quantity>_ystop : ndarray
-            y value of stop positions for lines of sight for this data.
-        <quantity>_zstart : ndarray
-            Vertical location of start positions for lines of sight for this data.
-        <quantity>_zstop : ndarray
-            Vertical location of stop positions for lines of sight for this data.
-
+        """
+        Reads spectroscopic measurements of He-like emission data from database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_helike_spectroscopy' "
@@ -1446,25 +1020,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads filtered radiation diodes
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested data.
-
+        """
+        Reads filtered radiation diodes
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_diode_filters(
@@ -1503,48 +1060,49 @@ class DataReader(BaseIO):
 
         data: dict = {}
         drop: list = []
-        for quantity in quantities:
-            if quantity not in available_quantities:
-                raise ValueError(
-                    "{} can not read filtered diode data for quantity {}".format(
-                        self.__class__.__name__, quantity
-                    )
+        quantity = "brightness"
+        if quantity not in available_quantities:
+            raise ValueError(
+                "{} can not read filtered diode data for quantity {}".format(
+                    self.__class__.__name__, quantity
                 )
-            meta = {
-                "datatype": available_quantities[quantity],
-                "error": DataArray(
-                    database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
-                "transform": transform,
-            }
-            quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
-            if downsample_ratio > 1:
-                quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
-                ).mean()
-                quant_data.attrs["error"] = np.sqrt(
-                    (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
-                    .mean()
-                    / downsample_ratio
-                )
-            quant_data.name = instrument + "_" + quantity
-            quant_data.attrs["partial_provenance"] = self.create_provenance(
-                "filters",
-                uid,
-                instrument,
-                _revision,
-                quantity,
-                database_results[quantity + "_records"],
-                drop,
             )
-            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+        meta = {
+            "datatype": available_quantities[quantity],
+            "error": DataArray(
+                database_results[quantity + "_error"], coords, dims
+            ).sel(t=slice(self._tstart, self._tend)),
+            "transform": transform,
+        }
+        quant_data = DataArray(
+            database_results[quantity],
+            coords,
+            dims,
+            attrs=meta,
+        ).sel(t=slice(self._tstart, self._tend))
+        if downsample_ratio > 1:
+            quant_data = quant_data.coarsen(
+                t=downsample_ratio, boundary="trim", keep_attrs=True
+            ).mean()
+            quant_data.attrs["error"] = np.sqrt(
+                (quant_data.attrs["error"] ** 2)
+                .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                .mean()
+                / downsample_ratio
+            )
+        quant_data.name = instrument + "_" + quantity
+        quant_data.attrs["partial_provenance"] = self.create_provenance(
+            "filters",
+            uid,
+            instrument,
+            _revision,
+            quantity,
+            database_results[quantity + "_records"],
+            drop,
+        )
+        quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+        data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
+
         return data
 
     def _get_diode_filters(
@@ -1555,52 +1113,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Reads filtered radiation diodes
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        times : ndarray
-            The times at which measurements were taken
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-        <quantity>_xstart : ndarray
-            x value of start positions for lines of sight for this data.
-        <quantity>_xstop : ndarray
-            x value of stop positions for lines of sight for this data.
-        <quantity>_ystart : ndarray
-            y value of start positions for lines of sight for this data.
-        <quantity>_ystop : ndarray
-            y value of stop positions for lines of sight for this data.
-        <quantity>_zstart : ndarray
-            Vertical location of start positions for lines of sight for this data.
-        <quantity>_zstop : ndarray
-            Vertical location of stop positions for lines of sight for this data.
-
+        """
+        Reads filtered radiation diodes data from database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_diode_filters' "
@@ -1615,25 +1129,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads interferometer electron density.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested data.
-
+        """
+        Reads interferometer diagnostic data
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_interferometry(
@@ -1727,52 +1224,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Reads interferometer electron density
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        times : ndarray
-            The times at which measurements were taken
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_error : ndarray
-            Uncertainty in the data
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-        <quantity>_xstart : ndarray
-            x value of start positions for lines of sight for this data.
-        <quantity>_xstop : ndarray
-            x value of stop positions for lines of sight for this data.
-        <quantity>_ystart : ndarray
-            y value of start positions for lines of sight for this data.
-        <quantity>_ystop : ndarray
-            y value of stop positions for lines of sight for this data.
-        <quantity>_zstart : ndarray
-            Vertical location of start positions for lines of sight for this data.
-        <quantity>_zstop : ndarray
-            Vertical location of stop positions for lines of sight for this data.
-
+        """
+        Reads interferometer diagnostic data from database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_spectroscopy' "
@@ -1787,25 +1240,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, DataArray]:
-        """Reads ASTRA data.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the code used to calculate this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested physical quantities.
-
+        """
+        Reads ASTRA data
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_astra(uid, instrument, revision, quantities, dl)
@@ -1912,38 +1348,8 @@ class DataReader(BaseIO):
         quantities: Set[str],
         dl: float = 0.005,
     ) -> Dict[str, Any]:
-        """Reads ASTRA data
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            Name of the instrument which measured this data
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database.
-
-        Returns
-        -------
-        A dictionary containing the following items:
-
-        times : ndarray
-            The times at which measurements were taken
-        machine_dims
-            A tuple describing the size of the Tokamak domain. It should have
-            the form ``((Rmin, Rmax), (zmin, zmax))``.
-
-        For each requested quantity, the following items will also be present:
-
-        <quantity> : ndarray
-            The data itself (first axis is time, second channel)
-        <quantity>_records : List[str]
-            Representations (e.g., paths) for the records in the database used
-            to access data needed for this data.
-
+        """
+        Reads ASTRA data from database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_spectroscopy' "

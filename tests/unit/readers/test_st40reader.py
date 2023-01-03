@@ -17,19 +17,18 @@ FLUX_TRANSFORM.set_equilibrium(EQUILIBRIUM)
 
 INSTRUMENT_INFO = {
     "xrcs": ("sxr", "xrcs", 0, set()),
-    "brems": ("spectrom", "lines", -1, ["brems"]),
+    "brems": ("spectrom", "brems", -1, set()),
+    "halpha": ("spectrom", "halpha", -1, set()),
+    "sxr_diode_4": ("sxr", "sxr_diode_4", 0, set()),
+    "sxr_camera_4": ("sxr", "sxr_camera_4", 0, set()),
     "smmh1": ("interferom", "smmh1", 0, set()),
     "nirh1": ("interferom", "nirh1", 0, set()),
     "efit": ("", "efit", 0, set()),
 }
 
-# "sxr_camera": ("sxr", "diode_arrays", 0, ["filter_4"]),
-
-
 def run_reader_get_methods(
     instrument_name: str,
     mds_only=False,
-    plot=False,
 ):
     """
     General test script to read data from MDS+ and calculate LOS information
@@ -44,8 +43,6 @@ def run_reader_get_methods(
     mds_only
         Returns only ST40Reader database dictionary. Otherwise returns also
         data structure crunched by the abstractreader
-    plot
-        Plot lines of sight and mapping on equilibrium reconstruction
 
     Returns
     -------
@@ -81,27 +78,58 @@ def run_reader_get_methods(
     if hasattr(trans, "set_flux_transform"):
         trans.set_flux_transform(FLUX_TRANSFORM)
         trans._convert_to_rho(t=np.array([0.02, 0.03, 0.04]))
-        if plot:
-            trans.plot_los()
 
     return data, database_results
 
+def check_transforms(instrument_name:str, diagnostic_data:dict):
+    """
+    Check transforms associated to data read
 
-def test_all(interactive=False, plot=False):
-    plt.ion()
-    for instrument_name in INSTRUMENT_INFO.keys():
-        print(f"\n Testing {instrument_name} \n")
-        data, database_resutls = run_reader_get_methods(instrument_name, plot=plot)
+    Parameters
+    ----------
+    instrument_name
+        instrument string identifier
+    diagnostic_data
+        data dictionary as returned by abstractreader
+    """
+    for quant, data in diagnostic_data.items():
+        if hasattr(data, "transform"):
+            if "LineOfSightTransform" in str(data.transform):
+                if "line_of_sight" not in str(data.transform):
+                    raise ValueError(
+                        f"{instrument_name}:{quant} using"
+                        f" \n {str(data.transform)}"
+                    )
 
-        for quant in data.keys():
-            if hasattr(data[quant], "transform"):
-                if "LineOfSightTransform" in str(data[quant].transform):
-                    if "line_of_sight" not in str(data[quant].transform):
-                        raise ValueError(
-                            f"{instrument_name}:{quant} using"
-                            f" \n {str(data[quant].transform)}"
-                        )
-        plt.show()
-        if interactive:
-            input("Press to continue")
-            plt.close("all")
+def test_xrcs(instrument_name:str = "xrcs"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_brems(instrument_name:str = "brems"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_halpha(instrument_name:str = "halpha"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_sxr_diode_4(instrument_name:str = "sxr_diode_4"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_sxr_camera_4(instrument_name:str = "sxr_camera_4"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_smmh1(instrument_name:str = "smmh1"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_nirh1(instrument_name:str = "nirh1"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_efit(instrument_name:str = "efit"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+

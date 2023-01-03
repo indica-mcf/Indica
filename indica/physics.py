@@ -998,22 +998,23 @@ def centrifugal_asymmetry(
 
 
 def zeff_bremsstrahlung(
-    Te,
-    Ne,
-    wavelength,
+    Te: ArrayLike,
+    Ne: ArrayLike,
+    wavelength: float,
     zeff: ArrayLike = None,
     brems: ArrayLike = None,
     gaunt_approx="callahan",
 ):
     """
-    Calculate Bremsstrahlung or Zeff along LOS
+    Calculate Bremsstrahlung given Zeff or Zeff given Bremsstrahlung
+        [S. Rathgeber et al 2010 Plasma Phys. Control. Fusion 52 095008]
 
     Parameters
     ----------
     Te
         electron temperature (eV) for calculation
     wavelength
-        wavelength (nm) at which Bremsstrahlung should be calculated
+        filter central wavelength (nm)
     zeff
         effective charge
     gaunt_approx
@@ -1022,8 +1023,9 @@ def zeff_bremsstrahlung(
 
     Returns
     -------
-    Bremsstrahlung emissing per unit time and volume
-    --> to be integrated along the LOS and multiplied by spectrometer t_exp
+    Bremsstrahlung emission per unit time and volume, over 4*pi
+
+    --> to be LOS-integrated, multiplied by spectrometer Etendue and t_exp
 
     """
 
@@ -1049,7 +1051,7 @@ def zeff_bremsstrahlung(
         * (Ne**2 / np.sqrt(constants.k * Te))
         * (exponent / wlenght**2)
         * gaunt
-    ) * wlenght
+    )
 
     if zeff is None:
         result = brems / factor
@@ -1089,9 +1091,42 @@ def derivative(y, x):
     return der
 
 
-def gaussian(x, A, B, x_0, w):
-    """Build Gaussian with known parameters"""
-    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
+def make_window(
+    x: ArrayLike,
+    x_center: float,
+    fwhm: float,
+    amplitude: float = 1.0,
+    background: ArrayLike = 0.0,
+    window: str = "gaussian",
+):
+    """
+    Build a window with known parameters
+
+    Parameters
+    ----------
+    x
+        abscissa
+    amplitude
+        peak from background
+    background
+        background value
+    x_center
+        center of peak
+    fwhm
+        full with at half maximum
+    window
+        type of window
+    """
+    sigma = fwhm / (2 * np.sqrt(2 * np.log(2)))
+    windows = {
+        "gaussian": np.exp(-((x - x_center) ** 2) / (2 * sigma**2)),
+        "boxcar": (
+            np.heaviside(x - (x_center - fwhm / 2), 1)
+            - np.heaviside(x - (x_center + fwhm / 2), 1)
+        ),
+    }
+
+    return (amplitude - background) * windows[window] + background
 
 
 def sawtooth_crash(xspl, yspl, volume, x_inv):

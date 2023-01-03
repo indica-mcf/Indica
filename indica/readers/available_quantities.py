@@ -17,8 +17,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "ti": ("temperature", "ions"),
     },
     "get_bremsstrahlung_spectroscopy": {
-        "h": ("effective_charge", "plasma"),
-        "v": ("effective_charge", "plasma"),
+        "zeff": ("effective_charge", "plasma"),
     },
     "get_helike_spectroscopy": {
         "int_w": ("intensity", "spectral_line"),
@@ -32,20 +31,20 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "spectra": ("spectra", "passive"),
     },
     "get_diode_filters": {
-        "brems": ("intensity", "bremsstrahlung"),
-        "h_alpha": ("intensity", "h_alpha"),
+        "brightness": ("luminous_flux", None),
     },
     "get_interferometry": {
         "ne": ("density", "electrons"),
     },
     "get_equilibrium": {
         "f": ("f_value", "plasma"),
-        "faxs": ("magnetic_flux", "mag_axis"),
-        "fbnd": ("magnetic_flux", "separatrix"),
-        "ftor": ("toroidal_flux", "plasma"),
+        "faxs": ("magnetic_flux_axis", "poloidal"),
+        "fbnd": ("magnetic_flux_separatrix", "poloidal"),
+        "ftor": ("magnetic_flux", "toroidal"),
         "rmji": ("major_rad", "hfs"),
         "rmjo": ("major_rad", "lfs"),
-        "psi": ("magnetic_flux", "plasma"),
+        "psin": ("magnetic_flux_normalised", "poloidal"),
+        "psi": ("magnetic_flux", "poloidal"),
         "vjac": ("volume_jacobian", "plasma"),
         "ajac": ("area_jacobian", "plasma"),
         "rmag": ("major_rad", "mag_axis"),
