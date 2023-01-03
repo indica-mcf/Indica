@@ -1,3 +1,4 @@
+import flatdict
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -23,11 +24,12 @@ class Interferometry(DiagnosticModel):
         self,
         name: str,
         instrument_method="get_interferometry",
+        flat_bckc: bool = False,
     ):
 
         self.name = name
         self.instrument_method = instrument_method
-
+        self.flat_bckc = flat_bckc
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self):
@@ -51,7 +53,13 @@ class Interferometry(DiagnosticModel):
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
 
-    def __call__(self, Ne: DataArray = None, t: LabeledArray = None, calc_rho=False):
+        if self.flat_bckc:
+            _bckc = {self.name: self.bckc}
+            self.bckc = flatdict.FlatDict(_bckc, delimiter="_")
+
+    def __call__(
+        self, Ne: DataArray = None, t: LabeledArray = None, calc_rho=False, **kwargs
+    ):
         """
         Calculate diagnostic measured values
 
@@ -68,7 +76,7 @@ class Interferometry(DiagnosticModel):
         # TODO: decide whether to select nearest time-points or interpolate in time!!
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
         else:
             if Ne is None:
@@ -175,5 +183,11 @@ def example_run(plasma=None, plot=False):
         plt.xlabel("rho")
         plt.ylabel("Ne (m^-3)")
         plt.legend()
+        plt.show(block=True)
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+
+    example_run(plot=True)

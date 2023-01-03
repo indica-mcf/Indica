@@ -55,7 +55,8 @@ class ST40data:
         self.get_efit(revision=efit_rev, pulse=efit_pulse)
         self.get_xrcs(revision=xrcs_rev)
         if sxr:
-            self.get_sxr(revision=sxr_rev)
+            self.get_sxr_diode(revision=sxr_rev)
+            self.get_sxr_camera(revision=sxr_rev)
         self.get_brems(revision=brems_rev)
         if cxrs:
             self.get_cxrs(revision=cxrs_rev)
@@ -66,7 +67,7 @@ class ST40data:
 
         return self.data
 
-    def get_sxr(self, revision=0):
+    def get_sxr_diode(self, revision=0):
         data = self.reader.get("sxr", "diode_arrays", revision, ["filter_4"])
         self.data["sxr"] = data
 
@@ -314,7 +315,7 @@ class ST40data:
         if len(data) > 0:
             self.data["smmh1"] = data
 
-    def get_sxr(self, revision=0):
+    def get_sxr_camera(self, revision=0):
         data = self.reader.get("sxr", "diode_arrays", revision)
         if len(data) > 0:
             self.data["sxr"] = data

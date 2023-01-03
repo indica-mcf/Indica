@@ -404,9 +404,9 @@ class Plasma:
         Update plasma profiles with profile parameters i.e. Ne_prof_y0 -> Ne_prof.y0
         """
         for param, value in parameters.items():
-            _prefix = [prefix for prefix in profile_prefixs if prefix in param]
-            if len(_prefix) != 0:
-                prefix = _prefix[0]
+            _prefix = [pref for pref in profile_prefixs if pref in param]
+            if _prefix:
+                prefix: str = _prefix[0]
                 key = param.replace(prefix + "_", "")
                 profile = getattr(self, prefix)
                 if hasattr(profile, key):
@@ -416,7 +416,7 @@ class Plasma:
 
         for key in [
             "electron_density",
-            "electron_density",
+            "electron_temperature",
             "ion_temperature",
             "toroidal_rotation",
             "impurity_density",
