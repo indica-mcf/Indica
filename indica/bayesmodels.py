@@ -190,12 +190,7 @@ if __name__ == "__main__":
         )
 
         transform = data[instrument][quantities[0]].attrs["transform"]
-        transform.set_equilibrium(flux_transform.equilibrium, force=True)
-        if "LineOfSightTransform" in str(
-            data[instrument][quantities[0]].attrs["transform"]
-        ):
-            transform.set_flux_transform(flux_transform)
-
+        transform.set_equilibrium(equilibrium, force=True)
         for quantity in quantities:
             data[instrument][quantity].attrs["transform"] = transform
 
@@ -203,10 +198,9 @@ if __name__ == "__main__":
     flat_data = flatdict.FlatDict(data, delimiter="_")
 
     # Initialise Diagnostic Models
-    transform = flat_data["smmh1_ne"].transform
+    los_transform = flat_data["smmh1_ne"].transform
     smmh1 = Interferometry(name="smmh1", flat_bckc=True)
-    smmh1.set_transform(transform)
-    smmh1.set_flux_transform(flux_transform)
+    smmh1.set_los_transform(los_transform)
 
     priors = {
         "Ne_prof_y0": lambda x:
