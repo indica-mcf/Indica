@@ -10,12 +10,14 @@ from typing import Optional
 from typing import Tuple
 
 import numpy as np
+import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
 from ..equilibrium import Equilibrium
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
+from ..numpy_typing import ArrayLike
 
 
 class EquilibriumException(Exception):
@@ -182,10 +184,7 @@ class CoordinateTransform(ABC):
 
     @abstractmethod
     def convert_to_Rz(
-        self,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system. Each
         subclass must implement this method.
@@ -213,10 +212,7 @@ class CoordinateTransform(ABC):
         )
 
     def convert_to_xy(
-        self,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> Coordinates:
         """Convert from this coordinate to the x-y coordinate system. Each
         subclass must implement this method.
@@ -244,10 +240,7 @@ class CoordinateTransform(ABC):
         )
 
     def convert_from_Rz(
-        self,
-        R: LabeledArray,
-        z: LabeledArray,
-        t: LabeledArray,
+        self, R: LabeledArray, z: LabeledArray, t: LabeledArray,
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate. Each
         subclass must implement this method.
@@ -318,11 +311,7 @@ class CoordinateTransform(ABC):
         )
 
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> LabeledArray:
         """Give the distance (in physical space) from the origin along the
         specified direction.
@@ -368,3 +357,248 @@ class CoordinateTransform(ABC):
     def decode(json: str) -> "CoordinateTransform":
         """Takes some JSON and decodes it into a CoordinateTransform object."""
         pass
+
+    def get_machine_boundaries(
+        self,
+        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+            (1.83, 3.9),
+            (-1.75, 2.0),
+        ),
+        npts: int = 1000,
+    ) -> Tuple[dict, ArrayLike]:
+        angles = np.linspace(0.0, 2 * np.pi, npts)
+        x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+        x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
+        y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
+        y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
+        z_wall_lower = machine_dimensions[1][0]
+        z_wall_upper = machine_dimensions[1][1]
+
+        boundaries = {
+            "x_in": x_wall_inner,
+            "x_out": x_wall_outer,
+            "y_in": y_wall_inner,
+            "y_out": y_wall_outer,
+            "z_up": z_wall_upper,
+            "z_low": z_wall_lower,
+        }
+
+        return boundaries, angles
+
+    def get_equilibrium_boundaries(
+        self, tplot: float, npts: int = 1000
+    ) -> Tuple[dict, ArrayLike, LabeledArray]:
+
+        boundaries = {}
+        angles = np.linspace(0.0, 2 * np.pi, npts)
+        if hasattr(self, "equilibrium"):
+            angles = np.linspace(0.0, 2 * np.pi, npts)
+            rho_equil = self.equilibrium.rho.sel(t=tplot, method="nearest")
+            rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
+            core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
+            R_lfs = rho_equil.R[core_ind[0]].values
+            R_hfs = rho_equil.R[core_ind[-1]].values
+            x_plasma_inner = R_hfs * np.cos(angles)
+            x_plasma_outer = R_lfs * np.cos(angles)
+            y_plasma_inner = R_hfs * np.sin(angles)
+            y_plasma_outer = R_lfs * np.sin(angles)
+
+            boundaries = {
+                "x_in": x_plasma_inner,
+                "x_out": x_plasma_outer,
+                "y_in": y_plasma_inner,
+                "y_out": y_plasma_outer,
+            }
+        return boundaries, angles, rho_equil
+
+def find_wall_intersections(
+    origin: Tuple,
+    direction: Tuple,
+    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+        (1.83, 3.9),
+        (-1.75, 2.0),
+    ),
+):
+    """Function for calculating "start" and "end" positions of the line-of-sight
+    given the machine dimensions.
+
+    The end coordinate is calculated by finding the intersections with the
+    machine dimensions. If the intersection hits the inner column, the first
+    intersection point becomes the "end" position of the line-of-sight. If the
+    intersection misses the inner column, the last intersection point with the
+    outer column becomes the "end" position.
+
+    Parameters
+    ----------
+    origin
+        A Tuple (1x3) giving the X, Y and Z origin positions of the line-of-sight
+    direction
+        A Tuple (1x3) giving the X, Y and Z direction of the line-of-sight
+    machine_dimensions
+        A tuple giving the boundaries of the Tokamak in x-z space:
+        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
+
+    Returns
+    -------
+    start_coordinates
+        A Tuple (1x3) giving the X, Y and Z start positions of the line-of-sight
+    end_coordinates
+        A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
+    """
+
+    def line(_start, _end):
+        return np.linspace(_start, _end, npts)
+
+    def extremes(_start, _end):
+        return np.array(
+            [_start, _end],
+            dtype=float,
+        )
+
+    # Define XYZ lines for inner and outer walls
+    npts = 1000
+    angles = np.linspace(0.0, 2 * np.pi, npts)
+    x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
+
+    # Define XYZ lines for LOS from origin and direction vectors
+    length = (
+        np.ceil(
+            np.max(
+                [
+                    machine_dimensions[0][1] * 2,
+                    machine_dimensions[1][1] - machine_dimensions[1][0],
+                ]
+            )
+        )
+        * 5
+    )
+    x_start = origin[0]
+    x_end = origin[0] + length * direction[0]
+    y_start = origin[1]
+    y_end = origin[1] + length * direction[1]
+    z_start = origin[2]
+    z_end = origin[2] + length * direction[2]
+
+    # Find intersections in R, z plane
+    x_line = line(x_start, x_end)
+    y_line = line(y_start, y_end)
+    z_line = line(z_start, z_end)
+    R_line = np.sqrt(x_line**2 + y_line**2)
+    indices = np.where(
+        (R_line >= machine_dimensions[0][0])
+        * (R_line <= machine_dimensions[0][1])
+        * (z_line >= machine_dimensions[1][0])
+        * (z_line <= machine_dimensions[1][1])
+    )[0]
+    if len(indices) > 0:
+        x_start = x_line[indices][0]
+        x_end = x_line[indices][-1]
+        y_start = y_line[indices][0]
+        y_end = y_line[indices][-1]
+        z_start = z_line[indices][0]
+        z_end = z_line[indices][-1]
+
+    # Find intersections with inner wall
+    xx, yx, ix, jx = intersection(
+        extremes(x_start, x_end), extremes(y_start, y_end), x_wall_inner, y_wall_inner
+    )
+    if len(xx) > 0:
+        x_line = line(x_start, x_end)
+        y_line = line(y_start, y_end)
+        z_line = line(z_start, z_end)
+        index = []
+        for i in range(len(xx)):
+            index.append(
+                np.argmin(np.sqrt((xx[i] - x_line) ** 2 + (yx[i] - y_line) ** 2))
+            )
+        indices = np.arange(np.min(index))
+        x_start = x_line[indices][0]
+        x_end = x_line[indices][-1]
+        y_start = y_line[indices][0]
+        y_end = y_line[indices][-1]
+        z_start = z_line[indices][0]
+        z_end = z_line[indices][-1]
+
+    return (x_start, y_start, z_start), (x_end, y_end, z_end)
+
+
+def _rect_inter_inner(x1, x2):
+    n1 = x1.shape[0] - 1
+    n2 = x2.shape[0] - 1
+    X1 = np.c_[x1[:-1], x1[1:]]
+    X2 = np.c_[x2[:-1], x2[1:]]
+    S1 = np.tile(X1.min(axis=1), (n2, 1)).T
+    S2 = np.tile(X2.max(axis=1), (n1, 1))
+    S3 = np.tile(X1.max(axis=1), (n2, 1)).T
+    S4 = np.tile(X2.min(axis=1), (n1, 1))
+    return S1, S2, S3, S4
+
+
+def _rectangle_intersection_(x1, y1, x2, y2):
+    S1, S2, S3, S4 = _rect_inter_inner(x1, x2)
+    S5, S6, S7, S8 = _rect_inter_inner(y1, y2)
+
+    C1 = np.less_equal(S1, S2)
+    C2 = np.greater_equal(S3, S4)
+    C3 = np.less_equal(S5, S6)
+    C4 = np.greater_equal(S7, S8)
+
+    ii, jj = np.nonzero(C1 & C2 & C3 & C4)
+    return ii, jj
+
+
+def intersection(x1, y1, x2, y2):
+    """
+    INTERSECTIONS Intersections of curves.
+       Computes the (x,y) locations where two curves intersect.  The curves
+       can be broken with NaNs or have vertical segments.
+    usage:
+    x,y=intersection(x1,y1,x2,y2)
+        Example:
+        a, b = 1, 2
+        phi = np.linspace(3, 10, 100)
+        x1 = a*phi - b*np.sin(phi)
+        y1 = a - b*np.cos(phi)
+        x2=phi
+        y2=np.sin(phi)+2
+        x,y, ix, iy=intersection(x1,y1,x2,y2)
+        plt.plot(x1,y1,c='r')
+        plt.plot(x2,y2,c='g')
+        plt.plot(x,y,'*k')
+        plt.show()
+    """
+    ii, jj = _rectangle_intersection_(x1, y1, x2, y2)
+    n = len(ii)
+
+    dxy1 = np.diff(np.c_[x1, y1], axis=0)
+    dxy2 = np.diff(np.c_[x2, y2], axis=0)
+
+    T = np.zeros((4, n))
+    AA = np.zeros((4, 4, n))
+    AA[0:2, 2, :] = -1
+    AA[2:4, 3, :] = -1
+    AA[0::2, 0, :] = dxy1[ii, :].T
+    AA[1::2, 1, :] = dxy2[jj, :].T
+
+    BB = np.zeros((4, n))
+    BB[0, :] = -x1[ii].ravel()
+    BB[1, :] = -x2[jj].ravel()
+    BB[2, :] = -y1[ii].ravel()
+    BB[3, :] = -y2[jj].ravel()
+
+    for i in range(n):
+        try:
+            T[:, i] = np.linalg.solve(AA[:, :, i], BB[:, i])
+        except np.linalg.LinAlgError:
+            T[:, i] = np.NaN
+
+    in_range = (T[0, :] >= 0) & (T[1, :] >= 0) & (T[0, :] <= 1) & (T[1, :] <= 1)
+
+    xy0 = T[2:, in_range]
+    xy0 = xy0.T
+
+    indii = ii[in_range] + T[0, in_range]
+    indjj = jj[in_range] + T[1, in_range]
+
+    return xy0[:, 0], xy0[:, 1], indii, indjj

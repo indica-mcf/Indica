@@ -811,35 +811,8 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
             plt.ylabel("Te and Ti from moment analysis (eV)")
             plt.legend()
 
-        plt.figure()
-        plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
-            levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-        )
-        for chan in channels:
-            plt.plot(
-                model.los_transform.R[chan],
-                model.los_transform.z[chan],
-                linewidth=3,
-                color=cols[chan],
-                alpha=0.7,
-                label=f"CH{chan}",
-            )
 
-        plt.xlim(0, 1.0)
-        plt.ylim(-0.6, 0.6)
-        plt.axis("scaled")
-        plt.legend()
-
-        # Plot LOS mapping on equilibrium
-        plt.figure()
-        for chan in channels:
-            model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
-                color=cols[chan],
-                label=f"CH{chan}",
-            )
-        plt.xlabel("Path along the LOS")
-        plt.ylabel("Rho-poloidal")
-        plt.legend()
+        model.los_transform.plot_los(tplot, plot_all=True)
 
         # Plot back-calculated values
         plt.figure()
