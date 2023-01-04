@@ -83,6 +83,8 @@ class BayesModels:
         self.bckc = {}
         for model in self.diagnostic_models:
             self.bckc = dict(self.bckc, **model(params=params))
+
+        self.bckc = flatdict.FlatDict(self.bckc, delimiter="_")
         return
 
     def _ln_likelihood(self):
