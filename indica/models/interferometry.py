@@ -23,12 +23,10 @@ class Interferometry(DiagnosticModel):
         self,
         name: str,
         instrument_method="get_interferometry",
-        flat_bckc: bool = False,
     ):
 
         self.name = name
         self.instrument_method = instrument_method
-        self.flat_bckc = flat_bckc
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self):

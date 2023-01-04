@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     # Initialise Diagnostic Models
     los_transform = flat_data["smmh1_ne"].transform
-    smmh1 = Interferometry(name="smmh1", flat_bckc=True)
+    smmh1 = Interferometry(name="smmh1", )
     smmh1.set_los_transform(los_transform)
 
     priors = {
