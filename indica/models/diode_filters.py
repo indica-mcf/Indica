@@ -69,7 +69,7 @@ class BremsstrahlungDiode(DiagnosticModel):
 
         for quant in self.quantities:
             datatype = self.quantities[quant]
-            if quant == "brems":
+            if quant == "brightness":
                 quantity = quant
                 self.bckc[quantity] = self.los_integral
                 error = xr.full_like(self.bckc[quantity], 0.0)
@@ -192,42 +192,13 @@ def example_run(plasma=None, plot: bool = False):
         it = int(len(plasma.t) / 2)
         tplot = plasma.t[it]
 
-        plt.figure()
-        plasma.equilibrium.rho.sel(t=tplot, method="nearest").plot.contour(
-            levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-        )
-        channels = model.los_transform.x1
-        cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
-        for chan in channels:
-            plt.plot(
-                model.los_transform.R[chan],
-                model.los_transform.z[chan],
-                linewidth=2,
-                color=cols[chan],
-                alpha=0.7,
-                label=f"CH{chan}",
-            )
-
-        plt.xlim(0, 1.0)
-        plt.ylim(-0.6, 0.6)
-        plt.axis("scaled")
-        plt.legend()
-
-        # Plot LOS mapping on equilibrium
-        plt.figure()
-        for chan in channels:
-            model.los_transform.rho[chan].sel(t=tplot, method="nearest").plot(
-                color=cols[chan],
-                label=f"CH{chan}",
-            )
-        plt.xlabel("Path along the LOS")
-        plt.ylabel("Rho-poloidal")
-        plt.legend()
+        model.los_transform.plot_los(tplot, plot_all=True)
 
         # Plot back-calculated values
         plt.figure()
-        for chan in channels:
-            bckc["brems"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
+        cols_chan = cm.gnuplot2(np.linspace(0.1, 0.75, len(model.los_transform.x1), dtype=float))
+        for chan in model.los_transform.x1:
+            bckc["brightness"].sel(channel=chan).plot(label=f"CH{chan}", color=cols_chan[chan])
         plt.xlabel("Time (s)")
         plt.ylabel("Bremsstrahlung LOS-integrals (W/m^2)")
         plt.legend()
@@ -238,7 +209,7 @@ def example_run(plasma=None, plot: bool = False):
         for i, t in enumerate(plasma.t.values):
             plt.plot(
                 model.emission.rho_poloidal,
-                model.emission.sel(t=t),
+                model.emission.sel(t=t).integrate("wavelength"),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
