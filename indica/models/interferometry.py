@@ -1,4 +1,3 @@
-import flatdict
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -52,10 +51,6 @@ class Interferometry(DiagnosticModel):
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
-
-        if self.bckc:
-            _bckc = {self.name: self.bckc}
-            self.bckc = flatdict.FlatDict(_bckc, delimiter="_")
 
     def __call__(
         self, Ne: DataArray = None, t: LabeledArray = None, calc_rho=False, **kwargs
