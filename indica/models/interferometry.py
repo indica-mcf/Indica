@@ -53,7 +53,7 @@ class Interferometry(DiagnosticModel):
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
 
-        if self.flat_bckc:
+        if self.bckc:
             _bckc = {self.name: self.bckc}
             self.bckc = flatdict.FlatDict(_bckc, delimiter="_")
 
