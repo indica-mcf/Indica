@@ -82,8 +82,7 @@ class BayesModels:
     def _build_bckc(self, params={}):
         self.bckc = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(self.bckc, **model(params=params))
-
+            self.bckc = dict(self.bckc, **{model.name:{**model(params=params)}})
         self.bckc = flatdict.FlatDict(self.bckc, delimiter="_")
         return
 
