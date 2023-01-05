@@ -15,9 +15,9 @@ from xarray import DataArray
 from xarray import zeros_like
 
 from ..equilibrium import Equilibrium
+from ..numpy_typing import ArrayLike
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
-from ..numpy_typing import ArrayLike
 
 
 class EquilibriumException(Exception):
@@ -184,7 +184,10 @@ class CoordinateTransform(ABC):
 
     @abstractmethod
     def convert_to_Rz(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> Coordinates:
         """Convert from this coordinate to the R-z coordinate system. Each
         subclass must implement this method.
@@ -212,7 +215,10 @@ class CoordinateTransform(ABC):
         )
 
     def convert_to_xy(
-        self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> Coordinates:
         """Convert from this coordinate to the x-y coordinate system. Each
         subclass must implement this method.
@@ -240,7 +246,10 @@ class CoordinateTransform(ABC):
         )
 
     def convert_from_Rz(
-        self, R: LabeledArray, z: LabeledArray, t: LabeledArray,
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: LabeledArray,
     ) -> Coordinates:
         """Convert from the master coordinate system to this coordinate. Each
         subclass must implement this method.
@@ -311,7 +320,11 @@ class CoordinateTransform(ABC):
         )
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> LabeledArray:
         """Give the distance (in physical space) from the origin along the
         specified direction.
@@ -410,6 +423,7 @@ class CoordinateTransform(ABC):
                 "y_out": y_plasma_outer,
             }
         return boundaries, angles, rho_equil
+
 
 def find_wall_intersections(
     origin: Tuple,
