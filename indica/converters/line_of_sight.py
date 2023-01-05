@@ -167,7 +167,7 @@ class LineOfSightTransform(CoordinateTransform):
         x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
         y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
         z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
-        return np.sqrt(x ** 2 + y ** 2), z
+        return np.sqrt(x**2 + y**2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -185,7 +185,10 @@ class LineOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
+                [
+                    2 / x * (x * dxdx1 + y * dydx1),
+                    2 / x * (x * dxdx2 + y * dydx2),
+                ],
                 [dzdx1, dzdx2],
             ]
 
@@ -246,7 +249,11 @@ class LineOfSightTransform(CoordinateTransform):
         return rho, theta
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -263,7 +270,10 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def set_dl(self, dl: float,) -> tuple:
+    def set_dl(
+        self,
+        dl: float,
+    ) -> tuple:
         """
         Set spatial resolutions of the lines of sight, and calculate spatial
         coordinates along the LOS
@@ -369,7 +379,11 @@ class LineOfSightTransform(CoordinateTransform):
 
             _along_los = profile.interp(rho_poloidal=rho)
             if limit_to_sep:
-                _along_los = xr.where(rho <= 1, _along_los, 0,)
+                _along_los = xr.where(
+                    rho <= 1,
+                    _along_los,
+                    0,
+                )
             along_los.append(_along_los)
 
         self.along_los = along_los
@@ -423,7 +437,10 @@ class LineOfSightTransform(CoordinateTransform):
         Line of sight integral along the LOS
         """
         along_los = self.map_to_los(
-            profile_1d, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
+            profile_1d,
+            t=t,
+            limit_to_sep=limit_to_sep,
+            calc_rho=calc_rho,
         )
 
         _los_integral = []
@@ -475,7 +492,13 @@ class LineOfSightTransform(CoordinateTransform):
 
         return impact
 
-    def plot_los(self, tplot: float = None, orientation: str = "xy", plot_all=False):
+    def plot_los(
+        self,
+        tplot: float = None,
+        orientation: str = "xy",
+        plot_all: bool = False,
+        figure: bool = True,
+    ):
         channels = self.x1
         cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
 
@@ -492,7 +515,8 @@ class LineOfSightTransform(CoordinateTransform):
             )
 
         if orientation == "xy" or plot_all:
-            plt.figure()
+            if figure:
+                plt.figure()
             plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
             plt.plot(wall_bounds["x_out"], wall_bounds["y_out"], color="k")
             if hasattr(self, "equilibrium"):
@@ -512,7 +536,8 @@ class LineOfSightTransform(CoordinateTransform):
             plt.axis("scaled")
 
         if orientation == "Rz" or plot_all:
-            plt.figure()
+            if figure:
+                plt.figure()
             plt.plot(
                 [wall_bounds["x_out"].max()] * 2,
                 [wall_bounds["z_low"], wall_bounds["z_up"]],
@@ -548,7 +573,8 @@ class LineOfSightTransform(CoordinateTransform):
             plt.axis("scaled")
 
         if hasattr(self, "equilibrium") and plot_all:
-            plt.figure()
+            if figure:
+                plt.figure()
             for ch in self.x1:
                 self.rho[ch].sel(t=tplot, method="nearest").plot(
                     color=cols[ch], linewidth=2

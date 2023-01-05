@@ -2,14 +2,14 @@
 
 from typing import Tuple
 
+from matplotlib import cm
+import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import interp1d
 import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 from xarray import Variable
-from matplotlib import cm
-import matplotlib.pylab as plt
 
 from .abstractconverter_rho import CoordinateTransform
 from ..numpy_typing import Coordinates
@@ -76,7 +76,7 @@ class TransectCoordinates(CoordinateTransform):
         # TODO: add intersection with first walls to restrict possible coordinates
         self._machine_dims = machine_dimensions
 
-        R_positions = np.sqrt(x_positions ** 2 + y_positions ** 2)
+        R_positions = np.sqrt(x_positions**2 + y_positions**2)
         self.x_interp = interp1d(
             self.x1, x_positions, copy=False, fill_value="extrapolate"
         )
@@ -97,7 +97,10 @@ class TransectCoordinates(CoordinateTransform):
             z_positions, self.x1, copy=False, fill_value="extrapolate"
         )
         self.invert_R = interp1d(
-            R_positions, self.x1, copy=False, fill_value="extrapolate",
+            R_positions,
+            self.x1,
+            copy=False,
+            fill_value="extrapolate",
         )
 
         x, y = self.convert_to_xy(self.x1, self.x2, None)
@@ -251,7 +254,11 @@ class TransectCoordinates(CoordinateTransform):
 
         value_at_channels = profile_1d.interp(rho_poloidal=rho)
         if limit_to_sep:
-            value_at_channels = xr.where(rho <= 1, value_at_channels, 0,)
+            value_at_channels = xr.where(
+                rho <= 1,
+                value_at_channels,
+                0,
+            )
 
         self.value_at_channels = value_at_channels
 
