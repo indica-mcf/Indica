@@ -71,28 +71,44 @@ class ST40Reader(DataReader):
 
     """
 
-    MACHINE_DIMS = ((0.17, 0.8), (-0.75, 0.75))
+    MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
     INSTRUMENT_METHODS = {
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
         "princeton": "get_charge_exchange",
-        "lines": "get_filters",
+        "brems": "get_diode_filters",
+        "halpha": "get_diode_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
         "astra": "get_astra",
-        "diode_arrays": "get_radiation",
+        "sxr_diode_1": "get_diode_filters",
+        "sxr_diode_2": "get_diode_filters",
+        "sxr_diode_3": "get_diode_filters",
+        "sxr_diode_4": "get_diode_filters",
+        "sxr_camera_1": "get_radiation",
+        "sxr_camera_2": "get_radiation",
+        "sxr_camera_3": "get_radiation",
+        "sxr_camera_4": "get_radiation",
     }
     UIDS_MDS = {
         "efit": "",
         "xrcs": "sxr",
         "princeton": "spectrom",
-        "lines": "spectrom",
+        "brems": "spectrom",
+        "halpha": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
         "smmh1": "interferom",
         "astra": "",
-        "diode_arrays": "sxr",
+        "sxr_diode_1": "sxr",
+        "sxr_diode_2": "sxr",
+        "sxr_diode_3": "sxr",
+        "sxr_diode_4": "sxr",
+        "sxr_camera_1": "sxr",
+        "sxr_camera_2": "sxr",
+        "sxr_camera_3": "sxr",
+        "sxr_camera_4": "sxr",
     }
     QUANTITIES_MDS = {
         "efit": {
@@ -141,10 +157,6 @@ class ST40Reader(DataReader):
             "times": ".time",
             "exposure": ".exposure",
         },
-        "lines": {
-            "brems": ".brem_mp1:intensity",
-            "h_alpha": ".h_alpha_mp1:intensity",
-        },
         "nirh1": {
             "ne": ".line_int:ne",
         },
@@ -153,6 +165,20 @@ class ST40Reader(DataReader):
         },
         "smmh1": {
             "ne": ".line_int:ne",
+        },
+        "brems": {
+            "brightness": ".brem_mp1:intensity",
+        },
+        "halpha": {
+            "brightness": ".h_alpha_mp1:intensity",
+        },
+        "sxr_camera_4": {
+            "brightness": ".middle_head.filter_4:",
+            "location": ".middle_head.geometry:location",
+            "direction": ".middle_head.geometry:direction",
+        },
+        "sxr_diode_4": {
+            "brightness": ".filter_004:signal",
         },
         "astra": {
             "upl": ".global:upl",
@@ -171,7 +197,7 @@ class ST40Reader(DataReader):
             "nf": ".profiles.astra:nf",  # Main ion density, 10^19 m^-3
             "n_d": ".profiles.astra:n_d",  # Deuterium density,10E19/m3
             "n_t": ".profiles.astra:n_t",  # Tritium density	,10E19/m3
-            "omega_tor": ".profiles.astra:omega_tor",  # Toroidal rotation frequency, 1/s
+            "omega_tor": ".profiles.astra:omega_tor",  # Toroidal rot. freq., 1/s
             "qe": ".profiles.astra:qe",  # electron power flux, MW
             "qi": ".profiles.astra:qi",  # ion power flux, MW
             "qn": ".profiles.astra:qn",  # total electron flux, 10^19/s
@@ -185,7 +211,7 @@ class ST40Reader(DataReader):
             "sbm": ".profiles.astra:sbm",  # Particle source from beam, 10^19/m^3/s
             "spel": ".profiles.astra:spel",  # Particle source from pellets, 10^19/m^3/s
             "stot": ".profiles.astra:stot",  # Total electron source,10^19/s/m3
-            "swall": ".profiles.astra:swall",  # Particle source from wall neutrals, 10^19/m^3/s
+            "swall": ".profiles.astra:swall",  # Wall neutrals source, 10^19/m^3/s
             "te": ".profiles.astra:te",  # Electron temperature, keV
             "ti": ".profiles.astra:ti",  # Ion temperature, keV
             "tri": ".profiles.astra:tri",  # Triangularity (up/down symmetrized) profile
@@ -203,37 +229,25 @@ class ST40Reader(DataReader):
             "p_oh": ".global:p_oh",  # Absorber NBI power, W
             "psi": ".profiles.psi_norm:psi",  # PSI
             "q": ".profiles.psi_norm:q",  # Q_PROFILE(PSI_NORM)
-            "sigmapar": ".profiles.psi_norm:sigmapar",  # Parallel conductivity,1/(Ohm*m)
+            "sigmapar": ".profiles.psi_norm:sigmapar",  # Paral. conduct.,1/(Ohm*m)
             "volume": ".profiles.psi_norm:volume",  # Volume inside magnetic surface,m3
-        },
-        "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
-            "filter_1": ".middle_head.filter_1:",
-            "filter_1_time": ".middle_head.filter_1:time",
-            "filter_2": ".middle_head.filter_2:",
-            "filter_2_time": ".middle_head.filter_2:time",
-            "filter_3": ".middle_head.filter_3:",
-            "filter_3_time": ".middle_head.filter_3:time",
-            "filter_4": ".middle_head.filter_4:",
-            "filter_4_time": ".middle_head.filter_4:time",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
         },
     }
 
-    _IMPLEMENTATION_QUANTITIES = {
+    _IMPLEMENTATION_QUANTITIES = {  # TODO: these will be different diagnostics!!!!!!!
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
-            "filter_1": ("sxr_radiation", "no_filter"),
-            "filter_2": ("sxr_radiation", "50_Al"),
-            "filter_3": ("sxr_radiation", "250_Be"),
-            "filter_4": ("sxr_radiation", "10_Be"),
+            "sxr_camera_1": ("brightness", "total"),
+            "sxr_camera_2": ("brightness", "50_Al_filtered"),
+            "sxr_camera_3": ("brightness", "250_Be_filtered"),
+            "sxr_camera_4": ("brightness", "10_Be_filtered"),
         },
     }
 
     _RADIATION_RANGES = {
-        "filter_1": (1, 20),
-        "filter_2": (21, 40),
-        "filter_3": (41, 60),
-        "filter_4": (61, 80),
+        "sxr_camera_1": (1, 20),
+        "sxr_camera_2": (21, 40),
+        "sxr_camera_3": (41, 60),
+        "sxr_camera_4": (61, 80),
     }
 
     def __init__(
@@ -362,6 +376,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
 
@@ -376,9 +391,6 @@ class ST40Reader(DataReader):
         if np.array_equal(times, "FAILED"):
             return {}
 
-        qval, q_path = self._get_signal(uid, instrument, ".profiles.psi_norm:xpsn", revision)
-        results["psin"] = qval
-        results["psin_records"] = [q_path]
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -403,6 +415,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch data from ASTRA run."""
 
@@ -453,6 +466,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch data from SXR camera."""
 
@@ -461,68 +475,50 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        if "sxr_camera" in instrument:
+            _instrument = "diode_arrays"
+        else:
+            _instrument = instrument
+
+        results["revision"] = self._get_revision(uid, _instrument, revision)
         revision = results["revision"]
 
         location, location_path = self._get_signal(
-            uid, instrument, self.QUANTITIES_MDS[instrument]["location"], revision
+            uid, _instrument, self.QUANTITIES_MDS[instrument]["location"], revision
         )
         direction, direction_path = self._get_signal(
-            uid, instrument, self.QUANTITIES_MDS[instrument]["direction"], revision
+            uid, _instrument, self.QUANTITIES_MDS[instrument]["direction"], revision
         )
+        results["location"] = location
+        results["direction"] = direction
 
-        for q in quantities:
-            luminosities = []
-            records = []
-            xstart, xstop, ystart, ystop, zstart, zstop = [], [], [], [], [], []
+        brightness = []
+        records = []
+        quantity = "brightness"
 
-            times, t_path = self._get_signal(
+        chan_start, chan_end = self._RADIATION_RANGES[instrument]
+        nchan = chan_end - chan_start + 1
+        for chan in range(chan_start, chan_end + 1):
+            qval, q_path = self._get_signal(
                 uid,
-                instrument,
-                self.QUANTITIES_MDS["diode_arrays"][q + "_time"],
+                _instrument,
+                self.QUANTITIES_MDS[instrument][quantity] + "ch" + str(chan).zfill(3),
                 revision,
             )
-            results[q + "_times"] = times
-            records.append(t_path)
+            records.append(q_path)
+            brightness.append(qval)
 
-            chan_start, chan_end = self._RADIATION_RANGES[q]
-            nchan = chan_end - chan_start + 1
-            for chan in range(chan_start, chan_end + 1):
-                qval, q_path = self._get_signal(
-                    uid,
-                    instrument,
-                    self.QUANTITIES_MDS[instrument][q] + "ch" + str(chan).zfill(3),
-                    revision,
-                )
+        times, _ = self._get_signal_dims(q_path, len(qval.shape))
+        times = times[0]
+        results["length"] = nchan
+        results["times"] = times
+        results[quantity] = np.array(brightness).T
+        results[quantity + "_records"] = records
+        results[quantity + "_error"] = self._default_error * results[quantity]
+        results["location"] = np.array(location[chan_start - 1 : chan_start + nchan])
+        results["direction"] = np.array(direction[chan_start - 1 : chan_start + nchan])
+        # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
 
-                records.append(q_path)
-                luminosities.append(qval)
-
-                los_start, los_stop = self.get_los(
-                    location[chan - chan_start], direction[chan - chan_start]
-                )
-                xstart.append(los_start[0])
-                xstop.append(los_stop[0])
-                ystart.append(los_start[1])
-                ystop.append(los_stop[1])
-                zstart.append(los_start[2])
-                zstop.append(los_stop[2])
-
-            results["length"][q] = nchan
-            results[q] = np.array(luminosities).T
-            results[q + "_records"] = records
-            results[q + "_error"] = self._default_error * results[q]
-
-            results[q + "location"] = np.array(location)
-            results[q + "direction"] = np.array(direction)
-            results[q + "_xstart"] = np.array(xstart)
-            results[q + "_xstop"] = np.array(xstop)
-            results[q + "_ystart"] = np.array(ystart)
-            results[q + "_ystop"] = np.array(ystop)
-            results[q + "_zstart"] = np.array(zstart)
-            results[q + "_zstop"] = np.array(zstop)
-
-            # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
         results["quantities"] = quantities
 
         return results
@@ -533,6 +529,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -546,17 +543,14 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        # position_instrument = "raw_sxr"
-        # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
-        # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
-        if instrument == "xrcs":
-            location = np.array([1.0, 0, 0])
-            direction = np.array([0.17, 0, 0]) - location
-        else:
-            raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_stop = self.get_los(location, direction)
+        # TODO: update when new MDS+ structure becomes available
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, direction_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
         times, _ = self._get_signal(uid, instrument, ":time_mid", revision)
-        # results["times"] = times
         wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
         results["wavelength"] = wavelength
         for q in quantities:
@@ -580,18 +574,14 @@ class ST40Reader(DataReader):
                     qval_err = 0.0 * results[q]
                     q_path_err = ""
             except TreeNNF:
-                qval_err = 0.0 * results[q]
+                qval_err = np.full_like(results[q], 0.0)
                 q_path_err = ""
             results[q + "_error"] = qval_err
             results[q + "_error" + "_records"] = q_path_err
 
-        results["length"] = 1
-        results["xstart"] = np.array([los_start[0]])
-        results["xstop"] = np.array([los_stop[0]])
-        results["ystart"] = np.array([los_start[1]])
-        results["ystop"] = np.array([los_stop[1]])
-        results["zstart"] = np.array([los_start[2]])
-        results["zstop"] = np.array([los_stop[2]])
+        results["length"] = np.shape(location)[0]
+        results["location"] = location
+        results["direction"] = direction
 
         return results
 
@@ -601,7 +591,10 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
+
+        raise NotImplementedError("CXRS reader still to be implemented!!!")
 
         if len(uid) == 0:
             uid = self.UIDS_MDS[instrument]
@@ -654,12 +647,6 @@ class ST40Reader(DataReader):
             results[q + "_records"] = q_path
             results[q] = qval
 
-        # Update times to be the mid-point of the frame -- currently no working due to MDSplus data (not code)
-        print(results)
-        print(results["times"])
-        print(results["exposure"])
-        # results["times"] = results["times"] + 0.5*results["exposure"]
-
         # Export coordinates
         results["length"] = len(rstart)
         results["Rstart"] = rstart
@@ -671,60 +658,80 @@ class ST40Reader(DataReader):
 
         return results
 
-    def _get_filters(
+    def _get_diode_filters(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
             uid = self.UIDS_MDS[instrument]
 
+        # TODO: change once new MDS+ standardisation has been completed
+        # location, location_path = self._get_signal(
+        #     uid, instrument, ".geometry:location", revision
+        # )
+        # direction, position_path = self._get_signal(
+        #     uid, instrument, ".geometry:direction", revision
+        # )
+        location = np.array(
+            [
+                [1.0, 0, 0],
+            ]
+        )
+        direction = (
+            np.array(
+                [
+                    [0.17, 0, 0],
+                ]
+            )
+            - location
+        )
+        length = location[:, 0].size
+        if instrument == "brems":
+            _instrument = "lines"
+            revision = -1
+        elif instrument == "halpha":
+            _instrument = "lines"
+            revision = -1
+        elif "sxr_diode" in instrument:
+            _instrument = "diode_detr"
+        else:
+            raise ValueError(f"{instrument} not yet supported")
+
         results: Dict[str, Any] = {
-            "length": {},
+            "length": length,
             "machine_dims": self.MACHINE_DIMS,
         }
-
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["location"] = np.array(location)
+        results["direction"] = np.array(direction)
+        results["revision"] = self._get_revision(uid, _instrument, revision)
+        results["revision"] = revision
         revision = results["revision"]
 
-        # position_instrument = "raw_sxr"
-        # position, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:position", -1)
-        # direction, position_path = self._get_signal(uid, position_instrument, ".xrcs.geometry:direction", -1)
-        if instrument == "lines":
-            location = np.array([1.0, 0, 0])
-            direction = np.array([0.17, 0, 0]) - location
-        else:
-            raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_stop = self.get_los(location, direction)
-        for q in quantities:
-            qval, q_path = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
-            )
-            times, _ = self._get_signal_dims(q_path, len(qval.shape))
-            times = times[0]
-            if "times" not in results:
-                results["times"] = times
-            results[q + "_records"] = q_path
-            results[q] = qval
-            qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_ERR", revision
-            )
-            if np.array_equal(qval_err, "FAILED"):
-                qval_err = 0.0 * results[q]
-                q_path_err = ""
-            results[q + "_error"] = qval_err
-            results[q + "_error" + "_records"] = q_path_err
-
-        results["length"] = 1
-        results["xstart"] = np.array([los_start[0]])
-        results["xstop"] = np.array([los_stop[0]])
-        results["ystart"] = np.array([los_start[1]])
-        results["ystop"] = np.array([los_stop[1]])
-        results["zstart"] = np.array([los_start[2]])
-        results["zstop"] = np.array([los_stop[2]])
+        quantity = "brightness"
+        qval, q_path = self._get_signal(
+            uid, _instrument, self.QUANTITIES_MDS[instrument][quantity], revision
+        )
+        times, _ = self._get_signal_dims(q_path, len(qval.shape))
+        times = times[0]
+        results["times"] = times
+        results[quantity + "_records"] = q_path
+        results[quantity] = qval
+        qval_err, q_path_err = self._get_signal(
+            uid,
+            _instrument,
+            self.QUANTITIES_MDS[instrument][quantity] + "_ERR",
+            revision,
+        )
+        if np.array_equal(qval_err, "FAILED"):
+            qval_err = 0.0 * results[quantity]
+            q_path_err = ""
+        results[quantity + "_error"] = qval_err
+        results[quantity + "_error" + "_records"] = q_path_err
 
         return results
 
@@ -734,6 +741,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0:
@@ -747,26 +755,13 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        # location, location_path = self._get_signal(
-        #     uid, instrument, ".geometry:location", revision
-        # )
-        # direction, direction_path = self._get_signal(
-        #     uid, instrument, ".geometry:direction", revision
-        # )
-        # if len(np.shape(location)) == 2:
-        #     location = location[0]
-        # if len(np.shape(direction)) == 2:
-        #     direction = direction[0]
-
-        if instrument == "smmh1":
-            location = np.array([1.0, 0, 0])
-            direction = np.array([0.17, 0, 0]) - location
-        elif instrument == "nirh1" or instrument == "nirh1_bin":
-            location = np.array([-0.07, 0.9, 0])
-            direction = np.array([0.37, -0.75, 0]) - location
-        else:
-            raise ValueError(f"No geometry available for {instrument}")
-        los_start, los_stop = self.get_los(location, direction)
+        # TODO: update when new MDS+ structure becomes available
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, position_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
         times, _ = self._get_signal(uid, instrument, ":time", revision)
 
         if np.array_equal(times, "FAILED"):
@@ -798,20 +793,12 @@ class ST40Reader(DataReader):
                 revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):
-                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
+                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
-            #     qval_syserr = np.zeros_like(qval)
-            #     q_path_syserr = ""
-            # results[q + "_syserror"] = qval_syserr
-            # results[q + "_syserror" + "_records"] = q_path_syserr
 
-        results["length"] = 1
-        results["xstart"] = np.array([los_start[0]])
-        results["xstop"] = np.array([los_stop[0]])
-        results["ystart"] = np.array([los_start[1]])
-        results["ystop"] = np.array([los_stop[1]])
-        results["zstart"] = np.array([los_start[2]])
-        results["zstop"] = np.array([los_stop[2]])
+        results["length"] = np.shape(location)[0]
+        results["location"] = np.array(location)
+        results["direction"] = np.array(direction)
 
         return results
 

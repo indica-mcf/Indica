@@ -7,6 +7,8 @@ labeled dimensions and to scalar.
 
 import numbers
 import typing
+from typing import Optional
+from typing import Tuple
 
 import numpy as np
 import xarray
@@ -19,7 +21,7 @@ except ImportError:
     ]
 
 LabeledArray = typing.Union[
-    float, int, np.ndarray, xarray.DataArray, xarray.Dataset, xarray.Variable
+    float, int, np.ndarray, xarray.DataArray, xarray.Dataset, xarray.Variable, list
 ]
 
 OnlyArray = typing.Union[
@@ -31,4 +33,11 @@ OnlyArray = typing.Union[
 
 OnlyXarray = typing.Union[xarray.DataArray, xarray.Dataset, xarray.Variable]
 
+# Type for generic functions that e.g. return same type as input
+XarrayGeneric = typing.TypeVar("XarrayGeneric", xarray.DataArray, xarray.Dataset)
+
 RevisionLike = typing.Union[str, int]
+
+Coordinates = Tuple[LabeledArray, LabeledArray]
+
+OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]

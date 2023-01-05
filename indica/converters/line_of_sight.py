@@ -4,18 +4,23 @@
 from typing import cast
 from typing import Tuple
 
+from matplotlib import cm
+import matplotlib.pylab as plt
 import numpy as np
 from scipy.optimize import root
+import xarray as xr
 from xarray import DataArray
+from xarray import Dataset
 from xarray import zeros_like
 
-from .abstractconverter import Coordinates
-from .abstractconverter import CoordinateTransform
-from .flux_surfaces import FluxSurfaceCoordinates
+from .abstractconverter_rho import Coordinates
+from .abstractconverter_rho import CoordinateTransform
+from .abstractconverter_rho import find_wall_intersections
 from ..numpy_typing import LabeledArray
+from ..numpy_typing import OnlyArray
 
 
-class LinesOfSightTransform(CoordinateTransform):
+class LineOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
@@ -25,28 +30,20 @@ class LinesOfSightTransform(CoordinateTransform):
     system will usually only be indexed in the first coordinate, as
     the measurements were integrated along the line-of-sight.
 
-    If not passed to the constructor, the default grid for converting
-    from the x-z system is chosen as follows:
-
-    - The x-grid ranges from ``min(x_start.min(), x_end.min())`` to
-      ``max(x_start.max(), x_end.max())`` with ``num_points`` intervals.
-    - The z-grid ranges from ``min(z_start.min(), z_end.min())`` to
-      ``max(z_start.max(), z_end.max())`` with ``num_points`` intervals.
-
     Parameters
     ----------
     origin_x
-        A float giving x position for the origin of the line-of-sight.
+        An array giving x positions for the origin of the lines-of-sight.
     origin_y
-        A float giving y position for the origin of the line-of-sight.
+        An array giving y positions for the origin of the lines-of-sight.
     origin_z
-        A float giving z position for the origin of the line-of-sight.
+        An array giving z positions for the origin of the lines-of-sight.
     direction_x
-        A float giving x position for the direction of the line-of-sight.
+        An array giving x positions for the direction of the lines-of-sight.
     direction_y
-        A float giving y position for the direction of the line-of-sight.
+        An array giving y positions for the direction of the lines-of-sight.
     direction_z
-        A float giving z position for the direction of the line-of-sight.
+        An array giving z positions for the direction of the lines-of-sight.
     name
         The name to refer to this coordinate system by, typically taken
         from the instrument it describes.
@@ -56,62 +53,89 @@ class LinesOfSightTransform(CoordinateTransform):
     dl
         A float giving the distance between coordinates along the
         line-of-sight. Default to 0.01 metres.
+    passes
+        Number of passes across the plasma (e.g. typical interferometer
+        with corner cube has passes=2)
 
     """
 
     def __init__(
         self,
-        origin_x: float,
-        origin_y: float,
-        origin_z: float,
-        direction_x: float,
-        direction_y: float,
-        direction_z: float,
-        name: str,
+        origin_x: OnlyArray,
+        origin_y: OnlyArray,
+        origin_z: OnlyArray,
+        direction_x: OnlyArray,
+        direction_y: OnlyArray,
+        direction_z: OnlyArray,
+        name: str = "",
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
         dl: float = 0.01,
+        passes: int = 1,
     ):
 
-        # Origin and Direction vectors
-        origin: Tuple[float, float, float] = (origin_x, origin_y, origin_z)
-        direction: Tuple[float, float, float] = (direction_x, direction_y, direction_z)
-
-        # Calculate x_start, y_start, z_start, x_end, y_end and z_end
-        start_coords, end_coords = _find_wall_intersections(
-            origin, direction, machine_dimensions=machine_dimensions
-        )
-        x_start = start_coords[0]
-        y_start = start_coords[1]
-        z_start = start_coords[2]
-        x_end = end_coords[0]
-        y_end = end_coords[1]
-        z_end = end_coords[2]
-
-        self.x_start = DataArray(x_start)
-        self.z_start = DataArray(z_start)
-        self.y_start = DataArray(y_start)
-        self._machine_dims = machine_dimensions
-        self.x_end = DataArray(x_end)
-        self.z_end = DataArray(z_end)
-        self.y_end = DataArray(y_end)
+        self.name = f"{name}_line_of_sight_transform"
         self.x1_name = "channel"
         self.x2_name = "los_position"
-
-        # Set "dl"
+        self._machine_dims = machine_dimensions
         self.dl_target = dl
-        x2, dl_new = self.set_dl(dl)
-        self.x2 = x2
-        self.dl = dl_new
+        self.passes = passes
 
-        # Set x, y, z, r
-        self.x, self.y = self.convert_to_xy(0, x2, 0)
-        self.R, self.z = self.convert_to_Rz(0, x2, 0)
+        self.dl: list = []
+        self.x: list = []
+        self.y: list = []
+        self.z: list = []
+        self.R: list = []
+        self.phi: list = []
+        self.rho: list = []
+        self.theta: list = []
+        self.along_los: list = []
+        self.los_integral: DataArray
+        self.t: LabeledArray
+        self.x2: list = []
 
-        # Calculate r, phi (cylindrical coordinates)
-        self.phi = np.arctan2(self.y, self.x)
+        self.origin_x = origin_x
+        self.origin_y = origin_y
+        self.origin_z = origin_z
+        self.direction_x = direction_x
+        self.direction_y = direction_y
+        self.direction_z = direction_z
+        self.origin = np.array([origin_x, origin_y, origin_z]).transpose()
+        self.direction = np.array([direction_x, direction_y, direction_z]).transpose()
+
+        # Number of lines of sight
+        self.x1: list = list(np.arange(0, len(origin_x)))
+
+        # Calculate start and end coordinates, R, z and phi for all LOS
+        x_start, y_start, z_start = [], [], []
+        x_end, y_end, z_end = [], [], []
+        for channel in self.x1:
+            origin = (origin_x[channel], origin_y[channel], origin_z[channel])
+            direction = (
+                direction_x[channel],
+                direction_y[channel],
+                direction_z[channel],
+            )
+            _start, _end = find_wall_intersections(
+                origin, direction, machine_dimensions=machine_dimensions
+            )
+            x_start.append(_start[0])
+            y_start.append(_start[1])
+            z_start.append(_start[2])
+            x_end.append(_end[0])
+            y_end.append(_end[1])
+            z_end.append(_end[2])
+
+        self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1)])
+        self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1)])
+        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
+        self.x_end = DataArray(x_end, coords=[(self.x1_name, self.x1)])
+        self.y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
+        self.z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
+
+        self.x2, self.dl = self.set_dl(dl)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -132,18 +156,18 @@ class LinesOfSightTransform(CoordinateTransform):
 
     def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
-    ) -> Tuple:
-        x = self.x_start + (self.x_end - self.x_start) * x2
-        y = self.y_start + (self.y_end - self.y_start) * x2
+    ) -> Coordinates:
+        x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
+        y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
         return x, y
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        x = self.x_start + (self.x_end - self.x_start) * x2
-        y = self.y_start + (self.y_end - self.y_start) * x2
-        z = self.z_start + (self.z_end - self.z_start) * x2
-        return np.sign(x) * np.sqrt(x**2 + y**2), z
+        x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
+        y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
+        z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
+        return np.sqrt(x ** 2 + y ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -153,7 +177,7 @@ class LinesOfSightTransform(CoordinateTransform):
             x2 = x[1]
             x = self.x_start + (self.x_end - self.x_start) * x2
             y = self.y_start + (self.y_end - self.y_start) * x2
-            x = np.sign(x) * np.sqrt(x**2 + y**2)
+            # z = self.z_start + (self.z_end - self.z_start) * x2
             dxdx1 = 0.0
             dxdx2 = self.x_end - self.x_start
             dydx1 = 0.0
@@ -161,10 +185,7 @@ class LinesOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [
-                    2 / x * (x * dxdx1 + y * dydx1),
-                    2 / x * (x * dxdx2 + y * dydx2),
-                ],
+                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
                 [dzdx1, dzdx2],
             ]
 
@@ -183,27 +204,58 @@ class LinesOfSightTransform(CoordinateTransform):
                 )
             return result.x[0], result.x[1]
 
+        raise NotImplementedError("Not checked for multiple LOS...")
+
         Rz = invert(R, z)
         return Rz[0], Rz[1]
         # # TODO: Consider if there is some way to invert this exactly,
         # # rather than rely on interpolation (which is necessarily
         # # inexact, as well as computationally expensive).
 
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+        """
+        Convert R, z to rho given the flux surface transform
+        """
+        self.check_equilibrium()
+
+        rho = []
+        theta = []
+        _rho: DataArray
+        _theta: DataArray
+        for channel in self.x1:
+            _rho, _theta, _ = self.equilibrium.flux_coords(
+                self.R[channel], self.z[channel], t=t
+            )
+            drop_vars = ["R", "z"]
+            for var in drop_vars:
+                if var in _rho.coords:
+                    _rho = _rho.drop_vars(var)
+                if var in _theta.coords:
+                    _theta = _theta.drop_vars(var)
+
+            _rho.assign_coords({self.x2_name: self.x2[channel].values})
+            _theta.assign_coords({self.x2_name: self.x2[channel].values})
+
+            rho.append(xr.where(_rho >= 0, _rho, np.nan))
+            theta.append(xr.where(_rho >= 0, _theta, np.nan))
+
+        self.t = t
+        self.rho = rho
+        self.theta = theta
+
+        return rho, theta
+
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
         lines.
 
         """
-        x = self.x_start + (self.x_end - self.x_start) * x2
-        y = self.y_start + (self.y_end - self.y_start) * x2
-        z = self.z_start + (self.z_end - self.z_start) * x2
+        x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
+        y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
+        z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
         spacings = np.sqrt(
             x.diff(direction) ** 2 + z.diff(direction) ** 2 + y.diff(direction) ** 2
         )
@@ -211,193 +263,295 @@ class LinesOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def set_dl(self, dl: float):
-        # Convert to Cartesian
-        x_start = self.x_start
-        y_start = self.y_start
-        z_start = self.z_start
-        x_end = self.x_end
-        y_end = self.y_end
-        z_end = self.z_end
+    def set_dl(self, dl: float,) -> tuple:
+        """
+        Set spatial resolutions of the lines of sight, and calculate spatial
+        coordinates along the LOS
+
+        Parameters
+        ----------
+        dl
+            Spatial resolution (m)
+
+        Returns
+        -------
+        x2
+            The list of values 0 and 1 specifying the position along the grid-line
+            each point separated by dl in Cartesian coordinates
+        dl
+            Recomputed dl to fit an integral number of points in-between start & end
+        """
+
+        x: list = []
+        y: list = []
+        z: list = []
+        R: list = []
+        phi: list = []
+        x2: list = []
+        dl_new: list = []
+
+        # Length of the lines of sight
         los_length = np.sqrt(
-            (x_end - x_start) ** 2 + (y_end - y_start) ** 2 + (z_end - z_start) ** 2
+            (self.x_end - self.x_start) ** 2
+            + (self.y_end - self.y_start) ** 2
+            + (self.z_end - self.z_start) ** 2
         )
 
         # Find the number of points
-        npts = np.ceil(los_length.data / dl).astype(int)
+        npts = np.ceil(los_length / dl).astype(int).values
 
-        # Set dl, calculate dl
-        ind = np.linspace(0, 1, npts, dtype=float)
-        x2 = DataArray(ind, dims=self.x2_name)
-        dl = self.distance(self.x2_name, 0, x2[0:2], 0)[1]
+        # Set dl, calculate dl, x, y, z, R
+        for x1 in self.x1:
+            ind = np.linspace(0, 1, npts[x1], dtype=float)
+            _x2 = DataArray(ind, dims=self.x2_name)
+            x2.append(_x2)
+            dl_new.append(self.distance(self.x2_name, 0, _x2[0:2], 0)[1])
 
-        return x2, dl
+            _x, _y = self.convert_to_xy(x1, _x2, 0)
+            _R, _z = self.convert_to_Rz(x1, _x2, 0)
+            _phi = np.arctan2(_y, _x)
+            x.append(_x)
+            y.append(_y)
+            R.append(_R)
+            z.append(_z)
+            phi.append(_phi)
 
-    def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        self.flux_transform = flux_transform
+        self.x2 = x2
+        self.dl = dl_new
+        self.x = x
+        self.y = y
+        self.z = z
+        self.R = R
+        self.phi = phi
+        self.impact_parameter = self.calc_impact_parameter()
 
-    def convert_to_rho(self, t: float = None):
-        self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
+        return x2, dl_new
 
+    def map_to_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep: bool = True,
+        calc_rho: bool = False,
+    ) -> list:
+        """
+        Map 1D profile to lines-of-sight
+        TODO: extend for 2D interpolation to (R, z) instead of rho
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
+        calc_rho
+            Calculate rho for specified time-points
 
-def _find_wall_intersections(
-    origin: Tuple,
-    direction: Tuple,
-    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-        (1.83, 3.9),
-        (-1.75, 2.0),
-    ),
-):
-    """Function for calculating "start" and "end" positions of the line-of-sight
-    given the machine dimensions.
+        Returns
+        -------
+            Interpolation of the input profile along the LOS
+        """
+        self.check_equilibrium()
+        self.check_rho(t, calc_rho)
 
-    The end coordinate is calculated by finding the intersections with the
-    machine dimensions. If the intersection hits the inner column, the first
-    intersection point becomes the "end" position of the line-of-sight. If the
-    intersection misses the inner column, the last intersection point with the
-    outer column becomes the "end" position.
+        along_los = []
+        for channel in self.x1:
+            if "t" in self.rho[channel].dims:
+                rho = self.rho[channel].interp(t=t)
+            else:
+                rho = self.rho[channel]
 
-    Parameters
-    ----------
-    origin
-        A Tuple (1x3) giving the X, Y and Z origin positions of the line-of-sight
-    direction
-        A Tuple (1x3) giving the X, Y and Z direction of the line-of-sight
-    machine_dimensions
-        A tuple giving the boundaries of the Tokamak in x-z space:
-        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
+            if "t" in profile_1d.dims:
+                profile = profile_1d.interp(t=t)
+            else:
+                profile = profile_1d
 
-    Returns
-    -------
-    start_coordinates
-        A Tuple (1x3) giving the X, Y and Z start positions of the line-of-sight
-    end_coordinates
-        A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
-    """
+            _along_los = profile.interp(rho_poloidal=rho)
+            if limit_to_sep:
+                _along_los = xr.where(rho <= 1, _along_los, 0,)
+            along_los.append(_along_los)
 
-    # Define XYZ lines for LOS from origin and direction vectors
-    length = 10.0
-    x_line = np.array(
-        [origin[0] - length * direction[0], origin[0] + length * direction[0]],
-        dtype=float,
-    )
-    y_line = np.array(
-        [origin[1] - length * direction[1], origin[1] + length * direction[1]],
-        dtype=float,
-    )
+        self.along_los = along_los
 
-    # Define XYZ lines for inner and outer walls
-    angles = np.linspace(0.0, 2 * np.pi, 1000)
-    x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
-    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
-    x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
-    y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
+        return along_los
 
-    # Find intersections, to calculate
-    # R_start, z_start, T_start, R_end, z_end, T_end ...
-    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_outer, y_wall_outer)
-    distance = np.sqrt(
-        (xx - origin[0]) ** 2 + (yx - origin[1]) ** 2
-    )  # Distance from intersections
-    i_closest = np.argmin(distance)
-    i_furthest = np.argmax(distance)
-    x_start = xx[i_closest]
-    y_start = yx[i_closest]
-    z_start = origin[-1]
-    x_end = xx[i_furthest]
-    y_end = yx[i_furthest]
-    z_end = origin[-1]
+    def check_rho(self, t: LabeledArray, calc_rho: bool = False):
+        """
+        Check requested times
+        """
+        self.check_equilibrium()
 
-    # Find intersections with inner wall (if exists)
-    xx, yx, ix, jx = intersection(x_line, y_line, x_wall_inner, y_wall_inner)
-    if len(xx) > 0:
-        distance = np.sqrt(
-            (xx - x_line[0]) ** 2 + (yx - y_line[0]) ** 2
-        )  # Distance from intersections
-        i_closest = np.argmin(distance)
-        x_end = xx[i_closest]
-        y_end = yx[i_closest]
-        z_end = origin[-1]
+        if len(self.rho) == 0 or calc_rho:
+            self.convert_to_rho(t=t)
+            return
 
-    return (x_start, y_start, z_start), (x_end, y_end, z_end)
+        rho_t = self.rho[0].t
+        if np.array_equal(rho_t, t):
+            return
 
+        if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
+            return
 
-def _rect_inter_inner(x1, x2):
-    n1 = x1.shape[0] - 1
-    n2 = x2.shape[0] - 1
-    X1 = np.c_[x1[:-1], x1[1:]]
-    X2 = np.c_[x2[:-1], x2[1:]]
-    S1 = np.tile(X1.min(axis=1), (n2, 1)).T
-    S2 = np.tile(X2.max(axis=1), (n1, 1))
-    S3 = np.tile(X1.max(axis=1), (n2, 1)).T
-    S4 = np.tile(X2.min(axis=1), (n1, 1))
-    return S1, S2, S3, S4
+        equil_t = self.equilibrium.rho.t
+        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
+        if equil_ok:
+            self.convert_to_rho(t=t)
+        else:
+            raise ValueError("Inserted time is not available in Equilibrium object")
 
+    def integrate_on_los(
+        self,
+        profile_1d: DataArray,
+        t: LabeledArray = None,
+        limit_to_sep=True,
+        calc_rho=False,
+    ) -> DataArray:
+        """
+        Integrate 1D profile along LOS
+        Parameters
+        ----------
+        profile_1d
+            DataArray of the 1D profile to integrate
+        t
+            Time for interpolation
+        limit_to_sep
+            Set to True if values outside of separatrix are to be set to 0
 
-def _rectangle_intersection_(x1, y1, x2, y2):
-    S1, S2, S3, S4 = _rect_inter_inner(x1, x2)
-    S5, S6, S7, S8 = _rect_inter_inner(y1, y2)
+        Returns
+        -------
+        Line of sight integral along the LOS
+        """
+        along_los = self.map_to_los(
+            profile_1d, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
+        )
 
-    C1 = np.less_equal(S1, S2)
-    C2 = np.greater_equal(S3, S4)
-    C3 = np.less_equal(S5, S6)
-    C4 = np.greater_equal(S7, S8)
+        _los_integral = []
+        for channel in self.x1:
+            _along_los = along_los[channel].drop_vars("rho_poloidal")
+            _los_integral.append(
+                self.passes * _along_los.sum(self.x2_name) * self.dl[channel]
+            )
 
-    ii, jj = np.nonzero(C1 & C2 & C3 & C4)
-    return ii, jj
+        los_integral = xr.concat(_los_integral, self.x1_name).assign_coords(
+            {self.x1_name: self.x1}
+        )
 
+        if len(los_integral.channel) == 1:
+            los_integral = los_integral.sel(channel=0)
 
-def intersection(x1, y1, x2, y2):
-    """
-    INTERSECTIONS Intersections of curves.
-       Computes the (x,y) locations where two curves intersect.  The curves
-       can be broken with NaNs or have vertical segments.
-    usage:
-    x,y=intersection(x1,y1,x2,y2)
-        Example:
-        a, b = 1, 2
-        phi = np.linspace(3, 10, 100)
-        x1 = a*phi - b*np.sin(phi)
-        y1 = a - b*np.cos(phi)
-        x2=phi
-        y2=np.sin(phi)+2
-        x,y, ix, iy=intersection(x1,y1,x2,y2)
-        plt.plot(x1,y1,c='r')
-        plt.plot(x2,y2,c='g')
-        plt.plot(x,y,'*k')
-        plt.show()
-    """
-    ii, jj = _rectangle_intersection_(x1, y1, x2, y2)
-    n = len(ii)
+        self.los_integral = los_integral
 
-    dxy1 = np.diff(np.c_[x1, y1], axis=0)
-    dxy2 = np.diff(np.c_[x2, y2], axis=0)
+        return los_integral
 
-    T = np.zeros((4, n))
-    AA = np.zeros((4, 4, n))
-    AA[0:2, 2, :] = -1
-    AA[2:4, 3, :] = -1
-    AA[0::2, 0, :] = dxy1[ii, :].T
-    AA[1::2, 1, :] = dxy2[jj, :].T
+    def calc_impact_parameter(self):
+        """Calculate the impact parameter in Cartesian space"""
+        impact = []
+        index = []
+        x = []
+        y = []
+        z = []
+        R = []
+        for ch in self.x1:
+            distance = np.sqrt(self.x[ch] ** 2 + self.y[ch] ** 2 + self.z[ch] ** 2)
+            _index = distance.argmin()
+            index.append(_index)
+            impact.append(distance[_index])
+            x.append(self.x[ch][_index])
+            y.append(self.y[ch][_index])
+            z.append(self.z[ch][_index])
+            R.append(np.sqrt(self.x[ch][_index] ** 2 + self.y[ch][_index] ** 2))
 
-    BB = np.zeros((4, n))
-    BB[0, :] = -x1[ii].ravel()
-    BB[1, :] = -x2[jj].ravel()
-    BB[2, :] = -y1[ii].ravel()
-    BB[3, :] = -y2[jj].ravel()
+        impact = Dataset(
+            {
+                "index": xr.concat(index, "channel"),
+                "value": xr.concat(impact, "channel"),
+                "x": xr.concat(x, "channel"),
+                "y": xr.concat(y, "channel"),
+                "z": xr.concat(z, "channel"),
+                "R": xr.concat(R, "channel"),
+            }
+        )
 
-    for i in range(n):
-        try:
-            T[:, i] = np.linalg.solve(AA[:, :, i], BB[:, i])
-        except np.linalg.LinAlgError:
-            T[:, i] = np.NaN
+        return impact
 
-    in_range = (T[0, :] >= 0) & (T[1, :] >= 0) & (T[0, :] <= 1) & (T[1, :] <= 1)
+    def plot_los(self, tplot: float = None, orientation: str = "xy", plot_all=False):
+        channels = self.x1
+        cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
 
-    xy0 = T[2:, in_range]
-    xy0 = xy0.T
+        wall_bounds, angles = self.get_machine_boundaries(
+            machine_dimensions=self._machine_dims
+        )
+        if hasattr(self, "equilibrium"):
+            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(tplot)
+            x_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.cos(
+                angles
+            )
+            y_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.sin(
+                angles
+            )
 
-    indii = ii[in_range] + T[0, in_range]
-    indjj = jj[in_range] + T[1, in_range]
+        if orientation == "xy" or plot_all:
+            plt.figure()
+            plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
+            plt.plot(wall_bounds["x_out"], wall_bounds["y_out"], color="k")
+            if hasattr(self, "equilibrium"):
+                plt.plot(equil_bounds["x_in"], equil_bounds["y_in"], color="red")
+                plt.plot(equil_bounds["x_out"], equil_bounds["y_out"], color="red")
+                plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
+            for ch in self.x1:
+                plt.plot(self.x[ch], self.y[ch], color=cols[ch], linewidth=2)
+                plt.plot(
+                    self.impact_parameter["x"][ch],
+                    self.impact_parameter["y"][ch],
+                    color=cols[ch],
+                    marker="o",
+                )
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.axis("scaled")
 
-    return xy0[:, 0], xy0[:, 1], indii, indjj
+        if orientation == "Rz" or plot_all:
+            plt.figure()
+            plt.plot(
+                [wall_bounds["x_out"].max()] * 2,
+                [wall_bounds["z_low"], wall_bounds["z_up"]],
+                color="k",
+            )
+            plt.plot(
+                [wall_bounds["x_in"].max()] * 2,
+                [wall_bounds["z_low"], wall_bounds["z_up"]],
+                color="k",
+            )
+            plt.plot(
+                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
+                [wall_bounds["z_low"]] * 2,
+                color="k",
+            )
+            plt.plot(
+                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
+                [wall_bounds["z_up"]] * 2,
+                color="k",
+            )
+            if hasattr(self, "equilibrium"):
+                rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
+            for ch in self.x1:
+                plt.plot(self.R[ch], self.z[ch], color=cols[ch], linewidth=2)
+                plt.plot(
+                    self.impact_parameter["R"][ch],
+                    self.impact_parameter["z"][ch],
+                    color=cols[ch],
+                    marker="o",
+                )
+            plt.xlabel("R")
+            plt.ylabel("z")
+            plt.axis("scaled")
+
+        if hasattr(self, "equilibrium") and plot_all:
+            plt.figure()
+            for ch in self.x1:
+                self.rho[ch].sel(t=tplot, method="nearest").plot(
+                    color=cols[ch], linewidth=2
+                )
+            plt.xlabel("Path along LOS")
+            plt.ylabel("Rho")

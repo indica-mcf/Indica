@@ -5,7 +5,7 @@ from typing import Optional
 
 import numpy as np
 
-from .abstractconverter import Coordinates
+from indica.numpy_typing import Coordinates
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import LabeledArray
 
@@ -78,41 +78,6 @@ class FluxSurfaceCoordinates(CoordinateTransform):
 
         """
         return self.equilibrium.flux_coords(R, z, t, self.flux_kind)[0:2]
-
-    def _convert_to_vol(
-        self, rho: LabeledArray, theta: LabeledArray, t: Optional[LabeledArray] = None
-    ) -> Coordinates:
-        """Convert from this coordinate system to one using volume enclosed by
-        the flux surfaces as a coordinate.
-
-        Parameters
-        ----------
-        rho
-            The first spatial coordinate in this system.
-        theta
-            The second spatial coordinate in this system.
-        t
-            The time coordinate (if there is one, otherwise ``None``)
-
-        Returns
-        -------
-        vol
-            Volume enclosed by the flux surface rho.
-
-        """
-        vol, area, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
-        # extra output(area) included to satisfy mypy type checking with
-        # Coordinates = Tuple[LabeledArray, LabeledArray]
-        return vol, area
-
-    def _convert_to_area(
-        self, rho: LabeledArray, theta: LabeledArray, t: Optional[LabeledArray] = None
-    ) -> Coordinates:
-
-        area, t = self.equilibrium.cross_sectional_area(rho, t, kind=self.flux_kind)
-        # extra output(area) included to satisfy mypy type checking with
-        # Coordinates = Tuple[LabeledArray, LabeledArray]
-        return area, t
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

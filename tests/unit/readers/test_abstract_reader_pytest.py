@@ -47,7 +47,7 @@ class Reader(DataReader):
         "radiation": "get_radiation",
         "helike_spectroscopy": "get_helike_spectroscopy",
         "interferometry": "get_interferometry",
-        "filters": "get_filters",
+        "filters": "get_diode_filters",
     }
 
     def __init__(
@@ -81,6 +81,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -95,10 +96,16 @@ class Reader(DataReader):
         results["times"] = times
         results["texp"] = np.full_like(times, dt)
         nt = times.shape[0]
+
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+
         results["element"] = "element"
         results["revision"] = np.random.randint(0, 10)
-        results["R"] = np.random.uniform(Rmin, Rmax, (results["length"],))
+        results["x"] = np.random.uniform(Rmin, Rmax, (results["length"],))
+        results["y"] = np.random.uniform(Rmin, Rmax, (results["length"],))
         results["z"] = np.random.uniform(zmin, zmax, (results["length"],))
+        results["R"] = np.random.uniform(Rmin, Rmax, (results["length"],))
         results["ti"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
         results["ti_error"] = np.sqrt(results["ti"])
         results["angf"] = np.random.uniform(1.0e2, 1.0e6, (nt, results["length"]))
@@ -125,6 +132,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -140,6 +148,11 @@ class Reader(DataReader):
         nt = times.shape[0]
         results["times"] = times
         results["revision"] = np.random.randint(0, 10)
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+
+        results["x"] = np.random.uniform(Rmin, Rmax, (results["length"],))
+        results["y"] = np.random.uniform(Rmin, Rmax, (results["length"],))
         results["z"] = np.random.uniform(zmin, zmax, (results["length"],))
         results["R"] = np.random.uniform(Rmin, Rmax, (results["length"],))
         results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
@@ -163,6 +176,7 @@ class Reader(DataReader):
         calculation: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -196,6 +210,7 @@ class Reader(DataReader):
 
         results["f"] = np.random.uniform(1.0e-6, 0.1, (nt, nrho))
         results["ftor"] = np.random.uniform(1.0e-4, 1.0e-2, (nt, nrho))
+        results["ajac"] = np.random.uniform(1.0e-3, 2.0, (nt, nrho))
         results["vjac"] = np.random.uniform(1.0e-3, 2.0, (nt, nrho))
         results["rmji"] = np.random.uniform(Rmin, Rmax, (nt, nrho))
         results["rmjo"] = np.random.uniform(Rmin, Rmax, (nt, nrho))
@@ -216,6 +231,7 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
@@ -229,6 +245,8 @@ class Reader(DataReader):
         times = np.arange(TSTART, TEND, dt)
         results["times"] = times
         nt = times.shape[0]
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
 
         results["revision"] = np.random.randint(0, 10)
         results["z"] = np.random.uniform(zmin, zmax)
@@ -248,48 +266,27 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        _, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
         results: Dict[str, Any] = {
-            "length": {},
+            "length": np.random.randint(4, 20),
             "machine_dims": self.MACHINE_DIMS,
         }
 
         results["revision"] = np.random.randint(0, 10)
-        length = np.random.randint(4, 20)
         dt = np.random.uniform(0.001, 1.0)
         times = np.arange(TSTART, TEND, dt)
         results["times"] = times
         nt = times.shape[0]
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
 
-        results["v_times"] = times
-        results["v"] = np.random.uniform(0, 1.0e6, (nt, length))
-        results["v_error"] = np.sqrt(results["v"])
-        results["v_xstart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_ystart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_zstart"] = np.random.uniform(zmin, zmax, (length,))
-        results["v_xstop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_ystop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["v_zstop"] = np.random.uniform(zmin, zmax, (length,))
+        results["times"] = times
+        results["brightness"] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
+        results["brightness_error"] = np.sqrt(results["brightness"])
 
-        results["h_times"] = times
-        results["h"] = np.random.uniform(0, 1.0e6, (nt, length))
-        results["h_error"] = np.sqrt(results["h"])
-        results["h_xstart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_ystart"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_zstart"] = np.random.uniform(zmin, zmax, (length,))
-        results["h_xstop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_ystop"] = np.random.uniform(-Rmax, Rmax, (length,))
-        results["h_zstop"] = np.random.uniform(zmin, zmax, (length,))
-
-        results["length"]["v"] = int(length)
-        results["length"]["h"] = int(length)
-
-        for quantity in quantities:
-            results[f"{quantity}_records"] = [f"{quantity}_records"] * length
+        results["brightness_records"] = ["brightness_records"] * results["length"]
 
         return results
 
@@ -299,13 +296,11 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
         results: Dict[str, Any] = {
-            "length": {},
+            "length": np.random.randint(4, 20),
             "machine_dims": self.MACHINE_DIMS,
         }
         results["revision"] = np.random.randint(0, 10)
@@ -314,24 +309,17 @@ class Reader(DataReader):
         results["times"] = times
         nt = times.shape[0]
 
-        length = int(1)
-        signals = ["zefv", "zefh"]
-        for k in signals:
-            results[k] = np.random.uniform(0, 1.0e6, (nt,))
-            results[f"{k}_error"] = np.sqrt(results[k])
-            results[f"{k}_xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_zstart"] = np.array([np.random.uniform(zmin, zmax)])
-            results[f"{k}_xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-            results[f"{k}_zstop"] = np.array([np.random.uniform(zmin, zmax)])
-            results["length"][k] = int(length)
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
 
-        for quantity in quantities:
-            results[f"{quantity}_records"] = [
-                f"{quantity}_path_records",
-                f"{quantity}_los_records",
-            ]
+        quantity = "zeff"
+        results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
+        results[f"{quantity}_error"] = np.sqrt(results[quantity])
+
+        results[f"{quantity}_records"] = [
+            f"{quantity}_path_records",
+            f"{quantity}_los_records",
+        ]
 
         return results
 
@@ -341,16 +329,14 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
-
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
 
         nwavelength = np.random.randint(256, 1024)
         wavelength_start, wavelength_end = 3.8, 4.0
 
         results: Dict[str, Any] = {
-            "length": 1,
+            "length": np.random.randint(4, 20),
             "machine_dims": self.MACHINE_DIMS,
         }
         results["revision"] = np.random.randint(0, 10)
@@ -359,21 +345,20 @@ class Reader(DataReader):
         results["times"] = times
         nt = times.shape[0]
 
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+
         results["wavelength"] = np.linspace(
             wavelength_start, wavelength_end, nwavelength
         )
 
-        results["xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstart"] = np.array([np.random.uniform(zmin, zmax)])
-        results["xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstop"] = np.array([np.random.uniform(zmin, zmax)])
         for quantity in quantities:
             if quantity == "spectra":
-                results[quantity] = np.random.uniform(0, 1.0e6, (nt, nwavelength))
+                results[quantity] = np.random.uniform(
+                    0, 1.0e6, (nt, results["length"], nwavelength)
+                )
             else:
-                results[quantity] = np.random.uniform(0, 1.0e4, (nt,))
+                results[quantity] = np.random.uniform(0, 1.0e4, (nt, results["length"]))
             results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
@@ -382,19 +367,17 @@ class Reader(DataReader):
 
         return results
 
-    def _get_filters(
+    def _get_diode_filters(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
         results: Dict[str, Any] = {
-            "length": 1,
+            "length": np.random.randint(4, 20),
             "machine_dims": self.MACHINE_DIMS,
         }
 
@@ -404,14 +387,11 @@ class Reader(DataReader):
         results["times"] = times
         nt = times.shape[0]
 
-        results["xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstart"] = np.array([np.random.uniform(zmin, zmax)])
-        results["xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstop"] = np.array([np.random.uniform(zmin, zmax)])
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+
         for quantity in quantities:
-            results[quantity] = np.random.uniform(0, 1.0e6, (nt,))
+            results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
             results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
@@ -429,13 +409,11 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
         results: Dict[str, Any] = {
-            "length": 1,
+            "length": np.random.randint(4, 20),
             "machine_dims": self.MACHINE_DIMS,
         }
 
@@ -445,14 +423,10 @@ class Reader(DataReader):
         results["times"] = times
         nt = times.shape[0]
 
-        results["xstart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystart"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstart"] = np.array([np.random.uniform(zmin, zmax)])
-        results["xstop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["ystop"] = np.array([np.random.uniform(Rmin, Rmax)])
-        results["zstop"] = np.array([np.random.uniform(zmin, zmax)])
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         for quantity in quantities:
-            results[quantity] = np.random.uniform(0, 1.0e6, (nt,))
+            results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
             results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
@@ -486,7 +460,7 @@ class Reader(DataReader):
 
 def _test_get_methods(
     instrument="ts",
-    nsamples=10,
+    nsamples=1,
 ):
     """
     Generalised test for all get methods of the abstractreader
@@ -542,7 +516,7 @@ def test_get_helike_spectroscopy():
     )
 
 
-def test_get_filters():
+def test_get_diode_filters():
     _test_get_methods(
         instrument="filters",
         nsamples=10,

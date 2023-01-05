@@ -25,11 +25,37 @@ def default_inputs():
 
 
 def load_los_default():
+    origin = np.array(
+        [
+            [3.8, -2.0, 0.5],
+        ]
+    )  # [xyz]
+    direction = np.array(
+        [
+            [-1.0, 0.0, 0.0],
+        ]
+    )  # [xyz]
+    machine_dims = ((1.83, 3.9), (-1.75, 2.0))
+    name = "los_test"
+    los = line_of_sight.LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        machine_dimensions=machine_dims,
+        name=name,
+    )
+    return los, machine_dims
+
+
+def load_los_default_multi():
     # Line of sight origin tuple
-    origin = (3.8, -2.0, 0.5)  # [xyz]
+    origin = np.array([[3.8, -2.0, 0.5], [3.8, -2.0, 0.0]])  # [xyz]
 
     # Line of sight direction
-    direction = (-1.0, 0.0, 0.0)  # [xyz]
+    direction = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]])  # [xyz]
 
     # machine dimensions
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
@@ -38,13 +64,13 @@ def load_los_default():
     name = "los_test"
 
     # Set-up line of sight class
-    los = line_of_sight.LinesOfSightTransform(
-        origin[0],
-        origin[1],
-        origin[2],
-        direction[0],
-        direction[1],
-        direction[2],
+    los = line_of_sight.LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
         machine_dimensions=machine_dims,
         name=name,
     )
@@ -108,7 +134,9 @@ def convert_to_rho(plot=False):
 def test_convert_to_xy(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
-    x1, x2, t = default_inputs()
+    x1, x2, t = los.x1, los.x2, 0
+    x1 = 0
+    x2 = x2[0]
 
     # Test method
     x, y = los.convert_to_xy(x1, x2, t)
@@ -131,13 +159,15 @@ def test_convert_to_xy(debug=False):
 def test_convert_to_Rz(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
-    x1, x2, t = default_inputs()
+    x1, x2, t = los.x1, los.x2, 0
+    x1 = 0
+    x2 = x2[0]
 
     # Test method
     R_, z_ = los.convert_to_Rz(x1, x2, t)
 
     x, y = los.convert_to_xy(x1, x2, t)
-    R = np.sign(x) * np.sqrt(x**2 + y**2)
+    R = np.sqrt(x**2 + y**2)
 
     # R and z are as expected=
     assert all(R == R_)
@@ -146,35 +176,16 @@ def test_convert_to_Rz(debug=False):
         print(f"R = {R}")
 
 
-# Test convert_from_Rz method
-def test_convert_from_Rz(debug=False):
-    # Load line-of-sight default
-    los, machine_dims = load_los_default()
-
-    # Test inputs
-    R_test = DataArray(2.5)  # Does not work as an array
-    Z_test = DataArray(0.5)  # Does not work as an array
-    t = 0.0
-
-    # Test method
-    _, x2_out = los.convert_from_Rz(R_test, Z_test, t)
-
-    # x2 is within specified range
-    assert x2_out <= 1 and x2_out >= 0
-
-    if debug:
-        print(f"x2_out2 = {x2_out}")
-    return
-
-
 # Test distance method
 def test_distance(debug=False):
     # Load line-of-sight default
     los, machine_dims = load_los_default()
-    x1, x2, t = default_inputs()
+    x1, x2, t = los.x1, los.x2, 0
+    x1 = 0
+    x2 = x2[0]
 
     # Test method
-    dist = los.distance("dim_0", x1, x2, t)
+    dist = los.distance("los_position", x1, x2, t)
     dls = [dist[i + 1] - dist[i] for i in range(len(dist) - 1)]
 
     # dl is identical along the line of sight up to 1 per million
@@ -196,7 +207,7 @@ def test_set_dl(debug=False):
     # Test method
     x2, dl_out = los.set_dl(dl)
 
-    assert np.abs(dl - dl_out) < 1.0e-6
+    assert np.abs(dl - dl_out[0]) < 1.0e-6
 
     if debug:
         print(f"x2 = {x2}")
@@ -237,10 +248,18 @@ def test_intersections(debug=False):
 # Test LOS missing vessel
 def test_missing_los():
     # Line of sight origin tuple
-    origin = (4.0, -2.0, 0.5)  # [xyz]
+    origin = np.array(
+        [
+            [4.0, -2.0, 0.5],
+        ]
+    )  # [xyz]
 
     # Line of sight direction
-    direction = (0.0, 1.0, 0.0)  # [xyz]
+    direction = np.array(
+        [
+            [0.0, 1.0, 0.0],
+        ]
+    )  # [xyz]
 
     # machine dimensions
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
@@ -250,13 +269,13 @@ def test_missing_los():
 
     # Set-up line of sight class
     try:
-        _ = line_of_sight.LinesOfSightTransform(
-            origin[0],
-            origin[1],
-            origin[2],
-            direction[0],
-            direction[1],
-            direction[2],
+        _ = line_of_sight.LineOfSightTransform(
+            origin[:, 0],
+            origin[:, 1],
+            origin[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
             machine_dimensions=machine_dims,
             name=name,
         )

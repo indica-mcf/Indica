@@ -1,5 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 """
 Sukhbinder
@@ -35,23 +35,23 @@ def _rectangle_intersection_(x1, y1, x2, y2):
 
 def intersection(x1, y1, x2, y2):
     """
-INTERSECTIONS Intersections of curves.
-   Computes the (x,y) locations where two curves intersect.  The curves
-   can be broken with NaNs or have vertical segments.
-usage:
-x,y=intersection(x1,y1,x2,y2)
-    Example:
-    a, b = 1, 2
-    phi = np.linspace(3, 10, 100)
-    x1 = a*phi - b*np.sin(phi)
-    y1 = a - b*np.cos(phi)
-    x2=phi
-    y2=np.sin(phi)+2
+    INTERSECTIONS Intersections of curves.
+       Computes the (x,y) locations where two curves intersect.  The curves
+       can be broken with NaNs or have vertical segments.
+    usage:
     x,y=intersection(x1,y1,x2,y2)
-    plt.plot(x1,y1,c='r')
-    plt.plot(x2,y2,c='g')
-    plt.plot(x,y,'*k')
-    plt.show()
+        Example:
+        a, b = 1, 2
+        phi = np.linspace(3, 10, 100)
+        x1 = a*phi - b*np.sin(phi)
+        y1 = a - b*np.cos(phi)
+        x2=phi
+        y2=np.sin(phi)+2
+        x,y=intersection(x1,y1,x2,y2)
+        plt.plot(x1,y1,c='r')
+        plt.plot(x2,y2,c='g')
+        plt.plot(x,y,'*k')
+        plt.show()
     """
     ii, jj = _rectangle_intersection_(x1, y1, x2, y2)
     n = len(ii)
@@ -75,7 +75,7 @@ x,y=intersection(x1,y1,x2,y2)
     for i in range(n):
         try:
             T[:, i] = np.linalg.solve(AA[:, :, i], BB[:, i])
-        except:
+        except ValueError:
             T[:, i] = np.NaN
 
     in_range = (T[0, :] >= 0) & (T[1, :] >= 0) & (T[0, :] <= 1) & (T[1, :] <= 1)

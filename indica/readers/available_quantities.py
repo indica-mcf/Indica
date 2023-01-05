@@ -13,12 +13,11 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te": ("temperature", "electrons"),
     },
     "get_charge_exchange": {
-        "angf": ("angular_freq", None),
-        "ti": ("temperature", None),
+        "angf": ("angular_freq", "ions"),
+        "ti": ("temperature", "ions"),
     },
     "get_bremsstrahlung_spectroscopy": {
-        "zefh": ("effective_charge", "plasma"),
-        "zefv": ("effective_charge", "plasma"),
+        "zeff": ("effective_charge", "plasma"),
     },
     "get_helike_spectroscopy": {
         "int_w": ("intensity", "spectral_line"),
@@ -31,21 +30,21 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "ti_z": ("temperature", "ions"),
         "spectra": ("spectra", "passive"),
     },
-    "get_filters": {
-        "brems": ("intensity", "bremsstrahlung"),
-        "h_alpha": ("intensity", "h_alpha"),
+    "get_diode_filters": {
+        "brightness": ("luminous_flux", None),
     },
     "get_interferometry": {
         "ne": ("density", "electrons"),
     },
     "get_equilibrium": {
         "f": ("f_value", "plasma"),
-        "faxs": ("magnetic_flux", "mag_axis"),
-        "fbnd": ("magnetic_flux", "separatrix"),
-        "ftor": ("toroidal_flux", "plasma"),
+        "faxs": ("magnetic_flux_axis", "poloidal"),
+        "fbnd": ("magnetic_flux_separatrix", "poloidal"),
+        "ftor": ("magnetic_flux", "toroidal"),
         "rmji": ("major_rad", "hfs"),
         "rmjo": ("major_rad", "lfs"),
-        "psi": ("magnetic_flux", "plasma"),
+        "psin": ("magnetic_flux_normalised", "poloidal"),
+        "psi": ("magnetic_flux", "poloidal"),
         "vjac": ("volume_jacobian", "plasma"),
         "ajac": ("area_jacobian", "plasma"),
         "rmag": ("major_rad", "mag_axis"),
@@ -60,14 +59,13 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te": ("temperature", "electrons"),
     },
     "get_radiation": {
-        "h": ("luminous_flux", None),
-        "v": ("luminous_flux", None),
+        "brightness": ("luminous_flux", None),
     },
     "get_astra": {
         "upl": (
             "voltage",
             "loop",
-        ),
+        ),  # Loop voltage V
         "wth": (
             "stored_energy",
             "equilibrium",
@@ -80,10 +78,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
             "stored_energy",
             "fast",
         ),  # Thermal stored energy
-        "df": (
-            "flux",
-            "diamagnetic",
-        ),
         "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
         "j_nbi": (
             "current_density",

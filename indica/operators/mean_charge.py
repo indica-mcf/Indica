@@ -29,10 +29,6 @@ class MeanCharge(Operator):
     mean_charge
         numpy.ndarray of mean charge of the given element.
 
-    Methods
-    -------
-    __call__(FracAbundObj, element)
-        Calculates the mean charge.
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
@@ -69,7 +65,7 @@ class MeanCharge(Operator):
             FracAbundObj,
             DataArray,
             ndim_to_check=3,
-            greater_than_or_equal_zero=True,
+            strictly_positive=False,
         )
         input_check("element", element, str)
 

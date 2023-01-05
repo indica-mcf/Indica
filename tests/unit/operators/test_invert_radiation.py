@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import numpy as np
 from pytest import mark
 from scipy.integrate import romb
+import xarray as xr
 from xarray import DataArray
 from xarray.testing import assert_allclose
 
@@ -21,12 +22,14 @@ fake_equilib = FakeEquilibrium(0.6, 0.0, poloidal_alpha=0.002)
 flux_coords = FluxSurfaceCoordinates("poloidal")
 flux_coords.set_equilibrium(fake_equilib)
 
-R_positions = DataArray(
+x_positions = DataArray(
     np.linspace(0.6, 0.6, 10), coords=[("alpha", np.arange(10))]
 ).assign_attrs(datatype=("major_rad", "plasma"))
+y_positions = xr.zeros_like(x_positions)
 z_positions = DataArray(
     np.linspace(-0.3, 0.3, 10), coords=[("alpha", np.arange(10))]
 ).assign_attrs(datatype=("z", "plasma"))
+R_positions = x_positions
 coords = TransectCoordinates(R_positions, z_positions)
 coords.set_equilibrium(fake_equilib)
 
@@ -60,7 +63,7 @@ def test_emissivity_profile_asym():
     sym_emiss = 0 * knot_locs * knot_times + 1
     asym_par = asym_func(knot_locs, knot_times)
     profile = EmissivityProfile(sym_emiss, asym_par, flux_coords)
-    alpha_grid = R_positions.coords["alpha"]
+    alpha_grid = x_positions.coords["alpha"]
     alpha_z_off_grid = 0 * z_positions
     t_grid = coord_array(np.linspace(0.5, 9.5, 4), "t")
     rho_grid, theta_grid = coords.convert_to(

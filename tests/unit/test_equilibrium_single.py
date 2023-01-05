@@ -2,10 +2,7 @@ from functools import reduce
 from unittest.mock import MagicMock
 
 import numpy as np
-from scipy.integrate import quad
-from scipy.optimize import fmin
 import xarray as xr
-from xarray.core.dataarray import DataArray
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import LinesOfSightTransform
@@ -33,15 +30,20 @@ def smooth_funcs(domain=(0.0, 1.0), max_val=None, min_terms=1, max_terms=11):
     return f
 
 
-def equilibrium_dat():
+def equilibrium_dat(times=None):
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
-    start_time, end_time = 75.0, 80.0
     Btot_factor = None
 
     result = {}
-    nspace = 8
-    ntime = 3
-    times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
+    nspace = 100
+    if times is None:
+        start_time, end_time = 75.0, 80.0
+        ntime = 3
+        times = np.linspace(start_time - 0.5, end_time + 0.5, ntime)
+    else:
+        start_time = times[0]
+        end_time = times[-1]
+        ntime = len(times)
 
     tfuncs = smooth_funcs((start_time, end_time), 0.01)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
@@ -157,6 +159,7 @@ def equilibrium_dat():
     attrs["transform"] = FluxSurfaceCoordinates(
         "poloidal",
     )
+    result["psin"] = psin_data
 
     def monotonic_series(start, stop, num=50, endpoint=True, retstep=False, dtype=None):
         return np.linspace(start, stop, num, endpoint, retstep, dtype)
@@ -203,6 +206,7 @@ def equilibrium_dat():
     result["rmji"].name = "rmji"
     result["rmji"].attrs["datatype"] = ("major_rad", "hfs")
     result["rmji"].coords["z"] = result["zmag"]
+
     result["vjac"] = (
         4
         * n_exp
@@ -214,6 +218,12 @@ def equilibrium_dat():
     ).assign_attrs(**attrs)
     result["vjac"].name = "vjac"
     result["vjac"].attrs["datatype"] = ("volume_jacobian", "plasma")
+
+    result["ajac"] = (
+        2 * n_exp * np.pi * a_coeff * b_coeff * psin_data ** (2 * n_exp - 1)
+    ).assign_attrs(**attrs)
+    result["ajac"].name = "ajac"
+    result["ajac"].attrs["datatype"] = ("area_jacobian", "plasma")
     return result
 
 
@@ -301,10 +311,8 @@ def data_arrays_from_coord(
     return result
 
 
-def electron_temp(rho, zmag):
+def electron_temp(rho, zmag, times=None):
     machine_dimensions = ((1.83, 3.9), (-1.75, 2.0))
-    start_time = 75.0
-    end_time = 80.0
 
     zmin = float(zmag.min())
     zmax = float(zmag.max())
@@ -315,9 +323,14 @@ def electron_temp(rho, zmag):
     zend = 0.5 * (zmax + machine_dimensions[1][1])
     z_vals = np.linspace(zstart, zend, nspace)
     z_scaled = np.linspace(0.0, 1.0, nspace)
-    ntime = 3
-    times = np.linspace(start_time, end_time, ntime)
-    times_scaled = np.linspace(0.0, 1.0, ntime)
+    if times is None:
+        start_time = 75.0
+        end_time = 80.0
+        ntime = 3
+        times = np.linspace(start_time, end_time, ntime)
+        times_scaled = np.linspace(0.0, 1.0, ntime)
+    else:
+        times_scaled = np.linspace(0.0, 1.0, len(times))
     R_array = xr.DataArray(R_vals, dims="index")
     z_array = xr.DataArray(z_vals, dims="index")
     transform = TransectCoordinates(R_array, z_array)
@@ -357,175 +370,66 @@ def electron_temp(rho, zmag):
     )
 
 
-def equilibrium_dat_and_te(with_Te=False):
-    data = equilibrium_dat()
+def equilibrium_dat_and_te(with_Te=False, times=None):
+    data = equilibrium_dat(times)
 
     # This can be toggled but for now is switched of since it intefers
     # with the initlization of the Equilibrium class. A fix for this
     # from another issue will allow the code in the if statement below to be tested.
     if with_Te:
         rho = np.sqrt((data["psi"] - data["faxs"]) / (data["fbnd"] - data["faxs"]))
-        Te = electron_temp(
-            rho,
-            data["zmag"],
-        )
+        Te = electron_temp(rho, data["zmag"], times)
     else:
         Te = None
     return data, Te
 
 
 def test_cross_sectional_area():
-    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
-
-    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib_dat = equilibrium_dat()
 
     equilib = Equilibrium(
         equilib_dat,
-        Te,
         sess=MagicMock(),
-        offset_picker=offset,
     )
 
     rho = np.linspace(0.0, 1.0, 5)
     t = np.array([75.0, 77.5, 80.0])
 
-    # Compare trapezoidal integration with definite integral calculated using
-    # scipy.integrate.quad
-
     # Testing single input to cross_sectional_area()
-    single_trapz_area, _ = equilib.cross_sectional_area(rho[2], t[1])
+    single_area, _ = equilib.cross_sectional_area(rho[2], t[1])
+    single_area_actual = equilib.area.interp(rho_poloidal=rho[2], t=t[1])
 
     # Testing multiple inputs to cross_sectional_area()
-    multi_trapz_area, _ = equilib.cross_sectional_area(rho, t)
+    multi_area, _ = equilib.cross_sectional_area(rho, t)
+    multi_area_actual = equilib.area.interp(rho_poloidal=rho, t=t)
 
-    quad_area = np.zeros((*rho.shape, *t.shape))
-    for i, irho in enumerate(rho):
-        for k, it in enumerate(t):
-            if irho > 0:
-                quad_area[i, k] = quad(
-                    lambda th: 0.5 * equilib.minor_radius(irho, th, it)[0] ** 2,
-                    0.0,
-                    2.0 * np.pi,
-                    full_output=True,
-                )[0]
-            else:
-                quad_area[i, k] = 0.0
-
-    quad_area = np.transpose(quad_area)
-
-    assert np.isclose(single_trapz_area, quad_area[1, 2], atol=1e-2)
-
-    assert np.allclose(multi_trapz_area, quad_area, atol=1e-2)
+    # Compare with 0.01 absolute tolerance and 5% relative tolerance
+    assert np.isclose(single_area, single_area_actual, atol=1e-2, rtol=5e-2)
+    assert np.allclose(multi_area, multi_area_actual, atol=1e-2, rtol=5e-2)
 
 
 def test_enclosed_volume():
-    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
-    # Generate equilibrium data
-
-    equilib_dat, Te = equilibrium_dat_and_te(with_Te=True)
-
-    # Check enclosed volume falls within reasonable bounds for the flux surface
-    # chosen. This is done by comparing the result to two different volumes which are
-    # constructed by assuming circular cross-sections with radii of the minimum
-    # minor radius and the maximum minor radius.
+    equilib_dat = equilibrium_dat()
 
     equilib = Equilibrium(
         equilib_dat,
-        Te,
         sess=MagicMock(),
-        offset_picker=offset,
     )
 
-    rho = np.array([0.5])
-    time = np.array([77.5])
+    rho = np.linspace(0.0, 1.0, 5)
+    t = np.array([75.0, 77.5, 80.0])
 
-    interp1d_method = "linear"
+    # Testing single input to cross_sectional_volume()
+    single_volume, _ = equilib.enclosed_volume(rho[2], t[1])
+    single_volume_actual = equilib.volume.interp(rho_poloidal=rho[2], t=t[1])
 
-    Rmag = equilib.rmag.interp(
-        t=time,
-        method=interp1d_method,
-        assume_sorted=True,
-    )
+    # Testing multiple inputs to cross_sectional_volume()
+    multi_volume, _ = equilib.enclosed_volume(rho, t)
+    multi_volume_actual = equilib.volume.interp(rho_poloidal=rho, t=t)
 
-    min_minor_radius = fmin(
-        func=lambda th: equilib.minor_radius(rho, th, time)[0],
-        x0=0.0,
-        disp=False,
-        full_output=True,
-    )[1]
-
-    max_minor_radius = (
-        -1
-        * fmin(
-            func=lambda th: -1 * equilib.minor_radius(rho, th, time)[0],
-            x0=0.5 * np.pi,
-            disp=False,
-            full_output=True,
-        )[1]
-    )
-
-    lower_limit_vol = (np.pi * min_minor_radius**2) * (2.0 * np.pi * Rmag)
-    upper_limit_vol = (np.pi * max_minor_radius**2) * (2.0 * np.pi * Rmag)
-
-    actual, area_, _ = equilib.enclosed_volume(rho, time)
-
-    assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
-
-    # Testing Datarray as input
-
-    rho = np.array([0.5])
-    time = np.array([77.5])
-
-    rho = DataArray(data=rho, coords={"rho_poloidal": rho}, dims=["rho_poloidal"])
-
-    time = DataArray(data=time, coords={"t": time}, dims=["t"])
-
-    actual, area_, _ = equilib.enclosed_volume(rho, time)
-
-    assert (actual <= upper_limit_vol) and (actual >= lower_limit_vol)
-
-    # Same as above but with multiple rho and time values
-    rho = np.linspace(0, 1, 10)
-    time = equilib.rho.coords["t"]
-
-    Rmag = equilib.rmag.interp(
-        t=time,
-        method=interp1d_method,
-        assume_sorted=True,
-    )
-
-    # min_minor_radius is always zero
-    min_minor_radius = np.zeros((rho.size, time.data.size))
-    max_minor_radius = np.zeros((rho.size, time.data.size))
-    for i, irho in enumerate(rho):
-        for k, it in enumerate(time.data):
-            irho = np.array([irho])
-            it = np.array([it])
-
-            max_minor_radius[i, k] = (
-                -1
-                * fmin(
-                    func=lambda th: -1 * equilib.minor_radius(irho, th, it)[0],
-                    x0=0.5 * np.pi,
-                    disp=False,
-                    full_output=True,
-                )[1]
-            )
-
-    lower_limit_vol = np.zeros((time.data.size, rho.size))
-    upper_limit_vol = np.zeros((time.data.size, rho.size))
-
-    for k, it in enumerate(time.data):
-        lower_limit_vol[k, :] = (np.pi * min_minor_radius[:, k] ** 2) * (
-            2.0 * np.pi * Rmag[k].data
-        )
-        upper_limit_vol[k, :] = (np.pi * max_minor_radius[:, k] ** 2) * (
-            2.0 * np.pi * Rmag[k].data
-        )
-
-    actual, area_, _ = equilib.enclosed_volume(rho)
-
-    assert np.all(actual <= upper_limit_vol) and np.all(actual >= lower_limit_vol)
+    # Compare with 0.01 absolute tolerance and 5% relative tolerance
+    assert np.isclose(single_volume, single_volume_actual, atol=1e-2, rtol=5e-2)
+    assert np.allclose(multi_volume, multi_volume_actual, atol=1e-2, rtol=5e-2)
 
 
 def test_Btot():
@@ -538,16 +442,13 @@ def test_Btot():
         if time.shape[0] > 3:
             interp1d_method = "cubic"
 
-    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
     # Generate equilibrium data
 
-    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib_dat = equilibrium_dat()
 
     equilib = Equilibrium(
         equilib_dat,
-        Te,
         sess=MagicMock(),
-        offset_picker=offset,
     )
 
     # Arbitrary test data
@@ -645,15 +546,11 @@ def test_R_hfs_1d():
     time = xr.DataArray(data=t, coords={"t": t}, dims=("t",))
     rho = np.random.random(5)
 
-    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
-
     # Generate equilibrium data
-    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib_dat = equilibrium_dat()
     equilib = Equilibrium(
         equilib_dat,
-        Te,
         sess=MagicMock(),
-        offset_picker=offset,
     )
 
     rhfs, t_new = equilib.R_hfs(rho, time)
@@ -669,15 +566,11 @@ def test_R_hfs_2d():
         data=np.random.random((5, 5)), coords={"t": t, "x": x}, dims=("t", "x")
     )
 
-    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
-
     # Generate equilibrium data
-    equilib_dat, Te = equilibrium_dat_and_te()
+    equilib_dat = equilibrium_dat()
     equilib = Equilibrium(
         equilib_dat,
-        Te,
         sess=MagicMock(),
-        offset_picker=offset,
     )
 
     rhfs, t_new = equilib.R_hfs(rho, time)

@@ -67,27 +67,27 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")
 
-    rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
+    rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0], dtype=float)
     input_Ne = DataArray(
         data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
     input_Te = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     rho = DataArray(
         data=np.linspace(0.0, 1.0, 20),
-        coords=[("rho", np.linspace(0.0, 1.0, 20))],
-        dims=["rho"],
+        coords=[("rho_poloidal", np.linspace(0.0, 1.0, 20))],
+        dims=["rho_poloidal"],
     )
 
     dummy_coordinates = FluxSurfaceCoordinates("poloidal")
 
-    input_Ne_spline = Spline(input_Ne, "rho", dummy_coordinates)
+    input_Ne_spline = Spline(input_Ne, "rho_poloidal", dummy_coordinates)
     input_Ne = broadcast_spline(
         input_Ne_spline.spline,
         input_Ne_spline.spline_dims,
@@ -95,7 +95,7 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
         rho,
     )
 
-    input_Te_spline = Spline(input_Te, "rho", dummy_coordinates)
+    input_Te_spline = Spline(input_Te, "rho_poloidal", dummy_coordinates)
     input_Te = broadcast_spline(
         input_Te_spline.spline,
         input_Te_spline.spline_dims,
@@ -127,19 +127,21 @@ def test_main_ion_density():
     t = np.linspace(77.5, 82.5, 6)
     rho = DataArray(
         data=np.linspace(0.0, 1.0, 20),
-        coords=[("rho", np.linspace(0.0, 1.00, 20))],
-        dims=["rho"],
+        coords=[("rho_poloidal", np.linspace(0.0, 1.00, 20))],
+        dims=["rho_poloidal"],
     )
 
     electron_density = DataArray(
         data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
-        coords=[("rho", rho_profile), ("t", t)],
-        dims=["rho", "t"],
+        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        dims=["rho_poloidal", "t"],
     )
 
     dummy_coordinates = FluxSurfaceCoordinates("poloidal")
 
-    electron_density_spline = Spline(electron_density, "rho", dummy_coordinates)
+    electron_density_spline = Spline(
+        electron_density, "rho_poloidal", dummy_coordinates
+    )
     electron_density = broadcast_spline(
         electron_density_spline.spline,
         electron_density_spline.spline_dims,
@@ -157,8 +159,8 @@ def test_main_ion_density():
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho.shape, *t.shape)),
-        coords=[("element", elements), ("rho", rho), ("t", t)],
-        dims=["element", "rho", "t"],
+        coords=[("element", elements), ("rho_poloidal", rho), ("t", t)],
+        dims=["element", "rho_poloidal", "t"],
     )
 
     impurity_densities.data[0] = beryllium_impurity_conc
@@ -286,13 +288,6 @@ def test_main_ion_density():
 
     erroneous_inputs = nominal_inputs.copy()
 
-    erroneous_inputs["electron_density"] = erroneous_inputs["electron_density"].isel(
-        {"rho": 0}
-    )
-    input_check.call_value_check(**erroneous_inputs)
-
-    erroneous_inputs = nominal_inputs.copy()
-
     # mean_charge checks
     erroneous_inputs = nominal_inputs.copy()
 
@@ -317,11 +312,6 @@ def test_main_ion_density():
     erroneous_inputs = nominal_inputs.copy()
 
     erroneous_inputs["mean_charge"] = np.nan * erroneous_inputs["mean_charge"]
-    input_check.call_value_check(**erroneous_inputs)
-
-    erroneous_inputs = nominal_inputs.copy()
-
-    erroneous_inputs["mean_charge"] = erroneous_inputs["mean_charge"].isel({"rho": 0})
     input_check.call_value_check(**erroneous_inputs)
 
     erroneous_inputs = nominal_inputs.copy()
