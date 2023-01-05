@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 
-from ..converters.line_of_sight import LinesOfSightTransform
+from ..converters.line_of_sight import LineOfSightTransform
 
 
 analytical_beam_defaults = {
@@ -54,13 +54,13 @@ class NeutralBeam:
             (-2.0, 2.0),
         ),
     ):
-        self.transform = LinesOfSightTransform(
-            self.location[0],
-            self.location[1],
-            self.location[2],
-            self.direction[0],
-            self.direction[1],
-            self.direction[2],
+        self.transform = LineOfSightTransform(
+            np.array([self.location[0]]),
+            np.array([self.location[1]]),
+            np.array([self.location[2]]),
+            np.array([self.direction[0]]),
+            np.array([self.direction[1]]),
+            np.array([self.direction[2]]),
             name=f"{self.name}_los",
             dl=0.01,
             machine_dimensions=machine_dimensions,
