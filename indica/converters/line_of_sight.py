@@ -382,15 +382,15 @@ class LineOfSightTransform(CoordinateTransform):
         along_los = []
         for channel in self.x1:
             if "t" in self.rho[channel].dims:
-                if t.__len__() == 1:
-                    rho=self.rho[channel].sel(t=t[0])
+                if t.__len__() == 1 or self.rho[channel].t.__len__()==1:
+                    rho=self.rho[channel].sel(t=t[0],)
                 else:
                     rho = self.rho[channel].interp(t=t)
             else:
                 rho = self.rho[channel]
 
             if "t" in profile_1d.dims:
-                if t.__len__() == 1:
+                if t.__len__() == 1 or profile_1d.t.__len__()==1:
                     profile = profile_1d.sel(t=t[0])
                 else:
                     profile = profile_1d.interp(t=t)
