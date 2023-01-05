@@ -82,7 +82,8 @@ class BayesModels:
     def _build_bckc(self, params={}):
         self.bckc = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(self.bckc, **model(params=params))
+            self.bckc = dict(self.bckc, **{model.name:{**model(params=params)}})
+        self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
         return
 
     def _ln_likelihood(self):
@@ -132,18 +133,19 @@ class BayesModels:
         ln_prior = self._ln_prior(parameters)
         ln_posterior = ln_likelihood + ln_prior
 
+        # Add better way of handling time array
         kin_profs = {
             "electron_density": self.plasma.electron_density.sel(
-                t=self.plasma.time_to_calculate
+                t=self.plasma.time_to_calculate[0]
             ),
             "electron_temperature": self.plasma.electron_temperature.sel(
-                t=self.plasma.time_to_calculate
+                t=self.plasma.time_to_calculate[0]
             ),
             "ion_temperature": self.plasma.ion_temperature.sel(
-                t=self.plasma.time_to_calculate
+                t=self.plasma.time_to_calculate[0]
             ),
             "impurity_density": self.plasma.impurity_density.sel(
-                t=self.plasma.time_to_calculate
+                t=self.plasma.time_to_calculate[0]
             ),
             # TODO: add Ni/Nh/Nimp when fz property works 1 timepoint
         }
@@ -195,11 +197,11 @@ if __name__ == "__main__":
             data[instrument][quantity].attrs["transform"] = transform
 
     # Get data as flat dict
-    flat_data = flatdict.FlatDict(data, delimiter="_")
+    flat_data = flatdict.FlatDict(data, delimiter=".")
 
     # Initialise Diagnostic Models
-    los_transform = flat_data["smmh1_ne"].transform
-    smmh1 = Interferometry(name="smmh1", flat_bckc=True)
+    los_transform = flat_data["smmh1.ne"].transform
+    smmh1 = Interferometry(name="smmh1", )
     smmh1.set_los_transform(los_transform)
 
     priors = {
@@ -223,7 +225,7 @@ if __name__ == "__main__":
         data=flat_data,
         diagnostic_models=[smmh1],
         quant_to_optimise=[
-            "smmh1_ne",
+            "smmh1.ne",
         ],
         priors=priors,
     )
@@ -350,7 +352,7 @@ if __name__ == "__main__":
         parameter_names=params_names,
         moves=move,
     )
-    sampler.run_mcmc(start_points, 400, progress=True)
+    sampler.run_mcmc(start_points, 10, progress=True)
 
     blobs = sampler.get_blobs()
     blobs = blobs.flatten()
@@ -369,38 +371,38 @@ if __name__ == "__main__":
 
     # ------------- plotting --------------
     plt.figure()
-    ne_data = np.array([data["smmh1_ne"].values for data in blobs])
+    ne_data = np.array([data["smmh1.ne"].values for data in blobs])
     plt.ylabel("smmh1_ne_int (m^-2)")
     plt.plot(
         ne_data,
     )
     plt.axhline(
-        y=flat_data["smmh1_ne"].sel(t=plasma.time_to_calculate).values,
+        y=flat_data["smmh1.ne"].sel(t=plasma.time_to_calculate).values,
         color="red",
         linestyle="-",
     )
-    plt.figure()
-    Te_data = np.array([data["xrcs_te_kw"].values for data in blobs])
-    plt.ylabel("electron temperature (eV)")
-    plt.plot(
-        Te_data,
-    )
-    plt.axhline(
-        y=flat_data["xrcs_te_kw"].sel(t=plasma.time_to_calculate).values,
-        color="red",
-        linestyle="-",
-    )
-    plt.figure()
-    Ti_data = np.array([data["xrcs_ti_w"].values for data in blobs])
-    plt.ylabel("ion temperature (eV)")
-    plt.plot(
-        Ti_data,
-    )
-    plt.axhline(
-        y=flat_data["xrcs_ti_w"].sel(t=plasma.time_to_calculate).values,
-        color="red",
-        linestyle="-",
-    )
+    # plt.figure()
+    # Te_data = np.array([data["xrcs.te_kw"].values for data in blobs])
+    # plt.ylabel("electron temperature (eV)")
+    # plt.plot(
+    #     Te_data,
+    # )
+    # plt.axhline(
+    #     y=flat_data["xrcs.te_kw"].sel(t=plasma.time_to_calculate).values,
+    #     color="red",
+    #     linestyle="-",
+    # )
+    # plt.figure()
+    # Ti_data = np.array([data["xrcs.ti_w"].values for data in blobs])
+    # plt.ylabel("ion temperature (eV)")
+    # plt.plot(
+    #     Ti_data,
+    # )
+    # plt.axhline(
+    #     y=flat_data["xrcs.ti_w"].sel(t=plasma.time_to_calculate).values,
+    #     color="red",
+    #     linestyle="-",
+    # )
 
     plt.figure()
     ne_prof = xr.DataArray([data["electron_density"] for data in blobs])
