@@ -136,16 +136,16 @@ class BayesModels:
         # Add better way of handling time array
         kin_profs = {
             "electron_density": self.plasma.electron_density.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             "electron_temperature": self.plasma.electron_temperature.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             "ion_temperature": self.plasma.ion_temperature.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             "impurity_density": self.plasma.impurity_density.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             # TODO: add Ni/Nh/Nimp when fz property works 1 timepoint
         }
