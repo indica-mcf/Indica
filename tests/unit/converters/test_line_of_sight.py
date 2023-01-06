@@ -2,39 +2,28 @@
 
 from unittest.mock import MagicMock
 
-from matplotlib import pyplot as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
-
 from indica import equilibrium
-from indica.converters import flux_surfaces
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
-
+from indica.utilities import intersection
 
 def default_inputs():
-    x1 = 0.0  # does nothing
+    """Default inputs for a single line of sight, no time dependence"""
+    x1 = 0.0
     x2 = DataArray(
         np.linspace(0.0, 1.0, 350, dtype=float)
-    )  # index along line of sight, must be a DataArray
-    t = 0.0  # does nothing
+    )
+    t = 0.0
 
     return x1, x2, t
 
-
-def load_los_default():
-    origin = np.array(
-        [
-            [3.8, -2.0, 0.5],
-        ]
-    )  # [xyz]
-    direction = np.array(
-        [
-            [-1.0, 0.0, 0.0],
-        ]
-    )  # [xyz]
+def load_line_of_sight_default():
+    origin = np.array([[3.8, -2.0, 0.5], [3.8, -2.0, 0.0]])
+    direction = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]])
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
     name = "los_test"
     los = line_of_sight.LineOfSightTransform(
@@ -49,94 +38,23 @@ def load_los_default():
     )
     return los, machine_dims
 
-
-def load_los_default_multi():
-    # Line of sight origin tuple
-    origin = np.array([[3.8, -2.0, 0.5], [3.8, -2.0, 0.0]])  # [xyz]
-
-    # Line of sight direction
-    direction = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]])  # [xyz]
-
-    # machine dimensions
-    machine_dims = ((1.83, 3.9), (-1.75, 2.0))
-
-    # name
-    name = "los_test"
-
-    # Set-up line of sight class
-    los = line_of_sight.LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        machine_dimensions=machine_dims,
-        name=name,
-    )
-
-    return los, machine_dims
-
-
-def convert_to_rho(plot=False):
-    # Load line-of-sight default
-    los, machine_dims = load_los_default()
-
-    # Equilibrium
-    # data, Te = equilibrium_dat_and_te()
+def load_equilibrium_default():
     data = equilibrium_dat()
-    Te = None
-    offset = MagicMock(side_effect=[(0.02, False), (0.02, True)])
     equil = equilibrium.Equilibrium(
         data,
-        Te,
         sess=MagicMock(),
-        offset_picker=offset,
     )
+    return equil
 
-    # Flux Transform
-    flux_coord = flux_surfaces.FluxSurfaceCoordinates("poloidal")
-    flux_coord.set_equilibrium(equil)
+def _test_check_rho():
+    """To be implemented"""
 
-    # Assign flux transform
-    los.assign_flux_transform(flux_coord)
-
-    # Convert_to_rho method
-    los.convert_to_rho(t=77.0)
-
-    if plot:
-        # centre column
-        th = np.linspace(0.0, 2 * np.pi, 1000)
-        x_cc = machine_dims[0][0] * np.cos(th)
-        y_cc = machine_dims[0][0] * np.sin(th)
-
-        # IVC
-        x_ivc = machine_dims[0][1] * np.cos(th)
-        y_ivc = machine_dims[0][1] * np.sin(th)
-
-        plt.figure()
-        plt.plot(los.x2, los.rho[0], "b")
-        plt.ylabel("rho")
-
-        plt.figure()
-        plt.plot(x_cc, y_cc, "k--")
-        plt.plot(x_ivc, y_ivc, "k--")
-        plt.plot(los.x_start, los.y_start, "ro", label="start")
-        plt.plot(los.x_end, los.y_end, "bo", label="end")
-        plt.plot(los.x, los.y, "g", label="los")
-        plt.legend()
-        plt.xlabel("x (m)")
-        plt.ylabel("y (m)")
-        plt.show(block=True)
-
-
-# Test convert_to_xy method
 def test_convert_to_xy(debug=False):
     # Load line-of-sight default
-    los, machine_dims = load_los_default()
-    x1, x2, t = los.x1, los.x2, 0
+    los, machine_dims = load_line_of_sight_default()
     x1 = 0
-    x2 = x2[0]
+    x2 = los.x2[0]
+    t = 0
 
     # Test method
     x, y = los.convert_to_xy(x1, x2, t)
@@ -158,10 +76,10 @@ def test_convert_to_xy(debug=False):
 # Test convert_to_Rz method
 def test_convert_to_Rz(debug=False):
     # Load line-of-sight default
-    los, machine_dims = load_los_default()
-    x1, x2, t = los.x1, los.x2, 0
+    los, machine_dims = load_line_of_sight_default()
     x1 = 0
-    x2 = x2[0]
+    x2 = los.x2[0]
+    t = 0
 
     # Test method
     R_, z_ = los.convert_to_Rz(x1, x2, t)
@@ -179,10 +97,10 @@ def test_convert_to_Rz(debug=False):
 # Test distance method
 def test_distance(debug=False):
     # Load line-of-sight default
-    los, machine_dims = load_los_default()
-    x1, x2, t = los.x1, los.x2, 0
+    los, machine_dims = load_line_of_sight_default()
     x1 = 0
-    x2 = x2[0]
+    x2 = los.x2[0]
+    t = 0
 
     # Test method
     dist = los.distance("los_position", x1, x2, t)
@@ -199,7 +117,7 @@ def test_distance(debug=False):
 # Test distance method
 def test_set_dl(debug=False):
     # Load line-of-sight default
-    los, machine_dims = load_los_default()
+    los, machine_dims = load_line_of_sight_default()
 
     # Test inputs
     dl = 0.002
@@ -225,7 +143,7 @@ def test_intersections(debug=False):
     line_2_x = np.array([0.0, 1.0])
     line_2_y = np.array([2.0, 3.0])
 
-    rx, zx, _, _ = line_of_sight.intersection(line_1_x, line_1_y, line_2_x, line_2_y)
+    rx, zx, _, _ = intersection(line_1_x, line_1_y, line_2_x, line_2_y)
     assert len(rx) == 0
     assert len(zx) == 0
 
@@ -236,7 +154,7 @@ def test_intersections(debug=False):
     # Test intersecting lines - should return list of len=1
     line_3_x = np.array([0.0, 1.0])
     line_3_y = np.array([2.0, 1.0])
-    rx, zx, _, _ = line_of_sight.intersection(line_1_x, line_1_y, line_3_x, line_3_y)
+    rx, zx, _, _ = intersection(line_1_x, line_1_y, line_3_x, line_3_y)
     assert len(rx) != 0
     assert len(zx) != 0
 
