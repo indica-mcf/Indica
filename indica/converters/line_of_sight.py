@@ -12,6 +12,7 @@ import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
+from copy import deepcopy
 
 from .abstractconverter_rho import Coordinates
 from .abstractconverter_rho import CoordinateTransform
@@ -167,7 +168,7 @@ class LineOfSightTransform(CoordinateTransform):
         x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
         y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
         z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
-        return np.sqrt(x**2 + y**2), z
+        return np.sqrt(x ** 2 + y ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -185,10 +186,7 @@ class LineOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [
-                    2 / x * (x * dxdx1 + y * dydx1),
-                    2 / x * (x * dxdx2 + y * dydx2),
-                ],
+                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
                 [dzdx1, dzdx2],
             ]
 
@@ -249,11 +247,7 @@ class LineOfSightTransform(CoordinateTransform):
         return rho, theta
 
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -270,10 +264,7 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def set_dl(
-        self,
-        dl: float,
-    ) -> tuple:
+    def set_dl(self, dl: float,) -> tuple:
         """
         Set spatial resolutions of the lines of sight, and calculate spatial
         coordinates along the LOS
@@ -339,18 +330,18 @@ class LineOfSightTransform(CoordinateTransform):
 
     def map_to_los(
         self,
-        profile_1d: DataArray,
+        profile_to_map: DataArray,
         t: LabeledArray = None,
         limit_to_sep: bool = True,
         calc_rho: bool = False,
     ) -> list:
         """
-        Map 1D profile to lines-of-sight
+        Map profile to lines-of-sight
         TODO: extend for 2D interpolation to (R, z) instead of rho
         Parameters
         ----------
-        profile_1d
-            DataArray of the 1D profile to integrate
+        profile_to_map
+            DataArray of the profile to integrate
         t
             Time for interpolation
         limit_to_sep
@@ -363,62 +354,58 @@ class LineOfSightTransform(CoordinateTransform):
             Interpolation of the input profile along the LOS
         """
         self.check_equilibrium()
-        self.check_rho(t, calc_rho)
+
+        profile = self.check_rho_and_profile(
+            t, profile_to_map, calc_rho=calc_rho
+        )
 
         along_los = []
         for channel in self.x1:
-            if "t" in self.rho[channel].dims:
-                if t.__len__() == 1 or self.rho[channel].t.__len__()==1:
-                    rho=self.rho[channel].sel(t=t[0],)
-                else:
-                    rho = self.rho[channel].interp(t=t)
-            else:
-                rho = self.rho[channel]
-
-            if "t" in profile_1d.dims:
-                if t.__len__() == 1 or profile_1d.t.__len__()==1:
-                    profile = profile_1d.sel(t=t[0])
-                else:
-                    profile = profile_1d.interp(t=t)
-            else:
-                profile = profile_1d
-
+            rho = self.rho[channel]
             _along_los = profile.interp(rho_poloidal=rho)
             if limit_to_sep:
-                _along_los = xr.where(
-                    rho <= 1,
-                    _along_los,
-                    0,
-                )
+                _along_los = xr.where(rho <= 1, _along_los, 0,)
             along_los.append(_along_los)
 
         self.along_los = along_los
 
         return along_los
 
-    def check_rho(self, t: LabeledArray, calc_rho: bool = False):
+    def check_rho_and_profile(
+        self, t: LabeledArray, profile_to_map: DataArray, calc_rho: bool = False
+    ) -> DataArray:
         """
         Check requested times
         """
-        self.check_equilibrium()
-
-        if len(self.rho) == 0 or calc_rho:
-            self.convert_to_rho(t=t)
-            return
-
-        rho_t = self.rho[0].t
-        if np.array_equal(rho_t, t):
-            return
-
-        if (np.min(t) > np.min(rho_t)) * (np.max(t) < np.max(rho_t)):
-            return
-
         equil_t = self.equilibrium.rho.t
         equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
-        if equil_ok:
-            self.convert_to_rho(t=t)
-        else:
+        if not equil_ok:
             raise ValueError("Inserted time is not available in Equilibrium object")
+
+        # Make sure rho.t == requested time
+        if len(self.rho) == 0 or calc_rho:
+            self.convert_to_rho(t=t)
+        if not np.array_equal(self.rho[0].t, t):
+            self.convert_to_rho(t=t)
+
+        # Check profile
+        if not hasattr(profile_to_map, "t"):
+            if np.size(t) == 1:
+                profile = profile_to_map
+            else:
+                profile = profile_to_map.expand_dims(dim={"t": t})
+        else:
+            if np.size(t) == 1 and profile_to_map.t == t:
+                profile = profile_to_map
+            else:
+                prof_t = profile_to_map.t
+                range_ok = (np.min(t) >= np.min(prof_t)) * (np.max(t) <= np.max(prof_t))
+                if range_ok:
+                    profile = profile_to_map.interp(t=t)
+                else:
+                    raise ValueError("Profile does not include requested time")
+
+        return profile
 
     def integrate_on_los(
         self,
@@ -443,10 +430,7 @@ class LineOfSightTransform(CoordinateTransform):
         Line of sight integral along the LOS
         """
         along_los = self.map_to_los(
-            profile_1d,
-            t=t,
-            limit_to_sep=limit_to_sep,
-            calc_rho=calc_rho,
+            profile_1d, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
         )
 
         _los_integral = []
