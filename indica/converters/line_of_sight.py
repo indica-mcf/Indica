@@ -498,13 +498,13 @@ class LineOfSightTransform(CoordinateTransform):
 
     def plot_los(
         self,
-        tplot: float = None,
+        tplot: float,
         orientation: str = "xy",
         plot_all: bool = False,
         figure: bool = True,
     ):
-        channels = self.x1
-        cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
+        channels = np.array(self.x1)
+        cols = cm.gnuplot2(np.linspace(0.75, 0.1, np.size(channels), dtype=float))
 
         wall_bounds, angles = self.get_machine_boundaries(
             machine_dimensions=self._machine_dims
@@ -564,7 +564,7 @@ class LineOfSightTransform(CoordinateTransform):
             )
             if hasattr(self, "equilibrium"):
                 rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
-            for ch in self.x1:
+            for ch in channels:
                 plt.plot(self.R[ch], self.z[ch], color=cols[ch], linewidth=2)
                 plt.plot(
                     self.impact_parameter["R"][ch],
@@ -579,7 +579,7 @@ class LineOfSightTransform(CoordinateTransform):
         if hasattr(self, "equilibrium") and plot_all:
             if figure:
                 plt.figure()
-            for ch in self.x1:
+            for ch in channels:
                 self.rho[ch].sel(t=tplot, method="nearest").plot(
                     color=cols[ch], linewidth=2
                 )

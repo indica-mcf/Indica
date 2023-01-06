@@ -229,7 +229,7 @@ class Plasma:
         self.z_midplane = z_midplane
 
         time = get_tlabels_dt(self.tstart, self.tend, self.dt)
-        self._time_to_calculate = time
+        self.time_to_calculate = time
 
         nt = len(time)
         nr = len(self.radial_coordinate)
@@ -430,11 +430,9 @@ class Plasma:
     @time_to_calculate.setter
     def time_to_calculate(self, value: LabeledArray):
         if np.size(value) == 1:
-            _time_to_calculate = float(value)
+            self._time_to_calculate = float(value)
         else:
-            _time_to_calculate = np.array(value)
-
-        self._time_to_calculate = _time_to_calculate
+            self._time_to_calculate = np.array(value)
 
     @property
     def pressure_el(self):

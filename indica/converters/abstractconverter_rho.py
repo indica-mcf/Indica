@@ -401,7 +401,7 @@ class CoordinateTransform(ABC):
 
     def get_equilibrium_boundaries(
         self, tplot: float, npts: int = 1000
-    ) -> Tuple[dict, ArrayLike, LabeledArray]:
+    ) -> Tuple[dict, ArrayLike, DataArray]:
 
         boundaries = {}
         angles = np.linspace(0.0, 2 * np.pi, npts)
