@@ -14,11 +14,11 @@ import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
+from indica.utilities import intersection
 from ..equilibrium import Equilibrium
 from ..numpy_typing import ArrayLike
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
-from indica.utilities import intersection
 
 
 class EquilibriumException(Exception):
@@ -536,4 +536,3 @@ def find_wall_intersections(
         z_end = z_line[indices][-1]
 
     return (x_start, y_start, z_start), (x_end, y_end, z_end)
-

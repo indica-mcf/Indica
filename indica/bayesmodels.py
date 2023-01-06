@@ -82,7 +82,7 @@ class BayesModels:
     def _build_bckc(self, params={}):
         self.bckc = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(self.bckc, **{model.name:{**model(params=params)}})
+            self.bckc = dict(self.bckc, **{model.name: {**model(params=params)}})
         self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
         return
 
@@ -201,7 +201,9 @@ if __name__ == "__main__":
 
     # Initialise Diagnostic Models
     los_transform = flat_data["smmh1.ne"].transform
-    smmh1 = Interferometry(name="smmh1", )
+    smmh1 = Interferometry(
+        name="smmh1",
+    )
     smmh1.set_los_transform(los_transform)
 
     priors = {

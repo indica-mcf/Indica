@@ -428,8 +428,8 @@ class Plasma:
         return self._time_to_calculate
 
     @time_to_calculate.setter
-    def time_to_calculate(self, value:LabeledArray):
-        if np.size(value) ==1:
+    def time_to_calculate(self, value: LabeledArray):
+        if np.size(value) == 1:
             _time_to_calculate = float(value)
         else:
             _time_to_calculate = np.array(value)

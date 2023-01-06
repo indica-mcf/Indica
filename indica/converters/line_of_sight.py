@@ -12,7 +12,6 @@ import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
-from copy import deepcopy
 
 from .abstractconverter_rho import Coordinates
 from .abstractconverter_rho import CoordinateTransform
@@ -168,7 +167,7 @@ class LineOfSightTransform(CoordinateTransform):
         x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
         y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
         z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
-        return np.sqrt(x ** 2 + y ** 2), z
+        return np.sqrt(x**2 + y**2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -186,7 +185,10 @@ class LineOfSightTransform(CoordinateTransform):
             dzdx1 = 0.0
             dzdx2 = self.z_end - self.z_start
             return [
-                [2 / x * (x * dxdx1 + y * dydx1), 2 / x * (x * dxdx2 + y * dydx2),],
+                [
+                    2 / x * (x * dxdx1 + y * dydx1),
+                    2 / x * (x * dxdx2 + y * dydx2),
+                ],
                 [dzdx1, dzdx2],
             ]
 
@@ -247,7 +249,11 @@ class LineOfSightTransform(CoordinateTransform):
         return rho, theta
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -264,7 +270,10 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def set_dl(self, dl: float,) -> tuple:
+    def set_dl(
+        self,
+        dl: float,
+    ) -> tuple:
         """
         Set spatial resolutions of the lines of sight, and calculate spatial
         coordinates along the LOS
@@ -355,16 +364,18 @@ class LineOfSightTransform(CoordinateTransform):
         """
         self.check_equilibrium()
 
-        profile = self.check_rho_and_profile(
-            t, profile_to_map, calc_rho=calc_rho
-        )
+        profile = self.check_rho_and_profile(t, profile_to_map, calc_rho=calc_rho)
 
         along_los = []
         for channel in self.x1:
             rho = self.rho[channel]
             _along_los = profile.interp(rho_poloidal=rho)
             if limit_to_sep:
-                _along_los = xr.where(rho <= 1, _along_los, 0,)
+                _along_los = xr.where(
+                    rho <= 1,
+                    _along_los,
+                    0,
+                )
             along_los.append(_along_los)
 
         self.along_los = along_los
@@ -430,7 +441,10 @@ class LineOfSightTransform(CoordinateTransform):
         Line of sight integral along the LOS
         """
         along_los = self.map_to_los(
-            profile_1d, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
+            profile_1d,
+            t=t,
+            limit_to_sep=limit_to_sep,
+            calc_rho=calc_rho,
         )
 
         _los_integral = []
