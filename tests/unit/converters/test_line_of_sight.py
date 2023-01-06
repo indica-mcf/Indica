@@ -5,21 +5,22 @@ from unittest.mock import MagicMock
 import numpy as np
 import xarray as xr
 from xarray import DataArray
+
 from indica import equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
 from indica.utilities import intersection
 
+
 def default_inputs():
     """Default inputs for a single line of sight, no time dependence"""
     x1 = 0.0
-    x2 = DataArray(
-        np.linspace(0.0, 1.0, 350, dtype=float)
-    )
+    x2 = DataArray(np.linspace(0.0, 1.0, 350, dtype=float))
     t = 0.0
 
     return x1, x2, t
+
 
 def load_line_of_sight_default():
     origin = np.array([[3.8, -2.0, 0.5], [3.8, -2.0, 0.0]])
@@ -38,6 +39,7 @@ def load_line_of_sight_default():
     )
     return los, machine_dims
 
+
 def load_equilibrium_default():
     data = equilibrium_dat()
     equil = equilibrium.Equilibrium(
@@ -46,8 +48,10 @@ def load_equilibrium_default():
     )
     return equil
 
+
 def _test_check_rho():
     """To be implemented"""
+
 
 def test_convert_to_xy(debug=False):
     # Load line-of-sight default

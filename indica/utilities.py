@@ -71,7 +71,7 @@ def sum_squares(x: OnlyArray, axis: int, **kwargs: Any) -> OnlyArray:
         Additiona keyword arguments (unused)
 
     """
-    return np.sum(x ** 2, axis=axis)
+    return np.sum(x**2, axis=axis)
 
 
 def get_slice_limits(low: float, high: float, data: OnlyArray) -> Tuple[int, int]:
@@ -180,7 +180,10 @@ def broadcast_spline(
         return result
     else:
         return apply_ufunc(
-            spline, interp_coord, input_core_dims=[[]], output_core_dims=[spline_dims],
+            spline,
+            interp_coord,
+            input_core_dims=[[]],
+            output_core_dims=[spline_dims],
         ).assign_coords({k: v for k, v in spline_coords.items()})
 
 
