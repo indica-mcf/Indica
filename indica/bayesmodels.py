@@ -385,17 +385,17 @@ if __name__ == "__main__":
         color="red",
         linestyle="-",
     )
-    plt.figure()
-    Te_data = np.array([data["xrcs.te_kw"].values for data in blobs])
-    plt.ylabel("electron temperature (eV)")
-    plt.plot(
-        Te_data,
-    )
-    plt.axhline(
-        y=flat_data["xrcs.te_kw"].sel(t=plasma.time_to_calculate).values,
-        color="red",
-        linestyle="-",
-    )
+    # plt.figure()
+    # Te_data = np.array([data["xrcs.te_kw"].values for data in blobs])
+    # plt.ylabel("electron temperature (eV)")
+    # plt.plot(
+    #     Te_data,
+    # )
+    # plt.axhline(
+    #     y=flat_data["xrcs.te_kw"].sel(t=plasma.time_to_calculate).values,
+    #     color="red",
+    #     linestyle="-",
+    # )
     # plt.figure()
     # Ti_data = np.array([data["xrcs.ti_w"].values for data in blobs])
     # plt.ylabel("ion temperature (eV)")
