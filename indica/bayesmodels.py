@@ -11,6 +11,7 @@ import xarray as xr
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 from indica.models.interferometry import Interferometry
+from indica.models.helike_spectroscopy import Helike_spectroscopy
 from indica.models.plasma import Plasma
 from indica.readers.manage_data import bin_data_in_time
 from indica.readers.read_st40 import ST40data
@@ -82,7 +83,7 @@ class BayesModels:
     def _build_bckc(self, params={}):
         self.bckc = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(self.bckc, **{model.name:{**model(params=params)}})
+            self.bckc = dict(self.bckc, **{model.name:{**model(**params)}})
         self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
         return
 
@@ -203,6 +204,9 @@ if __name__ == "__main__":
     los_transform = flat_data["smmh1.ne"].transform
     smmh1 = Interferometry(name="smmh1", )
     smmh1.set_los_transform(los_transform)
+    los_transform = flat_data["xrcs.te_kw"].transform
+    xrcs = Helike_spectroscopy(name="xrcs", )
+    xrcs.set_los_transform(los_transform)
 
     priors = {
         "Ne_prof_y0": lambda x:
@@ -223,7 +227,7 @@ if __name__ == "__main__":
     bm = BayesModels(
         plasma=plasma,
         data=flat_data,
-        diagnostic_models=[smmh1],
+        diagnostic_models=[smmh1, ],
         quant_to_optimise=[
             "smmh1.ne",
         ],
@@ -381,17 +385,17 @@ if __name__ == "__main__":
         color="red",
         linestyle="-",
     )
-    # plt.figure()
-    # Te_data = np.array([data["xrcs.te_kw"].values for data in blobs])
-    # plt.ylabel("electron temperature (eV)")
-    # plt.plot(
-    #     Te_data,
-    # )
-    # plt.axhline(
-    #     y=flat_data["xrcs.te_kw"].sel(t=plasma.time_to_calculate).values,
-    #     color="red",
-    #     linestyle="-",
-    # )
+    plt.figure()
+    Te_data = np.array([data["xrcs.te_kw"].values for data in blobs])
+    plt.ylabel("electron temperature (eV)")
+    plt.plot(
+        Te_data,
+    )
+    plt.axhline(
+        y=flat_data["xrcs.te_kw"].sel(t=plasma.time_to_calculate).values,
+        color="red",
+        linestyle="-",
+    )
     # plt.figure()
     # Ti_data = np.array([data["xrcs.ti_w"].values for data in blobs])
     # plt.ylabel("ion temperature (eV)")
