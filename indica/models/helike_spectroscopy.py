@@ -30,7 +30,6 @@ ADF15 = {
     }
 }
 
-
 class Helike_spectroscopy(DiagnosticModel):
     """
     Data and methods to model XRCS spectrometer measurements
@@ -110,8 +109,6 @@ class Helike_spectroscopy(DiagnosticModel):
         self.Fz: dict
         self.Nh: DataArray
 
-    def set_adf15(self, adf15: dict):
-        self.adf15 = adf15
 
     def _set_adas_pecs(self):
         """
