@@ -17,9 +17,6 @@ from indica.readers import ADASReader
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
 
-# TODO: add Marchuk PECs to repo or to .indica/ (more easily available to others)
-
-MARCHUK = "/home/marco.sertoli/python/Indica/hda/Marchuk_Argon_PEC.pkl"
 ADF15 = {
     "w": {
         "element": "ar",
