@@ -254,7 +254,10 @@ class Helike_spectroscopy(DiagnosticModel):
                     self.err_in[line],
                     self.err_out[line],
                 ) = self._moment_analysis(line, profile_1d=self.Ti)
-                self.measured_Ti[line] = xr.concat(Ti_tmp, x1_name).assign_coords(
+                if x1.__len__()==1:
+                    self.measured_Ti[line] = Ti_tmp
+                else:
+                    self.measured_Ti[line] = xr.concat(Ti_tmp, x1_name).assign_coords(
                     {x1_name: x1}
                 )
             elif datatype == ("temperature", "electrons"):
@@ -265,7 +268,10 @@ class Helike_spectroscopy(DiagnosticModel):
                     self.err_in[line],
                     self.err_out[line],
                 ) = self._moment_analysis(line, profile_1d=self.Te)
-                self.measured_Te[line] = xr.concat(Te_tmp, x1_name).assign_coords(
+                if x1.__len__()==1:
+                    self.measured_Te[line] = Te_tmp
+                else:
+                    self.measured_Te[line] = xr.concat(Te_tmp, x1_name).assign_coords(
                     {x1_name: x1}
                 )
 
@@ -373,18 +379,24 @@ class Helike_spectroscopy(DiagnosticModel):
             err_in.append(DataArray(np.array(_err_in), coords=[("t", times)]))
             err_out.append(DataArray(np.array(_err_out), coords=[("t", times)]))
 
-        result = xr.concat(result, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
-        pos = xr.concat(pos, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
-        err_in = xr.concat(err_in, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
-        err_out = xr.concat(err_out, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
+        if chan == 0:
+            result=result[0]
+            pos=pos[0]
+            err_in=err_in[0]
+            err_out=err_out[0]
+        else:
+            result = xr.concat(result, self.los_transform.x1_name).assign_coords(
+                {self.los_transform.x1_name: self.los_transform.x1}
+            )
+            pos = xr.concat(pos, self.los_transform.x1_name).assign_coords(
+                {self.los_transform.x1_name: self.los_transform.x1}
+            )
+            err_in = xr.concat(err_in, self.los_transform.x1_name).assign_coords(
+                {self.los_transform.x1_name: self.los_transform.x1}
+            )
+            err_out = xr.concat(err_out, self.los_transform.x1_name).assign_coords(
+                {self.los_transform.x1_name: self.los_transform.x1}
+            )
 
         return result, pos, err_in, err_out
 
@@ -580,6 +592,7 @@ class Helike_spectroscopy(DiagnosticModel):
         t: LabeledArray = None,
         calc_spectra=False,
         calc_rho: bool = False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
@@ -601,7 +614,7 @@ class Helike_spectroscopy(DiagnosticModel):
         self.calc_spectra = calc_spectra
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Te = self.plasma.electron_temperature.interp(t=t)
             Ne = self.plasma.electron_density.interp(t=t)
             Nh = self.plasma.neutral_density.interp(t=t)
@@ -907,5 +920,9 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
         plt.xlabel("rho")
         plt.ylabel("w-line local radiated power (W/m^3)")
         plt.legend()
-
+        plt.show(block=True)
     return plasma, model, bckc
+
+if __name__ == "__main__":
+
+    example_run(plot=True)
