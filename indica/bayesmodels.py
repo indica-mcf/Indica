@@ -128,7 +128,7 @@ class BayesModels:
         if outside_bounds:
             return -np.inf, {}
 
-        plasma.update_profiles(parameters)
+        self.plasma.update_profiles(parameters)
         self._build_bckc(parameters)  # model calls
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_prior = self._ln_prior(parameters)
@@ -366,8 +366,8 @@ if __name__ == "__main__":
         pickle.dump(
             {
                 "blobs": blobs,
-                "flat_data": flat_data,
-                "samples": sampler.get_chain(flat=True),
+                "diag_data": flat_data,
+                "param_samples": sampler.get_chain(flat=True),
                 "param_names": params_names,
             },
             handle,
