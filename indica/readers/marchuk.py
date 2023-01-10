@@ -1,16 +1,16 @@
 from copy import deepcopy
+import os
+import indica
 
 import numpy as np
 import xarray as xr
-
 
 # Constants
 RY = 13.605  # eV
 PERCMTOEV = 1.239841e-4  # Convert 1/cm to eV
 
-# TODO: make this dependent on project only!!
-FILEHEAD = "/home/michael.gemmell/python/Indica/indica/data/Data_Argon/"
-
+head = os.path.dirname(indica.__file__)
+FILEHEAD = os.path.join(head, "data/Data_Argon/")
 
 def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "he"):
     """
