@@ -9,7 +9,7 @@ RY = 13.605  # eV
 PERCMTOEV = 1.239841e-4  # Convert 1/cm to eV
 
 # TODO: make this dependent on project only!!
-FILEHEAD = "/home/marco.sertoli/python/Indica/indica/data/Data_Argon/"
+FILEHEAD = "/home/michael.gemmell/python/Indica/indica/data/Data_Argon/"
 
 
 def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "he"):
