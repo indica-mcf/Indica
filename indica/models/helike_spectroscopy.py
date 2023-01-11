@@ -39,8 +39,7 @@ class Helike_spectroscopy(DiagnosticModel):
         name: str,
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
-        calibration: float = 1.0e-18,
-        int_cal: float = 1.3e-27,
+        calibration: float = 1.0e-27,
         marchuk: bool = True,
         full_run: bool = False,
         element: str = "ar",
@@ -78,7 +77,6 @@ class Helike_spectroscopy(DiagnosticModel):
 
         self.etendue = etendue
         self.calibration = calibration
-        self.int_cal = int_cal  # TODO: absolute calibration? use only this or above
         self.full_run = full_run
         self.adf15 = ADF15
         self.pec: dict
