@@ -22,7 +22,7 @@ TSTART = PLASMA.tstart
 TEND = PLASMA.tend
 DT = PLASMA.dt
 IT = int(NT / 2.0)
-TIME_SINGLE_PASS = PLASMA.t[IT].values
+TIME_SINGLE_PASS = float(PLASMA.t[IT].values)  # same type as plasma.time_to_calculate
 TIME_SINGLE_FAIL = np.max(PLASMA.equilibrium.rho.t) + 1.0
 TIME_INTERP = np.linspace(TSTART + DT, TEND - DT, num=int(NT / 3))
 
