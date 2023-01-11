@@ -23,12 +23,10 @@ class Interferometry(DiagnosticModel):
         self,
         name: str,
         instrument_method="get_interferometry",
-        flat_bckc: bool = False,
     ):
 
         self.name = name
         self.instrument_method = instrument_method
-        self.flat_bckc = flat_bckc
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self):
@@ -129,8 +127,11 @@ def example_run(plasma=None, plot=False):
 
         # Plot back-calculated values
         plt.figure()
-        for chan in channels:
-            bckc["ne"].sel(channel=chan).plot(label=f"CH{chan}", color=cols[chan])
+        cols_chan = cm.gnuplot2(
+            np.linspace(0.1, 0.75, len(model.los_transform.x1), dtype=float)
+        )
+        for chan in model.los_transform.x1:
+            bckc["ne"].sel(channel=chan).plot(label=f"CH{chan}", color=cols_chan[chan])
         plt.xlabel("Time (s)")
         plt.ylabel("Ne LOS-integrals (m^-2)")
         plt.legend()

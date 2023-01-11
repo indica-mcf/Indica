@@ -2,14 +2,14 @@
 
 from typing import Tuple
 
+from matplotlib import cm
+import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import interp1d
 import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 from xarray import Variable
-from matplotlib import cm
-import matplotlib.pylab as plt
 
 from .abstractconverter_rho import CoordinateTransform
 from ..numpy_typing import Coordinates
@@ -76,7 +76,7 @@ class TransectCoordinates(CoordinateTransform):
         # TODO: add intersection with first walls to restrict possible coordinates
         self._machine_dims = machine_dimensions
 
-        R_positions = np.sqrt(x_positions ** 2 + y_positions ** 2)
+        R_positions = np.sqrt(x_positions**2 + y_positions**2)
         self.x_interp = interp1d(
             self.x1, x_positions, copy=False, fill_value="extrapolate"
         )
@@ -97,7 +97,10 @@ class TransectCoordinates(CoordinateTransform):
             z_positions, self.x1, copy=False, fill_value="extrapolate"
         )
         self.invert_R = interp1d(
-            R_positions, self.x1, copy=False, fill_value="extrapolate",
+            R_positions,
+            self.x1,
+            copy=False,
+            fill_value="extrapolate",
         )
 
         x, y = self.convert_to_xy(self.x1, self.x2, None)
@@ -251,7 +254,11 @@ class TransectCoordinates(CoordinateTransform):
 
         value_at_channels = profile_1d.interp(rho_poloidal=rho)
         if limit_to_sep:
-            value_at_channels = xr.where(rho <= 1, value_at_channels, 0,)
+            value_at_channels = xr.where(
+                rho <= 1,
+                value_at_channels,
+                0,
+            )
 
         self.value_at_channels = value_at_channels
 
@@ -285,9 +292,13 @@ class TransectCoordinates(CoordinateTransform):
             return False
         return self._abstract_equals(other)
 
-    def plot_los(self, tplot: float = None, orientation: str = "xy", plot_all=False):
-        channels = self.x1
-        cols = cm.gnuplot2(np.linspace(0.75, 0.1, len(channels), dtype=float))
+    def plot_los(self, tplot: float, orientation: str = "xy", plot_all=False):
+        channels = np.array(self.x1)
+        x = np.array(self.x)
+        y = np.array(self.y)
+        z = np.array(self.z)
+        R = np.array(self.R)
+        cols = cm.gnuplot2(np.linspace(0.75, 0.1, np.size(channels), dtype=float))
 
         wall_bounds, angles = self.get_machine_boundaries(
             machine_dimensions=self._machine_dims
@@ -309,8 +320,8 @@ class TransectCoordinates(CoordinateTransform):
                 plt.plot(equil_bounds["x_in"], equil_bounds["y_in"], color="red")
                 plt.plot(equil_bounds["x_out"], equil_bounds["y_out"], color="red")
                 plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
-            for ch in self.x1:
-                plt.scatter(self.x[ch], self.y[ch], color=cols[ch], marker="o")
+            for ch in channels:
+                plt.scatter(x[ch], y[ch], color=cols[ch], marker="o")
             plt.xlabel("x")
             plt.ylabel("y")
             plt.axis("scaled")
@@ -339,8 +350,8 @@ class TransectCoordinates(CoordinateTransform):
             )
             if hasattr(self, "equilibrium"):
                 rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
-            for ch in self.x1:
-                plt.scatter(self.R[ch], self.z[ch], color=cols[ch], marker="o")
+            for ch in channels:
+                plt.scatter(R[ch], z[ch], color=cols[ch], marker="o")
             plt.xlabel("R")
             plt.ylabel("z")
             plt.axis("scaled")
@@ -352,7 +363,7 @@ class TransectCoordinates(CoordinateTransform):
                 self.rho.sel(t=tplot, method="nearest"),
                 color="k",
             )
-            for ch in self.x1:
+            for ch in channels:
                 plt.plot(
                     self.rho.channel[ch],
                     self.rho.sel(channel=ch, t=tplot, method="nearest"),
