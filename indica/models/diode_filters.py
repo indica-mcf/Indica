@@ -196,9 +196,13 @@ def example_run(plasma=None, plot: bool = False):
 
         # Plot back-calculated values
         plt.figure()
-        cols_chan = cm.gnuplot2(np.linspace(0.1, 0.75, len(model.los_transform.x1), dtype=float))
+        cols_chan = cm.gnuplot2(
+            np.linspace(0.1, 0.75, len(model.los_transform.x1), dtype=float)
+        )
         for chan in model.los_transform.x1:
-            bckc["brightness"].sel(channel=chan).plot(label=f"CH{chan}", color=cols_chan[chan])
+            bckc["brightness"].sel(channel=chan).plot(
+                label=f"CH{chan}", color=cols_chan[chan]
+            )
         plt.xlabel("Time (s)")
         plt.ylabel("Bremsstrahlung LOS-integrals (W/m^2)")
         plt.legend()

@@ -811,7 +811,6 @@ def example_run(plasma=None, plot=False, calc_spectra=False):
             plt.ylabel("Te and Ti from moment analysis (eV)")
             plt.legend()
 
-
         model.los_transform.plot_los(tplot, plot_all=True)
 
         # Plot back-calculated values
