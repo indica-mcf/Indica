@@ -83,7 +83,7 @@ class BayesModels:
     def _build_bckc(self, params={}):
         self.bckc = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(self.bckc, **{model.name:{**model(**params)}})
+            self.bckc = dict(self.bckc, **{model.name: {**model(params=params)}})
         self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
         return
 
@@ -137,16 +137,16 @@ class BayesModels:
         # Add better way of handling time array
         kin_profs = {
             "electron_density": self.plasma.electron_density.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             "electron_temperature": self.plasma.electron_temperature.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             "ion_temperature": self.plasma.ion_temperature.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             "impurity_density": self.plasma.impurity_density.sel(
-                t=self.plasma.time_to_calculate[0]
+                t=self.plasma.time_to_calculate
             ),
             # TODO: add Ni/Nh/Nimp when fz property works 1 timepoint
         }
@@ -202,7 +202,9 @@ if __name__ == "__main__":
 
     # Initialise Diagnostic Models
     los_transform = flat_data["smmh1.ne"].transform
-    smmh1 = Interferometry(name="smmh1", )
+    smmh1 = Interferometry(
+        name="smmh1",
+    )
     smmh1.set_los_transform(los_transform)
     los_transform = flat_data["xrcs.te_kw"].transform
     xrcs = Helike_spectroscopy(name="xrcs", )

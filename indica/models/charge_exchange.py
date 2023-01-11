@@ -146,38 +146,12 @@ def example_run(
     bckc = model()
 
     if plot:
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-        levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99]
-        plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plasma.equilibrium.rho.sel(t=t, method="nearest").plot.contour(
-                levels=levels, alpha=0.5, colors=[cols_time[i]] * len(levels)
-            )
-        plt.scatter(
-            model.transect_transform.R,
-            model.transect_transform.z,
-            label="Channels",
-            marker="*",
-            color="k",
-        )
-        plt.xlim(0, 1.0)
-        plt.ylim(-0.6, 0.6)
-        plt.axis("scaled")
-        plt.legend()
+        it = int(len(plasma.t) / 2)
+        tplot = plasma.t[it]
 
-        # Plot LOS mapping on equilibrium
-        plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plt.plot(
-                model.transect_transform.R,
-                model.transect_transform.rho.sel(t=t, method="nearest"),
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
-                marker="o",
-            )
-        plt.xlabel("Position of measurement on flux space")
-        plt.ylabel("Rho-poloidal")
-        plt.legend()
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+
+        model.transect_transform.plot_los(tplot, plot_all=True)
 
         # Plot back-calculated profiles
         plt.figure()
