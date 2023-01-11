@@ -367,6 +367,7 @@ class LineOfSightTransform(CoordinateTransform):
         profile = self.check_rho_and_profile(t, profile_to_map, calc_rho=calc_rho)
 
         along_los = []
+        _impact_rho = []
         for channel in self.x1:
             rho = self.rho[channel]
             _along_los = profile.interp(rho_poloidal=rho)
@@ -374,11 +375,16 @@ class LineOfSightTransform(CoordinateTransform):
                 _along_los = xr.where(
                     rho <= 1,
                     _along_los,
-                    0,
+                    np.nan,
                 )
             along_los.append(_along_los)
+            _impact_rho.append(rho.min("los_position"))
 
         self.along_los = along_los
+        impact_rho = xr.concat(_impact_rho, self.x1_name).assign_coords(
+            {self.x1_name: self.x1}
+        )
+        self.impact_parameter_rho = impact_rho
 
         return along_los
 
