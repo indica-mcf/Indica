@@ -492,7 +492,7 @@ class Plasma:
     @property
     def fz(self):
         for elem in self.elements:
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):  # convert float to numpy array in order to iterate
                 Te = self.electron_temperature.sel(t=t)
                 Ne = self.electron_density.sel(t=t)
                 tau = None
