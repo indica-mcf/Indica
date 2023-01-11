@@ -371,24 +371,25 @@ class Helike_spectroscopy(DiagnosticModel):
             err_in.append(DataArray(np.array(_err_in), coords=[("t", times)]))
             err_out.append(DataArray(np.array(_err_out), coords=[("t", times)]))
 
-        if chan == 0:
-            result=result[0]
-            pos=pos[0]
-            err_in=err_in[0]
-            err_out=err_out[0]
-        else:
-            result = xr.concat(result, self.los_transform.x1_name).assign_coords(
-                {self.los_transform.x1_name: self.los_transform.x1}
-            )
-            pos = xr.concat(pos, self.los_transform.x1_name).assign_coords(
-                {self.los_transform.x1_name: self.los_transform.x1}
-            )
-            err_in = xr.concat(err_in, self.los_transform.x1_name).assign_coords(
-                {self.los_transform.x1_name: self.los_transform.x1}
-            )
-            err_out = xr.concat(err_out, self.los_transform.x1_name).assign_coords(
-                {self.los_transform.x1_name: self.los_transform.x1}
-            )
+        result = xr.concat(result, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
+        )
+        pos = xr.concat(pos, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
+        )
+        err_in = xr.concat(err_in, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
+        )
+        err_out = xr.concat(err_out, self.los_transform.x1_name).assign_coords(
+            {self.los_transform.x1_name: self.los_transform.x1}
+        )
+        # Return without channel as dimension
+        if self.los_transform.x1.__len__() == 1:
+            result = result.sel(channel = self.los_transform.x1)
+            pos = pos.sel(channel = self.los_transform.x1)
+            err_in = err_in.sel(channel = self.los_transform.x1)
+            err_out = err_out.sel(channel = self.los_transform.x1)
+
 
         return result, pos, err_in, err_out
 
