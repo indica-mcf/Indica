@@ -354,7 +354,7 @@ class Plasma:
             nz = z_elem + 1
             ion_charges = np.arange(nz)
             data3d_fz = DataArray(
-                np.full((len(self.t), len(self.rho), nz), np.nan),
+                np.full((len(self.t), len(self.rho), nz), 0.),
                 coords=[
                     ("t", self.t),
                     ("rho_poloidal", self.rho),
