@@ -15,32 +15,17 @@ def helike_LOS_example(nchannels=3):
     origin = los_start
     direction = los_end - los_start
 
-    if nchannels > 1:
-        los_transform = LineOfSightTransform(
-            origin[:, 0],
-            origin[:, 1],
-            origin[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            name="diagnostic_name",
-            machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-            passes=1,
-        )
-    elif nchannels == 1:
-        los_transform = LineOfSightTransform(
-        origin[0:1, 0],
-        origin[0:1, 1],
-        origin[0:1, 2],
-        direction[0:1, 0],
-        direction[0:1, 1],
-        direction[0:1, 2],
-        name="diagnostic_name",
-        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-        passes=1,
+    los_transform = LineOfSightTransform(
+    origin[0:nchannels, 0],
+    origin[0:nchannels, 1],
+    origin[0:nchannels, 2],
+    direction[0:nchannels, 0],
+    direction[0:nchannels, 1],
+    direction[0:nchannels, 2],
+    name="diagnostic_name",
+    machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
+    passes=1,
     )
-    else:
-        raise ValueError(f"nchannels: {nchannels} not >= 1")
     return los_transform
 
 
