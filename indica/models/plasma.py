@@ -1043,7 +1043,6 @@ def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse: int = 9229):
         full_run=full_run,
     )
     plasma.build_atomic_data(default=True)
-
     # Assign profiles to time-points
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
@@ -1090,3 +1089,6 @@ def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse: int = 9229):
         plasma.set_flux_transform(flux_transform)
 
     return plasma
+
+if __name__ == "__main__":
+    example_run()
