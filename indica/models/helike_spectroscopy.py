@@ -130,7 +130,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 pec[line]["emiss_coeff"] = (
                     pec[line]["emiss_coeff"]
                     .sel(electron_density=4.0e19, method="nearest")
-                    .drop("electron_density")
+                    .drop_vars("electron_density")
                 )
 
         self.pec = pec
@@ -761,11 +761,12 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def example_run(plasma=None, plot=False, calc_spectra=False):
+def example_run(
+    pulse:int=9229,plasma=None, plot=False, calc_spectra=False):
 
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
-        plasma = example_plasma()
+        plasma = example_plasma(pulse=pulse)
 
     # Create new diagnostic
     diagnostic_name = "xrcs"
