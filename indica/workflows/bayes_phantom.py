@@ -37,15 +37,12 @@ if __name__ == "__main__":
         full_run=False,
     )
 
-    plasma.time_to_calculate = plasma.t
-    plasma.assign_profiles("electron_density", plasma.time_to_calculate)
-    plasma.assign_profiles("electron_temperature", plasma.time_to_calculate)
-    plasma.assign_profiles("impurity_density", plasma.time_to_calculate)
-    plasma.assign_profiles("ion_temperature", plasma.time_to_calculate)
+    plasma.assign_profiles("electron_density", plasma.t)
+    plasma.assign_profiles("electron_temperature", plasma.t)
+    plasma.assign_profiles("impurity_density", plasma.t)
+    plasma.assign_profiles("ion_temperature", plasma.t)
     plasma.build_atomic_data()
-    temp = plasma.fz
     plasma.time_to_calculate = plasma.t[3]
-
 
     # Initialise Data
     raw = ST40data(9229, tstart - dt * 4, tend + dt * 4)
@@ -93,8 +90,7 @@ if __name__ == "__main__":
 
 
     # Use phantom data instead of ST40 data
-    flat_data["smmh1.ne"] = smmh1().pop("ne").expand_dims(dim={"t":plasma.time_to_calculate})
-    # remove channel dim
+    flat_data["smmh1.ne"] = smmh1().pop("ne").expand_dims(dim={"t":[plasma.time_to_calculate]})
     flat_data["xrcs.te_kw"] = xrcs().pop("te_kw")
     flat_data["xrcs.ti_w"] = xrcs().pop("ti_w")
     # TODO: Add conditional priors e.g. y1 < y0
@@ -183,9 +179,9 @@ if __name__ == "__main__":
         moves=move,
     )
 
-    iterations = 3000
+    iterations = 100
     sampler.run_mcmc(start_points, iterations, progress=True, )
-    burn_in = 50
+    burn_in = 0
 
     blobs = sampler.get_blobs(discard=burn_in)
     blobs = blobs.flatten()
@@ -194,6 +190,7 @@ if __name__ == "__main__":
                                       dim=pd.Index(np.arange(0, blobs.__len__()), name="index")) for blob_name in
                  blob_names}
 
+    # TODO make sure xrcs bckc doesn't have dims t and channels
     # save result
     with open("bayesresult.pkl", "wb") as handle:
         pickle.dump(
@@ -222,23 +219,23 @@ if __name__ == "__main__":
     plt.legend()
 
     plt.figure()
-    temp_data = blob_dict["xrcs.te_kw"]
+    temp_data = blob_dict["xrcs.te_kw"][:,0,0]
     plt.ylabel("temperature (eV)")
     plt.plot(
         temp_data, label="xrcs.te_kw model", color="blue"
     )
     plt.axhline(
-        y=flat_data["xrcs.te_kw"].sel(t=plasma.time_to_calculate).values,
+        y=flat_data["xrcs.te_kw"][0,].sel(t=plasma.time_to_calculate).values,
         color="blue",
         linestyle="-",
         label="xrcs.te_kw data",
     )
-    temp_data = blob_dict["xrcs.ti_w"]
+    temp_data = blob_dict["xrcs.ti_w"][:,0,0]
     plt.plot(
         temp_data, label="xrcs.ti_w model", color="red"
     )
     plt.axhline(
-        y=flat_data["xrcs.ti_w"].sel(t=plasma.time_to_calculate).values,
+        y=flat_data["xrcs.ti_w"][0,].sel(t=plasma.time_to_calculate).values,
         color="red",
         linestyle="-",
         label="xrcs.ti_w data",
