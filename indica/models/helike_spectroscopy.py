@@ -627,7 +627,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 or Ti is None
                 or Nimp is None
             ):
-                raise ValueError("Give inputs of assign plasma class!")
+                raise ValueError("Give inputs or assign plasma class!")
 
         self.t = t
         self.Te = Te
