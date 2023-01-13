@@ -21,6 +21,7 @@ from indica.readers import ST40Reader
 from indica.utilities import assign_data
 from indica.utilities import assign_datatype
 from indica.utilities import print_like
+from indica.models.equilibrium import fake_equilibrium_data
 
 plt.ion()
 
@@ -930,7 +931,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
+                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
             )
 
         self.ion_density_2d = (
@@ -1025,7 +1026,7 @@ class Plasma:
             )
 
 
-def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse: int = 9229):
+def example_run(pulse: int = 9229, tstart=0.02, tend=0.1, dt=0.01):
     # TODO: swap all profiles to new version!
 
     main_ion = "h"
@@ -1078,15 +1079,18 @@ def example_run(tstart=0.02, tend=0.1, dt=0.01, pulse: int = 9229):
         for elem in plasma.elements:
             plasma.assign_profiles(profile="toroidal_rotation", t=t, element=elem)
 
-    if pulse is not None:
+    if pulse is None:
+        equilibrium_data = fake_equilibrium_data(
+            tstart=tstart, tend=tend, dt=dt, machine_dims=plasma.machine_dimensions
+        )
+    else:
         reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
-
         equilibrium_data = reader.get("", "efit", 0)
-        equilibrium = Equilibrium(equilibrium_data)
-        flux_transform = FluxSurfaceCoordinates("poloidal")
-        flux_transform.set_equilibrium(equilibrium)
 
-        plasma.set_equilibrium(equilibrium)
-        plasma.set_flux_transform(flux_transform)
+    equilibrium = Equilibrium(equilibrium_data)
+    flux_transform = FluxSurfaceCoordinates("poloidal")
+    flux_transform.set_equilibrium(equilibrium)
+    plasma.set_equilibrium(equilibrium)
+    plasma.set_flux_transform(flux_transform)
 
     return plasma

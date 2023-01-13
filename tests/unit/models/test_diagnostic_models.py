@@ -16,7 +16,7 @@ MODELS = {
     "thomson_scattering": ts,
     "charge_exchange": cxrs,
 }
-PLASMA = example_plasma()
+PLASMA = example_plasma(pulse=None, tstart=0, tend=0.1, dt=0.05)
 NT = np.size(PLASMA.t)
 TSTART = PLASMA.tstart
 TEND = PLASMA.tend

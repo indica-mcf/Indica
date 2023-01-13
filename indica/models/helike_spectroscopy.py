@@ -756,11 +756,12 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def example_run(plasma=None, plot=False, calc_spectra=False):
+def example_run(
+    pulse:int=None,plasma=None, plot=False, calc_spectra=False):
 
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
-        plasma = example_plasma()
+        plasma = example_plasma(pulse=pulse)
 
     # Create new diagnostic
     diagnostic_name = "xrcs"
