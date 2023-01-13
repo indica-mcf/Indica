@@ -1,4 +1,3 @@
-from unittest.mock import MagicMock
 
 import numpy as np
 import xarray as xr
@@ -6,6 +5,7 @@ import xarray as xr
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import TrivialTransform
 from indica.equilibrium import Equilibrium
+from indica.converters.time import get_tlabels_dt
 
 MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
 DEFAULT_PARAMS = {
@@ -43,16 +43,16 @@ def smooth_funcs(domain=(0.0, 1.0), max_val=None):
 
 
 def fake_equilibrium(
-    tstart: float = 0, tend: float = 0.1, dt: float = 0.01, machine_dims=None
+    tstart: float = 0, tend: float = 0.1, dt: float = 0.01, machine_dims=None, times=None,
 ):
     equilibrium_data = fake_equilibrium_data(
-        tstart=tstart, tend=tend, dt=dt, machine_dims=machine_dims
+        tstart=tstart, tend=tend, dt=dt, machine_dims=machine_dims, times=times,
     )
     return Equilibrium(equilibrium_data)
 
 
 def fake_equilibrium_data(
-    tstart: float = 0, tend: float = 0.1, dt: float = 0.01, machine_dims=None
+    tstart: float = 0, tend: float = 0.1, dt: float = 0.01, machine_dims=None, times=None,
 ):
     def monotonic_series(start, stop, num=50, endpoint=True, retstep=False, dtype=None):
         return np.linspace(start, stop, num, endpoint, retstep, dtype)
@@ -60,7 +60,9 @@ def fake_equilibrium_data(
     if machine_dims is None:
         machine_dims = MACHINE_DIMS
 
-    times = np.arange(tstart, tend + dt, dt)
+    if times is None:
+        get_tlabels_dt(tstart, tend, dt)
+        times = np.arange(tstart, tend + dt, dt)
     # ntime = times.size
     Btot_factor = None
 
@@ -69,7 +71,7 @@ def fake_equilibrium_data(
 
     tfuncs = smooth_funcs((tstart, tend), 0.01)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
-    z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
+    z_centre = (machine_dims[1][0] + machine_dims[1][1])/ 2
     raw_result = {}
     attrs = {
         "transform": TrivialTransform(),
@@ -134,9 +136,6 @@ def fake_equilibrium_data(
             name="fbnd",
             attrs=attrs,
         )
-
-    print(a_coeff)
-    print(b_coeff)
 
     result["fbnd"].attrs["datatype"] = ("magnetic_flux", "separtrix")
 
