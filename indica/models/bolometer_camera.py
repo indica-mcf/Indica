@@ -133,7 +133,7 @@ def example_run(
         los_end[:, 0] = 0.17
         los_end[:, 1] = 0.0
         los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
-        los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
+        los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
         origin = los_start
         direction = los_end - los_start
 

@@ -499,7 +499,7 @@ class MARCHUKReader:
             pec[line]["emiss_coeff"] = (
                 pec[line]["emiss_coeff"]
                 .sel(electron_density=4.0e19, method="nearest")
-                .drop("electron_density")
+                .drop_vars("electron_density")
             )
 
         self.adf15 = adf15

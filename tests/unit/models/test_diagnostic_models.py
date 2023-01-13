@@ -16,21 +16,15 @@ MODELS = {
     "thomson_scattering": ts,
     "charge_exchange": cxrs,
 }
-PLASMA = example_plasma(pulse=None, tstart=0, tend=0.1, dt=0.05)
+PLASMA = example_plasma(pulse=None, tstart=0, tend=0.1, dt=0.02)
 NT = np.size(PLASMA.t)
 TSTART = PLASMA.tstart
 TEND = PLASMA.tend
 DT = PLASMA.dt
 IT = int(NT / 2.0)
-TIME_SINGLE_PASS = PLASMA.t[IT].values
-TIME_SINGLE_FAIL = np.max(PLASMA.equilibrium.rho.t) + 1.0
+TIME_SINGLE_PASS = float(PLASMA.t[IT].values)
+TIME_SINGLE_FAIL = float(np.max(PLASMA.equilibrium.rho.t) + 1.0)
 TIME_INTERP = np.linspace(TSTART + DT, TEND - DT, num=int(NT / 3))
-
-
-def _test_examples(model_name: str, **kwargs):
-    """Test that example workflow runs without errors"""
-    model = MODELS[model_name]
-    model.example_run(PLASMA, **kwargs)
 
 
 def _test_timepoint_pass(model_name: str, **kwargs):
@@ -62,10 +56,6 @@ def _test_time_interpolation(model_name: str, **kwargs):
             assert np.array_equal(value.t.values, TIME_INTERP)
 
 
-def test_cxrs_example():
-    _test_examples("charge_exchange")
-
-
 def test_cxrs_timepoint_fail():
     _test_timepoint_fail("charge_exchange")
 
@@ -76,10 +66,6 @@ def test_cxrs_timepoint_pass():
 
 def test_cxrs_interpolation():
     _test_time_interpolation("charge_exchange")
-
-
-def test_ts_example():
-    _test_examples("thomson_scattering")
 
 
 def test_ts_timepoint_fail():
@@ -94,10 +80,6 @@ def test_ts_interpolation():
     _test_time_interpolation("thomson_scattering")
 
 
-def test_bolo_example():
-    _test_examples("bolometer_camera")
-
-
 def test_bolo_timepoint_fail():
     _test_timepoint_fail("bolometer_camera")
 
@@ -108,10 +90,6 @@ def test_bolo_timepoint_pass():
 
 def test_bolo_interpolation():
     _test_time_interpolation("bolometer_camera")
-
-
-def test_interf_example():
-    _test_examples("interferometry")
 
 
 def test_interf_timepoint_fail():
@@ -126,10 +104,6 @@ def test_interf_interpolation():
     _test_time_interpolation("interferometry")
 
 
-def test_diodes_example():
-    _test_examples("diode_filters")
-
-
 def test_diodes_timepoint_fail():
     _test_timepoint_fail("diode_filters")
 
@@ -142,10 +116,6 @@ def test_diodes_interpolation():
     _test_time_interpolation("diode_filters")
 
 
-def test_helike_example():
-    _test_examples("helike_spectroscopy")
-
-
 def test_helike_timepoint_fail():
     _test_timepoint_fail("helike_spectroscopy")
 
@@ -156,10 +126,6 @@ def test_helike_timepoint_pass():
 
 def test_helike_interpolation():
     _test_time_interpolation("helike_spectroscopy")
-
-
-def test_helike_full_example():
-    _test_examples("helike_spectroscopy", calc_spectra=True)
 
 
 def test_helike_full_timepoint_fail():

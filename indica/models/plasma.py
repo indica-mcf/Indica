@@ -463,7 +463,7 @@ class Plasma:
     @property
     def pth(self):
         pressure_th = self.pressure_th
-        for t in self.time_to_calculate:
+        for t in np.array(self.time_to_calculate, ndmin=1):
             self._pth.loc[dict(t=t)] = np.trapz(
                 pressure_th.sel(t=t), self.volume.sel(t=t)
             )
@@ -472,7 +472,7 @@ class Plasma:
     @property
     def ptot(self):
         pressure_tot = self.pressure_tot
-        for t in self.time_to_calculate:
+        for t in np.array(self.time_to_calculate, ndmin=1):
             self._ptot.loc[dict(t=t)] = np.trapz(
                 pressure_tot.sel(t=t), self.volume.sel(t=t)
             )
@@ -493,7 +493,7 @@ class Plasma:
     @property
     def fz(self):
         for elem in self.elements:
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):
                 Te = self.electron_temperature.sel(t=t)
                 Ne = self.electron_density.sel(t=t)
                 tau = None
@@ -552,7 +552,7 @@ class Plasma:
     def lz_tot(self):
         fz = self.fz
         for elem in self.elements:
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):
                 Ne = self.electron_density.sel(t=t)
                 Te = self.electron_temperature.sel(t=t)
                 if any(np.logical_not((Te > 0) * (Ne > 0))):
@@ -577,7 +577,7 @@ class Plasma:
 
         fz = self.fz
         for elem in self.elements:
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):
                 Ne = self.electron_density.sel(t=t)
                 Te = self.electron_temperature.sel(t=t)
                 if any(np.logical_not((Te > 0) * (Ne > 0))):
@@ -636,7 +636,7 @@ class Plasma:
     def prad_tot(self):
         total_radiation = self.total_radiation
         for elem in self.elements:
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):
                 self._prad_tot.loc[dict(element=elem, t=t)] = np.trapz(
                     total_radiation.sel(element=elem, t=t), self.volume.sel(t=t)
                 )
@@ -649,7 +649,7 @@ class Plasma:
 
         sxr_radiation = self.sxr_radiation
         for elem in self.elements:
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):
                 self._prad_sxr.loc[dict(element=elem, t=t)] = np.trapz(
                     sxr_radiation.sel(element=elem, t=t), self.volume.sel(t=t)
                 )
@@ -669,7 +669,7 @@ class Plasma:
             self.q_prof,
             approx="sauter",
         )
-        for t in self.time_to_calculate:
+        for t in np.array(self.time_to_calculate, ndmin=1):
             resistivity = 1.0 / self.conductivity.sel(t=t)
             ir = np.where(np.isfinite(resistivity))
             vloop = ph.vloop(
@@ -815,7 +815,7 @@ class Plasma:
         self.Nh_prof.yend = y1
         self.Nh_prof.wped = decay
         self.Nh_prof()
-        for t in self.time_to_calculate:
+        for t in np.array(self.time_to_calculate, ndmin=1):
             self.neutral_density.loc[dict(t=t)] = self.Nh_prof()
 
     def map_to_midplane(self):
@@ -851,16 +851,16 @@ class Plasma:
 
         for k in midplane_profiles.keys():
             prof_rho = getattr(self, k)
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):
                 rho = (
                     self.equilibrium.rho.sel(t=t, method="nearest")
                     .interp(R=R, z=z)
-                    .drop(["R", "z"])
+                    .drop_vars(["R", "z"])
                 )
                 midplane_profiles[k].append(
                     prof_rho.sel(t=t, method="nearest")
                     .interp(rho_poloidal=rho)
-                    .drop("rho_poloidal")
+                    .drop_vars("rho_poloidal")
                 )
             midplane_profiles[k] = xr.concat(midplane_profiles[k], "t").assign_coords(
                 t=self.t
@@ -913,18 +913,18 @@ class Plasma:
         ion_density = self.ion_density
         meanz = self.meanz
         zeff = self.zeff.sum("element")
-        R_0 = self.maj_r_lfs.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
+        R_0 = self.maj_r_lfs.interp(rho_poloidal=self.rho_2d).drop_vars("rho_poloidal")
         for elem in self.elements:
             main_ion_mass = ELEMENTS[self.main_ion][1]
             mass = ELEMENTS[elem][1]
             asymm = ph.centrifugal_asymmetry(
-                self.ion_temperature.sel(element=elem).drop("element"),
+                self.ion_temperature.sel(element=elem).drop_vars("element"),
                 self.electron_temperature,
                 mass,
-                meanz.sel(element=elem).drop("element"),
+                meanz.sel(element=elem).drop_vars("element"),
                 zeff,
                 main_ion_mass,
-                toroidal_rotation=self.toroidal_rotation.sel(element=elem).drop(
+                toroidal_rotation=self.toroidal_rotation.sel(element=elem).drop_vars(
                     "element"
                 ),
             )
@@ -935,7 +935,7 @@ class Plasma:
             )
 
         self.ion_density_2d = (
-            ion_density.interp(rho_poloidal=self.rho_2d).drop("rho_poloidal")
+            ion_density.interp(rho_poloidal=self.rho_2d).drop_vars("rho_poloidal")
             * self.asymmetry_multiplier
         )
         assign_datatype(self.ion_density_2d, ("density", "ion"), "m^-3")
@@ -1007,7 +1007,7 @@ class Plasma:
 
             prad_tot = self.prad_tot.sel(element=elem)
             prad_sxr = self.prad_sxr.sel(element=elem)
-            for t in self.time_to_calculate:
+            for t in np.array(self.time_to_calculate, ndmin=1):
                 prad_tot.loc[dict(t=t)] = np.trapz(
                     total_radiation.sel(t=t), self.volume.sel(t=t)
                 )
@@ -1026,7 +1026,7 @@ class Plasma:
             )
 
 
-def example_run(pulse: int = 9229, tstart=0.02, tend=0.1, dt=0.01):
+def example_run(pulse: int = None, tstart=0.02, tend=0.1, dt=0.01):
     # TODO: swap all profiles to new version!
 
     main_ion = "h"
@@ -1081,7 +1081,7 @@ def example_run(pulse: int = 9229, tstart=0.02, tend=0.1, dt=0.01):
 
     if pulse is None:
         equilibrium_data = fake_equilibrium_data(
-            tstart=tstart, tend=tend, dt=dt, machine_dims=plasma.machine_dimensions
+            tstart=tstart, tend=tend, dt=dt/2, machine_dims=plasma.machine_dimensions
         )
     else:
         reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
