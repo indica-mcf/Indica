@@ -115,6 +115,7 @@ class Bolometer(DiagnosticModel):
 
 
 def example_run(
+    pulse:int=None,
     diagnostic_name: str = "bolo_Rz",
     origin: LabeledArray = None,
     direction: LabeledArray = None,
@@ -123,7 +124,7 @@ def example_run(
 ):
 
     if plasma is None:
-        plasma = example_plasma()
+        plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     if origin is None or direction is None:

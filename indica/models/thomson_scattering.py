@@ -106,6 +106,7 @@ class ThomsonScattering(DiagnosticModel):
 
 
 def example_run(
+    pulse:int=None,
     diagnostic_name: str = "ts",
     plasma=None,
     plot=False,
@@ -114,7 +115,7 @@ def example_run(
     # TODO: LOS sometimes crossing bad EFIT reconstruction and crashing...
 
     if plasma is None:
-        plasma = example_plasma()
+        plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     nchannels = 11
