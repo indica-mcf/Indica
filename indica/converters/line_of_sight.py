@@ -229,6 +229,7 @@ class LineOfSightTransform(CoordinateTransform):
             _rho, _theta, _ = self.equilibrium.flux_coords(
                 self.R[channel], self.z[channel], t=t
             )
+            rho.append(_rho)
             drop_vars = ["R", "z"]
             for var in drop_vars:
                 if var in _rho.coords:
@@ -395,9 +396,10 @@ class LineOfSightTransform(CoordinateTransform):
         Check requested times
         """
         equil_t = self.equilibrium.rho.t
-        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
+        equil_ok = (np.min(t) >= np.min(equil_t)) * (np.max(t) <= np.max(equil_t))
         if not equil_ok:
-            raise ValueError("Inserted time is not available in Equilibrium object")
+            print(f"Available equilibrium times {np.array(equil_t)}")
+            raise ValueError(f"Inserted time {t} is not available in Equilibrium object")
 
         # Make sure rho.t == requested time
         if len(self.rho) == 0 or calc_rho:
