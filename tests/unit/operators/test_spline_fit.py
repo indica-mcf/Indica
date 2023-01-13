@@ -101,18 +101,29 @@ def test_spline_fit():
     assert "provenance" in binned_input.attrs
 
 
-def test_accepted_datatype():
+def test_inconsistent_datatypes():
     """
-    Check no error raised for accepted datatype
-    """
-    knot_locations = [0.0, 0.5, 0.8, 1.05]
-    SplineFit(knot_locations, general_datatype="number_density")
-
-
-def test_unaccepted_datatype():
-    """
-    Check error raised for unaccepted datatype
+    Check error raised when data with different types provided
     """
     knot_locations = [0.0, 0.5, 0.8, 1.05]
+    fitter = SplineFit(knot_locations)
+
+    flux_coords = FluxSurfaceCoordinates("poloidal")
+    flux_coords.set_equilibrium(fake_equilib)
+
+    knot_vals = (
+        DataArray([1.0, 0.9, 0.6, 0.0], coords=[("rho_poloidal", knot_locations)])
+        + 0.05 * t_grid
+    )
+    expected_spline = Spline(knot_vals, "rho_poloidal", flux_coords)
+    input_vals = expected_spline(
+        coords, R_positions.coords["alpha"], 0.0, t_grid
+    ).assign_coords(alpha_z_offset=0)
+    input_vals.attrs["datatype"] = ("temperature", "electrons")
+
+    inconsistent_input = input_vals.copy(deep=True)
+    inconsistent_input.attrs["datatype"] = ("density", "electrons")
+
+    result_locations = coord_array(np.linspace(0, 1.05, 10), "rho_poloidal")
     with pytest.raises(OperatorError):
-        SplineFit(knot_locations, general_datatype="banana")
+        fitter(result_locations, t_grid, input_vals, inconsistent_input)

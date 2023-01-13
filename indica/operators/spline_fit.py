@@ -20,13 +20,11 @@ from xarray import DataArray
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
-from .abstractoperator import OperatorError
 from .. import session
 from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
 from ..converters import FluxSurfaceCoordinates
 from ..datatypes import DataType
-from ..datatypes import GeneralDataType
 from ..numpy_typing import ArrayLike
 from ..utilities import broadcast_spline
 from ..utilities import coord_array
@@ -141,7 +139,6 @@ class SplineFit(Operator):
         upper_bound: ArrayLike = np.inf,
         bc_type: BoundaryType = "not-a-knot",
         sess: session.Session = session.global_session,
-        general_datatype: GeneralDataType = "temperature",
     ):
         self.knots = coord_array(knots, "rho_poloidal")
         self.lower_bound = lower_bound
@@ -158,28 +155,10 @@ class SplineFit(Operator):
         self.spline: Spline
         self.spline_vals: DataArray
 
-        accepted_general_datatypes = [
-            "angular_freq",
-            "asymmetry",
-            "concentration",
-            "effective_charge",
-            "emissivity",
-            "luminous_flux",
-            "number_density",
-            "temperature",
-        ]
-
-        if general_datatype not in accepted_general_datatypes:
-
-            raise OperatorError(
-                f"Datatype {general_datatype} not accepted for SplineFit."
-                f"Accepted datatypes are: {accepted_general_datatypes}."
-            )
-
         self.ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
             ("norm_flux_pol", "plasma"),
             ("time", "plasma"),
-            (general_datatype, None),
+            (None, None),
             ...,
         ]
 
@@ -235,6 +214,8 @@ class SplineFit(Operator):
             interpolate results onto arbitrary coordinates.
 
         """
+        # Check all data* has same type
+        self.ARGUMENT_TYPES[-2] = data[0].attrs["datatype"]
         self.validate_arguments(rho, times, *data)
         n_knots = len(self.knots)
         flux_surfaces = FluxSurfaceCoordinates("poloidal")
