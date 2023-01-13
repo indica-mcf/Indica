@@ -31,7 +31,7 @@ def helike_LOS_example(nchannels=3):
 
 class TestHelike():
     def setup_class(self):
-        self.plasma = example_plasma()
+        self.plasma = example_plasma(pulse=9229)
         self.single_time_point = self.plasma.time_to_calculate[1]
         self.multiple_time_point = self.plasma.time_to_calculate
         self.multiple_channel_los_transform = helike_LOS_example(nchannels=3)
@@ -44,6 +44,7 @@ class TestHelike():
 
     def test_helike_runs_with_example_plasma_and_multiple_LOS(self):
         model = helike.Helike_spectroscopy("diagnostic_name", )
+        self.plasma.time_to_calculate = self.multiple_time_point
         model.set_plasma(self.plasma)
         model.set_los_transform(self.multiple_channel_los_transform)
         bckc = model(calc_spectra=False)

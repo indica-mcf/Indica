@@ -113,6 +113,7 @@ class ChargeExchange(DiagnosticModel):
 
 
 def example_run(
+    pulse:int=None,
     diagnostic_name: str = "cxrs",
     plasma=None,
     plot=False,
@@ -121,7 +122,7 @@ def example_run(
     # TODO: LOS sometimes crossing bad EFIT reconstruction
 
     if plasma is None:
-        plasma = example_plasma()
+        plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     nchannels = 5

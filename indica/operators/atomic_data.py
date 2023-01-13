@@ -1136,7 +1136,7 @@ def interpolate_results(
     ion_charges = data.ion_charges
     dim_old = [d for d in data.dims if d != "ion_charges"][0]
     _data = data.assign_coords(electron_temperature=(dim_old, Te_data))
-    _data = _data.swap_dims({dim_old: "electron_temperature"}).drop(dim_old)
+    _data = _data.swap_dims({dim_old: "electron_temperature"}).drop_vars(dim_old)
 
     for charge in ion_charges:
         _result.append(
