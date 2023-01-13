@@ -404,7 +404,6 @@ class Helike_spectroscopy(DiagnosticModel):
         TODO: selection criteria
         TODO: element and charge to follow atomic data (see _calculate_emission)
         """
-        calibration = self.int_cal
         database = self.pec_database
         Te = self.Te
         electron_density = self.Ne
@@ -440,7 +439,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 * fz.sel(ion_charges=_ion_charge)
                 * argon_density
                 * _density
-                * calibration
+                * self.calibration
             )
 
         return intensity
