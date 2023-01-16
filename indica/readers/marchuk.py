@@ -429,6 +429,8 @@ class MARCHUKReader:
                 pecs[line_name].type != "diel", drop=True
             )
             pecs[line_name] = xr.concat([pecs[line_name], diel], dim="type")
+            # Due to bug in xr.concat change "type" dtype back to string
+            pecs[line_name] = pecs[line_name].assign_coords(dict(type = pecs[line_name].type.astype("U")))
         return pecs
 
     def set_marchuk_pecs(self, pec_lines):
