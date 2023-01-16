@@ -554,7 +554,7 @@ class Helike_spectroscopy(DiagnosticModel):
             t: LabeledArray = None,
             calc_spectra=False,
             calc_rho: bool = False,
-            minimum_lines: bool = True,
+            minimum_lines: bool = False,
             **kwargs,
     ):
         """
