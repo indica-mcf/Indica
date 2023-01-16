@@ -368,11 +368,7 @@ class MARCHUKReader:
 
     def build_pec_lines(self, pec_database, extrapolate=True):
         # Add ADAS format
-        el_dens = np.array(
-            [
-                1.0e19,
-            ]
-        )
+        el_dens = np.array([1.0e19, ])
         pec_lines = self.calc_pec_lines(pec_database, extrapolate=extrapolate)
 
         for key, item in pec_lines.items():
@@ -485,7 +481,7 @@ class MARCHUKReader:
             "qra": {
                 "element": "ar",
                 "file": self.filehead,
-                "charge": 15,
+                "charge": 16,
                 "transition": "",
                 "wavelength": 4.0,
             },
