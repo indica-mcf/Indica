@@ -378,7 +378,6 @@ class MARCHUKReader:
             pec_lines[key] = pec_lines[key].assign_coords(
                 index=("type", np.arange(item.type.__len__()))
             )
-            pec_lines[key] = pec_lines[key].swap_dims({"type": "index"})
         return pec_lines
 
     def calc_pec_lines(self, pec_database, extrapolate=True):
