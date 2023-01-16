@@ -864,3 +864,14 @@ def example_run(
 if __name__ == "__main__":
 
     example_run(plot=False)
+
+
+
+#mult = xr.concat([self.Ne * self.Nimp.sel(element="ar",) * self.Fz["ar"].sel(ion_charges=16,),
+                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=16, ),
+                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=15, ),
+                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=15, ),
+                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=15, ),
+                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=17, ),
+                              # self.Nh * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=17, ),
+                              # ], "type").assign_coords(type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr",])
