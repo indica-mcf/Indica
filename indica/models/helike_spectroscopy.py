@@ -159,18 +159,18 @@ class Helike_spectroscopy(DiagnosticModel):
         """
 
         emission = {}
-
         for line, pec in self.pec.items():
             elem, charge, wavelength = pec["element"], pec["charge"], pec["wavelength"]
             coords = pec["emiss_coeff"].coords
 
             # Sum contributions from all transition types
             _emission = []
-            if "index" in coords or "type" in coords:
+            if "type" in coords:
                 for pec_type in coords["type"]:
-                    _pec = interp_pec(
-                        select_type(pec["emiss_coeff"], type=pec_type), self.Ne, self.Te
-                    )
+                    _pec = pec["emiss_coeff"].sel(type=pec_type).interp(
+                        electron_temperature=self.Te,
+                        method="cubic",)
+
                     mult = transition_rules(
                         pec_type,
                         self.Fz[elem],
@@ -181,13 +181,7 @@ class Helike_spectroscopy(DiagnosticModel):
                     )
                     _emission.append(_pec * mult)
             else:
-                _pec = interp_pec(pec["emiss_coeff"], self.Ne, self.Te)
-                _emission.append(
-                    _pec
-                    * self.Fz[elem].sel(ion_charges=charge)
-                    * self.Ne
-                    * self.Nimp.sel(element=elem)
-                )
+                raise ValueError("No coordinate of name 'type' in PEC")
 
             _emission = xr.concat(_emission, "type").sum("type")
             # TODO: convert PEC wavelengths to nm as per convention at TE!
@@ -205,7 +199,6 @@ class Helike_spectroscopy(DiagnosticModel):
         ):
             emission["tot"] = emission["n3"] + emission["n345"] + emission["w"]
             emission["n3tot"] = emission["n3"] * emission["n345"] * emission["w"]
-
         self.emission = emission
 
         return emission
@@ -603,10 +596,12 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
+        import time
         self.calc_spectra = calc_spectra
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
+            start = time.time()
             Te = self.plasma.electron_temperature.interp(t=t)
             Ne = self.plasma.electron_density.interp(t=t)
             Nh = self.plasma.neutral_density.interp(t=t)
@@ -617,6 +612,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
             Ti = self.plasma.ion_temperature.interp(t=t)
             Nimp = self.plasma.impurity_density.interp(t=t)
+            print(f"t: fz {time.time()-start} s")
         else:
             if (
                 Ne is None
@@ -641,6 +637,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
         # Calculate emission on natural coordinates of input profiles
         self._calculate_emission()
+        print(f"t: calculate_emission {time.time() - start} s")
 
         # Make spectra
         if calc_spectra:
@@ -651,9 +648,11 @@ class Helike_spectroscopy(DiagnosticModel):
         self._calculate_los_integral(
             calc_rho=calc_rho,
         )
+        print(f"t: los_integral {time.time() - start} s")
 
         # Estimate temperatures from moment analysis
         self._calculate_temperatures()
+        print(f"t: calc_temp {time.time() - start} s")
 
         # Build back-calculated dictionary to compare with experimental data
         self._build_bckc_dictionary()
@@ -685,30 +684,6 @@ def gaussian(x, integral, center, sigma):
         / (sigma * np.sqrt(2 * np.pi))
         * np.exp(-((x - center) ** 2) / (2 * sigma**2))
     )
-
-
-def interp_pec(pec, Ne, Te):
-    if "electron_density" in pec.coords:
-        pec_interp = pec.indica.interp2d(
-            electron_temperature=Te,
-            electron_density=Ne,
-            method="cubic",
-            assume_sorted=True,
-        )
-    else:
-        pec_interp = pec.interp(
-            electron_temperature=Te,
-            method="cubic",
-        )
-
-    return pec_interp
-
-
-def select_type(pec, type="excit"):
-    if "index" in pec.dims:
-        pec = pec.swap_dims({"index": "type"})
-    return pec.sel(type=type)
-
 
 def transition_rules(transition_type, fz, charge, Ne, Nh, Nimp):
     if transition_type == "recom":
@@ -744,9 +719,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
 
     pec = deepcopy(adf15_data)
 
-    dim = [
-        d for d in pec.dims if d != "electron_temperature" and d != "electron_density"
-    ][0]
+    dim = [d for d in pec.dims if d != "electron_temperature" and d != "electron_density"][0]
     if dim != "transition":
         pec = pec.swap_dims({dim: "transition"})
     pec = pec.sel(transition=transition, drop=True)
@@ -766,11 +739,12 @@ def example_run(
 
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
-        plasma = example_plasma(pulse=pulse)
+        plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,))
 
+    plasma.time_to_calculate = plasma.t[3]
     # Create new diagnostic
     diagnostic_name = "xrcs"
-    nchannels = 3
+    nchannels = 1
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -798,7 +772,6 @@ def example_run(
     model.set_plasma(plasma)
 
     bckc = model(calc_spectra=calc_spectra)
-
     channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
@@ -890,4 +863,4 @@ def example_run(
 
 if __name__ == "__main__":
 
-    example_run(plot=True)
+    example_run(plot=False)
