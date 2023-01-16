@@ -596,6 +596,7 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
+        # TODO: add "simple" option which only does lines needed for Ti_w / te_kw / te_n3w
         import time
         self.calc_spectra = calc_spectra
         if self.plasma is not None:
@@ -661,14 +662,8 @@ class Helike_spectroscopy(DiagnosticModel):
 
 
 def doppler_broaden(x, integral, center, ion_mass, ion_temp):
-    sigma = (
-        np.sqrt(
-            constants.e
-            / (ion_mass * constants.proton_mass * constants.c**2)
-            * ion_temp
-        )
-        * center
-    )
+    sigma = (np.sqrt(constants.e / (ion_mass * constants.proton_mass * constants.c**2) * ion_temp)
+             * center)
     gaussian_broadened = gaussian(
         x,
         integral,
@@ -677,23 +672,35 @@ def doppler_broaden(x, integral, center, ion_mass, ion_temp):
     )
     return gaussian_broadened
 
-
 def gaussian(x, integral, center, sigma):
     return (
-        integral
-        / (sigma * np.sqrt(2 * np.pi))
+        integral / (sigma * np.sqrt(2 * np.pi))
         * np.exp(-((x - center) ** 2) / (2 * sigma**2))
     )
 
+
 def transition_rules(transition_type, fz, charge, Ne, Nh, Nimp):
-    if transition_type == "recom":
+    if transition_type == "excit":
+        mult = fz.sel(ion_charges=charge) * Ne * Nimp
+    elif transition_type == "diel":
+        mult = fz.sel(ion_charges=charge) * Ne * Nimp
+    elif transition_type == "li_diel":
+        mult = fz.sel(ion_charges=charge - 1) * Ne * Nimp
+    elif transition_type == "ise":
+        mult = fz.sel(ion_charges=charge - 1) * Ne * Nimp
+    elif transition_type == "isi":
+        mult = fz.sel(ion_charges=charge - 1) * Ne * Nimp
+    elif transition_type == "recom":
         mult = fz.sel(ion_charges=charge + 1) * Ne * Nimp
     elif transition_type == "cxr":
         mult = fz.sel(ion_charges=charge + 1) * Nh * Nimp
     else:
-        mult = fz.sel(ion_charges=charge) * Ne * Nimp
-
+        raise ValueError(
+            f"transition type: {transition_type} not recognised"
+        )
     return mult
+
+
 
 
 def select_transition(adf15_data, transition: str, wavelength: float):
@@ -875,3 +882,4 @@ if __name__ == "__main__":
                               # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=17, ),
                               # self.Nh * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=17, ),
                               # ], "type").assign_coords(type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr",])
+
