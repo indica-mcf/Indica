@@ -101,16 +101,16 @@ ADF11: dict = {
 
 class Plasma:
     def __init__(
-        self,
-        tstart: float = 0.01,
-        tend: float = 0.14,
-        dt: float = 0.01,
-        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-        impurities: tuple = ("c", "ar"),
-        main_ion: str = "h",
-        impurity_concentration: tuple = (0.02, 0.001),
-        pulse: int = None,
-        full_run: bool = False,
+            self,
+            tstart: float = 0.01,
+            tend: float = 0.14,
+            dt: float = 0.01,
+            machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
+            impurities: tuple = ("c", "ar"),
+            main_ion: str = "h",
+            impurity_concentration: tuple = (0.02, 0.001),
+            pulse: int = None,
+            full_run: bool = False,
     ):
         """
         Class for plasma objects.
@@ -371,7 +371,7 @@ class Plasma:
             )
 
     def assign_profiles(
-        self, profile: str = "electron_density", t: float = None, element: str = "ar"
+            self, profile: str = "electron_density", t: float = None, element: str = "ar"
     ):
         if profile == "electron_density":
             self.electron_density.loc[dict(t=t)] = self.Ne_prof()
@@ -391,15 +391,15 @@ class Plasma:
             )
 
     def update_profiles(
-        self,
-        parameters: dict,
-        profile_prefixs: list = [
-            "Te_prof",
-            "Ti_prof",
-            "Ne_prof",
-            "Nimp_prof",
-            "Vrot_prof",
-        ],
+            self,
+            parameters: dict,
+            profile_prefixs: list = [
+                "Te_prof",
+                "Ti_prof",
+                "Ne_prof",
+                "Nimp_prof",
+                "Vrot_prof",
+            ],
     ):
         """
         Update plasma profiles with profile parameters i.e. Ne_prof_y0 -> Ne_prof.y0
@@ -516,8 +516,8 @@ class Plasma:
         meanz = self.meanz
         for elem in self.elements:
             self._zeff.loc[dict(element=elem)] = (
-                (ion_density.sel(element=elem) * meanz.sel(element=elem) ** 2)
-                / self.electron_density
+                    (ion_density.sel(element=elem) * meanz.sel(element=elem) ** 2)
+                    / self.electron_density
             ).values
         return self._zeff
 
@@ -565,8 +565,8 @@ class Plasma:
                     self.power_loss_tot[elem](
                         Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run
                     )
-                    .transpose()
-                    .values
+                        .transpose()
+                        .values
                 )
         return self._lz_tot
 
@@ -590,8 +590,8 @@ class Plasma:
                     self.power_loss_sxr[elem](
                         Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run
                     )
-                    .transpose()
-                    .values
+                        .transpose()
+                        .values
                 )
         return self._lz_sxr
 
@@ -601,9 +601,9 @@ class Plasma:
         ion_density = self.ion_density
         for elem in self.elements:
             total_radiation = (
-                lz_tot[elem].sum("ion_charges")
-                * self.electron_density
-                * ion_density.sel(element=elem)
+                    lz_tot[elem].sum("ion_charges")
+                    * self.electron_density
+                    * ion_density.sel(element=elem)
             )
             self._total_radiation.loc[dict(element=elem)] = xr.where(
                 total_radiation >= 0,
@@ -621,9 +621,9 @@ class Plasma:
         ion_density = self.ion_density
         for elem in self.elements:
             sxr_radiation = (
-                lz_sxr[elem].sum("ion_charges")
-                * self.electron_density
-                * ion_density.sel(element=elem)
+                    lz_sxr[elem].sum("ion_charges")
+                    * self.electron_density
+                    * ion_density.sel(element=elem)
             )
             self._sxr_radiation.loc[dict(element=elem)] = xr.where(
                 sxr_radiation >= 0,
@@ -703,14 +703,14 @@ class Plasma:
         for elem in self.impurities:
             if np.count_nonzero(self.ion_density.sel(element=elem)) != 0:
                 zeff_tmp = (
-                    self.ion_density.sel(element=elem)
-                    * self.meanz.sel(element=elem) ** 2
-                    / self.electron_density
+                        self.ion_density.sel(element=elem)
+                        * self.meanz.sel(element=elem) ** 2
+                        / self.electron_density
                 )
                 value = zeff_tmp.where(zeff_tmp.rho_poloidal < 0.2).mean("rho_poloidal")
                 zeff_tmp = zeff_tmp / zeff_tmp * value
                 ion_density_tmp = zeff_tmp / (
-                    self.meanz.sel(element=elem) ** 2 / self.electron_density
+                        self.meanz.sel(element=elem) ** 2 / self.electron_density
                 )
                 self.ion_density.loc[dict(element=elem)] = ion_density_tmp.values
 
@@ -749,12 +749,12 @@ class Plasma:
         return binned
 
     def build_atomic_data(
-        self,
-        Te: DataArray = None,
-        Ne: DataArray = None,
-        Nh: DataArray = None,
-        tau: DataArray = None,
-        default=False,
+            self,
+            Te: DataArray = None,
+            Ne: DataArray = None,
+            Nh: DataArray = None,
+            tau: DataArray = None,
+            default=False,
     ):
         if default:
             xend = 1.02
@@ -854,13 +854,13 @@ class Plasma:
             for t in np.array(self.time_to_calculate, ndmin=1):
                 rho = (
                     self.equilibrium.rho.sel(t=t, method="nearest")
-                    .interp(R=R, z=z)
-                    .drop_vars(["R", "z"])
+                        .interp(R=R, z=z)
+                        .drop_vars(["R", "z"])
                 )
                 midplane_profiles[k].append(
                     prof_rho.sel(t=t, method="nearest")
-                    .interp(rho_poloidal=rho)
-                    .drop_vars("rho_poloidal")
+                        .interp(rho_poloidal=rho)
+                        .drop_vars("rho_poloidal")
                 )
             midplane_profiles[k] = xr.concat(midplane_profiles[k], "t").assign_coords(
                 t=self.t
@@ -872,7 +872,7 @@ class Plasma:
         self.midplane_profiles = midplane_profiles
 
     def calc_centrifugal_asymmetry(
-        self, time=None, test_toroidal_rotation=None, plot=False
+            self, time=None, test_toroidal_rotation=None, plot=False
     ):
         """
         Calculate (R, z) maps of the ion densities caused by centrifugal asymmetry
@@ -935,8 +935,8 @@ class Plasma:
             )
 
         self.ion_density_2d = (
-            ion_density.interp(rho_poloidal=self.rho_2d).drop_vars("rho_poloidal")
-            * self.asymmetry_multiplier
+                ion_density.interp(rho_poloidal=self.rho_2d).drop_vars("rho_poloidal")
+                * self.asymmetry_multiplier
         )
         assign_datatype(self.ion_density_2d, ("density", "ion"), "m^-3")
 
@@ -977,9 +977,9 @@ class Plasma:
         """
         for elem in self.elements:
             total_radiation = (
-                self.lz_tot[elem].sum("ion_charges")
-                * self.electron_density
-                * self.ion_density.sel(element=elem)
+                    self.lz_tot[elem].sum("ion_charges")
+                    * self.electron_density
+                    * self.ion_density.sel(element=elem)
             )
             total_radiation = xr.where(
                 total_radiation >= 0,
@@ -989,9 +989,9 @@ class Plasma:
             self.total_radiation.loc[dict(element=elem)] = total_radiation.values
 
             sxr_radiation = (
-                self.lz_sxr[elem].sum("ion_charges")
-                * self.electron_density
-                * self.ion_density.sel(element=elem)
+                    self.lz_sxr[elem].sum("ion_charges")
+                    * self.electron_density
+                    * self.ion_density.sel(element=elem)
             )
             sxr_radiation = xr.where(
                 sxr_radiation >= 0,
@@ -1026,12 +1026,9 @@ class Plasma:
             )
 
 
-def example_run(pulse: int = None, tstart=0.02, tend=0.1, dt=0.01):
+def example_run(pulse: int = None, tstart=0.02, tend=0.1, dt=0.01, main_ion="h", impurities=("c", "ar", "he"),
+                impurity_concentration=(0.03, 0.001, 0.01),):
     # TODO: swap all profiles to new version!
-
-    main_ion = "h"
-    impurities = ("c", "ar", "he")
-    impurity_concentration = (0.03, 0.001, 0.01)
     full_run = False
 
     plasma = Plasma(
@@ -1080,7 +1077,7 @@ def example_run(pulse: int = None, tstart=0.02, tend=0.1, dt=0.01):
 
     if pulse is None:
         equilibrium_data = fake_equilibrium_data(
-            tstart=tstart, tend=tend, dt=dt/2, machine_dims=plasma.machine_dimensions
+            tstart=tstart, tend=tend, dt=dt / 2, machine_dims=plasma.machine_dimensions
         )
     else:
         reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
@@ -1093,6 +1090,7 @@ def example_run(pulse: int = None, tstart=0.02, tend=0.1, dt=0.01):
     plasma.set_flux_transform(flux_transform)
 
     return plasma
+
 
 if __name__ == "__main__":
     example_run()
