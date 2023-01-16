@@ -27,6 +27,7 @@ ADF15 = {
     }
 }
 
+
 class Helike_spectroscopy(DiagnosticModel):
     """
     Data and methods to model XRCS spectrometer measurements
@@ -35,16 +36,16 @@ class Helike_spectroscopy(DiagnosticModel):
     """
 
     def __init__(
-        self,
-        name: str,
-        instrument_method="get_helike_spectroscopy",
-        etendue: float = 1.0,
-        calibration: float = 1.0e-27,
-        marchuk: bool = True,
-        full_run: bool = False,
-        element: str = "ar",
-        window_len: int = 1030,
-        window_lim: list = [0.394, 0.401],
+            self,
+            name: str,
+            instrument_method="get_helike_spectroscopy",
+            etendue: float = 1.0,
+            calibration: float = 1.0e-27,
+            marchuk: bool = True,
+            full_run: bool = False,
+            element: str = "ar",
+            window_len: int = 1030,
+            window_lim: list = [0.394, 0.401],
     ):
         """
         Read all atomic data and initialise objects
@@ -104,7 +105,6 @@ class Helike_spectroscopy(DiagnosticModel):
         self.Fz: dict
         self.Nh: DataArray
 
-
     def _set_adas_pecs(self):
         """
         Read ADAS adf15 data
@@ -129,8 +129,8 @@ class Helike_spectroscopy(DiagnosticModel):
             for line in pec:
                 pec[line]["emiss_coeff"] = (
                     pec[line]["emiss_coeff"]
-                    .sel(electron_density=4.0e19, method="nearest")
-                    .drop_vars("electron_density")
+                        .sel(electron_density=4.0e19, method="nearest")
+                        .drop_vars("electron_density")
                 )
 
         self.pec = pec
@@ -157,7 +157,7 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        first_key =list(self.pec.keys())[0]  # Optimisation hack so transition matrix doesn't get called iteratively
+        first_key = list(self.pec.keys())[0]  # Optimisation hack so transition matrix doesn't get called iteratively
         elem, charge, wavelength = self.pec[first_key]["element"], \
                                    self.pec[first_key]["charge"], self.pec[first_key]["wavelength"]
         mult = transition_matrix(self, element=elem, charge=charge)
@@ -165,7 +165,7 @@ class Helike_spectroscopy(DiagnosticModel):
         for line, pec in self.pec.items():
             coords = pec["emiss_coeff"].coords
             if "type" in coords:
-                _pec = pec["emiss_coeff"].interp(electron_temperature=self.Te, method="cubic",)
+                _pec = pec["emiss_coeff"].interp(electron_temperature=self.Te, method="cubic", )
                 _emission = _pec * mult
             else:
                 raise ValueError(f"No coordinate of name 'type' in PEC {line}")
@@ -179,9 +179,9 @@ class Helike_spectroscopy(DiagnosticModel):
         if "n3" in emission.keys() and "w" in emission.keys():
             emission["n3w"] = emission["n3"] * emission["w"]
         if (
-            "n3" in emission.keys()
-            and "n345" in emission.keys()
-            and "w" in emission.keys()
+                "n3" in emission.keys()
+                and "n345" in emission.keys()
+                and "w" in emission.keys()
         ):
             emission["tot"] = emission["n3"] + emission["n345"] + emission["w"]
             emission["n3tot"] = emission["n3"] * emission["n345"] * emission["w"]
@@ -196,12 +196,9 @@ class Helike_spectroscopy(DiagnosticModel):
                 calc_rho=calc_rho,
             )
             self.emission_los[line] = self.los_transform.along_los
-            (
-                _,
-                self.pos[line],
-                self.err_in[line],
-                self.err_out[line],
-            ) = self._moment_analysis(line)
+
+        for line in self.emission.keys():
+            (_, self.pos[line], self.err_in[line], self.err_out[line],) = self._moment_analysis(line)
 
         if self.calc_spectra:
             self.measured_spectra = self.los_transform.integrate_on_los(
@@ -224,12 +221,12 @@ class Helike_spectroscopy(DiagnosticModel):
                     self.err_in[line],
                     self.err_out[line],
                 ) = self._moment_analysis(line, profile_1d=self.Ti)
-                if x1.__len__()==1:
+                if x1.__len__() == 1:
                     self.measured_Ti[line] = Ti_tmp
                 else:
                     self.measured_Ti[line] = xr.concat(Ti_tmp, x1_name).assign_coords(
-                    {x1_name: x1}
-                )
+                        {x1_name: x1}
+                    )
             elif datatype == ("temperature", "electrons"):
                 line = str(quant.split("_")[1])
                 (
@@ -238,18 +235,18 @@ class Helike_spectroscopy(DiagnosticModel):
                     self.err_in[line],
                     self.err_out[line],
                 ) = self._moment_analysis(line, profile_1d=self.Te)
-                if x1.__len__()==1:
+                if x1.__len__() == 1:
                     self.measured_Te[line] = Te_tmp
                 else:
                     self.measured_Te[line] = xr.concat(Te_tmp, x1_name).assign_coords(
-                    {x1_name: x1}
-                )
+                        {x1_name: x1}
+                    )
 
     def _moment_analysis(
-        self,
-        line: str,
-        profile_1d: DataArray = None,
-        half_los: bool = True,
+            self,
+            line: str,
+            profile_1d: DataArray = None,
+            half_los: bool = True,
     ):
         """
         Perform moment analysis using a specific line emission as distribution function
@@ -275,11 +272,7 @@ class Helike_spectroscopy(DiagnosticModel):
         err_out: list = []
 
         if len(np.shape(self.t)) == 0:
-            times = np.array(
-                [
-                    self.t,
-                ]
-            )
+            times = np.array([self.t, ])
         else:
             times = self.t
 
@@ -289,9 +282,7 @@ class Helike_spectroscopy(DiagnosticModel):
             _pos, _err_in, _err_out = [], [], []
             for t in times:
                 if "t" in self.emission_los[line][chan].dims:
-                    distribution_function = (
-                        self.emission_los[line][chan].sel(t=t).values
-                    )
+                    distribution_function = self.emission_los[line][chan].sel(t=t).values
                 else:
                     distribution_function = self.emission_los[line][chan].values
 
@@ -363,16 +354,15 @@ class Helike_spectroscopy(DiagnosticModel):
         )
         # Return without channel as dimension
         if self.los_transform.x1.__len__() == 1:
-            result = result.sel(channel = self.los_transform.x1)
-            pos = pos.sel(channel = self.los_transform.x1)
-            err_in = err_in.sel(channel = self.los_transform.x1)
-            err_out = err_out.sel(channel = self.los_transform.x1)
-
+            result = result.sel(channel=self.los_transform.x1)
+            pos = pos.sel(channel=self.los_transform.x1)
+            err_in = err_in.sel(channel=self.los_transform.x1)
+            err_out = err_out.sel(channel=self.los_transform.x1)
 
         return result, pos, err_in, err_out
 
     def _make_intensity(
-        self,
+            self,
     ):
         """
         Uses the intensity recipes to get intensity from
@@ -413,19 +403,19 @@ class Helike_spectroscopy(DiagnosticModel):
                 print(f"Emission type {value.type} not recognised")
 
             intensity[key] = (
-                value.interp(electron_temperature=_Te)
-                * fz.sel(ion_charges=_ion_charge)
-                * argon_density
-                * _density
-                * self.calibration
+                    value.interp(electron_temperature=_Te)
+                    * fz.sel(ion_charges=_ion_charge)
+                    * argon_density
+                    * _density
+                    * self.calibration
             )
 
         return intensity
 
     def _make_spectra(
-        self,
-        window_lim: tuple = (None, None),
-        window_len: int = None,
+            self,
+            window_lim: tuple = (None, None),
+            window_len: int = None,
     ):
 
         # Add convolution of broadening
@@ -546,23 +536,26 @@ class Helike_spectroscopy(DiagnosticModel):
                     "err_in": self.err_in[line],
                     "err_out": self.err_out[line],
                 }
-
-        self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
-        self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
-        self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
+        if "int_k" in self.bckc.keys() and "int_w" in self.bckc.keys():
+            self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
+        if "int_n3" in self.bckc.keys() and "int_w" in self.bckc.keys():
+            self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
+        if "int_n3" in self.bckc.keys() and "int_tot" in self.bckc.keys():
+            self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
 
     def __call__(
-        self,
-        Te: DataArray = None,
-        Ti: DataArray = None,
-        Ne: DataArray = None,
-        Nimp: DataArray = None,
-        Fz: dict = None,
-        Nh: DataArray = None,
-        t: LabeledArray = None,
-        calc_spectra=False,
-        calc_rho: bool = False,
-        **kwargs,
+            self,
+            Te: DataArray = None,
+            Ti: DataArray = None,
+            Ne: DataArray = None,
+            Nimp: DataArray = None,
+            Fz: dict = None,
+            Nh: DataArray = None,
+            t: LabeledArray = None,
+            calc_spectra=False,
+            calc_rho: bool = False,
+            minimum_lines: bool = True,
+            **kwargs,
     ):
         """
         Calculate diagnostic measured values
@@ -581,13 +574,10 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        # TODO: add "simple" option which only does lines needed for Ti_w / te_kw / te_n3w
-        import time
         self.calc_spectra = calc_spectra
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            start = time.time()
             Te = self.plasma.electron_temperature.interp(t=t)
             Ne = self.plasma.electron_density.interp(t=t)
             Nh = self.plasma.neutral_density.interp(t=t)
@@ -598,15 +588,14 @@ class Helike_spectroscopy(DiagnosticModel):
 
             Ti = self.plasma.ion_temperature.interp(t=t)
             Nimp = self.plasma.impurity_density.interp(t=t)
-            print(f"t: fz {time.time()-start} s")
         else:
             if (
-                Ne is None
-                or Te is None
-                or Nh is None
-                or Fz is None
-                or Ti is None
-                or Nimp is None
+                    Ne is None
+                    or Te is None
+                    or Nh is None
+                    or Fz is None
+                    or Ti is None
+                    or Nimp is None
             ):
                 raise ValueError("Give inputs or assign plasma class!")
 
@@ -621,9 +610,15 @@ class Helike_spectroscopy(DiagnosticModel):
 
         # TODO: check that inputs have compatible dimensions/coordinates
 
+        # Reduce the number of lines to calculate for speed
+        if minimum_lines:
+            for line in ["z", "n3", "n345", "qra"]:
+                self.pec.pop(line, None)
+            for quant in ["int_tot", "int_n3", "te_n3w", "ti_z"]:
+                self.quantities.pop(quant, None)
+
         # Calculate emission on natural coordinates of input profiles
         self._calculate_emission()
-        print(f"t: calculate_emission {time.time() - start} s")
 
         # Make spectra
         if calc_spectra:
@@ -631,15 +626,9 @@ class Helike_spectroscopy(DiagnosticModel):
             self.spectra = self._make_spectra()
 
         # Integrate emission along the LOS
-        self._calculate_los_integral(
-            calc_rho=calc_rho,
-        )
-        print(f"t: los_integral {time.time() - start} s")
-
+        self._calculate_los_integral(calc_rho=calc_rho,)
         # Estimate temperatures from moment analysis
         self._calculate_temperatures()
-        print(f"t: calc_temp {time.time() - start} s")
-
         # Build back-calculated dictionary to compare with experimental data
         self._build_bckc_dictionary()
 
@@ -647,7 +636,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
 
 def doppler_broaden(x, integral, center, ion_mass, ion_temp):
-    sigma = (np.sqrt(constants.e / (ion_mass * constants.proton_mass * constants.c**2) * ion_temp)
+    sigma = (np.sqrt(constants.e / (ion_mass * constants.proton_mass * constants.c ** 2) * ion_temp)
              * center)
     gaussian_broadened = gaussian(
         x,
@@ -657,28 +646,30 @@ def doppler_broaden(x, integral, center, ion_mass, ion_temp):
     )
     return gaussian_broadened
 
+
 def gaussian(x, integral, center, sigma):
     return (
-        integral / (sigma * np.sqrt(2 * np.pi))
-        * np.exp(-((x - center) ** 2) / (2 * sigma**2))
+            integral / (sigma * np.sqrt(2 * np.pi))
+            * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
     )
+
 
 def transition_matrix(self, element="ar", charge=16):
     "vectorisation of the transition matrix used to convert Helike PECs to emissivity"
     transition_matrix = xr.concat([
-                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
-                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
-                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
-                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
-                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
-                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
-                          self.Nh * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
-                          ], "type").assign_coords(
-            type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
+        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
+        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
+        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
+        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
+        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
+        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
+        self.Nh * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
+    ], "type").assign_coords(
+        type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
     return transition_matrix
 
-def select_transition(adf15_data, transition: str, wavelength: float):
 
+def select_transition(adf15_data, transition: str, wavelength: float):
     """
     Given adf15 data in input, select pec for specified spectral line, given
     transition and wavelength identifiers
@@ -716,13 +707,11 @@ def select_transition(adf15_data, transition: str, wavelength: float):
 
 
 def example_run(
-    pulse:int=9229,plasma=None, plot=False, calc_spectra=False):
-
+        pulse: int = 9229, plasma=None, plot=False, calc_spectra=False):
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
         plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,))
 
-    # plasma.time_to_calculate = plasma.t[3]
     # Create new diagnostic
     diagnostic_name = "xrcs"
     nchannels = 3
@@ -842,8 +831,6 @@ def example_run(
         plt.show(block=True)
     return plasma, model, bckc
 
+
 if __name__ == "__main__":
-
     example_run(plot=True)
-
-
