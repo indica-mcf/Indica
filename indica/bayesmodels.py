@@ -67,10 +67,10 @@ class BayesModels:
                     return True
         return False
 
-    def _build_bckc(self, params={}):
+    def _build_bckc(self, params={}, **kwargs):
         self.bckc = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(self.bckc, **{model.name: {**model(params=params)}})
+            self.bckc = dict(self.bckc, **{model.name: {**model(params=params, **kwargs)}})
         self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
         return
 
@@ -96,7 +96,7 @@ class BayesModels:
                 print(f"No prior assigned for {param_name}")
         return ln_prior
 
-    def ln_posterior(self, parameters: dict):
+    def ln_posterior(self, parameters: dict, **kwargs):
         """
         Posterior probability given to optimisers
 
@@ -116,7 +116,7 @@ class BayesModels:
             return -np.inf, {}
 
         self.plasma.update_profiles(parameters)
-        self._build_bckc(parameters)  # model calls
+        self._build_bckc(parameters, **kwargs)  # model calls
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_prior = self._ln_prior(parameters)
         ln_posterior = ln_likelihood + ln_prior
