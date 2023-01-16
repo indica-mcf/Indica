@@ -68,6 +68,7 @@ class BayesModels:
         return False
 
     def _build_bckc(self, params={}, **kwargs):
+        # TODO: consider how to handle if models have overlapping kwargs
         self.bckc = {}
         for model in self.diagnostic_models:
             self.bckc = dict(self.bckc, **{model.name: {**model(params=params, **kwargs)}})
