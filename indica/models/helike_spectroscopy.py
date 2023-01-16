@@ -157,33 +157,19 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-
+        first_key =list(self.pec.keys())[0]  # Optimisation hack so transition matrix doesn't get called iteratively
+        elem, charge, wavelength = self.pec[first_key]["element"], \
+                                   self.pec[first_key]["charge"], self.pec[first_key]["wavelength"]
+        mult = transition_matrix(self, element=elem, charge=charge)
         emission = {}
         for line, pec in self.pec.items():
-            elem, charge, wavelength = pec["element"], pec["charge"], pec["wavelength"]
             coords = pec["emiss_coeff"].coords
-
-            # Sum contributions from all transition types
-            _emission = []
             if "type" in coords:
-                for pec_type in coords["type"]:
-                    _pec = pec["emiss_coeff"].sel(type=pec_type).interp(
-                        electron_temperature=self.Te,
-                        method="cubic",)
-
-                    mult = transition_rules(
-                        pec_type,
-                        self.Fz[elem],
-                        charge,
-                        self.Ne,
-                        self.Nh,
-                        self.Nimp.sel(element=elem),
-                    )
-                    _emission.append(_pec * mult)
+                _pec = pec["emiss_coeff"].interp(electron_temperature=self.Te, method="cubic",)
+                _emission = _pec * mult
             else:
-                raise ValueError("No coordinate of name 'type' in PEC")
-
-            _emission = xr.concat(_emission, "type").sum("type")
+                raise ValueError(f"No coordinate of name 'type' in PEC {line}")
+            _emission = _emission.sum("type")
             # TODO: convert PEC wavelengths to nm as per convention at TE!
             ev_wavelength = ph.nm_eV_conversion(nm=wavelength / 10.0)
             emission[line] = xr.where(_emission >= 0, _emission, 0) * ev_wavelength
@@ -200,7 +186,6 @@ class Helike_spectroscopy(DiagnosticModel):
             emission["tot"] = emission["n3"] + emission["n345"] + emission["w"]
             emission["n3tot"] = emission["n3"] * emission["n345"] * emission["w"]
         self.emission = emission
-
         return emission
 
     def _calculate_los_integral(self, calc_rho=False):
@@ -678,30 +663,19 @@ def gaussian(x, integral, center, sigma):
         * np.exp(-((x - center) ** 2) / (2 * sigma**2))
     )
 
-
-def transition_rules(transition_type, fz, charge, Ne, Nh, Nimp):
-    if transition_type == "excit":
-        mult = fz.sel(ion_charges=charge) * Ne * Nimp
-    elif transition_type == "diel":
-        mult = fz.sel(ion_charges=charge) * Ne * Nimp
-    elif transition_type == "li_diel":
-        mult = fz.sel(ion_charges=charge - 1) * Ne * Nimp
-    elif transition_type == "ise":
-        mult = fz.sel(ion_charges=charge - 1) * Ne * Nimp
-    elif transition_type == "isi":
-        mult = fz.sel(ion_charges=charge - 1) * Ne * Nimp
-    elif transition_type == "recom":
-        mult = fz.sel(ion_charges=charge + 1) * Ne * Nimp
-    elif transition_type == "cxr":
-        mult = fz.sel(ion_charges=charge + 1) * Nh * Nimp
-    else:
-        raise ValueError(
-            f"transition type: {transition_type} not recognised"
-        )
-    return mult
-
-
-
+def transition_matrix(self, element="ar", charge=16):
+    "vectorisation of the transition matrix used to convert Helike PECs to emissivity"
+    transition_matrix = xr.concat([
+                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
+                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
+                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
+                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
+                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
+                          self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
+                          self.Nh * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
+                          ], "type").assign_coords(
+            type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
+    return transition_matrix
 
 def select_transition(adf15_data, transition: str, wavelength: float):
 
@@ -748,10 +722,10 @@ def example_run(
     if plasma is None:
         plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,))
 
-    plasma.time_to_calculate = plasma.t[3]
+    # plasma.time_to_calculate = plasma.t[3]
     # Create new diagnostic
     diagnostic_name = "xrcs"
-    nchannels = 1
+    nchannels = 3
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -870,16 +844,6 @@ def example_run(
 
 if __name__ == "__main__":
 
-    example_run(plot=False)
+    example_run(plot=True)
 
-
-
-#mult = xr.concat([self.Ne * self.Nimp.sel(element="ar",) * self.Fz["ar"].sel(ion_charges=16,),
-                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=16, ),
-                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=15, ),
-                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=15, ),
-                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=15, ),
-                              # self.Ne * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=17, ),
-                              # self.Nh * self.Nimp.sel(element="ar", ) * self.Fz["ar"].sel(ion_charges=17, ),
-                              # ], "type").assign_coords(type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr",])
 
