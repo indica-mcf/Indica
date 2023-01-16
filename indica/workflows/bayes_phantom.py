@@ -32,8 +32,8 @@ if __name__ == "__main__":
         tend=tend,
         dt=dt,
         main_ion="h",
-        impurities=("c", "ar", "he"),
-        impurity_concentration=(0.03, 0.001, 0.01),
+        impurities=("ar",),
+        impurity_concentration=(0.001, ),
         full_run=False,
     )
 
@@ -177,9 +177,10 @@ if __name__ == "__main__":
         log_prob_fn=bm.ln_posterior,
         parameter_names=params_names,
         moves=move,
+        kwargs=dict(minimal_lines=True)
     )
 
-    iterations = 100
+    iterations = 10
     sampler.run_mcmc(start_points, iterations, progress=True, )
     burn_in = 0
 
