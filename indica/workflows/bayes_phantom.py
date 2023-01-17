@@ -177,7 +177,7 @@ if __name__ == "__main__":
         log_prob_fn=bm.ln_posterior,
         parameter_names=params_names,
         moves=move,
-        kwargs=dict(minimal_lines=True)
+        kwargs=dict(minimum_lines=True)
     )
 
     iterations = 10
