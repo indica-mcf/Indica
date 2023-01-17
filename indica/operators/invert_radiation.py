@@ -468,10 +468,6 @@ class InvertRadiation(Operator):
         integral: List[DataArray] = []
         for data in zip(*integrals):
             integral.append(concat(data, dim=times))
-            del integral[-1].coords[None]  # type: ignore
-        # For some reason concat adds a `None` coordinate
-        del symmetric_emissivity.coords[None]  # type: ignore
-        del asymmetry_parameter.coords[None]  # type: ignore
         estimate = EmissivityProfile(
             symmetric_emissivity, asymmetry_parameter, flux_coords
         )

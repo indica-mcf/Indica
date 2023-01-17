@@ -125,6 +125,9 @@ def interpolate_to_time_labels(
             )
         interpolated.attrs["dropped"] = dropped
 
+    if "transform" in data.attrs:
+        interpolated.attrs["transform"] = data.attrs["transform"]
+
     strip_provenance(interpolated)
 
     return interpolated
@@ -174,6 +177,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         )
         error = np.sqrt(uncertainty**2 + stdev**2)
         averaged.attrs["error"] = error.rename(t_bins="t")
+
     if "dropped" in data.attrs:
         grouped = (
             data.attrs["dropped"]
@@ -197,6 +201,9 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             )
             error = np.sqrt(uncertainty**2 + stdev**2)
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
+
+    if "transform" in data.attrs:
+        averaged.attrs["transform"] = data.attrs["transform"]
 
     strip_provenance(averaged)
 

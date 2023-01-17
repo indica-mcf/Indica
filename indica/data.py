@@ -1043,7 +1043,7 @@ class InDiCADatasetAccessor:
         (unless the value is the same). This behaviour can be
         overridden with the `overwrite` argument.
 
-        This function will fail if the specific datatyp for ``array``
+        This function will fail if the specific datatype for ``array``
         differs from that for this Dataset. It will also fail if the
         dimensions of ``array`` differ from those of the Dataset.
 

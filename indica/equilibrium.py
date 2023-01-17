@@ -112,7 +112,6 @@ class Equilibrium(AbstractEquilibrium):
                 ],
                 offsets,
             )
-            del rhos.coords[None]
 
             thetas = np.arctan2(
                 T_e.coords["index_z_offset"] + z_shift - zmag,
@@ -426,7 +425,7 @@ class Equilibrium(AbstractEquilibrium):
 
         result = DataArray(
             data=area,
-            coords=[("t", t), ("rho_poloidal", rho)],
+            coords=[("t", np.array(t)), ("rho_poloidal", np.array(rho))],
             dims=["t", "rho_poloidal"],
         )
 
