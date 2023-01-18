@@ -21,13 +21,17 @@ from indica.readers.read_st40 import ST40data
 
 
 def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=None, phantom_profiles=None,
-                       plasma=None, autocorr=None, figheader="./results/test/"):
+                       plasma=None, autocorr=None, figheader="./results/test/", save_pickle=True):
     if any([blobs is None, diag_data is None, samples is None, params_names is None,
             phantom_profiles is None, plasma is None, autocorr is None]):
         raise ValueError(
             f"not all inputs given: {[blobs, diag_data, samples, params_names, phantom_profiles, plasma, autocorr]}")
 
     Path(figheader).mkdir(parents=True, exist_ok=True)
+    if save_pickle:
+        with open(figheader + "result.pkl", "wb") as handle:
+            pickle.dump({"blobs":blobs, "diag_data":diag_data, "samples":samples, "phantom_profiles":phantom_profiles,
+                         "plasma":plasma, "autocorr":autocorr}, handle, )
 
     plt.figure()
     mask = np.isfinite(autocorr)
@@ -39,7 +43,7 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=No
 
     if "smmh1.ne" in blobs.keys():
         plt.figure()
-        temp_data = blob_dict["smmh1.ne"]
+        temp_data = blobs["smmh1.ne"]
         plt.xlabel("samples ()")
         plt.ylabel("ne_int (m^-2)")
         plt.plot(temp_data, label="smmh1.ne_int model")
@@ -54,7 +58,7 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=No
 
     if "xrcs.te_kw" in blobs.keys():
         plt.figure()
-        temp_data = blob_dict["xrcs.te_kw"][:, 0, 0]
+        temp_data = blobs["xrcs.te_kw"][:, 0, 0]
         plt.ylabel("temperature (eV)")
         plt.plot(
             temp_data, label="xrcs.te_kw model", color="blue"
@@ -69,7 +73,7 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=No
         plt.savefig(figheader + "xrcs_te_kw.png")
 
     if "xrcs.ti_w" in blobs.keys():
-        temp_data = blob_dict["xrcs.ti_w"][:, 0, 0]
+        temp_data = blobs["xrcs.ti_w"][:, 0, 0]
         plt.plot(
             temp_data, label="xrcs.ti_w model", color="red"
         )
