@@ -402,13 +402,13 @@ class Plasma:
             ],
     ):
         """
-        Update plasma profiles with profile parameters i.e. Ne_prof_y0 -> Ne_prof.y0
+        Update plasma profiles with profile parameters i.e. {"Ne_prof.y0":1e19} -> Ne_prof.y0
         """
         for param, value in parameters.items():
             _prefix = [pref for pref in profile_prefixs if pref in param]
             if _prefix:
                 prefix: str = _prefix[0]
-                key = param.replace(prefix + "_", "")
+                key = param.replace(prefix + ".", "")
                 profile = getattr(self, prefix)
                 if hasattr(profile, key):
                     setattr(profile, key, value)
