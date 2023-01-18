@@ -137,7 +137,7 @@ def sample_with_autocorr(sampler, iterations=10, auto_sample=5):
     autocorr = autocorr[:sampler.iteration]
     return autocorr
 
-def initialise_diag_data(plasma, pulse=9229, tstart=0.02, tend=0.10, dt=0.01):
+def initialise_diag_data(plasma, pulse, tstart=0.02, tend=0.10, dt=0.01):
     raw = ST40data(pulse, tstart - dt * 4, tend + dt * 4)
     raw_data = raw.get_all()
     equilibrium_data = raw_data["efit"]
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     plasma.assign_profiles("ion_temperature", plasma.t)
     plasma.build_atomic_data()
 
-    flat_data = initialise_diag_data(plasma, tstart=tstart, tend=tend, dt=dt)
+    flat_data = initialise_diag_data(plasma, pulse, tstart=tstart, tend=tend, dt=dt)
 
     # Initialise Diagnostic Models
     los_transform = flat_data["smmh1.ne"].transform
