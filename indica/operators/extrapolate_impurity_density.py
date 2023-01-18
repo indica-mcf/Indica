@@ -1,5 +1,6 @@
 from typing import cast
 from typing import List
+from typing import Optional
 from typing import Sequence
 from typing import Tuple
 from typing import Union
@@ -25,8 +26,8 @@ def asymmetry_from_R_z(
     data_R_z: DataArray,
     flux_surfaces: FluxSurfaceCoordinates,
     rho_arr: DataArray,
-    threshold_rho: DataArray = None,
-    t_arr: DataArray = None,
+    threshold_rho: Optional[DataArray] = None,
+    t_arr: Optional[DataArray] = None,
 ):
     """Function to calculate an asymmetry parameter from a given density profile in
     (R, z, t) coordinates.
@@ -113,8 +114,8 @@ def asymmetry_from_R_z(
 def asymmetry_from_rho_theta(
     data_rho_theta: DataArray,
     flux_surfaces: FluxSurfaceCoordinates,
-    threshold_rho: DataArray = None,
-    t_arr: DataArray = None,
+    threshold_rho: Optional[DataArray] = None,
+    t_arr: Optional[DataArray] = None,
 ):
     """Function to calculate an asymmetry parameter from a given density profile in
     (rho_poloidal, theta, t) coordinates.
@@ -323,12 +324,6 @@ class ExtrapolateImpurityDensity(Operator):
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("number_density", "impurity_element"),
-        ("number_density", "impurity_element"),
-        ("time", "impurity_element"),
-    ]
-
     def __init__(
         self,
         sess: session.Session = session.global_session,
@@ -340,14 +335,18 @@ class ExtrapolateImpurityDensity(Operator):
         self.fullwidthhalfmax_coeff = 2 * self.halfwidthhalfmax_coeff
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        return super().return_types(*args)
+        return (
+            ("number_density", "impurity_element"),
+            ("number_density", "impurity_element"),
+            ("time", "impurity_element"),
+        )
 
     def transform_to_rho_theta(
         self,
         data_R_z: DataArray,
         flux_surfaces: FluxSurfaceCoordinates,
         rho_arr: DataArray,
-        t_arr: DataArray = None,
+        t_arr: Optional[DataArray] = None,
     ):
         """Function to transform data from an (R, z) grid to a (rho_poloidal, theta) grid
 
@@ -1048,8 +1047,8 @@ class ExtrapolateImpurityDensity(Operator):
         electron_temperature: DataArray,
         truncation_threshold: float,
         flux_surfaces: FluxSurfaceCoordinates,
-        asymmetry_parameter: DataArray = None,
-        t: DataArray = None,
+        asymmetry_parameter: Optional[DataArray] = None,
+        t: Optional[DataArray] = None,
     ):
         """Extrapolates the impurity density beyond the limits of SXR (Soft X-ray)
 

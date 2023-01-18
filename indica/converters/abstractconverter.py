@@ -303,9 +303,9 @@ class CoordinateTransform(ABC):
         """Returns a JSON representation of this object. Should be sufficient
         to recreate it identically from scratch (except for the
         equilibrium)."""
-        return ""
+        raise NotImplementedError
 
     @staticmethod
     def decode(json: str) -> "CoordinateTransform":
         """Takes some JSON and decodes it into a CoordinateTransform object."""
-        pass
+        raise NotImplementedError

@@ -788,10 +788,10 @@ class InDiCAArrayAccessor:
         status
             Whether the datatype of this array matches the argument.
         message
-            If ``status == False``, an explaination of why.
+            If ``status == False``, an explanation of why.
 
         """
-        pass
+        return NotImplementedError  # type: ignore
 
     def _update_prov_for_equilibrium(
         self,
@@ -1138,7 +1138,7 @@ class InDiCADatasetAccessor:
             If ``status == False``, an explanation of why.
 
         """
-        pass
+        raise NotImplementedError
 
     def inclusive_timeslice(self, t_start: float, t_end: float) -> xr.Dataset:
         """

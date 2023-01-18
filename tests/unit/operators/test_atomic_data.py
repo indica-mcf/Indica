@@ -1,4 +1,5 @@
 import copy
+from typing import Optional
 import unittest
 
 import numpy as np
@@ -20,11 +21,11 @@ class Exception_Frac_Abund_Test_Case(unittest.TestCase):
     def __init__(
         self,
         FracAbundObj: FractionalAbundance,
-        Ne: DataArray = None,
-        Te: DataArray = None,
-        Nh: DataArray = None,
-        tau: LabeledArray = None,
-        F_z_t0: DataArray = None,
+        Ne: Optional[DataArray] = None,
+        Te: Optional[DataArray] = None,
+        Nh: Optional[DataArray] = None,
+        tau: Optional[LabeledArray] = None,
+        F_z_t0: Optional[DataArray] = None,
     ):
         self.SCD = FracAbundObj.SCD
         self.ACD = FracAbundObj.ACD
@@ -197,10 +198,10 @@ class Exception_Power_Loss_Test_Case(unittest.TestCase):
     def __init__(
         self,
         PowerLossObj: PowerLoss,
-        Ne: DataArray = None,
-        Te: DataArray = None,
-        Nh: DataArray = None,
-        F_z_t: DataArray = None,
+        Ne: Optional[DataArray] = None,
+        Te: Optional[DataArray] = None,
+        Nh: Optional[DataArray] = None,
+        F_z_t: Optional[DataArray] = None,
     ):
         self.PLT = PowerLossObj.PLT
         self.PRB = PowerLossObj.PRB

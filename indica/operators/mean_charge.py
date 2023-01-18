@@ -33,15 +33,11 @@ class MeanCharge(Operator):
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("mean_charge", "impurity_element"),
-    ]
-
     def __init__(self, sess: session.Session = session.global_session):
         super().__init__(sess=sess)
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        return super().return_types(*args)
+        return (("mean_charge", "impurity_element"),)
 
     def __call__(self, FracAbundObj: DataArray, element: str):  # type: ignore
         """Function to calculate the mean charge.

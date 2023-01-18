@@ -2,6 +2,7 @@
 """
 
 from typing import cast
+from typing import Optional
 from typing import Tuple
 
 import numpy as np
@@ -237,7 +238,7 @@ class LinesOfSightTransform(CoordinateTransform):
     def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         self.flux_transform = flux_transform
 
-    def convert_to_rho(self, t: float = None):
+    def convert_to_rho(self, t: Optional[float] = None):
         self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
 
 

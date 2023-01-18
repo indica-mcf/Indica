@@ -35,15 +35,11 @@ class ToroidalRotation(Operator):
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("toroidal_rotation", "plasma"),
-    ]
-
     def __init__(self, sess: session.Session = session.global_session):
         super().__init__(sess=sess)
 
     def return_types(self, *args: DataType) -> Tuple[Any, ...]:
-        return super().return_types(*args)
+        return (("toroidal_rotation", "plasma"),)
 
     def __call__(  # type: ignore
         self,
@@ -169,7 +165,7 @@ class AsymmetryParameter(Operator):
         super().__init__(sess=sess)
 
     def return_types(self, *args: DataType) -> Tuple[Any, ...]:
-        return super().return_types(*args)
+        return (("asymmetry", "impurity_element"),)
 
     def __call__(  # type: ignore
         self,
