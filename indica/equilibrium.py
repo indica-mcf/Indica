@@ -6,6 +6,7 @@ from typing import Any
 from typing import cast
 from typing import Dict
 from typing import Hashable
+from typing import Literal
 from typing import Optional
 from typing import Tuple
 
@@ -75,14 +76,14 @@ class Equilibrium(AbstractEquilibrium):
         self.faxs = equilibrium_data["faxs"]
         self.fbnd = equilibrium_data["fbnd"]
         self.ftor = equilibrium_data["ftor"]
-        self.rhotor = np.sqrt(
+        self.rhotor = (
             (self.ftor - self.ftor.sel(rho_poloidal=0.0))
             / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
-        )
+        ) ** 0.5
         self.rmji = equilibrium_data["rmji"]
         self.rmjo = equilibrium_data["rmjo"]
         self.psi = equilibrium_data["psi"]
-        self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+        self.rho = ((self.psi - self.faxs) / (self.fbnd - self.faxs)) ** 0.5
         self.vjac = equilibrium_data["vjac"]
         self.rmag = equilibrium_data["rmag"]
         self.rbnd = equilibrium_data["rbnd"]
@@ -210,7 +211,7 @@ class Equilibrium(AbstractEquilibrium):
             results are given for. Otherwise return the argument.
         """
         if t is not None:
-            interp1d_method = "linear"
+            interp1d_method: Literal["linear", "cubic"] = "linear"
             if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (
                 t.shape[0] > 1
             ):
@@ -465,7 +466,7 @@ class Equilibrium(AbstractEquilibrium):
         if t is None:
             t = self.rho.coords["t"]
 
-        interp1d_method = "linear"
+        interp1d_method: Literal["linear", "cubic"] = "linear"
         if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
             if t.shape[0] > 3:
                 interp1d_method = "cubic"

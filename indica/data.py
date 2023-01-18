@@ -34,6 +34,7 @@ from scipy.interpolate import interp1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.interpolate import RectBivariateSpline
 import xarray as xr
+from xarray.core.types import InterpOptions
 from xarray.core.utils import either_dict_or_kwargs
 
 from . import session
@@ -159,7 +160,7 @@ class InDiCAArrayAccessor:
         target: str,
         new_dims: Optional[Union[Tuple[str, ...], str]] = None,
         coords: Optional[Mapping[Hashable, ArrayLike]] = None,
-        method: str = "linear",
+        method: InterpOptions = "linear",
         assume_sorted: bool = False,
         kwargs: Optional[Mapping[str, Any]] = None,
         **coords_kwargs: ArrayLike,
@@ -279,7 +280,7 @@ class InDiCAArrayAccessor:
         guess: Optional[ArrayLike] = None,
         new_dims: Optional[Union[Tuple[str, ...], str]] = None,
         coords: Optional[Mapping[Hashable, ArrayLike]] = None,
-        method: str = "linear",
+        method: InterpOptions = "linear",
         assume_sorted: bool = False,
         kwargs: Optional[Mapping[str, Any]] = None,
         **coords_kwargs: ArrayLike,

@@ -2,6 +2,7 @@ import copy
 from typing import cast
 from typing import get_args
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import Union
 import warnings
@@ -103,7 +104,7 @@ class FractionalAbundance(Operator):
         self.Te = None
         self.Nh = None
         self.tau = None
-        self.F_z_t0 = None
+        self.F_z_t0: Optional[DataArray] = None
         self.SCD = SCD
         self.ACD = ACD
         self.CCD = CCD
@@ -722,7 +723,7 @@ class PowerLoss(Operator):
         self.Ne = None
         self.Nh = None
         self.Te = None
-        self.F_z_t = None
+        self.F_z_t: Optional[DataArray] = None
 
         imported_data = {}
         imported_data["PLT"] = self.PLT

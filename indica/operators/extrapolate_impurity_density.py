@@ -174,6 +174,8 @@ def asymmetry_from_rho_theta(
         data_rho_theta.interp(theta=np.pi, method="linear")
         / data_rho_theta.interp(theta=0.0, method="linear")
     )
+    # assert for mypy, numpy array predicted
+    assert isinstance(derived_asymmetry_parameter, DataArray)
 
     derived_asymmetry_parameter /= R_hfs_midplane**2 - R_lfs_midplane**2
 
@@ -230,6 +232,8 @@ def asymmetry_modifier_from_parameter(
         asymmetry_parameter * (R_deriv**2 - R_lfs_midplane**2)
     )
 
+    # assert for mypy, numpy array predicted
+    assert isinstance(asymmetry_modifier, DataArray)
     asymmetry_modifier = asymmetry_modifier.transpose("rho_poloidal", "theta", "t")
 
     return asymmetry_modifier
