@@ -996,6 +996,76 @@ def centrifugal_asymmetry(
         )
         raise ValueError
 
+def zeff_bremsstrahlung_as(
+        Te: ArrayLike,
+        Ne: ArrayLike,
+        wavelength: float,
+        zeff: ArrayLike = None,
+        brems: ArrayLike = None,
+        gaunt_approx="callahan",
+):
+    """
+    Calculate Bremsstrahlung given Zeff or Zeff given Bremsstrahlung
+        [S. Rathgeber et al 2010 Plasma Phys. Control. Fusion 52 095008]
+        [Yamazaki H. et al 2006 Fusion Engineering Design 81 2817]
+
+    Parameters
+    ----------
+    Te
+        electron temperature (eV) for calculation
+    Ne
+        electron density in m^-3
+    wavelength
+        filter central wavelength (nm)
+    zeff
+        effective charge
+    gaunt_approx
+        approximation for free-free gaunt factors:
+            "callahan" see citation in KJ Callahan 2019 JINST 14 C10002
+
+    Returns
+    -------
+    Bremsstrahlung [W / m^3 / nm]
+
+    --> to be LOS-integrated to get W / m^2 / nm
+
+    for W / m^2 integrate over the transmission curve vs wavelength,
+    or multiply by delta_wavelength if transmission is const
+
+    """
+
+    assert (zeff is not None) == (brems is None)
+
+    gaunt_funct = {"callahan": lambda Te: 1.35 * Te ** 0.15}
+    gaunt = gaunt_funct[gaunt_approx](Te)
+
+    const = 1.89e-28
+    wlength = wavelength * 10  # nm to Angstrom
+    ne = Ne * 1e-6  # m^-3 to cm^-3
+
+    h = 4.1357e-15          # eV*s
+    c = constants.c         # m/s
+    hc = h * c              # eV*m
+    hc_a = hc * 1e10        # eV*m to eV*Angstrom
+
+    exponent = np.exp(- hc_a / (wlength * Te))
+
+    const_2 = 1e6 * 10
+
+    factor = (
+            const
+            * (ne ** 2 / np.sqrt(Te))
+            * (exponent / wlength ** 2)
+            * gaunt
+            * const_2
+    )
+
+    if zeff is None:
+        result = brems / factor
+    else:
+        result = zeff * factor
+
+    return result
 
 def zeff_bremsstrahlung(
     Te: ArrayLike,
