@@ -121,7 +121,7 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=No
     fig = corner.corner(samples, labels=params_names)
     plt.savefig(figheader + "corner.png")
 
-def sample_with_autocorr(sampler, iterations=10, auto_sample=5):
+def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
     autocorr = np.ones((iterations,)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(start_points, iterations=iterations, progress=True, ):
@@ -308,7 +308,7 @@ if __name__ == "__main__":
         kwargs=dict(minimum_lines=True)
     )
 
-    autocorr = sample_with_autocorr(sampler, iterations=1000, auto_sample=10)
+    autocorr = sample_with_autocorr(sampler, start_points, iterations=1000, auto_sample=10)
 
     burn_in = 0
     blobs = sampler.get_blobs(discard=burn_in)
