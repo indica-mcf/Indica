@@ -334,7 +334,5 @@ if __name__ == "__main__":
         "plasma": plasma,
         "autocorr": autocorr,
     }
-    with open("./results/bayes_phantom_test.pkl", "wb") as handle:
-        pickle.dump(result, handle, )
 
     plot_bayes_phantom(**result)
