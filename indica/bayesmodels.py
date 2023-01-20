@@ -89,10 +89,14 @@ class BayesModels:
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
+        params_without_priors = [x for x in parameters.keys() if x not in self.priors.keys()]
+        if params_without_priors.__len__() > 0:
+            print(f"paramaters {params_without_priors} have no priors assigned")
+
         ln_prior = 0
         for prior_name, prior_func in self.priors.items():
             param_values = [parameters[x] for x in parameters.keys() if x in prior_name]
-            if param_values.__len__() == 0:
+            if param_values.__len__() == 0:  # if prior assigned but no parameter then skip
                 continue
             elif param_values.__len__() >= 1:
                 ln_prior += np.log(prior_func(*param_values))
