@@ -90,11 +90,14 @@ class BayesModels:
 
     def _ln_prior(self, parameters: dict):
         ln_prior = 0
-        for param_name, param_value in parameters.items():
-            if param_name in self.priors:  # if no prior is defined then ignore
-                ln_prior += np.log(self.priors[param_name](param_value))
+        for prior_name, prior_func in self.priors.items():
+            param_values = [parameters[x] for x in parameters.keys() if x in prior_name]
+            if param_values.__len__() == 0:
+                continue
+            elif param_values.__len__() >= 1:
+                ln_prior += np.log(prior_func(*param_values))
             else:
-                print(f"No prior assigned for {param_name}")
+                raise ValueError(f"Unexpected value for {param_values}")
         return ln_prior
 
     def ln_posterior(self, parameters: dict, **kwargs):
