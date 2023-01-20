@@ -59,14 +59,6 @@ class BayesModels:
         if missing_data:
             raise ValueError(f"{missing_data} not found in data given")
 
-    def _outside_bounds(self, parameters):
-        for param_name, param_value in parameters.items():
-            if param_name in self.priors:  # if no prior is defined then ignore
-                prior = np.log(self.priors[param_name](param_value))
-                if prior == -np.inf:
-                    return True
-        return False
-
     def _build_bckc(self, params: dict, **kwargs):
         # TODO: consider how to handle if models have overlapping kwargs
         self.bckc = {}
@@ -89,9 +81,10 @@ class BayesModels:
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
-        params_without_priors = [x for x in parameters.keys() if x not in self.priors.keys()]
-        if params_without_priors.__len__() > 0:
-            print(f"paramaters {params_without_priors} have no priors assigned")
+        # TODO: check for conditional priors before giving warning
+        # params_without_priors = [x for x in parameters.keys() if x not in self.priors.keys()]
+        # if params_without_priors.__len__() > 0:
+        #     print(f"paramaters {params_without_priors} have no priors assigned")
 
         ln_prior = 0
         for prior_name, prior_func in self.priors.items():
@@ -119,14 +112,14 @@ class BayesModels:
         blob
             model outputs from bckc and kinetic profiles
         """
-        outside_bounds = self._outside_bounds(parameters)
-        if outside_bounds:
+
+        ln_prior = self._ln_prior(parameters)
+        if ln_prior == -np.inf:  # Don't call model if outside priors
             return -np.inf, {}
 
         self.plasma.update_profiles(parameters)
         self._build_bckc(parameters, **kwargs)  # model calls
         ln_likelihood = self._ln_likelihood()  # compare results to data
-        ln_prior = self._ln_prior(parameters)
         ln_posterior = ln_likelihood + ln_prior
 
         # Add better way of handling time array
