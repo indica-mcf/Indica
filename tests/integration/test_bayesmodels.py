@@ -42,10 +42,10 @@ class TestBayesModels():
 
         # Setup Optimiser
         params_names = [
-            "Te_prof_y0",
-            # "Te_prof_peaking",
-            "Ti_prof_y0",
-            # "Ti_prof_peaking",
+            "Te_prof.y0",
+            # "Te_prof.peaking",
+            "Ti_prof.y0",
+            # "Ti_prof.peaking",
         ]
         nwalk = 4
 
