@@ -94,19 +94,20 @@ class Bolometer(DiagnosticModel):
 
         elements = Nimp.element.values
 
-        _emission = []
+        _emissivity = []
         for ielem, elem in enumerate(elements):
-            _emission.append(
+            _emissivity.append(
                 self.Lz[elem].sum("ion_charges") * self.Nimp.sel(element=elem) * self.Ne
             )
-        emission = xr.concat(_emission, "element")
+        emissivity = xr.concat(_emissivity, "element")
         los_integral = self.los_transform.integrate_on_los(
-            emission.sum("element"),
+            emissivity.sum("element"),
             t=t,
             calc_rho=calc_rho,
         )
 
-        self.emission = emission
+        self.emissivity_element = emissivity
+        self.emissivity = emissivity.sum("element")
         self.los_integral_radiation = los_integral
 
         self._build_bckc_dictionary()
@@ -121,18 +122,19 @@ def example_run(
     direction: LabeledArray = None,
     plasma=None,
     plot=False,
+    nchannels:int=11,
 ):
 
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
 
+    # return plasma
     # Create new interferometers diagnostics
     if origin is None or direction is None:
-        nchannels = 11
         los_end = np.full((nchannels, 3), 0.0)
         los_end[:, 0] = 0.17
         los_end[:, 1] = 0.0
-        los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
+        los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
         los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
         origin = los_start
         direction = los_end - los_start
@@ -178,8 +180,8 @@ def example_run(
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plt.plot(
-                model.emission.rho_poloidal,
-                model.emission.sum("element").sel(t=t),
+                model.emissivity.rho_poloidal,
+                model.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
