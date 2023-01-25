@@ -11,7 +11,7 @@ import emcee
 class TestBayesModels():
 
     def setup_class(self):
-        self.plasma = example_run()
+        self.plasma = example_run(pulse=9229)
         self.plasma.time_to_calculate = self.plasma.t[1]
         self.los_transform = helike_LOS_example(nchannels=1)
         self.los_transform.set_equilibrium(self.plasma.equilibrium)
