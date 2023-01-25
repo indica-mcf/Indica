@@ -589,7 +589,7 @@ def run_tomo_1d(
     exclude_bad_points=True,
     plot=True,
     reg_level_guess: float = 0.5,
-    nchannels=12.
+    nchannels=12
 ):
 
     from indica.models.bolometer_camera import example_run

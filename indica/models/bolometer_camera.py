@@ -17,9 +17,7 @@ class Bolometer(DiagnosticModel):
     """
 
     def __init__(
-        self,
-        name: str,
-        instrument_method="get_radiation",
+        self, name: str, instrument_method="get_radiation",
     ):
 
         self.name = name
@@ -33,7 +31,7 @@ class Bolometer(DiagnosticModel):
             datatype = self.quantities[quant]
             if quant == "brightness":
                 quantity = quant
-                self.bckc[quantity] = self.los_integral_radiation
+                self.bckc[quantity] = self.los_integral
                 error = xr.full_like(self.bckc[quantity], 0.0)
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
@@ -50,7 +48,7 @@ class Bolometer(DiagnosticModel):
     def __call__(
         self,
         Ne: DataArray = None,
-        Nimp: DataArray = None,
+        Nion: DataArray = None,
         Lz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
@@ -62,8 +60,8 @@ class Bolometer(DiagnosticModel):
         ----------
         Ne
             Electron density profile (dims = "rho", "t")
-        Nimp
-            Impurity density profiles (dims = "rho", "t", "element")
+        Nion
+            Ion density profiles (dims = "rho", "t", "element")
         Lz
             Cooling factor dictionary of DataArrays of each element to be included
         t
@@ -82,47 +80,82 @@ class Bolometer(DiagnosticModel):
             Lz = {}
             for elem in _Lz.keys():
                 Lz[elem] = _Lz[elem].interp(t=t)
-            Nimp = self.plasma.impurity_density.interp(t=t)
+            Nion = self.plasma.ion_density.interp(t=t)
         else:
-            if Ne is None or Nimp is None or Lz is None:
+            if Ne is None or Nion is None or Lz is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
         self.t = t
         self.Ne = Ne
-        self.Nimp = Nimp
+        self.Nion = Nion
         self.Lz = Lz
 
-        elements = Nimp.element.values
+        elements = self.Nion.element.values
 
         _emissivity = []
         for ielem, elem in enumerate(elements):
             _emissivity.append(
-                self.Lz[elem].sum("ion_charges") * self.Nimp.sel(element=elem) * self.Ne
+                self.Lz[elem].sum("ion_charges")
+                * self.Nion.sel(element=elem)
+                * self.Ne
             )
-        emissivity = xr.concat(_emissivity, "element")
-        los_integral = self.los_transform.integrate_on_los(
-            emissivity.sum("element"),
-            t=t,
-            calc_rho=calc_rho,
-        )
+        self.emissivity_element = xr.concat(_emissivity, "element")
+        self.emissivity = self.emissivity_element.sum("element")
 
-        self.emissivity_element = emissivity
-        self.emissivity = emissivity.sum("element")
-        self.los_integral_radiation = los_integral
+        self.los_integral = self.los_transform.integrate_on_los(
+            self.emissivity, t=t, calc_rho=calc_rho,
+        )
 
         self._build_bckc_dictionary()
 
         return self.bckc
 
+    def plot(self, tplot: float = None):
+        if len(self.bckc) == 0:
+            print("No model results to plot")
+            return
+
+        if tplot is not None:
+            tplot = float(self.t.sel(t=tplot, method="nearest"))
+        else:
+            tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
+
+        # Line-of-sight information
+        self.los_transform.plot_los(tplot, plot_all=True)
+
+        # Back-calculated profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
+        plt.figure()
+        for i, t in enumerate(self.t.values):
+            self.bckc["brightness"].sel(t=t, method="nearest").plot(
+                label=f"t={t:1.2f} s", color=cols_time[i]
+            )
+        plt.xlabel("Channel")
+        plt.ylabel("Measured brightness (W/m^2)")
+        plt.legend()
+
+        # Local emissivity profiles
+        plt.figure()
+        for i, t in enumerate(self.t.values):
+            plt.plot(
+                self.emissivity.rho_poloidal,
+                self.emissivity.sel(t=t),
+                color=cols_time[i],
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("rho")
+        plt.ylabel("Local radiated power (W/m^3)")
+        plt.legend()
+
 
 def example_run(
-    pulse:int=None,
+    pulse: int = None,
     diagnostic_name: str = "bolo_Rz",
     origin: LabeledArray = None,
     direction: LabeledArray = None,
     plasma=None,
     plot=False,
-    nchannels:int=11,
+    nchannels: int = 11,
 ):
 
     if plasma is None:
@@ -151,42 +184,13 @@ def example_run(
         passes=1,
     )
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = Bolometer(
-        diagnostic_name,
-    )
+    model = Bolometer(diagnostic_name,)
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
     bckc = model()
 
     if plot:
-        it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
-
-        model.los_transform.plot_los(tplot, plot_all=True)
-
-        # Plot back-calculated profiles
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-        plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            bckc["brightness"].sel(t=t, method="nearest").plot(
-                label=f"t={t:1.2f} s", color=cols_time[i]
-            )
-        plt.xlabel("Channel")
-        plt.ylabel("Measured brightness (W/m^2)")
-        plt.legend()
-
-        # Plot the radiation profiles
-        plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plt.plot(
-                model.emissivity.rho_poloidal,
-                model.emissivity.sel(t=t),
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
-            )
-        plt.xlabel("rho")
-        plt.ylabel("Local radiated power (W/m^3)")
-        plt.legend()
+        model.plot()
 
     return plasma, model, bckc
