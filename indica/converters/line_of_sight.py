@@ -594,6 +594,8 @@ class LineOfSightTransform(CoordinateTransform):
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
 
+        return cols
+
 
 def example_run(
     pulse: int = None,
