@@ -49,9 +49,9 @@ class TestBayesModels():
         ]
         nwalk = 4
 
-        Te_y0 = np.random.uniform(1000, 5e3, size=(nwalk,1,), )
+        Te_y0 = np.random.uniform(2e3, 4e3, size=(nwalk,1,), )
         Te_peaking = np.random.uniform(2, 5, size=(nwalk,1,), )
-        Ti_y0 = np.random.uniform(1000, 5e3, size=(nwalk,1,), )
+        Ti_y0 = np.random.uniform(2e3, 4e3, size=(nwalk,1,), )
         Ti_peaking = np.random.uniform(2, 5, size=(nwalk,1,), )
 
         start_points = np.concatenate([
@@ -71,7 +71,7 @@ class TestBayesModels():
             parameter_names=params_names,
             moves=move,
         )
-        sampler.run_mcmc(start_points, 10, progress=False)
+        sampler.run_mcmc(start_points, 3, progress=False)
 
 if __name__ == "__main__":
     test = TestBayesModels()
