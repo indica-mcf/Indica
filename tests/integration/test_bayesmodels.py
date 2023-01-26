@@ -22,9 +22,9 @@ class TestBayesModels():
         xrcs.set_los_transform(self.los_transform)
 
         priors = {
-            "Te_prof_y0": lambda x: uniform(x, 500, 1e4),
+            "Te_prof.y0": lambda x: uniform(x, 500, 1e4),
             # "Te_prof_peaking": lambda x: uniform(x, 1, 10),
-            "Ti_prof_y0": lambda x: uniform(x, 500, 2e4),
+            "Ti_prof.y0": lambda x: uniform(x, 500, 2e4),
             # "Ti_prof_peaking": lambda x: uniform(x, 1, 10),
         }
 
