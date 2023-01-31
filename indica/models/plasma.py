@@ -718,7 +718,7 @@ class Plasma:
         if hasattr(self, "equilibrium"):
             rho = self.rho
             equilibrium = self.equilibrium
-            print_like("Calculate geometric quantities")
+            # print_like("Calculate geometric quantities")
 
             self.volume.values = self.convert_in_time(
                 equilibrium.volume.interp(rho_poloidal=rho)
@@ -777,7 +777,7 @@ class Plasma:
             Nh = Nh_prof()
             tau = None
 
-        print_like("Initialize fractional abundance and power loss objects")
+        # print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
         for elem in self.elements:
             scd = self.ADASReader.get_adf11("scd", elem, self.adf11[elem]["scd"])

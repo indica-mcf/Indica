@@ -142,21 +142,6 @@ def fake_equilibrium_data(
     thetas = xr.DataArray(
         np.linspace(0.0, 2 * np.pi, nspace, endpoint=False), dims=["arbitrary_index"]
     )
-    result["rbnd"] = (
-        result["rmag"]
-        + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
-    ).assign_attrs(**attrs)
-    result["rbnd"].name = "rbnd"
-    result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
-
-    result["zbnd"] = (
-        result["zmag"]
-        + a_coeff
-        * b_coeff
-        / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
-    ).assign_attrs(**attrs)
-    result["zbnd"].name = "zbnd"
-    result["zbnd"].attrs["datatype"] = ("z", "separatrix")
 
     r = np.linspace(machine_dims[0][0], machine_dims[0][1], nspace)
     z = np.linspace(machine_dims[1][0], machine_dims[1][1], nspace)
@@ -176,8 +161,8 @@ def fake_equilibrium_data(
     result["psi"] = psi
 
     psin_coords = np.linspace(0.0, 1.0, nspace)
-    rho = np.sqrt(psin_coords)
-    psin_data = xr.DataArray(psin_coords, coords=[("rho_poloidal", rho)])
+    rho1d = np.sqrt(psin_coords)
+    psin_data = xr.DataArray(psin_coords, coords=[("rho_poloidal", rho1d)])
     attrs["transform"] = FluxSurfaceCoordinates(
         "poloidal",
     )
@@ -187,11 +172,27 @@ def fake_equilibrium_data(
     ftor_max = 5.0
     result["ftor"] = xr.DataArray(
         np.outer(1 + tfuncs(times), monotonic_series(ftor_min, ftor_max, nspace)),
-        coords=[("t", times), ("rho_poloidal", rho)],
+        coords=[("t", times), ("rho_poloidal", rho1d)],
         name="ftor",
         attrs=attrs,
     )
     result["ftor"].attrs["datatype"] = ("toroidal_flux", "plasma")
+
+    result["rbnd"] = (
+            result["rmag"]
+            + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
+    ).assign_attrs(**attrs)
+    result["rbnd"].name = "rbnd"
+    result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
+
+    result["zbnd"] = (
+            result["zmag"]
+            + a_coeff
+            * b_coeff
+            / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
+    ).assign_attrs(**attrs)
+    result["zbnd"].name = "zbnd"
+    result["zbnd"].attrs["datatype"] = ("z", "separatrix")
 
     if Btot_factor is None:
         f_min = 0.1
@@ -205,12 +206,12 @@ def fake_equilibrium_data(
                 Btot_factor ** 2
                 - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff ** 2
             ),
-            np.ones_like(rho),
+            np.ones_like(rho1d),
         )
         f_raw[:, 0] = Btot_factor
 
     result["f"] = xr.DataArray(
-        f_raw, coords=[("t", times), ("rho_poloidal", rho)], name="f", attrs=attrs
+        f_raw, coords=[("t", times), ("rho_poloidal", rho1d)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
     result["rmjo"] = (result["rmag"] + a_coeff * psin_data ** n_exp).assign_attrs(
