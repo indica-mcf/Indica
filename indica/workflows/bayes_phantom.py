@@ -1,4 +1,3 @@
-from copy import deepcopy
 import pickle
 from pathlib import Path
 
@@ -12,7 +11,7 @@ import pandas as pd
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
-from indica.bayesmodels import uniform, gaussian, BayesModels
+from indica.bayesmodels import get_uniform, BayesModels
 from indica.models.interferometry import Interferometry
 from indica.models.helike_spectroscopy import Helike_spectroscopy
 from indica.models.plasma import Plasma
@@ -20,18 +19,14 @@ from indica.readers.manage_data import bin_data_in_time
 from indica.readers.read_st40 import ST40data
 
 
-def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, prior_samples=None, param_names=None, phantom_profiles=None,
-                       plasma=None, autocorr=None, figheader="./results/test/", save_pickle=True):
-    if any([blobs is None, diag_data is None, samples is None, param_names is None,
-            phantom_profiles is None, plasma is None, autocorr is None]):
-        raise ValueError(
-            f"not all inputs given: {[blobs, diag_data, samples, param_names, phantom_profiles, plasma, autocorr]}")
+def plot_bayes_phantom(figheader="./results/test/", blobs=None, diag_data=None, samples=None, prior_samples=None,
+                       param_names=None, phantom_profiles=None, plasma=None, autocorr=None, ):
 
     Path(figheader).mkdir(parents=True, exist_ok=True)
-    if save_pickle:
-        with open(figheader + "result.pkl", "wb") as handle:
-            pickle.dump({"blobs":blobs, "diag_data":diag_data, "samples":samples, "phantom_profiles":phantom_profiles,
-                         "plasma":plasma, "autocorr":autocorr}, handle, )
+
+    with open(figheader + "result.pkl", "wb") as handle:
+        pickle.dump({"blobs":blobs, "diag_data":diag_data, "samples":samples, "phantom_profiles":phantom_profiles,
+                     "plasma":plasma, "autocorr":autocorr}, handle, )
 
     plt.figure()
     mask = np.isfinite(autocorr)
@@ -124,7 +119,7 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, prior_samples=N
     plt.legend()
     plt.savefig(figheader + "impurity_density.png")
 
-    posterior = corner.corner(samples, labels=param_names)
+    corner.corner(samples, labels=param_names)
     plt.savefig(figheader + "posterior.png")
 
     corner.corner(prior_samples, labels=param_names)
@@ -194,14 +189,8 @@ if __name__ == "__main__":
         full_run=False,
     )
     plasma.time_to_calculate = plasma.t[3]
-
     plasma.update_profiles({"Ne_prof.y0": 5e19, "Ne_prof.wcenter": 0.4, "Ne_prof.peaking": 2,
                             "Ne_prof.y1": 1e19, "Ne_prof.yend": 1e18, "Ne_prof.wped": 5})
-
-    plasma.assign_profiles("electron_density", plasma.t)
-    plasma.assign_profiles("electron_temperature", plasma.t)
-    plasma.assign_profiles("impurity_density", plasma.t)
-    plasma.assign_profiles("ion_temperature", plasma.t)
     plasma.build_atomic_data()
 
     flat_data = initialise_diag_data(plasma, pulse, tstart=tstart, tend=tend, dt=dt)
@@ -228,21 +217,32 @@ if __name__ == "__main__":
     flat_data["xrcs.ti_w"] = xrcs().pop("ti_w")
     # TODO: Add conditional priors e.g. y1 < y0
     priors = {
-        "Ne_prof.y0": lambda x: uniform(x, 5e18, 1e20),
-        "Ne_prof.y1": lambda x: uniform(x, 1e17, 5e19),
-        "Ne_prof.peaking": lambda x: uniform(x, 1, 4),
-        "Ne_prof.wped": lambda x: uniform(x, 3, 6),
-        "Ne_prof.wcenter": lambda x: uniform(x, 0.1, 0.9),
+        "Ne_prof.y0": get_uniform(1e19, 1e20),
+        "Ne_prof.y1": get_uniform(1e18, 5e18),
+        # "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where(((x1>x2*1)), 1, 0),
+        "Ne_prof.wped": get_uniform(1, 5),
+        "Ne_prof.wcenter": get_uniform(0.1, 0.8),
+        "Ne_prof.peaking": get_uniform(1, 5),
 
-        "Nimp_prof.y0": lambda x: uniform(x, 5e14, 1e19),
-        "Nimp_prof.y1": lambda x: uniform(x, 5e13, 1e18),
-        "Nimp_prof.peaking": lambda x: uniform(x, 2, 8),
+        "Nimp_prof.peaking": get_uniform(1, 8),
+        "Nimp_prof.wcenter": get_uniform(0.1, 0.4),
+        "Nimp_prof.y0": get_uniform(1e15, 1e17),
+        "Nimp_prof.y1": get_uniform(1e15, 1e17),
+        "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where((x1 > x2 * 100) & (x1 < x2 * 1e4), 1, 0),
+        "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
 
-        "Te_prof.y0": lambda x: uniform(x, 500, 1.3e4),
-        "Te_prof.peaking": lambda x: uniform(x, 2, 4),
-        "Ti_prof.y0": lambda x: uniform(x, 1000, 2e4),
-        "Ti_prof.peaking": lambda x: uniform(x, 2, 4),
+        "Te_prof.y0": get_uniform(1000, 1e4),
+        "Te_prof.peaking": get_uniform(1, 6),
+        "Ti_prof.y0": get_uniform(1000, 1e4),
+        "Ti_prof.peaking": get_uniform(1, 6),
     }
+    param_names = [
+        "Ne_prof.y0",
+        "Ne_prof.y1",
+        "Ne_prof.peaking",
+        "Ne_prof.wped",
+        "Ne_prof.wcenter",
+    ]
 
     bm = BayesModels(
         plasma=plasma,
@@ -259,54 +259,9 @@ if __name__ == "__main__":
         priors=priors,
     )
 
-    # Setup Optimiser
-    param_names = [
-        "Ne_prof.y0",
-        "Ne_prof.y1",
-        "Ne_prof.peaking",
-        "Ne_prof.wped",
-        "Ne_prof.wcenter",
-        # "Nimp_prof.y0",
-        # "Nimp_prof.y1",
-        # "Nimp_prof.peaking",
-        # "Te_prof.y0",
-        # "Te_prof.peaking",
-        # "Ti_prof.y0",
-        # "Ti_prof.peaking",
-    ]
-    nwalk = 2 * param_names.__len__()
-
-    Ne_y0 = np.random.uniform(5e18, 1e20, size=(nwalk, 1,), )
-    Ne_y1 = np.random.uniform(1e18, 1e19, size=(nwalk, 1,), )
-    Ne_peaking = np.random.uniform(1, 4, size=(nwalk, 1,), )
-    Ne_wped = np.random.uniform(3, 5, size=(nwalk, 1,), )
-    Ne_wcenter = np.random.uniform(0.2, 0.8, size=(nwalk, 1,), )
-
-    Nimp_y0 = np.random.uniform(1e15, 1e17, size=(nwalk, 1,), )
-    Nimp_y1 = np.random.uniform(1e15, 1e17, size=(nwalk, 1,), )
-    Nimp_peaking = np.random.uniform(2, 8, size=(nwalk, 1,), )
-
-    Te_y0 = np.random.uniform(1e3, 8e3, size=(nwalk, 1,), )
-    Te_peaking = np.random.uniform(2, 4, size=(nwalk, 1,), )
-    Ti_y0 = np.random.uniform(2e3, 8e3, size=(nwalk, 1,), )
-    Ti_peaking = np.random.uniform(2, 4, size=(nwalk, 1,), )
-
-    start_points = np.concatenate([
-        Ne_y0,
-        Ne_y1,
-        Ne_peaking,
-        Ne_wped,
-        Ne_wcenter,
-        # Nimp_y0,
-        # Nimp_y1,
-        # Nimp_peaking,
-        # Te_y0,
-        # Te_peaking,
-        # Ti_y0,
-        # Ti_peaking,
-    ], axis=1, )
-
-    nwalkers, ndim = start_points.shape
+    ndim = param_names.__len__()
+    nwalkers = ndim * 2
+    start_points = bm.sample_from_priors(param_names, size=nwalkers)
 
     move = [emcee.moves.StretchMove()]
     sampler = emcee.EnsembleSampler(
@@ -328,6 +283,7 @@ if __name__ == "__main__":
                                       dim=pd.Index(np.arange(0, blobs.__len__()), name="index")) for blob_name in
                  blob_names}
     samples = sampler.get_chain(flat=True)
+    prior_samples = bm.sample_from_priors(param_names, size=int(1e5))
 
     # TODO make sure xrcs bckc doesn't have dims t and channels
     # save result
@@ -335,10 +291,10 @@ if __name__ == "__main__":
         "blobs": blob_dict,
         "diag_data": flat_data,
         "samples": samples,
+        "prior_samples": prior_samples,
         "param_names": param_names,
         "phantom_profiles": phantom_profiles,
         "plasma": plasma,
         "autocorr": autocorr,
     }
-
-    plot_bayes_phantom(**result)
+    plot_bayes_phantom(**result, figheader="./results/example/")
