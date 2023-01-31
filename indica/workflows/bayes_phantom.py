@@ -20,12 +20,12 @@ from indica.readers.manage_data import bin_data_in_time
 from indica.readers.read_st40 import ST40data
 
 
-def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=None, phantom_profiles=None,
+def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, prior_samples=None, param_names=None, phantom_profiles=None,
                        plasma=None, autocorr=None, figheader="./results/test/", save_pickle=True):
-    if any([blobs is None, diag_data is None, samples is None, params_names is None,
+    if any([blobs is None, diag_data is None, samples is None, param_names is None,
             phantom_profiles is None, plasma is None, autocorr is None]):
         raise ValueError(
-            f"not all inputs given: {[blobs, diag_data, samples, params_names, phantom_profiles, plasma, autocorr]}")
+            f"not all inputs given: {[blobs, diag_data, samples, param_names, phantom_profiles, plasma, autocorr]}")
 
     Path(figheader).mkdir(parents=True, exist_ok=True)
     if save_pickle:
@@ -73,6 +73,7 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=No
         plt.savefig(figheader + "xrcs_te_kw.png")
 
     if "xrcs.ti_w" in blobs.keys():
+        plt.figure()
         temp_data = blobs["xrcs.ti_w"][:, 0, 0]
         plt.plot(
             temp_data, label="xrcs.ti_w model", color="red"
@@ -110,6 +111,7 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=No
     if phantom_profiles:
         phantom_profiles["ion_temperature"].plot(label="Ti, phantom_profile", linestyle="-.", color="black")
     plt.legend()
+    plt.ylabel("temperature (eV)")
     plt.savefig(figheader + "temperature.png")
 
     plt.figure()
@@ -122,8 +124,12 @@ def plot_bayes_phantom(blobs=None, diag_data=None, samples=None, params_names=No
     plt.legend()
     plt.savefig(figheader + "impurity_density.png")
 
-    fig = corner.corner(samples, labels=params_names)
-    plt.savefig(figheader + "corner.png")
+    posterior = corner.corner(samples, labels=param_names)
+    plt.savefig(figheader + "posterior.png")
+
+    corner.corner(prior_samples, labels=param_names)
+    plt.savefig(figheader + "prior.png")
+
 
 def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
     autocorr = np.ones((iterations,)) * np.nan
@@ -254,7 +260,7 @@ if __name__ == "__main__":
     )
 
     # Setup Optimiser
-    params_names = [
+    param_names = [
         "Ne_prof.y0",
         "Ne_prof.y1",
         "Ne_prof.peaking",
@@ -268,7 +274,7 @@ if __name__ == "__main__":
         # "Ti_prof.y0",
         # "Ti_prof.peaking",
     ]
-    nwalk = 2 * params_names.__len__()
+    nwalk = 2 * param_names.__len__()
 
     Ne_y0 = np.random.uniform(5e18, 1e20, size=(nwalk, 1,), )
     Ne_y1 = np.random.uniform(1e18, 1e19, size=(nwalk, 1,), )
@@ -307,7 +313,7 @@ if __name__ == "__main__":
         nwalkers,
         ndim,
         log_prob_fn=bm.ln_posterior,
-        parameter_names=params_names,
+        parameter_names=param_names,
         moves=move,
         kwargs=dict(minimum_lines=True)
     )
@@ -329,7 +335,7 @@ if __name__ == "__main__":
         "blobs": blob_dict,
         "diag_data": flat_data,
         "samples": samples,
-        "params_names": params_names,
+        "param_names": param_names,
         "phantom_profiles": phantom_profiles,
         "plasma": plasma,
         "autocorr": autocorr,

@@ -1,38 +1,36 @@
 from copy import deepcopy
 import flatdict
 import numpy as np
-
-
 np.seterr(divide="ignore")
-
+import warnings
+warnings.simplefilter("ignore", category=FutureWarning)
+from scipy.stats import uniform
 
 def gaussian(x, mean, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
 
 
-def uniform(x, lower, upper):
-    if (x > lower) & (x < upper):
-        return 1
-    else:
-        return 0
+def get_uniform(lower, upper):
+    # Less confusing parameterisation of scipy.stats uniform
+    return uniform(loc=lower, scale=upper-lower)
 
 
 class BayesModels:
     """
-    Class which operates with Plasma class to create ln_posterior method
+    Object that is used with Plasma object to create ln_posterior
 
     Parameters
     ----------
     plasma
-        Plasma object needed for the optimisation
+        Plasma object needed for the diagnostic model calls
     data
-        processed diagnostic data of format [diagnostic]_[quantity]
+        processed diagnostic data of format [diagnostic].[quantity]
     quant_to_optimise
         quantity from data which will be optimised with bckc from diagnostic_models
     priors
-        prior functions to apply to parameters for ln_posterior
+        prior functions to apply to parameters e.g. scipy.stats.rv_continuous objects
     diagnostic_models
-        model objects to be called inside of ln_posterior
+        model objects to be called by ln_posterior
     """
 
     def __init__(
@@ -53,14 +51,13 @@ class BayesModels:
         for diag_model in self.diagnostic_models:
             diag_model.plasma = self.plasma
 
-        missing_data = list(
-            set(quant_to_optimise).difference(data.keys())
-        )  # list of keys in quant_to_optimise but not data
-        if missing_data:
+        missing_data = list(set(quant_to_optimise).difference(data.keys()))
+        if missing_data:  # list of keys in quant_to_optimise but not data
             raise ValueError(f"{missing_data} not found in data given")
 
     def _build_bckc(self, params: dict, **kwargs):
         # TODO: consider how to handle if models have overlapping kwargs
+        # Params is a dictionary which is updated by optimiser, kwargs is constant i.e. settings for models
         self.bckc = {}
         for model in self.diagnostic_models:
             self.bckc = dict(self.bckc, **{model.name: {**model(**{**params, **kwargs})}})
@@ -92,10 +89,42 @@ class BayesModels:
             if param_values.__len__() == 0:  # if prior assigned but no parameter then skip
                 continue
             elif param_values.__len__() >= 1:
-                ln_prior += np.log(prior_func(*param_values))
+                if hasattr(prior_func, "pdf"):  # for scipy.stats objects use pdf / for lambda functions just call
+                    ln_prior += np.log(prior_func.pdf(*param_values))
+                else:
+                    # if lambda prior with 2+ args is defined when only 1 of its parameters is given ignore it
+                    if prior_func.__code__.co_argcount != param_values.__len__():
+                        continue
+                    else:
+                        ln_prior += np.log(prior_func(*param_values))
             else:
                 raise ValueError(f"Unexpected value for {param_values}")
         return ln_prior
+
+    def sample_from_priors(self, param_names, size=10):
+        #  Use priors to generate samples
+        for name in param_names:
+            if name in self.priors.keys():
+                if hasattr(self.priors[name], "rvs"):
+                    continue
+                else:
+                    raise TypeError(f"prior object {name} missing rvs method")
+            else:
+                raise ValueError(f"Missing prior for {name}")
+
+        #  Throw out samples that don't meet conditional priors and redraw
+        samples = np.empty((param_names.__len__(), 0))
+        while samples.size < param_names.__len__() * size:
+            # Some mangling of dictionaries so _ln_prior works
+            # Increase size * n if too slow / looping too much
+            new_sample = {name: self.priors[name].rvs(size=size*2) for name in param_names}
+            ln_prior = self._ln_prior(new_sample)
+            # Convert from dictionary of arrays -> array, then filtering out where ln_prior is -infinity
+            accepted_samples = np.array(list(new_sample.values()))[:, ln_prior!=-np.inf]
+            samples = np.append(samples, accepted_samples, axis=1)
+        samples = samples[:,0:size]
+        return samples.transpose()
+
 
     def ln_posterior(self, parameters: dict, **kwargs):
         """
@@ -105,6 +134,9 @@ class BayesModels:
         ----------
         parameters
             inputs to optimise
+        kwargs
+            kwargs for models
+
         Returns
         -------
         ln_posterior
@@ -122,7 +154,6 @@ class BayesModels:
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_posterior = ln_likelihood + ln_prior
 
-        # Add better way of handling time array
         kin_profs = {
             "electron_density": self.plasma.electron_density.sel(
                 t=self.plasma.time_to_calculate
