@@ -40,22 +40,11 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
         Esli = 1 / (atomic_data[:, 0] * 1e-8) - atomic_data[:, 1]
         # Difference between energy levels
         Es = Esli * PERCMTOEV / RY
+    else:
+        raise ValueError(f"wrong label given: {label}")
 
-    intensity = (
-        (1 / g0)
-        * ((4 * np.pi ** (3 / 2) * a0**3) / Te[:, None] ** (3 / 2))
-        * F2[
-            None,
-        ]
-        * np.exp(
-            -(
-                Es[
-                    None,
-                ]
-                / Te[:, None]
-            )
-        )
-    )
+    intensity = 1 / g0 * 4 * np.pi ** (3 / 2) * a0**3 / Te[:, None] ** (3 / 2) \
+        * F2[None,] * np.exp(-Es[None,] / Te[:, None])
     return intensity
 
 
