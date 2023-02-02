@@ -626,7 +626,7 @@ class Helike_spectroscopy(DiagnosticModel):
             self.spectra = self._make_spectra()
 
         # Integrate emission along the LOS
-        self._calculate_los_integral(calc_rho=calc_rho,)
+        self._calculate_los_integral(calc_rho=calc_rho, )
         # Estimate temperatures from moment analysis
         self._calculate_temperatures()
         # Build back-calculated dictionary to compare with experimental data
@@ -636,26 +636,18 @@ class Helike_spectroscopy(DiagnosticModel):
 
 
 def doppler_broaden(x, integral, center, ion_mass, ion_temp):
-    sigma = (np.sqrt(constants.e / (ion_mass * constants.proton_mass * constants.c ** 2) * ion_temp)
-             * center)
-    gaussian_broadened = gaussian(
-        x,
-        integral,
-        center,
-        sigma,
-    )
+    sigma = np.sqrt(constants.e / (ion_mass * constants.proton_mass * constants.c ** 2) * ion_temp) * center
+    gaussian_broadened = gaussian(x, integral, center, sigma, )
     return gaussian_broadened
 
 
 def gaussian(x, integral, center, sigma):
-    return (
-            integral / (sigma * np.sqrt(2 * np.pi))
-            * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
-    )
+    return integral / (sigma * np.sqrt(2 * np.pi)) \
+           * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
 
 
 def transition_matrix(self, element="ar", charge=16):
-    "vectorisation of the transition matrix used to convert Helike PECs to emissivity"
+    """vectorisation of the transition matrix used to convert Helike PECs to emissivity"""
     transition_matrix = xr.concat([
         self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
         self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
@@ -706,15 +698,15 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def example_run(
-        pulse: int = 9229, plasma=None, plot=False, calc_spectra=False):
+def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False):
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
         plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,))
+        plasma.time_to_calculate = plasma.t[2]
 
     # Create new diagnostic
     diagnostic_name = "xrcs"
-    nchannels = 3
+    nchannels = 1
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
