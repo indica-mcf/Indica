@@ -294,7 +294,7 @@ def create_LOSData(
     premult_values = ne * power_loss
 
     return LOSData(
-        N_los=len(binned_camera.sxr_v_coords),
+        N_los=len(binned_camera.coords[los_coord_name]),
         # Stan is 1-based
         rho_lower_indices=rho_lower_indices,
         rho_interp_lower_frac=rho_interp_lower_frac,
