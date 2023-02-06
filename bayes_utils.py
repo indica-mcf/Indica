@@ -21,6 +21,7 @@ from indica.operators import SplineFit
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 from indica.readers import ADASReader
+from indica.utilities import coord_array
 
 
 @unique
@@ -131,24 +132,14 @@ def get_power_loss(
     else:
         raise ValueError("los_type unrecognised.")
 
-    # %% Calculating power loss
-
     fzt = {
         elem: xr.concat(
             [
-                xr.concat(
-                    [
-                        FA[elem](
-                            Ne=ne.interp(t=time).interp({los_coord_name: los_coord}),
-                            Te=te.interp(t=time).interp({los_coord_name: los_coord}),
-                            tau=time,
-                        )
-                        for los_coord in ne.coords[los_coord_name]
-                    ],
-                    dim=los_coord_name,
-                )
-                .assign_coords({los_coord_name: ne.coords[los_coord_name]})
-                .expand_dims("t", -1)
+                FA[elem](
+                    Ne=ne.interp(t=time),
+                    Te=te.interp(t=time),
+                    tau=time,
+                ).expand_dims("t", -1)
                 for time in t.values
             ],
             dim="t",
@@ -161,21 +152,11 @@ def get_power_loss(
     power_loss = {
         elem: xr.concat(
             [
-                xr.concat(
-                    [
-                        PL[elem](
-                            Ne=ne.interp(t=time).sel({los_coord_name: los_coord}),
-                            Te=te.interp(t=time).sel({los_coord_name: los_coord}),
-                            F_z_t=fzt[elem]
-                            .sel(t=time)
-                            .sel({los_coord_name: los_coord}),
-                        ).expand_dims(los_coord_name, -1)
-                        for los_coord in ne.coords[los_coord_name]
-                    ],
-                    dim=los_coord_name,
-                )
-                .assign_coords({los_coord_name: ne.coords[los_coord_name]})
-                .expand_dims("t", -1)
+                PL[elem](
+                    Ne=ne.interp(t=time),
+                    Te=te.interp(t=time),
+                    F_z_t=fzt[elem].interp(t=time),
+                ).expand_dims("t", -1)
                 for time in t.values
             ],
             dim="t",
@@ -211,21 +192,14 @@ class LOSData:
     los_errors: xr.DataArray
 
 
-def create_LOSData(
-    los_diagnostic: xr.DataArray,
-    los_coord_name: str,
-    hrts_diagnostic: Dict[str, xr.DataArray],
-    flux_coords: FluxSurfaceCoordinates,
+def calc_R_square_diff(
     rho: xr.DataArray,
     t: xr.DataArray,
+    los_diagnostic: xr.DataArray,
+    los_coord_name: str,
     N_los_points: int,
-    elements: List[str],
-    los_type: LOSType,
-) -> LOSData:
-    """
-    Take diagnostic from reader and output all quantities required by Stan
-    for these lines of sight
-    """
+    flux_coords: FluxSurfaceCoordinates,
+):
     rho_maj_radius = FluxMajorRadCoordinates(flux_coords)
 
     # bin camera data, drop excluded channels
@@ -279,8 +253,55 @@ def create_LOSData(
     impact_param, _ = camera.indica.convert_coords(ip_coords)
     weights = camera.camera * (0.02 + 0.18 * np.abs(impact_param))
 
-    ne, te = fit_electron_profiles(hrts_diagnostic, rho_los_points, t)
+    return (
+        rho_los_points,
+        rho_lower_indices,
+        rho_interp_lower_frac,
+        R_square_diff,
+        binned_camera,
+        weights,
+    )
 
+
+def create_LOSData(
+    los_diagnostic: xr.DataArray,
+    los_coord_name: str,
+    hrts_diagnostic: Dict[str, xr.DataArray],
+    flux_coords: FluxSurfaceCoordinates,
+    rho: xr.DataArray,
+    t: xr.DataArray,
+    N_los_points: int,
+    elements: List[str],
+    los_type: LOSType,
+    N_rho_power_loss: int = 50,
+) -> LOSData:
+    """
+    Take diagnostic from reader and output all quantities required by Stan
+    for these lines of sight
+
+    Parameters
+    ----------
+    n_rho_power_loss : int
+        Number of rho points to do power loss calculation on. These are then
+        interpolated for final los_values
+
+    """
+
+    (
+        rho_los_points,
+        rho_lower_indices,
+        rho_interp_lower_frac,
+        R_square_diff,
+        binned_camera,
+        weights,
+    ) = calc_R_square_diff(
+        rho, t, los_diagnostic, los_coord_name, N_los_points, flux_coords
+    )
+
+    rho_power_loss = coord_array(np.linspace(0, 1, N_rho_power_loss), "rho_poloidal")
+    ne, te = fit_electron_profiles(hrts_diagnostic, rho_power_loss, t)
+
+    # get power_loss on a rho grid
     power_loss = get_power_loss(
         elements,
         flux_coords,
@@ -291,10 +312,16 @@ def create_LOSData(
         los_coord_name,
     )
 
-    premult_values = ne * power_loss
+    # interpolate pre_mult values onto los coordinates
+    # tanspose to (_coords, t, _los_position, element) order
+    premult_values = (
+        (ne * power_loss)
+        .interp(rho_poloidal=rho_los_points)
+        .transpose(los_coord_name, ..., "element")
+    )
 
     return LOSData(
-        N_los=len(binned_camera.coords[los_coord_name]),
+        N_los=len(los_diagnostic.coords[los_coord_name]),
         # Stan is 1-based
         rho_lower_indices=rho_lower_indices,
         rho_interp_lower_frac=rho_interp_lower_frac,
