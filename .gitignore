@@ -18,3 +18,9 @@ indica/git_version
 *.prof
 *.lprof
 .ropeproject/
+
+#TODO: run in a sensible way for ignore directories
+.venv/
+emissivity
+emissivity.hpp
+bayesian_samples.nc

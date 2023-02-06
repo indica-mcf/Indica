@@ -77,6 +77,8 @@ data = {
 # Full Bayesian sampling (slower, better results, errors)
 samples = model.sample(data=data, chains=16, parallel_chains=8)
 draws = samples.draws_xr()
+# Save data
+draws.to_netcdf("bayesian_samples.nc")
 
 # plot fit
 
