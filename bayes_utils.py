@@ -321,7 +321,7 @@ def create_LOSData(
     )
 
     return LOSData(
-        N_los=len(los_diagnostic.coords[los_coord_name]),
+        N_los=len(premult_values.coords[los_coord_name]),
         # Stan is 1-based
         rho_lower_indices=rho_lower_indices,
         rho_interp_lower_frac=rho_interp_lower_frac,
