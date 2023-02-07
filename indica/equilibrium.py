@@ -36,11 +36,11 @@ class Equilibrium:
         :py:meth:`~indica.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
     R_shift : float
-        How much to shift the equilibrium profile inwards on the major radius.
-        Ignored if `T_e` is also passed as an argument.
-    z_shift : flaot
-        How much to shift the equilibrium profile downwards in the vertical
-        coordinate.
+        How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
+        on the major radius.
+    z_shift : float
+        How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
+        in the vertical coordinate.
     sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
