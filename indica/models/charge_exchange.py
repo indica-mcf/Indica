@@ -33,7 +33,7 @@ class ChargeExchange(DiagnosticModel):
 
         for quant in self.quantities:
             datatype = self.quantities[quant]
-            if quant == "angf":
+            if quant == "vtor":
                 quantity = quant
                 self.bckc[quantity] = self.Vtor_at_channels
             elif quant == "ti":
@@ -162,7 +162,7 @@ def example_run(
                 label=f"t={t:1.2f} s",
                 alpha=0.7,
             )
-            Vtor = bckc["angf"].sel(t=t, method="nearest")
+            Vtor = bckc["vtor"].sel(t=t, method="nearest")
             plt.scatter(
                 Vtor.rho_poloidal, Vtor, color=cols_time[i], marker="o", alpha=0.7
             )
