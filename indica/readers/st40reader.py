@@ -90,6 +90,9 @@ class ST40Reader(DataReader):
         "sxr_camera_2": "get_radiation",
         "sxr_camera_3": "get_radiation",
         "sxr_camera_4": "get_radiation",
+        "cxff_pi": "get_charge_exchange",
+        "cxff_tws_c": "get_charge_exchange",
+        "ts": "get_thomson_scattering",
     }
     UIDS_MDS = {
         "efit": "",
@@ -109,6 +112,9 @@ class ST40Reader(DataReader):
         "sxr_camera_2": "sxr",
         "sxr_camera_3": "sxr",
         "sxr_camera_4": "sxr",
+        "cxff_pi":"",
+        "cxff_tws_c":"",
+        "ts":"",
     }
     QUANTITIES_MDS = {
         "efit": {
@@ -147,38 +153,54 @@ class ST40Reader(DataReader):
             "ampl_w": ".ti_w:amplitude",
             "spectra": ":intensity",
         },
-        "princeton": {  # change to angf
-            "int": ".int",
-            "int_error": ".int_err",
-            "ti": ".ti",
-            "ti_error": ".ti_err",
-            "vtor": ".vtor",
-            "vtor_error": ".vtor_err",
-            "times": ".time",
-            "exposure": ".exposure",
+        "nirh1": {"ne": ".line_int:ne",},
+        "nirh1_bin": {"ne": ".line_int:ne",},
+        "smmh1": {"ne": ".line_int:ne",},
+        "brems": {"brightness": ".brem_mp1:intensity",},
+        "halpha": {"brightness": ".h_alpha_mp1:intensity",},
+        "sxr_camera_1": {
+            "brightness": ".middle_head.filter_1:",
+            "location": ".middle_head.geometry:location",
+            "direction": ".middle_head.geometry:direction",
         },
-        "nirh1": {
-            "ne": ".line_int:ne",
+        "sxr_camera_2": {
+            "brightness": ".middle_head.filter_2:",
+            "location": ".middle_head.geometry:location",
+            "direction": ".middle_head.geometry:direction",
         },
-        "nirh1_bin": {
-            "ne": ".line_int:ne",
-        },
-        "smmh1": {
-            "ne": ".line_int:ne",
-        },
-        "brems": {
-            "brightness": ".brem_mp1:intensity",
-        },
-        "halpha": {
-            "brightness": ".h_alpha_mp1:intensity",
+        "sxr_camera_3": {
+            "brightness": ".middle_head.filter_3:",
+            "location": ".middle_head.geometry:location",
+            "direction": ".middle_head.geometry:direction",
         },
         "sxr_camera_4": {
             "brightness": ".middle_head.filter_4:",
             "location": ".middle_head.geometry:location",
             "direction": ".middle_head.geometry:direction",
         },
-        "sxr_diode_4": {
-            "brightness": ".filter_004:signal",
+        "diode_arrays": {
+            "brightness": ".middle_head.filter_4:",
+            "location": ".middle_head.geometry:location",
+            "direction": ".middle_head.geometry:direction",
+        },
+        "sxr_diode_1": {"brightness": ".filter_001:signal",},
+        "sxr_diode_2": {"brightness": ".filter_002:signal",},
+        "sxr_diode_3": {"brightness": ".filter_003:signal",},
+        "sxr_diode_4": {"brightness": ".filter_004:signal",},
+        "cxff_pi": {
+            "int": ".profiles:int",
+            "ti": ".profiles:ti",
+            "vtor": ".profiles:vtor",
+        },
+        "cxff_tws_c": {
+            "int": ".profiles:int",
+            "ti": ".profiles:ti",
+            "vtor": ".profiles:vtor",
+        },
+        "ts": {
+            "ne": ".profiles:ne",
+            "te": ".profiles:te",
+            "pe": ".profiles:pe",
         },
         "astra": {
             "upl": ".global:upl",
@@ -336,9 +358,7 @@ class ST40Reader(DataReader):
         return data, path
 
     def _get_signal_dims(
-        self,
-        mds_path: str,
-        ndims: int,
+        self, mds_path: str, ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
@@ -489,8 +509,15 @@ class ST40Reader(DataReader):
         direction, direction_path = self._get_signal(
             uid, _instrument, self.QUANTITIES_MDS[instrument]["direction"], revision
         )
-        results["location"] = location
-        results["direction"] = direction
+        if np.size(location) == 0 or np.size(direction) == 0:
+            import pickle
+
+            msg = """\n **************** 
+            \n USING PICKLE FILE FOR GEOMETRY 
+            \n **************** \n"""
+            print(msg)
+            goem_file = "/home/marco.sertoli/python/Indica/old_sxr_camera_geometry.pkl"
+            location, direction = pickle.load(open(goem_file, "rb",))
 
         brightness = []
         records = []
@@ -515,8 +542,10 @@ class ST40Reader(DataReader):
         results[quantity] = np.array(brightness).T
         results[quantity + "_records"] = records
         results[quantity + "_error"] = self._default_error * results[quantity]
-        results["location"] = np.array(location[chan_start - 1 : chan_start + nchan])
-        results["direction"] = np.array(direction[chan_start - 1 : chan_start + nchan])
+        results["location"] = location
+        results["direction"] = direction
+        # results["location"] = np.array(location[chan_start - 1 : chan_start + nchan])
+        # results["direction"] = np.array(direction[chan_start - 1 : chan_start + nchan])
         # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
 
         results["quantities"] = quantities
@@ -594,8 +623,6 @@ class ST40Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        raise NotImplementedError("CXRS reader still to be implemented!!!")
-
         if len(uid) == 0:
             uid = self.UIDS_MDS[instrument]
 
@@ -604,57 +631,57 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(
-            uid, instrument + ".CXSFIT_OUT", revision
-        )
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        # Get Geometry data from mds
-        if instrument == "princeton":
-            tree_path = ""
-            location, location_path = self._get_signal(
-                uid, tree_path, ".princeton.passive.best.geometry:location", -1
-            )
-            direction, direction_path = self._get_signal(
-                uid, tree_path, ".princeton.passive.best.geometry:direction", -1
-            )
-        else:
-            raise ValueError(f"No geometry available for {instrument}")
-        rstart = np.zeros(np.shape(direction)[0], dtype=float)
-        rstop = np.zeros(np.shape(direction)[0], dtype=float)
-        zstart = np.zeros(np.shape(direction)[0], dtype=float)
-        zstop = np.zeros(np.shape(direction)[0], dtype=float)
-        tstart = np.zeros(np.shape(direction)[0], dtype=float)
-        tstop = np.zeros(np.shape(direction)[0], dtype=float)
-        for i in range(np.shape(direction)[0]):
-            los_start, los_end = self.get_los(location, direction[i, :])
-            rstart[i] = los_start[0]
-            rstop[i] = los_end[0]
-            zstart[i] = los_start[2]
-            zstop[i] = los_end[2]
-            tstart[i] = los_start[1]
-            tstop[i] = los_end[1]
+        texp, texp_path = self._get_signal(
+            uid, instrument, ":exposure", revision
+        )
 
-        # Doesn't yet work, need to write data to the CXSFIT_OUT trees.
-        print("quantities={}".format(quantities))
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, direction_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
+        x, x_path = self._get_signal(uid, instrument, ":x", revision)
+        y, y_path = self._get_signal(uid, instrument, ":y", revision)
+        z, z_path = self._get_signal(uid, instrument, ":z", revision)
+        R, R_path = self._get_signal(uid, instrument, ":R", revision)
+
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid,
-                instrument + ".CXSFIT_OUT",
+                instrument,
                 self.QUANTITIES_MDS[instrument][q],
                 revision,
             )
+            qval_err, q_path_err = self._get_signal(
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q] + "_err",
+                revision,
+            )
+
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+            radius = dimensions[0]
+            times = dimensions[1]
+            # print(times)
+
             results[q + "_records"] = q_path
             results[q] = qval
+            results[f"{q}_error"] = qval_err
 
-        # Export coordinates
-        results["length"] = len(rstart)
-        results["Rstart"] = rstart
-        results["Rstop"] = rstop
-        results["zstart"] = zstart
-        results["zstop"] = zstop
-        results["Tstart"] = tstart
-        results["Tstop"] = tstop
+        results["length"] = len(x)
+        results["x"] = x
+        results["y"] = y
+        results["z"] = z
+        results["R"] = R
+        results["times"] = times
+        results["texp"] = texp
+        results["element"] = ""
+        results["location"] = location
+        results["direction"] = direction
 
         return results
 
@@ -677,19 +704,8 @@ class ST40Reader(DataReader):
         # direction, position_path = self._get_signal(
         #     uid, instrument, ".geometry:direction", revision
         # )
-        location = np.array(
-            [
-                [1.0, 0, 0],
-            ]
-        )
-        direction = (
-            np.array(
-                [
-                    [0.17, 0, 0],
-                ]
-            )
-            - location
-        )
+        location = np.array([[1.0, 0, 0],])
+        direction = np.array([[0.17, 0, 0],]) - location
         length = location[:, 0].size
         if instrument == "brems":
             _instrument = "lines"
@@ -759,7 +775,7 @@ class ST40Reader(DataReader):
         location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", revision
         )
-        direction, position_path = self._get_signal(
+        direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
         times, _ = self._get_signal(uid, instrument, ":time", revision)
@@ -793,12 +809,90 @@ class ST40Reader(DataReader):
                 revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):
-                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
+                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
 
         results["length"] = np.shape(location)[0]
         results["location"] = np.array(location)
         results["direction"] = np.array(direction)
+
+        return results
+
+
+    def _get_thomson_scattering(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        dl: float = 0.005,
+    ) -> Dict[str, Any]:
+        """Fetch raw data for electron temperature or number density
+        calculated from Thomson scattering.
+
+        """
+        if len(uid) == 0:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        revision = results["revision"]
+
+        times, times_path = self._get_signal(
+            uid, instrument, ":time", revision
+        )
+        # location, location_path = self._get_signal(
+        #     uid, instrument, ".geometry:location", revision
+        # )
+        # direction, direction_path = self._get_signal(
+        #     uid, instrument, ".geometry:direction", revision
+        # )
+        x, x_path = self._get_signal(uid, instrument, ":x", revision)
+        y, y_path = self._get_signal(uid, instrument, ":y", revision)
+        z, z_path = self._get_signal(uid, instrument, ":z", revision)
+        R, R_path = self._get_signal(uid, instrument, ":R", revision)
+
+        # delta_x, delta_x_path = self._get_signal(uid, instrument, ":delta_x", revision)
+        # delta_y, delta_y_path = self._get_signal(uid, instrument, ":delta_y", revision)
+        # delta_z, delta_z_path = self._get_signal(uid, instrument, ":delta_z", revision)
+        # delta_R, delta_R_path = self._get_signal(uid, instrument, ":delta_R", revision)
+
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q],
+                revision,
+            )
+            qval_err, q_path_err = self._get_signal(
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q] + "_err",
+                revision,
+            )
+
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+            # radius = dimensions[0]
+            # times = dimensions[1]
+
+            results[q + "_records"] = q_path
+            results[q] = qval
+            results[f"{q}_error"] = qval_err
+
+        results["length"] = len(x)
+        results["x"] = x
+        results["y"] = y
+        results["z"] = z
+        results["R"] = R
+        results["times"] = times
+        # results["texp"] = texp
+        results["element"] = ""
+        # results["location"] = location
+        # results["direction"] = direction
 
         return results
 
