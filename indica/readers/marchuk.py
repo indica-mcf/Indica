@@ -50,8 +50,13 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
 
 class MARCHUKReader:
     """
-    Class for interacting with Marchuks data format and
-    return PECs in dictionary of dim: Te, Ne, line_name as well as dim: Te, Ne, type
+    Class for interacting with Marchuks data format and return PECs in two formats:
+    1. Dictionary of lines with emissivity coefficients of dims(type of emission, electron temperature)
+    2. DataArray of dims(type of emission, line name, electron temperature)
+
+    TODO:
+    return raw pecs and interpolated DataArray with consistent dims/coords
+
     """
 
     def __init__(
@@ -65,15 +70,19 @@ class MARCHUKReader:
         self.filehead = filehead
         self.extrapolate = extrapolate
 
-        self.pec_database = self.build_marchuk_pecs()
-        pec_lines = self.build_pec_lines(
-            self.pec_database, extrapolate=self.extrapolate
-        )
-        self.pec_lines = self.set_marchuk_pecs(pec_lines)
+        self.pec_data = self.build_pec_database()
+        self.pecs = self.make_dataset()
+        self.pec_lines = self.calc_pec_lines(self.pecs)
 
-    def build_marchuk_pecs(
+        print()
+        # pec_lines = self.build_pec_lines(
+        #     self.pec_database, extrapolate=self.extrapolate
+        # )
+        # self.pec_lines = self.set_marchuk_pecs(pec_lines)
+
+    def build_pec_database(
         self,
-        Te: np.typing.ArrayLike = np.linspace(200, 10000, 1000),
+        Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000),
     ):
         """
         Reads Marchuk's Atomic data and builds DataArrays for each emission type
@@ -119,37 +128,34 @@ class MARCHUKReader:
         casc = np.loadtxt(self.filehead + "Cascade.dat", skiprows=5)
 
         # Dielectronic recombination / wavelength; Es; Ar; Aa; F2; Satellites
-        n2 = np.loadtxt(
-            self.filehead + "n2dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
-        )
-        n3 = np.loadtxt(
-            self.filehead + "n3dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
-        )
-        n4 = np.loadtxt(
-            self.filehead + "n4dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
-        )
-        n5 = np.loadtxt(
-            self.filehead + "n5dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
-        )
-        lin2 = np.loadtxt(
-            self.filehead + "n2lidielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
-        )
+        n2 = np.loadtxt(self.filehead + "n2dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
+        n3 = np.loadtxt(self.filehead + "n3dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
+        n4 = np.loadtxt(self.filehead + "n4dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
+        n5 = np.loadtxt(self.filehead + "n5dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
+        lin2 = np.loadtxt(self.filehead + "n2lidielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
         # Use line labels from file
-        lines_n2 = np.genfromtxt(
-            self.filehead + "n2dielsat.dat", skip_header=1, usecols=(6), dtype="str"
-        )
-        lines_n3 = np.genfromtxt(
-            self.filehead + "n3dielsat.dat", skip_header=1, usecols=(6), dtype="str"
-        )
-        lines_n4 = np.genfromtxt(
-            self.filehead + "n4dielsat.dat", skip_header=1, usecols=(6), dtype="str"
-        )
-        lines_n5 = np.genfromtxt(
-            self.filehead + "n5dielsat.dat", skip_header=1, usecols=(6), dtype="str"
-        )
-        lines_lin2 = np.genfromtxt(
-            self.filehead + "n2lidielsat.dat", skip_header=1, usecols=(6), dtype="str"
-        )
+        lines_n2 = np.genfromtxt(self.filehead + "n2dielsat.dat", skip_header=1, usecols=(6), dtype="str")
+        lines_n3 = np.genfromtxt(self.filehead + "n3dielsat.dat", skip_header=1, usecols=(6), dtype="str")
+        lines_n4 = np.genfromtxt(self.filehead + "n4dielsat.dat", skip_header=1, usecols=(6), dtype="str")
+        lines_n5 = np.genfromtxt(self.filehead + "n5dielsat.dat", skip_header=1, usecols=(6), dtype="str")
+        lines_lin2 = np.genfromtxt(self.filehead + "n2lidielsat.dat", skip_header=1, usecols=(6), dtype="str")
+
+        # replace duplicate line "name" with "name"+ str(n)
+        line_names = lines_n2.tolist()
+        lines_n2 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
+                    enumerate(line_names)]
+        line_names = lines_n3.tolist()
+        lines_n3 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
+                    enumerate(line_names)]
+        line_names = lines_n4.tolist()
+        lines_n4 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
+                    enumerate(line_names)]
+        line_names = lines_n5.tolist()
+        lines_n5 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
+                    enumerate(line_names)]
+        line_names = lines_lin2.tolist()
+        lines_lin2 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
+                    enumerate(line_names)]
 
         rates_n2 = diel_calc(n2, Te)
         rates_n3 = diel_calc(n3, Te)
@@ -167,8 +173,7 @@ class MARCHUKReader:
                 "wavelength": (
                     ("electron_temperature", "line_name"),
                     wavelengths_main[None, :]
-                    * np.ones(shape=(len(exc[:, 1]), len(wavelengths_main))),
-                ),
+                    * np.ones(shape=(len(exc[:, 1]), len(wavelengths_main))),),
             },
             dims=["electron_temperature", "line_name"],
         )
@@ -181,13 +186,11 @@ class MARCHUKReader:
                 "wavelength": (
                     ("electron_temperature", "line_name"),
                     wavelengths_main[None, :]
-                    * np.ones(shape=(len(recom[:, 1]), len(wavelengths_main))),
-                ),
+                    * np.ones(shape=(len(recom[:, 1]), len(wavelengths_main))),),
             },
             dims=["electron_temperature", "line_name"],
         )
-        cxr_array = xr.DataArray(
-            data=cxr[:, 1:5] * conversion_factor,
+        cxr_array = xr.DataArray(data=cxr[:, 1:5] * conversion_factor,
             coords={
                 "electron_temperature": cxr[:, 0] * 1e3,
                 "line_name": lines_main,
@@ -195,8 +198,7 @@ class MARCHUKReader:
                 "wavelength": (
                     ("electron_temperature", "line_name"),
                     wavelengths_main[None, :]
-                    * np.ones(shape=(len(cxr[:, 1]), len(wavelengths_main))),
-                ),
+                    * np.ones(shape=(len(cxr[:, 1]), len(wavelengths_main))),),
             },
             dims=["electron_temperature", "line_name"],
         )
@@ -324,20 +326,8 @@ class MARCHUKReader:
         r_idx = n2_array.line_name.str.contains("r!").values
         s_idx = n2_array.line_name.str.contains("s!").values
         t_idx = n2_array.line_name.str.contains("t!").values
-
-        q_casc = n2_array.sel(line_name=q_idx) * casc_factor[:, 0]
-        r_casc = n2_array.sel(line_name=r_idx) * casc_factor[:, 1]
-        s_casc = n2_array.sel(line_name=s_idx) * casc_factor[:, 2]
-        t_casc = n2_array.sel(line_name=t_idx) * casc_factor[:, 3]
-        casc_array = (
-            xr.concat([q_casc, r_casc, s_casc, t_casc], dim="line_name")
-            * conversion_factor
-        )
-        casc_array["type"] = "diel"
-        casc_array["wavelength"] = (
-            ("electron_temperature", "line_name"),
-            wavelengths_casc[None, :] * np.ones(shape=(len(Te), len(wavelengths_casc))),
-        )
+        casc_idx = q_idx | r_idx | s_idx | t_idx
+        n2_array.loc[dict(line_name=casc_idx)] = n2_array.sel(line_name=casc_idx) * (1 + casc_factor)
 
         # Atomic data
         pec_database = dict(
@@ -351,29 +341,50 @@ class MARCHUKReader:
             n4=n4_array,
             n5=n5_array,
             li_n2=lin2_array,
-            n2_casc=casc_array,
         )
         return pec_database
 
-    def build_pec_lines(self, pec_database, extrapolate=True):
-        # Add ADAS format
-        el_dens = np.array([1.0e19, ])
-        pec_lines = self.calc_pec_lines(pec_database, extrapolate=extrapolate)
 
-        for key, item in pec_lines.items():
-            pec_lines[key] = pec_lines[key].expand_dims(
-                {"electron_density": el_dens}, axis=0
-            )
-            pec_lines[key] = pec_lines[key].assign_coords(
-                index=("type", np.arange(item.type.__len__()))
-            )
-        return pec_lines
+    def _interp_pecs(self, Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000)):
+        _interp_pec = {}
+        for _pec_name, _pec in self.pec_data.items():
+            _interp_pec[_pec_name] = _pec.interp(electron_temperature=Te, kwargs={"fill_value": "extrapolate"})
+        return _interp_pec
 
-    def calc_pec_lines(self, pec_database, extrapolate=True):
+    def make_dataset(self):
+        """
+        TODO: add caching of dataset
+        Returns
+        -------
+        """
+        _pecs = self._interp_pecs()
+        _dataset = {}
+        for _pec_name, _pec in _pecs.items():
+            _dataset[_pec_name] = _pec.expand_dims("type").to_dataset(dim="type")
+        dataset = xr.merge([*_dataset.values()])
+        return dataset
+
+
+    #
+    # def build_pec_lines(self, pec_database, extrapolate=True):
+    #     # Add ADAS format
+    #     el_dens = np.array([1.0e19, ])
+    #     pec_lines = self.calc_pec_lines(pec_database, extrapolate=extrapolate)
+    #
+    #     for key, item in pec_lines.items():
+    #         pec_lines[key] = pec_lines[key].expand_dims(
+    #             {"electron_density": el_dens}, axis=0
+    #         )
+    #         pec_lines[key] = pec_lines[key].assign_coords(
+    #             index=("type", np.arange(item.type.__len__()))
+    #         )
+    #     return pec_lines
+    #
+    def calc_pec_lines(self, pec_database, ):
         """
         line PECS include all contributions from different processes
         within the wavelength range of that line these ranges are based on
-        visual observation of which lines contribute to the observed peaks
+        visual observation of which wavelength ranges contribute to the observed peaks
 
         """
         line_ranges = {
@@ -386,107 +397,73 @@ class MARCHUKReader:
         }
         pecs = {}
 
-        for line_name, range in line_ranges.items():
-            pecs[line_name] = 0
-            for key, item in pec_database.items():
-                line_intensity = item.where(
-                    ((item.wavelength >= range.start) & (item.wavelength <= range.stop))
-                )
-
-                line_intensity = line_intensity.sum("line_name")
-                if hasattr(pecs[line_name], "coords"):
-                    if extrapolate:
-                        line_intensity = line_intensity.interp(
-                            coords=pecs[line_name].drop_vars("type").coords,
-                            method="zero",
-                            kwargs={"fill_value": "extrapolate"},
-                        )
-                    else:
-                        line_intensity = line_intensity.interp(
-                            coords=pecs[line_name].drop_vars("type").coords,
-                            method="zero",
-                        )
-
-                    pecs[line_name] = xr.concat(
-                        [pecs[line_name], line_intensity], dim="type"
-                    )
-                else:
-                    pecs[line_name] = line_intensity
-            diel = pecs[line_name].sel({"type": "diel"}).sum("type")
-            diel["type"] = "diel"
-            pecs[line_name] = pecs[line_name].where(
-                pecs[line_name].type != "diel", drop=True
-            )
-            pecs[line_name] = xr.concat([pecs[line_name], diel], dim="type")
-            # Due to bug in xr.concat change "type" dtype back to string
-            pecs[line_name] = pecs[line_name].assign_coords(dict(type = pecs[line_name].type.astype("U")))
         return pecs
-
-    def set_marchuk_pecs(self, pec_lines):
-        """
-        Read marchuk PEC data
-
-        Parameters
-        ----------
-        extrapolate
-            Go beyond validity limit of machuk's data
-        """
-
-        adf15 = {
-            "w": {
-                "element": "ar",
-                "file": self.filehead,
-                "charge": 16,
-                "transition": "",
-                "wavelength": 4.0,
-            },
-            "z": {
-                "element": "ar",
-                "file": self.filehead,
-                "charge": 16,
-                "transition": "",
-                "wavelength": 4.0,
-            },
-            "k": {
-                "element": "ar",
-                "file": self.filehead,
-                "charge": 16,
-                "transition": "",
-                "wavelength": 4.0,
-            },
-            "n3": {
-                "element": "ar",
-                "file": self.filehead,
-                "charge": 16,
-                "transition": "",
-                "wavelength": 4.0,
-            },
-            "n345": {
-                "element": "ar",
-                "file": self.filehead,
-                "charge": 16,
-                "transition": "",
-                "wavelength": 4.0,
-            },
-            "qra": {
-                "element": "ar",
-                "file": self.filehead,
-                "charge": 16,
-                "transition": "",
-                "wavelength": 4.0,
-            },
-        }
-        pec = deepcopy(adf15)
-        for line in adf15.keys():
-            # TODO: add the element layer to the pec dictionary (as for fract_abu)
-            pec[line]["emiss_coeff"] = pec_lines[line]
-
-        for line in pec:
-            pec[line]["emiss_coeff"] = (
-                pec[line]["emiss_coeff"]
-                .sel(electron_density=4.0e19, method="nearest")
-                .drop_vars("electron_density")
-            )
-
-        self.adf15 = adf15
-        return pec
+    #
+    # def set_marchuk_pecs(self, pec_lines):
+    #     """
+    #     Read marchuk PEC data
+    #
+    #     Parameters
+    #     ----------
+    #     extrapolate
+    #         Go beyond validity limit of machuk's data
+    #     """
+    #
+    #     adf15 = {
+    #         "w": {
+    #             "element": "ar",
+    #             "file": self.filehead,
+    #             "charge": 16,
+    #             "transition": "",
+    #             "wavelength": 4.0,
+    #         },
+    #         "z": {
+    #             "element": "ar",
+    #             "file": self.filehead,
+    #             "charge": 16,
+    #             "transition": "",
+    #             "wavelength": 4.0,
+    #         },
+    #         "k": {
+    #             "element": "ar",
+    #             "file": self.filehead,
+    #             "charge": 16,
+    #             "transition": "",
+    #             "wavelength": 4.0,
+    #         },
+    #         "n3": {
+    #             "element": "ar",
+    #             "file": self.filehead,
+    #             "charge": 16,
+    #             "transition": "",
+    #             "wavelength": 4.0,
+    #         },
+    #         "n345": {
+    #             "element": "ar",
+    #             "file": self.filehead,
+    #             "charge": 16,
+    #             "transition": "",
+    #             "wavelength": 4.0,
+    #         },
+    #         "qra": {
+    #             "element": "ar",
+    #             "file": self.filehead,
+    #             "charge": 16,
+    #             "transition": "",
+    #             "wavelength": 4.0,
+    #         },
+    #     }
+    #     pec = deepcopy(adf15)
+    #     for line in adf15.keys():
+    #         # TODO: add the element layer to the pec dictionary (as for fract_abu)
+    #         pec[line]["emiss_coeff"] = pec_lines[line]
+    #
+    #     for line in pec:
+    #         pec[line]["emiss_coeff"] = (
+    #             pec[line]["emiss_coeff"]
+    #             .sel(electron_density=4.0e19, method="nearest")
+    #             .drop_vars("electron_density")
+    #         )
+    #
+    #     self.adf15 = adf15
+    #     return pec
