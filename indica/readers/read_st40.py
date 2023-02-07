@@ -239,7 +239,7 @@ class ReadST40:
         self.get_equilibrium(R_shift=R_shift)
         for instrument in instruments:
             print(f"Reading {instrument}")
-            self.get_raw_data("", instrument, REVISIONS[instrument])
+            self.get_raw_data("", instrument, revisions[instrument])
 
         instruments = list(self.raw_data)
 
