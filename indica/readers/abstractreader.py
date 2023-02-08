@@ -1243,25 +1243,19 @@ class DataReader(BaseIO):
             downsample_ratio = int(
                 np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
             )
-            # transform = LinesOfSightTransform(
-            #     x_start=database_results[quantity + "_xstart"],
-            #     z_start=database_results[quantity + "_zstart"],
-            #     y_start=database_results[quantity + "_ystart"],
-            #     x_end=database_results[quantity + "_xstop"],
-            #     z_end=database_results[quantity + "_zstop"],
-            #     y_end=database_results[quantity + "_ystop"],
-            #     name=f"{instrument}_{quantity}",
-            #     machine_dimensions=database_results["machine_dims"],
-            # )
+            transform = LinesOfSightTransform(
+                x_start=database_results[quantity + "_xstart"],
+                z_start=database_results[quantity + "_zstart"],
+                y_start=database_results[quantity + "_ystart"],
+                x_end=database_results[quantity + "_xstop"],
+                z_end=database_results[quantity + "_zstop"],
+                y_end=database_results[quantity + "_ystop"],
+                name=f"{instrument}_{quantity}",
+                machine_dimensions=database_results["machine_dims"],
+            )
             coords: Dict[Hashable, Any] = {"t": times}
             dims = ["t"]
-            # if database_results["length"][quantity] > 1:
-            #     dims.append(transform.x1_name)
-            #     coords[transform.x1_name] = np.arange(
-            #         database_results["length"][quantity]
-            #     )
-            # else:
-            #     coords[transform.x1_name] = 0
+            coords[transform.x1_name] = 0
             meta = {
                 "datatype": available_quantities[quantity],
                 # "error": DataArray(
@@ -1298,7 +1292,7 @@ class DataReader(BaseIO):
             # else:
             #     drop = []
             quant_data.attrs["partial_provenance"] = self.create_provenance(
-                "bremsstrahlung_spectroscopy",
+                "vuv_spectroscopy",
                 uid,
                 instrument,
                 _revision,
