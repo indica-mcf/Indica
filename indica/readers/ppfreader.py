@@ -572,13 +572,21 @@ class PPFReader(DataReader):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-        results: Dict[str, Any] = {}
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+        }
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
             if "times" not in results:
                 results["times"] = qval.dimensions[0].data
             results[q] = qval.data
             results[q + "_records"] = q_path
+            results[q + "_xstart"] =np.array([2.9])  # xstart[channels]
+            results[q + "_xstop"] =np.array([3.07])  # xend[channels]
+            results[q + "_zstart"] =np.array([2.0])  # zstart[channels]
+            results[q + "_zstop"] =np.array([-1.7])  # zend[channels]
+            results[q + "_ystart"] =np.array([0])  # ystart[channels]
+            results[q + "_ystop"] =np.array([0])  # yend[channels]
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
