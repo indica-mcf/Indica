@@ -17,6 +17,7 @@ REVISIONS = {
     "smmh1": 0,
     "cxff_pi": 0,
     "cxff_tws_c": 0,
+    "cxqf_tws_c": 0,
     "sxr_camera_4": 0,
     "sxr_diode_1": 0,
     "xrcs": 0,
@@ -26,6 +27,7 @@ REVISIONS = {
 FILTER_RULES = {
     "cxff_pi": lambda x: xr.where(x > 0, x, np.nan),
     "cxff_tws_c": lambda x: xr.where(x > 0, x, np.nan),
+    "cxqf_tws_c": lambda x: xr.where(x > 0, x, np.nan),
     "xrcs": lambda x: xr.where(x > 0, x, np.nan),
     "brems": lambda x: xr.where(x > 0, x, np.nan),
     "halpha": lambda x: xr.where(x > 0, x, np.nan),
@@ -33,6 +35,16 @@ FILTER_RULES = {
     "sxr_camera_4": lambda x: xr.where(x > 0, x, np.nan),
     "ts": lambda x: xr.where(x > 0, x, np.nan),
 }
+
+LINESTYLES = {"ts": "solid", "cxff_pi": "solid", "cxff_tws_c": "dashed", "cxqf_tws_c": "dotted"}
+MARKERS = {"ts": "o", "cxff_pi": "s", "cxff_tws_c": "*", "cxqf_tws_c": "x"}
+YLABELS = {
+    "te": "Te (eV)",
+    "ne": "Ne (m$^{-3}$)",
+    "ti": "Ti (eV)",
+    "vtor": "Vtor (m/s)",
+}
+XLABELS = {"rho": "Rho-poloidal", "R": "R (m)"}
 
 
 class ReadST40:
@@ -150,29 +162,22 @@ class ReadST40:
         quantity: str,
         tplot: list = None,
         plot_raw: bool = False,
-        xcoord:str="rho",
+        xcoord: str = "rho",
         figure: bool = True,
         xlim: tuple = (0, 1.1),
-        ylim: tuple = None,
-        linestyle:str = None,
-        plot_error:bool=True
+        ylim: tuple = (0),
+        linestyle: str = None,
+        plot_error: bool = True,
     ):
-        linestyles = {"ts": "solid", "cxff_pi": "solid", "cxff_tws_c": "dotted"}
-        markers = {"ts": "o", "cxff_pi": "s", "cxff_tws_c": "*"}
-        ylabels = {
-            "te": "Te (eV)",
-            "ne": "Ne (m$^{-3}$)",
-            "ti": "Ti (eV)",
-            "vtor": "Vtor (m/s)",
-        }
-        xlabels = {"rho":"Rho-poloidal", "R":"R (m)"}
-
+        R_offset = ""
+        if np.abs(self.equilibrium.R_offset) > 0.01:
+            R_offset = " ($R_{shift}$=" + f"{self.equilibrium.R_offset:1.2f})"
         if plot_raw:
             data_to_plot = self.raw_data[instrument][quantity]
-            data_type = "raw"
+            data_type = "Raw"
         else:
             data_to_plot = self.binned_data[instrument][quantity]
-            data_type = "binned"
+            data_type = "Binned"
 
         if figure:
             plt.figure()
@@ -186,7 +191,6 @@ class ReadST40:
             tplot = np.array([t for t in value.t if any(np.isfinite(value.sel(t=t)))])
 
         tplot = np.array(tplot, ndmin=1)
-        # if len(tplot) > 0:
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(tplot), dtype=float))
         for it, t in enumerate(tplot):
             _t = value.t.sel(t=t, method="nearest").values
@@ -197,23 +201,25 @@ class ReadST40:
             y = value.sel(t=_t, method="nearest")
             yerr = error.sel(t=_t, method="nearest")
             if linestyle is None:
-                linestyle = linestyles[instrument]
+                linestyle = LINESTYLES[instrument]
             if any(np.isfinite(y)):
                 plt.plot(
                     x,
                     y,
-                    label=f"{instrument} {quantity} @ t={_t:1.3f} s",
+                    label=f"{data_type} {instrument.upper()} {quantity} @ t={_t:1.3f} s",
                     color=cols_time[it],
-                    marker=markers[instrument],
+                    marker=MARKERS[instrument],
                     linestyle=linestyle,
                 )
                 if plot_error:
-                    plt.fill_between(x, y - yerr, y + yerr, color=cols_time[it], alpha=0.5)
+                    plt.fill_between(
+                        x, y - yerr, y + yerr, color=cols_time[it], alpha=0.5
+                    )
                 ymax = np.max([ymax, np.max(y + yerr)])
 
-        plt.title(f"Pulse {self.pulse}")
-        plt.xlabel(xlabels[xcoord])
-        plt.ylabel(ylabels[quantity])
+        plt.title(f"Pulse {self.pulse}{R_offset}")
+        plt.xlabel(XLABELS[xcoord])
+        plt.ylabel(YLABELS[quantity])
         plt.xlim(xlim)
         plt.ylim(ylim)
         plt.legend()
@@ -226,7 +232,7 @@ class ReadST40:
         tstart: float = 0.0,
         tend: float = 0.2,
         dt: float = 0.01,
-        R_shift:float=0.,
+        R_shift: float = 0.0,
     ):
 
         if instruments is None:
