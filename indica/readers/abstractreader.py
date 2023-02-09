@@ -1261,7 +1261,7 @@ class DataReader(BaseIO):
                 # "error": DataArray(
                 #     database_results[quantity + "_error"], coords, dims
                 # ).indica.inclusive_timeslice(self._tstart, self._tend),
-                # "transform": transform,
+                "transform": transform,
             }
             quant_data = DataArray(
                 database_results[quantity],
