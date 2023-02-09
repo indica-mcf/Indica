@@ -34,7 +34,6 @@ from ..datatypes import ELEMENTS
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
-
 SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
 
 
@@ -211,11 +210,7 @@ class PPFReader(DataReader):
             quantity,
             info.revision_current,
         )
-        cache_path = self._sal_path_to_file(path)
-        data = self._read_cached_ppf(cache_path)
-        if data is None:
-            data = self._client.get(path)
-            self._write_cached_ppf(cache_path, data)
+        data = self._get_data_with_cache(path)
         return data, path
 
     def _get_revision(
@@ -229,6 +224,18 @@ class PPFReader(DataReader):
             f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
         )
         return info.revision_current
+
+    def _get_data_with_cache(self, path: str) -> Signal:
+        """
+        Check cache for data.
+        If not in cache then get it using sal and write to cache.
+        """
+        cache_path = self._sal_path_to_file(path)
+        data = self._read_cached_ppf(cache_path)
+        if data is None:
+            data = self._client.get(path)
+            self._write_cached_ppf(cache_path, data)
+        return data
 
     def _read_cached_ppf(self, path: Path) -> Optional[Signal]:
         """Check if the PPF data specified by `sal_path` has been cached and,
@@ -580,13 +587,16 @@ class PPFReader(DataReader):
             if "times" not in results:
                 results["times"] = qval.dimensions[0].data
             results[q] = qval.data
+            xstart, xend, zstart, zend, ystart, yend = surf_los.read_surf_los(
+                SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
+            )
             results[q + "_records"] = q_path
-            results[q + "_xstart"] =np.array([2.9])  # xstart[channels]
-            results[q + "_xstop"] =np.array([3.07])  # xend[channels]
-            results[q + "_zstart"] =np.array([2.0])  # zstart[channels]
-            results[q + "_zstop"] =np.array([-1.7])  # zend[channels]
-            results[q + "_ystart"] =np.array([0])  # ystart[channels]
-            results[q + "_ystop"] =np.array([0])  # yend[channels]
+            results[q + "_xstart"] = xstart
+            results[q + "_xstop"] = xend
+            results[q + "_zstart"] = zstart
+            results[q + "_zstop"] = zend
+            results[q + "_ystart"] = ystart
+            results[q + "_ystop"] = yend
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
