@@ -92,6 +92,7 @@ class ST40Reader(DataReader):
         "sxr_camera_4": "get_radiation",
         "cxff_pi": "get_charge_exchange",
         "cxff_tws_c": "get_charge_exchange",
+        "cxqf_tws_c": "get_charge_exchange",
         "ts": "get_thomson_scattering",
     }
     UIDS_MDS = {
@@ -112,9 +113,10 @@ class ST40Reader(DataReader):
         "sxr_camera_2": "sxr",
         "sxr_camera_3": "sxr",
         "sxr_camera_4": "sxr",
-        "cxff_pi":"",
-        "cxff_tws_c":"",
-        "ts":"",
+        "cxff_pi": "",
+        "cxff_tws_c": "",
+        "cxqf_tws_c": "",
+        "ts": "",
     }
     QUANTITIES_MDS = {
         "efit": {
@@ -197,11 +199,12 @@ class ST40Reader(DataReader):
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
         },
-        "ts": {
-            "ne": ".profiles:ne",
-            "te": ".profiles:te",
-            "pe": ".profiles:pe",
+        "cxqf_tws_c": {
+            "int": ".profiles:int",
+            "ti": ".profiles:ti",
+            "vtor": ".profiles:vtor",
         },
+        "ts": {"ne": ".profiles:ne", "te": ".profiles:te", "pe": ".profiles:pe",},
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
@@ -634,10 +637,8 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        texp, texp_path = self._get_signal(
-            uid, instrument, ":exposure", revision
-        )
-
+        texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
+        times, _ = self._get_signal(uid, instrument, ":time", revision)
         location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", revision
         )
@@ -651,22 +652,15 @@ class ST40Reader(DataReader):
 
         for q in quantities:
             qval, q_path = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q],
-                revision,
+                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision,
             )
             qval_err, q_path_err = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q] + "_err",
-                revision,
+                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision,
             )
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
-            radius = dimensions[0]
-            times = dimensions[1]
-            # print(times)
+            # radius = dimensions[0]
+            # times = dimensions[1]
 
             results[q + "_records"] = q_path
             results[q] = qval
@@ -818,7 +812,6 @@ class ST40Reader(DataReader):
 
         return results
 
-
     def _get_thomson_scattering(
         self,
         uid: str,
@@ -842,9 +835,7 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        times, times_path = self._get_signal(
-            uid, instrument, ":time", revision
-        )
+        times, times_path = self._get_signal(uid, instrument, ":time", revision)
         # location, location_path = self._get_signal(
         #     uid, instrument, ".geometry:location", revision
         # )
@@ -863,16 +854,10 @@ class ST40Reader(DataReader):
 
         for q in quantities:
             qval, q_path = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q],
-                revision,
+                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision,
             )
             qval_err, q_path_err = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q] + "_err",
-                revision,
+                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision,
             )
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
