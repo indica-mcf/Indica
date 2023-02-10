@@ -58,8 +58,6 @@ class Helike_spectroscopy(DiagnosticModel):
             dictionary of fractional abundance objects
         marchuk
             Use Marchuk PECs instead of ADAS adf15 files
-        extrapolate
-            Go beyond validity limit of Machuk's data
 
         Returns
         -------
@@ -80,14 +78,23 @@ class Helike_spectroscopy(DiagnosticModel):
         self.calibration = calibration
         self.full_run = full_run
         self.adf15 = ADF15
-        self.pec: dict
+        self.pecs: dict
 
         if self.marchuk:
-            marchuck_reader = MARCHUKReader()
-            self.pec_database = marchuck_reader.pec_database
-            self.pec = marchuck_reader.pec_lines
+            marchuck_reader = MARCHUKReader(element=self.element, charge=self.ion_charge,)
+            self.pecs = marchuck_reader.pecs
         else:
-            self.pec = self._set_adas_pecs()
+            self.pecs = self._set_adas_pecs()
+
+        # wavelength indexes used for line ratio moment analysis
+        self.line_ranges = {
+            "w": slice(0.39489, 0.39494),
+            "n3": slice(0.39543, 0.39574),
+            "n345": slice(0.39496, 0.39574),
+            "qra": slice(0.39810, 0.39865),
+            "k": slice(0.39890, 0.39910),
+            "z": slice(0.39935, 0.39950),
+        }
 
         self.emission: dict = {}
         self.emission_los: dict = {}
@@ -135,9 +142,23 @@ class Helike_spectroscopy(DiagnosticModel):
 
         self.pec = pec
 
-    def _calculate_emission(self):
+    def _transition_matrix(self, element="ar", charge=16):
+        """vectorisation of the transition matrix used to convert Helike PECs to emissivity"""
+        transition_matrix = xr.concat([
+            self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge, ),
+            self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge, ),
+            self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge - 1, ),
+            self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge - 1, ),
+            self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge - 1, ),
+            self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge + 1, ),
+            self.Nh * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge + 1, ),
+        ], "type").assign_coords(
+            type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
+        return transition_matrix
+
+    def _calculate_line_emission(self, line_labels=["w", "k"]):
         """
-        Calculate emission of all spectral lines included in the model
+        Calculate emission of all spectral lines in line_label list
 
         Parameters
         ----------
@@ -157,22 +178,29 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        first_key = list(self.pec.keys())[0]  # Optimisation hack so transition matrix doesn't get called iteratively
-        elem, charge, wavelength = self.pec[first_key]["element"], \
-                                   self.pec[first_key]["charge"], self.pec[first_key]["wavelength"]
-        mult = transition_matrix(self, element=elem, charge=charge)
+        elem, charge = self.pecs["element"],  self.pecs["charge"]
+
+        mult = self._transition_matrix(element=elem, charge=charge)
         emission = {}
-        for line, pec in self.pec.items():
-            coords = pec["emiss_coeff"].coords
-            if "type" in coords:
-                _pec = pec["emiss_coeff"].interp(electron_temperature=self.Te, method="cubic", )
-                _emission = _pec * mult
-            else:
-                raise ValueError(f"No coordinate of name 'type' in PEC {line}")
-            _emission = _emission.sum("type")
-            # TODO: convert PEC wavelengths to nm as per convention at TE!
-            ev_wavelength = ph.nm_eV_conversion(nm=wavelength / 10.0)
-            emission[line] = xr.where(_emission >= 0, _emission, 0) * ev_wavelength
+
+        # filter out unused sections of the database based on wavelength. Only for the first time called...
+        if not hasattr(self, "filtered_pecs"):
+            _pecs = self.pecs["emiss_coeff"]
+            _bool_arrays = [(_pecs.wavelength<self.line_ranges[line_name].stop) &
+                            (_pecs.wavelength>self.line_ranges[line_name].start) for line_name in line_labels]
+            _temp_array = _bool_arrays[0]
+            for bool_array in _bool_arrays:
+                _temp_array = _temp_array | bool_array
+            self.filtered_pecs = _pecs.isel(line_name=_temp_array)
+
+        # cubic method fails due to how scipy handles NaNs
+        _pecs = self.filtered_pecs.interp(electron_temperature=self.Te, )
+        for line_name in line_labels:
+                _emission = _pecs.isel(line_name=(_pecs.wavelength<self.line_ranges[line_name].stop) & (_pecs.wavelength>self.line_ranges[line_name].start)) * mult
+                _emission = _emission.sum(["type", "line_name"])
+                # TODO: convert PEC wavelengths to nm as per convention at TE!
+                ev_wavelength = ph.nm_eV_conversion(nm=self.line_ranges[line_name].start)
+                emission[line_name] = xr.where(_emission >= 0, _emission, 0) * ev_wavelength
 
         if "k" in emission.keys() and "w" in emission.keys():
             emission["kw"] = emission["k"] * emission["w"]
@@ -372,7 +400,7 @@ class Helike_spectroscopy(DiagnosticModel):
         TODO: selection criteria
         TODO: element and charge to follow atomic data (see _calculate_emission)
         """
-        database = self.pec_database
+        database = self.pecs
         Te = self.Te
         electron_density = self.Ne
         fz = self.Fz["ar"]
@@ -612,13 +640,14 @@ class Helike_spectroscopy(DiagnosticModel):
 
         # Reduce the number of lines to calculate for speed
         if minimum_lines:
-            for line in ["z", "n3", "n345", "qra"]:
-                self.pec.pop(line, None)
+            line_labels = ["w", "k",]
             for quant in ["int_tot", "int_n3", "te_n3w", "ti_z"]:
                 self.quantities.pop(quant, None)
+        else:
+            line_labels = self.line_ranges.keys()
 
         # Calculate emission on natural coordinates of input profiles
-        self._calculate_emission()
+        self._calculate_line_emission(line_labels=line_labels)
 
         # Make spectra
         if calc_spectra:
@@ -645,20 +674,6 @@ def gaussian(x, integral, center, sigma):
     return integral / (sigma * np.sqrt(2 * np.pi)) \
            * np.exp(-((x - center) ** 2) / (2 * sigma ** 2))
 
-
-def transition_matrix(self, element="ar", charge=16):
-    """vectorisation of the transition matrix used to convert Helike PECs to emissivity"""
-    transition_matrix = xr.concat([
-        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
-        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge, ),
-        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
-        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
-        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge - 1, ),
-        self.Ne * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
-        self.Nh * self.Nimp.sel(element=element, ) * self.Fz["ar"].sel(ion_charges=charge + 1, ),
-    ], "type").assign_coords(
-        type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
-    return transition_matrix
 
 
 def select_transition(adf15_data, transition: str, wavelength: float):
@@ -701,10 +716,12 @@ def select_transition(adf15_data, transition: str, wavelength: float):
 def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False):
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
+        import time
+        start = time.time()
         plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,))
-        plasma.time_to_calculate = plasma.t[2]
-
-    # Create new diagnostic
+        plasma.time_to_calculate = plasma.t[4]
+        print(f"plasma: {time.time() - start}")
+        # Create new diagnostic
     diagnostic_name = "xrcs"
     nchannels = 1
     los_end = np.full((nchannels, 3), 0.0)
@@ -733,7 +750,9 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False):
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
-    bckc = model(calc_spectra=calc_spectra)
+    start = time.time()
+    bckc = model(calc_spectra=calc_spectra, minimum_lines=True)
+    print(f"xrcs: {time.time() - start}")
     channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
@@ -825,4 +844,4 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False):
 
 
 if __name__ == "__main__":
-    example_run(plot=True)
+    example_run(plot=False)
