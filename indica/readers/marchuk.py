@@ -50,35 +50,27 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
 
 class MARCHUKReader:
     """
-    Class for interacting with Marchuks data format and return PECs in two formats:
-    1. Dictionary of lines with emissivity coefficients of dims(type of emission, electron temperature)
-    2. DataArray of dims(type of emission, line name, electron temperature)
-
-    TODO:
-    return raw pecs and interpolated DataArray with consistent dims/coords
-
+    Class for interacting with Marchuks data format and return PECs in format:
+    Dataset of dims(line name, electron temperature) and data variables of emission type
     """
 
     def __init__(
         self,
         extrapolate: bool = True,
         filehead: str = None,
+        element: str = "ar",
+        charge: int = 16,
     ):
 
         if filehead is None:
             filehead = FILEHEAD
         self.filehead = filehead
         self.extrapolate = extrapolate
+        self.element = element
+        self.charge = charge
 
-        self.pec_data = self.build_pec_database()
+        self.pec_rawdata = self.build_pec_database()
         self.pecs = self.make_dataset()
-        self.pec_lines = self.calc_pec_lines(self.pecs)
-
-        print()
-        # pec_lines = self.build_pec_lines(
-        #     self.pec_database, extrapolate=self.extrapolate
-        # )
-        # self.pec_lines = self.set_marchuk_pecs(pec_lines)
 
     def build_pec_database(
         self,
@@ -165,156 +157,120 @@ class MARCHUKReader:
 
         # Convert data to DataArrays
         exc_array = xr.DataArray(
-            data=exc[:, 1:] * conversion_factor,
+            data=exc[:, 1:, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": exc[:, 0] * 1e3,
                 "line_name": lines_main,
-                "type": "excit",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    wavelengths_main[None, :]
-                    * np.ones(shape=(len(exc[:, 1]), len(wavelengths_main))),),
+                "type": ["excit"],
+                "wavelength": (("line_name",), wavelengths_main,),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
         recom_array = xr.DataArray(
-            data=recom[:, 1:] * conversion_factor,
+            data=recom[:, 1:, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": recom[:, 0] * 1e3,
                 "line_name": lines_main,
-                "type": "recom",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    wavelengths_main[None, :]
-                    * np.ones(shape=(len(recom[:, 1]), len(wavelengths_main))),),
+                "type": ["recom"],
+                "wavelength": ("line_name", wavelengths_main,),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
-        cxr_array = xr.DataArray(data=cxr[:, 1:5] * conversion_factor,
+        cxr_array = xr.DataArray(data=cxr[:, 1:5, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": cxr[:, 0] * 1e3,
                 "line_name": lines_main,
-                "type": "cxr",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    wavelengths_main[None, :]
-                    * np.ones(shape=(len(cxr[:, 1]), len(wavelengths_main))),),
+                "type": ["cxr"],
+                "wavelength": ("line_name", wavelengths_main),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         ise_array = xr.DataArray(
-            data=ise[:, 1:] * conversion_factor,
+            data=ise[:, 1:, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": ise[:, 0] * 1e3,
                 "line_name": lines_ise,
-                "type": "ise",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    wavelengths_ise[None, :]
-                    * np.ones(shape=(len(ise[:, 1]), len(wavelengths_ise))),
-                ),
+                "type": ["ise"],
+                "wavelength": ("line_name", wavelengths_ise),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
         isi_array = xr.DataArray(
-            data=isi[:, 1:] * conversion_factor,
+            data=isi[:, 1:, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": isi[:, 0] * 1e3,
                 "line_name": lines_isi,
-                "type": "isi",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    wavelengths_isi[None, :]
-                    * np.ones(shape=(len(isi[:, 1]), len(wavelengths_isi))),
-                ),
+                "type": ["isi"],
+                "wavelength": ("line_name", wavelengths_isi),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         casc_factor_array = xr.DataArray(
-            data=casc[:, 1:],
+            data=casc[:, 1:, np.newaxis],
             coords={
-                "electron_temperature": casc[:, 0] * 1e3,
+                "electron_temperature": casc[:, 0, ] * 1e3,
                 "line_name": lines_casc,
-                "type": "diel",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    wavelengths_casc[None, :]
-                    * np.ones(shape=(len(casc[:, 1]), len(wavelengths_casc))),
-                ),
+                "type": ["diel"],
+                "wavelength": ("line_name", wavelengths_casc),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         n2_array = xr.DataArray(
-            data=rates_n2 * conversion_factor,
+            data=rates_n2[:,:,np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n2,
-                "type": "diel",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    n2[:, 0] * 0.1 * np.ones(shape=(len(Te), len(n2[:, 0]))),
-                ),
+                "type": ["diel"],
+                "wavelength": ("line_name", n2[:, 0] * 0.1),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         n3_array = xr.DataArray(
-            data=rates_n3 * conversion_factor,
+            data=rates_n3[:,:,np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n3,
-                "type": "diel",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    n3[:, 0] * 0.1 * np.ones(shape=(len(Te), len(n3[:, 0]))),
-                ),
+                "type": ["diel"],
+                "wavelength": ("line_name", n3[:, 0] * 0.1 ),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         n4_array = xr.DataArray(
-            data=rates_n4 * conversion_factor,
+            data=rates_n4[:,:,np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n4,
-                "type": "diel",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    n4[:, 0] * 0.1 * np.ones(shape=(len(Te), len(n4[:, 0]))),
-                ),
+                "type": ["diel"],
+                "wavelength": ("line_name", n4[:, 0] * 0.1),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         n5_array = xr.DataArray(
-            data=rates_n5 * conversion_factor,
+            data=rates_n5[:,:,np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n5,
-                "type": "diel",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    n5[:, 0] * 0.1 * np.ones(shape=(len(Te), len(n5[:, 0]))),
-                ),
+                "type": ["diel"],
+                "wavelength": ("line_name", n5[:, 0] * 0.1),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         lin2_array = xr.DataArray(
-            data=rates_lin2 * conversion_factor,
+            data=rates_lin2[:,:,np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_lin2,
-                "type": "li_diel",
-                "wavelength": (
-                    ("electron_temperature", "line_name"),
-                    lin2[:, 0] * 0.1 * np.ones(shape=(len(Te), len(lin2[:, 0]))),
-                ),
+                "type": ["li_diel"],
+                "wavelength": ("line_name",lin2[:, 0] * 0.1),
             },
-            dims=["electron_temperature", "line_name"],
+            dims=["electron_temperature", "line_name", "type"],
         )
 
         # Cascade functions
@@ -327,7 +283,7 @@ class MARCHUKReader:
         s_idx = n2_array.line_name.str.contains("s!").values
         t_idx = n2_array.line_name.str.contains("t!").values
         casc_idx = q_idx | r_idx | s_idx | t_idx
-        n2_array.loc[dict(line_name=casc_idx)] = n2_array.sel(line_name=casc_idx) * (1 + casc_factor)
+        n2_array.loc[dict(line_name=casc_idx)] = n2_array.sel(line_name=casc_idx) * (1 + casc_factor.values)
 
         # Atomic data
         pec_database = dict(
@@ -347,7 +303,7 @@ class MARCHUKReader:
 
     def _interp_pecs(self, Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000)):
         _interp_pec = {}
-        for _pec_name, _pec in self.pec_data.items():
+        for _pec_name, _pec in self.pec_rawdata.items():
             _interp_pec[_pec_name] = _pec.interp(electron_temperature=Te, kwargs={"fill_value": "extrapolate"})
         return _interp_pec
 
@@ -360,110 +316,14 @@ class MARCHUKReader:
         _pecs = self._interp_pecs()
         _dataset = {}
         for _pec_name, _pec in _pecs.items():
-            _dataset[_pec_name] = _pec.expand_dims("type").to_dataset(dim="type")
-        dataset = xr.merge([*_dataset.values()])
-        return dataset
-
-
-    #
-    # def build_pec_lines(self, pec_database, extrapolate=True):
-    #     # Add ADAS format
-    #     el_dens = np.array([1.0e19, ])
-    #     pec_lines = self.calc_pec_lines(pec_database, extrapolate=extrapolate)
-    #
-    #     for key, item in pec_lines.items():
-    #         pec_lines[key] = pec_lines[key].expand_dims(
-    #             {"electron_density": el_dens}, axis=0
-    #         )
-    #         pec_lines[key] = pec_lines[key].assign_coords(
-    #             index=("type", np.arange(item.type.__len__()))
-    #         )
-    #     return pec_lines
-    #
-    def calc_pec_lines(self, pec_database, ):
-        """
-        line PECS include all contributions from different processes
-        within the wavelength range of that line these ranges are based on
-        visual observation of which wavelength ranges contribute to the observed peaks
-
-        """
-        line_ranges = {
-            "w": slice(0.39490, 0.39494),
-            "n3": slice(0.39543, 0.39574),
-            "n345": slice(0.39496, 0.39574),
-            "qra": slice(0.39810, 0.39865),
-            "k": slice(0.39890, 0.39910),
-            "z": slice(0.39935, 0.39950),
+            _dataset[_pec_name] = _pec.to_dataset(dim="type")
+        _dataset = xr.merge([*_dataset.values()])
+        _dataset = _dataset.to_array(dim="type")
+        _dataset = _dataset.transpose(*["electron_temperature", "line_name", "type"])
+        dataset = {
+                "element": self.element,
+                "file": self.filehead,
+                "charge": self.charge,
+                "emiss_coeff":_dataset,
         }
-        pecs = {}
-
-        return pecs
-    #
-    # def set_marchuk_pecs(self, pec_lines):
-    #     """
-    #     Read marchuk PEC data
-    #
-    #     Parameters
-    #     ----------
-    #     extrapolate
-    #         Go beyond validity limit of machuk's data
-    #     """
-    #
-    #     adf15 = {
-    #         "w": {
-    #             "element": "ar",
-    #             "file": self.filehead,
-    #             "charge": 16,
-    #             "transition": "",
-    #             "wavelength": 4.0,
-    #         },
-    #         "z": {
-    #             "element": "ar",
-    #             "file": self.filehead,
-    #             "charge": 16,
-    #             "transition": "",
-    #             "wavelength": 4.0,
-    #         },
-    #         "k": {
-    #             "element": "ar",
-    #             "file": self.filehead,
-    #             "charge": 16,
-    #             "transition": "",
-    #             "wavelength": 4.0,
-    #         },
-    #         "n3": {
-    #             "element": "ar",
-    #             "file": self.filehead,
-    #             "charge": 16,
-    #             "transition": "",
-    #             "wavelength": 4.0,
-    #         },
-    #         "n345": {
-    #             "element": "ar",
-    #             "file": self.filehead,
-    #             "charge": 16,
-    #             "transition": "",
-    #             "wavelength": 4.0,
-    #         },
-    #         "qra": {
-    #             "element": "ar",
-    #             "file": self.filehead,
-    #             "charge": 16,
-    #             "transition": "",
-    #             "wavelength": 4.0,
-    #         },
-    #     }
-    #     pec = deepcopy(adf15)
-    #     for line in adf15.keys():
-    #         # TODO: add the element layer to the pec dictionary (as for fract_abu)
-    #         pec[line]["emiss_coeff"] = pec_lines[line]
-    #
-    #     for line in pec:
-    #         pec[line]["emiss_coeff"] = (
-    #             pec[line]["emiss_coeff"]
-    #             .sel(electron_density=4.0e19, method="nearest")
-    #             .drop_vars("electron_density")
-    #         )
-    #
-    #     self.adf15 = adf15
-    #     return pec
+        return dataset
