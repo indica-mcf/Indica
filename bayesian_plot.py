@@ -13,21 +13,21 @@ N_los_points = pre_computed["N_los_points"]
 sxr_los_data = pre_computed["sxr_los_data"]
 bolo_los_data = pre_computed["bolo_los_data"]
 
-draws = xr.open_dataset("bayesian_samples_original.nc")
+draws = xr.open_dataset("bayesian_samples.nc")
 
 fig, (ax0, ax1) = plt.subplots(2, 1, sharex=True)
 plt.title("Full sampling Results")
 
 ax0.errorbar(
     rho.data,
-    draws.lfs_values.mean(dim=("chain", "draw"))[0],
-    yerr=draws.lfs_values.std(dim=("chain", "draw"))[0],
+    draws.lfs_values.mean(dim=("chain", "draw")).squeeze(),
+    yerr=draws.lfs_values.std(dim=("chain", "draw")).squeeze(),
     marker="x",
 )
 ax1.errorbar(
     rho.data,
-    draws.asym_params.mean(dim=("chain", "draw"))[0],
-    yerr=draws.asym_params.std(dim=("chain", "draw"))[0],
+    draws.asym_params.mean(dim=("chain", "draw")).squeeze(),
+    yerr=draws.asym_params.std(dim=("chain", "draw")).squeeze(),
     marker="x",
 )
 
