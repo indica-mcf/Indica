@@ -70,7 +70,7 @@ class MARCHUKReader:
         self.charge = charge
 
         self.pec_rawdata = self.build_pec_database()
-        self.pecs = self.make_dataset()
+        self.pecs = self._make_pecs_dataarray()
 
     def build_pec_database(
         self,
@@ -307,7 +307,7 @@ class MARCHUKReader:
             _interp_pec[_pec_name] = _pec.interp(electron_temperature=Te, kwargs={"fill_value": "extrapolate"})
         return _interp_pec
 
-    def make_dataset(self):
+    def _make_pecs_dataarray(self):
         """
         TODO: add caching of dataset
         Returns
@@ -318,12 +318,12 @@ class MARCHUKReader:
         for _pec_name, _pec in _pecs.items():
             _dataset[_pec_name] = _pec.to_dataset(dim="type")
         _dataset = xr.merge([*_dataset.values()])
-        _dataset = _dataset.to_array(dim="type")
-        _dataset = _dataset.transpose(*["electron_temperature", "line_name", "type"])
-        dataset = {
+        _dataarray = _dataset.to_array(dim="type")
+        _dataarray = _dataarray.transpose(*["electron_temperature", "line_name", "type"])
+        dataarray = {
                 "element": self.element,
                 "file": self.filehead,
                 "charge": self.charge,
-                "emiss_coeff":_dataset,
+                "emiss_coeff":_dataarray,
         }
-        return dataset
+        return dataarray
