@@ -230,8 +230,8 @@ class Helike_spectroscopy(DiagnosticModel):
 
         if self.calc_spectra:
             self.measured_spectra = self.los_transform.integrate_on_los(
-                self.spectra["total"],
-                t=self.spectra["total"].t,
+                self.spectra,
+                t=self.spectra.t,
                 calc_rho=calc_rho,
             )
 
@@ -390,61 +390,23 @@ class Helike_spectroscopy(DiagnosticModel):
 
         return result, pos, err_in, err_out
 
-    def _make_intensity(
+    def _calculate_intensity(
             self,
     ):
         """
-        Uses the intensity recipes to get intensity from
-        Te/ne/f_abundance/hydrogen_density/calibration_factor and atomic data.
         Returns DataArrays of emission type with co-ordinates of line label and
         spatial co-ordinate
-        TODO: selection criteria
-        TODO: element and charge to follow atomic data (see _calculate_emission)
         """
-        database = self.pecs
-        Te = self.Te
-        electron_density = self.Ne
-        fz = self.Fz["ar"]
-        argon_density = self.Nimp.sel(element="ar")
-        hydrogen_density = self.Nh
+        elem, charge = self.pecs["element"], self.pecs["charge"]
+        mult = self._transition_matrix(element=elem, charge=charge)
+        _pecs = self.pecs["emiss_coeff"].interp(electron_temperature=self.Te, )
 
-        intensity = {}
-        for key, value in database.items():
-            _Te = Te
-
-            if value.type == "excit" or value.type == "diel":
-                _ion_charge = self.ion_charge
-                _density = electron_density
-            elif value.type == "recom":
-                if self.ion_charge == 16:  # TODO: do we still not have newest data?
-                    _Te = Te.where(Te < 4000, 4000)
-                _ion_charge = self.ion_charge + 1
-                _density = electron_density
-            elif value.type == "cxr":
-                _ion_charge = self.ion_charge + 1
-                _density = hydrogen_density
-                if self.ion_charge == 16:
-                    _Te = Te.where(Te < 4000, 4000)
-            elif value.type == "ise" or value.type == "isi" or value.type == "li_diel":
-                _ion_charge = self.ion_charge - 1
-                _density = electron_density
-            else:
-                print(f"Emission type {value.type} not recognised")
-
-            intensity[key] = (
-                    value.interp(electron_temperature=_Te)
-                    * fz.sel(ion_charges=_ion_charge)
-                    * argon_density
-                    * _density
-                    * self.calibration
-            )
-
+        _intensity = _pecs.isel(line_name=(_pecs.wavelength < self.window.max()) & (_pecs.wavelength > self.window.min())) * mult * self.calibration
+        intensity = _intensity.sum(("type"))
         return intensity
 
     def _make_spectra(
             self,
-            window_lim: tuple = (None, None),
-            window_len: int = None,
     ):
 
         # Add convolution of broadening
@@ -456,80 +418,10 @@ class Helike_spectroscopy(DiagnosticModel):
         TODO: Add make_intensity to this method
         TODO: Background moved to plot
         """
-
-        if window_lim[0] is None and window_len is not None:
-            window = np.linspace(window_lim[0], window_lim[1], window_len)
-            self.window = DataArray(window, coords=[("wavelength", window)])
-
-        if len(np.shape(self.t)) == 0:
-            times = np.array(
-                [
-                    self.t,
-                ]
-            )
-        else:
-            times = self.t
-
-        window = deepcopy(self.window)
-
-        intensity = self.intensity
-        spectra = {}
-        ion_mass = self.ion_mass
-        for key, value in intensity.items():
-            line_name = value.line_name
-            # TODO: substitute with value.element
-            element = self.element
-            _spectra = []
-            for t in times:
-                Ti = self.Ti.sel(element=element)
-                if "t" in self.Ti.dims:
-                    Ti = Ti.sel(t=t)
-
-                if "t" in self.Ti.dims:
-                    integral = value.sel(t=t)
-                else:
-                    integral = value
-
-                center = integral.wavelength
-                ion_temp = Ti.expand_dims(dict(line_name=line_name)).transpose()
-                x = window.expand_dims(dict(line_name=line_name)).transpose()
-                y = doppler_broaden(x, integral, center, ion_mass, ion_temp)
-                # TODO: include also doppler shift
-                # y = doppler_shift(x, integral, center, ion_mass, ion_temp)
-                _spectra.append(y)
-            spectra[key] = xr.concat(_spectra, "t")
-            if "total" not in spectra.keys():
-                spectra["total"] = spectra[key].sum(["line_name"])
-            else:
-                spectra["total"] += spectra[key].sum(["line_name"])
+        element = self.pecs["element"]
+        _spectra = doppler_broaden(self.window, self.intensity, self.intensity.wavelength, self.ion_mass, self.Ti.sel(element=element))
+        spectra = _spectra.sum("line_name")
         return spectra
-
-    def _plot_spectrum(self, spectra: dict, background: float = 0.0):
-
-        plt.figure()
-        spectra["background"] = self.window * 0 + background
-
-        avoid = ["total", "background"]
-        for key, value in spectra.items():
-            if not any([x in key for x in avoid]):
-                plt.plot(
-                    self.window,
-                    value.sum(["rho_poloidal"]).sum("line_name")
-                    + spectra["background"],
-                    label=key,
-                )
-
-        plt.plot(
-            self.window,
-            spectra["total"].sum(["rho_poloidal"]) + spectra["background"],
-            "k*",
-            label="Total",
-        )
-        plt.xlabel("Wavelength (nm)")
-        plt.ylabel("Intensity (AU)")
-        plt.legend()
-        plt.show(block=True)
-        return
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -641,6 +533,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
         # At the moment due to how _build_bckc/_calculate_temperature work
         # quantities has to be altered depending on model settings used
+        quant = {}
         if moment_analysis:
             if minimum_lines:
                 line_labels = ["w", "k", ]
@@ -648,10 +541,10 @@ class Helike_spectroscopy(DiagnosticModel):
             else:
                 line_labels = self.line_ranges.keys()
                 names = ["int_w", "int_k",  "te_kw", "ti_w"]
-            quant = {x: self.quantities[x] for x in names}
+            quant = dict(quant, **{x: self.quantities[x] for x in names})
 
         if calc_spectra:
-            quant["spectra"] = self.quantities["spectra"]
+            quant = dict(quant, **{x: self.quantities[x] for x in ["spectra"]})
         self.quantities = quant
 
         # Calculate emission on natural coordinates of input profiles
@@ -660,7 +553,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
         # Make spectra
         if calc_spectra:
-            self.intensity = self._make_intensity()
+            self.intensity = self._calculate_intensity()
             self.spectra = self._make_spectra()
 
         self._calculate_los_integral(calc_rho=calc_rho, )
@@ -719,7 +612,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False, moment_analysis=True):
+def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
         plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,))
@@ -753,7 +646,10 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False, 
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
-    bckc = model(calc_spectra=calc_spectra, minimum_lines=True, moment_analysis=moment_analysis)
+    import time
+    start = time.time()
+    bckc = model(**kwargs)
+    print(f"model call: {time.time() - start}")
     channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
@@ -763,14 +659,17 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False, 
         if "spectra" in bckc.keys():
             plt.figure()
             for chan in channels:
-                if not "channel" in bckc["spectra"].dims:
-                    bckc["spectra"].sel(t=plasma.time_to_calculate.mean(), method="nearest"
-                                        ).plot(label=f"CH{chan}", color=cols[chan])
-                elif (chan % 2) == 0:
-                    bckc["spectra"].sel(
-                        channel=chan, t=plasma.time_to_calculate.mean(), method="nearest"
+                if "channel" in bckc["spectra"].dims and (chan % 2) == 0:
+                    bckc["spectra"].sel(channel=chan, t=plasma.time_to_calculate.mean(), method="nearest"
                     ).plot(label=f"CH{chan}", color=cols[chan])
-            plt.xlabel("Time (s)")
+                else:
+                    if "t" in bckc["spectra"].dims:
+                        bckc["spectra"].sel(t=plasma.time_to_calculate.mean(), method="nearest"
+                                        ).plot(label=f"CH{chan}", color=cols[chan])
+                    else:
+                        bckc["spectra"].plot(label=f"CH{chan}", color=cols[chan])
+
+            plt.xlabel("wavelength (nm)")
             plt.ylabel("spectra")
             plt.legend()
 
@@ -806,32 +705,19 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False, 
         elem = model.Ti.element[0].values
         for i, t in enumerate(plasma.t.values):
             plt.plot(
-                model.Ti.rho_poloidal,
-                model.Ti.sel(t=t, element=elem),
+                plasma.ion_temperature.rho_poloidal,
+                plasma.ion_temperature.sel(t=t, element=elem),
                 color=cols_time[i],
             )
             plt.plot(
-                model.Te.rho_poloidal,
-                model.Te.sel(t=t),
+                plasma.electron_temperature.rho_poloidal,
+                plasma.electron_temperature.sel(t=t),
                 color=cols_time[i],
                 linestyle="dashed",
             )
-        plt.plot(
-            model.Ti.rho_poloidal,
-            model.Ti.sel(t=t, element=elem),
-            color=cols_time[i],
-            label="Ti",
-        )
-        plt.plot(
-            model.Te.rho_poloidal,
-            model.Te.sel(t=t),
-            color=cols_time[i],
-            label="Te",
-            linestyle="dashed",
-        )
+
         plt.xlabel("rho")
         plt.ylabel("Ti and Te profiles (eV)")
-        plt.legend()
 
         # Plot the emission profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
@@ -852,4 +738,4 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, calc_spectra=False, 
 
 
 if __name__ == "__main__":
-    example_run(plot=True)
+    example_run(plot=True, moment_analysis=False, calc_spectra=True, minimum_lines=True)
