@@ -399,9 +399,10 @@ class Helike_spectroscopy(DiagnosticModel):
         """
         elem, charge = self.pecs["element"], self.pecs["charge"]
         mult = self._transition_matrix(element=elem, charge=charge)
-        _pecs = self.pecs["emiss_coeff"].interp(electron_temperature=self.Te, )
+        _pecs = self.pecs["emiss_coeff"]
+        _pecs = _pecs.isel(line_name=(_pecs.wavelength < self.window.max()) & (_pecs.wavelength > self.window.min()))
 
-        _intensity = _pecs.isel(line_name=(_pecs.wavelength < self.window.max()) & (_pecs.wavelength > self.window.min())) * mult * self.calibration
+        _intensity = _pecs.interp(electron_temperature=self.Te, ) * mult * self.calibration
         intensity = _intensity.sum(("type"))
         return intensity
 
@@ -416,12 +417,18 @@ class Helike_spectroscopy(DiagnosticModel):
         """
         TODO: Doppler Shift
         TODO: Add make_intensity to this method
-        TODO: Background moved to plot
         """
         element = self.pecs["element"]
         _spectra = doppler_broaden(self.window, self.intensity, self.intensity.wavelength, self.ion_mass, self.Ti.sel(element=element))
         spectra = _spectra.sum("line_name")
+
+        # doppler_broaden(self.window.values[None, None, :], self.intensity.values[:, :, None],
+        #                 self.intensity.wavelength.values[None, :, None], self.ion_mass,
+        #                 self.Ti.sel(element=element).values[:, None, None])
         return spectra
+
+
+
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -612,6 +619,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
+
 def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
@@ -646,10 +654,7 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
-    import time
-    start = time.time()
     bckc = model(**kwargs)
-    print(f"model call: {time.time() - start}")
     channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
@@ -738,4 +743,4 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
 
 
 if __name__ == "__main__":
-    example_run(plot=True, moment_analysis=False, calc_spectra=True, minimum_lines=True)
+    example_run(plot=False, moment_analysis=False, calc_spectra=True, minimum_lines=True)
