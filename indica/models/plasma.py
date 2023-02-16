@@ -1028,7 +1028,7 @@ class Plasma:
 
 
 def example_run(pulse: int = None, tstart=0.02, tend=0.1, dt=0.01, main_ion="h", impurities=("c", "ar", "he"),
-                impurity_concentration=(0.03, 0.001, 0.01),):
+                impurity_concentration=(0.03, 0.001, 0.01), **kwargs):
     # TODO: swap all profiles to new version!
     full_run = False
 
@@ -1040,6 +1040,7 @@ def example_run(pulse: int = None, tstart=0.02, tend=0.1, dt=0.01, main_ion="h",
         impurities=impurities,
         impurity_concentration=impurity_concentration,
         full_run=full_run,
+        **kwargs
     )
     plasma.build_atomic_data(default=True)
     # Assign profiles to time-points
