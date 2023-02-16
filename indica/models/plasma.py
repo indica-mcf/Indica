@@ -111,6 +111,7 @@ class Plasma:
             impurity_concentration: tuple = (0.02, 0.001),
             pulse: int = None,
             full_run: bool = False,
+            n_rad: int = 41,
     ):
         """
         Class for plasma objects.
@@ -157,7 +158,7 @@ class Plasma:
             ("concentration", "impurity"),
         )
         self.set_adf11(ADF11)
-        self.radial_coordinate = np.linspace(0, 1.0, 41)
+        self.radial_coordinate = np.linspace(0, 1.0, n_rad)
         self.radial_coordinate_type = "rho_poloidal"
         self.machine_dimensions = machine_dimensions
 
