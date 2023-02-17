@@ -46,7 +46,7 @@ class Helike_spectroscopy(DiagnosticModel):
             element: str = "ar",
             window_len: int = 1030,
             window_lim: list = [0.394, 0.401],
-            window_masks: list = [slice(0.3945, 0.3962)],
+            window_masks: list = [],
     ):
         """
         Read all atomic data and initialise objects
@@ -490,7 +490,7 @@ class Helike_spectroscopy(DiagnosticModel):
             calc_spectra=True,
             calc_rho: bool = False,
             minimum_lines: bool = False,
-            moment_analysis: bool = True,
+            moment_analysis: bool = False,
             **kwargs,
     ):
         """
@@ -510,12 +510,12 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        self.calc_spectra = calc_spectra,
-        self.calc_rho = calc_rho,
-        self.minimum_lines = minimum_lines,
-        self.moment_analysis = moment_analysis,
+        self.calc_spectra = calc_spectra
+        self.calc_rho = calc_rho
+        self.minimum_lines = minimum_lines
+        self.moment_analysis = moment_analysis
 
-        if self.moment_analysis and self.window_masks:
+        if self.moment_analysis and bool(self.window_masks):
             raise ValueError("moment_analysis cannot be used when window_masks is not set to None")
 
         if self.plasma is not None:
