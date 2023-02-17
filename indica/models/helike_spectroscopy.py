@@ -46,6 +46,7 @@ class Helike_spectroscopy(DiagnosticModel):
             element: str = "ar",
             window_len: int = 1030,
             window_lim: list = [0.394, 0.401],
+            window_masks: list = [slice(0.3945, 0.3962)],
     ):
         """
         Read all atomic data and initialise objects
@@ -63,8 +64,6 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        window = np.linspace(window_lim[0], window_lim[1], window_len)
-        self.window = DataArray(window, coords=[("wavelength", window)])
         self.name = name
         self.instrument_method = instrument_method
         self.marchuk = marchuk
@@ -86,7 +85,23 @@ class Helike_spectroscopy(DiagnosticModel):
         else:
             self.pecs = self._set_adas_pecs()
 
-        # wavelength indexes used for line ratio moment analysis TODO: check wavelengths n345
+        self.window_masks = window_masks
+        window = np.linspace(window_lim[0], window_lim[1], window_len)
+        mask = np.zeros(shape=window.shape)
+        if window_masks:
+            for mslice in window_masks:
+                mask[(window > mslice.start) & (window < mslice.stop)] = 1
+        else:
+            mask[:] = 1
+
+        self.window = DataArray(mask, coords=[("wavelength", window)])
+        self.mask = self.window.interp(wavelength=self.pecs["emiss_coeff"].wavelength)
+        self.pecs["emiss_coeff"] = self.pecs["emiss_coeff"].where(self.mask, drop=True, )
+        self.pecs["emiss_coeff"] = self.pecs["emiss_coeff"].where(
+            (self.pecs["emiss_coeff"].wavelength<self.window.wavelength.max()) &
+            (self.pecs["emiss_coeff"].wavelength>self.window.wavelength.min()), drop=True)
+
+        # wavelength indexes used for line ratio moment analysis
         self.line_ranges = {
             "w": slice(0.39489, 0.39494),
             "n3": slice(0.39543, 0.39574),
@@ -390,9 +405,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
         return result, pos, err_in, err_out
 
-    def _calculate_intensity(
-            self,
-    ):
+    def _calculate_intensity(self,):
         """
         Returns DataArrays of emission type with co-ordinates of line label and
         spatial co-ordinate
@@ -400,35 +413,30 @@ class Helike_spectroscopy(DiagnosticModel):
         elem, charge = self.pecs["element"], self.pecs["charge"]
         mult = self._transition_matrix(element=elem, charge=charge)
         _pecs = self.pecs["emiss_coeff"]
-        _pecs = _pecs.isel(line_name=(_pecs.wavelength < self.window.max()) & (_pecs.wavelength > self.window.min()))
 
-        _intensity = _pecs.interp(electron_temperature=self.Te, ) * mult * self.calibration
-        intensity = _intensity.sum(("type"))
+        _pecs_ds = _pecs.to_dataset("type")
+        _intensity = _pecs_ds.interp(electron_temperature=self.Te, ).to_array("type")  # ds is faster here
+        intensity = (_intensity * mult * self.calibration).sum("type")
         return intensity
 
-    def _make_spectra(
-            self,
-    ):
-
-        # Add convolution of broadening
-        # -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
-        # instrument function / photon noise / photon -> counts
-        # Background Noise
+    def _make_spectra(self,):
         """
-        TODO: Doppler Shift
-        TODO: Add make_intensity to this method
+        TODO: Doppler Shift / Add convolution of broadening
+        -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
+        instrument function / photon noise / photon -> counts
+        Background Noise
+
         """
         element = self.pecs["element"]
-        _spectra = doppler_broaden(self.window, self.intensity, self.intensity.wavelength, self.ion_mass, self.Ti.sel(element=element))
-        spectra = _spectra.sum("line_name")
-
-        # doppler_broaden(self.window.values[None, None, :], self.intensity.values[:, :, None],
-        #                 self.intensity.wavelength.values[None, :, None], self.ion_mass,
-        #                 self.Ti.sel(element=element).values[:, None, None])
+        _spectra = doppler_broaden(self.window[self.window>0].wavelength, self.intensity, self.intensity.wavelength, self.ion_mass, self.Ti.sel(element=element))
+        _spectra = _spectra.sum("line_name")
+        # extend spectra to same coords as self.window.wavelength with NaNs to maintain same shape as mds data
+        if "t" in _spectra.dims:
+            empty = xr.DataArray(np.nan, dims=_spectra.dims, coords=dict(wavelength=self.window[self.window<1].wavelength, rho_poloidal=_spectra.rho_poloidal, t=_spectra.t))
+        else:
+            empty = xr.DataArray(np.nan, dims=_spectra.dims, coords=dict(wavelength=self.window[self.window<1].wavelength, rho_poloidal=_spectra.rho_poloidal))
+        spectra = xr.concat([_spectra, empty], "wavelength")
         return spectra
-
-
-
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -479,7 +487,7 @@ class Helike_spectroscopy(DiagnosticModel):
             Fz: dict = None,
             Nh: DataArray = None,
             t: LabeledArray = None,
-            calc_spectra=False,
+            calc_spectra=True,
             calc_rho: bool = False,
             minimum_lines: bool = False,
             moment_analysis: bool = True,
@@ -502,7 +510,14 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        self.calc_spectra = calc_spectra
+        self.calc_spectra = calc_spectra,
+        self.calc_rho = calc_rho,
+        self.minimum_lines = minimum_lines,
+        self.moment_analysis = moment_analysis,
+
+        if self.moment_analysis and self.window_masks:
+            raise ValueError("moment_analysis cannot be used when window_masks is not set to None")
+
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
@@ -544,10 +559,10 @@ class Helike_spectroscopy(DiagnosticModel):
         if moment_analysis:
             if minimum_lines:
                 line_labels = ["w", "k", ]
-                names = ["int_w", "int_k", "int_tot", "int_n3", "te_n3w", "te_kw", "ti_z", "ti_w"]
+                names = ["int_w", "int_k",  "te_kw", "ti_w"]
             else:
                 line_labels = self.line_ranges.keys()
-                names = ["int_w", "int_k",  "te_kw", "ti_w"]
+                names = ["int_w", "int_k", "int_tot", "int_n3", "te_n3w", "te_kw", "ti_z", "ti_w"]
             quant = dict(quant, **{x: self.quantities[x] for x in names})
 
         if calc_spectra:
@@ -623,11 +638,11 @@ def select_transition(adf15_data, transition: str, wavelength: float):
 def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
-        plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,))
-        plasma.time_to_calculate = plasma.t[4]
+        plasma = example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10)
+        plasma.time_to_calculate = plasma.t[5]
         # Create new diagnostic
     diagnostic_name = "xrcs"
-    nchannels = 1
+    nchannels = 3
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -650,6 +665,7 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
     los_transform.set_equilibrium(plasma.equilibrium)
     model = Helike_spectroscopy(
         diagnostic_name,
+        window_masks=[],
     )
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
@@ -664,21 +680,18 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
         if "spectra" in bckc.keys():
             plt.figure()
             for chan in channels:
-                if "channel" in bckc["spectra"].dims and (chan % 2) == 0:
-                    bckc["spectra"].sel(channel=chan, t=plasma.time_to_calculate.mean(), method="nearest"
-                    ).plot(label=f"CH{chan}", color=cols[chan])
+                _spec = bckc["spectra"]
+                if "channel" in _spec.dims:
+                    _spec = _spec.sel(channel=chan, method="nearest")
+                if "t" in bckc["spectra"].dims:
+                    _spec.sel(t=plasma.time_to_calculate.mean(), method="nearest").plot(label=f"CH{chan}", color=cols[chan])
                 else:
-                    if "t" in bckc["spectra"].dims:
-                        bckc["spectra"].sel(t=plasma.time_to_calculate.mean(), method="nearest"
-                                        ).plot(label=f"CH{chan}", color=cols[chan])
-                    else:
-                        bckc["spectra"].plot(label=f"CH{chan}", color=cols[chan])
-
+                    _spec.plot(label=f"CH{chan}", color=cols[chan])
             plt.xlabel("wavelength (nm)")
             plt.ylabel("spectra")
             plt.legend()
 
-        model.los_transform.plot_los(tplot, plot_all=model.los_transform.x1.__len__() > 1)
+        # model.los_transform.plot_los(tplot, plot_all=model.los_transform.x1.__len__() > 1)
 
         if "int_w" in bckc.keys() & "t" in bckc["int_w"].dims:
             plt.figure()
@@ -728,10 +741,18 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
         if "w" in model.line_emission.keys():
             plt.figure()
-            for i, t in enumerate(plasma.t.values):
+            if "t" in model.line_emission["w"].dims:
+                for i, t in enumerate(plasma.t.values):
+                    plt.plot(
+                        model.line_emission["w"].rho_poloidal,
+                        model.line_emission["w"].sel(t=t),
+                        color=cols_time[i],
+                        label=f"t={t:1.2f} s",
+                    )
+            else:
                 plt.plot(
                     model.line_emission["w"].rho_poloidal,
-                    model.line_emission["w"].sel(t=t),
+                    model.line_emission["w"],
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
@@ -743,4 +764,4 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
 
 
 if __name__ == "__main__":
-    example_run(plot=False, moment_analysis=False, calc_spectra=True, minimum_lines=True)
+    example_run(plot=True, moment_analysis=True, calc_spectra=True, minimum_lines=False)
