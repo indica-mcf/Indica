@@ -57,10 +57,11 @@ ip_coords = ImpactParameterCoordinates(
 )
 
 plt.figure()
-plt.plot(
+plt.errorbar(
     ip_coords.rho_min.isel(t=t_index),
     pre_computed["sxr_los_data"].los_values.isel(t=t_index),
-    ".",
+    yerr=pre_computed["sxr_los_data"].los_errors.isel(t=t_index),
+    fmt=".",
     label="Data",
 )
 plt.plot(
@@ -94,8 +95,12 @@ selected_coords = list(all_coords - dropped_coords)
 rho_min = ip_coords.rho_min.isel(t=t_index).sel(bolo_kb5v_coords=selected_coords)
 
 plt.figure()
-plt.plot(
-    rho_min, pre_computed["bolo_los_data"].los_values.isel(t=t_index), ".", label="Data"
+plt.errorbar(
+    rho_min,
+    pre_computed["bolo_los_data"].los_values.isel(t=t_index),
+    yerr=pre_computed["bolo_los_data"].los_errors.isel(t=t_index),
+    fmt=".",
+    label="Data",
 )
 plt.plot(
     rho_min, draws.predicted_bolo_los_vals.mean(dim=("chain", "draw")), label="Back-fit"

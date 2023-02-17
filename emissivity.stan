@@ -88,15 +88,17 @@ parameters {
 	// TODO: revise limits
 	array[N_elements, N_rho] real<lower=0, upper=1e17> lfs_values;
 	array[N_elements, N_rho] real<lower=-10, upper=10> asym_params;
+	real<lower=0.1, upper=5> sxr_calibration_factor;
 }
 
 transformed parameters {
 	// Predict SXR LOS values
-	vector<lower=0>[sxr_N_los] predicted_sxr_los_vals = predict_los_vals(N_elements, sxr_N_los, N_los_points, lfs_values, asym_params, sxr_rho_lower_indices, sxr_rho_interp_lower_frac, sxr_R_square_diff, sxr_ne_x_power_loss);
+	vector<lower=0>[sxr_N_los] predicted_sxr_los_vals = sxr_calibration_factor * predict_los_vals(N_elements, sxr_N_los, N_los_points, lfs_values, asym_params, sxr_rho_lower_indices, sxr_rho_interp_lower_frac, sxr_R_square_diff, sxr_ne_x_power_loss);
 	vector<lower=0>[bolo_N_los] predicted_bolo_los_vals = predict_los_vals(N_elements, bolo_N_los, N_los_points, lfs_values, asym_params, bolo_rho_lower_indices, bolo_rho_interp_lower_frac, bolo_R_square_diff, bolo_ne_x_power_loss);
 }
 
 model {
+	sxr_calibration_factor ~ normal(3.0, 2.0);
 	// LOS values should be distributed like this:
 	predicted_sxr_los_vals ~ normal(sxr_los_values, sxr_los_errors);
 	predicted_bolo_los_vals ~ normal(bolo_los_values, bolo_los_errors);
