@@ -1,12 +1,14 @@
-import xarray as xr
-import numpy as np
-import matplotlib.pylab as plt
 from copy import deepcopy
+
 from matplotlib import cm
-from indica.equilibrium import Equilibrium
-from indica.readers import ST40Reader
-from indica.numpy_typing import RevisionLike
+import matplotlib.pylab as plt
+import numpy as np
+import xarray as xr
+
 from indica.converters.time import convert_in_time_dt
+from indica.equilibrium import Equilibrium
+from indica.numpy_typing import RevisionLike
+from indica.readers import ST40Reader
 from indica.utilities import print_like
 
 REVISIONS = {
@@ -36,7 +38,12 @@ FILTER_RULES = {
     "ts": lambda x: xr.where(x > 0, x, np.nan),
 }
 
-LINESTYLES = {"ts": "solid", "cxff_pi": "solid", "cxff_tws_c": "dashed", "cxqf_tws_c": "dotted"}
+LINESTYLES = {
+    "ts": "solid",
+    "cxff_pi": "solid",
+    "cxff_tws_c": "dashed",
+    "cxqf_tws_c": "dotted",
+}
 MARKERS = {"ts": "o", "cxff_pi": "s", "cxff_tws_c": "*", "cxqf_tws_c": "x"}
 YLABELS = {
     "te": "Te (eV)",
@@ -94,13 +101,13 @@ class ReadST40:
 
     def bin_data_in_time(
         self,
-        instruments: list = None,
+        instruments: list = [],
         tstart: float = 0.02,
         tend: float = 0.1,
         dt: float = 0.01,
     ):
-        if instruments is None:
-            instruments = self.raw_data.keys()
+        if len(instruments) == 0:
+            instruments = list(self.raw_data)
 
         for instr in instruments:
             binned_quantities = {}
@@ -116,7 +123,7 @@ class ReadST40:
                 binned_quantities[quant] = data_quant
             self.binned_data[instr] = binned_quantities
 
-    def map_diagnostics(self, instruments: list = None, map_raw: bool = False):
+    def map_diagnostics(self, instruments: list = [], map_raw: bool = False):
         if len(self.binned_data) == 0:
             raise ValueError("Bin data in time before remapping!")
 
@@ -124,8 +131,8 @@ class ReadST40:
         if map_raw:
             attr_to_map.append("raw_data")
 
-        if instruments is None:
-            instruments = self.raw_data.keys()
+        if len(instruments) == 0:
+            instruments = list(self.raw_data)
 
         for attr in attr_to_map:
             data_to_map = getattr(self, attr)
@@ -144,7 +151,7 @@ class ReadST40:
             )
 
         if instruments is None:
-            instruments = self.binned_data.keys()
+            instruments = list(self.binned_data)
 
         for instr in instruments:
             if instr not in FILTER_RULES.keys():
@@ -160,15 +167,18 @@ class ReadST40:
         self,
         instrument: str,
         quantity: str,
-        tplot: list = None,
+        tplot: list = [],
         plot_raw: bool = False,
         xcoord: str = "rho",
         figure: bool = True,
         xlim: tuple = (0, 1.1),
-        ylim: tuple = (0),
+        ylim: tuple = (0,),
         linestyle: str = None,
         plot_error: bool = True,
     ):
+        if len(ylim) == 1:
+            ylim = ylim[0]
+
         R_offset = ""
         if np.abs(self.equilibrium.R_offset) > 0.01:
             R_offset = " ($R_{shift}$=" + f"{self.equilibrium.R_offset:1.2f})"
@@ -187,7 +197,7 @@ class ReadST40:
         R = data_to_plot.transform.R
         value = data_to_plot
         error = data_to_plot.error
-        if tplot is None:
+        if len(tplot) == 0:
             tplot = np.array([t for t in value.t if any(np.isfinite(value.sel(t=t)))])
 
         tplot = np.array(tplot, ndmin=1)
@@ -203,10 +213,11 @@ class ReadST40:
             if linestyle is None:
                 linestyle = LINESTYLES[instrument]
             if any(np.isfinite(y)):
+                label = f"{data_type} {instrument.upper()} {quantity} @ t={_t:1.3f} s"
                 plt.plot(
                     x,
                     y,
-                    label=f"{data_type} {instrument.upper()} {quantity} @ t={_t:1.3f} s",
+                    label=label,
                     color=cols_time[it],
                     marker=MARKERS[instrument],
                     linestyle=linestyle,
@@ -236,7 +247,7 @@ class ReadST40:
     ):
 
         if instruments is None:
-            instruments = REVISIONS.keys()
+            instruments = list(REVISIONS)
 
         if revisions is None:
             revisions = REVISIONS
@@ -255,3 +266,16 @@ class ReadST40:
         self.filter_data(instruments=instruments)
         print_like("Mapping to equilibrium")
         self.map_diagnostics(instruments=instruments, map_raw=map_raw)
+
+
+def example_run():
+    pulse = 10605
+    tstart = 0
+    tend = 0.2
+    instruments = ["xrcs", "smmh1", "cxff_pi", "ts"]
+    ST40 = ReadST40(pulse, tstart, tend)
+    ST40(instruments=instruments)
+    plt.ioff()
+    ST40.plot_profile("ts", "te", tplot=[0.04], plot_raw=True)
+    ST40.plot_profile("ts", "ne", tplot=[0.04], plot_raw=True)
+    plt.show()
