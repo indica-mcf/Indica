@@ -6,11 +6,11 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters import FluxSurfaceCoordinates
 from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
+from indica.models.equilibrium import fake_equilibrium_data
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
@@ -21,7 +21,6 @@ from indica.readers import ST40Reader
 from indica.utilities import assign_data
 from indica.utilities import assign_datatype
 from indica.utilities import print_like
-from indica.models.equilibrium import fake_equilibrium_data
 
 plt.ion()
 
@@ -166,7 +165,6 @@ class Plasma:
         self.initialize_variables(tstart, tend, dt)
 
         self.equilibrium: Equilibrium
-        self.flux_transform: FluxSurfaceCoordinates
 
     def set_equilibrium(self, equilibrium: Equilibrium):
         """
@@ -174,21 +172,6 @@ class Plasma:
         """
         self.equilibrium = equilibrium
         self.calculate_geometry()
-
-    def set_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
-        """
-        Assign flux surface transform object for remapping
-        """
-        self.flux_transform = flux_transform
-
-        if hasattr(self, "equilibrium"):
-            if not hasattr(self.flux_transform, "equilibrium"):
-                self.flux_transform.set_equilibrium(self.equilibrium)
-            if self.flux_transform.equilibrium != self.equilibrium:
-                raise ValueError("Equilibrium is not the same in flux_transform")
-        else:
-            if hasattr(flux_transform, "equilibrium"):
-                self.equilibrium = flux_transform.equilibrium
 
     def set_adf11(self, adf11: dict):
         self.adf11 = adf11
@@ -245,7 +228,12 @@ class Plasma:
             ("poloidal", "rho"),
             coords=[(self.radial_coordinate_type, self.radial_coordinate)],
         )
-        coords_time = assign_data(time, ("", "time"), "s", coords=[("t", time)],)
+        coords_time = assign_data(
+            time,
+            ("", "time"),
+            "s",
+            coords=[("t", time)],
+        )
         coords_elem = assign_data(
             list(self.elements),
             ("", "element"),
@@ -332,8 +320,12 @@ class Plasma:
         self._ptot = assign_data(data1d_time, ("pressure_integral", "total"), "Pa")
         self._wth = assign_data(data1d_time, ("stored_energy", "thermal"), "J")
         self._wp = assign_data(data1d_time, ("stored_energy", "total"), "J")
-        self._prad_tot = RadiationIntegral(assign_data(data2d_elem, ("radiation", "total"), "W"))
-        self._prad_sxr = RadiationIntegral(assign_data(data2d_elem, ("radiation", "sxr"), "W"))
+        self._prad_tot = RadiationIntegral(
+            assign_data(data2d_elem, ("radiation", "total"), "W")
+        )
+        self._prad_sxr = RadiationIntegral(
+            assign_data(data2d_elem, ("radiation", "sxr"), "W")
+        )
         self._ion_density = IonDensity(
             assign_data(data3d, ("density", "ion"), "$m^{-3}$")
         )
@@ -609,14 +601,18 @@ class Plasma:
             rho_end = 1.01
             rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
             Te_prof = Profiles(
-                datatype=("temperature", "electron"), xspl=rho, xend=xend,
+                datatype=("temperature", "electron"),
+                xspl=rho,
+                xend=xend,
             )
             Te_prof.y0 = 10.0e3
             Te = Te_prof()
             Ne_prof = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend)
             Ne = Ne_prof()
             Nh_prof = Profiles(
-                datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend,
+                datatype=("density", "thermal_neutrals"),
+                xspl=rho,
+                xend=xend,
             )
             Nh = Nh_prof()
             tau = None
@@ -775,7 +771,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
+                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
             )
 
         self.ion_density_2d = (
@@ -825,7 +821,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            total_radiation = xr.where(total_radiation >= 0, total_radiation, 0.0,)
+            total_radiation = xr.where(
+                total_radiation >= 0,
+                total_radiation,
+                0.0,
+            )
             self.total_radiation.loc[dict(element=elem)] = total_radiation.values
 
             sxr_radiation = (
@@ -833,7 +833,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            sxr_radiation = xr.where(sxr_radiation >= 0, sxr_radiation, 0.0,)
+            sxr_radiation = xr.where(
+                sxr_radiation >= 0,
+                sxr_radiation,
+                0.0,
+            )
             self.sxr_radiation.loc[dict(element=elem)] = sxr_radiation.values
 
             if not hasattr(self, "prad_tot"):
@@ -857,7 +861,8 @@ class Plasma:
 
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                self, f,
+                self,
+                f,
             )
 
     def assign_profiles(
@@ -925,7 +930,6 @@ class PressureProfile:
 
     def __call__(self, density: DataArray, temperature: DataArray):
         if not self.density.equals(density) or not self.temperature.equals(temperature):
-            print("Recalculating")
             self.density = deepcopy(density)
             self.temperature = deepcopy(temperature)
             self._data.values = ph.calc_pressure(self.density, self.temperature)
@@ -942,7 +946,6 @@ class PressureIntegral:
 
     def __call__(self, pressure: DataArray, volume: DataArray):
         if not self.pressure.equals(pressure) or not self.volume.equals(volume):
-            print("Recalculating")
             self.pressure = deepcopy(pressure)
             self.volume = deepcopy(volume)
             self._data = xr.full_like(self._data, 0.0)
@@ -975,7 +978,6 @@ class Meanz:
             recalculate = True
 
         if recalculate:
-            print("Recalculating")
             self.fz = deepcopy(fz)
             for elem in self.elements:
                 self._data.loc[dict(element=elem)] = (
@@ -1002,11 +1004,10 @@ class Zeff:
             or not self.ni.equals(ni)
             or not self.meanz.equals(meanz)
         ):
-            print("Recalculating")
             self.ne = deepcopy(ne)
             self.ni = deepcopy(ni)
             self.meanz = deepcopy(meanz)
-            self._data.values = ((ni * meanz ** 2) / ne).values
+            self._data.values = ((ni * meanz**2) / ne).values
         return self._data
 
 
@@ -1034,7 +1035,6 @@ class IonDensity:
             or not self.nf.equals(nf)
             or not self.meanz.equals(meanz)
         ):
-            print("Recalculating")
             self.ne = deepcopy(ne)
             self.nimp = deepcopy(nimp)
             self.nf = deepcopy(nf)
@@ -1057,7 +1057,7 @@ class Fz:
 
     def __init__(self, _data: dict):
         self._data = _data
-        self.elements = self._data.keys()
+        self.elements = list(self._data)
         self.te: DataArray = DataArray(None)
         self.ne: DataArray = DataArray(None)
         self.nh: DataArray = DataArray(None)
@@ -1082,7 +1082,6 @@ class Fz:
             or not self.tau.equals(tau)
             or not self.fract_abu != fract_abu
         ):
-            print("Recalculating")
             self.te = deepcopy(te)
             self.ne = deepcopy(ne)
             self.nh = deepcopy(nh)
@@ -1099,7 +1098,11 @@ class Fz:
                     if np.any(nh != 0):
                         _nh = nh.sel(t=t)
                     fz_tmp = self.fract_abu[elem](
-                        _te, Ne=_ne, Nh=_nh, tau=_tau, full_run=full_run,
+                        _te,
+                        Ne=_ne,
+                        Nh=_nh,
+                        tau=_tau,
+                        full_run=full_run,
                     )
                     self._data[elem].loc[dict(t=t)] = fz_tmp.transpose().values
         return self._data
@@ -1113,29 +1116,38 @@ class Lz:
         self.te: DataArray = DataArray(None)
         self.ne: DataArray = DataArray(None)
         self.nh: DataArray = DataArray(None)
-        self.fz: DataArray = DataArray(None)
+        self.fz: dict = None
         self.power_loss: dict = None
-        self.elements = self._data.keys()
+        self.elements = list(self._data)
 
     def __call__(
         self,
         te: DataArray,
         ne: DataArray,
         nh: DataArray,
-        fz: DataArray,
+        fz: dict,
         power_loss: dict,
         t: LabeledArray,
         full_run: bool = False,
     ):
+        recalculate = False
+        if self.fz is not None:
+            for elem in self.elements:
+                if not self.fz[elem].equals(fz[elem]):
+                    recalculate = True
+                    break
+            if not recalculate:
+                if (
+                    not self.te.equals(te)
+                    or not self.ne.equals(ne)
+                    or not self.nh.equals(nh)
+                    or not self.power_loss != power_loss
+                ):
+                    recalculate = True
+        else:
+            recalculate = True
 
-        if (
-            not self.te.equals(te)
-            or not self.ne.equals(ne)
-            or not self.nh.equals(nh)
-            or not self.fz.equals(fz)
-            or not self.power_loss != power_loss
-        ):
-            print("Recalculating")
+        if recalculate:
             self.te = deepcopy(te)
             self.ne = deepcopy(ne)
             self.nh = deepcopy(nh)
@@ -1145,13 +1157,10 @@ class Lz:
                 for elem in self.elements:
                     _te = te.sel(t=t)
                     _ne = ne.sel(t=t)
-                    _tau = None
-                    if np.any(tau != 0):
-                        _tau = tau.sel(t=t)
                     _nh = None
                     if np.any(nh != 0):
                         _nh = nh.sel(t=t)
-                    lz_tmp = self.power_loss_tot[elem](
+                    lz_tmp = self.power_loss[elem](
                         _te,
                         self.fz,
                         Ne=_ne,
@@ -1175,16 +1184,15 @@ class RadiationProfile:
 
     def __call__(self, lz: dict, ne: DataArray, ni: DataArray):
         recalculate = False
-        if self.fz is not None:
+        if self.lz is not None:
             for elem in self.elements:
-                if not self.fz[elem].equals(fz[elem]):
+                if not self.lz[elem].equals(lz[elem]):
                     recalculate = True
                     break
         else:
             recalculate = True
 
         if recalculate or not self.ne.equals(ne) or not self.ni.equals(ni):
-            print("Recalculating")
             self.lz = deepcopy(lz)
             self.ne = deepcopy(ne)
             self.ni = deepcopy(ni)
@@ -1195,11 +1203,12 @@ class RadiationProfile:
                     * self.ni.sel(element=elem)
                 )
                 self._data.loc[dict(element=elem)] = xr.where(
-                    total_radiation >= 0, total_radiation, 0.0,
+                    total_radiation >= 0,
+                    total_radiation,
+                    0.0,
                 ).values
 
         return self._data
-
 
 
 class RadiationIntegral:
@@ -1211,8 +1220,9 @@ class RadiationIntegral:
         self.volume: DataArray = DataArray(None)
 
     def __call__(self, radiation_profile: DataArray, volume: DataArray):
-        if not self.radiation_profile.equals(radiation_profile) or not self.volume.equals(volume):
-            print("Recalculating")
+        if not self.radiation_profile.equals(
+            radiation_profile
+        ) or not self.volume.equals(volume):
             self.radiation_profile = deepcopy(radiation_profile)
             self.volume = deepcopy(volume)
             self._data = xr.full_like(self._data, 0.0)
@@ -1224,6 +1234,7 @@ class RadiationIntegral:
             else:
                 self._data.values = np.trapz(self.radiation_profile, self.volume)
         return self._data
+
 
 def example_run(
     pulse: int = None,
@@ -1290,10 +1301,7 @@ def example_run(
         equilibrium_data = reader.get("", "efit", 0)
 
     equilibrium = Equilibrium(equilibrium_data)
-    flux_transform = FluxSurfaceCoordinates("poloidal")
-    flux_transform.set_equilibrium(equilibrium)
     plasma.set_equilibrium(equilibrium)
-    plasma.set_flux_transform(flux_transform)
 
     return plasma
 
