@@ -106,7 +106,7 @@ class ThomsonScattering(DiagnosticModel):
 
 
 def example_run(
-    pulse:int=None,
+    pulse: int = None,
     diagnostic_name: str = "ts",
     plasma=None,
     plot=False,
@@ -175,3 +175,9 @@ def example_run(
         plt.legend()
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+    plt.ioff()
+    example_run(plot=True)
+    plt.show()

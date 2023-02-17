@@ -17,7 +17,9 @@ class Bolometer(DiagnosticModel):
     """
 
     def __init__(
-        self, name: str, instrument_method="get_radiation",
+        self,
+        name: str,
+        instrument_method="get_radiation",
     ):
 
         self.name = name
@@ -95,15 +97,15 @@ class Bolometer(DiagnosticModel):
         _emissivity = []
         for ielem, elem in enumerate(elements):
             _emissivity.append(
-                self.Lz[elem].sum("ion_charges")
-                * self.Nion.sel(element=elem)
-                * self.Ne
+                self.Lz[elem].sum("ion_charges") * self.Nion.sel(element=elem) * self.Ne
             )
         self.emissivity_element = xr.concat(_emissivity, "element")
         self.emissivity = self.emissivity_element.sum("element")
 
         self.los_integral = self.los_transform.integrate_on_los(
-            self.emissivity, t=t, calc_rho=calc_rho,
+            self.emissivity,
+            t=t,
+            calc_rho=calc_rho,
         )
 
         self._build_bckc_dictionary()
@@ -184,7 +186,9 @@ def example_run(
         passes=1,
     )
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = Bolometer(diagnostic_name,)
+    model = Bolometer(
+        diagnostic_name,
+    )
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
@@ -194,3 +198,9 @@ def example_run(
         model.plot()
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+    plt.ioff()
+    example_run(plot=True)
+    plt.show()

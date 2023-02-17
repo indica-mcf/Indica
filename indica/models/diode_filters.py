@@ -222,3 +222,9 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
         plt.legend()
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+    plt.ioff()
+    example_run(plot=True)
+    plt.show()

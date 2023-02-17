@@ -89,8 +89,7 @@ class Interferometry(DiagnosticModel):
         return self.bckc
 
 
-def example_run(
-    pulse:int=None,plasma=None, plot=False):
+def example_run(pulse: int = None, plasma=None, plot=False):
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
 
@@ -156,5 +155,6 @@ def example_run(
 
 
 if __name__ == "__main__":
-
+    plt.ioff()
     example_run(plot=True)
+    plt.show()
