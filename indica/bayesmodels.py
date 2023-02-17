@@ -1,7 +1,7 @@
 from copy import deepcopy
 import flatdict
 import numpy as np
-np.seterr(divide="ignore")
+np.seterr(all="ignore")
 import warnings
 warnings.simplefilter("ignore", category=FutureWarning)
 from scipy.stats import uniform
@@ -68,13 +68,11 @@ class BayesModels:
         ln_likelihood = 0
         for key in self.quant_to_optimise:
             # TODO: What to use as error?  Assume percentage error if none given...
-            ln_likelihood += np.log(
-                gaussian(
-                    self.bckc[key].values,
-                    self.data[key].sel(t=self.plasma.time_to_calculate).values,
-                    self.data[key].sel(t=self.plasma.time_to_calculate).values * 0.10,
-                )
-            )
+            _ln_likelihood = np.log(gaussian(self.bckc[key].values,
+                                             self.data[key].sel(t=self.plasma.time_to_calculate).values,
+                                             self.data[key].sel(t=self.plasma.time_to_calculate).values * 0.10,
+                                             ))
+            ln_likelihood += np.nansum(_ln_likelihood)
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
