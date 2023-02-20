@@ -69,8 +69,34 @@ class NeutralBeam:
     def run_BBNBI(self):
         print("Add code to run BBNBI")
 
-    def run_FIDASIM(self):
+    def run_FIDASIM_ST40(
+            self,
+            pulse: int,
+            run_name: str,
+            times: list,
+            path_to_code='/home/jonathan.wood/git_home/te-fidasim'
+    ):
         print("Add code to run FIDASIM")
+        import sys
+        sys.path.append(path_to_code)
+        import prepare_fidasim_ST40
+
+        # Inputs for #10009
+        geqdsk = 'input/ST40_10009_EFIT_BEST_57p15ms.geqdsk'
+        run_fidasim = True
+
+        # Run Fidasim
+        for time in times:
+            prepare_fidasim_ST40.main(
+                shot_number=pulse,
+                run=run_name,
+                spec="Princeton",
+                beam=self.name,
+                custom_geqdsk=geqdsk,
+                custom_time=time,
+                force_run_fidasim=run_fidasim,
+            )
+
 
     def gaussian_beam_representation(self, nx=101, ny=101, nz=51):
         print("Add code to generate Gaussian beam")
