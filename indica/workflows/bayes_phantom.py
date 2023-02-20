@@ -41,9 +41,9 @@ def plot_bayes_phantom(figheader="./results/test/", blobs=None, diag_data=None, 
         temp_data = blobs["xrcs.spectra"]
         plt.fill_between(temp_data.wavelength, temp_data.quantile(0.05, dim="index"), temp_data.quantile(0.95, dim="index"),
                          label="XRCS spectrum, 90% Confidence", zorder=3, color="blue")
-        plt.fill_between(temp_data.wavelength, temp_data.quantile(0.00, dim="index"),
-                         temp_data.quantile(1.00, dim="index"),
-                         label="XRCS spectrum, 100% Confidence", zorder=2, color="grey")
+        plt.fill_between(temp_data.wavelength, temp_data.quantile(0.01, dim="index"),
+                         temp_data.quantile(0.99, dim="index"),
+                         label="XRCS spectrum, 98% Confidence", zorder=2, color="grey")
         plt.plot(diag_data["xrcs.spectra"].wavelength,
                 diag_data["xrcs.spectra"].sel(t=plasma.time_to_calculate).values,
                  linestyle="-", color="black", label="xrcs.spectra data", zorder=4)
@@ -97,8 +97,8 @@ def plot_bayes_phantom(figheader="./results/test/", blobs=None, diag_data=None, 
     prof = blobs["electron_density"]
     plt.fill_between(prof.rho_poloidal, prof.quantile(0.05, dim="index"), prof.quantile(0.95, dim="index"),
         label="Ne, 90% Confidence", zorder=3, color="blue")
-    plt.fill_between(prof.rho_poloidal, prof.quantile(0.00, dim="index"), prof.quantile(1.00, dim="index"),
-        label="Ne, 100% Confidence", zorder=2, color="grey")
+    plt.fill_between(prof.rho_poloidal, prof.quantile(0.01, dim="index"), prof.quantile(0.99, dim="index"),
+        label="Ne, 98% Confidence", zorder=2, color="grey")
     if phantom_profiles:
         phantom_profiles["electron_density"].plot(label="phantom_profile", linestyle="--", color="black", zorder=4)
     plt.legend()
@@ -108,16 +108,16 @@ def plot_bayes_phantom(figheader="./results/test/", blobs=None, diag_data=None, 
     prof = blobs["electron_temperature"]
     plt.fill_between(prof.rho_poloidal, prof.quantile(0.05, dim="index"), prof.quantile(0.95, dim="index"),
         label="Te, 90% Confidence", zorder=3, color="blue")
-    plt.fill_between(prof.rho_poloidal, prof.quantile(0.00, dim="index"), prof.quantile(1.0, dim="index"),
-        label="Te, 100% Confidence", color="grey", zorder=2, alpha=0.7)
+    plt.fill_between(prof.rho_poloidal, prof.quantile(0.01, dim="index"), prof.quantile(0.99, dim="index"),
+        label="Te, 98% Confidence", color="grey", zorder=2, alpha=0.7)
     if phantom_profiles:
         phantom_profiles["electron_temperature"].plot(label="Te, phantom_profile", linestyle="--", color="black", zorder=4)
 
     prof = blobs["ion_temperature"].sel(element="ar")
     plt.fill_between(prof.rho_poloidal, prof.quantile(0.05, dim="index"), prof.quantile(0.95, dim="index"),
         label="Ti, 90% Confidence", zorder=3, color="red")
-    plt.fill_between(prof.rho_poloidal, prof.quantile(0.00, dim="index"), prof.quantile(1.0, dim="index", ),
-        label="Ti, 100% Confidence", color="grey", zorder=2, alpha=0.7)
+    plt.fill_between(prof.rho_poloidal, prof.quantile(0.01, dim="index"), prof.quantile(0.99, dim="index", ),
+        label="Ti, 98% Confidence", color="grey", zorder=2, alpha=0.7)
     if phantom_profiles:
         phantom_profiles["ion_temperature"].plot(label="Ti, phantom_profile", linestyle="-.", color="black", zorder=4)
     plt.legend()
@@ -128,8 +128,8 @@ def plot_bayes_phantom(figheader="./results/test/", blobs=None, diag_data=None, 
     prof = blobs["impurity_density"].sel(element="ar")
     plt.fill_between(prof.rho_poloidal, prof.quantile(0.05, dim="index"), prof.quantile(0.95, dim="index"),
         label="Nimp, 90% Confidence", zorder=3, color="red")
-    plt.fill_between(prof.rho_poloidal, prof.quantile(0.00, dim="index"), prof.quantile(1.0, dim="index", ),
-        label="Nimp, 100% Confidence", color="grey")
+    plt.fill_between(prof.rho_poloidal, prof.quantile(0.01, dim="index"), prof.quantile(0.99, dim="index", ),
+        label="Nimp, 98% Confidence", color="grey")
     if phantom_profiles:
         phantom_profiles["impurity_density"].plot(label="phantom_profile", linestyle="--", color="black", zorder=4)
     plt.legend()
