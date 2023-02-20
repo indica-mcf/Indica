@@ -436,6 +436,7 @@ class Helike_spectroscopy(DiagnosticModel):
         else:
             empty = xr.DataArray(np.nan, dims=_spectra.dims, coords=dict(wavelength=self.window[self.window<1].wavelength, rho_poloidal=_spectra.rho_poloidal))
         spectra = xr.concat([_spectra, empty], "wavelength")
+        spectra = spectra.sortby("wavelength")
         return spectra
 
     def _build_bckc_dictionary(self):
