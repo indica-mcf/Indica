@@ -68,10 +68,10 @@ class BayesModels:
         ln_likelihood = 0
         for key in self.quant_to_optimise:
             # TODO: What to use as error?  Assume percentage error if none given...
-            _ln_likelihood = np.log(gaussian(self.bckc[key].values,
-                                             self.data[key].sel(t=self.plasma.time_to_calculate).values,
-                                             self.data[key].sel(t=self.plasma.time_to_calculate).values * 0.10,
-                                             ))
+            # Float128 is used since rounding of small numbers causes problems when initial results are bad fits
+            model_data = self.bckc[key].values.astype("float128")
+            exp_data = self.data[key].sel(t=self.plasma.time_to_calculate).values.astype("float128")
+            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.10,))
             ln_likelihood += np.nansum(_ln_likelihood)
         return ln_likelihood
 
