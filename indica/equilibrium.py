@@ -18,9 +18,6 @@ from .numpy_typing import LabeledArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
-# TODO: this class works best if it's not an abstract class: why should it?
-
-
 class Equilibrium:
     """Class to hold and interpolate equilibrium data.
 
@@ -562,9 +559,9 @@ class Equilibrium:
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
 
         # Set rho to be negative in the private flux region
-        # rho_interp = where(
-        #     np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
-        # )
+        rho_interp = where(
+            np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
+        )
 
         return rho_interp, theta, t
 
