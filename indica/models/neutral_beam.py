@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 
 from ..converters.line_of_sight import LineOfSightTransform
+from ..models.plasma import Plasma
 
 
 analytical_beam_defaults = {
@@ -65,6 +66,12 @@ class NeutralBeam:
             dl=0.01,
             machine_dimensions=machine_dimensions,
         )
+
+    def set_plasma(self, plasma: Plasma):
+        """
+        Assign Plasma class to use for computation of forward model
+        """
+        self.plasma = plasma
 
     def run_BBNBI(self):
         print("Add code to run BBNBI")
