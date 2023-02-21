@@ -1,16 +1,16 @@
 from copy import deepcopy
+import os
+import indica
 
 import numpy as np
 import xarray as xr
-
 
 # Constants
 RY = 13.605  # eV
 PERCMTOEV = 1.239841e-4  # Convert 1/cm to eV
 
-# TODO: make this dependent on project only!!
-FILEHEAD = "/home/marco.sertoli/python/Indica/indica/data/Data_Argon/"
-
+head = os.path.dirname(indica.__file__)
+FILEHEAD = os.path.join(head, "data/Data_Argon/")
 
 def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "he"):
     """
@@ -368,11 +368,7 @@ class MARCHUKReader:
 
     def build_pec_lines(self, pec_database, extrapolate=True):
         # Add ADAS format
-        el_dens = np.array(
-            [
-                1.0e19,
-            ]
-        )
+        el_dens = np.array([1.0e19, ])
         pec_lines = self.calc_pec_lines(pec_database, extrapolate=extrapolate)
 
         for key, item in pec_lines.items():
@@ -382,7 +378,6 @@ class MARCHUKReader:
             pec_lines[key] = pec_lines[key].assign_coords(
                 index=("type", np.arange(item.type.__len__()))
             )
-            pec_lines[key] = pec_lines[key].swap_dims({"type": "index"})
         return pec_lines
 
     def calc_pec_lines(self, pec_database, extrapolate=True):
@@ -434,6 +429,8 @@ class MARCHUKReader:
                 pecs[line_name].type != "diel", drop=True
             )
             pecs[line_name] = xr.concat([pecs[line_name], diel], dim="type")
+            # Due to bug in xr.concat change "type" dtype back to string
+            pecs[line_name] = pecs[line_name].assign_coords(dict(type = pecs[line_name].type.astype("U")))
         return pecs
 
     def set_marchuk_pecs(self, pec_lines):
@@ -485,7 +482,7 @@ class MARCHUKReader:
             "qra": {
                 "element": "ar",
                 "file": self.filehead,
-                "charge": 15,
+                "charge": 16,
                 "transition": "",
                 "wavelength": 4.0,
             },
@@ -499,7 +496,7 @@ class MARCHUKReader:
             pec[line]["emiss_coeff"] = (
                 pec[line]["emiss_coeff"]
                 .sel(electron_density=4.0e19, method="nearest")
-                .drop("electron_density")
+                .drop_vars("electron_density")
             )
 
         self.adf15 = adf15

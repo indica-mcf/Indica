@@ -13,6 +13,7 @@ from typing import Iterable
 from typing import List
 from typing import Set
 from typing import Tuple
+import xarray as xr
 
 import numpy as np
 import prov.model as prov
@@ -25,7 +26,7 @@ from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
 from ..converters import MagneticCoordinates
-from ..converters import TransectCoordinates
+from indica.converters.transect_rho import TransectCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import ArrayType
 from ..numpy_typing import ArrayLike
@@ -192,16 +193,21 @@ class DataReader(BaseIO):
         _revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
-        diagnostic_coord = instrument + "_coord"
+        # diagnostic_coord = instrument + "_coord"
+        diagnostic_coord = "channel"
         times = database_results["times"]
         x = database_results["x"]
         y = database_results["y"]
         z = database_results["z"]
+        R = database_results["R"]  # np.sqrt(x**2 + y**2)
         x_coord = DataArray(x, coords=[(diagnostic_coord, ticks)])
         y_coord = DataArray(y, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
-        R_coord = DataArray(x, coords=[(diagnostic_coord, ticks)])
-        transform = TransectCoordinates(R_coord, z_coord)
+        R_coord = DataArray(R, coords=[(diagnostic_coord, ticks)])
+        null_array = xr.full_like(x_coord, 0.)
+        if all(x_coord == null_array) and all(y_coord == null_array):
+            x_coord = R_coord
+        transform = TransectCoordinates(x_coord, y_coord, z_coord, f"{instrument}",)
         coords: Dict[Hashable, ArrayLike] = {
             "t": times,
             diagnostic_coord: ticks,
@@ -209,6 +215,7 @@ class DataReader(BaseIO):
             "x": x_coord,
             "y": y_coord,
             "z": z_coord,
+            "R": R_coord,
         }
         dims = ["t", diagnostic_coord]
         data = {}
@@ -230,10 +237,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -246,9 +250,10 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            drop = self._select_channels(
-                "thomson", uid, instrument, quantity, quant_data, transform.x1_name
-            )
+            drop: list = []
+            # drop = self._select_channels(
+            #     "thomson", uid, instrument, quantity, quant_data, transform.x1_name
+            # )
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "thomson_scattering",
                 uid,
@@ -291,26 +296,25 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_charge_exchange(
-            uid,
-            instrument,
-            revision,
-            quantities,
-            dl,
+            uid, instrument, revision, quantities, dl,
         )
+        # return database_results
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
         _revision = database_results["revision"]
 
         ticks = np.arange(database_results["length"])
-        diagnostic_coord = instrument + "_coord"
+        # diagnostic_coord = instrument + "_coord"
+        diagnostic_coord = "channel"
         data = {}
         # needs change (see GET_RADIATION) - but must still work for other readers
         x_coord = DataArray(database_results["x"], coords=[(diagnostic_coord, ticks)])
         y_coord = DataArray(database_results["y"], coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(database_results["z"], coords=[(diagnostic_coord, ticks)])
-        R_coord = DataArray(database_results["x"], coords=[(diagnostic_coord, ticks)])
-        transform = TransectCoordinates(R_coord, z_coord)
+        R_coord = DataArray(database_results["R"], coords=[(diagnostic_coord, ticks)])
+        # R_coord = np.sqrt(x_coord**2 + y_coord**2)
+        transform = TransectCoordinates(x_coord, y_coord, z_coord, f"{instrument}",)
         times = database_results["times"]
         coords: Dict[Hashable, Any] = {
             "t": times,
@@ -319,6 +323,7 @@ class DataReader(BaseIO):
             "x": x_coord,
             "y": y_coord,
             "z": z_coord,
+            "R": R_coord,
         }
         dims = ["t", diagnostic_coord]
         downsample_ratio = int(
@@ -357,10 +362,7 @@ class DataReader(BaseIO):
                 "exposure_time": texp,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -373,9 +375,10 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            drop = self._select_channels(
-                "cxrs", uid, instrument, quantity, quant_data, diagnostic_coord
-            )
+            drop: list = []
+            # drop = self._select_channels(
+            #     "cxrs", uid, instrument, quantity, quant_data, diagnostic_coord
+            # )
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "cxrs",
                 uid,
@@ -387,6 +390,7 @@ class DataReader(BaseIO):
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
             data[quantity] = quant_data.drop_sel({diagnostic_coord: drop})
+
         return data
 
     def _get_charge_exchange(
@@ -457,9 +461,7 @@ class DataReader(BaseIO):
             coords_2d: Dict[Hashable, ArrayLike] = {"t": times, diagnostic_coord: rho}
         else:
             coords_2d = {}
-        flux_transform = FluxSurfaceCoordinates(
-            "poloidal",
-        )
+        flux_transform = FluxSurfaceCoordinates("poloidal",)
         dims_2d = ("t", diagnostic_coord)
         if len(separatrix_quantities & quantities):
             coords_sep: Dict[Hashable, ArrayLike] = {"t": times}
@@ -492,7 +494,7 @@ class DataReader(BaseIO):
         for quantity in sorted_quantities:
             if quantity not in available_quantities:
                 raise ValueError(
-                    "{} can not read thomson_scattering data for "
+                    "{} cannot read data for "
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
             meta = {
@@ -519,10 +521,7 @@ class DataReader(BaseIO):
                 dims = dims_2d
 
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             )
             if "t" in dims:
                 quant_data = quant_data.sel(t=slice(self._tstart, self._tend))
@@ -621,10 +620,7 @@ class DataReader(BaseIO):
                 "transform": transform,
             }
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -637,15 +633,16 @@ class DataReader(BaseIO):
                     / downsample_ratio
                 )
             quant_data.name = instrument + "_" + quantity
-            drop = self._select_channels(
-                "cyclotron",
-                uid,
-                instrument,
-                quantity,
-                quant_data,
-                transform.x1_name,
-                database_results["bad_channels"],
-            )
+            drop: list = []
+            # drop = self._select_channels(
+            #     "cyclotron",
+            #     uid,
+            #     instrument,
+            #     quantity,
+            #     quant_data,
+            #     transform.x1_name,
+            #     database_results["bad_channels"],
+            # )
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "cyclotron_emissions",
                 uid,
@@ -691,6 +688,7 @@ class DataReader(BaseIO):
         database_results = self._get_radiation(
             uid, instrument, revision, quantities, dl
         )
+        # return database_results
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -733,11 +731,9 @@ class DataReader(BaseIO):
             ),
             "transform": transform,
         }
-        quant_data = DataArray(
-            database_results[quantity],
-            coords,
-            attrs=meta,
-        ).sel(t=slice(self._tstart, self._tend))
+        quant_data = DataArray(database_results[quantity], coords, attrs=meta,).sel(
+            t=slice(self._tstart, self._tend)
+        )
         if downsample_ratio > 1:
             quant_data = quant_data.coarsen(
                 t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -840,10 +836,7 @@ class DataReader(BaseIO):
             "transform": transform,
         }
         quant_data = DataArray(
-            database_results[quantity],
-            coords,
-            dims,
-            attrs=meta,
+            database_results[quantity], coords, dims, attrs=meta,
         ).sel(t=slice(self._tstart, self._tend))
         if downsample_ratio > 1:
             quant_data = quant_data.coarsen(
@@ -964,10 +957,7 @@ class DataReader(BaseIO):
                     database_results[quantity_error], coords, dims
                 ).sel(t=slice(self._tstart, self._tend))
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1073,10 +1063,7 @@ class DataReader(BaseIO):
             "transform": transform,
         }
         quant_data = DataArray(
-            database_results[quantity],
-            coords,
-            dims,
-            attrs=meta,
+            database_results[quantity], coords, dims, attrs=meta,
         ).sel(t=slice(self._tstart, self._tend))
         if downsample_ratio > 1:
             quant_data = quant_data.coarsen(
@@ -1185,10 +1172,7 @@ class DataReader(BaseIO):
             }
 
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
@@ -1300,10 +1284,7 @@ class DataReader(BaseIO):
             }
 
             quant_data = DataArray(
-                database_results[quantity],
-                coords,
-                dims,
-                attrs=meta,
+                database_results[quantity], coords, dims, attrs=meta,
             ).sel(t=slice(self._tstart, self._tend))
 
             # TODO: careful with interpolation on new rho_poloidal array...
@@ -1311,7 +1292,7 @@ class DataReader(BaseIO):
             # Interpolate PSI_NORM profiles on same coordinate system
             if name_coord == "rho_toroidal":
                 rho_toroidal_0 = quant_data.rho_toroidal.min()
-                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop(
+                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
                     "rho_toroidal"
                 )
                 quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
@@ -1416,10 +1397,7 @@ class DataReader(BaseIO):
         }
         activity_id = hash_vals(agent=self.prov_id, date=end_time)
         activity = self.session.prov.activity(
-            activity_id,
-            self._start_time,
-            end_time,
-            {prov.PROV_TYPE: "ReadData"},
+            activity_id, self._start_time, end_time, {prov.PROV_TYPE: "ReadData"},
         )
         activity.wasAssociatedWith(self.session.agent)
         activity.wasAssociatedWith(self.agent)
@@ -1507,9 +1485,7 @@ class DataReader(BaseIO):
         return ignored
 
     def _set_times_item(
-        self,
-        results: Dict[str, Any],
-        times: np.ndarray,
+        self, results: Dict[str, Any], times: np.ndarray,
     ):
         """Add the "times" data to the dictionary, if not already
         present.

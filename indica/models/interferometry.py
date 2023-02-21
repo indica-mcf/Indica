@@ -89,9 +89,10 @@ class Interferometry(DiagnosticModel):
         return self.bckc
 
 
-def example_run(plasma=None, plot=False):
+def example_run(
+    pulse:int=None,plasma=None, plot=False):
     if plasma is None:
-        plasma = example_plasma()
+        plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     diagnostic_name = "smmh1"
