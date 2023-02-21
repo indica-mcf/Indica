@@ -14,7 +14,7 @@ import hda.physics as ph
 
 #TODO: add Marchuk PECs to repo or to .indica/ (more easily available to others)
 
-MARCHUK = "/home/marco.sertoli/python/Indica/hda/Marchuk_Argon_PEC.pkl"
+MARCHUK = "/home/marco.sertoli/.indica/adas/Marchuk_Argon_PEC.pkl"
 ADF15 = {
     "w": {
         "element": "ar",
