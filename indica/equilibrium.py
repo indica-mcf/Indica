@@ -35,15 +35,12 @@ class Equilibrium:
         A collection of equilibrium data rea in using
         :py:meth:`~indica.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
-    T_e : Optional[DataArray]
-        Electron temperature data (from HRTS on JET). If present, used to compute
-        an offset of the equilibrium along the major radius.
     R_shift : float
-        How much to shift the equilibrium profile inwards on the major radius.
-        Ignored if `T_e` is also passed as an argument.
-    z_shift : flaot
-        How much to shift the equilibrium profile downwards in the vertical
-        coordinate.
+        How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
+        on the major radius.
+    z_shift : float
+        How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
+        in the vertical coordinate.
     sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
@@ -565,9 +562,9 @@ class Equilibrium:
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
 
         # Set rho to be negative in the private flux region
-        rho_interp = where(
-            np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
-        )
+        # rho_interp = where(
+        #     np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
+        # )
 
         return rho_interp, theta, t
 

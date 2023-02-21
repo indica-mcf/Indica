@@ -33,7 +33,7 @@ class ChargeExchange(DiagnosticModel):
 
         for quant in self.quantities:
             datatype = self.quantities[quant]
-            if quant == "angf":
+            if quant == "vtor":
                 quantity = quant
                 self.bckc[quantity] = self.Vtor_at_channels
             elif quant == "ti":
@@ -113,6 +113,7 @@ class ChargeExchange(DiagnosticModel):
 
 
 def example_run(
+    pulse:int=None,
     diagnostic_name: str = "cxrs",
     plasma=None,
     plot=False,
@@ -121,7 +122,7 @@ def example_run(
     # TODO: LOS sometimes crossing bad EFIT reconstruction
 
     if plasma is None:
-        plasma = example_plasma()
+        plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     nchannels = 5
@@ -161,7 +162,7 @@ def example_run(
                 label=f"t={t:1.2f} s",
                 alpha=0.7,
             )
-            Vtor = bckc["angf"].sel(t=t, method="nearest")
+            Vtor = bckc["vtor"].sel(t=t, method="nearest")
             plt.scatter(
                 Vtor.rho_poloidal, Vtor, color=cols_time[i], marker="o", alpha=0.7
             )

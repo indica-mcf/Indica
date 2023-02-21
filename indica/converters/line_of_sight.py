@@ -83,18 +83,19 @@ class LineOfSightTransform(CoordinateTransform):
         self.dl_target = dl
         self.passes = passes
 
-        self.dl: list = []
-        self.x: list = []
-        self.y: list = []
-        self.z: list = []
-        self.R: list = []
-        self.phi: list = []
-        self.rho: list = []
-        self.theta: list = []
-        self.along_los: list = []
+        self.dl: float
+        self.dl_all: list
+        self.x: DataArray
+        self.y: DataArray
+        self.z: DataArray
+        self.R: DataArray
+        self.phi: DataArray
+        self.rho: DataArray
+        self.theta: DataArray
+        self.along_los: DataArray
         self.los_integral: DataArray
         self.t: LabeledArray
-        self.x2: list = []
+        self.x2: LabeledArray
 
         self.origin_x = origin_x
         self.origin_y = origin_y
@@ -135,7 +136,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
         self.z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
 
-        self.x2, self.dl = self.set_dl(dl)
+        self.x2, self.dl = self.set_dl(self.dl_target)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -157,63 +158,42 @@ class LineOfSightTransform(CoordinateTransform):
     def convert_to_xy(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
-        y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
+        c = np.ceil(x1).astype(int)
+        f = np.floor(x1).astype(int)
+        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        x = x_s + (x_e - x_s) * x2
+        y = y_s + (y_e - y_s) * x2
+
         return x, y
 
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
-        y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
-        z = self.z_start[x1] + (self.z_end[x1] - self.z_start[x1]) * x2
-        return np.sqrt(x**2 + y**2), z
+        c = np.ceil(x1).astype(int)
+        f = np.floor(x1).astype(int)
+        x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
+        x_e = (self.x_end[c] - self.x_end[f]) * (x1 - f) + self.x_end[f]
+        y_s = (self.y_start[c] - self.y_start[f]) * (x1 - f) + self.y_start[f]
+        y_e = (self.y_end[c] - self.y_end[f]) * (x1 - f) + self.y_end[f]
+        z_s = (self.z_start[c] - self.z_start[f]) * (x1 - f) + self.z_start[f]
+        z_e = (self.z_end[c] - self.z_end[f]) * (x1 - f) + self.z_end[f]
+        x = x_s + (x_e - x_s) * x2
+        y = y_s + (y_e - y_s) * x2
+        z = z_s + (z_e - z_s) * x2
+
+        return np.sqrt(x ** 2 + y ** 2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        def jacobian(x):
-            # x1 = x[0]
-            x2 = x[1]
-            x = self.x_start + (self.x_end - self.x_start) * x2
-            y = self.y_start + (self.y_end - self.y_start) * x2
-            # z = self.z_start + (self.z_end - self.z_start) * x2
-            dxdx1 = 0.0
-            dxdx2 = self.x_end - self.x_start
-            dydx1 = 0.0
-            dydx2 = self.y_end - self.y_start
-            dzdx1 = 0.0
-            dzdx2 = self.z_end - self.z_start
-            return [
-                [
-                    2 / x * (x * dxdx1 + y * dydx1),
-                    2 / x * (x * dxdx2 + y * dydx2),
-                ],
-                [dzdx1, dzdx2],
-            ]
 
-        def forward(x):
-            x_prime, z_prime = self.convert_to_Rz(x[0], x[1], 0)
-            return [x_prime - R, z_prime - z]
-
-        @np.vectorize
-        def invert(R, z):
-            """Perform a nonlinear-solve for an R-z pair."""
-            # x = [R, z]
-            result = root(forward, [0, 0.5], jac=jacobian)
-            if not result.success:
-                raise RuntimeWarning(
-                    "Solver did not fully converge while inverting lines of sight."
-                )
-            return result.x[0], result.x[1]
-
-        raise NotImplementedError("Not checked for multiple LOS...")
-
-        Rz = invert(R, z)
-        return Rz[0], Rz[1]
-        # # TODO: Consider if there is some way to invert this exactly,
-        # # rather than rely on interpolation (which is necessarily
-        # # inexact, as well as computationally expensive).
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a 'convert_from_Rz' "
+            "method."
+        )
 
     def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
         """
@@ -221,13 +201,17 @@ class LineOfSightTransform(CoordinateTransform):
         """
         self.check_equilibrium()
 
+        _t = np.array(t)
+        if np.size(t) == 1:
+            _t = float(_t)
+
         rho = []
         theta = []
         _rho: DataArray
         _theta: DataArray
-        for channel in self.x1:
+        for chan in self.x1:
             _rho, _theta, _ = self.equilibrium.flux_coords(
-                self.R[channel], self.z[channel], t=t
+                self.R.sel(channel=chan), self.z.sel(channel=chan), t=_t
             )
             drop_vars = ["R", "z"]
             for var in drop_vars:
@@ -236,24 +220,17 @@ class LineOfSightTransform(CoordinateTransform):
                 if var in _theta.coords:
                     _theta = _theta.drop_vars(var)
 
-            _rho.assign_coords({self.x2_name: self.x2[channel].values})
-            _theta.assign_coords({self.x2_name: self.x2[channel].values})
-
             rho.append(xr.where(_rho >= 0, _rho, np.nan))
             theta.append(xr.where(_rho >= 0, _theta, np.nan))
 
-        self.t = t
-        self.rho = rho
-        self.theta = theta
+        self.t = _t
+        self.rho = xr.concat(rho, "channel")
+        self.theta = xr.concat(theta, "channel")
 
-        return rho, theta
+        return self.rho, self.theta
 
     def distance(
-        self,
-        direction: str,
-        x1: LabeledArray,
-        x2: LabeledArray,
-        t: LabeledArray,
+        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -270,10 +247,7 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def set_dl(
-        self,
-        dl: float,
-    ) -> tuple:
+    def set_dl(self, dl: float,) -> tuple:
         """
         Set spatial resolutions of the lines of sight, and calculate spatial
         coordinates along the LOS
@@ -290,6 +264,8 @@ class LineOfSightTransform(CoordinateTransform):
             each point separated by dl in Cartesian coordinates
         dl
             Recomputed dl to fit an integral number of points in-between start & end
+
+        TODO: modify to have all LOS with identical dl !!!
         """
 
         x: list = []
@@ -314,7 +290,6 @@ class LineOfSightTransform(CoordinateTransform):
         for x1 in self.x1:
             ind = np.linspace(0, 1, npts[x1], dtype=float)
             _x2 = DataArray(ind, dims=self.x2_name)
-            x2.append(_x2)
             dl_new.append(self.distance(self.x2_name, 0, _x2[0:2], 0)[1])
 
             _x, _y = self.convert_to_xy(x1, _x2, 0)
@@ -326,16 +301,33 @@ class LineOfSightTransform(CoordinateTransform):
             z.append(_z)
             phi.append(_phi)
 
+        # Make all LOS of equal length, setting to NaN everything outside of of bounds
+        npts = np.max([len(_x) for _x in x])
+        x2 = np.linspace(0, 1, npts)
+        _x, _y, _z, _phi = [], [], [], []
+        for chan in self.x1:
+            _x2 = x2[: len(x[chan])]
+            x_tmp = x[chan].assign_coords({"los_position": _x2})
+            y_tmp = y[chan].assign_coords({"los_position": _x2})
+            z_tmp = z[chan].assign_coords({"los_position": _x2})
+            phi_tmp = z[chan].assign_coords({"los_position": _x2})
+            _x.append(x_tmp.interp(los_position=x2))
+            _y.append(y_tmp.interp(los_position=x2))
+            _z.append(z_tmp.interp(los_position=x2))
+            _phi.append(phi_tmp.interp(los_position=x2))
+
         self.x2 = x2
-        self.dl = dl_new
-        self.x = x
-        self.y = y
-        self.z = z
-        self.R = R
-        self.phi = phi
+        dl = np.mean(dl_new)
+        self.dl_all = DataArray(dl_new, coords=[("channel", self.x1)])
+        self.dl = dl
+        self.x = xr.concat(_x, "channel")
+        self.y = xr.concat(_y, "channel")
+        self.z = xr.concat(_z, "channel")
+        self.phi = xr.concat(_phi, "channel")
+        self.R = np.sqrt(self.x ** 2 + self.y ** 2)
         self.impact_parameter = self.calc_impact_parameter()
 
-        return x2, dl_new
+        return x2, dl
 
     def map_to_los(
         self,
@@ -365,26 +357,14 @@ class LineOfSightTransform(CoordinateTransform):
         self.check_equilibrium()
 
         profile = self.check_rho_and_profile(t, profile_to_map, calc_rho=calc_rho)
+        impact_rho = self.rho.min("los_position")
 
-        along_los = []
-        _impact_rho = []
-        for channel in self.x1:
-            rho = self.rho[channel]
-            _along_los = profile.interp(rho_poloidal=rho)
-            if limit_to_sep:
-                _along_los = xr.where(
-                    rho <= 1,
-                    _along_los,
-                    np.nan,
-                )
-            along_los.append(_along_los)
-            _impact_rho.append(rho.min("los_position"))
+        along_los = profile.interp(rho_poloidal=self.rho).drop_vars("rho_poloidal")
+        if limit_to_sep:
+            along_los = xr.where(self.rho <= 1, along_los, np.nan,)
 
         self.along_los = along_los
-        impact_rho = xr.concat(_impact_rho, self.x1_name).assign_coords(
-            {self.x1_name: self.x1}
-        )
-        self.impact_parameter_rho = impact_rho
+        self.impact_rho = impact_rho
 
         return along_los
 
@@ -394,39 +374,53 @@ class LineOfSightTransform(CoordinateTransform):
         """
         Check requested times
         """
+
+        time = np.array(t)
+        if time.size == 1:
+            time = float(time)
+
         equil_t = self.equilibrium.rho.t
-        equil_ok = (np.min(t) > np.min(equil_t)) * (np.max(t) < np.max(equil_t))
+        equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
         if not equil_ok:
-            raise ValueError("Inserted time is not available in Equilibrium object")
+            print(f"Available equilibrium times {np.array(equil_t)}")
+            raise ValueError(
+                f"Inserted time {time} is not available in Equilibrium object"
+            )
 
         # Make sure rho.t == requested time
-        if len(self.rho) == 0 or calc_rho:
-            self.convert_to_rho(t=t)
-        if not np.array_equal(self.rho[0].t, t):
-            self.convert_to_rho(t=t)
+        if not hasattr(self, "rho") or calc_rho:
+            self.convert_to_rho(t=time)
+        else:
+            if not np.array_equal(self.rho.t, time):
+                self.convert_to_rho(t=time)
 
         # Check profile
         if not hasattr(profile_to_map, "t"):
-            if np.size(t) == 1:
-                profile = profile_to_map
-            else:
-                profile = profile_to_map.expand_dims(dim={"t": t})
+            profile = profile_to_map.expand_dims({"t": time})
         else:
-            if np.size(t) == 1 and profile_to_map.t == t:
-                profile = profile_to_map
+            profile = profile_to_map
+
+        if np.size(time) == 1:
+            if np.isclose(profile.t, time, rtol=1.0e-4):
+                if "t" in profile_to_map.dims:
+                    profile = profile.sel(t=time, method="nearest")
             else:
-                prof_t = profile_to_map.t
-                range_ok = (np.min(t) >= np.min(prof_t)) * (np.max(t) <= np.max(prof_t))
-                if range_ok:
-                    profile = profile_to_map.interp(t=t)
-                else:
-                    raise ValueError("Profile does not include requested time")
+                raise ValueError("Profile does not include requested time")
+        else:
+            prof_t = profile.t
+            range_ok = (np.min(time) >= np.min(prof_t)) * (
+                np.max(time) <= np.max(prof_t)
+            )
+            if range_ok:
+                profile = profile.interp(t=time)
+            else:
+                raise ValueError("Profile does not include requested time")
 
         return profile
 
     def integrate_on_los(
         self,
-        profile_1d: DataArray,
+        profile_to_map: DataArray,
         t: LabeledArray = None,
         limit_to_sep=True,
         calc_rho=False,
@@ -447,22 +441,9 @@ class LineOfSightTransform(CoordinateTransform):
         Line of sight integral along the LOS
         """
         along_los = self.map_to_los(
-            profile_1d,
-            t=t,
-            limit_to_sep=limit_to_sep,
-            calc_rho=calc_rho,
+            profile_to_map, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
         )
-
-        _los_integral = []
-        for channel in self.x1:
-            _along_los = along_los[channel].drop_vars("rho_poloidal")
-            _los_integral.append(
-                self.passes * _along_los.sum(self.x2_name) * self.dl[channel]
-            )
-
-        los_integral = xr.concat(_los_integral, self.x1_name).assign_coords(
-            {self.x1_name: self.x1}
-        )
+        los_integral = self.passes * along_los.sum("los_position") * self.dl
 
         if len(los_integral.channel) == 1:
             los_integral = los_integral.sel(channel=0)
@@ -480,14 +461,23 @@ class LineOfSightTransform(CoordinateTransform):
         z = []
         R = []
         for ch in self.x1:
-            distance = np.sqrt(self.x[ch] ** 2 + self.y[ch] ** 2 + self.z[ch] ** 2)
+            distance = np.sqrt(
+                self.x.sel(channel=ch) ** 2
+                + self.y.sel(channel=ch) ** 2
+                + self.z.sel(channel=ch) ** 2
+            )
             _index = distance.argmin()
             index.append(_index)
             impact.append(distance[_index])
-            x.append(self.x[ch][_index])
-            y.append(self.y[ch][_index])
-            z.append(self.z[ch][_index])
-            R.append(np.sqrt(self.x[ch][_index] ** 2 + self.y[ch][_index] ** 2))
+            x.append(self.x.sel(channel=ch)[_index])
+            y.append(self.y.sel(channel=ch)[_index])
+            z.append(self.z.sel(channel=ch)[_index])
+            R.append(
+                np.sqrt(
+                    self.x.sel(channel=ch)[_index] ** 2
+                    + self.y.sel(channel=ch)[_index] ** 2
+                )
+            )
 
         impact = Dataset(
             {
@@ -504,7 +494,7 @@ class LineOfSightTransform(CoordinateTransform):
 
     def plot_los(
         self,
-        tplot: float,
+        tplot: float = None,
         orientation: str = "xy",
         plot_all: bool = False,
         figure: bool = True,
@@ -516,6 +506,8 @@ class LineOfSightTransform(CoordinateTransform):
             machine_dimensions=self._machine_dims
         )
         if hasattr(self, "equilibrium"):
+            if tplot is None:
+                tplot = np.mean(self.equilibrium.rho.t)
             equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(tplot)
             x_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.cos(
                 angles
@@ -534,7 +526,12 @@ class LineOfSightTransform(CoordinateTransform):
                 plt.plot(equil_bounds["x_out"], equil_bounds["y_out"], color="red")
                 plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
             for ch in self.x1:
-                plt.plot(self.x[ch], self.y[ch], color=cols[ch], linewidth=2)
+                plt.plot(
+                    self.x.sel(channel=ch),
+                    self.y.sel(channel=ch),
+                    color=cols[ch],
+                    linewidth=2,
+                )
                 plt.plot(
                     self.impact_parameter["x"][ch],
                     self.impact_parameter["y"][ch],
@@ -571,7 +568,12 @@ class LineOfSightTransform(CoordinateTransform):
             if hasattr(self, "equilibrium"):
                 rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
             for ch in channels:
-                plt.plot(self.R[ch], self.z[ch], color=cols[ch], linewidth=2)
+                plt.plot(
+                    self.R.sel(channel=ch),
+                    self.z.sel(channel=ch),
+                    color=cols[ch],
+                    linewidth=2,
+                )
                 plt.plot(
                     self.impact_parameter["R"][ch],
                     self.impact_parameter["z"][ch],
@@ -586,8 +588,81 @@ class LineOfSightTransform(CoordinateTransform):
             if figure:
                 plt.figure()
             for ch in channels:
-                self.rho[ch].sel(t=tplot, method="nearest").plot(
+                self.rho.sel(channel=ch, t=tplot, method="nearest").plot(
                     color=cols[ch], linewidth=2
                 )
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
+
+        return cols
+
+
+def example_run(
+    pulse: int = None,
+    plasma=None,
+    origin: LabeledArray = None,
+    direction: LabeledArray = None,
+    plot=False,
+    t: LabeledArray = None,
+):
+    from indica.models.equilibrium import fake_equilibrium_data, Equilibrium
+    from indica.models.plasma import example_run as example_plasma
+    from indica.readers import ST40Reader
+
+    if plasma is None:
+        plasma = example_plasma(pulse=pulse)
+    equilibrium = plasma.equilibrium
+    machine_dims = plasma.machine_dimensions
+
+    if origin is None or direction is None:
+        nchannels = 11
+        los_end = np.full((nchannels, 3), 0.0)
+        los_end[:, 0] = 0.17
+        los_end[:, 1] = 0.0
+        los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
+        los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
+        origin = los_start
+        direction = los_end - los_start
+
+    los_transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name="",
+        machine_dimensions=machine_dims,
+        passes=1,
+    )
+    los_transform.set_equilibrium(equilibrium)
+
+    if plot:
+        los_transform.plot_los()
+
+    return plasma, los_transform
+
+    # Test rho calculation
+    t_types = [
+        float(plasma.t.mean()),
+        plasma.t.mean(),
+        np.array([float(plasma.t.mean())]),
+        [float(plasma.t.mean())],
+        plasma.t,
+    ]
+    for t in t_types:
+        print(t)
+        rho, theta = los_transform.convert_to_rho(t=t)
+
+    # Test profile interpolation
+    # plt.ion()
+    for i, t in enumerate(t_types):
+        profile_to_map = plasma.electron_density.sel(t=t, method="nearest")
+        along_los = los_transform.map_to_los(profile_to_map, t=t)
+        los_int = los_transform.integrate_on_los(profile_to_map, t=t)
+        # plt.figure()
+        # along_los.plot()
+        # plt.figure()
+        # los_int.plot()
+
+    return plasma, los_transform
