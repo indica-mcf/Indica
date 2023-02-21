@@ -2,33 +2,23 @@
 """
 
 import datetime
-from typing import Any
 from typing import cast
 from typing import Dict
-from typing import Hashable
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
 import prov.model as prov
-from scipy.integrate import trapz
 from xarray import apply_ufunc
-from xarray import concat
 from xarray import DataArray
 from xarray import where
 
 from . import session
-from .abstract_equilibrium import AbstractEquilibrium
 from .numpy_typing import LabeledArray
-from .offset import interactive_offset_choice
-from .offset import OffsetPicker
-from .operators import SplineFit
-from .utilities import coord_array
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
-
-class Equilibrium(AbstractEquilibrium):
+class Equilibrium:
     """Class to hold and interpolate equilibrium data.
 
     At instantiation it will require calibration to select an offset
@@ -42,15 +32,12 @@ class Equilibrium(AbstractEquilibrium):
         A collection of equilibrium data rea in using
         :py:meth:`~indica.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
-    T_e : Optional[DataArray]
-        Electron temperature data (from HRTS on JET). If present, used to compute
-        an offset of the equilibrium along the major radius.
     R_shift : float
-        How much to shift the equilibrium profile inwards on the major radius.
-        Ignored if `T_e` is also passed as an argument.
-    z_shift : flaot
-        How much to shift the equilibrium profile downwards in the vertical
-        coordinate.
+        How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
+        on the major radius.
+    z_shift : float
+        How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
+        in the vertical coordinate.
     sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
@@ -63,11 +50,9 @@ class Equilibrium(AbstractEquilibrium):
     def __init__(
         self,
         equilibrium_data: Dict[str, DataArray],
-        T_e: Optional[DataArray] = None,
         R_shift: float = 0.0,
         z_shift: float = 0.0,
         sess: session.Session = session.global_session,
-        offset_picker: OffsetPicker = interactive_offset_choice,
     ):
 
         self._session = sess
@@ -82,76 +67,18 @@ class Equilibrium(AbstractEquilibrium):
         self.rmji = equilibrium_data["rmji"]
         self.rmjo = equilibrium_data["rmjo"]
         self.psi = equilibrium_data["psi"]
+        self.psin = equilibrium_data["psin"]
         self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-        self.vjac = equilibrium_data["vjac"]
+
+        dpsin = self.psin[1] - self.psin[0]
+        self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
+        self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
         self.rmag = equilibrium_data["rmag"]
         self.rbnd = equilibrium_data["rbnd"]
         self.zmag = equilibrium_data["zmag"]
         self.zbnd = equilibrium_data["zbnd"]
         self.zx = self.zbnd.min("arbitrary_index")
-        if T_e is not None:
-            offsets = coord_array(np.linspace(0.0, 0.04, 9), "offset")
-            t = T_e.coords["t"].assign_attrs(datatype=("time", "plasma"))
-            separatrix = DataArray(1.0, attrs={"datatype": ("norm_flux_pol", "plasma")})
-            separatrix.coords["norm_flux_pol"] = 1.0
-            Rmag = self.rmag.interp(t=T_e.coords["t"], method="nearest") - offsets
-            zmag = self.zmag.interp(t=T_e.coords["t"], method="nearest") - z_shift
-            rhos = concat(
-                [
-                    self.rho.interp(t=t, method="nearest").indica.interp2d(
-                        R=T_e.coords["index"] - offset,
-                        z=T_e.coords["index_z_offset"] - z_shift,
-                        zero_coords={
-                            "R": Rmag.sel(offset=offset),
-                            "z": zmag,
-                        },
-                        method="cubic",
-                        assume_sorted=True,
-                    )
-                    for offset in offsets
-                ],
-                offsets,
-            )
-            del rhos.coords[None]
-
-            thetas = np.arctan2(
-                T_e.coords["index_z_offset"] + z_shift - zmag,
-                T_e.coords["index"] + offsets - Rmag,
-            )
-            T_e_with_rho = T_e.expand_dims(
-                cast(Dict[Hashable, Any], {"offset": offsets})
-            ).assign_coords(rho_poloidal=rhos, theta=thetas)
-            fitter = SplineFit(lower_bound=0.0, sess=sess)
-
-            T_e_sep = concat(
-                [
-                    fitter(separatrix, t, T_e_with_rho.sel(offset=offset))[0]
-                    for offset in offsets
-                ],
-                offsets,
-            )
-
-            square_residuals = (T_e_sep - 100.0) ** 2
-            best_fits = square_residuals.offset[square_residuals.argmin(dim="offset")]
-            overall_best = best_fits.mean()
-            fluxes = rhos.sel(offset=overall_best, method="nearest")
-            offset = float(fluxes.offset)
-            offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-            while not accept:
-                fluxes = self.rho.interp(
-                    t=T_e.coords["t"], method="nearest"
-                ).indica.interp2d(
-                    R=T_e.coords["index"] - offset,
-                    z=T_e.coords["index_z_offset"] - z_shift,
-                    method="cubic",
-                    assume_sorted=True,
-                )
-                offset, accept = offset_picker(offset, T_e, fluxes, best_fits)
-
-            self.R_offset = offset
-        else:
-            self.R_offset = R_shift
-
+        self.R_offset = R_shift
         self.z_offset = z_shift
 
         self.Rmin = min(self.rho.coords["R"])
@@ -183,8 +110,72 @@ class Equilibrium(AbstractEquilibrium):
         for val in equilibrium_data.values():
             if "provenance" in val.attrs:
                 self.provenance.wasDerivedFrom(val.attrs["provenance"])
-        if (T_e is not None) and ("provenance" in T_e.attrs):
-            self.provenance.wasDerivedFrom(T_e.attrs["provenance"])
+
+    def Bfield(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray, LabeledArray, LabeledArray]:
+        """Magnetic field components at this location in space.
+
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+
+        Returns
+        -------
+        Br, Bz, Bt
+            Magnetic field components at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        _R = convert_to_dataarray(R, ("R", R))
+        _z = convert_to_dataarray(z, ("z", z))
+        if t is not None:
+            psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
+            f = self.f.interp(t=t, method="nearest", assume_sorted=True)
+            rho_, theta_, _ = self.flux_coords(_R, _z, t)
+        else:
+            t = self.rho.coords["t"]
+            psi = self.psi
+            f = self.f
+            rho_, theta_, _ = self.flux_coords(_R, _z)
+
+        dpsi_dR = psi.differentiate("R").indica.interp2d(
+            R=_R,
+            z=_z,
+            method="cubic",
+            assume_sorted=True,
+        )
+        dpsi_dz = psi.differentiate("z").indica.interp2d(
+            R=R,
+            z=z,
+            method="cubic",
+            assume_sorted=True,
+        )
+        b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
+        b_R.name = "Radial magnetic field"
+        b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
+        b_z.name = "Vertical Magnetic Field (T)"
+        rho_ = where(
+            rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
+        )
+        f = f.indica.interp2d(
+            rho_poloidal=rho_,
+            method="cubic",
+            assume_sorted=True,
+        )
+        f.name = self.f.name
+        b_T = f / _R
+        b_T.name = "Toroidal Magnetic Field (T)"
+
+        return b_R, b_z, b_T, t
 
     def Btot(
         self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
@@ -210,64 +201,119 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        if t is not None:
-            interp1d_method = "linear"
-            if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (
-                t.shape[0] > 1
-            ):
-                if t.shape[0] > 3:
-                    interp1d_method = "cubic"
-
-            psi = self.psi.interp(t=t, method=interp1d_method, assume_sorted=True)
-
-            f = self.f.interp(t=t, method=interp1d_method, assume_sorted=True)
-
-            rho_, theta_, _ = self.flux_coords(R, z, t)
-        else:
-            t = self.rho.coords["t"]
-            psi = self.psi
-            f = self.f
-            rho_, theta_, _ = self.flux_coords(R, z)
-
-        dpsi_dR = psi.differentiate("R").indica.interp2d(
-            R=R,
-            z=z,
-            method="cubic",
-            assume_sorted=True,
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+        b_Tot = np.sqrt(
+            b_R ** np.float64(2.0) + b_z ** np.float64(2.0) + b_T ** np.float64(2.0)
         )
-        dpsi_dz = psi.differentiate("z").indica.interp2d(
-            R=R,
-            z=z,
-            method="cubic",
-            assume_sorted=True,
-        )
-
-        # Components of poloidal field
-        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
-        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
-        b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
-
-        # Need this as the current flux_coords function
-        # returns some negative values for rho
-        rho_ = where(
-            rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
-        )
-
-        f = f.indica.interp2d(
-            rho_poloidal=rho_,
-            method="cubic",
-            assume_sorted=True,
-        )
-        f.name = self.f.name
-
-        # Toroidal field
-        b_T = f / R
-
-        b_Tot = np.sqrt(b_Pol ** np.float64(2.0) + b_T ** np.float64(2.0))
-
         b_Tot.name = "Total Magnetic Field (T)"
 
         return b_Tot, t
+
+    def Br(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Radial magnetic field strength at this location in space.
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertial position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength.
+        Returns
+        -------
+        Br
+            Radial magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+
+        return b_R, t
+
+    def Bz(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Vertical magnetic field strength at this location in space.
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength.
+        Returns
+        -------
+        Bz
+            Vertical magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+
+        return b_z, t
+
+    def Bt(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Toroidal magnetic field strength at this location in space.
+
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+
+        Returns
+        -------
+        Bt
+            Toroidal magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+
+        return b_T, t
+
+    def Bp(
+        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+    ) -> Tuple[LabeledArray, LabeledArray]:
+        """Poloidal magnetic field strength at this location in space.
+
+        Parameters
+        ----------
+        R
+            Major radius position at which to get magnetic field strength.
+        z
+            The vertical position at which to get the magnetic field strength.
+        t
+            Times at which to get the magnetic field strength. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+
+        Returns
+        -------
+        Bp
+            Poloidal magnetic field strength at the given location and times.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        b_R, b_z, b_T, t = self.Bfield(R, z, t)
+        b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
+        b_Pol.name = "Poloidal Magnetic Field (T)"
+
+        return b_Pol, t
 
     def R_lfs(
         self,
@@ -355,171 +401,6 @@ class Equilibrium(AbstractEquilibrium):
 
         return R, t
 
-    def cross_sectional_area(
-        self,
-        rho: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        ntheta: int = 12,
-        kind: str = "poloidal",
-    ) -> Tuple[DataArray, LabeledArray]:
-        """Calculates the cross-sectional area inside the flux surface rho and at
-        given time t.
-
-        Parameters
-        ----------
-        rho
-            Values of rho at which to calculate the cross-sectional area.
-        t
-            Values of time at which to calculate the cross-sectional area.
-        ntheta
-            Number subdivisions of 2 * pi to integrate over for the cross-
-            sectional area.
-        kind
-            The type of flux surface to use. May be "toroidal", "poloidal",
-            plus optional extras depending on implementation.
-
-        Returns
-        -------
-        area
-            Cross-sectional areas calculated at rho and t.
-        t
-            If ``t`` was not specified as an argument, return the time the
-            results are given for. Otherwise return the argument.
-        """
-        if t is None:
-            t = self.rho.coords["t"]
-
-        if np.isscalar(rho):
-            rho = np.array([rho])
-
-        if np.isscalar(t):
-            t = np.array([t])
-
-        theta = np.linspace(0.0, 2.0 * np.pi, ntheta)
-        # Reassignment to a different type is not recognised by mypy.
-        theta = DataArray(  # type: ignore
-            data=theta,
-            coords={"theta": theta},
-            dims=[
-                "theta",
-            ],
-        )
-
-        minor_radii = np.empty(ntheta, dtype=DataArray)
-
-        for i, itheta in enumerate(theta):
-            minor_radii[i], _ = self.minor_radius(rho, itheta, t, kind)
-
-        # This sets minor_radii to zero in the rho positions (in the minor_radii array)
-        # where the rho value is below the precision possible through
-        # the trapz() function.
-        zero_check = np.where(rho < 1e-18)[0]
-        if zero_check.size > 0:
-            for i in zero_check:
-                for k, itheta in enumerate(theta):
-                    minor_radii[k][:, i] = np.zeros(minor_radii[k][:, i].shape)
-
-        minor_radii = minor_radii**2
-        minor_radii = minor_radii * 0.5
-
-        area = trapz(minor_radii, theta, axis=0)
-
-        result = DataArray(
-            data=area,
-            coords=[("t", t), ("rho_poloidal", rho)],
-            dims=["t", "rho_poloidal"],
-        )
-
-        return (
-            result,
-            cast(LabeledArray, t),
-        )
-
-    def enclosed_volume(
-        self,
-        rho: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        kind: str = "poloidal",
-    ) -> Tuple[DataArray, DataArray, LabeledArray]:
-        """Returns the volume enclosed by the specified flux surface.
-
-        Parameters
-        ----------
-        rho
-            Flux surfaces to get the enclosed volumes for.
-        t
-            Times at which to get the enclosed volume. Defaults to the
-            time range specified when equilibrium object was instantiated and
-            frequency the equilibrium data was calculated at.
-        kind
-            The type of flux surface to use. May be "toroidal", "poloidal",
-            plus optional extras depending on implementation.
-
-        Returns
-        -------
-        vol
-            Volumes of space enclosed by the flux surfaces.
-        t
-            If ``t`` was not specified as an argument, return the time the
-            results are given for. Otherwise return the argument.
-        """
-        if t is None:
-            t = self.rho.coords["t"]
-
-        interp1d_method = "linear"
-        if (isinstance(t, DataArray) or isinstance(t, np.ndarray)) and (t.shape[0] > 1):
-            if t.shape[0] > 3:
-                interp1d_method = "cubic"
-
-        major_radius_axis = self.rmag.interp(
-            t=t,
-            method=interp1d_method,
-            assume_sorted=True,
-        )
-
-        # Cross-sectional area calculated by integrating:
-        # 0.5 * minor_radius(theta) ** 2 with respect to theta from 0 to 2 * np.pi
-        area_arr, _ = self.cross_sectional_area(rho, t, kind=kind)
-
-        # Vol = area * toroidal circumference measure at the magnetic axis
-        vol_enclosed = area_arr * 2 * np.pi * major_radius_axis
-        vol_enclosed.name = "Enclosed volumes (m^3)"
-
-        return vol_enclosed, area_arr, t
-
-    def invert_enclosed_volume(
-        self,
-        vol: LabeledArray,
-        t: Optional[LabeledArray] = None,
-        kind: str = "poloidal",
-    ) -> Tuple[LabeledArray, LabeledArray]:
-        """Returns the value of the flux surface enclosing the specified volume.
-
-        Parameters
-        ----------
-        vol
-            Volumes of space enclosed by the flux surfaces.
-        t
-            Times at which to get the enclosed volume. Defaults to the
-            time range specified when equilibrium object was instantiated and
-            frequency the equilibrium data was calculated at.
-        kind
-            The type of flux surface to use. May be "toroidal", "poloidal",
-            plus optional extras depending on implementation.
-
-        Returns
-        -------
-        rho
-            Flux surfaces for the enclosed volumes.
-        t
-            If ``t`` was not specified as an argument, return the time the
-            results are given for. Otherwise return the argument.
-        """
-        raise NotImplementedError(
-            "{} does not implement an 'invert_enclosed_volume' "
-            "method.".format(self.__class__.__name__)
-        )
-
     def minor_radius(
         self,
         rho: LabeledArray,
@@ -597,14 +478,14 @@ class Equilibrium(AbstractEquilibrium):
             R=R_grid,
             z=z_grid,
             zero_coords={"R": R0, "z": z0},
-            method="linear",
+            method="cubic",
             assume_sorted=True,
         ).rename("rho_" + kind)
         fluxes_samples.loc[{"r": 0}] = 0.0
 
-        indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="linear")
+        indices = fluxes_samples.indica.invert_root(rho, "r", 0.0, method="cubic")
         return (
-            minor_rads.indica.interp2d(r=indices, method="linear", assume_sorted=True),
+            minor_rads.indica.interp2d(r=indices, method="cubic", assume_sorted=True),
             t,
         )
 
@@ -614,7 +495,7 @@ class Equilibrium(AbstractEquilibrium):
         z: LabeledArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
-    ) -> Tuple[LabeledArray, LabeledArray, LabeledArray]:
+    ) -> Tuple[DataArray, DataArray, LabeledArray]:
         """Convert to the flux surface coordinate system.
 
         Parameters
@@ -641,21 +522,24 @@ class Equilibrium(AbstractEquilibrium):
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
+
+        _R = convert_to_dataarray(R, ("R", R))
+        _z = convert_to_dataarray(z, ("z", z))
         if t is not None:
             rho = self.rho.interp(t=t, method="nearest")
             R_ax = self.rmag.interp(t=t, method="nearest")
             z_ax = self.zmag.interp(t=t, method="nearest")
             z_x_point = self.zx.interp(t=t, method="nearest")
-            t = t
         else:
             rho = self.rho
             R_ax = self.rmag
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
+
         rho_interp = rho.indica.interp2d(
-            R=R + self.R_offset,
-            z=z + self.z_offset,
+            R=_R + self.R_offset,
+            z=_z + self.z_offset,
             zero_coords={"R": R_ax, "z": z_ax},
             method="cubic",
             assume_sorted=True,
@@ -665,15 +549,20 @@ class Equilibrium(AbstractEquilibrium):
             np.logical_and(rho_interp < 0.0, rho_interp > -1e-12), 0.0, rho_interp
         )
         theta = np.arctan2(
-            z + cast(np.ndarray, self.z_offset) - z_ax,
-            R + cast(np.ndarray, self.R_offset) - R_ax,
+            _z + cast(np.ndarray, self.z_offset) - z_ax,
+            _R + cast(np.ndarray, self.R_offset) - R_ax,
         )
+        if len(np.shape(theta)) > 1:
+            theta = theta.transpose()
+
         if kind != "poloidal":
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
+
         # Set rho to be negative in the private flux region
         rho_interp = where(
             np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
         )
+
         return rho_interp, theta, t
 
     def spatial_coords(
@@ -772,3 +661,105 @@ class Equilibrium(AbstractEquilibrium):
                 np.abs(rho), "rho_poloidal", method="cubic"
             )
         return flux, t
+
+    def cross_sectional_area(
+        self,
+        rho: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        kind: str = "poloidal",
+    ) -> Tuple[DataArray, LabeledArray]:
+        """Calculates the cross-sectional area inside the flux surface rho and at
+        given time t.
+
+        Parameters
+        ----------
+        rho
+            Values of rho at which to calculate the cross-sectional area.
+        t
+            Values of time at which to calculate the cross-sectional area.
+        kind
+            The type of flux surface to use. May be "toroidal", "poloidal",
+            plus optional extras depending on implementation.
+
+        Returns
+        -------
+        area
+            Cross-sectional areas calculated at rho and t.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+
+        if t is None:
+            t = self.rho.coords["t"]
+
+        if kind == "toroidal":
+            _rho, _ = self.convert_flux_coords(
+                rho, t, from_kind="toroidal", to_kind="poloidal"
+            )
+        elif kind == "poloidal":
+            _rho = rho
+        else:
+            raise ValueError("kind must be either poloidal or toroidal")
+
+        result = self.area.interp(rho_poloidal=_rho).interp(t=t)
+
+        return (
+            result,
+            cast(LabeledArray, t),
+        )
+
+    def enclosed_volume(
+        self,
+        rho: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        kind: str = "poloidal",
+    ) -> Tuple[DataArray, LabeledArray]:
+        """Returns the volume enclosed by the specified flux surface.
+
+        Parameters
+        ----------
+        rho
+            Flux surfaces to get the enclosed volumes for.
+        t
+            Times at which to get the enclosed volume. Defaults to the
+            time range specified when equilibrium object was instantiated and
+            frequency the equilibrium data was calculated at.
+        kind
+            The type of flux surface to use. May be "toroidal", "poloidal",
+            plus optional extras depending on implementation.
+
+        Returns
+        -------
+        vol
+            Volumes of space enclosed by the flux surfaces.
+        t
+            If ``t`` was not specified as an argument, return the time the
+            results are given for. Otherwise return the argument.
+        """
+        if t is None:
+            t = self.rho.coords["t"]
+
+        _rho: LabeledArray
+        if kind == "toroidal":
+            _rho, _ = self.convert_flux_coords(
+                rho, t, from_kind="toroidal", to_kind="poloidal"
+            )
+        elif kind == "poloidal":
+            _rho = rho
+        else:
+            raise ValueError("kind must be either poloidal or toroidal")
+
+        result = self.volume.interp(rho_poloidal=_rho).interp(t=t)
+
+        return (
+            result,
+            cast(LabeledArray, t),
+        )
+
+
+def convert_to_dataarray(value, coords) -> DataArray:
+    if type(value) != DataArray:
+        return DataArray(value, [coords])
+    else:
+        return value
