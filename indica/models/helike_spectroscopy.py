@@ -414,8 +414,11 @@ class Helike_spectroscopy(DiagnosticModel):
         mult = self._transition_matrix(element=elem, charge=charge)
         _pecs = self.pecs["emiss_coeff"]
 
+        # Swapping to dataset and then dropping line_names with NaNs is much faster
         _pecs_ds = _pecs.to_dataset("type")
-        _intensity = _pecs_ds.interp(electron_temperature=self.Te, ).to_array("type")  # ds is faster here
+        temp = [_pecs_ds[type].dropna("line_name", how="all").interp(electron_temperature=self.Te)
+                for type in _pecs_ds.data_vars.keys()]
+        _intensity = xr.merge(temp).to_array("type")
         intensity = (_intensity * mult * self.calibration).sum("type")
         return intensity
 
