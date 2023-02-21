@@ -755,7 +755,7 @@ class Plasma:
             Ne: DataArray = None,
             Nh: DataArray = None,
             tau: DataArray = None,
-            default=False,
+            default=True,
     ):
         if default:
             xend = 1.02
