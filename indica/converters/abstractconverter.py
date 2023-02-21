@@ -10,14 +10,15 @@ from typing import Optional
 from typing import Tuple
 
 import numpy as np
+import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
+from indica.utilities import intersection
 from ..equilibrium import Equilibrium
+from ..numpy_typing import ArrayLike
+from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
-
-Coordinates = Tuple[LabeledArray, LabeledArray]
-OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]
 
 
 class EquilibriumException(Exception):
@@ -75,6 +76,10 @@ class CoordinateTransform(ABC):
     equilibrium: Equilibrium
     x1_name: str
     x2_name: str
+    x1: LabeledArray
+    x2: LabeledArray
+    rho: LabeledArray
+    t: LabeledArray = None
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
@@ -99,6 +104,10 @@ class CoordinateTransform(ABC):
             self.equilibrium = equilibrium
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
+
+    def check_equilibrium(self):
+        if not hasattr(self, "equilibrium"):
+            raise Exception("Missing equilibrium object")
 
     def get_converter(
         self, other: "CoordinateTransform", reverse=False
@@ -206,6 +215,37 @@ class CoordinateTransform(ABC):
             "method.".format(self.__class__.__name__)
         )
 
+    def convert_to_xy(
+        self,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
+    ) -> Coordinates:
+        """Convert from this coordinate to the x-y coordinate system. Each
+        subclass must implement this method.
+
+        Parameters
+        ----------
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+        t
+            The time coordinate
+
+        Returns
+        -------
+        R
+            Major radius coordinate
+        z
+            Height coordinate
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a 'convert_to_xy' "
+            "method.".format(self.__class__.__name__)
+        )
+
     def convert_from_Rz(
         self,
         R: LabeledArray,
@@ -234,6 +274,27 @@ class CoordinateTransform(ABC):
         """
         raise NotImplementedError(
             "{} does not implement a 'convert_from_Rz' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+        """Convert from spatial to flux coordinates
+
+        Parameters
+        ----------
+        t
+            The time coordinate
+
+        Returns
+        -------
+        rho
+            Flux coordinate
+        theta
+            time
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a 'convert_to_xy' "
             "method.".format(self.__class__.__name__)
         )
 
@@ -310,3 +371,168 @@ class CoordinateTransform(ABC):
     def decode(json: str) -> "CoordinateTransform":
         """Takes some JSON and decodes it into a CoordinateTransform object."""
         pass
+
+    def get_machine_boundaries(
+        self,
+        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+            (1.83, 3.9),
+            (-1.75, 2.0),
+        ),
+        npts: int = 1000,
+    ) -> Tuple[dict, ArrayLike]:
+        angles = np.linspace(0.0, 2 * np.pi, npts)
+        x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+        x_wall_outer = machine_dimensions[0][1] * np.cos(angles)
+        y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
+        y_wall_outer = machine_dimensions[0][1] * np.sin(angles)
+        z_wall_lower = machine_dimensions[1][0]
+        z_wall_upper = machine_dimensions[1][1]
+
+        boundaries = {
+            "x_in": x_wall_inner,
+            "x_out": x_wall_outer,
+            "y_in": y_wall_inner,
+            "y_out": y_wall_outer,
+            "z_up": z_wall_upper,
+            "z_low": z_wall_lower,
+        }
+
+        return boundaries, angles
+
+    def get_equilibrium_boundaries(
+        self, tplot: float, npts: int = 1000
+    ) -> Tuple[dict, ArrayLike, DataArray]:
+
+        boundaries = {}
+        angles = np.linspace(0.0, 2 * np.pi, npts)
+        if hasattr(self, "equilibrium"):
+            angles = np.linspace(0.0, 2 * np.pi, npts)
+            rho_equil = self.equilibrium.rho.sel(t=tplot, method="nearest")
+            rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
+            core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
+            R_lfs = rho_equil.R[core_ind[0]].values
+            R_hfs = rho_equil.R[core_ind[-1]].values
+            x_plasma_inner = R_hfs * np.cos(angles)
+            x_plasma_outer = R_lfs * np.cos(angles)
+            y_plasma_inner = R_hfs * np.sin(angles)
+            y_plasma_outer = R_lfs * np.sin(angles)
+
+            boundaries = {
+                "x_in": x_plasma_inner,
+                "x_out": x_plasma_outer,
+                "y_in": y_plasma_inner,
+                "y_out": y_plasma_outer,
+            }
+        return boundaries, angles, rho_equil
+
+
+def find_wall_intersections(
+    origin: Tuple,
+    direction: Tuple,
+    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
+        (1.83, 3.9),
+        (-1.75, 2.0),
+    ),
+):
+    """Function for calculating "start" and "end" positions of the line-of-sight
+    given the machine dimensions.
+
+    The end coordinate is calculated by finding the intersections with the
+    machine dimensions. If the intersection hits the inner column, the first
+    intersection point becomes the "end" position of the line-of-sight. If the
+    intersection misses the inner column, the last intersection point with the
+    outer column becomes the "end" position.
+
+    Parameters
+    ----------
+    origin
+        A Tuple (1x3) giving the X, Y and Z origin positions of the line-of-sight
+    direction
+        A Tuple (1x3) giving the X, Y and Z direction of the line-of-sight
+    machine_dimensions
+        A tuple giving the boundaries of the Tokamak in x-z space:
+        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
+
+    Returns
+    -------
+    start_coordinates
+        A Tuple (1x3) giving the X, Y and Z start positions of the line-of-sight
+    end_coordinates
+        A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
+    """
+
+    def line(_start, _end):
+        return np.linspace(_start, _end, npts)
+
+    def extremes(_start, _end):
+        return np.array(
+            [_start, _end],
+            dtype=float,
+        )
+
+    # Define XYZ lines for inner and outer walls
+    npts = 1000
+    angles = np.linspace(0.0, 2 * np.pi, npts)
+    x_wall_inner = machine_dimensions[0][0] * np.cos(angles)
+    y_wall_inner = machine_dimensions[0][0] * np.sin(angles)
+
+    # Define XYZ lines for LOS from origin and direction vectors
+    length = (
+        np.ceil(
+            np.max(
+                [
+                    machine_dimensions[0][1] * 2,
+                    machine_dimensions[1][1] - machine_dimensions[1][0],
+                ]
+            )
+        )
+        * 5
+    )
+    x_start = origin[0]
+    x_end = origin[0] + length * direction[0]
+    y_start = origin[1]
+    y_end = origin[1] + length * direction[1]
+    z_start = origin[2]
+    z_end = origin[2] + length * direction[2]
+
+    # Find intersections in R, z plane
+    x_line = line(x_start, x_end)
+    y_line = line(y_start, y_end)
+    z_line = line(z_start, z_end)
+    R_line = np.sqrt(x_line**2 + y_line**2)
+    indices = np.where(
+        (R_line >= machine_dimensions[0][0])
+        * (R_line <= machine_dimensions[0][1])
+        * (z_line >= machine_dimensions[1][0])
+        * (z_line <= machine_dimensions[1][1])
+    )[0]
+    if len(indices) > 0:
+        x_start = x_line[indices][0]
+        x_end = x_line[indices][-1]
+        y_start = y_line[indices][0]
+        y_end = y_line[indices][-1]
+        z_start = z_line[indices][0]
+        z_end = z_line[indices][-1]
+
+    # Find intersections with inner wall
+    xx, yx, ix, jx = intersection(
+        extremes(x_start, x_end), extremes(y_start, y_end), x_wall_inner, y_wall_inner
+    )
+    if len(xx) > 0:
+        x_line = line(x_start, x_end)
+        y_line = line(y_start, y_end)
+        z_line = line(z_start, z_end)
+        index = []
+        for i in range(len(xx)):
+            index.append(
+                np.argmin(np.sqrt((xx[i] - x_line) ** 2 + (yx[i] - y_line) ** 2))
+            )
+        indices = np.arange(np.min(index))
+        x_start = x_line[indices][0]
+        x_end = x_line[indices][-1]
+        y_start = y_line[indices][0]
+        y_end = y_line[indices][-1]
+        z_start = z_line[indices][0]
+        z_end = z_line[indices][-1]
+
+    return (x_start, y_start, z_start), (x_end, y_end, z_end)
