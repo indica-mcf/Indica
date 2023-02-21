@@ -416,7 +416,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
         # Swapping to dataset and then dropping line_names with NaNs is much faster
         _pecs_ds = _pecs.to_dataset("type")
-        temp = [_pecs_ds[type].dropna("line_name", how="all").interp(electron_temperature=self.Te)
+        temp = [_pecs_ds[type].dropna("line_name", how="all").interp(electron_temperature=self.Te, assume_sorted=True)
                 for type in _pecs_ds.data_vars.keys()]
         _intensity = xr.merge(temp).to_array("type")
         intensity = (_intensity * mult * self.calibration).sum("type")
