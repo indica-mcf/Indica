@@ -525,16 +525,16 @@ class Helike_spectroscopy(DiagnosticModel):
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            Te = self.plasma.electron_temperature.interp(t=t)
-            Ne = self.plasma.electron_density.interp(t=t)
-            Nh = self.plasma.neutral_density.interp(t=t)
+            Te = self.plasma.electron_temperature.sel(t=t, )
+            Ne = self.plasma.electron_density.sel(t=t, )
+            Nh = self.plasma.neutral_density.sel(t=t, )
             Fz = {}
             _Fz = self.plasma.fz
             for elem in _Fz.keys():
-                Fz[elem] = _Fz[elem].interp(t=t)
+                Fz[elem] = _Fz[elem].sel(t=t)
 
-            Ti = self.plasma.ion_temperature.interp(t=t)
-            Nimp = self.plasma.impurity_density.interp(t=t)
+            Ti = self.plasma.ion_temperature.sel(t=t)
+            Nimp = self.plasma.impurity_density.sel(t=t)
         else:
             if (
                     Ne is None
