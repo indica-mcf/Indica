@@ -100,10 +100,10 @@ class FluxSurfaceCoordinates(CoordinateTransform):
             Volume enclosed by the flux surface rho.
 
         """
-        vol, area, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
+        vol, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
         # extra output(area) included to satisfy mypy type checking with
         # Coordinates = Tuple[LabeledArray, LabeledArray]
-        return vol, area
+        return vol
 
     def _convert_to_area(
         self, rho: LabeledArray, theta: LabeledArray, t: Optional[LabeledArray] = None
