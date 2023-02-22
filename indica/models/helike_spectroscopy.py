@@ -684,14 +684,8 @@ class Helike_spectroscopy(DiagnosticModel):
 
 # fmt: off
 def doppler_broaden(x, integral, center, ion_mass, ion_temp):
-    sigma = np.sqrt(constants.e / (ion_mass * constants.proton_mass * constants.c ** 2) * ion_temp) \
-            * center
-    gaussian_broadened = gaussian(
-        x,
-        integral,
-        center,
-        sigma,
-    )
+    sigma = np.sqrt(constants.e / (ion_mass * constants.proton_mass * constants.c ** 2) * ion_temp) * center
+    gaussian_broadened = gaussian(x, integral, center, sigma, )
     return gaussian_broadened
 
 def gaussian(x, integral, center, sigma):
