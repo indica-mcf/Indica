@@ -159,6 +159,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
     def _transition_matrix(self, element="ar", charge=16):
         """vectorisation of the transition matrix used to convert Helike PECs to emissivity"""
+        # fmt: off
         transition_matrix = xr.concat([
             self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge, ),
             self.Ne * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge, ),
@@ -169,6 +170,7 @@ class Helike_spectroscopy(DiagnosticModel):
             self.Nh * self.Nimp.sel(element=element, ) * self.Fz[element].sel(ion_charges=charge + 1, ),
         ], "type").assign_coords(
             type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
+        # fmt: on
         return transition_matrix
 
     def _calculate_line_emission(self, line_labels=["w", "k"]):
