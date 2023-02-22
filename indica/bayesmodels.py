@@ -72,7 +72,7 @@ class BayesModels:
             model_data = self.bckc[key].values.astype("float128")
             exp_data = self.data[key].sel(t=self.plasma.time_to_calculate).values.astype("float128")
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.10,))
-            ln_likelihood += np.nansum(_ln_likelihood)
+            ln_likelihood += np.nanmean(_ln_likelihood)
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
