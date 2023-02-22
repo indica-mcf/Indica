@@ -12,6 +12,7 @@ PERCMTOEV = 1.239841e-4  # Convert 1/cm to eV
 head = os.path.dirname(indica.__file__)
 FILEHEAD = os.path.join(head, "data/Data_Argon/")
 
+
 def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "he"):
     """
     Calculates intensity of dielectronic recombination
@@ -42,9 +43,10 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
         Es = Esli * PERCMTOEV / RY
     else:
         raise ValueError(f"wrong label given: {label}")
-
-    intensity = 1 / g0 * 4 * np.pi ** (3 / 2) * a0**3 / Te[:, None] ** (3 / 2) \
-        * F2[None,] * np.exp(-Es[None,] / Te[:, None])
+    # fmt: off
+    intensity = (1 / g0 * 4 * np.pi ** (3 / 2) * a0 ** 3 / Te[:, None] ** (3 / 2) * F2[None, ]
+                 * np.exp(-Es[None, ] / Te[:, None]))
+    # fmt: on
     return intensity
 
 
@@ -55,13 +57,12 @@ class MARCHUKReader:
     """
 
     def __init__(
-        self,
-        extrapolate: bool = True,
-        filehead: str = None,
-        element: str = "ar",
-        charge: int = 16,
+            self,
+            extrapolate: bool = True,
+            filehead: str = None,
+            element: str = "ar",
+            charge: int = 16,
     ):
-
         if filehead is None:
             filehead = FILEHEAD
         self.filehead = filehead
@@ -73,8 +74,8 @@ class MARCHUKReader:
         self.pecs = self._make_pecs_dataarray()
 
     def build_pec_database(
-        self,
-        Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000),
+            self,
+            Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000),
     ):
         """
         Reads Marchuk's Atomic data and builds DataArrays for each emission type
@@ -120,34 +121,64 @@ class MARCHUKReader:
         casc = np.loadtxt(self.filehead + "Cascade.dat", skiprows=5)
 
         # Dielectronic recombination / wavelength; Es; Ar; Aa; F2; Satellites
-        n2 = np.loadtxt(self.filehead + "n2dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
-        n3 = np.loadtxt(self.filehead + "n3dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
-        n4 = np.loadtxt(self.filehead + "n4dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
-        n5 = np.loadtxt(self.filehead + "n5dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
-        lin2 = np.loadtxt(self.filehead + "n2lidielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5))
+        n2 = np.loadtxt(
+            self.filehead + "n2dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
+        )
+        n3 = np.loadtxt(
+            self.filehead + "n3dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
+        )
+        n4 = np.loadtxt(
+            self.filehead + "n4dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
+        )
+        n5 = np.loadtxt(
+            self.filehead + "n5dielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
+        )
+        lin2 = np.loadtxt(
+            self.filehead + "n2lidielsat.dat", skiprows=1, usecols=(0, 1, 2, 3, 4, 5)
+        )
         # Use line labels from file
-        lines_n2 = np.genfromtxt(self.filehead + "n2dielsat.dat", skip_header=1, usecols=(6), dtype="str")
-        lines_n3 = np.genfromtxt(self.filehead + "n3dielsat.dat", skip_header=1, usecols=(6), dtype="str")
-        lines_n4 = np.genfromtxt(self.filehead + "n4dielsat.dat", skip_header=1, usecols=(6), dtype="str")
-        lines_n5 = np.genfromtxt(self.filehead + "n5dielsat.dat", skip_header=1, usecols=(6), dtype="str")
-        lines_lin2 = np.genfromtxt(self.filehead + "n2lidielsat.dat", skip_header=1, usecols=(6), dtype="str")
+        lines_n2 = np.genfromtxt(
+            self.filehead + "n2dielsat.dat", skip_header=1, usecols=(6), dtype="str"
+        )
+        lines_n3 = np.genfromtxt(
+            self.filehead + "n3dielsat.dat", skip_header=1, usecols=(6), dtype="str"
+        )
+        lines_n4 = np.genfromtxt(
+            self.filehead + "n4dielsat.dat", skip_header=1, usecols=(6), dtype="str"
+        )
+        lines_n5 = np.genfromtxt(
+            self.filehead + "n5dielsat.dat", skip_header=1, usecols=(6), dtype="str"
+        )
+        lines_lin2 = np.genfromtxt(
+            self.filehead + "n2lidielsat.dat", skip_header=1, usecols=(6), dtype="str"
+        )
 
         # replace duplicate line "name" with "name"+ str(n)
         line_names = lines_n2.tolist()
-        lines_n2 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
-                    enumerate(line_names)]
+        lines_n2 = [
+            v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v
+            for i, v in enumerate(line_names)
+        ]
         line_names = lines_n3.tolist()
-        lines_n3 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
-                    enumerate(line_names)]
+        lines_n3 = [
+            v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v
+            for i, v in enumerate(line_names)
+        ]
         line_names = lines_n4.tolist()
-        lines_n4 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
-                    enumerate(line_names)]
+        lines_n4 = [
+            v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v
+            for i, v in enumerate(line_names)
+        ]
         line_names = lines_n5.tolist()
-        lines_n5 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
-                    enumerate(line_names)]
+        lines_n5 = [
+            v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v
+            for i, v in enumerate(line_names)
+        ]
         line_names = lines_lin2.tolist()
-        lines_lin2 = [v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v for i, v in
-                    enumerate(line_names)]
+        lines_lin2 = [
+            v + str(line_names[:i].count(v) + 1) if line_names.count(v) > 1 else v
+            for i, v in enumerate(line_names)
+        ]
 
         rates_n2 = diel_calc(n2, Te)
         rates_n3 = diel_calc(n3, Te)
@@ -162,7 +193,10 @@ class MARCHUKReader:
                 "electron_temperature": exc[:, 0] * 1e3,
                 "line_name": lines_main,
                 "type": ["excit"],
-                "wavelength": (("line_name",), wavelengths_main,),
+                "wavelength": (
+                    ("line_name",),
+                    wavelengths_main,
+                ),
             },
             dims=["electron_temperature", "line_name", "type"],
         )
@@ -172,11 +206,15 @@ class MARCHUKReader:
                 "electron_temperature": recom[:, 0] * 1e3,
                 "line_name": lines_main,
                 "type": ["recom"],
-                "wavelength": ("line_name", wavelengths_main,),
+                "wavelength": (
+                    "line_name",
+                    wavelengths_main,
+                ),
             },
             dims=["electron_temperature", "line_name", "type"],
         )
-        cxr_array = xr.DataArray(data=cxr[:, 1:5, np.newaxis] * conversion_factor,
+        cxr_array = xr.DataArray(
+            data=cxr[:, 1:5, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": cxr[:, 0] * 1e3,
                 "line_name": lines_main,
@@ -210,7 +248,11 @@ class MARCHUKReader:
         casc_factor_array = xr.DataArray(
             data=casc[:, 1:, np.newaxis],
             coords={
-                "electron_temperature": casc[:, 0, ] * 1e3,
+                "electron_temperature": casc[
+                                        :,
+                                        0,
+                                        ]
+                                        * 1e3,
                 "line_name": lines_casc,
                 "type": ["diel"],
                 "wavelength": ("line_name", wavelengths_casc),
@@ -219,7 +261,7 @@ class MARCHUKReader:
         )
 
         n2_array = xr.DataArray(
-            data=rates_n2[:,:,np.newaxis] * conversion_factor,
+            data=rates_n2[:, :, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n2,
@@ -230,18 +272,18 @@ class MARCHUKReader:
         )
 
         n3_array = xr.DataArray(
-            data=rates_n3[:,:,np.newaxis] * conversion_factor,
+            data=rates_n3[:, :, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n3,
                 "type": ["diel"],
-                "wavelength": ("line_name", n3[:, 0] * 0.1 ),
+                "wavelength": ("line_name", n3[:, 0] * 0.1),
             },
             dims=["electron_temperature", "line_name", "type"],
         )
 
         n4_array = xr.DataArray(
-            data=rates_n4[:,:,np.newaxis] * conversion_factor,
+            data=rates_n4[:, :, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n4,
@@ -252,7 +294,7 @@ class MARCHUKReader:
         )
 
         n5_array = xr.DataArray(
-            data=rates_n5[:,:,np.newaxis] * conversion_factor,
+            data=rates_n5[:, :, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_n5,
@@ -263,12 +305,12 @@ class MARCHUKReader:
         )
 
         lin2_array = xr.DataArray(
-            data=rates_lin2[:,:,np.newaxis] * conversion_factor,
+            data=rates_lin2[:, :, np.newaxis] * conversion_factor,
             coords={
                 "electron_temperature": Te,
                 "line_name": lines_lin2,
                 "type": ["li_diel"],
-                "wavelength": ("line_name",lin2[:, 0] * 0.1),
+                "wavelength": ("line_name", lin2[:, 0] * 0.1),
             },
             dims=["electron_temperature", "line_name", "type"],
         )
@@ -283,7 +325,9 @@ class MARCHUKReader:
         s_idx = n2_array.line_name.str.contains("s!").values
         t_idx = n2_array.line_name.str.contains("t!").values
         casc_idx = q_idx | r_idx | s_idx | t_idx
-        n2_array.loc[dict(line_name=casc_idx)] = n2_array.sel(line_name=casc_idx) * (1 + casc_factor.values)
+        n2_array.loc[dict(line_name=casc_idx)] = n2_array.sel(line_name=casc_idx) * (
+                1 + casc_factor.values
+        )
 
         # Atomic data
         pec_database = dict(
@@ -300,11 +344,12 @@ class MARCHUKReader:
         )
         return pec_database
 
-
     def _interp_pecs(self, Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000)):
         _interp_pec = {}
         for _pec_name, _pec in self.pec_rawdata.items():
-            _interp_pec[_pec_name] = _pec.interp(electron_temperature=Te, kwargs={"fill_value": "extrapolate"})
+            _interp_pec[_pec_name] = _pec.interp(
+                electron_temperature=Te, kwargs={"fill_value": "extrapolate"}
+            )
         return _interp_pec
 
     def _make_pecs_dataarray(self):
@@ -319,11 +364,13 @@ class MARCHUKReader:
             _dataset[_pec_name] = _pec.to_dataset(dim="type")
         _dataset = xr.merge([*_dataset.values()])
         _dataarray = _dataset.to_array(dim="type")
-        _dataarray = _dataarray.transpose(*["electron_temperature", "line_name", "type"])
+        _dataarray = _dataarray.transpose(
+            *["electron_temperature", "line_name", "type"]
+        )
         dataarray = {
-                "element": self.element,
-                "file": self.filehead,
-                "charge": self.charge,
-                "emiss_coeff":_dataarray,
+            "element": self.element,
+            "file": self.filehead,
+            "charge": self.charge,
+            "emiss_coeff": _dataarray,
         }
         return dataarray
