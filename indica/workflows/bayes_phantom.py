@@ -160,6 +160,7 @@ def plot_bayes_phantom(
         prof.quantile(0.95, dim="index"),
         label="Te, 90% Confidence",
         zorder=3,
+        alpha=0.7,
         color="blue",
     )
     plt.fill_between(
@@ -183,6 +184,7 @@ def plot_bayes_phantom(
         prof.quantile(0.95, dim="index"),
         label="Ti, 90% Confidence",
         zorder=3,
+        alpha=0.7,
         color="red",
     )
     plt.fill_between(
