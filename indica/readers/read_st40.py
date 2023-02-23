@@ -130,11 +130,14 @@ class ReadST40:
         for attr in attr_to_map:
             data_to_map = getattr(self, attr)
             for instr in instruments:
+                print(instr)
                 for quant in data_to_map[instr]:
                     data = data_to_map[instr][quant]
                     transform = data.transform
                     if hasattr(data.transform, "convert_to_rho"):
                         transform.convert_to_rho(t=data.t)
+                    else:
+                        break
 
     def filter_data(self, instruments: list = None):
 

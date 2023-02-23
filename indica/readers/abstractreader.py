@@ -26,7 +26,7 @@ from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
 from ..converters import MagneticCoordinates
-from indica.converters.transect_rho import TransectCoordinates
+from indica.converters.transect import TransectCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import ArrayType
 from ..numpy_typing import ArrayLike

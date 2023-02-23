@@ -277,27 +277,6 @@ class CoordinateTransform(ABC):
             "method.".format(self.__class__.__name__)
         )
 
-    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
-        """Convert from spatial to flux coordinates
-
-        Parameters
-        ----------
-        t
-            The time coordinate
-
-        Returns
-        -------
-        rho
-            Flux coordinate
-        theta
-            time
-
-        """
-        raise NotImplementedError(
-            "{} does not implement a 'convert_to_xy' "
-            "method.".format(self.__class__.__name__)
-        )
-
     def _abstract_equals(self, other: "CoordinateTransform") -> bool:
         """Checks that default coordinate values and equilibrium objects are
         the same on two transform classes.
