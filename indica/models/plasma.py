@@ -797,12 +797,16 @@ class Plasma:
                 power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
 
             if "pls" in self.adf11[elem].keys() and "prs" in self.adf11[elem].keys():
-                pls = self.ADASReader.get_adf11("pls", elem, self.adf11[elem]["pls"])
-                prs = self.ADASReader.get_adf11("prs", elem, self.adf11[elem]["prs"])
-                power_loss_sxr[elem] = PowerLoss(pls, prs)
-                if Te is not None and Ne is not None:
-                    F_z_t = fract_abu[elem].F_z_t
-                    power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
+                try:
+                    pls = self.ADASReader.get_adf11("pls", elem, self.adf11[elem]["pls"])
+                    prs = self.ADASReader.get_adf11("prs", elem, self.adf11[elem]["prs"])
+                    power_loss_sxr[elem] = PowerLoss(pls, prs)
+                    if Te is not None and Ne is not None:
+                        F_z_t = fract_abu[elem].F_z_t
+                        power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
+                except ValueError:
+                    self.adf11[elem].pop("pls")
+                    self.adf11[elem].pop("prs")
 
         self.adf11 = self.adf11
         self.fract_abu = fract_abu

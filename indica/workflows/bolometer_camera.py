@@ -7,138 +7,7 @@ from indica.converters.line_of_sight import LineOfSightTransform
 from indica.models.bolometer_camera import Bolometer
 
 
-def rz_geometry() -> dict:
-    # los_end = np.full((nchannels, 3), 0.0)
-    # los_end[:, 0] = 0.17
-    # los_end[:, 1] = 0.0
-    # los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
-    # los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
-    # origin = los_start
-    # direction = los_end - los_start
-
-    geometry = {
-        "wide": {
-            "nsensors": 12,
-            "sensor_width": 5.08,
-            "sensor_distance": 5.08,
-            "pinhole_width": 1.0,
-            "sensor_center": [365.26, -1295.21, 0],
-            "pinhole_center": [369.54, -1225.34, 0],
-        },
-        "last": {
-            "nsensors": 12,
-            "sensor_width": 5.08,
-            "sensor_distance": 5.08,
-            "pinhole_width": 2.25,
-            "sensor_location": [
-                [421.64, -1288.14, 0],
-                [426.72, -1288.34, 0],
-                [432.79, -1288.54, 0],
-                [436.87, -1288.74, 0],
-                [442.42, -1288.96, 0],
-                [447.50, -1289.16, 0],
-                [452.58, -1289.36, 0],
-                [457.65, -1289.56, 0],
-                [465.71, -1289.88, 0],
-                [470.78, -1290.08, 0],
-                [475.86, -1290.27, 0],
-                [480.93, -1290.47, 0],
-            ],
-            "pinhole_center": [455.52, -1181.54, 0],
-        },
-    }
-    return geometry
-
-
-def xy_geometry() -> dict:
-    geometry = {
-        "wide": {
-            "nsensors": 8,
-            "sensor_width": 5.08,
-            "sensor_distance": 5.08,
-            "pinhole_width": 3.0,
-            "sensor_center": [365.26, -1295.21, 0],
-            "pinhole_center": [374.54, -1225.34, 0],
-        },
-        "last": {
-            "nsensors": 12,
-            "sensor_width": 5.08,
-            "sensor_distance": 5.08,
-            "pinhole_width": 3,
-            "sensor_location": [
-                [421.64, -1288.14, 0],
-                [426.72, -1288.34, 0],
-                [432.79, -1288.54, 0],
-                [436.87, -1288.74, 0],
-                [442.42, -1288.96, 0],
-                [447.50, -1289.16, 0],
-                [452.58, -1289.36, 0],
-                [457.65, -1289.56, 0],
-                [465.71, -1289.88, 0],
-                [470.78, -1290.08, 0],
-                [475.86, -1290.27, 0],
-                [480.93, -1290.47, 0],
-            ],
-            "pinhole_center": [455.52, -1181.54, 0],
-        },
-    }
-    return geometry
-
-
-def get_geometry(view: str = "xy", option: str = "12_chans", side: int = 0):
-    """
-    Currently accounting for infinitely small detector and finite pinhole size
-    """
-    geo: dict
-    if view == "xy":
-        geo = xy_geometry()[option]
-    elif view == "rz":
-        geo = rz_geometry()[option]
-    else:
-        raise ValueError(f"Camera direction {view} not supported")
-
-    if "sensor_location" not in geo.keys():
-        sensor_locations = []
-        x_shifts = list(
-            +(np.arange(geo["nsensors"]) - (geo["nsensors"] - 1) / 2.0)
-            * geo["sensor_distance"]
-        )
-        for x in x_shifts:
-            xyz = deepcopy(geo["sensor_center"])
-            xyz[0] += x
-            sensor_locations.append(xyz)
-        geo["sensor_location"] = np.array(sensor_locations)
-
-    if "pinhole_location" not in geo.keys():
-        pinhole_location = geo["pinhole_center"]
-        pinhole_location[0] += geo["pinhole_width"] / 2.0 * side
-        geo["pinhole_location"] = np.array([pinhole_location] * geo["nsensors"])
-
-    geo["pinhole_location"] *= np.full_like(geo["pinhole_location"], 1.0e-3)
-    geo["sensor_location"] *= np.full_like(geo["sensor_location"], 1.0e-3)
-
-    return geo
-
-
-def camera_views(
-    view="xy", option: str = "last", side: int = 0,
-):
-
-    geometry = get_geometry(view=view, option=option, side=side)
-
-    sensors = geometry["sensor_location"]
-    pinhole = geometry["pinhole_location"]
-    origin = pinhole
-    direction = pinhole - sensors
-
-    _start = origin
-    _end = origin + 10 * direction
-    direction = _end - _start
-
-    return origin, direction
-
-
-def viewing_cone(
+def calculate_viewing_cone(
     view="xy", option: str = "last", plasma=None, pulse: int = 9229,
 ):
     if plasma is None:
@@ -159,7 +28,7 @@ def viewing_cone(
     bckc = []
     sides = [0, 1, -1]
     for side in sides:
-        origin, direction = camera_views(view=view, option=option, side=side)
+        origin, direction, geo = get_geometry(view=view, option=option, side=side)
         model0 = Bolometer(f"bolo_{view}_{option}",)
         los_transform = LineOfSightTransform(
             origin[:, 0],
@@ -216,8 +85,8 @@ def viewing_cone(
     plt.title("Centre (dashed) and side of cones (shaded)")
     plt.legend()
 
-    imp1 = model[1].los_transform.impact_parameter
-    imp2 = model[2].los_transform.impact_parameter
+    # imp1 = model[1].los_transform.impact_parameter
+    # imp2 = model[2].los_transform.impact_parameter
 
     # cone_width = np.sqrt(
     #     (imp1["x"] - imp2["x"]) ** 2
@@ -228,3 +97,138 @@ def viewing_cone(
     # print(f"Cone width = {cone_width}")
 
     return plasma, model[0], bckc[0]
+
+
+def geometry() -> dict:
+    """
+    Return dictionary with setting for pre-defined geometries on the Rz plane
+    """
+    geometry = {
+        "rz": {
+            "wide": {
+                "nsensors": 12,
+                "sensor_width": 5.08,
+                "sensor_distance": 5.08,
+                "pinhole_width": 1.0,
+                "sensor_center": [365.26, -1295.21, 0],
+                "pinhole_center": [369.54, -1225.34, 0],
+            },
+            "last": {
+                "nsensors": 12,
+                "sensor_width": 5.08,
+                "sensor_distance": 5.08,
+                "pinhole_width": 2.25,
+                "sensor_location": [
+                    [421.64, -1288.14, 0],
+                    [426.72, -1288.34, 0],
+                    [432.79, -1288.54, 0],
+                    [436.87, -1288.74, 0],
+                    [442.42, -1288.96, 0],
+                    [447.50, -1289.16, 0],
+                    [452.58, -1289.36, 0],
+                    [457.65, -1289.56, 0],
+                    [465.71, -1289.88, 0],
+                    [470.78, -1290.08, 0],
+                    [475.86, -1290.27, 0],
+                    [480.93, -1290.47, 0],
+                ],
+                "pinhole_center": [455.52, -1181.54, 0],
+            },
+        },
+        "xy": {
+            "wide": {
+                "nsensors": 8,
+                "sensor_width": 5.08,
+                "sensor_distance": 5.08,
+                "pinhole_width": 3.0,
+                "sensor_center": [365.26, -1295.21, 0],
+                "pinhole_center": [374.54, -1225.34, 0],
+            },
+            "12_chan": {
+                "nsensors": 12,
+                "sensor_width": 5.08,
+                "sensor_distance": 5.08,
+                "pinhole_width": 3,
+                "sensor_location": [
+                    [421.64, -1288.14, 0],
+                    [426.72, -1288.34, 0],
+                    [432.79, -1288.54, 0],
+                    [436.87, -1288.74, 0],
+                    [442.42, -1288.96, 0],
+                    [447.50, -1289.16, 0],
+                    [452.58, -1289.36, 0],
+                    [457.65, -1289.56, 0],
+                    [465.71, -1289.88, 0],
+                    [470.78, -1290.08, 0],
+                    [475.86, -1290.27, 0],
+                    [480.93, -1290.47, 0],
+                ],
+                "pinhole_center": [455.52, -1181.54, 0],
+            },
+            "8_chan": {
+                "nsensors": 8,
+                "sensor_width": 5.08,
+                "sensor_distance": 5.08,
+                "pinhole_width": 3.0,
+                "sensor_center": [365.26, -1295.21, 0],
+                "pinhole_center": [376.0, -1215.34, 0],
+            },
+        },
+    }
+    return geometry
+
+
+def get_geometry(view: str = "xy", option: str = "12_chans", side: int = 0):
+    """
+    Read geometry information, generate position/direction for LOS assuming
+    infinitely small detector and finite pinhole size.
+
+    Parameters
+    ----------
+    view
+        string identified on type of view
+    option
+        string identified on specific geometry set
+    side
+        =0: centre of te LOS
+        =+-1 sides of the LOS
+
+    Returns
+    -------
+        geometry dictionary including position/direction necessary for
+        line of sight parametrisation
+    """
+    geo: dict
+    try:
+        geo = geometry()[view][option]
+    except KeyError:
+        raise ValueError(f"Camera direction {view} not supported")
+
+    if "sensor_location" not in geo.keys():
+        sensor_locations = []
+        x_shifts = list(
+            +(np.arange(geo["nsensors"]) - (geo["nsensors"] - 1) / 2.0)
+            * geo["sensor_distance"]
+        )
+        for x in x_shifts:
+            xyz = deepcopy(geo["sensor_center"])
+            xyz[0] += x
+            sensor_locations.append(xyz)
+        geo["sensor_location"] = np.array(sensor_locations)
+
+    if "pinhole_location" not in geo.keys():
+        pinhole_location = geo["pinhole_center"]
+        pinhole_location[0] += geo["pinhole_width"] / 2.0 * side
+        geo["pinhole_location"] = np.array([pinhole_location] * geo["nsensors"])
+
+    geo["pinhole_location"] *= np.full_like(geo["pinhole_location"], 1.0e-3)
+    geo["sensor_location"] *= np.full_like(geo["sensor_location"], 1.0e-3)
+
+    origin = geo["pinhole_location"]
+    direction = geo["pinhole_location"] - geo["sensor_location"]
+
+    _start = origin
+    _end = origin + 10 * direction
+    direction = _end - _start
+
+    return origin, direction, geo
