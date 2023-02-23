@@ -13,8 +13,9 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te": ("temperature", "electrons"),
     },
     "get_charge_exchange": {
-        "angf": ("angular_freq", "ions"),
-        "ti": ("temperature", "ions"),
+        "vtor": ("linear_rotation", "ion"),
+        # "angf": ("angular_freq", "ion"),
+        "ti": ("temperature", "ion"),
     },
     "get_bremsstrahlung_spectroscopy": {
         "zeff": ("effective_charge", "plasma"),

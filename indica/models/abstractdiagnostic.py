@@ -2,7 +2,7 @@ from abc import ABC
 from abc import abstractmethod
 
 from indica.converters.line_of_sight import LineOfSightTransform
-from indica.converters.transect_rho import TransectCoordinates
+from indica.converters.transect import TransectCoordinates
 from indica.models.plasma import Plasma
 
 
