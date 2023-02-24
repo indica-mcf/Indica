@@ -18,6 +18,7 @@ from .numpy_typing import LabeledArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
+
 class Equilibrium:
     """Class to hold and interpolate equilibrium data.
 
@@ -148,16 +149,10 @@ class Equilibrium:
             rho_, theta_, _ = self.flux_coords(_R, _z)
 
         dpsi_dR = psi.differentiate("R").indica.interp2d(
-            R=_R,
-            z=_z,
-            method="cubic",
-            assume_sorted=True,
+            R=_R, z=_z, method="cubic", assume_sorted=True,
         )
         dpsi_dz = psi.differentiate("z").indica.interp2d(
-            R=R,
-            z=z,
-            method="cubic",
-            assume_sorted=True,
+            R=R, z=z, method="cubic", assume_sorted=True,
         )
         b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
@@ -166,11 +161,7 @@ class Equilibrium:
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
-        f = f.indica.interp2d(
-            rho_poloidal=rho_,
-            method="cubic",
-            assume_sorted=True,
-        )
+        f = f.indica.interp2d(rho_poloidal=rho_, method="cubic", assume_sorted=True,)
         f.name = self.f.name
         b_T = f / _R
         b_T.name = "Toroidal Magnetic Field (T)"
@@ -756,6 +747,10 @@ class Equilibrium:
             result,
             cast(LabeledArray, t),
         )
+
+    def write_to_geqdsk(self):
+        # TODO: Implement writing to geqdsk
+        raise NotImplementedError("Method not yet implemented")
 
 
 def convert_to_dataarray(value, coords) -> DataArray:
