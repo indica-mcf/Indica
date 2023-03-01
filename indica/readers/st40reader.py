@@ -204,7 +204,12 @@ class ST40Reader(DataReader):
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
         },
-        "ts": {"ne": ".profiles:ne", "te": ".profiles:te", "pe": ".profiles:pe",},
+        "ts": {
+            "ne": ".profiles:ne",
+            "te": ".profiles:te",
+            "pe": ".profiles:pe",
+            "chi2": ".profiles:chi2",
+        },
         "astra": {
             "upl": ".global:upl",
             "wth": ".global:wth",
@@ -857,8 +862,14 @@ class ST40Reader(DataReader):
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision,
             )
             qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision,
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q] + "_err",
+                revision,
             )
+            if np.array_equal(qval_err, "FAILED"):
+                qval_err = np.full_like(qval, 0.0)
+                q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
             # radius = dimensions[0]

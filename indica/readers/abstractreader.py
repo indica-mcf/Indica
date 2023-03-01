@@ -204,7 +204,7 @@ class DataReader(BaseIO):
         y_coord = DataArray(y, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
         R_coord = DataArray(R, coords=[(diagnostic_coord, ticks)])
-        null_array = xr.full_like(x_coord, 0.)
+        null_array = xr.full_like(x_coord, 0.0)
         if all(x_coord == null_array) and all(y_coord == null_array):
             x_coord = R_coord
         transform = TransectCoordinates(x_coord, y_coord, z_coord, f"{instrument}",)
@@ -229,16 +229,17 @@ class DataReader(BaseIO):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            meta = {
+            quant_data = DataArray(database_results[quantity], coords, dims,).sel(
+                t=slice(self._tstart, self._tend)
+            )
+            quant_error = DataArray(
+                database_results[quantity + "_error"], coords, dims
+            ).sel(t=slice(self._tstart, self._tend))
+            quant_data.attrs = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(
-                    database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                "error": quant_error,
                 "transform": transform,
             }
-            quant_data = DataArray(
-                database_results[quantity], coords, dims, attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -251,9 +252,6 @@ class DataReader(BaseIO):
                 )
             quant_data.name = instrument + "_" + quantity
             drop: list = []
-            # drop = self._select_channels(
-            #     "thomson", uid, instrument, quantity, quant_data, transform.x1_name
-            # )
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "thomson_scattering",
                 uid,

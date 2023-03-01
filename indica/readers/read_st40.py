@@ -1,4 +1,5 @@
 import xarray as xr
+from xarray import DataArray
 import numpy as np
 import matplotlib.pylab as plt
 from copy import deepcopy
@@ -24,36 +25,42 @@ REVISIONS = {
     "ts": 0,
 }
 
-FILTER_RULES = {
-    "cxff_pi": lambda x: xr.where(x > 0, x, np.nan),
-    "cxff_tws_c": lambda x: xr.where(x > 0, x, np.nan),
-    "cxqf_tws_c": lambda x: xr.where(x > 0, x, np.nan),
-    "xrcs": lambda x: xr.where(x > 0, x, np.nan),
-    "brems": lambda x: xr.where(x > 0, x, np.nan),
-    "halpha": lambda x: xr.where(x > 0, x, np.nan),
-    "sxr_diode_1": lambda x: xr.where(x > 0, x, np.nan),
-    "sxr_camera_4": lambda x: xr.where(x > 0, x, np.nan),
-    "ts": lambda x: xr.where(x > 0, x, np.nan),
+FILTER_LIMITS = {
+    "cxff_pi": (0, np.inf),
+    "cxff_tws_c": (0, np.inf),
+    "cxqf_tws_c": (0, np.inf),
+    "xrcs": (0, np.inf),
+    "brems": (0, np.inf),
+    "halpha": (0, np.inf),
+    "sxr_diode_1": (0, np.inf),
+    "sxr_camera_4": (0, np.inf),
+    "ts": (0, np.inf),
 }
 
-LINESTYLES = {"ts": "solid", "cxff_pi": "solid", "cxff_tws_c": "dashed", "cxqf_tws_c": "dotted"}
+LINESTYLES = {
+    "ts": "solid",
+    "cxff_pi": "solid",
+    "cxff_tws_c": "dashed",
+    "cxqf_tws_c": "dotted",
+}
 MARKERS = {"ts": "o", "cxff_pi": "s", "cxff_tws_c": "*", "cxqf_tws_c": "x"}
 YLABELS = {
     "te": "Te (eV)",
     "ne": "Ne (m$^{-3}$)",
     "ti": "Ti (eV)",
     "vtor": "Vtor (m/s)",
+    "chi2": "$\chi^2$",
 }
 XLABELS = {"rho": "Rho-poloidal", "R": "R (m)"}
 
 
 class ReadST40:
-    def __init__(self, pulse: int, tstart: float = 0.0, tend: float = 0.2):
+    def __init__(self, pulse: int, tstart: float = 0.0, tend: float = 0.2, tree="ST40"):
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
 
-        self.reader = ST40Reader(pulse, tstart, tend)
+        self.reader = ST40Reader(pulse, tstart, tend, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -130,7 +137,6 @@ class ReadST40:
         for attr in attr_to_map:
             data_to_map = getattr(self, attr)
             for instr in instruments:
-                print(instr)
                 for quant in data_to_map[instr]:
                     data = data_to_map[instr][quant]
                     transform = data.transform
@@ -150,14 +156,26 @@ class ReadST40:
             instruments = self.binned_data.keys()
 
         for instr in instruments:
-            if instr not in FILTER_RULES.keys():
+            if instr not in FILTER_LIMITS.keys():
                 continue
 
-            for quant in self.binned_data[instr]:
-                attrs = self.binned_data[instr][quant].attrs
-                filtered_data = FILTER_RULES[instr](self.binned_data[instr][quant])
-                filtered_data.attrs = attrs
-                self.binned_data[instr][quant] = filtered_data
+            quantities = list(self.binned_data[instr])
+            filter_general(
+                self.binned_data[instr], quantities, lim=FILTER_LIMITS[instr],
+            )
+
+    def filter_ts(self, chi2_limit: float = 2.0):
+        if "ts" not in self.binned_data.keys():
+            print("No TS data to filter")
+            return
+
+        # Filter out any radial point where the chi2 is above limit
+        condition = self.binned_data["ts"]["chi2"] < chi2_limit
+        for quantity in self.binned_data["ts"].keys():
+            attrs = self.binned_data["ts"][quantity].attrs
+            filtered = xr.where(condition, self.binned_data["ts"][quantity], np.nan)
+            filtered.attrs = attrs
+            self.binned_data["ts"][quantity] = filtered
 
     def plot_profile(
         self,
@@ -236,6 +254,7 @@ class ReadST40:
         tend: float = 0.2,
         dt: float = 0.01,
         R_shift: float = 0.0,
+        chi2_limit: float = 2.0,
     ):
 
         if instruments is None:
@@ -256,5 +275,18 @@ class ReadST40:
         self.bin_data_in_time(instruments=instruments, tstart=tstart, tend=tend, dt=dt)
         print_like("Filtering")
         self.filter_data(instruments=instruments)
+        self.filter_ts(chi2_limit=chi2_limit)
         print_like("Mapping to equilibrium")
         self.map_diagnostics(instruments=instruments, map_raw=map_raw)
+
+
+def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.inf)):
+    for quantity in quantities:
+        attrs = data[quantity].attrs
+        condition = (data[quantity] >= lim[0]) * (data[quantity] < lim[1])
+        filtered = xr.where(condition, data[quantity], np.nan)
+        filtered.attrs = attrs
+        data[quantity] = filtered
+
+def astra_equilibrium(pulse: int, revision: RevisionLike):
+    """Assign ASTRA to equilibrium class"""
