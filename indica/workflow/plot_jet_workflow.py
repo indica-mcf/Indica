@@ -1,16 +1,12 @@
 from pathlib import Path
-from typing import Dict
-from typing import Union
+from typing import Dict, Union
 
-from matplotlib import pyplot as plt
 import numpy as np
-from sal.client import SALClient
+from matplotlib import pyplot as plt
 from xarray import DataArray
 
 from .jet_workflow import JetWorkflow
 from .plot_workflow import PlotWorkflow
-
-SAL = SALClient("https://sal.jetdata.eu")
 
 DEFAULT_COMPARISON_SOURCE: Dict[str, str] = {
     "instrument": "wsxp",
@@ -84,7 +80,7 @@ class PlotJetWorkflow(PlotWorkflow):
     def get_comparison_data(
         self, pulse: int, uid: str, instrument: str, quantity: str, **kwargs
     ) -> DataArray:
-        signal = SAL.get(
+        signal = self.workflow.reader._client.get(
             "/pulse/{}/ppf/signal/{}/{}/{}".format(pulse, uid, instrument, quantity)
         )
         coords, dims = [], []
