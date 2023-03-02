@@ -37,11 +37,7 @@ def line_integrate(
     Return line integrated result of given data
     """
     if not data.attrs.get("transform"):
-        print("Missing transform, can't line integrate")
-        return
-    if data.ndim > 2:
-        print("{} dims for rescale not supported".format(data.ndim))
-        return
+        raise UserWarning("Missing transform, can't line integrate")
     np.zeros_like(times)
     data_integrated = np.zeros(len(times))
     for iLoS in np.arange(0, 1 + dl, dl):
@@ -115,6 +111,16 @@ class PlotWorkflow:
         if threshold_rho is not None:
             ax.axvline(threshold_rho, method="nearest")
             ax.axvline(-threshold_rho, method="nearest")
+        return fig, ax
+
+    def plot_line_integrated_density(self, transform: LinesOfSightTransform, **kwargs):
+        figsize = kwargs.pop("figsize", None)
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.plot(
+            self.workflow.t,
+            line_integrate(self.workflow.ion_densities, self.workflow.t, transform),
+            **kwargs
+        )
         return fig, ax
 
     def plot_bolometry_emission(
