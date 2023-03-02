@@ -1,6 +1,6 @@
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 88
@@ -29,7 +29,7 @@ authors = [
     "Chris MacMackin <chris.macmackin@ukaea.uk>"
 ]
 maintainers = [
-    "Edward Litherland-Smith <edward.litherland-smith@ukaea.uk>",
+    "Evie Litherland-Smith <evie.litherland-smith@ukaea.uk>",
     "Shane Scully <shane.scully@ukaea.uk>",
     "Chris MacMackin <chris.macmackin@ukaea.uk>",
 ]
