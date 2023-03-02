@@ -196,7 +196,6 @@ class JetWorkflow(BaseWorkflow):
             )
         except (NodeNotFound, KeyError):
             pass
-
         self.efit_equilibrium = Equilibrium(equilibrium_data=self.diagnostics["efit"])
         for key, diag in self.diagnostics.items():
             for data in diag.values():
@@ -557,11 +556,32 @@ class JetWorkflow(BaseWorkflow):
         # }
         return n_high_z_rho_theta, extrapolator
 
-    def _rescale_n_high_z(self, n_high_z: DataArray):
+    def _rescale_n_high_z(
+        self, n_high_z: DataArray, line_dens: DataArray, dl: float = 0.05
+    ) -> DataArray:
         """
-        Rescale to VUV
+        Rescale high z density using extra line-integrated measurement
         """
-        ...
+        if not line_dens.attrs.get("transform"):
+            print("Missing transform, can't line integrate")
+            return n_high_z
+        if line_dens.ndim > 2:
+            print("{} dims for rescale not supported".format(line_dens.ndim))
+            return n_high_z
+        if "t" in line_dens.dims:
+            line_dens = line_dens.interp({"t": self.t})
+        transform = line_dens.attrs["transform"]
+        nhz_integrated = np.zeros(len(self.t))
+        for iLoS in np.arange(0, 1 + dl, dl):
+            R, z = transform.convert_to_Rz(0, iLoS, self.t)
+            rho, theta = n_high_z.transform.convert_from_Rz(R, z, self.t)
+            if np.any(rho > 1.0) or np.any(np.isnan(rho)) or np.any(np.isnan(theta)):
+                continue
+            dens = n_high_z.interp({"rho_poloidal": rho, "theta": theta, "t": self.t})
+            nhz_integrated += dens.fillna(0.0).data
+        ratio = line_dens.data / nhz_integrated
+        n_high_z.data *= ratio.max()
+        return n_high_z
 
     def _optimise_n_high_z(
         self, n_high_z: DataArray, extrapolator: ExtrapolateImpurityDensity

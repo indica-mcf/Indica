@@ -6,6 +6,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.converters.line_of_sight import LinesOfSightTransform
 from indica.operators.extrapolate_impurity_density import asymmetry_from_rho_theta
 from indica.operators.extrapolate_impurity_density import recover_threshold_rho
 from .base_workflow import BaseWorkflow
@@ -24,6 +25,33 @@ def to_midplane(data: DataArray):
         data_hfs = data.reindex({"rho_poloidal": data.coords["rho_poloidal"][::-1]})
     data_hfs.coords["rho_poloidal"] = -data_hfs.coords["rho_poloidal"]  # type: ignore
     return xr.concat([data_hfs[:-1], data_lfs], dim="rho_poloidal")
+
+
+def line_integrate(
+    data: DataArray,
+    times: DataArray,
+    transform: LinesOfSightTransform,
+    dl: float = 0.05,
+) -> DataArray:
+    """
+    Return line integrated result of given data
+    """
+    if not data.attrs.get("transform"):
+        print("Missing transform, can't line integrate")
+        return
+    if data.ndim > 2:
+        print("{} dims for rescale not supported".format(data.ndim))
+        return
+    np.zeros_like(times)
+    data_integrated = np.zeros(len(times))
+    for iLoS in np.arange(0, 1 + dl, dl):
+        R, z = transform.convert_to_Rz(0, iLoS, times)
+        rho, theta = data.transform.convert_from_Rz(R, z, times)
+        if np.any(rho > 1.0) or np.any(np.isnan(rho)) or np.any(np.isnan(theta)):
+            continue
+        dens = data.interp({"rho_poloidal": rho, "theta": theta, "t": times})
+        data_integrated += dens.fillna(0.0).data
+    return data_integrated
 
 
 class PlotWorkflow:
