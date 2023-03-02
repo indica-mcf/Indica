@@ -187,6 +187,16 @@ class JetWorkflow(BaseWorkflow):
             )["conc"]
         except (NodeNotFound, KeyError):
             pass
+        try:
+            self.diagnostics["vuv"] = self.reader.get(
+                uid="elitherl",
+                instrument="cwup",
+                revision=0,
+                quantities={"n_w", "c_w"},
+            )
+        except (NodeNotFound, KeyError):
+            pass
+
         self.efit_equilibrium = Equilibrium(equilibrium_data=self.diagnostics["efit"])
         for key, diag in self.diagnostics.items():
             for data in diag.values():
@@ -472,7 +482,24 @@ class JetWorkflow(BaseWorkflow):
         self._n_main_ion._data = xr.zeros_like(self.electron_density)
 
     def _calculate_n_high_z(self) -> DataArray:
-        other_densities = xr.concat(
+        n_high_z = self._calculate_initial_n_high_z(
+            other_densities=self._other_densities
+        )
+        try:
+            n_high_z, extrapolator = self._extrapolate_n_high_z(n_high_z=n_high_z)
+            try:
+                n_high_z = self._optimise_n_high_z(
+                    n_high_z=n_high_z, extrapolator=extrapolator
+                )
+            except Exception as e:
+                print("Error optimizing perturbation: {}".format(e))
+        except Exception as e:
+            print("Error extrapolating n_high_z: {}".format(e))
+        return n_high_z
+
+    @property
+    def _other_densities(self) -> DataArray:
+        return xr.concat(
             [
                 self.n_zeff_el,
                 self.n_zeff_el_extra,
@@ -483,24 +510,6 @@ class JetWorkflow(BaseWorkflow):
         ).assign_coords(
             {"element": [self.zeff_el, self.zeff_el_extra, self.other_z, self.main_ion]}
         )
-        n_high_z_initial = self._calculate_initial_n_high_z(
-            other_densities=other_densities
-        )
-        # TODO add check for VUV
-        try:
-            n_high_z_extrapolated, extrapolator = self._extrapolate_n_high_z(
-                n_high_z=n_high_z_initial
-            )
-        except Exception as e:
-            print("Error extrapolating n_high_z: {}".format(e))
-            return n_high_z_initial
-        try:
-            return self._optimise_n_high_z(
-                n_high_z=n_high_z_extrapolated, extrapolator=extrapolator
-            )
-        except Exception as e:
-            print("Error optimizing perturbation: {}".format(e))
-            return n_high_z_extrapolated
 
     def _calculate_initial_n_high_z(self, other_densities: DataArray) -> DataArray:
         other_power_loss = self.sxr_power_loss_charge_averaged.sel(
@@ -547,6 +556,12 @@ class JetWorkflow(BaseWorkflow):
         #     "threshold_rho": extrapolator.threshold_rho,
         # }
         return n_high_z_rho_theta, extrapolator
+
+    def _rescale_n_high_z(self, n_high_z: DataArray):
+        """
+        Rescale to VUV
+        """
+        ...
 
     def _optimise_n_high_z(
         self, n_high_z: DataArray, extrapolator: ExtrapolateImpurityDensity
