@@ -23,8 +23,8 @@ def default_inputs():
 
 
 def load_line_of_sight_default():
-    origin = np.array([[3.8, -2.0, 0.5], [3.8, -2.0, 0.0]])
-    direction = np.array([[-1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]])
+    origin = np.array([[3.8, -1.0, 0.5], [3.8, -1.5, 0.0]])
+    direction = np.array([[-1.0, 1.0, 0.0], [-1.0, 2.0, 0.0]])
     machine_dims = ((1.83, 3.9), (-1.75, 2.0))
     name = "los_test"
     los = line_of_sight.LineOfSightTransform(
@@ -47,6 +47,38 @@ def load_equilibrium_default():
         sess=MagicMock(),
     )
     return equil
+
+
+def test_map_profile_to_los():
+    los, machine_dims = load_line_of_sight_default()
+    equil = load_equilibrium_default()
+
+    los.set_equilibrium(equil)
+    R_ = np.linspace(machine_dims[0][0], machine_dims[0][1], 30)
+    z_ = np.linspace(machine_dims[1][0], machine_dims[1][1], 30)
+
+    R_ = DataArray(R_, coords={"R": R_}, dims=["R"])
+    z_ = DataArray(z_, coords={"z": z_}, dims=["z"])
+
+    t_ = np.linspace(74.5, 80.5, 5)
+    t_ = DataArray(t_, coords={"t": t_}, dims=["t"])
+
+    R_ = R_.expand_dims(dim={"t": t_})
+    z_ = z_.expand_dims(dim={"t": t_})
+
+    rho_ = np.linspace(0.0, 1.0, 30)
+    theta_ = np.linspace(0.0, 2.0 * np.pi, 30)
+    rho_ = DataArray(rho_, coords={"rho_poloidal": rho_}, dims=["rho_poloidal"])
+    theta_ = DataArray(theta_, coords={"theta": theta_}, dims=["theta"])
+
+    Ne = DataArray(
+        np.tile(np.logspace(19.0, 16.0, 30), (5, 30, 1)).transpose([2, 1, 0]),
+        coords={"rho_poloidal": rho_, "theta": theta_, "t": t_},
+        dims=["rho_poloidal", "theta", "t"],
+    )
+
+    Ne_los = los.map_profile_to_los(Ne, t_)
+    print(Ne_los)
 
 
 def _test_check_rho():
@@ -316,6 +348,7 @@ def equilibrium_dat():
         (-result["zmag"] + zgrid) ** 2 / b_coeff**2
         + (-result["rmag"] + rgrid) ** 2 / a_coeff**2
     ) ** (0.5 / n_exp)
+    result["psin"] = psin
 
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
     psi.name = "psi"
@@ -377,6 +410,11 @@ def equilibrium_dat():
     result["rmji"].name = "rmji"
     result["rmji"].attrs["datatype"] = ("major_rad", "hfs")
     result["rmji"].coords["z"] = result["zmag"]
+    result["ajac"] = (
+        np.pi * result["rmag"] * b_coeff * psin_data ** (2 * n_exp - 1)
+    ).assign_attrs(**attrs)
+    result["ajac"].name = "ajac"
+    result["ajac"].attrs["datatype"] = ("area_jacobian", "plasma")
     result["vjac"] = (
         4
         * n_exp

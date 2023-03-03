@@ -46,6 +46,10 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     ),
     "minor_rad": ("Distance of a point from the magnetic axis", "m"),
     "z": ("Vertical position from mid-plane of Tokamak", "m"),
+    "area_jacobian": (
+        "Derivative of cross-sectional area with respect to normalised poloidal flux",
+        "m^3",
+    ),
     "vol_jacobian": (
         "Derivative of enclosed volume with respect to normalised poloidal flux",
         "m^3",
@@ -335,7 +339,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "number_density",
             "temperature",
             "toroidal_flux",
-            "vol_jacobian",
+            "area_jacobian" "vol_jacobian",
             "weighting",
             "toroidal_rotation",
             "times",
