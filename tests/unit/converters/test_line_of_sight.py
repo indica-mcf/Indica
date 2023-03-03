@@ -66,8 +66,11 @@ def test_map_profile_to_los():
     R_ = R_.expand_dims(dim={"t": t_})
     z_ = z_.expand_dims(dim={"t": t_})
 
-    rho_ = np.linspace(0.0, 1.0, 30)
-    theta_ = np.linspace(0.0, 2.0 * np.pi, 30)
+    rho_equil, theta_equil, _ = equil.flux_coords(R_, z_, t_)
+    rho_max = rho_equil.max(dim=["t", "R", "z"], skipna=True).data[()]
+
+    rho_ = np.linspace(0.0, rho_max, 30)
+    theta_ = np.linspace(-np.pi, np.pi, 30)
     rho_ = DataArray(rho_, coords={"rho_poloidal": rho_}, dims=["rho_poloidal"])
     theta_ = DataArray(theta_, coords={"theta": theta_}, dims=["theta"])
 
@@ -77,8 +80,17 @@ def test_map_profile_to_los():
         dims=["rho_poloidal", "theta", "t"],
     )
 
-    Ne_los = los.map_profile_to_los(Ne, t_)
-    print(Ne_los)
+    Ne = xr.where(Ne.rho_poloidal > 1, 0, Ne)
+
+    Ne_Rz = Ne.interp(rho_poloidal=rho_equil, theta=theta_equil).drop_vars(
+        ["rho_poloidal", "theta"]
+    )
+
+    Ne_los_rho_theta = los.map_profile_to_los(Ne, t_, kind="flux_coords")
+    Ne_los_R_z = los.map_profile_to_los(Ne_Rz, t_, kind="spatial_coords")
+
+    Ne_los_rho_theta = Ne_los_rho_theta.assign_attrs(name="Ne_los_rho_theta")
+    Ne_los_R_z = Ne_los_R_z.assign_attrs(name="Ne_los_R_z")
 
 
 def _test_check_rho():

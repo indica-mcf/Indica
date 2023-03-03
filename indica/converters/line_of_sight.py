@@ -17,6 +17,7 @@ from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
+from ..utilities import input_check
 
 
 class LineOfSightTransform(CoordinateTransform):
@@ -319,6 +320,7 @@ class LineOfSightTransform(CoordinateTransform):
         t: LabeledArray = None,
         limit_to_sep: bool = True,
         calc_rho: bool = False,
+        kind: str = "flux_coords",
     ) -> DataArray:
         """
         Map profile to lines-of-sight
@@ -340,21 +342,37 @@ class LineOfSightTransform(CoordinateTransform):
         """
         self.check_equilibrium()
 
-        profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
-        impact_rho = self.rho.min("los_position")
-
-        along_los = profile.interpolate_na(dim="rho_poloidal", use_coordinate=True)
-        along_los = along_los.drop_vars("rho_poloidal")
-        along_los = profile.interp(theta=self.theta).drop_vars("theta")
-        if limit_to_sep:
-            along_los = xr.where(
-                self.rho <= 1,
-                along_los,
-                np.nan,
+        input_check("kind", kind, str)
+        if (kind != "flux_coords") and (kind != "spatial_coords"):
+            raise ValueError(
+                f'kind cannot be "{kind}", it must be either\
+                     "flux_coords" or "spatial_coords"'
             )
 
+        if kind == "flux_coords":
+            profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
+            impact_rho = self.rho.min("los_position")
+
+            rho_ = self.rho.dropna(dim="los_position")
+            theta_ = self.theta.dropna(dim="los_position")
+
+            along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
+            along_los = along_los.drop_vars(["rho_poloidal", "theta"])
+            if limit_to_sep:
+                along_los = xr.where(
+                    rho_ <= 1,
+                    along_los,
+                    np.nan,
+                )
+            self.impact_rho = impact_rho
+        elif kind == "spatial_coords":
+            R_ = self.R.dropna(dim="los_position")
+            z_ = self.z.dropna(dim="los_position")
+
+            along_los = profile_to_map.interp(R=R_, z=z_)
+            along_los = along_los.drop_vars(["R", "z"])
+
         self.along_los = along_los
-        self.impact_rho = impact_rho
 
         return along_los
 
