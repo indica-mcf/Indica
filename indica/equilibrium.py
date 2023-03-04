@@ -65,15 +65,21 @@ class Equilibrium:
             (self.ftor - self.ftor.sel(rho_poloidal=0.0))
             / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
         )
-        self.rmji = equilibrium_data["rmji"]
-        self.rmjo = equilibrium_data["rmjo"]
         self.psi = equilibrium_data["psi"]
-        self.psin = equilibrium_data["psin"]
         self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-
-        dpsin = self.psin[1] - self.psin[0]
-        self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
-        self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
+        if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
+            self.psin = equilibrium_data["psin"]
+            dpsin = self.psin[1] - self.psin[0]
+            self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
+            self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
+        elif "volume" in equilibrium_data and "area" in equilibrium_data:
+            self.volume = equilibrium_data["volume"]
+            self.area = equilibrium_data["area"]
+        else:
+            raise ValueError("No volume or area information")
+        if "rmji" and "rmjo" in equilibrium_data:
+            self.rmji = equilibrium_data["rmji"]
+            self.rmjo = equilibrium_data["rmjo"]
         self.rmag = equilibrium_data["rmag"]
         self.rbnd = equilibrium_data["rbnd"]
         self.zmag = equilibrium_data["zmag"]

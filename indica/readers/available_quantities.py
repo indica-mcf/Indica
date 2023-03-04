@@ -45,7 +45,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "ftor": ("magnetic_flux", "toroidal"),
         "rmji": ("major_rad", "hfs"),
         "rmjo": ("major_rad", "lfs"),
-        "psin": ("magnetic_flux_normalised", "poloidal"),
         "psi": ("magnetic_flux", "poloidal"),
         "vjac": ("volume_jacobian", "plasma"),
         "ajac": ("area_jacobian", "plasma"),
@@ -64,6 +63,25 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "brightness": ("luminous_flux", None),
     },
     "get_astra": {
+        "f": ("f_value", "plasma"),
+        "faxs": ("magnetic_flux_axis", "poloidal"),
+        "fbnd": ("magnetic_flux_separatrix", "poloidal"),
+        "ftor": ("magnetic_flux", "toroidal"),
+        # "rmji": ("major_rad", "hfs"),
+        # "rmjo": ("major_rad", "lfs"),
+        "psi": ("magnetic_flux", "poloidal"),
+        "psi_1d": ("magnetic_flux", "poloidal"),
+        # "vjac": ("volume_jacobian", "plasma"),
+        # "ajac": ("area_jacobian", "plasma"),
+        "volume": ("volume", "plasma"),
+        "area": ("area", "plasma"),
+        "rmag": ("major_rad", "mag_axis"),
+        "rgeo": ("major_rad", "geometric"),
+        "zmag": ("z", "mag_axis"),
+        "zgeo": ("z", "geometric"),
+        "rbnd": ("major_rad", "separatrix"),
+        "zbnd": ("z", "separatrix"),
+        "ipla": ("current", "plasma"),
         "upl": (
             "voltage",
             "loop",
@@ -88,7 +106,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "j_oh": ("current_density", "ohmic"),  # Ohmic current density,MA/m2
         "j_rf": ("current_density", "rf"),  # EC driven current density,MA/m2
         "j_tot": ("current_density", "total"),  # Total current density,MA/m2
-        "ftor": ("flux", "toroidal"),
         "ne": ("density", "electron"),  # Electron density, 10^19 m^-3
         "ni": ("density", "main_ion"),  # Main ion density, 10^19 m^-3
         "nf": ("density", "fast"),
@@ -129,6 +146,5 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "p_oh": ("ohmic", "power"),  # Absorber NBI power, W
         "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
         "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
-        "volume": ("volume", "plasma"),  # Parallel conductivity,1/(Ohm*m)
     },
 }
