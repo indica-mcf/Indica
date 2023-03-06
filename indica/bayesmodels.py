@@ -186,7 +186,7 @@ class BayesModels:
             "impurity_density": self.plasma.impurity_density.sel(
                 t=self.plasma.time_to_calculate
             ),
-            # TODO: add Ni/Nh/Nimp when fz property works 1 timepoint
+            # TODO: add Nh
         }
         blob = deepcopy({**self.bckc, **kin_profs})
         return ln_posterior, blob
