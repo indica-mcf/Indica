@@ -4,23 +4,26 @@ import corner
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def plot_bayes_result(
-        figheader="./results/test/",
-        blobs=None,
-        diag_data=None,
-        samples=None,
-        prior_samples=None,
-        param_names=None,
-        phantom_profiles=None,
-        plasma=None,
-        autocorr=None,
-        **kwargs
+    figheader="./results/test/",
+    blobs=None,
+    diag_data=None,
+    samples=None,
+    prior_samples=None,
+    param_names=None,
+    phantom_profiles=None,
+    plasma=None,
+    autocorr=None,
+    **kwargs
 ):
     Path(figheader).mkdir(parents=True, exist_ok=True)
 
     plt.figure()
     plt.plot(
-        np.arange(0, autocorr.__len__())[np.isfinite(autocorr)], autocorr[np.isfinite(autocorr)], label="average tau"
+        np.arange(0, autocorr.__len__())[np.isfinite(autocorr)],
+        autocorr[np.isfinite(autocorr)],
+        label="average tau",
     )
     plt.legend()
     plt.xlabel("iterations")
@@ -218,9 +221,9 @@ def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
     autocorr = np.ones((iterations,)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(
-            start_points,
-            iterations=iterations,
-            progress=True,
+        start_points,
+        iterations=iterations,
+        progress=True,
     ):
         if sampler.iteration % auto_sample:
             continue
