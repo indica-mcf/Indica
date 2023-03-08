@@ -211,6 +211,7 @@ def plot_bayes_result(
 
     corner.corner(prior_samples, labels=param_names)
     plt.savefig(figheader + "prior.png")
+    plt.close("all")
 
 
 def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
