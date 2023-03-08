@@ -176,4 +176,4 @@ if __name__ == "__main__":
         "Ti_prof.y0": 5000,
         "Ti_prof.peaking": 2,
     }
-    run(10009, params, 5, "./results/test/", burn_in=0)
+    run(10009, params, 300, "./results/test/", burn_in=50)
