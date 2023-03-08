@@ -57,11 +57,11 @@ class MARCHUKReader:
     """
 
     def __init__(
-            self,
-            extrapolate: bool = True,
-            filehead: str = None,
-            element: str = "ar",
-            charge: int = 16,
+        self,
+        extrapolate: bool = True,
+        filehead: str = None,
+        element: str = "ar",
+        charge: int = 16,
     ):
         if filehead is None:
             filehead = FILEHEAD
@@ -74,8 +74,8 @@ class MARCHUKReader:
         self.pecs = self._make_pecs_dataarray()
 
     def build_pec_database(
-            self,
-            Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000),
+        self,
+        Te: np.typing.ArrayLike = np.linspace(200, 10000, 10000),
     ):
         """
         Reads Marchuk's Atomic data and builds DataArrays for each emission type
@@ -249,10 +249,10 @@ class MARCHUKReader:
             data=casc[:, 1:, np.newaxis],
             coords={
                 "electron_temperature": casc[
-                                        :,
-                                        0,
-                                        ]
-                                        * 1e3,
+                    :,
+                    0,
+                ]
+                * 1e3,
                 "line_name": lines_casc,
                 "type": ["diel"],
                 "wavelength": ("line_name", wavelengths_casc),
@@ -326,7 +326,7 @@ class MARCHUKReader:
         t_idx = n2_array.line_name.str.contains("t!").values
         casc_idx = q_idx | r_idx | s_idx | t_idx
         n2_array.loc[dict(line_name=casc_idx)] = n2_array.sel(line_name=casc_idx) * (
-                1 + casc_factor.values
+            1 + casc_factor.values
         )
 
         # Atomic data

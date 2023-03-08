@@ -12,6 +12,7 @@ from indica.workflows.bayes_workflow import plot_bayes_result, sample_with_autoc
 
 # TODO: allow conditional prior usage even when only one param is being optimisied i.e. 1 is constant
 
+
 def run(
     pulse,
     phantom_profile_params,
@@ -49,9 +50,7 @@ def run(
 
     # Initialise Diagnostic Models
     los_transform = ST40.binned_data["smmh1"]["ne"].transform
-    smmh1 = Interferometry(
-        name="smmh1"
-    )
+    smmh1 = Interferometry(name="smmh1")
     smmh1.set_los_transform(los_transform)
     smmh1.plasma = plasma
     los_transform = ST40.binned_data["xrcs"]["te_kw"].transform
@@ -115,8 +114,7 @@ def run(
     ndim = param_names.__len__()
     nwalkers = 50 if (ndim * 2) < 50 else ndim * 2
     start_points = bm.sample_from_priors(param_names, size=nwalkers)
-    move = [(emcee.moves.StretchMove(), 1.0),
-            (emcee.moves.DEMove(), 0.0)]
+    move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
 
     sampler = emcee.EnsembleSampler(
         nwalkers,
