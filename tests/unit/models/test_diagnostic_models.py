@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import indica.models.bolometer_camera as bolo
 import indica.models.charge_exchange as cxrs
@@ -35,14 +36,11 @@ def _test_timepoint_pass(model_name: str, **kwargs):
 
 
 def _test_timepoint_fail(model_name: str, **kwargs):
-    """Test that model can be called for single time-point
-    TODO: use pytes/unittest assertions to catch ValueError"""
+    """Test that model can be called for single time-point"""
     model = MODELS[model_name]
     _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
-    try:
+    with pytest.raises(Exception) as e_info:
         model(t=TIME_SINGLE_FAIL)
-    except ValueError:
-        return
 
 
 def _test_time_interpolation(model_name: str, **kwargs):
