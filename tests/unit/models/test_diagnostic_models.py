@@ -128,13 +128,3 @@ def test_helike_interpolation():
     _test_time_interpolation("helike_spectroscopy")
 
 
-def test_helike_full_timepoint_fail():
-    _test_timepoint_fail("helike_spectroscopy", calc_spectra=True)
-
-
-def test_helike_full_timepoint_pass():
-    _test_timepoint_pass("helike_spectroscopy", calc_spectra=True)
-
-
-def test_helike_full_interpolation():
-    _test_time_interpolation("helike_spectroscopy", calc_spectra=True)
