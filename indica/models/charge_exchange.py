@@ -77,7 +77,7 @@ class ChargeExchange(DiagnosticModel):
         """
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Ti = self.plasma.ion_temperature.interp(t=t)
             Vtor = self.plasma.toroidal_rotation.interp(t=t)
         else:
