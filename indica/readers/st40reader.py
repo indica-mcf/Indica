@@ -127,7 +127,6 @@ class ST40Reader(DataReader):
             "rmji": ".profiles.psi_norm:rmji",
             "rmjo": ".profiles.psi_norm:rmjo",
             "psi": ".psi2d:psi",
-            "psin": ".profiles.psi_norm:xpsn",
             "vjac": ".profiles.psi_norm:vjac",
             "ajac": ".profiles.psi_norm:ajac",
             "rmag": ".global:rmag",
@@ -204,8 +203,33 @@ class ST40Reader(DataReader):
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
         },
-        "ts": {"ne": ".profiles:ne", "te": ".profiles:te", "pe": ".profiles:pe",},
+        "ts": {
+            "ne": ".profiles:ne",
+            "te": ".profiles:te",
+            "pe": ".profiles:pe",
+            "chi2": ".profiles:chi2",
+        },
         "astra": {
+            "f": ".profiles.psi_norm:fpol",
+            "faxs": ".global:faxs",
+            "fbnd": ".global:fbnd",
+            "ftor": ".profiles.psi_norm:ftor",  # Wb
+            # "rmji": ".profiles.psi_norm:rmji",
+            # "rmjo": ".profiles.psi_norm:rmjo",
+            "psi_1d": ".profiles.psi_norm:psi",
+            "psi": ".psi2d:psi",
+            # "vjac": ".profiles.psi_norm:vjac",
+            # "ajac": ".profiles.psi_norm:ajac",
+            "volume": ".profiles.psi_norm:volume",
+            "area": ".profiles.psi_norm:areat",
+            "rmag": ".global:rmag",
+            "rgeo": ".global:rgeo",
+            "zmag": ".global:zmag",
+            "zgeo": ".global:zgeo",
+            "rbnd": ".p_boundary:rbnd",
+            "zbnd": ".p_boundary:zbnd",
+            "wp": ".global:wth",
+            "ipla": ".global:ipl",
             "upl": ".global:upl",
             "wth": ".global:wth",
             "wtherm": ".global:wtherm",
@@ -243,19 +267,15 @@ class ST40Reader(DataReader):
             "t_d": ".profiles.astra:t_d",  # Deuterium temperature,keV
             "t_t": ".profiles.astra:t_t",  # Tritium temperature,keV
             "zeff": ".profiles.astra:zeff",  # Effective ion charge
-            "psin": ".profiles.psi_norm:psin",  # Normalized poloidal flux -
             "areat": ".profiles.psi_norm:areat",  # Toroidal cross section,m2
-            "ftor": ".profiles.psi_norm:ftor",  # Toroidal flux, Wb
             "p": ".profiles.psi_norm:p",  # PRESSURE(PSI_NORM)
             "pblon": ".profiles.astra:pblon",  # PRESSURE(PSI_NORM)
             "pbper": ".profiles.astra:pbper",  # PRESSURE(PSI_NORM)
             "pnb": ".global:pnb",  # Injected NBI power, W
             "pabs": ".global:pabs",  # Absorber NBI power, W
             "p_oh": ".global:p_oh",  # Absorber NBI power, W
-            "psi": ".profiles.psi_norm:psi",  # PSI
             "q": ".profiles.psi_norm:q",  # Q_PROFILE(PSI_NORM)
             "sigmapar": ".profiles.psi_norm:sigmapar",  # Paral. conduct.,1/(Ohm*m)
-            "volume": ".profiles.psi_norm:volume",  # Volume inside magnetic surface,m3
         },
     }
 
@@ -403,29 +423,46 @@ class ST40Reader(DataReader):
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
 
-        if len(uid) == 0:
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {}
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
-
         times, _ = self._get_signal(uid, instrument, ":time", revision)
-        if np.array_equal(times, "FAILED"):
-            return {}
-
+        results["times"] = times
+        results["psin"], results["psin_records"] = self._get_signal(
+            uid, instrument, ".profiles.psi_norm:xpsn", revision
+        )
+        results["psi_r"], results["psi_r_records"] = self._get_signal(
+            uid, instrument, ".psi2d:rgrid", revision
+        )
+        results["psi_z"], results["psi_z_records"] = self._get_signal(
+            uid, instrument, ".psi2d:zgrid", revision
+        )
         for q in quantities:
+            if q not in self.QUANTITIES_MDS[instrument].keys():
+                continue
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
+            if np.array_equal(qval, "FAILED"):
+                continue
+
             self._set_times_item(results, times)
             if q == "psi":
-                r, r_path = self._get_signal(uid, instrument, ".psi2d:rgrid", revision)
-                z, z_path = self._get_signal(uid, instrument, ".psi2d:zgrid", revision)
-                results["psi_r"] = r
-                results["psi_z"] = z
-                results["psi"] = qval.reshape((len(results["times"]), len(z), len(r)))
-                results["psi_records"] = [q_path, r_path, z_path]
+                results["psi"] = qval.reshape(
+                    (
+                        len(results["times"]),
+                        len(results["psi_z"]),
+                        len(results["psi_r"]),
+                    )
+                )
+                results["psi_records"] = [
+                    results["psin_records"],
+                    results["psi_r_records"],
+                    results["psi_z_records"],
+                ]
             else:
                 results[q] = qval
                 results[q + "_records"] = [q_path]
@@ -442,32 +479,36 @@ class ST40Reader(DataReader):
     ) -> Dict[str, Any]:
         """Fetch data from ASTRA run."""
 
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
+            uid = self.UIDS_MDS[instrument]
+
         results: Dict[str, Any] = {}
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
         # Read time and radial dimensions
-        psi, psin_path = self._get_signal(
+        results["boundary_index"], _ = self._get_signal(
+            uid, instrument, ".p_boundary:index", revision
+        )
+        results["psi"], _ = self._get_signal(
             uid, instrument, ".profiles.psi_norm:psi", revision
         )
-        psin, psin_path = self._get_signal(
+        results["psin"], psin_path = self._get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
-        ftor, ftor_path = self._get_signal(
+        results["ftor"], _ = self._get_signal(
             uid, instrument, ".profiles.psi_norm:ftor", revision
         )
-        rho, rho_path = self._get_signal(
+        results["rho"], rho_path = self._get_signal(
             uid, instrument, ".profiles.astra:rho", revision
         )
-        # psi, rho_path = self._get_signal(
-        #     uid, instrument, ".profiles.astra:psi", revision
-        # )
-        times, t_path = self._get_signal(uid, instrument, ":time", revision)
-        results["psi"] = psi
-        results["psin"] = psin
-        results["ftor"] = ftor
-        results["rho"] = rho
-        self._set_times_item(results, times)
+        results["psi_r"], _ = self._get_signal(
+            uid, instrument, ".psi2d:rgrid", revision
+        )
+        results["psi_z"], _ = self._get_signal(
+            uid, instrument, ".psi2d:zgrid", revision
+        )
+        results["times"], t_path = self._get_signal(uid, instrument, ":time", revision)
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -493,6 +534,9 @@ class ST40Reader(DataReader):
     ) -> Dict[str, Any]:
         """Fetch data from SXR camera."""
 
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
+            uid = self.UIDS_MDS[instrument]
+
         results: Dict[str, Any] = {
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
@@ -514,7 +558,6 @@ class ST40Reader(DataReader):
         )
         if np.size(location) == 0 or np.size(direction) == 0:
             import pickle
-
             msg = """\n **************** 
             \n USING PICKLE FILE FOR GEOMETRY 
             \n **************** \n"""
@@ -525,6 +568,13 @@ class ST40Reader(DataReader):
         brightness = []
         records = []
         quantity = "brightness"
+
+        times, times_path = self._get_signal(
+            uid,
+            _instrument,
+            f"{self.QUANTITIES_MDS[instrument][quantity]}time",
+            revision,
+        )
 
         chan_start, chan_end = self._RADIATION_RANGES[instrument]
         nchan = chan_end - chan_start + 1
@@ -538,18 +588,13 @@ class ST40Reader(DataReader):
             records.append(q_path)
             brightness.append(qval)
 
-        times, _ = self._get_signal_dims(q_path, len(qval.shape))
-        times = times[0]
         results["length"] = nchan
         results["times"] = times
         results[quantity] = np.array(brightness).T
         results[quantity + "_records"] = records
         results[quantity + "_error"] = self._default_error * results[quantity]
-        results["location"] = location
-        results["direction"] = direction
-        # results["location"] = np.array(location[chan_start - 1 : chan_start + nchan])
-        # results["direction"] = np.array(direction[chan_start - 1 : chan_start + nchan])
-        # results[q + "_extension"] = extension[:, chan_start - 1 : chan_end, :]
+        results["location"] = location[chan_start-1:chan_end, :]
+        results["direction"] = direction[chan_start-1:chan_end, :]
 
         results["quantities"] = quantities
 
@@ -564,7 +609,7 @@ class ST40Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        if len(uid) == 0:
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {
@@ -626,7 +671,7 @@ class ST40Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        if len(uid) == 0:
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {
@@ -688,7 +733,7 @@ class ST40Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        if len(uid) == 0:
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
         # TODO: change once new MDS+ standardisation has been completed
@@ -754,7 +799,7 @@ class ST40Reader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
 
-        if len(uid) == 0:
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {
@@ -824,7 +869,8 @@ class ST40Reader(DataReader):
         calculated from Thomson scattering.
 
         """
-        if len(uid) == 0:
+
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {
@@ -859,6 +905,9 @@ class ST40Reader(DataReader):
             qval_err, q_path_err = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision,
             )
+            if np.array_equal(qval_err, "FAILED"):
+                qval_err = np.full_like(qval, 0.0)
+                q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
             # radius = dimensions[0]
@@ -954,3 +1003,26 @@ class ST40Reader(DataReader):
         xstop, ystop, zstop = position + direction
 
         return (xstart, ystart, zstart), (xstop, ystop, zstop)
+
+
+def get_astra_equilibrium():
+    from indica.readers.st40reader import ST40Reader
+    from indica.equilibrium import Equilibrium
+
+    pulse = 10009
+    tree = "st40"
+    revision = 0
+    tstart = 0
+    tend = 0.2
+    reader = ST40Reader(pulse, tstart, tend, tree=tree)
+    efit = reader.get("", "efit", revision)
+    efit_equil = Equilibrium(efit)
+
+    pulse = 13110009
+    tree = "astra"
+    revision = "2721"
+    reader = ST40Reader(pulse, tstart, tend, tree=tree)
+    astra = reader.get("", "astra", revision)
+    astra_equil = Equilibrium(astra)
+
+    return astra, astra_equil, efit_equil

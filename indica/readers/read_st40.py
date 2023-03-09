@@ -1,14 +1,13 @@
-from copy import deepcopy
-
-from matplotlib import cm
-import matplotlib.pylab as plt
-import numpy as np
 import xarray as xr
-
-from indica.converters.time import convert_in_time_dt
+from xarray import DataArray
+import numpy as np
+import matplotlib.pylab as plt
+from copy import deepcopy
+from matplotlib import cm
 from indica.equilibrium import Equilibrium
-from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
+from indica.numpy_typing import RevisionLike
+from indica.converters.time import convert_in_time_dt
 from indica.utilities import print_like
 
 REVISIONS = {
@@ -26,16 +25,16 @@ REVISIONS = {
     "ts": 0,
 }
 
-FILTER_RULES = {
-    "cxff_pi": lambda x: xr.where(x > 0, x, np.nan),
-    "cxff_tws_c": lambda x: xr.where(x > 0, x, np.nan),
-    "cxqf_tws_c": lambda x: xr.where(x > 0, x, np.nan),
-    "xrcs": lambda x: xr.where(x > 0, x, np.nan),
-    "brems": lambda x: xr.where(x > 0, x, np.nan),
-    "halpha": lambda x: xr.where(x > 0, x, np.nan),
-    "sxr_diode_1": lambda x: xr.where(x > 0, x, np.nan),
-    "sxr_camera_4": lambda x: xr.where(x > 0, x, np.nan),
-    "ts": lambda x: xr.where(x > 0, x, np.nan),
+FILTER_LIMITS = {
+    "cxff_pi": (0, np.inf),
+    "cxff_tws_c": (0, np.inf),
+    "cxqf_tws_c": (0, np.inf),
+    "xrcs": (0, np.inf),
+    "brems": (0, np.inf),
+    "halpha": (0, np.inf),
+    "sxr_diode_1": (0, np.inf),
+    "sxr_camera_4": (0, np.inf),
+    "ts": (0, np.inf),
 }
 
 LINESTYLES = {
@@ -50,17 +49,18 @@ YLABELS = {
     "ne": "Ne (m$^{-3}$)",
     "ti": "Ti (eV)",
     "vtor": "Vtor (m/s)",
+    "chi2": "$\chi^2$",
 }
 XLABELS = {"rho": "Rho-poloidal", "R": "R (m)"}
 
 
 class ReadST40:
-    def __init__(self, pulse: int, tstart: float = 0.0, tend: float = 0.2):
+    def __init__(self, pulse: int, tstart: float = 0.0, tend: float = 0.2, tree="ST40"):
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
 
-        self.reader = ST40Reader(pulse, tstart, tend)
+        self.reader = ST40Reader(pulse, tstart, tend, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -101,13 +101,13 @@ class ReadST40:
 
     def bin_data_in_time(
         self,
-        instruments: list = [],
+        instruments: list = None,
         tstart: float = 0.02,
         tend: float = 0.1,
         dt: float = 0.01,
     ):
-        if len(instruments) == 0:
-            instruments = list(self.raw_data)
+        if instruments is None:
+            instruments = self.raw_data.keys()
 
         for instr in instruments:
             binned_quantities = {}
@@ -123,7 +123,7 @@ class ReadST40:
                 binned_quantities[quant] = data_quant
             self.binned_data[instr] = binned_quantities
 
-    def map_diagnostics(self, instruments: list = [], map_raw: bool = False):
+    def map_diagnostics(self, instruments: list = None, map_raw: bool = False):
         if len(self.binned_data) == 0:
             raise ValueError("Bin data in time before remapping!")
 
@@ -131,8 +131,8 @@ class ReadST40:
         if map_raw:
             attr_to_map.append("raw_data")
 
-        if len(instruments) == 0:
-            instruments = list(self.raw_data)
+        if instruments is None:
+            instruments = self.raw_data.keys()
 
         for attr in attr_to_map:
             data_to_map = getattr(self, attr)
@@ -142,6 +142,8 @@ class ReadST40:
                     transform = data.transform
                     if hasattr(data.transform, "convert_to_rho"):
                         transform.convert_to_rho(t=data.t)
+                    else:
+                        break
 
     def filter_data(self, instruments: list = None):
 
@@ -151,34 +153,43 @@ class ReadST40:
             )
 
         if instruments is None:
-            instruments = list(self.binned_data)
+            instruments = self.binned_data.keys()
 
         for instr in instruments:
-            if instr not in FILTER_RULES.keys():
+            if instr not in FILTER_LIMITS.keys():
                 continue
 
-            for quant in self.binned_data[instr]:
-                attrs = self.binned_data[instr][quant].attrs
-                filtered_data = FILTER_RULES[instr](self.binned_data[instr][quant])
-                filtered_data.attrs = attrs
-                self.binned_data[instr][quant] = filtered_data
+            quantities = list(self.binned_data[instr])
+            filter_general(
+                self.binned_data[instr], quantities, lim=FILTER_LIMITS[instr],
+            )
+
+    def filter_ts(self, chi2_limit: float = 2.0):
+        if "ts" not in self.binned_data.keys():
+            print("No TS data to filter")
+            return
+
+        # Filter out any radial point where the chi2 is above limit
+        condition = self.binned_data["ts"]["chi2"] < chi2_limit
+        for quantity in self.binned_data["ts"].keys():
+            attrs = self.binned_data["ts"][quantity].attrs
+            filtered = xr.where(condition, self.binned_data["ts"][quantity], np.nan)
+            filtered.attrs = attrs
+            self.binned_data["ts"][quantity] = filtered
 
     def plot_profile(
         self,
         instrument: str,
         quantity: str,
-        tplot: list = [],
+        tplot: list = None,
         plot_raw: bool = False,
         xcoord: str = "rho",
         figure: bool = True,
         xlim: tuple = (0, 1.1),
-        ylim: tuple = (0,),
+        ylim: tuple = (0),
         linestyle: str = None,
         plot_error: bool = True,
     ):
-        if len(ylim) == 1:
-            ylim = ylim[0]
-
         R_offset = ""
         if np.abs(self.equilibrium.R_offset) > 0.01:
             R_offset = " ($R_{shift}$=" + f"{self.equilibrium.R_offset:1.2f})"
@@ -197,7 +208,7 @@ class ReadST40:
         R = data_to_plot.transform.R
         value = data_to_plot
         error = data_to_plot.error
-        if len(tplot) == 0:
+        if tplot is None:
             tplot = np.array([t for t in value.t if any(np.isfinite(value.sel(t=t)))])
 
         tplot = np.array(tplot, ndmin=1)
@@ -213,11 +224,10 @@ class ReadST40:
             if linestyle is None:
                 linestyle = LINESTYLES[instrument]
             if any(np.isfinite(y)):
-                label = f"{data_type} {instrument.upper()} {quantity} @ t={_t:1.3f} s"
                 plt.plot(
                     x,
                     y,
-                    label=label,
+                    label=f"{data_type} {instrument.upper()} {quantity} @ t={_t:1.3f} s",
                     color=cols_time[it],
                     marker=MARKERS[instrument],
                     linestyle=linestyle,
@@ -244,10 +254,11 @@ class ReadST40:
         tend: float = 0.2,
         dt: float = 0.01,
         R_shift: float = 0.0,
+        chi2_limit: float = 2.0,
     ):
 
         if instruments is None:
-            instruments = list(REVISIONS)
+            instruments = REVISIONS.keys()
 
         if revisions is None:
             revisions = REVISIONS
@@ -264,18 +275,18 @@ class ReadST40:
         self.bin_data_in_time(instruments=instruments, tstart=tstart, tend=tend, dt=dt)
         print_like("Filtering")
         self.filter_data(instruments=instruments)
+        self.filter_ts(chi2_limit=chi2_limit)
         print_like("Mapping to equilibrium")
         self.map_diagnostics(instruments=instruments, map_raw=map_raw)
 
 
-def example_run():
-    pulse = 10605
-    tstart = 0
-    tend = 0.2
-    instruments = ["xrcs", "smmh1", "cxff_pi", "ts"]
-    ST40 = ReadST40(pulse, tstart, tend)
-    ST40(instruments=instruments)
-    plt.ioff()
-    ST40.plot_profile("ts", "te", tplot=[0.04], plot_raw=True)
-    ST40.plot_profile("ts", "ne", tplot=[0.04], plot_raw=True)
-    plt.show()
+def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.inf)):
+    for quantity in quantities:
+        attrs = data[quantity].attrs
+        condition = (data[quantity] >= lim[0]) * (data[quantity] < lim[1])
+        filtered = xr.where(condition, data[quantity], np.nan)
+        filtered.attrs = attrs
+        data[quantity] = filtered
+
+def astra_equilibrium(pulse: int, revision: RevisionLike):
+    """Assign ASTRA to equilibrium class"""

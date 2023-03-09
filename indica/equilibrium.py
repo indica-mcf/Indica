@@ -18,8 +18,6 @@ from .numpy_typing import LabeledArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
-# TODO: this class works best if it's not an abstract class: why should it?
-
 
 class Equilibrium:
     """Class to hold and interpolate equilibrium data.
@@ -67,15 +65,21 @@ class Equilibrium:
             (self.ftor - self.ftor.sel(rho_poloidal=0.0))
             / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
         )
-        self.rmji = equilibrium_data["rmji"]
-        self.rmjo = equilibrium_data["rmjo"]
         self.psi = equilibrium_data["psi"]
-        self.psin = equilibrium_data["psin"]
         self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-
-        dpsin = self.psin[1] - self.psin[0]
-        self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
-        self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
+        if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
+            self.psin = equilibrium_data["psin"]
+            dpsin = self.psin[1] - self.psin[0]
+            self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
+            self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
+        elif "volume" in equilibrium_data and "area" in equilibrium_data:
+            self.volume = equilibrium_data["volume"]
+            self.area = equilibrium_data["area"]
+        else:
+            raise ValueError("No volume or area information")
+        if "rmji" and "rmjo" in equilibrium_data:
+            self.rmji = equilibrium_data["rmji"]
+            self.rmjo = equilibrium_data["rmjo"]
         self.rmag = equilibrium_data["rmag"]
         self.rbnd = equilibrium_data["rbnd"]
         self.zmag = equilibrium_data["zmag"]
@@ -151,16 +155,10 @@ class Equilibrium:
             rho_, theta_, _ = self.flux_coords(_R, _z)
 
         dpsi_dR = psi.differentiate("R").indica.interp2d(
-            R=_R,
-            z=_z,
-            method="cubic",
-            assume_sorted=True,
+            R=_R, z=_z, method="cubic", assume_sorted=True,
         )
         dpsi_dz = psi.differentiate("z").indica.interp2d(
-            R=R,
-            z=z,
-            method="cubic",
-            assume_sorted=True,
+            R=R, z=z, method="cubic", assume_sorted=True,
         )
         b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
@@ -169,11 +167,7 @@ class Equilibrium:
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
-        f = f.indica.interp2d(
-            rho_poloidal=rho_,
-            method="cubic",
-            assume_sorted=True,
-        )
+        f = f.indica.interp2d(rho_poloidal=rho_, method="cubic", assume_sorted=True,)
         f.name = self.f.name
         b_T = f / _R
         b_T.name = "Toroidal Magnetic Field (T)"
@@ -562,9 +556,9 @@ class Equilibrium:
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
 
         # Set rho to be negative in the private flux region
-        # rho_interp = where(
-        #     np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
-        # )
+        rho_interp = where(
+            np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
+        )
 
         return rho_interp, theta, t
 
@@ -759,6 +753,10 @@ class Equilibrium:
             result,
             cast(LabeledArray, t),
         )
+
+    def write_to_geqdsk(self):
+        # TODO: Implement writing to geqdsk
+        raise NotImplementedError("Method not yet implemented")
 
 
 def convert_to_dataarray(value, coords) -> DataArray:

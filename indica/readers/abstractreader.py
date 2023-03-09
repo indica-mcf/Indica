@@ -26,7 +26,7 @@ from .selectors import DataSelector
 from ..abstractio import BaseIO
 from ..converters import FluxSurfaceCoordinates
 from ..converters import MagneticCoordinates
-from indica.converters.transect_rho import TransectCoordinates
+from indica.converters.transect import TransectCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import ArrayType
 from ..numpy_typing import ArrayLike
@@ -204,7 +204,7 @@ class DataReader(BaseIO):
         y_coord = DataArray(y, coords=[(diagnostic_coord, ticks)])
         z_coord = DataArray(z, coords=[(diagnostic_coord, ticks)])
         R_coord = DataArray(R, coords=[(diagnostic_coord, ticks)])
-        null_array = xr.full_like(x_coord, 0.)
+        null_array = xr.full_like(x_coord, 0.0)
         if all(x_coord == null_array) and all(y_coord == null_array):
             x_coord = R_coord
         transform = TransectCoordinates(x_coord, y_coord, z_coord, f"{instrument}",)
@@ -229,16 +229,17 @@ class DataReader(BaseIO):
                     "quantity {}".format(self.__class__.__name__, quantity)
                 )
 
-            meta = {
+            quant_data = DataArray(database_results[quantity], coords, dims,).sel(
+                t=slice(self._tstart, self._tend)
+            )
+            quant_error = DataArray(
+                database_results[quantity + "_error"], coords, dims
+            ).sel(t=slice(self._tstart, self._tend))
+            quant_data.attrs = {
                 "datatype": available_quantities[quantity],
-                "error": DataArray(
-                    database_results[quantity + "_error"], coords, dims
-                ).sel(t=slice(self._tstart, self._tend)),
+                "error": quant_error,
                 "transform": transform,
             }
-            quant_data = DataArray(
-                database_results[quantity], coords, dims, attrs=meta,
-            ).sel(t=slice(self._tstart, self._tend))
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
@@ -251,9 +252,6 @@ class DataReader(BaseIO):
                 )
             quant_data.name = instrument + "_" + quantity
             drop: list = []
-            # drop = self._select_channels(
-            #     "thomson", uid, instrument, quantity, quant_data, transform.x1_name
-            # )
             quant_data.attrs["partial_provenance"] = self.create_provenance(
                 "thomson_scattering",
                 uid,
@@ -439,6 +437,7 @@ class DataReader(BaseIO):
         if "faxs" in quantities:
             quantities |= {"rmag", "zmag"}
         database_results = self._get_equilibrium(uid, instrument, revision, quantities)
+
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -486,7 +485,6 @@ class DataReader(BaseIO):
         if "zmag" in quantities:
             sorted_quantities.remove("zmag")
             sorted_quantities.insert(0, "zmag")
-        # TODO: add this in the available_quantities.py
         if "psin" not in quantities:
             sorted_quantities.insert(0, "psin")
             available_quantities["psin"] = ("poloidal_flux", "normalised")
@@ -1227,6 +1225,8 @@ class DataReader(BaseIO):
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_astra(uid, instrument, revision, quantities, dl)
+        # return database_results
+
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
@@ -1242,7 +1242,7 @@ class DataReader(BaseIO):
         rhot_rhop = []
         for it in range(len(database_results["times"])):
             ftor_tmp = database_results["ftor"][it, :]
-            psi_tmp = database_results["psi"][it, :]
+            psi_tmp = database_results["psi_1d"][it, :]
             rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
             rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
             rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
@@ -1254,7 +1254,13 @@ class DataReader(BaseIO):
             dims=["t", "rho_poloidal"],
         ).sel(t=slice(self._tstart, self._tend))
 
-        radial_coords = {"rho_toroidal": rhot_astra, "rho_poloidal": rhop_psin}
+        radial_coords = {
+            "rho_toroidal": rhot_astra,
+            "rho_poloidal": rhop_psin,
+            "R": database_results["psi_r"],
+            "z": database_results["psi_z"],
+            "arbitrary_index": database_results["boundary_index"],
+        }
 
         sorted_quantities = sorted(quantities)
         for quantity in sorted_quantities:
@@ -1265,17 +1271,22 @@ class DataReader(BaseIO):
                 )
 
             if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
-                name_coord = "rho_toroidal"
+                name_coords = ["rho_toroidal"]
             elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
-                name_coord = "rho_poloidal"
+                name_coords = ["rho_poloidal"]
+            elif "PSI2D" in database_results[f"{quantity}_records"][0]:
+                name_coords = ["z", "R"]
+            elif "BOUNDARY" in database_results[f"{quantity}_records"][0]:
+                name_coords = ["arbitrary_index"]
             else:
-                name_coord = ""
+                name_coords = []
 
             coords = {"t": database_results["times"]}
             dims = ["t"]
-            if len(name_coord) > 0:
-                coords[name_coord] = radial_coords[name_coord]
-                dims.append(name_coord)
+            if len(name_coords) > 0:
+                for coord in name_coords:
+                    coords[coord] = radial_coords[coord]
+                    dims.append(coord)
 
             trivial_transform = TrivialTransform()
             meta = {
@@ -1290,7 +1301,7 @@ class DataReader(BaseIO):
             # TODO: careful with interpolation on new rho_poloidal array...
             # Interpolate ASTRA profiles on new rhop_interp array
             # Interpolate PSI_NORM profiles on same coordinate system
-            if name_coord == "rho_toroidal":
+            if "rho_toroidal" in coords:
                 rho_toroidal_0 = quant_data.rho_toroidal.min()
                 quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
                     "rho_toroidal"
@@ -1299,7 +1310,7 @@ class DataReader(BaseIO):
                     rho_toroidal=rho_toroidal_0
                 )
                 quant_data = quant_interp.interpolate_na("rho_poloidal")
-            elif name_coord == "rho_poloidal":
+            elif "rho_poloidal" in coords:
                 quant_data = quant_data.interp(rho_poloidal=rhop_interp)
 
             quant_data.name = instrument + "_" + quantity
