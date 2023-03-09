@@ -90,31 +90,26 @@ class BayesModels:
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
-        # TODO: check for conditional priors before giving warning
-        # params_without_priors = [x for x in parameters.keys() if x not in self.priors.keys()]
-        # if params_without_priors.__len__() > 0:
-        #     print(f"paramaters {params_without_priors} have no priors assigned")
 
         ln_prior = 0
         for prior_name, prior_func in self.priors.items():
-            param_values = [parameters[x] for x in parameters.keys() if x in prior_name]
-            if (
-                param_values.__len__() == 0
-            ):  # if prior assigned but no parameter then skip
+            param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
+            if param_names_in_prior.__len__() == 0:
+                # if prior assigned but no parameter then skip
                 continue
-            elif param_values.__len__() >= 1:
-                if hasattr(
-                    prior_func, "pdf"
-                ):  # for scipy.stats objects use pdf / for lambda functions just call
-                    ln_prior += np.log(prior_func.pdf(*param_values))
-                else:
-                    # if lambda prior with 2+ args is defined when only 1 of its parameters is given ignore it
-                    if prior_func.__code__.co_argcount != param_values.__len__():
-                        continue
-                    else:
-                        ln_prior += np.log(prior_func(*param_values))
+            param_values = [parameters[x] for x in param_names_in_prior]
+            if hasattr(prior_func, "pdf"):
+                # for scipy.stats objects use pdf / for lambda functions just call
+                ln_prior += np.log(prior_func.pdf(*param_values))
             else:
-                raise ValueError(f"Unexpected value for {param_values}")
+                # if lambda prior with 2+ args is defined when only 1 of its parameters is given ignore it
+                if prior_func.__code__.co_argcount != param_values.__len__():
+                    continue
+                else:
+                    # Sorting to make sure args are given in the same order as the prior_name string
+                    name_index = [prior_name.find(param_name_in_prior) for param_name_in_prior in param_names_in_prior]
+                    sorted_name_index, sorted_param_values = (list(x) for x in zip(*sorted(zip(name_index, param_values))))
+                    ln_prior += np.log(prior_func(*sorted_param_values))
         return ln_prior
 
     def sample_from_priors(self, param_names, size=10):
