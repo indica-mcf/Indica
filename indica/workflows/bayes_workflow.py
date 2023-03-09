@@ -102,6 +102,37 @@ def plot_bayes_result(
         plt.legend()
         plt.savefig(figheader + "xrcs_ti_w.png")
 
+    if "cxrs.ti" in blobs.keys():
+        plt.figure()
+        temp_data = blobs["cxrs.ti"]
+        plt.fill_between(
+            temp_data.channel,
+            temp_data.quantile(0.05, dim="index"),
+            temp_data.quantile(0.95, dim="index"),
+            label="CXRS channels, 90% Confidence",
+            zorder=3,
+            color="blue",
+        )
+        plt.fill_between(
+            temp_data.channel,
+            temp_data.quantile(0.01, dim="index"),
+            temp_data.quantile(0.99, dim="index"),
+            label="CXRS channels, 98% Confidence",
+            zorder=2,
+            color="grey",
+        )
+        plt.plot(
+            diag_data["cxrs.ti"].channel,
+            diag_data["cxrs.ti"].sel(t=plasma.time_to_calculate).values,
+            linestyle="-",
+            color="black",
+            label="cxrs.ti data",
+            zorder=4,
+        )
+        plt.legend()
+        plt.savefig(figheader + "cxrs_ti.png")
+
+
     plt.figure()
     prof = blobs["electron_density"]
     plt.fill_between(
