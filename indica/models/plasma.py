@@ -1065,7 +1065,7 @@ def example_run(
         full_run=full_run,
         **kwargs,
     )
-    plasma.build_atomic_data(default=True)
+    plasma.build_atomic_data(default=True, calc_power_loss=False)
     # Assign profiles to time-points
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
