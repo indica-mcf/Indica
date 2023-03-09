@@ -82,7 +82,7 @@ class ChargeExchange(DiagnosticModel):
             Vtor = self.plasma.toroidal_rotation.interp(t=t)
         else:
             if Ti is None or Vtor is None:
-                raise ValueError("Give inputs of assign plasma class!")
+                raise ValueError("Give inputs or assign plasma class!")
 
         if "element" in Vtor.dims:
             Vtor = Vtor.sel(element=self.element)
@@ -96,12 +96,12 @@ class ChargeExchange(DiagnosticModel):
         Ti_at_channels = self.transect_transform.map_to_rho(
             Ti,
             t=t,
-            calc_rho=calc_rho,
+            calc_rho=calc_rho
         )
         Vtor_at_channels = self.transect_transform.map_to_rho(
             Vtor,
             t=t,
-            calc_rho=calc_rho,
+            calc_rho=calc_rho
         )
 
         self.Ti_at_channels = Ti_at_channels
@@ -182,5 +182,9 @@ def example_run(
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")
         plt.legend()
+        plt.show()
 
     return plasma, model, bckc
+
+if __name__ == "__main__":
+    example_run(plot=True)
