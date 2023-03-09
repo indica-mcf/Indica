@@ -36,12 +36,3 @@ class DiagnosticModel(ABC):
         self.bckc = {}
         return self.bckc
 
-    @abstractmethod
-    def __call__(
-        self,
-        **kwargs,
-    ):
-        """
-        Calculate and return diagnostic measured values
-        """
-        return self._build_bckc_dictionary()

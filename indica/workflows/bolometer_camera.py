@@ -1,14 +1,19 @@
+from copy import deepcopy
+
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
-from indica.models.plasma import example_run as example_plasma
-from copy import deepcopy
+
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.models.bolometer_camera import Bolometer
+from indica.models.plasma import example_run as example_plasma
 
 
 def calculate_viewing_cone(
-    view="xy", option: str = "last", plasma=None, pulse: int = 9229,
+    view="xy",
+    option: str = "last",
+    plasma=None,
+    pulse: int = 9229,
 ):
     if plasma is None:
         print("Initializing plasma")
@@ -29,7 +34,9 @@ def calculate_viewing_cone(
     sides = [0, 1, -1]
     for side in sides:
         origin, direction, geo = get_geometry(view=view, option=option, side=side)
-        model0 = Bolometer(f"bolo_{view}_{option}",)
+        model0 = Bolometer(
+            f"bolo_{view}_{option}",
+        )
         los_transform = LineOfSightTransform(
             origin[:, 0],
             origin[:, 1],
@@ -44,7 +51,14 @@ def calculate_viewing_cone(
         model0.set_los_transform(los_transform)
         model.append(model0)
         print(f"Running model for {view}_{option}, side {side}")
-        bckc.append(model0(Ne=Ne, Nion=Nion, Lz=Lz, t=t,))
+        bckc.append(
+            model0(
+                Ne=Ne,
+                Nion=Nion,
+                Lz=Lz,
+                t=t,
+            )
+        )
 
     cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     tind_plot = [0, int(len(plasma.t) / 2.0), len(plasma.t) - 1]
@@ -77,7 +91,10 @@ def calculate_viewing_cone(
         y1 = bckc[1]["brightness"].sel(t=plasma.t[i], method="nearest")
         y2 = bckc[2]["brightness"].sel(t=plasma.t[i], method="nearest")
         plt.plot(
-            x, y0, label=f"t={plasma.t[i].values:1.2f} s", color=cols_time[i],
+            x,
+            y0,
+            label=f"t={plasma.t[i].values:1.2f} s",
+            color=cols_time[i],
         )
         plt.fill_between(x, y1, y2, color=cols_time[i], alpha=0.8)
     plt.xlabel("Channel")

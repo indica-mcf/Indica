@@ -1,9 +1,9 @@
-from copy import deepcopy
 import os
-import indica
 
 import numpy as np
 import xarray as xr
+
+import indica
 
 # Constants
 RY = 13.605  # eV

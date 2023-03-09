@@ -124,5 +124,3 @@ def test_helike_timepoint_pass():
 
 def test_helike_interpolation():
     _test_time_interpolation("helike_spectroscopy")
-
-

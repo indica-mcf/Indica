@@ -1,5 +1,6 @@
 """Inverts soft X-ray data to estimate the emissivity of the plasma."""
 
+import time as tt
 from typing import cast
 from typing import List
 from typing import Optional
@@ -8,6 +9,7 @@ from typing import Union
 import warnings
 
 import numpy as np
+from scipy import interpolate
 from scipy.integrate import romb
 from scipy.interpolate import CubicSpline
 from scipy.optimize import least_squares
@@ -15,17 +17,13 @@ from xarray import concat
 from xarray import DataArray
 from xarray import Dataset
 from xarray import where
-import time as tt
-from scipy import interpolate
 
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
-from ..converters import bin_to_time_labels
 from ..converters import CoordinateTransform
 from ..converters import FluxMajorRadCoordinates
 from ..converters import FluxSurfaceCoordinates
-from ..converters import ImpactParameterCoordinates
 from ..converters import TrivialTransform
 from ..datatypes import DataType
 from ..datatypes import SpecificDataType
@@ -165,7 +163,7 @@ class EmissivityProfile:
         )
         if R_0 is None:
             R_0 = cast(DataArray, self.transform.equilibrium.R_hfs(rho, t)[0])
-        result = symmetric * np.exp(asymmetric * (R ** 2 - R_0 ** 2))
+        result = symmetric * np.exp(asymmetric * (R**2 - R_0**2))
         # Ensure round-off error doesn't result in any values below 0
         return where(result < 0.0, 0.0, result).fillna(0.0)
 
@@ -218,7 +216,10 @@ class InvertRadiation(Operator):
             ...,
         ]
         super().__init__(
-            sess, num_cameras=num_cameras, datatype=datatype, n_knots=n_knots,
+            sess,
+            num_cameras=num_cameras,
+            datatype=datatype,
+            n_knots=n_knots,
         )
         self.debug = debug
         self.parallel_run = run_parallel
@@ -291,7 +292,11 @@ class InvertRadiation(Operator):
         return knots
 
     def __call__(  # type: ignore[override]
-        self, R: DataArray, z: DataArray, times: DataArray, *cameras: DataArray,
+        self,
+        R: DataArray,
+        z: DataArray,
+        times: DataArray,
+        *cameras: DataArray,
     ) -> Tuple[Union[DataArray, Dataset], ...]:
         """Calculate the emissivity profile for the plasma.
 
@@ -543,7 +548,10 @@ class InvertRadiation(Operator):
                     ),
                 ),
                 # PROJECTION DATA
-                projection=dict(R=cameras[0][key].R.data, z=cameras[0][key].z.data,),
+                projection=dict(
+                    R=cameras[0][key].R.data,
+                    z=cameras[0][key].z.data,
+                ),
                 # PROFILES
                 profile=dict(
                     sym_emissivity=symmetric_emissivity.data,
@@ -556,7 +564,9 @@ class InvertRadiation(Operator):
                 ),
                 # EMISSIVITY 2D
                 emissivity_2D=dict(
-                    R=emissivity.R.data, z=emissivity.z.data, data=emissivity.data.T,
+                    R=emissivity.R.data,
+                    z=emissivity.z.data,
+                    data=emissivity.data.T,
                 ),
             )
 
@@ -568,7 +578,7 @@ class InvertRadiation(Operator):
                 :, return_data[key]["channels_considered"]
             ]
             return_data[key]["back_integral"]["chi2"] = np.sqrt(
-                np.nansum(((data_exp - data_the) ** 2) / (data_exp ** 2), axis=1)
+                np.nansum(((data_exp - data_the) ** 2) / (data_exp**2), axis=1)
             )
 
             print("hahahaha", data_exp[0, :], data_the[0, :], data_exp.shape)

@@ -1,12 +1,13 @@
 from copy import deepcopy
-import flatdict
-import numpy as np
-
-np.seterr(all="ignore")
 import warnings
 
-warnings.simplefilter("ignore", category=FutureWarning)
+import flatdict
+import numpy as np
 from scipy.stats import uniform
+
+np.seterr(all="ignore")
+
+warnings.simplefilter("ignore", category=FutureWarning)
 
 
 def gaussian(x, mean, sigma):

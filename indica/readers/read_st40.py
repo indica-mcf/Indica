@@ -1,13 +1,15 @@
+from copy import deepcopy
+
+from matplotlib import cm
+import matplotlib.pylab as plt
+import numpy as np
 import xarray as xr
 from xarray import DataArray
-import numpy as np
-import matplotlib.pylab as plt
-from copy import deepcopy
-from matplotlib import cm
-from indica.equilibrium import Equilibrium
-from indica.readers import ST40Reader
-from indica.numpy_typing import RevisionLike
+
 from indica.converters.time import convert_in_time_dt
+from indica.equilibrium import Equilibrium
+from indica.numpy_typing import RevisionLike
+from indica.readers import ST40Reader
 from indica.utilities import print_like
 
 REVISIONS = {
@@ -161,7 +163,9 @@ class ReadST40:
 
             quantities = list(self.binned_data[instr])
             filter_general(
-                self.binned_data[instr], quantities, lim=FILTER_LIMITS[instr],
+                self.binned_data[instr],
+                quantities,
+                lim=FILTER_LIMITS[instr],
             )
 
     def filter_ts(self, chi2_limit: float = 2.0):
@@ -255,10 +259,11 @@ class ReadST40:
         dt: float = 0.01,
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
+        map: bool = True,
     ):
 
         if instruments is None:
-            instruments = REVISIONS.keys()
+            instruments = list(REVISIONS)
 
         if revisions is None:
             revisions = REVISIONS
@@ -276,8 +281,9 @@ class ReadST40:
         print_like("Filtering")
         self.filter_data(instruments=instruments)
         self.filter_ts(chi2_limit=chi2_limit)
-        print_like("Mapping to equilibrium")
-        self.map_diagnostics(instruments=instruments, map_raw=map_raw)
+        if map:
+            print_like("Mapping to equilibrium")
+            self.map_diagnostics(instruments=instruments, map_raw=map_raw)
 
 
 def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.inf)):
@@ -287,6 +293,7 @@ def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.
         filtered = xr.where(condition, data[quantity], np.nan)
         filtered.attrs = attrs
         data[quantity] = filtered
+
 
 def astra_equilibrium(pulse: int, revision: RevisionLike):
     """Assign ASTRA to equilibrium class"""

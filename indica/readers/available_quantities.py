@@ -11,7 +11,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
     "get_thomson_scattering": {
         "ne": ("number_density", "electrons"),
         "te": ("temperature", "electrons"),
-        "chi2": ("chi-squared", "fit")
+        "chi2": ("chi-squared", "fit"),
     },
     "get_charge_exchange": {
         "vtor": ("linear_rotation", "ion"),

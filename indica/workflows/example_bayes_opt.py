@@ -1,16 +1,19 @@
 import emcee
 import numpy as np
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
-from indica.readers.read_st40 import ReadST40
-from indica.bayesmodels import BayesModels, get_uniform
-from indica.models.interferometry import Interferometry
+from indica.bayesmodels import BayesModels
+from indica.bayesmodels import get_uniform
 from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
-from indica.workflows.bayes_workflow import plot_bayes_result, sample_with_autocorr
+from indica.readers.read_st40 import ReadST40
+from indica.workflows.bayes_workflow import plot_bayes_result
+from indica.workflows.bayes_workflow import sample_with_autocorr
 
-# TODO: allow conditional prior usage even when only one param is being optimisied i.e. 1 is constant
+# TODO: allow conditional prior usage even when only
+#  one param is being optimisied i.e. 1 is constant
 
 
 def run(
@@ -36,7 +39,7 @@ def run(
     )
     plasma.time_to_calculate = plasma.t[tsample]
     plasma.update_profiles(phantom_profile_params)
-    plasma.build_atomic_data(calc_power_loss=False)
+    plasma.build_atomic_data()
     # Make phantom profiles
     phantom_profiles = {
         "electron_density": plasma.Ne_prof.yspl,
