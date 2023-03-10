@@ -62,6 +62,21 @@ def plot_bayes_result(
         plt.legend()
         plt.savefig(figheader + "xrcs_spectra.png")
 
+    if "efit.wp" in blobs.keys():
+        plt.figure()
+        temp_data = blobs["efit.wp"]
+        plt.xlabel("samples ()")
+        plt.ylabel("Wp (J)")
+        plt.plot(temp_data, label="efit.wp model")
+        plt.axhline(
+            y=diag_data["efit.wp"].sel(t=plasma.time_to_calculate).values,
+            color="red",
+            linestyle="-",
+            label="efit.wp data",
+        )
+        plt.legend()
+        plt.savefig(figheader + "efit_wp.png")
+
     if "smmh1.ne" in blobs.keys():
         plt.figure()
         temp_data = blobs["smmh1.ne"]
