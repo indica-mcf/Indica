@@ -86,7 +86,7 @@ class BayesModels:
                     exp_data * 0.10,
                 )
             )
-            ln_likelihood += np.nanmean(_ln_likelihood)
+            ln_likelihood += np.nansum(_ln_likelihood)
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
