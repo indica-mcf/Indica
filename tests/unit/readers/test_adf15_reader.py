@@ -3,13 +3,13 @@
 import numpy as np
 from prov.model import ProvEntity
 
-from indica.readers import ADASReader
+from indica.readers import OpenADASReader
 
 
 class Testadf15:
     """Provides unit tests for the ADF15 reader"""
 
-    reader = ADASReader()
+    reader = OpenADASReader()
     element = "ne"
     charge = "9"
     file_type = "pju"
@@ -134,7 +134,7 @@ class Testadf15:
 class Testadf15_c5(Testadf15):
     """Provides unit tests for the ADF15 reader"""
 
-    reader = ADASReader()
+    reader = OpenADASReader()
     element = "c"
     charge = "5"
     file_type = "bnd"
@@ -144,7 +144,7 @@ class Testadf15_c5(Testadf15):
 class Testadf15_he0(Testadf15):
     """Provides unit tests for the ADF15 reader"""
 
-    reader = ADASReader()
+    reader = OpenADASReader()
     element = "he"
     charge = "0"
     file_type = "pju"
@@ -154,7 +154,7 @@ class Testadf15_he0(Testadf15):
 class Testadf15_b2(Testadf15):
     """Provides unit tests for the ADF15 reader"""
 
-    reader = ADASReader()
+    reader = OpenADASReader()
     element = "b"
     charge = "2"
     file_type = "llu"
@@ -164,7 +164,7 @@ class Testadf15_b2(Testadf15):
 class Testadf15_o5(Testadf15):
     """Provides unit tests for the ADF15 reader"""
 
-    reader = ADASReader()
+    reader = OpenADASReader()
     element = "o"
     charge = "5"
     file_type = "pjr"
@@ -174,7 +174,7 @@ class Testadf15_o5(Testadf15):
 class Testadf15_ar10(Testadf15):
     """Provides unit tests for the ADF15 reader"""
 
-    reader = ADASReader()
+    reader = OpenADASReader()
     element = "ar"
     charge = "10"
     file_type = "ic"
@@ -184,7 +184,7 @@ class Testadf15_ar10(Testadf15):
 class Testadf15_transport(Testadf15):
     """Provides unit tests for the ADF15 reader"""
 
-    reader = ADASReader()
+    reader = OpenADASReader()
     element = "ar"
     charge = "16"
     file_type = "llu"

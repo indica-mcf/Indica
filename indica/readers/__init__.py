@@ -6,13 +6,13 @@ functionality for a different format of data.
 """
 
 from .abstractreader import DataReader
-from .adas import ADASReader
+from .openadas import OpenADASReader
 from .ppfreader import PPFReader
 from .selectors import choose_on_plot
 from .selectors import DataSelector
 
 __all__ = [
-    "ADASReader",
+    "OpenADASReader",
     "DataReader",
     "PPFReader",
     "choose_on_plot",

@@ -7,7 +7,7 @@ from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.mean_charge import MeanCharge
 from indica.operators.spline_fit import Spline
-from indica.readers.adas import ADASReader
+from indica.readers import OpenADASReader
 from indica.utilities import broadcast_spline
 
 
@@ -40,7 +40,7 @@ class Exception_Mean_Charge_Test_Case(unittest.TestCase):
 
 def test_mean_charge():
     """Test MeanCharge.__call__."""
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     element = "be"
 

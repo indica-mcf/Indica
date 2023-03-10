@@ -12,7 +12,7 @@ from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.centrifugal_asymmetry import ToroidalRotation
-from indica.readers.adas import ADASReader
+from indica.readers import OpenADASReader
 from ..test_equilibrium_single import equilibrium_dat_and_te
 
 
@@ -235,7 +235,7 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     F_z_tinf
         Fractional abundance of the ionisation stages of the element at t=infinity.
     """
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")

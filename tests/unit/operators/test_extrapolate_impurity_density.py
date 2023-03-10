@@ -21,7 +21,7 @@ from indica.operators.extrapolate_impurity_density import asymmetry_from_R_z
 from indica.operators.extrapolate_impurity_density import asymmetry_from_rho_theta
 from indica.operators.extrapolate_impurity_density import ExtrapolateImpurityDensity
 from indica.operators.extrapolate_impurity_density import recover_threshold_rho
-from indica.readers import ADASReader
+from indica.readers import OpenADASReader
 from .KB5_Bolometry_data import example_bolometry_LoS
 from ..test_equilibrium_single import equilibrium_dat_and_te
 
@@ -484,7 +484,7 @@ def fractional_abundance_setup(
         Fractional abundance of the ionisation stages of the element at t=infinity.
         xarray.DataArray with dimensions (ion_charges, rho, t)
     """
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")
@@ -533,7 +533,7 @@ def power_loss_setup(
         Power loss of the element at t=infinity.
         xarray.DataArray with dimensions (ion_charges, rho, t).
     """
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     PLT = ADAS_file.get_adf11("plt", element, "89")
     PRB = ADAS_file.get_adf11("prc", element, "89")

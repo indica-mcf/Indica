@@ -14,7 +14,7 @@ from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.impurity_concentration import ImpurityConcentration
 from indica.operators.mean_charge import MeanCharge
 from indica.operators.spline_fit import Spline
-from indica.readers.adas import ADASReader
+from indica.readers import OpenADASReader
 from indica.utilities import broadcast_spline
 from ..test_equilibrium_single import equilibrium_dat_and_te
 
@@ -151,7 +151,7 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
         else:
             t = DataArray(data=np.array([t]), coords={"t": np.array([t])}, dims=["t"])
 
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     SCD = ADAS_file.get_adf11("scd", element, "89")
     ACD = ADAS_file.get_adf11("acd", element, "89")

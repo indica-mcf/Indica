@@ -8,7 +8,7 @@ from xarray import DataArray
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
-from indica.readers import ADASReader
+from indica.readers import OpenADASReader
 
 
 class Exception_Frac_Abund_Test_Case(unittest.TestCase):
@@ -425,7 +425,7 @@ def input_error_check(
 @pytest.fixture
 def test_fractional_abundance_init():
     """Test initialisation of FractionalAbundance class."""
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     element = "be"
 
@@ -1392,7 +1392,7 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
 @pytest.fixture
 def test_power_loss_init():
     """Test initialisation of PowerLoss class."""
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     element = "be"
 
@@ -1653,7 +1653,7 @@ def test_power_loss_call(test_interpolate_power):
     """Test PowerLoss class __call__()."""
     example_power_loss, example_power_loss_no_optional = test_interpolate_power
 
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     element = "be"
 
@@ -1798,7 +1798,7 @@ def test_power_loss_call(test_interpolate_power):
 def test_power_loss_full_run(test_power_loss_init):
     example_power_loss, example_power_loss_no_optional = test_power_loss_init
 
-    ADAS_file = ADASReader()
+    ADAS_file = OpenADASReader()
 
     element = "be"
 

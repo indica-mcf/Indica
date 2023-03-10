@@ -27,8 +27,8 @@ import prov.model as prov
 
 from indica.datatypes import ADF11_GENERAL_DATATYPES
 from indica.datatypes import ELEMENTS
-from indica.readers import ADASReader
-import indica.readers.adas as adas
+from indica.readers import OpenADASReader
+import indica.readers.openadas as adas
 from indica.session import hash_vals
 from ..data_strategies import adf11_data
 
@@ -43,7 +43,7 @@ paths = one_of(optional_pathstrings, optional_pathstrings.map(Path))
 
 @composite
 def adas_readers(draw):
-    return ADASReader(draw(paths), MagicMock())
+    return OpenADASReader(draw(paths), MagicMock())
 
 
 @given(adas_readers())
@@ -58,7 +58,7 @@ def test_authenticate_anyway(reader, username, password):
 
 @given(paths)
 def test_context_manager(path):
-    with ADASReader(path, MagicMock()) as reader:
+    with OpenADASReader(path, MagicMock()) as reader:
         print(reader.requires_authentication)
 
 
@@ -66,7 +66,7 @@ def test_context_manager(path):
 def test_reader_provenance(path, creation_time):
     with patch("datetime.datetime", MagicMock()):
         datetime.datetime.now.return_value = creation_time
-        reader = ADASReader(path, MagicMock())
+        reader = OpenADASReader(path, MagicMock())
     path = Path(path)
     openadas = path == Path("")
     if openadas:
@@ -133,7 +133,7 @@ def test_cache_openadas():
     adas_class = "adf11"
     adas_file = Path("scd89") / "scd12_h.dat"
     with cachedir() as cache, patch("indica.readers.adas.urlretrieve") as urlretrieve:
-        reader = ADASReader("", MagicMock())
+        reader = OpenADASReader("", MagicMock())
         cachepath = Path().home() / cache
         cache_file = cachepath / "adas" / "adf11" / adas_file
         urlretrieve.side_effect = lambda x, y: y.touch()
@@ -155,7 +155,7 @@ def test_localadas(path):
     adas_class = "adf11"
     adas_file = Path("scd89") / "scd12_h.dat"
     with TemporaryDirectory() as path:
-        reader = ADASReader(path, MagicMock())
+        reader = OpenADASReader(path, MagicMock())
         filepath = Path(path) / adas_class / adas_file
         filepath.parent.mkdir(parents=True)
         filepath.touch()
@@ -306,7 +306,7 @@ def test_read_adf11(reader, data_file, element, year):
 
 
 def test_read_invalid_adf11():
-    reader = ADASReader("", MagicMock())
+    reader = OpenADASReader("", MagicMock())
 
     quantity = "scd"
 
