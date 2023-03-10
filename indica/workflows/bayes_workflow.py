@@ -5,6 +5,64 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def _plot_0d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader="./results/test/",  xlabel="samples ()",
+             ylabel="a.u.", **kwargs):
+    if not blobkey in blobs.keys():
+        raise ValueError(f"{blobkey} not in blobs")
+    plt.figure()
+    blob_data = blobs[blobkey]
+    plt.plot(blob_data, label=f"{blobkey} model")
+    plt.axhline(
+        y=diag_data[blobkey].sel(t=blob_data.t).values,
+        color="black",
+        linestyle="-",
+        label=f"{blobkey} data",
+    )
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.legend()
+    plt.savefig(figheader + filename)
+    plt.close()
+
+
+def _plot_1d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader="./results/test/",
+             ylabel="a.u.", **kwargs):
+    if not blobkey in blobs.keys():
+        raise ValueError(f"{blobkey} not in blobs")
+
+    plt.figure()
+    blob_data = blobs[blobkey]
+    dims = tuple(name for name in blob_data.dims if name != "index")
+    plt.fill_between(
+        blob_data.__getattr__(dims[0]),
+        blob_data.quantile(0.05, dim="index"),
+        blob_data.quantile(0.95, dim="index"),
+        label=f"{blobkey}, 90% Confidence",
+        zorder=3,
+        color="blue",
+    )
+    plt.fill_between(
+        blob_data.__getattr__(dims[0]),
+        blob_data.quantile(0.01, dim="index"),
+        blob_data.quantile(0.99, dim="index"),
+        label=f"{blobkey}, 98% Confidence",
+        zorder=2,
+        color="grey",
+    )
+    plt.plot(
+        diag_data[blobkey].__getattr__(dims[0]),
+        diag_data[blobkey].sel(t=blob_data.t).values,
+        linestyle="-",
+        color="black",
+        label=f"{blobkey} data",
+        zorder=4,
+    )
+    plt.ylabel(ylabel)
+    plt.xlabel(dims[0])
+    plt.legend()
+    plt.savefig(figheader + filename)
+    plt.close()
+
 def plot_bayes_result(
     figheader="./results/test/",
     blobs=None,
@@ -13,7 +71,6 @@ def plot_bayes_result(
     prior_samples=None,
     param_names=None,
     phantom_profiles=None,
-    plasma=None,
     autocorr=None,
     **kwargs
 ):
@@ -27,128 +84,27 @@ def plot_bayes_result(
     )
     plt.legend()
     plt.xlabel("iterations")
-    plt.ylabel("tau")
+    plt.ylabel("auto-correlation time (iterations)")
     plt.savefig(figheader + "average_tau.png")
 
-    if "xrcs.spectra" in blobs.keys():
-        plt.figure()
-        temp_data = blobs["xrcs.spectra"]
-        plt.fill_between(
-            temp_data.wavelength,
-            temp_data.quantile(0.05, dim="index"),
-            temp_data.quantile(0.95, dim="index"),
-            label="XRCS spectrum, 90% Confidence",
-            zorder=3,
-            color="blue",
-        )
-        plt.fill_between(
-            temp_data.wavelength,
-            temp_data.quantile(0.01, dim="index"),
-            temp_data.quantile(0.99, dim="index"),
-            label="XRCS spectrum, 98% Confidence",
-            zorder=2,
-            color="grey",
-        )
-        plt.plot(
-            diag_data["xrcs.spectra"].wavelength,
-            diag_data["xrcs.spectra"].sel(t=plasma.time_to_calculate).values,
-            linestyle="-",
-            color="black",
-            label="xrcs.spectra data",
-            zorder=4,
-        )
-        plt.ylabel("intensity (a.u.)")
-        plt.xlabel("wavelength (nm)")
-        plt.legend()
-        plt.savefig(figheader + "xrcs_spectra.png")
-
-    if "efit.wp" in blobs.keys():
-        plt.figure()
-        temp_data = blobs["efit.wp"]
-        plt.xlabel("samples ()")
-        plt.ylabel("Wp (J)")
-        plt.plot(temp_data, label="efit.wp model")
-        plt.axhline(
-            y=diag_data["efit.wp"].sel(t=plasma.time_to_calculate).values,
-            color="red",
-            linestyle="-",
-            label="efit.wp data",
-        )
-        plt.legend()
-        plt.savefig(figheader + "efit_wp.png")
-
-    if "smmh1.ne" in blobs.keys():
-        plt.figure()
-        temp_data = blobs["smmh1.ne"]
-        plt.xlabel("samples ()")
-        plt.ylabel("ne_int (m^-2)")
-        plt.plot(temp_data, label="smmh1.ne_int model")
-        plt.axhline(
-            y=diag_data["smmh1.ne"].sel(t=plasma.time_to_calculate).values,
-            color="red",
-            linestyle="-",
-            label="smmh1.ne_int data",
-        )
-        plt.legend()
-        plt.savefig(figheader + "smmh1_ne.png")
-
-    if "xrcs.te_kw" in blobs.keys():
-        plt.figure()
-        temp_data = blobs["xrcs.te_kw"][:, 0, 0]
-        plt.ylabel("temperature (eV)")
-        plt.plot(temp_data, label="xrcs.te_kw model", color="blue")
-        plt.axhline(
-            y=diag_data["xrcs.te_kw"][0,].sel(t=plasma.time_to_calculate).values,
-            color="blue",
-            linestyle="-",
-            label="xrcs.te_kw data",
-        )
-        plt.legend()
-        plt.savefig(figheader + "xrcs_te_kw.png")
-
-    if "xrcs.ti_w" in blobs.keys():
-        plt.figure()
-        temp_data = blobs["xrcs.ti_w"][:, 0, 0]
-        plt.plot(temp_data, label="xrcs.ti_w model", color="red")
-        plt.axhline(
-            y=diag_data["xrcs.ti_w"][0,].sel(t=plasma.time_to_calculate).values,
-            color="red",
-            linestyle="-",
-            label="xrcs.ti_w data",
-        )
-        plt.legend()
-        plt.savefig(figheader + "xrcs_ti_w.png")
-
-    if "cxrs.ti" in blobs.keys():
-        plt.figure()
-        temp_data = blobs["cxrs.ti"]
-        plt.fill_between(
-            temp_data.channel,
-            temp_data.quantile(0.05, dim="index"),
-            temp_data.quantile(0.95, dim="index"),
-            label="CXRS channels, 90% Confidence",
-            zorder=3,
-            color="blue",
-        )
-        plt.fill_between(
-            temp_data.channel,
-            temp_data.quantile(0.01, dim="index"),
-            temp_data.quantile(0.99, dim="index"),
-            label="CXRS channels, 98% Confidence",
-            zorder=2,
-            color="grey",
-        )
-        plt.plot(
-            diag_data["cxrs.ti"].channel,
-            diag_data["cxrs.ti"].sel(t=plasma.time_to_calculate).values,
-            linestyle="-",
-            color="black",
-            label="cxrs.ti data",
-            zorder=4,
-        )
-        plt.legend()
-        plt.savefig(figheader + "cxrs_ti.png")
-
+    key ="efit.wp"
+    if key in blobs.keys():
+        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="Wp (J)")
+    key = "smmh1.ne"
+    if key in blobs.keys():
+        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="ne_int (m^-2)")
+    key ="xrcs.te_kw"
+    if key in blobs.keys():
+        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="temperature (eV)")
+    key ="xrcs.ti_w"
+    if key in blobs.keys():
+        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="temperature (eV)")
+    key ="xrcs.spectra"
+    if key in blobs.keys():
+        _plot_1d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="intensity (A.U.)")
+    key ="cxrs.ti"
+    if key in blobs.keys():
+        _plot_1d(blobs,key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="temperature (eV)")
 
     plt.figure()
     prof = blobs["electron_density"]
@@ -263,6 +219,8 @@ def plot_bayes_result(
     corner.corner(prior_samples, labels=param_names)
     plt.savefig(figheader + "prior.png")
     plt.close("all")
+
+
 
 
 def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
