@@ -59,6 +59,7 @@ class ChargeExchange(DiagnosticModel):
         Vtor: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
