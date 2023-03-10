@@ -57,6 +57,8 @@ def plot_bayes_result(
             label="xrcs.spectra data",
             zorder=4,
         )
+        plt.ylabel("intensity (a.u.)")
+        plt.xlabel("wavelength (nm)")
         plt.legend()
         plt.savefig(figheader + "xrcs_spectra.png")
 
