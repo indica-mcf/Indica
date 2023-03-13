@@ -238,7 +238,7 @@ class Helike_spectroscopy(DiagnosticModel):
             ev_wavelength = ph.nm_eV_conversion(nm=self.line_ranges[line_name].start)
             line_emission[line_name] = (
                 xr.where(_line_emission >= 0, _line_emission, 0) * ev_wavelength
-            )
+            ) * self.calibration
 
         if "k" in line_emission.keys() and "w" in line_emission.keys():
             line_emission["kw"] = line_emission["k"] * line_emission["w"]
@@ -384,14 +384,16 @@ class Helike_spectroscopy(DiagnosticModel):
                 )
 
                 # Position of emissivity
-                pos_tmp = rho_los[int(avrg)]
-                err_in_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg - dlo)])
-                if pos_tmp <= rho_min:
-                    pos_tmp = rho_min
-                    err_in_tmp = 0.0
-                if (err_in_tmp > pos_tmp) and (err_in_tmp > (pos_tmp - rho_min)):
-                    err_in_tmp = pos_tmp - rho_min
-                err_out_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg + dhi)])
+                pos_tmp, err_in_tmp, err_out_tmp = np.nan, np.nan, np.nan
+                if np.isfinite(avrg):
+                    pos_tmp = rho_los[int(avrg)]
+                    err_in_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg - dlo)])
+                    if pos_tmp <= rho_min:
+                        pos_tmp = rho_min
+                        err_in_tmp = 0.0
+                    if (err_in_tmp > pos_tmp) and (err_in_tmp > (pos_tmp - rho_min)):
+                        err_in_tmp = pos_tmp - rho_min
+                    err_out_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg + dhi)])
                 _pos.append(pos_tmp)
                 _err_in.append(err_in_tmp)
                 _err_out.append(err_out_tmp)
