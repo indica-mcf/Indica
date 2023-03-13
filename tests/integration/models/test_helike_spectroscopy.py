@@ -47,7 +47,7 @@ class TestHelike():
         self.plasma.time_to_calculate = self.multiple_time_point
         model.set_plasma(self.plasma)
         model.set_los_transform(self.multiple_channel_los_transform)
-        bckc = model(calc_spectra=False)
+        bckc = model(calc_spectra=False, moment_analysis=True)
         assert bckc
 
     def test_helike_runs_with_example_plasma_and_single_LOS_and_multiple_time_point(self):
@@ -55,7 +55,7 @@ class TestHelike():
         model.set_plasma(self.plasma)
         self.plasma.time_to_calculate = self.multiple_time_point
         model.set_los_transform(self.single_channel_los_transform)
-        bckc = model(calc_spectra=False)
+        bckc = model(calc_spectra=False, moment_analysis=True)
         assert bckc
 
     def test_helike_runs_with_example_plasma_and_single_LOS_and_single_time_point(self):
@@ -63,5 +63,5 @@ class TestHelike():
         model.set_plasma(self.plasma)
         self.plasma.time_to_calculate = self.single_time_point
         model.set_los_transform(self.single_channel_los_transform)
-        bckc = model(calc_spectra=False)
+        bckc = model(calc_spectra=False, moment_analysis=True)
         assert bckc
