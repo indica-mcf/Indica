@@ -35,7 +35,7 @@ def _plot_1d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader=
     dims = tuple(name for name in blob_data.dims if name != "index")
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
-        blob_data.quantile(0.26, dim="index"),
+        blob_data.quantile(0.16, dim="index"),
         blob_data.quantile(0.84, dim="index"),
         label=f"{blobkey}, 68% Confidence",
         zorder=3,
@@ -110,16 +110,16 @@ def plot_bayes_result(
     prof = blobs["electron_density"]
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.05, dim="index"),
-        prof.quantile(0.95, dim="index"),
+        prof.quantile(0.16, dim="index"),
+        prof.quantile(0.84, dim="index"),
         label="Ne, 90% Confidence",
         zorder=3,
         color="blue",
     )
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.01, dim="index"),
-        prof.quantile(0.99, dim="index"),
+        prof.quantile(0.025, dim="index"),
+        prof.quantile(0.975, dim="index"),
         label="Ne, 98% Confidence",
         zorder=2,
         color="grey",
@@ -135,8 +135,8 @@ def plot_bayes_result(
     prof = blobs["electron_temperature"]
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.05, dim="index"),
-        prof.quantile(0.95, dim="index"),
+        prof.quantile(0.16, dim="index"),
+        prof.quantile(0.84, dim="index"),
         label="Te, 90% Confidence",
         zorder=3,
         alpha=0.7,
@@ -144,8 +144,8 @@ def plot_bayes_result(
     )
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.01, dim="index"),
-        prof.quantile(0.99, dim="index"),
+        prof.quantile(0.025, dim="index"),
+        prof.quantile(0.975, dim="index"),
         label="Te, 98% Confidence",
         color="grey",
         zorder=2,
@@ -159,8 +159,8 @@ def plot_bayes_result(
     prof = blobs["ion_temperature"].sel(element="ar")
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.05, dim="index"),
-        prof.quantile(0.95, dim="index"),
+        prof.quantile(0.16, dim="index"),
+        prof.quantile(0.84, dim="index"),
         label="Ti, 90% Confidence",
         zorder=3,
         alpha=0.7,
@@ -168,11 +168,8 @@ def plot_bayes_result(
     )
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.01, dim="index"),
-        prof.quantile(
-            0.99,
-            dim="index",
-        ),
+        prof.quantile(0.025, dim="index"),
+        prof.quantile(0.975, dim="index"),
         label="Ti, 98% Confidence",
         color="grey",
         zorder=2,
@@ -190,19 +187,16 @@ def plot_bayes_result(
     prof = blobs["impurity_density"].sel(element="ar")
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.05, dim="index"),
-        prof.quantile(0.95, dim="index"),
+        prof.quantile(0.16, dim="index"),
+        prof.quantile(0.84, dim="index"),
         label="Nimp, 90% Confidence",
         zorder=3,
         color="red",
     )
     plt.fill_between(
         prof.rho_poloidal,
-        prof.quantile(0.01, dim="index"),
-        prof.quantile(
-            0.99,
-            dim="index",
-        ),
+        prof.quantile(0.025, dim="index"),
+        prof.quantile(0.975, dim="index"),
         label="Nimp, 98% Confidence",
         color="grey",
     )
