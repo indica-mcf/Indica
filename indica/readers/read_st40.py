@@ -60,7 +60,7 @@ class ReadST40:
         self.tstart = tstart
         self.tend = tend
 
-        self.reader = ST40Reader(pulse, tstart, tend, tree=tree)
+        self.reader = ST40Reader(pulse, tstart-0.02, tend+0.02, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -132,7 +132,7 @@ class ReadST40:
             attr_to_map.append("raw_data")
 
         if instruments is None:
-            instruments = self.raw_data.keys()
+            instruments = [k for k in self.raw_data.keys() if k != "efit"]
 
         for attr in attr_to_map:
             data_to_map = getattr(self, attr)
@@ -250,18 +250,22 @@ class ReadST40:
         instruments: list = None,
         revisions: dict = None,
         map_raw: bool = False,
-        tstart: float = 0.0,
-        tend: float = 0.2,
+        tstart: float = None,
+        tend: float = None,
         dt: float = 0.01,
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
+        map:bool=True,
     ):
 
         if instruments is None:
             instruments = REVISIONS.keys()
-
         if revisions is None:
             revisions = REVISIONS
+        if tstart is None:
+            tstart = self.tstart
+        if tend is None:
+            tend = self.tend
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift)
@@ -276,8 +280,9 @@ class ReadST40:
         print_like("Filtering")
         self.filter_data(instruments=instruments)
         self.filter_ts(chi2_limit=chi2_limit)
-        print_like("Mapping to equilibrium")
-        self.map_diagnostics(instruments=instruments, map_raw=map_raw)
+        if map:
+            print_like("Mapping to equilibrium")
+            self.map_diagnostics(instruments=instruments, map_raw=map_raw)
 
 
 def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.inf)):

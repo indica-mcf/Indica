@@ -136,7 +136,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike = 0,
         quantities: Set[str] = set(),
-        dl: float = 0.005,
     ) -> Dict[str, DataArray]:
         """Reads data for the requested instrument. In general this will be
         the method you want to use when reading.
@@ -155,6 +154,8 @@ class DataReader(BaseIO):
             all available quantities for that instrument.
         dl
             spatial precision for line-of-sight coordinate transform
+        passes
+            number of passes for integration along the LOS
 
         Returns
         -------
@@ -170,7 +171,7 @@ class DataReader(BaseIO):
         method = getattr(self, self.INSTRUMENT_METHODS[instrument])
         if not quantities:
             quantities = set(self.available_quantities(instrument))
-        return method(uid, instrument, revision, quantities, dl)
+        return method(uid, instrument, revision, quantities)
 
     def get_thomson_scattering(
         self,
@@ -179,13 +180,14 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads data based on Thomson Scattering.
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_thomson_scattering(
-            uid, instrument, revision, quantities, dl
+            uid, instrument, revision, quantities
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -271,7 +273,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Gets raw data for Thomson scattering from the database
@@ -288,13 +289,14 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads Charge-exchange-spectroscopy data
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_charge_exchange(
-            uid, instrument, revision, quantities, dl,
+            uid, instrument, revision, quantities,
         )
         # return database_results
         if len(database_results) == 0:
@@ -397,7 +399,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Gets raw data for CXRS diagnostic from the database
@@ -414,6 +415,7 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads equilibrium data
@@ -557,7 +559,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Gets raw data for equilibrium from the database
@@ -574,6 +575,7 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads electron cyclotron emission data
@@ -587,7 +589,7 @@ class DataReader(BaseIO):
                 )
 
         database_results = self._get_cyclotron_emissions(
-            uid, instrument, revision, quantities, dl
+            uid, instrument, revision, quantities,
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -660,7 +662,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Gets raw data for electron cyclotron emission diagnostic data from the database.
@@ -677,6 +678,7 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads data from radiation diagnostics e.g. bolometry and SXR
@@ -684,7 +686,7 @@ class DataReader(BaseIO):
 
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_radiation(
-            uid, instrument, revision, quantities, dl
+            uid, instrument, revision, quantities,
         )
         # return database_results
         if len(database_results) == 0:
@@ -704,6 +706,7 @@ class DataReader(BaseIO):
             f"{instrument}",
             database_results["machine_dims"],
             dl=dl,
+            passes=passes,
         )
         data = {}
         quantity = "brightness"
@@ -764,7 +767,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Gets raw data for radiation diagnostics from the database
@@ -781,13 +783,14 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopic measurements of effective charge
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_bremsstrahlung_spectroscopy(
-            uid, instrument, revision, quantities, dl
+            uid, instrument, revision, quantities,
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -807,6 +810,7 @@ class DataReader(BaseIO):
             f"{instrument}",
             database_results["machine_dims"],
             dl=dl,
+            passes=passes,
         )
         data = {}
         quantity = "zeff"
@@ -867,7 +871,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Gets raw spectroscopic data for effective charge from the database
@@ -884,6 +887,7 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopic measurements of He-like emission
@@ -891,7 +895,7 @@ class DataReader(BaseIO):
 
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_helike_spectroscopy(
-            uid, instrument, revision, quantities, dl
+            uid, instrument, revision, quantities,
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -912,6 +916,7 @@ class DataReader(BaseIO):
             f"{instrument}",
             database_results["machine_dims"],
             dl=dl,
+            passes=passes,
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -988,7 +993,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Reads spectroscopic measurements of He-like emission data from database
@@ -1005,13 +1009,14 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads filtered radiation diodes
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_diode_filters(
-            uid, instrument, revision, quantities, dl
+            uid, instrument, revision, quantities,
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -1032,6 +1037,7 @@ class DataReader(BaseIO):
             f"{instrument}",
             database_results["machine_dims"],
             dl=dl,
+            passes=passes,
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1094,7 +1100,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Reads filtered radiation diodes data from database
@@ -1111,13 +1116,14 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 2,
     ) -> Dict[str, DataArray]:
         """
         Reads interferometer diagnostic data
         """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_interferometry(
-            uid, instrument, revision, quantities, dl
+            uid, instrument, revision, quantities,
         )
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
@@ -1140,6 +1146,7 @@ class DataReader(BaseIO):
             f"{instrument}",
             database_results["machine_dims"],
             dl=dl,
+            passes=passes,
         )
         downsample_ratio = int(
             np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
@@ -1202,7 +1209,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Reads interferometer diagnostic data from database
@@ -1219,12 +1225,13 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
         dl: float = 0.005,
+        passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads ASTRA data
         """
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_astra(uid, instrument, revision, quantities, dl)
+        database_results = self._get_astra(uid, instrument, revision, quantities)
         # return database_results
 
         if len(database_results) == 0:
@@ -1336,7 +1343,6 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """
         Reads ASTRA data from database
