@@ -35,17 +35,17 @@ def _plot_1d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader=
     dims = tuple(name for name in blob_data.dims if name != "index")
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
-        blob_data.quantile(0.05, dim="index"),
-        blob_data.quantile(0.95, dim="index"),
-        label=f"{blobkey}, 90% Confidence",
+        blob_data.quantile(0.26, dim="index"),
+        blob_data.quantile(0.84, dim="index"),
+        label=f"{blobkey}, 68% Confidence",
         zorder=3,
         color="blue",
     )
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
-        blob_data.quantile(0.01, dim="index"),
-        blob_data.quantile(0.99, dim="index"),
-        label=f"{blobkey}, 98% Confidence",
+        blob_data.quantile(0.025, dim="index"),
+        blob_data.quantile(0.975, dim="index"),
+        label=f"{blobkey}, 95% Confidence",
         zorder=2,
         color="grey",
     )
