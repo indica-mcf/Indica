@@ -276,6 +276,10 @@ class ST40Reader(DataReader):
             "p_oh": ".global:p_oh",  # Absorber NBI power, W
             "q": ".profiles.psi_norm:q",  # Q_PROFILE(PSI_NORM)
             "sigmapar": ".profiles.psi_norm:sigmapar",  # Paral. conduct.,1/(Ohm*m)
+            "nn": ".profiles.astra:nn",  # Thermal neutral density, 10^19/m^3
+            "niz1": ".profiles.astra:niz1",  # Impurity density, 10^19/m^3
+            "niz2": ".profiles.astra:niz2",  # Impurity density, 10^19/m^3
+            "niz3": ".profiles.astra:niz3",  # Impurity density, 10^19/m^3
         },
     }
 
@@ -419,7 +423,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
 
@@ -475,7 +478,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch data from ASTRA run."""
 
@@ -530,7 +532,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch data from SXR camera."""
 
@@ -606,7 +607,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -668,7 +668,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -730,7 +729,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -796,7 +794,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -863,7 +860,6 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for electron temperature or number density
         calculated from Thomson scattering.
@@ -1004,25 +1000,3 @@ class ST40Reader(DataReader):
 
         return (xstart, ystart, zstart), (xstop, ystop, zstop)
 
-
-def get_astra_equilibrium():
-    from indica.readers.st40reader import ST40Reader
-    from indica.equilibrium import Equilibrium
-
-    pulse = 10009
-    tree = "st40"
-    revision = 0
-    tstart = 0
-    tend = 0.2
-    reader = ST40Reader(pulse, tstart, tend, tree=tree)
-    efit = reader.get("", "efit", revision)
-    efit_equil = Equilibrium(efit)
-
-    pulse = 13110009
-    tree = "astra"
-    revision = "2721"
-    reader = ST40Reader(pulse, tstart, tend, tree=tree)
-    astra = reader.get("", "astra", revision)
-    astra_equil = Equilibrium(astra)
-
-    return astra, astra_equil, efit_equil
