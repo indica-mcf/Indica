@@ -1092,13 +1092,13 @@ def test_extrapolate_impurity_density_call():
 
     relative_fit_error = sum_of_residuals / sum_of_original
 
-    try:
-        assert np.max(relative_fit_error) < 0.1
-    except AssertionError:
-        raise AssertionError(
-            f"Relative error across rho_poloidal is too high(maximum allowed is 0.1): \
-                relative error = {relative_fit_error}"
-        )
+    breakpoint()
+    np.testing.assert_allclose(
+        optimized_impurity_density.sel(theta=0),
+        perturbed_impurity_sxr_density_rho_theta.sel(theta=0),
+        rtol=0.1,
+        atol=0.1,
+    )
 
     # Constrained check of invalid SXR range of rho-profile on the low-field-side.
     sum_of_original = zeros_like(relative_fit_error)
