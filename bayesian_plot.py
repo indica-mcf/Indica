@@ -64,9 +64,10 @@ plt.errorbar(
     fmt=".",
     label="Data",
 )
-plt.plot(
+plt.errorbar(
     ip_coords.rho_min.isel(t=t_index),
     draws.predicted_sxr_los_vals.mean(dim=("chain", "draw")),
+    yerr=draws.predicted_sxr_los_vals.std(dim=("chain", "draw")),
     label="Back-fit",
 )
 plt.grid()
