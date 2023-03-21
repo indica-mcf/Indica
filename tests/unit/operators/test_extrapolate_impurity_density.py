@@ -10,6 +10,7 @@ from xarray import DataArray
 from xarray import zeros_like
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
+from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
@@ -625,17 +626,17 @@ def input_data_setup():
         dims=["element", "rho_poloidal", "t"],
     )
 
-    mean_charges = DataArray(
-        data=np.swapaxes(
-            np.tile(np.array([5, 4, 3, 2, 1]), (len(elements), len(base_t), 1)), 1, 2
-        ),
-        coords=[
-            ("element", elements),
-            ("rho_poloidal", base_rho_profile),
-            ("t", base_t),
-        ],
-        dims=["element", "rho_poloidal", "t"],
+    charge_profile = DataArray(
+        data=np.swapaxes(np.tile(np.array([1, 1, 1, 1, 1]), (len(base_t), 1)), 0, 1),
+        coords=[("rho_poloidal", base_rho_profile), ("t", base_t)],
+        dims=["rho_poloidal", "t"],
     )
+    max_charges = DataArray(
+        data=np.array([ELEMENTS[element][0] for element in elements]),
+        coords=[("element", elements)],
+        dims=["element"],
+    )
+    mean_charges = max_charges * charge_profile
 
     toroidal_rotations = np.array([200e3, 170.0e3, 100.0e3, 30.0e3, 5.0e3])
 
@@ -1074,7 +1075,7 @@ def test_extrapolate_impurity_density_call():
             example_bolometry_derivation,
             "w",
             orig_asymmetry_param,
-            threshold_rho=0.6,
+            threshold_rho=example_extrapolate_impurity_density.threshold_rho.mean(),
             R_deriv=R_derived,
             time_correlation=True,
         )
@@ -1092,13 +1093,13 @@ def test_extrapolate_impurity_density_call():
 
     relative_fit_error = sum_of_residuals / sum_of_original
 
-    breakpoint()
-    np.testing.assert_allclose(
-        optimized_impurity_density.sel(theta=0),
-        perturbed_impurity_sxr_density_rho_theta.sel(theta=0),
-        rtol=0.1,
-        atol=0.1,
-    )
+    try:
+        assert np.max(relative_fit_error) < 0.1
+    except AssertionError:
+        raise AssertionError(
+            f"Relative error across rho_poloidal is too high(maximum allowed is 0.1): \
+                relative error = {relative_fit_error}"
+        )
 
     # Constrained check of invalid SXR range of rho-profile on the low-field-side.
     sum_of_original = zeros_like(relative_fit_error)
