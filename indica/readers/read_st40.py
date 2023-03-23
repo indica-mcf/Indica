@@ -231,7 +231,8 @@ class ReadST40:
                 plt.plot(
                     x,
                     y,
-                    label=f"{data_type} {instrument.upper()} {quantity} @ t={_t:1.3f} s",
+                    label=f"{data_type} {instrument.upper()} {quantity}"
+                          f" @ t={_t:1.3f} s",
                     color=cols_time[it],
                     marker=MARKERS[instrument],
                     linestyle=linestyle,

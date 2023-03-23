@@ -193,7 +193,8 @@ class SXR_tomography:
 
             # iterate over chords and calculate contribution to each grid bin
             for ilos in range(self.nlos):
-                # weight is given by dL value and is is splitted equally between all nvirt virtual LOSs
+                # weight is given by dL value and is is splitted equally
+                # between all nvirt virtual LOSs
 
                 for iv in range(self.nvirt):
                     # get first and last point just outside of lcfs
@@ -213,7 +214,8 @@ class SXR_tomography:
                     L_turn = 0
 
                     for i in range(len(i_extrema) - 1):
-                        # split LOS in regions with monotonously changing rho to make the inversion
+                        # split LOS in regions with monotonously changing
+                        # rho to make the inversion
                         monotone_ind = slice(i_extrema[i], i_extrema[i + 1] + 1)
 
                         if rho_cut[monotone_ind][0] == rho_cut[monotone_ind][-1]:
@@ -229,7 +231,8 @@ class SXR_tomography:
                         )(self.rho_grid_edges)
 
                         if not np.any(Ledge > 0):
-                            # special case, whole monotone_ind is within single grid cell
+                            # special case, whole monotone_ind is
+                            # within single grid cell
                             continue
 
                         # index of turning points
@@ -276,7 +279,8 @@ class SXR_tomography:
         )
 
     def regul_matrix(self, bias_axis=True, bias_edge=False):
-        # regularization band matrix, 2. order derivative, bias left or right side to zero
+        # regularization band matrix, 2. order derivative,
+        # bias left or right side to zero
         bias = 0.1
         D = np.ones((3, self.nr))
         D[1, :] *= -2
@@ -385,9 +389,9 @@ class SXR_tomography:
             # iterative calculation of minimum Fisher regularisation
             for ifisher in range(nfisher):
 
-                #####    solve Tikhonov regularization (optimised for speed)
-
-                # multiply tridiagonal regularisation operator by a diagonal weight matrix W
+                # solve Tikhonov regularization (optimised for speed)
+                # multiply tridiagonal regularisation operator by a
+                # diagonal weight matrix W
 
                 WD = triband_diag_multi(D, W**0.5)
 
@@ -589,8 +593,8 @@ class SXR_tomography:
             )
 
             title.set_text(
-                "  $\chi^2/nDoF$ = %.1f  $\gamma$ = %.2f"
-                % (self.chi2[it], self.gamma[it])
+                f"  $\chi^2/nDoF$ = {self.chi2[it]:.1f}  "
+                f" $\gamma$ = {self.gamma[it]:.2f}"
             )
             f.canvas.draw_idle()
 
@@ -672,6 +676,7 @@ class SXR_tomography:
             debug_data["invert_class"][step] = step_time
             print(step + ". It took " + str(step_time) + " seconds")
             st = tt.time()
+
         # FUNCTION TO GET 2D EMISSIVITY DATA
         def get_emissivity_2D(data, eq_data):
             # R AND z VALUES

@@ -39,7 +39,7 @@ def _test_timepoint_fail(model_name: str, **kwargs):
     """Test that model can be called for single time-point"""
     model = MODELS[model_name]
     _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
-    with pytest.raises(Exception) as e_info:
+    with pytest.raises(Exception):
         model(t=TIME_SINGLE_FAIL)
 
 

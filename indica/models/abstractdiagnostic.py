@@ -35,4 +35,3 @@ class DiagnosticModel(ABC):
     def _build_bckc_dictionary(self):
         self.bckc = {}
         return self.bckc
-

@@ -60,7 +60,7 @@ def old_camera(
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
 
-    return_data = tomo()
+    # return_data = tomo()
 
     if plot:
         tomo.show_reconstruction()
@@ -122,7 +122,7 @@ def fake_data(
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
 
-    return_data = tomo()
+    # return_data = tomo()
 
     if plot:
         tomo.show_reconstruction()
