@@ -99,12 +99,6 @@ ADF11: dict = {
     },
 }
 
-
-def numpyhash(nparray, ):
-    a = nparray.view(np.uint8)
-    return hashlib.sha1(a).hexdigest()
-
-
 class Plasma:
     def __init__(
         self,
@@ -169,9 +163,11 @@ class Plasma:
         self.machine_dimensions = machine_dimensions
 
         self.initialize_variables(tstart, tend, dt)
+        self.fz = Fz(self)
 
         self.equilibrium: Equilibrium
         self.flux_transform: FluxSurfaceCoordinates
+
 
     def set_equilibrium(self, equilibrium: Equilibrium):
         """
@@ -377,7 +373,6 @@ class Plasma:
                 data3d_fz, ("radiation_loss_parameter", "sxr"), "W $m^3$"
             )
 
-            self.fz = Fz(self)
 
     def assign_profiles(
         self, profile: str = "electron_density", t: float = None, element: str = "ar"
@@ -1030,6 +1025,10 @@ class Plasma:
             )
 
 
+def numpyhash(nparray, ):
+    a = nparray.view(np.uint8)
+    return hashlib.sha1(a).hexdigest()
+
 # External Physics Models e.g. fractional abundance, fast ions...
 class Fz(object):
     def __init__(self, plasma):
@@ -1044,7 +1043,6 @@ class Fz(object):
 
     @lru_cache()
     def __call__(self):
-        print("calculating fz")
         for elem in self.plasma.elements:
             for t in np.array(self.plasma.time_to_calculate, ndmin=1):
                 Te = self.plasma.electron_temperature.sel(t=t)
@@ -1136,8 +1134,6 @@ def example_run(
     plasma.set_equilibrium(equilibrium)
     plasma.set_flux_transform(flux_transform)
 
-    plasma.fz()
-    plasma.fz()
     return plasma
 
 
