@@ -1024,22 +1024,30 @@ class Plasma:
                 f,
             )
 
-
-def numpyhash(nparray, ):
-    a = nparray.view(np.uint8)
-    return hashlib.sha1(a).hexdigest()
-
 # External Physics Models e.g. fractional abundance, fast ions...
-class Fz(object):
-    def __init__(self, plasma):
+class PlasmaModel:
+    def __init__(self,
+                 plasma,
+                 dependency_list:list = [],
+                 ):
         self.plasma = plasma
+        self.dependency_list = dependency_list
 
-    def __hash__(self):  # Dependencies: if any of these change then recalculate
-        return hash((numpyhash(self.plasma.electron_temperature.data),
-                     numpyhash(self.plasma.electron_density.data),
-                     numpyhash(self.plasma.tau.data),
-                     numpyhash(self.plasma.neutral_density.data),
-                     ))
+    def numpyhash(self, nparray, ):
+        a = nparray.view(np.uint8)
+        return hashlib.sha1(a).hexdigest()
+
+    def __hash__(self):
+        # Dependencies: if any of these change then recalculate. Currently must be np array, can change if needed
+        hashable = tuple((self.numpyhash(getattr(self.plasma, dependency).data),) for dependency in self.dependency_list)
+        return hash(hashable)
+
+
+class Fz(PlasmaModel):
+    def __init__(self,
+                 plasma,
+                 dependency_list: list = ["electron_temperature", "electron_density", "tau", "neutral_density"]):
+        super(Fz, self).__init__(plasma, dependency_list)
 
     @lru_cache()
     def __call__(self):
