@@ -1,6 +1,7 @@
 from copy import deepcopy
 import pickle
-
+from functools import lru_cache
+import hashlib
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -97,6 +98,11 @@ ADF11: dict = {
         "prs": "15",
     },
 }
+
+
+def numpyhash(nparray, ):
+    a = nparray.view(np.uint8)
+    return hashlib.sha1(a).hexdigest()
 
 
 class Plasma:
@@ -371,6 +377,8 @@ class Plasma:
                 data3d_fz, ("radiation_loss_parameter", "sxr"), "W $m^3$"
             )
 
+            self.fz = Fz(self)
+
     def assign_profiles(
         self, profile: str = "electron_density", t: float = None, element: str = "ar"
     ):
@@ -490,26 +498,6 @@ class Plasma:
         ptot = self.ptot
         self._wp.values = 3 / 2 * ptot.values
         return self._wp
-
-    @property
-    def fz(self):
-        for elem in self.elements:
-            for t in np.array(self.time_to_calculate, ndmin=1):
-                Te = self.electron_temperature.sel(t=t)
-                Ne = self.electron_density.sel(t=t)
-                tau = None
-                if np.any(self.tau != 0):
-                    tau = self.tau.sel(t=t)
-                Nh = None
-                if np.any(self.neutral_density != 0):
-                    Nh = self.neutral_density.sel(t=t)
-                if any(np.logical_not((Te > 0) * (Ne > 0))):
-                    continue
-                fz_tmp = self.fract_abu[elem](
-                    Te, Ne=Ne, Nh=Nh, tau=tau, full_run=self.full_run
-                )
-                self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
-        return self._fz
 
     @property
     def zeff(self):
@@ -1042,6 +1030,40 @@ class Plasma:
             )
 
 
+# External Physics Models e.g. fractional abundance, fast ions...
+class Fz(object):
+    def __init__(self, plasma):
+        self.plasma = plasma
+
+    def __hash__(self):  # Dependencies: if any of these change then recalculate
+        return hash((numpyhash(self.plasma.electron_temperature.data),
+                     numpyhash(self.plasma.electron_density.data),
+                     numpyhash(self.plasma.tau.data),
+                     numpyhash(self.plasma.neutral_density.data),
+                     ))
+
+    @lru_cache()
+    def __call__(self):
+        print("calculating fz")
+        for elem in self.plasma.elements:
+            for t in np.array(self.plasma.time_to_calculate, ndmin=1):
+                Te = self.plasma.electron_temperature.sel(t=t)
+                Ne = self.plasma.electron_density.sel(t=t)
+                tau = None
+                if np.any(self.plasma.tau != 0):
+                    tau = self.plasma.tau.sel(t=t)
+                Nh = None
+                if np.any(self.plasma.neutral_density != 0):
+                    Nh = self.plasma.neutral_density.sel(t=t)
+                if any(np.logical_not((Te > 0) * (Ne > 0))):
+                    continue
+                fz_tmp = self.plasma.fract_abu[elem](
+                    Te, Ne=Ne, Nh=Nh, tau=tau, full_run=self.plasma.full_run
+                )
+                self.plasma._fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
+        return self.plasma._fz
+
+
 def example_run(
     pulse: int = None,
     tstart=0.02,
@@ -1114,6 +1136,8 @@ def example_run(
     plasma.set_equilibrium(equilibrium)
     plasma.set_flux_transform(flux_transform)
 
+    plasma.fz()
+    plasma.fz()
     return plasma
 
 
