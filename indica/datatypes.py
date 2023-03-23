@@ -26,11 +26,6 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Parameter describing asymmetry between quantities on HFS and LFS",
         "",
     ),
-    "lines_of_sight_data": (
-        'Data specifying start and end points of given lines-of-sight, \
-            as well as labelling specifying each line-of-sight (ie. "KB5V01B").',
-        "m",
-    ),
     "concentration": (
         "Portion of nuclei which are the given type of ion",
         "%",
@@ -39,18 +34,8 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "Zeff ratio of ion charge to electron charge in plasma",
         "",
     ),
-    "emissivity": ("Radiation power produced per unit volume of space", "W m^{-3}"),
-    "f_value": (
-        "Product of toroidal magnetic field strength and major radius",
-        "Wb m",
-    ),
-    "flux_surface_coordinates": (
-        "Flux surface coordinate object derived attached to a given equilibrium.",
-        "",
-    ),
-    "elements": ("List of elements (symbols).", ""),
-    "ion_coeffs": ("Effective ionisation coefficients", "m^3 s^{-1}"),
-    "line_emissions": ("Line emissions from excitation", "W m^3"),
+    "emissivity": ("Radiation power produced per unit volume of space", "W m^-3"),
+    "line_emission": ("Line emission from excitation", "W m^3"),
     "luminous_flux": (
         "Radiation power received per unit area at some point",
         "W m^-2",
@@ -61,6 +46,10 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     ),
     "minor_rad": ("Distance of a point from the magnetic axis", "m"),
     "z": ("Vertical position from mid-plane of Tokamak", "m"),
+    "area_jacobian": (
+        "Derivative of cross-sectional area with respect to normalised poloidal flux",
+        "m^3",
+    ),
     "vol_jacobian": (
         "Derivative of enclosed volume with respect to normalised poloidal flux",
         "m^3",
@@ -84,11 +73,11 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     "time": ("Time into the pulse", "s"),
     "times": ("All time values for the pulse", "s"),
     "ion_coeff": ("Effective ionisation rate coefficient", "m^3 s^-1"),
-    "recomb_coeffs": ("Effective recombination coefficients", "m^3 s^{-1}"),
-    "recomb_emissions": ("Emissions from recombination and bremsstrahlung", "W m^3"),
-    "sxr_line_emissions": ("SXR-filtered line emissions from excitation", "W m^3"),
-    "sxr_recomb_emissions": (
-        "SXR-filtered emissions from recombination and bremsstrahlung",
+    "recomb_coeff": ("Effective recombination coefficient", "m^3 s^-1"),
+    "recomb_emission": ("Emission from recombination and bremsstrahlung", "W m^3"),
+    "sxr_line_emission": ("SXR-filtered line emission from excitation", "W m^3"),
+    "sxr_recomb_emission": (
+        "SXR-filtered emission from recombination and bremsstrahlung",
         "W m^3",
     ),
     "photon_emissivity_coefficient_ca": (
@@ -234,7 +223,8 @@ ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
 
 # Format is {str(element_symbol):
 # [int(charge), int(mass of most common isotope), str(element_name)]}
-ELEMENTS: Dict[SpecificDataType, List[Union[int, int, SpecificDataType]]] = {
+# TODO: change mass to float value
+ELEMENTS: dict = {
     "h": [1, 1, "hydrogen"],
     "d": [1, 2, "deuterium"],
     "t": [1, 3, "tritium"],
@@ -349,7 +339,7 @@ COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdic
             "number_density",
             "temperature",
             "toroidal_flux",
-            "vol_jacobian",
+            "area_jacobian" "vol_jacobian",
             "weighting",
             "toroidal_rotation",
             "times",

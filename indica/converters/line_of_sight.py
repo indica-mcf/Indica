@@ -17,15 +17,16 @@ from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
+from ..utilities import input_check
 
 
 class LineOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
-    line-of-site a location is on. The second coordinate ranges from 0
+    line-of-sight a location is on. The second coordinate ranges from 0
     to 1 (inclusive) and indicates the position of a location along
-    the line-of-sight. Note that diagnostic using this coordinate
+    the line-of-sight. Note that the diagnostic using this coordinate
     system will usually only be indexed in the first coordinate, as
     the measurements were integrated along the line-of-sight.
 
@@ -166,15 +167,15 @@ class LineOfSightTransform(CoordinateTransform):
             "method."
         )
 
-    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
         """
-        Convert R, z to rho given the flux surface transform
+        Convert R, z to rho, theta given the flux surface transform
         """
         self.check_equilibrium()
 
         _t = np.array(t)
         if np.size(t) == 1:
-            _t = float(_t)
+            _t = float(_t)  # type: ignore
 
         rho = []
         theta = []
@@ -237,8 +238,8 @@ class LineOfSightTransform(CoordinateTransform):
         """
 
         # Calculate start and end coordinates, R, z and phi for all LOS
-        x_start, y_start, z_start = [], [], []
-        x_end, y_end, z_end = [], [], []
+        x_start_data, y_start_data, z_start_data = [], [], []
+        x_end_data, y_end_data, z_end_data = [], [], []
         for channel in self.x1:
             origin = (
                 self.origin_x[channel],
@@ -253,19 +254,19 @@ class LineOfSightTransform(CoordinateTransform):
             _start, _end = find_wall_intersections(
                 origin, direction, machine_dimensions=self._machine_dims
             )
-            x_start.append(_start[0])
-            y_start.append(_start[1])
-            z_start.append(_start[2])
-            x_end.append(_end[0])
-            y_end.append(_end[1])
-            z_end.append(_end[2])
+            x_start_data.append(_start[0])
+            y_start_data.append(_start[1])
+            z_start_data.append(_start[2])
+            x_end_data.append(_end[0])
+            y_end_data.append(_end[1])
+            z_end_data.append(_end[2])
 
-        self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1)])
-        self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1)])
-        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
-        x_end = DataArray(x_end, coords=[(self.x1_name, self.x1)])
-        y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
-        z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
+        self.x_start = DataArray(x_start_data, coords=[(self.x1_name, self.x1)])
+        self.y_start = DataArray(y_start_data, coords=[(self.x1_name, self.x1)])
+        self.z_start = DataArray(z_start_data, coords=[(self.x1_name, self.x1)])
+        x_end = DataArray(x_end_data, coords=[(self.x1_name, self.x1)])
+        y_end = DataArray(y_end_data, coords=[(self.x1_name, self.x1)])
+        z_end = DataArray(z_end_data, coords=[(self.x1_name, self.x1)])
 
         # Fix identical length of all lines of sight
         los_lengths = np.sqrt(
@@ -313,12 +314,13 @@ class LineOfSightTransform(CoordinateTransform):
         self.R = np.sqrt(self.x**2 + self.y**2)
         self.impact_parameter = self.calc_impact_parameter()
 
-    def map_to_los(
+    def map_profile_to_los(
         self,
         profile_to_map: DataArray,
         t: LabeledArray = None,
         limit_to_sep: bool = True,
         calc_rho: bool = False,
+        kind: str = "flux_coords",
     ) -> DataArray:
         """
         Map profile to lines-of-sight
@@ -340,24 +342,42 @@ class LineOfSightTransform(CoordinateTransform):
         """
         self.check_equilibrium()
 
-        profile = self.check_rho_and_profile(t, profile_to_map, calc_rho=calc_rho)
-        impact_rho = self.rho.min("los_position")
-
-        along_los = profile.interp(rho_poloidal=self.rho).drop_vars("rho_poloidal")
-        if limit_to_sep:
-            along_los = xr.where(
-                self.rho <= 1,
-                along_los,
-                np.nan,
+        input_check("kind", kind, str)
+        if (kind != "flux_coords") and (kind != "spatial_coords"):
+            raise ValueError(
+                f'kind cannot be "{kind}", it must be either\
+                     "flux_coords" or "spatial_coords"'
             )
 
+        if kind == "flux_coords":
+            profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
+            impact_rho = self.rho.min("los_position")
+
+            rho_ = self.rho.dropna(dim="los_position")
+            theta_ = self.theta.dropna(dim="los_position")
+
+            along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
+            along_los = along_los.drop_vars(["rho_poloidal", "theta"])
+            if limit_to_sep:
+                along_los = xr.where(
+                    rho_ <= 1,
+                    along_los,
+                    np.nan,
+                )
+            self.impact_rho = impact_rho
+        elif kind == "spatial_coords":
+            R_ = self.R.dropna(dim="los_position")
+            z_ = self.z.dropna(dim="los_position")
+
+            along_los = profile_to_map.interp(R=R_, z=z_)
+            along_los = along_los.drop_vars(["R", "z"])
+
         self.along_los = along_los
-        self.impact_rho = impact_rho
 
         return along_los
 
     def check_rho_and_profile(
-        self, t: LabeledArray, profile_to_map: DataArray, calc_rho: bool = False
+        self, profile_to_map: DataArray, t: LabeledArray = None, calc_rho: bool = False
     ) -> DataArray:
         """
         Check requested times
@@ -365,7 +385,10 @@ class LineOfSightTransform(CoordinateTransform):
 
         time = np.array(t)
         if time.size == 1:
-            time = float(time)
+            if t is None:
+                t = self.t
+            else:
+                time = float(time)  # type: ignore
 
         equil_t = self.equilibrium.rho.t
         equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
@@ -377,14 +400,14 @@ class LineOfSightTransform(CoordinateTransform):
 
         # Make sure rho.t == requested time
         if not hasattr(self, "rho") or calc_rho:
-            self.convert_to_rho(t=time)
+            self.convert_to_rho_theta(t=time)
         else:
             if not np.array_equal(self.rho.t, time):
-                self.convert_to_rho(t=time)
+                self.convert_to_rho_theta(t=time)
 
         # Check profile
         if not hasattr(profile_to_map, "t"):
-            profile = profile_to_map.expand_dims({"t": time})
+            profile = profile_to_map.expand_dims({"t": time})  # type: ignore
         else:
             profile = profile_to_map
 
