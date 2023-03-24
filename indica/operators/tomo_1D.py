@@ -1,18 +1,18 @@
-import matplotlib as mpl
+import time as tt
+
+import matplotlib.pylab as plt
+from matplotlib.widgets import Button
+from matplotlib.widgets import Slider
+import numpy as np
+from scipy.interpolate import interp1d
+from scipy.interpolate import RectBivariateSpline
+from scipy.linalg import eigh
+from scipy.linalg import solve_banded
+from scipy.ndimage import convolve
+from scipy.signal import argrelextrema
 
 # mpl.rcParams['keymap.back'].remove('left')
 # mpl.rcParams['keymap.forward'].remove('right')
-
-import numpy as np
-import matplotlib.pylab as plt
-from IPython import embed
-from scipy.linalg import eigh, solve_banded, inv
-from scipy.interpolate import interp1d, RectBivariateSpline
-import pickle
-from scipy.signal import argrelextrema
-from scipy.ndimage import convolve
-from matplotlib.widgets import Slider, MultiCursor, Button
-import time as tt
 
 
 def update_fill_between(fill, x, y_low, y_up, min, max):
@@ -97,18 +97,18 @@ class SXR_tomography:
                 brightness:array(ntime, nchannel) = measured experimental brightness,
                 dl:float = radial precision of the lines of sight,
                 t:array(ntime) = time array of the experimental data,
-                R:array(nchannel, npoints) = R along the LOS (npoints = number of points along LOS),
-                z:array(nchannel, npoints) = z along the LOS (npoints = number of points along LOS),
+                R:array(nchannel, npoints) = R along the LOS (npoints along LOS),
+                z:array(nchannel, npoints) = z along the LOS (npoints along LOS),
                 rho_equil=dict(
                     R:array(nR_eq) = R grid of the equilibrium,
                     z:array(nz_eq) = z grid of the equilibrium,
                     t:array(nt_eq) = time of the equilibrium,
-                    rho:array(nt_eq, nR_eq, nz_eq) = sqrt(normalised poloidal flux) from equilibrium,
+                    rho:array(nt_eq, nR_eq, nz_eq) = sqrt(normalised pol flux),
                 ),
                 debug=debug,
                 has_data:array(nchannel) = boolean array to discard non-active channels,
             )
-        reg_level_guess:float = regularisation parameter (larger value --> stiffer profiles)
+        reg_level_guess:float = regularisation (larger value --> stiffer profiles)
         """
 
         self.reg_level_guess = reg_level_guess
@@ -116,7 +116,7 @@ class SXR_tomography:
         self.reg_level_max = reg_level_max
         self.eq = input_dict["rho_equil"]
 
-        ##### Parameters
+        # Parameters
         los_shape = np.shape(input_dict["R"])
         self.nlos = los_shape[0]
         self.los_len = los_shape[1]
@@ -160,7 +160,8 @@ class SXR_tomography:
             self.expected_emissivity = input_dict["emissivity"]
 
     def geom_matrix(self):
-        # create geometry matrix witn contribution of all grid intervals to the measured signals
+        # create geometry matrix witn contribution of all
+        # grid intervals to the measured signals
 
         # create vitual LOS
         self.x = np.arange(self.nlos)
@@ -175,13 +176,14 @@ class SXR_tomography:
         i_tg = np.argmin(R, axis=0)[None]
 
         # weighted sum all dL values which fits in between bin edges
-        # dLmat2 is calculate by summing all dL contributiions to each grid bin, used for benchmarking
+        # dLmat2 is calculate by summing all dL contributiions to
+        # each grid bin, used for benchmarking
         nt = self.eq["t"].size
         # calculate exactly length of chord in each grid bin
         dLmat = np.zeros((nt, self.nlos, self.nvirt, self.nr))
         rho_tg = np.zeros((nt, self.nlos, self.nvirt))
 
-        #################  prepare L matrix #####################
+        #  prepare L matrix
         for it in range(nt):
             LOS_rho = RectBivariateSpline(
                 self.eq["R"], self.eq["z"], self.eq["rho"][it].T
@@ -191,7 +193,8 @@ class SXR_tomography:
 
             # iterate over chords and calculate contribution to each grid bin
             for ilos in range(self.nlos):
-                # weight is given by dL value and is is splitted equally between all nvirt virtual LOSs
+                # weight is given by dL value and is is splitted equally
+                # between all nvirt virtual LOSs
 
                 for iv in range(self.nvirt):
                     # get first and last point just outside of lcfs
@@ -211,7 +214,8 @@ class SXR_tomography:
                     L_turn = 0
 
                     for i in range(len(i_extrema) - 1):
-                        # split LOS in regions with monotonously changing rho to make the inversion
+                        # split LOS in regions with monotonously changing
+                        # rho to make the inversion
                         monotone_ind = slice(i_extrema[i], i_extrema[i + 1] + 1)
 
                         if rho_cut[monotone_ind][0] == rho_cut[monotone_ind][-1]:
@@ -227,7 +231,8 @@ class SXR_tomography:
                         )(self.rho_grid_edges)
 
                         if not np.any(Ledge > 0):
-                            # special case, whole monotone_ind is within single grid cell
+                            # special case, whole monotone_ind is
+                            # within single grid cell
                             continue
 
                         # index of turning points
@@ -274,7 +279,8 @@ class SXR_tomography:
         )
 
     def regul_matrix(self, bias_axis=True, bias_edge=False):
-        # regularization band matrix, 2. order derivative, bias left or right side to zero
+        # regularization band matrix, 2. order derivative,
+        # bias left or right side to zero
         bias = 0.1
         D = np.ones((3, self.nr))
         D[1, :] *= -2
@@ -296,7 +302,7 @@ class SXR_tomography:
 
     def PRESS(self, g, prod, S, U):
         # predictive sum of squares
-        w = 1.0 / (1.0 + np.exp(g) / S ** 2)
+        w = 1.0 / (1.0 + np.exp(g) / S**2)
         ndets = len(prod)
         return (
             np.sum(
@@ -307,7 +313,7 @@ class SXR_tomography:
 
     def GCV(self, g, prod, S, U):
         # generalized crossvalidation
-        w = 1.0 / (1.0 + np.exp(g) / S ** 2)
+        w = 1.0 / (1.0 + np.exp(g) / S**2)
         ndets = len(prod)
         return (np.sum((((w - 1) * prod)) ** 2) + 1) / ndets / (1 - np.mean(w)) ** 2
 
@@ -383,11 +389,11 @@ class SXR_tomography:
             # iterative calculation of minimum Fisher regularisation
             for ifisher in range(nfisher):
 
-                #####    solve Tikhonov regularization (optimised for speed)
+                # solve Tikhonov regularization (optimised for speed)
+                # multiply tridiagonal regularisation operator by a
+                # diagonal weight matrix W
 
-                # multiply tridiagonal regularisation operator by a diagonal weight matrix W
-
-                WD = triband_diag_multi(D, W ** 0.5)
+                WD = triband_diag_multi(D, W**0.5)
 
                 # transpose the band matrix WD
                 DTW = triband_transpose(WD)
@@ -411,10 +417,10 @@ class SXR_tomography:
                 g0 = np.interp(reg_level, q, 2 * np.log(S))
 
                 # filtering factors attenuating high frequency eigenvectors
-                w = 1.0 / (1.0 + np.exp(g0) / S ** 2)
+                w = 1.0 / (1.0 + np.exp(g0) / S**2)
 
                 # mean solution
-                y = np.dot(H, np.dot(U / S ** 2, w * mean_p))
+                y = np.dot(H, np.dot(U / S**2, w * mean_p))
                 # final inversion of  solution, reconstruction
                 y = solve_banded(
                     (1, 1),
@@ -438,7 +444,7 @@ class SXR_tomography:
                 g0, log_fg2 = self.FindMin(self.PRESS, g0, 1, mean_p, S, U)
                 self.gamma[t_ind] = np.interp(g0, np.log(S) * 2, q)
                 self.gamma[t_ind] = max(self.reg_level_min, self.gamma[t_ind]) ** 2
-                w = 1.0 / (1.0 + np.exp(g0) / S ** 2)
+                w = 1.0 / (1.0 + np.exp(g0) / S**2)
             else:
                 self.gamma[t_ind] = reg_level
 
@@ -458,7 +464,7 @@ class SXR_tomography:
 
             self.emiss[t_ind] = y
             self.emiss_err[t_ind] = np.sqrt(
-                np.dot(V ** 2, (w / S) ** 2) * np.maximum(1, self.chi2[t_ind, None])
+                np.dot(V**2, (w / S) ** 2) * np.maximum(1, self.chi2[t_ind, None])
             )
 
     def show_reconstruction(self):
@@ -493,7 +499,7 @@ class SXR_tomography:
         tomo_var = ax[0].fill_between(
             r, r * 0, r * 0, alpha=0.5, facecolor="b", edgecolor="None"
         )
-        (expected_emissivity, ) = ax[0].plot(
+        (expected_emissivity,) = ax[0].plot(
             [], [], alpha=0.5, color="r", linestyle="dashed", lw=2
         )
         (tomo_mean,) = ax[0].plot([], [], lw=2)
@@ -533,7 +539,12 @@ class SXR_tomography:
         R, z = np.meshgrid(self.eq["R"], self.eq["z"])
         ax[2].plot(R, z, "k,", zorder=99)
         ax[2].axis(
-            [0.15, 0.7, -0.4, 0.4,]
+            [
+                0.15,
+                0.7,
+                -0.4,
+                0.4,
+            ]
         )
         ax[2].set_ylabel("z [m]")
         ax[2].set_xlabel("R [m]")
@@ -545,7 +556,7 @@ class SXR_tomography:
         def update(reg=None, time=None):
             global cont
             if reg is not None:
-                self.calc_tomo(reg_level=reg ** 0.5, nfisher=3, eps=1e-5)
+                self.calc_tomo(reg_level=reg**0.5, nfisher=3, eps=1e-5)
 
             if time is None:
                 time = slide_time.val
@@ -582,8 +593,8 @@ class SXR_tomography:
             )
 
             title.set_text(
-                "  $\chi^2/nDoF$ = %.1f  $\gamma$ = %.2f"
-                % (self.chi2[it], self.gamma[it])
+                r"  $\chi^2/nDoF$ = " + f"{self.chi2[it]:.1f}  "
+                r" $\gamma$ = " + f"{self.gamma[it]:.2f}"
             )
             f.canvas.draw_idle()
 
@@ -665,6 +676,7 @@ class SXR_tomography:
             debug_data["invert_class"][step] = step_time
             print(step + ". It took " + str(step_time) + " seconds")
             st = tt.time()
+
         # FUNCTION TO GET 2D EMISSIVITY DATA
         def get_emissivity_2D(data, eq_data):
             # R AND z VALUES
@@ -689,7 +701,11 @@ class SXR_tomography:
                     rho_1D[it, :], emiss_1D[it, :], bounds_error=False, fill_value=0
                 )(sel_rho)
             # RETURN DATA
-            return_data = dict(R=R, z=z, data=emiss.T,)
+            return_data = dict(
+                R=R,
+                z=z,
+                data=emiss.T,
+            )
             # RETURNING THE DATA
             return return_data
 
@@ -705,7 +721,10 @@ class SXR_tomography:
                 channel_no=np.arange(1, np.size(self.data, 1) + 1),
             ),
             # PROJECTION DATA
-            projection=dict(R=self.R, z=self.z,),
+            projection=dict(
+                R=self.R,
+                z=self.z,
+            ),
             # PROFILES
             profile=dict(
                 sym_emissivity=self.emiss,
@@ -725,7 +744,7 @@ class SXR_tomography:
             :, return_data["channels_considered"]
         ]
         return_data["back_integral"]["chi2"] = np.sqrt(
-            np.nansum(((data_exp - data_the) ** 2) / (data_exp ** 2), axis=1)
+            np.nansum(((data_exp - data_the) ** 2) / (data_exp**2), axis=1)
         )
         # APPENDING DEBUG DATA
         if self.debug:

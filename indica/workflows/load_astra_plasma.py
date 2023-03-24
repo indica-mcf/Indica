@@ -1,19 +1,19 @@
 import matplotlib.pylab as plt
-from indica.equilibrium import Equilibrium
 import numpy as np
-from indica.readers import ST40Reader
-from indica.readers.read_st40 import ReadST40
-from indica.models.plasma import Plasma
-
 import xarray as xr
-from indica.models.interferometry import Interferometry
-from indica.models.sxr_camera import SXRcamera
+
+from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters.transect import TransectCoordinates
+from indica.equilibrium import Equilibrium
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.interferometry import Interferometry
+from indica.models.plasma import Plasma
+from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
-from indica.converters.line_of_sight import LineOfSightTransform
-from indica.converters.transect import TransectCoordinates
+from indica.readers import ST40Reader
+from indica.readers.read_st40 import ReadST40
 
 DIAGNOSTIC_MODELS = {
     "smmh1": Interferometry,
@@ -54,8 +54,6 @@ def astra_plasma(astra: dict, pulse: int, tstart: float, tend: float, dt: float)
 
     equilibrium = Equilibrium(astra)
 
-    t_astra = astra["te"].t.values
-
     n_rad = len(astra["ne"].rho_poloidal)
     main_ion = "h"
     impurities = ("ar", "c", "he")
@@ -76,7 +74,6 @@ def astra_plasma(astra: dict, pulse: int, tstart: float, tend: float, dt: float)
 
     # Assign ASTRA equilibrium and independent quantities
     plasma.set_equilibrium(equilibrium)
-    plasma.calculate_geometry()
 
     Te = astra["te"].interp(rho_poloidal=plasma.rho, t=plasma.t) * 1.0e3
     plasma.electron_temperature.values = Te.values
@@ -158,36 +155,40 @@ def example_run(verbose: bool = True):
 
     # Read experimental data
     if verbose:
-        print(f"Reading ST40 data")
+        print("Reading ST40 data")
     st40 = ReadST40(pulse, tstart - dt, tend + dt, tree="st40")
-    st40(instruments=instruements, map=False)
+    st40(instruments=instruements, map_diagnostics=False)
 
     # Read ASTRA simulation
     if verbose:
-        print(f"Reading ASTRA data")
+        print("Reading ASTRA data")
     reader = ST40Reader(pulse_astra, tstart - dt, tend + dt, tree="ASTRA")
     astra = reader.get("", "astra", astra_run)
 
     if verbose:
-        print(f"Initializing Plasma class with ASTRA data")
+        print("Initializing Plasma class with ASTRA data")
     plasma = astra_plasma(astra, pulse, tstart, tend, dt)
 
     # Initialize Equilibria
-    equilibrium_astra = plasma.equilibrium
+    # equilibrium_astra = plasma.equilibrium
     equilibrium_efit = Equilibrium(st40.raw_data["efit"])
 
     # Load and run the diagnostic forward models
     raw = st40.raw_data
     binned = st40.binned_data
     bckc: dict = {}
-    models = initialize_diagnostic_models(binned, plasma=plasma,)
+    models = initialize_diagnostic_models(
+        binned,
+        plasma=plasma,
+    )
     for instrument in models.keys():
         if verbose:
-            print(f"Running {instrument} model")
+            print("Running {instrument} model")
         if instrument == "xrcs":
             models[instrument].calibration = calibration
             bckc[instrument] = models[instrument](
-                calc_spectra=calc_spectra, moment_analysis=moment_analysis,
+                calc_spectra=calc_spectra,
+                moment_analysis=moment_analysis,
             )
         else:
             bckc[instrument] = models[instrument]()
@@ -197,7 +198,7 @@ def example_run(verbose: bool = True):
     pressure_tot = plasma.pressure_tot
     pressure_th = plasma.pressure_th
     ion_density = plasma.ion_density
-    fast_density = plasma.fast_density
+    # fast_density = plasma.fast_density
     impurity_conc = ion_density / plasma.electron_density
     wth = plasma.wth
     wp = plasma.wp
@@ -287,20 +288,25 @@ def example_run(verbose: bool = True):
                 _raw.attrs["error"] = xr.full_like(_raw, 0.0)
                 _binned.attrs["error"] = xr.full_like(_binned, 0.0)
                 _bckc.attrs["error"] = xr.full_like(_bckc, 0.0)
-            err = np.sqrt(_binned.error ** 2 + _binned.stdev ** 2)
+            err = np.sqrt(_binned.error**2 + _binned.stdev**2)
 
             plt.fill_between(
                 _binned.t.sel(t=tslice, method="nearest"),
-                _binned.sel(t=tslice, method="nearest").values - err.sel(t=tslice).values,
-                _binned.sel(t=tslice, method="nearest").values + err.sel(t=tslice).values,
+                _binned.sel(t=tslice, method="nearest").values
+                - err.sel(t=tslice).values,
+                _binned.sel(t=tslice, method="nearest").values
+                + err.sel(t=tslice).values,
                 color=binned_color,
                 alpha=0.7,
             )
             _binned.sel(t=tslice, method="nearest").plot(
-                label="Binned", color=binned_color, marker="o",
+                label="Binned",
+                color=binned_color,
+                marker="o",
             )
             _raw.sel(t=tslice, method="nearest").plot(
-                label="Raw", color=raw_color,
+                label="Raw",
+                color=raw_color,
             )
             mult = 1.0
             if instrument in scaling.keys():

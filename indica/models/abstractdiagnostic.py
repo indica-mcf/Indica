@@ -7,9 +7,9 @@ from indica.models.plasma import Plasma
 
 
 class DiagnosticModel(ABC):
-    name: str = ""
-    bckc: dict = {}
-    plasma: Plasma = None
+    name: str
+    bckc: dict
+    plasma: Plasma
     los_transform: LineOfSightTransform
     transect_transform: TransectCoordinates
 
@@ -33,15 +33,22 @@ class DiagnosticModel(ABC):
 
     @abstractmethod
     def _build_bckc_dictionary(self):
-        self.bckc = {}
-        return self.bckc
+        """
+        Calculate back-calculated expected values that the diagnostic will
+        be measuring. This can be directly compared to the data read in by
+        the Indica Reader methods.
+        """
+        raise NotImplementedError(
+            "{} does not implement a "
+            "'__call__' method.".format(self.__class__.__name__)
+        )
 
-    @abstractmethod
-    def __call__(
-        self,
-        **kwargs,
-    ):
-        """
-        Calculate and return diagnostic measured values
-        """
-        return self._build_bckc_dictionary()
+    # @abstractmethod
+    # def __call__(self, *args, **kwargs) -> dict:
+    #     """
+    #     Call the model and return back-calculated values
+    #     """
+    #     raise NotImplementedError(
+    #         "{} does not implement a "
+    #         "'__call__' method.".format(self.__class__.__name__)
+    #     )

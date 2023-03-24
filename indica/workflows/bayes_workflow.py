@@ -81,7 +81,11 @@ def plot_bayes_result(
         plt.ylabel("temperature (eV)")
         plt.plot(temp_data, label="xrcs.te_kw model", color="blue")
         plt.axhline(
-            y=diag_data["xrcs.te_kw"][0,].sel(t=plasma.time_to_calculate).values,
+            y=diag_data["xrcs.te_kw"][
+                0,
+            ]
+            .sel(t=plasma.time_to_calculate)
+            .values,
             color="blue",
             linestyle="-",
             label="xrcs.te_kw data",
@@ -94,7 +98,11 @@ def plot_bayes_result(
         temp_data = blobs["xrcs.ti_w"][:, 0, 0]
         plt.plot(temp_data, label="xrcs.ti_w model", color="red")
         plt.axhline(
-            y=diag_data["xrcs.ti_w"][0,].sel(t=plasma.time_to_calculate).values,
+            y=diag_data["xrcs.ti_w"][
+                0,
+            ]
+            .sel(t=plasma.time_to_calculate)
+            .values,
             color="red",
             linestyle="-",
             label="xrcs.ti_w data",

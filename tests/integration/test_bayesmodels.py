@@ -1,12 +1,11 @@
-from indica.bayesmodels import BayesModels, get_uniform
-
-from indica.models.plasma import example_run
-from indica.models.helike_spectroscopy import Helike_spectroscopy
+import emcee
+import flatdict
 from tests.integration.models.test_helike_spectroscopy import helike_LOS_example
 
-import flatdict
-import numpy as np
-import emcee
+from indica.bayesmodels import BayesModels
+from indica.bayesmodels import get_uniform
+from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.plasma import example_run
 
 
 class TestBayesModels:
