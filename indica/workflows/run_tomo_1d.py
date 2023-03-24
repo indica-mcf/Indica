@@ -56,7 +56,7 @@ def old_camera(
             debug=debug,
             has_data=has_data,
         )
-        return input_dict
+        # return input_dict
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
 
@@ -82,8 +82,6 @@ def fake_data(
     from indica.models.bolometer_camera import example_run
 
     if input_dict is None:
-        debug = False
-        exclude_bad_points = True
         if plasma is None or model is None or bckc is None:
             plasma, model, bckc = example_run(pulse=9229, nchannels=nchannels)
 
@@ -118,7 +116,6 @@ def fake_data(
             debug=debug,
             has_data=has_data,
         )
-        return input_dict
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
 

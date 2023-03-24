@@ -652,7 +652,6 @@ class DataReader(BaseIO):
         #     quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
         #     data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         # return data
-
     def _get_cyclotron_emissions(
         self,
         uid: str,

@@ -11,12 +11,15 @@ import numpy as np
 import prov.model as prov
 from xarray import apply_ufunc
 from xarray import DataArray
+from xarray import zeros_like
 from xarray import where
 from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
 from . import session
 from .numpy_typing import LabeledArray
+
+from indica.converters.time import get_tlabels_dt
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -824,6 +827,7 @@ def fake_equilibrium(
         tend=tend,
         dt=dt,
         machine_dims=machine_dims,
+
     )
     return Equilibrium(equilibrium_data)
 
@@ -861,8 +865,10 @@ def fake_equilibrium_data(
     tfuncs = smooth_funcs((tstart, tend), 0.01)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
     z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
+
     raw_result: dict = {}
     attrs: dict = {}
+
     result["rmag"] = DataArray(
         r_centre + tfuncs(times), coords=[("t", times)], name="rmag", attrs=attrs
     )
