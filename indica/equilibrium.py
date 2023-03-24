@@ -13,7 +13,9 @@ from xarray import apply_ufunc
 from xarray import DataArray
 from xarray import zeros_like
 from xarray import where
+from xarray import zeros_like
 
+from indica.converters.time import get_tlabels_dt
 from . import session
 from .numpy_typing import LabeledArray
 
@@ -158,10 +160,16 @@ class Equilibrium:
             rho_, theta_, _ = self.flux_coords(_R, _z)
 
         dpsi_dR = psi.differentiate("R").indica.interp2d(
-            R=_R, z=_z, method="cubic", assume_sorted=True,
+            R=_R,
+            z=_z,
+            method="cubic",
+            assume_sorted=True,
         )
         dpsi_dz = psi.differentiate("z").indica.interp2d(
-            R=R, z=z, method="cubic", assume_sorted=True,
+            R=R,
+            z=z,
+            method="cubic",
+            assume_sorted=True,
         )
         b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
@@ -170,7 +178,11 @@ class Equilibrium:
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
-        f = f.indica.interp2d(rho_poloidal=rho_, method="cubic", assume_sorted=True,)
+        f = f.indica.interp2d(
+            rho_poloidal=rho_,
+            method="cubic",
+            assume_sorted=True,
+        )
         f.name = self.f.name
         b_T = f / _R
         b_T.name = "Toroidal Magnetic Field (T)"
@@ -811,13 +823,20 @@ def fake_equilibrium(
     machine_dims=None,
 ):
     equilibrium_data = fake_equilibrium_data(
-        tstart=tstart, tend=tend, dt=dt, machine_dims=machine_dims,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        machine_dims=machine_dims,
+
     )
     return Equilibrium(equilibrium_data)
 
 
 def fake_equilibrium_data(
-    tstart: float = 0, tend: float = 0.1, dt: float = 0.01, machine_dims=None,
+    tstart: float = 0,
+    tend: float = 0.1,
+    dt: float = 0.01,
+    machine_dims=None,
 ):
     def monotonic_series(
         start: float,
@@ -827,7 +846,9 @@ def fake_equilibrium_data(
         retstep: bool = False,
         dtype: bool = None,
     ):
-        return np.linspace(start, stop, num=num, endpoint=endpoint, retstep=retstep, dtype=dtype)
+        return np.linspace(
+            start, stop, num=num, endpoint=endpoint, retstep=retstep, dtype=dtype
+        )
 
     if machine_dims is None:
         machine_dims = MACHINE_DIMS
@@ -844,8 +865,10 @@ def fake_equilibrium_data(
     tfuncs = smooth_funcs((tstart, tend), 0.01)
     r_centre = (machine_dims[0][0] + machine_dims[0][1]) / 2
     z_centre = (machine_dims[1][0] + machine_dims[1][1]) / 2
-    raw_result = {}
-    attrs = {}
+
+    raw_result: dict = {}
+    attrs: dict = {}
+
     result["rmag"] = DataArray(
         r_centre + tfuncs(times), coords=[("t", times)], name="rmag", attrs=attrs
     )
@@ -918,8 +941,8 @@ def fake_equilibrium_data(
     rgrid = DataArray(r, coords=[("R", r)])
     zgrid = DataArray(z, coords=[("z", z)])
     psin = (
-        (-result["zmag"] + zgrid) ** 2 / b_coeff ** 2
-        + (-result["rmag"] + rgrid) ** 2 / a_coeff ** 2
+        (-result["zmag"] + zgrid) ** 2 / b_coeff**2
+        + (-result["rmag"] + rgrid) ** 2 / a_coeff**2
     ) ** (0.5 / n_exp)
 
     psi = psin * (result["fbnd"] - result["faxs"]) + result["faxs"]
@@ -950,7 +973,7 @@ def fake_equilibrium_data(
     # between 0 and 2pi, with f(x) = f(x+pi) and f(x) = f(pi-x)
     result["rbnd"] = (
         result["rmag"]
-        + a_coeff * b_coeff / np.sqrt(a_coeff ** 2 * np.tan(thetas) ** 2 + b_coeff ** 2)
+        + a_coeff * b_coeff / np.sqrt(a_coeff**2 * np.tan(thetas) ** 2 + b_coeff**2)
     ).assign_attrs(**attrs)
     result["rbnd"].name = "rbnd"
     result["rbnd"].attrs["datatype"] = ("major_rad", "separatrix")
@@ -959,7 +982,7 @@ def fake_equilibrium_data(
         result["zmag"]
         + a_coeff
         * b_coeff
-        / np.sqrt(a_coeff ** 2 + b_coeff ** 2 * np.tan(thetas) ** -2)
+        / np.sqrt(a_coeff**2 + b_coeff**2 * np.tan(thetas) ** -2)
     ).assign_attrs(**attrs)
     result["zbnd"].name = "zbnd"
     result["zbnd"].attrs["datatype"] = ("z", "separatrix")
@@ -1001,8 +1024,8 @@ def fake_equilibrium_data(
     else:
         f_raw = np.outer(
             np.sqrt(
-                Btot_factor ** 2
-                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff ** 2
+                Btot_factor**2
+                - (raw_result["fbnd"] - raw_result["faxs"]) ** 2 / a_coeff**2
             ),
             np.ones_like(rho1d),
         )
@@ -1012,13 +1035,13 @@ def fake_equilibrium_data(
         f_raw, coords=[("t", times), ("rho_poloidal", rho1d)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
-    result["rmjo"] = (result["rmag"] + a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmjo"].name = "rmjo"
     result["rmjo"].attrs["datatype"] = ("major_rad", "lfs")
     result["rmjo"].coords["z"] = result["zmag"]
-    result["rmji"] = (result["rmag"] - a_coeff * psin_data ** n_exp).assign_attrs(
+    result["rmji"] = (result["rmag"] - a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )
     result["rmji"].name = "rmji"
@@ -1028,7 +1051,7 @@ def fake_equilibrium_data(
     result["vjac"] = (
         4
         * n_exp
-        * np.pi ** 2
+        * np.pi**2
         * result["rmag"]
         * a_coeff
         * b_coeff

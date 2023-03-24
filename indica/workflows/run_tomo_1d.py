@@ -1,9 +1,10 @@
 """Inverts line of sight integrals to estimate local emissivity."""
 
 from typing import Tuple
+
 import numpy as np
 from xarray import DataArray
-from indica.models.bolometer_camera import example_run
+
 from indica.operators import tomo_1D
 from indica.readers.read_st40 import ReadST40
 
@@ -18,15 +19,15 @@ def old_camera(
     exclude_bad_points=True,
     plot=True,
     reg_level_guess: float = 0.5,
-    input_dict:dict=None,
+    input_dict: dict = None,
 ):
 
     if input_dict is None:
         st40 = ReadST40(pulse, tstart, tend)
-        st40(instruments=["sxr_camera_4"], map=False)
+        st40(instruments=["sxr_camera_4"], map_diagnostics=False)
         data = st40.binned_data["sxr_camera_4"]["brightness"]
         equil = st40.equilibrium
-        z = data.transform.z+0.02
+        z = data.transform.z - 0.02
         R = data.transform.R
         dl = data.transform.dl
         impact_paramaters = data.transform.impact_parameter
@@ -59,23 +60,24 @@ def old_camera(
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
 
-    return_data = tomo()
+    # return_data = tomo()
 
     if plot:
         tomo.show_reconstruction()
 
     return input_dict
 
+
 def fake_data(
-        plasma=None,
-        model=None,
-        bckc=None,
-        debug=False,
-        exclude_bad_points=True,
-        plot=True,
-        reg_level_guess: float = 0.5,
-        nchannels=12,
-        input_dict:dict=None,
+    plasma=None,
+    model=None,
+    bckc=None,
+    debug=False,
+    exclude_bad_points=True,
+    plot=True,
+    reg_level_guess: float = 0.5,
+    nchannels=12,
+    input_dict: dict = None,
 ):
     from indica.models.bolometer_camera import example_run
 
@@ -115,13 +117,11 @@ def fake_data(
             has_data=has_data,
         )
 
-
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
 
-    return_data = tomo()
+    # return_data = tomo()
 
     if plot:
         tomo.show_reconstruction()
 
     return input_dict
-

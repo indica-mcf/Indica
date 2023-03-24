@@ -1,12 +1,11 @@
-from indica.numpy_typing import ArrayLike
+import matplotlib.pylab as plt
 import numpy as np
+from scipy.interpolate import CubicSpline
+from scipy.optimize import least_squares
 import xarray as xr
 from xarray import DataArray
 
-from scipy.interpolate import CubicSpline, UnivariateSpline
-from scipy.optimize import least_squares
-import matplotlib.pylab as plt
-
+from indica.numpy_typing import ArrayLike
 from indica.readers.read_st40 import ReadST40
 
 
@@ -23,9 +22,14 @@ def fit_profile(
     """Fit a profile"""
 
     def residuals(yknots):
-        spline = CubicSpline(xknots, yknots, axis=0, bc_type=bc_type,)
+        spline = CubicSpline(
+            xknots,
+            yknots,
+            axis=0,
+            bc_type=bc_type,
+        )
         bckc = np.interp(x, xspl, spline(xspl))
-        residuals = np.sqrt((y - bckc) ** 2 / err ** 2)
+        residuals = np.sqrt((y - bckc) ** 2 / err**2)
         return residuals
 
     yspl = xr.DataArray(
@@ -77,7 +81,12 @@ def fit_profile(
                     bounds=(lower_bound, upper_bound),
                     verbose=verbose,
                 )
-                spline = CubicSpline(xknots, fit.x, axis=0, bc_type=bc_type,)
+                spline = CubicSpline(
+                    xknots,
+                    fit.x,
+                    axis=0,
+                    bc_type=bc_type,
+                )
                 _yspl = spline(xspl)
             except ValueError:
                 _yspl = np.full_like(xspl, 0.0)
@@ -90,7 +99,10 @@ def fit_profile(
 
 
 def spline_fit_ts(
-    pulse: int, tstart: float = 0.0, tend: float = 0.2, plot: bool = False,
+    pulse: int,
+    tstart: float = 0.0,
+    tend: float = 0.2,
+    plot: bool = False,
 ):
 
     ST40 = ReadST40(pulse, tstart=tstart, tend=tend)
@@ -142,5 +154,8 @@ def spline_fit_ts(
 
 if __name__ == "__main__":
     spline_fit_ts(
-        10619, tstart=0.0, tend=0.2, plot=True,
+        10619,
+        tstart=0.0,
+        tend=0.2,
+        plot=True,
     )

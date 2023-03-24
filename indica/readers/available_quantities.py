@@ -11,7 +11,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
     "get_thomson_scattering": {
         "ne": ("number_density", "electrons"),
         "te": ("temperature", "electrons"),
-        "chi2": ("chi-squared", "fit")
+        "chi2": ("chi-squared", "fit"),
     },
     "get_charge_exchange": {
         "vtor": ("linear_rotation", "ion"),
@@ -146,8 +146,14 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "p_oh": ("ohmic", "power"),  # Absorber NBI power, W
         "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
         "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
-        "nn": ("density", "thermal_neutrals"), #...missing information on what elements are used
-        "niz1": ("density", "impurity"), #...missing information on what elements are used
+        "nn": (
+            "density",
+            "thermal_neutrals",
+        ),  # ...missing information on what elements are used
+        "niz1": (
+            "density",
+            "impurity",
+        ),  # ...missing information on what elements are used
         "niz2": ("density", "impurity"),
         "niz3": ("density", "impurity"),
     },

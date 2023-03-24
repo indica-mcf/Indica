@@ -8,7 +8,6 @@ from .flux_surfaces import FluxSurfaceCoordinates
 from .impact_parameter import ImpactParameterCoordinates
 from .line_of_sight import LineOfSightTransform
 from .lines_of_sight import LinesOfSightTransform
-from .magnetic import MagneticCoordinates
 from .time import bin_to_time_labels
 from .time import convert_in_time
 from .transect import TransectCoordinates
@@ -22,7 +21,6 @@ __all__ = [
     "ImpactParameterCoordinates",
     "LinesOfSightTransform",
     "LineOfSightTransform",
-    "MagneticCoordinates",
     "TransectCoordinates",
     "TrivialTransform",
     "bin_to_time_labels",

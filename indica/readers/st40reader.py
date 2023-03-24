@@ -154,11 +154,21 @@ class ST40Reader(DataReader):
             "ampl_w": ".ti_w:amplitude",
             "spectra": ":intensity",
         },
-        "nirh1": {"ne": ".line_int:ne",},
-        "nirh1_bin": {"ne": ".line_int:ne",},
-        "smmh1": {"ne": ".line_int:ne",},
-        "brems": {"brightness": ".brem_mp1:intensity",},
-        "halpha": {"brightness": ".h_alpha_mp1:intensity",},
+        "nirh1": {
+            "ne": ".line_int:ne",
+        },
+        "nirh1_bin": {
+            "ne": ".line_int:ne",
+        },
+        "smmh1": {
+            "ne": ".line_int:ne",
+        },
+        "brems": {
+            "brightness": ".brem_mp1:intensity",
+        },
+        "halpha": {
+            "brightness": ".h_alpha_mp1:intensity",
+        },
         "sxr_camera_1": {
             "brightness": ".middle_head.filter_1:",
             "location": ".middle_head.geometry:location",
@@ -184,10 +194,18 @@ class ST40Reader(DataReader):
             "location": ".middle_head.geometry:location",
             "direction": ".middle_head.geometry:direction",
         },
-        "sxr_diode_1": {"brightness": ".filter_001:signal",},
-        "sxr_diode_2": {"brightness": ".filter_002:signal",},
-        "sxr_diode_3": {"brightness": ".filter_003:signal",},
-        "sxr_diode_4": {"brightness": ".filter_004:signal",},
+        "sxr_diode_1": {
+            "brightness": ".filter_001:signal",
+        },
+        "sxr_diode_2": {
+            "brightness": ".filter_002:signal",
+        },
+        "sxr_diode_3": {
+            "brightness": ".filter_003:signal",
+        },
+        "sxr_diode_4": {
+            "brightness": ".filter_004:signal",
+        },
         "cxff_pi": {
             "int": ".profiles:int",
             "ti": ".profiles:ti",
@@ -385,7 +403,9 @@ class ST40Reader(DataReader):
         return data, path
 
     def _get_signal_dims(
-        self, mds_path: str, ndims: int,
+        self,
+        mds_path: str,
+        ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
         """Gets the dimensions of a signal given the path to the signal
         and the number of dimensions"""
@@ -559,12 +579,18 @@ class ST40Reader(DataReader):
         )
         if np.size(location) == 0 or np.size(direction) == 0:
             import pickle
-            msg = """\n **************** 
-            \n USING PICKLE FILE FOR GEOMETRY 
+
+            msg = """\n ****************
+            \n USING PICKLE FILE FOR GEOMETRY
             \n **************** \n"""
             print(msg)
             goem_file = "/home/marco.sertoli/python/Indica/old_sxr_camera_geometry.pkl"
-            location, direction = pickle.load(open(goem_file, "rb",))
+            location, direction = pickle.load(
+                open(
+                    goem_file,
+                    "rb",
+                )
+            )
 
         brightness = []
         records = []
@@ -594,8 +620,8 @@ class ST40Reader(DataReader):
         results[quantity] = np.array(brightness).T
         results[quantity + "_records"] = records
         results[quantity + "_error"] = self._default_error * results[quantity]
-        results["location"] = location[chan_start-1:chan_end, :]
-        results["direction"] = direction[chan_start-1:chan_end, :]
+        results["location"] = location[chan_start - 1 : chan_end, :]
+        results["direction"] = direction[chan_start - 1 : chan_end, :]
 
         results["quantities"] = quantities
 
@@ -696,10 +722,16 @@ class ST40Reader(DataReader):
 
         for q in quantities:
             qval, q_path = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision,
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q],
+                revision,
             )
             qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision,
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q] + "_err",
+                revision,
             )
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
@@ -741,8 +773,19 @@ class ST40Reader(DataReader):
         # direction, position_path = self._get_signal(
         #     uid, instrument, ".geometry:direction", revision
         # )
-        location = np.array([[1.0, 0, 0],])
-        direction = np.array([[0.17, 0, 0],]) - location
+        location = np.array(
+            [
+                [1.0, 0, 0],
+            ]
+        )
+        direction = (
+            np.array(
+                [
+                    [0.17, 0, 0],
+                ]
+            )
+            - location
+        )
         length = location[:, 0].size
         if instrument == "brems":
             _instrument = "lines"
@@ -845,7 +888,7 @@ class ST40Reader(DataReader):
                 revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):
-                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
+                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
 
         results["length"] = np.shape(location)[0]
@@ -889,25 +932,23 @@ class ST40Reader(DataReader):
         z, z_path = self._get_signal(uid, instrument, ":z", revision)
         R, R_path = self._get_signal(uid, instrument, ":R", revision)
 
-        # delta_x, delta_x_path = self._get_signal(uid, instrument, ":delta_x", revision)
-        # delta_y, delta_y_path = self._get_signal(uid, instrument, ":delta_y", revision)
-        # delta_z, delta_z_path = self._get_signal(uid, instrument, ":delta_z", revision)
-        # delta_R, delta_R_path = self._get_signal(uid, instrument, ":delta_R", revision)
-
         for q in quantities:
             qval, q_path = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision,
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q],
+                revision,
             )
             qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision,
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q] + "_err",
+                revision,
             )
             if np.array_equal(qval_err, "FAILED"):
                 qval_err = np.full_like(qval, 0.0)
-                q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
-            # radius = dimensions[0]
-            # times = dimensions[1]
 
             results[q + "_records"] = q_path
             results[q] = qval
@@ -999,4 +1040,3 @@ class ST40Reader(DataReader):
         xstop, ystop, zstop = position + direction
 
         return (xstart, ystart, zstart), (xstop, ystop, zstop)
-
