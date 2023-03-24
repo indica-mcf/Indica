@@ -74,8 +74,8 @@ class Interferometry(DiagnosticModel):
         else:
             if Ne is None:
                 raise ValueError("Give inputs or assign plasma class!")
-        self.t = t
-        self.Ne = Ne
+        self.t: DataArray = t
+        self.Ne: DataArray = Ne
 
         los_integral_ne = self.los_transform.integrate_on_los(
             Ne,

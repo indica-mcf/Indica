@@ -593,8 +593,8 @@ class SXR_tomography:
             )
 
             title.set_text(
-                f"  $\chi^2/nDoF$ = {self.chi2[it]:.1f}  "
-                f" $\gamma$ = {self.gamma[it]:.2f}"
+                r"  $\chi^2/nDoF$ = " + f"{self.chi2[it]:.1f}  "
+                r" $\gamma$ = " + f"{self.gamma[it]:.2f}"
             )
             f.canvas.draw_idle()
 

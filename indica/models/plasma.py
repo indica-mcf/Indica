@@ -13,7 +13,7 @@ from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
-from indica.models.equilibrium import fake_equilibrium_data
+from indica.equilibrium import fake_equilibrium_data
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
@@ -259,16 +259,18 @@ class Plasma:
             coords=[("element", list(self.impurities))],
         )
 
-        self.data1d_time = DataArray(np.zeros(nt), coords=[coords_time])
-        self.data1d_rho = DataArray(np.zeros(nr), coords=[coords_radius])
-        self.data2d = DataArray(np.zeros((nt, nr)), coords=[coords_time, coords_radius])
-        self.data2d_elem = DataArray(
+        self.data1d_time: DataArray = DataArray(np.zeros(nt), coords=[coords_time])
+        self.data1d_rho: DataArray = DataArray(np.zeros(nr), coords=[coords_radius])
+        self.data2d: DataArray = DataArray(
+            np.zeros((nt, nr)), coords=[coords_time, coords_radius]
+        )
+        self.data2d_elem: DataArray = DataArray(
             np.zeros((nel, nt)), coords=[coords_elem, coords_time]
         )
-        self.data3d = DataArray(
+        self.data3d: DataArray = DataArray(
             np.zeros((nel, nt, nr)), coords=[coords_elem, coords_time, coords_radius]
         )
-        self.data3d_imp = DataArray(
+        self.data3d_imp: DataArray = DataArray(
             np.zeros((nimp, nt, nr)), coords=[coords_imp, coords_time, coords_radius]
         )
 
@@ -327,6 +329,13 @@ class Plasma:
         )
         self.fast_density: DataArray = assign_data(
             self.data2d, ("density", "fast"), "$m^3$"
+        )
+
+        self.fast_pressure_parallel: DataArray = assign_data(
+            self.data2d, ("pressure_parallel", "fast"), "$Pa $m^{-3}$"
+        )
+        self.fast_pressure_perpendicular: DataArray = assign_data(
+            self.data2d, ("pressure_perpendicular", "fast"), "$Pa $m^{-3}$"
         )
 
         # Private variables for class property variables
@@ -504,13 +513,12 @@ class Plasma:
         ]:
             self.assign_profiles(key, t=self.time_to_calculate)
 
-    # Properties that can be set
     @property
     def time_to_calculate(self):
         return self._time_to_calculate
 
     @time_to_calculate.setter
-    def time_to_calculate(self, value: LabeledArray):
+    def time_to_calculate(self, value):
         if np.size(value) == 1:
             self._time_to_calculate = float(value)
         else:
@@ -879,7 +887,8 @@ class Plasma:
         Ne: DataArray = None,
         Nh: DataArray = None,
         tau: DataArray = None,
-        default=False,
+        default=True,
+        calc_power_loss=True,
     ):
         if default:
             xend = 1.02
@@ -918,23 +927,30 @@ class Plasma:
             power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
             if Te is not None and Ne is not None:
                 F_z_t = fract_abu[elem].F_z_t
-                power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
-
-            if "pls" in self.adf11[elem].keys() and "prs" in self.adf11[elem].keys():
-                try:
-                    pls = self.ADASReader.get_adf11(
-                        "pls", elem, self.adf11[elem]["pls"]
+                if calc_power_loss:
+                    power_loss_tot[elem](
+                        Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run
                     )
-                    prs = self.ADASReader.get_adf11(
-                        "prs", elem, self.adf11[elem]["prs"]
-                    )
-                    power_loss_sxr[elem] = PowerLoss(pls, prs)
-                    if Te is not None and Ne is not None:
-                        F_z_t = fract_abu[elem].F_z_t
-                        power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
-                except ValueError:
-                    self.adf11[elem].pop("pls")
-                    self.adf11[elem].pop("prs")
+                    if (
+                        "pls" in self.adf11[elem].keys()
+                        and "prs" in self.adf11[elem].keys()
+                    ):
+                        try:
+                            pls = self.ADASReader.get_adf11(
+                                "pls", elem, self.adf11[elem]["pls"]
+                            )
+                            prs = self.ADASReader.get_adf11(
+                                "prs", elem, self.adf11[elem]["prs"]
+                            )
+                            power_loss_sxr[elem] = PowerLoss(pls, prs)
+                            if Te is not None and Ne is not None:
+                                F_z_t = fract_abu[elem].F_z_t
+                                power_loss_sxr[elem](
+                                    Te, F_z_t, Ne=Ne, full_run=self.full_run
+                                )
+                        except ValueError:
+                            self.adf11[elem].pop("pls")
+                            self.adf11[elem].pop("prs")
 
         self.adf11 = self.adf11
         self.fract_abu = fract_abu
@@ -1151,7 +1167,6 @@ class Plasma:
             self.prad_sxr.loc[dict(element=elem)] = prad_sxr.values
 
     def write_to_pickle(self):
-
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
                 self,
@@ -1233,9 +1248,10 @@ def example_run(
     impurity_concentration=(0.03, 0.001, 0.01),
     verbose: bool = True,
     n_rad: int = 41,
+    full_run=False,
+    **kwargs,
 ):
     # TODO: swap all profiles to new version!
-    full_run = False
 
     plasma = Plasma(
         tstart=tstart,
@@ -1246,6 +1262,7 @@ def example_run(
         impurity_concentration=impurity_concentration,
         full_run=full_run,
         verbose=verbose,
+        **kwargs,
     )
     plasma.build_atomic_data(default=True)
     # Assign profiles to time-points

@@ -51,7 +51,7 @@ YLABELS = {
     "ne": "Ne (m$^{-3}$)",
     "ti": "Ti (eV)",
     "vtor": "Vtor (m/s)",
-    "chi2": "$\chi^2$",
+    "chi2": r"$\chi^2$",
 }
 XLABELS = {"rho": "Rho-poloidal", "R": "R (m)"}
 
@@ -62,7 +62,7 @@ class ReadST40:
         self.tstart = tstart
         self.tend = tend
 
-        self.reader = ST40Reader(pulse, tstart, tend, tree=tree)
+        self.reader = ST40Reader(pulse, tstart - 0.02, tend + 0.02, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -103,14 +103,11 @@ class ReadST40:
 
     def bin_data_in_time(
         self,
-        instruments: list = None,
+        instruments: list,
         tstart: float = 0.02,
         tend: float = 0.1,
         dt: float = 0.01,
     ):
-        if instruments is None:
-            instruments = self.raw_data.keys()
-
         for instr in instruments:
             binned_quantities = {}
             for quant in self.raw_data[instr].keys():
@@ -125,7 +122,7 @@ class ReadST40:
                 binned_quantities[quant] = data_quant
             self.binned_data[instr] = binned_quantities
 
-    def map_diagnostics(self, instruments: list = None, map_raw: bool = False):
+    def map_diagnostics(self, instruments: list, map_raw: bool = False):
         if len(self.binned_data) == 0:
             raise ValueError("Bin data in time before remapping!")
 
@@ -133,12 +130,11 @@ class ReadST40:
         if map_raw:
             attr_to_map.append("raw_data")
 
-        if instruments is None:
-            instruments = self.raw_data.keys()
-
         for attr in attr_to_map:
             data_to_map = getattr(self, attr)
             for instr in instruments:
+                if instr == "efit":
+                    continue
                 for quant in data_to_map[instr]:
                     data = data_to_map[instr][quant]
                     transform = data.transform
@@ -147,15 +143,12 @@ class ReadST40:
                     else:
                         break
 
-    def filter_data(self, instruments: list = None):
+    def filter_data(self, instruments: list):
 
         if not hasattr(self, "binned_data"):
             raise ValueError(
                 "Bin data before filtering. No action permitted on raw data structure!"
             )
-
-        if instruments is None:
-            instruments = self.binned_data.keys()
 
         for instr in instruments:
             if instr not in FILTER_LIMITS.keys():
@@ -190,9 +183,9 @@ class ReadST40:
         xcoord: str = "rho",
         figure: bool = True,
         xlim: tuple = (0, 1.1),
-        ylim: tuple = (0),
         linestyle: str = None,
         plot_error: bool = True,
+        **kwargs,
     ):
         R_offset = ""
         if np.abs(self.equilibrium.R_offset) > 0.01:
@@ -215,9 +208,10 @@ class ReadST40:
         if tplot is None:
             tplot = np.array([t for t in value.t if any(np.isfinite(value.sel(t=t)))])
 
-        tplot = np.array(tplot, ndmin=1)
+        tplot = list(np.array(tplot, ndmin=1))
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(tplot), dtype=float))
-        for it, t in enumerate(tplot):
+        for it in range(len(tplot)):
+            t = tplot[it]
             _t = value.t.sel(t=t, method="nearest").values
             if xcoord == "rho":
                 x = rho.sel(t=_t, method="nearest")
@@ -231,8 +225,8 @@ class ReadST40:
                 plt.plot(
                     x,
                     y,
-                    label=f"{data_type} {instrument.upper()} {quantity}"
-                          f" @ t={_t:1.3f} s",
+                    label=f"{data_type} {instrument.upper()} "
+                    f"{quantity} @ t={_t:1.3f} s",
                     color=cols_time[it],
                     marker=MARKERS[instrument],
                     linestyle=linestyle,
@@ -247,7 +241,8 @@ class ReadST40:
         plt.xlabel(XLABELS[xcoord])
         plt.ylabel(YLABELS[quantity])
         plt.xlim(xlim)
-        plt.ylim(ylim)
+        if "ylim" in kwargs:
+            plt.ylim(kwargs["ylim"])
         plt.legend()
 
     def __call__(
@@ -255,19 +250,22 @@ class ReadST40:
         instruments: list = None,
         revisions: dict = None,
         map_raw: bool = False,
-        tstart: float = 0.0,
-        tend: float = 0.2,
+        tstart: float = None,
+        tend: float = None,
         dt: float = 0.01,
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
-        map: bool = True,
+        map_diagnostics: bool = False,
     ):
 
         if instruments is None:
-            instruments = list(REVISIONS)
-
+            instruments = list(REVISIONS.keys())
         if revisions is None:
             revisions = REVISIONS
+        if tstart is None:
+            tstart = self.tstart
+        if tend is None:
+            tend = self.tend
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift)
@@ -278,13 +276,13 @@ class ReadST40:
         instruments = list(self.raw_data)
 
         print_like("Binning in time")
-        self.bin_data_in_time(instruments=instruments, tstart=tstart, tend=tend, dt=dt)
+        self.bin_data_in_time(instruments, tstart=tstart, tend=tend, dt=dt)
         print_like("Filtering")
-        self.filter_data(instruments=instruments)
+        self.filter_data(instruments)
         self.filter_ts(chi2_limit=chi2_limit)
-        if map:
+        if map_diagnostics:
             print_like("Mapping to equilibrium")
-            self.map_diagnostics(instruments=instruments, map_raw=map_raw)
+            self.map_diagnostics(instruments, map_raw=map_raw)
 
 
 def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.inf)):

@@ -87,10 +87,10 @@ class Bolometer(DiagnosticModel):
             if Ne is None or Nion is None or Lz is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
-        self.t = t
-        self.Ne = Ne
-        self.Nion = Nion
-        self.Lz = Lz
+        self.t: DataArray = t
+        self.Ne: DataArray = Ne
+        self.Nion: DataArray = Nion
+        self.Lz: dict = Lz
 
         elements = self.Nion.element.values
 

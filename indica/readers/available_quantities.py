@@ -146,5 +146,15 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "p_oh": ("ohmic", "power"),  # Absorber NBI power, W
         "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
         "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
+        "nn": (
+            "density",
+            "thermal_neutrals",
+        ),  # ...missing information on what elements are used
+        "niz1": (
+            "density",
+            "impurity",
+        ),  # ...missing information on what elements are used
+        "niz2": ("density", "impurity"),
+        "niz3": ("density", "impurity"),
     },
 }

@@ -24,7 +24,7 @@ def old_camera(
 
     if input_dict is None:
         st40 = ReadST40(pulse, tstart, tend)
-        st40(instruments=["sxr_camera_4"], map=False)
+        st40(instruments=["sxr_camera_4"], map_diagnostics=False)
         data = st40.binned_data["sxr_camera_4"]["brightness"]
         equil = st40.equilibrium
         z = data.transform.z - 0.02
