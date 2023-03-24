@@ -21,7 +21,7 @@ from indica.readers import ST40Reader
 from indica.utilities import assign_data
 from indica.utilities import assign_datatype
 from indica.utilities import print_like
-from indica.models.equilibrium import fake_equilibrium_data
+from indica.equilibrium import fake_equilibrium_data
 
 plt.ion()
 
