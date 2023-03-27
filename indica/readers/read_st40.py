@@ -57,10 +57,18 @@ XLABELS = {"rho": "Rho-poloidal", "R": "R (m)"}
 
 
 class ReadST40:
-    def __init__(self, pulse: int, tstart: float = 0.0, tend: float = 0.2, tree="ST40"):
+    def __init__(
+        self,
+        pulse: int,
+        tstart: float = 0.02,
+        tend: float = 0.2,
+        dt: float = 0.01,
+        tree="ST40",
+    ):
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
+        self.dt = dt
 
         self.reader = ST40Reader(pulse, tstart - 0.02, tend + 0.02, tree=tree)
 
@@ -156,9 +164,7 @@ class ReadST40:
 
             quantities = list(self.binned_data[instr])
             filter_general(
-                self.binned_data[instr],
-                quantities,
-                lim=FILTER_LIMITS[instr],
+                self.binned_data[instr], quantities, lim=FILTER_LIMITS[instr],
             )
 
     def filter_ts(self, chi2_limit: float = 2.0):
@@ -252,7 +258,7 @@ class ReadST40:
         map_raw: bool = False,
         tstart: float = None,
         tend: float = None,
-        dt: float = 0.01,
+        dt: float = None,
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
         map_diagnostics: bool = False,
@@ -266,6 +272,8 @@ class ReadST40:
             tstart = self.tstart
         if tend is None:
             tend = self.tend
+        if dt is None:
+            dt = self.dt
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift)

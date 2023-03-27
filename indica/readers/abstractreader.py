@@ -467,8 +467,8 @@ class DataReader(BaseIO):
         coords["psin"] = [("psin", database_results["psin"])]
         coords["psi"] = [
             ("t", database_results["times"]),
-            ("R", database_results["psi_r"]),
             ("z", database_results["psi_z"]),
+            ("R", database_results["psi_r"]),
         ]
         for quant in global_quantities:
             coords[quant] = coords_global
@@ -509,10 +509,6 @@ class DataReader(BaseIO):
             }
             dims: Tuple[str, ...]
             _coords = coords[quantity]
-
-            print(quantity)
-            print(_coords)
-            print(np.shape(database_results[quantity]))
 
             quant_data = DataArray(
                 database_results[quantity],

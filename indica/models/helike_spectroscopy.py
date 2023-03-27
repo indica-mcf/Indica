@@ -389,7 +389,7 @@ class Helike_spectroscopy(DiagnosticModel):
 
                 # Position of emissivity
                 pos_tmp, err_in_tmp, err_out_tmp = np.nan, np.nan, np.nan
-                if np.isfinite(avrg):
+                if np.isfinite(avrg) and np.isfinite(dlo) and np.isfinite(dhi):
                     pos_tmp = rho_los[int(avrg)]
                     err_in_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg - dlo)])
                     if pos_tmp <= rho_min:
