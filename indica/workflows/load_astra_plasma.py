@@ -52,8 +52,6 @@ def astra_plasma(astra: dict, pulse: int, tstart: float, tend: float, dt: float)
 
     """
 
-    equilibrium = Equilibrium(astra)
-
     n_rad = len(astra["ne"].rho_poloidal)
     main_ion = "h"
     impurities = ("ar", "c", "he")
@@ -71,9 +69,6 @@ def astra_plasma(astra: dict, pulse: int, tstart: float, tend: float, dt: float)
         full_run=False,
         n_rad=n_rad,
     )
-
-    # Assign ASTRA equilibrium and independent quantities
-    plasma.set_equilibrium(equilibrium)
 
     Te = astra["te"].interp(rho_poloidal=plasma.rho, t=plasma.t) * 1.0e3
     plasma.electron_temperature.values = Te.values
@@ -95,10 +90,10 @@ def astra_plasma(astra: dict, pulse: int, tstart: float, tend: float, dt: float)
     plasma.neutral_density.values = Nn.values
 
     Pblon = astra["pblon"].interp(rho_poloidal=plasma.rho, t=plasma.t)
-    plasma.fast_pressure_parallel.values = Pblon.values
+    plasma.pressure_fast_parallel.values = Pblon.values
 
     Pbper = astra["pbper"].interp(rho_poloidal=plasma.rho, t=plasma.t)
-    plasma.fast_pressure_perpendicular.values = Pbper.values
+    plasma.pressure_fast_perpendicular.values = Pbper.values
 
     plasma.build_atomic_data(default=True)
 
@@ -146,7 +141,14 @@ def example_run(verbose: bool = True):
     tstart = 0.02
     tend = 0.08
     dt = 0.005
+    tplot = 0.04
+
+    equil = "astra"
     astra_run = "2621"  # "2721"
+
+    equil = "efit"
+    # astra_run = "573"
+
     calc_spectra = True
     moment_analysis = True
     calibration = 0.2e-16
@@ -156,7 +158,7 @@ def example_run(verbose: bool = True):
     # Read experimental data
     if verbose:
         print("Reading ST40 data")
-    st40 = ReadST40(pulse, tstart - dt, tend + dt, tree="st40")
+    st40 = ReadST40(pulse, tstart, tend, dt=dt, tree="st40")
     st40(instruments=instruements, map_diagnostics=False)
 
     # Read ASTRA simulation
@@ -170,35 +172,39 @@ def example_run(verbose: bool = True):
     plasma = astra_plasma(astra, pulse, tstart, tend, dt)
 
     # Initialize Equilibria
-    # equilibrium_astra = plasma.equilibrium
+    equilibrium_astra = Equilibrium(astra)
     equilibrium_efit = Equilibrium(st40.raw_data["efit"])
+    if equil == "astra":
+        equilibrium = equilibrium_astra
+    elif equil == "efit":
+        equilibrium = equilibrium_efit
+    else:
+        raise ValueError(f"..{equil} equilibrium not available..")
+    plasma.set_equilibrium(equilibrium)
 
     # Load and run the diagnostic forward models
     raw = st40.raw_data
     binned = st40.binned_data
     bckc: dict = {}
-    models = initialize_diagnostic_models(
-        binned,
-        plasma=plasma,
-    )
+    models = initialize_diagnostic_models(binned, plasma=plasma,)
     for instrument in models.keys():
         if verbose:
-            print("Running {instrument} model")
+            print(f"Running {instrument} model")
         if instrument == "xrcs":
             models[instrument].calibration = calibration
             bckc[instrument] = models[instrument](
-                calc_spectra=calc_spectra,
-                moment_analysis=moment_analysis,
+                calc_spectra=calc_spectra, moment_analysis=moment_analysis,
             )
         else:
             bckc[instrument] = models[instrument]()
 
+    # return raw, binned, bckc, models
+
     # Plot
-    tplot = 0.04
     pressure_tot = plasma.pressure_tot
     pressure_th = plasma.pressure_th
     ion_density = plasma.ion_density
-    # fast_density = plasma.fast_density
+    fast_density = plasma.fast_density
     impurity_conc = ion_density / plasma.electron_density
     wth = plasma.wth
     wp = plasma.wp
@@ -223,9 +229,7 @@ def example_run(verbose: bool = True):
     ion_density.sel(element=plasma.main_ion).sel(t=tplot, method="nearest").plot(
         label="main ion"
     )
-    # fast_density.sel(t=tplot, method="nearest").plot(
-    #     label="fast ions"
-    # )
+    fast_density.sel(t=tplot, method="nearest").plot(label="fast ions")
     plt.title("Electron/Ion densities")
     plt.legend()
 
@@ -254,14 +258,6 @@ def example_run(verbose: bool = True):
     plt.yscale("log")
     plt.legend()
 
-    plt.figure()
-    raw["efit"]["wp"].plot(label="Wp (EFIT)")
-    wth.plot(label="Wth (MODEL)")
-    wp.plot(label="Wp (MODEL)")
-    astra["wth"].plot(label="Wp (MODEL)")
-    plt.title("Stored energy")
-    plt.legend()
-
     # Plot time evolution of raw data vs back-calculated values
     scaling = {}
     scaling["brems"] = {"brightness": 0.07}
@@ -270,6 +266,8 @@ def example_run(verbose: bool = True):
     # scaling["xrcs"] = {"int_w": 2.e-17}
     for instrument in bckc.keys():
         for quantity in bckc[instrument].keys():
+            print(instrument)
+            print(f"  {quantity}")
             if (
                 quantity not in binned[instrument].keys()
                 or quantity not in raw[instrument].keys()
@@ -283,30 +281,27 @@ def example_run(verbose: bool = True):
             _raw = raw[instrument][quantity]
             _binned = binned[instrument][quantity]
             _bckc = bckc[instrument][quantity]
-            tslice = slice(_bckc.t.min(), _bckc.t.max())
-            if "error" not in _raw.attrs:
-                _raw.attrs["error"] = xr.full_like(_raw, 0.0)
+            tslice = slice(_bckc.t.min().values, _bckc.t.max().values)
+            if "error" not in _binned.attrs:
                 _binned.attrs["error"] = xr.full_like(_binned, 0.0)
-                _bckc.attrs["error"] = xr.full_like(_bckc, 0.0)
-            err = np.sqrt(_binned.error**2 + _binned.stdev**2)
+            if "stdev" not in _binned.attrs:
+                _binned.attrs["stdev"] = xr.full_like(_binned, 0.0)
+
+            err = np.sqrt(_binned.error ** 2 + _binned.stdev ** 2)
+            err = xr.where(err/_binned.values < 1., err, 0.)
 
             plt.fill_between(
-                _binned.t.sel(t=tslice, method="nearest"),
-                _binned.sel(t=tslice, method="nearest").values
-                - err.sel(t=tslice).values,
-                _binned.sel(t=tslice, method="nearest").values
-                + err.sel(t=tslice).values,
+                _binned.t.sel(t=tslice),
+                _binned.sel(t=tslice).values - err.sel(t=tslice).values,
+                _binned.sel(t=tslice).values + err.sel(t=tslice).values,
                 color=binned_color,
                 alpha=0.7,
             )
-            _binned.sel(t=tslice, method="nearest").plot(
-                label="Binned",
-                color=binned_color,
-                marker="o",
+            _binned.sel(t=tslice).plot(
+                label="Binned", color=binned_color, marker="o",
             )
-            _raw.sel(t=tslice, method="nearest").plot(
-                label="Raw",
-                color=raw_color,
+            _raw.sel(t=tslice).plot(
+                label="Raw", color=raw_color,
             )
             mult = 1.0
             if instrument in scaling.keys():
@@ -317,7 +312,7 @@ def example_run(verbose: bool = True):
             plt.title(f"{instrument} {quantity}")
             plt.legend()
 
-    return raw, binned, bckc, models
+    return raw, binned, bckc, models, astra
 
 
 if __name__ == "__main__":
