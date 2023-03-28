@@ -11,8 +11,9 @@ def plot_profile(
     figheader="./results/test/",
     phantom_profile=None,
     sharefig=False,
-    color="blue",
     filename="",
+    linestyle="--",
+    color="blue",
 ):
     if not plt.get_fignums():  # If no figure is open
         plt.figure(figsize=(8, 6))
@@ -47,7 +48,7 @@ def plot_profile(
 
     if phantom_profile is not None:
         phantom_profile.plot(
-            label="phantom_profile", linestyle="--", color="black", zorder=4
+            label=f"{blobkey}, phantom profile", linestyle=linestyle, color="black", zorder=4
         )
 
     plt.legend()
@@ -238,6 +239,7 @@ def plot_bayes_result(
         phantom_profile=phantom_profiles[key],
         sharefig=True,
         color="blue",
+        linestyle="dashdot",
     )
     key = "ion_temperature"
     plot_profile(
@@ -247,6 +249,7 @@ def plot_bayes_result(
         filename="temperature",
         phantom_profile=phantom_profiles[key].sel(element="ar"),
         color="red",
+        linestyle="dotted"
     )
     key = "electron_density"
     plot_profile(
