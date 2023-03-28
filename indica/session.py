@@ -94,7 +94,9 @@ def package_provenance(
     tmp_output = io.StringIO()
     try:
         with redirect_stderr(tmp_output), redirect_stderr(tmp_output):
-            path = Path(importlib.import_module(package.project_name).__file__).parent
+            path = Path(
+                importlib.import_module(package.project_name).__file__  # type: ignore
+            ).parent
         # Check this directory and the parent directory for git repository
         # TODO: Check all parent directories, but only if the child directory
         # is not ignored.
