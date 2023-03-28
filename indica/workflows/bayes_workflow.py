@@ -5,8 +5,72 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def _plot_0d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader="./results/test/",  xlabel="samples ()",
-             ylabel="a.u.", **kwargs):
+def plot_profile(
+    profile,
+    blobkey: str,
+    figheader="./results/test/",
+    phantom_profile=None,
+    sharefig=False,
+    color="blue",
+    filename="",
+):
+    if not plt.get_fignums():  # If no figure is open
+        plt.figure(figsize=(8, 6))
+
+    plt.fill_between(
+        profile.rho_poloidal,
+        profile.quantile(0.16, dim="index"),
+        profile.quantile(0.84, dim="index"),
+        label=f"{blobkey}, 68% Confidence",
+        zorder=3,
+        color=color,
+        alpha=0.9,
+    )
+    plt.fill_between(
+        profile.rho_poloidal,
+        profile.quantile(0.025, dim="index"),
+        profile.quantile(0.975, dim="index"),
+        label=f"{blobkey}, 95% Confidence",
+        zorder=2,
+        color="grey",
+        alpha=0.7,
+    )
+    plt.fill_between(
+        profile.rho_poloidal,
+        profile.quantile(0.00, dim="index"),
+        profile.quantile(1.00, dim="index"),
+        label=f"{blobkey}, Max-Min",
+        zorder=1,
+        color="lightgrey",
+        alpha=0.7,
+    )
+
+    if phantom_profile is not None:
+        phantom_profile.plot(
+            label="phantom_profile", linestyle="--", color="black", zorder=4
+        )
+
+    plt.legend()
+    if sharefig:
+        return
+
+    if filename:
+        plt.savefig(figheader + f"{filename}.png")
+    else:
+        plt.savefig(figheader + f"{blobkey}.png")
+    plt.close("all")
+
+
+def _plot_0d(
+    blobs: dict,
+    blobkey: str,
+    diag_data: dict,
+    filename: str,
+    figheader="./results/test/",
+    xlabel="samples ()",
+    ylabel="a.u.",
+    **kwargs,
+):
     if not blobkey in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
     plt.figure()
@@ -25,8 +89,15 @@ def _plot_0d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader=
     plt.close()
 
 
-def _plot_1d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader="./results/test/",
-             ylabel="a.u.", **kwargs):
+def _plot_1d(
+    blobs: dict,
+    blobkey: str,
+    diag_data: dict,
+    filename: str,
+    figheader="./results/test/",
+    ylabel="a.u.",
+    **kwargs,
+):
     if not blobkey in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
 
@@ -49,6 +120,14 @@ def _plot_1d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader=
         zorder=2,
         color="grey",
     )
+    plt.fill_between(
+        blob_data.__getattr__(dims[0]),
+        blob_data.quantile(0.00, dim="index"),
+        blob_data.quantile(1.00, dim="index"),
+        label=f"{blobkey}, Max-Min",
+        zorder=1,
+        color="lightgrey",
+    )
     plt.plot(
         diag_data[blobkey].__getattr__(dims[0]),
         diag_data[blobkey].sel(t=blob_data.t).values,
@@ -63,6 +142,7 @@ def _plot_1d(blobs:dict, blobkey: str, diag_data:dict, filename: str, figheader=
     plt.savefig(figheader + filename)
     plt.close()
 
+
 def plot_bayes_result(
     figheader="./results/test/",
     blobs=None,
@@ -72,7 +152,7 @@ def plot_bayes_result(
     param_names=None,
     phantom_profiles=None,
     autocorr=None,
-    **kwargs
+    **kwargs,
 ):
     Path(figheader).mkdir(parents=True, exist_ok=True)
 
@@ -86,126 +166,99 @@ def plot_bayes_result(
     plt.xlabel("iterations")
     plt.ylabel("auto-correlation time (iterations)")
     plt.savefig(figheader + "average_tau.png")
+    plt.close()
 
-    key ="efit.wp"
+    key = "efit.wp"
     if key in blobs.keys():
-        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="Wp (J)")
+        _plot_0d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="Wp (J)",
+        )
     key = "smmh1.ne"
     if key in blobs.keys():
-        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="ne_int (m^-2)")
-    key ="xrcs.te_kw"
+        _plot_0d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="ne_int (m^-2)",
+        )
+    key = "xrcs.te_kw"
     if key in blobs.keys():
-        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="temperature (eV)")
-    key ="xrcs.ti_w"
+        _plot_0d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="temperature (eV)",
+        )
+    key = "xrcs.ti_w"
     if key in blobs.keys():
-        _plot_0d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="temperature (eV)")
-    key ="xrcs.spectra"
+        _plot_0d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="temperature (eV)",
+        )
+    key = "xrcs.spectra"
     if key in blobs.keys():
-        _plot_1d(blobs, key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="intensity (A.U.)")
-    key ="cxrs.ti"
+        _plot_1d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="intensity (A.U.)",
+        )
+    key = "cxrs.ti"
     if key in blobs.keys():
-        _plot_1d(blobs,key, diag_data, f"{key.replace('.', '_')}.png", figheader=figheader, ylabel="temperature (eV)")
+        _plot_1d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="temperature (eV)",
+        )
 
-    plt.figure()
-    prof = blobs["electron_density"]
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.16, dim="index"),
-        prof.quantile(0.84, dim="index"),
-        label="Ne, 68% Confidence",
-        zorder=3,
+    key = "electron_temperature"
+    plot_profile(
+        blobs[key],
+        key,
+        figheader=figheader,
+        phantom_profile=phantom_profiles[key],
+        sharefig=True,
         color="blue",
     )
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.025, dim="index"),
-        prof.quantile(0.975, dim="index"),
-        label="Ne, 95% Confidence",
-        zorder=2,
-        color="grey",
-    )
-    if phantom_profiles:
-        phantom_profiles["electron_density"].plot(
-            label="phantom_profile", linestyle="--", color="black", zorder=4
-        )
-    plt.legend()
-    plt.savefig(figheader + "electron_density.png")
-
-    plt.figure()
-    prof = blobs["electron_temperature"]
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.16, dim="index"),
-        prof.quantile(0.84, dim="index"),
-        label="Te, 68% Confidence",
-        zorder=3,
-        alpha=0.7,
-        color="blue",
-    )
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.025, dim="index"),
-        prof.quantile(0.975, dim="index"),
-        label="Te, 95% Confidence",
-        color="grey",
-        zorder=2,
-        alpha=0.7,
-    )
-    if phantom_profiles:
-        phantom_profiles["electron_temperature"].plot(
-            label="Te, phantom_profile", linestyle="--", color="black", zorder=4
-        )
-
-    prof = blobs["ion_temperature"].sel(element="ar")
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.16, dim="index"),
-        prof.quantile(0.84, dim="index"),
-        label="Ti, 68% Confidence",
-        zorder=3,
-        alpha=0.7,
+    key = "ion_temperature"
+    plot_profile(
+        blobs[key].sel(element="ar"),
+        key,
+        figheader=figheader,
+        filename="temperature",
+        phantom_profile=phantom_profiles[key].sel(element="ar"),
         color="red",
     )
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.025, dim="index"),
-        prof.quantile(0.975, dim="index"),
-        label="Ti, 95% Confidence",
-        color="grey",
-        zorder=2,
-        alpha=0.7,
+    key = "electron_density"
+    plot_profile(
+        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
     )
-    if phantom_profiles:
-        phantom_profiles["ion_temperature"].plot(
-            label="Ti, phantom_profile", linestyle="-.", color="black", zorder=4
-        )
-    plt.legend()
-    plt.ylabel("temperature (eV)")
-    plt.savefig(figheader + "temperature.png")
-
-    plt.figure()
-    prof = blobs["impurity_density"].sel(element="ar")
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.16, dim="index"),
-        prof.quantile(0.84, dim="index"),
-        label="Nimp, 68% Confidence",
-        zorder=3,
+    key = "impurity_density"
+    plot_profile(
+        blobs[key].sel(element="ar"),
+        key,
+        figheader=figheader,
+        phantom_profile=phantom_profiles[key].sel(element="ar"),
         color="red",
     )
-    plt.fill_between(
-        prof.rho_poloidal,
-        prof.quantile(0.025, dim="index"),
-        prof.quantile(0.975, dim="index"),
-        label="Nimp, 95% Confidence",
-        color="grey",
-    )
-    if phantom_profiles:
-        phantom_profiles["impurity_density"].plot(
-            label="phantom_profile", linestyle="--", color="black", zorder=4
-        )
-    plt.legend()
-    plt.savefig(figheader + "impurity_density.png")
 
     corner.corner(samples, labels=param_names)
     plt.savefig(figheader + "posterior.png")
@@ -213,8 +266,6 @@ def plot_bayes_result(
     corner.corner(prior_samples, labels=param_names)
     plt.savefig(figheader + "prior.png")
     plt.close("all")
-
-
 
 
 def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
