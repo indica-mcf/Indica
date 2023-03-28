@@ -17,7 +17,6 @@ from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
-from ..utilities import input_check
 
 
 class LineOfSightTransform(CoordinateTransform):
@@ -288,7 +287,8 @@ class LineOfSightTransform(CoordinateTransform):
         z: list = []
         R: list = []
         phi: list = []
-        x2 = DataArray(np.linspace(0, 1, npts, dtype=float), dims=self.x2_name)
+        _x2 = np.linspace(0, 1, npts, dtype=float)
+        x2 = DataArray(_x2, coords=[(self.x2_name, _x2)])
         for x1 in self.x1:
             _x, _y = self.convert_to_xy(x1, x2, 0)
             _R, _z = self.convert_to_Rz(x1, x2, 0)
@@ -306,6 +306,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.z_end = z_end
 
         self.x2 = x2
+        # self.mask = xr.concat(mask, "channel").assign_coords({"channel":self.x1})
         self.dl = float(dist[1] - dist[0])
         self.x = xr.concat(x, "channel")
         self.y = xr.concat(y, "channel")
@@ -320,11 +321,10 @@ class LineOfSightTransform(CoordinateTransform):
         t: LabeledArray = None,
         limit_to_sep: bool = True,
         calc_rho: bool = False,
-        kind: str = "flux_coords",
     ) -> DataArray:
         """
         Map profile to lines-of-sight
-        TODO: extend for 2D interpolation to (R, z) instead of rho
+
         Parameters
         ----------
         profile_to_map
@@ -342,22 +342,24 @@ class LineOfSightTransform(CoordinateTransform):
         """
         self.check_equilibrium()
 
-        input_check("kind", kind, str)
-        if (kind != "flux_coords") and (kind != "spatial_coords"):
-            raise ValueError(
-                f'kind cannot be "{kind}", it must be either\
-                     "flux_coords" or "spatial_coords"'
-            )
+        coords = profile_to_map.coords
+        along_los: DataArray
+        if "R" in coords and "z" in coords:
+            R_ = self.R
+            z_ = self.z
 
-        if kind == "flux_coords":
+            along_los = profile_to_map.interp(R=R_, z=z_).T
+        elif "rho_poloidal" in coords or "rho_toroidal" in coords:
             profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
             impact_rho = self.rho.min("los_position")
 
-            rho_ = self.rho.dropna(dim="los_position")
-            theta_ = self.theta.dropna(dim="los_position")
+            rho_ = self.rho
+            if "theta" in coords:
+                theta_ = self.theta
+                along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
+            else:
+                along_los = profile.interp(rho_poloidal=rho_)
 
-            along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
-            along_los = along_los.drop_vars(["rho_poloidal", "theta"])
             if limit_to_sep:
                 along_los = xr.where(
                     rho_ <= 1,
@@ -365,13 +367,11 @@ class LineOfSightTransform(CoordinateTransform):
                     np.nan,
                 )
             self.impact_rho = impact_rho
-        elif kind == "spatial_coords":
-            R_ = self.R.dropna(dim="los_position")
-            z_ = self.z.dropna(dim="los_position")
+        else:
+            raise NotImplementedError("Coordinates not recognized...")
 
-            along_los = profile_to_map.interp(R=R_, z=z_)
-            along_los = along_los.drop_vars(["R", "z"])
-
+        drop_coords = [coord for coord in coords if coord != "t"]
+        along_los = along_los.drop_vars(drop_coords)
         self.along_los = along_los
 
         return along_los
@@ -451,13 +451,17 @@ class LineOfSightTransform(CoordinateTransform):
         -------
         Line of sight integral along the LOS
         """
-        along_los = self.map_to_los(
+        along_los = self.map_profile_to_los(
             profile_to_map,
             t=t,
             limit_to_sep=limit_to_sep,
             calc_rho=calc_rho,
         )
-        los_integral = self.passes * along_los.sum("los_position") * self.dl
+        los_integral = (
+            self.passes
+            * along_los.dropna(dim="los_position").sum("los_position")
+            * self.dl
+        )
 
         if len(los_integral.channel) == 1:
             los_integral = los_integral.sel(channel=0)
@@ -602,9 +606,10 @@ class LineOfSightTransform(CoordinateTransform):
             if figure:
                 plt.figure()
             for ch in channels:
-                self.rho.sel(channel=ch, t=tplot, method="nearest").plot(
-                    color=cols[ch], linewidth=2
-                )
+                _rho = self.rho.sel(channel=ch)
+                if "t" in self.rho.dims:
+                    _rho = _rho.sel(t=tplot, method="nearest")
+                _rho.plot(color=cols[ch], linewidth=2)
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
 
@@ -612,6 +617,9 @@ class LineOfSightTransform(CoordinateTransform):
 
 
 def example_run():
+    from copy import deepcopy
+    from indica.equilibrium import fake_equilibrium
+
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
 
     nchannels = 11
@@ -635,6 +643,46 @@ def example_run():
         passes=1,
     )
 
-    # los_transform.plot_los()
+    equilibrium = fake_equilibrium(machine_dims=machine_dims)
+    los_transform.set_equilibrium(equilibrium)
 
-    return los_transform
+    los_transform_1d = los_transform
+    los_transform_2d = deepcopy(los_transform)
+
+    time = los_transform_2d.equilibrium.rho.t.values[0:5]
+    profile_1d = (
+        DataArray(
+            np.abs(np.linspace(-1, 0)),
+            coords=[("rho_poloidal", np.linspace(0, 1.0))],
+        )
+        .expand_dims({"t": time.size})
+        .assign_coords(t=time)
+    )
+
+    _rho = los_transform_2d.equilibrium.rho.interp(t=time)
+    profile_2d = profile_1d.interp(rho_poloidal=_rho).drop("rho_poloidal")
+
+    along_los_1d = los_transform_1d.map_profile_to_los(profile_1d, t=profile_1d.t)
+    along_los_2d = los_transform_2d.map_profile_to_los(profile_2d, t=profile_2d.t)
+
+    los_int_1d = los_transform_1d.integrate_on_los(profile_1d, t=profile_1d.t)
+    los_int_2d = los_transform_2d.integrate_on_los(profile_2d, t=profile_2d.t)
+
+    # los_transform.plot_los(plot_all=True)
+
+    plt.figure()
+    plt.plot(
+        ((along_los_1d - along_los_2d) / along_los_1d).sel(
+            t=np.mean(time), method="nearest"
+        ),
+        marker="o",
+    )
+    plt.title("Mapping along LOS (1D-2D)/1D")
+    plt.legend()
+
+    plt.figure()
+    plt.plot((los_int_1d - los_int_2d) / los_int_1d, marker="o")
+    plt.title("LOS integral (1D-2D)/1D")
+    plt.legend()
+
+    return los_transform_1d, los_transform_2d, profile_1d, profile_2d
