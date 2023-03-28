@@ -11,6 +11,8 @@ from indica.models.helike_spectroscopy import example_run as helike
 from indica.models.interferometry import example_run as interf
 from indica.models.plasma import example_run as example_plasma
 from indica.models.thomson_scattering import example_run as ts
+from indica.models.magnetic_recon import example_run as mag_recon
+
 
 EXAMPLES: Dict[str, Callable] = {
     "bolometer_camera": bolo,
@@ -19,6 +21,7 @@ EXAMPLES: Dict[str, Callable] = {
     "helike_spectroscopy": helike,
     "thomson_scattering": ts,
     "charge_exchange": cxrs,
+    "magnetic_reconstruction":mag_recon
 }
 PLASMA = example_plasma(pulse=None, tstart=0, tend=0.1, dt=0.02)
 NT = np.size(PLASMA.t)
@@ -124,3 +127,15 @@ def test_helike_timepoint_pass():
 
 def test_helike_interpolation():
     _test_time_interpolation("helike_spectroscopy")
+
+
+def test_magrecon_timepoint_fail():
+    _test_timepoint_fail("magnetic_reconstruction")
+
+
+def test_magrecon_timepoint_pass():
+    _test_timepoint_pass("magnetic_reconstruction")
+
+
+def test_magrecon_interpolation():
+    _test_time_interpolation("magnetic_reconstruction")
