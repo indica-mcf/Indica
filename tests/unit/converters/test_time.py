@@ -254,14 +254,15 @@ def test_interpolate_downsample(tstart, tend, n, data, method):
     frequency = (n - 1) / (tend - tstart)
     result = convert_in_time(tstart, tend, frequency, data, "cubic")
     result2 = convert_in_time(new_tstart, new_tend, original_freq, result, method)
-    assert np.all(
-        result2.values
-        == approx(data.sel(t=new_times).values, rel=1e-1, abs=1e-2, nan_ok=True)
+    np.testing.assert_allclose(
+        result2.values, data.sel(t=new_times).values, rtol=1e-1, atol=1e-2
     )
     if "dropped" in data.attrs:
-        assert np.all(
-            result2.attrs["dropped"].values
-            == approx(data.attrs["dropped"].sel(t=new_times).values, rel=1e-1, abs=1e-2)
+        np.testing.assert_allclose(
+            result2.attrs["dropped"].values,
+            data.attrs["dropped"].sel(t=new_times).values,
+            rtol=1e-1,
+            atol=1e-2,
         )
 
 
