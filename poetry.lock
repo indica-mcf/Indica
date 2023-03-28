@@ -2033,14 +2033,14 @@ watchdog = ["watchdog"]
 
 [[package]]
 name = "xarray"
-version = "2022.12.0"
+version = "2023.1.0"
 description = "N-D labeled arrays and datasets in Python"
 category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "xarray-2022.12.0-py3-none-any.whl", hash = "sha256:eaf3e4c0b62faebf7965f272ce76bc2fc1c9d93c2b966a390e929ef082a796dd"},
-    {file = "xarray-2022.12.0.tar.gz", hash = "sha256:083d08e552a7647c7ece136dfa3a4b6a1379256beb55bbed8b8ddf05f1e14ec7"},
+    {file = "xarray-2023.1.0-py3-none-any.whl", hash = "sha256:7e530b1deafdd43e5c2b577d0944e6b528fbe88045fd849e49a8d11871ecd522"},
+    {file = "xarray-2023.1.0.tar.gz", hash = "sha256:7bee552751ff1b29dab8b7715726e5ecb56691ac54593cf4881dff41978ce0cd"},
 ]
 
 [package.dependencies]
@@ -2078,4 +2078,4 @@ docs = ["sphinx", "sphinx-rtd-theme", "sphinxcontrib-plantuml"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "d9c9f51208129e246c79878b2cf3e0ff84507fab5dea9c41f45cd55d65c5a162"
+content-hash = "29169fb42322b18ee482a52216c31b8086fe2a4447a828f020fb798896f67512"
