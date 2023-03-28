@@ -229,6 +229,7 @@ def plot_bayes_result(
             ylabel="temperature (eV)",
         )
 
+
     key = "electron_temperature"
     plot_profile(
         blobs[key],

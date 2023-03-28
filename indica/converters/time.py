@@ -157,6 +157,8 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
     )
     averaged = grouped.mean("t", keep_attrs=True)
     stdev = grouped.std("t", keep_attrs=True)
+    stdev = np.sqrt(stdev**2)
+    averaged.attrs["stdev"] = stdev.rename(t_bins="t")
 
     if "error" in data.attrs:
         grouped = (
@@ -169,10 +171,8 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
                 lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
             )
         )
-        error = np.sqrt(uncertainty**2)  # + (stdev)**2)
+        error = np.sqrt(uncertainty**2)
         averaged.attrs["error"] = error.rename(t_bins="t")
-        stdev = np.sqrt(stdev**2)
-        averaged.attrs["stdev"] = stdev.rename(t_bins="t")
 
     if "dropped" in data.attrs:
         grouped = (
@@ -195,7 +195,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
                     lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
                 )
             )
-            error = np.sqrt(uncertainty**2)  # + (stdev)**2)
+            error = np.sqrt(uncertainty**2)
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
             stdev = np.sqrt(stdev**2)
             averaged.attrs["dropped"].attrs["stdev"] = stdev.rename(t_bins="t")

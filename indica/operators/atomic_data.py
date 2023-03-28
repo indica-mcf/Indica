@@ -1132,7 +1132,6 @@ def interpolate_results(
     -------
     Interpolated values
     """
-    _result = []
     dim_old = [d for d in data.dims if d != "ion_charges"][0]
     _data = data.assign_coords(electron_temperature=(dim_old, Te_data))
     _data = _data.swap_dims({dim_old: "electron_temperature"}).drop_vars(dim_old)

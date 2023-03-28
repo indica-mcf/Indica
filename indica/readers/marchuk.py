@@ -1,9 +1,9 @@
-from copy import deepcopy
 import os
-import indica
 
 import numpy as np
 import xarray as xr
+
+import indica
 
 # Constants
 RY = 13.605  # eV
@@ -44,8 +44,11 @@ def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "
     else:
         raise ValueError(f"wrong label given: {label}")
     # fmt: off
-    intensity = (1 / g0 * 4 * np.pi ** (3 / 2) * a0 ** 3 / Te[:, None] ** (3 / 2) * F2[None, ]
-                 * np.exp(-Es[None, ] / Te[:, None]))
+    _Te = Te[:, None]
+    _F2 = F2[None, ]
+    _Es = Es[None, ]
+    intensity = (1 / g0 * 4 * np.pi ** (3 / 2) * a0 ** 3 / _Te ** (3 / 2) * _F2
+                 * np.exp(-_Es / _Te))
     # fmt: on
     return intensity
 

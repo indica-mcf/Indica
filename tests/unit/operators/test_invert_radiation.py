@@ -30,7 +30,7 @@ z_positions = DataArray(
     np.linspace(-0.3, 0.3, 10), coords=[("alpha", np.arange(10))]
 ).assign_attrs(datatype=("z", "plasma"))
 R_positions = x_positions
-coords = TransectCoordinates(R_positions, z_positions)
+coords = TransectCoordinates(x_positions, y_positions, z_positions, "")
 coords.set_equilibrium(fake_equilib)
 
 knot_locs = coord_array([0.0, 0.5, 0.75, 0.9, 1.0], "rho_poloidal")
