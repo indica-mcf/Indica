@@ -1,15 +1,18 @@
+from typing import Callable
+from typing import Dict
+
 import numpy as np
 import pytest
 
-import indica.models.bolometer_camera as bolo
-import indica.models.charge_exchange as cxrs
-import indica.models.diode_filters as diodes
-import indica.models.helike_spectroscopy as helike
-import indica.models.interferometry as interf
+from indica.models.bolometer_camera import example_run as bolo
+from indica.models.charge_exchange import example_run as cxrs
+from indica.models.diode_filters import example_run as diodes
+from indica.models.helike_spectroscopy import example_run as helike
+from indica.models.interferometry import example_run as interf
 from indica.models.plasma import example_run as example_plasma
-import indica.models.thomson_scattering as ts
+from indica.models.thomson_scattering import example_run as ts
 
-MODELS = {
+EXAMPLES: Dict[str, Callable] = {
     "bolometer_camera": bolo,
     "diode_filters": diodes,
     "interferometry": interf,
@@ -30,23 +33,20 @@ TIME_INTERP = np.linspace(TSTART + DT, TEND - DT, num=int(NT / 3))
 
 def _test_timepoint_pass(model_name: str, **kwargs):
     """Test that model can be called for single time-point"""
-    model = MODELS[model_name]
-    _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
+    _, model, bckc = EXAMPLES[model_name](plasma=PLASMA, **kwargs)
     model(t=TIME_SINGLE_PASS)
 
 
 def _test_timepoint_fail(model_name: str, **kwargs):
     """Test that model can be called for single time-point"""
-    model = MODELS[model_name]
-    _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
-    with pytest.raises(Exception) as e_info:
+    _, model, bckc = EXAMPLES[model_name](plasma=PLASMA, **kwargs)
+    with pytest.raises(Exception):
         model(t=TIME_SINGLE_FAIL)
 
 
 def _test_time_interpolation(model_name: str, **kwargs):
     """Test that model correctly interpolates data on new axis"""
-    model = MODELS[model_name]
-    _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
+    _, model, bckc = EXAMPLES[model_name](plasma=PLASMA, **kwargs)
     bckc = model(t=TIME_INTERP, **kwargs)
 
     for quantity, value in bckc.items():
@@ -124,5 +124,3 @@ def test_helike_timepoint_pass():
 
 def test_helike_interpolation():
     _test_time_interpolation("helike_spectroscopy")
-
-

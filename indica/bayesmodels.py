@@ -1,12 +1,13 @@
 from copy import deepcopy
-import flatdict
-import numpy as np
-
-np.seterr(all="ignore")
 import warnings
 
-warnings.simplefilter("ignore", category=FutureWarning)
+import flatdict
+import numpy as np
 from scipy.stats import uniform
+
+np.seterr(all="ignore")
+
+warnings.simplefilter("ignore", category=FutureWarning)
 
 
 def gaussian(x, mean, sigma):
@@ -59,8 +60,9 @@ class BayesModels:
 
     def _build_bckc(self, params: dict, **kwargs):
         # TODO: consider how to handle if models have overlapping kwargs
-        # Params is a dictionary which is updated by optimiser, kwargs is constant i.e. settings for models
-        self.bckc = {}
+        # Params is a dictionary which is updated by optimiser,
+        # kwargs is constant i.e. settings for models
+        self.bckc: dict = {}
         for model in self.diagnostic_models:
             self.bckc = dict(
                 self.bckc, **{model.name: {**model(**{**params, **kwargs})}}
@@ -72,7 +74,8 @@ class BayesModels:
         ln_likelihood = 0
         for key in self.quant_to_optimise:
             # TODO: What to use as error?  Assume percentage error if none given...
-            # Float128 is used since rounding of small numbers causes problems when initial results are bad fits
+            # Float128 is used since rounding of small numbers causes
+            # problems when initial results are bad fits
             model_data = self.bckc[key].values.astype("float128")
             exp_data = (
                 self.data[key]
@@ -90,7 +93,6 @@ class BayesModels:
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
-
         ln_prior = 0
         for prior_name, prior_func in self.priors.items():
             param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
@@ -132,7 +134,8 @@ class BayesModels:
                 name: self.priors[name].rvs(size=size * 2) for name in param_names
             }
             ln_prior = self._ln_prior(new_sample)
-            # Convert from dictionary of arrays -> array, then filtering out where ln_prior is -infinity
+            # Convert from dictionary of arrays -> array,
+            # then filtering out where ln_prior is -infinity
             accepted_samples = np.array(list(new_sample.values()))[
                 :, ln_prior != -np.inf
             ]

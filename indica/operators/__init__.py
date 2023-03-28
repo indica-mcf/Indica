@@ -7,7 +7,6 @@ from .centrifugal_asymmetry import AsymmetryParameter
 from .centrifugal_asymmetry import ToroidalRotation
 from .extrapolate_impurity_density import ExtrapolateImpurityDensity
 from .impurity_concentration import ImpurityConcentration
-from .invert_radiation import InvertRadiation
 from .mean_charge import MeanCharge
 from .spline_fit import Spline
 from .spline_fit import SplineFit
@@ -23,7 +22,6 @@ __all__ = [
     "AsymmetryParameter",
     "ExtrapolateImpurityDensity",
     "ImpurityConcentration",
-    "InvertRadiation",
     "MeanCharge",
     "Spline",
     "SplineFit",
