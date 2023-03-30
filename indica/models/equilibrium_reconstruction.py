@@ -6,7 +6,7 @@ from indica.models.plasma import example_run as example_plasma
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
-class MagneticRecon(DiagnosticModel):
+class EquilibriumReconstruction(DiagnosticModel):
     """
     Object representing observations from a magnetic reconstruction
     """
@@ -70,8 +70,8 @@ def example_run(
     if plasma is None:
         plasma = example_plasma()
 
-    model = MagneticRecon(
-        diagnostic_name,
+    model = EquilibriumReconstruction(
+        diagnostic_name
     )
     model.set_plasma(plasma)
     bckc = model()
