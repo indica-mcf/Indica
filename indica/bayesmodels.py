@@ -55,12 +55,12 @@ class BayesModels:
             diag_model.plasma = self.plasma
 
         missing_data = list(set(quant_to_optimise).difference(data.keys()))
-        if missing_data:  # list of keys in quant_to_optimise but not data
+        if missing_data:  # gives list of keys in quant_to_optimise but not data
             raise ValueError(f"{missing_data} not found in data given")
 
     def _build_bckc(self, params: dict, **kwargs):
         """
-        TODO: consider how to handle if models have overlapping kwargs
+        TODO: consider how to handle when models have overlapping kwargs
         Parameters
         ----------
         params - dictionary which is updated by optimiser
@@ -83,19 +83,20 @@ class BayesModels:
     def _ln_likelihood(self):
         ln_likelihood = 0
         for key in self.quant_to_optimise:
-            # Float128 is used since rounding of small numbers causes
-            # problems when initial results are bad fits
-            model_data = self.bckc[key].values.astype("float128")
-            exp_data = self.data[key].sel(t=self.plasma.time_to_calculate).values.astype("float128")
-            if hasattr(self.data[key], "error"):  # Assume percentage error if none given.
+            # Float128 since rounding of small numbers causes problems when initial results are bad fits
+            model_data = self.bckc[key].astype("float128")
+            exp_data = self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
+
+            exp_error = exp_data * 0.10  # Assume percentage error if none given.
+            if hasattr(self.data[key], "error"):
                 if (self.data[key].error != 0).any():  # TODO: Some models have an error of 0 given
-                    exp_error = self.data[key].error.values
-                else:
-                    exp_error = exp_data * 0.10
-            else:
-                exp_error = exp_data * 0.10
+                    exp_error = self.data[key].error
+
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
-            ln_likelihood += np.nanmean(_ln_likelihood)
+            # Treat channel as key dim which isn't averaged like other dims
+            if "channel" in _ln_likelihood.dims:
+                _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
+            ln_likelihood += _ln_likelihood.mean(skipna=True).values
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
