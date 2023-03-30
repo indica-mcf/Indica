@@ -59,7 +59,17 @@ class BayesModels:
             raise ValueError(f"{missing_data} not found in data given")
 
     def _build_bckc(self, params: dict, **kwargs):
-        # TODO: consider how to handle if models have overlapping kwargs
+        """
+        TODO: consider how to handle if models have overlapping kwargs
+        Parameters
+        ----------
+        params - dictionary which is updated by optimiser
+        kwargs - passed to model i.e. settings
+
+        Returns
+        -------
+        bckc of results
+        """
         # Params is a dictionary which is updated by optimiser,
         # kwargs is constant i.e. settings for models
         self.bckc: dict = {}
@@ -73,22 +83,18 @@ class BayesModels:
     def _ln_likelihood(self):
         ln_likelihood = 0
         for key in self.quant_to_optimise:
-            # TODO: What to use as error?  Assume percentage error if none given...
             # Float128 is used since rounding of small numbers causes
             # problems when initial results are bad fits
             model_data = self.bckc[key].values.astype("float128")
-            exp_data = (
-                self.data[key]
-                .sel(t=self.plasma.time_to_calculate)
-                .values.astype("float128")
-            )
-            _ln_likelihood = np.log(
-                gaussian(
-                    model_data,
-                    exp_data,
-                    exp_data * 0.10
-                )
-            )
+            exp_data = self.data[key].sel(t=self.plasma.time_to_calculate).values.astype("float128")
+            if hasattr(self.data[key], "error"):  # Assume percentage error if none given.
+                if (self.data[key].error != 0).any():  # TODO: Some models have an error of 0 given
+                    exp_error = self.data[key].error.values
+                else:
+                    exp_error = exp_data * 0.10
+            else:
+                exp_error = exp_data * 0.10
+            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
             ln_likelihood += np.nanmean(_ln_likelihood)
         return ln_likelihood
 
