@@ -95,17 +95,13 @@ class ReadST40:
             self.equilibrium = equilibrium
 
     def get_raw_data(self, uid: str, instrument: str, revision: RevisionLike = 0):
-        data = {}
-        try:
-            data = self.reader.get(uid, instrument, revision)
-            if hasattr(self, "equilibrium"):
-                for quant in data.keys():
-                    transform = data[quant].transform
-                    if hasattr(transform, "set_equilibrium"):
-                        transform.set_equilibrium(self.equilibrium)
-            self.raw_data[instrument] = data
-        except Exception as e:
-            print(f"Error reading {instrument}: {e}")
+        data = self.reader.get(uid, instrument, revision)
+        if hasattr(self, "equilibrium"):
+            for quant in data.keys():
+                transform = data[quant].transform
+                if hasattr(transform, "set_equilibrium"):
+                    transform.set_equilibrium(self.equilibrium)
+        self.raw_data[instrument] = data
 
         return data
 
@@ -262,6 +258,7 @@ class ReadST40:
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
         map_diagnostics: bool = False,
+        debug:bool=False,
     ):
 
         if instruments is None:
@@ -279,7 +276,13 @@ class ReadST40:
         self.get_equilibrium(R_shift=R_shift)
         for instrument in instruments:
             print(f"Reading {instrument}")
-            self.get_raw_data("", instrument, revisions[instrument])
+            if debug:
+                self.get_raw_data("", instrument, revisions[instrument])
+            else:
+                try:
+                    self.get_raw_data("", instrument, revisions[instrument])
+                except Exception as e:
+                    print(f"Error reading {instrument}: {e}")
 
         instruments = list(self.raw_data)
 
