@@ -10,7 +10,7 @@ from indica.models.plasma import example_run
 
 class TestBayesModels:
     def setup_class(self):
-        self.plasma = example_run(pulse=9229)
+        self.plasma = example_run()
         self.plasma.time_to_calculate = self.plasma.t[1]
         self.los_transform = helike_LOS_example(nchannels=1)
         self.los_transform.set_equilibrium(self.plasma.equilibrium)
@@ -24,9 +24,7 @@ class TestBayesModels:
 
         priors = {
             "Te_prof.y0": get_uniform(2e3, 5e3),
-            # "Te_prof_peaking": get_uniform(1, 5),
             "Ti_prof.y0": get_uniform(2e3, 8e3),
-            # "Ti_prof_peaking": get_uniform(1, 5),
         }
 
         bckc = {}
@@ -47,9 +45,7 @@ class TestBayesModels:
         # Setup Optimiser
         param_names = [
             "Te_prof.y0",
-            # "Te_prof.peaking",
             "Ti_prof.y0",
-            # "Ti_prof.peaking",
         ]
 
         ndim = param_names.__len__()
