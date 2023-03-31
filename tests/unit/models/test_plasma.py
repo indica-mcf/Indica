@@ -4,14 +4,16 @@ from indica.models.plasma import Plasma
 from indica.equilibrium import fake_equilibrium_data, Equilibrium
 
 
-class TestPlasmaInit:
-
+class TestPlasma:
     def setup_class(self):
         self.tstart = 0.
         self.tend = 0.1
         self.dt = 0.02
+        self.impurities = ("c", "ar", "he")
+        self.impurity_concentration = (0.01, 0.001, 0.01)
+
         self.plasma = Plasma(tstart=self.tstart, tend=self.tend, dt=self.dt, main_ion="h",
-                             impurities=("c", "ar", "he"), impurity_concentration=(0.01, 0.001, 0.01),)
+                             impurities=self.impurities, impurity_concentration=self.impurity_concentration)
         self.equilibrium_data = fake_equilibrium_data(
             tstart=self.tstart, tend=self.tend, dt=self.dt, machine_dims=self.plasma.machine_dimensions
         )
@@ -27,6 +29,9 @@ class TestPlasmaInit:
 
     def test_plasma_initializes(self):
         assert hasattr(self, "plasma")
+
+    def test_equilibrium_initializes(self):
+        assert hasattr(self, "equilibrium")
 
     def test_plasma_volume_non_zero(self):
         _volume = self.plasma.volume
