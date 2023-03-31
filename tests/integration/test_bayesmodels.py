@@ -1,6 +1,6 @@
 import emcee
 import flatdict
-from tests.integration.models.test_helike_spectroscopy import helike_LOS_example
+from indica.models.helike_spectroscopy import helike_LOS_example
 
 from indica.bayesmodels import BayesModels
 from indica.bayesmodels import get_uniform
