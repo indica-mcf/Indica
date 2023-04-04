@@ -94,15 +94,9 @@ class ChargeExchange(DiagnosticModel):
         self.Vtor = Vtor
         self.Ti = Ti
 
-        Ti_at_channels = self.transect_transform.map_to_rho(
-            Ti,
-            t=t,
-            calc_rho=calc_rho
-        )
+        Ti_at_channels = self.transect_transform.map_to_rho(Ti, t=t, calc_rho=calc_rho)
         Vtor_at_channels = self.transect_transform.map_to_rho(
-            Vtor,
-            t=t,
-            calc_rho=calc_rho
+            Vtor, t=t, calc_rho=calc_rho
         )
 
         self.Ti_at_channels = Ti_at_channels
@@ -186,6 +180,7 @@ def example_run(
         plt.show()
 
     return plasma, model, bckc
+
 
 if __name__ == "__main__":
     plt.ioff()

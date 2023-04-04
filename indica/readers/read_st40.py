@@ -100,7 +100,7 @@ class ReadST40:
             for quant in data.keys():
                 if "transform" not in data[quant].attrs:
                     continue
-                    
+
                 transform = data[quant].transform
                 if hasattr(transform, "set_equilibrium"):
                     transform.set_equilibrium(self.equilibrium)
