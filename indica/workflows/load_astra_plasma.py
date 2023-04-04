@@ -186,14 +186,18 @@ def example_run(verbose: bool = True):
     raw = st40.raw_data
     binned = st40.binned_data
     bckc: dict = {}
-    models = initialize_diagnostic_models(binned, plasma=plasma,)
+    models = initialize_diagnostic_models(
+        binned,
+        plasma=plasma,
+    )
     for instrument in models.keys():
         if verbose:
             print(f"Running {instrument} model")
         if instrument == "xrcs":
             models[instrument].calibration = calibration
             bckc[instrument] = models[instrument](
-                calc_spectra=calc_spectra, moment_analysis=moment_analysis,
+                calc_spectra=calc_spectra,
+                moment_analysis=moment_analysis,
             )
         else:
             bckc[instrument] = models[instrument]()
@@ -206,8 +210,8 @@ def example_run(verbose: bool = True):
     ion_density = plasma.ion_density
     fast_density = plasma.fast_density
     impurity_conc = ion_density / plasma.electron_density
-    wth = plasma.wth
-    wp = plasma.wp
+    # wth = plasma.wth
+    # wp = plasma.wp
 
     raw_color = "black"
     binned_color = "blue"
@@ -287,8 +291,8 @@ def example_run(verbose: bool = True):
             if "stdev" not in _binned.attrs:
                 _binned.attrs["stdev"] = xr.full_like(_binned, 0.0)
 
-            err = np.sqrt(_binned.error ** 2 + _binned.stdev ** 2)
-            err = xr.where(err/_binned.values < 1., err, 0.)
+            err = np.sqrt(_binned.error**2 + _binned.stdev**2)
+            err = xr.where(err / _binned.values < 1.0, err, 0.0)
 
             plt.fill_between(
                 _binned.t.sel(t=tslice),
@@ -298,10 +302,13 @@ def example_run(verbose: bool = True):
                 alpha=0.7,
             )
             _binned.sel(t=tslice).plot(
-                label="Binned", color=binned_color, marker="o",
+                label="Binned",
+                color=binned_color,
+                marker="o",
             )
             _raw.sel(t=tslice).plot(
-                label="Raw", color=raw_color,
+                label="Raw",
+                color=raw_color,
             )
             mult = 1.0
             if instrument in scaling.keys():
