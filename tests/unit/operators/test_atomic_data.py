@@ -1,11 +1,7 @@
-import copy
-import unittest
-
 import numpy as np
 import pytest
 from xarray import DataArray
 
-from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 from indica.readers import ADASReader
@@ -15,6 +11,7 @@ ADAS_FILE = ADASReader()
 SCD = ADAS_FILE.get_adf11("scd", ELEMENT, "89")
 ACD = ADAS_FILE.get_adf11("acd", ELEMENT, "89")
 CCD = ADAS_FILE.get_adf11("ccd", ELEMENT, "89")
+
 
 @pytest.fixture
 def test_fractional_abundance_init():
@@ -39,6 +36,7 @@ def test_fractional_abundance_init():
     assert example_frac_abundance_no_optional.CCD is None
 
     return example_frac_abundance, example_frac_abundance_no_optional
+
 
 @pytest.fixture
 def test_interpolate_rates(test_fractional_abundance_init):
@@ -67,6 +65,7 @@ def test_interpolate_rates(test_fractional_abundance_init):
     example_frac_abundance_no_optional.interpolate_rates(input_Ne, input_Te)
 
     return example_frac_abundance, example_frac_abundance_no_optional
+
 
 @pytest.fixture
 def test_calc_ionisation_balance_matrix(test_interpolate_rates):

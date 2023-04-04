@@ -1,6 +1,5 @@
 import copy
 from typing import cast
-from typing import get_args
 from typing import List
 from typing import Tuple
 from typing import Union
@@ -18,6 +17,7 @@ from .. import session
 from ..datatypes import DataType
 
 np.set_printoptions(edgeitems=10, linewidth=100)
+
 
 class FractionalAbundance(Operator):
     """Calculate fractional abundance for all ionisation charges of a given element.
@@ -94,8 +94,7 @@ class FractionalAbundance(Operator):
         CCD: DataArray = None,
         sess: session.Session = session.global_session,
     ):
-        """Initialises FractionalAbundance class
-        """
+        """Initialises FractionalAbundance class"""
         super().__init__(sess)
         self.Ne = None
         self.Te = None
@@ -153,7 +152,6 @@ class FractionalAbundance(Operator):
         num_of_ion_charges
             Number of ionisation charges(stages) for the given impurity element.
         """
-
 
         self.Ne, self.Te = Ne, Te  # type: ignore
 
@@ -778,7 +776,7 @@ class PowerLoss(Operator):
 
         PLT, PRB, PRC = self.PLT_spec, self.PRB_spec, self.PRC_spec
 
-        #TODO: make this faster by using DataArray methods
+        # TODO: make this faster by using DataArray methods
         cooling_factor = xr.zeros_like(self.F_z_t)
         for ix1 in range(x1_coord.size):
             icharge = 0
