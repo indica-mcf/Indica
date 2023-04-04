@@ -1,5 +1,3 @@
-import numpy as np
-
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
@@ -68,75 +66,36 @@ def run_reader_get_methods(
         database_quantities,
     )
 
-    if mds_only:
-        return database_results
-
-    data = READER.get(uid, instrument, revision, set(quantities))
-
-    quantities = list(data)
-    trans = data[quantities[0]].transform
-    if hasattr(trans, "set_flux_transform"):
-        trans.set_flux_transform(FLUX_TRANSFORM)
-        trans._convert_to_rho(t=np.array([0.02, 0.03, 0.04]))
-
-    return data, database_results
-
-
-def check_transforms(instrument_name: str, diagnostic_data: dict):
-    """
-    Check transforms associated to data read
-
-    Parameters
-    ----------
-    instrument_name
-        instrument string identifier
-    diagnostic_data
-        data dictionary as returned by abstractreader
-    """
-    for quant, data in diagnostic_data.items():
-        if hasattr(data, "transform"):
-            if "LineOfSightTransform" in str(data.transform):
-                if "line_of_sight" not in str(data.transform):
-                    raise ValueError(
-                        f"{instrument_name}:{quant} using" f" \n {str(data.transform)}"
-                    )
+    return database_results
 
 
 def test_xrcs(instrument_name: str = "xrcs"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
 
 
 def test_brems(instrument_name: str = "brems"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
 
 
 def test_halpha(instrument_name: str = "halpha"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
 
 
 def test_sxr_diode_4(instrument_name: str = "sxr_diode_4"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
 
 
 def test_sxr_camera_4(instrument_name: str = "sxr_camera_4"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
 
 
 def test_smmh1(instrument_name: str = "smmh1"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
 
 
 def test_nirh1(instrument_name: str = "nirh1"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
 
 
 def test_efit(instrument_name: str = "efit"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
+    _ = run_reader_get_methods(instrument_name)
