@@ -337,9 +337,9 @@ class ST40Reader(DataReader):
             server=server,
             default_error=default_error,
         )
-        self.pulse = pulse
-        self.tree = tree
-        self.conn = Connection(server)
+        self.pulse: int = pulse
+        self.tree: str = tree
+        self.conn: Connection = Connection(server)
         self.conn.openTree(self.tree, self.pulse)
         self._default_error = default_error
 
