@@ -19,4 +19,5 @@ __all__ = [
     "ST40Reader",
     "choose_on_plot",
     "DataSelector",
+    "surf_los"
 ]
