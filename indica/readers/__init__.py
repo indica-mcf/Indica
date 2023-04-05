@@ -11,6 +11,7 @@ from .ppfreader import PPFReader
 from .selectors import choose_on_plot
 from .selectors import DataSelector
 from .st40reader import ST40Reader
+import surf_los
 
 __all__ = [
     "ADASReader",
