@@ -23,8 +23,8 @@ from sal.core.exception import AuthenticationFailed
 from sal.core.exception import NodeNotFound
 from sal.dataclass import Signal
 import scipy.constants as sc
-
 import surf_los as surf_los
+
 from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .. import session
