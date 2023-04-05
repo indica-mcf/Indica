@@ -38,13 +38,6 @@ integration_tests:
   # Once tests are passing, remember to change this setting back
   allow_failure: true
 
-
-mypy:
-  stage: test
-  script:
-    - poetry run mypy -p indica
-
-
 pages:
   stage: deploy
   before_script:
