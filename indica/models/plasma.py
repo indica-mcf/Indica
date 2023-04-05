@@ -20,7 +20,6 @@ from indica.operators.atomic_data import PowerLoss
 import indica.physics as ph
 from indica.profiles_gauss import Profiles
 from indica.readers import ADASReader
-from indica.readers import ST40Reader
 from indica.utilities import assign_data
 from indica.utilities import assign_datatype
 from indica.utilities import print_like
@@ -1308,13 +1307,12 @@ def example_run(
         for elem in plasma.elements:
             plasma.assign_profiles(profile="toroidal_rotation", t=t, element=elem)
 
-    if pulse is None:
-        equilibrium_data = fake_equilibrium_data(
-            tstart=tstart, tend=tend, dt=dt / 2, machine_dims=plasma.machine_dimensions
-        )
-    else:
-        reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
-        equilibrium_data = reader.get("", "efit", 0)
+    equilibrium_data = fake_equilibrium_data(
+        tstart=tstart, tend=tend, dt=dt / 2, machine_dims=plasma.machine_dimensions
+    )
+    # else:
+    #     reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
+    #     equilibrium_data = reader.get("", "efit", 0)
 
     equilibrium = Equilibrium(equilibrium_data)
     plasma.set_equilibrium(equilibrium)
