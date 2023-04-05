@@ -5,8 +5,6 @@ functionality for a different format of data.
 
 """
 
-import surf_los
-
 from .abstractreader import DataReader
 from .adas import ADASReader
 from .ppfreader import PPFReader
@@ -17,5 +15,4 @@ __all__ = [
     "DataReader",
     "PPFReader",
     "ST40Reader",
-    "surf_los",
 ]
