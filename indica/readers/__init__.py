@@ -5,6 +5,8 @@ functionality for a different format of data.
 
 """
 
+import surf_los
+
 from .abstractreader import DataReader
 from .adas import ADASReader
 from .ppfreader import PPFReader
