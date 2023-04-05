@@ -1,3 +1,5 @@
+from pytest import mark
+
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
@@ -69,33 +71,41 @@ def run_reader_get_methods(
     return database_results
 
 
+@mark.skip("MDS+ package not always available")
 def test_xrcs(instrument_name: str = "xrcs"):
     _ = run_reader_get_methods(instrument_name)
 
 
+@mark.skip("MDS+ package not always available")
 def test_brems(instrument_name: str = "brems"):
     _ = run_reader_get_methods(instrument_name)
 
 
+@mark.skip("MDS+ package not always available")
 def test_halpha(instrument_name: str = "halpha"):
     _ = run_reader_get_methods(instrument_name)
 
 
+@mark.skip("MDS+ package not always available")
 def test_sxr_diode_4(instrument_name: str = "sxr_diode_4"):
     _ = run_reader_get_methods(instrument_name)
 
 
+@mark.skip("MDS+ package not always available")
 def test_sxr_camera_4(instrument_name: str = "sxr_camera_4"):
     _ = run_reader_get_methods(instrument_name)
 
 
+@mark.skip("MDS+ package not always available")
 def test_smmh1(instrument_name: str = "smmh1"):
     _ = run_reader_get_methods(instrument_name)
 
 
+@mark.skip("MDS+ package not always available")
 def test_nirh1(instrument_name: str = "nirh1"):
     _ = run_reader_get_methods(instrument_name)
 
 
+@mark.skip("MDS+ package not always available")
 def test_efit(instrument_name: str = "efit"):
     _ = run_reader_get_methods(instrument_name)
