@@ -28,4 +28,4 @@ jobs:
     - name: Lint the code
       env:
         SKIP: no-commit-to-branch
-      uses: pre-commit/action@v3.2.2
+      uses: pre-commit/action@v3.0.0
