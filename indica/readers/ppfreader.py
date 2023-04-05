@@ -24,7 +24,8 @@ from sal.core.exception import NodeNotFound
 from sal.dataclass import Signal
 import scipy.constants as sc
 
-import surf_los as surf_los
+# import surf_los as surf_los
+from .surf_los import read_surf_los
 from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .. import session
@@ -33,7 +34,7 @@ from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
 
-SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
+SURF_PATH = Path(read_surf_los.__file__).parent / "surf_los.dat"
 
 
 class PPFError(Exception):
@@ -425,7 +426,7 @@ class PPFReader(DataReader):
         dl: float = 0.005,
     ) -> Dict[str, Any]:
         """Fetch raw data for electron cyclotron emissin diagnostics."""
-        _, _, zstart, zend, _, _ = surf_los.read_surf_los(
+        _, _, zstart, zend, _, _ = read_surf_los(
             SURF_PATH, self.pulse, instrument.lower()
         )
         assert zstart[0] == zend[0]
@@ -518,7 +519,7 @@ class PPFReader(DataReader):
                 results[q] = np.array(luminosities).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
-            xstart, xend, zstart, zend, ystart, yend = surf_los.read_surf_los(
+            xstart, xend, zstart, zend, ystart, yend = read_surf_los(
                 SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
             )
             results[q + "_xstart"] = xstart[channels]
