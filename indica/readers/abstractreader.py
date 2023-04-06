@@ -648,6 +648,7 @@ class DataReader(BaseIO):
         #     quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
         #     data[quantity] = quant_data.indica.ignore_data(drop, transform.x1_name)
         # return data
+
     def _get_cyclotron_emissions(
         self,
         uid: str,
@@ -1292,11 +1293,12 @@ class DataReader(BaseIO):
 
         sorted_quantities = sorted(quantities)
         for quantity in sorted_quantities:
-            if quantity not in available_quantities:
-                raise ValueError(
-                    "{} can not read astra data for "
-                    "quantity {}".format(self.__class__.__name__, quantity)
-                )
+            if quantity not in database_results.keys():
+                continue
+                # raise ValueError(
+                #     "{} can not read astra data for "
+                #     "quantity {}".format(self.__class__.__name__, quantity)
+                # )
 
             if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
                 name_coords = ["rho_toroidal"]
@@ -1322,6 +1324,8 @@ class DataReader(BaseIO):
                 "transform": trivial_transform,
             }
 
+            if len(np.shape(database_results[quantity])) != len(dims):
+                continue
             quant_data = DataArray(
                 database_results[quantity],
                 coords,
