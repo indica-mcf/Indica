@@ -240,7 +240,12 @@ class Plasma:
             ("poloidal", "rho"),
             coords=[(self.radial_coordinate_type, self.radial_coordinate)],
         )
-        coords_time = assign_data(time, ("", "time"), "s", coords=[("t", time)],)
+        coords_time = assign_data(
+            time,
+            ("", "time"),
+            "s",
+            coords=[("t", time)],
+        )
         coords_elem = assign_data(
             list(self.elements),
             ("", "element"),
@@ -306,7 +311,7 @@ class Plasma:
             self.data2d, ("density", "electron"), "$m^{-3}$"
         )
         self.neutral_density: DataArray = assign_data(
-            self.data2d, ("thermal_neutrals", "density"), "eV"
+            self.data2d, ("thermal_neutral", "density"), "eV"
         )
         self.tau: DataArray = assign_data(self.data2d, ("time", "residence"), "s")
 
@@ -410,7 +415,12 @@ class Plasma:
         )
 
         self.Zeff = CachedCalculation(
-            self.calc_zeff, [self.electron_density, self.ion_density, self.meanz,],
+            self.calc_zeff,
+            [
+                self.electron_density,
+                self.ion_density,
+                self.meanz,
+            ],
         )
 
         self.Lz_tot = CachedCalculation(
@@ -435,12 +445,20 @@ class Plasma:
 
         self.Total_radiation = CachedCalculation(
             self.calc_total_radiation,
-            [self.electron_density, self.ion_density, self.lz_tot,],
+            [
+                self.electron_density,
+                self.ion_density,
+                self.lz_tot,
+            ],
         )
 
         self.Sxr_radiation = CachedCalculation(
             self.calc_sxr_radiation,
-            [self.electron_density, self.ion_density, self.lz_sxr,],
+            [
+                self.electron_density,
+                self.ion_density,
+                self.lz_sxr,
+            ],
         )
 
     def assign_profiles(
@@ -695,7 +713,9 @@ class Plasma:
                 * ion_density.sel(element=elem)
             )
             self._total_radiation.loc[dict(element=elem)] = xr.where(
-                total_radiation >= 0, total_radiation, 0.0,
+                total_radiation >= 0,
+                total_radiation,
+                0.0,
             ).values
         return self._total_radiation
 
@@ -716,7 +736,9 @@ class Plasma:
                 * ion_density.sel(element=elem)
             )
             self._sxr_radiation.loc[dict(element=elem)] = xr.where(
-                sxr_radiation >= 0, sxr_radiation, 0.0,
+                sxr_radiation >= 0,
+                sxr_radiation,
+                0.0,
             ).values
         return self._sxr_radiation
 
@@ -882,14 +904,18 @@ class Plasma:
             rho_end = 1.01
             rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
             Te_prof = Profiles(
-                datatype=("temperature", "electron"), xspl=rho, xend=xend,
+                datatype=("temperature", "electron"),
+                xspl=rho,
+                xend=xend,
             )
             Te_prof.y0 = 10.0e3
             Te = Te_prof()
             Ne_prof = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend)
             Ne = Ne_prof()
             Nh_prof = Profiles(
-                datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend,
+                datatype=("density", "thermal_neutral"),
+                xspl=rho,
+                xend=xend,
             )
             Nh = Nh_prof()
             tau = None
@@ -1063,7 +1089,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
+                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
             )
 
         self.ion_density_2d = (
@@ -1113,7 +1139,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            total_radiation = xr.where(total_radiation >= 0, total_radiation, 0.0,)
+            total_radiation = xr.where(
+                total_radiation >= 0,
+                total_radiation,
+                0.0,
+            )
             self.total_radiation.loc[dict(element=elem)] = total_radiation.values
 
             sxr_radiation = (
@@ -1121,7 +1151,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            sxr_radiation = xr.where(sxr_radiation >= 0, sxr_radiation, 0.0,)
+            sxr_radiation = xr.where(
+                sxr_radiation >= 0,
+                sxr_radiation,
+                0.0,
+            )
             self.sxr_radiation.loc[dict(element=elem)] = sxr_radiation.values
 
             if not hasattr(self, "prad_tot"):
@@ -1144,14 +1178,17 @@ class Plasma:
     def write_to_pickle(self):
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                self, f,
+                self,
+                f,
             )
 
 
 # Generalized dependency caching
 class TrackDependecies:
     def __init__(
-        self, operator: Callable, dependencies: list,
+        self,
+        operator: Callable,
+        dependencies: list,
     ):
         """
         Call operator only if dependencies variables have changed.
@@ -1168,7 +1205,8 @@ class TrackDependecies:
         self.dependencies = dependencies
 
     def numpyhash(
-        self, nparray: np.array,
+        self,
+        nparray: np.array,
     ):
         a = nparray.view(np.uint8)
         return hashlib.sha1(a).hexdigest()

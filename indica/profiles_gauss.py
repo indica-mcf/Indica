@@ -170,9 +170,9 @@ class Profiles:
 
 
 def get_defaults(datatype: tuple) -> dict:
-    identifier = f"{datatype[0]}_{datatype[1]}"
+    identifier = f"{datatype[1]}_{datatype[0]}"
     parameters = {
-        "density_electron": {  # (m**-3)
+        "electron_density": {  # (m**-3)
             "y0": 5.0e19,
             "y1": 5.0e18,
             "yend": 2.0e18,
@@ -180,7 +180,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wcenter": 0.4,
             "wped": 6,
         },
-        "density_impurity": {  # (m**-3)
+        "impurity_density": {  # (m**-3)
             "y0": 5.0e16,
             "y1": 1.0e16,
             "yend": 1.0e15,
@@ -188,7 +188,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wcenter": 0.4,
             "wped": 6,
         },
-        "density_thermal_neutrals": {  # (m**-3)
+        "thermal_neutral_density": {  # (m**-3)
             "y0": 1.0e13,
             "y1": 1.0e15,
             "yend": 1.0e15,
@@ -196,7 +196,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wcenter": 0,
             "wped": 18,
         },
-        "temperature_electron": {  # (eV)
+        "electron_temperature": {  # (eV)
             "y0": 3.0e3,
             "y1": 50,
             "yend": 5,
@@ -204,7 +204,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wcenter": 0.35,
             "wped": 3,
         },
-        "temperature_ion": {  # (eV)
+        "ion_temperature": {  # (eV)
             "y0": 5.0e3,
             "y1": 50,
             "yend": 5,
@@ -213,7 +213,7 @@ def get_defaults(datatype: tuple) -> dict:
             "wped": 3,
             "ref": True,
         },
-        "rotation_toroidal": {  # (rad/s)
+        "toroidal_rotation": {  # (rad/s)
             "y0": 500.0e3,
             "y1": 10.0e3,
             "yend": 0.0,
