@@ -1,5 +1,5 @@
-import xarray as xr
 import matplotlib.pyplot as plt
+import xarray as xr
 
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
@@ -41,7 +41,7 @@ class EquilibriumReconstruction(DiagnosticModel):
 
     def __call__(
         self,
-        t = None,
+        t=None,
         **kwargs,
     ):
         """
@@ -70,9 +70,7 @@ def example_run(
     if plasma is None:
         plasma = example_plasma()
 
-    model = EquilibriumReconstruction(
-        diagnostic_name
-    )
+    model = EquilibriumReconstruction(diagnostic_name)
     model.set_plasma(plasma)
     bckc = model()
 
