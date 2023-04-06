@@ -160,7 +160,9 @@ class ReadST40:
 
             quantities = list(self.binned_data[instr])
             filter_general(
-                self.binned_data[instr], quantities, lim=FILTER_LIMITS[instr],
+                self.binned_data[instr],
+                quantities,
+                lim=FILTER_LIMITS[instr],
             )
 
     def filter_ts(self, chi2_limit: float = 2.0):
@@ -258,7 +260,7 @@ class ReadST40:
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
         map_diagnostics: bool = False,
-        debug:bool=False,
+        debug: bool = False,
     ):
 
         if instruments is None:
