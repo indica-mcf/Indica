@@ -67,5 +67,5 @@ class TestPlasma:
 #     def setup_class(self):
 #         return
 if __name__ == "__main__":
-    test = TestPlasmaInit()
+    test = TestPlasma()
     test.setup_class()
