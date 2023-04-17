@@ -3,7 +3,6 @@ reading MDS+ data produced by ST40.
 
 """
 
-import re
 from typing import Any
 from typing import Dict
 from typing import List
@@ -378,13 +377,6 @@ class ST40Reader(DataReader):
 
         return data, dims
 
-    def _conn_get(self, mds_path):
-        """Gets the signal for the given INSTRUMENT, at the
-        given revision."""
-
-        mds_data = self.conn.get(mds_path)
-        return mds_data
-
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[np.array, str]:
@@ -428,9 +420,7 @@ class ST40Reader(DataReader):
 
         if revision == 0:
             run_name, _ = self._get_signal(uid, instrument, ":best_run", revision)
-            m = re.search(r"\s??RUN(\d+)", run_name, re.I)
-            if isinstance(m, re.Match):
-                revision = int(m.group(1))
+            return run_name
 
         return revision
 
@@ -1003,10 +993,10 @@ class ST40Reader(DataReader):
 
         return mds_path_test
 
-    def get_revision_name(self, revision):
+    def get_revision_name(self, revision) -> str:
         """Return string defining RUN## or BEST if revision = 0"""
 
-        if type(revision) is not str:
+        if type(revision) == int:
             if revision < 0:
                 rev_str = ""
             elif revision == 0:
@@ -1016,7 +1006,7 @@ class ST40Reader(DataReader):
             elif revision > 9:
                 rev_str = f".run{int(revision)}"
         else:
-            rev_str = f".run{revision}"
+            rev_str = f".{revision}"
 
         return rev_str
 

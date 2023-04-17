@@ -90,28 +90,21 @@ class BayesModels:
         ln_prior = 0
         for prior_name, prior_func in self.priors.items():
             param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
-            # if prior assigned but no parameter then skip
             if param_names_in_prior.__len__() == 0:
+                # if prior assigned but no parameter then skip
                 continue
             param_values = [parameters[x] for x in param_names_in_prior]
             if hasattr(prior_func, "pdf"):
                 # for scipy.stats objects use pdf / for lambda functions just call
                 ln_prior += np.log(prior_func.pdf(*param_values))
             else:
-                # if lambda prior with 2+ args is defined
-                # when only 1 of its parameters is given ignore it
+                # if lambda prior with 2+ args is defined when only 1 of its parameters is given ignore it
                 if prior_func.__code__.co_argcount != param_values.__len__():
                     continue
                 else:
-                    # Sorting to make sure args are given in the
-                    # same order as the prior_name string
-                    name_index = [
-                        prior_name.find(param_name_in_prior)
-                        for param_name_in_prior in param_names_in_prior
-                    ]
-                    sorted_name_index, sorted_param_values = (
-                        list(x) for x in zip(*sorted(zip(name_index, param_values)))
-                    )
+                    # Sorting to make sure args are given in the same order as the prior_name string
+                    name_index = [prior_name.find(param_name_in_prior) for param_name_in_prior in param_names_in_prior]
+                    sorted_name_index, sorted_param_values = (list(x) for x in zip(*sorted(zip(name_index, param_values))))
                     ln_prior += np.log(prior_func(*sorted_param_values))
         return ln_prior
 
