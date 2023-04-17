@@ -16,9 +16,9 @@ exclude = '''
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = [
-    "ignore::ImportError",
-]
+#filterwarnings = [
+#    "ignore::ModuleNotFoundError",
+#]
 
 [tool.poetry]
 name = "indica"
