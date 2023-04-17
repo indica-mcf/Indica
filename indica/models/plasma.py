@@ -664,7 +664,7 @@ class Plasma:
                     Nh = self.neutral_density.sel(t=t)
                 self._lz_tot[elem].loc[dict(t=t)] = (
                     self.power_loss_tot[elem](
-                        Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run
+                        Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
                     )
                     .transpose()
                     .values
@@ -692,7 +692,7 @@ class Plasma:
                     Nh = self.neutral_density.sel(t=t)
                 self._lz_sxr[elem].loc[dict(t=t)] = (
                     self.power_loss_sxr[elem](
-                        Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run
+                        Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
                     )
                     .transpose()
                     .values
