@@ -26,7 +26,7 @@ EXAMPLES: Dict[str, Callable] = {
 
 
 class TestModels:
-    """Test that model calls run without error"""
+    """Test that the model calls run without error"""
 
     def setup_class(self):
         self.plasma = example_plasma(calc_power_loss=True)
