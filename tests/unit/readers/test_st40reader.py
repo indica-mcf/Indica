@@ -1,5 +1,3 @@
-from indica.converters import FluxSurfaceCoordinates
-from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
 
 PULSE = 9229
@@ -7,11 +5,6 @@ TSTART = 0.01
 TEND = 0.1
 
 READER = ST40Reader(PULSE, TSTART, TEND)
-EQUILIBRIUM_DATA = READER.get("", "efit", 0)
-EQUILIBRIUM = Equilibrium(EQUILIBRIUM_DATA)
-FLUX_TRANSFORM = FluxSurfaceCoordinates("poloidal")
-FLUX_TRANSFORM.set_equilibrium(EQUILIBRIUM)
-
 INSTRUMENT_INFO: dict = {
     "xrcs": ("sxr", "xrcs", 0, set()),
     "brems": ("spectrom", "brems", -1, set()),
