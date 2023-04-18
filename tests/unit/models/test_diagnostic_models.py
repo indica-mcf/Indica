@@ -23,7 +23,7 @@ EXAMPLES: Dict[str, Callable] = {
     "charge_exchange": cxrs,
     "equilibrium_reconstruction": equil_recon,
 }
-PLASMA = example_plasma(pulse=None, tstart=0, tend=0.1, dt=0.02)
+PLASMA = example_plasma(pulse=None, tstart=0, tend=0.1, dt=0.02, calc_power_loss=True)
 NT = np.size(PLASMA.t)
 TSTART = PLASMA.tstart
 TEND = PLASMA.tend

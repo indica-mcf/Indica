@@ -919,6 +919,9 @@ class Plasma:
             )
             Nh = Nh_prof()
             tau = None
+        else:
+            if Te is None or Ne is None:
+                raise ValueError("Input Te and Ne if default == False")
 
         # print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
@@ -927,39 +930,32 @@ class Plasma:
             acd = self.ADASReader.get_adf11("acd", elem, self.adf11[elem]["acd"])
             ccd = self.ADASReader.get_adf11("ccd", elem, self.adf11[elem]["ccd"])
             fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
-            if Te is not None and Ne is not None:
-                fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
+            fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
 
-            plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
-            prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
-            prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
-            power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
-            if Te is not None and Ne is not None:
+            if calc_power_loss:
                 F_z_t = fract_abu[elem].F_z_t
-                if calc_power_loss:
-                    power_loss_tot[elem](
-                        Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run
-                    )
-                    if (
-                        "pls" in self.adf11[elem].keys()
-                        and "prs" in self.adf11[elem].keys()
-                    ):
-                        try:
-                            pls = self.ADASReader.get_adf11(
-                                "pls", elem, self.adf11[elem]["pls"]
-                            )
-                            prs = self.ADASReader.get_adf11(
-                                "prs", elem, self.adf11[elem]["prs"]
-                            )
-                            power_loss_sxr[elem] = PowerLoss(pls, prs)
-                            if Te is not None and Ne is not None:
-                                F_z_t = fract_abu[elem].F_z_t
-                                power_loss_sxr[elem](
-                                    Te, F_z_t, Ne=Ne, full_run=self.full_run
-                                )
-                        except ValueError:
-                            self.adf11[elem].pop("pls")
-                            self.adf11[elem].pop("prs")
+
+                plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
+                prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
+                prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
+                power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
+                power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
+                if (
+                    "pls" in self.adf11[elem].keys()
+                    and "prs" in self.adf11[elem].keys()
+                ):
+                    try:
+                        pls = self.ADASReader.get_adf11(
+                            "pls", elem, self.adf11[elem]["pls"]
+                        )
+                        prs = self.ADASReader.get_adf11(
+                            "prs", elem, self.adf11[elem]["prs"]
+                        )
+                        power_loss_sxr[elem] = PowerLoss(pls, prs)
+                        power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
+                    except ValueError:
+                        self.adf11[elem].pop("pls")
+                        self.adf11[elem].pop("prs")
 
         self.adf11 = self.adf11
         self.fract_abu = fract_abu
@@ -1258,6 +1254,7 @@ def example_run(
     verbose: bool = True,
     n_rad: int = 41,
     full_run=False,
+    calc_power_loss: bool = False,
     **kwargs,
 ):
     # TODO: swap all profiles to new version!
@@ -1273,7 +1270,7 @@ def example_run(
         verbose=verbose,
         **kwargs,
     )
-    plasma.build_atomic_data(default=True, calc_power_loss=False)
+    plasma.build_atomic_data(default=True, calc_power_loss=calc_power_loss)
     # Assign profiles to time-points
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
