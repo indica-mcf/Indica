@@ -173,7 +173,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.check_equilibrium()
 
         _t = np.array(t)
-        if np.size(t) == 1:
+        if np.size(_t) == 1:
             _t = float(_t)  # type: ignore
 
         rho = []
@@ -348,14 +348,19 @@ class LineOfSightTransform(CoordinateTransform):
             R_ = self.R
             z_ = self.z
 
+            R_ = R_.dropna(dim="los_position")
+            z_ = z_.dropna(dim="los_position")
+
             along_los = profile_to_map.interp(R=R_, z=z_).T
         elif "rho_poloidal" in coords or "rho_toroidal" in coords:
             profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
             impact_rho = self.rho.min("los_position")
 
             rho_ = self.rho
+            rho_ = rho_.dropna(dim="los_position")
             if "theta" in coords:
                 theta_ = self.theta
+                theta_ = theta_.dropna(dim="los_position")
                 along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
             else:
                 along_los = profile.interp(rho_poloidal=rho_)
@@ -419,7 +424,7 @@ class LineOfSightTransform(CoordinateTransform):
                 raise ValueError("Profile does not include requested time")
         else:
             prof_t = profile.t
-            range_ok = (np.min(time) >= np.min(prof_t)) * (
+            range_ok = (np.min(time) >= np.min(prof_t)) and (
                 np.max(time) <= np.max(prof_t)
             )
             if range_ok:
@@ -685,4 +690,10 @@ def example_run():
     plt.title("LOS integral (1D-2D)/1D")
     plt.legend()
 
+    plt.show()
+
     return los_transform_1d, los_transform_2d, profile_1d, profile_2d
+
+
+if __name__ == "__main__":
+    example_run()

@@ -461,7 +461,7 @@ def find_wall_intersections(
         A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
     """
 
-    def line(_start, _end):
+    def line(_start, _end, npts):
         return np.linspace(_start, _end, npts)
 
     def extremes(_start, _end):
@@ -496,9 +496,9 @@ def find_wall_intersections(
     z_end = origin[2] + length * direction[2]
 
     # Find intersections in R, z plane
-    x_line = line(x_start, x_end)
-    y_line = line(y_start, y_end)
-    z_line = line(z_start, z_end)
+    x_line = line(x_start, x_end, npts)
+    y_line = line(y_start, y_end, npts)
+    z_line = line(z_start, z_end, npts)
     R_line = np.sqrt(x_line**2 + y_line**2)
     indices = np.where(
         (R_line >= machine_dimensions[0][0])
@@ -513,15 +513,19 @@ def find_wall_intersections(
         y_end = y_line[indices][-1]
         z_start = z_line[indices][0]
         z_end = z_line[indices][-1]
+    else:
+        raise ValueError(
+            "The given line-of-sight does not pass through the machine dimensions."
+        )
 
     # Find intersections with inner wall
     xx, yx, ix, jx = intersection(
         extremes(x_start, x_end), extremes(y_start, y_end), x_wall_inner, y_wall_inner
     )
     if len(xx) > 0:
-        x_line = line(x_start, x_end)
-        y_line = line(y_start, y_end)
-        z_line = line(z_start, z_end)
+        x_line = line(x_start, x_end, npts)
+        y_line = line(y_start, y_end, npts)
+        z_line = line(z_start, z_end, npts)
         index = []
         for i in range(len(xx)):
             index.append(

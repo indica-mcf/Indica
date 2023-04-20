@@ -236,10 +236,10 @@ class InDiCAArrayAccessor:
             values = xr.DataArray(values)
         new_dim_names: List[str]
         if new_dims is None:
-            if values.ndim == 0:
+            if values.ndim == 0:  # type: ignore
                 new_dim_names = []
                 value_dims = new_dim_names
-            elif target in values.dims:
+            elif target in values.dims:  # type: ignore
                 if self._obj.name is None:
                     raise ValueError("Values must have a name if 'new_dims' is None.")
                 new_dim_names = [
@@ -255,10 +255,10 @@ class InDiCAArrayAccessor:
             new_dim_names = [
                 new_dims,
             ]
-            value_dims = cast(List, values.dims)
+            value_dims = cast(List, values.dims)  # type: ignore
         else:
             new_dim_names = list(new_dims)
-            value_dims = cast(List, values.dims)
+            value_dims = cast(List, values.dims)  # type: ignore
         data = xr.apply_ufunc(
             invert_interp_func,
             interpolated,
@@ -376,11 +376,11 @@ class InDiCAArrayAccessor:
         new_dim_names: List[str]
         value_dims: List[str]
         if new_dims is None:
-            if values.ndim == 0:
+            if values.ndim == 0:  # type: ignore
                 new_dim_names = []
                 value_dims = new_dim_names
-            elif target in values.dims:
-                if values.ndim == 1:
+            elif target in values.dims:  # type: ignore
+                if values.ndim == 1:  # type: ignore
                     if self._obj.name is None:
                         raise ValueError(
                             "Values must have a name if 'new_dims' is None."

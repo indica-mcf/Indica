@@ -1,5 +1,6 @@
 """Tests for line-of-sight coordinate transforms."""
 
+import unittest
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -10,7 +11,10 @@ from indica import equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
-from indica.utilities import intersection
+
+
+class Exception_Line_Of_Sight_Test_Case(unittest.TestCase):
+    pass
 
 
 def default_inputs():
@@ -49,7 +53,131 @@ def load_equilibrium_default():
     return equil
 
 
+def test_missing_los():
+    """
+    Test whether a line-of-sight that misses the vessel is handled correctly
+    """
+    # Line of sight origin tuple
+    origin = np.array(
+        [
+            [4.0, -2.0, 0.5],
+        ]
+    )  # [xyz]
+
+    # Line of sight direction
+    direction = np.array(
+        [
+            [0.0, 1.0, 0.0],
+        ]
+    )  # [xyz]
+
+    # machine dimensions
+    machine_dims = ((1.83, 3.9), (-1.75, 2.0))
+
+    # name
+    name = "los_test"
+
+    # Set-up line of sight class
+    los_test_obj = Exception_Line_Of_Sight_Test_Case()
+    with los_test_obj.assertRaises(ValueError):
+        line_of_sight.LineOfSightTransform(
+            origin[:, 0],
+            origin[:, 1],
+            origin[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
+            machine_dimensions=machine_dims,
+            name=name,
+        )
+
+
+def test_convert_to_xy(debug=False):
+    """
+    Test for the method convert_to_xy()
+    """
+    # Load line-of-sight default
+    los, machine_dims = load_line_of_sight_default()
+    x1 = 0
+    x2 = los.x2[0]
+    t = 0
+
+    # Test method
+    x, y = los.convert_to_xy(x1, x2, t)
+
+    assert np.all(x <= np.max([los.x_start, los.x_end]))
+    assert np.all(x >= np.min([los.x_start, los.x_end]))
+    assert np.all(y <= np.max([los.y_start, los.y_end]))
+    assert np.all(y >= np.min([los.y_start, los.y_end]))
+
+
+def test_convert_to_Rz(debug=False):
+    """
+    Test for the method convert_to_Rz()
+    """
+    # Load line-of-sight default
+    los, machine_dims = load_line_of_sight_default()
+    x1 = 0
+    x2 = los.x2[0]
+    t = 0
+
+    # Test method
+    R, z = los.convert_to_Rz(x1, x2, t)
+
+    R_min = np.sqrt(
+        np.min([los.x_start**2, los.x_end**2])
+        + np.min([los.y_start**2, los.y_end**2])
+    )
+    R_max = np.sqrt(
+        np.max([los.x_start**2, los.x_end**2])
+        + np.max([los.y_start**2, los.y_end**2])
+    )
+
+    # R and z are as expected=
+    assert np.all(R <= R_max)
+    assert np.all(R >= R_min)
+    assert np.all(z <= np.max([los.z_start, los.z_end]))
+    assert np.all(z >= np.min([los.z_start, los.z_end]))
+
+
+def test_distance(debug=False):
+    """
+    Test for the method distance()
+    """
+    # Load line-of-sight default
+    los, machine_dims = load_line_of_sight_default()
+    x1 = 0
+    x2 = los.x2[0:-1]
+    t = 0
+
+    # Test method
+    dist = los.distance("los_position", x1, x2, t)
+    dls = np.diff(dist)
+
+    # dl is identical along the line of sight up to 1 per million
+    assert all(np.abs(dls - dls[0]) < (dls[0] * 1.0e-6))
+
+
+def test_set_dl(debug=False):
+    """
+    Test for the method set_dl()
+    """
+    # Load line-of-sight default
+    los, machine_dims = load_line_of_sight_default()
+
+    # Test inputs
+    dl = 0.002
+
+    # Test method
+    los.set_dl(dl)
+
+    assert np.abs(dl - los.dl) < 1.0e-6
+
+
 def test_map_profile_to_los():
+    """
+    Test for the method map_profile_to_los()
+    """
     los, machine_dims = load_line_of_sight_default()
     equil = load_equilibrium_default()
 
@@ -86,168 +214,129 @@ def test_map_profile_to_los():
         ["rho_poloidal", "theta"]
     )
 
-    Ne_los_rho_theta = los.map_profile_to_los(Ne, t_, kind="flux_coords")
-    Ne_los_R_z = los.map_profile_to_los(Ne_Rz, t_, kind="spatial_coords")
+    Ne_los_rho_theta = los.map_profile_to_los(Ne, t_)
+    Ne_los_R_z = los.map_profile_to_los(Ne_Rz, t_)
 
     Ne_los_rho_theta = Ne_los_rho_theta.assign_attrs(name="Ne_los_rho_theta")
     Ne_los_R_z = Ne_los_R_z.assign_attrs(name="Ne_los_R_z")
 
+    assert Ne.min() <= Ne_los_rho_theta.all() <= Ne.max()
+    assert Ne.min() <= Ne_los_R_z.all() <= Ne.max()
 
-def _test_check_rho():
-    """To be implemented"""
 
+def test_check_rho_and_profile():
+    """
+    Test for the method check_rho_and_profile()
+    """
 
-def test_convert_to_xy(debug=False):
-    # Load line-of-sight default
     los, machine_dims = load_line_of_sight_default()
-    x1 = 0
-    x2 = los.x2[0]
-    t = 0
+    equil = load_equilibrium_default()
 
-    # Test method
-    x, y = los.convert_to_xy(x1, x2, t)
-    _, z = los.convert_to_Rz(x1, x2, t)
+    los.set_equilibrium(equil)
+    R_ = np.linspace(machine_dims[0][0], machine_dims[0][1], 30)
+    z_ = np.linspace(machine_dims[1][0], machine_dims[1][1], 30)
 
-    assert np.all(x.values <= np.max([los.x_start, los.x_end]))
-    assert np.all(x >= np.min([los.x_start, los.x_end]))
-    assert np.all(y <= np.max([los.y_start, los.y_end]))
-    assert np.all(y >= np.min([los.y_start, los.y_end]))
-    assert np.all(z <= np.max([los.z_start, los.z_end]))
-    assert np.all(z >= np.min([los.z_start, los.z_end]))
+    R_ = DataArray(R_, coords={"R": R_}, dims=["R"])
+    z_ = DataArray(z_, coords={"z": z_}, dims=["z"])
 
-    if debug:
-        print(f"x = {x}")
-        print(f"y = {y}")
-        print(f"z = {z}")
+    t_ = np.linspace(74.5, 80.5, 5)
+    t_ = DataArray(t_, coords={"t": t_}, dims=["t"])
+
+    R_ = R_.expand_dims(dim={"t": t_})
+    z_ = z_.expand_dims(dim={"t": t_})
+
+    rho_equil, theta_equil, _ = equil.flux_coords(R_, z_, t_)
+    rho_max = rho_equil.max(dim=["t", "R", "z"], skipna=True).data[()]
+
+    rho_ = np.linspace(0.0, rho_max, 30)
+    theta_ = np.linspace(-np.pi, np.pi, 30)
+    rho_ = DataArray(rho_, coords={"rho_poloidal": rho_}, dims=["rho_poloidal"])
+    theta_ = DataArray(theta_, coords={"theta": theta_}, dims=["theta"])
+
+    Ne = DataArray(
+        np.tile(np.logspace(19.0, 16.0, 30), (5, 30, 1)).transpose([2, 1, 0]),
+        coords={"rho_poloidal": rho_, "theta": theta_, "t": t_},
+        dims=["rho_poloidal", "theta", "t"],
+    )
+
+    Ne = xr.where(Ne.rho_poloidal > 1, 0, Ne)
+
+    error_t = equil.rho.t.min() - 1
+
+    los_test_obj = Exception_Line_Of_Sight_Test_Case()
+    with los_test_obj.assertRaises(ValueError):
+        los.check_rho_and_profile(Ne, error_t)
+
+    error_t = equil.rho.t.max() + 1
+
+    los_test_obj = Exception_Line_Of_Sight_Test_Case()
+    with los_test_obj.assertRaises(ValueError):
+        los.check_rho_and_profile(Ne, error_t)
+
+    error_t = -10.0
+
+    los_test_obj = Exception_Line_Of_Sight_Test_Case()
+    with los_test_obj.assertRaises(ValueError):
+        los.check_rho_and_profile(Ne.isel(t=0), error_t)
+
+    error_t = np.append(Ne.t.data, 90.0)
+
+    los_test_obj = Exception_Line_Of_Sight_Test_Case()
+    with los_test_obj.assertRaises(ValueError):
+        los.check_rho_and_profile(Ne.isel, error_t)
+
+    error_t = np.insert(Ne.t.data, 0, 40.0)
+
+    los_test_obj = Exception_Line_Of_Sight_Test_Case()
+    with los_test_obj.assertRaises(ValueError):
+        los.check_rho_and_profile(Ne.isel, error_t)
 
 
-# Test convert_to_Rz method
-def test_convert_to_Rz(debug=False):
-    # Load line-of-sight default
+def test_integrate_on_los():
+    """
+    Test for the method integrate_on_los()
+    """
     los, machine_dims = load_line_of_sight_default()
-    x1 = 0
-    x2 = los.x2[0]
-    t = 0
+    equil = load_equilibrium_default()
 
-    # Test method
-    R_, z_ = los.convert_to_Rz(x1, x2, t)
+    los.set_equilibrium(equil)
+    R_ = np.linspace(machine_dims[0][0], machine_dims[0][1], 30)
+    z_ = np.linspace(machine_dims[1][0], machine_dims[1][1], 30)
 
-    x, y = los.convert_to_xy(x1, x2, t)
-    R = np.sqrt(x**2 + y**2)
+    R_ = DataArray(R_, coords={"R": R_}, dims=["R"])
+    z_ = DataArray(z_, coords={"z": z_}, dims=["z"])
 
-    # R and z are as expected=
-    assert all(R == R_)
+    t_ = np.linspace(74.5, 80.5, 5)
+    t_ = DataArray(t_, coords={"t": t_}, dims=["t"])
 
-    if debug:
-        print(f"R = {R}")
+    R_ = R_.expand_dims(dim={"t": t_})
+    z_ = z_.expand_dims(dim={"t": t_})
 
+    rho_equil, theta_equil, _ = equil.flux_coords(R_, z_, t_)
+    rho_max = rho_equil.max(dim=["t", "R", "z"], skipna=True).data[()]
 
-# Test distance method
-def test_distance(debug=False):
-    # Load line-of-sight default
-    los, machine_dims = load_line_of_sight_default()
-    x1 = 0
-    x2 = los.x2[0]
-    t = 0
+    rho_ = np.linspace(0.0, rho_max, 30)
+    theta_ = np.linspace(-np.pi, np.pi, 30)
+    rho_ = DataArray(rho_, coords={"rho_poloidal": rho_}, dims=["rho_poloidal"])
+    theta_ = DataArray(theta_, coords={"theta": theta_}, dims=["theta"])
 
-    # Test method
-    dist = los.distance("los_position", x1, x2, t)
-    dls = [dist[i + 1] - dist[i] for i in range(len(dist) - 1)]
+    Ne = DataArray(
+        np.tile(np.logspace(19.0, 16.0, 30), (5, 30, 1)).transpose([2, 1, 0]),
+        coords={"rho_poloidal": rho_, "theta": theta_, "t": t_},
+        dims=["rho_poloidal", "theta", "t"],
+    )
 
-    # dl is identical along the line of sight up to 1 per million
-    assert all(np.abs(dls - dls[0]) < (dls[0] * 1.0e-6))
+    Ne = xr.where(Ne.rho_poloidal > 1, 0, Ne)
 
-    if debug:
-        print(f"dist = {dist}")
-    return
+    Ne_Rz = Ne.interp(rho_poloidal=rho_equil, theta=theta_equil).drop_vars(
+        ["rho_poloidal", "theta"]
+    )
 
+    Ne_los_integral_rho_theta = los.integrate_on_los(Ne, t_)
+    Ne_los_integral_R_z = los.integrate_on_los(Ne_Rz, t_)
 
-# Test distance method
-def test_set_dl(debug=False):
-    # Load line-of-sight default
-    los, machine_dims = load_line_of_sight_default()
-
-    # Test inputs
-    dl = 0.002
-
-    # Test method
-    x2, dl_out = los.set_dl(dl)
-
-    assert np.abs(dl - dl_out[0]) < 1.0e-6
-
-    if debug:
-        print(f"x2 = {x2}")
-        print(f"dl_out = {dl_out}")
-    return
-
-
-# Test script for intersections
-def test_intersections(debug=False):
-    """Test script for intersections"""
-
-    # Test parallel lines -> should return an empty list
-    line_1_x = np.array([0.0, 1.0])
-    line_1_y = np.array([1.0, 2.0])
-    line_2_x = np.array([0.0, 1.0])
-    line_2_y = np.array([2.0, 3.0])
-
-    rx, zx, _, _ = intersection(line_1_x, line_1_y, line_2_x, line_2_y)
-    assert len(rx) == 0
-    assert len(zx) == 0
-
-    if debug:
-        print(rx)
-        print(zx)
-
-    # Test intersecting lines - should return list of len=1
-    line_3_x = np.array([0.0, 1.0])
-    line_3_y = np.array([2.0, 1.0])
-    rx, zx, _, _ = intersection(line_1_x, line_1_y, line_3_x, line_3_y)
-    assert len(rx) != 0
-    assert len(zx) != 0
-
-    if debug:
-        print(rx)
-        print(zx)
-
-
-# Test LOS missing vessel
-def test_missing_los():
-    # Line of sight origin tuple
-    origin = np.array(
-        [
-            [4.0, -2.0, 0.5],
-        ]
-    )  # [xyz]
-
-    # Line of sight direction
-    direction = np.array(
-        [
-            [0.0, 1.0, 0.0],
-        ]
-    )  # [xyz]
-
-    # machine dimensions
-    machine_dims = ((1.83, 3.9), (-1.75, 2.0))
-
-    # name
-    name = "los_test"
-
-    # Set-up line of sight class
-    try:
-        _ = line_of_sight.LineOfSightTransform(
-            origin[:, 0],
-            origin[:, 1],
-            origin[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            machine_dimensions=machine_dims,
-            name=name,
-        )
-    except ValueError:
-        # Value Error since the LOS does not intersect with machine dimensions
-        print("LOS initialisation failed with ValueError as expected")
+    assert 0 <= Ne_los_integral_rho_theta.all() <= np.inf
+    assert 0 <= Ne_los_integral_R_z.all() <= np.inf
 
 
 # Function for defining equilibrium

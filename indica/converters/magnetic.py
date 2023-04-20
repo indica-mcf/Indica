@@ -79,7 +79,9 @@ class MagneticCoordinates(CoordinateTransform):
 
         def find_root(B: float, x2: float, t: float) -> float:
             def func(R: float) -> float:
-                return cast(float, self.convert_from_Rz(R, x2 + self.z_los, t)[0] - B)
+                return cast(
+                    float, self.convert_from_Rz(R, x2 + self.z_los, t)[0]
+                ) - cast(float, B)
 
             brackets = find_brackets(self.left, self.right, func)
             result = root_scalar(

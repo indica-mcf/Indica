@@ -320,7 +320,8 @@ class Equilibrium:
         """
         b_R, b_z, b_T, t = self.Bfield(R, z, t)
         b_Pol = np.sqrt(b_R ** np.float64(2.0) + b_z ** np.float64(2.0))
-        b_Pol.name = "Poloidal Magnetic Field (T)"
+        if isinstance(b_Pol, DataArray):
+            b_Pol.name = "Poloidal Magnetic Field (T)"
 
         return b_Pol, t
 
@@ -443,7 +444,10 @@ class Equilibrium:
         """
         ngrid = 100
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-        theta = theta % (2 * np.pi)
+        if isinstance(theta, list):
+            theta = [itheta % (2 * np.pi) for itheta in theta]
+        else:
+            theta = theta % (2 * np.pi)
         if t is not None:
             corner_angles = [
                 angle.interp(t=t, method="nearest") for angle in self.corner_angles
@@ -834,17 +838,6 @@ def fake_equilibrium_data(
     dt: float = 0.01,
     machine_dims=None,
 ):
-    def monotonic_series(
-        start: float,
-        stop: float,
-        num: int = 50,
-        endpoint: bool = True,
-        retstep: bool = False,
-        dtype: bool = None,
-    ):
-        return np.linspace(
-            start, stop, num=num, endpoint=endpoint, retstep=retstep, dtype=dtype
-        )
 
     if machine_dims is None:
         machine_dims = MACHINE_DIMS
@@ -955,7 +948,7 @@ def fake_equilibrium_data(
     ftor_min = 0.1
     ftor_max = 5.0
     result["ftor"] = DataArray(
-        np.outer(1 + tfuncs(times), monotonic_series(ftor_min, ftor_max, nspace)),
+        np.outer(1 + tfuncs(times), np.linspace(ftor_min, ftor_max, nspace)),
         coords=[("t", times), ("rho_poloidal", rho1d)],
         name="ftor",
         attrs=attrs,
@@ -1015,7 +1008,7 @@ def fake_equilibrium_data(
         f_min = 0.1
         f_max = 5.0
         time_vals = tfuncs(times)
-        space_vals = monotonic_series(f_min, f_max, nspace)
+        space_vals = np.linspace(f_min, f_max, nspace)
         f_raw = np.outer(abs(1 + time_vals), space_vals)
     else:
         f_raw = np.outer(
