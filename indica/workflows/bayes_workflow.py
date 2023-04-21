@@ -249,7 +249,7 @@ def plot_bayes_result(
         key,
         figheader=figheader,
         filename="temperature",
-        phantom_profile=phantom_profiles[key].sel(element="ar"),
+        phantom_profile=phantom_profiles[key],
         color="red",
         linestyle="dotted",
     )
@@ -262,7 +262,7 @@ def plot_bayes_result(
         blobs[key].sel(element="ar"),
         key,
         figheader=figheader,
-        phantom_profile=phantom_profiles[key].sel(element="ar"),
+        phantom_profile=phantom_profiles[key],
         color="red",
     )
 
