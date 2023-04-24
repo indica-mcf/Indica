@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.transect_rho import TransectCoordinates
+from indica.converters.transect import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
@@ -59,6 +59,7 @@ class ChargeExchange(DiagnosticModel):
         Vtor: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
@@ -77,12 +78,12 @@ class ChargeExchange(DiagnosticModel):
         """
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Ti = self.plasma.ion_temperature.interp(t=t)
             Vtor = self.plasma.toroidal_rotation.interp(t=t)
         else:
             if Ti is None or Vtor is None:
-                raise ValueError("Give inputs of assign plasma class!")
+                raise ValueError("Give inputs or assign plasma class!")
 
         if "element" in Vtor.dims:
             Vtor = Vtor.sel(element=self.element)
@@ -93,15 +94,9 @@ class ChargeExchange(DiagnosticModel):
         self.Vtor = Vtor
         self.Ti = Ti
 
-        Ti_at_channels = self.transect_transform.map_to_rho(
-            Ti,
-            t=t,
-            calc_rho=calc_rho,
-        )
+        Ti_at_channels = self.transect_transform.map_to_rho(Ti, t=t, calc_rho=calc_rho)
         Vtor_at_channels = self.transect_transform.map_to_rho(
-            Vtor,
-            t=t,
-            calc_rho=calc_rho,
+            Vtor, t=t, calc_rho=calc_rho
         )
 
         self.Ti_at_channels = Ti_at_channels
@@ -113,7 +108,7 @@ class ChargeExchange(DiagnosticModel):
 
 
 def example_run(
-    pulse:int=None,
+    pulse: int = None,
     diagnostic_name: str = "cxrs",
     plasma=None,
     plot=False,
@@ -182,5 +177,12 @@ def example_run(
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")
         plt.legend()
+        plt.show()
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+    plt.ioff()
+    example_run(plot=True)
+    plt.show()

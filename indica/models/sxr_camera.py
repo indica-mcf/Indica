@@ -11,9 +11,10 @@ from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
-class Bolometer(DiagnosticModel):
+class SXRcamera(DiagnosticModel):
     """
-    Object representing a bolometer camera diagnostic
+    Object representing a SXR camera diagnostic
+    Currently identical to bolometer model...
     """
 
     def __init__(
@@ -78,7 +79,7 @@ class Bolometer(DiagnosticModel):
             if t is None:
                 t = self.plasma.t
             Ne = self.plasma.electron_density.interp(t=t)
-            _Lz = self.plasma.lz_tot
+            _Lz = self.plasma.lz_sxr
             Lz = {}
             for elem in _Lz.keys():
                 Lz[elem] = _Lz[elem].interp(t=t)
@@ -186,7 +187,7 @@ def example_run(
         passes=1,
     )
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = Bolometer(
+    model = SXRcamera(
         diagnostic_name,
     )
     model.set_los_transform(los_transform)
@@ -198,9 +199,3 @@ def example_run(
         model.plot()
 
     return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    plt.ioff()
-    example_run(plot=True)
-    plt.show()

@@ -1,10 +1,14 @@
 from copy import deepcopy
+import warnings
+
 import flatdict
 import numpy as np
-np.seterr(divide="ignore")
-import warnings
-warnings.simplefilter("ignore", category=FutureWarning)
 from scipy.stats import uniform
+
+np.seterr(all="ignore")
+
+warnings.simplefilter("ignore", category=FutureWarning)
+
 
 def gaussian(x, mean, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
@@ -12,7 +16,7 @@ def gaussian(x, mean, sigma):
 
 def get_uniform(lower, upper):
     # Less confusing parameterisation of scipy.stats uniform
-    return uniform(loc=lower, scale=upper-lower)
+    return uniform(loc=lower, scale=upper - lower)
 
 
 class BayesModels:
@@ -41,7 +45,6 @@ class BayesModels:
         priors: dict = {},
         diagnostic_models: list = [],
     ):
-
         self.plasma = plasma
         self.data = data
         self.quant_to_optimise = quant_to_optimise
@@ -57,10 +60,13 @@ class BayesModels:
 
     def _build_bckc(self, params: dict, **kwargs):
         # TODO: consider how to handle if models have overlapping kwargs
-        # Params is a dictionary which is updated by optimiser, kwargs is constant i.e. settings for models
-        self.bckc = {}
+        # Params is a dictionary which is updated by optimiser,
+        # kwargs is constant i.e. settings for models
+        self.bckc: dict = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(self.bckc, **{model.name: {**model(**{**params, **kwargs})}})
+            self.bckc = dict(
+                self.bckc, **{model.name: {**model(**{**params, **kwargs})}}
+            )
         self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
         return
 
@@ -68,37 +74,45 @@ class BayesModels:
         ln_likelihood = 0
         for key in self.quant_to_optimise:
             # TODO: What to use as error?  Assume percentage error if none given...
-            ln_likelihood += np.log(
-                gaussian(
-                    self.bckc[key].values,
-                    self.data[key].sel(t=self.plasma.time_to_calculate).values,
-                    self.data[key].sel(t=self.plasma.time_to_calculate).values * 0.10,
-                )
+            # Float128 is used since rounding of small numbers causes
+            # problems when initial results are bad fits
+            model_data = self.bckc[key].values.astype("float128")
+            exp_data = (
+                self.data[key]
+                .sel(t=self.plasma.time_to_calculate)
+                .values.astype("float128")
             )
+            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.10))
+            ln_likelihood += np.nanmean(_ln_likelihood)
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
-        # TODO: check for conditional priors before giving warning
-        # params_without_priors = [x for x in parameters.keys() if x not in self.priors.keys()]
-        # if params_without_priors.__len__() > 0:
-        #     print(f"paramaters {params_without_priors} have no priors assigned")
-
         ln_prior = 0
         for prior_name, prior_func in self.priors.items():
-            param_values = [parameters[x] for x in parameters.keys() if x in prior_name]
-            if param_values.__len__() == 0:  # if prior assigned but no parameter then skip
+            param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
+            if param_names_in_prior.__len__() == 0:
+                # if prior assigned but no parameter then skip
                 continue
-            elif param_values.__len__() >= 1:
-                if hasattr(prior_func, "pdf"):  # for scipy.stats objects use pdf / for lambda functions just call
-                    ln_prior += np.log(prior_func.pdf(*param_values))
-                else:
-                    # if lambda prior with 2+ args is defined when only 1 of its parameters is given ignore it
-                    if prior_func.__code__.co_argcount != param_values.__len__():
-                        continue
-                    else:
-                        ln_prior += np.log(prior_func(*param_values))
+            param_values = [parameters[x] for x in param_names_in_prior]
+            if hasattr(prior_func, "pdf"):
+                # for scipy.stats objects use pdf / for lambda functions just call
+                ln_prior += np.log(prior_func.pdf(*param_values))
             else:
-                raise ValueError(f"Unexpected value for {param_values}")
+                # if lambda prior with 2+ args is defined when only
+                # 1 of its parameters is given ignore it
+                if prior_func.__code__.co_argcount != param_values.__len__():
+                    continue
+                else:
+                    # Sorting to make sure args are given in
+                    # the same order as the prior_name string
+                    name_index = [
+                        prior_name.find(param_name_in_prior)
+                        for param_name_in_prior in param_names_in_prior
+                    ]
+                    sorted_name_index, sorted_param_values = (
+                        list(x) for x in zip(*sorted(zip(name_index, param_values)))
+                    )
+                    ln_prior += np.log(prior_func(*sorted_param_values))
         return ln_prior
 
     def sample_from_priors(self, param_names, size=10):
@@ -117,14 +131,18 @@ class BayesModels:
         while samples.size < param_names.__len__() * size:
             # Some mangling of dictionaries so _ln_prior works
             # Increase size * n if too slow / looping too much
-            new_sample = {name: self.priors[name].rvs(size=size*2) for name in param_names}
+            new_sample = {
+                name: self.priors[name].rvs(size=size * 2) for name in param_names
+            }
             ln_prior = self._ln_prior(new_sample)
-            # Convert from dictionary of arrays -> array, then filtering out where ln_prior is -infinity
-            accepted_samples = np.array(list(new_sample.values()))[:, ln_prior!=-np.inf]
+            # Convert from dictionary of arrays -> array,
+            # then filtering out where ln_prior is -infinity
+            accepted_samples = np.array(list(new_sample.values()))[
+                :, ln_prior != -np.inf
+            ]
             samples = np.append(samples, accepted_samples, axis=1)
-        samples = samples[:,0:size]
+        samples = samples[:, 0:size]
         return samples.transpose()
-
 
     def ln_posterior(self, parameters: dict, **kwargs):
         """
@@ -167,9 +185,7 @@ class BayesModels:
             "impurity_density": self.plasma.impurity_density.sel(
                 t=self.plasma.time_to_calculate
             ),
-            # TODO: add Ni/Nh/Nimp when fz property works 1 timepoint
+            # TODO: add Nh
         }
         blob = deepcopy({**self.bckc, **kin_profs})
         return ln_posterior, blob
-
-

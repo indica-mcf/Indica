@@ -1,20 +1,27 @@
+from typing import Callable
+from typing import Dict
+
 import numpy as np
+import pytest
 
-import indica.models.bolometer_camera as bolo
-import indica.models.charge_exchange as cxrs
-import indica.models.diode_filters as diodes
-import indica.models.helike_spectroscopy as helike
-import indica.models.interferometry as interf
+from indica.models.bolometer_camera import example_run as bolo
+from indica.models.charge_exchange import example_run as cxrs
+from indica.models.diode_filters import example_run as diodes
+from indica.models.equilibrium_reconstruction import example_run as equil_recon
+from indica.models.helike_spectroscopy import example_run as helike
+from indica.models.interferometry import example_run as interf
 from indica.models.plasma import example_run as example_plasma
-import indica.models.thomson_scattering as ts
+from indica.models.thomson_scattering import example_run as ts
 
-MODELS = {
+
+EXAMPLES: Dict[str, Callable] = {
     "bolometer_camera": bolo,
     "diode_filters": diodes,
     "interferometry": interf,
     "helike_spectroscopy": helike,
     "thomson_scattering": ts,
     "charge_exchange": cxrs,
+    "equilibrium_reconstruction": equil_recon,
 }
 PLASMA = example_plasma(pulse=None, tstart=0, tend=0.1, dt=0.02)
 NT = np.size(PLASMA.t)
@@ -29,26 +36,20 @@ TIME_INTERP = np.linspace(TSTART + DT, TEND - DT, num=int(NT / 3))
 
 def _test_timepoint_pass(model_name: str, **kwargs):
     """Test that model can be called for single time-point"""
-    model = MODELS[model_name]
-    _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
+    _, model, bckc = EXAMPLES[model_name](plasma=PLASMA, **kwargs)
     model(t=TIME_SINGLE_PASS)
 
 
 def _test_timepoint_fail(model_name: str, **kwargs):
-    """Test that model can be called for single time-point
-    TODO: use pytes/unittest assertions to catch ValueError"""
-    model = MODELS[model_name]
-    _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
-    try:
+    """Test that model can be called for single time-point"""
+    _, model, bckc = EXAMPLES[model_name](plasma=PLASMA, **kwargs)
+    with pytest.raises(Exception):
         model(t=TIME_SINGLE_FAIL)
-    except ValueError:
-        return
 
 
 def _test_time_interpolation(model_name: str, **kwargs):
     """Test that model correctly interpolates data on new axis"""
-    model = MODELS[model_name]
-    _, model, bckc = model.example_run(plasma=PLASMA, **kwargs)
+    _, model, bckc = EXAMPLES[model_name](plasma=PLASMA, **kwargs)
     bckc = model(t=TIME_INTERP, **kwargs)
 
     for quantity, value in bckc.items():
@@ -128,13 +129,13 @@ def test_helike_interpolation():
     _test_time_interpolation("helike_spectroscopy")
 
 
-def test_helike_full_timepoint_fail():
-    _test_timepoint_fail("helike_spectroscopy", calc_spectra=True)
+def test_equil_recon_timepoint_fail():
+    _test_timepoint_fail("equilibrium_reconstruction")
 
 
-def test_helike_full_timepoint_pass():
-    _test_timepoint_pass("helike_spectroscopy", calc_spectra=True)
+def test_equil_recon_timepoint_pass():
+    _test_timepoint_pass("equilibrium_reconstruction")
 
 
-def test_helike_full_interpolation():
-    _test_time_interpolation("helike_spectroscopy", calc_spectra=True)
+def test_equil_recon_interpolation():
+    _test_time_interpolation("equilibrium_reconstruction")
