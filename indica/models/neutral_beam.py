@@ -2,40 +2,35 @@ from typing import Tuple
 
 import numpy as np
 
-from ..converters.line_of_sight import LineOfSightTransform
-from ..models.plasma import Plasma
+from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.plasma import example_run
 
 
-analytical_beam_defaults = {
-    "element": "H",
-    "amu": int(1),
-    "energy": 25.0 * 1e3,
-    "power": 500 * 1e3,
-    "fractions": (0.7, 0.1, 0.2, 0.0),
-    "divergence": (14 * 1e-3, 14e-3),
-    "width": (0.025, 0.025),
-    "location": (-0.3446, -0.9387, 0.0),
-    "direction": (0.707, 0.707, 0.0),
-    "focus": 1.8,
-}
-
-
-class NeutralBeam:
-    def __init__(self, name: str, use_defaults=True, **kwargs):
+class NeutralBeam(DiagnosticModel):
+    def __init__(
+        self,
+        name: str = 'RFX',
+        element: str = "H",
+        amu: float = 1.0,
+        energy: float = 25.0 * 1e3,
+        power: float = 500.0 * 1e3,
+        fractions: tuple = (0.7, 0.1, 0.2, 0.0),
+        div_x: float = 14 * 1e-3,
+        div_y: float = 14 * 1e-3,
+        width_x: float = 0.025,
+        width_y: float = 0.025,
+    ):
         """Set beam parameters, initialisation"""
         self.name = name  # Beam name
-
-        # Use beam defaults
-        if use_defaults:
-            for (prop, default) in analytical_beam_defaults.items():
-                setattr(self, prop, kwargs.get(prop, default))
-        else:
-            for (prop, default) in analytical_beam_defaults.items():
-                setattr(self, prop, None)
-            return
-
-        # Set line_of_sight transform for centre of beam-line
-        self.set_los_transform()
+        self.element = element  # Element
+        self.amu = amu  # Atomic mass
+        self.energy = energy  # Beam energy (eV)
+        self.power = power  # Beam power (W)
+        self.fractions = fractions  # Beam fractions (%)
+        self.div_x = div_x  # Beam divergence in x (rad)
+        self.div_y = div_y  # Beam divergence in y (rad)
+        self.width_x = width_x  # Beam 1/e width in x (metres)
+        self.width_y = width_y  # Beam 1/e width in y (metres)
 
         # Set Attenuator
         self.attenuator = None
@@ -45,65 +40,100 @@ class NeutralBeam:
         print(f"Energy = {self.energy} electron-volts")
         print(f"Power = {self.power} watts")
         print(f"Fractions (full, 1/2, 1/3, imp) = {self.fractions} %")
-        print(f"divergence (x, y) = {self.divergence} rad")
-        print(f"width (x, y) = {self.width} metres")
+        print(f"divergence (x, y) = ({self.div_x},{self.div_y}) rad")
+        print(f"width (x, y) = ({self.width_x},{self.width_y}) metres")
 
-    def set_los_transform(
-        self,
-        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-            (0.175, 1.0),
-            (-2.0, 2.0),
-        ),
+    def _build_bckc_dictionary(self):
+        print('Im not sure what this does?')
+        return
+
+    def __call__(
+            self,
+            beam_on: np.ndarray,
+            which_code: str = 'FIDASIM',
     ):
-        self.transform = LineOfSightTransform(
-            np.array([self.location[0]]),
-            np.array([self.location[1]]),
-            np.array([self.location[2]]),
-            np.array([self.direction[0]]),
-            np.array([self.direction[1]]),
-            np.array([self.direction[2]]),
-            name=f"{self.name}_los",
-            dl=0.01,
-            machine_dimensions=machine_dimensions,
-        )
+        print('Hello, you called?')
+        print(f"You've selected {which_code}")
 
-    def set_plasma(self, plasma: Plasma):
-        """
-        Assign Plasma class to use for computation of forward model
-        """
-        self.plasma = plasma
+        # Here's the plasma object
+        print(self.plasma)
+
+        # Run the beam code
+        if which_code.lower() == 'fidasim':
+
+            self.run_FIDASIM_ST40(
+                beam_on
+            )
+
+        else:
+
+            raise ValueError(f'No available beam code called {which_code}')
+
+        return
 
     def run_BBNBI(self):
         print("Add code to run BBNBI")
 
     def run_FIDASIM_ST40(
             self,
-            pulse: int,
-            run_name: str,
-            times: list,
+            beam_on: np.ndarray,
             path_to_code='/home/jonathan.wood/git_home/te-fidasim'
     ):
-        print("Add code to run FIDASIM")
+        # Import package - ToDo: move into the Indica
         import sys
         sys.path.append(path_to_code)
         import prepare_fidasim_ST40
 
-        # Inputs for #10009
-        geqdsk = 'input/ST40_10009_EFIT_BEST_57p15ms.geqdsk'
-        run_fidasim = True
+        # Times to analyse
+        times = self.plasma.t.data
+
+        print(f'times = {times}')
+        print(f'beam_on = {beam_on}')
 
         # Run Fidasim
-        for time in times:
-            prepare_fidasim_ST40.main(
-                shot_number=pulse,
-                run=run_name,
-                spec="Princeton",
-                beam=self.name,
-                custom_geqdsk=geqdsk,
-                custom_time=time,
-                force_run_fidasim=run_fidasim,
-            )
+        for i_time, time in enumerate(times):
+            if beam_on[i_time]:
 
+                print('Run FIDASIM here')
+                print('aa'**2)
+
+                #prepare_fidasim_ST40.main(
+                #    shot_number=pulse,
+                #    run=run_name,
+                #    spec="Princeton",
+                #    beam=self.name,
+                #    custom_geqdsk=geqdsk,
+                #    custom_time=time,
+                #    force_run_fidasim=run_fidasim,
+                #)
+
+    #def run_FIDASIM_ST40_old(
+    #        self,
+    #        pulse: int,
+    #        run_name: str,
+    #        times: list,
+    #        path_to_code='/home/jonathan.wood/git_home/te-fidasim'
+    #):
+    #    print("Add code to run FIDASIM")
+    #    import sys
+    #    sys.path.append(path_to_code)
+    #    import prepare_fidasim_ST40
+
+    #    # Inputs for #10009
+    #    geqdsk = 'input/ST40_10009_EFIT_BEST_57p15ms.geqdsk'
+    #    run_fidasim = True
+
+    #    # Run Fidasim
+    #    for time in times:
+    #        prepare_fidasim_ST40.main(
+    #            shot_number=pulse,
+    #            run=run_name,
+    #            spec="Princeton",
+    #            beam=self.name,
+    #            custom_geqdsk=geqdsk,
+    #            custom_time=time,
+    #            force_run_fidasim=run_fidasim,
+    #        )
 
     def gaussian_beam_representation(self, nx=101, ny=101, nz=51):
         print("Add code to generate Gaussian beam")
@@ -187,7 +217,6 @@ class NeutralBeam:
         self.z_b = ell
         self.n_b = n_b
 
-
     def Tait_Bryan_rotate(self, alpha, beta, gamma):
         """
             https://en.wikipedia.org/wiki/Davenport_chained_rotations
@@ -214,143 +243,21 @@ class NeutralBeam:
 
         return M
 
-
-    # def run_analytical_beam(
-    #     self,
-    #     x_dash: LabeledArray = DataArray(np.linspace(-0.25, 0.25, 101, dtype=float)),
-    #     y_dash: LabeledArray = DataArray(np.linspace(-0.25, 0.25, 101, dtype=float)),
-    # ):
-    #     """Analytical beam based on double gaussian formula"""
-    #
-    #     # Calculate Attenuator
-    #     x2 = self.transform.x2
-    #     attenuation_factor = np.ones_like(
-    #         x2
-    #     )  # Replace with Attenuation Object in future, interact with plasma
-    #
-    #     # Calculate beam velocity
-    #     # v_beam = self.beam_velocity()
-    #     # e = 1.602 * 1e-19
-    #
-    #     # Neutral beam
-    #     n_x = 101
-    #     n_y = 101
-    #     n_z = len(attenuation_factor)
-    #     nb_dash = np.zeros((n_z, n_x, n_y), dtype=float)
-    #     # for i_z in range(n_z):
-    #     #   for i_y in range(n_y):
-    #     #       y_here = y_dash[i_y]
-    #     #       exp_factor = np.exp(
-    #     #           -(x_dash**2 / self.width[0]**2) - (y_here**2 / self.width[1]**2)
-    #     #       )
-    #     #       nb_dash[i_z, :, i_y] = \
-    #     #           self.power * attenuation_factor[i_z] * exp_factor / \
-    #     #           (np.pi * self.energy * e * np.prod(self.width) * v_beam)
-    #
-    #     # mesh-grid of beam cross section coordinates
-    #     z_dash = x2
-    #     X_dash, Y_dash, Z_dash = np.meshgrid(x_dash, y_dash, z_dash)
-    #     R_dash = np.sqrt(X_dash**2 + Y_dash**2)
-    #     T_dash = np.arctan2(Y_dash, X_dash)
-    #
-    #     x_transform = self.transform.x
-    #     y_transform = self.transform.y
-    #     z_transform = self.transform.z
-    #     r_transform = np.sqrt(self.transform.x**2 + self.transform.y**2)
-    #     theta_transform = np.arctan2(
-    #         y_transform[1] - y_transform[0], x_transform[1] - x_transform[0]
-    #     )
-    #     phi_transform = np.arctan2(
-    #         z_transform[1] - z_transform[0], r_transform[1] - r_transform[0]
-    #     )
-    #     theta_n = theta_transform + (np.pi / 2)
-    #     phi_n = phi_transform + (np.pi / 2)
-    #
-    #     xd = np.zeros_like(X_dash)
-    #     yd = np.zeros_like(Y_dash)
-    #     zd = np.zeros_like(Z_dash)
-    #     for i_z in range(len(x2)):
-    #         delta_X_dash = R_dash[:, :, i_z] * np.cos(T_dash[:, :, i_z])
-    #         delta_Y_dash = R_dash[:, :, i_z] * np.sin(T_dash[:, :, i_z])
-    #
-    #         xd[:, :, i_z] = x_transform[i_z].data + delta_X_dash * np.cos(
-    #             theta_n.data
-    #         )  # + X_dash[:, :, i_z]*np.tan(theta_n)
-    #         yd[:, :, i_z] = y_transform[i_z].data + delta_X_dash * np.sin(
-    #             theta_n.data
-    #         )  # + Y_dash[:, :, i_z]*np.tan(theta_n)
-    #         zd[:, :, i_z] = z_transform[i_z].data + delta_Y_dash * np.sin(phi_n.data)
-    #
-    #     plt.figure()
-    #     for i_z in range(len(x2)):
-    #         plt.plot(xd[:, :, i_z].flatten(), yd[:, :, i_z].flatten(), "r.")
-    #     plt.plot(self.transform.x, self.transform.y, "k")
-    #     plt.axis("equal")
-    #     plt.show(block=True)
-    #
-    #     # print(X_dash)
-    #     # print(np.shape(X_dash))
-    #     # print("aa" ** 2)
-    #
-    #     # # Interpolate over tok-grid
-    #     # x_tok = DataArray(np.linspace(-1.0, 1.0, 101, dtype=float))
-    #     # y_tok = DataArray(np.linspace(-1.0, 1.0, 101, dtype=float))
-    #     # z_tok = DataArray(np.linspace(-0.5, 0.5, 51, dtype=float))
-    #     # points = (z_tok.data, x_tok.data, y_tok.data)
-    #
-    #     # X_tok, Y_tok, Z_tok = np.meshgrid(x_tok, y_tok, z_tok)
-    #     # X_tok = X_tok.flatten()
-    #     # Y_tok = Y_tok.flatten()
-    #     # Z_tok = Z_tok.flatten()
-    #     # nb_tok = np.zeros_like(X_tok)
-    #     # for i in range(len(X_tok)):
-    #     #     print(f'{i}out of {len(X_tok)}')
-    #     #     point = np.array([Z_tok[i], X_tok[i], Y_tok[i]])
-    #     #     nb_tok[i] = interpn(points, nb_dash, point, method='linear')
-    #
-    #     # print("aa" ** 2)
-    #
-    #     if True:
-    #
-    #         plt.figure()
-    #         plt.plot(x_dash, np.sum(nb_dash[0, :, :], axis=1))
-    #
-    #         plt.figure()
-    #         plt.contour(x_dash, y_dash, nb_dash[0, :, :], 100)
-    #         plt.xlabel("X (m)")
-    #         plt.ylabel("Y (m)")
-    #         plt.title("Initial beam cross section")
-    #         plt.show(block=True)
-
     def beam_velocity(self):
         return 4.38 * 1e5 * np.sqrt(self.energy * 1e-3 / float(self.amu))
 
-    def set_energy(self, energy: float):
-        self.energy = energy
 
-    def set_power(self, power: float):
-        self.power = power
+if __name__ == '__main__':
+    print('Welcome!')
 
-    def set_divergence(self, divergence: tuple):
-        self.divergence = divergence
+    # Beam data
 
-    def set_fractions(self, fractions: tuple):
-        self.fractions = fractions
+    # Generate neutral beam model
+    beam = NeutralBeam()
 
-    def set_width(self, width: tuple):
-        self.width = width
+    # Set plasma
+    plasma = example_run()
+    beam.set_plasma(plasma)
 
-    def set_element(self, element: str):
-        self.element = element
-        if self.element == "H":
-            self.amu = int(1)
-        elif self.element == "D":
-            self.amu = int(2)
-        else:
-            raise ValueError
-
-    def set_location(self, location: tuple):
-        self.location = location
-
-    def set_direction(self, direction: tuple):
-        self.direction = direction
+    # Call beam function
+    out = beam()
