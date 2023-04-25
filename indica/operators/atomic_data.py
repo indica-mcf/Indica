@@ -1,6 +1,5 @@
 import copy
 from typing import cast
-from typing import get_args
 from typing import List
 from typing import Tuple
 from typing import Union
@@ -16,27 +15,8 @@ from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from .. import session
 from ..datatypes import DataType
-from ..utilities import input_check
 
 np.set_printoptions(edgeitems=10, linewidth=100)
-
-
-def shape_check(
-    data_to_check: dict,
-):
-    """Check to make sure all items in a given dictionary
-    have the same dimensions as each other.
-    Parameters
-    ----------
-    data_to_check
-        Dictionary containing data to check.
-    """
-    try:
-        for key1, val1 in data_to_check.items():
-            for key2, val2 in data_to_check.items():
-                assert val1.shape == val2.shape
-    except AssertionError:
-        raise ValueError(f"{key1} and {key2} are not the same shape")
 
 
 class FractionalAbundance(Operator):
@@ -73,9 +53,6 @@ class FractionalAbundance(Operator):
 
     Methods
     -------
-    interpolation_bounds_check(Ne, Te)
-        Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside SCD, ACD and CCD.
     interpolate_rates(Ne, Te)
         Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
@@ -116,11 +93,8 @@ class FractionalAbundance(Operator):
         ACD: DataArray,
         CCD: DataArray = None,
         sess: session.Session = session.global_session,
-        check_input=True,
     ):
-        """Initialises FractionalAbundance class and additionally performs error
-        checking on imported data (SCD, ACD and CCD).
-        """
+        """Initialises FractionalAbundance class"""
         super().__init__(sess)
         self.Ne = None
         self.Te = None
@@ -130,97 +104,6 @@ class FractionalAbundance(Operator):
         self.SCD = SCD
         self.ACD = ACD
         self.CCD = CCD
-
-        if check_input:
-            imported_data = {}
-            imported_data["SCD"] = self.SCD
-            imported_data["ACD"] = self.ACD
-            if self.CCD is not None:
-                imported_data["CCD"] = self.CCD
-
-            for ikey, ival in imported_data.items():
-                input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
-            shape_check(imported_data)
-
-    def interpolation_bounds_check(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
-    ):
-        """Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside imported_data(SCD,CCD,ACD,PLT,PRC,PRB).
-
-        Parameters
-        ----------
-        Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
-        Te
-            xarray.DataArray of electron temperature as a profile of a user-chosen
-            coordinate.
-        """
-        imported_data = {}
-        imported_data["SCD"] = self.SCD
-        imported_data["ACD"] = self.ACD
-        if self.CCD is not None:
-            imported_data["CCD"] = self.CCD
-
-        inputted_data = {}
-
-        input_check("Ne", Ne, DataArray, strictly_positive=False)
-        inputted_data["Ne"] = Ne
-
-        input_check("Te", Te, DataArray, strictly_positive=True)
-        inputted_data["Te"] = Te
-
-        shape_check(inputted_data)
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Ne"] <= np.max(val.coords["electron_density"])
-                )
-        except AssertionError:
-            raise ValueError(
-                f"Inputted electron number density is larger than the \
-                    maximum interpolation range in {key}"
-            )
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Ne"] >= np.min(val.coords["electron_density"])
-                )
-        except AssertionError:
-            raise ValueError(
-                f"Inputted electron number density is smaller than the \
-                    minimum interpolation range in {key}"
-            )
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
-                )
-        except AssertionError:
-            print(
-                np.max(inputted_data["Te"]), np.max(val.coords["electron_temperature"])
-            )
-            raise ValueError(
-                f"Inputted electron temperature is larger than the \
-                    maximum interpolation range in {key}"
-            )
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Te"] >= np.min(val.coords["electron_temperature"])
-                )
-        except AssertionError:
-            raise ValueError(
-                f"Inputted electron temperature is smaller than the \
-                    minimum interpolation range in {key}"
-            )
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         """Indicates the datatypes of the results when calling the operator
@@ -245,7 +128,6 @@ class FractionalAbundance(Operator):
         self,
         Ne: DataArray,
         Te: DataArray,
-        bounds_check=True,
     ):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
@@ -258,8 +140,6 @@ class FractionalAbundance(Operator):
         Te
             xarray.DataArray of electron temperature as a profile of a user-chosen
             coordinate.
-        bounds_check
-            Check bounds of inputted data
 
         Returns
         -------
@@ -272,9 +152,6 @@ class FractionalAbundance(Operator):
         num_of_ion_charges
             Number of ionisation charges(stages) for the given impurity element.
         """
-
-        if bounds_check:
-            self.interpolation_bounds_check(Ne, Te)
 
         self.Ne, self.Te = Ne, Te  # type: ignore
 
@@ -329,11 +206,6 @@ class FractionalAbundance(Operator):
             Matrix representing coefficients of the differential equation governing
             the time evolution of the ionisation balance.
         """
-        inputted_data = {}
-
-        input_check("Ne", Ne, DataArray, strictly_positive=False)
-        inputted_data["Ne"] = Ne
-
         if Nh is not None:
             if self.CCD is None:
                 raise ValueError(
@@ -341,13 +213,8 @@ class FractionalAbundance(Operator):
                     CCD (effective charge exchange recombination) at initialisation \
                     is None."
                 )
-            input_check("Nh", Nh, DataArray, strictly_positive=False)
-            inputted_data["Nh"] = Nh
         elif self.CCD is not None:
             Nh = cast(DataArray, zeros_like(Ne))
-            inputted_data["Nh"] = cast(DataArray, Nh)
-
-        shape_check(inputted_data)
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
@@ -527,8 +394,6 @@ class FractionalAbundance(Operator):
                 dims=["ion_charges", x1_coord.dims[0]],
             )
         else:
-            input_check("F_z_t0", F_z_t0, DataArray, strictly_positive=False)
-
             try:
                 assert F_z_t0.ndim < 3
             except AssertionError:
@@ -587,14 +452,6 @@ class FractionalAbundance(Operator):
         F_z_t
             Fractional abundance at tau.
         """
-
-        input_check(
-            "tau",
-            tau,
-            get_args(LabeledArray),
-            strictly_positive=False,
-        )
-
         x1_coord = self.x1_coord
         F_z_t = copy.deepcopy(self.F_z_tinf)
         for ix1 in range(x1_coord.size):
@@ -628,7 +485,6 @@ class FractionalAbundance(Operator):
         tau: LabeledArray = None,
         F_z_t0: DataArray = None,
         full_run: bool = False,
-        bounds_check=True,
     ) -> DataArray:
         """Executes all functions in correct order to calculate the fractional
         abundance.
@@ -654,8 +510,6 @@ class FractionalAbundance(Operator):
             for calculating abundance from the start. If (False), fractional abundance
             will be interpolated on input electron temperature
             (Optional)
-        bounds_check
-            Check bounds of inputted data
 
         Returns
         -------
@@ -663,7 +517,7 @@ class FractionalAbundance(Operator):
             Fractional abundance at tau.
         """
         if full_run or not hasattr(self, "F_z_t"):
-            self.interpolate_rates(Ne, Te, bounds_check=bounds_check)
+            self.interpolate_rates(Ne, Te)
 
             self.calc_ionisation_balance_matrix(Ne, Nh)
 
@@ -721,9 +575,6 @@ class PowerLoss(Operator):
 
     Methods
     -------
-    interpolation_bounds_check(Ne, Te)
-        Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside PLT, PRB and PRC).
     interpolate_power(Ne, Te)
         Interpolates the various powers based on inputted Ne and Te.
     calculate_power_loss(Ne, F_z_t, Nh)
@@ -768,89 +619,6 @@ class PowerLoss(Operator):
         if self.PRC is not None:
             imported_data["PRC"] = self.PRC
 
-        for ikey, ival in imported_data.items():
-            input_check(var_name=ikey, var_to_check=ival, var_type=DataArray)
-
-        # shape_check(imported_data)
-
-    def interpolation_bounds_check(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
-    ):
-        """Checks that inputted data (Ne and Te) has values that are within the
-        interpolation ranges specified inside imported_data(PLT,PRC,PRB).
-
-        Parameters
-        ----------
-        Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
-        Te
-            xarray.DataArray of electron temperature as a profile of a user-chosen
-            coordinate.
-        """
-
-        imported_data = {}
-        imported_data["PLT"] = self.PLT
-        imported_data["PRB"] = self.PRB
-        if self.PRC is not None:
-            imported_data["PRC"] = self.PRC
-
-        inputted_data = {}
-
-        input_check("Ne", Ne, DataArray, strictly_positive=False)
-        inputted_data["Ne"] = Ne
-
-        input_check("Te", Te, DataArray, strictly_positive=False)
-        inputted_data["Te"] = Te
-
-        shape_check(inputted_data)
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Ne"] <= np.max(val.coords["electron_density"])
-                )
-        except AssertionError:
-            raise ValueError(
-                f"Inputted electron number density is larger than the \
-                    maximum interpolation range in {key}"
-            )
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Ne"] >= np.min(val.coords["electron_density"])
-                )
-        except AssertionError:
-            raise ValueError(
-                f"Inputted electron number density is smaller than the \
-                    minimum interpolation range in {key}"
-            )
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Te"] <= np.max(val.coords["electron_temperature"])
-                )
-        except AssertionError:
-            raise ValueError(
-                f"Inputted electron temperature is larger than the \
-                    maximum interpolation range in {key}"
-            )
-
-        try:
-            for key, val in imported_data.items():
-                assert np.all(
-                    inputted_data["Te"] >= np.min(val.coords["electron_temperature"])
-                )
-        except AssertionError:
-            raise ValueError(
-                f"Inputted electron temperature is smaller than the \
-                    minimum interpolation range in {key}"
-            )
-
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         """Indicates the datatypes of the results when calling the operator
         with arguments of the given types. It is assumed that the
@@ -874,7 +642,6 @@ class PowerLoss(Operator):
         self,
         Ne: DataArray,
         Te: DataArray,
-        bounds_check=True,
     ):
         """Interpolates the various powers based on inputted Ne and Te.
 
@@ -886,8 +653,6 @@ class PowerLoss(Operator):
         Te
             xarray.DataArray of electron temperature as a profile of a user-chosen
             coordinate.
-        bounds_check
-            Check bounds of inputted data
 
         Returns
         -------
@@ -903,11 +668,8 @@ class PowerLoss(Operator):
             Number of ionisation charges(stages) for the given impurity element.
         """
 
-        if bounds_check:
-            self.interpolation_bounds_check(Ne, Te)
-
         self.Ne, self.Te = Ne, Te  # type: ignore
-        # TODO: check why errors coming out with interp2d...
+        # TODO: why errors using interp2d for cubic density interpolation?
         # try:
         #     PLT_spec = self.PLT.indica.interp2d(
         #         electron_temperature=Te,
@@ -982,9 +744,6 @@ class PowerLoss(Operator):
         cooling_factor
             Total radiated power of all ionisation charges.
         """
-        inputted_data = {}
-        inputted_data["Ne"] = Ne
-
         if Nh is not None:
             if self.PRC is None:
                 raise ValueError(
@@ -992,19 +751,12 @@ class PowerLoss(Operator):
                     PRC (effective charge exchange power) at initialisation \
                     is None."
                 )
-            input_check("Nh", Nh, DataArray, strictly_positive=False)
-            inputted_data["Nh"] = Nh
         elif self.PRC is not None:
             Nh = cast(DataArray, zeros_like(Ne))
-            inputted_data["Nh"] = cast(DataArray, Nh)
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
-        # if len(inputted_data) > 1:
-        #     shape_check(inputted_data)
-
         if F_z_t is not None:
-            input_check("F_z_t", F_z_t, DataArray, strictly_positive=False)
             try:
                 assert not np.iscomplexobj(F_z_t)
             except AssertionError:
@@ -1024,11 +776,7 @@ class PowerLoss(Operator):
 
         PLT, PRB, PRC = self.PLT_spec, self.PRB_spec, self.PRC_spec
 
-        # Mypy complaints about F_z_t not being subscriptable since it thinks
-        # it's a NoneType have been suppresed. This is because F_z_t is tested
-        # to be a DataArray with elements greater than zero.
-        # (in the input_check() above)
-
+        # TODO: make this faster by using DataArray methods
         cooling_factor = xr.zeros_like(self.F_z_t)
         for ix1 in range(x1_coord.size):
             icharge = 0
@@ -1071,7 +819,6 @@ class PowerLoss(Operator):
         Ne: DataArray = None,
         Nh: DataArray = None,
         full_run: bool = False,
-        bounds_check=True,
     ):
         """Executes all functions in correct order to calculate the total radiated
         power.
@@ -1095,8 +842,6 @@ class PowerLoss(Operator):
             run the entire ordered workflow(True) for calculating power loss from the
             start. This is mostly only useful for unit testing and is set to True by
             default. (Optional)
-        bounds_check
-            Check bounds of inputted data
 
         Returns
         -------
@@ -1105,7 +850,7 @@ class PowerLoss(Operator):
         """
 
         if full_run or not hasattr(self, "cooling_factor"):
-            self.interpolate_power(Ne, Te, bounds_check=bounds_check)
+            self.interpolate_power(Ne, Te)
             cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
             self.cooling_factor = cooling_factor
         else:

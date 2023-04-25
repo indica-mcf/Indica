@@ -5,11 +5,8 @@ from typing import Tuple
 from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
-from scipy.interpolate import interp1d
 import xarray as xr
 from xarray import DataArray
-from xarray import Dataset
-from xarray import Variable
 
 from .abstractconverter_rho import CoordinateTransform
 from ..numpy_typing import Coordinates
@@ -34,18 +31,14 @@ class TransectCoordinates(CoordinateTransform):
     array corresponding to the positions along the axis specified in
     the parmeters used to intialise the object.
 
-    The implementation currently makes use of interpolation, so that
-    it is completely general for nonuniformly spaced points and even
-    for a curved line (although the latter would be only
-    approximated). However, this has some computational overhead, so
-    it may be changed in future.
-
     Parameters
     ----------
-    R_positions
-        1-D array of major radii of locations along the transect.
+    x_positions
+        1-D array of x-locations along the transect.
+    y_positions
+        1-D array of y-locations along the transect.
     z_positions
-        1-D array of vertical position of locations along the transect.
+        1-D array of z-locations along the transect.
 
     """
 
@@ -65,50 +58,21 @@ class TransectCoordinates(CoordinateTransform):
         ) != np.shape(z_positions):
             raise ValueError("x_, y_ and z_positions must have the same dimensions.")
 
-        self.x1_name = "channel"
-        self.x2_name = ""
-        self.name = f"{name}_transect_transform"
+        self.x1_name: str = "channel"
+        self.x2_name: str = ""
+        self.name: str = f"{name}_transect_transform"
 
         x1 = np.arange(len(x_positions))
-        self.x1 = DataArray(x1, coords=[(self.x1_name, x1)])
-        self.x2 = DataArray(None)
+        self.x1: DataArray = DataArray(x1, coords=[(self.x1_name, x1)])
+        self.x2: DataArray = DataArray(None)
 
         # TODO: add intersection with first walls to restrict possible coordinates
         self._machine_dims = machine_dimensions
 
-        R_positions = np.sqrt(x_positions**2 + y_positions**2)
-        self.x_interp = interp1d(
-            self.x1, x_positions, copy=False, fill_value="extrapolate"
-        )
-        self.y_interp = interp1d(
-            self.x1, y_positions, copy=False, fill_value="extrapolate"
-        )
-        self.z_interp = interp1d(
-            self.x1, z_positions, copy=False, fill_value="extrapolate"
-        )
-
-        self.invert_x = interp1d(
-            x_positions, self.x1, copy=False, fill_value="extrapolate"
-        )
-        self.invert_y = interp1d(
-            y_positions, self.x1, copy=False, fill_value="extrapolate"
-        )
-        self.invert_z = interp1d(
-            z_positions, self.x1, copy=False, fill_value="extrapolate"
-        )
-        self.invert_R = interp1d(
-            R_positions,
-            self.x1,
-            copy=False,
-            fill_value="extrapolate",
-        )
-
-        x, y = self.convert_to_xy(self.x1, self.x2, None)
-        R, z = self.convert_to_Rz(self.x1, self.x2, None)
-        self.x = x
-        self.y = y
-        self.z = z
-        self.R = R
+        self.x: DataArray = DataArray(x_positions, coords=[(self.x1_name, self.x1)])
+        self.y: DataArray = DataArray(y_positions, coords=[(self.x1_name, self.x1)])
+        self.z: DataArray = DataArray(z_positions, coords=[(self.x1_name, self.x1)])
+        self.R: DataArray = np.sqrt(self.x**2 + self.y**2)
         self.rho: DataArray = None
 
     def convert_to_Rz(
@@ -133,12 +97,8 @@ class TransectCoordinates(CoordinateTransform):
             Height coordinate
 
         """
-        dims = x1.dims if isinstance(x1, (DataArray, Variable, Dataset)) else None
-        coords = x1.coords if isinstance(x1, (DataArray, Dataset)) else None
-        R = DataArray(
-            np.sqrt(self.x_interp(x1) ** 2 + self.y_interp(x1) ** 2), coords, dims
-        )
-        z = DataArray(self.z_interp(x1), coords, dims)
+        R = self.R.sel(channel=x1)
+        z = self.z.sel(channel=x1)
         return R, z
 
     def convert_to_xy(
@@ -163,10 +123,8 @@ class TransectCoordinates(CoordinateTransform):
             y Cartesian coordinate
 
         """
-        dims = x1.dims if isinstance(x1, (DataArray, Variable, Dataset)) else None
-        coords = x1.coords if isinstance(x1, (DataArray, Dataset)) else None
-        x = DataArray(self.x_interp(x1), coords, dims)
-        y = DataArray(self.y_interp(x1), coords, dims)
+        x = self.x.sel(channel=x1)
+        y = self.y.sel(channel=x1)
         return x, y
 
     def convert_from_Rz(
@@ -191,9 +149,8 @@ class TransectCoordinates(CoordinateTransform):
             Not applicable to this transform: None
 
         """
-        dims = R.dims if isinstance(R, (DataArray, Variable, Dataset)) else None
-        coords = R.coords if isinstance(R, (DataArray, Dataset)) else None
-        x1 = DataArray(self.invert_R(R), coords, dims)
+        indices = np.where(np.isin(self.R, R) * np.isin(self.z, z))[0]
+        x1 = self.x1.isel(channel=indices)
         x2 = DataArray(None)
 
         return x1, x2
@@ -228,6 +185,7 @@ class TransectCoordinates(CoordinateTransform):
     ) -> list:
         """
         Map 1D profile to measurement coordinates
+        TODO: expand to 2D (R,z) once it has been completed on the LOS-transform
 
         Parameters
         ----------

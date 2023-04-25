@@ -31,7 +31,7 @@ def helike_LOS_example(nchannels=3):
 
 class TestHelike:
     def setup_class(self):
-        self.plasma = example_plasma(pulse=9229)
+        self.plasma = example_plasma()  # using Phantom
         self.single_time_point = self.plasma.time_to_calculate[1]
         self.multiple_time_point = self.plasma.time_to_calculate
         self.multiple_channel_los_transform = helike_LOS_example(nchannels=3)

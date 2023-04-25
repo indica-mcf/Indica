@@ -2,20 +2,16 @@
 
 from numbers import Number
 from typing import Any
-from typing import Collection
 from typing import Dict
-from typing import Iterable
 from typing import List
 from typing import Set
 from typing import Tuple
 
 import numpy as np
-from xarray import DataArray
 
 from indica import session
 from indica.numpy_typing import RevisionLike
 from indica.readers import DataReader
-from indica.readers.abstractreader import DataSelector
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
@@ -23,15 +19,6 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 TSTART = 0
 TEND = 10
-
-
-def selector(
-    data: DataArray,
-    channel_dim: str,
-    bad_channels: Collection[Number],
-    unselected_channels: Iterable[Number] = [],
-):
-    return bad_channels
 
 
 class Reader(DataReader):
@@ -58,7 +45,6 @@ class Reader(DataReader):
         server: str = "",
         default_error: float = 0.05,
         max_freq: float = 1e6,
-        selector: DataSelector = selector,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = ""
@@ -68,7 +54,6 @@ class Reader(DataReader):
             tend,
             max_freq,
             session,
-            selector,
             pulse=pulse,
             server=server,
             default_error=default_error,
@@ -81,7 +66,6 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -107,11 +91,9 @@ class Reader(DataReader):
         results["z"] = np.random.uniform(zmin, zmax, (results["length"],))
         results["R"] = np.random.uniform(Rmin, Rmax, (results["length"],))
         results["ti"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
-        results["ti_error"] = np.sqrt(results["ti"])
+        results["vtor"] = np.random.uniform(1.0e2, 1.0e6, (nt, results["length"]))
         results["angf"] = np.random.uniform(1.0e2, 1.0e6, (nt, results["length"]))
-        results["angf_error"] = np.sqrt(results["angf"])
         results["conc"] = np.random.uniform(1.0e-6, 1.0e-1, (nt, results["length"]))
-        results["conc_error"] = np.sqrt(results["conc"])
         results["bad_channels"] = []
 
         for quantity in quantities:
@@ -120,8 +102,9 @@ class Reader(DataReader):
                 f"{quantity}_z_path",
                 f"{quantity}_element_path",
                 f"{quantity}_time_path",
-                f"{quantity}_value_path",
-                f"{quantity}_error_path",
+                f"{quantity}_ti_path",
+                f"{quantity}_angf_path",
+                f"{quantity}_conc_path",
             ]
 
         return results
@@ -132,7 +115,6 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -148,17 +130,14 @@ class Reader(DataReader):
         nt = times.shape[0]
         results["times"] = times
         results["revision"] = np.random.randint(0, 10)
-        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
-        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
 
         results["x"] = np.random.uniform(Rmin, Rmax, (results["length"],))
         results["y"] = np.random.uniform(Rmin, Rmax, (results["length"],))
         results["z"] = np.random.uniform(zmin, zmax, (results["length"],))
         results["R"] = np.random.uniform(Rmin, Rmax, (results["length"],))
+        results["chi2"] = np.random.uniform(0, 2.0, (nt, results["length"]))
         results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
         results["ne"] = np.random.uniform(1.0e16, 1.0e21, (nt, results["length"]))
-        results["te_error"] = np.sqrt(results["te"])
-        results["ne_error"] = np.sqrt(results["ne"])
         results["bad_channels"] = []
 
         for quantity in quantities:
@@ -176,7 +155,6 @@ class Reader(DataReader):
         calculation: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -225,48 +203,12 @@ class Reader(DataReader):
         results["psi_records"] = ["value_records", "R_records", "z_records"]
         return results
 
-    def _get_cyclotron_emissions(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-    ) -> Dict[str, Any]:
-
-        zmin, zmax = self.MACHINE_DIMS[1][0], self.MACHINE_DIMS[1][1]
-
-        results: Dict[str, Any] = {
-            "length": np.random.randint(4, 20),
-            "machine_dims": self.MACHINE_DIMS,
-        }
-
-        dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
-        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
-        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
-
-        results["revision"] = np.random.randint(0, 10)
-        results["z"] = np.random.uniform(zmin, zmax)
-
-        results["te"] = np.random.uniform(10, 10.0e3, (nt, results["length"]))
-        results["te_error"] = np.sqrt(results["te"])
-        results["Btot"] = np.random.uniform(0.1, 5, (results["length"],))
-        results["bad_channels"] = []
-
-        results["te_records"] = ["info_path", "data_path"]
-
-        return results
-
     def _get_radiation(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -284,7 +226,6 @@ class Reader(DataReader):
 
         results["times"] = times
         results["brightness"] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
-        results["brightness_error"] = np.sqrt(results["brightness"])
 
         results["brightness_records"] = ["brightness_records"] * results["length"]
 
@@ -296,7 +237,6 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -314,7 +254,6 @@ class Reader(DataReader):
 
         quantity = "zeff"
         results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
-        results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
         results[f"{quantity}_records"] = [
             f"{quantity}_path_records",
@@ -329,7 +268,6 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         nwavelength = np.random.randint(256, 1024)
@@ -359,7 +297,6 @@ class Reader(DataReader):
                 )
             else:
                 results[quantity] = np.random.uniform(0, 1.0e4, (nt, results["length"]))
-            results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
                 f"{quantity}_path_records",
@@ -373,7 +310,6 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -392,7 +328,6 @@ class Reader(DataReader):
 
         for quantity in quantities:
             results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
-            results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
                 f"{quantity}_path_records",
@@ -409,7 +344,6 @@ class Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -427,7 +361,6 @@ class Reader(DataReader):
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         for quantity in quantities:
             results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
-            results[f"{quantity}_error"] = np.sqrt(results[quantity])
 
             results[f"{quantity}_records"] = [
                 f"{quantity}_path_records",
@@ -488,10 +421,6 @@ def test_get_thomson_scattering():
 
 def test_get_charge_exchange():
     _test_get_methods(instrument="charge_exchange", nsamples=10)
-
-
-def test_get_cyclotron_emissions():
-    _test_get_methods(instrument="cyclotron_emissions", nsamples=10)
 
 
 def test_get_equilibrium():

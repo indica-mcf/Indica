@@ -287,7 +287,8 @@ class LineOfSightTransform(CoordinateTransform):
         z: list = []
         R: list = []
         phi: list = []
-        x2 = DataArray(np.linspace(0, 1, npts, dtype=float), dims=self.x2_name)
+        _x2 = np.linspace(0, 1, npts, dtype=float)
+        x2 = DataArray(_x2, coords=[(self.x2_name, _x2)])
         for x1 in self.x1:
             _x, _y = self.convert_to_xy(x1, x2, 0)
             _R, _z = self.convert_to_Rz(x1, x2, 0)

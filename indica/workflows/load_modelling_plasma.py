@@ -243,23 +243,18 @@ def example_run(
     st40(instruments=instruments, map_diagnostics=False)
 
     # Initialize Equilibria
+    equilibrium = Equilibrium(st40.binned_data[equil])
     if equil == code:
         equilibrium = Equilibrium(data_code)
-    else:
-        equilibrium = Equilibrium(st40.binned_data[equil])
 
-    if add_gacode:
-        if pulse_code == 13109850 and run_code == "RUN61" and time == 0.11:
-            filename: str = (
-                "/home/marco.sertoli/python/Indica/indica/data/input.gacode.new"
-            )
-        else:
-            raise ValueError
-
+    if add_gacode and pulse_code == 13109850 and run_code == "RUN61" and time == 0.11:
         if verbose:
-            print(f"Reading GA-code data corresponding to ASTRA run")
+            print("Reading GA-code data corresponding to ASTRA run")
+        filename: str = "/home/marco.sertoli/python/Indica/indica/data/input.gacode.new"
         data_ga = get_gacode_data(filename)
         add_gacode_data(plasma, equilibrium, data_ga, time)
+    else:
+        raise ValueError
 
     plasma.set_equilibrium(equilibrium)
 
@@ -291,8 +286,8 @@ def example_run(
     ion_density = plasma.ion_density
     fast_density = plasma.fast_density
     impurity_conc = ion_density / plasma.electron_density
-    wth = plasma.wth
-    wp = plasma.wp
+    # wth = plasma.wth
+    # wp = plasma.wp
 
     raw_color = "black"
     binned_color = "blue"
