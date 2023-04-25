@@ -129,14 +129,22 @@ def _plot_1d(
         zorder=1,
         color="lightgrey",
     )
-    plt.plot(
-        diag_data[blobkey].__getattr__(dims[0]),
-        diag_data[blobkey].sel(t=blob_data.t).values,
-        linestyle="-",
-        color="black",
-        label=f"{blobkey} data",
-        zorder=4,
-    )
+    if "channel" in dims:
+        plt.plot(
+            diag_data[blobkey].__getattr__(dims[0]),
+            diag_data[blobkey].sel(t=blob_data.t).values,
+            "k^",
+            label=f"{blobkey} data",
+            zorder=4,
+        )
+    else:
+        plt.plot(
+            diag_data[blobkey].__getattr__(dims[0]),
+            diag_data[blobkey].sel(t=blob_data.t).values,
+            "k-",
+            label=f"{blobkey} data",
+            zorder=4,
+        )
     plt.ylabel(ylabel)
     plt.xlabel(dims[0])
     plt.legend()
