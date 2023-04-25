@@ -6,10 +6,10 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica import equilibrium
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import line_of_sight
 from indica.converters import TrivialTransform
+from indica.equilibrium import fake_equilibrium
 from indica.utilities import intersection
 
 
@@ -41,11 +41,7 @@ def load_line_of_sight_default():
 
 
 def load_equilibrium_default():
-    data = equilibrium_dat()
-    equil = equilibrium.Equilibrium(
-        data,
-        sess=MagicMock(),
-    )
+    equil = fake_equilibrium()
     return equil
 
 
@@ -53,7 +49,7 @@ def _test_check_rho():
     """To be implemented"""
 
 
-def test_convert_to_xy(debug=False):
+def test_convert_to_xy():
     # Load line-of-sight default
     los, machine_dims = load_line_of_sight_default()
     x1 = 0
@@ -71,14 +67,9 @@ def test_convert_to_xy(debug=False):
     assert np.all(z <= np.max([los.z_start, los.z_end]))
     assert np.all(z >= np.min([los.z_start, los.z_end]))
 
-    if debug:
-        print(f"x = {x}")
-        print(f"y = {y}")
-        print(f"z = {z}")
-
 
 # Test convert_to_Rz method
-def test_convert_to_Rz(debug=False):
+def test_convert_to_Rz():
     # Load line-of-sight default
     los, machine_dims = load_line_of_sight_default()
     x1 = 0
@@ -91,19 +82,13 @@ def test_convert_to_Rz(debug=False):
     x, y = los.convert_to_xy(x1, x2, t)
     R = np.sqrt(x**2 + y**2)
 
-    # R and z are as expected=
-    assert all(R == R_)
-
-    if debug:
-        print(f"R = {R}")
+    assert R == R_
 
 
-# Test distance method
-def test_distance(debug=False):
-    # Load line-of-sight default
+def test_distance():
     los, machine_dims = load_line_of_sight_default()
     x1 = 0
-    x2 = los.x2[0]
+    x2 = los.x2
     t = 0
 
     # Test method
@@ -113,13 +98,9 @@ def test_distance(debug=False):
     # dl is identical along the line of sight up to 1 per million
     assert all(np.abs(dls - dls[0]) < (dls[0] * 1.0e-6))
 
-    if debug:
-        print(f"dist = {dist}")
-    return
-
 
 # Test distance method
-def test_set_dl(debug=False):
+def test_set_dl():
     # Load line-of-sight default
     los, machine_dims = load_line_of_sight_default()
 
@@ -127,18 +108,14 @@ def test_set_dl(debug=False):
     dl = 0.002
 
     # Test method
-    x2, dl_out = los.set_dl(dl)
+    los.set_dl(dl)
+    dl_out = los.dl
 
-    assert np.abs(dl - dl_out[0]) < 1.0e-6
-
-    if debug:
-        print(f"x2 = {x2}")
-        print(f"dl_out = {dl_out}")
-    return
+    assert np.abs(dl - dl_out) < 1.0e-6
 
 
 # Test script for intersections
-def test_intersections(debug=False):
+def test_intersections():
     """Test script for intersections"""
 
     # Test parallel lines -> should return an empty list
@@ -151,20 +128,12 @@ def test_intersections(debug=False):
     assert len(rx) == 0
     assert len(zx) == 0
 
-    if debug:
-        print(rx)
-        print(zx)
-
     # Test intersecting lines - should return list of len=1
     line_3_x = np.array([0.0, 1.0])
     line_3_y = np.array([2.0, 1.0])
     rx, zx, _, _ = intersection(line_1_x, line_1_y, line_3_x, line_3_y)
     assert len(rx) != 0
     assert len(zx) != 0
-
-    if debug:
-        print(rx)
-        print(zx)
 
 
 # Test LOS missing vessel

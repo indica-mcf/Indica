@@ -27,8 +27,6 @@ import scipy.constants as sc
 import indica.readers.surf_los as surf_los
 from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
-from .abstractreader import DataSelector
-from .selectors import choose_on_plot
 from .. import session
 from ..datatypes import ELEMENTS
 from ..numpy_typing import RevisionLike
@@ -167,7 +165,6 @@ class PPFReader(DataReader):
         server: str = "https://sal.jet.uk",
         default_error: float = 0.05,
         max_freq: float = 1e6,
-        selector: DataSelector = choose_on_plot,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
@@ -177,7 +174,6 @@ class PPFReader(DataReader):
             tend,
             max_freq,
             session,
-            selector,
             pulse=pulse,
             server=server,
             default_error=default_error,
@@ -360,7 +356,6 @@ class PPFReader(DataReader):
         results["length"] = len(z.data)
         if "te" in quantities:
             te, t_path = self._get_signal(uid, instrument, "te", revision)
-            self._set_times_item(results, te.dimensions[0].data)
             results["te"] = te.data
             if instrument == "lidr":
                 tehi, e_path = self._get_signal(uid, instrument, "teu", revision)
@@ -371,7 +366,6 @@ class PPFReader(DataReader):
             results["te_records"] = [z_path, t_path, e_path]
         if "ne" in quantities:
             ne, d_path = self._get_signal(uid, instrument, "ne", revision)
-            self._set_times_item(results, ne.dimensions[0].data)
             results["ne"] = ne.data
             if instrument == "lidr":
                 nehi, e_path = self._get_signal(uid, instrument, "neu", revision)
@@ -400,7 +394,6 @@ class PPFReader(DataReader):
         results: Dict[str, Any] = {}
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
-            self._set_times_item(results, qval.dimensions[0].data)
             if (
                 len(qval.dimensions) > 1
                 and q not in {"psi", "rbnd", "zbnd"}

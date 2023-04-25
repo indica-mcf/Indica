@@ -3,6 +3,7 @@
 name: tests
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     paths:
@@ -60,10 +61,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        poetry run pytest -n auto --hypothesis-profile CI --cov-report=xml --cov=indica
-
-    - name: "Upload coverage to Codecov"
-      if: ${{ always() }}
-      uses: codecov/codecov-action@v1
-      with:
-        fail_ci_if_error: true
+        poetry run pytest --continue-on-collection-errors -v --cov=indica

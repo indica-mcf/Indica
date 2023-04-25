@@ -390,3 +390,11 @@ def intersection(x1, y1, x2, y2):
     indjj = jj[in_range] + T[1, in_range]
 
     return xy0[:, 0], xy0[:, 1], indii, indjj
+
+
+def check_time_present(t_desired: LabeledArray, t_array: LabeledArray):
+    equil_ok = (np.min(t_desired) >= np.min(t_array)) * (
+        np.max(t_desired) <= np.max(t_array)
+    )
+    if not equil_ok:
+        raise ValueError(f"Desired time {t_desired} not available in array {t_array}")

@@ -98,6 +98,9 @@ class ReadST40:
         data = self.reader.get(uid, instrument, revision)
         if hasattr(self, "equilibrium"):
             for quant in data.keys():
+                if "transform" not in data[quant].attrs:
+                    continue
+
                 transform = data[quant].transform
                 if hasattr(transform, "set_equilibrium"):
                     transform.set_equilibrium(self.equilibrium)
