@@ -98,9 +98,9 @@ def run(
         # "Nimp_prof.y1",
         # "Nimp_prof.peaking",
         "Te_prof.y0",
-        "Te_prof.peaking",
+        # "Te_prof.peaking",
         "Ti_prof.y0",
-        "Ti_prof.peaking",
+        # "Ti_prof.peaking",
     ]
 
     bm = BayesModels(
@@ -115,7 +115,7 @@ def run(
     )
 
     ndim = param_names.__len__()
-    nwalkers = 50 if (ndim * 2) < 50 else ndim * 2
+    nwalkers = 20
     start_points = bm.sample_from_priors(param_names, size=nwalkers)
     move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
 
@@ -177,4 +177,4 @@ if __name__ == "__main__":
         "Ti_prof.y0": 5000,
         "Ti_prof.peaking": 2,
     }
-    run(10009, params, 300, "./results/test/", burn_in=50)
+    run(10009, params, 10, "./results/test/", burn_in=0)

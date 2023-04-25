@@ -55,6 +55,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "zbnd": ("z", "separatrix"),
         "ipla": ("current", "plasma"),
         "wp": ("energy", "plasma"),
+        "psin": ("poloidal_flux", "normalised"),
     },
     "get_cyclotron_emissions": {
         "te": ("temperature", "electrons"),
@@ -148,7 +149,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
         "nn": (
             "density",
-            "thermal_neutrals",
+            "thermal_neutral",
         ),  # ...missing information on what elements are used
         "niz1": (
             "density",

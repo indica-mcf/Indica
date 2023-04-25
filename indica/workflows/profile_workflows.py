@@ -1,239 +1,113 @@
 from copy import deepcopy
 
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
 import xarray as xr
 from xarray import DataArray
 
+from indica.numpy_typing import LabeledArray
+from indica.profiles_gauss import Profiles
 
-class Profiles:
-    def __init__(
-        self,
-        datatype: tuple = ("temperature", "electron"),
-        xend: float = 1.05,
-        xspl: np.ndarray = None,
-        coord="poloidal",
-    ):
-        """
-        Class to build general profiles
+CMAP = cm.gnuplot2
 
-        Parameters
-        ----------
-        datatype
-            Tuple defining what type of profile is to be built
-        xspl
-            normalised radial grid [0, 1]  on which profile is to be built
-        """
-        self.xend = xend
-        self.coord = f"rho_{coord}"
-        self.x = np.linspace(0, 1, 15) ** 0.7
-        self.datatype = datatype
-        if xspl is None:
-            xspl = np.linspace(0, 1.0, 30)
-            xspl = DataArray(xspl, coords=[(self.coord, xspl)])
-        self.xspl = xspl
+PARAMETER_LIMITS: dict = {
+    "electron_temperature": {
+        "y0": (500, 10000),
+        "y1": (30, 100),
+        "peaking": (1, 5),
+        "wcenter": (0.2, 0.4),
+        "wped": (2, 4),
+    },
+    "ion_temperature": {
+        "y0": (500, 10000),
+        "y1": (30, 100),
+        "peaking": (1, 5),
+        "wcenter": (0.2, 0.4),
+        "wped": (2, 4),
+    },
+    "electron_density": {
+        "y0": (1.0e19, 1.0e20),
+        "y1": (1.0e18, 5.0e18),
+        "peaking": (1, 3),
+        "wcenter": (0.3, 0.4),
+        "wped": (2, 6),
+    },
+    "thermal_neutral_density": {
+        "y0": (1.0e13, 1.0e14),
+        "y1": (1.0e15, 1.0e16),
+        "yend": "y1",
+        "peaking": (1, 1),
+        "wcenter": (0, 0),
+        "wped": (5, 15),
+    },
+}
 
-        self.y0: float
-        self.y1: float
-        self.yend: float
-        self.peaking: float
-        self.wcenter: float
-        self.wped: float
 
-        params = get_defaults(datatype)
-        for k, p in params.items():
-            setattr(self, k, p)
+def profile_scans_pca(
+    parameter_limits: dict = None,
+    scans: int = 100,
+    datatype: tuple = ("temperature", "electron"),
+    rho: LabeledArray = np.linspace(0, 1.0, 41),
+    plot: bool = True,
+):
 
-        self.__call__()
+    quantity = f"{datatype[1]}_{datatype[0]}"
+    if parameter_limits is None:
+        parameter_limits = PARAMETER_LIMITS[quantity]
 
-    def set_parameters(self, **kwargs):
-        """
-        Set any of the shaping parameters
-        """
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+    profiler = Profiles(datatype=datatype, xspl=rho)
 
-    def __call__(
-        self,
-        y0_fix=False,
-        y0_ref=None,
-        wcenter_exp=0.05,
-        debug=False,
-    ):
-        """
-        Builds the profiles using the parameters set
+    _profile_scans: list = []
+    parameter_scans: dict = {}
+    parameter_keys = parameter_limits.keys()
+    for k in parameter_keys:
+        parameter_scans[k] = []
 
-        Parameters
-        ----------
-        y0_fix
-            re-scale new profile to have central value = y0
-        y0_ref
-            reference y0 value
-        wcenter_exp
-            exponent for the additional peaking if y0_ref is not None
+    for iscan in range(scans):
+        for k, lim in parameter_limits.items():
+            if type(lim) != str:
+                param_value = np.random.uniform(lim[0], lim[1])
+            else:
+                param_value = parameter_scans[lim][-1]
 
-        Returns
-        -------
+            parameter_scans[k].append(param_value)
+            setattr(profiler, k, param_value)
+        _profile_scans.append(profiler())
 
-        """
+    profile_scans: DataArray = xr.concat(_profile_scans, "scan").assign_coords(
+        {"scan": np.arange(scans)}
+    )
 
-        def gaussian(x, A, B, x_0, w):
-            return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
+    for k in parameter_keys:
+        profile_scans = profile_scans.assign_coords({k: ("scan", parameter_scans[k])})
 
-        centre = deepcopy(self.y0)
-        edge = deepcopy(self.y1)
-        wcenter = deepcopy(self.wcenter)
-        wped = deepcopy(self.wped)
-        peaking = deepcopy(self.peaking)
+    if plot:
+        cols = CMAP(np.linspace(0.1, 0.75, scans, dtype=float))
+        plt.figure()
+        sort_ind = np.argsort(profile_scans.sel(rho_poloidal=0))
+        for i in range(scans):
+            plt.plot(
+                profile_scans.rho_poloidal,
+                profile_scans.values[sort_ind[i], :],
+                alpha=0.5,
+                color=cols[i],
+            )
+        plt.title(f"{datatype[1]} {datatype[0]}")
+        if quantity == "thermal_neutral_density":
+            plt.yscale("log")
 
-        # Add additional peaking with respect to reference shape
-        peaking2 = 1.0
-        if y0_ref is not None:
-            if y0_ref < centre:
-                peaking2 = centre / y0_ref
-        self.peaking2 = peaking2
-
-        if peaking2 > 1:
-            centre = y0_ref
-            wcenter = wcenter - (peaking2**wcenter_exp - 1)
-
-        centre = centre / peaking
-
-        x = self.x[np.where(self.x <= 1.0)[0]]
-
-        # baseline profile shape
-        y = (centre - edge) * (1 - x**wped) + edge
-
-        if debug:
+        for k in parameter_keys:
+            counts, bins = np.histogram(getattr(profile_scans, k))
             plt.figure()
-            plt.plot(x, y, label="first")
+            plt.stairs(counts, bins)
+            plt.title(f"{k} distribution")
 
-        # add central peaking
-        if peaking != 1:
-            sigma = wcenter / (np.sqrt(2 * np.log(2)))
-            y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
-
-        if debug:
-            plt.plot(x, y, label="peaking")
-
-        # add additional peaking
-        if peaking2 != 1:
-            sigma = wcenter / (np.sqrt(2 * np.log(2)))
-            y += gaussian(x, y[0] * (peaking2 - 1), 0, 0, sigma)
-
-        if debug:
-            plt.plot(x, y, label="peaking2")
-
-        if y0_fix:
-            y -= edge
-            y /= y[0]
-            y *= centre - edge
-            y += edge
-
-        if debug:
-            plt.plot(x, y, label="y0_fix", marker="o")
-
-        x = np.append(x, self.xend)
-        y = np.append(y, self.yend)
-
-        if debug:
-            plt.plot(x, y, label="0 point at 1.05")
-
-        self.cubicspline = CubicSpline(
-            x,
-            y,
-            0,
-            "clamped",
-            False,
-        )
-        yspl = self.cubicspline(self.xspl)
-
-        if debug:
-            plt.plot(self.xspl, yspl, label="spline")
-            plt.legend()
-
-        yspl = DataArray(yspl, coords=[(self.coord, self.xspl)])
-        attrs = {"datatype": self.datatype}
-        name = self.datatype[1] + "_" + self.datatype[0]
-        yspl.name = name
-        yspl.attrs = attrs
-
-        self.yspl = yspl
-
-        return yspl
-
-    def plot(self, fig=True):
-        if fig:
-            plt.figure()
-        self.yspl.plot()
+    return profile_scans
 
 
-def get_defaults(datatype: tuple) -> dict:
-    identifier = f"{datatype[1]}_{datatype[0]}"
-    parameters = {
-        "electron_density": {  # (m**-3)
-            "y0": 5.0e19,
-            "y1": 5.0e18,
-            "yend": 2.0e18,
-            "peaking": 2,
-            "wcenter": 0.4,
-            "wped": 6,
-        },
-        "impurity_density": {  # (m**-3)
-            "y0": 5.0e16,
-            "y1": 1.0e16,
-            "yend": 1.0e15,
-            "peaking": 2,
-            "wcenter": 0.4,
-            "wped": 6,
-        },
-        "thermal_neutral_density": {  # (m**-3)
-            "y0": 1.0e13,
-            "y1": 1.0e15,
-            "yend": 1.0e15,
-            "peaking": 1,
-            "wcenter": 0,
-            "wped": 18,
-        },
-        "electron_temperature": {  # (eV)
-            "y0": 3.0e3,
-            "y1": 50,
-            "yend": 5,
-            "peaking": 1.5,
-            "wcenter": 0.35,
-            "wped": 3,
-        },
-        "ion_temperature": {  # (eV)
-            "y0": 5.0e3,
-            "y1": 50,
-            "yend": 5,
-            "peaking": 1.5,
-            "wcenter": 0.35,
-            "wped": 3,
-            "ref": True,
-        },
-        "toroidal_rotation": {  # (rad/s)
-            "y0": 500.0e3,
-            "y1": 10.0e3,
-            "yend": 0.0,
-            "peaking": 1.5,
-            "wcenter": 0.35,
-            "wped": 3,
-        },
-    }
-
-    if identifier not in parameters.keys():
-        print(
-            f"\n Profile {identifier} not available "
-            f"\n Using 'temperature_electron' as default \n"
-        )
-        identifier = "temperature_electron"
-
-    return parameters[identifier]
-
-
-def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
+def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
     Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
     Ne = Profiles(datatype=("density", "electron"), xspl=rho)
     Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)

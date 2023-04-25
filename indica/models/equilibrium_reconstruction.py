@@ -1,9 +1,11 @@
-import xarray as xr
+
 import matplotlib.pyplot as plt
+import xarray as xr
 
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import check_time_present
 
 
 class EquilibriumReconstruction(DiagnosticModel):
@@ -41,7 +43,7 @@ class EquilibriumReconstruction(DiagnosticModel):
 
     def __call__(
         self,
-        t = None,
+        t=None,
         **kwargs,
     ):
         """
@@ -56,7 +58,9 @@ class EquilibriumReconstruction(DiagnosticModel):
         if t is None:
             t = self.plasma.time_to_calculate
 
-        self.wp = self.plasma.wp.sel(t=t)
+        check_time_present(t, self.plasma.wp.t)
+
+        self.wp = self.plasma.wp.interp(t=t)
         self._build_bckc_dictionary()
         return self.bckc
 
@@ -70,9 +74,7 @@ def example_run(
     if plasma is None:
         plasma = example_plasma()
 
-    model = EquilibriumReconstruction(
-        diagnostic_name
-    )
+    model = EquilibriumReconstruction(diagnostic_name)
     model.set_plasma(plasma)
     bckc = model()
 

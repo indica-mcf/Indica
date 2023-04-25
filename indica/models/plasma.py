@@ -64,8 +64,8 @@ ADF11: dict = {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
-        "plt": "00",
-        "prb": "00",
+        "plt": "89",
+        "prb": "89",
         "prc": "89",
         "pls": "15",
         "prs": "15",
@@ -240,7 +240,12 @@ class Plasma:
             ("poloidal", "rho"),
             coords=[(self.radial_coordinate_type, self.radial_coordinate)],
         )
-        coords_time = assign_data(time, ("", "time"), "s", coords=[("t", time)],)
+        coords_time = assign_data(
+            time,
+            ("", "time"),
+            "s",
+            coords=[("t", time)],
+        )
         coords_elem = assign_data(
             list(self.elements),
             ("", "element"),
@@ -306,7 +311,7 @@ class Plasma:
             self.data2d, ("density", "electron"), "$m^{-3}$"
         )
         self.neutral_density: DataArray = assign_data(
-            self.data2d, ("thermal_neutrals", "density"), "eV"
+            self.data2d, ("thermal_neutral", "density"), "eV"
         )
         self.tau: DataArray = assign_data(self.data2d, ("time", "residence"), "s")
 
@@ -410,7 +415,12 @@ class Plasma:
         )
 
         self.Zeff = CachedCalculation(
-            self.calc_zeff, [self.electron_density, self.ion_density, self.meanz,],
+            self.calc_zeff,
+            [
+                self.electron_density,
+                self.ion_density,
+                self.meanz,
+            ],
         )
 
         self.Lz_tot = CachedCalculation(
@@ -435,12 +445,20 @@ class Plasma:
 
         self.Total_radiation = CachedCalculation(
             self.calc_total_radiation,
-            [self.electron_density, self.ion_density, self.lz_tot,],
+            [
+                self.electron_density,
+                self.ion_density,
+                self.lz_tot,
+            ],
         )
 
         self.Sxr_radiation = CachedCalculation(
             self.calc_sxr_radiation,
-            [self.electron_density, self.ion_density, self.lz_sxr,],
+            [
+                self.electron_density,
+                self.ion_density,
+                self.lz_sxr,
+            ],
         )
 
     def assign_profiles(
@@ -646,7 +664,7 @@ class Plasma:
                     Nh = self.neutral_density.sel(t=t)
                 self._lz_tot[elem].loc[dict(t=t)] = (
                     self.power_loss_tot[elem](
-                        Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run
+                        Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
                     )
                     .transpose()
                     .values
@@ -674,7 +692,7 @@ class Plasma:
                     Nh = self.neutral_density.sel(t=t)
                 self._lz_sxr[elem].loc[dict(t=t)] = (
                     self.power_loss_sxr[elem](
-                        Te, Fz, Ne=Ne, Nh=Nh, bounds_check=False, full_run=self.full_run
+                        Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
                     )
                     .transpose()
                     .values
@@ -695,7 +713,9 @@ class Plasma:
                 * ion_density.sel(element=elem)
             )
             self._total_radiation.loc[dict(element=elem)] = xr.where(
-                total_radiation >= 0, total_radiation, 0.0,
+                total_radiation >= 0,
+                total_radiation,
+                0.0,
             ).values
         return self._total_radiation
 
@@ -716,7 +736,9 @@ class Plasma:
                 * ion_density.sel(element=elem)
             )
             self._sxr_radiation.loc[dict(element=elem)] = xr.where(
-                sxr_radiation >= 0, sxr_radiation, 0.0,
+                sxr_radiation >= 0,
+                sxr_radiation,
+                0.0,
             ).values
         return self._sxr_radiation
 
@@ -882,17 +904,24 @@ class Plasma:
             rho_end = 1.01
             rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
             Te_prof = Profiles(
-                datatype=("temperature", "electron"), xspl=rho, xend=xend,
+                datatype=("temperature", "electron"),
+                xspl=rho,
+                xend=xend,
             )
             Te_prof.y0 = 10.0e3
             Te = Te_prof()
             Ne_prof = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend)
             Ne = Ne_prof()
             Nh_prof = Profiles(
-                datatype=("density", "thermal_neutrals"), xspl=rho, xend=xend,
+                datatype=("density", "thermal_neutral"),
+                xspl=rho,
+                xend=xend,
             )
             Nh = Nh_prof()
             tau = None
+        else:
+            if Te is None or Ne is None:
+                raise ValueError("Input Te and Ne if default == False")
 
         # print_like("Initialize fractional abundance and power loss objects")
         fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
@@ -901,39 +930,32 @@ class Plasma:
             acd = self.ADASReader.get_adf11("acd", elem, self.adf11[elem]["acd"])
             ccd = self.ADASReader.get_adf11("ccd", elem, self.adf11[elem]["ccd"])
             fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
-            if Te is not None and Ne is not None:
-                fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
+            fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
 
-            plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
-            prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
-            prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
-            power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
-            if Te is not None and Ne is not None:
+            if calc_power_loss:
                 F_z_t = fract_abu[elem].F_z_t
-                if calc_power_loss:
-                    power_loss_tot[elem](
-                        Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run
-                    )
-                    if (
-                        "pls" in self.adf11[elem].keys()
-                        and "prs" in self.adf11[elem].keys()
-                    ):
-                        try:
-                            pls = self.ADASReader.get_adf11(
-                                "pls", elem, self.adf11[elem]["pls"]
-                            )
-                            prs = self.ADASReader.get_adf11(
-                                "prs", elem, self.adf11[elem]["prs"]
-                            )
-                            power_loss_sxr[elem] = PowerLoss(pls, prs)
-                            if Te is not None and Ne is not None:
-                                F_z_t = fract_abu[elem].F_z_t
-                                power_loss_sxr[elem](
-                                    Te, F_z_t, Ne=Ne, full_run=self.full_run
-                                )
-                        except ValueError:
-                            self.adf11[elem].pop("pls")
-                            self.adf11[elem].pop("prs")
+
+                plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
+                prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
+                prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
+                power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
+                power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
+                if (
+                    "pls" in self.adf11[elem].keys()
+                    and "prs" in self.adf11[elem].keys()
+                ):
+                    try:
+                        pls = self.ADASReader.get_adf11(
+                            "pls", elem, self.adf11[elem]["pls"]
+                        )
+                        prs = self.ADASReader.get_adf11(
+                            "prs", elem, self.adf11[elem]["prs"]
+                        )
+                        power_loss_sxr[elem] = PowerLoss(pls, prs)
+                        power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
+                    except ValueError:
+                        self.adf11[elem].pop("pls")
+                        self.adf11[elem].pop("prs")
 
         self.adf11 = self.adf11
         self.fract_abu = fract_abu
@@ -1063,7 +1085,7 @@ class Plasma:
             self.centrifugal_asymmetry.loc[dict(element=elem)] = asymm
             asymmetry_factor = asymm.interp(rho_poloidal=self.rho_2d)
             self.asymmetry_multiplier.loc[dict(element=elem)] = np.exp(
-                asymmetry_factor * (self.rho_2d.R ** 2 - R_0 ** 2)
+                asymmetry_factor * (self.rho_2d.R**2 - R_0**2)
             )
 
         self.ion_density_2d = (
@@ -1113,7 +1135,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            total_radiation = xr.where(total_radiation >= 0, total_radiation, 0.0,)
+            total_radiation = xr.where(
+                total_radiation >= 0,
+                total_radiation,
+                0.0,
+            )
             self.total_radiation.loc[dict(element=elem)] = total_radiation.values
 
             sxr_radiation = (
@@ -1121,7 +1147,11 @@ class Plasma:
                 * self.electron_density
                 * self.ion_density.sel(element=elem)
             )
-            sxr_radiation = xr.where(sxr_radiation >= 0, sxr_radiation, 0.0,)
+            sxr_radiation = xr.where(
+                sxr_radiation >= 0,
+                sxr_radiation,
+                0.0,
+            )
             self.sxr_radiation.loc[dict(element=elem)] = sxr_radiation.values
 
             if not hasattr(self, "prad_tot"):
@@ -1144,14 +1174,17 @@ class Plasma:
     def write_to_pickle(self):
         with open(f"data_{self.pulse}.pkl", "wb") as f:
             pickle.dump(
-                self, f,
+                self,
+                f,
             )
 
 
 # Generalized dependency caching
 class TrackDependecies:
     def __init__(
-        self, operator: Callable, dependencies: list,
+        self,
+        operator: Callable,
+        dependencies: list,
     ):
         """
         Call operator only if dependencies variables have changed.
@@ -1168,7 +1201,8 @@ class TrackDependecies:
         self.dependencies = dependencies
 
     def numpyhash(
-        self, nparray: np.array,
+        self,
+        nparray: np.array,
     ):
         a = nparray.view(np.uint8)
         return hashlib.sha1(a).hexdigest()
@@ -1220,6 +1254,7 @@ def example_run(
     verbose: bool = True,
     n_rad: int = 41,
     full_run=False,
+    calc_power_loss: bool = False,
     **kwargs,
 ):
     # TODO: swap all profiles to new version!
@@ -1235,7 +1270,7 @@ def example_run(
         verbose=verbose,
         **kwargs,
     )
-    plasma.build_atomic_data(default=True, calc_power_loss=False)
+    plasma.build_atomic_data(default=True, calc_power_loss=calc_power_loss)
     # Assign profiles to time-points
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)

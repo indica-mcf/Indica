@@ -48,7 +48,10 @@ def plot_profile(
 
     if phantom_profile is not None:
         phantom_profile.plot(
-            label=f"{blobkey}, phantom profile", linestyle=linestyle, color="black", zorder=4
+            label=f"{blobkey}, phantom profile",
+            linestyle=linestyle,
+            color="black",
+            zorder=4,
         )
 
     plt.legend()
@@ -72,7 +75,7 @@ def _plot_0d(
     ylabel="a.u.",
     **kwargs,
 ):
-    if not blobkey in blobs.keys():
+    if blobkey not in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
     plt.figure()
     blob_data = blobs[blobkey]
@@ -99,7 +102,7 @@ def _plot_1d(
     ylabel="a.u.",
     **kwargs,
 ):
-    if not blobkey in blobs.keys():
+    if blobkey not in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
 
     plt.figure()
@@ -238,7 +241,6 @@ def plot_bayes_result(
             ylabel="temperature (eV)",
         )
 
-
     key = "electron_temperature"
     plot_profile(
         blobs[key],
@@ -255,9 +257,9 @@ def plot_bayes_result(
         key,
         figheader=figheader,
         filename="temperature",
-        phantom_profile=phantom_profiles[key].sel(element="ar"),
+        phantom_profile=phantom_profiles[key],
         color="red",
-        linestyle="dotted"
+        linestyle="dotted",
     )
     key = "electron_density"
     plot_profile(
@@ -268,7 +270,7 @@ def plot_bayes_result(
         blobs[key].sel(element="ar"),
         key,
         figheader=figheader,
-        phantom_profile=phantom_profiles[key].sel(element="ar"),
+        phantom_profile=phantom_profiles[key],
         color="red",
     )
 
