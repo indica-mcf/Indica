@@ -18,21 +18,21 @@ PARAMETER_LIMITS: dict = {
         "y1": (30, 100),
         "peaking": (1, 5),
         "wcenter": (0.2, 0.4),
-        "wped": (2, 4),
+        "wped": (2, 10),
     },
     "ion_temperature": {
         "y0": (500, 10000),
         "y1": (30, 100),
         "peaking": (1, 5),
         "wcenter": (0.2, 0.4),
-        "wped": (2, 4),
+        "wped": (2, 10),
     },
     "electron_density": {
         "y0": (1.0e19, 1.0e20),
         "y1": (1.0e18, 5.0e18),
         "peaking": (1, 3),
         "wcenter": (0.3, 0.4),
-        "wped": (2, 6),
+        "wped": (2, 10),
     },
     "thermal_neutral_density": {
         "y0": (1.0e13, 1.0e14),
@@ -104,7 +104,7 @@ def profile_scans_pca(
             plt.stairs(counts, bins)
             plt.title(f"{k} distribution")
 
-    return profile_scans
+    return profile_scans, profiler
 
 
 def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
