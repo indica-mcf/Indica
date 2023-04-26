@@ -13,6 +13,7 @@ from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
+from indica.numpy_typing import RevisionLike
 from indica.readers.read_gacode import get_gacode_data
 from indica.readers.read_st40 import ReadST40
 
@@ -28,7 +29,6 @@ DIAGNOSTIC_MODELS = {
     "sxr_diode_1": SXRcamera,
     "sxr_camera_4": SXRcamera,
 }
-
 plt.ion()
 
 
@@ -182,58 +182,73 @@ def initialize_diagnostic_models(
     return models
 
 
-def example_run(
-    pulse: int = 9850,
-    pulse_code: int = 13109850,
-    code: str = "astra",
-    equil: str = "efit",
-    run_code: str = "RUN61",
-    tstart: float = 0.05,
-    tend: float = 0.12,
-    dt: float = 0.01,
-    time: float = 0.11,
-    add_gacode: bool = True,
-    verbose: bool = True,
-):
-    """
-    Compare ASTRA equilibrium vs EFIT, check Plasma class is correctly set up
-
-    Tests using fixed-boundary predictive ASTRA:
+def example_params(example: str):
+    comment: str
+    pulse_code: int
+    pulse: int
+    equil: str
+    code: str
+    run_code: RevisionLike
+    if example == "predictive":
+        comment = "Tests using fixed-boundary predictive ASTRA"
+        pulse_code = 13110009
         pulse = 10009
         equil = "astra"
         code = "astra"
-        run_code = "2621"  # "2721"
-
-    interpretative ASTRA using HDA/EFIT:
+        run_code = "RUN2621"
+    elif example == "interpretative":
+        comment = "interpretative ASTRA using HDA/EFIT"
         pulse = 10009
         equil = "efit"
         code = "astra"
-        run_code = "573"
-
-    GaCODE + ASTRA interpretative using HDA/EFIT:
+        run_code = "RUN573"
+    elif example == "ga_code":
+        comment = "GaCODE + ASTRA interpretative using HDA/EFIT"
         pulse = 9850
         pulse_code = 13109850
         run_code = 61
         code = "astra"
         equil = "efit"
-        add_gacode = True
+    else:
+        raise ValueError
+
+    return pulse_code, pulse, equil, code, run_code, comment
+
+
+def example_run(
+    verbose: bool = True,
+    tplot: float = 0.11,
+    plot: bool = True,
+    example: str = "predictive",
+):
     """
+    Run all diagnostic models using profiles and equilibrium from ASTRA modelling
+    """
+
+    tstart: float = 0.05
+    tend: float = 0.12
+    dt: float = 0.01
     plasma: Plasma
     code_data: dict
 
-    calc_spectra = True
-    moment_analysis = False
-    calibration = 0.2e-16
-    linewidth = 2
+    pulse_code, pulse, equil, code, run_code, comment = example_params(example)
+
     instruments = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit"]
 
-    # Read code data and assign to plasma
-    st40 = ReadST40(pulse_code, tstart, tend, dt=dt, tree=code)
-    st40.get_raw_data("", code, run_code)
-    st40.bin_data_in_time([code], tstart, tend, dt)
+    # Read code data
+    st40_code = ReadST40(pulse_code, tstart, tend, dt=dt, tree=code)
+    st40_code.get_raw_data("", code, run_code)
+    st40_code.bin_data_in_time([code], tstart, tend, dt)
 
-    data_code = st40.binned_data[code]
+    # Assign code data in plasma class
+    data_code = st40_code.binned_data[code]
+    for quantity in data_code.keys():
+        if "t" in data_code[quantity].dims:
+            tstart = np.min(data_code[quantity].t.values)
+            tend = np.max(data_code[quantity].t.values)
+            break
 
+    print(tstart, tend, dt)
     plasma = plasma_code(pulse_code, tstart, tend, dt, data_code, verbose=verbose)
 
     # Read experimental data
@@ -242,21 +257,21 @@ def example_run(
     st40 = ReadST40(pulse, tstart, tend, dt=dt, tree="st40")
     st40(instruments=instruments, map_diagnostics=False)
 
-    # Initialize Equilibria
-    equilibrium = Equilibrium(st40.binned_data[equil])
+    # Initialize Equilibrium
+    equilibrium: Equilibrium
     if equil == code:
         equilibrium = Equilibrium(data_code)
+    else:
+        equilibrium = Equilibrium(st40.binned_data[equil])
 
-    if add_gacode and pulse_code == 13109850 and run_code == "RUN61" and time == 0.11:
+    plasma.set_equilibrium(equilibrium)
+
+    if example == "ga_code":
         if verbose:
             print("Reading GA-code data corresponding to ASTRA run")
         filename: str = "/home/marco.sertoli/python/Indica/indica/data/input.gacode.new"
         data_ga = get_gacode_data(filename)
-        add_gacode_data(plasma, equilibrium, data_ga, time)
-    else:
-        raise ValueError
-
-    plasma.set_equilibrium(equilibrium)
+        add_gacode_data(plasma, equilibrium, data_ga, tplot)
 
     # Load and run the diagnostic forward models
     raw = st40.raw_data
@@ -270,34 +285,41 @@ def example_run(
         if verbose:
             print(f"Running {instrument} model")
         if instrument == "xrcs":
-            models[instrument].calibration = calibration
+            models[instrument].calibration = 0.2e-16
             bckc[instrument] = models[instrument](
-                calc_spectra=calc_spectra,
-                moment_analysis=moment_analysis,
+                calc_spectra=True,
+                moment_analysis=False,
             )
         else:
             bckc[instrument] = models[instrument]()
 
-    # return raw, binned, bckc, models
+    if plot:
+        plot_modelling_results(raw, binned, bckc, plasma, tplot)
 
-    # Plot
+    return raw, binned, bckc, models, plasma
+
+
+def plot_modelling_results(
+    raw: dict, binned: dict, bckc: dict, plasma: Plasma, time: float
+):
+
+    raw_color = "black"
+    binned_color = "blue"
+    bckc_color = "red"
+    linewidth = 2
+
     pressure_tot = plasma.pressure_tot
     pressure_th = plasma.pressure_th
     ion_density = plasma.ion_density
     fast_density = plasma.fast_density
     impurity_conc = ion_density / plasma.electron_density
-    # wth = plasma.wth
-    # wp = plasma.wp
-
-    raw_color = "black"
-    binned_color = "blue"
-    bckc_color = "red"
 
     # Example plots
     plt.close("all")
+
     plt.figure()
     levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
-    equilibrium.rho.sel(t=time, method="nearest").plot.contour(levels=levels)
+    plasma.equilibrium.rho.sel(t=time, method="nearest").plot.contour(levels=levels)
     plt.axis("scaled")
     plt.title("Equilibrium")
 
@@ -403,8 +425,6 @@ def example_run(
         plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
         plt.title(f"XRCS spectra at {time:.3f} s")
         plt.legend()
-
-    return raw, binned, bckc, models, plasma
 
 
 if __name__ == "__main__":

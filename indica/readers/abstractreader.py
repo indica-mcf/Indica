@@ -832,7 +832,10 @@ class DataReader(BaseIO):
             coords: list = [("t", database_results["times"])]
             if len(name_coords) > 0:
                 for coord in name_coords:
-                    coords.append((name_coords, radial_coords[coord]))
+                    coords.append((coord, radial_coords[coord]))
+
+            if len(np.shape(database_results[quantity])) != len(coords):
+                continue
 
             quant_data = self.assign_dataarray(
                 uid,
@@ -843,8 +846,9 @@ class DataReader(BaseIO):
                 include_error=False,
             )
 
+            # Convert radial coordinate to rho_poloidal
             # TODO: Check interpolatoin on rho_poloidal array...
-            if "rho_toroidal" in coords:
+            if "rho_toroidal" in quant_data.dims:
                 rho_toroidal_0 = quant_data.rho_toroidal.min()
                 quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
                     "rho_toroidal"
