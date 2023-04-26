@@ -52,6 +52,7 @@ class NeutralBeam(DiagnosticModel):
             beam_on: np.ndarray,
             which_code: str = 'FIDASIM',
             which_spectrometer: str = 'Princeton',
+            initialise: bool = False,
     ):
         print('Hello, you called?')
         print(f"You've selected {which_code}")
@@ -65,6 +66,7 @@ class NeutralBeam(DiagnosticModel):
             self.run_FIDASIM_ST40(
                 beam_on,
                 which_spectrometer,
+                initialise=initialise,
             )
 
         else:
@@ -80,13 +82,15 @@ class NeutralBeam(DiagnosticModel):
             self,
             beam_on: np.ndarray,
             which_spectrometer: str,
-            path_to_code='/home/jonathan.wood/git_home/te-fidasim',
-            force_run_fidasim=True,
+            path_to_code: str = '/home/jonathan.wood/git_home/te-fidasim',
+            force_run_fidasim: bool = True,
+            initialise: bool = False,
     ):
         # Import package - ToDo: move into the Indica
         import sys
         sys.path.append(path_to_code)
         import prepare_fidasim_ST40
+        import postproc_fidasim_ST40
 
         # Times to analyse
         times = self.plasma.t.data
@@ -125,10 +129,10 @@ class NeutralBeam(DiagnosticModel):
         else:
             raise ValueError('Plasma ion must be Hydrogen "h" or Deuterium "d"')
 
-
         # Run Fidasim
         for i_time, time in enumerate(times):
             if beam_on[i_time]:
+
                 # rho poloidal
                 rho_2d = self.plasma.equilibrium.rho.interp(
                     t=time,
@@ -252,25 +256,28 @@ class NeutralBeam(DiagnosticModel):
                 print(f'Bt = {bt}')
                 print(' ')
 
-                print('Run FIDASIM here')
-                prepare_fidasim_ST40.main(
-                    pulse,
-                    time,
-                    nbiconfig,
-                    specconfig,
-                    plasmaconfig,
-                    force_run_fidasim=force_run_fidasim,
-                )
+                if initialise:
+                    print('Run FIDASIM here')
+                    prepare_fidasim_ST40.main(
+                        pulse,
+                        time,
+                        nbiconfig,
+                        specconfig,
+                        plasmaconfig,
+                        force_run_fidasim=force_run_fidasim,
+                    )
 
-                #prepare_fidasim_ST40.main(
-                #    shot_number=pulse,
-                #    run=run_name,
-                #    spec="Princeton",
-                #    beam=self.name,
-                #    custom_geqdsk=geqdsk,
-                #    custom_time=time,
-                #    force_run_fidasim=run_fidasim,
-                #)
+                else:
+
+                    # Post-processing FIDASIM
+                    postproc_fidasim_ST40.main(
+                        pulse,
+                        time,
+                        nbiconfig,
+                        specconfig,
+                        plasmaconfig,
+                    )
+
 
     #def run_FIDASIM_ST40_old(
     #        self,
