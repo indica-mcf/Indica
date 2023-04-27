@@ -29,8 +29,7 @@ from indica.models.plasma import Plasma
 PATH_TO_CODE = '/home/jonathan.wood/git_home/te-fidasim'
 import sys
 sys.path.append(PATH_TO_CODE)
-import prepare_fidasim_ST40
-import postproc_fidasim_ST40
+import fidasim_ST40_indica
 
 
 # Function for running TE-fidasim forward model from Indica framework
@@ -141,6 +140,29 @@ def driver(
             # rho
             rho = rho_2d.values
 
+            if False:
+                # Plot magnetic fields
+                plt.figure()
+                plt.subplot(131)
+                plt.contourf(
+                    beam.plasma.equilibrium.rho.coords["R"],
+                    beam.plasma.equilibrium.rho.coords["z"],
+                    br,
+                )
+                plt.subplot(132)
+                plt.contourf(
+                    beam.plasma.equilibrium.rho.coords["R"],
+                    beam.plasma.equilibrium.rho.coords["z"],
+                    br,
+                )
+                plt.subplot(133)
+                plt.contourf(
+                    beam.plasma.equilibrium.rho.coords["R"],
+                    beam.plasma.equilibrium.rho.coords["z"],
+                    br,
+                )
+                plt.show(block=True)
+
             plasmaconfig = {
                 "R": R_2d,
                 "z": z_2d,
@@ -168,9 +190,19 @@ def driver(
                 print(f'plasmaconfig = {plasmaconfig}')
                 print(f'plasma_ion_amu = {plasma_ion_amu}')
                 print(f'run_fidasim = {run_fidasim}')
-                print('aa'**2)
 
             # Run TE-fidasim
+            fidasim_ST40_indica.main(
+                pulse,
+                time,
+                nbiconfig,
+                specconfig,
+                plasmaconfig,
+                num_cores=8,
+                user="jonathan.wood",
+                force_run_fidasim=run_fidasim,
+                save_dir="/home/jonathan.wood/fidasim_output",
+            )
             print('To be implemented!')
 
     return
