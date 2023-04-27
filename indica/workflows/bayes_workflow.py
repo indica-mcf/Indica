@@ -25,7 +25,7 @@ def plot_profile(
         label=f"{blobkey}, 68% Confidence",
         zorder=3,
         color=color,
-        alpha=0.9,
+        alpha=0.8,
     )
     plt.fill_between(
         profile.rho_poloidal,
@@ -34,7 +34,7 @@ def plot_profile(
         label=f"{blobkey}, 95% Confidence",
         zorder=2,
         color="grey",
-        alpha=0.7,
+        alpha=0.6,
     )
     plt.fill_between(
         profile.rho_poloidal,
@@ -43,7 +43,7 @@ def plot_profile(
         label=f"{blobkey}, Max-Min",
         zorder=1,
         color="lightgrey",
-        alpha=0.7,
+        alpha=0.6,
     )
 
     if phantom_profile is not None:
