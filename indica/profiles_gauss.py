@@ -14,6 +14,7 @@ class Profiles:
         xend: float = 1.05,
         xspl: np.ndarray = None,
         coord="poloidal",
+        parameters: dict = None,
     ):
         """
         Class to build general profiles
@@ -24,6 +25,7 @@ class Profiles:
             Tuple defining what type of profile is to be built
         xspl
             normalised radial grid [0, 1]  on which profile is to be built
+
         """
         self.xend = xend
         self.coord = f"rho_{coord}"
@@ -33,6 +35,14 @@ class Profiles:
             xspl = np.linspace(0, 1.0, 30)
             xspl = DataArray(xspl, coords=[(self.coord, xspl)])
         self.xspl = xspl
+        self.profile_parameters: list = [
+            "y0",
+            "y1",
+            "yend",
+            "wcenter",
+            "wped",
+            "peaking",
+        ]
 
         self.y0: float
         self.y1: float
@@ -41,8 +51,10 @@ class Profiles:
         self.wcenter: float
         self.wped: float
 
-        params = get_defaults(datatype)
-        for k, p in params.items():
+        if parameters is None:
+            parameters = get_defaults(datatype)
+
+        for k, p in parameters.items():
             setattr(self, k, p)
 
         self.__call__()
@@ -52,7 +64,18 @@ class Profiles:
         Set any of the shaping parameters
         """
         for k, v in kwargs.items():
-            setattr(self, k, v)
+            if k in self.parameters:
+                setattr(self, k, v)
+
+    def get_parameters(self):
+        """
+        Set any of the shaping parameters
+        """
+        parameters_dict: dict = {}
+        for k in self.profile_parameters:
+            parameters_dict[k] = getattr(self, k)
+
+        return parameters_dict
 
     def __call__(
         self,
@@ -164,6 +187,7 @@ class Profiles:
         return yspl
 
     def plot(self, fig=True):
+        self.__call__()
         if fig:
             plt.figure()
         self.yspl.plot()
