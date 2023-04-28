@@ -8,5 +8,5 @@ __all__ = [
     "interferometry",
     "plasma",
     "sxr_camera",
-    "thomson_scattering"
+    "thomson_scattering",
 ]
