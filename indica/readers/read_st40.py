@@ -312,3 +312,13 @@ def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.
 
 def astra_equilibrium(pulse: int, revision: RevisionLike):
     """Assign ASTRA to equilibrium class"""
+
+
+def read_cxff_pi():
+    import indica.readers.read_st40 as read_st40
+    st40 = read_st40.ReadST40(10607)
+    st40(["cxff_pi"])
+    st40.raw_data["cxff_pi"]["ti"].los_transform.set_equilibrium(
+        st40.raw_data["cxff_pi"]["ti"].transform.equilibrium
+    )
+    st40.raw_data["cxff_pi"]["ti"].los_transform.plot_los(plot_all=True)
