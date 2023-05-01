@@ -9,6 +9,7 @@ from typing import Tuple
 
 import numpy as np
 import prov.model as prov
+import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
 from xarray import where
@@ -538,8 +539,11 @@ class Equilibrium:
             results are given for. Otherwise return the argument.
         """
 
-        _R = convert_to_dataarray(R, ("R", R))
-        _z = convert_to_dataarray(z, ("z", z))
+        _R = R + np.full_like(R, self.R_offset)
+        _z = z + np.full_like(R, self.z_offset)
+
+        _R = convert_to_dataarray(_R, ("R", _R))
+        _z = convert_to_dataarray(_z, ("z", _z))
         if t is not None:
             check_time_present(t, self.t)
             rho = self.rho.interp(t=t, method="nearest")
@@ -553,30 +557,26 @@ class Equilibrium:
             t = self.rho.coords["t"]
             z_x_point = self.zx
 
-        rho_interp = rho.indica.interp2d(
-            R=_R + self.R_offset,
-            z=_z + self.z_offset,
-            zero_coords={"R": R_ax, "z": z_ax},
-            method="cubic",
-            assume_sorted=True,
-        )
-        # Correct for any interpolation errors resulting in negative fluxes
-        rho_interp = where(
-            np.logical_and(rho_interp < 0.0, rho_interp > -1e-12), 0.0, rho_interp
-        )
+        # TODO: check new implementation using native xarray method
+        rho_interp = rho.interp(R=_R, z=_z)
         theta = np.arctan2(
-            _z + cast(np.ndarray, self.z_offset) - z_ax,
-            _R + cast(np.ndarray, self.R_offset) - R_ax,
+            _z - z_ax,
+            _R - R_ax,
         )
-        if len(np.shape(theta)) > 1:
+        if np.shape(theta) != np.shape(rho_interp):
             theta = theta.transpose()
+
+        # Correct for any interpolation errors resulting in negative fluxes
+        rho_interp = xr.where(
+            (rho_interp < 0.0) * (rho_interp > -1e-12), 0.0, rho_interp
+        )
 
         if kind != "poloidal":
             rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
 
         # Set rho to be negative in the private flux region
-        rho_interp = where(
-            np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
+        rho_interp = xr.where(
+            (rho_interp < 1.0) * (z < z_x_point), -rho_interp, rho_interp
         )
 
         return rho_interp, theta, t
