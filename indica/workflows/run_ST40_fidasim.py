@@ -63,9 +63,6 @@ def driver(
     else:
         raise ValueError(f'{which_spectrometer} is not available')
 
-    print(f'nbiconfig = {nbiconfig}')
-    print(f'specconfig = {specconfig}')
-
     # Atomic mass of plasma ion
     if beam.plasma.main_ion == 'h':
         plasma_ion_amu = 1.00874
@@ -77,6 +74,10 @@ def driver(
     # Times to analyse
     times = beam.plasma.t.data
 
+    Ti = np.zeros((len(specconfig["chord_IDs"]), len(times))) * np.nan
+    Ti_err = np.zeros((len(specconfig["chord_IDs"]), len(times))) * np.nan
+    vtor = np.zeros((len(specconfig["chord_IDs"]), len(times))) * np.nan
+    vtor_err = np.zeros((len(specconfig["chord_IDs"]), len(times))) * np.nan
     for i_time, time in enumerate(times):
         if beam_on[i_time]:
             # Extract data from plasma / equilibrium objects
@@ -192,7 +193,7 @@ def driver(
                 print(f'run_fidasim = {run_fidasim}')
 
             # Run TE-fidasim
-            fidasim_ST40_indica.main(
+            results = fidasim_ST40_indica.main(
                 pulse,
                 time,
                 nbiconfig,
@@ -203,9 +204,19 @@ def driver(
                 force_run_fidasim=run_fidasim,
                 save_dir="/home/jonathan.wood/fidasim_output",
             )
-            print('To be implemented!')
+            Ti[:, i_time] = results["Ti"]
+            Ti_err[:, i_time] = results["Ti_err"]
+            vtor[:, i_time] = results["vtor"]
+            vtor_err[:, i_time] = results["vtor_err"]
 
-    return
+    outdata = dict()
+    outdata['time'] = times
+    outdata['Ti'] = Ti
+    outdata['Ti_err'] = Ti_err
+    outdata['vtor'] = vtor
+    outdata['vtor_err'] = vtor_err
+
+    return outdata
 
 
 # Test
@@ -224,13 +235,14 @@ if __name__ == "__main__":
     beam_on = np.ones(len(beam.plasma.t.data))
 
     # Run driver function
-    run_fidasim = True
-    driver(
+    run_fidasim = False
+    results = driver(
         beam,
         beam_on,
         run_fidasim=run_fidasim
     )
 
+    print(results)
 
     #run_FIDASIM = True
     #if run_FIDASIM:
