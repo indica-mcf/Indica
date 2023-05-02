@@ -316,6 +316,7 @@ def astra_equilibrium(pulse: int, revision: RevisionLike):
 
 def read_cxff_pi():
     import indica.readers.read_st40 as read_st40
+
     st40 = read_st40.ReadST40(10607)
     st40(["cxff_pi"])
     st40.raw_data["cxff_pi"]["ti"].los_transform.set_equilibrium(

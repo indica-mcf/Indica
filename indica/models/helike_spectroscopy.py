@@ -81,7 +81,8 @@ class Helike_spectroscopy(DiagnosticModel):
 
         if self.marchuk:
             marchuck_reader = MARCHUKReader(
-                element=self.element, charge=self.ion_charge,
+                element=self.element,
+                charge=self.ion_charge,
             )
             self.pecs = marchuck_reader.pecs
         else:
@@ -98,7 +99,10 @@ class Helike_spectroscopy(DiagnosticModel):
 
         self.window = DataArray(mask, coords=[("wavelength", window)])
         self.mask = self.window.interp(wavelength=self.pecs["emiss_coeff"].wavelength)
-        self.pecs["emiss_coeff"] = self.pecs["emiss_coeff"].where(self.mask, drop=True,)
+        self.pecs["emiss_coeff"] = self.pecs["emiss_coeff"].where(
+            self.mask,
+            drop=True,
+        )
         self.pecs["emiss_coeff"] = self.pecs["emiss_coeff"].where(
             (self.pecs["emiss_coeff"].wavelength < self.window.wavelength.max())
             & (self.pecs["emiss_coeff"].wavelength > self.window.wavelength.min()),
@@ -222,7 +226,9 @@ class Helike_spectroscopy(DiagnosticModel):
             self.filtered_pecs = _pecs.isel(line_name=_temp_array)
 
         # cubic method fails due to how scipy handles NaNs
-        _pecs = self.filtered_pecs.interp(electron_temperature=self.Te,)
+        _pecs = self.filtered_pecs.interp(
+            electron_temperature=self.Te,
+        )
         for line_name in line_labels:
             _line_emission = (
                 _pecs.isel(
@@ -271,7 +277,9 @@ class Helike_spectroscopy(DiagnosticModel):
 
         if self.calc_spectra:
             self.measured_spectra = self.los_transform.integrate_on_los(
-                self.spectra, t=self.spectra.t, calc_rho=calc_rho,
+                self.spectra,
+                t=self.spectra.t,
+                calc_rho=calc_rho,
             )
 
     def _calculate_temperatures(self):
@@ -310,7 +318,10 @@ class Helike_spectroscopy(DiagnosticModel):
                     )
 
     def _moment_analysis(
-        self, line: str, profile_1d: DataArray = None, half_los: bool = True,
+        self,
+        line: str,
+        profile_1d: DataArray = None,
+        half_los: bool = True,
     ):
         """
         Perform moment analysis using a specific line emission as distribution function
@@ -336,7 +347,11 @@ class Helike_spectroscopy(DiagnosticModel):
         err_out_list: list = []
 
         if len(np.shape(self.t)) == 0:
-            times = np.array([self.t,])
+            times = np.array(
+                [
+                    self.t,
+                ]
+            )
         else:
             times = self.t
 
@@ -432,7 +447,9 @@ class Helike_spectroscopy(DiagnosticModel):
 
         return result, pos, err_in, err_out
 
-    def _calculate_intensity(self,):
+    def _calculate_intensity(
+        self,
+    ):
         """
         Returns DataArrays of emission type with co-ordinates of line label and
         spatial co-ordinate
@@ -453,7 +470,9 @@ class Helike_spectroscopy(DiagnosticModel):
         intensity = (_intensity * mult * self.calibration).sum("type")
         return intensity
 
-    def _make_spectra(self,):
+    def _make_spectra(
+        self,
+    ):
         """
         TODO: Doppler Shift / Add convolution of broadening
         -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
@@ -580,9 +599,15 @@ class Helike_spectroscopy(DiagnosticModel):
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            Te = self.plasma.electron_temperature.interp(t=t,)
-            Ne = self.plasma.electron_density.interp(t=t,)
-            Nh = self.plasma.neutral_density.interp(t=t,)
+            Te = self.plasma.electron_temperature.interp(
+                t=t,
+            )
+            Ne = self.plasma.electron_density.interp(
+                t=t,
+            )
+            Nh = self.plasma.neutral_density.interp(
+                t=t,
+            )
             Fz = {}
             _Fz = self.plasma.fz
             for elem in _Fz.keys():
@@ -649,7 +674,9 @@ class Helike_spectroscopy(DiagnosticModel):
             self.intensity = self._calculate_intensity()
             self.spectra = self._make_spectra()
 
-        self._calculate_los_integral(calc_rho=calc_rho,)
+        self._calculate_los_integral(
+            calc_rho=calc_rho,
+        )
         if moment_analysis:
             self._calculate_temperatures()
         self._build_bckc_dictionary()
@@ -740,7 +767,10 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
         passes=1,
     )
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = Helike_spectroscopy(diagnostic_name, window_masks=[],)
+    model = Helike_spectroscopy(
+        diagnostic_name,
+        window_masks=[],
+    )
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
