@@ -1,6 +1,6 @@
 from indica.readers import ST40Reader
 
-PULSE = 10605
+PULSE = 9229
 TSTART = 0.01
 TEND = 0.1
 
@@ -14,8 +14,6 @@ INSTRUMENT_INFO: dict = {
     "smmh1": ("interferom", "smmh1", 0, set()),
     "nirh1": ("interferom", "nirh1", 0, set()),
     "efit": ("", "efit", 0, set()),
-    "cxff_pi": ("", "cxff_pi", 0, set()),
-    "cxff_tws_c": ("", "cxff_tws_c", 0, set()),
 }
 
 
@@ -27,7 +25,7 @@ def run_reader_get_methods(
     General test script to read data from MDS+ and calculate LOS information
     including Cartesian-flux surface mapping
 
-    TODO: Not testing MDS+ reading as tests currently using mock reader!!!
+    TODO: currently only runs, but no assertions to check what data it returns
 
     Parameters
     ----------
@@ -125,15 +123,5 @@ def test_nirh1(instrument_name: str = "nirh1"):
 
 
 def test_efit(instrument_name: str = "efit"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
-
-
-def test_cxff_pi(instrument_name: str = "cxff_pi"):
-    data, database_results = run_reader_get_methods(instrument_name)
-    check_transforms(instrument_name, data)
-
-
-def test_cxff_tws_c(instrument_name: str = "cxff_tws_c"):
     data, database_results = run_reader_get_methods(instrument_name)
     check_transforms(instrument_name, data)

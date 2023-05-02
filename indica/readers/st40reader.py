@@ -684,19 +684,15 @@ class ST40Reader(DataReader):
 
         texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
-        try:
-            location, location_path = self._get_signal(
-                uid, instrument, ".geometry:location", revision
-            )
-            direction, direction_path = self._get_signal(
-                uid, instrument, ".geometry:direction", revision
-            )
-            if len(np.shape(location)) == 1:
-                location = np.array([location])
-                direction = np.array([direction])
-        except TreeNNF:
-            location = None
-            direction = None
+        # location, location_path = self._get_signal(
+        #     uid, instrument, ".geometry:location", revision
+        # )
+        # direction, direction_path = self._get_signal(
+        #     uid, instrument, ".geometry:direction", revision
+        # )
+        # if len(np.shape(location)) == 1:
+        #     location = np.array([location])
+        #     direction = np.array([direction])
 
         x, x_path = self._get_signal(uid, instrument, ":x", revision)
         y, y_path = self._get_signal(uid, instrument, ":y", revision)
@@ -731,8 +727,8 @@ class ST40Reader(DataReader):
         results["times"] = times
         results["texp"] = texp
         results["element"] = ""
-        results["location"] = location
-        results["direction"] = direction
+        # results["location"] = location
+        # results["direction"] = direction
 
         return results
 
