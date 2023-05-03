@@ -83,7 +83,8 @@ class BayesModels:
     def _ln_likelihood(self):
         ln_likelihood = 0
         for key in self.quant_to_optimise:
-            # Float128 since rounding of small numbers causes problems when initial results are bad fits
+            # Float128 since rounding of small numbers causes problems
+            # when initial results are bad fits
             model_data = self.bckc[key].astype("float128")
             exp_data = (
                 self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
