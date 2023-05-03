@@ -743,16 +743,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
-    # TODO: LOS sometimes crossing bad EFIT reconstruction
-    if plasma is None:
-        plasma = example_plasma(
-            pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10
-        )
-        plasma.time_to_calculate = plasma.t[5]
-        # Create new diagnostic
-    diagnostic_name = "xrcs"
-    nchannels = 3
+def helike_LOS_example(nchannels=3):
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -762,16 +753,28 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
     direction = los_end - los_start
 
     los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
+        origin[0:nchannels, 0],
+        origin[0:nchannels, 1],
+        origin[0:nchannels, 2],
+        direction[0:nchannels, 0],
+        direction[0:nchannels, 1],
+        direction[0:nchannels, 2],
+        name="diagnostic_name",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
         passes=1,
     )
+    return los_transform
+
+def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
+    # TODO: LOS sometimes crossing bad EFIT reconstruction
+    if plasma is None:
+        plasma = example_plasma(
+            pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10
+        )
+        plasma.time_to_calculate = plasma.t[5]
+        # Create new diagnostic
+    diagnostic_name = "xrcs"
+    los_transform = helike_LOS_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)
     model = Helike_spectroscopy(
         diagnostic_name,

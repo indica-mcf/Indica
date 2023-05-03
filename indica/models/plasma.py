@@ -211,10 +211,6 @@ class Plasma:
         self.tend = tend
         self.dt = dt
 
-        # Dictionary keeping track of deta use for optimisations
-        self.optimisation: dict = {}
-        self.forward_models: dict = {}
-
         # Assign plasma and machine attributes
         self.machine_R = np.linspace(
             self.machine_dimensions[0][0], self.machine_dimensions[0][1], 100
