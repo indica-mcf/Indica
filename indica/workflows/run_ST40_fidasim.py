@@ -20,10 +20,13 @@ path_to_indica = '/home/jonathan.wood/git_home/Indica/'
 sys.path.append(path_to_indica)
 
 # Import Indica modules
-from indica.models import NeutralBeam
+from indica.models import NeutralBeam, ChargeExchange
 from indica.models.plasma import example_run
 from indica.models.plasma import Plasma
+from indica.converters import LineOfSightTransform
 
+# Import MDS+
+from MDSplus import *
 
 # Import package - ToDo: move into the Indica
 PATH_TO_CODE = '/home/jonathan.wood/git_home/te-fidasim'
@@ -34,6 +37,7 @@ import fidasim_ST40_indica
 
 # Function for running TE-fidasim forward model from Indica framework
 def driver(
+    cxspec: ChargeExchange,
     beam: NeutralBeam,
     beam_on: np.ndarray,
     run_fidasim: bool = True,
@@ -60,8 +64,26 @@ def driver(
             "chord_IDs": ["M3", "M4", "M5", "M6", "M7", "M8"],
             "cross_section_corr": True
         }
+    elif which_spectrometer == "Chers_new":
+        specconfig = {
+            "name": which_spectrometer,
+            "chord_IDs": ["M1", "M2", "M3"],
+            "cross_section_corr": False
+        }
     else:
         raise ValueError(f'{which_spectrometer} is not available')
+
+    # Add geom_dict and chord_IDs to specconfig
+    origin = cxspec.los_transform.origin
+    direction = cxspec.los_transform.direction
+    chord_ids = [f"M{i+1}" for i in range(np.shape(direction)[0])]
+    geom_dict = dict()
+    for i_chord, id in enumerate(chord_ids):
+        geom_dict[id] = {}
+        geom_dict[id]["origin"] = origin[i_chord, :]
+        geom_dict[id]["diruvec"] = direction[i_chord, :]
+    specconfig["chord_IDs"] = chord_ids
+    specconfig["geom_dict"] = geom_dict
 
     # Atomic mass of plasma ion
     if beam.plasma.main_ion == 'h':
@@ -199,7 +221,7 @@ def driver(
                 nbiconfig,
                 specconfig,
                 plasmaconfig,
-                num_cores=8,
+                num_cores=3,
                 user="jonathan.wood",
                 force_run_fidasim=run_fidasim,
                 save_dir="/home/jonathan.wood/fidasim_output",
@@ -222,13 +244,62 @@ def driver(
 # Test
 if __name__ == "__main__":
 
+    # Inputs
+    pulse = 10014
+    tstart = 0.04
+    tend = 0.08
+    dt = 0.01
+
+    # Get plasma
+    plasma = example_run(tstart=tstart, tend=tend, dt=dt, pulse=pulse)
+    print(f'plasma = {plasma}')
+    print(f'plasma.machine_dimensions = {plasma.machine_dimensions}')
+
+    # Read CX spectrometer geometry
+    which_spectrometer = 'Princeton'
+
+    if which_spectrometer == 'Princeton':
+        geom_pulse = 99000001
+        tree = 'CAL_PI'
+    elif which_spectrometer == 'Chers_new':
+        geom_pulse = 99000001
+        tree = 'CAL_TWS_C'  # this is P2.3 data!!
+    else:
+        raise ValueError('Whooops')
+
+    t = Tree(tree, geom_pulse)
+    origin = t.getNode('GEOMETRY.BEST.LOCATION').data()
+    direction = t.getNode('GEOMETRY.BEST.DIRECTION').data()
+    t.close()
+
+    if which_spectrometer == 'Princeton':
+        i_fibres = np.arange(21, 27, 1, dtype=int)
+    elif which_spectrometer == 'Chers_new':
+        i_fibres = np.arange(0, 3, 1, dtype=int)
+    else:
+        raise ValueError('Im pretty sure it is impossible to get here ;)')
+
+    origin = origin[i_fibres, :]
+    direction = direction[i_fibres, :]
+
+    # make LineOfSightTransform
+    los = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name=which_spectrometer,
+        machine_dimensions=plasma.machine_dimensions,
+    )
+
+    # Create CX Spectrometer class
+    cxspec = ChargeExchange(name=which_spectrometer)
+    cxspec.set_los_transform(los)
+
     # Generate neutral beam model
     beam = NeutralBeam()
-
-    # Add equilibrium input data here?
-    plasma = example_run(tstart=0.04, tend=0.08, dt=0.01, pulse=10014)
-    #plasma = example_run()
-    print(f'plasma = {plasma}')
     beam.set_plasma(plasma)
 
     # Add beam input data here?
@@ -237,24 +308,13 @@ if __name__ == "__main__":
     # Run driver function
     run_fidasim = False
     results = driver(
+        cxspec,
         beam,
         beam_on,
-        run_fidasim=run_fidasim
+        run_fidasim=run_fidasim,
+        which_spectrometer=which_spectrometer,
     )
 
     print(results)
 
-    #run_FIDASIM = True
-    #if run_FIDASIM:
-    #    # Call to run FIDASIM
-    #    out = beam(
-    #        beam_on,
-    #        initialise=True,
-    #    )
-    #else:
-    #    # Call to do post-processing from previously run FIDASIM result
-    #    out = beam(
-    #        beam_on,
-    #        initialise=False,
-    #    )
 
