@@ -280,7 +280,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 t=self.spectra.t,
                 calc_rho=calc_rho,
             )
-            # TODO: LOS integral removes NaNs so manually add them back (find better solution)
+            # TODO: LOS integral removes NaNs so add them back (find solution)
             self.measured_spectra[self.measured_spectra == 0] = np.nan
 
     def _calculate_temperatures(self):
