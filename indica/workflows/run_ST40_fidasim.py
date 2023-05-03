@@ -124,26 +124,26 @@ def driver(
             rho_tor = rho_tor.values  # NaN's is this going to be an issue?
 
             # radius
-            R = beam.plasma.equilibrium.rho.coords["R"].values
+            R = beam.plasma.equilibrium.rho.R.values
 
             # vertical position
-            z = beam.plasma.equilibrium.rho.coords["z"].values
+            z = beam.plasma.equilibrium.rho.z.values
 
             # meshgrid
             R_2d, z_2d = np.meshgrid(R, z)
 
             # Br
             br, _ = beam.plasma.equilibrium.Br(
-                beam.plasma.equilibrium.rho.coords["R"],
-                beam.plasma.equilibrium.rho.coords["z"],
+                beam.plasma.equilibrium.rho.R,
+                beam.plasma.equilibrium.rho.z,
                 t=time
             )
             br = br.values
 
             # Bz
             bz, _ = beam.plasma.equilibrium.Bz(
-                beam.plasma.equilibrium.rho.coords["R"],
-                beam.plasma.equilibrium.rho.coords["z"],
+                beam.plasma.equilibrium.rho.R,
+                beam.plasma.equilibrium.rho.z,
                 t=time
             )
             bz = bz.values
@@ -256,14 +256,16 @@ if __name__ == "__main__":
     print(f'plasma.machine_dimensions = {plasma.machine_dimensions}')
 
     # Read CX spectrometer geometry
-    which_spectrometer = 'Princeton'
+    which_spectrometer = 'Princeton'  # options: 'Princeton', 'Chers_new', ...
 
     if which_spectrometer == 'Princeton':
         geom_pulse = 99000001
         tree = 'CAL_PI'
+        which_beam = 'rfx'
     elif which_spectrometer == 'Chers_new':
         geom_pulse = 99000001
         tree = 'CAL_TWS_C'  # this is P2.3 data!!
+        which_beam = 'hnbi'
     else:
         raise ValueError('Whooops')
 
@@ -299,14 +301,26 @@ if __name__ == "__main__":
     cxspec.set_los_transform(los)
 
     # Generate neutral beam model
-    beam = NeutralBeam()
+    if which_beam == 'rfx':
+        beam = NeutralBeam(
+            name=which_beam,
+        )
+    elif which_beam == 'hnbi':
+        beam = NeutralBeam(
+            name=which_beam,
+            energy=52.0 * 1e3,
+            power=0.5 * 1e6,
+            fractions=(0.5, 0.35, 0.15, 0.0),
+        )
+    else:
+        raise ValueError(f'no beam {which_beam}')
     beam.set_plasma(plasma)
 
     # Add beam input data here?
     beam_on = np.ones(len(beam.plasma.t.data))
 
     # Run driver function
-    run_fidasim = True
+    run_fidasim = False
     results = driver(
         cxspec,
         beam,
