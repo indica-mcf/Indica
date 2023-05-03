@@ -266,6 +266,23 @@ class DataReader(BaseIO):
             ("t", times),
             ("channel", channels),
         ]
+
+        location = database_results["location"]
+        direction = database_results["direction"]
+        if location is not None and direction is not None:
+            los_transform = LineOfSightTransform(
+                location[:, 0],
+                location[:, 1],
+                location[:, 2],
+                direction[:, 0],
+                direction[:, 1],
+                direction[:, 2],
+                f"{instrument}",
+                database_results["machine_dims"],
+                dl=dl,
+                passes=passes,
+            )
+
         data = {}
         for quantity in quantities:
             quant_data = self.assign_dataarray(
@@ -276,6 +293,8 @@ class DataReader(BaseIO):
                 coords,
                 transform,
             )
+            if location is not None and direction is not None:
+                quant_data.attrs["los_transform"] = los_transform
 
             quant_data = quant_data.assign_coords(x=("channel", x_coord))
             quant_data = quant_data.assign_coords(y=("channel", y_coord))
