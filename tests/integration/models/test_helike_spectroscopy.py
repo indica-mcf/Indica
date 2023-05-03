@@ -1,7 +1,6 @@
 import indica.models.helike_spectroscopy as helike
 from indica.models.helike_spectroscopy import helike_LOS_example
 from indica.models.plasma import example_run as example_plasma
-import pytest
 
 class TestHelike:
     def setup_class(self):
