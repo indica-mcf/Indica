@@ -15,7 +15,6 @@ from indica.models.thomson_scattering import example_run as ts
 from indica.models.equilibrium_reconstruction import example_run as equil_recon
 
 
-
 EXAMPLES: Dict[str, Callable] = {
     "bolometer_camera": bolo,
     "diode_filters": diodes,
