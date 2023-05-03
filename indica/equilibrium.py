@@ -15,6 +15,7 @@ from xarray import where
 from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
+from indica.utilities import check_time_present
 from . import session
 from .numpy_typing import LabeledArray
 
@@ -69,6 +70,7 @@ class Equilibrium:
         )
         self.psi = equilibrium_data["psi"]
         self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+        self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
             self.psin = equilibrium_data["psin"]
             dpsin = self.psin[1] - self.psin[0]
@@ -147,6 +149,7 @@ class Equilibrium:
         _R = convert_to_dataarray(R, ("R", R))
         _z = convert_to_dataarray(z, ("z", z))
         if t is not None:
+            check_time_present(t, self.t)
             psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
             f = self.f.interp(t=t, method="nearest", assume_sorted=True)
             rho_, theta_, _ = self.flux_coords(_R, _z, t)
@@ -360,6 +363,7 @@ class Equilibrium:
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
             R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
         else:
+            check_time_present(t, self.t)
             rmjo = self.rmjo.interp(t=t, method="nearest")
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
             R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset
@@ -401,6 +405,7 @@ class Equilibrium:
             rmji = self.rmji
             t = self.rmji.coords["t"]
         else:
+            check_time_present(t, self.t)
             rmji = self.rmji.interp(t=t, method="nearest")
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
         try:
@@ -445,6 +450,7 @@ class Equilibrium:
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
         theta = theta % (2 * np.pi)
         if t is not None:
+            check_time_present(t, self.t)
             corner_angles = [
                 angle.interp(t=t, method="nearest") for angle in self.corner_angles
             ]
@@ -535,6 +541,7 @@ class Equilibrium:
         _R = convert_to_dataarray(R, ("R", R))
         _z = convert_to_dataarray(z, ("z", z))
         if t is not None:
+            check_time_present(t, self.t)
             rho = self.rho.interp(t=t, method="nearest")
             R_ax = self.rmag.interp(t=t, method="nearest")
             z_ax = self.zmag.interp(t=t, method="nearest")
@@ -657,6 +664,7 @@ class Equilibrium:
                 t = self.rhotor.coords["t"]
             return rho, t
         if t is not None:
+            check_time_present(t, self.t)
             conversion = self.rhotor.interp(t=t, method="nearest")
         else:
             conversion = self.rhotor
@@ -702,6 +710,7 @@ class Equilibrium:
         if t is None:
             t = self.rho.coords["t"]
 
+        check_time_present(t, self.t)
         if kind == "toroidal":
             _rho, _ = self.convert_flux_coords(
                 rho, t, from_kind="toroidal", to_kind="poloidal"
@@ -749,6 +758,7 @@ class Equilibrium:
         if t is None:
             t = self.rho.coords["t"]
 
+        check_time_present(t, self.t)
         _rho: LabeledArray
         if kind == "toroidal":
             _rho, _ = self.convert_flux_coords(

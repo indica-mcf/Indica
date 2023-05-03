@@ -1,19 +1,10 @@
-import numpy as np
-
-from indica.converters import FluxSurfaceCoordinates
-from indica.equilibrium import Equilibrium
 from indica.readers import ST40Reader
 
-PULSE = 9229
+PULSE = 10605
 TSTART = 0.01
 TEND = 0.1
 
 READER = ST40Reader(PULSE, TSTART, TEND)
-EQUILIBRIUM_DATA = READER.get("", "efit", 0)
-EQUILIBRIUM = Equilibrium(EQUILIBRIUM_DATA)
-FLUX_TRANSFORM = FluxSurfaceCoordinates("poloidal")
-FLUX_TRANSFORM.set_equilibrium(EQUILIBRIUM)
-
 INSTRUMENT_INFO: dict = {
     "xrcs": ("sxr", "xrcs", 0, set()),
     "brems": ("spectrom", "brems", -1, set()),
@@ -23,6 +14,8 @@ INSTRUMENT_INFO: dict = {
     "smmh1": ("interferom", "smmh1", 0, set()),
     "nirh1": ("interferom", "nirh1", 0, set()),
     "efit": ("", "efit", 0, set()),
+    "cxff_pi": ("", "cxff_pi", 0, set()),
+    "cxff_tws_c": ("", "cxff_tws_c", 0, set()),
 }
 
 
@@ -34,7 +27,7 @@ def run_reader_get_methods(
     General test script to read data from MDS+ and calculate LOS information
     including Cartesian-flux surface mapping
 
-    TODO: currently only runs, but no assertions to check what data it returns
+    TODO: Not testing MDS+ reading as tests currently using mock reader!!!
 
     Parameters
     ----------
@@ -72,12 +65,6 @@ def run_reader_get_methods(
         return database_results
 
     data = READER.get(uid, instrument, revision, set(quantities))
-
-    quantities = list(data)
-    trans = data[quantities[0]].transform
-    if hasattr(trans, "set_flux_transform"):
-        trans.set_flux_transform(FLUX_TRANSFORM)
-        trans._convert_to_rho(t=np.array([0.02, 0.03, 0.04]))
 
     return data, database_results
 
@@ -138,5 +125,15 @@ def test_nirh1(instrument_name: str = "nirh1"):
 
 
 def test_efit(instrument_name: str = "efit"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+
+def test_cxff_pi(instrument_name: str = "cxff_pi"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+
+def test_cxff_tws_c(instrument_name: str = "cxff_tws_c"):
     data, database_results = run_reader_get_methods(instrument_name)
     check_transforms(instrument_name, data)

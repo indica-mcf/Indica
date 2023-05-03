@@ -98,13 +98,13 @@ class BayesModels:
                 # for scipy.stats objects use pdf / for lambda functions just call
                 ln_prior += np.log(prior_func.pdf(*param_values))
             else:
-                # if lambda prior with 2+ args is defined when only
-                # 1 of its parameters is given ignore it
+                # if lambda prior with 2+ args is defined when only 1 of
+                # its parameters is given ignore it
                 if prior_func.__code__.co_argcount != param_values.__len__():
                     continue
                 else:
-                    # Sorting to make sure args are given in
-                    # the same order as the prior_name string
+                    # Sorting to make sure args are given in the same order
+                    # as the prior_name string
                     name_index = [
                         prior_name.find(param_name_in_prior)
                         for param_name_in_prior in param_names_in_prior
