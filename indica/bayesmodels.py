@@ -85,11 +85,15 @@ class BayesModels:
         for key in self.quant_to_optimise:
             # Float128 since rounding of small numbers causes problems when initial results are bad fits
             model_data = self.bckc[key].astype("float128")
-            exp_data = self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
+            exp_data = (
+                self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
+            )
 
             exp_error = exp_data * 0.10  # Assume percentage error if none given.
             if hasattr(self.data[key], "error"):
-                if (self.data[key].error != 0).any():  # TODO: Some models have an error of 0 given
+                if (
+                    self.data[key].error != 0
+                ).any():  # TODO: Some models have an error of 0 given
                     exp_error = self.data[key].error
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
