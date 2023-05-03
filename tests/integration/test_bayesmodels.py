@@ -1,24 +1,24 @@
-from indica.bayesmodels import BayesModels, get_uniform
-
-from indica.models.plasma import example_run
-from indica.models.helike_spectroscopy import Helike_spectroscopy
+import emcee
+import flatdict
 from tests.integration.models.test_helike_spectroscopy import helike_LOS_example
 
-import flatdict
-import numpy as np
-import emcee
+from indica.bayesmodels import BayesModels
+from indica.bayesmodels import get_uniform
+from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.plasma import example_run
 
 
-class TestBayesModels():
-
+class TestBayesModels:
     def setup_class(self):
-        self.plasma = example_run(pulse=9229)
+        self.plasma = example_run()  # pulse=9229) PHANTOM!
         self.plasma.time_to_calculate = self.plasma.t[1]
         self.los_transform = helike_LOS_example(nchannels=1)
         self.los_transform.set_equilibrium(self.plasma.equilibrium)
 
     def test_simple_run_bayesmodels_with_xrcs(self):
-        xrcs = Helike_spectroscopy(name="xrcs", )
+        xrcs = Helike_spectroscopy(
+            name="xrcs",
+        )
         xrcs.plasma = self.plasma
         xrcs.set_los_transform(self.los_transform)
 
@@ -30,14 +30,17 @@ class TestBayesModels():
         }
 
         bckc = {}
-        bckc = dict(bckc, **{xrcs.name: {**xrcs(calc_spectra=False)}})
+        bckc = dict(bckc, **{xrcs.name: {**xrcs(calc_spectra=True)}})
         flat_phantom_data = flatdict.FlatDict(bckc, delimiter=".")
+        flat_phantom_data["xrcs.spectra"] = flat_phantom_data[
+            "xrcs.spectra"
+        ].expand_dims(dim={"t": [self.plasma.time_to_calculate]})
 
         bm = BayesModels(
             plasma=self.plasma,
             data=flat_phantom_data,
             diagnostic_models=[xrcs],
-            quant_to_optimise=["xrcs.ti_w", "xrcs.te_kw"],
+            quant_to_optimise=["xrcs.spectra"],
             priors=priors,
         )
 
@@ -60,7 +63,7 @@ class TestBayesModels():
             log_prob_fn=bm.ln_posterior,
             parameter_names=param_names,
             moves=move,
-            kwargs={"minimum_lines": True}
+            kwargs={},
         )
         sampler.run_mcmc(start_points, 10, progress=False)
 

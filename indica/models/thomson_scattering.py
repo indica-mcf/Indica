@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.transect_rho import TransectCoordinates
+from indica.converters.transect import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
@@ -106,7 +106,7 @@ class ThomsonScattering(DiagnosticModel):
 
 
 def example_run(
-    pulse:int=None,
+    pulse: int = None,
     diagnostic_name: str = "ts",
     plasma=None,
     plot=False,
@@ -175,3 +175,9 @@ def example_run(
         plt.legend()
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+    plt.ioff()
+    example_run(plot=True)
+    plt.show()

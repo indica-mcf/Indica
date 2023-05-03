@@ -7,15 +7,14 @@ from typing import Tuple
 from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
-from scipy.optimize import root
 import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
 
-from .abstractconverter_rho import Coordinates
-from .abstractconverter_rho import CoordinateTransform
-from .abstractconverter_rho import find_wall_intersections
+from .abstractconverter import Coordinates
+from .abstractconverter import CoordinateTransform
+from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
 
@@ -80,11 +79,9 @@ class LineOfSightTransform(CoordinateTransform):
         self.x1_name = "channel"
         self.x2_name = "los_position"
         self._machine_dims = machine_dimensions
-        self.dl_target = dl
         self.passes = passes
 
         self.dl: float
-        self.dl_all: list
         self.x: DataArray
         self.y: DataArray
         self.z: DataArray
@@ -109,34 +106,8 @@ class LineOfSightTransform(CoordinateTransform):
         # Number of lines of sight
         self.x1: list = list(np.arange(0, len(origin_x)))
 
-        # Calculate start and end coordinates, R, z and phi for all LOS
-        x_start, y_start, z_start = [], [], []
-        x_end, y_end, z_end = [], [], []
-        for channel in self.x1:
-            origin = (origin_x[channel], origin_y[channel], origin_z[channel])
-            direction = (
-                direction_x[channel],
-                direction_y[channel],
-                direction_z[channel],
-            )
-            _start, _end = find_wall_intersections(
-                origin, direction, machine_dimensions=machine_dimensions
-            )
-            x_start.append(_start[0])
-            y_start.append(_start[1])
-            z_start.append(_start[2])
-            x_end.append(_end[0])
-            y_end.append(_end[1])
-            z_end.append(_end[2])
-
-        self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1)])
-        self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1)])
-        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
-        self.x_end = DataArray(x_end, coords=[(self.x1_name, self.x1)])
-        self.y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
-        self.z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
-
-        self.x2, self.dl = self.set_dl(self.dl_target)
+        # Calculate LOS coordinates
+        self.set_dl(dl)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -184,7 +155,7 @@ class LineOfSightTransform(CoordinateTransform):
         y = y_s + (y_e - y_s) * x2
         z = z_s + (z_e - z_s) * x2
 
-        return np.sqrt(x ** 2 + y ** 2), z
+        return np.sqrt(x**2 + y**2), z
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
@@ -230,7 +201,11 @@ class LineOfSightTransform(CoordinateTransform):
         return self.rho, self.theta
 
     def distance(
-        self, direction: str, x1: LabeledArray, x2: LabeledArray, t: LabeledArray,
+        self,
+        direction: str,
+        x1: LabeledArray,
+        x2: LabeledArray,
+        t: LabeledArray,
     ) -> np.ndarray:
         """Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
@@ -247,7 +222,10 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def set_dl(self, dl: float,) -> tuple:
+    def set_dl(
+        self,
+        dl: float,
+    ):
         """
         Set spatial resolutions of the lines of sight, and calculate spatial
         coordinates along the LOS
@@ -256,78 +234,85 @@ class LineOfSightTransform(CoordinateTransform):
         ----------
         dl
             Spatial resolution (m)
-
-        Returns
-        -------
-        x2
-            The list of values 0 and 1 specifying the position along the grid-line
-            each point separated by dl in Cartesian coordinates
-        dl
-            Recomputed dl to fit an integral number of points in-between start & end
-
-        TODO: modify to have all LOS with identical dl !!!
         """
 
+        # Calculate start and end coordinates, R, z and phi for all LOS
+        x_start, y_start, z_start = [], [], []
+        x_end, y_end, z_end = [], [], []
+        for channel in self.x1:
+            origin = (
+                self.origin_x[channel],
+                self.origin_y[channel],
+                self.origin_z[channel],
+            )
+            direction = (
+                self.direction_x[channel],
+                self.direction_y[channel],
+                self.direction_z[channel],
+            )
+            _start, _end = find_wall_intersections(
+                origin, direction, machine_dimensions=self._machine_dims
+            )
+            x_start.append(_start[0])
+            y_start.append(_start[1])
+            z_start.append(_start[2])
+            x_end.append(_end[0])
+            y_end.append(_end[1])
+            z_end.append(_end[2])
+
+        self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1)])
+        self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1)])
+        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
+        x_end = DataArray(x_end, coords=[(self.x1_name, self.x1)])
+        y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
+        z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
+
+        # Fix identical length of all lines of sight
+        los_lengths = np.sqrt(
+            (x_end - self.x_start) ** 2
+            + (y_end - self.y_start) ** 2
+            + (z_end - self.z_start) ** 2
+        )
+        length = np.max(los_lengths)
+        npts = int(np.ceil(length / dl))
+        length = float(npts * dl)
+        factor = length / los_lengths
+        self.x_end = self.x_start + factor * (x_end - self.x_start)
+        self.z_end = self.z_start + factor * (z_end - self.z_start)
+        self.y_end = self.y_start + factor * (y_end - self.y_start)
+
+        # Calculate coordinates, set to Nan values beyond nominal length
         x: list = []
         y: list = []
         z: list = []
         R: list = []
         phi: list = []
-        x2: list = []
-        dl_new: list = []
-
-        # Length of the lines of sight
-        los_length = np.sqrt(
-            (self.x_end - self.x_start) ** 2
-            + (self.y_end - self.y_start) ** 2
-            + (self.z_end - self.z_start) ** 2
-        )
-
-        # Find the number of points
-        npts = np.ceil(los_length / dl).astype(int).values
-
-        # Set dl, calculate dl, x, y, z, R
+        _x2 = np.linspace(0, 1, npts, dtype=float)
+        x2 = DataArray(_x2, coords=[(self.x2_name, _x2)])
         for x1 in self.x1:
-            ind = np.linspace(0, 1, npts[x1], dtype=float)
-            _x2 = DataArray(ind, dims=self.x2_name)
-            dl_new.append(self.distance(self.x2_name, 0, _x2[0:2], 0)[1])
-
-            _x, _y = self.convert_to_xy(x1, _x2, 0)
-            _R, _z = self.convert_to_Rz(x1, _x2, 0)
+            _x, _y = self.convert_to_xy(x1, x2, 0)
+            _R, _z = self.convert_to_Rz(x1, x2, 0)
+            dist = self.distance(self.x2_name, x1, x2, 0)
+            x.append(xr.where(dist <= los_lengths[x1].values, _x, np.nan))
+            y.append(xr.where(dist <= los_lengths[x1].values, _y, np.nan))
+            z.append(xr.where(dist <= los_lengths[x1].values, _z, np.nan))
+            R.append(xr.where(dist <= los_lengths[x1].values, _R, np.nan))
             _phi = np.arctan2(_y, _x)
-            x.append(_x)
-            y.append(_y)
-            R.append(_R)
-            z.append(_z)
             phi.append(_phi)
 
-        # Make all LOS of equal length, setting to NaN everything outside of of bounds
-        npts = np.max([len(_x) for _x in x])
-        x2 = np.linspace(0, 1, npts)
-        _x, _y, _z, _phi = [], [], [], []
-        for chan in self.x1:
-            _x2 = x2[: len(x[chan])]
-            x_tmp = x[chan].assign_coords({"los_position": _x2})
-            y_tmp = y[chan].assign_coords({"los_position": _x2})
-            z_tmp = z[chan].assign_coords({"los_position": _x2})
-            phi_tmp = z[chan].assign_coords({"los_position": _x2})
-            _x.append(x_tmp.interp(los_position=x2))
-            _y.append(y_tmp.interp(los_position=x2))
-            _z.append(z_tmp.interp(los_position=x2))
-            _phi.append(phi_tmp.interp(los_position=x2))
+        # Reset end coordinates to values intersecting the machine walls
+        self.x_end = x_end
+        self.y_end = y_end
+        self.z_end = z_end
 
         self.x2 = x2
-        dl = np.mean(dl_new)
-        self.dl_all = DataArray(dl_new, coords=[("channel", self.x1)])
-        self.dl = dl
-        self.x = xr.concat(_x, "channel")
-        self.y = xr.concat(_y, "channel")
-        self.z = xr.concat(_z, "channel")
-        self.phi = xr.concat(_phi, "channel")
-        self.R = np.sqrt(self.x ** 2 + self.y ** 2)
+        self.dl = float(dist[1] - dist[0])
+        self.x = xr.concat(x, "channel")
+        self.y = xr.concat(y, "channel")
+        self.z = xr.concat(z, "channel")
+        self.phi = xr.concat(phi, "channel")
+        self.R = np.sqrt(self.x**2 + self.y**2)
         self.impact_parameter = self.calc_impact_parameter()
-
-        return x2, dl
 
     def map_to_los(
         self,
@@ -335,7 +320,7 @@ class LineOfSightTransform(CoordinateTransform):
         t: LabeledArray = None,
         limit_to_sep: bool = True,
         calc_rho: bool = False,
-    ) -> list:
+    ) -> DataArray:
         """
         Map profile to lines-of-sight
         TODO: extend for 2D interpolation to (R, z) instead of rho
@@ -361,7 +346,11 @@ class LineOfSightTransform(CoordinateTransform):
 
         along_los = profile.interp(rho_poloidal=self.rho).drop_vars("rho_poloidal")
         if limit_to_sep:
-            along_los = xr.where(self.rho <= 1, along_los, np.nan,)
+            along_los = xr.where(
+                self.rho <= 1,
+                along_los,
+                np.nan,
+            )
 
         self.along_los = along_los
         self.impact_rho = impact_rho
@@ -441,7 +430,10 @@ class LineOfSightTransform(CoordinateTransform):
         Line of sight integral along the LOS
         """
         along_los = self.map_to_los(
-            profile_to_map, t=t, limit_to_sep=limit_to_sep, calc_rho=calc_rho,
+            profile_to_map,
+            t=t,
+            limit_to_sep=limit_to_sep,
+            calc_rho=calc_rho,
         )
         los_integral = self.passes * along_los.sum("los_position") * self.dl
 
@@ -597,32 +589,17 @@ class LineOfSightTransform(CoordinateTransform):
         return cols
 
 
-def example_run(
-    pulse: int = None,
-    plasma=None,
-    origin: LabeledArray = None,
-    direction: LabeledArray = None,
-    plot=False,
-    t: LabeledArray = None,
-):
-    from indica.models.equilibrium import fake_equilibrium_data, Equilibrium
-    from indica.models.plasma import example_run as example_plasma
-    from indica.readers import ST40Reader
+def example_run():
+    machine_dims = ((0.15, 0.85), (-0.75, 0.75))
 
-    if plasma is None:
-        plasma = example_plasma(pulse=pulse)
-    equilibrium = plasma.equilibrium
-    machine_dims = plasma.machine_dimensions
-
-    if origin is None or direction is None:
-        nchannels = 11
-        los_end = np.full((nchannels, 3), 0.0)
-        los_end[:, 0] = 0.17
-        los_end[:, 1] = 0.0
-        los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
-        los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
-        origin = los_start
-        direction = los_end - los_start
+    nchannels = 11
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.17
+    los_end[:, 1] = 0.0
+    los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
+    los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
+    origin = los_start
+    direction = los_end - los_start
 
     los_transform = LineOfSightTransform(
         origin[:, 0],
@@ -635,34 +612,7 @@ def example_run(
         machine_dimensions=machine_dims,
         passes=1,
     )
-    los_transform.set_equilibrium(equilibrium)
 
-    if plot:
-        los_transform.plot_los()
+    # los_transform.plot_los()
 
-    return plasma, los_transform
-
-    # Test rho calculation
-    t_types = [
-        float(plasma.t.mean()),
-        plasma.t.mean(),
-        np.array([float(plasma.t.mean())]),
-        [float(plasma.t.mean())],
-        plasma.t,
-    ]
-    for t in t_types:
-        print(t)
-        rho, theta = los_transform.convert_to_rho(t=t)
-
-    # Test profile interpolation
-    # plt.ion()
-    for i, t in enumerate(t_types):
-        profile_to_map = plasma.electron_density.sel(t=t, method="nearest")
-        along_los = los_transform.map_to_los(profile_to_map, t=t)
-        los_int = los_transform.integrate_on_los(profile_to_map, t=t)
-        # plt.figure()
-        # along_los.plot()
-        # plt.figure()
-        # los_int.plot()
-
-    return plasma, los_transform
+    return los_transform

@@ -120,10 +120,10 @@ class BremsstrahlungDiode(DiagnosticModel):
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
-        self.t = t
-        self.Te = Te
-        self.Ne = Ne
-        self.Zeff = Zeff
+        self.t: DataArray = t
+        self.Te: DataArray = Te
+        self.Ne: DataArray = Ne
+        self.Zeff: DataArray = Zeff
 
         # Wavelength axis
         wavelength = np.linspace(
@@ -222,3 +222,9 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
         plt.legend()
 
     return plasma, model, bckc
+
+
+if __name__ == "__main__":
+    plt.ioff()
+    example_run(plot=True)
+    plt.show()

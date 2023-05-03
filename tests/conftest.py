@@ -2,6 +2,9 @@
 
 """
 
+import sys
+from unittest import mock
+
 from hypothesis import HealthCheck
 from hypothesis import settings
 from hypothesis import Verbosity
@@ -18,3 +21,7 @@ settings.register_profile(
     verbosity=Verbosity.verbose,
 )
 settings.register_profile("dev", max_examples=10)
+
+# Turn off import of modules that cnnot be installed in CI
+sys.modules["indica.readers.st40reader"] = mock.MagicMock()
+sys.modules["indica.readers.st40reader.ST40Reader"] = mock.MagicMock()
