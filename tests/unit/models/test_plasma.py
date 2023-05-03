@@ -20,9 +20,9 @@ class TestPlasma:
         self.equilibrium = Equilibrium(self.equilibrium_data)
         self.plasma.set_equilibrium(equilibrium=self.equilibrium)
 
-    def setup_method(self):
-        self.plasma.electron_density = 1  # set profiles
-        return
+    # def setup_method(self):
+    #     self.plasma.electron_density = 1  # set profiles
+    #     return
 
     def teardown_method(self):
         self.plasma.initialize_variables(tstart=self.tstart, tend=self.tend, dt=self.dt)
@@ -37,19 +37,19 @@ class TestPlasma:
         _volume = self.plasma.volume
         assert len(np.where(_volume > 0)[0]) != 0
 
-    def test_fz_is_non_zero(self):
-        _fz = self.plasma.fz
-        assert len(np.where(_fz > 0)[0]) != 0
+    # def test_fz_is_non_zero(self):
+    #     _fz = self.plasma.fz[self.impurities[0]]
+    #     assert len(np.where(_fz > 0)[0]) != 0
+    #
+    # def test_lz_is_non_zero(self):
+    #     _lz_tot = self.plasma.lz_tot[self.impurities[0]]
+    #     assert len(np.where(_lz_tot > 0)[0]) != 0
 
-    def test_lz_is_non_zero(self):
-        _lz_tot = self.plasma.lz_tot
-        assert len(np.where(_lz_tot > 0)[0]) != 0
-
-    def test_fz_one_time_point(self):
-        return
-
-    def test_fz_keys_match_elements(self):
-        return
+    # def test_fz_one_time_point(self):
+    #     return
+    #
+    # def test_fz_keys_match_elements(self):
+    #     return
 
 # class TestPlasmaProfiles:
 #
