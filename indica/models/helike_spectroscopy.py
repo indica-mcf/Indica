@@ -281,7 +281,10 @@ class Helike_spectroscopy(DiagnosticModel):
                 calc_rho=calc_rho,
             )
             # LOS integral removes NaNs so add them back
-            self.measured_spectra = self.measured_spectra.where(self.measured_spectra != 0, np.nan)
+            self.measured_spectra = self.measured_spectra.where(
+                self.measured_spectra != 0, np.nan
+            )
+
     def _calculate_temperatures(self):
         x1 = self.los_transform.x1
         x1_name = self.los_transform.x1_name
@@ -763,6 +766,7 @@ def helike_LOS_example(nchannels=3):
         passes=1,
     )
     return los_transform
+
 
 def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
     # TODO: LOS sometimes crossing bad EFIT reconstruction

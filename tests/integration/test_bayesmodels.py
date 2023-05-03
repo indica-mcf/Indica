@@ -1,9 +1,9 @@
 import emcee
 import flatdict
-from indica.models.helike_spectroscopy import helike_LOS_example
 
 from indica.bayesmodels import BayesModels
 from indica.bayesmodels import get_uniform
+from indica.models.helike_spectroscopy import helike_LOS_example
 from indica.models.helike_spectroscopy import Helike_spectroscopy
 from indica.models.plasma import example_run
 

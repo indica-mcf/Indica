@@ -1,21 +1,31 @@
 import numpy as np
 
+from indica.equilibrium import Equilibrium
+from indica.equilibrium import fake_equilibrium_data
 from indica.models.plasma import Plasma
-from indica.equilibrium import fake_equilibrium_data, Equilibrium
 
 
 class TestPlasma:
     def setup_class(self):
-        self.tstart = 0.
+        self.tstart = 0.0
         self.tend = 0.1
         self.dt = 0.02
         self.impurities = ("c", "ar", "he")
         self.impurity_concentration = (0.01, 0.001, 0.01)
 
-        self.plasma = Plasma(tstart=self.tstart, tend=self.tend, dt=self.dt, main_ion="h",
-                             impurities=self.impurities, impurity_concentration=self.impurity_concentration)
+        self.plasma = Plasma(
+            tstart=self.tstart,
+            tend=self.tend,
+            dt=self.dt,
+            main_ion="h",
+            impurities=self.impurities,
+            impurity_concentration=self.impurity_concentration,
+        )
         self.equilibrium_data = fake_equilibrium_data(
-            tstart=self.tstart, tend=self.tend, dt=self.dt, machine_dims=self.plasma.machine_dimensions
+            tstart=self.tstart,
+            tend=self.tend,
+            dt=self.dt,
+            machine_dims=self.plasma.machine_dimensions,
         )
         self.equilibrium = Equilibrium(self.equilibrium_data)
         self.plasma.set_equilibrium(equilibrium=self.equilibrium)
@@ -50,6 +60,7 @@ class TestPlasma:
     #
     # def test_fz_keys_match_elements(self):
     #     return
+
 
 # class TestPlasmaProfiles:
 #
