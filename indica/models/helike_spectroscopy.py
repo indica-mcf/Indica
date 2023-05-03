@@ -280,9 +280,8 @@ class Helike_spectroscopy(DiagnosticModel):
                 t=self.spectra.t,
                 calc_rho=calc_rho,
             )
-            # TODO: LOS integral removes NaNs so add them back (find solution)
-            self.measured_spectra[self.measured_spectra == 0] = np.nan
-
+            # LOS integral removes NaNs so add them back
+            self.measured_spectra = self.measured_spectra.where(self.measured_spectra != 0, np.nan)
     def _calculate_temperatures(self):
         x1 = self.los_transform.x1
         x1_name = self.los_transform.x1_name
@@ -771,7 +770,6 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
         plasma = example_plasma(
             pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10
         )
-        plasma.time_to_calculate = plasma.t[5]
         # Create new diagnostic
     diagnostic_name = "xrcs"
     los_transform = helike_LOS_example(3)
