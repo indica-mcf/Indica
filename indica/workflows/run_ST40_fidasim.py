@@ -62,7 +62,7 @@ def driver(
         specconfig = {
             "name": which_spectrometer,
             "chord_IDs": ["M3", "M4", "M5", "M6", "M7", "M8"],
-            "cross_section_corr": True
+            "cross_section_corr": False
         }
     elif which_spectrometer == "Chers_new":
         specconfig = {
@@ -80,7 +80,7 @@ def driver(
     geom_dict = dict()
     for i_chord, id in enumerate(chord_ids):
         geom_dict[id] = {}
-        geom_dict[id]["origin"] = origin[i_chord, :]
+        geom_dict[id]["origin"] = origin[i_chord, :] * 1e2
         geom_dict[id]["diruvec"] = direction[i_chord, :]
     specconfig["chord_IDs"] = chord_ids
     specconfig["geom_dict"] = geom_dict
@@ -245,9 +245,9 @@ def driver(
 if __name__ == "__main__":
 
     # Inputs
-    pulse = 10014
-    tstart = 0.04
-    tend = 0.08
+    pulse = 10009
+    tstart = 0.05
+    tend = 0.06
     dt = 0.01
 
     # Get plasma
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     beam_on = np.ones(len(beam.plasma.t.data))
 
     # Run driver function
-    run_fidasim = False
+    run_fidasim = True
     results = driver(
         cxspec,
         beam,
