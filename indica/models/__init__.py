@@ -5,6 +5,7 @@ __all__ = [
     "equilibrium_reconstruction",
     "helike_spectroscopy",
     "interferometry",
+    "neutral_beam",
     "plasma",
     "sxr_camera",
     "thomson_scattering",
