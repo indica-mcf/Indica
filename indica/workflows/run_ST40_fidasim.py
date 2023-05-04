@@ -20,7 +20,8 @@ path_to_indica = '/home/jonathan.wood/git_home/Indica/'
 sys.path.append(path_to_indica)
 
 # Import Indica modules
-from indica.models import NeutralBeam, ChargeExchange
+from indica.models.neutral_beam import NeutralBeam
+from indica.models.charge_exchange import ChargeExchange
 from indica.models.plasma import example_run
 from indica.models.plasma import Plasma
 from indica.converters import LineOfSightTransform
