@@ -1268,6 +1268,7 @@ def example_run(
         impurity_concentration=impurity_concentration,
         full_run=full_run,
         verbose=verbose,
+        pulse=pulse,
         **kwargs,
     )
     plasma.build_atomic_data(default=True, calc_power_loss=calc_power_loss)
