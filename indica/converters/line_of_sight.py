@@ -89,6 +89,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.phi: DataArray
         self.rho: DataArray
         self.theta: DataArray
+        self.profile_to_map: DataArray
         self.along_los: DataArray
         self.los_integral: DataArray
         self.t: LabeledArray
@@ -341,6 +342,7 @@ class LineOfSightTransform(CoordinateTransform):
             Interpolation of the input profile along the LOS
         """
         self.check_equilibrium()
+        profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
 
         coords = profile_to_map.coords
         along_los: DataArray
@@ -350,7 +352,6 @@ class LineOfSightTransform(CoordinateTransform):
 
             along_los = profile_to_map.interp(R=R_, z=z_).T
         elif "rho_poloidal" in coords or "rho_toroidal" in coords:
-            profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
             impact_rho = self.rho.min("los_position")
 
             rho_ = self.rho
@@ -373,6 +374,7 @@ class LineOfSightTransform(CoordinateTransform):
         drop_coords = [coord for coord in coords if coord != "t"]
         along_los = along_los.drop_vars(drop_coords)
         self.along_los = along_los
+        self.profile_to_map = profile_to_map
 
         return along_los
 
