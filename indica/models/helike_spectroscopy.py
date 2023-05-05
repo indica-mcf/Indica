@@ -213,10 +213,11 @@ class Helike_spectroscopy(DiagnosticModel):
 
         line_emission = {}
         for line_name in self.line_labels:
-            _line_emission = (
-                self.intensity.where((self.intensity.wavelength > self.line_ranges[line_name].start) &
-                                     (self.intensity.wavelength < self.line_ranges[line_name].stop),
-                                     drop=True))
+            _line_emission = self.intensity.where(
+                (self.intensity.wavelength > self.line_ranges[line_name].start)
+                & (self.intensity.wavelength < self.line_ranges[line_name].stop),
+                drop=True,
+            )
             line_emission[line_name] = _line_emission.sum("line_name")
 
         if "k" in line_emission.keys() and "w" in line_emission.keys():
