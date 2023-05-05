@@ -176,27 +176,19 @@ class LineOfSightTransform(CoordinateTransform):
         if np.size(t) == 1:
             _t = float(_t)
 
-        rho = []
-        theta = []
-        _rho: DataArray
-        _theta: DataArray
-        for chan in self.x1:
-            _rho, _theta, _ = self.equilibrium.flux_coords(
-                self.R.sel(channel=chan), self.z.sel(channel=chan), t=_t
-            )
-            drop_vars = ["R", "z"]
-            for var in drop_vars:
-                if var in _rho.coords:
-                    _rho = _rho.drop_vars(var)
-                if var in _theta.coords:
-                    _theta = _theta.drop_vars(var)
-
-            rho.append(xr.where(_rho >= 0, _rho, np.nan))
-            theta.append(xr.where(_rho >= 0, _theta, np.nan))
+        rho: DataArray
+        theta: DataArray
+        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=_t)
+        drop_vars = ["R", "z"]
+        for var in drop_vars:
+            if var in rho.coords:
+                rho = rho.drop_vars(var)
+            if var in theta.coords:
+                theta = theta.drop_vars(var)
 
         self.t = _t
-        self.rho = xr.concat(rho, "channel")
-        self.theta = xr.concat(theta, "channel")
+        self.rho = rho
+        self.theta = theta
 
         return self.rho, self.theta
 
@@ -579,10 +571,13 @@ class LineOfSightTransform(CoordinateTransform):
         if hasattr(self, "equilibrium") and plot_all:
             if figure:
                 plt.figure()
+            if not hasattr(self, "rho"):
+                self.convert_to_rho(t=tplot)
             for ch in channels:
-                self.rho.sel(channel=ch, t=tplot, method="nearest").plot(
-                    color=cols[ch], linewidth=2
-                )
+                rho = self.rho.sel(channel=ch)
+                if "t" in self.rho.dims:
+                    rho = rho.sel(t=tplot, method="nearest")
+                rho.plot(color=cols[ch], linewidth=2)
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
 

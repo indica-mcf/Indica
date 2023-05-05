@@ -366,14 +366,6 @@ class MARCHUKReader:
         for _pec_name, _pec in _pecs.items():
             _dataset[_pec_name] = _pec.to_dataset(dim="type")
         _dataset = xr.merge([*_dataset.values()])
-        _dataarray = _dataset.to_array(dim="type")
-        _dataarray = _dataarray.transpose(
-            *["electron_temperature", "line_name", "type"]
-        )
-        dataarray = {
-            "element": self.element,
-            "file": self.filehead,
-            "charge": self.charge,
-            "emiss_coeff": _dataarray,
-        }
+        dataarray = _dataset.to_array(dim="type")
+        dataarray = dataarray.transpose(*["electron_temperature", "line_name", "type"])
         return dataarray
