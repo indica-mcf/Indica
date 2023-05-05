@@ -548,4 +548,4 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
 
 
 if __name__ == "__main__":
-    example_run(plot=False, moment_analysis=True)
+    example_run(plot=True, moment_analysis=True)
