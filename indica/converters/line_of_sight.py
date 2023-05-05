@@ -23,9 +23,9 @@ class LineOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
-    line-of-site a location is on. The second coordinate ranges from 0
+    line-of-sight a location is on. The second coordinate ranges from 0
     to 1 (inclusive) and indicates the position of a location along
-    the line-of-sight. Note that diagnostic using this coordinate
+    the line-of-sight. Note that the diagnostic using this coordinate
     system will usually only be indexed in the first coordinate, as
     the measurements were integrated along the line-of-sight.
 
@@ -166,15 +166,15 @@ class LineOfSightTransform(CoordinateTransform):
             "method."
         )
 
-    def convert_to_rho(self, t: LabeledArray = None) -> Coordinates:
+    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
         """
-        Convert R, z to rho given the flux surface transform
+        Convert R, z to rho, theta given the flux surface transform
         """
         self.check_equilibrium()
 
         _t = np.array(t)
         if np.size(t) == 1:
-            _t = float(_t)
+            _t = float(_t)  # type: ignore
 
         rho = []
         theta = []
@@ -306,6 +306,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.z_end = z_end
 
         self.x2 = x2
+        # self.mask = xr.concat(mask, "channel").assign_coords({"channel":self.x1})
         self.dl = float(dist[1] - dist[0])
         self.x = xr.concat(x, "channel")
         self.y = xr.concat(y, "channel")
@@ -314,7 +315,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.R = np.sqrt(self.x**2 + self.y**2)
         self.impact_parameter = self.calc_impact_parameter()
 
-    def map_to_los(
+    def map_profile_to_los(
         self,
         profile_to_map: DataArray,
         t: LabeledArray = None,
@@ -323,7 +324,7 @@ class LineOfSightTransform(CoordinateTransform):
     ) -> DataArray:
         """
         Map profile to lines-of-sight
-        TODO: extend for 2D interpolation to (R, z) instead of rho
+
         Parameters
         ----------
         profile_to_map
@@ -341,24 +342,42 @@ class LineOfSightTransform(CoordinateTransform):
         """
         self.check_equilibrium()
 
-        profile = self.check_rho_and_profile(t, profile_to_map, calc_rho=calc_rho)
-        impact_rho = self.rho.min("los_position")
+        coords = profile_to_map.coords
+        along_los: DataArray
+        if "R" in coords and "z" in coords:
+            R_ = self.R
+            z_ = self.z
 
-        along_los = profile.interp(rho_poloidal=self.rho).drop_vars("rho_poloidal")
-        if limit_to_sep:
-            along_los = xr.where(
-                self.rho <= 1,
-                along_los,
-                np.nan,
-            )
+            along_los = profile_to_map.interp(R=R_, z=z_).T
+        elif "rho_poloidal" in coords or "rho_toroidal" in coords:
+            profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
+            impact_rho = self.rho.min("los_position")
 
+            rho_ = self.rho
+            if "theta" in coords:
+                theta_ = self.theta
+                along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
+            else:
+                along_los = profile.interp(rho_poloidal=rho_)
+
+            if limit_to_sep:
+                along_los = xr.where(
+                    rho_ <= 1,
+                    along_los,
+                    np.nan,
+                )
+            self.impact_rho = impact_rho
+        else:
+            raise NotImplementedError("Coordinates not recognized...")
+
+        drop_coords = [coord for coord in coords if coord != "t"]
+        along_los = along_los.drop_vars(drop_coords)
         self.along_los = along_los
-        self.impact_rho = impact_rho
 
         return along_los
 
     def check_rho_and_profile(
-        self, t: LabeledArray, profile_to_map: DataArray, calc_rho: bool = False
+        self, profile_to_map: DataArray, t: LabeledArray = None, calc_rho: bool = False
     ) -> DataArray:
         """
         Check requested times
@@ -378,14 +397,14 @@ class LineOfSightTransform(CoordinateTransform):
 
         # Make sure rho.t == requested time
         if not hasattr(self, "rho") or calc_rho:
-            self.convert_to_rho(t=time)
+            self.convert_to_rho_theta(t=time)
         else:
             if not np.array_equal(self.rho.t, time):
-                self.convert_to_rho(t=time)
+                self.convert_to_rho_theta(t=time)
 
         # Check profile
         if not hasattr(profile_to_map, "t"):
-            profile = profile_to_map.expand_dims({"t": time})
+            profile = profile_to_map.expand_dims({"t": time})  # type: ignore
         else:
             profile = profile_to_map
 
@@ -429,13 +448,17 @@ class LineOfSightTransform(CoordinateTransform):
         -------
         Line of sight integral along the LOS
         """
-        along_los = self.map_to_los(
+        along_los = self.map_profile_to_los(
             profile_to_map,
             t=t,
             limit_to_sep=limit_to_sep,
             calc_rho=calc_rho,
         )
-        los_integral = self.passes * along_los.sum("los_position") * self.dl
+        los_integral = (
+            self.passes
+            * along_los.dropna(dim="los_position").sum("los_position")
+            * self.dl
+        )
 
         if len(los_integral.channel) == 1:
             los_integral = los_integral.sel(channel=0)
@@ -580,9 +603,10 @@ class LineOfSightTransform(CoordinateTransform):
             if figure:
                 plt.figure()
             for ch in channels:
-                self.rho.sel(channel=ch, t=tplot, method="nearest").plot(
-                    color=cols[ch], linewidth=2
-                )
+                _rho = self.rho.sel(channel=ch)
+                if "t" in self.rho.dims:
+                    _rho = _rho.sel(t=tplot, method="nearest")
+                _rho.plot(color=cols[ch], linewidth=2)
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
 
@@ -590,6 +614,9 @@ class LineOfSightTransform(CoordinateTransform):
 
 
 def example_run():
+    from copy import deepcopy
+    from indica.equilibrium import fake_equilibrium
+
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
 
     nchannels = 11
@@ -613,6 +640,46 @@ def example_run():
         passes=1,
     )
 
-    # los_transform.plot_los()
+    equilibrium = fake_equilibrium(machine_dims=machine_dims)
+    los_transform.set_equilibrium(equilibrium)
 
-    return los_transform
+    los_transform_1d = los_transform
+    los_transform_2d = deepcopy(los_transform)
+
+    time = los_transform_2d.equilibrium.rho.t.values[0:5]
+    profile_1d = (
+        DataArray(
+            np.abs(np.linspace(-1, 0)),
+            coords=[("rho_poloidal", np.linspace(0, 1.0))],
+        )
+        .expand_dims({"t": time.size})
+        .assign_coords(t=time)
+    )
+
+    _rho = los_transform_2d.equilibrium.rho.interp(t=time)
+    profile_2d = profile_1d.interp(rho_poloidal=_rho).drop("rho_poloidal")
+
+    along_los_1d = los_transform_1d.map_profile_to_los(profile_1d, t=profile_1d.t)
+    along_los_2d = los_transform_2d.map_profile_to_los(profile_2d, t=profile_2d.t)
+
+    los_int_1d = los_transform_1d.integrate_on_los(profile_1d, t=profile_1d.t)
+    los_int_2d = los_transform_2d.integrate_on_los(profile_2d, t=profile_2d.t)
+
+    # los_transform.plot_los(plot_all=True)
+
+    plt.figure()
+    plt.plot(
+        ((along_los_1d - along_los_2d) / along_los_1d).sel(
+            t=np.mean(time), method="nearest"
+        ),
+        marker="o",
+    )
+    plt.title("Mapping along LOS (1D-2D)/1D")
+    plt.legend()
+
+    plt.figure()
+    plt.plot((los_int_1d - los_int_2d) / los_int_1d, marker="o")
+    plt.title("LOS integral (1D-2D)/1D")
+    plt.legend()
+
+    return los_transform_1d, los_transform_2d, profile_1d, profile_2d
