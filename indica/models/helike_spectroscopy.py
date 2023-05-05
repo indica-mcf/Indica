@@ -41,7 +41,7 @@ class Helike_spectroscopy(DiagnosticModel):
         window_masks: list = [],
         etendue: float = 1.0,
         calibration: float = 1.0e-27,
-        line_labels: list = ["w", "k"],
+        line_labels: list = ["w", "k", "n3", "n345", "z", "qra"],
     ):
         """
         Read all atomic data and initialise objects
@@ -210,16 +210,14 @@ class Helike_spectroscopy(DiagnosticModel):
         Perform moment analysis using a lines defined in line_labels,
         calculating the position of emissivity, and expected Te and Ti
         """
+
         line_emission = {}
         for line_name in self.line_labels:
-            line_emission[line_name] = (
-                self.spectra.sel(
-                    wavelength=slice(
-                        self.line_ranges[line_name].start,
-                        self.line_ranges[line_name].stop,
-                    )
-                )
-            ).integrate("wavelength")
+            _line_emission = (
+                self.intensity.where((self.intensity.wavelength > self.line_ranges[line_name].start) &
+                                     (self.intensity.wavelength < self.line_ranges[line_name].stop),
+                                     drop=True))
+            line_emission[line_name] = _line_emission.sum("line_name")
 
         if "k" in line_emission.keys() and "w" in line_emission.keys():
             line_emission["kw"] = line_emission["k"] * line_emission["w"]
@@ -550,4 +548,4 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
 
 
 if __name__ == "__main__":
-    example_run(plot=True, moment_analysis=True)
+    example_run(plot=False, moment_analysis=True)
