@@ -68,11 +68,6 @@ pytest-cov = "^2.10.0"
 pytest-xdist = "^2.0.0"
 types-setuptools = "^57.4.14"
 
-[tool.poetry.group.docs.dependencies]
-sphinx = "^4.0.0"
-sphinx-rtd-theme = "^1.0.0"
-sphinxcontrib-plantuml = "^0.25"
-
 [tool.poetry.build]
 generate-setup-file = false
 script = ".get_git_commit.py"
