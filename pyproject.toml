@@ -54,7 +54,6 @@ ipython = "^8.8.0"
 emcee = "^3.1.4"
 flatdict = "^4.0.1"
 tqdm = "^4.65.0"
-urllib3 = "<2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 click = "^8.0.0"
@@ -67,6 +66,11 @@ pytest = "^6.0.1"
 pytest-cov = "^2.10.0"
 pytest-xdist = "^2.0.0"
 types-setuptools = "^57.4.14"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^4.0.0"
+sphinx-rtd-theme = "^1.0.0"
+sphinxcontrib-plantuml = "^0.25"
 
 [tool.poetry.build]
 generate-setup-file = false
