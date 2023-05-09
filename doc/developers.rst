@@ -40,7 +40,7 @@ Setting up the Development Environment
 InDiCA development uses `Poetry <https://python-poetry.org/>`_ to manage
 dependencies, control the testing environment, and handle
 packaging. Follow the `instructions on installing poetry
-<https://python-poetry.org/docs/master/#installation>`_. In the repository,
+<https://python-poetry.org/docs/#installation>`_. In the repository,
 run::
 
   poetry install
@@ -266,7 +266,7 @@ distance along the coordinate. This would happen if the coordinate has
 some component in the toroidal direction, as is the case for the
 :py:class:`~indica.converters.LinesOfSightTransform`.
 
-Coordinate transforms do not record provenance.
+Coordinate transforms to not record provenance.
 
 Performing New Operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -379,7 +379,7 @@ In order for your pull request to be accepted, it must meet the
 following standards:
 
 - pass all pre-commit hooks (e.g., it must obey the
-  `black <https://github.com/psf/black>`_ formatting style
+  `black <https://github.com/psf/black) formatting style>`_
 - use Python `type-hints <https://www.python.org/dev/peps/pep-0484/>`_ wherever possible
 - pass `mypy <https://mypy.readthedocs.io/en/stable/>`_
 - provide unit tests (and ideally integration tests as well)
