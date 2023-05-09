@@ -83,10 +83,9 @@ class ST40Reader(DataReader):
         "sxr_diode_2": "get_diode_filters",
         "sxr_diode_3": "get_diode_filters",
         "sxr_diode_4": "get_diode_filters",
-        "sxr_camera_1": "get_radiation",
-        "sxr_camera_2": "get_radiation",
-        "sxr_camera_3": "get_radiation",
         "sxr_camera_4": "get_radiation",
+        "sxrc_xy1": "get_radiation",
+        "sxrc_xy2": "get_radiation",
         "cxff_pi": "get_charge_exchange",
         "cxff_tws_c": "get_charge_exchange",
         "cxqf_tws_c": "get_charge_exchange",
@@ -166,21 +165,6 @@ class ST40Reader(DataReader):
         "halpha": {
             "brightness": ".h_alpha_mp1:intensity",
         },
-        "sxr_camera_1": {
-            "brightness": ".middle_head.filter_1:",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
-        },
-        "sxr_camera_2": {
-            "brightness": ".middle_head.filter_2:",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
-        },
-        "sxr_camera_3": {
-            "brightness": ".middle_head.filter_3:",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
-        },
         "sxr_camera_4": {
             "brightness": ".middle_head.filter_4:",
             "location": ".middle_head.geometry:location",
@@ -190,6 +174,12 @@ class ST40Reader(DataReader):
             "brightness": ".middle_head.filter_4:",
             "location": ".middle_head.geometry:location",
             "direction": ".middle_head.geometry:direction",
+        },
+        "sxrc_xy1": {
+            "brightness": ".profiles:emission",
+        },
+        "sxrc_xy2": {
+            "brightness": ".profiles:emission",
         },
         "sxr_diode_1": {
             "brightness": ".filter_001:signal",
@@ -533,14 +523,14 @@ class ST40Reader(DataReader):
 
         return results
 
-    def _get_radiation(
+    def _get_radiation_old(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-        """Fetch data from SXR camera."""
+        """Fetch data from SXR cameras, legacy old MDS+ structure."""
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
@@ -598,6 +588,68 @@ class ST40Reader(DataReader):
         results[quantity + "_error"] = self._default_error * results[quantity]
         results["location"] = location[chan_start - 1 : chan_end, :]
         results["direction"] = direction[chan_start - 1 : chan_end, :]
+
+        results["quantities"] = quantities
+
+        return results
+
+    def _get_radiation(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch data from SXR cameras."""
+
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
+            uid = self.UIDS_MDS[instrument]
+
+        if "sxr_camera" in instrument:
+            return self._get_radiation_old(uid, instrument, revision, quantities)
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        revision = results["revision"]
+
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, direction_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
+
+        quantity = "brightness"
+        times, times_path = self._get_signal(
+            uid,
+            instrument,
+            ":time",
+            revision,
+        )
+        qval, qval_record = self._get_signal(
+            uid,
+            instrument,
+            self.QUANTITIES_MDS[instrument][quantity],
+            revision,
+        )
+        qerr, qerr_record = self._get_signal(
+            uid,
+            instrument,
+            self.QUANTITIES_MDS[instrument][quantity] + "_err",
+            revision,
+        )
+
+        results["length"] = np.shape(qval)[1]
+        results["times"] = times
+        results[quantity] = np.array(qval)
+        results[quantity + "_records"] = qval_record
+        results[quantity + "_error"] = qerr
+        results["location"] = location
+        results["direction"] = direction
 
         results["quantities"] = quantities
 
