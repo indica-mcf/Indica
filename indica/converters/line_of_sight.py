@@ -171,35 +171,22 @@ class LineOfSightTransform(CoordinateTransform):
         """
         Convert R, z to rho, theta given the flux surface transform
         """
-        self.check_equilibrium()
+        if not hasattr(self, "equilibrium"):
+            raise Exception("Set equilibrium object to convert (R,z) to rho")
 
-        _t = np.array(t)
-        if np.size(t) == 1:
-            _t = float(_t)  # type: ignore
+        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
+        drop_vars = ["R", "z"]
+        for var in drop_vars:
+            if var in rho.coords:
+                rho = rho.drop_vars(var)
+            if var in theta.coords:
+                theta = theta.drop_vars(var)
 
-        rho = []
-        theta = []
-        _rho: DataArray
-        _theta: DataArray
-        for chan in self.x1:
-            _rho, _theta, _ = self.equilibrium.flux_coords(
-                self.R.sel(channel=chan), self.z.sel(channel=chan), t=_t
-            )
-            drop_vars = ["R", "z"]
-            for var in drop_vars:
-                if var in _rho.coords:
-                    _rho = _rho.drop_vars(var)
-                if var in _theta.coords:
-                    _theta = _theta.drop_vars(var)
+        self.t = t
+        self.rho = rho
+        self.theta = theta
 
-            rho.append(xr.where(_rho >= 0, _rho, np.nan))
-            theta.append(xr.where(_rho >= 0, _theta, np.nan))
-
-        self.t = _t
-        self.rho = xr.concat(rho, "channel")
-        self.theta = xr.concat(theta, "channel")
-
-        return self.rho, self.theta
+        return rho, theta
 
     def distance(
         self,
@@ -316,6 +303,56 @@ class LineOfSightTransform(CoordinateTransform):
         self.R = np.sqrt(self.x**2 + self.y**2)
         self.impact_parameter = self.calc_impact_parameter()
 
+    def check_rho_and_profile(
+        self, profile_to_map: DataArray, t: LabeledArray = None, calc_rho: bool = False
+    ) -> DataArray:
+        """
+        Check requested times
+        """
+
+        time = np.array(t)
+        if time.size == 1:
+            time = float(time)
+
+        equil_t = self.equilibrium.rho.t
+        equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
+        if not equil_ok:
+            print(f"Available equilibrium times {np.array(equil_t)}")
+            raise ValueError(
+                f"Inserted time {time} is not available in Equilibrium object"
+            )
+
+        # Make sure rho.t == requested time
+        if not hasattr(self, "rho") or calc_rho:
+            self.convert_to_rho_theta(t=time)
+        else:
+            if not np.array_equal(self.rho.t, time):
+                self.convert_to_rho_theta(t=time)
+
+        # Check profile
+        if not hasattr(profile_to_map, "t"):
+            profile = profile_to_map.expand_dims({"t": time})  # type: ignore
+        else:
+            profile = profile_to_map
+
+        if np.size(time) == 1:
+            if np.isclose(profile.t, time, rtol=1.0e-4):
+                if "t" in profile_to_map.dims:
+                    profile = profile.sel(t=time, method="nearest")
+            else:
+                raise ValueError("Profile does not include requested time")
+        else:
+            prof_t = profile.t
+            range_ok = (np.min(time) >= np.min(prof_t)) * (
+                np.max(time) <= np.max(prof_t)
+            )
+            if range_ok:
+                profile = profile.interp(t=time)
+            else:
+                raise ValueError("Profile does not include requested time")
+
+        return profile
+
     def map_profile_to_los(
         self,
         profile_to_map: DataArray,
@@ -377,56 +414,6 @@ class LineOfSightTransform(CoordinateTransform):
         self.profile_to_map = profile_to_map
 
         return along_los
-
-    def check_rho_and_profile(
-        self, profile_to_map: DataArray, t: LabeledArray = None, calc_rho: bool = False
-    ) -> DataArray:
-        """
-        Check requested times
-        """
-
-        time = np.array(t)
-        if time.size == 1:
-            time = float(time)
-
-        equil_t = self.equilibrium.rho.t
-        equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
-        if not equil_ok:
-            print(f"Available equilibrium times {np.array(equil_t)}")
-            raise ValueError(
-                f"Inserted time {time} is not available in Equilibrium object"
-            )
-
-        # Make sure rho.t == requested time
-        if not hasattr(self, "rho") or calc_rho:
-            self.convert_to_rho_theta(t=time)
-        else:
-            if not np.array_equal(self.rho.t, time):
-                self.convert_to_rho_theta(t=time)
-
-        # Check profile
-        if not hasattr(profile_to_map, "t"):
-            profile = profile_to_map.expand_dims({"t": time})  # type: ignore
-        else:
-            profile = profile_to_map
-
-        if np.size(time) == 1:
-            if np.isclose(profile.t, time, rtol=1.0e-4):
-                if "t" in profile_to_map.dims:
-                    profile = profile.sel(t=time, method="nearest")
-            else:
-                raise ValueError("Profile does not include requested time")
-        else:
-            prof_t = profile.t
-            range_ok = (np.min(time) >= np.min(prof_t)) * (
-                np.max(time) <= np.max(prof_t)
-            )
-            if range_ok:
-                profile = profile.interp(t=time)
-            else:
-                raise ValueError("Profile does not include requested time")
-
-        return profile
 
     def integrate_on_los(
         self,
@@ -512,7 +499,7 @@ class LineOfSightTransform(CoordinateTransform):
     def plot_los(
         self,
         tplot: float = None,
-        orientation: str = "xy",
+        orientation: str = "all",
         plot_all: bool = False,
         figure: bool = True,
     ):
@@ -533,7 +520,7 @@ class LineOfSightTransform(CoordinateTransform):
                 angles
             )
 
-        if orientation == "xy" or plot_all:
+        if orientation == "xy" or orientation == "all":
             if figure:
                 plt.figure()
             plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
@@ -559,7 +546,7 @@ class LineOfSightTransform(CoordinateTransform):
             plt.ylabel("y")
             plt.axis("scaled")
 
-        if orientation == "Rz" or plot_all:
+        if orientation == "Rz" or orientation == "all":
             if figure:
                 plt.figure()
             plt.plot(
@@ -601,7 +588,7 @@ class LineOfSightTransform(CoordinateTransform):
             plt.ylabel("z")
             plt.axis("scaled")
 
-        if hasattr(self, "equilibrium") and plot_all:
+        if hasattr(self, "equilibrium") and orientation == "all":
             if figure:
                 plt.figure()
             for ch in channels:
@@ -616,7 +603,6 @@ class LineOfSightTransform(CoordinateTransform):
 
 
 def example_run():
-    from copy import deepcopy
     from indica.equilibrium import fake_equilibrium
 
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
@@ -645,10 +631,7 @@ def example_run():
     equilibrium = fake_equilibrium(machine_dims=machine_dims)
     los_transform.set_equilibrium(equilibrium)
 
-    los_transform_1d = los_transform
-    los_transform_2d = deepcopy(los_transform)
-
-    time = los_transform_2d.equilibrium.rho.t.values[0:5]
+    time = los_transform.equilibrium.rho.t.values[1:5]
     profile_1d = (
         DataArray(
             np.abs(np.linspace(-1, 0)),
@@ -658,30 +641,24 @@ def example_run():
         .assign_coords(t=time)
     )
 
-    _rho = los_transform_2d.equilibrium.rho.interp(t=time)
+    _rho = los_transform.equilibrium.rho.interp(t=time)
     profile_2d = profile_1d.interp(rho_poloidal=_rho).drop("rho_poloidal")
 
-    along_los_1d = los_transform_1d.map_profile_to_los(profile_1d, t=profile_1d.t)
-    along_los_2d = los_transform_2d.map_profile_to_los(profile_2d, t=profile_2d.t)
+    los_int_1d = los_transform.integrate_on_los(profile_1d, t=time)
+    los_int_2d = los_transform.integrate_on_los(profile_2d, t=time)
 
-    los_int_1d = los_transform_1d.integrate_on_los(profile_1d, t=profile_1d.t)
-    los_int_2d = los_transform_2d.integrate_on_los(profile_2d, t=profile_2d.t)
-
-    # los_transform.plot_los(plot_all=True)
+    los_transform.plot_los()
 
     plt.figure()
-    plt.plot(
-        ((along_los_1d - along_los_2d) / along_los_1d).sel(
-            t=np.mean(time), method="nearest"
-        ),
-        marker="o",
-    )
-    plt.title("Mapping along LOS (1D-2D)/1D")
-    plt.legend()
+    profile_2d.sel(t=time[0]).plot()
+    los_transform.plot_los(orientation="Rz", figure=False)
+    plt.axis("equal")
+    plt.title("2D profile to integrate")
 
     plt.figure()
-    plt.plot((los_int_1d - los_int_2d) / los_int_1d, marker="o")
-    plt.title("LOS integral (1D-2D)/1D")
+    los_int_1d.sel(t=time[0]).plot(marker="o", label="1D profile")
+    los_int_2d.sel(t=time[0]).plot(marker="x", label="2D profile")
+    plt.title("LOS integral of 1D/2D profiles")
     plt.legend()
 
-    return los_transform_1d, los_transform_2d, profile_1d, profile_2d
+    return los_transform
