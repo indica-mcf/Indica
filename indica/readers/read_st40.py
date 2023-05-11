@@ -22,6 +22,8 @@ REVISIONS = {
     "cxff_tws_c": 0,
     "cxqf_tws_c": 0,
     "sxr_camera_4": 0,
+    "sxrc_xy1": 0,
+    "sxrc_xy2": 0,
     "sxr_diode_1": 0,
     "xrcs": 0,
     "ts": 0,
@@ -36,7 +38,9 @@ FILTER_LIMITS = {
     "halpha": (0, np.inf),
     "sxr_diode_1": (0, np.inf),
     "sxr_camera_4": (0, np.inf),
-    "ts": (0, np.inf),
+    "sxrc_xy1": (0, np.inf),
+    "sxrc_xy2": (0, np.inf),
+    "ts": (0, 10.0e3),
 }
 
 LINESTYLES = {
