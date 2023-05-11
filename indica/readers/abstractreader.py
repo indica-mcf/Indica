@@ -170,16 +170,16 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
-        channels = np.arange(database_results["length"])
+        channel = np.arange(database_results["length"])
         times = database_results["times"]
         x = database_results["x"]
         y = database_results["y"]
         z = database_results["z"]
         R = database_results["R"]
-        x_coord = DataArray(x, coords=[("channel", channels)])
-        y_coord = DataArray(y, coords=[("channel", channels)])
-        z_coord = DataArray(z, coords=[("channel", channels)])
-        R_coord = DataArray(R, coords=[("channel", channels)])
+        x_coord = DataArray(x, coords=[("channel", channel)])
+        y_coord = DataArray(y, coords=[("channel", channel)])
+        z_coord = DataArray(z, coords=[("channel", channel)])
+        R_coord = DataArray(R, coords=[("channel", channel)])
         if x_coord.equals(y_coord):
             x_coord = R_coord
             y_coord = xr.zeros_like(x_coord)
@@ -191,7 +191,7 @@ class DataReader(BaseIO):
         )
         coords = [
             ("t", times),
-            ("channel", channels),
+            ("channel", channel),
         ]
         data = {}
         for quantity in quantities:
@@ -243,16 +243,16 @@ class DataReader(BaseIO):
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
-        channels = np.arange(database_results["length"])
+        channel = np.arange(database_results["length"])
         times = database_results["times"]
         x = database_results["x"]
         y = database_results["y"]
         z = database_results["z"]
         R = database_results["R"]
-        x_coord = DataArray(x, coords=[("channel", channels)])
-        y_coord = DataArray(y, coords=[("channel", channels)])
-        z_coord = DataArray(z, coords=[("channel", channels)])
-        R_coord = DataArray(R, coords=[("channel", channels)])
+        x_coord = DataArray(x, coords=[("channel", channel)])
+        y_coord = DataArray(y, coords=[("channel", channel)])
+        z_coord = DataArray(z, coords=[("channel", channel)])
+        R_coord = DataArray(R, coords=[("channel", channel)])
         if x_coord.equals(y_coord):
             x_coord = R_coord
             y_coord = xr.zeros_like(x_coord)
@@ -264,7 +264,7 @@ class DataReader(BaseIO):
         )
         coords = [
             ("t", times),
-            ("channel", channels),
+            ("channel", channel),
         ]
 
         location = database_results["location"]
@@ -491,7 +491,7 @@ class DataReader(BaseIO):
 
         coords = [("t", database_results["times"])]
         if database_results["length"] > 1:
-            coords.append(("channels", np.arange(database_results["length"])))
+            coords.append(("channel", np.arange(database_results["length"])))
 
         data = {}
         for quantity in quantities:
@@ -557,7 +557,7 @@ class DataReader(BaseIO):
 
         coords = [("t", database_results["times"])]
         if database_results["length"] > 1:
-            coords.append(("channels", np.arange(database_results["length"])))
+            coords.append(("channel", np.arange(database_results["length"])))
         data = {}
         for quantity in quantities:
             quant_data = self.assign_dataarray(
@@ -625,7 +625,7 @@ class DataReader(BaseIO):
         _coords: dict = {}
         _coords["1d"] = [("t", database_results["times"])]
         if database_results["length"] > 1:
-            _coords["1d"].append(("channels", np.arange(database_results["length"])))
+            _coords["1d"].append(("channel", np.arange(database_results["length"])))
         _coords["spectra"] = deepcopy(_coords["1d"])
         _coords["spectra"].append(("wavelength", database_results["wavelength"]))
 
@@ -697,7 +697,7 @@ class DataReader(BaseIO):
         )
         coords = [("t", database_results["times"])]
         if database_results["length"] > 1:
-            coords.append(("channels", np.arange(database_results["length"])))
+            coords.append(("channel", np.arange(database_results["length"])))
 
         data: dict = {}
         for quantity in quantities:
@@ -762,7 +762,7 @@ class DataReader(BaseIO):
         )
         coords = [("t", database_results["times"])]
         if database_results["length"] > 1:
-            coords.append(("channels", np.arange(database_results["length"])))
+            coords.append(("channel", np.arange(database_results["length"])))
 
         data: dict = {}
         for quantity in quantities:
