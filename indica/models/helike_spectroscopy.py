@@ -40,12 +40,13 @@ class Helike_spectroscopy(DiagnosticModel):
         name: str,
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
-        calibration: float = 5.0e-18,
+        calibration: float = 5.0e-19,
         marchuk: bool = True,
         full_run: bool = False,
         element: str = "ar",
         window_len: int = 1030,
         window_lim: list = [0.394, 0.401],
+        window_vector=None,
         window_masks: list = [],
     ):
         """
@@ -55,8 +56,6 @@ class Helike_spectroscopy(DiagnosticModel):
         ----------
         name
             String identifier for the spectrometer
-        fract_abu
-            dictionary of fractional abundance objects
         marchuk
             Use Marchuk PECs instead of ADAS adf15 files
 
@@ -89,7 +88,11 @@ class Helike_spectroscopy(DiagnosticModel):
             self.pecs = self._set_adas_pecs()
 
         self.window_masks = window_masks
-        window = np.linspace(window_lim[0], window_lim[1], window_len)
+        self.window_vector = window_vector
+        if self.window_vector is not None:
+            window = self.window_vector
+        else:
+            window = np.linspace(window_lim[0], window_lim[1], window_len)
         mask = np.zeros(shape=window.shape)
         if window_masks:
             for mslice in window_masks:
@@ -578,6 +581,7 @@ class Helike_spectroscopy(DiagnosticModel):
         calc_rho: bool = False,
         minimum_lines: bool = False,
         moment_analysis: bool = False,
+        background=None,
         **kwargs,
     ):
         """
@@ -682,11 +686,14 @@ class Helike_spectroscopy(DiagnosticModel):
             self.intensity = self._calculate_intensity()
             self.spectra = self._make_spectra()
 
+
         self._calculate_los_integral(
             calc_rho=calc_rho,
         )
         if moment_analysis:
             self._calculate_temperatures()
+        if background is not None:
+            self.measured_spectra = self.measured_spectra + background.sel(t=t)
         self._build_bckc_dictionary()
 
         return self.bckc

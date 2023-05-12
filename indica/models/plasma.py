@@ -843,22 +843,13 @@ class Plasma:
             self._vloop.loc[dict(t=t)] = vloop.values
         return self._vloop
 
-    def calc_impurity_density(self, t=None):
+    def calc_impurity_density(self, elements):
         """
-        Calculate impurity density from concentration
+        Calculate impurity density from concentration and electron density
         """
-        if t is None:
-            t = self.t
-        if type(t) is not LabeledArray:
-            t = [t]
-
-        profile_shape = self.Nimp_prof.yspl / self.Nimp_prof.yspl.sel(rho_poloidal=0)
-        for elem in self.impurities:
-            conc = self.impurity_concentration.sel(element=elem)
-            for _t in t:
-                dens_0 = self.electron_density.sel(rho_poloidal=0, t=t) * conc
-                Nimp = profile_shape * dens_0.sel(t=_t)
-                self.impurity_density.loc[dict(element=elem, t=_t)] = Nimp.values
+        for elem in elements:
+            Nimp = self.electron_density * self.impurity_concentration.sel(element=elem)
+            self.impurity_density.loc[dict(element=elem,)] = Nimp.values
 
     def impose_flat_zeff(self):
         """

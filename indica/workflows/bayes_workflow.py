@@ -47,7 +47,11 @@ def plot_profile(
     )
 
     if phantom_profile is not None:
-        phantom_profile.plot(
+        if "element" in phantom_profile[blobkey].dims:
+            phantom = phantom_profile[blobkey].sel(element="ar")
+        else:
+            phantom = phantom_profile[blobkey]
+        phantom.plot(
             label=f"{blobkey}, phantom profile",
             linestyle=linestyle,
             color="black",
@@ -73,11 +77,12 @@ def _plot_0d(
     figheader="./results/test/",
     xlabel="samples ()",
     ylabel="a.u.",
+    figsize=(6.4, 4.8),
     **kwargs,
 ):
     if blobkey not in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
-    plt.figure()
+    plt.figure(figsize=figsize)
     blob_data = blobs[blobkey]
     plt.plot(blob_data, label=f"{blobkey} model")
     plt.axhline(
@@ -100,12 +105,14 @@ def _plot_1d(
     filename: str,
     figheader="./results/test/",
     ylabel="a.u.",
+    xlim = None,
+    figsize=(6.4, 4.8),
     **kwargs,
 ):
     if blobkey not in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
 
-    plt.figure()
+    plt.figure(figsize=figsize)
     blob_data = blobs[blobkey]
     dims = tuple(name for name in blob_data.dims if name != "index")
     plt.fill_between(
@@ -150,6 +157,7 @@ def _plot_1d(
         )
     plt.ylabel(ylabel)
     plt.xlabel(dims[0])
+    plt.xlim(xlim)
     plt.legend()
     plt.savefig(figheader + filename)
     plt.close()
@@ -229,8 +237,10 @@ def plot_bayes_result(
             f"{key.replace('.', '_')}.png",
             figheader=figheader,
             ylabel="intensity (A.U.)",
+            xlim = (0.394, 0.401),
+            figsize=(12, 10),
         )
-    key = "cxrs.ti"
+    key = "cxff_pi.ti"
     if key in blobs.keys():
         _plot_1d(
             blobs,
@@ -246,7 +256,7 @@ def plot_bayes_result(
         blobs[key],
         key,
         figheader=figheader,
-        phantom_profile=phantom_profiles[key],
+        phantom_profile=phantom_profiles,
         sharefig=True,
         color="blue",
         linestyle="dashdot",
@@ -257,21 +267,47 @@ def plot_bayes_result(
         key,
         figheader=figheader,
         filename="temperature",
-        phantom_profile=phantom_profiles[key].sel(element="ar"),
+        phantom_profile=phantom_profiles,
         color="red",
         linestyle="dotted",
     )
     key = "electron_density"
     plot_profile(
-        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
+        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles
     )
     key = "impurity_density"
+    for elem in blobs[key].element.values:
+        plot_profile(
+            blobs[key].sel(element=elem),
+            key,
+            figheader=figheader,
+            filename=f"{elem} density",
+            phantom_profile=phantom_profiles,
+            color="red",
+        )
+    key = "ion_density"
     plot_profile(
-        blobs[key].sel(element="ar"),
+        blobs[key].sel(element="h"),
         key,
         figheader=figheader,
-        phantom_profile=phantom_profiles[key].sel(element="ar"),
+        filename=f"h density",
+        phantom_profile=phantom_profiles,
         color="red",
+    )
+    key = "fast_density"
+    plot_profile(
+        blobs[key],
+        key,
+        figheader=figheader,
+        phantom_profile=phantom_profiles,
+        color="red",
+    )
+    key = "neutral_density"
+    plot_profile(
+        blobs[key],
+        key,
+        figheader=figheader,
+        phantom_profile=phantom_profiles,
     )
 
     corner.corner(samples, labels=param_names)

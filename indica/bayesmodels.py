@@ -95,10 +95,10 @@ class BayesModels:
                 if (
                     self.data[key].error != 0
                 ).any():  # TODO: Some models have an error of 0 given
-                    exp_error = self.data[key].error
+                    exp_error = self.data[key].error.sel(t=self.plasma.time_to_calculate)
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
-            # Treat channel as key dim which isn't averaged like other dims
+            # treat channel as key dim which isn't averaged like other dims
             if "channel" in _ln_likelihood.dims:
                 _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
             ln_likelihood += _ln_likelihood.mean(skipna=True).values
@@ -186,6 +186,8 @@ class BayesModels:
             return -np.inf, {}
 
         self.plasma.update_profiles(parameters)
+        self.plasma.calc_impurity_density("c")  # Temp: put this somewhere better
+
         self._build_bckc(parameters, **kwargs)  # model calls
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_posterior = ln_likelihood + ln_prior
@@ -203,6 +205,16 @@ class BayesModels:
             "impurity_density": self.plasma.impurity_density.sel(
                 t=self.plasma.time_to_calculate
             ),
+            "ion_density": self.plasma.ion_density.sel(
+                t=self.plasma.time_to_calculate
+            ),
+            "fast_density": self.plasma.fast_density.sel(
+                t=self.plasma.time_to_calculate
+            ),
+            "neutral_density": self.plasma.neutral_density.sel(
+                t=self.plasma.time_to_calculate
+            ),
+
             # TODO: add Nh
         }
         blob = deepcopy({**self.bckc, **kin_profs})
