@@ -63,6 +63,7 @@ class ChargeExchange(DiagnosticModel):
         t: LabeledArray = None,
         calc_rho: bool = False,
         method: str = 'sample',
+        run_fidasim: bool = False,
         **kwargs,
     ):
         """
@@ -113,7 +114,7 @@ class ChargeExchange(DiagnosticModel):
 
             # Run fidasim
             fidasim_results = self.run_fidasim(
-                run_fidasim=False,
+                run_fidasim=run_fidasim,
             )
 
             # Coordinates
