@@ -444,9 +444,7 @@ class LineOfSightTransform(CoordinateTransform):
             calc_rho=calc_rho,
         )
         los_integral = (
-            self.passes
-            * along_los.dropna(dim="los_position").sum("los_position")
-            * self.dl
+            self.passes * along_los.sum("los_position", skipna=True) * self.dl
         )
 
         if len(los_integral.channel) == 1:
@@ -498,7 +496,7 @@ class LineOfSightTransform(CoordinateTransform):
 
     def plot_los(
         self,
-        tplot: float = None,
+        t: float = None,
         orientation: str = "all",
         plot_all: bool = False,
         figure: bool = True,
@@ -510,13 +508,13 @@ class LineOfSightTransform(CoordinateTransform):
             machine_dimensions=self._machine_dims
         )
         if hasattr(self, "equilibrium"):
-            if tplot is None:
-                tplot = np.mean(self.equilibrium.rho.t)
-            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(tplot)
-            x_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.cos(
+            if t is None:
+                t = np.mean(self.equilibrium.rho.t)
+            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
+            x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
                 angles
             )
-            y_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.sin(
+            y_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.sin(
                 angles
             )
 
@@ -589,12 +587,14 @@ class LineOfSightTransform(CoordinateTransform):
             plt.axis("scaled")
 
         if hasattr(self, "equilibrium") and orientation == "all":
+            if not hasattr(self, "rho"):
+                self.convert_to_rho_theta()
             if figure:
                 plt.figure()
             for ch in channels:
                 _rho = self.rho.sel(channel=ch)
                 if "t" in self.rho.dims:
-                    _rho = _rho.sel(t=tplot, method="nearest")
+                    _rho = _rho.sel(t=t, method="nearest")
                 _rho.plot(color=cols[ch], linewidth=2)
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
@@ -602,8 +602,11 @@ class LineOfSightTransform(CoordinateTransform):
         return cols
 
 
-def example_run():
-    from indica.equilibrium import fake_equilibrium
+def example_run(pulse: int = None, plasma=None, plot: bool = False):
+    from indica.models.plasma import example_run as example_plasma
+
+    if plasma is None:
+        plasma = example_plasma(pulse=pulse)
 
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
 
@@ -627,38 +630,27 @@ def example_run():
         machine_dimensions=machine_dims,
         passes=1,
     )
-
-    equilibrium = fake_equilibrium(machine_dims=machine_dims)
-    los_transform.set_equilibrium(equilibrium)
+    los_transform.set_equilibrium(plasma.equilibrium)
 
     time = los_transform.equilibrium.rho.t.values[1:5]
-    profile_1d = (
-        DataArray(
-            np.abs(np.linspace(-1, 0)),
-            coords=[("rho_poloidal", np.linspace(0, 1.0))],
-        )
-        .expand_dims({"t": time.size})
-        .assign_coords(t=time)
-    )
+    rho = los_transform.equilibrium.rho.interp(t=time)
+    R = rho.R
+    z = rho.z
+    b_tot, t = plasma.equilibrium.Btot(R, z, t=time)
+    b_tot_los_int = los_transform.integrate_on_los(b_tot, t=time)
 
-    _rho = los_transform.equilibrium.rho.interp(t=time)
-    profile_2d = profile_1d.interp(rho_poloidal=_rho).drop("rho_poloidal")
-
-    los_int_1d = los_transform.integrate_on_los(profile_1d, t=time)
-    los_int_2d = los_transform.integrate_on_los(profile_2d, t=time)
-
-    los_transform.plot_los()
+    t = time[1]
+    los_transform.plot_los(t=t)
 
     plt.figure()
-    profile_2d.sel(t=time[0]).plot()
-    los_transform.plot_los(orientation="Rz", figure=False)
+    b_tot.sel(t=t).plot()
+    los_transform.plot_los(t=t, orientation="Rz", figure=False)
     plt.axis("equal")
     plt.title("2D profile to integrate")
 
     plt.figure()
-    los_int_1d.sel(t=time[0]).plot(marker="o", label="1D profile")
-    los_int_2d.sel(t=time[0]).plot(marker="x", label="2D profile")
-    plt.title("LOS integral of 1D/2D profiles")
+    b_tot_los_int.sel(t=t).plot(marker="o")
+    plt.title("LOS integral of 2D Btot profiles")
     plt.legend()
 
     return los_transform

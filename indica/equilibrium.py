@@ -168,8 +168,10 @@ class Equilibrium:
         )
         b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
+        b_R = b_R.T
         b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
+        b_z = b_z.T
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
