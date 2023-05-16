@@ -1,9 +1,6 @@
-from copy import deepcopy
-
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
-from scipy import constants
 import xarray as xr
 from xarray import DataArray
 
@@ -13,18 +10,17 @@ from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
-from indica.readers import ADASReader
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
 
-ADF15 = {
-    "w": {
-        "element": "ar",
-        "file": ("16", "llu", "transport"),
-        "charge": 16,
-        "transition": "(1)1(1.0)-(1)0(0.0)",
-        "wavelength": 4.0,
-    }
+# TODO: why resonance lines in upper case, others lower?
+LINE_RANGES = {
+    "w": slice(0.39489, 0.39494),
+    "n3": slice(0.39543, 0.39574),
+    "n345": slice(0.39496, 0.39574),
+    "qra": slice(0.39810, 0.39865),
+    "k": slice(0.39890, 0.39910),
+    "z": slice(0.39935, 0.39950),
 }
 
 
@@ -39,14 +35,13 @@ class Helike_spectroscopy(DiagnosticModel):
         self,
         name: str,
         instrument_method="get_helike_spectroscopy",
-        etendue: float = 1.0,
-        calibration: float = 1.0e-27,
-        marchuk: bool = True,
-        full_run: bool = False,
         element: str = "ar",
         window_len: int = 1030,
         window_lim: list = [0.394, 0.401],
         window_masks: list = [],
+        etendue: float = 1.0,
+        calibration: float = 1.0e-27,
+        line_labels: list = ["w", "k", "n3", "n345", "z", "qra"],
     ):
         """
         Read all atomic data and initialise objects
@@ -55,18 +50,9 @@ class Helike_spectroscopy(DiagnosticModel):
         ----------
         name
             String identifier for the spectrometer
-        fract_abu
-            dictionary of fractional abundance objects
-        marchuk
-            Use Marchuk PECs instead of ADAS adf15 files
-
-        Returns
-        -------
-
         """
         self.name = name
         self.instrument_method = instrument_method
-        self.marchuk = marchuk
 
         self.element: str = element
         z_elem, a_elem, name_elem = ELEMENTS[element]
@@ -75,20 +61,10 @@ class Helike_spectroscopy(DiagnosticModel):
 
         self.etendue = etendue
         self.calibration = calibration
-        self.full_run = full_run
-        self.adf15 = ADF15
-        self.pecs: dict
-
-        if self.marchuk:
-            marchuck_reader = MARCHUKReader(
-                element=self.element,
-                charge=self.ion_charge,
-            )
-            self.pecs = marchuck_reader.pecs
-        else:
-            self.pecs = self._set_adas_pecs()
-
         self.window_masks = window_masks
+        self.line_ranges = LINE_RANGES
+        self.line_labels = line_labels
+
         window = np.linspace(window_lim[0], window_lim[1], window_len)
         mask = np.zeros(shape=window.shape)
         if window_masks:
@@ -96,38 +72,17 @@ class Helike_spectroscopy(DiagnosticModel):
                 mask[(window > mslice.start) & (window < mslice.stop)] = 1
         else:
             mask[:] = 1
-
         self.window = DataArray(mask, coords=[("wavelength", window)])
-        self.mask = self.window.interp(wavelength=self.pecs["emiss_coeff"].wavelength)
-        self.pecs["emiss_coeff"] = self.pecs["emiss_coeff"].where(
-            self.mask,
-            drop=True,
-        )
-        self.pecs["emiss_coeff"] = self.pecs["emiss_coeff"].where(
-            (self.pecs["emiss_coeff"].wavelength < self.window.wavelength.max())
-            & (self.pecs["emiss_coeff"].wavelength > self.window.wavelength.min()),
-            drop=True,
-        )
+        self._get_atomic_data(self.window)
 
-        # wavelength indexes used for line ratio moment analysis
-        self.line_ranges = {
-            "w": slice(0.39489, 0.39494),
-            "n3": slice(0.39543, 0.39574),
-            "n345": slice(0.39496, 0.39574),
-            "qra": slice(0.39810, 0.39865),
-            "k": slice(0.39890, 0.39910),
-            "z": slice(0.39935, 0.39950),
-        }
-
-        self.line_emission: dict = {}
-        self.emission_los: dict = {}
-        self.los_integral_intensity: dict = {}
-        self.measured_intensity: dict = {}
-        self.measured_Te: dict = {}
-        self.measured_Ti: dict = {}
-        self.pos: dict = {}
-        self.err_in: dict = {}
-        self.err_out: dict = {}
+        self.line_emission: dict
+        self.emission_los: dict
+        self.measured_intensity: dict
+        self.measured_Te: dict
+        self.measured_Ti: dict
+        self.measured_Nimp: dict
+        self.pos: dict
+        self.spectra: DataArray
 
         self.Te: DataArray
         self.Ne: DataArray
@@ -135,35 +90,28 @@ class Helike_spectroscopy(DiagnosticModel):
         self.Fz: dict
         self.Nh: DataArray
 
-    def _set_adas_pecs(self):
+    def _get_atomic_data(self, window: DataArray):
         """
-        Read ADAS adf15 data
+        Read atomic data and keep only lines in desired wavelength window
         """
-        self.adasreader = ADASReader()
+        marchuck_reader = MARCHUKReader(
+            element=self.element,
+            charge=self.ion_charge,
+        )
 
-        adf15 = self.adf15
-        pec: dict = deepcopy(adf15)
-        for line in adf15.keys():
-            element = adf15[line]["element"]
-            transition = adf15[line]["transition"]
-            wavelength = adf15[line]["wavelength"]
-
-            charge, filetype, year = adf15[line]["file"]
-            adf15_data = self.adasreader.get_adf15(element, charge, filetype, year=year)
-            # TODO: add the element layer to the pec dictionary (as for fract_abu)
-            pec[line]["emiss_coeff"] = select_transition(
-                adf15_data, transition, wavelength
-            )
-
-        if not self.full_run:
-            for line in pec:
-                pec[line]["emiss_coeff"] = (
-                    pec[line]["emiss_coeff"]
-                    .sel(electron_density=4.0e19, method="nearest")
-                    .drop_vars("electron_density")
-                )
-
-        self.pec = pec
+        pecs = marchuck_reader.pecs
+        mask = window.interp(wavelength=pecs.wavelength)
+        pecs = pecs.where(
+            mask,
+            drop=True,
+        )
+        pecs = pecs.where(
+            (pecs.wavelength < window.wavelength.max())
+            & (pecs.wavelength > window.wavelength.min()),
+            drop=True,
+        )
+        self.mask = mask
+        self.pecs = pecs
 
     def _transition_matrix(self, element="ar", charge=16):
         """vectorisation of the transition matrix used to convert
@@ -184,274 +132,6 @@ class Helike_spectroscopy(DiagnosticModel):
         # fmt: on
         return transition_matrix
 
-    def _calculate_line_emission(self, line_labels=["w", "k"]):
-        """
-        Calculate emission of all spectral lines in line_label list
-
-        Parameters
-        ----------
-        Te
-            Electron temperature
-        Ne
-            Electron density
-        Nimp
-            Total impurity densities as defined in plasma.py
-        fractional_abundance
-            Fractional abundance dictionary of DataArrays of each element to be included
-        Nh
-            Neutral (thermal) hydrogen density
-        t
-            Time (s) for remapping on equilibrium reconstruction
-        Returns
-        -------
-
-        """
-        elem, charge = self.pecs["element"], self.pecs["charge"]
-
-        mult = self._transition_matrix(element=elem, charge=charge)
-        line_emission = {}
-
-        # filter out unused sections of the database based on wavelength.
-        # Only for the first time called...
-        if not hasattr(self, "filtered_pecs"):
-            _pecs = self.pecs["emiss_coeff"]
-            _bool_arrays = [
-                (_pecs.wavelength < self.line_ranges[line_name].stop)
-                & (_pecs.wavelength > self.line_ranges[line_name].start)
-                for line_name in line_labels
-            ]
-            _temp_array = _bool_arrays[0]
-            for bool_array in _bool_arrays:
-                _temp_array = _temp_array | bool_array
-            self.filtered_pecs = _pecs.isel(line_name=_temp_array)
-
-        # cubic method fails due to how scipy handles NaNs
-        _pecs = self.filtered_pecs.interp(
-            electron_temperature=self.Te,
-        )
-        for line_name in line_labels:
-            _line_emission = (
-                _pecs.isel(
-                    line_name=(_pecs.wavelength < self.line_ranges[line_name].stop)
-                    & (_pecs.wavelength > self.line_ranges[line_name].start)
-                )
-                * mult
-            )
-            _line_emission = _line_emission.sum(["type", "line_name"])
-            # TODO: convert PEC wavelengths to nm as per convention at TE!
-            ev_wavelength = ph.nm_eV_conversion(nm=self.line_ranges[line_name].start)
-            line_emission[line_name] = (
-                xr.where(_line_emission >= 0, _line_emission, 0) * ev_wavelength
-            ) * self.calibration
-
-        if "k" in line_emission.keys() and "w" in line_emission.keys():
-            line_emission["kw"] = line_emission["k"] * line_emission["w"]
-        if "n3" in line_emission.keys() and "w" in line_emission.keys():
-            line_emission["n3w"] = line_emission["n345"] * line_emission["w"]
-        if (
-            "n3" in line_emission.keys()
-            and "n345" in line_emission.keys()
-            and "w" in line_emission.keys()
-        ):
-            line_emission["tot"] = line_emission["n345"] + line_emission["w"]
-            line_emission["n3tot"] = line_emission["n345"] * line_emission["w"]
-        self.line_emission = line_emission
-
-    def _calculate_los_integral(self, calc_rho=False):
-        for line in self.line_emission.keys():
-            self.measured_intensity[line] = self.los_transform.integrate_on_los(
-                self.line_emission[line],
-                t=self.line_emission[line].t,
-                calc_rho=calc_rho,
-            )
-            self.emission_los[line] = self.los_transform.along_los
-
-        for line in self.line_emission.keys():
-            (
-                _,
-                self.pos[line],
-                self.err_in[line],
-                self.err_out[line],
-            ) = self._moment_analysis(line)
-
-        if self.calc_spectra:
-            self.measured_spectra = self.los_transform.integrate_on_los(
-                self.spectra,
-                t=self.spectra.t,
-                calc_rho=calc_rho,
-            )
-
-    def _calculate_temperatures(self):
-        x1 = self.los_transform.x1
-        x1_name = self.los_transform.x1_name
-
-        for quant in self.quantities:
-            datatype = self.quantities[quant]
-            if datatype == ("temperature", "ions"):
-                line = str(quant.split("_")[1])
-                (
-                    Ti_tmp,
-                    self.pos[line],
-                    self.err_in[line],
-                    self.err_out[line],
-                ) = self._moment_analysis(line, profile_1d=self.Ti)
-                if x1.__len__() == 1:
-                    self.measured_Ti[line] = Ti_tmp
-                else:
-                    self.measured_Ti[line] = xr.concat(Ti_tmp, x1_name).assign_coords(
-                        {x1_name: x1}
-                    )
-            elif datatype == ("temperature", "electrons"):
-                line = str(quant.split("_")[1])
-                (
-                    Te_tmp,
-                    self.pos[line],
-                    self.err_in[line],
-                    self.err_out[line],
-                ) = self._moment_analysis(line, profile_1d=self.Te)
-                if x1.__len__() == 1:
-                    self.measured_Te[line] = Te_tmp
-                else:
-                    self.measured_Te[line] = xr.concat(Te_tmp, x1_name).assign_coords(
-                        {x1_name: x1}
-                    )
-
-    def _moment_analysis(
-        self,
-        line: str,
-        profile_1d: DataArray = None,
-        half_los: bool = True,
-    ):
-        """
-        Perform moment analysis using a specific line emission as distribution function
-        and calculating the position of emissivity, and expected measured value if
-        measured profile (profile_1d) is given
-
-        Parameters
-        -------
-        line
-            identifier of measured spectral line
-        t
-            time (s)
-        profile_1d
-            1D profile on which to perform the moment analysis
-        half_los
-            set to True if only half of the LOS to be used for the analysis
-        """
-
-        element = self.line_emission[line].element.values
-        result_list: list = []
-        pos_list: list = []
-        err_in_list: list = []
-        err_out_list: list = []
-
-        if len(np.shape(self.t)) == 0:
-            times = np.array(
-                [
-                    self.t,
-                ]
-            )
-        else:
-            times = self.t
-
-        for chan in self.los_transform.x1:
-            _value = None
-            _result = []
-            _pos, _err_in, _err_out = [], [], []
-            for t in times:
-                if "t" in self.emission_los[line][chan].dims:
-                    distribution_function = (
-                        self.emission_los[line][chan].sel(t=t).values
-                    )
-                else:
-                    distribution_function = self.emission_los[line][chan].values
-
-                if "t" in self.los_transform.rho[chan].dims:
-                    rho_los = (
-                        self.los_transform.rho[chan].sel(t=t, method="nearest").values
-                    )
-                else:
-                    rho_los = self.los_transform.rho[chan].values
-
-                if half_los:
-                    rho_ind = slice(0, np.argmin(rho_los) + 1)
-                else:
-                    rho_ind = slice(0, len(rho_los))
-
-                rho_los = rho_los[rho_ind]
-                rho_min = np.min(rho_los)
-
-                dfunction = distribution_function[rho_ind]
-                indices = np.arange(0, len(dfunction))
-                avrg, dlo, dhi, ind_in, ind_out = ph.calc_moments(
-                    dfunction, indices, simmetry=False
-                )
-
-                # Position of emissivity
-                pos_tmp, err_in_tmp, err_out_tmp = np.nan, np.nan, np.nan
-                if np.isfinite(avrg) and np.isfinite(dlo) and np.isfinite(dhi):
-                    pos_tmp = rho_los[int(avrg)]
-                    err_in_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg - dlo)])
-                    if pos_tmp <= rho_min:
-                        pos_tmp = rho_min
-                        err_in_tmp = 0.0
-                    if (err_in_tmp > pos_tmp) and (err_in_tmp > (pos_tmp - rho_min)):
-                        err_in_tmp = pos_tmp - rho_min
-                    err_out_tmp = np.abs(rho_los[int(avrg)] - rho_los[int(avrg + dhi)])
-                _pos.append(pos_tmp)
-                _err_in.append(err_in_tmp)
-                _err_out.append(err_out_tmp)
-
-                # Moment analysis of input 1D profile
-                if profile_1d is not None:
-                    profile_interp = profile_1d.interp(rho_poloidal=rho_los)
-                    if "element" in profile_interp.dims:
-                        profile_interp = profile_interp.sel(element=element)
-                    if "t" in profile_1d.dims:
-                        profile_interp = profile_interp.sel(t=t, method="nearest")
-                    profile_interp = profile_interp.values
-                    _value, _, _, _, _ = ph.calc_moments(
-                        dfunction,
-                        profile_interp,
-                        ind_in=ind_in,
-                        ind_out=ind_out,
-                        simmetry=False,
-                    )
-                _result.append(_value)
-
-            # TODO: Clean up the handling of "t" and "channel" dims
-            result_list.append(DataArray(np.array(_result), coords=[("t", times)]))
-            pos_list.append(DataArray(np.array(_pos), coords=[("t", times)]))
-            err_in_list.append(DataArray(np.array(_err_in), coords=[("t", times)]))
-            err_out_list.append(DataArray(np.array(_err_out), coords=[("t", times)]))
-
-        result = xr.concat(result_list, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
-        pos = xr.concat(pos_list, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
-        err_in = xr.concat(err_in_list, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
-        err_out = xr.concat(err_out_list, self.los_transform.x1_name).assign_coords(
-            {self.los_transform.x1_name: self.los_transform.x1}
-        )
-        # Return without channel / t as dims
-        if self.los_transform.x1.__len__() == 1:
-            result = result.sel(channel=self.los_transform.x1[0])
-            pos = pos.sel(channel=self.los_transform.x1[0])
-            err_in = err_in.sel(channel=self.los_transform.x1[0])
-            err_out = err_out.sel(channel=self.los_transform.x1[0])
-
-        if type(self.t) == float:
-            result = result.sel(t=self.t)
-            pos = pos.sel(t=self.t)
-            err_in = err_in.sel(t=self.t)
-            err_out = err_out.sel(t=self.t)
-
-        return result, pos, err_in, err_out
-
     def _calculate_intensity(
         self,
     ):
@@ -459,12 +139,10 @@ class Helike_spectroscopy(DiagnosticModel):
         Returns DataArrays of emission type with co-ordinates of line label and
         spatial co-ordinate
         """
-        elem, charge = self.pecs["element"], self.pecs["charge"]
-        mult = self._transition_matrix(element=elem, charge=charge)
-        _pecs = self.pecs["emiss_coeff"]
+        mult = self._transition_matrix(element=self.element, charge=self.ion_charge)
 
         # Swapping to dataset and then dropping line_names with NaNs is much faster
-        _pecs_ds = _pecs.to_dataset("type")
+        _pecs_ds = self.pecs.to_dataset("type")
         temp = [
             _pecs_ds[type]
             .dropna("line_name", how="all")
@@ -473,11 +151,11 @@ class Helike_spectroscopy(DiagnosticModel):
         ]
         _intensity = xr.merge(temp).to_array("type")
         intensity = (_intensity * mult * self.calibration).sum("type")
+        self.intensity = intensity
+
         return intensity
 
-    def _make_spectra(
-        self,
-    ):
+    def _make_spectra(self, calc_rho: bool = False):
         """
         TODO: Doppler Shift / Add convolution of broadening
         -> G(x, mu1, sig1) * G(x, mu2, sig2) = G(x, mu1+mu2, sig1**2 + sig2**2)
@@ -485,8 +163,8 @@ class Helike_spectroscopy(DiagnosticModel):
         Background Noise
 
         """
-        element = self.pecs["element"]
-        _spectra = doppler_broaden(
+        element = self.element
+        _spectra = ph.doppler_broaden(
             self.window[self.window > 0].wavelength,
             self.intensity,
             self.intensity.wavelength,
@@ -517,47 +195,125 @@ class Helike_spectroscopy(DiagnosticModel):
             )
         spectra = xr.concat([_spectra, empty], "wavelength")
         spectra = spectra.sortby("wavelength")
-        return spectra
+
+        self.spectra = spectra
+
+        self.measured_spectra = self.los_transform.integrate_on_los(
+            self.spectra,
+            t=self.spectra.t,
+            calc_rho=calc_rho,
+        )
+        self.spectra_los = self.los_transform.along_los
+
+    def _moment_analysis(self):
+        """
+        Perform moment analysis using a lines defined in line_labels,
+        calculating the position of emissivity, and expected Te and Ti
+        """
+
+        line_emission = {}
+        for line_name in self.line_labels:
+            _line_emission = self.intensity.where(
+                (self.intensity.wavelength > self.line_ranges[line_name].start)
+                & (self.intensity.wavelength < self.line_ranges[line_name].stop),
+                drop=True,
+            )
+            line_emission[line_name] = _line_emission.sum("line_name")
+
+        if "k" in line_emission.keys() and "w" in line_emission.keys():
+            line_emission["kw"] = line_emission["k"] * line_emission["w"]
+        if "n3" in line_emission.keys() and "w" in line_emission.keys():
+            line_emission["n3w"] = line_emission["n3"] * line_emission["w"]
+        if (
+            "n3" in line_emission.keys()
+            and "n345" in line_emission.keys()
+            and "w" in line_emission.keys()
+        ):
+            line_emission["tot"] = line_emission["n345"] + line_emission["w"]
+            line_emission["n3tot"] = line_emission["tot"]
+        self.line_emission = line_emission
+
+        rho_mean = {}
+        measured_intensity = {}
+        emission_los = {}
+        measured_Te = {}
+        measured_Ti = {}
+        measured_Nimp = {}
+        for line in self.line_emission.keys():
+            emission = self.line_emission[line]
+            los_integral = self.los_transform.integrate_on_los(emission, t=emission.t)
+            emission_los = self.los_transform.along_los
+            emission_sum = emission_los.sum("los_position", skipna=True)
+            rho_los = self.los_transform.rho
+
+            rho_mean[line] = (emission_los * rho_los).sum(
+                "los_position", skipna=True
+            ) / emission_sum
+            measured_intensity[line] = los_integral
+            emission_los[line] = emission_los
+
+            Te_along_los = self.los_transform.map_to_los(self.Te, t=emission.t)
+            measured_Te[line] = (emission_los * Te_along_los).sum(
+                "los_position", skipna=True
+            ) / emission_sum
+
+            Ti_along_los = self.los_transform.map_to_los(
+                self.Ti.sel(element=self.element), t=emission.t
+            )
+            measured_Ti[line] = (emission_los * Ti_along_los).sum(
+                "los_position", skipna=True
+            ) / emission_sum
+
+            Nimp_along_los = self.los_transform.map_to_los(
+                self.Nimp.sel(element=self.element), t=emission.t
+            )
+            measured_Nimp[line] = (emission_los * Nimp_along_los).sum(
+                "los_position", skipna=True
+            ) / emission_sum
+
+        self.pos = rho_mean
+        self.measured_intensity = measured_intensity
+        self.emission_los = emission_los
+        self.measured_Te = measured_Te
+        self.measured_Ti = measured_Ti
+        self.measured_Nimp = measured_Nimp
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
-        for quant in self.quantities:
-            datatype = self.quantities[quant]
-            if datatype[0] == ("intensity"):
-                line = str(quant.split("_")[1])
-                quantity = f"int_{line}"
-                self.bckc[quantity] = self.measured_intensity[line]
-                self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
-            elif datatype == ("temperature", "electrons"):
-                line = str(quant.split("_")[1])
-                quantity = f"te_{line}"
-                self.bckc[quantity] = self.measured_Te[line]
-                self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
-            elif datatype == ("temperature", "ions"):
-                line = str(quant.split("_")[1])
-                quantity = f"ti_{line}"
-                self.bckc[quantity] = self.measured_Ti[line]
-                self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
-            elif datatype == ("spectra", "passive"):
-                quantity = quant
-                self.bckc["spectra"] = self.measured_spectra
-            else:
-                print(f"{quant} not available in model for {self.instrument_method}")
-                continue
+        if "spectra" in self.quantities and hasattr(self, "measured_spectra"):
+            self.bckc["spectra"] = self.measured_spectra
 
-            self.bckc[quantity].attrs["datatype"] = datatype
-            if quant != "spectra" and hasattr(self, "spectra"):
-                self.bckc[quantity].attrs["pos"] = {
-                    "value": self.pos[line],
-                    "err_in": self.err_in[line],
-                    "err_out": self.err_out[line],
-                }
-        if "int_k" in self.bckc.keys() and "int_w" in self.bckc.keys():
-            self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
-        if "int_n3" in self.bckc.keys() and "int_w" in self.bckc.keys():
-            self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
-        if "int_n3" in self.bckc.keys() and "int_tot" in self.bckc.keys():
-            self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
+        if self.moment_analysis:
+            for quantity in self.quantities:
+                if quantity == "spectra":
+                    continue
+
+                datatype = self.quantities[quantity]
+                line = str(quantity.split("_")[1])
+                if "int" in quantity and line in self.measured_intensity.keys():
+                    self.bckc[quantity] = self.measured_intensity[line]
+                elif "te" in quantity and line in self.measured_Te.keys():
+                    self.bckc[quantity] = self.measured_Te[line]
+                elif "ti" in quantity and line in self.measured_Ti.keys():
+                    self.bckc[quantity] = self.measured_Ti[line]
+                else:
+                    print(
+                        f"{quantity} not available in model "
+                        f"for {self.instrument_method}"
+                    )
+                    continue
+
+                self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
+                self.bckc[quantity].attrs["datatype"] = datatype
+                if line in self.pos.keys():
+                    self.bckc[quantity].attrs["pos"] = self.pos[line]
+
+            if "int_k" in self.bckc.keys() and "int_w" in self.bckc.keys():
+                self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
+            if "int_n3" in self.bckc.keys() and "int_w" in self.bckc.keys():
+                self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
+            if "int_n3" in self.bckc.keys() and "int_tot" in self.bckc.keys():
+                self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
 
     def __call__(
         self,
@@ -568,9 +324,7 @@ class Helike_spectroscopy(DiagnosticModel):
         Fz: dict = None,
         Nh: DataArray = None,
         t: LabeledArray = None,
-        calc_spectra=True,
         calc_rho: bool = False,
-        minimum_lines: bool = False,
         moment_analysis: bool = False,
         **kwargs,
     ):
@@ -591,9 +345,7 @@ class Helike_spectroscopy(DiagnosticModel):
         -------
 
         """
-        self.calc_spectra = calc_spectra
         self.calc_rho = calc_rho
-        self.minimum_lines = minimum_lines
         self.moment_analysis = moment_analysis
 
         if self.moment_analysis and bool(self.window_masks):
@@ -642,104 +394,15 @@ class Helike_spectroscopy(DiagnosticModel):
 
         # TODO: check that inputs have compatible dimensions/coordinates
 
-        # At the moment due to how _build_bckc/_calculate_temperature work
-        # quantities has to be altered depending on model settings used
-        quant: dict = {}
+        self._calculate_intensity()
+        self._make_spectra()
+
         if moment_analysis:
-            if minimum_lines:
-                line_labels = [
-                    "w",
-                    "k",
-                ]
-                names = ["int_w", "int_k", "te_kw", "ti_w"]
-            else:
-                line_labels = list(self.line_ranges.keys())
-                names = [
-                    "int_w",
-                    "int_k",
-                    "int_tot",
-                    "int_n3",
-                    "te_n3w",
-                    "te_kw",
-                    "ti_z",
-                    "ti_w",
-                ]
-            quant = dict(quant, **{x: self.quantities[x] for x in names})
+            self._moment_analysis()
 
-        if calc_spectra:
-            quant = dict(quant, **{x: self.quantities[x] for x in ["spectra"]})
-        self.quantities = quant
-
-        # Calculate emission on natural coordinates of input profiles
-        if moment_analysis:
-            self._calculate_line_emission(line_labels=line_labels)
-
-        # Make spectra
-        if calc_spectra:
-            self.intensity = self._calculate_intensity()
-            self.spectra = self._make_spectra()
-
-        self._calculate_los_integral(
-            calc_rho=calc_rho,
-        )
-        if moment_analysis:
-            self._calculate_temperatures()
         self._build_bckc_dictionary()
 
         return self.bckc
-
-
-# fmt: off
-def doppler_broaden(x, integral, center, ion_mass, ion_temp):
-    _mass = (ion_mass * constants.proton_mass * constants.c ** 2)
-    sigma = (np.sqrt(constants.e / _mass * ion_temp) * center)
-    gaussian_broadened = gaussian(x, integral, center, sigma, )
-    return gaussian_broadened
-
-
-def gaussian(x, integral, center, sigma):
-    return (integral / (sigma * np.sqrt(2 * np.pi))
-            * np.exp(-((x - center) ** 2) / (2 * sigma ** 2)))
-# fmt: on
-
-
-def select_transition(adf15_data, transition: str, wavelength: float):
-    """
-    Given adf15 data in input, select pec for specified spectral line, given
-    transition and wavelength identifiers
-
-    Parameters
-    ----------
-    adf15_data
-        adf15 data
-    transition
-        transition for spectral line as specified in adf15
-    wavelength
-        wavelength of spectral line as specified in adf15
-
-    Returns
-    -------
-    pec data of desired spectral line
-
-    """
-
-    pec = deepcopy(adf15_data)
-
-    dim = [
-        d for d in pec.dims if d != "electron_temperature" and d != "electron_density"
-    ][0]
-    if dim != "transition":
-        pec = pec.swap_dims({dim: "transition"})
-    pec = pec.sel(transition=transition, drop=True)
-
-    if len(np.unique(pec.coords["wavelength"].values)) > 1:
-        pec = pec.swap_dims({"transition": "wavelength"})
-        try:
-            pec = pec.sel(wavelength=wavelength, drop=True)
-        except KeyError:
-            pec = pec.sel(wavelength=wavelength, method="nearest", drop=True)
-
-    return pec
 
 
 def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
@@ -780,6 +443,7 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
     model.set_plasma(plasma)
 
     bckc = model(**kwargs)
+
     channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
 
@@ -859,29 +523,30 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
 
         # Plot the emission profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-        if "w" in model.line_emission.keys():
-            plt.figure()
-            if "t" in model.line_emission["w"].dims:
-                for i, t in enumerate(plasma.t.values):
+        if model.moment_analysis:
+            if "w" in model.line_emission.keys():
+                plt.figure()
+                if "t" in model.line_emission["w"].dims:
+                    for i, t in enumerate(plasma.t.values):
+                        plt.plot(
+                            model.line_emission["w"].rho_poloidal,
+                            model.line_emission["w"].sel(t=t),
+                            color=cols_time[i],
+                            label=f"t={t:1.2f} s",
+                        )
+                else:
                     plt.plot(
                         model.line_emission["w"].rho_poloidal,
-                        model.line_emission["w"].sel(t=t),
+                        model.line_emission["w"],
                         color=cols_time[i],
                         label=f"t={t:1.2f} s",
                     )
-            else:
-                plt.plot(
-                    model.line_emission["w"].rho_poloidal,
-                    model.line_emission["w"],
-                    color=cols_time[i],
-                    label=f"t={t:1.2f} s",
-                )
-            plt.xlabel("rho")
-            plt.ylabel("w-line local radiated power (W/m^3)")
-            plt.legend()
+                plt.xlabel("rho")
+                plt.ylabel("w-line local radiated power (W/m^3)")
+                plt.legend()
         plt.show(block=True)
     return plasma, model, bckc
 
 
 if __name__ == "__main__":
-    example_run(plot=True, moment_analysis=True, calc_spectra=True, minimum_lines=False)
+    example_run(plot=True, moment_analysis=True)

@@ -1097,6 +1097,26 @@ def derivative(y, x):
     return der
 
 
+def gaussian(x, integral, center, sigma):
+    return (
+        integral
+        / (sigma * np.sqrt(2 * np.pi))
+        * np.exp(-((x - center) ** 2) / (2 * sigma**2))
+    )
+
+
+def doppler_broaden(x, integral, center, ion_mass, ion_temp):
+    _mass = ion_mass * constants.proton_mass * constants.c**2
+    sigma = np.sqrt(constants.e / _mass * ion_temp) * center
+    gaussian_broadened = gaussian(
+        x,
+        integral,
+        center,
+        sigma,
+    )
+    return gaussian_broadened
+
+
 def make_window(
     x: ArrayLike,
     x_center: float,
