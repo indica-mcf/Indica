@@ -67,14 +67,14 @@ def test_convert_to_Rz():
     assert np.array_equal(R, R_positions)
 
 
-def test_convert_to_rho():
+def test_convert_to_rho_theta():
     # TODO: Tricky, as it depends on the resolution of the equilibrium...
     transform, machine_dims = load_transect_default()
     equilibrium = load_equilibrium_default()
     transform.set_equilibrium(equilibrium)
 
     t = np.mean(equilibrium.rho.t.mean())
-    rho, theta = transform.convert_to_rho(t=t)
+    rho, theta = transform.convert_to_rho_theta(t=t)
     _rho = equilibrium.rho.sel(t=t).interp(R=transform.R, z=transform.z)
 
     assert np.all(np.array(np.abs(rho - _rho)) < 1.0e-2)

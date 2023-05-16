@@ -86,12 +86,12 @@ class ThomsonScattering(DiagnosticModel):
         self.Ne = Ne
         self.Te = Te
 
-        Ne_at_channels = self.transect_transform.map_to_rho(
+        Ne_at_channels = self.transect_transform.map_profile_to_rho(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
         )
-        Te_at_channels = self.transect_transform.map_to_rho(
+        Te_at_channels = self.transect_transform.map_profile_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
