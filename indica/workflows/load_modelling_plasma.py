@@ -30,7 +30,10 @@ DIAGNOSTIC_MODELS = {
     "sxr_diode_1": SXRcamera,
     "sxr_camera_4": SXRcamera,
 }
-FIG_PATH = "./results/load_modelling/"
+import getpass
+
+USER = getpass.getuser()
+FIG_PATH = f"/home/{USER}/figures/Indica/load_modelling_examples/"
 plt.ion()
 
 
