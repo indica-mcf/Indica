@@ -128,6 +128,8 @@ class Equilibrium:
     ) -> Tuple[LabeledArray, LabeledArray, LabeledArray, LabeledArray]:
         """Magnetic field components at this location in space.
 
+        TODO: B_T approximated as following 1/R for any z to fill whole (R,z) space
+
         Parameters
         ----------
         R
@@ -175,10 +177,15 @@ class Equilibrium:
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
+
         f = f.interp(rho_poloidal=rho_)
         f.name = self.f.name
         b_T = f / _R
         b_T.name = "Toroidal Magnetic Field (T)"
+
+        _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
+        _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
+        b_T = _b_T.interp(R=_R, z=_z)
 
         return b_R, b_z, b_T, t
 
@@ -765,9 +772,6 @@ class Equilibrium:
 
 
 def prepare_coords(R: LabeledArray, z: LabeledArray) -> Tuple[DataArray, DataArray]:
-
-    if np.shape(R) != np.shape(z):
-        raise ValueError("R and z must have the same shape.")
 
     if type(R) != DataArray or type(z) != DataArray:
         coords: list = []
