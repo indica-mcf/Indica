@@ -124,7 +124,11 @@ class Equilibrium:
                 self.provenance.wasDerivedFrom(val.attrs["provenance"])
 
     def Bfield(
-        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        full_Rz: bool = False,
     ) -> Tuple[LabeledArray, LabeledArray, LabeledArray, LabeledArray]:
         """Magnetic field components at this location in space.
 
@@ -183,14 +187,19 @@ class Equilibrium:
         b_T = f / _R
         b_T.name = "Toroidal Magnetic Field (T)"
 
-        _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
-        _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
-        b_T = _b_T.interp(R=_R, z=_z)
+        if full_Rz:
+            _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
+            _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
+            b_T = _b_T.interp(R=_R, z=_z)
 
         return b_R, b_z, b_T, t
 
     def Btot(
-        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        full_Rz: bool = False,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Total magnetic field strength at this location in space.
 
