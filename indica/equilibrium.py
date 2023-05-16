@@ -148,7 +148,7 @@ class Equilibrium:
             results are given for. Otherwise return the argument.
         """
         _R, _z = prepare_coords(
-            R + np.full_like(R, self.R_offset), z + np.full_like(R, self.z_offset)
+            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
         )
         if t is not None:
             check_time_present(t, self.t)
@@ -531,7 +531,7 @@ class Equilibrium:
             results are given for. Otherwise return the argument.
         """
         _R, _z = prepare_coords(
-            R + np.full_like(R, self.R_offset), z + np.full_like(R, self.z_offset)
+            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
         )
         if t is not None:
             check_time_present(t, self.t)
