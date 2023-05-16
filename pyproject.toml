@@ -1,6 +1,6 @@
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.3.2"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 88
@@ -29,7 +29,7 @@ authors = [
     "Chris MacMackin <chris.macmackin@ukaea.uk>"
 ]
 maintainers = [
-    "Edward Litherland-Smith <edward.litherland-smith@ukaea.uk>",
+    "Evie Litherland-Smith <evie.litherland-smith@ukaea.uk>",
     "Shane Scully <shane.scully@ukaea.uk>",
     "Chris MacMackin <chris.macmackin@ukaea.uk>",
 ]
@@ -42,40 +42,50 @@ include = [".git", "indica/git_version"]
 [tool.poetry.dependencies]
 corner = "^1.0"
 pandas = "1.3.0"
-python = "^3.8"
+python = ">=3.8,<3.11"
 prov = "^1.5.3"
 netCDF4 = "^1.5.4"
 numpy = "1.21.0"
-scipy = "^1.5.2"
+scipy = "^1.6.2"
 xarray = "0.16.2"
 matplotlib = "^3.3.0"
 sal = "^1.2.2"
-sphinx = {version = "^4.0.0", optional = true}
-sphinx-rtd-theme = {version = "^1.0.0", optional=true}
-sphinxcontrib-plantuml = {version = "^0.23", optional = true}
 ipython = "^8.8.0"
 emcee = "^3.1.4"
 flatdict = "^4.0.1"
 tqdm = "^4.65.0"
 
-[tool.poetry.dev-dependencies]
-click = "^7.1.2"
+[tool.poetry.group.dev.dependencies]
+click = "^8.0.0"
 corner = "^1.0"
 coverage = {extras = ["toml"], version = "^5.2.1"}
 hypothesis = {extras = ["numpy"], version = "^5.24.2"}
-mypy = "^0.782"
-pre-commit = "^3.0.0"
-pytest = "6.2.5"
-pytest-cov = "2.12.1"
-pytest-forked = "1.6.0"
-pytest-xdist = "2.5.0"
+mypy = "^0.942"
+pre-commit = "^2.9.2"
+pytest = "^6.0.1"
+pytest-cov = "^2.10.0"
+pytest-xdist = "^2.0.0"
+types-setuptools = "^57.4.14"
+
+[tool.poetry.group.docs.dependencies]
 sphinx = "^4.0.0"
 sphinx-rtd-theme = "^1.0.0"
-sphinxcontrib-plantuml = "^0.23"
-
-[tool.poetry.extras]
-docs = ["sphinx", "sphinx-rtd-theme", "sphinxcontrib-plantuml"]
+sphinxcontrib-plantuml = "^0.25"
 
 [tool.poetry.build]
 generate-setup-file = false
 script = ".get_git_commit.py"
+
+[tool.mypy]
+install_types = true
+non_interactive = true
+
+[[tool.mypy.overrides]]
+module = [
+    "matplotlib.*",
+    "numpy.*",
+    "prov.*",
+    "sal.*",
+    "scipy.*",
+]
+ignore_missing_imports = true
