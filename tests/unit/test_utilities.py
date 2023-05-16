@@ -277,3 +277,25 @@ def test_input_check_positive():
         utilities.input_check(
             var_name, -1.0, float, positive=True, strictly_positive=False
         )
+
+
+# Test script for intersections
+def test_intersections():
+    """Test script for intersections"""
+
+    # Test parallel lines -> should return an empty list
+    line_1_x = np.array([0.0, 1.0])
+    line_1_y = np.array([1.0, 2.0])
+    line_2_x = np.array([0.0, 1.0])
+    line_2_y = np.array([2.0, 3.0])
+
+    rx, zx, _, _ = utilities.intersection(line_1_x, line_1_y, line_2_x, line_2_y)
+    assert len(rx) == 0
+    assert len(zx) == 0
+
+    # Test intersecting lines - should return list of len=1
+    line_3_x = np.array([0.0, 1.0])
+    line_3_y = np.array([2.0, 1.0])
+    rx, zx, _, _ = utilities.intersection(line_1_x, line_1_y, line_3_x, line_3_y)
+    assert len(rx) != 0
+    assert len(zx) != 0

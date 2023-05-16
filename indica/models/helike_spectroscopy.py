@@ -252,19 +252,19 @@ class Helike_spectroscopy(DiagnosticModel):
             measured_intensity[line] = los_integral
             emission_los[line] = emission_los
 
-            Te_along_los = self.los_transform.map_to_los(self.Te, t=emission.t)
+            Te_along_los = self.los_transform.map_profile_to_los(self.Te, t=emission.t)
             measured_Te[line] = (emission_los * Te_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
 
-            Ti_along_los = self.los_transform.map_to_los(
+            Ti_along_los = self.los_transform.map_profile_to_los(
                 self.Ti.sel(element=self.element), t=emission.t
             )
             measured_Ti[line] = (emission_los * Ti_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
 
-            Nimp_along_los = self.los_transform.map_to_los(
+            Nimp_along_los = self.los_transform.map_profile_to_los(
                 self.Nimp.sel(element=self.element), t=emission.t
             )
             measured_Nimp[line] = (emission_los * Nimp_along_los).sum(
