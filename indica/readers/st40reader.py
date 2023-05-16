@@ -688,6 +688,8 @@ class ST40Reader(DataReader):
         results["wavelength"], _ = self._get_signal(
             uid, instrument, ":wavelength", revision
         )
+        # TODO: change once wavelength in MDS+ has been fixed to nanometers!
+        results["wavelength"] /= 10.0
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision

@@ -202,6 +202,13 @@ def example_params(example: str):
         equil = "efit"
         code = "astra"
         run_code = "RUN573"
+    elif example == "diverted":
+        comment = "predictive ASTRA using for diverted scenario"
+        pulse_code = 13000040
+        pulse = 10009
+        equil = "astra"
+        code = "astra"
+        run_code = "RUN292"
     elif example == "ga_code":
         comment = "GaCODE + ASTRA interpretative using HDA/EFIT"
         pulse = 9850
@@ -254,9 +261,9 @@ def example_run(
     # Read experimental data
     if verbose:
         print(f"Reading ST40 data for pulse={pulse} t=[{tstart}, {tend}]")
+
     st40 = ReadST40(pulse, tstart, tend, dt=dt, tree="st40")
     st40(instruments=instruments, map_diagnostics=False)
-
     # Initialize Equilibrium
     equilibrium: Equilibrium
     if equil == code:
@@ -419,6 +426,9 @@ def plot_modelling_results(
         _raw = raw["xrcs"]["spectra"].sel(t=time, method="nearest")
         _binned = binned["xrcs"]["spectra"].sel(t=time, method="nearest")
         _bckc = bckc["xrcs"]["spectra"].sel(t=time, method="nearest")
+        _binned -= _binned.sel(wavelength=slice(0.393, 0.388)).mean("wavelength")
+        _raw -= _raw.sel(wavelength=slice(0.393, 0.388)).mean("wavelength")
+
         (_raw / _raw.max()).plot(color=raw_color, label="Raw")
         (_binned / _binned.max()).plot(color=binned_color, label="Binned")
         (_bckc / _bckc.max()).plot(color=bckc_color, label="Model")
