@@ -149,8 +149,8 @@ class ReadST40:
                 for quant in data_to_map[instr]:
                     data = data_to_map[instr][quant]
                     transform = data.transform
-                    if hasattr(data.transform, "convert_to_rho"):
-                        transform.convert_to_rho(t=data.t)
+                    if hasattr(data.transform, "convert_to_rho_theta"):
+                        transform.convert_to_rho_theta(t=data.t)
                     else:
                         break
 
