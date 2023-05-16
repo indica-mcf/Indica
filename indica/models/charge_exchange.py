@@ -266,24 +266,42 @@ class ChargeExchange(DiagnosticModel):
                 # vertical position
                 z = self.plasma.equilibrium.rho.z.values
 
+                #print(rho_2d)
+                #print(self.plasma.equilibrium.rho.R)
+                #print(self.plasma.equilibrium.rho.z)
+                #print('aa'**2)
+
                 # meshgrid
                 R_2d, z_2d = np.meshgrid(R, z)
 
-                # Br
-                br, _ = self.plasma.equilibrium.Br(
-                    self.plasma.equilibrium.rho.R,
-                    self.plasma.equilibrium.rho.z,
-                    t=time
+                # Br, Bz, Bt
+                psi = self.plasma.equilibrium.psi.interp(
+                    t=time,
+                    method="nearest"
                 )
-                br = br.values
+                dpsi_dR = psi.differentiate("R").values
+                dpsi_dz = psi.differentiate("z").values
+                br = -(np.float64(1.0) / R_2d) * dpsi_dz  # type: ignore
+                bz = (np.float64(1.0) / R_2d) * dpsi_dR  # type: ignore
+                br = np.transpose(br, (1, 0))
+                bz = np.transpose(bz, (1, 0))
 
-                # Bz
-                bz, _ = self.plasma.equilibrium.Bz(
-                    self.plasma.equilibrium.rho.R,
-                    self.plasma.equilibrium.rho.z,
-                    t=time
-                )
-                bz = bz.values
+                use_indica_interp = True
+                if use_indica_interp:
+                    br, _ = self.plasma.equilibrium.Br(
+                        self.plasma.equilibrium.rho.R,
+                        self.plasma.equilibrium.rho.z,
+                        t=time
+                    )
+                    br = br.values
+
+                    # Bz
+                    bz, _ = self.plasma.equilibrium.Bz(
+                        self.plasma.equilibrium.rho.R,
+                        self.plasma.equilibrium.rho.z,
+                        t=time
+                    )
+                    bz = bz.values
 
                 # Bt, ToDo: returns NaNs!!
                 # bt, _ = beam.plasma.equilibrium.Bt(
@@ -296,6 +314,7 @@ class ChargeExchange(DiagnosticModel):
                 # Bypass bug -> irod = 2*pi*R * BT / mu0_fiesta;
                 irod = 3.0 * 1e6
                 bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d)
+                bt = np.transpose(bt, (1, 0))
 
                 # rho
                 rho = rho_2d.values
@@ -328,24 +347,28 @@ class ChargeExchange(DiagnosticModel):
                     print(f'plasma_ion_amu = {plasma_ion_amu}')
                     print(f'run_fidasim = {run_fidasim}')
 
+                    # Plot psi map
+                    plt.figure()
+                    plt.contourf(R, z, rho_2d.values)
+
                     # Plot magnetic fields
                     plt.figure()
                     plt.subplot(131)
                     plt.contourf(
-                        self.plasma.equilibrium.rho.R,
                         self.plasma.equilibrium.rho.z,
+                        self.plasma.equilibrium.rho.R,
                         br,
                     )
                     plt.subplot(132)
                     plt.contourf(
-                        self.plasma.equilibrium.rho.R,
                         self.plasma.equilibrium.rho.z,
+                        self.plasma.equilibrium.rho.R,
                         bz,
                     )
                     plt.subplot(133)
                     plt.contourf(
-                        self.plasma.equilibrium.rho.R,
                         self.plasma.equilibrium.rho.z,
+                        self.plasma.equilibrium.rho.R,
                         bt,
                     )
                     plt.show(block=True)
