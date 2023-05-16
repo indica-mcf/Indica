@@ -11,6 +11,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
+import matplotlib.pylab as plt
 
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -71,7 +72,7 @@ def sum_squares(x: OnlyArray, axis: int, **kwargs: Any) -> OnlyArray:
         Additiona keyword arguments (unused)
 
     """
-    return np.sum(x**2, axis=axis)
+    return np.sum(x ** 2, axis=axis)
 
 
 def get_slice_limits(low: float, high: float, data: OnlyArray) -> Tuple[int, int]:
@@ -180,10 +181,7 @@ def broadcast_spline(
         return result
     else:
         return apply_ufunc(
-            spline,
-            interp_coord,
-            input_core_dims=[[]],
-            output_core_dims=[spline_dims],
+            spline, interp_coord, input_core_dims=[[]], output_core_dims=[spline_dims],
         ).assign_coords({k: v for k, v in spline_coords.items()})
 
 
@@ -398,3 +396,21 @@ def check_time_present(t_desired: LabeledArray, t_array: LabeledArray):
     )
     if not equil_ok:
         raise ValueError(f"Desired time {t_desired} not available in array {t_array}")
+
+
+def save_figure(
+    path_name: str = "",
+    fig_name: str = "",
+    orientation: str = "landscape",
+    ext: str = "png",
+):
+    _fig_name = deepcopy(fig_name)
+    _path_name = deepcopy(path_name)
+    if _path_name[-1] != "/":
+        _path_name = f"{_path_name}/"
+    _file = f"{_path_name}{_fig_name}.{ext}"
+
+    plt.savefig(
+        _file, orientation=orientation, dpi=300, pil_kwargs={"quality": 95},
+    )
+    print(f"Saving picture to {_file}")
