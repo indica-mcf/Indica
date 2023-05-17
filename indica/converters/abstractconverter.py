@@ -78,7 +78,6 @@ class CoordinateTransform(ABC):
     x2_name: str
     x1: LabeledArray
     x2: LabeledArray
-    rho: LabeledArray
     t: LabeledArray = None
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):

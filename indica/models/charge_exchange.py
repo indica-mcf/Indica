@@ -94,8 +94,10 @@ class ChargeExchange(DiagnosticModel):
         self.Vtor = Vtor
         self.Ti = Ti
 
-        Ti_at_channels = self.transect_transform.map_to_rho(Ti, t=t, calc_rho=calc_rho)
-        Vtor_at_channels = self.transect_transform.map_to_rho(
+        Ti_at_channels = self.transect_transform.map_profile_to_rho(
+            Ti, t=t, calc_rho=calc_rho
+        )
+        Vtor_at_channels = self.transect_transform.map_profile_to_rho(
             Vtor, t=t, calc_rho=calc_rho
         )
 
@@ -158,9 +160,8 @@ def example_run(
                 alpha=0.7,
             )
             Vtor = bckc["vtor"].sel(t=t, method="nearest")
-            plt.scatter(
-                Vtor.rho_poloidal, Vtor, color=cols_time[i], marker="o", alpha=0.7
-            )
+            rho = Vtor.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(rho, Vtor, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured toroidal rotation (rad/s)")
         plt.legend()
@@ -173,7 +174,8 @@ def example_run(
                 alpha=0.7,
             )
             Ti = bckc["ti"].sel(t=t, method="nearest")
-            plt.scatter(Ti.rho_poloidal, Ti, color=cols_time[i], marker="o", alpha=0.7)
+            rho = Ti.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(rho, Ti, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")
         plt.legend()
