@@ -766,8 +766,8 @@ class Equilibrium:
 
 def prepare_coords(R: LabeledArray, z: LabeledArray) -> Tuple[DataArray, DataArray]:
 
-    if np.shape(R) != np.shape(z):
-        raise ValueError("R and z must have the same shape.")
+    #if np.shape(R) != np.shape(z):
+    #    raise ValueError("R and z must have the same shape.")
 
     if type(R) != DataArray or type(z) != DataArray:
         coords: list = []
