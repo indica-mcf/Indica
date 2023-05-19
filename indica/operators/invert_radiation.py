@@ -168,6 +168,18 @@ class EmissivityProfile:
         return where(result < 0.0, 0.0, result).fillna(0.0)
 
 
+def knotvals_to_xarray(knots, knotvals, dim_name, n, m, last_knot_zero):
+    symmetric_emissivity = DataArray(np.empty(n), coords=[(dim_name, knots)])
+    symmetric_emissivity[0:m] = knotvals[0:m]
+    if last_knot_zero:
+        symmetric_emissivity[-1] = 0.0
+    asymmetry_parameter = DataArray(np.empty(n), coords=[(dim_name, knots)])
+    asymmetry_parameter[0] = 0.5 * knotvals[m]
+    asymmetry_parameter[1:-1] = knotvals[m:]
+    asymmetry_parameter[-1] = 0.5 * knotvals[-1]
+    return symmetric_emissivity, asymmetry_parameter
+
+
 class InvertRadiation(Operator):
     """Estimates the emissivity distribution of the plasma using radiation
     data.
@@ -288,6 +300,25 @@ class InvertRadiation(Operator):
             knots[-1] = 1.0
         return knots
 
+    def _process_cameras(self, unfolded_cameras, rho_maj_rad, ip_coords):
+        for c in unfolded_cameras:
+            c["has_data"] = np.logical_not(np.isnan(c.camera.isel(t=0)))
+            trans = c.attrs["transform"]
+            dl = trans.distance(
+                trans.x2_name, DataArray(0), c.coords[trans.x2_name][0:2], 0.0
+            )[1]
+            c.attrs["dl"] = dl
+            c.attrs["nlos"] = int(np.sum(c["has_data"]))
+            rho, _ = c.indica.convert_coords(rho_maj_rad)
+            c.attrs["impact_parameters"] = ip_coords
+            impact_param, _ = c.indica.convert_coords(ip_coords)
+            c["weights"] = c.camera * (0.02 + 0.18 * np.abs(impact_param))
+            c["weights"].attrs["transform"] = c.camera.attrs["transform"]
+            c["weights"].attrs["datatype"] = ("weighting", self.datatype)
+            c.coords["R_0"] = c.attrs["transform"].equilibrium.R_hfs(
+                rho, c.coords["t"]
+            )[0]
+
     def __call__(  # type: ignore[override]
         self,
         R: DataArray,
@@ -342,22 +373,13 @@ class InvertRadiation(Operator):
         n = self.n_knots
         binned_cameras = [bin_to_time_labels(times.data, c) for c in cameras]
 
-        def knotvals_to_xarray(knotvals):
-            symmetric_emissivity = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            symmetric_emissivity[0:m] = knotvals[0:m]
-            if self.last_knot_zero:
-                symmetric_emissivity[-1] = 0.0
-            asymmetry_parameter = DataArray(np.empty(n), coords=[(dim_name, knots)])
-            asymmetry_parameter[0] = 0.5 * knotvals[m]
-            asymmetry_parameter[1:-1] = knotvals[m:]
-            asymmetry_parameter[-1] = 0.5 * knotvals[-1]
-            return symmetric_emissivity, asymmetry_parameter
-
         def residuals(
             knotvals: np.ndarray,
             unfolded_cameras: List[Dataset],
         ) -> np.ndarray:
-            symmetric_emissivity, asymmetry_parameter = knotvals_to_xarray(knotvals)
+            symmetric_emissivity, asymmetry_parameter = knotvals_to_xarray(
+                knots, knotvals, dim_name, n, m, self.last_knot_zero
+            )
             estimate = EmissivityProfile(
                 symmetric_emissivity, asymmetry_parameter, flux_coords
             )
@@ -395,28 +417,13 @@ class InvertRadiation(Operator):
 
         rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
         rho_max = 0.0
-        print("Calculating coordinate conversions")
         for c in unfolded_cameras:
-            c["has_data"] = np.logical_not(np.isnan(c.camera.isel(t=0)))
-            trans = c.attrs["transform"]
-            dl = trans.distance(
-                trans.x2_name, DataArray(0), c.coords[trans.x2_name][0:2], 0.0
-            )[1]
-            c.attrs["dl"] = dl
-            c.attrs["nlos"] = int(np.sum(c["has_data"]))
-            rho, _ = c.indica.convert_coords(rho_maj_rad)
             ip_coords = ImpactParameterCoordinates(
                 c.attrs["transform"], flux_coords, times=times
             )
-            c.attrs["impact_parameters"] = ip_coords
-            rho_max = max(rho_max, ip_coords.rhomax())
-            impact_param, _ = c.indica.convert_coords(ip_coords)
-            c["weights"] = c.camera * (0.02 + 0.18 * np.abs(impact_param))
-            c["weights"].attrs["transform"] = c.camera.attrs["transform"]
-            c["weights"].attrs["datatype"] = ("weighting", self.datatype)
-            c.coords["R_0"] = c.attrs["transform"].equilibrium.R_hfs(
-                rho, c.coords["t"]
-            )[0]
+        rho_max = max(rho_max, ip_coords.rhomax())
+        print("Calculating coordinate conversions")
+        self._process_cameras(unfolded_cameras, rho_maj_rad, ip_coords)
 
         knots = self.knot_positions(n, rho_max)
         dim_name = "rho_" + flux_coords.flux_kind
@@ -453,7 +460,9 @@ class InvertRadiation(Operator):
                     "reached maximum number of function evaluations.",
                     RuntimeWarning,
                 )
-            sym, asym = knotvals_to_xarray(fit.x)
+            sym, asym = knotvals_to_xarray(
+                knots, fit.x, dim_name, n, m, self.last_knot_zero
+            )
             symmetric_emissivities.append(sym)
             asymmetry_parameters.append(asym)
             integrals.append(self.integral)
