@@ -412,6 +412,7 @@ class InvertRadiation(Operator):
             for c in binned_cameras
         ]
 
+        # prepare cameras for comparison
         rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
         rho_max = 0.0
         for c in unfolded_cameras:
@@ -425,6 +426,7 @@ class InvertRadiation(Operator):
         knots = self.knot_positions(n, rho_max)
         dim_name = "rho_" + flux_coords.flux_kind
 
+        # initialise results lists, initial guess and bounds
         symmetric_emissivities: List[xr.DataArray] = []
         asymmetry_parameters: List[xr.DataArray] = []
         integrals: List[List[xr.DataArray]] = []
@@ -465,6 +467,7 @@ class InvertRadiation(Operator):
             integrals.append(self.integral)
             guess = fit.x
 
+        # convert results to Datasets and add metadata
         symmetric_emissivity = xr.concat(symmetric_emissivities, dim=times)
         symmetric_emissivity.attrs["transform"] = flux_coords
         symmetric_emissivity.attrs["datatype"] = ("emissivity", self.datatype)
@@ -474,6 +477,14 @@ class InvertRadiation(Operator):
         integral: List[xr.DataArray] = []
         for data in zip(*integrals):
             integral.append(xr.concat(data, dim=times))
+        results: xr.Dataset = xr.Dataset(
+            {
+                "symmetric_emissivity": symmetric_emissivity,
+                "asymmetry_parameter": asymmetry_parameter,
+            }
+        )
+
+        # wrap results into EmissivityProfile class
         estimate = EmissivityProfile(
             symmetric_emissivity, asymmetry_parameter, flux_coords
         )
@@ -483,19 +494,14 @@ class InvertRadiation(Operator):
         emissivity.attrs["emissivity_model"] = estimate
         emissivity.name = self.datatype + "_emissivity"
 
-        results: xr.Dataset = xr.Dataset(
-            {
-                "symmetric_emissivity": symmetric_emissivity,
-                "asymmetry_parameter": asymmetry_parameter,
-            }
-        )
+        # add back-integral and metadata to cameras and results
         for c, i in zip(unfolded_cameras, integral):
             del c["has_data"]
             i.attrs["datatype"] = ("luminous_flux", self.datatype)
             i.attrs["transform"] = c.camera.attrs["transform"]
             c["back_integral"] = i
+            self.assign_provenance(c)
         self.assign_provenance(emissivity)
         self.assign_provenance(results)
-        for cam in unfolded_cameras:
-            self.assign_provenance(cam)
+
         return emissivity, results, *unfolded_cameras
