@@ -186,8 +186,6 @@ class BayesModels:
             return -np.inf, {}
 
         self.plasma.update_profiles(parameters)
-        self.plasma.calc_impurity_density("c")  # Temp: put this somewhere better
-
         self._build_bckc(parameters, **kwargs)  # model calls
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_posterior = ln_likelihood + ln_prior
