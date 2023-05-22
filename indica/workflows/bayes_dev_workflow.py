@@ -47,7 +47,7 @@ DEFAULT_PRIORS = {
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
     "Ne_prof.wped": get_uniform(1, 6),
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
-    "Ne_prof.peaking": get_uniform(1, 4),
+    "Ne_prof.peaking": get_uniform(1, 6),
 
     "Nimp_prof.y0": get_uniform(1e15, 1e17),
     "Nimp_prof.y1": get_uniform(1e15, 2e16),
@@ -55,23 +55,23 @@ DEFAULT_PRIORS = {
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
     "Nimp_prof.wped": get_uniform(1, 6),
     "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
-    "Nimp_prof.peaking": get_uniform(1, 4),
+    "Nimp_prof.peaking": get_uniform(1, 6),
 
     "Te_prof.y0": get_uniform(1000, 5000),
     "Te_prof.wped": get_uniform(1, 6),
     "Te_prof.wcenter": get_uniform(0.1, 0.6),
-    "Te_prof.peaking": get_uniform(1, 4),
+    "Te_prof.peaking": get_uniform(1, 6),
     "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
 
-    "Ti_prof.y0": get_uniform(1000, 10000),
+    "Ti_prof.y0": get_uniform(2000, 10000),
     "Ti_prof.wped": get_uniform(1, 6),
     "Ti_prof.wcenter": get_uniform(0.1, 0.6),
-    "Ti_prof.peaking": get_uniform(1, 4),
+    "Ti_prof.peaking": get_uniform(1, 6),
 }
 
 OPTIMISED_PARAMS = [
     "Ne_prof.y0",
-    # "Ne_prof.y1",
+    "Ne_prof.y1",
     "Ne_prof.peaking",
     "Ne_prof.wcenter",
     "Ne_prof.wped",
@@ -116,7 +116,7 @@ class BayesWorkflow:
                  profiles=None
                  ):
 
-        self.pulse=pulse
+        self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
@@ -134,7 +134,7 @@ class BayesWorkflow:
             tend=tend,
             dt=dt,
             main_ion="h",
-            impurities=("ar","c"),
+            impurities=("ar", "c"),
             impurity_concentration=(0.001, 0.04, ),
             full_run=False,
             n_rad=20,
@@ -152,7 +152,7 @@ class BayesWorkflow:
             self.phantom_data()
             self.save_profiles()
         else:
-            self.real_data()
+            self.exp_data()
 
         self.bayes_run = BayesModels(
                 plasma=self.plasma,
@@ -164,7 +164,7 @@ class BayesWorkflow:
 
         ndim = len(OPTIMISED_PARAMS)
         self.start_points = self.bayes_run.sample_from_priors(OPTIMISED_PARAMS, size=self.nwalkers)
-        self.move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
+        self.move = [(emcee.moves.StretchMove(), 0.9), (emcee.moves.DEMove(), 0.1)]
 
         self.sampler = emcee.EnsembleSampler(
             nwalkers,
@@ -207,6 +207,12 @@ class BayesWorkflow:
                 t=self.plasma.time_to_calculate
             ).copy(),
             "ion_temperature": self.plasma.ion_temperature.sel(
+                t=self.plasma.time_to_calculate
+            ).copy(),
+            "fast_density": self.plasma.fast_density.sel(
+                t=self.plasma.time_to_calculate
+            ).copy(),
+            "neutral_density": self.plasma.neutral_density.sel(
                 t=self.plasma.time_to_calculate
             ).copy(),
         }
@@ -260,14 +266,17 @@ class BayesWorkflow:
 
 
     def phantom_data(self, noise=False, noise_factor=0.1):
-
         self.flat_data = {}
-        self.flat_data["smmh1.ne"] = self.models["smmh1"]().pop("ne").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
-        self.flat_data["xrcs.spectra"] = self.models["xrcs"]().pop("spectra").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
-        self.flat_data["xrcs.background"] = None
-        cxrs_data = self.models["cxff_pi"]().pop("ti").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
-        self.flat_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2)
-        self.flat_data["efit.wp"] = self.models["efit"]().pop("wp").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+        if "smmh1" in self.diagnostics:
+            self.flat_data["smmh1.ne"] = self.models["smmh1"]().pop("ne").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+        if "xrcs" in self.diagnostics:
+            self.flat_data["xrcs.spectra"] = self.models["xrcs"]().pop("spectra").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+            self.flat_data["xrcs.background"] = None
+        if "cxff_pi" in self.diagnostics:
+            cxrs_data = self.models["cxff_pi"]().pop("ti").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+            self.flat_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2)
+        if "efit" in self.diagnostics:
+            self.flat_data["efit.wp"] = self.models["efit"]().pop("wp").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
 
         if noise:
             self.flat_data["smmh1.ne"] = self.flat_data["smmh1.ne"] + self.flat_data["smmh1.ne"].max().values * np.random.normal(0, noise_factor, None)
@@ -276,8 +285,7 @@ class BayesWorkflow:
             self.flat_data["efit.wp"] = self.flat_data["efit.wp"] + self.flat_data["efit.wp"].max().values * np.random.normal(0, noise_factor, None)
 
 
-    def real_data(self):
-
+    def exp_data(self):
         self.flat_data = flatdict.FlatDict(self.ST40_data.binned_data, ".")
         if "xrcs" in self.diagnostics:
             self.flat_data["xrcs.spectra"]["wavelength"] = self.flat_data["xrcs.spectra"].wavelength * 0.1
@@ -324,8 +332,8 @@ class BayesWorkflow:
 
 if __name__ == "__main__":
 
-    run = BayesWorkflow(pulse=10009, result_path="./results/10009_full/", iterations=10000, nwalkers=200,
-                        burn_in=100, diagnostics=[
+    run = BayesWorkflow(pulse=10009, result_path="./results/10009_test/", iterations=1000, nwalkers=200,
+                        burn_in=50, diagnostics=[
                                                 "xrcs",
                                                 "efit",
                                                 "smmh1",
