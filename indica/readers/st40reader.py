@@ -79,6 +79,7 @@ class ST40Reader(DataReader):
         "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
         "astra": "get_astra",
+        "transp_test": "get_transp_test",
         "sxr_diode_1": "get_diode_filters",
         "sxr_diode_2": "get_diode_filters",
         "sxr_diode_3": "get_diode_filters",
@@ -101,6 +102,7 @@ class ST40Reader(DataReader):
         "nirh1_bin": "interferom",
         "smmh1": "interferom",
         "astra": "",
+        "transp_test": "",
         "sxr_diode_1": "sxr",
         "sxr_diode_2": "sxr",
         "sxr_diode_3": "sxr",
@@ -285,6 +287,76 @@ class ST40Reader(DataReader):
             "niz1": ".profiles.astra:niz1",  # Impurity density, 10^19/m^3
             "niz2": ".profiles.astra:niz2",  # Impurity density, 10^19/m^3
             "niz3": ".profiles.astra:niz3",  # Impurity density, 10^19/m^3
+        },
+        "transp_test": {
+            # "f": ".profiles.psi_norm:fpol",
+            "faxs": ".global:faxs",
+            "fbnd": ".global:fbnd",
+            "ftor": ".profiles.rhotor:ftor",  # Wb
+            # # "rmji": ".profiles.psi_norm:rmji",
+            # # "rmjo": ".profiles.psi_norm:rmjo",
+            # "psi_1d": ".profiles.psi_norm:psi",
+            "psi": ".psi2d:psi",
+            # "vjac": ".profiles.psi_norm:vjac",
+            # "ajac": ".profiles.psi_norm:ajac",
+            "volume": ".profiles.rhotor:volume",
+            "area": ".profiles.rhotor:areat",
+            "rmag": ".global:rmag",
+            "rgeo": ".global:rgeo",
+            "zmag": ".global:zmag",
+            # "zgeo": ".global:zgeo",
+            "rbnd": ".p_boundary:rbnd",
+            "zbnd": ".p_boundary:zbnd",
+            "wp": ".global:ueq",
+            "ipla": ".global:ip",
+            # "upl": ".global:upl",
+            # "wth": ".global:wth",
+            # "wtherm": ".global:wtherm",
+            # "wfast": ".global:wfast",
+            # "df": ".global.df",
+            # "elon": ".profiles.astra:elon",  # Elongation profile
+            "j_bs": ".profiles.rhotor:j_bs",  # Bootstrap current density,MA/m2
+            "j_nbi": ".profiles.rhotor:j_nbi",  # NB driven current density,MA/m2
+            "j_oh": ".profiles.rhotor:j_oh",  # Ohmic current density,MA/m2
+            # "j_rf": ".profiles.astra:j_rf",  # EC driven current density,MA/m2
+            "j_tot": ".profiles.rhotor:j_total",  # Total current density,MA/m2
+            "ne": ".profiles.rhotor:ne",  # Electron density, 10^19 m^-3
+            "ni": ".profiles.rhotor:ni",  # Main ion density, 10^19 m^-3
+            "nf": ".profiles.rhotor:nf",  # Main ion density, 10^19 m^-3
+            # "n_d": ".profiles.astra:n_d",  # Deuterium density,10E19/m3
+            # "n_t": ".profiles.astra:n_t",  # Tritium density	,10E19/m3
+            "omega_tor": ".profiles.rhotor:omega_tor",  # Toroidal rot. freq., 1/s
+            # "qe": ".profiles.astra:qe",  # electron power flux, MW
+            # "qi": ".profiles.astra:qi",  # ion power flux, MW
+            # "qn": ".profiles.astra:qn",  # total electron flux, 10^19/s
+            "qnbe": ".profiles.rhotor:q_nbi_e",
+            "qnbi": ".profiles.rhotor:q_nbi_i",  # Beam power density to ions, MW/m3
+            "q_oh": ".profiles.rhotor:q_oh",  # Ohmic heating power profile, MW/m3
+            # "q_rf": ".profiles.astra:q_rf",  # RF power density to electron,MW/m3
+            "rho": ".profiles.rhotor:rhotor",  # ASTRA rho-toroidal
+            "rmid": ".profiles.rhotor:r_mid",  # Centre of flux surfaces, m
+            # "rminor": ".profiles.astra:rminor",  # minor radius, m
+            # "sbm": ".profiles.astra:sbm",  # Particle source from beam, 10^19/m^3/s
+            # "stot": ".profiles.astra:stot",  # Total electron source,10^19/s/m3
+            # "swall": ".profiles.astra:swall",  # Wall neutrals source, 10^19/m^3/s
+            "te": ".profiles.rhotor:te",  # Electron temperature, keV
+            "ti": ".profiles.rhotor:ti",  # Ion temperature, keV
+            # "t_d": ".profiles.astra:t_d",  # Deuterium temperature,keV
+            # "t_t": ".profiles.astra:t_t",  # Tritium temperature,keV
+            "zeff": ".profiles.rhotor:zeff",  # Effective ion charge
+            # "areat": ".profiles.psi_norm:areat",  # Toroidal cross section,m2
+            "p": ".profiles.rhotor:pressure",  # PRESSURE(PSI_NORM)
+            "pblon": ".profiles.rhotor:pblon",  # PRESSURE(PSI_NORM)
+            "pbper": ".profiles.rhotor:pbper",  # PRESSURE(PSI_NORM)
+            # "pnb": ".global:pnb",  # Injected NBI power, W
+            # "pabs": ".global:pabs",  # Absorber NBI power, W
+            # "p_oh": ".global:p_oh",  # Absorber NBI power, W
+            "q": ".profiles.rhotor:q",  # Q_PROFILE(PSI_NORM)
+            # "sigmapar": ".profiles.psi_norm:sigmapar",  # Paral. conduct.,1/(Ohm*m)
+            # "nn": ".profiles.astra:nn",  # Thermal neutral density, 10^19/m^3
+            "niz1": ".profiles.rhotor:niz1",  # Impurity density, 10^19/m^3
+            # "niz2": ".profiles.astra:niz2",  # Impurity density, 10^19/m^3
+            # "niz3": ".profiles.astra:niz3",  # Impurity density, 10^19/m^3
         },
     }
 
@@ -590,6 +662,58 @@ class ST40Reader(DataReader):
         results["direction"] = direction[chan_start - 1 : chan_end, :]
 
         results["quantities"] = quantities
+
+        return results
+
+    def _get_transp_test(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch data from ASTRA run."""
+
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {}
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        revision = results["revision"]
+
+        # Read time and radial dimensions
+        # results["boundary_index"], _ = self._get_signal(
+        #     uid, instrument, ".p_boundary:rbnd", revision
+        # )
+        results["psi"], _ = self._get_signal(uid, instrument, "psi2d.psi", revision)
+        results["psin"], psin_path = self._get_signal(
+            uid, instrument, ".profiles.rhotor:psin", revision
+        )
+        results["ftor"], _ = self._get_signal(
+            uid, instrument, ".profiles.rhotor:f", revision
+        )
+        results["rho"], rho_path = self._get_signal(
+            uid, instrument, ".profiles.rhotor:rhotor", revision
+        )
+        results["psi_r"], _ = self._get_signal(
+            uid, instrument, ".psi2d:rgrid", revision
+        )
+        results["psi_z"], _ = self._get_signal(
+            uid, instrument, ".psi2d:zgrid", revision
+        )
+        results["times"], t_path = self._get_signal(uid, instrument, ":time", revision)
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
+            )
+
+            results[q] = qval
+            # if "PROFILES.PSI_NORM" in q_path.upper():
+            #     results[q + "_records"] = [q_path, t_path, psin_path]
+            if "PROFILES.RHOTOR" in q_path.upper():
+                results[q + "_records"] = [q_path, t_path, rho_path]
+            else:
+                results[q + "_records"] = [q_path, t_path]
 
         return results
 

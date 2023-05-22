@@ -883,6 +883,116 @@ class DataReader(BaseIO):
 
         return data
 
+    def get_transp_test(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        dl: float = 0.005,
+        passes: int = 1,
+    ) -> Dict[str, DataArray]:
+        """
+        Reads ASTRA data
+        """
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_transp_test(uid, instrument, revision, quantities)
+        # return database_results
+
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+        _revision = database_results["revision"]
+
+        data: Dict[str, DataArray] = {}
+
+        # Reorganise coordinate system to match Indica default rho-poloidal
+        psin = database_results["psin"]
+        database_results["boundary_index"] = (
+            np.arange(database_results["rbnd"].shape[1]) + 1.0
+        )
+        rhop_psin = np.sqrt(psin)
+        rhop_interp = np.linspace(0, 1.0, 65)
+        rhot_astra = database_results["rho"][0, :]  # / np.max(database_results["rho"])
+        rhot_rhop = []
+        for it in range(len(database_results["times"])):
+            ftor_tmp = database_results["ftor"][it, :]
+            # psi_tmp = database_results["psi_1d"][it, :]
+            rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
+            rhop_tmp = np.sqrt(database_results["psin"][it, :])
+            rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
+            rhot_rhop.append(rhot_xpsn)
+
+        rhot_rhop = DataArray(
+            np.array(rhot_rhop),
+            {"t": database_results["times"], "rho_poloidal": rhop_interp},
+            dims=["t", "rho_poloidal"],
+        ).sel(t=slice(self._tstart, self._tend))
+
+        radial_coords = {
+            "rho_toroidal": rhot_astra,
+            "rho_poloidal": rhop_psin,
+            "R": database_results["psi_r"],
+            "z": database_results["psi_z"],
+            "arbitrary_index": database_results["boundary_index"],
+        }
+
+        sorted_quantities = sorted(quantities)
+        for quantity in sorted_quantities:
+            if quantity not in database_results.keys():
+                continue
+                # raise ValueError(
+                #     "{} can not read astra data for "
+                #     "quantity {}".format(self.__class__.__name__, quantity)
+                # )
+
+            if "PROFILES.RHOTOR" in database_results[f"{quantity}_records"][0]:
+                name_coords = ["rho_toroidal"]
+            # elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
+            #     name_coords = ["rho_poloidal"]
+            elif "PSI2D" in database_results[f"{quantity}_records"][0]:
+                name_coords = ["z", "R"]
+            elif "BOUNDARY" in database_results[f"{quantity}_records"][0]:
+                name_coords = ["arbitrary_index"]
+            else:
+                name_coords = []
+
+            coords: list = [("t", database_results["times"])]
+            if len(name_coords) > 0:
+                for coord in name_coords:
+                    coords.append((coord, radial_coords[coord]))
+
+            if len(np.shape(database_results[quantity])) != len(coords):
+                continue
+
+            quant_data = self.assign_dataarray(
+                uid,
+                instrument,
+                quantity,
+                database_results,
+                coords,
+                include_error=False,
+            )
+
+            # TODO: careful with interpolation on new rho_poloidal array...
+            # Interpolate ASTRA profiles on new rhop_interp array
+            # Interpolate PSI_NORM profiles on same coordinate system
+            if "rho_toroidal" in coords:
+                rho_toroidal_0 = quant_data.rho_toroidal.min()
+                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
+                    "rho_toroidal"
+                )
+                quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
+                    rho_toroidal=rho_toroidal_0
+                )
+                quant_data = quant_interp.interpolate_na("rho_poloidal")
+            elif "rho_poloidal" in coords:
+                quant_data = quant_data.interp(rho_poloidal=rhop_interp)
+
+        data[quantity] = quant_data
+
+        return data
+
     def _get_astra(
         self,
         uid: str,
@@ -892,6 +1002,21 @@ class DataReader(BaseIO):
     ) -> Dict[str, Any]:
         """
         Reads ASTRA data from database
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_spectroscopy' "
+            "method.".format(self.__class__.__name__)
+        )
+
+    def _get_transp_test(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """
+        Reads transp data from database
         """
         raise NotImplementedError(
             "{} does not implement a '_get_spectroscopy' "
