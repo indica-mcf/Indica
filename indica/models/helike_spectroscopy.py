@@ -40,7 +40,7 @@ class Helike_spectroscopy(DiagnosticModel):
         name: str,
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
-        calibration: float = 5.0e-19,
+        calibration: float = 5.0e-20,
         marchuk: bool = True,
         full_run: bool = False,
         element: str = "ar",
