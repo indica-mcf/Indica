@@ -193,6 +193,7 @@ def plot_bayes_result(
 ):
     Path(figheader).mkdir(parents=True, exist_ok=True)
 
+
     plt.figure()
     plt.plot(
         np.arange(0, autocorr.__len__())[np.isfinite(autocorr)],
@@ -205,10 +206,10 @@ def plot_bayes_result(
     plt.savefig(figheader + "average_tau.png")
     plt.close()
 
-    violinplot_keys = ["efit.wp", "smmh1.ne", "cxff_pi.ti_0d"]
+    violinplot_keys = ["efit.wp", "smmh1.ne", "cxff_pi.ti0"]
     if "cxff_pi.ti" in blobs.keys():
-        blobs["cxff_pi.ti_0d"] = blobs["cxff_pi.ti"].sel(channel = diag_data["cxff_pi.ti"].channel)
-        diag_data["cxff_pi.ti_0d"] = diag_data["cxff_pi.ti"].sel(channel=diag_data["cxff_pi.ti"].channel)
+        blobs["cxff_pi.ti0"] = blobs["cxff_pi.ti"].sel(channel = diag_data["cxff_pi.ti"].channel)
+        diag_data["cxff_pi.ti0"] = diag_data["cxff_pi.ti"].sel(channel=diag_data["cxff_pi.ti"].channel)
     violinplots({key: blobs[key] for key in violinplot_keys if key in blobs.keys()}, diag_data, figheader+"boxplots.png")
 
     key = "efit.wp"
