@@ -213,7 +213,6 @@ class BayesModels:
                 t=self.plasma.time_to_calculate
             ),
 
-            # TODO: add Nh
         }
         blob = deepcopy({**self.bckc, **kin_profs})
         return ln_posterior, blob
