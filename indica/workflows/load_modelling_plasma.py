@@ -212,7 +212,7 @@ def example_params(example: str):
         pulse = 10009
         equil = "efit"
         code = "astra"
-        run_code = "RUN564" # "RUN573"
+        run_code = "RUN564"  # "RUN573"
         tplot = 0.08
     elif example == "interpretative_9850":
         comment = "ASTRA interpretative using HDA/EFIT"
@@ -220,7 +220,7 @@ def example_params(example: str):
         pulse_code = 13109850
         equil = "efit"
         code = "astra"
-        run_code = "RUN564" #61
+        run_code = "RUN564"  # 61
         tplot = 0.08
     elif example == "interpretative_9229":
         comment = "ASTRA interpretative using HDA/EFIT"
@@ -228,7 +228,7 @@ def example_params(example: str):
         pulse_code = 13109229
         equil = "efit"
         code = "astra"
-        run_code = "RUN574" #"RUN567" #"RUN573"
+        run_code = "RUN574"  # "RUN567" #"RUN573"
         tplot = 0.06
     elif example == "diverted":
         comment = "predictive ASTRA using for diverted scenario"
@@ -260,7 +260,7 @@ def example_run(
     tplot: float = None,
     plot: bool = True,
     example: str = "predictive",
-    save_fig:bool=False,
+    save_fig: bool = False,
 ):
     """
     Run all diagnostic models using profiles and equilibrium from ASTRA modelling
