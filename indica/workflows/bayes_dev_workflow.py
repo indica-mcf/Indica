@@ -4,6 +4,8 @@ import xarray as xr
 import pandas as pd
 import flatdict
 
+from scipy.stats import loguniform
+
 from indica.readers.read_st40 import ReadST40
 from indica.bayesmodels import BayesModels, get_uniform
 from indica.workflows.bayes_workflow import plot_bayes_result, sample_with_autocorr
@@ -17,29 +19,29 @@ from indica.converters.line_of_sight import LineOfSightTransform
 
 # global configurations
 DEFAULT_PHANTOM_PARAMS = {
-        "Ne_prof.y0": 5e19,
-        "Ne_prof.wcenter": 0.4,
-        "Ne_prof.peaking": 2,
-        "Ne_prof.y1": 2e18,
-        "Ne_prof.yend": 1e18,
-        "Ne_prof.wped": 2,
+    "Ne_prof.y0": 5e19,
+    "Ne_prof.wcenter": 0.4,
+    "Ne_prof.peaking": 2,
+    "Ne_prof.y1": 2e18,
+    "Ne_prof.yend": 1e18,
+    "Ne_prof.wped": 2,
 
-        "Nimp_prof.y0": 3e16,
-        "Nimp_prof.y1": 0.5e16,
-        "Nimp_prof.wcenter": 0.4,
-        "Nimp_prof.wped": 6,
-        "Nimp_prof.peaking": 2,
+    "Nimp_prof.y0": 3e16,
+    "Nimp_prof.y1": 0.5e16,
+    "Nimp_prof.wcenter": 0.4,
+    "Nimp_prof.wped": 6,
+    "Nimp_prof.peaking": 2,
 
-        "Te_prof.y0": 3000,
-        "Te_prof.wcenter": 0.4,
-        "Te_prof.wped": 4,
-        "Te_prof.peaking": 2,
+    "Te_prof.y0": 3000,
+    "Te_prof.wcenter": 0.4,
+    "Te_prof.wped": 4,
+    "Te_prof.peaking": 2,
 
-        "Ti_prof.y0": 6000,
-        "Ti_prof.wcenter": 0.4,
-        "Ti_prof.wped": 4,
-        "Ti_prof.peaking": 2,
-    }
+    "Ti_prof.y0": 6000,
+    "Ti_prof.wcenter": 0.4,
+    "Ti_prof.wped": 4,
+    "Ti_prof.peaking": 2,
+}
 
 DEFAULT_PRIORS = {
     "Ne_prof.y0": get_uniform(2e19, 4e20),
@@ -49,6 +51,8 @@ DEFAULT_PRIORS = {
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
     "Ne_prof.peaking": get_uniform(1, 6),
 
+    "ar_conc": loguniform(0.0001, 0.01),
+
     "Nimp_prof.y0": get_uniform(1e15, 1e17),
     "Nimp_prof.y1": get_uniform(1e15, 2e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where((x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0),
@@ -56,6 +60,7 @@ DEFAULT_PRIORS = {
     "Nimp_prof.wped": get_uniform(1, 6),
     "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
     "Nimp_prof.peaking": get_uniform(1, 6),
+    "Nimp_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where((x1 > x2), 1, 0),  # impurity always more peaked
 
     "Te_prof.y0": get_uniform(1000, 5000),
     "Te_prof.wped": get_uniform(1, 6),
@@ -71,34 +76,36 @@ DEFAULT_PRIORS = {
 
 OPTIMISED_PARAMS = [
     "Ne_prof.y0",
-    "Ne_prof.y1",
+    # "Ne_prof.y1",
     "Ne_prof.peaking",
     "Ne_prof.wcenter",
     "Ne_prof.wped",
 
+    # "ar_conc",
     "Nimp_prof.y0",
     "Nimp_prof.wcenter",
     "Nimp_prof.wped",
-    "Nimp_prof.y1",
+    # "Nimp_prof.y1",
     "Nimp_prof.peaking",
 
     "Te_prof.y0",
-    "Te_prof.wped",
-    "Te_prof.wcenter",
-    "Te_prof.peaking",
+    # "Te_prof.wped",
+    # "Te_prof.wcenter",
+    # "Te_prof.peaking",
 
     "Ti_prof.y0",
-    "Ti_prof.wped",
-    "Ti_prof.wcenter",
-    "Ti_prof.peaking",
+    # "Ti_prof.wped",
+    # "Ti_prof.wcenter",
+    # "Ti_prof.peaking",
 ]
 
 OPTIMISED_QUANTITY = [
-                      "xrcs.spectra",
-                      "cxff_pi.ti",
-                      "efit.wp",
-                      "smmh1.ne"
-                      ]
+    "xrcs.spectra",
+    "cxff_pi.ti",
+    "efit.wp",
+    "smmh1.ne"
+]
+
 
 class BayesWorkflow:
     def __init__(self,
@@ -110,7 +117,7 @@ class BayesWorkflow:
                  dt=0.01,
                  tsample=4,
                  iterations=100,
-                 burn_in=0,
+                 burn_in_fraction=0,
                  diagnostics=None,
                  phantom=True,
                  profiles=None
@@ -124,7 +131,7 @@ class BayesWorkflow:
         self.result_path = result_path
         self.nwalkers = nwalkers
         self.iterations = iterations
-        self.burn_in = burn_in
+        self.burn_in_fraction = burn_in_fraction
         self.diagnostics = diagnostics
         self.phantom = phantom
         self.profiles = profiles
@@ -135,7 +142,7 @@ class BayesWorkflow:
             dt=dt,
             main_ion="h",
             impurities=("ar", "c"),
-            impurity_concentration=(0.001, 0.04, ),
+            impurity_concentration=(0.001, 0.04,),
             full_run=False,
             n_rad=20,
         )
@@ -147,7 +154,6 @@ class BayesWorkflow:
         self.read_st40(diagnostics)
         self.init_models()
 
-
         if self.phantom:
             self.phantom_data()
             self.save_profiles()
@@ -155,12 +161,12 @@ class BayesWorkflow:
             self.exp_data()
 
         self.bayes_run = BayesModels(
-                plasma=self.plasma,
-                data=self.flat_data,
-                diagnostic_models=[*self.models.values()],
-                quant_to_optimise=OPTIMISED_QUANTITY,
-                priors=DEFAULT_PRIORS,
-            )
+            plasma=self.plasma,
+            data=self.flat_data,
+            diagnostic_models=[*self.models.values()],
+            quant_to_optimise=OPTIMISED_QUANTITY,
+            priors=DEFAULT_PRIORS,
+        )
 
         ndim = len(OPTIMISED_PARAMS)
         self.start_points = self.bayes_run.sample_from_priors(OPTIMISED_PARAMS, size=self.nwalkers)
@@ -173,7 +179,7 @@ class BayesWorkflow:
             parameter_names=OPTIMISED_PARAMS,
             moves=self.move,
             kwargs={"moment_analysis": False, "calc_spectra": True, "minimum_lines": False,
-                    "background":self.flat_data["xrcs.background"]},
+                    "background": self.flat_data["xrcs.background"]},
         )
 
     def init_fast_particles(self):
@@ -224,9 +230,9 @@ class BayesWorkflow:
             if diag == "smmh1":
                 # los_transform = self.ST40_data.binned_data["smmh1"]["ne"].transform
                 machine_dims = self.plasma.machine_dimensions
-                origin = np.array([[-0.38063365,  0.91893092, 0.01]])
+                origin = np.array([[-0.38063365, 0.91893092, 0.01]])
                 # end = np.array([[0,  0, 0.01]])
-                direction = np.array([[0.38173721,  -0.92387953, -0.02689453]])
+                direction = np.array([[0.38173721, -0.92387953, -0.02689453]])
                 los_transform = LineOfSightTransform(
                     origin[:, 0],
                     origin[:, 1],
@@ -236,7 +242,7 @@ class BayesWorkflow:
                     direction[:, 2],
                     name="",
                     machine_dimensions=machine_dims,
-                    passes=2,)
+                    passes=2, )
                 los_transform.set_equilibrium(self.plasma.equilibrium)
                 model = Interferometry(name="smmh1")
                 model.set_los_transform(los_transform)
@@ -246,7 +252,8 @@ class BayesWorkflow:
             if "xrcs" in self.diagnostics:
                 los_transform = self.ST40_data.binned_data["xrcs"]["te_kw"].transform
                 model = Helike_spectroscopy(name="xrcs", window_masks=[slice(0.394, 0.396)],
-                                            window_vector=self.ST40_data.binned_data["xrcs"]["spectra"].wavelength.values * 0.1)
+                                            window_vector=self.ST40_data.binned_data["xrcs"][
+                                                              "spectra"].wavelength.values * 0.1)
                 model.set_los_transform(los_transform)
                 model.plasma = self.plasma
                 self.models["xrcs"] = model
@@ -264,48 +271,54 @@ class BayesWorkflow:
                 model.plasma = self.plasma
                 self.models["cxff_pi"] = model
 
-
     def phantom_data(self, noise=False, noise_factor=0.1):
         self.flat_data = {}
         if "smmh1" in self.diagnostics:
-            self.flat_data["smmh1.ne"] = self.models["smmh1"]().pop("ne").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+            self.flat_data["smmh1.ne"] = self.models["smmh1"]().pop("ne").expand_dims(
+                dim={"t": [self.plasma.time_to_calculate]})
         if "xrcs" in self.diagnostics:
-            self.flat_data["xrcs.spectra"] = self.models["xrcs"]().pop("spectra").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+            self.flat_data["xrcs.spectra"] = self.models["xrcs"]().pop("spectra").expand_dims(
+                dim={"t": [self.plasma.time_to_calculate]})
             self.flat_data["xrcs.background"] = None
         if "cxff_pi" in self.diagnostics:
             cxrs_data = self.models["cxff_pi"]().pop("ti").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             self.flat_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2)
         if "efit" in self.diagnostics:
-            self.flat_data["efit.wp"] = self.models["efit"]().pop("wp").expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+            self.flat_data["efit.wp"] = self.models["efit"]().pop("wp").expand_dims(
+                dim={"t": [self.plasma.time_to_calculate]})
 
         if noise:
-            self.flat_data["smmh1.ne"] = self.flat_data["smmh1.ne"] + self.flat_data["smmh1.ne"].max().values * np.random.normal(0, noise_factor, None)
-            self.flat_data["xrcs.spectra"] = self.flat_data["xrcs.spectra"] +  np.random.normal(0, np.sqrt(self.flat_data["xrcs.spectra"].values[0,]), self.flat_data["xrcs.spectra"].shape[1])
-            self.flat_data["cxff_pi.ti"] = self.flat_data["cxff_pi.ti"] + self.flat_data["cxff_pi.ti"].max().values * np.random.normal(0, noise_factor, self.flat_data["cxff_pi.ti"].shape[1])
-            self.flat_data["efit.wp"] = self.flat_data["efit.wp"] + self.flat_data["efit.wp"].max().values * np.random.normal(0, noise_factor, None)
-
+            self.flat_data["smmh1.ne"] = self.flat_data["smmh1.ne"] + self.flat_data[
+                "smmh1.ne"].max().values * np.random.normal(0, noise_factor, None)
+            self.flat_data["xrcs.spectra"] = self.flat_data["xrcs.spectra"] + np.random.normal(0, np.sqrt(
+                self.flat_data["xrcs.spectra"].values[0,]), self.flat_data["xrcs.spectra"].shape[1])
+            self.flat_data["cxff_pi.ti"] = self.flat_data["cxff_pi.ti"] + self.flat_data[
+                "cxff_pi.ti"].max().values * np.random.normal(0, noise_factor, self.flat_data["cxff_pi.ti"].shape[1])
+            self.flat_data["efit.wp"] = self.flat_data["efit.wp"] + self.flat_data[
+                "efit.wp"].max().values * np.random.normal(0, noise_factor, None)
 
     def exp_data(self):
         self.flat_data = flatdict.FlatDict(self.ST40_data.binned_data, ".")
         if "xrcs" in self.diagnostics:
             self.flat_data["xrcs.spectra"]["wavelength"] = self.flat_data["xrcs.spectra"].wavelength * 0.1
             background = self.flat_data["xrcs.spectra"].where(
-                                                            (self.flat_data["xrcs.spectra"].wavelength < 0.392) &
-                                                            (self.flat_data["xrcs.spectra"].wavelength > 0.388),
-                                                            drop=True)
+                (self.flat_data["xrcs.spectra"].wavelength < 0.392) &
+                (self.flat_data["xrcs.spectra"].wavelength > 0.388),
+                drop=True)
             self.flat_data["xrcs.background"] = background.mean(dim="wavelength")
-            self.flat_data["xrcs.spectra"]["error"] = np.sqrt(self.flat_data["xrcs.spectra"] + background.std(dim="wavelength") ** 2)
+            self.flat_data["xrcs.spectra"]["error"] = np.sqrt(
+                self.flat_data["xrcs.spectra"] + background.std(dim="wavelength") ** 2)
 
         if "cxff_pi" in self.diagnostics:
-            self.flat_data["cxff_pi"]["ti"] = self.flat_data["cxff_pi"]["ti"].where(self.flat_data["cxff_pi"]["ti"].channel==2, drop=True)
-
+            self.flat_data["cxff_pi"]["ti"] = self.flat_data["cxff_pi"]["ti"].where(
+                self.flat_data["cxff_pi"]["ti"].channel == 2, drop=True)
 
     def __call__(self, *args, **kwargs):
 
         autocorr = sample_with_autocorr(
             self.sampler, self.start_points, iterations=self.iterations, auto_sample=5
         )
-        blobs = self.sampler.get_blobs(discard=self.burn_in, flat=True)
+        blobs = self.sampler.get_blobs(discard=int(self.iterations * self.burn_in_fraction), flat=True)
         blob_names = self.sampler.get_blobs().flatten()[0].keys()
         blob_dict = {
             blob_name: xr.concat(
@@ -330,13 +343,13 @@ class BayesWorkflow:
         print(self.acceptance_fraction)
         plot_bayes_result(**result, figheader=self.result_path)
 
-if __name__ == "__main__":
 
-    run = BayesWorkflow(pulse=10009, result_path="./results/10009_test/", iterations=1000, nwalkers=200,
-                        burn_in=50, diagnostics=[
-                                                "xrcs",
-                                                "efit",
-                                                "smmh1",
-                                                "cxff_pi"
-                                                ], phantom=False)
+if __name__ == "__main__":
+    run = BayesWorkflow(pulse=10009, result_path="./results/10009_test/", iterations=100, nwalkers=50,
+                        burn_in_fraction=0.10, diagnostics=[
+            "xrcs",
+            "efit",
+            "smmh1",
+            "cxff_pi"
+        ], phantom=False)
     run()
