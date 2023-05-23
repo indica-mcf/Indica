@@ -457,43 +457,32 @@ class Plasma:
             ],
         )
 
-    def assign_profiles(
-            self, profile: str = "electron_density", t: float = None, element: str = "ar"
-    ):
-        if profile == "electron_density":
-            self.electron_density.loc[dict(t=t)] = self.Ne_prof()
-            self.calc_impurity_density(
-                tuple([imp for imp in self.impurities if imp != element]))  # only update non-argon
-        elif profile == "electron_temperature":
-            self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
-        elif profile == "ion_temperature":
-            self.ion_temperature.loc[dict(t=t)] = self.Ti_prof()
-        elif profile == "toroidal_rotation":
-            self.toroidal_rotation.loc[dict(t=t)] = self.Vrot_prof()
-        elif profile == "impurity_density":
-            self.impurity_density.loc[dict(t=t, element=element)] = self.Nimp_prof()
-        elif profile == "neutral_density":
-            self.neutral_density.loc[dict(t=t, element=element)] = self.Nh_prof()
-        else:
-            raise ValueError(
-                f"{profile} currently not found in possible Plasma properties"
-            )
+    def assign_profiles(self, impurity_to_profile=None):
+        t = self.time_to_calculate
+        self.electron_density.loc[dict(t=t)] = self.Ne_prof()
+        self.calc_impurity_density(self.impurities)
+        self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
+        self.ion_temperature.loc[dict(t=t)] = self.Ti_prof()
+        self.toroidal_rotation.loc[dict(t=t)] = self.Vrot_prof()
+        self.neutral_density.loc[dict(t=t, )] = self.Nh_prof()
+        if impurity_to_profile is not None:  # overwrite impurity profile with non-Ne dependent profile
+            self.impurity_density.loc[dict(t=t, element=impurity_to_profile)] = self.Nimp_prof()
 
     def update_profiles(
             self,
             parameters: dict,
-            profile_prefixs: list = [
-                "Te_prof",
-                "Ti_prof",
-                "Ne_prof",
-                "Nimp_prof",
-                "Vrot_prof",
-            ],
     ):
         """
         Update plasma profiles with profile parameters i.e.
         {"Ne_prof.y0":1e19} -> Ne_prof.y0
         """
+        profile_prefixs: list = [
+            "Te_prof",
+            "Ti_prof",
+            "Ne_prof",
+            "Nimp_prof",
+            "Vrot_prof",
+        ]
         for param, value in parameters.items():
             _prefix = [pref for pref in profile_prefixs if pref in param]
             if _prefix:
@@ -505,14 +494,17 @@ class Plasma:
                 else:
                     raise ValueError(f"parameter: {key} not found in {prefix}")
 
-        for key in [
-            "electron_density",
-            "electron_temperature",
-            "ion_temperature",
-            "toroidal_rotation",
-            "impurity_density",
-        ]:
-            self.assign_profiles(key, t=self.time_to_calculate)
+        imp_conc = [key.split("_")[0] for key in parameters.keys() if "conc" in key]
+        if any(imp_conc):
+            for idx, key in enumerate(self.impurities):
+                if any([imp for imp in imp_conc if key in imp]):
+                    self.impurity_concentration[idx] = parameters[key+"_conc"]
+
+        if any([key for key in parameters.keys() if "Nimp_prof" in key]):
+            impurity_to_profile = "ar"  # TODO: generalise this for n independent impurity profiles e.g. Nimp1/Nimp2/...
+        else:
+            impurity_to_profile = None
+        self.assign_profiles(impurity_to_profile=impurity_to_profile)
 
     @property
     def time_to_calculate(self):
