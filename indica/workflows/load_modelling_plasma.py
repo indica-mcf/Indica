@@ -1,3 +1,6 @@
+import getpass
+
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -18,6 +21,8 @@ from indica.readers.read_gacode import get_gacode_data
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import save_figure
 
+CMAP = cm.gnuplot2
+
 DIAGNOSTIC_MODELS = {
     "smmh1": Interferometry,
     "nirh1": Interferometry,
@@ -30,7 +35,6 @@ DIAGNOSTIC_MODELS = {
     "sxr_diode_1": SXRcamera,
     "sxr_camera_4": SXRcamera,
 }
-import getpass
 
 USER = getpass.getuser()
 FIG_PATH = f"/home/{USER}/figures/Indica/load_modelling_examples/"
@@ -316,31 +320,42 @@ def example_run(
         binned, plasma=plasma, equilibrium=equilibrium
     )
 
+    if "xrcs" in models.keys():
+        models["xrcs"].calibration = 0.2e-16
+
     for instrument in models.keys():
         if verbose:
             print(f"Running {instrument} model")
-        if instrument == "xrcs":
-            models[instrument].calibration = 0.2e-16
-            bckc[instrument] = models[instrument](
-                calc_spectra=True,
-                moment_analysis=False,
-            )
-        else:
-            bckc[instrument] = models[instrument]()
+        bckc[instrument] = models[instrument]()
 
     if plot:
-        plot_modelling_results(raw, binned, bckc, plasma, tplot, save_fig=save_fig)
+        plot_modelling_results(
+            raw, binned, bckc, plasma, models, tplot, save_fig=save_fig
+        )
 
     return raw, binned, bckc, models, plasma
 
 
 def plot_modelling_results(
-    raw: dict, binned: dict, bckc: dict, plasma: Plasma, time: float, save_fig:bool=False,
+    raw: dict,
+    binned: dict,
+    bckc: dict,
+    plasma: Plasma,
+    models: dict,
+    time: float,
+    save_fig: bool = False,
 ):
 
+    plt.fontsize = 7
+    xr.set_options(keep_attrs=True)
+    col_el = CMAP(0.1)
+    col_ion = CMAP(0.75)
+    col_fast = CMAP(0.4)
+    # col_imp = CMAP(0.0)
+
     raw_color = "black"
-    binned_color = "blue"
-    bckc_color = "red"
+    binned_color = CMAP(0.2)
+    bckc_color = CMAP(0.75)
     linewidth = 2
 
     pressure_tot = plasma.pressure_tot
@@ -354,58 +369,81 @@ def plot_modelling_results(
 
     plt.figure()
     levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
-    plasma.equilibrium.rho.sel(t=time, method="nearest").plot.contour(levels=levels)
+    plasma.equilibrium.rho.sel(t=time, method="nearest").plot.contour(
+        levels=levels, linewidth=linewidth
+    )
     plt.axis("scaled")
     plt.title(f"Equilibrium @ {int(time*1.e3)} ms")
-    if save_fig:
-        save_figure(FIG_PATH, f"Equilibrium_{int(time*1.e3)}ms")
+    save_figure(FIG_PATH, f"Equilibrium_{int(time*1.e3)}ms", save_fig=save_fig)
 
     plt.figure()
-    plasma.electron_density.sel(t=time, method="nearest").plot(label="electrons")
-    ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest").plot(
-        label="main ion"
+    plasma.electron_density.sel(t=time, method="nearest").plot(
+        label="electrons", color=col_el, linewidth=linewidth
     )
-    fast_density.sel(t=time, method="nearest").plot(label="fast ions")
+    ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest").plot(
+        label="main ion", color=col_ion, linewidth=linewidth
+    )
+    fast_density.sel(t=time, method="nearest").plot(
+        label="fast ions", color=col_fast, linewidth=linewidth
+    )
     plt.title(f"Electron/Ion densities @ {int(time*1.e3)} ms")
+    plt.ylabel("Densities [$m^{-3}$]")
     plt.legend()
-    if save_fig:
-        save_figure(FIG_PATH, f"Electron_and_Ion_densities_{int(time*1.e3)}_ms")
+    save_figure(
+        FIG_PATH, f"Electron_and_Ion_densities_{int(time*1.e3)}_ms", save_fig=save_fig
+    )
 
     plt.figure()
-    plasma.electron_temperature.sel(t=time, method="nearest").plot(label="electrons")
+    plasma.electron_temperature.sel(t=time, method="nearest").plot(
+        label="electrons", color=col_el, linewidth=linewidth
+    )
     plasma.ion_temperature.sel(element=plasma.main_ion).sel(
         t=time, method="nearest"
-    ).plot(label="ion")
+    ).plot(label="ion", color=col_ion, linewidth=linewidth)
+    plt.ylabel("Temperatures [eV]")
     plt.title(f"Electron/Ion temperatures @ {int(time*1.e3)} ms")
     plt.legend()
-    if save_fig:
-        save_figure(FIG_PATH, f"Electron_and_Ion_temperatures_{int(time*1.e3)}_ms")
+    save_figure(
+        FIG_PATH,
+        f"Electron_and_Ion_temperatures_{int(time*1.e3)}_ms",
+        save_fig=save_fig,
+    )
 
     plt.figure()
-    plasma.pressure_fast.sel(t=time, method="nearest").plot(label="Pfast")
-    pressure_th.sel(t=time, method="nearest").plot(label="Pth")
-    pressure_tot.sel(t=time, method="nearest").plot(label="Ptot")
+    plasma.pressure_fast.sel(t=time, method="nearest").plot(
+        label="Pfast", color=col_fast, linewidth=linewidth
+    )
+    pressure_th.sel(t=time, method="nearest").plot(
+        label="Pth", color="red", linewidth=linewidth
+    )
+    pressure_tot.sel(t=time, method="nearest").plot(
+        label="Ptot", color="black", linewidth=linewidth
+    )
+    plt.ylabel("Pressures [Pa]")
     plt.title(f"Pressure @ {int(time*1.e3)} ms")
     plt.legend()
-    if save_fig:
-        save_figure(FIG_PATH, f"Pressure_{int(time*1.e3)}_ms")
+    save_figure(FIG_PATH, f"Pressure_{int(time*1.e3)}_ms", save_fig=save_fig)
 
     plt.figure()
     for element in plasma.impurities:
         impurity_conc.sel(element=element).sel(t=time, method="nearest").plot(
-            label=element
+            label=element, linewidth=linewidth
         )
     plt.title(f"Impurity concentrations @ {int(time*1.e3)} ms")
     plt.ylabel("(%)")
     plt.yscale("log")
     plt.legend()
-    if save_fig:
-        save_figure(FIG_PATH, f"Impurity_concentration_{int(time*1.e3)}_ms")
+    save_figure(
+        FIG_PATH, f"Impurity_concentration_{int(time*1.e3)}_ms", save_fig=save_fig
+    )
 
     # Plot time evolution of raw data vs back-calculated values
     norm = {}
     norm["brems"] = True
+    norm["sxr_camera_4"] = True
     norm["sxr_diode_1"] = True
+    norm["xrcs"] = True
+
     bckc["efit"] = {"wp": plasma.wp}
     for instrument in bckc.keys():
         for quantity in bckc[instrument].keys():
@@ -415,9 +453,6 @@ def plot_modelling_results(
                 quantity not in binned[instrument].keys()
                 or quantity not in raw[instrument].keys()
             ):
-                continue
-
-            if len(bckc[instrument][quantity].dims) > 1:
                 continue
 
             plt.figure()
@@ -433,50 +468,66 @@ def plot_modelling_results(
             err = np.sqrt(_binned.error**2 + _binned.stdev**2)
             err = xr.where(err / _binned.values < 1.0, err, 0.0)
 
-            plt.fill_between(
-                _binned.t.sel(t=tslice),
-                _binned.sel(t=tslice).values - err.sel(t=tslice).values,
-                _binned.sel(t=tslice).values + err.sel(t=tslice).values,
-                color=binned_color,
-                alpha=0.7,
-            )
-            _binned.sel(t=tslice).plot(
+            if len(bckc[instrument][quantity].dims) > 1:
+                tslice_binned = _binned.t.sel(t=time, method="nearest")
+                marker = "o"
+            else:
+                tslice_raw = tslice
+                tslice_binned = tslice
+                marker = "o"
+
+                _raw = _raw.sel(t=tslice_raw)
+                _raw.plot(
+                    label="Raw",
+                    color=raw_color,
+                    linestyle="dashed",
+                    linewidth=linewidth,
+                )
+
+            _binned = _binned.sel(t=tslice_binned)
+            _err = err.sel(t=tslice_binned)
+            if instrument in "xrcs" and quantity == "spectra":
+                _binned -= _binned.sel(wavelength=slice(0.393, 0.388)).mean(
+                    "wavelength"
+                )
+
+            if "t" in _binned.dims:
+                _t = _binned.t.sel(t=tslice_binned)
+                plt.fill_between(
+                    _t,
+                    _binned.values - _err.values,
+                    _binned.values + _err.values,
+                    color=binned_color,
+                    alpha=0.7,
+                )
+            _binned.plot(
                 label="Binned",
                 color=binned_color,
-                marker="o",
+                marker=marker,
+                linewidth=linewidth,
             )
-            _raw.sel(t=tslice).plot(
-                label="Raw",
-                color=raw_color,
-            )
+
+            _bckc = _bckc.sel(t=tslice_binned)
             mult = 1.0
-            label="Model"
+            label = "Model"
             if instrument in norm.keys():
-                mult = (_binned.sel(t=tslice).max()/_bckc.sel(t=tslice).max())
+                mult = _binned.max() / _bckc.max()
                 label += " (scaled)"
 
-            (_bckc * mult).plot(label=label, color=bckc_color, linewidth=linewidth)
+            (_bckc * mult).plot(label=label, color=bckc_color, linewidth=linewidth * 2)
             plt.title(f"{instrument} {quantity}")
+
+            if quantity == "spectra":
+                # TODO: wavelength axis is sorted from max to min...
+                plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
+
             plt.legend()
-            if save_fig:
-                save_figure(FIG_PATH, f"{instrument}_{quantity}")
+            save_figure(FIG_PATH, f"{instrument}_{quantity}", save_fig=save_fig)
 
-    if "spectra" in bckc["xrcs"].keys():
-        plt.figure()
-        _raw = raw["xrcs"]["spectra"].sel(t=time, method="nearest")
-        _binned = binned["xrcs"]["spectra"].sel(t=time, method="nearest")
-        _bckc = bckc["xrcs"]["spectra"].sel(t=time, method="nearest")
-        _binned -= _binned.sel(wavelength=slice(0.393, 0.388)).mean("wavelength")
-        _raw -= _raw.sel(wavelength=slice(0.393, 0.388)).mean("wavelength")
-
-        (_raw / _raw.max()).plot(color=raw_color, label="Raw")
-        (_binned / _binned.max()).plot(color=binned_color, label="Binned")
-        (_bckc / _bckc.max()).plot(color=bckc_color, label="Model")
-        plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
-        plt.title(f"XRCS spectra @ {int(time*1.e3)} ms")
-        plt.legend()
-        if save_fig:
-            save_figure(FIG_PATH, f"XRCS_spectra_{int(time*1.e3)}_ms")
+    for instrument in models.keys():
+        models[instrument].los_transform.plot_los(
+            t=time, save_fig=save_fig, fig_path=FIG_PATH
+        )
 
 
 if __name__ == "__main__":
