@@ -402,7 +402,10 @@ def save_figure(
     path_name: str = "",
     fig_name: str = "",
     orientation: str = "landscape",
+    dpi: int = 300,
+    quality: int = 95,
     ext: str = "png",
+    save_fig: bool = True,
 ):
     _fig_name = deepcopy(fig_name)
     _path_name = deepcopy(path_name)
@@ -410,7 +413,13 @@ def save_figure(
         _path_name = f"{_path_name}/"
     _file = f"{_path_name}{_fig_name}.{ext}"
 
-    plt.savefig(
-        _file, orientation=orientation, dpi=300, pil_kwargs={"quality": 95},
-    )
-    print(f"Saving picture to {_file}")
+    kwargs = {"orientation": orientation, "dpi": dpi}
+    if ext != "svg":
+        kwargs["pil_kwargs"] = {"quality": quality}
+
+    if save_fig:
+        plt.savefig(
+            _file,
+            **kwargs,
+        )
+        print(f"Saving picture to {_file}")
