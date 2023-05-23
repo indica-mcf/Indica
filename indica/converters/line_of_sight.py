@@ -76,7 +76,7 @@ class LineOfSightTransform(CoordinateTransform):
         passes: int = 1,
     ):
 
-        self.instrument_name:str = name
+        self.instrument_name: str = name
         self.name = f"{name}_line_of_sight_transform"
         self.x1_name = "channel"
         self.x2_name = "los_position"

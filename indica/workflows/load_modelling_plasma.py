@@ -21,9 +21,9 @@ from indica.numpy_typing import RevisionLike
 from indica.readers.read_gacode import get_gacode_data
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import save_figure
+from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 from indica.utilities import set_plot_rcparams
-from indica.utilities import set_axis_sci
 
 CMAP, COLORS = set_plot_colors()
 
@@ -195,6 +195,15 @@ def initialize_diagnostic_models(
 
 
 def example_params(example: str):
+    comment: str
+    pulse_code: int
+    pulse: int
+    equil: str
+    code: str
+    tstart: float
+    tend: float
+    tplot: float
+    run_code: RevisionLike
     if example == "predictive":
         comment = "Tests using fixed-boundary predictive ASTRA"
         pulse_code = 13110009
@@ -213,7 +222,7 @@ def example_params(example: str):
         code = "astra"
         run_code = "RUN564"  # "RUN573"
         tstart = 0.03
-        tend=0.1
+        tend = 0.1
         tplot = 0.06
     elif example == "interpretative_9850":
         comment = "ASTRA interpretative using HDA/EFIT"
@@ -223,7 +232,7 @@ def example_params(example: str):
         code = "astra"
         run_code = "RUN564"  # 61
         tstart = 0.02
-        tend=0.1
+        tend = 0.1
         tplot = 0.08
     elif example == "interpretative_9229":
         comment = "ASTRA interpretative using HDA/EFIT"
@@ -233,7 +242,7 @@ def example_params(example: str):
         code = "astra"
         run_code = "RUN574"  # "RUN567" #"RUN573"
         tstart = 0.03
-        tend=0.11
+        tend = 0.11
         tplot = 0.06
     elif example == "diverted":
         comment = "predictive ASTRA using for diverted scenario"
@@ -243,7 +252,7 @@ def example_params(example: str):
         code = "astra"
         run_code = "RUN292"
         tstart = 0.03
-        tend=0.11
+        tend = 0.11
         tplot = 0.1
     # elif example == "ga_code":
     #     comment = "GaCODE + ASTRA interpretative using HDA/EFIT"
@@ -260,11 +269,8 @@ def example_params(example: str):
 
 
 def example_run(
-    tstart: float = None,
-    tend: float = None,
     dt: float = 0.01,
     verbose: bool = True,
-    tplot: float = None,
     plot: bool = True,
     example: str = "predictive",
     save_fig: bool = False,
@@ -275,15 +281,23 @@ def example_run(
 
     plasma: Plasma
     code_data: dict
+    pulse_code: int
+    pulse: int
+    run_code: RevisionLike
 
-    pulse_code, pulse, equil, code, run_code, comment, _tstart, _tend, _tplot = example_params(example)
-    fig_path = f"{FIG_PATH}{pulse_code}_{_tplot}_{code}_{run_code}/"
-    if tplot is None:
-        tplot = _tplot
-    if tstart is None:
-        tstart = _tstart
-    if tend is None:
-        tend = _tend
+    (
+        pulse_code,
+        pulse,
+        equil,
+        code,
+        run_code,
+        comment,
+        tstart,
+        tend,
+        tplot,
+    ) = example_params(example)
+
+    fig_path = f"{FIG_PATH}{pulse_code}_{tplot}_{code}_{run_code}/"
 
     instruments = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit", "brems"]
 
@@ -342,7 +356,14 @@ def example_run(
 
     if plot or save_fig:
         plot_modelling_results(
-            raw, binned, bckc, plasma, models, tplot, save_fig=save_fig, fig_path=fig_path
+            raw,
+            binned,
+            bckc,
+            plasma,
+            models,
+            tplot,
+            save_fig=save_fig,
+            fig_path=fig_path,
         )
 
     return raw, binned, bckc, models, plasma
@@ -356,7 +377,7 @@ def plot_modelling_results(
     models: dict,
     time: float,
     save_fig: bool = False,
-    fig_path:str="",
+    fig_path: str = "",
 ):
 
     plt.fontsize = 7
@@ -512,12 +533,10 @@ def plot_modelling_results(
             _raw = _raw.sel(t=tslice_raw)
             _binned = _binned.sel(t=tslice_binned)
             _err = err.sel(t=tslice_binned)
-            markersize=deepcopy(rcParams["lines.markersize"])
+            markersize = deepcopy(rcParams["lines.markersize"])
             if instrument in "xrcs" and quantity == "spectra":
                 markersize /= 2
-                bgnd = _binned.sel(wavelength=slice(0.393, 0.388)).mean(
-                    "wavelength"
-                )
+                bgnd = _binned.sel(wavelength=slice(0.393, 0.388)).mean("wavelength")
                 _binned -= bgnd
                 _raw -= bgnd
 
@@ -555,7 +574,9 @@ def plot_modelling_results(
             set_axis_sci()
             plt.title(f"{instrument.upper()} {quantity}")
             if instrument in y0.keys():
-                plt.ylim(0,)
+                plt.ylim(
+                    0,
+                )
 
             if quantity == "spectra":
                 # TODO: wavelength axis is sorted from max to min...

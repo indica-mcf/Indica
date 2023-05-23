@@ -1,6 +1,7 @@
 """Various miscellanious helper functions."""
 from copy import deepcopy
 import inspect
+import os
 import string
 from typing import Any
 from typing import Callable
@@ -10,7 +11,6 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
-import os
 
 from matplotlib import cm
 from matplotlib import rcParams
@@ -411,7 +411,7 @@ def save_figure(
     quality: int = 95,
     ext: str = "png",
     save_fig: bool = True,
-    create_path:bool=True,
+    create_path: bool = True,
 ):
     if save_fig:
         _fig_name = deepcopy(fig_name)
@@ -483,7 +483,7 @@ def set_plot_rcparams(option: str = "profiles"):
         rcParams.update({key: value})
 
 
-def set_axis_sci(axis:str="y"):
+def set_axis_sci(axis: str = "y"):
     ylim = np.abs(np.array(plt.ylim()))
-    if ylim.max() > 1.e3 or ylim.min() < 1.e-2:
+    if ylim.max() > 1.0e3 or ylim.min() < 1.0e-2:
         plt.ticklabel_format(style="sci", axis=axis, scilimits=(0, 0))
