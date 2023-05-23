@@ -162,6 +162,23 @@ def _plot_1d(
     plt.savefig(figheader + filename)
     plt.close()
 
+def violinplots(data, diag_data, filename):
+    nfig = len(data)
+    fig, axs = plt.subplots(1, nfig, figsize=(16, 6))
+    for idx, key in enumerate(data.keys()):
+        axs[idx].violinplot(data[key])
+        axs[idx].set_xlabel(key)
+        axs[idx].set_ylabel(data[key].datatype[0])
+        axs[idx].axhline(
+            y=diag_data[key].sel(t=data[key].t).values,
+            color="black",
+            linestyle="-",
+            label=f"{key} data",
+        )
+
+    plt.setp([a.get_xticklabels() for a in axs], visible=False)
+    plt.savefig(filename)
+    plt.close()
 
 def plot_bayes_result(
     figheader="./results/test/",
@@ -187,6 +204,12 @@ def plot_bayes_result(
     plt.ylabel("auto-correlation time (iterations)")
     plt.savefig(figheader + "average_tau.png")
     plt.close()
+
+    violinplot_keys = ["efit.wp", "smmh1.ne", "cxff_pi.ti_0d"]
+    if "cxff_pi.ti" in blobs.keys():
+        blobs["cxff_pi.ti_0d"] = blobs["cxff_pi.ti"].sel(channel = diag_data["cxff_pi.ti"].channel)
+        diag_data["cxff_pi.ti_0d"] = diag_data["cxff_pi.ti"].sel(channel=diag_data["cxff_pi.ti"].channel)
+    violinplots({key: blobs[key] for key in violinplot_keys if key in blobs.keys()}, diag_data, figheader+"boxplots.png")
 
     key = "efit.wp"
     if key in blobs.keys():
