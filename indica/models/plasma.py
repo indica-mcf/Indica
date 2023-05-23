@@ -354,9 +354,15 @@ class Plasma:
         )
         self._pth = assign_data(self.data1d_time, ("pressure", "thermal"), "Pa")
         self._ptot = assign_data(self.data1d_time, ("pressure", "total"), "Pa")
-        self._wth = assign_data(self.data1d_time, ("stored_energy", "thermal"), "J")
-        self._wp = assign_data(self.data1d_time, ("stored_energy", "total"), "J")
-        self._zeff = assign_data(self.data3d, ("charge", "effective"), "")
+        self._wth = assign_data(
+            self.data1d_time, ("stored_energy", "thermal"), "J", long_name="Wth"
+        )
+        self._wp = assign_data(
+            self.data1d_time, ("stored_energy", "total"), "J", long_name="Wp"
+        )
+        self._zeff = assign_data(
+            self.data3d, ("charge", "effective"), "", long_name="Zeff"
+        )
         self._ion_density = assign_data(self.data3d, ("density", "ion"), "$m^{-3}$")
         self._meanz = assign_data(self.data3d, ("charge", "mean"), "")
         self._total_radiation = assign_data(
