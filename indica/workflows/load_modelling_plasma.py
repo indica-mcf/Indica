@@ -1,6 +1,7 @@
+from copy import deepcopy
 import getpass
 
-from matplotlib import cm
+from matplotlib import rcParams
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -20,8 +21,11 @@ from indica.numpy_typing import RevisionLike
 from indica.readers.read_gacode import get_gacode_data
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import save_figure
+from indica.utilities import set_plot_colors
+from indica.utilities import set_plot_rcparams
+from indica.utilities import set_axis_sci
 
-CMAP = cm.gnuplot2
+CMAP, COLORS = set_plot_colors()
 
 DIAGNOSTIC_MODELS = {
     "smmh1": Interferometry,
@@ -36,8 +40,7 @@ DIAGNOSTIC_MODELS = {
     "sxr_camera_4": SXRcamera,
 }
 
-USER = getpass.getuser()
-FIG_PATH = f"/home/{USER}/figures/Indica/load_modelling_examples/"
+FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/load_modelling_examples/"
 plt.ion()
 
 
@@ -192,12 +195,6 @@ def initialize_diagnostic_models(
 
 
 def example_params(example: str):
-    comment: str
-    pulse_code: int
-    pulse: int
-    equil: str
-    code: str
-    run_code: RevisionLike
     if example == "predictive":
         comment = "Tests using fixed-boundary predictive ASTRA"
         pulse_code = 13110009
@@ -205,7 +202,9 @@ def example_params(example: str):
         equil = "astra"
         code = "astra"
         run_code = "RUN2621"
-        tplot = 0.11
+        tstart = 0.03
+        tend = 0.1
+        tplot = 0.08
     elif example == "interpretative_10009":
         comment = "interpretative ASTRA using HDA/EFIT"
         pulse_code = 13110009
@@ -213,7 +212,9 @@ def example_params(example: str):
         equil = "efit"
         code = "astra"
         run_code = "RUN564"  # "RUN573"
-        tplot = 0.08
+        tstart = 0.03
+        tend=0.1
+        tplot = 0.06
     elif example == "interpretative_9850":
         comment = "ASTRA interpretative using HDA/EFIT"
         pulse = 9850
@@ -221,6 +222,8 @@ def example_params(example: str):
         equil = "efit"
         code = "astra"
         run_code = "RUN564"  # 61
+        tstart = 0.02
+        tend=0.1
         tplot = 0.08
     elif example == "interpretative_9229":
         comment = "ASTRA interpretative using HDA/EFIT"
@@ -229,6 +232,8 @@ def example_params(example: str):
         equil = "efit"
         code = "astra"
         run_code = "RUN574"  # "RUN567" #"RUN573"
+        tstart = 0.03
+        tend=0.11
         tplot = 0.06
     elif example == "diverted":
         comment = "predictive ASTRA using for diverted scenario"
@@ -237,7 +242,9 @@ def example_params(example: str):
         equil = "astra"
         code = "astra"
         run_code = "RUN292"
-        tplot = 0.11
+        tstart = 0.03
+        tend=0.11
+        tplot = 0.1
     # elif example == "ga_code":
     #     comment = "GaCODE + ASTRA interpretative using HDA/EFIT"
     #     pulse = 9850
@@ -249,12 +256,12 @@ def example_params(example: str):
     else:
         raise ValueError(f"No parameters for example {example}")
 
-    return pulse_code, pulse, equil, code, run_code, comment, tplot
+    return pulse_code, pulse, equil, code, run_code, comment, tstart, tend, tplot
 
 
 def example_run(
-    tstart: float = 0.05,
-    tend: float = 0.10,
+    tstart: float = None,
+    tend: float = None,
     dt: float = 0.01,
     verbose: bool = True,
     tplot: float = None,
@@ -269,9 +276,14 @@ def example_run(
     plasma: Plasma
     code_data: dict
 
-    pulse_code, pulse, equil, code, run_code, comment, _tplot = example_params(example)
+    pulse_code, pulse, equil, code, run_code, comment, _tstart, _tend, _tplot = example_params(example)
+    fig_path = f"{FIG_PATH}{pulse_code}_{_tplot}_{code}_{run_code}/"
     if tplot is None:
         tplot = _tplot
+    if tstart is None:
+        tstart = _tstart
+    if tend is None:
+        tend = _tend
 
     instruments = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit", "brems"]
 
@@ -328,9 +340,9 @@ def example_run(
             print(f"Running {instrument} model")
         bckc[instrument] = models[instrument]()
 
-    if plot:
+    if plot or save_fig:
         plot_modelling_results(
-            raw, binned, bckc, plasma, models, tplot, save_fig=save_fig
+            raw, binned, bckc, plasma, models, tplot, save_fig=save_fig, fig_path=fig_path
         )
 
     return raw, binned, bckc, models, plasma
@@ -344,19 +356,20 @@ def plot_modelling_results(
     models: dict,
     time: float,
     save_fig: bool = False,
+    fig_path:str="",
 ):
 
     plt.fontsize = 7
     xr.set_options(keep_attrs=True)
-    col_el = CMAP(0.1)
-    col_ion = CMAP(0.75)
-    col_fast = CMAP(0.4)
-    # col_imp = CMAP(0.0)
+    col_el = COLORS["electron"]
+    col_ion = COLORS["ion"]
+    col_fast = COLORS["fast_ion"]
 
-    raw_color = "black"
-    binned_color = CMAP(0.2)
-    bckc_color = CMAP(0.75)
-    linewidth = 2
+    raw_color = COLORS["raw_data"]
+    binned_color = COLORS["binned_data"]
+    bckc_color = COLORS["bckc_data"]
+
+    set_plot_rcparams("profiles")
 
     pressure_tot = plasma.pressure_tot
     pressure_th = plasma.pressure_th
@@ -370,71 +383,84 @@ def plot_modelling_results(
     plt.figure()
     levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
     plasma.equilibrium.rho.sel(t=time, method="nearest").plot.contour(
-        levels=levels, linewidth=linewidth
+        levels=levels,
     )
     plt.axis("scaled")
     plt.title(f"Equilibrium @ {int(time*1.e3)} ms")
-    save_figure(FIG_PATH, f"Equilibrium_{int(time*1.e3)}ms", save_fig=save_fig)
+    save_figure(fig_path, f"Equilibrium_{int(time*1.e3)}ms", save_fig=save_fig)
 
     plt.figure()
     plasma.electron_density.sel(t=time, method="nearest").plot(
-        label="electrons", color=col_el, linewidth=linewidth
+        label="electrons",
+        color=col_el,
     )
     ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest").plot(
-        label="main ion", color=col_ion, linewidth=linewidth
+        label="main ion",
+        color=col_ion,
     )
     fast_density.sel(t=time, method="nearest").plot(
-        label="fast ions", color=col_fast, linewidth=linewidth
+        label="fast ions",
+        color=col_fast,
     )
     plt.title(f"Electron/Ion densities @ {int(time*1.e3)} ms")
-    plt.ylabel("Densities [$m^{-3}$]")
+    plt.ylabel(f"Densities [{plasma.electron_density.units}]")
+    set_axis_sci()
     plt.legend()
     save_figure(
-        FIG_PATH, f"Electron_and_Ion_densities_{int(time*1.e3)}_ms", save_fig=save_fig
+        fig_path, f"Electron_and_Ion_densities_{int(time*1.e3)}_ms", save_fig=save_fig
     )
 
     plt.figure()
     plasma.electron_temperature.sel(t=time, method="nearest").plot(
-        label="electrons", color=col_el, linewidth=linewidth
+        label="electrons",
+        color=col_el,
     )
     plasma.ion_temperature.sel(element=plasma.main_ion).sel(
         t=time, method="nearest"
-    ).plot(label="ion", color=col_ion, linewidth=linewidth)
-    plt.ylabel("Temperatures [eV]")
+    ).plot(
+        label="ion",
+        color=col_ion,
+    )
+    plt.ylabel(f"Temperatures [{plasma.electron_temperature.units}]")
     plt.title(f"Electron/Ion temperatures @ {int(time*1.e3)} ms")
     plt.legend()
+    set_axis_sci()
     save_figure(
-        FIG_PATH,
+        fig_path,
         f"Electron_and_Ion_temperatures_{int(time*1.e3)}_ms",
         save_fig=save_fig,
     )
 
     plt.figure()
     plasma.pressure_fast.sel(t=time, method="nearest").plot(
-        label="Pfast", color=col_fast, linewidth=linewidth
+        label="Pfast",
+        color=col_fast,
     )
     pressure_th.sel(t=time, method="nearest").plot(
-        label="Pth", color="red", linewidth=linewidth
+        label="Pth",
+        color="red",
     )
     pressure_tot.sel(t=time, method="nearest").plot(
-        label="Ptot", color="black", linewidth=linewidth
+        label="Ptot",
+        color="black",
     )
-    plt.ylabel("Pressures [Pa]")
+    plt.ylabel(f"Pressures [{pressure_tot.units}]")
     plt.title(f"Pressure @ {int(time*1.e3)} ms")
+    set_axis_sci()
     plt.legend()
-    save_figure(FIG_PATH, f"Pressure_{int(time*1.e3)}_ms", save_fig=save_fig)
+    save_figure(fig_path, f"Pressure_{int(time*1.e3)}_ms", save_fig=save_fig)
 
     plt.figure()
     for element in plasma.impurities:
         impurity_conc.sel(element=element).sel(t=time, method="nearest").plot(
-            label=element, linewidth=linewidth
+            label=element,
         )
     plt.title(f"Impurity concentrations @ {int(time*1.e3)} ms")
-    plt.ylabel("(%)")
+    plt.ylabel("%")
     plt.yscale("log")
     plt.legend()
     save_figure(
-        FIG_PATH, f"Impurity_concentration_{int(time*1.e3)}_ms", save_fig=save_fig
+        fig_path, f"Impurity_concentration_{int(time*1.e3)}_ms", save_fig=save_fig
     )
 
     # Plot time evolution of raw data vs back-calculated values
@@ -443,6 +469,14 @@ def plot_modelling_results(
     norm["sxr_camera_4"] = True
     norm["sxr_diode_1"] = True
     norm["xrcs"] = True
+    y0 = {}
+    y0["nirh1"] = True
+    y0["smmh1"] = True
+    y0["xrcs"] = True
+    y0["sxr_diode_1"] = True
+    y0["brems"] = True
+    y0["efit"] = True
+    binned_marker = "o"
 
     bckc["efit"] = {"wp": plasma.wp}
     for instrument in bckc.keys():
@@ -470,27 +504,28 @@ def plot_modelling_results(
 
             if len(bckc[instrument][quantity].dims) > 1:
                 tslice_binned = _binned.t.sel(t=time, method="nearest")
-                marker = "o"
+                tslice_raw = _raw.t.sel(t=time, method="nearest")
             else:
                 tslice_raw = tslice
                 tslice_binned = tslice
-                marker = "o"
 
-                _raw = _raw.sel(t=tslice_raw)
-                _raw.plot(
-                    label="Raw",
-                    color=raw_color,
-                    linestyle="dashed",
-                    linewidth=linewidth,
-                )
-
+            _raw = _raw.sel(t=tslice_raw)
             _binned = _binned.sel(t=tslice_binned)
             _err = err.sel(t=tslice_binned)
+            markersize=deepcopy(rcParams["lines.markersize"])
             if instrument in "xrcs" and quantity == "spectra":
-                _binned -= _binned.sel(wavelength=slice(0.393, 0.388)).mean(
+                markersize /= 2
+                bgnd = _binned.sel(wavelength=slice(0.393, 0.388)).mean(
                     "wavelength"
                 )
+                _binned -= bgnd
+                _raw -= bgnd
 
+            _raw.plot(
+                label="Raw",
+                color=raw_color,
+                linestyle="dashed",
+            )
             if "t" in _binned.dims:
                 _t = _binned.t.sel(t=tslice_binned)
                 plt.fill_between(
@@ -503,8 +538,8 @@ def plot_modelling_results(
             _binned.plot(
                 label="Binned",
                 color=binned_color,
-                marker=marker,
-                linewidth=linewidth,
+                marker=binned_marker,
+                markersize=markersize,
             )
 
             _bckc = _bckc.sel(t=tslice_binned)
@@ -514,19 +549,24 @@ def plot_modelling_results(
                 mult = _binned.max() / _bckc.max()
                 label += " (scaled)"
 
-            (_bckc * mult).plot(label=label, color=bckc_color, linewidth=linewidth * 2)
-            plt.title(f"{instrument} {quantity}")
+            (_bckc * mult).plot(
+                label=label, color=bckc_color, linewidth=rcParams["lines.linewidth"] * 2
+            )
+            set_axis_sci()
+            plt.title(f"{instrument.upper()} {quantity}")
+            if instrument in y0.keys():
+                plt.ylim(0,)
 
             if quantity == "spectra":
                 # TODO: wavelength axis is sorted from max to min...
                 plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
 
             plt.legend()
-            save_figure(FIG_PATH, f"{instrument}_{quantity}", save_fig=save_fig)
+            save_figure(fig_path, f"{instrument}_{quantity}", save_fig=save_fig)
 
     for instrument in models.keys():
         models[instrument].los_transform.plot_los(
-            t=time, save_fig=save_fig, fig_path=FIG_PATH
+            t=time, save_fig=save_fig, fig_path=fig_path
         )
 
 

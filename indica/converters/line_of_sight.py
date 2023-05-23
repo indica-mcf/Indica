@@ -76,6 +76,7 @@ class LineOfSightTransform(CoordinateTransform):
         passes: int = 1,
     ):
 
+        self.instrument_name:str = name
         self.name = f"{name}_line_of_sight_transform"
         self.x1_name = "channel"
         self.x2_name = "los_position"
@@ -545,9 +546,9 @@ class LineOfSightTransform(CoordinateTransform):
             plt.xlabel("x (m)")
             plt.ylabel("y (m)")
             plt.axis("scaled")
-            plt.title(f"t = {t:.3f}")
+            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
 
-            save_figure(fig_path, f"{self.name}_los_transform_xy", save_fig=save_fig)
+            save_figure(fig_path, f"{self.name}_xy", save_fig=save_fig)
 
         if orientation == "Rz" or orientation == "all":
             if figure:
@@ -590,8 +591,8 @@ class LineOfSightTransform(CoordinateTransform):
             plt.xlabel("R (m)")
             plt.ylabel("z (m)")
             plt.axis("scaled")
-            plt.title(f"t = {t:.3f}")
-            save_figure(fig_path, f"{self.name}_los_transform_Rz", save_fig=save_fig)
+            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+            save_figure(fig_path, f"{self.name}_Rz", save_fig=save_fig)
 
         if hasattr(self, "equilibrium") and orientation == "all":
             if not hasattr(self, "rho"):
@@ -605,8 +606,8 @@ class LineOfSightTransform(CoordinateTransform):
                 _rho.plot(color=cols[ch], linewidth=2)
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
-            plt.title(f"t = {t:.3f}")
-            save_figure(fig_path, f"{self.name}_los_transform_rho", save_fig=save_fig)
+            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+            save_figure(fig_path, f"{self.name}_rho", save_fig=save_fig)
 
         return cols
 

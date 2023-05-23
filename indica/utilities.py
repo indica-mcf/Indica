@@ -1,5 +1,4 @@
 """Various miscellanious helper functions."""
-
 from copy import deepcopy
 import inspect
 import string
@@ -11,7 +10,10 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
+import os
 
+from matplotlib import cm
+from matplotlib import rcParams
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -409,20 +411,79 @@ def save_figure(
     quality: int = 95,
     ext: str = "png",
     save_fig: bool = True,
+    create_path:bool=True,
 ):
-    _fig_name = deepcopy(fig_name)
-    _path_name = deepcopy(path_name)
-    if _path_name[-1] != "/":
-        _path_name = f"{_path_name}/"
-    _file = f"{_path_name}{_fig_name}.{ext}"
-
-    kwargs = {"orientation": orientation, "dpi": dpi}
-    if ext != "svg":
-        kwargs["pil_kwargs"] = {"quality": quality}
-
     if save_fig:
+        _fig_name = deepcopy(fig_name)
+        _path_name = deepcopy(path_name)
+        if _path_name[-1] != "/":
+            _path_name = f"{_path_name}/"
+        _file = f"{_path_name}{_fig_name}.{ext}"
+
+        kwargs = {"orientation": orientation, "dpi": dpi}
+        if ext != "svg":
+            kwargs["pil_kwargs"] = {"quality": quality}
+
+        if create_path and not os.path.exists(_path_name):
+            os.mkdir(_path_name)
+            print(f"Creating directory {_path_name}")
+
         plt.savefig(
             _file,
             **kwargs,
         )
         print(f"Saving picture to {_file}")
+
+
+def set_plot_colors(
+    color_map: str = "gnuplot2",
+):
+
+    cmap = getattr(cm, color_map)
+    colors = {
+        "electron": cmap(0.1),
+        "ion": cmap(0.75),
+        "fast_ion": cmap(0.4),
+        "impurity": cmap(0.0),
+        "raw_data": "black",
+        "binned_data": cmap(0.2),
+        "bckc_data": cmap(0.75),
+    }
+
+    return cmap, colors
+
+
+def set_plot_rcparams(option: str = "profiles"):
+    plot_params: dict = {
+        "profiles": {
+            "font.size": 13,
+            "legend.fontsize": 13,
+            "lines.markersize": 10,
+            "lines.linewidth": 2,
+        },
+        "profiles_multi": {
+            "font.size": 19,
+            "legend.fontsize": 13,
+            "lines.markersize": 10,
+            "lines.linewidth": 2,
+        },
+        "time_evolution": {
+            "font.size": 11,
+            "legend.fontsize": 8,
+            "lines.markersize": 5,
+            "lines.linewidth": 2,
+            "font.weight": 600,
+        },
+    }
+
+    if option not in plot_params.keys():
+        return
+
+    for key, value in plot_params[option].items():
+        rcParams.update({key: value})
+
+
+def set_axis_sci(axis:str="y"):
+    ylim = np.abs(np.array(plt.ylim()))
+    if ylim.max() > 1.e3 or ylim.min() < 1.e-2:
+        plt.ticklabel_format(style="sci", axis=axis, scilimits=(0, 0))
