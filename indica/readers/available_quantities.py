@@ -159,7 +159,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "niz3": ("density", "impurity"),
     },
     "get_transp_test": {
-        # "f": ("f_value", "plasma"),
+        "f": ("f_value", "plasma"),
         "faxs": ("magnetic_flux_axis", "poloidal"),
         "fbnd": ("magnetic_flux_separatrix", "poloidal"),
         "ftor": ("magnetic_flux", "toroidal"),
@@ -242,10 +242,10 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         # "p_oh": ("ohmic", "power"),  # Absorber NBI power, W
         "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
         # "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
-        # "nn": (
-        #     "density",
-        #     "thermal_neutral",
-        # ),  # ...missing information on what elements are used
+        "nn": (
+            "density",
+            "thermal_neutral",
+        ),  # ...missing information on what elements are used
         "niz1": (
             "density",
             "impurity",

@@ -977,7 +977,7 @@ class DataReader(BaseIO):
             # TODO: careful with interpolation on new rho_poloidal array...
             # Interpolate ASTRA profiles on new rhop_interp array
             # Interpolate PSI_NORM profiles on same coordinate system
-            if "rho_toroidal" in coords:
+            if "rho_toroidal" in quant_data.dims:
                 rho_toroidal_0 = quant_data.rho_toroidal.min()
                 quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
                     "rho_toroidal"
@@ -989,7 +989,7 @@ class DataReader(BaseIO):
             elif "rho_poloidal" in coords:
                 quant_data = quant_data.interp(rho_poloidal=rhop_interp)
 
-        data[quantity] = quant_data
+            data[quantity] = quant_data
 
         return data
 

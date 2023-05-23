@@ -289,7 +289,7 @@ class ST40Reader(DataReader):
             "niz3": ".profiles.astra:niz3",  # Impurity density, 10^19/m^3
         },
         "transp_test": {
-            # "f": ".profiles.psi_norm:fpol",
+            "f": ".profiles.rhotor:f",
             "faxs": ".global:faxs",
             "fbnd": ".global:fbnd",
             "ftor": ".profiles.rhotor:ftor",  # Wb
@@ -300,7 +300,7 @@ class ST40Reader(DataReader):
             # "vjac": ".profiles.psi_norm:vjac",
             # "ajac": ".profiles.psi_norm:ajac",
             "volume": ".profiles.rhotor:volume",
-            "area": ".profiles.rhotor:areat",
+            "area": ".profiles.rhotor:area",
             "rmag": ".global:rmag",
             "rgeo": ".global:rgeo",
             "zmag": ".global:zmag",
@@ -353,7 +353,7 @@ class ST40Reader(DataReader):
             # "p_oh": ".global:p_oh",  # Absorber NBI power, W
             "q": ".profiles.rhotor:q",  # Q_PROFILE(PSI_NORM)
             # "sigmapar": ".profiles.psi_norm:sigmapar",  # Paral. conduct.,1/(Ohm*m)
-            # "nn": ".profiles.astra:nn",  # Thermal neutral density, 10^19/m^3
+            "nn": ".profiles.rhotor:nwn",  # Thermal neutral density, 10^19/m^3
             "niz1": ".profiles.rhotor:niz1",  # Impurity density, 10^19/m^3
             # "niz2": ".profiles.astra:niz2",  # Impurity density, 10^19/m^3
             # "niz3": ".profiles.astra:niz3",  # Impurity density, 10^19/m^3
@@ -445,6 +445,7 @@ class ST40Reader(DataReader):
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
+        print(path)
         if quantity.lower() == ":best_run":
             data = str(self.conn.get(path))
         else:
@@ -685,7 +686,7 @@ class ST40Reader(DataReader):
         # results["boundary_index"], _ = self._get_signal(
         #     uid, instrument, ".p_boundary:rbnd", revision
         # )
-        results["psi"], _ = self._get_signal(uid, instrument, "psi2d.psi", revision)
+        results["psi"], _ = self._get_signal(uid, instrument, ".psi2d.psi", revision)
         results["psin"], psin_path = self._get_signal(
             uid, instrument, ".profiles.rhotor:psin", revision
         )
