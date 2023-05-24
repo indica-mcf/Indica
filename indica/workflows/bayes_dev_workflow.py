@@ -53,7 +53,7 @@ DEFAULT_PRIORS = {
 
     "ar_conc": loguniform(0.0001, 0.01),
 
-    "Nimp_prof.y0": get_uniform(1e15, 1e17),
+    "Nimp_prof.y0": get_uniform(1e15, 1e18),
     "Nimp_prof.y1": get_uniform(1e15, 2e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where((x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0),
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
@@ -75,28 +75,28 @@ DEFAULT_PRIORS = {
 }
 
 OPTIMISED_PARAMS = [
-    "Ne_prof.y0",
     # "Ne_prof.y1",
+    "Ne_prof.y0",
     "Ne_prof.peaking",
     "Ne_prof.wcenter",
     "Ne_prof.wped",
 
     # "ar_conc",
+    # "Nimp_prof.y1",
     "Nimp_prof.y0",
     "Nimp_prof.wcenter",
     "Nimp_prof.wped",
-    # "Nimp_prof.y1",
     "Nimp_prof.peaking",
 
     "Te_prof.y0",
-    # "Te_prof.wped",
-    # "Te_prof.wcenter",
-    # "Te_prof.peaking",
+    "Te_prof.wped",
+    "Te_prof.wcenter",
+    "Te_prof.peaking",
 
     "Ti_prof.y0",
-    # "Ti_prof.wped",
-    # "Ti_prof.wcenter",
-    # "Ti_prof.peaking",
+    "Ti_prof.wped",
+    "Ti_prof.wcenter",
+    "Ti_prof.peaking",
 ]
 
 OPTIMISED_QUANTITY = [
@@ -118,9 +118,10 @@ class BayesWorkflow:
                  tsample=4,
                  iterations=100,
                  burn_in_fraction=0,
+                 center_mass_sampling = True,
                  diagnostics=None,
+                 profiles=None,
                  phantom=True,
-                 profiles=None
                  ):
 
         self.pulse = pulse
@@ -132,6 +133,8 @@ class BayesWorkflow:
         self.nwalkers = nwalkers
         self.iterations = iterations
         self.burn_in_fraction = burn_in_fraction
+        self.center_mass_sampling = center_mass_sampling
+
         self.diagnostics = diagnostics
         self.phantom = phantom
         self.profiles = profiles
@@ -169,9 +172,7 @@ class BayesWorkflow:
         )
 
         ndim = len(OPTIMISED_PARAMS)
-        self.start_points = self.bayes_run.sample_from_priors(OPTIMISED_PARAMS, size=self.nwalkers)
         self.move = [(emcee.moves.StretchMove(), 0.9), (emcee.moves.DEMove(), 0.1)]
-
         self.sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
@@ -181,6 +182,33 @@ class BayesWorkflow:
             kwargs={"moment_analysis": False, "calc_spectra": True, "minimum_lines": False,
                     "background": self.flat_data["xrcs.background"]},
         )
+
+        if not self.center_mass_sampling:
+            self.start_points = self.bayes_run.sample_from_priors(OPTIMISED_PARAMS, size=self.nwalkers)
+        else:
+            # gaussian mass around most probable starting points
+            nsamples = 100
+            start_points = self.bayes_run.sample_from_priors(OPTIMISED_PARAMS, size=nsamples)
+            ln_prob, _ = self.sampler.compute_log_prob(start_points)
+            num_best_points = int(nsamples * 0.05)
+            index_best_start = np.argsort(ln_prob)[-num_best_points:]
+            best_start_points = start_points[index_best_start,:]
+            best_points_std = np.std(best_start_points, axis=0)
+
+            # Passing samples through ln_prior and redrawing if they fail
+            samples = np.empty((OPTIMISED_PARAMS.__len__(), 0))
+            while samples.size < OPTIMISED_PARAMS.__len__() * self.nwalkers:
+                sample = np.random.normal(np.mean(best_start_points, axis=0), best_points_std * 2,
+                                                     size=(self.nwalkers*5, len(OPTIMISED_PARAMS)))
+                start = {name: sample[:, idx] for idx, name in enumerate(OPTIMISED_PARAMS)}
+                ln_prior = self.bayes_run._ln_prior(start)
+                # Convert from dictionary of arrays -> array,
+                # then filtering out where ln_prior is -infinity
+                accepted_samples = np.array(list(start.values()))[
+                                   :, ln_prior != -np.inf
+                                   ]
+                samples = np.append(samples, accepted_samples, axis=1)
+            self.start_points = samples[:, 0:self.nwalkers].transpose()
 
     def init_fast_particles(self):
         st40_code = ReadST40(13110009, self.tstart, self.tend, dt=self.dt, tree="astra")
@@ -345,11 +373,11 @@ class BayesWorkflow:
 
 
 if __name__ == "__main__":
-    run = BayesWorkflow(pulse=10009, result_path="./results/10009_test/", iterations=100, nwalkers=50,
-                        burn_in_fraction=0.10, diagnostics=[
+    run = BayesWorkflow(pulse=10009, result_path="./results/10009_test/", iterations=5000, nwalkers=100,
+                        burn_in_fraction=0.20, diagnostics=[
             "xrcs",
             "efit",
             "smmh1",
             "cxff_pi"
-        ], phantom=False)
+        ], phantom=False, center_mass_sampling=True)
     run()
