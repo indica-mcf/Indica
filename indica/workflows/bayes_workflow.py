@@ -168,6 +168,7 @@ def violinplots(data, diag_data, filename):
     for idx, key in enumerate(data.keys()):
         axs[idx].violinplot(data[key])
         axs[idx].set_xlabel(key)
+        axs[idx].set_ylim(bottom=0)
         axs[idx].set_ylabel(data[key].datatype[0])
         axs[idx].axhline(
             y=diag_data[key].sel(t=data[key].t).values,
