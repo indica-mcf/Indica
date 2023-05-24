@@ -979,7 +979,10 @@ class DataReader(BaseIO):
             # Interpolate PSI_NORM profiles on same coordinate system
             if "rho_toroidal" in quant_data.dims:
                 rho_toroidal_0 = quant_data.rho_toroidal.min()
-                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
+                # quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
+                #     "rho_toroidal"
+                # )
+                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop, kwargs={"fill_value": None}).drop_vars(
                     "rho_toroidal"
                 )
                 quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(

@@ -1,21 +1,21 @@
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
-from xarray import DataArray
+
+from indica.equilibrium import Equilibrium
+from indica.models.plasma import Plasma
+from indica.readers.read_st40 import ReadST40
+from indica.workflows.load_modelling_plasma import initialize_diagnostic_models
 
 # from indica.converters.line_of_sight import LineOfSightTransform
 # from indica.converters.transect import TransectCoordinates
-from indica.equilibrium import Equilibrium
 # from indica.models.charge_exchange import ChargeExchange
 # from indica.models.diode_filters import BremsstrahlungDiode
 # from indica.models.helike_spectroscopy import Helike_spectroscopy
 # from indica.models.interferometry import Interferometry
-from indica.models.plasma import Plasma
 # from indica.models.sxr_camera import SXRcamera
 # from indica.models.thomson_scattering import ThomsonScattering
 # from indica.readers.read_gacode import get_gacode_data
-from indica.readers.read_st40 import ReadST40
-from indica.workflows.load_modelling_plasma import initialize_diagnostic_models
 def plasma_code(
     pulse: int,
     tstart: float,
@@ -62,24 +62,27 @@ def plasma_code(
         n_rad=n_rad,
     )
 
-    Te = data["te"].interp(rho_poloidal=plasma.rho, t=plasma.t) #* 1.0e3
+    Te = data["te"].interp(rho_poloidal=plasma.rho, t=plasma.t)  # * 1.0e3
     plasma.electron_temperature.values = Te.values
 
-    Ne = data["ne"].interp(rho_poloidal=plasma.rho, t=plasma.t) #* 1.0e19
+    Ne = data["ne"].interp(rho_poloidal=plasma.rho, t=plasma.t)  # * 1.0e19
     plasma.electron_density.values = Ne.values
 
-    Ti = data["ti"].interp(rho_poloidal=plasma.rho, t=plasma.t) #* 1.0e3
+    Ti = data["ti"].interp(rho_poloidal=plasma.rho, t=plasma.t)  # * 1.0e3
     for element in plasma.elements:
         plasma.ion_temperature.loc[dict(element=element)] = Ti.values
     for i, impurity in enumerate(plasma.impurities):
-        #todo fix hack to add mutiple impurities
-        Nimp = data[f"niz{1}"].interp(rho_poloidal=plasma.rho, t=plasma.t) #* 1.0e19 #i+
+        # todo fix hack to add mutiple impurities
+        # Nimp = data[f"niz{1}"].interp(
+        #     rho_poloidal=plasma.rho, t=plasma.t
+        # )  # * 1.0e19 #i+
+        Nimp = impurity_concentration[i]*Ne
         plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
 
-    Nf = data["nf"].interp(rho_poloidal=plasma.rho, t=plasma.t) #* 1.0e19
+    Nf = data["nf"].interp(rho_poloidal=plasma.rho, t=plasma.t)  # * 1.0e19
     plasma.fast_density.values = Nf.values
 
-    Nn = data["nn"].interp(rho_poloidal=plasma.rho, t=plasma.t) #* 1.0e19
+    Nn = data["nn"].interp(rho_poloidal=plasma.rho, t=plasma.t)  # * 1.0e19
     plasma.neutral_density.values = Nn.values
 
     Pblon = data["pblon"].interp(rho_poloidal=plasma.rho, t=plasma.t)
@@ -91,6 +94,8 @@ def plasma_code(
     plasma.build_atomic_data(default=True)
 
     return plasma
+
+
 def plot_modelling_results(
     raw: dict, binned: dict, bckc: dict, plasma: Plasma, time: float
 ):
@@ -117,10 +122,20 @@ def plot_modelling_results(
 
     plt.figure()
     plasma.electron_density.sel(t=time, method="nearest").plot(label="electrons")
-    # ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest").plot(
-    #     label="main ion"
-    # )
+    ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest").plot(
+        label="main ion"
+    )
     fast_density.sel(t=time, method="nearest").plot(label="fast ions")
+
+    ne_c=6*plasma.impurity_density.sel(element='c').sel(t=time, method="nearest")
+    ne_he = 2*plasma.impurity_density.sel(element='he').sel(t=time, method="nearest")
+    ne_ar = 18 * plasma.impurity_density.sel(element='ar').sel(t=time, method="nearest")
+    ne_t = fast_density.sel(t=time, method="nearest") + ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest")+ne_c+ne_he+ne_ar
+    ne_c.plot(label="carbon e-")
+    ne_he.plot(label="he e-")
+    ne_ar.plot(label="ar e-")
+    ne_t.plot(label="tot e- from ions")
+
     plt.title("Electron/Ion densities")
     plt.legend()
 
@@ -153,8 +168,8 @@ def plot_modelling_results(
     scaling = {}
     scaling["brems"] = {"brightness": 0.07}
     scaling["sxr_diode_1"] = {"brightness": 30}
-    # bckc["efit"] = {"wp": plasma.wp}
-    # scaling["xrcs"] = {"int_w": 2.e-17}
+    bckc["efit"] = {"wp": plasma.wp}
+    scaling["xrcs"] = {"int_w": 2.e-17}
     for instrument in bckc.keys():
         for quantity in bckc[instrument].keys():
             print(instrument)
@@ -220,21 +235,23 @@ def plot_modelling_results(
         plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
         plt.title(f"XRCS spectra at {time:.3f} s")
         plt.legend()
+
+
 # GaCODE + ASTRA interpretative using HDA/EFIT:
 pulse = 10009
-pulse_code = 34010009#13109850
-run_code = 'V50'#61
-code = "transp_test"#"astra"
+pulse_code = 34010009  # 13109850
+run_code = "V50"  # 61
+code = "transp_test"  # "astra"
 
 # pulse_code1 = 13109850
 # run_code1 = 61
 # code1 = "astra"
 
 equil = "transp_test"
-tstart=0.02
-tend=0.06
-dt=0.01
-verbose=True
+tstart = 0.02
+tend = 0.06
+dt = 0.01
+verbose = True
 instruments = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit"]
 st40_code = ReadST40(pulse_code, tstart, tend, dt=dt, tree=code)
 
@@ -253,12 +270,20 @@ equilibrium = Equilibrium(data_code)
 plasma = plasma_code(pulse_code, tstart, tend, dt, data_code, verbose=verbose)
 plasma.set_equilibrium(equilibrium)
 # Load and run the diagnostic forward models
+# time=0.05
+# plt.figure()
+# plasma.electron_density.sel(t=time, method="nearest").plot(label="electrons")
+# plasma.ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest").plot(
+#     label="main ion"
+# )
+# plasma.fast_density.sel(t=time, method="nearest").plot(label="fast ions")
+# plt.title("Electron/Ion densities")
+# plt.legend()
+
 raw = st40.raw_data
 binned = st40.binned_data
 bckc: dict = {}
-models = initialize_diagnostic_models(
-    binned, plasma=plasma, equilibrium=equilibrium
-)
+models = initialize_diagnostic_models(binned, plasma=plasma, equilibrium=equilibrium)
 for instrument in models.keys():
     if verbose:
         print(f"Running {instrument} model")
@@ -270,8 +295,8 @@ for instrument in models.keys():
         )
     else:
         bckc[instrument] = models[instrument]()
-plot=True
-tplot=0.05
+plot = True
+tplot = 0.05
 if plot:
     plot_modelling_results(raw, binned, bckc, plasma, tplot)
 
