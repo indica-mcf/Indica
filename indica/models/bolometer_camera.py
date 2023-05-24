@@ -42,6 +42,8 @@ class Bolometer(DiagnosticModel):
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
+                    "long_name": "Brightness",
+                    "units": "W $m^{-2}$",
                 }
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
@@ -123,7 +125,7 @@ class Bolometer(DiagnosticModel):
             tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
 
         # Line-of-sight information
-        self.los_transform.plot_los(tplot, plot_all=True)
+        self.los_transform.plot_los(tplot)
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))

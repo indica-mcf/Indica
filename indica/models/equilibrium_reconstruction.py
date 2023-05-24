@@ -35,6 +35,8 @@ class EquilibriumReconstruction(DiagnosticModel):
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
+                    "long_name": "Wp",
+                    "units": "J",
                 }
             else:
                 # print(f"{quant} not available in model for {self.instrument_method}")

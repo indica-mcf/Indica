@@ -36,9 +36,13 @@ class ChargeExchange(DiagnosticModel):
             if quant == "vtor":
                 quantity = quant
                 self.bckc[quantity] = self.Vtor_at_channels
+                long_name = "Toroidal rotation"
+                units = "rad/s"
             elif quant == "ti":
                 quantity = quant
                 self.bckc[quantity] = self.Ti_at_channels
+                long_name = "Ion temperature"
+                units = "eV"
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -51,6 +55,8 @@ class ChargeExchange(DiagnosticModel):
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
+                "long_name": long_name,
+                "units": units,
             }
 
     def __call__(

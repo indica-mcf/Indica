@@ -45,6 +45,8 @@ class Interferometry(DiagnosticModel):
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
+                    "long_name": "Ne",
+                    "units": "$m^{-2}$",
                 }
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
@@ -123,7 +125,7 @@ def example_run(pulse: int = None, plasma=None, plot=False):
         it = int(len(plasma.t) / 2)
         tplot = plasma.t[it]
 
-        model.los_transform.plot_los(tplot, plot_all=True)
+        model.los_transform.plot_los(tplot)
 
         # Plot back-calculated values
         plt.figure()
