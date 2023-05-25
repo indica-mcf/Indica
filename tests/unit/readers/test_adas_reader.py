@@ -320,7 +320,7 @@ def test_read_invalid_adf11():
         raise e
 
     with assert_raises(AssertionError):
-        invalid_file_name = Path("tests/unit/readers/invalid_adf11_file.dat")
+        invalid_file_name = Path("unit/readers/invalid_adf11_file.dat")
         with open(invalid_file_name, "r") as invalid_file:
             reader._get_file = MagicMock(return_value=invalid_file)
             _ = reader.get_adf11(quantity, "he", "89")
