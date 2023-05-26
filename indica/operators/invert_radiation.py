@@ -165,7 +165,18 @@ class EmissivityProfile:
         return xr.where(result < 0.0, 0.0, result).fillna(0.0)
 
 
-def knotvals_to_xarray(knots, knotvals, dim_name, n, m, last_knot_zero):
+def _emissivity_from_knotvals_standard(
+    knots: np.ndarray,
+    knotvals: np.ndarray,
+    dim_name: str,
+    n: int,
+    m: int,
+    last_knot_zero: bool,
+) -> Tuple[xr.DataArray, xr.DataArray]:
+    """
+    Take a set of knotvals (flat array of values from optimizer) and convert
+    them to symmetric_emissivity and asymmetry_parameter DataArrays.
+    """
     symmetric_emissivity = xr.DataArray(np.empty(n), coords=[(dim_name, knots)])
     symmetric_emissivity[0:m] = knotvals[0:m]
     if last_knot_zero:
@@ -316,12 +327,13 @@ class InvertRadiation(Operator):
                 rho, c.coords["t"]
             )[0]
 
-    def __call__(  # type: ignore[override]
+    def _process_and_invert(  # type: ignore[override]
         self,
         R: xr.DataArray,
         z: xr.DataArray,
         times: xr.DataArray,
         *cameras: xr.DataArray,
+        emissivity_from_knotvals,
     ) -> Tuple[Union[xr.DataArray, xr.Dataset], ...]:
         """Calculate the emissivity profile for the plasma.
 
@@ -374,7 +386,7 @@ class InvertRadiation(Operator):
             knotvals: np.ndarray,
             unfolded_cameras: List[xr.Dataset],
         ) -> np.ndarray:
-            symmetric_emissivity, asymmetry_parameter = knotvals_to_xarray(
+            symmetric_emissivity, asymmetry_parameter = emissivity_from_knotvals(
                 knots, knotvals, dim_name, n, m, self.last_knot_zero
             )
             estimate = EmissivityProfile(
@@ -414,12 +426,11 @@ class InvertRadiation(Operator):
 
         # prepare cameras for comparison
         rho_maj_rad = FluxMajorRadCoordinates(flux_coords)
-        rho_max = 0.0
         for c in unfolded_cameras:
             ip_coords = ImpactParameterCoordinates(
                 c.attrs["transform"], flux_coords, times=times
             )
-        rho_max = max(rho_max, ip_coords.rhomax())
+        rho_max = max(0.0, ip_coords.rhomax())
         print("Calculating coordinate conversions")
         self._process_cameras(unfolded_cameras, rho_maj_rad, ip_coords)
 
@@ -459,7 +470,7 @@ class InvertRadiation(Operator):
                     "reached maximum number of function evaluations.",
                     RuntimeWarning,
                 )
-            sym, asym = knotvals_to_xarray(
+            sym, asym = emissivity_from_knotvals(
                 knots, fit.x, dim_name, n, m, self.last_knot_zero
             )
             symmetric_emissivities.append(sym)
@@ -505,3 +516,18 @@ class InvertRadiation(Operator):
         self.assign_provenance(results)
 
         return emissivity, results, *unfolded_cameras
+
+    def __call__(  # type: ignore[override]
+        self,
+        R: xr.DataArray,
+        z: xr.DataArray,
+        times: xr.DataArray,
+        *cameras: xr.DataArray,
+    ) -> Tuple[Union[xr.DataArray, xr.Dataset], ...]:
+        return self._process_and_invert(
+            R,
+            z,
+            times,
+            *cameras,
+            emissivity_from_knotvals=_emissivity_from_knotvals_standard,
+        )
