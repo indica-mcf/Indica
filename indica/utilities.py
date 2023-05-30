@@ -443,11 +443,13 @@ def set_plot_colors(
     colors = {
         "electron": cmap(0.1),
         "ion": cmap(0.75),
-        "fast_ion": cmap(0.4),
+        "fast": cmap(0.4),
         "impurity": cmap(0.0),
-        "raw_data": "black",
-        "binned_data": cmap(0.2),
-        "bckc_data": cmap(0.75),
+        "raw": "black",
+        "thermal": "red",
+        "total": "black",
+        "binned": cmap(0.2),
+        "bckc": cmap(0.75),
     }
 
     return cmap, colors
@@ -457,15 +459,17 @@ def set_plot_rcparams(option: str = "profiles"):
     plot_params: dict = {
         "profiles": {
             "font.size": 13,
-            "legend.fontsize": 13,
+            "legend.fontsize": 11,
             "lines.markersize": 10,
             "lines.linewidth": 2,
         },
-        "profiles_multi": {
-            "font.size": 19,
+        "multi": {
+            "font.size": 13,
             "legend.fontsize": 13,
             "lines.markersize": 10,
             "lines.linewidth": 2,
+            "figure.figsize": [6.4, 3.8],
+            "figure.subplot.bottom": 0.15,
         },
         "time_evolution": {
             "font.size": 11,
