@@ -424,27 +424,6 @@ def plot_bayes_result(
     plt.close("all")
 
 
-def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
-    autocorr = np.ones((iterations,)) * np.nan
-    old_tau = np.inf
-    for sample in sampler.sample(
-        start_points,
-        iterations=iterations,
-        progress=True,
-    ):
-        if sampler.iteration % auto_sample:
-            continue
-        new_tau = sampler.get_autocorr_time(tol=0)
-        autocorr[sampler.iteration - 1] = np.mean(new_tau)
-        converged = np.all(new_tau * 50 < sampler.iteration)
-        converged &= np.all(np.abs(old_tau - new_tau) / new_tau < 0.01)
-        if converged:
-            break
-        old_tau = new_tau
-    autocorr = autocorr[: sampler.iteration]
-    return autocorr
-
-
 if __name__ == "__main__":
     filehead = "./results/10009_60ms_short/"
     with open(filehead + "results.pkl", "rb") as handle:

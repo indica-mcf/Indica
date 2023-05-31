@@ -8,7 +8,7 @@ from scipy.stats import loguniform
 
 from indica.readers.read_st40 import ReadST40
 from indica.bayesmodels import BayesModels, get_uniform
-from indica.workflows.bayes_workflow import plot_bayes_result, sample_with_autocorr
+from indica.workflows.bayes_workflow import plot_bayes_result
 
 from indica.models.interferometry import Interferometry
 from indica.models.helike_spectroscopy import Helike_spectroscopy
@@ -428,6 +428,27 @@ class BayesWorkflow:
         self.acceptance_fraction = self.sampler.acceptance_fraction.sum()
         print(self.acceptance_fraction)
         plot_bayes_result(result, figheader=self.result_path, filetype=".png")
+
+
+def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
+    autocorr = np.ones((iterations,)) * np.nan
+    old_tau = np.inf
+    for sample in sampler.sample(
+        start_points,
+        iterations=iterations,
+        progress=True,
+    ):
+        if sampler.iteration % auto_sample:
+            continue
+        new_tau = sampler.get_autocorr_time(tol=0)
+        autocorr[sampler.iteration - 1] = np.mean(new_tau)
+        converged = np.all(new_tau * 50 < sampler.iteration)
+        converged &= np.all(np.abs(old_tau - new_tau) / new_tau < 0.01)
+        if converged:
+            break
+        old_tau = new_tau
+    autocorr = autocorr[: sampler.iteration]
+    return autocorr
 
 
 if __name__ == "__main__":
