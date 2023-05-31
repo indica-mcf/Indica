@@ -33,13 +33,15 @@ DEFAULT_PHANTOM_PARAMS = {
     "Nimp_prof.peaking": 2,
 
     "Te_prof.y0": 3000,
+    "Te_prof.y1": 50,
     "Te_prof.wcenter": 0.4,
-    "Te_prof.wped": 4,
+    "Te_prof.wped": 3,
     "Te_prof.peaking": 2,
 
     "Ti_prof.y0": 6000,
+    "Ti_prof.y1": 50,
     "Ti_prof.wcenter": 0.4,
-    "Ti_prof.wped": 4,
+    "Ti_prof.wped": 3,
     "Ti_prof.peaking": 2,
 }
 
@@ -53,13 +55,13 @@ DEFAULT_PRIORS = {
 
     "ar_conc": loguniform(0.0001, 0.01),
 
-    "Nimp_prof.y0": get_uniform(1e15, 1e18),
+    "Nimp_prof.y0": get_uniform(1e16, 1e18),
     "Nimp_prof.y1": get_uniform(1e15, 2e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where((x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0),
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
     "Nimp_prof.wped": get_uniform(1, 6),
     "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
-    "Nimp_prof.peaking": get_uniform(1, 6),
+    "Nimp_prof.peaking": get_uniform(1, 20),
     "Nimp_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where((x1 > x2), 1, 0),  # impurity always more peaked
 
     "Te_prof.y0": get_uniform(1000, 5000),
@@ -68,10 +70,10 @@ DEFAULT_PRIORS = {
     "Te_prof.peaking": get_uniform(1, 6),
     "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
 
-    "Ti_prof.y0": get_uniform(2000, 10000),
+    "Ti_prof.y0": get_uniform(3000, 10000),
     "Ti_prof.wped": get_uniform(1, 6),
     "Ti_prof.wcenter": get_uniform(0.1, 0.6),
-    "Ti_prof.peaking": get_uniform(1, 6),
+    "Ti_prof.peaking": get_uniform(1, 20),
 }
 
 OPTIMISED_PARAMS = [
@@ -115,10 +117,11 @@ class BayesWorkflow:
                  tstart=0.02,
                  tend=0.10,
                  dt=0.01,
-                 tsample=4,
+                 tsample=0.06,
                  iterations=100,
                  burn_in_fraction=0,
-                 center_mass_sampling = True,
+                 center_mass_sampling=True,
+                 Ti_ref=True,
                  diagnostics=None,
                  profiles=None,
                  phantom=True,
@@ -134,6 +137,7 @@ class BayesWorkflow:
         self.iterations = iterations
         self.burn_in_fraction = burn_in_fraction
         self.center_mass_sampling = center_mass_sampling
+        self.Ti_ref = Ti_ref
 
         self.diagnostics = diagnostics
         self.phantom = phantom
@@ -149,7 +153,9 @@ class BayesWorkflow:
             full_run=False,
             n_rad=20,
         )
-        self.plasma.time_to_calculate = self.plasma.t[tsample]
+        self.plasma.Ti_ref = self.Ti_ref
+        self.tsample = tsample
+        self.plasma.time_to_calculate = self.plasma.t[np.abs(tsample-self.plasma.t).argmin()]
         self.plasma.update_profiles(DEFAULT_PHANTOM_PARAMS)
         self.plasma.build_atomic_data(calc_power_loss=False)
 
@@ -192,14 +198,14 @@ class BayesWorkflow:
             ln_prob, _ = self.sampler.compute_log_prob(start_points)
             num_best_points = int(nsamples * 0.05)
             index_best_start = np.argsort(ln_prob)[-num_best_points:]
-            best_start_points = start_points[index_best_start,:]
+            best_start_points = start_points[index_best_start, :]
             best_points_std = np.std(best_start_points, axis=0)
 
             # Passing samples through ln_prior and redrawing if they fail
             samples = np.empty((OPTIMISED_PARAMS.__len__(), 0))
             while samples.size < OPTIMISED_PARAMS.__len__() * self.nwalkers:
                 sample = np.random.normal(np.mean(best_start_points, axis=0), best_points_std * 2,
-                                                     size=(self.nwalkers*5, len(OPTIMISED_PARAMS)))
+                                          size=(self.nwalkers * 5, len(OPTIMISED_PARAMS)))
                 start = {name: sample[:, idx] for idx, name in enumerate(OPTIMISED_PARAMS)}
                 ln_prior = self.bayes_run._ln_prior(start)
                 # Convert from dictionary of arrays -> array,
@@ -225,7 +231,7 @@ class BayesWorkflow:
         self.plasma.pressure_fast_perpendicular.values = Pbper.values
 
     def read_st40(self, diagnostics=None):
-        self.ST40_data = ReadST40(self.pulse, tstart=self.tstart, tend=self.tend)
+        self.ST40_data = ReadST40(self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt)
         self.ST40_data(diagnostics)
         self.plasma.set_equilibrium(self.ST40_data.equilibrium)
 
@@ -357,7 +363,7 @@ class BayesWorkflow:
         }
         samples = self.sampler.get_chain(flat=True)
 
-        prior_samples = self.bayes_run.sample_from_priors(OPTIMISED_PARAMS, size=int(1e5))
+        prior_samples = self.bayes_run.sample_from_priors(OPTIMISED_PARAMS, size=int(1e4))
         result = {
             "blobs": blob_dict,
             "diag_data": self.flat_data,
@@ -369,15 +375,16 @@ class BayesWorkflow:
         }
         self.acceptance_fraction = self.sampler.acceptance_fraction.sum()
         print(self.acceptance_fraction)
-        plot_bayes_result(**result, figheader=self.result_path)
+        plot_bayes_result(result, figheader=self.result_path, filetype=".png")
 
 
 if __name__ == "__main__":
-    run = BayesWorkflow(pulse=10009, result_path="./results/10009_test/", iterations=5000, nwalkers=100,
-                        burn_in_fraction=0.20, diagnostics=[
+    run = BayesWorkflow(pulse=10009, result_path="./results/10009_60ms_long/", iterations=500, nwalkers=200,
+                        burn_in_fraction=0.10, dt=0.005, tsample=0.060,
+            diagnostics=[
             "xrcs",
             "efit",
             "smmh1",
             "cxff_pi"
-        ], phantom=False, center_mass_sampling=True)
+        ], phantom=False, center_mass_sampling=True, Ti_ref=True)
     run()
