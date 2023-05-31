@@ -3,26 +3,46 @@ from pathlib import Path
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
+
+from indica.utilities import set_plot_rcparams, set_axis_sci
 
 
 def plot_profile(
-    profile,
-    blobkey: str,
-    figheader="./results/test/",
-    phantom_profile=None,
-    sharefig=False,
-    filename="",
-    linestyle="--",
-    color="blue",
+        profile,
+        blobkey: str,
+        figheader="./results/test/",
+        phantom_profile=None,
+        logscale=False,
+        sharefig=False,
+        filename="",
+        filetype=".png",
+        linestyle="--",
+        color="blue",
 ):
-    if not plt.get_fignums():  # If no figure is open
-        plt.figure(figsize=(8, 6))
+    set_plot_rcparams("profiles")
+    # if not plt.get_fignums():  # If no figure is open
+    #     plt.figure(figsize=(8, 6))
 
+    if blobkey == "electron_temperature":
+        legkey = "Te"
+    elif blobkey == "ion_temperature":
+        legkey = "Ti"
+    elif blobkey == "ion_density":
+        legkey = "Ni"
+    elif blobkey == "electron_density":
+        legkey = "Ne"
+    elif blobkey == "impurity_density":
+        legkey = "Nimp"
+    elif blobkey == "fast_density":
+        legkey = "Nfast"
+    elif blobkey == "neutral_density":
+        legkey = "Nneut"
     plt.fill_between(
         profile.rho_poloidal,
         profile.quantile(0.16, dim="index"),
         profile.quantile(0.84, dim="index"),
-        label=f"{blobkey}, 68% Confidence",
+        label=f"{legkey}, 68% Confidence",
         zorder=3,
         color=color,
         alpha=0.8,
@@ -31,7 +51,7 @@ def plot_profile(
         profile.rho_poloidal,
         profile.quantile(0.025, dim="index"),
         profile.quantile(0.975, dim="index"),
-        label=f"{blobkey}, 95% Confidence",
+        label=f"{legkey}, 95% Confidence",
         zorder=2,
         color="grey",
         alpha=0.6,
@@ -40,7 +60,7 @@ def plot_profile(
         profile.rho_poloidal,
         profile.quantile(0.00, dim="index"),
         profile.quantile(1.00, dim="index"),
-        label=f"{blobkey}, Max-Min",
+        label=f"{legkey}, Max-Min",
         zorder=1,
         color="lightgrey",
         alpha=0.6,
@@ -52,7 +72,7 @@ def plot_profile(
         else:
             phantom = phantom_profile[blobkey]
         phantom.plot(
-            label=f"{blobkey}, phantom profile",
+            label=f"{legkey}, phantom profile",
             linestyle=linestyle,
             color="black",
             zorder=4,
@@ -62,52 +82,30 @@ def plot_profile(
     if sharefig:
         return
 
+    set_axis_sci()
+    if logscale:
+        plt.yscale("log")
+
+    plt.xlabel("Rho poloidal")
+    plt.ylabel(f"{profile.datatype[0].capitalize()} [{profile.units}]")
     if filename:
-        plt.savefig(figheader + f"{filename}.png")
+        plt.savefig(figheader + f"{filename}{filetype}")
     else:
-        plt.savefig(figheader + f"{blobkey}.png")
+        plt.savefig(figheader + f"{blobkey}{filetype}")
     plt.close("all")
 
 
-def _plot_0d(
-    blobs: dict,
-    blobkey: str,
-    diag_data: dict,
-    filename: str,
-    figheader="./results/test/",
-    xlabel="samples ()",
-    ylabel="a.u.",
-    figsize=(6.4, 4.8),
-    **kwargs,
-):
-    if blobkey not in blobs.keys():
-        raise ValueError(f"{blobkey} not in blobs")
-    plt.figure(figsize=figsize)
-    blob_data = blobs[blobkey]
-    plt.plot(blob_data, label=f"{blobkey} model")
-    plt.axhline(
-        y=diag_data[blobkey].sel(t=blob_data.t).values,
-        color="black",
-        linestyle="-",
-        label=f"{blobkey} data",
-    )
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.legend()
-    plt.savefig(figheader + filename)
-    plt.close()
-
-
 def _plot_1d(
-    blobs: dict,
-    blobkey: str,
-    diag_data: dict,
-    filename: str,
-    figheader="./results/test/",
-    ylabel="a.u.",
-    xlim = None,
-    figsize=(6.4, 4.8),
-    **kwargs,
+        blobs: dict,
+        blobkey: str,
+        diag_data: dict,
+        filename: str,
+        figheader="./results/test/",
+        ylabel="a.u.",
+        xlabel="[]",
+        xlim=None,
+        figsize=(6.4, 4.8),
+        **kwargs,
 ):
     if blobkey not in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
@@ -155,45 +153,86 @@ def _plot_1d(
             label=f"{blobkey} data",
             zorder=4,
         )
+    set_axis_sci()
     plt.ylabel(ylabel)
-    plt.xlabel(dims[0])
+    plt.xlabel(xlabel)
     plt.xlim(xlim)
     plt.legend()
     plt.savefig(figheader + filename)
     plt.close()
 
-def violinplots(data, diag_data, filename):
+
+def violinplot(data: dict, key: str, diag_data: dict, filename: str, ylabel="[a.u.]", figheader="./results/test/",
+               **kwargs):
+    set_plot_rcparams()
+    fig, axs = plt.subplots(1, 1,)
+    _data = data[key].values
+    _data = _data[((_data > np.quantile(_data, 0.16)) & (_data < np.quantile(_data, 0.84)))]
+    violin = axs.violinplot(_data,
+                            showextrema=False,
+                            # quantiles=[0.025, 0.975, 0.16, 0.84],
+                            # showmedians=True,
+                            )
+    violin["bodies"][0].set_edgecolor("black")
+    axs.set_xlabel(key)
+    top = axs.get_ylim()[1]
+    axs.set_ylim(bottom=0, top=top * 1.1)
+    axs.set_ylabel(f"{ylabel}")
+    y = diag_data[key].sel(t=data[key].t).values
+    axs.errorbar(1, y=y, yerr=y * 0.10, fmt="D", ecolor="black", capsize=10, color="black")
+    set_axis_sci()
+    plt.setp([axs.get_xticklabels()], visible=False)
+    plt.savefig(figheader + filename)
+    plt.close()
+
+
+def histograms(data, diag_data, filename):
     nfig = len(data)
     fig, axs = plt.subplots(1, nfig, figsize=(16, 6))
     for idx, key in enumerate(data.keys()):
-        axs[idx].violinplot(data[key])
-        axs[idx].set_xlabel(key)
-        axs[idx].set_ylim(bottom=0)
-        axs[idx].set_ylabel(data[key].datatype[0])
-        axs[idx].axhline(
-            y=diag_data[key].sel(t=data[key].t).values,
+        n, bins, patches = axs[idx].hist(data[key], 50, density=True)
+        q1 = (np.percentile(data[key], 16), np.percentile(data[key], 84))
+        q2 = (np.percentile(data[key], 2.5), np.percentile(data[key], 97.5))
+        idx_high = np.argwhere((bins > q1[0]) & (bins < q1[1])).flatten()
+        idx_low = np.argwhere((bins > q2[0]) & (bins < q2[1])).flatten()
+        for patch in patches:
+            patch.set_facecolor("lightgrey")
+        for i in idx_low:
+            patches[i].set_facecolor("grey")
+        for i in idx_high:
+            patches[i].set_facecolor("red")
+
+        axs[idx].set_xlabel(f"{key} ({data[key].datatype[0]})")
+
+        axs[idx].axvline(
+            x=diag_data[key].sel(t=data[key].t).values,
             color="black",
-            linestyle="-",
+            linestyle="-.",
             label=f"{key} data",
         )
+    axs[0].set_ylabel("pdf ()")
 
-    plt.setp([a.get_xticklabels() for a in axs], visible=False)
     plt.savefig(filename)
     plt.close()
 
-def plot_bayes_result(
-    figheader="./results/test/",
-    blobs=None,
-    diag_data=None,
-    samples=None,
-    prior_samples=None,
-    param_names=None,
-    phantom_profiles=None,
-    autocorr=None,
-    **kwargs,
-):
-    Path(figheader).mkdir(parents=True, exist_ok=True)
 
+def plot_bayes_result(
+        results,
+        figheader="./results/test/",
+        filetype=".png",
+        **kwargs,
+):
+    diag_data = results["diag_data"]
+    blobs = results["blobs"]
+    samples = results["samples"]
+    prior_samples = results["prior_samples"]
+    param_names = results["param_names"]
+    phantom_profiles = results["phantom_profiles"]
+    autocorr = results["autocorr"]
+
+    Path(figheader).mkdir(parents=True, exist_ok=True)
+    with open(figheader + "results.pkl", "wb") as handle:
+        pickle.dump(results, handle)
 
     plt.figure()
     plt.plot(
@@ -204,54 +243,63 @@ def plot_bayes_result(
     plt.legend()
     plt.xlabel("iterations")
     plt.ylabel("auto-correlation time (iterations)")
-    plt.savefig(figheader + "average_tau.png")
+    plt.savefig(figheader + "average_tau" + filetype)
     plt.close()
 
-    violinplot_keys = ["efit.wp", "smmh1.ne", "cxff_pi.ti0"]
     if "cxff_pi.ti" in blobs.keys():
-        blobs["cxff_pi.ti0"] = blobs["cxff_pi.ti"].sel(channel = diag_data["cxff_pi.ti"].channel)
+        blobs["cxff_pi.ti0"] = blobs["cxff_pi.ti"].sel(channel=diag_data["cxff_pi.ti"].channel)
         diag_data["cxff_pi.ti0"] = diag_data["cxff_pi.ti"].sel(channel=diag_data["cxff_pi.ti"].channel)
-    violinplots({key: blobs[key] for key in violinplot_keys if key in blobs.keys()}, diag_data, figheader+"boxplots.png")
+
+    key = "cxff_pi.ti0"
+    if key in blobs.keys():
+        violinplot(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}" + filetype,
+            figheader=figheader,
+            ylabel="Temperature [eV]",
+        )
 
     key = "efit.wp"
     if key in blobs.keys():
-        _plot_0d(
+        violinplot(
             blobs,
             key,
             diag_data,
-            f"{key.replace('.', '_')}.png",
+            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="Wp (J)",
+            ylabel="Energy [J]",
         )
     key = "smmh1.ne"
     if key in blobs.keys():
-        _plot_0d(
+        violinplot(
             blobs,
             key,
             diag_data,
-            f"{key.replace('.', '_')}.png",
+            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="ne_int (m^-2)",
+            ylabel=r"Line Integrated Density [$m^{-2}$]",
         )
     key = "xrcs.te_kw"
     if key in blobs.keys():
-        _plot_0d(
+        violinplot(
             blobs,
             key,
             diag_data,
-            f"{key.replace('.', '_')}.png",
+            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="temperature (eV)",
+            ylabel="Temperature [eV]",
         )
     key = "xrcs.ti_w"
     if key in blobs.keys():
-        _plot_0d(
+        violinplot(
             blobs,
             key,
             diag_data,
-            f"{key.replace('.', '_')}.png",
+            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="temperature (eV)",
+            ylabel="Temperature [eV]",
         )
     key = "xrcs.spectra"
     if key in blobs.keys():
@@ -259,11 +307,12 @@ def plot_bayes_result(
             blobs,
             key,
             diag_data,
-            f"{key.replace('.', '_')}.png",
+            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="intensity (A.U.)",
-            xlim = (0.394, 0.401),
-            figsize=(12, 10),
+            ylabel="Intensity [a.u.]",
+            xlabel="Wavelength [nm]",
+            xlim=(0.394, 0.401),
+            figsize=(6, 4),
         )
     key = "cxff_pi.ti"
     if key in blobs.keys():
@@ -271,9 +320,11 @@ def plot_bayes_result(
             blobs,
             key,
             diag_data,
-            f"{key.replace('.', '_')}.png",
+            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="temperature (eV)",
+            ylabel="Temperature [eV]",
+            xlabel="Channel",
+
         )
 
     key = "electron_temperature"
@@ -281,6 +332,7 @@ def plot_bayes_result(
         blobs[key],
         key,
         figheader=figheader,
+        filetype=filetype,
         phantom_profile=phantom_profiles,
         sharefig=True,
         color="blue",
@@ -292,13 +344,14 @@ def plot_bayes_result(
         key,
         figheader=figheader,
         filename="temperature",
+        filetype=filetype,
         phantom_profile=phantom_profiles,
         color="red",
         linestyle="dotted",
     )
     key = "electron_density"
     plot_profile(
-        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles
+        blobs[key], key, figheader=figheader, filetype=filetype, phantom_profile=phantom_profiles
     )
     key = "impurity_density"
     for elem in blobs[key].element.values:
@@ -307,6 +360,7 @@ def plot_bayes_result(
             key,
             figheader=figheader,
             filename=f"{elem} density",
+            filetype=filetype,
             phantom_profile=phantom_profiles,
             color="red",
         )
@@ -316,6 +370,7 @@ def plot_bayes_result(
         key,
         figheader=figheader,
         filename=f"h density",
+        filetype=filetype,
         phantom_profile=phantom_profiles,
         color="red",
     )
@@ -324,6 +379,7 @@ def plot_bayes_result(
         blobs[key],
         key,
         figheader=figheader,
+        filetype=filetype,
         phantom_profile=phantom_profiles,
         color="red",
     )
@@ -331,15 +387,18 @@ def plot_bayes_result(
     plot_profile(
         blobs[key],
         key,
+        filename="",
         figheader=figheader,
+        filetype=filetype,
         phantom_profile=phantom_profiles,
+        logscale=True
     )
 
     corner.corner(samples, labels=param_names)
-    plt.savefig(figheader + "posterior.png")
+    plt.savefig(figheader + "posterior" + filetype)
 
     corner.corner(prior_samples, labels=param_names)
-    plt.savefig(figheader + "prior.png")
+    plt.savefig(figheader + "prior" + filetype)
     plt.close("all")
 
 
@@ -347,9 +406,9 @@ def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
     autocorr = np.ones((iterations,)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(
-        start_points,
-        iterations=iterations,
-        progress=True,
+            start_points,
+            iterations=iterations,
+            progress=True,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -362,3 +421,10 @@ def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
         old_tau = new_tau
     autocorr = autocorr[: sampler.iteration]
     return autocorr
+
+
+if __name__ == "__main__":
+    filehead = "./results/10009_60ms_short/"
+    with open(filehead + "results.pkl", "rb") as handle:
+        results = pickle.load(handle)
+    plot_bayes_result(results, filehead, filetype=".png")
