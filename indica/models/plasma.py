@@ -307,7 +307,7 @@ class Plasma:
             self.data2d, ("density", "electron"), "$m^{-3}$"
         )
         self.neutral_density: DataArray = assign_data(
-            self.data2d, ("thermal_neutral", "density"), "eV"
+            self.data2d, ("density", "thermal_neutral"), "$m^{-3}$"
         )
         self.tau: DataArray = assign_data(self.data2d, ("time", "residence"), "s")
 
@@ -462,7 +462,10 @@ class Plasma:
         self.electron_density.loc[dict(t=t)] = self.Ne_prof()
         self.calc_impurity_density(self.impurities)
         self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
-        self.ion_temperature.loc[dict(t=t)] = self.Ti_prof()
+        if self.Ti_ref:
+            self.ion_temperature.loc[dict(t=t)] = self.Ti_prof(y0_ref=self.Te_prof.y0)
+        else:
+            self.ion_temperature.loc[dict(t=t)] = self.Ti_prof()
         self.toroidal_rotation.loc[dict(t=t)] = self.Vrot_prof()
         self.neutral_density.loc[dict(t=t, )] = self.Nh_prof()
         if impurity_to_profile is not None:  # overwrite impurity profile with non-Ne dependent profile
