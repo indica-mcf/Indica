@@ -8,7 +8,7 @@ from scipy.stats import loguniform
 
 from indica.readers.read_st40 import ReadST40
 from indica.bayesmodels import BayesModels, get_uniform
-from indica.workflows.bayes_workflow import plot_bayes_result
+from indica.workflows.bayes_plots import plot_bayes_result
 
 from indica.models.interferometry import Interferometry
 from indica.models.helike_spectroscopy import Helike_spectroscopy
