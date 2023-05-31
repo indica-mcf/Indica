@@ -9,16 +9,16 @@ from indica.utilities import set_plot_rcparams, set_axis_sci
 
 
 def plot_profile(
-        profile,
-        blobkey: str,
-        figheader="./results/test/",
-        phantom_profile=None,
-        logscale=False,
-        sharefig=False,
-        filename="",
-        filetype=".png",
-        linestyle="--",
-        color="blue",
+    profile,
+    blobkey: str,
+    figheader="./results/test/",
+    phantom_profile=None,
+    logscale=False,
+    sharefig=False,
+    filename="",
+    filetype=".png",
+    linestyle="--",
+    color="blue",
 ):
     set_plot_rcparams("profiles")
     # if not plt.get_fignums():  # If no figure is open
@@ -96,16 +96,16 @@ def plot_profile(
 
 
 def _plot_1d(
-        blobs: dict,
-        blobkey: str,
-        diag_data: dict,
-        filename: str,
-        figheader="./results/test/",
-        ylabel="a.u.",
-        xlabel="[]",
-        xlim=None,
-        figsize=(6.4, 4.8),
-        **kwargs,
+    blobs: dict,
+    blobkey: str,
+    diag_data: dict,
+    filename: str,
+    figheader="./results/test/",
+    ylabel="a.u.",
+    xlabel="[]",
+    xlim=None,
+    figsize=(6.4, 4.8),
+    **kwargs,
 ):
     if blobkey not in blobs.keys():
         raise ValueError(f"{blobkey} not in blobs")
@@ -162,24 +162,39 @@ def _plot_1d(
     plt.close()
 
 
-def violinplot(data: dict, key: str, diag_data: dict, filename: str, ylabel="[a.u.]", figheader="./results/test/",
-               **kwargs):
+def violinplot(
+    data: dict,
+    key: str,
+    diag_data: dict,
+    filename: str,
+    ylabel="[a.u.]",
+    figheader="./results/test/",
+    **kwargs,
+):
     set_plot_rcparams()
-    fig, axs = plt.subplots(1, 1,)
+    fig, axs = plt.subplots(
+        1,
+        1,
+    )
     _data = data[key].values
-    _data = _data[((_data > np.quantile(_data, 0.16)) & (_data < np.quantile(_data, 0.84)))]
-    violin = axs.violinplot(_data,
-                            showextrema=False,
-                            # quantiles=[0.025, 0.975, 0.16, 0.84],
-                            # showmedians=True,
-                            )
+    _data = _data[
+        ((_data > np.quantile(_data, 0.16)) & (_data < np.quantile(_data, 0.84)))
+    ]
+    violin = axs.violinplot(
+        _data,
+        showextrema=False,
+        # quantiles=[0.025, 0.975, 0.16, 0.84],
+        # showmedians=True,
+    )
     violin["bodies"][0].set_edgecolor("black")
     axs.set_xlabel(key)
     top = axs.get_ylim()[1]
     axs.set_ylim(bottom=0, top=top * 1.1)
     axs.set_ylabel(f"{ylabel}")
     y = diag_data[key].sel(t=data[key].t).values
-    axs.errorbar(1, y=y, yerr=y * 0.10, fmt="D", ecolor="black", capsize=10, color="black")
+    axs.errorbar(
+        1, y=y, yerr=y * 0.10, fmt="D", ecolor="black", capsize=10, color="black"
+    )
     set_axis_sci()
     plt.setp([axs.get_xticklabels()], visible=False)
     plt.savefig(figheader + filename)
@@ -217,10 +232,10 @@ def histograms(data, diag_data, filename):
 
 
 def plot_bayes_result(
-        results,
-        figheader="./results/test/",
-        filetype=".png",
-        **kwargs,
+    results,
+    figheader="./results/test/",
+    filetype=".png",
+    **kwargs,
 ):
     diag_data = results["diag_data"]
     blobs = results["blobs"]
@@ -247,8 +262,12 @@ def plot_bayes_result(
     plt.close()
 
     if "cxff_pi.ti" in blobs.keys():
-        blobs["cxff_pi.ti0"] = blobs["cxff_pi.ti"].sel(channel=diag_data["cxff_pi.ti"].channel)
-        diag_data["cxff_pi.ti0"] = diag_data["cxff_pi.ti"].sel(channel=diag_data["cxff_pi.ti"].channel)
+        blobs["cxff_pi.ti0"] = blobs["cxff_pi.ti"].sel(
+            channel=diag_data["cxff_pi.ti"].channel
+        )
+        diag_data["cxff_pi.ti0"] = diag_data["cxff_pi.ti"].sel(
+            channel=diag_data["cxff_pi.ti"].channel
+        )
 
     key = "cxff_pi.ti0"
     if key in blobs.keys():
@@ -324,7 +343,6 @@ def plot_bayes_result(
             figheader=figheader,
             ylabel="Temperature [eV]",
             xlabel="Channel",
-
         )
 
     key = "electron_temperature"
@@ -351,7 +369,11 @@ def plot_bayes_result(
     )
     key = "electron_density"
     plot_profile(
-        blobs[key], key, figheader=figheader, filetype=filetype, phantom_profile=phantom_profiles
+        blobs[key],
+        key,
+        figheader=figheader,
+        filetype=filetype,
+        phantom_profile=phantom_profiles,
     )
     key = "impurity_density"
     for elem in blobs[key].element.values:
@@ -391,7 +413,7 @@ def plot_bayes_result(
         figheader=figheader,
         filetype=filetype,
         phantom_profile=phantom_profiles,
-        logscale=True
+        logscale=True,
     )
 
     corner.corner(samples, labels=param_names)
@@ -406,9 +428,9 @@ def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
     autocorr = np.ones((iterations,)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(
-            start_points,
-            iterations=iterations,
-            progress=True,
+        start_points,
+        iterations=iterations,
+        progress=True,
     ):
         if sampler.iteration % auto_sample:
             continue
