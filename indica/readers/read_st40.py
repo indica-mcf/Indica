@@ -74,7 +74,7 @@ class ReadST40:
         self.tend = tend
         self.dt = dt
 
-        self.reader = ST40Reader(pulse, tstart - 0.02, tend + 0.02, tree=tree)
+        self.reader = ST40Reader(pulse, tstart - dt * 4, tend + dt * 4, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -125,10 +125,10 @@ class ReadST40:
                 data_quant = deepcopy(self.raw_data[instr][quant])
 
                 if "t" in data_quant.coords:
-                    if tstart < data_quant.t.min():
-                        tstart = data_quant.t.min()
-                    if tend > data_quant.t.max():
-                        tend = data_quant.t.max()
+                    # if tstart < data_quant.t.min():
+                    #     tstart = data_quant.t.min()
+                    # if tend > data_quant.t.max():
+                    #     tend = data_quant.t.max()
                     data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
                 binned_quantities[quant] = data_quant
             self.binned_data[instr] = binned_quantities
@@ -195,13 +195,14 @@ class ReadST40:
         odd, odd_dims = self.reader._get_data(
             "", "mhd_tor_mode", ".output.spectrogram:ampl_odd", rev
         )
-
-        even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
-        odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
-
-        self.raw_data["mhd"] = {}
-        self.raw_data["mhd"]["ampl_even_n"] = even
-        self.raw_data["mhd"]["ampl_odd_n"] = odd
+        try:
+            even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
+            odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
+            self.raw_data["mhd"] = {}
+            self.raw_data["mhd"]["ampl_even_n"] = even
+            self.raw_data["mhd"]["ampl_odd_n"] = odd
+        except IndexError:
+            return
 
     def plot_profile(
         self,
