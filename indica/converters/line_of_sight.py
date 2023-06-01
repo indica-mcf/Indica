@@ -1,6 +1,7 @@
 """Coordinate system representing a collection of lines of sight.
 """
 
+import getpass
 from typing import cast
 from typing import Tuple
 
@@ -13,11 +14,14 @@ from xarray import Dataset
 from xarray import zeros_like
 
 from indica.utilities import save_figure
+from indica.utilities import set_plot_rcparams
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
+
+FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/los_transform/"
 
 
 class LineOfSightTransform(CoordinateTransform):
@@ -503,7 +507,11 @@ class LineOfSightTransform(CoordinateTransform):
         figure: bool = True,
         save_fig: bool = False,
         fig_path: str = "",
+        plot_impact: bool = True,
     ):
+
+        set_plot_rcparams("profiles")
+
         channels = np.array(self.x1)
         cols = cm.gnuplot2(np.linspace(0.75, 0.1, np.size(channels), dtype=float))
 
@@ -512,7 +520,7 @@ class LineOfSightTransform(CoordinateTransform):
         )
         if hasattr(self, "equilibrium"):
             if t is None:
-                t = np.mean(self.equilibrium.rho.t)
+                t = np.float(np.mean(self.equilibrium.rho.t))
             equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
             x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
                 angles
@@ -537,16 +545,17 @@ class LineOfSightTransform(CoordinateTransform):
                     color=cols[ch],
                     linewidth=2,
                 )
-                plt.plot(
-                    self.impact_parameter["x"][ch],
-                    self.impact_parameter["y"][ch],
-                    color=cols[ch],
-                    marker="o",
-                )
+                if plot_impact:
+                    plt.plot(
+                        self.impact_parameter["x"][ch],
+                        self.impact_parameter["y"][ch],
+                        color=cols[ch],
+                        marker="o",
+                    )
             plt.xlabel("x (m)")
             plt.ylabel("y (m)")
             plt.axis("scaled")
-            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
 
             save_figure(fig_path, f"{self.name}_xy", save_fig=save_fig)
 
@@ -582,16 +591,17 @@ class LineOfSightTransform(CoordinateTransform):
                     color=cols[ch],
                     linewidth=2,
                 )
-                plt.plot(
-                    self.impact_parameter["R"][ch],
-                    self.impact_parameter["z"][ch],
-                    color=cols[ch],
-                    marker="o",
-                )
+                if plot_impact:
+                    plt.plot(
+                        self.impact_parameter["R"][ch],
+                        self.impact_parameter["z"][ch],
+                        color=cols[ch],
+                        marker="o",
+                    )
             plt.xlabel("R (m)")
             plt.ylabel("z (m)")
             plt.axis("scaled")
-            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
             save_figure(fig_path, f"{self.name}_Rz", save_fig=save_fig)
 
         if hasattr(self, "equilibrium") and orientation == "all":
@@ -606,7 +616,7 @@ class LineOfSightTransform(CoordinateTransform):
                 _rho.plot(color=cols[ch], linewidth=2)
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
-            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
             save_figure(fig_path, f"{self.name}_rho", save_fig=save_fig)
 
         return cols
