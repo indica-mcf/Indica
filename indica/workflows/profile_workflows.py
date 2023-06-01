@@ -1,4 +1,5 @@
 from copy import deepcopy
+import getpass
 
 from matplotlib import cm
 import matplotlib.pylab as plt
@@ -9,6 +10,9 @@ from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
 from indica.profiles_gauss import Profiles
+from indica.utilities import save_figure
+from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_rcparams
 
 CMAP = cm.gnuplot2
 
@@ -44,6 +48,8 @@ PARAMETER_LIMITS: dict = {
     },
 }
 
+FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/profiles_pca/"
+
 
 def profile_scans_pca(
     parameter_limits: dict = None,
@@ -51,7 +57,14 @@ def profile_scans_pca(
     datatype: tuple = ("temperature", "electron"),
     rho: LabeledArray = np.linspace(0, 1.0, 41),
     plot: bool = True,
+    save_fig: bool = False,
+    fig_path: str = None,
 ):
+
+    if fig_path is None:
+        fig_path = FIG_PATH
+
+    set_plot_rcparams("profiles")
 
     quantity = f"{datatype[1]}_{datatype[0]}"
     if parameter_limits is None:
@@ -86,17 +99,17 @@ def profile_scans_pca(
     if plot:
         cols = CMAP(np.linspace(0.1, 0.75, scans, dtype=float))
         plt.figure()
-        sort_ind = np.argsort(profile_scans.sel(rho_poloidal=0))
-        for i in range(scans):
-            plt.plot(
-                profile_scans.rho_poloidal,
-                profile_scans.values[sort_ind[i], :],
-                alpha=0.5,
+        sort_ind = np.argsort(profile_scans.sel(rho_poloidal=0)).values
+        for i, scan in enumerate(sort_ind):
+            profile_scans.sel(scan=scan).plot(
+                alpha=0.6,
                 color=cols[i],
             )
-        plt.title(f"{datatype[1]} {datatype[0]}")
+        plt.title("")
         if quantity == "thermal_neutral_density":
             plt.yscale("log")
+        set_axis_sci()
+        save_figure(fig_path, f"{quantity}_uniform_scan", save_fig=save_fig)
 
         for k in parameter_keys:
             counts, bins = np.histogram(getattr(profile_scans, k))
