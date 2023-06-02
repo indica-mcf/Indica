@@ -149,8 +149,8 @@ class ReadST40:
                 for quant in data_to_map[instr]:
                     data = data_to_map[instr][quant]
                     transform = data.transform
-                    if hasattr(data.transform, "convert_to_rho"):
-                        transform.convert_to_rho(t=data.t)
+                    if hasattr(data.transform, "convert_to_rho_theta"):
+                        transform.convert_to_rho_theta(t=data.t)
                     else:
                         break
 
@@ -184,6 +184,24 @@ class ReadST40:
             filtered = xr.where(condition, self.binned_data["ts"][quantity], np.nan)
             filtered.attrs = attrs
             self.binned_data["ts"][quantity] = filtered
+
+    def add_mhd(self):
+        t_slice = slice(self.tstart, self.tend)
+        rev = 0
+
+        even, even_dims = self.reader._get_data(
+            "", "mhd_tor_mode", ".output.spectrogram:ampl_even", rev
+        )
+        odd, odd_dims = self.reader._get_data(
+            "", "mhd_tor_mode", ".output.spectrogram:ampl_odd", rev
+        )
+
+        even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
+        odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
+
+        self.raw_data["mhd"] = {}
+        self.raw_data["mhd"]["ampl_even_n"] = even
+        self.raw_data["mhd"]["ampl_odd_n"] = odd
 
     def plot_profile(
         self,

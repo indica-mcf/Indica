@@ -39,9 +39,13 @@ class ChargeExchange(DiagnosticModel):
             if quant == "vtor":
                 quantity = quant
                 self.bckc[quantity] = self.Vtor_at_channels
+                long_name = "Toroidal rotation"
+                units = "rad/s"
             elif quant == "ti":
                 quantity = quant
                 self.bckc[quantity] = self.Ti_at_channels
+                long_name = "Ion temperature"
+                units = "eV"
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -54,6 +58,8 @@ class ChargeExchange(DiagnosticModel):
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
+                "long_name": long_name,
+                "units": units,
             }
 
     def __call__(
@@ -102,6 +108,7 @@ class ChargeExchange(DiagnosticModel):
         if method == 'sample':
             ti_at_channels = self.transect_transform.map_to_rho(Ti, t=t, calc_rho=calc_rho)
             vtor_at_channels = self.transect_transform.map_to_rho(
+        Vtor_at_channels = self.transect_transform.map_profile_to_rho(
                 Vtor, t=t, calc_rho=calc_rho
             )
         elif method == 'fidasim':
@@ -436,9 +443,8 @@ def example_run(
                 alpha=0.7,
             )
             Vtor = bckc["vtor"].sel(t=t, method="nearest")
-            plt.scatter(
-                Vtor.rho_poloidal, Vtor, color=cols_time[i], marker="o", alpha=0.7
-            )
+            rho = Vtor.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(rho, Vtor, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured toroidal rotation (rad/s)")
         plt.legend()
@@ -451,7 +457,8 @@ def example_run(
                 alpha=0.7,
             )
             Ti = bckc["ti"].sel(t=t, method="nearest")
-            plt.scatter(Ti.rho_poloidal, Ti, color=cols_time[i], marker="o", alpha=0.7)
+            rho = Ti.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(rho, Ti, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")
         plt.legend()

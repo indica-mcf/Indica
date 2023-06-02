@@ -10,7 +10,6 @@ from typing import Optional
 from typing import Tuple
 
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
@@ -78,7 +77,6 @@ class CoordinateTransform(ABC):
     x2_name: str
     x1: LabeledArray
     x2: LabeledArray
-    rho: LabeledArray
     t: LabeledArray = None
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
@@ -387,10 +385,11 @@ class CoordinateTransform(ABC):
         if hasattr(self, "equilibrium"):
             angles = np.linspace(0.0, 2 * np.pi, npts)
             rho_equil = self.equilibrium.rho.sel(t=tplot, method="nearest")
-            rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
-            core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
-            R_lfs = rho_equil.R[core_ind[0]].values
-            R_hfs = rho_equil.R[core_ind[-1]].values
+            R = rho_equil.R[
+                np.where(rho_equil.sel(z=0, method="nearest") <= 1)[0]
+            ].values
+            R_lfs = R[-1]
+            R_hfs = R[0]
             x_plasma_inner = R_hfs * np.cos(angles)
             x_plasma_outer = R_lfs * np.cos(angles)
             y_plasma_inner = R_hfs * np.sin(angles)

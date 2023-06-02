@@ -198,10 +198,13 @@ class Helike_spectroscopy(DiagnosticModel):
 
         self.spectra = spectra
 
-        self.measured_spectra = self.los_transform.integrate_on_los(
+        measured_spectra = self.los_transform.integrate_on_los(
             self.spectra,
             t=self.spectra.t,
             calc_rho=calc_rho,
+        )
+        self.measured_spectra = measured_spectra.assign_coords(
+            {"wavelength": self.window.wavelength}
         )
         self.spectra_los = self.los_transform.along_los
 
@@ -240,11 +243,15 @@ class Helike_spectroscopy(DiagnosticModel):
         measured_Ti = {}
         measured_Nimp = {}
         for line in self.line_emission.keys():
+            channels = self.los_transform.x1
+            if len(self.los_transform.x1) == 1:
+                channels = self.los_transform.x1[0]
+
             emission = self.line_emission[line]
             los_integral = self.los_transform.integrate_on_los(emission, t=emission.t)
-            emission_los = self.los_transform.along_los
+            emission_los = self.los_transform.along_los.sel(channel=channels)
             emission_sum = emission_los.sum("los_position", skipna=True)
-            rho_los = self.los_transform.rho
+            rho_los = self.los_transform.rho.sel(channel=channels)
 
             rho_mean[line] = (emission_los * rho_los).sum(
                 "los_position", skipna=True
@@ -252,21 +259,23 @@ class Helike_spectroscopy(DiagnosticModel):
             measured_intensity[line] = los_integral
             emission_los[line] = emission_los
 
-            Te_along_los = self.los_transform.map_to_los(self.Te, t=emission.t)
+            Te_along_los = self.los_transform.map_profile_to_los(
+                self.Te, t=emission.t
+            ).sel(channel=channels)
             measured_Te[line] = (emission_los * Te_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
 
-            Ti_along_los = self.los_transform.map_to_los(
+            Ti_along_los = self.los_transform.map_profile_to_los(
                 self.Ti.sel(element=self.element), t=emission.t
-            )
+            ).sel(channel=channels)
             measured_Ti[line] = (emission_los * Ti_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
 
-            Nimp_along_los = self.los_transform.map_to_los(
+            Nimp_along_los = self.los_transform.map_profile_to_los(
                 self.Nimp.sel(element=self.element), t=emission.t
-            )
+            ).sel(channel=channels)
             measured_Nimp[line] = (emission_los * Nimp_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
@@ -282,6 +291,8 @@ class Helike_spectroscopy(DiagnosticModel):
         self.bckc = {}
         if "spectra" in self.quantities and hasattr(self, "measured_spectra"):
             self.bckc["spectra"] = self.measured_spectra
+            self.bckc["spectra"].attrs["long_name"] = "Spectra"
+            self.bckc["spectra"].attrs["units"] = "a.u."
 
         if self.moment_analysis:
             for quantity in self.quantities:
@@ -305,6 +316,21 @@ class Helike_spectroscopy(DiagnosticModel):
 
                 self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
                 self.bckc[quantity].attrs["datatype"] = datatype
+                if "te" in quantity:
+                    long_name = "Te"
+                    units = "eV"
+                elif "ti" in quantity:
+                    long_name = "Ti"
+                    units = "eV"
+                elif "int" in quantity:
+                    long_name = "Line intensity"
+                    units = "a.u."
+                else:
+                    long_name = ""
+                    units = ""
+                self.bckc[quantity].attrs["long_name"] = long_name
+                self.bckc[quantity].attrs["units"] = units
+
                 if line in self.pos.keys():
                     self.bckc[quantity].attrs["pos"] = self.pos[line]
 
@@ -325,7 +351,7 @@ class Helike_spectroscopy(DiagnosticModel):
         Nh: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
-        moment_analysis: bool = False,
+        moment_analysis: bool = True,
         **kwargs,
     ):
         """

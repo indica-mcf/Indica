@@ -124,9 +124,15 @@ class Equilibrium:
                 self.provenance.wasDerivedFrom(val.attrs["provenance"])
 
     def Bfield(
-        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        full_Rz: bool = False,
     ) -> Tuple[LabeledArray, LabeledArray, LabeledArray, LabeledArray]:
         """Magnetic field components at this location in space.
+
+        TODO: B_T approximated as following 1/R for any z to fill whole (R,z) space
 
         Parameters
         ----------
@@ -175,15 +181,25 @@ class Equilibrium:
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
+
         f = f.interp(rho_poloidal=rho_)
         f.name = self.f.name
         b_T = f / _R
         b_T.name = "Toroidal Magnetic Field (T)"
 
+        if full_Rz:
+            _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
+            _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
+            b_T = _b_T.interp(R=_R, z=_z)
+
         return b_R, b_z, b_T, t
 
     def Btot(
-        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        full_Rz: bool = False,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Total magnetic field strength at this location in space.
 
@@ -768,7 +784,6 @@ def prepare_coords(R: LabeledArray, z: LabeledArray) -> Tuple[DataArray, DataArr
 
     #if np.shape(R) != np.shape(z):
     #    raise ValueError("R and z must have the same shape.")
-
     if type(R) != DataArray or type(z) != DataArray:
         coords: list = []
         for idim, npts in enumerate(np.shape(R)):

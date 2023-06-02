@@ -34,9 +34,13 @@ class ThomsonScattering(DiagnosticModel):
             if quant == "ne":
                 quantity = quant
                 self.bckc[quantity] = self.Ne_at_channels
+                long_name = "Ne"
+                units = "$m^{-3}$"
             elif quant == "te":
                 quantity = quant
                 self.bckc[quantity] = self.Te_at_channels
+                long_name = "Te"
+                units = "eV"
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -49,6 +53,8 @@ class ThomsonScattering(DiagnosticModel):
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
+                "long_name": long_name,
+                "units": units,
             }
 
     def __call__(
@@ -86,12 +92,12 @@ class ThomsonScattering(DiagnosticModel):
         self.Ne = Ne
         self.Te = Te
 
-        Ne_at_channels = self.transect_transform.map_to_rho(
+        Ne_at_channels = self.transect_transform.map_profile_to_rho(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
         )
-        Te_at_channels = self.transect_transform.map_to_rho(
+        Te_at_channels = self.transect_transform.map_profile_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
