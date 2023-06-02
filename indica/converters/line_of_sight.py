@@ -12,6 +12,7 @@ from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
 
+from indica.utilities import save_figure
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
@@ -75,6 +76,7 @@ class LineOfSightTransform(CoordinateTransform):
         passes: int = 1,
     ):
 
+        self.instrument_name: str = name
         self.name = f"{name}_line_of_sight_transform"
         self.x1_name = "channel"
         self.x2_name = "los_position"
@@ -498,8 +500,9 @@ class LineOfSightTransform(CoordinateTransform):
         self,
         t: float = None,
         orientation: str = "all",
-        plot_all: bool = False,
         figure: bool = True,
+        save_fig: bool = False,
+        fig_path: str = "",
     ):
         channels = np.array(self.x1)
         cols = cm.gnuplot2(np.linspace(0.75, 0.1, np.size(channels), dtype=float))
@@ -540,9 +543,12 @@ class LineOfSightTransform(CoordinateTransform):
                     color=cols[ch],
                     marker="o",
                 )
-            plt.xlabel("x")
-            plt.ylabel("y")
+            plt.xlabel("x (m)")
+            plt.ylabel("y (m)")
             plt.axis("scaled")
+            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+
+            save_figure(fig_path, f"{self.name}_xy", save_fig=save_fig)
 
         if orientation == "Rz" or orientation == "all":
             if figure:
@@ -582,9 +588,11 @@ class LineOfSightTransform(CoordinateTransform):
                     color=cols[ch],
                     marker="o",
                 )
-            plt.xlabel("R")
-            plt.ylabel("z")
+            plt.xlabel("R (m)")
+            plt.ylabel("z (m)")
             plt.axis("scaled")
+            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+            save_figure(fig_path, f"{self.name}_Rz", save_fig=save_fig)
 
         if hasattr(self, "equilibrium") and orientation == "all":
             if not hasattr(self, "rho"):
@@ -598,6 +606,8 @@ class LineOfSightTransform(CoordinateTransform):
                 _rho.plot(color=cols[ch], linewidth=2)
             plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
+            plt.title(f"{self.instrument_name.upper()} t = {t:.3f}")
+            save_figure(fig_path, f"{self.name}_rho", save_fig=save_fig)
 
         return cols
 
