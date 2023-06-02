@@ -118,7 +118,7 @@ class ChargeExchange(DiagnosticModel):
                 raise ValueError("Please assign beam class!")
 
             # Get rho points
-            rho, _ = self.transect_transform.convert_to_rho(t=self.plasma.t)
+            rho, _ = self.transect_transform.convert_to_rho_theta(t=self.plasma.t)
 
             # Run fidasim
             fidasim_results = self.run_fidasim(
