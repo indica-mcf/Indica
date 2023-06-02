@@ -106,10 +106,11 @@ class ChargeExchange(DiagnosticModel):
         self.Ti = Ti
 
         if method == 'sample':
-            ti_at_channels = self.transect_transform.map_to_rho(Ti, t=t, calc_rho=calc_rho)
-            vtor_at_channels = self.transect_transform.map_to_rho(
-        Vtor_at_channels = self.transect_transform.map_profile_to_rho(
-                Vtor, t=t, calc_rho=calc_rho
+            ti_at_channels = self.transect_transform.map_profile_to_rho(
+                Ti, t=t, calc_rho=calc_rho
+            )
+            vtor_at_channels = self.transect_transform.map_profile_to_rho(
+                    Vtor, t=t, calc_rho=calc_rho
             )
         elif method == 'fidasim':
 
