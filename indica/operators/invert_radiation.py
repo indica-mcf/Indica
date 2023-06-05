@@ -531,3 +531,59 @@ class InvertRadiation(Operator):
             *cameras,
             emissivity_from_knotvals=_emissivity_from_knotvals_standard,
         )
+
+    def invert_with_asymmetry(
+        R: xr.DataArray,
+        z: xr.DataArray,
+        times: xr.DataArray,
+        *cameras: xr.DataArray,
+        asymmetry_parameters: xr.DataArray,
+    ) -> Tuple[Union[xr.DataArray, xr.Dataset], ...]:
+        """
+        Uses fixed asymmetry parameter for each element, which can be calculated
+        from rotation information, to fix asymmetry parameter when inverting sxr.
+        This reduces the degrees of freedom per element, allowing the densities of
+        multiple elements to be determined.
+
+        Parameters
+        ----------
+        coord_system
+            The transform describing the system used by the provided coordinates
+        R
+            The first spatial coordinate
+        z
+            The second spatial coordinate
+        t
+            The time coordinate
+        cameras
+            The luminosity data being fit to, with each camera passed
+            as a separate argument.
+        asymmetry_parameters
+            The asymmetry parameter for each element. Coordinates element,
+            rho_poloidal and t.
+
+        Returns
+        -------
+        : xr.DataArray
+            The fit emissivity, on the R-z grid. Will also contain an
+            attribute "emissivity_model", which is an
+            :py:class:`indica.operators.invert_radiation.EmissivityProfile`
+            object that can interpolate the fit emissivity onto
+            arbitrary coordinates.
+        : xr.Dataset
+            A dataset containing
+
+            - **symmetric_emissivity**: The symmetric emissivity
+               values which were found during the fit, given along
+               :math:`\\rho`.
+
+        : xr.Dataset
+            For each camera passed as an argument, a dataset containing
+
+            - **camera**: The radiation data for that camera, binned in time.
+            - **back_integral**: The integral of the fit emissivity along
+              the lines of sight of the camera.
+            - **weights**: The weights assigned to each line of sight of the
+              camera when fitting emissivity.
+        """
+        raise NotImplementedError
