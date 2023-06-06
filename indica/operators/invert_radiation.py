@@ -175,6 +175,7 @@ def _emissivity_from_knotvals_standard(
     dim_name: str,
     n: int,
     last_knot_zero: bool,
+    t: float,
 ) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Take a set of knotvals (flat array of values from optimizer) and convert
@@ -415,9 +416,10 @@ class InvertRadiation(Operator):
         def residuals(
             knotvals: np.ndarray,
             unfolded_cameras: List[xr.Dataset],
+            t: float,
         ) -> np.ndarray:
             symmetric_emissivity, asymmetry_parameter = emissivity_from_knotvals(
-                knots, knotvals, dim_name, n, self.last_knot_zero
+                knots, knotvals, dim_name, n, self.last_knot_zero, t
             )
             estimate = EmissivityProfile(
                 symmetric_emissivity, asymmetry_parameter, flux_coords
@@ -481,7 +483,10 @@ class InvertRadiation(Operator):
                 residuals,
                 guess,
                 bounds=bounds,
-                args=([c.sel(t=t) for c in unfolded_cameras],),
+                args=(
+                    [c.sel(t=t) for c in unfolded_cameras],
+                    t,
+                ),
                 verbose=2,
             )
             if fit.status == -1:
@@ -496,7 +501,7 @@ class InvertRadiation(Operator):
                     RuntimeWarning,
                 )
             sym, asym = emissivity_from_knotvals(
-                knots, fit.x, dim_name, n, self.last_knot_zero
+                knots, fit.x, dim_name, n, self.last_knot_zero, t
             )
             symmetric_emissivities.append(sym)
             asymmetry_parameters.append(asym)
@@ -620,6 +625,7 @@ class InvertRadiation(Operator):
             dim_name: str,
             n: int,
             last_knot_zero: bool,
+            t: float,
         ) -> Tuple[xr.DataArray, xr.DataArray]:
             """
             Take a set of knotvals (flat array of values from optimizer) and convert
@@ -631,7 +637,7 @@ class InvertRadiation(Operator):
             if last_knot_zero:
                 symmetric_emissivity[-1] = 0.0
             # TODO: set time point properly
-            asymmetry_parameter = asymmetry_parameters.isel(t=0, drop=True)
+            asymmetry_parameter = asymmetry_parameters.sel(t=t, drop=True)
             return symmetric_emissivity, asymmetry_parameter
 
         return self._process_and_invert(
