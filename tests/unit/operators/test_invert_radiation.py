@@ -237,7 +237,7 @@ def test_invert_with_asymmetry():
     R_grid = coord_array(np.linspace(0.1, 1.1, 6), "R")
     z_grid = coord_array(np.linspace(-1.0, 1.0, 5), "z")
     emissivity, fit_params, cam_data = inverter.invert_with_asymmetry(
-        R_grid, z_grid, times, flux, asym
+        R_grid, z_grid, times, asym, flux
     )
     assert_allclose(
         cam_data.camera.drop_vars("alpha_rho_poloidal").transpose(*flux.dims), flux

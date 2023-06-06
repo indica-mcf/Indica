@@ -533,11 +533,12 @@ class InvertRadiation(Operator):
         )
 
     def invert_with_asymmetry(
+        self,
         R: xr.DataArray,
         z: xr.DataArray,
         times: xr.DataArray,
-        *cameras: xr.DataArray,
         asymmetry_parameters: xr.DataArray,
+        *cameras: xr.DataArray,
     ) -> Tuple[Union[xr.DataArray, xr.Dataset], ...]:
         """
         Uses fixed asymmetry parameter for each element, which can be calculated
@@ -555,12 +556,12 @@ class InvertRadiation(Operator):
             The second spatial coordinate
         t
             The time coordinate
-        cameras
-            The luminosity data being fit to, with each camera passed
-            as a separate argument.
         asymmetry_parameters
             The asymmetry parameter for each element. Coordinates element,
             rho_poloidal and t.
+        cameras
+            The luminosity data being fit to, with each camera passed
+            as a separate argument.
 
         Returns
         -------
@@ -586,4 +587,31 @@ class InvertRadiation(Operator):
             - **weights**: The weights assigned to each line of sight of the
               camera when fitting emissivity.
         """
-        raise NotImplementedError
+
+        def _emissivity_from_knotvals_asymmetry_fixed(
+            knots: np.ndarray,
+            knotvals: np.ndarray,
+            dim_name: str,
+            n: int,
+            m: int,
+            last_knot_zero: bool,
+        ) -> Tuple[xr.DataArray, xr.DataArray]:
+            """
+            Take a set of knotvals (flat array of values from optimizer) and convert
+            them to symmetric_emissivity and asymmetry_parameter DataArrays.
+            """
+            symmetric_emissivity = xr.DataArray(np.empty(n), coords=[(dim_name, knots)])
+            symmetric_emissivity[0:m] = knotvals[0:m]
+            if last_knot_zero:
+                symmetric_emissivity[-1] = 0.0
+            # TODO: set time point properly
+            asymmetry_parameter = asymmetry_parameters.isel(t=0, drop=True)
+            return symmetric_emissivity, asymmetry_parameter
+
+        return self._process_and_invert(
+            R,
+            z,
+            times,
+            *cameras,
+            emissivity_from_knotvals=_emissivity_from_knotvals_asymmetry_fixed,
+        )
