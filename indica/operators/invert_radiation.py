@@ -165,18 +165,26 @@ class EmissivityProfile:
         return xr.where(result < 0.0, 0.0, result).fillna(0.0)
 
 
+def _get_m(n: int, last_knot_zero: bool) -> int:
+    return n - 1 if last_knot_zero else n
+
+
 def _emissivity_from_knotvals_standard(
     knots: np.ndarray,
     knotvals: np.ndarray,
     dim_name: str,
     n: int,
-    m: int,
     last_knot_zero: bool,
 ) -> Tuple[xr.DataArray, xr.DataArray]:
     """
     Take a set of knotvals (flat array of values from optimizer) and convert
     them to symmetric_emissivity and asymmetry_parameter DataArrays.
+
+    The value of symmetric_emissivity can be constrained to be 0. The first
+    value of asymmetry parameter is constrained to be half the second value,
+    and the last half the second last.
     """
+    m = _get_m(n, last_knot_zero)
     symmetric_emissivity = xr.DataArray(np.empty(n), coords=[(dim_name, knots)])
     symmetric_emissivity[0:m] = knotvals[0:m]
     if last_knot_zero:
@@ -186,6 +194,27 @@ def _emissivity_from_knotvals_standard(
     asymmetry_parameter[1:-1] = knotvals[m:]
     asymmetry_parameter[-1] = 0.5 * knotvals[-1]
     return symmetric_emissivity, asymmetry_parameter
+
+
+def _init_guess_bounds_standard(knots: np.ndarray, n: int, last_knot_zero: bool):
+    m = _get_m(n, last_knot_zero)
+    abel_inversion = np.linspace(3e3, 0.0, m)
+    guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
+    bounds = (
+        np.concatenate((np.zeros(m), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
+        np.concatenate((1e12 * np.ones(m), np.ones(n - 2))),
+    )
+    return guess, bounds
+
+
+def _init_guess_bounds_symmetric_only(knots: np.ndarray, n: int, last_knot_zero: bool):
+    m = _get_m(n, last_knot_zero)
+    guess = np.linspace(3e3, 0.0, m)
+    bounds = (
+        np.zeros(m),
+        1e12 * np.ones(m),
+    )
+    return guess, bounds
 
 
 class InvertRadiation(Operator):
@@ -334,6 +363,7 @@ class InvertRadiation(Operator):
         times: xr.DataArray,
         *cameras: xr.DataArray,
         emissivity_from_knotvals,
+        init_guess_bounds,
     ) -> Tuple[Union[xr.DataArray, xr.Dataset], ...]:
         """Calculate the emissivity profile for the plasma.
 
@@ -387,7 +417,7 @@ class InvertRadiation(Operator):
             unfolded_cameras: List[xr.Dataset],
         ) -> np.ndarray:
             symmetric_emissivity, asymmetry_parameter = emissivity_from_knotvals(
-                knots, knotvals, dim_name, n, m, self.last_knot_zero
+                knots, knotvals, dim_name, n, self.last_knot_zero
             )
             estimate = EmissivityProfile(
                 symmetric_emissivity, asymmetry_parameter, flux_coords
@@ -437,17 +467,12 @@ class InvertRadiation(Operator):
         knots = self.knot_positions(n, rho_max)
         dim_name = "rho_" + flux_coords.flux_kind
 
-        # initialise results lists, initial guess and bounds
+        guess, bounds = init_guess_bounds(knots, n, self.last_knot_zero)
+
+        # result lists
         symmetric_emissivities: List[xr.DataArray] = []
         asymmetry_parameters: List[xr.DataArray] = []
         integrals: List[List[xr.DataArray]] = []
-        m = n - 1 if self.last_knot_zero else n
-        abel_inversion = np.linspace(3e3, 0.0, m)
-        guess = np.concatenate((abel_inversion, np.zeros(n - 2)))
-        bounds = (
-            np.concatenate((np.zeros(m), np.where(knots[1:-1] > 0.5, 0.0, -0.5))),
-            np.concatenate((1e12 * np.ones(m), np.ones(n - 2))),
-        )
 
         for t in np.asarray(times):
             print(f"\nSolving for t={t}")
@@ -471,7 +496,7 @@ class InvertRadiation(Operator):
                     RuntimeWarning,
                 )
             sym, asym = emissivity_from_knotvals(
-                knots, fit.x, dim_name, n, m, self.last_knot_zero
+                knots, fit.x, dim_name, n, self.last_knot_zero
             )
             symmetric_emissivities.append(sym)
             asymmetry_parameters.append(asym)
@@ -530,6 +555,7 @@ class InvertRadiation(Operator):
             times,
             *cameras,
             emissivity_from_knotvals=_emissivity_from_knotvals_standard,
+            init_guess_bounds=_init_guess_bounds_standard,
         )
 
     def invert_with_asymmetry(
@@ -593,13 +619,13 @@ class InvertRadiation(Operator):
             knotvals: np.ndarray,
             dim_name: str,
             n: int,
-            m: int,
             last_knot_zero: bool,
         ) -> Tuple[xr.DataArray, xr.DataArray]:
             """
             Take a set of knotvals (flat array of values from optimizer) and convert
             them to symmetric_emissivity and asymmetry_parameter DataArrays.
             """
+            m = _get_m(n, self.last_knot_zero)
             symmetric_emissivity = xr.DataArray(np.empty(n), coords=[(dim_name, knots)])
             symmetric_emissivity[0:m] = knotvals[0:m]
             if last_knot_zero:
@@ -614,4 +640,5 @@ class InvertRadiation(Operator):
             times,
             *cameras,
             emissivity_from_knotvals=_emissivity_from_knotvals_asymmetry_fixed,
+            init_guess_bounds=_init_guess_bounds_symmetric_only,
         )
