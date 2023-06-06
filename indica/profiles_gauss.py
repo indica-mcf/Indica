@@ -6,6 +6,8 @@ from scipy.interpolate import CubicSpline
 import xarray as xr
 from xarray import DataArray
 
+UNITS = {"density": "$m^{-3}$", "temperature": "eV", "rotation": "rad/s"}
+
 
 class Profiles:
     def __init__(
@@ -178,8 +180,10 @@ class Profiles:
 
         yspl = DataArray(yspl, coords=[(self.coord, self.xspl)])
         attrs = {"datatype": self.datatype}
-        name = self.datatype[1] + "_" + self.datatype[0]
-        yspl.name = name
+        if self.datatype[0] in UNITS.keys():
+            attrs["units"] = UNITS[self.datatype[0]]
+        long_name = self.datatype[1][0].upper() + self.datatype[1][1:]
+        attrs["long_name"] = f"{long_name} {self.datatype[0]}"
         yspl.attrs = attrs
 
         self.yspl = yspl

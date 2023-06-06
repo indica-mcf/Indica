@@ -155,7 +155,7 @@ class SXRcamera(DiagnosticModel):
 
 def example_run(
     pulse: int = None,
-    diagnostic_name: str = "bolo_Rz",
+    diagnostic_name: str = "sxr_Rz",
     origin: LabeledArray = None,
     direction: LabeledArray = None,
     plasma=None,
