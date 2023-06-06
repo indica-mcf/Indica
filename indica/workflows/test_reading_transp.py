@@ -46,9 +46,10 @@ def plasma_code(
 
     n_rad = len(data["ne"].rho_poloidal)
     main_ion = "h"
-    impurities = ("ar", "c", "he")
-    impurity_concentration = (0.001, 0.03, 0.01)
-
+    # impurities = ("ar", "c", "he")
+    impurities = ("ar","c")
+    # impurity_concentration = (0.001, 0.03, 0.01)
+    impurity_concentration = ([0.00001,0.06])
     plasma = Plasma(
         tstart=tstart,
         tend=tend,
@@ -69,14 +70,17 @@ def plasma_code(
     plasma.electron_density.values = Ne.values
 
     Ti = data["ti"].interp(rho_poloidal=plasma.rho, t=plasma.t)  # * 1.0e3
+    normalized_to_c_concentration=1.0 / 0.03 * np.array(impurity_concentration)
     for element in plasma.elements:
         plasma.ion_temperature.loc[dict(element=element)] = Ti.values
+
     for i, impurity in enumerate(plasma.impurities):
         # todo fix hack to add mutiple impurities
-        # Nimp = data[f"niz{1}"].interp(
-        #     rho_poloidal=plasma.rho, t=plasma.t
-        # )  # * 1.0e19 #i+
-        Nimp = impurity_concentration[i]*Ne
+        Nimp = data[f"niz{1}"].interp(
+            rho_poloidal=plasma.rho, t=plasma.t
+        )  # * 1.0e19 #i+
+
+        Nimp = normalized_to_c_concentration[i]*Nimp
         plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
 
     Nf = data["nf"].interp(rho_poloidal=plasma.rho, t=plasma.t)  # * 1.0e19
@@ -127,14 +131,14 @@ def plot_modelling_results(
     )
     fast_density.sel(t=time, method="nearest").plot(label="fast ions")
 
-    ne_c=6*plasma.impurity_density.sel(element='c').sel(t=time, method="nearest")
-    ne_he = 2*plasma.impurity_density.sel(element='he').sel(t=time, method="nearest")
-    ne_ar = 18 * plasma.impurity_density.sel(element='ar').sel(t=time, method="nearest")
-    ne_t = fast_density.sel(t=time, method="nearest") + ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest")+ne_c+ne_he+ne_ar
-    ne_c.plot(label="carbon e-")
-    ne_he.plot(label="he e-")
-    ne_ar.plot(label="ar e-")
-    ne_t.plot(label="tot e- from ions")
+    # ne_c=6*plasma.impurity_density.sel(element='c').sel(t=time, method="nearest")
+    # ne_he = 2*plasma.impurity_density.sel(element='he').sel(t=time, method="nearest")
+    # ne_ar = 18 * plasma.impurity_density.sel(element='ar').sel(t=time, method="nearest")
+    # ne_t = fast_density.sel(t=time, method="nearest") + ion_density.sel(element=plasma.main_ion).sel(t=time, method="nearest")+ne_c+ne_he+ne_ar
+    # ne_c.plot(label="carbon e-")
+    # ne_he.plot(label="he e-")
+    # ne_ar.plot(label="ar e-")
+    # ne_t.plot(label="tot e- from ions")
 
     plt.title("Electron/Ion densities")
     plt.legend()
@@ -306,6 +310,5 @@ if plot:
 # plasma.equilibrium.rho.sel(t=time, method="nearest").plot.contour(levels=levels)
 # plt.axis("scaled")
 # plt.title("Equilibrium")
-
 
 help(st40)
