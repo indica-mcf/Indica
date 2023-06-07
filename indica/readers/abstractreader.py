@@ -188,6 +188,7 @@ class DataReader(BaseIO):
             y_coord,
             z_coord,
             f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
         )
         coords = [
             ("t", times),
@@ -261,6 +262,7 @@ class DataReader(BaseIO):
             y_coord,
             z_coord,
             f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
         )
         coords = [
             ("t", times),
@@ -278,7 +280,7 @@ class DataReader(BaseIO):
                 direction[:, 1],
                 direction[:, 2],
                 f"{instrument}",
-                database_results["machine_dims"],
+                machine_dimensions=database_results["machine_dims"],
                 dl=dl,
                 passes=passes,
             )
@@ -484,7 +486,7 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
@@ -550,7 +552,7 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
@@ -617,7 +619,7 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
@@ -691,7 +693,7 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
@@ -756,7 +758,7 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
