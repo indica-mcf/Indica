@@ -863,6 +863,12 @@ class ST40Reader(DataReader):
 
         texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
+
+        x, x_path = self._get_signal(uid, instrument, ":x", revision)
+        y, y_path = self._get_signal(uid, instrument, ":y", revision)
+        z, z_path = self._get_signal(uid, instrument, ":z", revision)
+        R, R_path = self._get_signal(uid, instrument, ":R", revision)
+
         try:
             location, location_path = self._get_signal(
                 uid, instrument, ".geometry:location", revision
@@ -873,14 +879,19 @@ class ST40Reader(DataReader):
             if len(np.shape(location)) == 1:
                 location = np.array([location])
                 direction = np.array([direction])
+
+            # TODO: temporary fix until geometry sorted
+            if location.shape[0] != x.shape[0]:
+                if self.pulse > 10200:
+                    index = np.arange(18, 36)
+                else:
+                    index = np.arange(21, 36)
+                location = location[index]
+                direction = direction[index]
+
         except TreeNNF:
             location = None
             direction = None
-
-        x, x_path = self._get_signal(uid, instrument, ":x", revision)
-        y, y_path = self._get_signal(uid, instrument, ":y", revision)
-        z, z_path = self._get_signal(uid, instrument, ":z", revision)
-        R, R_path = self._get_signal(uid, instrument, ":R", revision)
 
         for q in quantities:
             qval, q_path = self._get_signal(
