@@ -193,10 +193,12 @@ def plot_gpr_fit(
     fig_style: str = "profiles",
     ylabel: str = "",
     xlabel: str = "",
+    label: str = "",
     title: str = "",
     fig_name: str = "",
     figure: bool = True,
     save_fig: bool = False,
+    color=None,
 ):
     set_plot_rcparams(fig_style)
 
@@ -228,15 +230,21 @@ def plot_gpr_fit(
     y_fit_err = fit_err.sel(t=tplot)
 
     plt.fill_between(
-        _x_fit, y_fit - y_fit_err, y_fit + y_fit_err, alpha=0.8, color=COLORS["ion"]
+        _x_fit,
+        y_fit - y_fit_err,
+        y_fit + y_fit_err,
+        alpha=0.5,
+        color=color,
     )
-    plt.plot(_x_fit, y_fit, color=COLORS["ion"])
-    plt.errorbar(_x_data, y_data, y_err, linestyle="", color=COLORS["electron"])
-    plt.plot(_x_data, y_data, marker="o", linestyle="", color=COLORS["fast"])
+    plt.plot(_x_fit, y_fit, color=color)
+    plt.errorbar(_x_data, y_data, y_err, linestyle="", color=color)
+    plt.plot(_x_data, y_data, marker="o", linestyle="", color=color, label=label)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(f"{title} t = {tplot:.3f} s")
     set_axis_sci()
+    if len(label) > 0:
+        plt.legend()
 
     if save_fig:
         save_figure(FIG_PATH, f"{fig_name}_GPR_fit_{tplot:.3f}_s", save_fig=save_fig)
