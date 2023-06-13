@@ -69,6 +69,7 @@ class ReadST40:
         dt: float = 0.01,
         tree="ST40",
     ):
+        self.debug = False
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
@@ -289,6 +290,7 @@ class ReadST40:
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
         map_diagnostics: bool = False,
+        raw_only: bool = False,
         debug: bool = False,
     ):
         self.debug = debug
@@ -316,6 +318,8 @@ class ReadST40:
                 except Exception as e:
                     print(f"Error reading {instrument}: {e}")
 
+        if raw_only:
+            return
         instruments = list(self.raw_data)
 
         print_like("Binning in time")
