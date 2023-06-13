@@ -9,6 +9,7 @@ from typing import Tuple
 
 import numpy as np
 
+from copy import deepcopy
 from indica import session
 from indica.numpy_typing import RevisionLike
 from indica.readers import DataReader
@@ -61,11 +62,7 @@ class Reader(DataReader):
         self.pulse = pulse
 
     def _get_charge_exchange(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -77,9 +74,15 @@ class Reader(DataReader):
         }
         dt = np.random.uniform(0.001, 1.0)
         times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        results["texp"] = np.full_like(times, dt)
+        wavelength = np.arange(520, 530, 0.1)
         nt = times.shape[0]
+        results["times"] = times
+        results["wavelength"] = wavelength
+        results["spectra"] = np.random.uniform(
+            10, 10.0e3, (nt, results["length"], wavelength.size)
+        )
+        results["fit"] = deepcopy(results["spectra"])
+        results["texp"] = np.full_like(times, dt)
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
@@ -110,11 +113,7 @@ class Reader(DataReader):
         return results
 
     def _get_thomson_scattering(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -150,11 +149,7 @@ class Reader(DataReader):
         return results
 
     def _get_equilibrium(
-        self,
-        uid: str,
-        calculation: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, calculation: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         Rmin, Rmax = self.MACHINE_DIMS[0][0], self.MACHINE_DIMS[0][1]
@@ -204,11 +199,7 @@ class Reader(DataReader):
         return results
 
     def _get_radiation(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -232,11 +223,7 @@ class Reader(DataReader):
         return results
 
     def _get_bremsstrahlung_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -263,11 +250,7 @@ class Reader(DataReader):
         return results
 
     def _get_helike_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         nwavelength = np.random.randint(256, 1024)
@@ -305,11 +288,7 @@ class Reader(DataReader):
         return results
 
     def _get_diode_filters(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -339,11 +318,7 @@ class Reader(DataReader):
         return results
 
     def _get_interferometry(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+        self, uid: str, instrument: str, revision: RevisionLike, quantities: Set[str],
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -377,9 +352,7 @@ class Reader(DataReader):
         return []
 
     def _set_times_item(
-        self,
-        results: Dict[str, Any],
-        times: np.ndarray,
+        self, results: Dict[str, Any], times: np.ndarray,
     ):
         if "times" not in results:
             times = times
@@ -392,19 +365,14 @@ class Reader(DataReader):
 
 
 def _test_get_methods(
-    instrument="ts",
-    nsamples=1,
+    instrument="ts", nsamples=1,
 ):
     """
     Generalised test for all get methods of the abstractreader
     """
 
     for i in range(nsamples):
-        reader = Reader(
-            1,
-            TSTART,
-            TEND,
-        )
+        reader = Reader(1, TSTART, TEND,)
 
         quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
 
@@ -433,27 +401,23 @@ def test_get_radiation():
 
 def test_get_bremsstrahlung_spectroscopy():
     _test_get_methods(
-        instrument="bremsstrahlung_spectroscopy",
-        nsamples=10,
+        instrument="bremsstrahlung_spectroscopy", nsamples=10,
     )
 
 
 def test_get_helike_spectroscopy():
     _test_get_methods(
-        instrument="helike_spectroscopy",
-        nsamples=10,
+        instrument="helike_spectroscopy", nsamples=10,
     )
 
 
 def test_get_diode_filters():
     _test_get_methods(
-        instrument="filters",
-        nsamples=10,
+        instrument="filters", nsamples=10,
     )
 
 
 def test_get_interferometry():
     _test_get_methods(
-        instrument="interferometry",
-        nsamples=10,
+        instrument="interferometry", nsamples=10,
     )

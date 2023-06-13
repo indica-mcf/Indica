@@ -487,7 +487,10 @@ def set_plot_rcparams(option: str = "profiles"):
         rcParams.update({key: value})
 
 
-def set_axis_sci(axis: str = "y"):
-    ylim = np.abs(np.array(plt.ylim()))
-    if ylim.max() > 1.0e3 or ylim.min() < 1.0e-2:
-        plt.ticklabel_format(style="sci", axis=axis, scilimits=(0, 0))
+def set_axis_sci(plot_object=None, axis: str = "y"):
+    if hasattr(plot_object, "colorbar"):
+        plot_object.colorbar.formatter.set_powerlimits((0, 0))
+    else:
+        if plot_object is None:
+            plot_object = plt
+        plot_object.ticklabel_format(style="sci", axis=axis, scilimits=(0, 0))

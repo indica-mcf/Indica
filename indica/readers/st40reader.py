@@ -197,16 +197,22 @@ class ST40Reader(DataReader):
             "int": ".profiles:int",
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
+            "spectra": ":spectra",
+            "fit": ":full_fit",
         },
         "cxff_tws_c": {
             "int": ".profiles:int",
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
+            "spectra": ":spectra",
+            "fit": ":full_fit",
         },
         "cxqf_tws_c": {
             "int": ".profiles:int",
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
+            "spectra": ":spectra",
+            "fit": ":full_fit",
         },
         "ts": {
             "ne": ".profiles:ne",
@@ -738,6 +744,7 @@ class ST40Reader(DataReader):
 
         texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
 
         x, x_path = self._get_signal(uid, instrument, ":x", revision)
         y, y_path = self._get_signal(uid, instrument, ":y", revision)
@@ -775,12 +782,16 @@ class ST40Reader(DataReader):
                 self.QUANTITIES_MDS[instrument][q],
                 revision,
             )
-            qval_err, q_path_err = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q] + "_err",
-                revision,
-            )
+            try:
+                qval_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q] + "_err",
+                    revision,
+                )
+            except TreeNNF:
+                qval_err = np.full_like(qval, 0.0)
+                # q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
@@ -796,6 +807,8 @@ class ST40Reader(DataReader):
         results["times"] = times
         results["texp"] = texp
         results["element"] = ""
+        # TODO: check whether wlength should be channel agnostic or not...
+        results["wavelength"] = wavelength[0, :]
         results["location"] = location
         results["direction"] = direction
 

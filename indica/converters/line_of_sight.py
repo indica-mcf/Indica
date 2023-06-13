@@ -191,6 +191,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.t = t
         self.rho = rho
         self.theta = theta
+        self.impact_rho = self.rho.min("los_position")
 
         return rho, theta
 
@@ -395,8 +396,6 @@ class LineOfSightTransform(CoordinateTransform):
 
             along_los = profile_to_map.interp(R=R_, z=z_).T
         elif "rho_poloidal" in coords or "rho_toroidal" in coords:
-            impact_rho = self.rho.min("los_position")
-
             rho_ = self.rho
             if "theta" in coords:
                 theta_ = self.theta
@@ -410,7 +409,6 @@ class LineOfSightTransform(CoordinateTransform):
                     along_los,
                     np.nan,
                 )
-            self.impact_rho = impact_rho
         else:
             raise NotImplementedError("Coordinates not recognized...")
 
