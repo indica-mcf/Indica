@@ -1,5 +1,6 @@
 """Test methods present on the base class DataReader."""
 
+from copy import deepcopy
 from numbers import Number
 from typing import Any
 from typing import Dict
@@ -77,9 +78,15 @@ class Reader(DataReader):
         }
         dt = np.random.uniform(0.001, 1.0)
         times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        results["texp"] = np.full_like(times, dt)
+        wavelength = np.arange(520, 530, 0.1)
         nt = times.shape[0]
+        results["times"] = times
+        results["wavelength"] = wavelength
+        results["spectra"] = np.random.uniform(
+            10, 10.0e3, (nt, results["length"], wavelength.size)
+        )
+        results["fit"] = deepcopy(results["spectra"])
+        results["texp"] = np.full_like(times, dt)
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
