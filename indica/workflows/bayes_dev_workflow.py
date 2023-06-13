@@ -3,19 +3,21 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import flatdict
-
 from scipy.stats import loguniform
+from pathlib import Path
+import pickle
 
 from indica.readers.read_st40 import ReadST40
 from indica.bayesmodels import BayesModels, get_uniform
 from indica.workflows.bayes_plots import plot_bayes_result
-
 from indica.models.interferometry import Interferometry
 from indica.models.helike_spectroscopy import Helike_spectroscopy
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
 from indica.models.plasma import Plasma
 from indica.converters.line_of_sight import LineOfSightTransform
+
+from indica.writers.bda_tree import create_nodes, write_nodes
 
 # global configurations
 DEFAULT_PHANTOM_PARAMS = {
@@ -82,17 +84,17 @@ OPTIMISED_PARAMS = [
     # "ar_conc",
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
-    "Nimp_prof.wcenter",
-    "Nimp_prof.wped",
-    "Nimp_prof.peaking",
+    # "Nimp_prof.wcenter",
+    # "Nimp_prof.wped",
+    # "Nimp_prof.peaking",
     "Te_prof.y0",
-    "Te_prof.wped",
-    "Te_prof.wcenter",
-    "Te_prof.peaking",
+    # "Te_prof.wped",
+    # "Te_prof.wcenter",
+    # "Te_prof.peaking",
     "Ti_prof.y0",
-    "Ti_prof.wped",
-    "Ti_prof.wcenter",
-    "Ti_prof.peaking",
+    # "Ti_prof.wped",
+    # "Ti_prof.wcenter",
+    # "Ti_prof.peaking",
 ]
 
 OPTIMISED_QUANTITY = ["xrcs.spectra", "cxff_pi.ti", "efit.wp", "smmh1.ne"]
@@ -102,6 +104,7 @@ class BayesWorkflow:
     def __init__(
         self,
         pulse=None,
+        pulse_to_write = 23000101,
         result_path="./results/example/",
         nwalkers=50,
         tstart=0.02,
@@ -110,13 +113,17 @@ class BayesWorkflow:
         tsample=0.06,
         iterations=100,
         burn_in_fraction=0,
+
+        diagnostics=None,
         center_mass_sampling=True,
         Ti_ref=True,
-        diagnostics=None,
         profiles=None,
         phantom=True,
+        mds_write=False,
+        save_plots=True,
     ):
         self.pulse = pulse
+        self.pulse_to_write = pulse_to_write
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
@@ -131,6 +138,8 @@ class BayesWorkflow:
         self.diagnostics = diagnostics
         self.phantom = phantom
         self.profiles = profiles
+        self.mds_write = mds_write
+        self.save_plots = save_plots
 
         self.plasma = Plasma(
             tstart=tstart,
@@ -416,7 +425,7 @@ class BayesWorkflow:
         prior_samples = self.bayes_run.sample_from_priors(
             OPTIMISED_PARAMS, size=int(1e4)
         )
-        result = {
+        self.results = {
             "blobs": blob_dict,
             "diag_data": self.flat_data,
             "samples": samples,
@@ -424,10 +433,44 @@ class BayesWorkflow:
             "param_names": OPTIMISED_PARAMS,
             "phantom_profiles": self.profiles,
             "autocorr": autocorr,
+            "acceptance_fraction": self.sampler.acceptance_fraction.sum(),
         }
-        self.acceptance_fraction = self.sampler.acceptance_fraction.sum()
-        print(self.acceptance_fraction)
-        plot_bayes_result(result, figheader=self.result_path, filetype=".png")
+
+        self.nested_results = {
+            "DIAG_DATA":{"efit":{"wp":1}},
+            # self.ST40_data.binned_data["efit"]["wp"].values[4,]
+            # "MODEL_DATA": {},
+            "METADATA": {
+                            "DIAG_RUNS": "EMPTY",
+                            "EQUIL": self.ST40_data.equilibrium.__str__(),
+                            "IMP1": self.plasma.impurities[0],
+                            "MAIN_ION": self.plasma.main_ion,
+            },
+            "OPTIMISATION": {
+                            "AUTO_CORR":autocorr,
+                            "BURN_FRAC":self.burn_in_fraction,
+                            "ITER": self.iterations,
+                            "NWALKERS": self.nwalkers,
+                            "PARAM_NAMES": OPTIMISED_PARAMS,
+                            "POST_SAMPLE": samples,
+                            "PRIOR_SAMPLE": prior_samples
+                            },
+            # "PHANTOMS": self.profiles,
+            # "PROFILES": {},
+            # "TIME": self.plasma.t,
+            # "TIME_OPT": self.plasma.time_to_calculate
+
+        }
+
+        # self.acceptance_fraction = self.sampler.acceptance_fraction.sum()
+        print(self.results["acceptance_fraction"])
+
+        Path(self.result_path).mkdir(parents=True, exist_ok=True)
+        with open(self.result_path + "results.pkl", "wb") as handle:
+            pickle.dump(self.results, handle)
+
+        if self.save_plots:
+            plot_bayes_result(self.results, figheader=self.result_path, filetype=".png")
 
 
 def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
@@ -451,12 +494,20 @@ def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
     return autocorr
 
 
+
+
 if __name__ == "__main__":
+
+    mds_write=False
+    pulse_to_write = 23000101
+    if mds_write:
+        node_structure = create_nodes(pulse_to_write=pulse_to_write, diagnostic_quantities=OPTIMISED_QUANTITY)
+
     run = BayesWorkflow(
         pulse=10009,
-        result_path="./results/10009_60ms_long/",
-        iterations=500,
-        nwalkers=200,
+        result_path="./results/test/",
+        iterations=20,
+        nwalkers=50,
         burn_in_fraction=0.10,
         dt=0.005,
         tsample=0.060,
@@ -464,5 +515,10 @@ if __name__ == "__main__":
         phantom=False,
         center_mass_sampling=True,
         Ti_ref=True,
+        mds_write=mds_write,
+        save_plots=True
     )
     run()
+
+    if mds_write:
+        write_nodes(pulse_to_write, node_structure, run.nested_results)

@@ -21,8 +21,6 @@ def plot_profile(
     color="blue",
 ):
     set_plot_rcparams("profiles")
-    # if not plt.get_fignums():  # If no figure is open
-    #     plt.figure(figsize=(8, 6))
 
     if blobkey == "electron_temperature":
         legkey = "Te"
@@ -45,26 +43,27 @@ def plot_profile(
         label=f"{legkey}, 68% Confidence",
         zorder=3,
         color=color,
-        alpha=0.8,
+        alpha=0.9,
     )
-    plt.fill_between(
-        profile.rho_poloidal,
-        profile.quantile(0.025, dim="index"),
-        profile.quantile(0.975, dim="index"),
-        label=f"{legkey}, 95% Confidence",
-        zorder=2,
-        color="grey",
-        alpha=0.6,
-    )
-    plt.fill_between(
-        profile.rho_poloidal,
-        profile.quantile(0.00, dim="index"),
-        profile.quantile(1.00, dim="index"),
-        label=f"{legkey}, Max-Min",
-        zorder=1,
-        color="lightgrey",
-        alpha=0.6,
-    )
+    if legkey != "Nfast":
+        plt.fill_between(
+            profile.rho_poloidal,
+            profile.quantile(0.025, dim="index"),
+            profile.quantile(0.975, dim="index"),
+            label=f"{legkey}, 95% Confidence",
+            zorder=2,
+            color="grey",
+            alpha=0.4,
+        )
+        plt.fill_between(
+            profile.rho_poloidal,
+            profile.quantile(0.00, dim="index"),
+            profile.quantile(1.00, dim="index"),
+            label=f"{legkey}, Max-Min",
+            zorder=1,
+            color="lightgrey",
+            alpha=0.2,
+        )
 
     if phantom_profile is not None:
         if "element" in phantom_profile[blobkey].dims:
@@ -237,6 +236,7 @@ def plot_bayes_result(
     filetype=".png",
     **kwargs,
 ):
+
     diag_data = results["diag_data"]
     blobs = results["blobs"]
     samples = results["samples"]
@@ -244,10 +244,6 @@ def plot_bayes_result(
     param_names = results["param_names"]
     phantom_profiles = results["phantom_profiles"]
     autocorr = results["autocorr"]
-
-    Path(figheader).mkdir(parents=True, exist_ok=True)
-    with open(figheader + "results.pkl", "wb") as handle:
-        pickle.dump(results, handle)
 
     plt.figure()
     plt.plot(
@@ -367,6 +363,7 @@ def plot_bayes_result(
         color="red",
         linestyle="dotted",
     )
+
     key = "electron_density"
     plot_profile(
         blobs[key],
@@ -374,7 +371,30 @@ def plot_bayes_result(
         figheader=figheader,
         filetype=filetype,
         phantom_profile=phantom_profiles,
+        color="blue",
+        sharefig=True
     )
+    key = "ion_density"
+    plot_profile(
+        blobs[key].sel(element="h"),
+        key,
+        figheader=figheader,
+        filetype=filetype,
+        phantom_profile=phantom_profiles,
+        sharefig=True,
+        color="red",
+    )
+    key = "fast_density"
+    plot_profile(
+        blobs[key],
+        key,
+        figheader=figheader,
+        filename="density",
+        filetype=filetype,
+        phantom_profile=phantom_profiles,
+        color="green",
+    )
+
     key = "impurity_density"
     for elem in blobs[key].element.values:
         plot_profile(
@@ -386,25 +406,7 @@ def plot_bayes_result(
             phantom_profile=phantom_profiles,
             color="red",
         )
-    key = "ion_density"
-    plot_profile(
-        blobs[key].sel(element="h"),
-        key,
-        figheader=figheader,
-        filename=f"h density",
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        color="red",
-    )
-    key = "fast_density"
-    plot_profile(
-        blobs[key],
-        key,
-        figheader=figheader,
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        color="red",
-    )
+
     key = "neutral_density"
     plot_profile(
         blobs[key],
@@ -425,7 +427,7 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/10009_60ms_short/"
+    filehead = "./results/10009_withoutCM/"
     with open(filehead + "results.pkl", "rb") as handle:
         results = pickle.load(handle)
     plot_bayes_result(results, filehead, filetype=".png")
