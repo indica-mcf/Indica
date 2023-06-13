@@ -65,7 +65,7 @@ class ReadST40:
         self,
         pulse: int,
         tstart: float = 0.02,
-        tend: float = 0.2,
+        tend: float = 0.1,
         dt: float = 0.01,
         tree="ST40",
     ):
@@ -353,4 +353,4 @@ def read_cxff_pi():
     st40.raw_data["cxff_pi"]["ti"].los_transform.set_equilibrium(
         st40.raw_data["cxff_pi"]["ti"].transform.equilibrium
     )
-    st40.raw_data["cxff_pi"]["ti"].los_transform.plot_los(plot_all=True)
+    st40.raw_data["cxff_pi"]["ti"].los_transform.plot_los()
