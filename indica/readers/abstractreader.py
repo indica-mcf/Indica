@@ -27,6 +27,11 @@ from indica.session import Session
 # TODO: Place this in some global location?
 CACHE_DIR = ".indica"
 
+# TODO: change datatypes to long_name & units!!!
+NAME_UNITS = {
+    "brightness": ("Brightness", "W $m^{-2}$"),
+}
+
 
 class DataReader(BaseIO):
     """Abstract base class to read data in from a database.
@@ -538,6 +543,10 @@ class DataReader(BaseIO):
 
         data = {}
         for quantity in quantities:
+            if quantity in NAME_UNITS.keys():
+                long_name, units = NAME_UNITS[quantity]
+            else:
+                long_name, units = "", ""
             quant_data = self.assign_dataarray(
                 uid,
                 instrument,
@@ -545,6 +554,8 @@ class DataReader(BaseIO):
                 database_results,
                 coords,
                 transform=transform,
+                long_name=long_name,
+                units=units,
             )
             data[quantity] = quant_data
 
@@ -1049,6 +1060,8 @@ class DataReader(BaseIO):
         coords: List,
         transform=None,
         include_error: bool = True,
+        long_name: str = "",
+        units: str = "",
     ) -> DataArray:
         """
 
@@ -1074,6 +1087,7 @@ class DataReader(BaseIO):
         -------
 
         """
+
         available_quantities = self.available_quantities(instrument)
 
         quant_data = DataArray(
@@ -1086,6 +1100,10 @@ class DataReader(BaseIO):
         quant_data.attrs = {
             "datatype": available_quantities[quantity],
         }
+        if len(long_name) > 0:
+            quant_data.attrs["long_name"] = long_name
+        if len(units) > 0:
+            quant_data.attrs["units"] = units
 
         if include_error:
             if quantity + "_error" in database_results:
