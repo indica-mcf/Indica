@@ -272,7 +272,8 @@ def example_run(
         data = data.swap_dims({"channel": xdim})
     if xdim == "R":
         x_bounds = data.transform._machine_dims[0]
-    data.transform.convert_to_rho_theta(t=data.t)
+    if hasattr(data, "equilibrium"):
+        data.transform.convert_to_rho_theta(t=data.t)
 
     fit, fit_err = run_gpr_fit(
         data,
@@ -299,23 +300,24 @@ def example_run(
                 save_fig=save_fig,
             )
 
-            x_data = data.transform.rho.assign_coords(R=("channel", data.R)).swap_dims(
-                {"channel": "R"}
-            )
-            x_fit = x_data.interp(R=fit.R)
-            plot_gpr_fit(
-                data,
-                fit,
-                fit_err,
-                tplot,
-                x_data=x_data,
-                x_fit=x_fit,
-                ylabel="Te [eV]",
-                xlabel="rho-poloidal",
-                title=str(st40.pulse),
-                fig_name=f"{fig_name}_vs_rho",
-                save_fig=save_fig,
-            )
+            if hasattr(data, "equilibrium"):
+                x_data = data.transform.rho.assign_coords(
+                    R=("channel", data.R)
+                ).swap_dims({"channel": "R"})
+                x_fit = x_data.interp(R=fit.R)
+                plot_gpr_fit(
+                    data,
+                    fit,
+                    fit_err,
+                    tplot,
+                    x_data=x_data,
+                    x_fit=x_fit,
+                    ylabel="Te [eV]",
+                    xlabel="rho-poloidal",
+                    title=str(st40.pulse),
+                    fig_name=f"{fig_name}_vs_rho",
+                    save_fig=save_fig,
+                )
             if not save_fig:
                 plt.show()
 
