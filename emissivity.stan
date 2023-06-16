@@ -98,7 +98,7 @@ transformed parameters {
 }
 
 model {
-	sxr_calibration_factor ~ normal(3.0, 3.0);
+	sxr_calibration_factor ~ normal(3.0, 0.3);
 
 	// LOS values should be distributed like this:
 	predicted_sxr_los_vals ~ normal(sxr_los_values, sxr_los_errors);

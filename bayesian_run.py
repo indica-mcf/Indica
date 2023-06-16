@@ -16,12 +16,6 @@ N_los_points = pre_computed["N_los_points"]
 sxr_los_data = pre_computed["sxr_los_data"]
 bolo_los_data = pre_computed["bolo_los_data"]
 
-# apply calibration fudge factor
-
-calibration_fudge = 2.8
-sxr_los_data.los_values = calibration_fudge * sxr_los_data.los_values
-sxr_los_data.los_errors = calibration_fudge * sxr_los_data.los_errors
-
 # compile stan model
 model_file = os.path.join("emissivity.stan")
 model = cmdstanpy.CmdStanModel(stan_file=model_file)
@@ -75,6 +69,7 @@ data = {
 # plt.show()
 
 # Full Bayesian sampling (slower, better results, errors)
+# Use samples.summary() and samples.diagnose() to check convergence
 samples = model.sample(data=data, chains=16, parallel_chains=8)
 draws = samples.draws_xr()
 # Save data
