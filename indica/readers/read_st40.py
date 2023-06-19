@@ -65,16 +65,18 @@ class ReadST40:
         self,
         pulse: int,
         tstart: float = 0.02,
-        tend: float = 0.2,
+        tend: float = 0.1,
         dt: float = 0.01,
         tree="ST40",
     ):
+        self.debug = False
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
 
-        self.reader = ST40Reader(pulse, tstart - 0.02, tend + 0.02, tree=tree)
+        self.reader = ST40Reader(pulse, tstart - dt, tend + dt, tree=tree)
+        self.reader_equil = ST40Reader(pulse, tstart - 3 * dt, tend + 3 * dt, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -91,12 +93,10 @@ class ReadST40:
         R_shift: float = 0.0,
         z_shift: float = 0.0,
     ):
-        if instrument not in self.raw_data:
-            equilibrium_data = self.get_raw_data("", instrument, revision)
-            equilibrium = Equilibrium(
-                equilibrium_data, R_shift=R_shift, z_shift=z_shift
-            )
-            self.equilibrium = equilibrium
+
+        equilibrium_data = self.reader_equil.get("", instrument, revision)
+        equilibrium = Equilibrium(equilibrium_data, R_shift=R_shift, z_shift=z_shift)
+        self.equilibrium = equilibrium
 
     def get_raw_data(self, uid: str, instrument: str, revision: RevisionLike = 0):
         data = self.reader.get(uid, instrument, revision)
@@ -120,15 +120,15 @@ class ReadST40:
         dt: float = 0.01,
     ):
         for instr in instruments:
+            if self.debug:
+                print(instr)
             binned_quantities = {}
             for quant in self.raw_data[instr].keys():
+                if self.debug:
+                    print(f"   {quant}")
                 data_quant = deepcopy(self.raw_data[instr][quant])
 
                 if "t" in data_quant.coords:
-                    if tstart < data_quant.t.min():
-                        tstart = data_quant.t.min()
-                    if tend > data_quant.t.max():
-                        tend = data_quant.t.max()
                     data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
                 binned_quantities[quant] = data_quant
             self.binned_data[instr] = binned_quantities
@@ -139,14 +139,18 @@ class ReadST40:
 
         attr_to_map = ["binned_data"]
         if map_raw:
-            attr_to_map.append("raw_data")
+            attr_to_map = ["raw_data"]
 
         for attr in attr_to_map:
             data_to_map = getattr(self, attr)
             for instr in instruments:
                 if instr == "efit":
                     continue
+                if self.debug:
+                    print(instr)
                 for quant in data_to_map[instr]:
+                    if self.debug:
+                        print(f"   {quant}")
                     data = data_to_map[instr][quant]
                     transform = data.transform
                     if hasattr(data.transform, "convert_to_rho_theta"):
@@ -195,13 +199,14 @@ class ReadST40:
         odd, odd_dims = self.reader._get_data(
             "", "mhd_tor_mode", ".output.spectrogram:ampl_odd", rev
         )
-
-        even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
-        odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
-
-        self.raw_data["mhd"] = {}
-        self.raw_data["mhd"]["ampl_even_n"] = even
-        self.raw_data["mhd"]["ampl_odd_n"] = odd
+        try:
+            even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
+            odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
+            self.raw_data["mhd"] = {}
+            self.raw_data["mhd"]["ampl_even_n"] = even
+            self.raw_data["mhd"]["ampl_odd_n"] = odd
+        except IndexError:
+            return
 
     def plot_profile(
         self,
@@ -285,8 +290,10 @@ class ReadST40:
         R_shift: float = 0.0,
         chi2_limit: float = 2.0,
         map_diagnostics: bool = False,
+        raw_only: bool = False,
         debug: bool = False,
     ):
+        self.debug = debug
 
         if instruments is None:
             instruments = list(REVISIONS.keys())
@@ -311,6 +318,8 @@ class ReadST40:
                 except Exception as e:
                     print(f"Error reading {instrument}: {e}")
 
+        if raw_only:
+            return
         instruments = list(self.raw_data)
 
         print_like("Binning in time")
@@ -318,7 +327,7 @@ class ReadST40:
         print_like("Filtering")
         self.filter_data(instruments)
         self.filter_ts(chi2_limit=chi2_limit)
-        if map_diagnostics:
+        if map_diagnostics or map_raw:
             print_like("Mapping to equilibrium")
             self.map_diagnostics(instruments, map_raw=map_raw)
 
@@ -344,4 +353,4 @@ def read_cxff_pi():
     st40.raw_data["cxff_pi"]["ti"].los_transform.set_equilibrium(
         st40.raw_data["cxff_pi"]["ti"].transform.equilibrium
     )
-    st40.raw_data["cxff_pi"]["ti"].los_transform.plot_los(plot_all=True)
+    st40.raw_data["cxff_pi"]["ti"].los_transform.plot_los()

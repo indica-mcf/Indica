@@ -15,14 +15,14 @@ import prov.model as prov
 import xarray as xr
 from xarray import DataArray
 
-from .available_quantities import AVAILABLE_QUANTITIES
-from ..abstractio import BaseIO
-from ..converters.line_of_sight import LineOfSightTransform
-from ..converters.transect import TransectCoordinates
-from ..datatypes import ArrayType
-from ..numpy_typing import RevisionLike
-from ..session import hash_vals
-from ..session import Session
+from indica.abstractio import BaseIO
+from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters.transect import TransectCoordinates
+from indica.datatypes import ArrayType
+from indica.numpy_typing import RevisionLike
+from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.session import hash_vals
+from indica.session import Session
 
 # TODO: Place this in some global location?
 CACHE_DIR = ".indica"
@@ -170,16 +170,26 @@ class DataReader(BaseIO):
         if len(database_results) == 0:
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
+
         channel = np.arange(database_results["length"])
-        times = database_results["times"]
+        t = database_results["times"]
         x = database_results["x"]
         y = database_results["y"]
         z = database_results["z"]
         R = database_results["R"]
-        x_coord = DataArray(x, coords=[("channel", channel)])
-        y_coord = DataArray(y, coords=[("channel", channel)])
-        z_coord = DataArray(z, coords=[("channel", channel)])
-        R_coord = DataArray(R, coords=[("channel", channel)])
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        x_coord = DataArray(
+            x, coords=[("channel", channel)], attrs={"long_name": "x", "units": "m"}
+        )
+        y_coord = DataArray(
+            y, coords=[("channel", channel)], attrs={"long_name": "y", "units": "m"}
+        )
+        z_coord = DataArray(
+            z, coords=[("channel", channel)], attrs={"long_name": "z", "units": "m"}
+        )
+        R_coord = DataArray(
+            R, coords=[("channel", channel)], attrs={"long_name": "R", "units": "m"}
+        )
         if x_coord.equals(y_coord):
             x_coord = R_coord
             y_coord = xr.zeros_like(x_coord)
@@ -188,9 +198,10 @@ class DataReader(BaseIO):
             y_coord,
             z_coord,
             f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
         )
         coords = [
-            ("t", times),
+            ("t", t),
             ("channel", channel),
         ]
         data = {}
@@ -243,16 +254,34 @@ class DataReader(BaseIO):
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
+
         channel = np.arange(database_results["length"])
-        times = database_results["times"]
+        t = database_results["times"]
         x = database_results["x"]
         y = database_results["y"]
         z = database_results["z"]
         R = database_results["R"]
-        x_coord = DataArray(x, coords=[("channel", channel)])
-        y_coord = DataArray(y, coords=[("channel", channel)])
-        z_coord = DataArray(z, coords=[("channel", channel)])
-        R_coord = DataArray(R, coords=[("channel", channel)])
+        wavelength = database_results["wavelength"]
+        pixel = np.arange(len(wavelength))
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        x_coord = DataArray(
+            x, coords=[("channel", channel)], attrs={"long_name": "x", "units": "m"}
+        )
+        y_coord = DataArray(
+            y, coords=[("channel", channel)], attrs={"long_name": "y", "units": "m"}
+        )
+        z_coord = DataArray(
+            z, coords=[("channel", channel)], attrs={"long_name": "z", "units": "m"}
+        )
+        R_coord = DataArray(
+            R, coords=[("channel", channel)], attrs={"long_name": "R", "units": "m"}
+        )
+        wavelength = DataArray(
+            wavelength,
+            coords=[("pixel", pixel)],
+            attrs={"long_name": "Wavelength", "units": "nm"},
+        )
+
         if x_coord.equals(y_coord):
             x_coord = R_coord
             y_coord = xr.zeros_like(x_coord)
@@ -261,10 +290,16 @@ class DataReader(BaseIO):
             y_coord,
             z_coord,
             f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
         )
         coords = [
-            ("t", times),
+            ("t", t),
             ("channel", channel),
+        ]
+        coords_spectra = [
+            ("t", t),
+            ("channel", channel),
+            ("wavelength", wavelength),
         ]
 
         location = database_results["location"]
@@ -278,19 +313,24 @@ class DataReader(BaseIO):
                 direction[:, 1],
                 direction[:, 2],
                 f"{instrument}",
-                database_results["machine_dims"],
+                machine_dimensions=database_results["machine_dims"],
                 dl=dl,
                 passes=passes,
             )
 
         data = {}
         for quantity in quantities:
+            if quantity == "spectra" or quantity == "fit":
+                _coords = coords_spectra
+            else:
+                _coords = coords
+
             quant_data = self.assign_dataarray(
                 uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
+                _coords,
                 transform,
             )
             if location is not None and direction is not None:
@@ -335,9 +375,12 @@ class DataReader(BaseIO):
 
         _coords: dict = {}
         rho = np.sqrt(database_results["psin"])
+        t = database_results["times"]
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+
         _coords["psin"] = [("psin", database_results["psin"])]
         _coords["psi"] = [
-            ("t", database_results["times"]),
+            ("t", t),
             ("z", database_results["psi_z"]),
             ("R", database_results["psi_r"]),
         ]
@@ -352,14 +395,14 @@ class DataReader(BaseIO):
             "wp",
             "df",
         ]
-        global_coords = [("t", database_results["times"])]
+        global_coords = [("t", t)]
         for quant in global_quantities:
             _coords[quant] = global_coords
 
         separatrix_quantities: list = ["rbnd", "zbnd"]
         if "rbnd" in database_results.keys():
             sep_coords = [
-                ("t", database_results["times"]),
+                ("t", t),
                 ("arbitrary_index", np.arange(np.size(database_results["rbnd"][0, :]))),
             ]
             for quant in separatrix_quantities:
@@ -367,10 +410,9 @@ class DataReader(BaseIO):
 
         flux_quantities: list = ["f", "ftor", "vjac", "ajac", "rmji", "rmjo"]
         for quant in flux_quantities:
-            _coords[quant] = [("t", database_results["times"]), ("rho_poloidal", rho)]
+            _coords[quant] = [("t", t), ("rho_poloidal", rho)]
 
-        times = database_results["times"]
-        times_unique, ind_unique = np.unique(times, return_index=True)
+        t_unique, ind_unique = np.unique(t, return_index=True)
         rmag = self.assign_dataarray(
             uid,
             instrument,
@@ -404,7 +446,7 @@ class DataReader(BaseIO):
                 quant_data.coords["R"] = rmag
                 quant_data.coords["z"] = zmag
 
-            if len(times) != len(times_unique):
+            if len(t) != len(t_unique):
                 print(
                     """Equilibrium time axis does not have
                     unique elements...correcting..."""
@@ -484,12 +526,13 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
-
-        coords = [("t", database_results["times"])]
+        t = database_results["times"]
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        coords = [("t", t)]
         if database_results["length"] > 1:
             coords.append(("channel", np.arange(database_results["length"])))
 
@@ -550,12 +593,13 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
-
-        coords = [("t", database_results["times"])]
+        t = database_results["times"]
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        coords = [("t", t)]
         if database_results["length"] > 1:
             coords.append(("channel", np.arange(database_results["length"])))
         data = {}
@@ -617,17 +661,27 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
+        t = database_results["times"]
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        channel = np.arange(database_results["length"])
+        wavelength = database_results["wavelength"]
+        pixel = np.arange(len(wavelength))
+        wavelength = DataArray(
+            wavelength,
+            coords=[("pixel", pixel)],
+            attrs={"long_name": "Wavelength", "units": "nm"},
+        )
 
         _coords: dict = {}
-        _coords["1d"] = [("t", database_results["times"])]
+        _coords["1d"] = [("t", t)]
         if database_results["length"] > 1:
-            _coords["1d"].append(("channel", np.arange(database_results["length"])))
+            _coords["1d"].append(("channel", channel))
         _coords["spectra"] = deepcopy(_coords["1d"])
-        _coords["spectra"].append(("wavelength", database_results["wavelength"]))
+        _coords["spectra"].append(("wavelength", wavelength))
 
         data: dict = {}
         for quantity in quantities:
@@ -691,11 +745,14 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
-        coords = [("t", database_results["times"])]
+
+        t = database_results["times"]
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        coords = [("t", t)]
         if database_results["length"] > 1:
             coords.append(("channel", np.arange(database_results["length"])))
 
@@ -756,13 +813,16 @@ class DataReader(BaseIO):
             direction[:, 1],
             direction[:, 2],
             f"{instrument}",
-            database_results["machine_dims"],
+            machine_dimensions=database_results["machine_dims"],
             dl=dl,
             passes=passes,
         )
-        coords = [("t", database_results["times"])]
+        t = database_results["times"]
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        channel = np.arange(database_results["length"])
+        coords = [("t", t)]
         if database_results["length"] > 1:
-            coords.append(("channel", np.arange(database_results["length"])))
+            coords.append(("channel", channel))
 
         data: dict = {}
         for quantity in quantities:
@@ -808,6 +868,8 @@ class DataReader(BaseIO):
         database_results = self._get_astra(uid, instrument, revision, quantities)
 
         # Reorganise coordinate system to match Indica default rho-poloidal
+        t = database_results["times"]
+        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         psin = database_results["psin"]
         rhop_psin = np.sqrt(psin)
         rhop_interp = np.linspace(0, 1.0, 65)
@@ -823,7 +885,7 @@ class DataReader(BaseIO):
 
         rhot_rhop = DataArray(
             np.array(rhot_rhop),
-            {"t": database_results["times"], "rho_poloidal": rhop_interp},
+            {"t": t, "rho_poloidal": rhop_interp},
             dims=["t", "rho_poloidal"],
         ).sel(t=slice(self._tstart, self._tend))
 
@@ -848,7 +910,7 @@ class DataReader(BaseIO):
             else:
                 name_coords = []
 
-            coords: list = [("t", database_results["times"])]
+            coords: list = [("t", t)]
             if len(name_coords) > 0:
                 for coord in name_coords:
                     coords.append((coord, radial_coords[coord]))

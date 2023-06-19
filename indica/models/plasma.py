@@ -332,13 +332,13 @@ class Plasma:
         )
 
         self.pressure_fast_parallel: DataArray = assign_data(
-            self.data2d, ("pressure_parallel", "fast"), "$Pa $m^{-3}$"
+            self.data2d, ("pressure_parallel", "fast"), "Pa $m^{-3}$"
         )
         self.pressure_fast_perpendicular: DataArray = assign_data(
-            self.data2d, ("pressure_perpendicular", "fast"), "$Pa $m^{-3}$"
+            self.data2d, ("pressure_perpendicular", "fast"), "Pa $m^{-3}$"
         )
         self._pressure_fast: DataArray = assign_data(
-            self.data2d, ("pressure", "fast"), "$Pa $m^{-3}$"
+            self.data2d, ("pressure", "fast"), "Pa $m^{-3}$"
         )
 
         # Private variables for class property variables

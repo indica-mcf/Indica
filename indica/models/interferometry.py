@@ -123,7 +123,7 @@ def example_run(pulse: int = None, plasma=None, plot=False):
 
     if plot:
         it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
+        tplot = plasma.t[it].values
 
         model.los_transform.plot_los(tplot)
 
