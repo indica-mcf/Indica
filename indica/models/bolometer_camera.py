@@ -9,6 +9,7 @@ from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import set_axis_sci
 
 
 class Bolometer(DiagnosticModel):
@@ -134,6 +135,7 @@ class Bolometer(DiagnosticModel):
             self.bckc["brightness"].sel(t=t, method="nearest").plot(
                 label=f"t={t:1.2f} s", color=cols_time[i]
             )
+        set_axis_sci()
         plt.xlabel("Channel")
         plt.ylabel("Measured brightness (W/m^2)")
         plt.legend()
@@ -147,6 +149,7 @@ class Bolometer(DiagnosticModel):
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
+        set_axis_sci()
         plt.xlabel("rho")
         plt.ylabel("Local radiated power (W/m^3)")
         plt.legend()
@@ -159,6 +162,7 @@ def example_run(
     direction: LabeledArray = None,
     plasma=None,
     plot=False,
+    tplot=None,
     nchannels: int = 11,
 ):
 
@@ -197,7 +201,7 @@ def example_run(
     bckc = model()
 
     if plot:
-        model.plot()
+        model.plot(tplot=tplot)
 
     return plasma, model, bckc
 

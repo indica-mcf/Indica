@@ -429,7 +429,7 @@ def example_run(
 
     if plot:
         it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
+        tplot = plasma.t[it].values
 
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
 
