@@ -32,7 +32,6 @@ def sxrc_xy(
         z = data.transform.z.sel(channel=channels)
         R = data.transform.R.sel(channel=channels)
         dl = data.transform.dl
-        impact_paramaters = data.transform.impact_parameter.sel(channel=channels)
 
         brightness = data
         data_t0 = brightness.isel(t=0).data
@@ -54,7 +53,6 @@ def sxrc_xy(
                 t=rho_equil.t.data,
                 rho=rho_equil.data,
             ),
-            impact_parameters=impact_paramaters,
             debug=debug,
             has_data=has_data,
         )

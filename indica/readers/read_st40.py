@@ -76,7 +76,7 @@ class ReadST40:
         self.dt = dt
 
         self.reader = ST40Reader(pulse, tstart - dt, tend + dt, tree=tree)
-        self.reader_equil = ST40Reader(pulse, tstart - 3 * dt, tend + 3 * dt, tree=tree)
+        self.reader_equil = ST40Reader(pulse, tstart - 0.1, tend + +0.1, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
