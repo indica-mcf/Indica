@@ -170,7 +170,7 @@ def violinplot(
     figheader="./results/test/",
     **kwargs,
 ):
-    set_plot_rcparams()
+    set_plot_rcparams("multi")
     fig, axs = plt.subplots(
         1,
         1,
@@ -188,7 +188,8 @@ def violinplot(
     violin["bodies"][0].set_edgecolor("black")
     axs.set_xlabel(key)
     top = axs.get_ylim()[1]
-    axs.set_ylim(bottom=0, top=top * 1.1)
+    bot = axs.get_ylim()[0]
+    axs.set_ylim( top=top * 1.1, bottom=bot * 0.9)
     axs.set_ylabel(f"{ylabel}")
     y = diag_data[key].sel(t=data[key].t).values
     axs.errorbar(
@@ -316,6 +317,8 @@ def plot_bayes_result(
             figheader=figheader,
             ylabel="Temperature [eV]",
         )
+
+    set_plot_rcparams("multi")
     key = "xrcs.spectra"
     if key in blobs.keys():
         _plot_1d(
@@ -427,7 +430,7 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/10009_withoutCM/"
+    filehead = "./results/10009_60ms_long/"
     with open(filehead + "results.pkl", "rb") as handle:
         results = pickle.load(handle)
     plot_bayes_result(results, filehead, filetype=".png")
