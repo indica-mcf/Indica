@@ -20,7 +20,7 @@ functions {
 		array[,] int rho_lower_indices,
 		array[,] real rho_interp_lower_frac,
 		array[,] real R_square_diff,
-		array[,,] real ne_x_power_loss
+		array[,,] real premult
 	){
 		vector[N_los] predicted_los_vals;
 
@@ -34,7 +34,7 @@ functions {
 
 				// sum over elements
 				for (i_element in 1:N_elements) {
-					los_val += ne_x_power_loss[i_los, i_point, i_element] * interp_asymmetric(
+					los_val += premult[i_los, i_point, i_element] * interp_asymmetric(
 						lfs_values[i_element, i_low],
 						lfs_values[i_element, i_low+1],
 						asym_params[i_element, i_low],
@@ -67,8 +67,8 @@ data {
 	array[sxr_N_los, N_los_points] real<lower=0, upper=1> sxr_rho_interp_lower_frac;
 	// TODO: verify upper=0 here:
 	array[sxr_N_los, N_los_points] real<upper=0> sxr_R_square_diff;
-	// ne*power_loss for each los, los_point, element
-	array[sxr_N_los, N_los_points, N_elements] real<lower=0> sxr_ne_x_power_loss;
+	// dl*ne*power_loss for each los, los_point, element
+	array[sxr_N_los, N_los_points, N_elements] real<lower=0> sxr_premult;
 	vector<lower=0>[sxr_N_los] sxr_los_values;
 	vector<lower=0>[sxr_N_los] sxr_los_errors;
 
@@ -78,8 +78,8 @@ data {
 	array[bolo_N_los, N_los_points] real<lower=0, upper=1> bolo_rho_interp_lower_frac;
 	// TODO: verify upper=0 here:
 	array[bolo_N_los, N_los_points] real<upper=0> bolo_R_square_diff;
-	// ne*power_loss for each los, los_point, element
-	array[bolo_N_los, N_los_points, N_elements] real<lower=0> bolo_ne_x_power_loss;
+	// dl*ne*power_loss for each los, los_point, element
+	array[bolo_N_los, N_los_points, N_elements] real<lower=0> bolo_premult;
 	vector<lower=0>[bolo_N_los] bolo_los_values;
 	vector<lower=0>[bolo_N_los] bolo_los_errors;
 }
@@ -93,12 +93,12 @@ parameters {
 
 transformed parameters {
 	// Predict SXR LOS values
-	vector<lower=0>[sxr_N_los] predicted_sxr_los_vals = (1/sxr_calibration_factor) * predict_los_vals(N_elements, sxr_N_los, N_los_points, lfs_values, asym_params, sxr_rho_lower_indices, sxr_rho_interp_lower_frac, sxr_R_square_diff, sxr_ne_x_power_loss);
-	vector<lower=0>[bolo_N_los] predicted_bolo_los_vals = predict_los_vals(N_elements, bolo_N_los, N_los_points, lfs_values, asym_params, bolo_rho_lower_indices, bolo_rho_interp_lower_frac, bolo_R_square_diff, bolo_ne_x_power_loss);
+	vector<lower=0>[sxr_N_los] predicted_sxr_los_vals = (1/sxr_calibration_factor) * predict_los_vals(N_elements, sxr_N_los, N_los_points, lfs_values, asym_params, sxr_rho_lower_indices, sxr_rho_interp_lower_frac, sxr_R_square_diff, sxr_premult);
+	vector<lower=0>[bolo_N_los] predicted_bolo_los_vals = predict_los_vals(N_elements, bolo_N_los, N_los_points, lfs_values, asym_params, bolo_rho_lower_indices, bolo_rho_interp_lower_frac, bolo_R_square_diff, bolo_premult);
 }
 
 model {
-	sxr_calibration_factor ~ normal(3.0, 0.3);
+	sxr_calibration_factor ~ normal(3.0, 0.5);
 
 	// LOS values should be distributed like this:
 	predicted_sxr_los_vals ~ normal(sxr_los_values, sxr_los_errors);

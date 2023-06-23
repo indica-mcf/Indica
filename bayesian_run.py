@@ -4,6 +4,9 @@ import pickle
 import cmdstanpy
 import matplotlib.pyplot as plt
 
+# number of samples to draw
+n_samples = 1000
+
 plt.ion()
 
 # read run data
@@ -36,7 +39,7 @@ data = {
     "sxr_rho_lower_indices": sxr_los_data.rho_lower_indices.isel(t=t_index) + 1,
     "sxr_rho_interp_lower_frac": sxr_los_data.rho_interp_lower_frac.isel(t=t_index),
     "sxr_R_square_diff": sxr_los_data.R_square_diff.isel(t=t_index),
-    "sxr_ne_x_power_loss": sxr_los_data.premult_values.isel(t=t_index),
+    "sxr_premult": sxr_los_data.premult_values.isel(t=t_index),
     "sxr_los_values": sxr_los_data.los_values.isel(t=t_index),
     #    "los_errors": binned_camera.error.isel(t=t_index),
     "sxr_los_errors": sxr_los_data.los_errors.isel(t=t_index),
@@ -46,7 +49,7 @@ data = {
     "bolo_rho_lower_indices": bolo_los_data.rho_lower_indices.isel(t=t_index) + 1,
     "bolo_rho_interp_lower_frac": bolo_los_data.rho_interp_lower_frac.isel(t=t_index),
     "bolo_R_square_diff": bolo_los_data.R_square_diff.isel(t=t_index),
-    "bolo_ne_x_power_loss": bolo_los_data.premult_values.isel(t=t_index),
+    "bolo_premult": bolo_los_data.premult_values.isel(t=t_index),
     "bolo_los_values": bolo_los_data.los_values.isel(t=t_index),
     #    "los_errors": binned_camera.error.isel(t=t_index),
     "bolo_los_errors": bolo_los_data.los_errors.isel(t=t_index),
@@ -70,7 +73,14 @@ data = {
 
 # Full Bayesian sampling (slower, better results, errors)
 # Use samples.summary() and samples.diagnose() to check convergence
-samples = model.sample(data=data, chains=16, parallel_chains=8)
+samples = model.sample(
+    data=data,
+    chains=16,
+    parallel_chains=8,
+    max_treedepth=14,
+    iter_warmup=n_samples,
+    iter_sampling=n_samples,
+)
 draws = samples.draws_xr()
 # Save data
 draws.to_netcdf("bayesian_samples.nc")

@@ -214,6 +214,16 @@ def calc_R_square_diff(
         {"transform": binned_camera.attrs["transform"]},
     )
 
+    x2_name = camera.attrs["transform"].x2_name
+    dl = float(
+        camera.attrs["transform"].distance(
+            x2_name,
+            xr.DataArray(0),
+            camera.coords[x2_name][0:2],
+            0.0,
+        )[1]
+    )
+
     rho_los_points, R_los_points = camera.indica.convert_coords(rho_maj_radius)
 
     # TODO: work out if this is the best/right way to deal with values outside plasma:
@@ -258,6 +268,7 @@ def calc_R_square_diff(
         rho_lower_indices,
         rho_interp_lower_frac,
         R_square_diff,
+        dl,
         binned_camera,
         weights,
     )
@@ -292,6 +303,7 @@ def create_LOSData(
         rho_lower_indices,
         rho_interp_lower_frac,
         R_square_diff,
+        dl,
         binned_camera,
         weights,
     ) = calc_R_square_diff(
@@ -314,7 +326,7 @@ def create_LOSData(
 
     # interpolate pre_mult values onto los coordinates
     # tanspose to (_coords, t, _los_position, element) order
-    premult_values = (
+    premult_values = dl * (
         (ne * power_loss)
         .interp(rho_poloidal=rho_los_points)
         .transpose(los_coord_name, ..., "element")
