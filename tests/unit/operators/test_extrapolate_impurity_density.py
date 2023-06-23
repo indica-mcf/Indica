@@ -989,7 +989,7 @@ def test_extrapolate_impurity_density_call():
             ("element", elements),
             ("rho_poloidal", rho_profile),
             ("theta", theta_profile),
-            ("t", t),
+            ("t", t.data),
         ],
         dims=["element", "rho_poloidal", "theta", "t"],
     )

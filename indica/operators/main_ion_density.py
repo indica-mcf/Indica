@@ -22,8 +22,6 @@ class MainIonDensity(Operator):
     ARGUMENT_TYPES: List[DataType]
         Ordered list of the types of data expected for each argument of the
         operator.
-    RESULT_TYPES: List[DataType]
-        Ordered list of the types of data returned by the operator.
 
     Returns
     -------
@@ -38,15 +36,11 @@ class MainIonDensity(Operator):
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("main_ion", "number_density"),
-    ]
-
     def __init__(self, sess: session.Session = session.global_session):
         super().__init__(sess=sess)
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        return super().return_types(*args)
+        return (("main_ion", "number_density"),)
 
     def __call__(  # type: ignore
         self,

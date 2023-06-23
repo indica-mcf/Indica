@@ -278,8 +278,8 @@ def test_bolometry_derivation():
         ),
         coords=[
             ("element", impurity_elements),
-            ("rho_poloidal", rho_arr),
-            ("theta", theta_arr),
+            ("rho_poloidal", rho_arr.data),
+            ("theta", theta_arr.data),
             ("t", t_arr),
         ],
         dims=["element", "rho_poloidal", "theta", "t"],

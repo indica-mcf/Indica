@@ -1,5 +1,6 @@
 from typing import cast
 from typing import List
+from typing import Optional
 from typing import Sequence
 from typing import Tuple
 from typing import Union
@@ -82,8 +83,6 @@ class BolometryDerivation(Operator):
         ("main_ion", "number_density"),
     ]
 
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = []
-
     def __init__(
         self,
         flux_surfs: FluxSurfaceCoordinates,
@@ -157,7 +156,7 @@ class BolometryDerivation(Operator):
         self.impurities_power_loss = impurities_power_loss
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        return super().return_types(*args)
+        return (("bolometric", "lines_of_sight_data"),)
 
     def __bolometry_coord_transforms(self):
         """Transform the bolometry coords from LoS to (rho, theta) and (R, z).
@@ -367,7 +366,7 @@ class BolometryDerivation(Operator):
     def __bolometry_derivation(
         self,
         trim: bool = False,
-        t_val: float = None,
+        t_val: Optional[float] = None,
     ):
         """Derive bolometry including the extrapolated smoothed impurity density.
 
@@ -495,7 +494,10 @@ class BolometryDerivation(Operator):
         return derived_power_loss_LoS_tot
 
     def __call__(  # type: ignore
-        self, deriv_only: bool = False, trim: bool = False, t_val: float = None
+        self,
+        deriv_only: bool = False,
+        trim: bool = False,
+        t_val: Optional[float] = None,
     ):
         """Varying workflow to derive bolometry from plasma quantities.
         (Varying as in, if full setup and derivation is needed or only derivaiton.)

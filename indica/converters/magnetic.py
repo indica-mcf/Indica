@@ -94,7 +94,9 @@ class MagneticCoordinates(CoordinateTransform):
                 f"scipy.optimize.root_scalar failed to converge with flag {result.flag}"
             )
 
-        return apply_ufunc(find_root, x1, x2, t, vectorize=True), x2 + self.z_los
+        # apply_ufunc vectorize=True does not seem to be working
+        vfunc = np.vectorize(find_root)
+        return apply_ufunc(vfunc, x1, x2, t, vectorize=False), x2 + self.z_los
 
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray

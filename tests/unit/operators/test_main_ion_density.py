@@ -70,12 +70,12 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
     rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0], dtype=float)
     input_Ne = DataArray(
         data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
-        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        coords=[("rho_poloidal", rho_profile), ("t", t.data)],
         dims=["rho_poloidal", "t"],
     )
     input_Te = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(t), 1)).T,
-        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        coords=[("rho_poloidal", rho_profile), ("t", t.data)],
         dims=["rho_poloidal", "t"],
     )
 
@@ -159,7 +159,7 @@ def test_main_ion_density():
 
     impurity_densities = DataArray(
         data=np.ones((len(elements), *rho.shape, *t.shape)),
-        coords=[("element", elements), ("rho_poloidal", rho), ("t", t)],
+        coords=[("element", elements), ("rho_poloidal", rho.data), ("t", t)],
         dims=["element", "rho_poloidal", "t"],
     )
 

@@ -274,7 +274,7 @@ class Session:
         """Write all of the data and operators from this session into a file,
         for reuse later.
         """
-        pass
+        raise NotImplementedError
 
     @classmethod
     def begin(cls, user_id: str):
@@ -298,7 +298,7 @@ class Session:
         variables in ``__main__`` will be recreated.
 
         """
-        pass
+        raise NotImplementedError
 
 
 global_session = Session("")

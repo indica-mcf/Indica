@@ -9,7 +9,6 @@ from typing import Dict
 from typing import Optional
 from typing import Tuple
 
-import numpy as np
 from xarray import DataArray
 from xarray import zeros_like
 
@@ -295,7 +294,7 @@ class CoordinateTransform(ABC):
         R, z = cast(Tuple[DataArray, DataArray], self.convert_to_Rz(x1, x2, t))
         if isinstance(R, (int, float)) or isinstance(z, (int, float)):
             raise ValueError("Arguments x1 and x2 must be xarray DataArray objects.")
-        spacings = np.sqrt(R.diff(direction) ** 2 + z.diff(direction) ** 2)
+        spacings = (R.diff(direction) ** 2 + z.diff(direction) ** 2) ** 0.5
         result = zeros_like(R.broadcast_like(z))
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result
@@ -304,9 +303,9 @@ class CoordinateTransform(ABC):
         """Returns a JSON representation of this object. Should be sufficient
         to recreate it identically from scratch (except for the
         equilibrium)."""
-        return ""
+        raise NotImplementedError
 
     @staticmethod
     def decode(json: str) -> "CoordinateTransform":
         """Takes some JSON and decodes it into a CoordinateTransform object."""
-        pass
+        raise NotImplementedError

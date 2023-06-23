@@ -271,7 +271,7 @@ def los_coordinates_parameters(
     start_distance = draw(floats(0.0, max_dist))
     lengths = draw(
         arrays(
-            np.float,
+            np.float64,
             len(angles),
             elements=floats(-0.4, 1.0, exclude_max=True).map(lambda x: x + 0.5),
             fill=just(0.5),

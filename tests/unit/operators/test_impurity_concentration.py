@@ -160,13 +160,13 @@ def fractional_abundance_setup(element: str, t: LabeledArray) -> DataArray:
 
     input_Ne = DataArray(
         data=np.tile(np.array([5.0e19, 4.0e19, 3.0e19, 2.0e19, 1.0e19]), (len(t), 1)).T,
-        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        coords=[("rho_poloidal", rho_profile), ("t", t.data)],
         dims=["rho_poloidal", "t"],
     )
 
     input_Te = DataArray(
         data=np.tile(np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), (len(t), 1)).T,
-        coords=[("rho_poloidal", rho_profile), ("t", t)],
+        coords=[("rho_poloidal", rho_profile), ("t", t.data)],
         dims=["rho_poloidal", "t"],
     )
 
