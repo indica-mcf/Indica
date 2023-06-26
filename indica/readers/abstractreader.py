@@ -266,8 +266,20 @@ class DataReader(BaseIO):
         y = database_results["y"]
         z = database_results["z"]
         R = database_results["R"]
-        wavelength = database_results["wavelength"]
-        pixel = np.arange(len(wavelength))
+        if "wavelength" in database_results.keys():
+            wavelength = database_results["wavelength"]
+            pixel = np.arange(len(wavelength))
+            wavelength = DataArray(
+                wavelength,
+                coords=[("pixel", pixel)],
+                attrs={"long_name": "Wavelength", "units": "nm"},
+            )
+            coords_spectra = [
+                ("t", t),
+                ("channel", channel),
+                ("wavelength", wavelength),
+            ]
+
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         x_coord = DataArray(
             x, coords=[("channel", channel)], attrs={"long_name": "x", "units": "m"}
@@ -280,11 +292,6 @@ class DataReader(BaseIO):
         )
         R_coord = DataArray(
             R, coords=[("channel", channel)], attrs={"long_name": "R", "units": "m"}
-        )
-        wavelength = DataArray(
-            wavelength,
-            coords=[("pixel", pixel)],
-            attrs={"long_name": "Wavelength", "units": "nm"},
         )
 
         if x_coord.equals(y_coord):
@@ -300,11 +307,6 @@ class DataReader(BaseIO):
         coords = [
             ("t", t),
             ("channel", channel),
-        ]
-        coords_spectra = [
-            ("t", t),
-            ("channel", channel),
-            ("wavelength", wavelength),
         ]
 
         location = database_results["location"]
@@ -326,7 +328,10 @@ class DataReader(BaseIO):
         data = {}
         for quantity in quantities:
             if quantity == "spectra" or quantity == "fit":
-                _coords = coords_spectra
+                if "wavelength" in database_results.keys():
+                    _coords = coords_spectra
+                else:
+                    continue
             else:
                 _coords = coords
 
