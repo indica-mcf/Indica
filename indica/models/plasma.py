@@ -943,10 +943,12 @@ class Plasma:
             prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
             prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
             power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
-            if "pls" in self.adf11[elem].keys() and "prs" in self.adf11[elem].keys():
+            try:
                 pls = self.ADASReader.get_adf11("pls", elem, self.adf11[elem]["pls"])
                 prs = self.ADASReader.get_adf11("prs", elem, self.adf11[elem]["prs"])
                 power_loss_sxr[elem] = PowerLoss(pls, prs)
+            except Exception:
+                print("No SXR-filtered data available")
 
             if calc_power_loss:
                 F_z_t = fract_abu[elem].F_z_t
