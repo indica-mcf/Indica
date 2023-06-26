@@ -214,6 +214,8 @@ class Plasma:
         # Dictionary keeping track of deta use for optimisations
         self.optimisation: dict = {}
         self.forward_models: dict = {}
+        self.power_loss_sxr: dict = {}
+        self.power_loss_tot: dict = {}
 
         # Assign plasma and machine attributes
         self.machine_R = np.linspace(
@@ -682,11 +684,10 @@ class Plasma:
         return self.Lz_sxr()
 
     def calc_lz_sxr(self):
-        if not hasattr(self, "power_loss_sxr"):
-            return None
-
         fz = self.fz
         for elem in self.elements:
+            if elem not in self.power_loss_sxr.keys():
+                continue
             for t in np.array(self.time_to_calculate, ndmin=1):
                 Ne = self.electron_density.sel(t=t)
                 Te = self.electron_temperature.sel(t=t)
@@ -938,36 +939,27 @@ class Plasma:
             fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
             fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
 
+            plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
+            prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
+            prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
+            power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
+            try:
+                pls = self.ADASReader.get_adf11("pls", elem, self.adf11[elem]["pls"])
+                prs = self.ADASReader.get_adf11("prs", elem, self.adf11[elem]["prs"])
+                power_loss_sxr[elem] = PowerLoss(pls, prs)
+            except Exception:
+                print("No SXR-filtered data available")
+
             if calc_power_loss:
                 F_z_t = fract_abu[elem].F_z_t
-
-                plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
-                prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
-                prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
-                power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
                 power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
-                if (
-                    "pls" in self.adf11[elem].keys()
-                    and "prs" in self.adf11[elem].keys()
-                ):
-                    try:
-                        pls = self.ADASReader.get_adf11(
-                            "pls", elem, self.adf11[elem]["pls"]
-                        )
-                        prs = self.ADASReader.get_adf11(
-                            "prs", elem, self.adf11[elem]["prs"]
-                        )
-                        power_loss_sxr[elem] = PowerLoss(pls, prs)
-                        power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
-                    except ValueError:
-                        self.adf11[elem].pop("pls")
-                        self.adf11[elem].pop("prs")
+                if elem in power_loss_sxr.keys():
+                    power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
 
         self.adf11 = self.adf11
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
-        if "pls" in self.adf11[elem].keys() and "prs" in self.adf11[elem].keys():
-            self.power_loss_sxr = power_loss_sxr
+        self.power_loss_sxr = power_loss_sxr
 
     def set_neutral_density(self, y0=1.0e10, y1=1.0e15, decay=12):
         self.Nh_prof.y0 = y0
@@ -1229,6 +1221,8 @@ class TrackDependecies:
             elif type(dependency) == DataArray:
                 _dependencies.append(dependency.data)
             else:
+                help(dependency)
+                print(type(dependency))
                 raise NotImplementedError(
                     "Hashing implemented for DataArray and Dict[DataArray] only"
                 )

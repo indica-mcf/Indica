@@ -492,7 +492,7 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
             plt.ylabel("spectra")
             plt.legend()
 
-        # model.los_transform.plot_los(tplot,
+        # model.los_transform.plot(tplot,
         # plot_all=model.los_transform.x1.__len__() > 1)
 
         if "int_w" in bckc.keys() & "t" in bckc["int_w"].dims:

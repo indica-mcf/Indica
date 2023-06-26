@@ -11,6 +11,7 @@ from typing import Tuple
 
 from MDSplus import Connection
 from MDSplus.mdsExceptions import TreeNNF
+from MDSplus.mdsExceptions import TreeNODATA
 import numpy as np
 
 from .abstractreader import DataReader
@@ -557,6 +558,7 @@ class ST40Reader(DataReader):
         location, location_path = self._get_signal(
             uid, _instrument, self.QUANTITIES_MDS[instrument]["location"], revision
         )
+
         direction, direction_path = self._get_signal(
             uid, _instrument, self.QUANTITIES_MDS[instrument]["direction"], revision
         )
@@ -628,6 +630,14 @@ class ST40Reader(DataReader):
         direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
+        # TODO: temporary fix! Change once the database entries have been fixed
+        if instrument == "sxrc_xy2" or instrument == "sxrc_xy1":
+            location = np.array(
+                [location[i] for i in range(location.shape[0] - 1, -1, -1)]
+            )
+            direction = np.array(
+                [direction[i] for i in range(direction.shape[0] - 1, -1, -1)]
+            )
 
         quantity = "brightness"
         times, times_path = self._get_signal(
@@ -744,7 +754,10 @@ class ST40Reader(DataReader):
 
         texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
-        wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
+        try:
+            wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
+        except TreeNODATA:
+            wavelength = None
 
         x, x_path = self._get_signal(uid, instrument, ":x", revision)
         y, y_path = self._get_signal(uid, instrument, ":y", revision)
@@ -776,12 +789,16 @@ class ST40Reader(DataReader):
             direction = None
 
         for q in quantities:
-            qval, q_path = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q],
-                revision,
-            )
+            try:
+                qval, q_path = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q],
+                    revision,
+                )
+            except TreeNODATA:
+                continue
+
             try:
                 qval_err, q_path_err = self._get_signal(
                     uid,
@@ -808,7 +825,8 @@ class ST40Reader(DataReader):
         results["texp"] = texp
         results["element"] = ""
         # TODO: check whether wlength should be channel agnostic or not...
-        results["wavelength"] = wavelength[0, :]
+        if wavelength is not None:
+            results["wavelength"] = wavelength[0, :]
         results["location"] = location
         results["direction"] = direction
 

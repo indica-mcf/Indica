@@ -125,7 +125,7 @@ def example_run(pulse: int = None, plasma=None, plot=False):
         it = int(len(plasma.t) / 2)
         tplot = plasma.t[it].values
 
-        model.los_transform.plot_los(tplot)
+        model.los_transform.plot(tplot)
 
         # Plot back-calculated values
         plt.figure()
