@@ -126,7 +126,7 @@ class Bolometer(DiagnosticModel):
             tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
 
         # Line-of-sight information
-        self.los_transform.plot_los(tplot)
+        self.los_transform.plot(tplot)
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
