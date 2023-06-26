@@ -13,6 +13,26 @@ Currently under active development are workflows for the calculation of the plas
 The overall design work has been completed and the general functionality implemented, but the library is still under active development. In  addition to the (rapidly changing) code, this repository holds the documentation for this project, [which can be found on
 ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also still (rapidly) changing.
 
+## Install
+1. Make sure pip is up-to-date:
+    - *pip install --upgrade pip*
+
+2. Create a virtual environment with python 3.9 and activate it.
+
+3. Install poetry and environment dependencies:
+    - *pip install poetry==1.1.15*
+    - *poetry update*
+
+4. For mdsplus building and installation:
+   - *cp -r /usr/local/mdsplus/mdsobjects/python mdsPython*
+   - *cd mdsPython*
+   - *python setup.py build*
+   - *python setup.py install*
+   - *cd ../*
+   - *rm -r mdsPython*
+
+
+
 ## License
 
 InDiCA is distributed under the [GNU General Public License version
