@@ -5,7 +5,6 @@ import getpass
 from typing import cast
 from typing import Tuple
 
-from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -13,15 +12,13 @@ from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
 
-from indica.utilities import save_figure
-from indica.utilities import set_plot_rcparams
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
 
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/los_transform/"
+FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/transform/"
 
 
 class LineOfSightTransform(CoordinateTransform):
@@ -87,34 +84,32 @@ class LineOfSightTransform(CoordinateTransform):
         self._machine_dims = machine_dimensions
         self.passes = passes
 
-        self.dl: float
-        self.x: DataArray
-        self.y: DataArray
-        self.z: DataArray
-        self.R: DataArray
-        self.phi: DataArray
-        self.rho: DataArray
-        self.theta: DataArray
-        self.profile_to_map: DataArray
-        self.along_los: DataArray
-        self.los_integral: DataArray
-        self.t: LabeledArray
-        self.x2: LabeledArray
-
         self.origin_x = origin_x
         self.origin_y = origin_y
         self.origin_z = origin_z
         self.direction_x = direction_x
         self.direction_y = direction_y
         self.direction_z = direction_z
-        self.origin = np.array([origin_x, origin_y, origin_z]).transpose()
-        self.direction = np.array([direction_x, direction_y, direction_z]).transpose()
 
         # Number of lines of sight
         self.x1: list = list(np.arange(0, len(origin_x)))
 
         # Calculate LOS coordinates
         self.set_dl(dl)
+
+    @property
+    def origin(self):
+        self._origin = np.array(
+            [self.origin_x, self.origin_y, self.origin_z]
+        ).transpose()
+        return self._origin
+
+    @property
+    def direction(self):
+        self._direction = np.array(
+            [self.direction_x, self.direction_y, self.direction_z]
+        ).transpose()
+        return self._direction
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -498,127 +493,6 @@ class LineOfSightTransform(CoordinateTransform):
 
         return impact
 
-    def plot_los(
-        self,
-        t: float = None,
-        orientation: str = "all",
-        figure: bool = True,
-        save_fig: bool = False,
-        fig_path: str = "",
-        plot_impact: bool = True,
-    ):
-
-        set_plot_rcparams("profiles")
-
-        channels = np.array(self.x1)
-        cols = cm.gnuplot2(np.linspace(0.75, 0.1, np.size(channels), dtype=float))
-
-        wall_bounds, angles = self.get_machine_boundaries(
-            machine_dimensions=self._machine_dims
-        )
-        if hasattr(self, "equilibrium"):
-            if t is None:
-                t = np.float(np.mean(self.equilibrium.rho.t))
-            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
-            x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
-                angles
-            )
-            y_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.sin(
-                angles
-            )
-
-        if orientation == "xy" or orientation == "all":
-            if figure:
-                plt.figure()
-            plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
-            plt.plot(wall_bounds["x_out"], wall_bounds["y_out"], color="k")
-            if hasattr(self, "equilibrium"):
-                plt.plot(equil_bounds["x_in"], equil_bounds["y_in"], color="red")
-                plt.plot(equil_bounds["x_out"], equil_bounds["y_out"], color="red")
-                plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
-            for ch in self.x1:
-                plt.plot(
-                    self.x.sel(channel=ch),
-                    self.y.sel(channel=ch),
-                    color=cols[ch],
-                    linewidth=2,
-                )
-                if plot_impact:
-                    plt.plot(
-                        self.impact_parameter["x"][ch],
-                        self.impact_parameter["y"][ch],
-                        color=cols[ch],
-                        marker="o",
-                    )
-            plt.xlabel("x (m)")
-            plt.ylabel("y (m)")
-            plt.axis("scaled")
-            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
-
-            save_figure(fig_path, f"{self.name}_xy", save_fig=save_fig)
-
-        if orientation == "Rz" or orientation == "all":
-            if figure:
-                plt.figure()
-            plt.plot(
-                [wall_bounds["x_out"].max()] * 2,
-                [wall_bounds["z_low"], wall_bounds["z_up"]],
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max()] * 2,
-                [wall_bounds["z_low"], wall_bounds["z_up"]],
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
-                [wall_bounds["z_low"]] * 2,
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
-                [wall_bounds["z_up"]] * 2,
-                color="k",
-            )
-            if hasattr(self, "equilibrium"):
-                rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
-            for ch in channels:
-                plt.plot(
-                    self.R.sel(channel=ch),
-                    self.z.sel(channel=ch),
-                    color=cols[ch],
-                    linewidth=2,
-                )
-                if plot_impact:
-                    plt.plot(
-                        self.impact_parameter["R"][ch],
-                        self.impact_parameter["z"][ch],
-                        color=cols[ch],
-                        marker="o",
-                    )
-            plt.xlabel("R (m)")
-            plt.ylabel("z (m)")
-            plt.axis("scaled")
-            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
-            save_figure(fig_path, f"{self.name}_Rz", save_fig=save_fig)
-
-        if hasattr(self, "equilibrium") and orientation == "all":
-            if not hasattr(self, "rho"):
-                self.convert_to_rho_theta()
-            if figure:
-                plt.figure()
-            for ch in channels:
-                _rho = self.rho.sel(channel=ch)
-                if "t" in self.rho.dims:
-                    _rho = _rho.sel(t=t, method="nearest")
-                _rho.plot(color=cols[ch], linewidth=2)
-            plt.xlabel("Path along LOS")
-            plt.ylabel("Rho")
-            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
-            save_figure(fig_path, f"{self.name}_rho", save_fig=save_fig)
-
-        return cols
-
 
 def example_run(pulse: int = None, plasma=None, plot: bool = False):
     from indica.models.plasma import example_run as example_plasma
@@ -658,11 +532,11 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
     b_tot_los_int = los_transform.integrate_on_los(b_tot, t=time)
 
     t = time[1]
-    los_transform.plot_los(t=t)
+    los_transform.plot(t=t)
 
     plt.figure()
     b_tot.sel(t=t).plot()
-    los_transform.plot_los(t=t, orientation="Rz", figure=False)
+    los_transform.plot(t=t, orientation="Rz", figure=False)
     plt.axis("equal")
     plt.title("2D profile to integrate")
 

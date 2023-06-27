@@ -75,8 +75,8 @@ class ReadST40:
         self.tend = tend
         self.dt = dt
 
-        self.reader = ST40Reader(pulse, tstart - dt, tend + dt, tree=tree)
-        self.reader_equil = ST40Reader(pulse, tstart - 3 * dt, tend + 3 * dt, tree=tree)
+        self.reader = ST40Reader(pulse, tstart - 0.05, tend + 0.05, tree=tree)
+        self.reader_equil = ST40Reader(pulse, tstart - 0.1, tend + 0.1, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -353,4 +353,4 @@ def read_cxff_pi():
     st40.raw_data["cxff_pi"]["ti"].los_transform.set_equilibrium(
         st40.raw_data["cxff_pi"]["ti"].transform.equilibrium
     )
-    st40.raw_data["cxff_pi"]["ti"].los_transform.plot_los()
+    st40.raw_data["cxff_pi"]["ti"].los_transform.plot()

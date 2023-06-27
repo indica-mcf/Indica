@@ -27,6 +27,11 @@ from indica.session import Session
 # TODO: Place this in some global location?
 CACHE_DIR = ".indica"
 
+# TODO: change datatypes to long_name & units!!!
+NAME_UNITS = {
+    "brightness": ("Brightness", "W $m^{-2}$"),
+}
+
 
 class DataReader(BaseIO):
     """Abstract base class to read data in from a database.
@@ -261,8 +266,20 @@ class DataReader(BaseIO):
         y = database_results["y"]
         z = database_results["z"]
         R = database_results["R"]
-        wavelength = database_results["wavelength"]
-        pixel = np.arange(len(wavelength))
+        if "wavelength" in database_results.keys():
+            wavelength = database_results["wavelength"]
+            pixel = np.arange(len(wavelength))
+            wavelength = DataArray(
+                wavelength,
+                coords=[("pixel", pixel)],
+                attrs={"long_name": "Wavelength", "units": "nm"},
+            )
+            coords_spectra = [
+                ("t", t),
+                ("channel", channel),
+                ("wavelength", wavelength),
+            ]
+
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         x_coord = DataArray(
             x, coords=[("channel", channel)], attrs={"long_name": "x", "units": "m"}
@@ -275,11 +292,6 @@ class DataReader(BaseIO):
         )
         R_coord = DataArray(
             R, coords=[("channel", channel)], attrs={"long_name": "R", "units": "m"}
-        )
-        wavelength = DataArray(
-            wavelength,
-            coords=[("pixel", pixel)],
-            attrs={"long_name": "Wavelength", "units": "nm"},
         )
 
         if x_coord.equals(y_coord):
@@ -295,11 +307,6 @@ class DataReader(BaseIO):
         coords = [
             ("t", t),
             ("channel", channel),
-        ]
-        coords_spectra = [
-            ("t", t),
-            ("channel", channel),
-            ("wavelength", wavelength),
         ]
 
         location = database_results["location"]
@@ -321,7 +328,10 @@ class DataReader(BaseIO):
         data = {}
         for quantity in quantities:
             if quantity == "spectra" or quantity == "fit":
-                _coords = coords_spectra
+                if "wavelength" in database_results.keys():
+                    _coords = coords_spectra
+                else:
+                    continue
             else:
                 _coords = coords
 
@@ -538,6 +548,10 @@ class DataReader(BaseIO):
 
         data = {}
         for quantity in quantities:
+            if quantity in NAME_UNITS.keys():
+                long_name, units = NAME_UNITS[quantity]
+            else:
+                long_name, units = "", ""
             quant_data = self.assign_dataarray(
                 uid,
                 instrument,
@@ -545,6 +559,8 @@ class DataReader(BaseIO):
                 database_results,
                 coords,
                 transform=transform,
+                long_name=long_name,
+                units=units,
             )
             data[quantity] = quant_data
 
@@ -1049,6 +1065,8 @@ class DataReader(BaseIO):
         coords: List,
         transform=None,
         include_error: bool = True,
+        long_name: str = "",
+        units: str = "",
     ) -> DataArray:
         """
 
@@ -1074,6 +1092,7 @@ class DataReader(BaseIO):
         -------
 
         """
+
         available_quantities = self.available_quantities(instrument)
 
         quant_data = DataArray(
@@ -1086,6 +1105,10 @@ class DataReader(BaseIO):
         quant_data.attrs = {
             "datatype": available_quantities[quantity],
         }
+        if len(long_name) > 0:
+            quant_data.attrs["long_name"] = long_name
+        if len(units) > 0:
+            quant_data.attrs["units"] = units
 
         if include_error:
             if quantity + "_error" in database_results:
