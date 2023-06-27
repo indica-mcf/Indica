@@ -231,6 +231,23 @@ def histograms(data, diag_data, filename):
     plt.close()
 
 
+
+def plot_autocorr(autocorr, figheader, filetype=".png"):
+
+    plt.figure()
+    plt.plot(
+        np.arange(0, autocorr.__len__())[np.isfinite(autocorr)],
+        autocorr[np.isfinite(autocorr)],
+        label="average auto-correlation time",
+    )
+
+    plt.legend()
+    plt.xlabel("iterations")
+    plt.ylabel("auto-correlation time (iterations)")
+    plt.savefig(figheader + "average_tau" + filetype)
+    plt.close()
+
+
 def plot_bayes_result(
     results,
     figheader="./results/test/",
@@ -246,17 +263,7 @@ def plot_bayes_result(
     phantom_profiles = results["phantom_profiles"]
     autocorr = results["autocorr"]
 
-    plt.figure()
-    plt.plot(
-        np.arange(0, autocorr.__len__())[np.isfinite(autocorr)],
-        autocorr[np.isfinite(autocorr)],
-        label="average tau",
-    )
-    plt.legend()
-    plt.xlabel("iterations")
-    plt.ylabel("auto-correlation time (iterations)")
-    plt.savefig(figheader + "average_tau" + filetype)
-    plt.close()
+    plot_autocorr(autocorr, figheader, filetype=filetype)
 
     if "cxff_pi.ti" in blobs.keys():
         blobs["cxff_pi.ti0"] = blobs["cxff_pi.ti"].sel(
@@ -430,7 +437,7 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/10009_60ms_long/"
+    filehead = "./results/test/"
     with open(filehead + "results.pkl", "rb") as handle:
         results = pickle.load(handle)
     plot_bayes_result(results, filehead, filetype=".png")
