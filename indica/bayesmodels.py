@@ -6,8 +6,11 @@ import numpy as np
 from scipy.stats import uniform
 
 np.seterr(all="ignore")
-
 warnings.simplefilter("ignore", category=FutureWarning)
+
+
+PROFILES = ["electron_temperature", "electron_density", "ion_temperature",
+            "impurity_density", "fast_density", "neutral_density"]
 
 
 def gaussian(x, mean, sigma):
@@ -182,7 +185,7 @@ class BayesModels:
         """
 
         ln_prior = self._ln_prior(parameters)
-        if ln_prior == -np.inf:  # Don't call model if outside priors
+        if ln_prior == -np.inf:  # Don't call models if outside priors
             return -np.inf, {}
 
         self.plasma.update_profiles(parameters)
@@ -190,29 +193,12 @@ class BayesModels:
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_posterior = ln_likelihood + ln_prior
 
-        kin_profs = {
-            "electron_density": self.plasma.electron_density.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "electron_temperature": self.plasma.electron_temperature.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "ion_temperature": self.plasma.ion_temperature.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "impurity_density": self.plasma.impurity_density.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "ion_density": self.plasma.ion_density.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "fast_density": self.plasma.fast_density.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "neutral_density": self.plasma.neutral_density.sel(
-                t=self.plasma.time_to_calculate
-            ),
+        kin_profs = {}
+        for profile_key in PROFILES:
+            if hasattr(self.plasma, profile_key):
+                kin_profs[profile_key] = getattr(self.plasma, profile_key).sel(t=self.plasma.time_to_calculate)
+            else:
+                raise ValueError(f"plasma does not have attribute {profile_key}")
 
-        }
         blob = deepcopy({**self.bckc, **kin_profs})
         return ln_posterior, blob
