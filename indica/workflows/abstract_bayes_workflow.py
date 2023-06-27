@@ -16,20 +16,20 @@ class BayesWorkflow(ABC):
 
         Returns
 
-        dictionary of data
+        nested dictionary of data
         """
         self.data = {}
 
     def setup_opt_data(self, phantom: bool = False):
         """
-        Prepare the data in necessary format for optimiser
+        Prepare the data in necessary format for optimiser i.e. flat dictionary
         """
         self.opt_data = {}
 
     @abstractmethod
     def setup_models(self, diagnostics: list):
         """
-        Initialise models normally requires data to be read so transforms can be set
+        Initialising models normally requires data to be read so transforms can be set
 
         """
         self.models = {}
