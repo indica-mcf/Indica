@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         # Won't bother running the other cases until I know the tests pass on my computer
-        python-version: [3.8] #, 3.9]
+        python-version: [3.9] #, 3.9]
         os: [ubuntu-latest] #, macos-latest]
     runs-on: ${{ matrix.os }}
 
