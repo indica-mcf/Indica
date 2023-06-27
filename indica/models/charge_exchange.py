@@ -433,7 +433,7 @@ def example_run(
 
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
 
-        model.transect_transform.plot_los(tplot, plot_all=True)
+        model.transect_transform.plot(tplot)
 
         # Plot back-calculated profiles
         plt.figure()
