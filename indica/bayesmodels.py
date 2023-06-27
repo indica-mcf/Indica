@@ -9,7 +9,7 @@ np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
 
 
-PROFILES = ["electron_temperature", "electron_density", "ion_temperature",
+PROFILES = ["electron_temperature", "electron_density", "ion_temperature", "ion_density",
             "impurity_density", "fast_density", "neutral_density"]
 
 
