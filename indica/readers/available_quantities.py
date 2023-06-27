@@ -13,6 +13,9 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te": ("temperature", "electrons"),
         "chi2": ("chi-squared", "fit"),
     },
+    "get_spectrometer": {
+        "spectra": ("emission", "spectral"),
+    },
     "get_charge_exchange": {
         # "angf": ("angular_freq", "ion"),
         "vtor": ("linear_rotation", "ion"),
