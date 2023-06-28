@@ -179,7 +179,8 @@ def asymmetry_from_rho_theta(
     data_lfs = data_rho_theta.interp(theta=0.0, method="linear")
     data_hfs = data_rho_theta.interp(theta=np.pi, method="linear")
 
-    derived_asymmetry_parameter = np.log(data_hfs / data_lfs)
+    # cast for numpy ufunc https://github.com/pydata/xarray/issues/6524
+    derived_asymmetry_parameter = cast(DataArray, np.log(data_hfs / data_lfs))
     # if both lfs and hfs density are 0 then set asymmetry parameter to 0
     derived_asymmetry_parameter = derived_asymmetry_parameter.where(
         np.logical_and(data_lfs != 0, data_hfs != 0), other=0
