@@ -27,6 +27,8 @@ REVISIONS = {
     "sxr_diode_1": 0,
     "xrcs": 0,
     "ts": 0,
+    "pi": 0,
+    "tws_c": 0,
 }
 
 FILTER_LIMITS = {
@@ -41,6 +43,8 @@ FILTER_LIMITS = {
     "sxrc_xy1": (0, np.inf),
     "sxrc_xy2": (0, np.inf),
     "ts": (0, 10.0e3),
+    "pi": (0, np.inf),
+    "tws_c": (0, np.inf),
 }
 
 LINESTYLES = {
@@ -48,8 +52,17 @@ LINESTYLES = {
     "cxff_pi": "solid",
     "cxff_tws_c": "dashed",
     "cxqf_tws_c": "dotted",
+    "pi": "solid",
+    "tws_c": "dashed",
 }
-MARKERS = {"ts": "o", "cxff_pi": "s", "cxff_tws_c": "*", "cxqf_tws_c": "x"}
+MARKERS = {
+    "ts": "o",
+    "cxff_pi": "s",
+    "cxff_tws_c": "*",
+    "cxqf_tws_c": "x",
+    "pi": "s",
+    "tws_c": "*",
+}
 YLABELS = {
     "te": "Te (eV)",
     "ne": "Ne (m$^{-3}$)",
