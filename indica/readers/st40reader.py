@@ -90,10 +90,11 @@ class ST40Reader(DataReader):
         "cxff_pi": "get_charge_exchange",
         "cxff_tws_c": "get_charge_exchange",
         "cxqf_tws_c": "get_charge_exchange",
+        "pi": "get_spectrometer",
+        "tws_c": "get_spectrometer",
         "ts": "get_thomson_scattering",
     }
     UIDS_MDS = {
-        "efit": "",
         "xrcs": "sxr",
         "princeton": "spectrom",
         "brems": "spectrom",
@@ -110,10 +111,6 @@ class ST40Reader(DataReader):
         "sxr_camera_2": "sxr",
         "sxr_camera_3": "sxr",
         "sxr_camera_4": "sxr",
-        "cxff_pi": "",
-        "cxff_tws_c": "",
-        "cxqf_tws_c": "",
-        "ts": "",
     }
     QUANTITIES_MDS = {
         "efit": {
@@ -208,12 +205,11 @@ class ST40Reader(DataReader):
             "spectra": ":spectra",
             "fit": ":full_fit",
         },
-        "cxqf_tws_c": {
-            "int": ".profiles:int",
-            "ti": ".profiles:ti",
-            "vtor": ".profiles:vtor",
-            "spectra": ":spectra",
-            "fit": ":full_fit",
+        "pi": {
+            "spectra": ":emission",
+        },
+        "tws": {
+            "spectra": ":emission",
         },
         "ts": {
             "ne": ".profiles:ne",
@@ -824,6 +820,80 @@ class ST40Reader(DataReader):
         results["times"] = times
         results["texp"] = texp
         results["element"] = ""
+        # TODO: check whether wlength should be channel agnostic or not...
+        if wavelength is not None:
+            results["wavelength"] = wavelength[0, :]
+        results["location"] = location
+        results["direction"] = direction
+
+        return results
+
+    def _get_spectrometer(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        revision = results["revision"]
+
+        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
+
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, direction_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
+        if len(np.shape(location)) == 1:
+            location = np.array([location])
+            direction = np.array([direction])
+
+        # if self.pulse > 10200:
+        #     index = np.arange(18, 36)
+        # else:
+        #     index = np.arange(21, 36)
+        # location = location[index]
+        # direction = direction[index]
+
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q],
+                revision,
+            )
+
+            try:
+                qval_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q] + "_err",
+                    revision,
+                )
+            except TreeNNF:
+                qval_err = np.full_like(qval, 0.0)
+                # q_path_err = ""
+
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+
+            results[q + "_records"] = q_path
+            results[q] = qval
+            results[f"{q}_error"] = qval_err
+
+        results["length"] = location[:, 0].size
+        results["times"] = times
         # TODO: check whether wlength should be channel agnostic or not...
         if wavelength is not None:
             results["wavelength"] = wavelength[0, :]

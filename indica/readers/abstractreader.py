@@ -370,6 +370,86 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    def get_spectrometer(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        dl: float = 0.005,
+        passes: int = 1,
+    ) -> Dict[str, DataArray]:
+        """
+        Reads spectroscopy data
+        """
+        database_results = self._get_spectrometer(uid, instrument, revision, quantities)
+
+        _channel = np.arange(database_results["length"])
+        channel = DataArray(
+            _channel,
+            coords=[("channel", _channel)],
+            attrs={"long_name": "Channel", "units": ""},
+        )
+        _t = database_results["times"]
+        t = DataArray(_t, coords=[("t", _t)], attrs={"long_name": "t", "units": "s"})
+        wavelength = database_results["wavelength"]
+        pixel = np.arange(len(wavelength))
+        wavelength = DataArray(
+            wavelength,
+            coords=[("pixel", pixel)],
+            attrs={"long_name": "Wavelength", "units": "nm"},
+        )
+        coords = [
+            ("t", t),
+            ("channel", channel),
+            ("wavelength", wavelength),
+        ]
+
+        location = database_results["location"]
+        direction = database_results["direction"]
+        transform = LineOfSightTransform(
+            location[:, 0],
+            location[:, 1],
+            location[:, 2],
+            direction[:, 0],
+            direction[:, 1],
+            direction[:, 2],
+            f"{instrument}",
+            machine_dimensions=database_results["machine_dims"],
+            dl=dl,
+            passes=passes,
+        )
+
+        data = {}
+        for quantity in quantities:
+            quant_data = self.assign_dataarray(
+                uid,
+                instrument,
+                quantity,
+                database_results,
+                coords,
+                transform,
+            )
+
+            data[quantity] = quant_data
+
+        return data
+
+    def _get_spectrometer(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """
+        Gets raw data for CXRS diagnostic from the database
+        """
+        raise NotImplementedError(
+            "{} does not implement a '_get_charge_exchange' "
+            "method.".format(self.__class__.__name__)
+        )
+
     def get_equilibrium(
         self,
         uid: str,

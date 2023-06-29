@@ -16,6 +16,8 @@ INSTRUMENT_INFO: dict = {
     "efit": ("", "efit", 0, set()),
     "cxff_pi": ("", "cxff_pi", 0, set()),
     "cxff_tws_c": ("", "cxff_tws_c", 0, set()),
+    "pi": ("", "pi", 0, set()),
+    "tws_c": ("", "tws_c", 0, set()),
 }
 
 
@@ -135,5 +137,15 @@ def test_cxff_pi(instrument_name: str = "cxff_pi"):
 
 
 def test_cxff_tws_c(instrument_name: str = "cxff_tws_c"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+
+def test_pi(instrument_name: str = "pi"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+
+def test_tws_c(instrument_name: str = "tws_c"):
     data, database_results = run_reader_get_methods(instrument_name)
     check_transforms(instrument_name, data)
