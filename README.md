@@ -17,7 +17,10 @@ ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also stil
 1. Make sure pip is up-to-date:
     - *pip install --upgrade pip*
 
-2. Create a virtual environment with python 3.9 and activate it.
+2. Create a virtual environment with python 3.9 and activate it, e.g. using conda:
+   - *set_global_conda*
+   - *conda create --name ENV_NAME python=3.9*
+   - *conda activate ENV_NAME*
 
 3. Install poetry and environment dependencies:
     - *pip install poetry==1.1.15*
