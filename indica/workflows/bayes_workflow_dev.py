@@ -97,7 +97,7 @@ OPTIMISED_PARAMS = [
     # "Ti_prof.peaking",
 ]
 
-OPTIMISED_QUANTITY = ["xrcs.spectra", "cxff_pi.ti", "efit.wp", "smmh1.ne"]
+OPTIMISED_QUANTITY = ["cxff_pi.ti", "efit.wp", "smmh1.ne"]
 
 
 class BayesWorkflow:
@@ -161,9 +161,10 @@ class BayesWorkflow:
         ]
         self.plasma.update_profiles(DEFAULT_PHANTOM_PARAMS)
         self.plasma.build_atomic_data(calc_power_loss=False)
-
         self.init_fast_particles()
+
         self.read_st40(diagnostics)
+
         self.init_models()
 
         if self.phantom:
@@ -188,12 +189,12 @@ class BayesWorkflow:
             log_prob_fn=self.bayes_run.ln_posterior,
             parameter_names=OPTIMISED_PARAMS,
             moves=self.move,
-            kwargs={
-                "moment_analysis": False,
-                "calc_spectra": True,
-                "minimum_lines": False,
-                "background": self.flat_data["xrcs.background"],
-            },
+            # kwargs={
+            #     "moment_analysis": False,
+            #     "calc_spectra": True,
+            #     "minimum_lines": False,
+            #     "background": self.flat_data["xrcs.background"],
+            # },
         )
 
         if not self.center_mass_sampling:
@@ -407,7 +408,7 @@ class BayesWorkflow:
 
     def __call__(self, *args, **kwargs):
         autocorr = sample_with_autocorr(
-            self.sampler, self.start_points, iterations=self.iterations, auto_sample=5
+            self.sampler, self.start_points, self.iterations, auto_sample=10
         )
         blobs = self.sampler.get_blobs(
             discard=int(self.iterations * self.burn_in_fraction), flat=True
@@ -473,7 +474,7 @@ class BayesWorkflow:
             plot_bayes_result(self.results, figheader=self.result_path, filetype=".png")
 
 
-def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
+def sample_with_autocorr(sampler, start_points, iterations, auto_sample=5):
     autocorr = np.ones((iterations,)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(
@@ -483,14 +484,14 @@ def sample_with_autocorr(sampler, start_points, iterations=10, auto_sample=5):
     ):
         if sampler.iteration % auto_sample:
             continue
-        new_tau = sampler.get_autocorr_time(tol=0)
-        autocorr[sampler.iteration - 1] = np.mean(new_tau)
+        new_tau = np.mean(sampler.get_autocorr_time(tol=0))
+        autocorr[sampler.iteration - 1] = new_tau
         converged = np.all(new_tau * 50 < sampler.iteration)
         converged &= np.all(np.abs(old_tau - new_tau) / new_tau < 0.01)
         if converged:
             break
         old_tau = new_tau
-    autocorr = autocorr[: sampler.iteration]
+    autocorr = autocorr[: sampler.iteration, ]
     return autocorr
 
 
@@ -507,13 +508,13 @@ if __name__ == "__main__":
         pulse=10009,
         result_path="./results/test/",
         iterations=20,
-        nwalkers=50,
+        nwalkers=20,
         burn_in_fraction=0.10,
         dt=0.005,
         tsample=0.060,
-        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
+        diagnostics=["efit", "smmh1", "cxff_pi"],
         phantom=False,
-        center_mass_sampling=True,
+        center_mass_sampling=False,
         Ti_ref=True,
         mds_write=mds_write,
         save_plots=True
