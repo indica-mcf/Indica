@@ -20,6 +20,8 @@ class BayesWorkflow(ABC):
         """
         self.data = {}
 
+
+    @abstractmethod
     def setup_opt_data(self, phantom: bool = False):
         """
         Prepare the data in necessary format for optimiser i.e. flat dictionary
