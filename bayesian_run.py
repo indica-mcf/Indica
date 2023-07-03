@@ -29,7 +29,7 @@ t_index = 1
 
 data = {
     # Impurity densities data:
-    "N_elements": 1,
+    "N_elements": len(pre_computed["elements"]),
     "N_rho": N_rho,
     # Lines of sight data:
     "N_los_points": N_los_points,

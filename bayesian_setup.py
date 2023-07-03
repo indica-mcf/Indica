@@ -13,8 +13,8 @@ import pickle
 from typing import Any
 from typing import Dict
 
-from bayes_utils import create_LOSData
-from bayes_utils import LOSType
+from bayesian_utils import create_LOSData
+from bayesian_utils import LOSType
 import numpy as np
 
 from indica.converters import FluxSurfaceCoordinates
@@ -32,7 +32,7 @@ N_rho = 7
 N_z = 25
 N_los_points = 65
 
-elements = ["W"]
+elements = ["W", "D"]
 
 server = "https://sal.jet.uk"
 

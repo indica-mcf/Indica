@@ -80,6 +80,7 @@ def get_power_loss(
     # TODO: consider doing power loss calculations on rho grid then interpolating
     #       onto correct time, los_coord, los_point grid
 
+    elements = [element.lower() for element in elements]
     # deuterium and trititum are hydrogen
     elements = [
         "h" if element == "d" or element == "t" else element for element in elements
@@ -87,14 +88,8 @@ def get_power_loss(
 
     adas = ADASReader()
 
-    SCD = {
-        element: adas.get_adf11("scd", element, year)
-        for element, year in zip(elements, ["89"] * len(elements))
-    }
-    ACD = {
-        element: adas.get_adf11("acd", element, year)
-        for element, year in zip(elements, ["89"] * len(elements))
-    }
+    SCD = {element: adas.get_adf11("scd", element, "89") for element in elements}
+    ACD = {element: adas.get_adf11("acd", element, "89") for element in elements}
     FA = {
         element: FractionalAbundance(SCD=SCD.get(element), ACD=ACD.get(element))
         for element in elements
@@ -104,27 +99,15 @@ def get_power_loss(
         # Read in SXR data filtered for SXR camera window
         sxr_adas = ADASReader("/home/elitherl/Analysis/SXR/indica/sxr_filtered_adf11/")
 
-        PLT = {
-            element: sxr_adas.get_adf11("pls", element, year)
-            for element, year in zip(elements, ["5"] * len(elements))
-        }
-        PRB = {
-            element: sxr_adas.get_adf11("prs", element, year)
-            for element, year in zip(elements, ["5"] * len(elements))
-        }
+        PLT = {element: sxr_adas.get_adf11("pls", element, "5") for element in elements}
+        PRB = {element: sxr_adas.get_adf11("prs", element, "5") for element in elements}
         PL = {
             element: PowerLoss(PLT=PLT.get(element), PRB=PRB.get(element))
             for element in elements
         }
     elif los_type == LOSType.BOLO:
-        PLT = {
-            element: adas.get_adf11("plt", element, year)
-            for element, year in zip(elements, ["89"] * len(elements))
-        }
-        PRB = {
-            element: adas.get_adf11("prb", element, year)
-            for element, year in zip(elements, ["89"] * len(elements))
-        }
+        PLT = {element: adas.get_adf11("plt", element, "89") for element in elements}
+        PRB = {element: adas.get_adf11("prb", element, "89") for element in elements}
         PL = {
             element: PowerLoss(PLT=PLT.get(element), PRB=PRB.get(element))
             for element in elements
