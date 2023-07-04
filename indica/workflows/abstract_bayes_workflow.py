@@ -1,5 +1,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
+import xarray as xr
+import pandas as pd
+from pathlib import Path
+import pickle
 
 class BayesWorkflow(ABC):
     def __init__(self,
@@ -155,9 +159,43 @@ class BayesWorkflow(ABC):
         self.result = result
         return self.result
 
+    def run_sampler(self):
+
+        self.autocorr = sample_with_autocorr(
+            self.sampler, self.start_points, self.iterations, self.param_names.__len__(), auto_sample=10
+        )
+        blobs = self.sampler.get_blobs(
+            discard=int(self.iterations * self.burn_frac), flat=True
+        )
+        blob_names = self.sampler.get_blobs().flatten()[0].keys()
+        self.samples = np.arange(0, blobs.__len__())
+
+        self.blobs = {
+            blob_name: xr.concat(
+                [data[blob_name] for data in blobs],
+                dim=pd.Index(self.samples, name="index"),
+            )
+            for blob_name in blob_names
+        }
+        self.accept_frac = self.sampler.acceptance_fraction.sum()
+        self.prior_sample = self.bayesopt.sample_from_priors(
+            self.param_names, size=int(1e4)
+        )
+        self.post_sample = self.sampler.get_chain(flat=True)
+        self.result = self._build_result_dict()
+
+
+    def save_pickle(self, filepath):
+        if filepath:
+            Path(filepath).mkdir(parents=True, exist_ok=True)
+            with open(filepath + "results.pkl", "wb") as handle:
+                pickle.dump(self.result, handle)
+
     @abstractmethod
-    def __call__(self, *args, **kwargs):
-        return {}
+    def __call__(self, filepath="./results/test/", **kwargs):
+        self.run_sampler()
+        self.save_pickle(filepath=filepath)
+        return self.result
 
 
 def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sample=5):
