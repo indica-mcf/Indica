@@ -6,17 +6,25 @@ from pathlib import Path
 import pickle
 
 class AbstractBayesWorkflow(ABC):
+    @abstractmethod
     def __init__(self,
-                 phantom,
-                 diagnostics):
+                 phantoms = None,
+                 diagnostics = None,
+                 param_names=None,
+                 opt_quantity=None,
+                 priors=None,
+                 ):
 
-        self.phantom = phantom
+        self.phantoms = phantoms
         self.diagnostics = diagnostics
+        self.param_names = param_names
+        self.opt_quantity = opt_quantity
+        self.priors = priors
 
         self.setup_plasma()
         self.save_phantom_profiles()
         self.read_data(self.diagnostics)
-        self.setup_opt_data(self.phantom)
+        self.setup_opt_data(self.phantoms)
         self.setup_models(self.diagnostics)
         self.setup_optimiser()
 
