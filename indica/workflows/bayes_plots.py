@@ -1,9 +1,10 @@
-from pathlib import Path
+import os
 
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import flatdict
 
 from indica.utilities import set_plot_rcparams, set_axis_sci
 
@@ -22,35 +23,21 @@ def plot_profile(
 ):
     set_plot_rcparams("profiles")
 
-    if blobkey == "electron_temperature":
-        legkey = "Te"
-    elif blobkey == "ion_temperature":
-        legkey = "Ti"
-    elif blobkey == "ion_density":
-        legkey = "Ni"
-    elif blobkey == "electron_density":
-        legkey = "Ne"
-    elif blobkey == "impurity_density":
-        legkey = "Nimp"
-    elif blobkey == "fast_density":
-        legkey = "Nfast"
-    elif blobkey == "neutral_density":
-        legkey = "Nneut"
     plt.fill_between(
         profile.rho_poloidal,
         profile.quantile(0.16, dim="index"),
         profile.quantile(0.84, dim="index"),
-        label=f"{legkey}, 68% Confidence",
+        label=f"{blobkey}, 68% Confidence",
         zorder=3,
         color=color,
         alpha=0.9,
     )
-    if legkey != "Nfast":
+    if blobkey != "NFAST":
         plt.fill_between(
             profile.rho_poloidal,
             profile.quantile(0.025, dim="index"),
             profile.quantile(0.975, dim="index"),
-            label=f"{legkey}, 95% Confidence",
+            label=f"{blobkey}, 95% Confidence",
             zorder=2,
             color="grey",
             alpha=0.4,
@@ -59,19 +46,19 @@ def plot_profile(
             profile.rho_poloidal,
             profile.quantile(0.00, dim="index"),
             profile.quantile(1.00, dim="index"),
-            label=f"{legkey}, Max-Min",
+            label=f"{blobkey}, Max-Min",
             zorder=1,
             color="lightgrey",
             alpha=0.2,
         )
 
-    if phantom_profile is not None:
+    if phantom_profile["FLAG"]:
         if "element" in phantom_profile[blobkey].dims:
             phantom = phantom_profile[blobkey].sel(element="ar")
         else:
             phantom = phantom_profile[blobkey]
         phantom.plot(
-            label=f"{legkey}, phantom profile",
+            label=f"{blobkey}, phantom profile",
             linestyle=linestyle,
             color="black",
             zorder=4,
@@ -232,16 +219,17 @@ def histograms(data, diag_data, filename):
 
 
 
-def plot_autocorr(autocorr, figheader, filetype=".png"):
+def plot_autocorr(autocorr, param_names, figheader, filetype=".png"):
 
     plt.figure()
-    plt.plot(
-        np.arange(0, autocorr.__len__())[np.isfinite(autocorr)],
-        autocorr[np.isfinite(autocorr)],
-        label="average auto-correlation time",
-    )
 
-    plt.legend()
+    x_data = np.ones(shape=(autocorr.shape)) * np.arange(0, autocorr[:,0].__len__())[:,None]
+    plt.plot(
+        np.where(np.isfinite(autocorr), x_data, np.nan),
+        autocorr,
+        "x"
+    )
+    plt.legend(param_names)
     plt.xlabel("iterations")
     plt.ylabel("auto-correlation time (iterations)")
     plt.savefig(figheader + "average_tau" + filetype)
@@ -255,28 +243,38 @@ def plot_bayes_result(
     **kwargs,
 ):
 
-    diag_data = results["diag_data"]
-    blobs = results["blobs"]
-    samples = results["samples"]
-    prior_samples = results["prior_samples"]
-    param_names = results["param_names"]
-    phantom_profiles = results["phantom_profiles"]
-    autocorr = results["autocorr"]
+    # delete all but pickle in directory
+    for root, dirs, files in os.walk(figheader):
+        for f in files:
+            if f.endswith(".pkl"):
+                continue
+            else:
+                print(f"Deleting {os.path.join(root, f)}")
+                os.remove(os.path.join(root, f))
 
-    plot_autocorr(autocorr, figheader, filetype=filetype)
+    diag_data = flatdict.FlatDict(results["DIAG_DATA"], ".")
+    model_data = flatdict.FlatDict(results["MODEL_DATA"], ".")
+    profiles = flatdict.FlatDict(results["PROFILE_STAT"], ".")
+    post_sample = results["OPTIMISATION"]["POST_SAMPLE"]
+    prior_sample = results["OPTIMISATION"]["PRIOR_SAMPLE"]
+    autocorr = results["OPTIMISATION"]["AUTOCORR"]
+    param_names = results["INPUT"]["PARAM_NAMES"]
+    phantom_profiles = flatdict.FlatDict(results["PHANTOMS"], ".")
 
-    if "cxff_pi.ti" in blobs.keys():
-        blobs["cxff_pi.ti0"] = blobs["cxff_pi.ti"].sel(
-            channel=diag_data["cxff_pi.ti"].channel
+    plot_autocorr(autocorr, param_names, figheader, filetype=filetype)
+
+    if "CXFF_PI.TI" in model_data.keys():
+        model_data["CXFF_PI.TI0"] = model_data["CXFF_PI.TI"].sel(
+            channel=diag_data["CXFF_PI.TI"].channel
         )
-        diag_data["cxff_pi.ti0"] = diag_data["cxff_pi.ti"].sel(
-            channel=diag_data["cxff_pi.ti"].channel
+        diag_data["CXFF_PI.TI0"] = diag_data["CXFF_PI.TI"].sel(
+            channel=diag_data["CXFF_PI.TI"].channel
         )
 
-    key = "cxff_pi.ti0"
-    if key in blobs.keys():
+    key = "CXFF_PI.TI0"
+    if key in model_data.keys():
         violinplot(
-            blobs,
+            model_data,
             key,
             diag_data,
             f"{key.replace('.', '_')}" + filetype,
@@ -284,10 +282,10 @@ def plot_bayes_result(
             ylabel="Temperature [eV]",
         )
 
-    key = "efit.wp"
-    if key in blobs.keys():
+    key = "EFIT.WP"
+    if key in model_data.keys():
         violinplot(
-            blobs,
+            model_data,
             key,
             diag_data,
             f"{key.replace('.', '_')}" + filetype,
@@ -295,29 +293,29 @@ def plot_bayes_result(
             ylabel="Energy [J]",
         )
     key = "smmh1.ne"
-    if key in blobs.keys():
+    if key in model_data.keys():
         violinplot(
-            blobs,
+            model_data,
             key,
             diag_data,
             f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
             ylabel=r"Line Integrated Density [$m^{-2}$]",
         )
-    key = "xrcs.te_kw"
-    if key in blobs.keys():
+    key = "XRCS.TE_KW"
+    if key in model_data.keys():
         violinplot(
-            blobs,
+            model_data,
             key,
             diag_data,
             f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
             ylabel="Temperature [eV]",
         )
-    key = "xrcs.ti_w"
-    if key in blobs.keys():
+    key = "XRCS.TI_W"
+    if key in model_data.keys():
         violinplot(
-            blobs,
+            model_data,
             key,
             diag_data,
             f"{key.replace('.', '_')}" + filetype,
@@ -326,10 +324,10 @@ def plot_bayes_result(
         )
 
     set_plot_rcparams("multi")
-    key = "xrcs.spectra"
-    if key in blobs.keys():
+    key = "XRCS.SPECTRA"
+    if key in model_data.keys():
         _plot_1d(
-            blobs,
+            model_data,
             key,
             diag_data,
             f"{key.replace('.', '_')}" + filetype,
@@ -339,10 +337,10 @@ def plot_bayes_result(
             xlim=(0.394, 0.401),
             figsize=(6, 4),
         )
-    key = "cxff_pi.ti"
-    if key in blobs.keys():
+    key = "CXFF_PI.TI"
+    if key in model_data.keys():
         _plot_1d(
-            blobs,
+            model_data,
             key,
             diag_data,
             f"{key.replace('.', '_')}" + filetype,
@@ -351,9 +349,9 @@ def plot_bayes_result(
             xlabel="Channel",
         )
 
-    key = "electron_temperature"
+    key = "TE"
     plot_profile(
-        blobs[key],
+        profiles[key],
         key,
         figheader=figheader,
         filetype=filetype,
@@ -362,9 +360,9 @@ def plot_bayes_result(
         color="blue",
         linestyle="dashdot",
     )
-    key = "ion_temperature"
+    key = "TI"
     plot_profile(
-        blobs[key].sel(element="ar"),
+        profiles[key].sel(element="ar"),
         key,
         figheader=figheader,
         filename="temperature",
@@ -374,9 +372,9 @@ def plot_bayes_result(
         linestyle="dotted",
     )
 
-    key = "electron_density"
+    key = "NE"
     plot_profile(
-        blobs[key],
+        profiles[key],
         key,
         figheader=figheader,
         filetype=filetype,
@@ -384,9 +382,9 @@ def plot_bayes_result(
         color="blue",
         sharefig=True
     )
-    key = "ion_density"
+    key = "NI"
     plot_profile(
-        blobs[key].sel(element="h"),
+        profiles[key].sel(element="h"),
         key,
         figheader=figheader,
         filetype=filetype,
@@ -394,44 +392,54 @@ def plot_bayes_result(
         sharefig=True,
         color="red",
     )
-    key = "fast_density"
+    key = "NFAST"
     plot_profile(
-        blobs[key],
+        profiles[key],
         key,
         figheader=figheader,
-        filename="density",
+        filename="densities",
         filetype=filetype,
         phantom_profile=phantom_profiles,
         color="green",
     )
 
-    key = "impurity_density"
-    for elem in blobs[key].element.values:
-        plot_profile(
-            blobs[key].sel(element=elem),
-            key,
-            figheader=figheader,
-            filename=f"{elem} density",
-            filetype=filetype,
-            phantom_profile=phantom_profiles,
-            color="red",
-        )
-
-    key = "neutral_density"
+    key = "NIMP1"
     plot_profile(
-        blobs[key],
+        profiles[key],
         key,
-        filename="",
+        figheader=figheader,
+        filename=f"ar density",
+        filetype=filetype,
+        phantom_profile=phantom_profiles,
+        color="red",
+    )
+
+    key = "NIMP2"
+    plot_profile(
+        profiles[key],
+        key,
+        figheader=figheader,
+        filename=f"c density",
+        filetype=filetype,
+        phantom_profile=phantom_profiles,
+        color="red",
+    )
+
+    key = "NNEUTR"
+    plot_profile(
+        profiles[key],
+        key,
+        filename="neutral density",
         figheader=figheader,
         filetype=filetype,
         phantom_profile=phantom_profiles,
         logscale=True,
     )
 
-    corner.corner(samples, labels=param_names)
+    corner.corner(post_sample, labels=param_names)
     plt.savefig(figheader + "posterior" + filetype)
 
-    corner.corner(prior_samples, labels=param_names)
+    corner.corner(prior_sample, labels=param_names)
     plt.savefig(figheader + "prior" + filetype)
     plt.close("all")
 
