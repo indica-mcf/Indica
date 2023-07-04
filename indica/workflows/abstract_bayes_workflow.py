@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 import pickle
 
-class BayesWorkflow(ABC):
+class AbstractBayesWorkflow(ABC):
     def __init__(self,
                  phantom,
                  diagnostics):

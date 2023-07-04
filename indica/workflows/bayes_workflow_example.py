@@ -17,7 +17,7 @@ from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
 from indica.models.plasma import Plasma
 from indica.converters.line_of_sight import LineOfSightTransform
 
-from abstract_bayes_workflow import BayesWorkflow, sample_with_autocorr
+from abstract_bayes_workflow import AbstractBayesWorkflow
 
 # global configurations
 from indica.workflows.bayes_plots import plot_bayes_result
@@ -102,7 +102,7 @@ OPTIMISED_PARAMS = [
 OPTIMISED_QUANTITY = ["cxff_pi.ti", "efit.wp", "smmh1.ne"]
 
 
-class TestWorkflow(BayesWorkflow):
+class TestWorkflow(AbstractBayesWorkflow):
     def __init__(
             self,
             pulse=None,
