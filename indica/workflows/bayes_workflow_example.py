@@ -109,6 +109,7 @@ class ExampleWorkflow(AbstractBayesWorkflow):
             param_names=None,
             opt_quantity=None,
             priors = None,
+            diagnostics=None,
 
             nwalkers=50,
             tstart=0.02,
@@ -119,26 +120,29 @@ class ExampleWorkflow(AbstractBayesWorkflow):
             burn_frac=0,
 
             phantoms=False,
-            diagnostics=None,
             sample_high_density = False,
     ):
+
         self.pulse = pulse
         self.param_names = param_names
         self.opt_quantity = opt_quantity
         self.priors = priors
+        self.diagnostics = diagnostics
 
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
         self.tsample = tsample
+
         self.nwalkers = nwalkers
         self.iterations = iterations
         self.burn_frac = burn_frac
-
-
         self.phantoms = phantoms
-        self.diagnostics = diagnostics
         self.sample_high_density = sample_high_density
+
+        for attribute in ["pulse", "param_names", "opt_quantity", "priors", "diagnostics"]:
+            if getattr(self, attribute) is None:
+                raise ValueError(f"{attribute} needs to be defined")
 
         self.setup_plasma()
         self.save_phantom_profiles()
@@ -352,8 +356,8 @@ if __name__ == "__main__":
         pulse=10009,
         dt=0.005,
         tsample=0.060,
-        diagnostics=["efit", "smmh1", "cxff_pi"],
-
+        # diagnostics=["efit", "smmh1", "cxff_pi"],
+        diagnostics=None,
         param_names=OPTIMISED_PARAMS,
         opt_quantity=OPTIMISED_QUANTITY,
         priors=DEFAULT_PRIORS,
