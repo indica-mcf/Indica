@@ -102,12 +102,13 @@ OPTIMISED_PARAMS = [
 OPTIMISED_QUANTITY = ["cxff_pi.ti", "efit.wp", "smmh1.ne"]
 
 
-class TestWorkflow(AbstractBayesWorkflow):
+class ExampleWorkflow(AbstractBayesWorkflow):
     def __init__(
             self,
             pulse=None,
             param_names=None,
             opt_quantity=None,
+            priors = None,
 
             nwalkers=50,
             tstart=0.02,
@@ -119,10 +120,12 @@ class TestWorkflow(AbstractBayesWorkflow):
 
             phantoms=False,
             diagnostics=None,
+            sample_high_density = False,
     ):
         self.pulse = pulse
         self.param_names = param_names
         self.opt_quantity = opt_quantity
+        self.priors = priors
 
         self.tstart = tstart
         self.tend = tend
@@ -135,6 +138,7 @@ class TestWorkflow(AbstractBayesWorkflow):
 
         self.phantoms = phantoms
         self.diagnostics = diagnostics
+        self.sample_high_density = sample_high_density
 
         self.setup_plasma()
         self.save_phantom_profiles()
@@ -237,24 +241,26 @@ class TestWorkflow(AbstractBayesWorkflow):
             plasma=self.plasma,
             data=self.opt_data,
             diagnostic_models=[*self.models.values()],
-            quant_to_optimise=OPTIMISED_QUANTITY,
-            priors=DEFAULT_PRIORS,
+            quant_to_optimise=self.opt_quantity,
+            priors=self.priors,
         )
 
-        ndim = len(OPTIMISED_PARAMS)
-
+        ndim = len(self.param_names)
         self.move = [(emcee.moves.StretchMove(), 0.9), (emcee.moves.DEMove(), 0.1)]
         self.sampler = emcee.EnsembleSampler(
             self.nwalkers,
             ndim,
             log_prob_fn=self.bayesopt.ln_posterior,
-            parameter_names=OPTIMISED_PARAMS,
+            parameter_names=self.param_names,
             moves=self.move,
         )
 
-        self.start_points = self.bayesopt.sample_from_priors(
-            OPTIMISED_PARAMS, size=self.nwalkers
-        )
+        if self.sample_high_density:
+            self.start_points = self.bayesopt.sample_from_high_density_region(self.param_names, self.sampler, self.nwalkers)
+        else:
+            self.start_points = self.bayesopt.sample_from_priors(
+                self.param_names, size=self.nwalkers
+            )
 
     def _phantom_data(self, noise=False, noise_factor=0.1):
         self.opt_data = {}
@@ -342,17 +348,20 @@ class TestWorkflow(AbstractBayesWorkflow):
 
 
 if __name__ == "__main__":
-    run = TestWorkflow(
+    run = ExampleWorkflow(
         pulse=10009,
         dt=0.005,
         tsample=0.060,
         diagnostics=["efit", "smmh1", "cxff_pi"],
 
+        param_names=OPTIMISED_PARAMS,
+        opt_quantity=OPTIMISED_QUANTITY,
+        priors=DEFAULT_PRIORS,
+
         iterations=20,
-        nwalkers=10,
+        nwalkers=50,
         burn_frac=0.10,
-        param_names = OPTIMISED_PARAMS,
-        opt_quantity=OPTIMISED_QUANTITY
+        sample_high_density=True
     )
 
     test = run(filepath="./results/test/")

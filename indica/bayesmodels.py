@@ -165,6 +165,38 @@ class BayesModels:
         samples = samples[:, 0:size]
         return samples.transpose()
 
+    def sample_from_high_density_region(self, param_names: list, sampler: object, nwalkers: int, nsamples = 100):
+        start_points = self.sample_from_priors(
+            param_names, size=nsamples
+        )
+
+        ln_prob, _ = sampler.compute_log_prob(start_points)
+        num_best_points = int(nsamples * 0.05)
+        index_best_start = np.argsort(ln_prob)[-num_best_points:]
+        best_start_points = start_points[index_best_start, :]
+        best_points_std = np.std(best_start_points, axis=0)
+
+        # Passing samples through ln_prior and redrawing if they fail
+        samples = np.empty((param_names.__len__(), 0))
+        while samples.size < param_names.__len__() * nwalkers:
+            sample = np.random.normal(
+                np.mean(best_start_points, axis=0),
+                best_points_std * 2,
+                size=(nwalkers * 5, len(param_names)),
+            )
+            start = {
+                name: sample[:, idx] for idx, name in enumerate(param_names)
+            }
+            ln_prior = self._ln_prior(start)
+            # Convert from dictionary of arrays -> array,
+            # then filtering out where ln_prior is -infinity
+            accepted_samples = np.array(list(start.values()))[
+                               :, ln_prior != -np.inf
+                               ]
+            samples = np.append(samples, accepted_samples, axis=1)
+        start_points = samples[:, 0: nwalkers].transpose()
+        return start_points
+
     def ln_posterior(self, parameters: dict, **kwargs):
         """
         Posterior probability given to optimisers
