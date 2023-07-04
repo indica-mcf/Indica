@@ -1,7 +1,12 @@
+import pickle
+
 import emcee
 import numpy as np
+import xarray as xr
+import pandas as pd
 import flatdict
 from scipy.stats import loguniform
+from pathlib import Path
 
 from indica.readers.read_st40 import ReadST40
 from indica.bayesmodels import BayesModels, get_uniform
@@ -12,9 +17,11 @@ from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
 from indica.models.plasma import Plasma
 from indica.converters.line_of_sight import LineOfSightTransform
 
-from abstract_bayes_workflow import BayesWorkflow
+from abstract_bayes_workflow import BayesWorkflow, sample_with_autocorr
 
 # global configurations
+from indica.workflows.bayes_plots import plot_bayes_result
+
 DEFAULT_PHANTOM_PARAMS = {
     "Ne_prof.y0": 5e19,
     "Ne_prof.wcenter": 0.4,
@@ -73,9 +80,9 @@ DEFAULT_PRIORS = {
 OPTIMISED_PARAMS = [
     # "Ne_prof.y1",
     "Ne_prof.y0",
-    "Ne_prof.peaking",
-    "Ne_prof.wcenter",
-    "Ne_prof.wped",
+    # "Ne_prof.peaking",
+    # "Ne_prof.wcenter",
+    # "Ne_prof.wped",
     # "ar_conc",
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
@@ -99,32 +106,40 @@ class TestWorkflow(BayesWorkflow):
     def __init__(
             self,
             pulse=None,
+            param_names=None,
+            opt_quantity=None,
+
             nwalkers=50,
             tstart=0.02,
             tend=0.10,
             dt=0.01,
             tsample=0.06,
             iterations=100,
-            burn_in_fraction=0,
+            burn_frac=0,
 
-            phantom=False,
+            phantoms=False,
             diagnostics=None,
     ):
         self.pulse = pulse
+        self.param_names = param_names
+        self.opt_quantity = opt_quantity
+
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
         self.tsample = tsample
         self.nwalkers = nwalkers
         self.iterations = iterations
-        self.burn_in_fraction = burn_in_fraction
+        self.burn_frac = burn_frac
 
-        self.phantom = phantom
+
+        self.phantoms = phantoms
         self.diagnostics = diagnostics
 
         self.setup_plasma()
+        self.save_phantom_profiles()
         self.read_data(diagnostics)
-        self.setup_opt_data(phantom=self.phantom)
+        self.setup_opt_data(phantoms=self.phantoms)
         self.setup_models(diagnostics)
         self.setup_optimiser()
 
@@ -142,13 +157,12 @@ class TestWorkflow(BayesWorkflow):
             full_run=False,
             n_rad=20,
         )
-        self.plasma.Ti_ref = True
-
         self.plasma.time_to_calculate = self.plasma.t[
             np.abs(self.tsample - self.plasma.t).argmin()
         ]
         self.plasma.update_profiles(DEFAULT_PHANTOM_PARAMS)
         self.plasma.build_atomic_data(calc_power_loss=False)
+
 
     def read_data(self, diagnostics: list):
         self.reader = ReadST40(
@@ -158,8 +172,8 @@ class TestWorkflow(BayesWorkflow):
         self.plasma.set_equilibrium(self.reader.equilibrium)
         self.data = self.reader.binned_data
 
-    def setup_opt_data(self, phantom=False):
-        if phantom:
+    def setup_opt_data(self, phantoms=False):
+        if phantoms:
             self._phantom_data()
         else:
             self._exp_data()
@@ -217,7 +231,6 @@ class TestWorkflow(BayesWorkflow):
 
             self.models[diag] = model
 
-
     def setup_optimiser(self, ):
 
         self.bayesopt = BayesModels(
@@ -242,7 +255,6 @@ class TestWorkflow(BayesWorkflow):
         self.start_points = self.bayesopt.sample_from_priors(
             OPTIMISED_PARAMS, size=self.nwalkers
         )
-
 
     def _phantom_data(self, noise=False, noise_factor=0.1):
         self.opt_data = {}
@@ -278,20 +290,27 @@ class TestWorkflow(BayesWorkflow):
                 "smmh1.ne"
             ].max().values * np.random.normal(0, noise_factor, None)
             self.opt_data["xrcs.spectra"] = self.opt_data[
-                                                 "xrcs.spectra"
-                                             ] + np.random.normal(
+                                                "xrcs.spectra"
+                                            ] + np.random.normal(
                 0,
                 np.sqrt(self.opt_data["xrcs.spectra"].values[0,]),
                 self.opt_data["xrcs.spectra"].shape[1],
             )
             self.opt_data["cxff_pi.ti"] = self.opt_data[
-                                               "cxff_pi.ti"
-                                           ] + self.opt_data["cxff_pi.ti"].max().values * np.random.normal(
+                                              "cxff_pi.ti"
+                                          ] + self.opt_data["cxff_pi.ti"].max().values * np.random.normal(
                 0, noise_factor, self.opt_data["cxff_pi.ti"].shape[1]
             )
             self.opt_data["efit.wp"] = self.opt_data["efit.wp"] + self.opt_data[
                 "efit.wp"
             ].max().values * np.random.normal(0, noise_factor, None)
+
+        self.phantom_profiles = {}
+        for key in ["electron_density", "impurity_density", "electron_temperature", "ion_temperature",
+                    "ion_density", "fast_density", "neutral_density"]:
+            self.phantom_profiles[key] = getattr(self.plasma, key).sel(
+                t=self.plasma.time_to_calculate
+            ).copy()
 
     def _exp_data(self):
         self.opt_data = flatdict.FlatDict(self.data, ".")
@@ -314,12 +333,12 @@ class TestWorkflow(BayesWorkflow):
                 self.opt_data["cxff_pi"]["ti"].channel == 2, drop=True
             )
 
-    def __call__(self, *args, **kwargs):
-        self.sampler.run_mcmc(self.start_points, self.iterations, progress=True)
-        blobs = self.sampler.get_blobs(
-            discard=int(self.iterations * self.burn_in_fraction), flat=True
-        )
-        return blobs
+    def __call__(self, filepath = "./results/test/", **kwargs):
+        self.run_sampler()
+        self.save_pickle(filepath=filepath)
+        plot_bayes_result(self.result, filepath)
+        return self.result
+
 
 
 if __name__ == "__main__":
@@ -329,8 +348,15 @@ if __name__ == "__main__":
         tsample=0.060,
         diagnostics=["efit", "smmh1", "cxff_pi"],
 
-        iterations=10,
-        nwalkers=20,
-        burn_in_fraction=0.10,
+        iterations=20,
+        nwalkers=10,
+        burn_frac=0.10,
+        param_names = OPTIMISED_PARAMS,
+        opt_quantity=OPTIMISED_QUANTITY
     )
-    run()
+
+    test = run(filepath="./results/test/")
+
+    flattest = flatdict.FlatDict(test, delimiter=".")
+    for key in flattest.keys():
+        print(key)
