@@ -171,15 +171,6 @@ class ExampleWorkflow(AbstractBayesWorkflow):
         self.plasma.update_profiles(DEFAULT_PHANTOM_PARAMS)
         self.plasma.build_atomic_data(calc_power_loss=False)
 
-
-    def read_data(self, diagnostics: list):
-        self.reader = ReadST40(
-            self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt
-        )
-        self.reader(diagnostics)
-        self.plasma.set_equilibrium(self.reader.equilibrium)
-        self.data = self.reader.binned_data
-
     def setup_opt_data(self, phantoms=False):
         if phantoms:
             self._phantom_data()
@@ -356,8 +347,7 @@ if __name__ == "__main__":
         pulse=10009,
         dt=0.005,
         tsample=0.060,
-        # diagnostics=["efit", "smmh1", "cxff_pi"],
-        diagnostics=None,
+        diagnostics=["efit", "smmh1", "cxff_pi"],
         param_names=OPTIMISED_PARAMS,
         opt_quantity=OPTIMISED_QUANTITY,
         priors=DEFAULT_PRIORS,

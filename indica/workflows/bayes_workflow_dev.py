@@ -193,14 +193,6 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         Pbper = code_data["pbper"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
         self.plasma.pressure_fast_perpendicular.values = Pbper.values
 
-    def read_data(self, diagnostics: list):
-        self.reader = ReadST40(
-            self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt
-        )
-        self.reader(diagnostics)
-        self.plasma.set_equilibrium(self.reader.equilibrium)
-        self.data = self.reader.binned_data
-
     def setup_opt_data(self, phantoms=False):
         if phantoms:
             self._phantom_data()

@@ -5,6 +5,9 @@ import pandas as pd
 from pathlib import Path
 import pickle
 
+from indica.readers.read_st40 import ReadST40
+
+
 class AbstractBayesWorkflow(ABC):
     @abstractmethod
     def __init__(self,
@@ -35,16 +38,14 @@ class AbstractBayesWorkflow(ABC):
         """
         self.plasma = None
 
-    @abstractmethod
+
     def read_data(self, diagnostics: list):
-        """
-        Reads data from server
-
-        Returns
-
-        nested dictionary of data
-        """
-        self.data = {}
+        self.reader = ReadST40(
+            self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt
+        )
+        self.reader(diagnostics)
+        self.plasma.set_equilibrium(self.reader.equilibrium)
+        self.data = self.reader.binned_data
 
 
     @abstractmethod
