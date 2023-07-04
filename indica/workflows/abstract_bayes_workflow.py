@@ -161,6 +161,16 @@ class AbstractBayesWorkflow(ABC):
 
     def run_sampler(self):
 
+        """
+        TODO: unsure if keeping in abstract class is best practice
+
+        Runs the sampler and saves certain attributes from the sampler
+
+        Returns
+
+        result in MDSPlus node formatting
+
+        """
         self.autocorr = sample_with_autocorr(
             self.sampler, self.start_points, self.iterations, self.param_names.__len__(), auto_sample=10
         )
