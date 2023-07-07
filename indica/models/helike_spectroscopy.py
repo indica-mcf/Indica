@@ -693,7 +693,7 @@ class Helike_spectroscopy(DiagnosticModel):
         if moment_analysis:
             self._calculate_temperatures()
         if background is not None:
-            self.measured_spectra = self.measured_spectra + background.sel(t=t)
+            self.measured_spectra = self.measured_spectra + background
         self._build_bckc_dictionary()
 
         return self.bckc
