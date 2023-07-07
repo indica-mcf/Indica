@@ -210,7 +210,7 @@ class ExampleWorkflow(AbstractBayesWorkflow):
                     window_vector=self.data[diag][
                                       "spectra"
                                   ].wavelength.values
-                                  * 0.1,
+                                  ,
                 )
                 model.set_los_transform(los_transform)
                 model.plasma = self.plasma
