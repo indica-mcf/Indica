@@ -94,7 +94,11 @@ OPTIMISED_PARAMS = [
     # "Ti_prof.peaking",
 ]
 
-OPTIMISED_QUANTITY = ["cxff_pi.ti", "efit.wp", "smmh1.ne"]
+OPTIMISED_QUANTITY = [
+                        # "xrcs.spectra",
+                        "cxff_pi.ti",
+                        "efit.wp",
+                        "smmh1.ne"]
 
 
 class DevBayesWorkflow(AbstractBayesWorkflow):
@@ -105,6 +109,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             param_names=None,
             opt_quantity=None,
             priors = None,
+            phantom_params=None,
 
             nwalkers=50,
             tstart=0.02,
@@ -125,6 +130,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         self.param_names = param_names
         self.opt_quantity = opt_quantity
         self.priors = priors
+        self.phantom_params = phantom_params
 
         self.tstart = tstart
         self.tend = tend
@@ -140,7 +146,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         self.mds_write = mds_write
         self.fast_particles = fast_particles
 
-        for attribute in ["pulse", "param_names", "opt_quantity", "priors", "diagnostics"]:
+        for attribute in ["pulse", "param_names", "opt_quantity", "priors", "diagnostics", "phantom_params"]:
             if getattr(self, attribute) is None:
                 raise ValueError(f"{attribute} needs to be defined")
 
@@ -168,7 +174,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         self.plasma.time_to_calculate = self.plasma.t[
             np.abs(self.tsample - self.plasma.t).argmin()
         ]
-        self.plasma.update_profiles(DEFAULT_PHANTOM_PARAMS)
+        self.plasma.update_profiles(self.phantom_params)
         self.plasma.build_atomic_data(calc_power_loss=False)
         if self.fast_particles:
             self._init_fast_particles()
@@ -222,7 +228,6 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
                 los_transform.set_equilibrium(self.plasma.equilibrium)
                 model = Interferometry(name=diag)
                 model.set_los_transform(los_transform)
-                model.plasma = self.plasma
 
             elif diag == "xrcs":
                 los_transform = self.data["xrcs"]["te_kw"].transform
@@ -235,20 +240,19 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
                                   * 0.1,
                 )
                 model.set_los_transform(los_transform)
-                model.plasma = self.plasma
 
             elif diag == "efit":
                 model = EquilibriumReconstruction(name="efit")
-                model.plasma = self.plasma
 
             elif diag == "cxff_pi":
                 transform = self.data[diag]["ti"].transform
                 transform.set_equilibrium(self.plasma.equilibrium)
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
-                model.plasma = self.plasma
             else:
                 raise ValueError(f"{diag} not found in setup_models")
+            model.plasma = self.plasma
+
 
             self.models[diag] = model
 
@@ -372,15 +376,20 @@ if __name__ == "__main__":
 
     run = DevBayesWorkflow(
         pulse=10009,
-        iterations=20,
+        iterations=10,
         nwalkers=20,
         burn_frac=0.10,
         dt=0.005,
         tsample=0.060,
-        diagnostics=["efit", "smmh1", "cxff_pi"],
+        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
         phantoms=False,
         sample_high_density=True,
         mds_write=False,
+
+        opt_quantity=OPTIMISED_QUANTITY,
+        param_names=OPTIMISED_PARAMS,
+        phantom_params=DEFAULT_PHANTOM_PARAMS,
+        priors=DEFAULT_PRIORS,
     )
     results = run(filepath="./results/test/",)
 
