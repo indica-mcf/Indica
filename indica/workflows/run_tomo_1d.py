@@ -166,11 +166,10 @@ def old_camera(
             debug=debug,
             has_data=has_data,
         )
-        # return input_dict
 
-   # tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
+    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
 
-   # tomo()
+    tomo()
 
     if plot:
         plt.ioff()
