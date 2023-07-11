@@ -9,6 +9,21 @@ def bda():
     nodes = {
         "TIME": ("NUMERIC", "time vector, s"),
         "TIME_OPT": ("NUMERIC", "time of optimisation, s"),
+
+        "INPUT": {
+            "BURN_FRAC": ("NUMERIC", "Burn in fraction for chains"),
+            "ITER": ("NUMERIC", "Iterations of optimiser"),
+            "PARAM_NAMES": ("TEXT", "Names of params optimised"),
+            "MODEL_KWARGS": ("TEXT", "Model key word arguments"),
+            # "OPT_KWARGS": ("TEXT", "Optimiser key word arguments"),
+            "PULSE": ("NUMERIC", "Pulse number"),
+
+            "TSTART": ("NUMERIC", "Start of time vector"),
+            "TEND": ("NUMERIC", "End of time vector"),
+            "DT": ("NUMERIC", "Distance between time points"),
+            "TSAMPLE": ("NUMERIC", "Sample time"),
+        },
+
         "METADATA": {
             "GITCOMMIT": ("TEXT", "Commit ID used for run"),
             "USER": ("TEXT", "Username of owner"),
@@ -21,6 +36,7 @@ def bda():
         },
         "PROFILES": {
             "RHO_POLOIDAL": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
+            "RHO_TOR": ("NUMERIC", "Radial vector, toroidal flux"),
             "NE": ("SIGNAL", "Electron density, m^-3"),
             "NI": ("SIGNAL", "Ion density, m^-3"),
             "TE": ("SIGNAL", "Electron temperature, eV"),
@@ -29,7 +45,6 @@ def bda():
             "NI_ERR": ("SIGNAL", "Ion density error, m^-3"),
             "TE_ERR": ("SIGNAL", "Electron temperature error, eV"),
             "TI_ERR": ("SIGNAL", "Ion temperature of main ion error, eV"),
-
 
             "TIZ1": ("SIGNAL", "Ion temperature of impurity IMP1, eV"),
             "TIZ2": ("SIGNAL", "Ion temperature of impurity IMP2, eV"),
@@ -94,15 +109,6 @@ def bda():
 
         },
 
-        "INPUT": {
-            "PARAM_NAMES": ("TEXT", "Names of params optimised"),
-            "MODEL_KWARGS": ("TEXT", "Model key word arguments"),
-            "OPT_KWARGS": ("TEXT", "Optimiser key word arguments"),
-            "ITER": ("NUMERIC", "Iterations of optimiser"),
-            "NWALKERS": ("NUMERIC", "Number of walkers used"),
-            "BURN_FRAC": ("NUMERIC", "Burn in fraction for chains"),
-        },
-
         "OPTIMISATION": {
             "AUTO_CORR": ("NUMERIC", "Auto-correlation (iteration nwalker)"),
             "POST_SAMPLE": ("NUMERIC", "Posterior probability samples (sample)"),
@@ -120,7 +126,6 @@ def create_nodes(pulse_to_write=23000101, run="RUN01", best=True, diagnostic_qua
     quant_list = [item.split(".") for item in diagnostic_quantities]  # replace OPTIMISED_QUANTITY
     diag_names = list(set([item[0] for item in quant_list]))
 
-
     diag_nodes = {diag_name:
                       {quantity[1]: ("SIGNAL", f"measured {quantity[1]} from {quantity[0]}")
                        for quantity in quant_list if quantity[0] == diag_name}
@@ -129,7 +134,6 @@ def create_nodes(pulse_to_write=23000101, run="RUN01", best=True, diagnostic_qua
     for diag_name in diag_names:
         diag_nodes[diag_name]["RUN"] = ("TEXT", f"RUN from which {diag_name} data was taken")
 
-
     nodes = {
         "RUN": ("TEXT", "RUN used for diagnostic"),
         "USAGE": ("TEXT", "Diagnostic used in analysis"),
@@ -137,9 +141,8 @@ def create_nodes(pulse_to_write=23000101, run="RUN01", best=True, diagnostic_qua
     }
 
     workflow_nodes = {diag_name: nodes
-                  for diag_name in diag_names
-                  }
-
+                      for diag_name in diag_names
+                      }
 
     model_nodes = {diag_name:
                        {quantity[1]: ("SIGNAL", f"modelled {quantity[1]} from {quantity[0]}")

@@ -49,7 +49,7 @@ DEFAULT_PRIORS = {
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
     "Ne_prof.peaking": get_uniform(1, 6),
     "ar_conc": loguniform(0.0001, 0.01),
-    "Nimp_prof.y0": get_uniform(1e16, 1e18),
+    "Nimp_prof.y0": loguniform(1e16, 1e18),
     "Nimp_prof.y1": get_uniform(1e15, 2e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
@@ -95,7 +95,7 @@ OPTIMISED_PARAMS = [
 ]
 
 OPTIMISED_QUANTITY = [
-                        # "xrcs.spectra",
+                        "xrcs.spectra",
                         "cxff_pi.ti",
                         "efit.wp",
                         "smmh1.ne"]
@@ -106,10 +106,13 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             self,
             pulse=None,
             pulse_to_write=None,
+            diagnostics=None,
             param_names=None,
             opt_quantity=None,
             priors = None,
+            phantoms=False,
             phantom_params=None,
+            model_kwargs = None,
 
             nwalkers=50,
             tstart=0.02,
@@ -119,10 +122,8 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             iterations=100,
             burn_frac=0,
 
-            phantoms=False,
-            diagnostics=None,
             sample_high_density = False,
-            mds_write=False,
+            mds_write = False,
             fast_particles = False,
     ):
         self.pulse = pulse
@@ -131,6 +132,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         self.opt_quantity = opt_quantity
         self.priors = priors
         self.phantom_params = phantom_params
+        self.model_kwargs = model_kwargs
 
         self.tstart = tstart
         self.tend = tend
@@ -237,7 +239,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
                     window_vector=self.data[diag][
                                       "spectra"
                                   ].wavelength.values
-                                  * 0.1,
+                                  ,
                 )
                 model.set_los_transform(los_transform)
 
@@ -274,6 +276,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             log_prob_fn=self.bayesopt.ln_posterior,
             parameter_names=self.param_names,
             moves=self.move,
+            kwargs=self.model_kwargs,
         )
 
         if self.sample_high_density:
@@ -376,7 +379,7 @@ if __name__ == "__main__":
 
     run = DevBayesWorkflow(
         pulse=10009,
-        iterations=10,
+        iterations=5,
         nwalkers=20,
         burn_frac=0.10,
         dt=0.005,
@@ -390,6 +393,7 @@ if __name__ == "__main__":
         param_names=OPTIMISED_PARAMS,
         phantom_params=DEFAULT_PHANTOM_PARAMS,
         priors=DEFAULT_PRIORS,
+        model_kwargs= {"moment_analysis":False, "background": 100}
     )
     results = run(filepath="./results/test/",)
 

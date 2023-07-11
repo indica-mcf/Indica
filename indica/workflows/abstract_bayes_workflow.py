@@ -64,7 +64,7 @@ class AbstractBayesWorkflow(ABC):
         self.models = {}
 
     @abstractmethod
-    def setup_optimiser(self):
+    def setup_optimiser(self, model_kwargs):
         """
         Initialise and provide settings for optimiser
         """
@@ -93,31 +93,44 @@ class AbstractBayesWorkflow(ABC):
 
         """
 
-
         result = {}
         result["TIME"] = self.plasma.t
         result["TIME_OPT"] = self.plasma.time_to_calculate
 
+
+        quant_list = [item.split(".") for item in self.opt_quantity]
+        result["MODEL_DATA"] = {diag_name.upper():
+                                    {quantity[1].upper(): self.blobs[f"{quantity[0]}.{quantity[1]}"]
+                                     for quantity in quant_list if quantity[0] == diag_name}
+                                for diag_name in self.diagnostics
+                                }
+        result["MODEL_DATA"]["SAMPLES"] = self.samples
+
+        result["DIAG_DATA"] = {diag_name.upper():
+                                   {quantity[1].upper(): self.opt_data[f"{quantity[0]}.{quantity[1]}"]
+                                    for quantity in quant_list if quantity[0] == diag_name}
+                               for diag_name in self.diagnostics
+                               }
+
         result["INPUT"] = {
             "BURN_FRAC": self.burn_frac,
             "ITER": self.iterations,
-            "MODEL_KWARGS": "KWARGS",
-            "OPT_KWARGS": "KWARGS",
+            "MODEL_KWARGS": self.model_kwargs,
             "NWALKERS": self.nwalkers,
             "PARAM_NAMES": self.param_names,
             "PULSE": self.pulse,
+            "DT": self.dt,
         }
 
-        result["GLOBAL"] = {
-            "TI0": 0,
-            "TE0": 0,
-            "NE0": 0,
-            "NI0": 0,
-            "TI0_ERR": 0,
-            "TE0_ERR": 0,
-            "NE0_ERR": 0,
-            "NI0_ERR": 0,
+        result["INPUT"]["WORKFLOW"] = {
+            diag_name.upper():
+                {"PULSE":self.pulse,  # Change this if different pulses used for diagnostics
+                 "USAGE": [quantity[1] for quantity in quant_list if quantity[0] == diag_name].join(),
+                 "RUN": "PLACEHOLDER",
+                }
+            for diag_name in self.diagnostics
         }
+
 
         result["PHANTOMS"] = {
             "FLAG": self.phantoms,
@@ -130,6 +143,25 @@ class AbstractBayesWorkflow(ABC):
             "NIMP1": self.phantom_profiles["impurity_density"].sel(element="ar"),  # TODO: generalise
             "NIMP2": self.phantom_profiles["impurity_density"].sel(element="c")
         }
+
+        result["PROFILES"] = {
+            "RHO_POLOIDAL": self.plasma.rho,
+            "RHO_TOR":self.plasma.equilibrium.rhotor,
+
+            "NE": self.blobs["electron_density"].mean(dim="index"),
+            "NE_ERR": self.blobs["electron_density"].std(dim="index"),
+
+            "NI": self.blobs["ion_density"].mean(dim="index"),
+            "TE": self.blobs["electron_temperature"].mean(dim="index"),
+            "TI": self.blobs["ion_temperature"].mean(dim="index"),
+
+
+            "NFAST": self.blobs["fast_density"],
+            "NNEUTR": self.blobs["neutral_density"],
+            "NIZ1": self.blobs["impurity_density"].sel(element="ar"),  # TODO: generalise
+            "NIZ2": self.blobs["impurity_density"].sel(element="c")
+        }
+
 
         result["PROFILE_STAT"] = {
             "SAMPLES": self.samples,
@@ -152,19 +184,19 @@ class AbstractBayesWorkflow(ABC):
             "AUTOCORR": self.autocorr,
         }
 
-        quant_list = [item.split(".") for item in self.opt_quantity]
-        result["MODEL_DATA"] = {diag_name.upper():
-                                    {quantity[1].upper(): self.blobs[f"{quantity[0]}.{quantity[1]}"]
-                                     for quantity in quant_list if quantity[0] == diag_name}
-                                for diag_name in self.diagnostics
-                                }
-        result["MODEL_DATA"]["SAMPLES"] = self.samples
 
-        result["DIAG_DATA"] = {diag_name.upper():
-                                   {quantity[1].upper(): self.opt_data[f"{quantity[0]}.{quantity[1]}"]
-                                    for quantity in quant_list if quantity[0] == diag_name}
-                               for diag_name in self.diagnostics
-                               }
+
+        result["GLOBAL"] = {
+            "TI0": 0,
+            "TE0": 0,
+            "NE0": 0,
+            "NI0": 0,
+            "TI0_ERR": 0,
+            "TE0_ERR": 0,
+            "NE0_ERR": 0,
+            "NI0_ERR": 0,
+        }
+
         self.result = result
         return self.result
 
