@@ -204,6 +204,7 @@ def pi(
 
         data_measured = Bremsstrahlung(pulse).sel(channel=channels)
         data_modelled=example_run(pulse)[2]["brightness"].sel(channel=channels)
+        print(data_modelled)
 
         fig_path=f"C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
         length = (tend-tstart)/dt+1
@@ -313,6 +314,7 @@ def pi(
     if plot:
         plt.ioff()
         tomo.show_reconstruction()
+        plt.show()
     return input_dict
 
 def fake_data(
