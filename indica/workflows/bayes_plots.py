@@ -403,7 +403,7 @@ def plot_bayes_result(
         color="green",
     )
 
-    key = "NIMP1"
+    key = "NIZ1"
     plot_profile(
         profiles[key],
         key,
@@ -414,7 +414,7 @@ def plot_bayes_result(
         color="red",
     )
 
-    key = "NIMP2"
+    key = "NIZ2"
     plot_profile(
         profiles[key],
         key,
