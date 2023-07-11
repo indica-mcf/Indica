@@ -8,7 +8,7 @@ import numpy as np
 def plot_profile(
     profile,
     blobkey: str,
-    figheader="./results/test/",
+    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
     phantom_profile=None,
     sharefig=False,
     filename="",
@@ -70,7 +70,7 @@ def _plot_0d(
     blobkey: str,
     diag_data: dict,
     filename: str,
-    figheader="./results/test/",
+    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
     xlabel="samples ()",
     ylabel="a.u.",
     **kwargs,
@@ -98,7 +98,7 @@ def _plot_1d(
     blobkey: str,
     diag_data: dict,
     filename: str,
-    figheader="./results/test/",
+    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
     ylabel="a.u.",
     **kwargs,
 ):
@@ -148,7 +148,7 @@ def _plot_1d(
 
 
 def plot_bayes_result(
-    figheader="./results/test/",
+    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
     blobs=None,
     diag_data=None,
     samples=None,
@@ -171,6 +171,28 @@ def plot_bayes_result(
     plt.ylabel("auto-correlation time (iterations)")
     plt.savefig(figheader + "average_tau.png")
     plt.close()
+
+    key = "pi.brightness"
+    if key in blobs.keys():
+        _plot_0d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="Intensity (W m^-2)",
+        )
+
+    key = "pi.spectra"
+    if key in blobs.keys():
+        _plot_0d(
+            blobs,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="Intensity (W m^-2)",
+        )
 
     key = "efit.wp"
     if key in blobs.keys():

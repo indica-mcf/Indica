@@ -27,8 +27,8 @@ class BremsstrahlungDiode(DiagnosticModel):
     def __init__(
         self,
         name: str,
-        filter_wavelength: float = 530.0,
-        filter_fwhm: float = 10,
+        filter_wavelength: float = 531.5, #532
+        filter_fwhm: float = 1, #1
         filter_type: str = "boxcar",
         etendue: float = 1.0,
         calibration: float = 2.0e-5,
@@ -81,7 +81,7 @@ class BremsstrahlungDiode(DiagnosticModel):
                     "stdev": stdev,
                     "provenance": str(self),
                     "long_name": "Brightness",
-                    "units": "W $m^{-2}$",
+                    "units": "W m^{-2}",
                 }
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
@@ -118,6 +118,7 @@ class BremsstrahlungDiode(DiagnosticModel):
             Ne = self.plasma.electron_density.interp(t=t)
             Te = self.plasma.electron_temperature.interp(t=t)
             Zeff = self.plasma.zeff.interp(t=t).sum("element")
+           # print(self.plasma.zeff)
         else:
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
@@ -147,7 +148,6 @@ class BremsstrahlungDiode(DiagnosticModel):
         for dim in Ne.dims:
             wlength = wlength.expand_dims(dim={dim: self.Ne[dim]})
         self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
-
         los_integral = self.los_transform.integrate_on_los(
             (self.emission * self.transmission).integrate("wavelength"),
             t=t,
@@ -194,7 +194,7 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
         it = int(len(plasma.t) / 2)
         tplot = plasma.t[it].values
 
-        model.los_transform.plot(tplot)
+       # model.los_transform.plot_los(tplot)
 
         # Plot back-calculated values
         plt.figure()
