@@ -351,7 +351,7 @@ class Helike_spectroscopy(DiagnosticModel):
         Nh: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
-        moment_analysis: bool = True,
+        moment_analysis: bool = False,
         **kwargs,
     ):
         """
