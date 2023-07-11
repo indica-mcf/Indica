@@ -13,7 +13,6 @@ from indica.workflows.bayes_workflow import plot_bayes_result
 from indica.workflows.bayes_workflow import sample_with_autocorr
 import indica.readers.read_st40 as read_st40
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.background_fit import example_run, Bremsstrahlung
 
 # TODO: allow conditional prior usage even when only
 #  one param is being optimisied i.e. 1 is constant
@@ -51,11 +50,21 @@ def run(
         "impurity_density": plasma.Nimp_prof.yspl,
     }
 
-    st40 = read_st40.ReadST40(pulse) 
-    st40(["pi"]) 
+    ST40 = read_st40.ReadST40(pulse) 
+    ST40(["xrcs", "smmh1", "pi"]) 
+
+    los_transform = ST40.binned_data["smmh1"]["ne"].transform
+    smmh1 = Interferometry(name="smmh1")
+    smmh1.set_los_transform(los_transform)
+    smmh1.plasma = plasma
+    los_transform = ST40.binned_data["xrcs"]["te_kw"].transform
+    xrcs = Helike_spectroscopy(name="xrcs", window_masks=[slice(0.3945, 0.3962)])
+    xrcs.set_los_transform(los_transform)
+    xrcs.plasma = plasma
+
 
     diagnostic_name = "pi"
-    los_transform = st40.binned_data["pi"]["spectra"].transform
+    los_transform = ST40.binned_data["pi"]["spectra"].transform
     pi = BremsstrahlungDiode(diagnostic_name)
     pi.plasma = plasma
     pi.set_los_transform(los_transform)
@@ -69,11 +78,17 @@ def run(
     #Bremsstrahlung(pulse)
    
     flat_data = {}
+    flat_data["smmh1.ne"] = (
+        smmh1().pop("ne").expand_dims(dim={"t": [plasma.time_to_calculate]})
+    )
+    flat_data["xrcs.spectra"] = (
+        xrcs().pop("spectra").expand_dims(dim={"t": [plasma.time_to_calculate]})
+    )
     flat_data["pi.brightness"] = (
       data.pop("brightness") 
       #pi().pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
-    print(flat_data)
+ 
     priors = {
         "Ne_prof.y0": get_uniform(1e19, 8e19),
         "Ne_prof.y1": get_uniform(1e18, 5e18),
@@ -111,8 +126,10 @@ def run(
     bm = BayesModels(
         plasma=plasma,
         data=flat_data,
-        diagnostic_models=[pi], # 
+        diagnostic_models=[smmh1, xrcs, pi], 
         quant_to_optimise=[
+            "smmh1.ne",
+            "xrcs.spectra",
             "pi.brightness",
         ],
         priors=priors,
@@ -178,4 +195,4 @@ if __name__ == "__main__":
         "Ti_prof.y0": 5000,
         "Ti_prof.peaking": 2,
     }
-    run(10839, params, 10, "C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\", burn_in=0)
+    run(10607, params, 10, "C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\", burn_in=0)
