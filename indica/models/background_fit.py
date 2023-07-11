@@ -10,6 +10,7 @@ from scipy.interpolate import interp1d
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.workflows import run_tomo_1d
 
+
 def example_run(
         pulse,  
         plasma=None, 
@@ -22,7 +23,7 @@ def example_run(
     st40(["pi"]) 
 
     # Initialise Diagnostic Models
-    diagnostic_name = "diode_brems"
+    diagnostic_name = "pi"
     los_transform = st40.binned_data["pi"]["spectra"].transform
     st40.binned_data["pi"]["spectra"].transform.set_equilibrium(
         st40.binned_data["pi"]["spectra"].transform.equilibrium
@@ -42,7 +43,7 @@ def Bremsstrahlung(
         tend: float = 0.10,
         dt: float = 0.010, 
         wavelength_start=531,
-        wavelenght_end=532,
+        wavelength_end=532,
         instrument="pi",        
 ):
     
@@ -54,22 +55,22 @@ def Bremsstrahlung(
     
     
     y = example_run(pulse)[1].transmission
-    xdata = np.linspace(wavelength_start, wavelenght_end, int(len(y)))
+    xdata = np.linspace(wavelength_start, wavelength_end, int(len(y)))
     transmission_inter = interp1d(xdata, y)
     
     bckgemission_full=[]
 
     for chan in channels:
         for t in times:
-           
-            reader=st40.binned_data[instrument]["spectra"].sel(t=t, method="nearest").sel(channel=chan, wavelength=slice(wavelength_start, wavelenght_end)) 
+        
+            reader=st40.binned_data[instrument]["spectra"].sel(t=t, method="nearest").sel(channel=chan, wavelength=slice(wavelength_start, wavelength_end)) 
 
             y_values=reader.where(reader<0.05)
             x_values=reader.where(reader<0.05).coords["wavelength"]
             y_data=np.array(y_values)
             x_data=np.array(x_values)
 
-            xdata_new=np.linspace(531,532, len(y_values))
+            xdata_new=np.linspace(wavelength_start, wavelength_end, len(y_values))
             transmission=transmission_inter(xdata_new)
 
             yfit=[]
@@ -88,32 +89,7 @@ def Bremsstrahlung(
     background = [bckgemission_full[i:i + len(times)] for i in range(0, len(bckgemission_full), len(times))]
     brem=DataArray(background, coords={'channel': channels,'t':times}, dims=["channel", "t"])
 
-    #transform=st40.binned_data["pi"]["spectra"].transform
-
     brem.attrs=st40.binned_data["pi"]["spectra"].attrs
-    #print("Check1", bremsstrahlung)
-    
-    #brem.attrs = {
-     #           "transform": transform,
-      #          "long_name": "Brightness",
-       #         "units": "W m^-2",
-        #    }
-    #print("Check2", brem)
-    
-
     return brem
-
-import indica.physics as ph
-
-def effective_chrage(
-            pulse,
-            Ne,
-            Te,
-            wavelength,
-            Bremsstrahlung
-    ):
-    result=ph.zeff_bremsstrahlung(Te=Te, Ne=Ne, wavelength=wavelength, bremsstrahlung=Bremsstrahlung)
-    return result
-
         
-#run_tomo_1d.pi(10968) 
+run_tomo_1d.pi(10968) 

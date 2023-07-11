@@ -54,16 +54,24 @@ def run(
     st40 = read_st40.ReadST40(pulse) 
     st40(["pi"]) 
 
+    diagnostic_name = "pi"
+    los_transform = st40.binned_data["pi"]["spectra"].transform
+    pi = BremsstrahlungDiode(diagnostic_name)
+    pi.plasma = plasma
+    pi.set_los_transform(los_transform)
+    bckc = pi()
+    data = bckc
     
-    pi = example_run(pulse)[1]
-    pi.plasma=example_run(pulse)[0]
+    #pi = example_run(pulse)[1]
+   # pi.plasma=example_run(pulse)[0]
 
-    data = Bremsstrahlung(pulse)
-    print(data)
+    # example_run(pulse)[2]["brightness"]
+    #Bremsstrahlung(pulse)
+   
     flat_data = {}
     flat_data["pi.brightness"] = (
-      data
-      #.pop("brightness") #pi().pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
+      data.pop("brightness") 
+      #pi().pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
     print(flat_data)
     priors = {
@@ -88,38 +96,32 @@ def run(
     }
 
     param_names = [
-        #"Ne_prof.y0",
+        "Ne_prof.y0",
         # "Ne_prof.y1",
-         "Ne_prof.peaking",
-       # "Nimp_prof.y0",
+        # "Ne_prof.peaking",
+        "Nimp_prof.y0",
         # "Nimp_prof.y1",
-         "Nimp_prof.peaking",
-       # "Te_prof.y0",
-         "Te_prof.peaking",
-       # "Ti_prof.y0",
-         "Ti_prof.peaking",
+         #"Nimp_prof.peaking",
+        "Te_prof.y0",
+       #  "Te_prof.peaking",
+        "Ti_prof.y0",
+        # "Ti_prof.peaking",
     ]
 
     bm = BayesModels(
         plasma=plasma,
         data=flat_data,
-        diagnostic_models=[pi],
+        diagnostic_models=[pi], # 
         quant_to_optimise=[
             "pi.brightness",
         ],
         priors=priors,
     )
-    print(1)
-
-    #what is it
+   
     ndim = param_names.__len__()
-    print(2)
     nwalkers = 20
-    print(3)
     start_points = bm.sample_from_priors(param_names, size=nwalkers)
-    print(4)
     move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
-    print(5)
     sampler = emcee.EnsembleSampler(
         nwalkers,
         ndim,
@@ -128,12 +130,10 @@ def run(
         moves=move,
         kwargs={"moment_analysis": False, "calc_spectra": True},
     )
-    print(6)
 
     autocorr = sample_with_autocorr(
         sampler, start_points, iterations=iterations, auto_sample=5
     )
-    print(7)
 
     blobs = sampler.get_blobs(discard=burn_in, flat=True)
     blob_names = sampler.get_blobs().flatten()[0].keys()

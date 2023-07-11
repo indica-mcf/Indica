@@ -94,6 +94,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         Zeff: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
+        **kwargs,
     ):
         """
         Calculate Bremsstrahlung emission and model measurement
