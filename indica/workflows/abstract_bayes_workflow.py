@@ -88,17 +88,49 @@ class AbstractBayesWorkflow(ABC):
     def _build_result_dict(self):
 
         """
-        TODO: xarray to numpy for MDSPlus writing (plotting / dimensions / units have to be figured out)
 
+        Returns
+        -------
+
+        dictionary of results in MDS+ structure
 
         """
 
         result = {}
+        quant_list = [item.split(".") for item in self.opt_quantity]
+
         result["TIME"] = self.plasma.t
         result["TIME_OPT"] = self.plasma.time_to_calculate
 
+        result["METADATA"] = {
+            "GITCOMMIT": "PLACEHOLDER",
+            "USER": "PLACEHOLDER",
+            "EQUIL": "PLACEHOLDER",
+        }
 
-        quant_list = [item.split(".") for item in self.opt_quantity]
+        result["INPUT"] = {
+            "BURN_FRAC": self.burn_frac,
+            "ITER": self.iterations,
+            "NWALKERS": self.nwalkers,
+
+            "MODEL_KWARGS": self.model_kwargs,
+            "OPT_QUANTITY": self.opt_quantity,
+            "PARAM_NAMES": self.param_names,
+
+            "PULSE": self.pulse,
+            "DT": self.dt,
+            "IMPURITIES":self.plasma.impurities,
+            "MAIN_ION": self.plasma.main_ion,
+        }
+        result["INPUT"]["WORKFLOW"] = {
+            diag_name.upper():
+                {"PULSE": self.pulse,  # Change this if different pulses used for diagnostics
+                 "USAGE": "".join([quantity[1] for quantity in quant_list if quantity[0] == diag_name]),
+                 "RUN": "PLACEHOLDER",
+                }
+            for diag_name in self.diagnostics
+        }
+
         result["MODEL_DATA"] = {diag_name.upper():
                                     {quantity[1].upper(): self.blobs[f"{quantity[0]}.{quantity[1]}"]
                                      for quantity in quant_list if quantity[0] == diag_name}
@@ -112,90 +144,108 @@ class AbstractBayesWorkflow(ABC):
                                for diag_name in self.diagnostics
                                }
 
-        result["INPUT"] = {
-            "BURN_FRAC": self.burn_frac,
-            "ITER": self.iterations,
-            "MODEL_KWARGS": self.model_kwargs,
-            "NWALKERS": self.nwalkers,
-            "PARAM_NAMES": self.param_names,
-            "PULSE": self.pulse,
-            "DT": self.dt,
-        }
-
-        result["INPUT"]["WORKFLOW"] = {
-            diag_name.upper():
-                {"PULSE":self.pulse,  # Change this if different pulses used for diagnostics
-                 "USAGE": [quantity[1] for quantity in quant_list if quantity[0] == diag_name].join(),
-                 "RUN": "PLACEHOLDER",
-                }
-            for diag_name in self.diagnostics
-        }
-
 
         result["PHANTOMS"] = {
             "FLAG": self.phantoms,
             "NE": self.phantom_profiles["electron_density"],
             "TE": self.phantom_profiles["electron_temperature"],
-            "TI": self.phantom_profiles["ion_temperature"],
-            "NI": self.phantom_profiles["ion_density"],
+            "TI": self.phantom_profiles["ion_temperature"].sel(element=self.plasma.main_ion),
+            "NI": self.phantom_profiles["ion_density"].sel(element=self.plasma.main_ion),
             "NNEUTR": self.phantom_profiles["neutral_density"],
             "NFAST": self.phantom_profiles["fast_density"],
-            "NIMP1": self.phantom_profiles["impurity_density"].sel(element="ar"),  # TODO: generalise
-            "NIMP2": self.phantom_profiles["impurity_density"].sel(element="c")
         }
+        result["PHANTOMS"] = {**result["PHANTOMS"], **{
+            f"NIZ{num_imp+1}": self.phantom_profiles["impurity_density"].sel(element=imp)
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["PHANTOMS"] = {**result["PHANTOMS"], **{
+            f"TIZ{num_imp + 1}": self.phantom_profiles["ion_temperature"].sel(element=imp)
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+
 
         result["PROFILES"] = {
             "RHO_POLOIDAL": self.plasma.rho,
-            "RHO_TOR":self.plasma.equilibrium.rhotor,
+            "RHO_TOR": self.plasma.equilibrium.rhotor.interp(t=self.plasma.t),
 
-            "NE": self.blobs["electron_density"].mean(dim="index"),
+            "NE": self.blobs["electron_density"].median(dim="index"),
+            "NI": self.blobs["ion_density"].sel(element=self.plasma.main_ion).median(dim="index"),
+            "TE": self.blobs["electron_temperature"].median(dim="index"),
+            "TI": self.blobs["ion_temperature"].sel(element=self.plasma.main_ion).median(dim="index"),
+            "NFAST": self.blobs["fast_density"].median(dim="index"),
+            "NNEUTR": self.blobs["neutral_density"].median(dim="index"),
+
             "NE_ERR": self.blobs["electron_density"].std(dim="index"),
+            "NI_ERR": self.blobs["ion_density"].sel(element=self.plasma.main_ion).std(dim="index"),
+            "TE_ERR": self.blobs["electron_temperature"].std(dim="index"),
+            "TI_ERR": self.blobs["ion_temperature"].sel(element=self.plasma.main_ion).std(dim="index"),
+            "NFAST_ERR": self.blobs["fast_density"].std(dim="index"),
+            "NNEUTR_ERR": self.blobs["neutral_density"].std(dim="index"),
 
-            "NI": self.blobs["ion_density"].mean(dim="index"),
-            "TE": self.blobs["electron_temperature"].mean(dim="index"),
-            "TI": self.blobs["ion_temperature"].mean(dim="index"),
-
-
-            "NFAST": self.blobs["fast_density"],
-            "NNEUTR": self.blobs["neutral_density"],
-            "NIZ1": self.blobs["impurity_density"].sel(element="ar"),  # TODO: generalise
-            "NIZ2": self.blobs["impurity_density"].sel(element="c")
         }
+        result["PROFILES"] = {**result["PROFILES"], **{
+            f"NIZ{num_imp+1}": self.blobs["impurity_density"].sel(element=imp).median(dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["PROFILES"] = {**result["PROFILES"], **{
+            f"NIZ{num_imp+1}_ERR": self.blobs["impurity_density"].sel(element=imp).std(dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["PROFILES"] = {**result["PROFILES"], **{
+            f"TIZ{num_imp + 1}": self.blobs["ion_temperature"].sel(element=imp).median(dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["PROFILES"] = {**result["PROFILES"], **{
+            f"TIZ{num_imp + 1}_ERR": self.blobs["ion_temperature"].sel(element=imp).std(dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
 
 
         result["PROFILE_STAT"] = {
             "SAMPLES": self.samples,
             "RHO_POLOIDAL": self.plasma.rho,
             "NE": self.blobs["electron_density"],
-            "NI": self.blobs["ion_density"],
+            "NI": self.blobs["ion_density"].sel(element=self.plasma.main_ion),
             "TE": self.blobs["electron_temperature"],
-            "TI": self.blobs["ion_temperature"],
+            "TI": self.blobs["ion_temperature"].sel(element=self.plasma.main_ion),
             "NFAST": self.blobs["fast_density"],
             "NNEUTR": self.blobs["neutral_density"],
-            "NIMP1": self.blobs["impurity_density"].sel(element="ar"),  # TODO: generalise
-            "NIMP2": self.blobs["impurity_density"].sel(element="c")
         }
+        result["PROFILE_STAT"] = {**result["PROFILE_STAT"], **{
+            f"NIZ{num_imp+1}": self.blobs["impurity_density"].sel(element=imp)
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["PROFILE_STAT"] = {**result["PROFILE_STAT"], **{
+            f"TIZ{num_imp + 1}": self.blobs["ion_temperature"].sel(element=imp)
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+
 
         result["OPTIMISATION"] = {
-            "OPT_QUANTITY": self.opt_quantity,
             "ACCEPT_FRAC": self.accept_frac,
             "PRIOR_SAMPLE": self.prior_sample,
             "POST_SAMPLE": self.post_sample,
             "AUTOCORR": self.autocorr,
         }
 
-
-
         result["GLOBAL"] = {
-            "TI0": 0,
-            "TE0": 0,
-            "NE0": 0,
-            "NI0": 0,
-            "TI0_ERR": 0,
-            "TE0_ERR": 0,
-            "NE0_ERR": 0,
-            "NI0_ERR": 0,
+            "TI0": self.blobs["ion_temperature"].sel(element=self.plasma.main_ion).sel(rho_poloidal=0, method="nearest").median(dim="index"),
+            "TE0": self.blobs["electron_temperature"].sel(rho_poloidal=0, method="nearest").median(dim="index"),
+            "NE0": self.blobs["electron_density"].sel(rho_poloidal=0, method="nearest").median(dim="index"),
+            "NI0": self.blobs["ion_density"].sel(element=self.plasma.main_ion).sel(rho_poloidal=0, method="nearest").median(dim="index"),
+            "TI0_ERR": self.blobs["ion_temperature"].sel(element=self.plasma.main_ion).sel(rho_poloidal=0, method="nearest").std(dim="index"),
+            "TE0_ERR": self.blobs["electron_temperature"].sel(rho_poloidal=0, method="nearest").std(dim="index"),
+            "NE0_ERR": self.blobs["electron_density"].sel(rho_poloidal=0, method="nearest").std(dim="index"),
+            "NI0_ERR": self.blobs["ion_density"].sel(element=self.plasma.main_ion).sel(rho_poloidal=0, method="nearest").std(dim="index"),
         }
+        result["GLOBAL"] = {**result["GLOBAL"], **{
+            f"TI0Z{num_imp + 1}": self.blobs["ion_temperature"].sel(element=imp).sel(rho_poloidal=0, method="nearest").median(dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["GLOBAL"] = {**result["GLOBAL"], **{
+            f"TI0Z{num_imp + 1}_ERR": self.blobs["ion_temperature"].sel(element=imp).sel(rho_poloidal=0,
+                                                                                    method="nearest").std(
+                dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["GLOBAL"] = {**result["GLOBAL"], **{
+            f"NI0Z{num_imp + 1}": self.blobs["impurity_density"].sel(element=imp).sel(rho_poloidal=0, method="nearest").median(dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
+        result["GLOBAL"] = {**result["GLOBAL"], **{
+            f"NI0Z{num_imp + 1}_ERR": self.blobs["impurity_density"].sel(element=imp).sel(rho_poloidal=0,
+                                                                                     method="nearest").std(
+                dim="index")
+            for num_imp, imp in enumerate(self.plasma.impurities)}}
 
         self.result = result
         return self.result
@@ -242,10 +292,24 @@ class AbstractBayesWorkflow(ABC):
             with open(filepath + "results.pkl", "wb") as handle:
                 pickle.dump(self.result, handle)
 
+    def dict_of_dataarray_to_numpy(self, dict_of_dataarray):
+        """
+        Mutates input dictionary to change xr.DataArray objects to np.array
+
+        """
+        for key, value in dict_of_dataarray.items():
+            if isinstance(value, dict):
+                self.dict_of_dataarray_to_numpy(value)
+            elif isinstance(value, xr.DataArray):
+                dict_of_dataarray[key] = dict_of_dataarray[key].values
+        return dict_of_dataarray
+
     @abstractmethod
     def __call__(self, filepath="./results/test/", **kwargs):
         self.run_sampler()
         self.save_pickle(filepath=filepath)
+        self.result = self.dict_of_dataarray_to_numpy(self.result)
+
         return self.result
 
 

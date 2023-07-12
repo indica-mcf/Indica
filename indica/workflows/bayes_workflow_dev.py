@@ -1,6 +1,7 @@
 import emcee
 import numpy as np
 import flatdict
+import copy
 from scipy.stats import loguniform
 
 from indica.readers.read_st40 import ReadST40
@@ -122,17 +123,20 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             iterations=100,
             burn_frac=0,
 
+            mds_write=False,
+            plot=True,
             sample_high_density = False,
-            mds_write = False,
             fast_particles = False,
     ):
         self.pulse = pulse
         self.pulse_to_write = pulse_to_write
+        self.diagnostics = diagnostics
         self.param_names = param_names
         self.opt_quantity = opt_quantity
         self.priors = priors
         self.phantom_params = phantom_params
         self.model_kwargs = model_kwargs
+        self.phantoms = phantoms
 
         self.tstart = tstart
         self.tend = tend
@@ -142,10 +146,9 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         self.iterations = iterations
         self.burn_frac = burn_frac
 
-        self.phantoms = phantoms
-        self.diagnostics = diagnostics
-        self.sample_high_density = sample_high_density
         self.mds_write = mds_write
+        self.plot = plot
+        self.sample_high_density = sample_high_density
         self.fast_particles = fast_particles
 
         for attribute in ["pulse", "param_names", "opt_quantity", "priors", "diagnostics", "phantom_params"]:
@@ -154,10 +157,10 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
 
         self.setup_plasma()
         self.save_phantom_profiles()
-        self.read_data(diagnostics)
+        self.read_data(self.diagnostics)
         self.setup_opt_data(phantoms=self.phantoms)
-        self.setup_models(diagnostics)
-        self.setup_optimiser()
+        self.setup_models(self.diagnostics)
+        self.setup_optimiser(self.model_kwargs)
 
     def setup_plasma(self):
         self.plasma = Plasma(
@@ -258,7 +261,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
 
             self.models[diag] = model
 
-    def setup_optimiser(self, ):
+    def setup_optimiser(self, model_kwargs):
 
         self.bayesopt = BayesModels(
             plasma=self.plasma,
@@ -276,7 +279,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             log_prob_fn=self.bayesopt.ln_posterior,
             parameter_names=self.param_names,
             moves=self.move,
-            kwargs=self.model_kwargs,
+            kwargs=model_kwargs,
         )
 
         if self.sample_high_density:
@@ -364,38 +367,47 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             )
 
     def __call__(self, filepath = "./results/test/", **kwargs):
+
+        if self.mds_write:
+            self.node_structure = create_nodes(pulse_to_write=self.pulse_to_write,
+                                               diagnostic_quantities=self.opt_quantity,
+                                               mode="NEW")
+
         self.run_sampler()
         self.save_pickle(filepath=filepath)
-        plot_bayes_result(self.result, filepath)
+        self.result = self.dict_of_dataarray_to_numpy(self.result)
+
+        if self.plot:
+            plot_bayes_result(self.result, filepath)
+
+        if self.mds_write:
+            write_nodes(self.pulse_to_write, self.node_structure, self.result)
+
         return self.result
 
 
 if __name__ == "__main__":
 
-    # mds_write=False
-    # pulse_to_write = 23000101
-    # if mds_write:
-    #     node_structure = create_nodes(pulse_to_write=pulse_to_write, diagnostic_quantities=OPTIMISED_QUANTITY)
-
     run = DevBayesWorkflow(
         pulse=10009,
+        pulse_to_write=23000101,
+        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
+        opt_quantity=OPTIMISED_QUANTITY,
+        param_names=OPTIMISED_PARAMS,
+        phantom_params=DEFAULT_PHANTOM_PARAMS,
+        priors=DEFAULT_PRIORS,
+
         iterations=5,
         nwalkers=20,
         burn_frac=0.10,
         dt=0.005,
         tsample=0.060,
-        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
-        phantoms=False,
-        sample_high_density=True,
-        mds_write=False,
 
-        opt_quantity=OPTIMISED_QUANTITY,
-        param_names=OPTIMISED_PARAMS,
-        phantom_params=DEFAULT_PHANTOM_PARAMS,
-        priors=DEFAULT_PRIORS,
-        model_kwargs= {"moment_analysis":False, "background": 100}
+        mds_write=True,
+        plot=False,
+        phantoms=False,
+        sample_high_density=False,
+        model_kwargs= { "background": 100}
     )
     results = run(filepath="./results/test/",)
 
-    # if mds_write:
-    #     write_nodes(pulse_to_write, node_structure, run.nested_results)
