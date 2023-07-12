@@ -51,7 +51,10 @@ def run(
     }
 
     ST40 = read_st40.ReadST40(pulse) 
-    ST40(["xrcs", "smmh1", "pi"]) 
+    ST40(["xrcs", "smmh1", "pi"])
+
+    #from indica.models.plasma import example_run as example_plasma
+    #plasma = example_plasma(pulse=pulse)
 
     los_transform = ST40.binned_data["smmh1"]["ne"].transform
     smmh1 = Interferometry(name="smmh1")
@@ -63,29 +66,16 @@ def run(
     xrcs.plasma = plasma
 
 
-
     los_transform = ST40.binned_data["pi"]["spectra"].transform
     ST40.binned_data["pi"]["spectra"].transform.set_equilibrium(
         ST40.binned_data["pi"]["spectra"].transform.equilibrium
     )
     pi = BremsstrahlungDiode(name="pi")
     pi.set_los_transform(los_transform)
+
     from indica.models.plasma import example_run as example_plasma
-    plasma = example_plasma(pulse=pulse)
-    pi.set_plasma(plasma)
-    bckc = pi()
-    print(bckc)
-    print(pi(10607))
-
-    
-
-    #data_modelled=example_run(pulse)[2]["brightness"].sel(channel=channels)    
-    #pi = example_run(pulse)[1]
-   # pi.plasma=example_run(pulse)[0]
-
-    # example_run(pulse)[2]["brightness"]
-    #Bremsstrahlung(pulse)
-   
+    pi.set_plasma(example_plasma(pulse=pulse))
+    print(pi())
     flat_data = {}
     flat_data["smmh1.ne"] = (
         smmh1().pop("ne").expand_dims(dim={"t": [plasma.time_to_calculate]})
@@ -95,17 +85,9 @@ def run(
         xrcs().pop("spectra").expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
     flat_data["pi.brightness"] = (
-        pi()#.pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
+        pi().pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
-  
-    import matplotlib.pyplot as plt
 
-    """
-    plt.figure()
-    flat_data["pi.brightness"].plot()
-    fig_path=f"C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\test2.png"
-    plt.savefig(fig_path)
-    """
     priors = {
         "Ne_prof.y0": get_uniform(1e19, 8e19),
         "Ne_prof.y1": get_uniform(1e18, 5e18),
@@ -212,4 +194,4 @@ if __name__ == "__main__":
         "Ti_prof.y0": 5000,
         "Ti_prof.peaking": 2,
     }
-    run(10607, params, 10, "C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\", burn_in=0)
+    run(10607, params, 10, "./results/test/", burn_in=0)
