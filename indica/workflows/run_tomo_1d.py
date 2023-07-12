@@ -195,7 +195,6 @@ def pi(
     timestr = time.strftime("%Y%m%d%H%M")
     
     from indica.models.background_fit import Bremsstrahlung, example_run
-    #from indica.models.pi_example_run import example_run
 
     if input_dict is None:
 
@@ -204,7 +203,6 @@ def pi(
 
         data_measured = Bremsstrahlung(pulse).sel(channel=channels)
         data_modelled=example_run(pulse)[2]["brightness"].sel(channel=channels)
-        print(data_modelled)
 
         fig_path=f"C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
         length = (tend-tstart)/dt+1
@@ -304,16 +302,13 @@ def pi(
             debug=debug,
             has_data=has_data,
         )
-        # return input_dict
 
-    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
-
-    tomo()
-
+    #tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
+   # tomo()
 
     if plot:
         plt.ioff()
-        tomo.show_reconstruction()
+       # tomo.show_reconstruction()
         plt.show()
     return input_dict
 

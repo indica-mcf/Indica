@@ -34,7 +34,7 @@ def run(
         tend=tend,
         dt=dt,
         main_ion="h",
-        impurities=("ar",),
+        impurities=("ar",),  #impurities: tuple = ("c", "ar"), impurity_concentration: tuple = (0.02, 0.001),
         impurity_concentration=(0.001,),
         full_run=False,
         n_rad=10,
@@ -63,14 +63,23 @@ def run(
     xrcs.plasma = plasma
 
 
-    diagnostic_name = "pi"
+
     los_transform = ST40.binned_data["pi"]["spectra"].transform
-    pi = BremsstrahlungDiode(diagnostic_name)
-    pi.plasma = plasma
+    ST40.binned_data["pi"]["spectra"].transform.set_equilibrium(
+        ST40.binned_data["pi"]["spectra"].transform.equilibrium
+    )
+    pi = BremsstrahlungDiode(name="pi")
     pi.set_los_transform(los_transform)
+    from indica.models.plasma import example_run as example_plasma
+    plasma = example_plasma(pulse=pulse)
+    pi.set_plasma(plasma)
     bckc = pi()
-    data = bckc
+    print(bckc)
+    print(pi(10607))
+
     
+
+    #data_modelled=example_run(pulse)[2]["brightness"].sel(channel=channels)    
     #pi = example_run(pulse)[1]
    # pi.plasma=example_run(pulse)[0]
 
@@ -81,14 +90,22 @@ def run(
     flat_data["smmh1.ne"] = (
         smmh1().pop("ne").expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
+
     flat_data["xrcs.spectra"] = (
         xrcs().pop("spectra").expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
     flat_data["pi.brightness"] = (
-      data.pop("brightness") 
-      #pi().pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
+        pi()#.pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
- 
+  
+    import matplotlib.pyplot as plt
+
+    """
+    plt.figure()
+    flat_data["pi.brightness"].plot()
+    fig_path=f"C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\test2.png"
+    plt.savefig(fig_path)
+    """
     priors = {
         "Ne_prof.y0": get_uniform(1e19, 8e19),
         "Ne_prof.y1": get_uniform(1e18, 5e18),
