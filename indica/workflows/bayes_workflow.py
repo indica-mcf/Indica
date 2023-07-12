@@ -8,7 +8,7 @@ import numpy as np
 def plot_profile(
     profile,
     blobkey: str,
-    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
+    figheader="./results/test/",
     phantom_profile=None,
     sharefig=False,
     filename="",
@@ -174,7 +174,7 @@ def plot_bayes_result(
 
     key = "pi.brightness"
     if key in blobs.keys():
-        _plot_0d(
+        _plot_1d(
             blobs,
             key,
             diag_data,

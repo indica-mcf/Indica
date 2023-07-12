@@ -53,9 +53,6 @@ def run(
     ST40 = read_st40.ReadST40(pulse) 
     ST40(["xrcs", "smmh1", "pi"])
 
-    #from indica.models.plasma import example_run as example_plasma
-    #plasma = example_plasma(pulse=pulse)
-
     los_transform = ST40.binned_data["smmh1"]["ne"].transform
     smmh1 = Interferometry(name="smmh1")
     smmh1.set_los_transform(los_transform)
@@ -65,7 +62,6 @@ def run(
     xrcs.set_los_transform(los_transform)
     xrcs.plasma = plasma
 
-
     los_transform = ST40.binned_data["pi"]["spectra"].transform
     ST40.binned_data["pi"]["spectra"].transform.set_equilibrium(
         ST40.binned_data["pi"]["spectra"].transform.equilibrium
@@ -74,8 +70,8 @@ def run(
     pi.set_los_transform(los_transform)
 
     from indica.models.plasma import example_run as example_plasma
-    pi.set_plasma(example_plasma(pulse=pulse))
-    print(pi())
+    pi.set_plasma(example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,)))
+
     flat_data = {}
     flat_data["smmh1.ne"] = (
         smmh1().pop("ne").expand_dims(dim={"t": [plasma.time_to_calculate]})
@@ -87,6 +83,7 @@ def run(
     flat_data["pi.brightness"] = (
         pi().pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
+    print(flat_data["pi.brightness"])
 
     priors = {
         "Ne_prof.y0": get_uniform(1e19, 8e19),

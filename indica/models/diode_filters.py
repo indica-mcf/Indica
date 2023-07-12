@@ -115,7 +115,7 @@ class BremsstrahlungDiode(DiagnosticModel):
 
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
             Te = self.plasma.electron_temperature.interp(t=t)
             Zeff = self.plasma.zeff.interp(t=t).sum("element")
