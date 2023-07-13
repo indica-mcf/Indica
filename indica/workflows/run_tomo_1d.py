@@ -204,11 +204,12 @@ def pi(
         st40 = ReadST40(pulse, tstart, tend, dt=dt)
         st40(instruments=[instrument], map_diagnostics=False)
 
-        data_measured = Bremsstrahlung(pulse).sel(channel=channels)
+        data_measured = Bremsstrahlung(pulse)[1].sel(channel=channels)
         data_modelled=example_run(pulse)[2]["brightness"].sel(channel=channels)
 
+        breakpoint()
         if platform == "linux" or platform == "linux2":
-            fig_path="./results/test/"
+            fig_path="./plots/"
         elif platform == "win32":
             fig_path="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
             
@@ -242,13 +243,14 @@ def pi(
             plt.legend(loc="upper right")
             plt.grid(color='k', linestyle='--', linewidth=0.5)
             plt.title(f"Pulse_{pulse}_{i}")
+
             if save_fig:
                 save_figure(
                     fig_path,
                     f"{pulse}_{instrument}_{timestr}_{i}",
                     save_fig=save_fig,
                 )
-
+        """
         plt.figure()
         surf = data_measured.T.plot()
         set_axis_sci(plot_object=surf)
@@ -309,13 +311,13 @@ def pi(
             debug=debug,
             has_data=has_data,
         )
-
+    """
     #tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
-   # tomo()
+    #tomo()
 
     if plot:
         plt.ioff()
-       # tomo.show_reconstruction()
+        #tomo.show_reconstruction()
         plt.show()
     return input_dict
 

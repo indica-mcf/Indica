@@ -62,15 +62,21 @@ def run(
     xrcs.set_los_transform(los_transform)
     xrcs.plasma = plasma
 
-    los_transform = ST40.binned_data["pi"]["spectra"].transform
-    ST40.binned_data["pi"]["spectra"].transform.set_equilibrium(
-        ST40.binned_data["pi"]["spectra"].transform.equilibrium
+    data_to_read=ST40.binned_data["pi"]["spectra"].sel(channel=slice(18,28))
+    los_transform = data_to_read.transform
+    data_to_read.transform.set_equilibrium(
+        data_to_read.transform.equilibrium
     )
     pi = BremsstrahlungDiode(name="pi")
+
     pi.set_los_transform(los_transform)
 
     from indica.models.plasma import example_run as example_plasma
-    pi.set_plasma(example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,)))
+    pi.set_plasma(example_plasma(pulse=pulse, impurities=("c",), impurity_concentration=(0.02,)))
+    print(pi())
+
+    pi_data=pi()["brightness"].sel(channel=slice(18,28))
+
 
 
     flat_data = {}
@@ -82,9 +88,9 @@ def run(
         xrcs().pop("spectra").expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
     flat_data["pi.brightness"] = (
-        pi().pop("brightness")#.expand_dims(dim={"t": [plasma.time_to_calculate]})
+        pi_data
     )
-    print(flat_data["pi.brightness"])
+
 
     priors = {
         "Ne_prof.y0": get_uniform(1e19, 8e19),
@@ -194,7 +200,7 @@ if __name__ == "__main__":
     }
     from sys import platform
     if platform == "linux" or platform == "linux2":
-        pathname="./results/test/"
+        pathname="./plots/"
     elif platform == "win32":
         pathname="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
     run(10607, params, 10, pathname, burn_in=0)

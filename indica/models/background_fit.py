@@ -51,8 +51,7 @@ def Bremsstrahlung(
 
     length=(tend-tstart)/dt+1 #+1 so it will take into account that the last point also should be considered
     times=np.linspace(float(tstart), float(tend), int(length), endpoint=True)
-    
-    
+
     y = example_run(pulse)[1].transmission
     xdata = np.linspace(wavelength_start, wavelength_end, int(len(y)))
     transmission_inter = interp1d(xdata, y)
@@ -87,11 +86,10 @@ def Bremsstrahlung(
             
     background = [bckgemission_full[i:i + len(times)] for i in range(0, len(bckgemission_full), len(times))]
     brem=DataArray(background, coords={'channel': channels,'t':times}, dims=["channel", "t"])
+    brem.attrs = st40.binned_data["pi"]["spectra"].attrs
 
-    brem.attrs=st40.binned_data["pi"]["spectra"].attrs
-    binned_data={}
-    binned_data["pi.bremsstrahlung"]=(brem)
-    return brem
-        
-print(Bremsstrahlung(10607))
-#run_tomo_1d.pi(10968)
+    data = {}
+    data["bremsstrahlung"]=(brem)
+    return data, brem
+
+run_tomo_1d.pi(10968)
