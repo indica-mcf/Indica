@@ -89,8 +89,8 @@ def Bremsstrahlung(
     brem=DataArray(background, coords={'channel': channels,'t':times}, dims=["channel", "t"])
 
     brem.attrs=st40.binned_data["pi"]["spectra"].attrs
-    brem=st40.binned_data["pi"]["bremsstrahlung"]
-    print(type(brem))
+    binned_data={}
+    binned_data["pi.bremsstrahlung"]=(brem)
     return brem
         
 print(Bremsstrahlung(10607))
