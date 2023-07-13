@@ -82,6 +82,8 @@ class Helike_spectroscopy(DiagnosticModel):
         self.measured_Ti: dict
         self.measured_Nimp: dict
         self.pos: dict
+        self.pos_err_in: dict
+        self.pos_err_out: dict
         self.spectra: DataArray
 
         self.Te: DataArray
@@ -237,6 +239,8 @@ class Helike_spectroscopy(DiagnosticModel):
         self.line_emission = line_emission
 
         rho_mean = {}
+        rho_err_in = {}
+        rho_err_out = {}
         measured_intensity = {}
         emission_los = {}
         measured_Te = {}
@@ -256,6 +260,23 @@ class Helike_spectroscopy(DiagnosticModel):
             rho_mean[line] = (emission_los * rho_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
+            rho_err = rho_los  # rho_los.where(indx_err, np.nan,)
+            where_in = rho_err < rho_mean[line]
+            where_out = rho_err > rho_mean[line]
+            rho_in = xr.where(where_in, rho_los, np.nan)
+            rho_out = xr.where(where_out, rho_los, np.nan)
+            rho_err_in[line] = (
+                (emission_los * (rho_in - rho_mean[line]) ** 2).sum(
+                    "los_position", skipna=True
+                )
+                / emission_sum
+            ) ** 0.5
+            rho_err_out[line] = (
+                (emission_los * (rho_out - rho_mean[line]) ** 2).sum(
+                    "los_position", skipna=True
+                )
+                / emission_sum
+            ) ** 0.5
             measured_intensity[line] = los_integral
             emission_los[line] = emission_los
 
@@ -281,6 +302,8 @@ class Helike_spectroscopy(DiagnosticModel):
             ) / emission_sum
 
         self.pos = rho_mean
+        self.pos_err_in = rho_err_in
+        self.pos_err_out = rho_err_out
         self.measured_intensity = measured_intensity
         self.emission_los = emission_los
         self.measured_Te = measured_Te
@@ -333,6 +356,8 @@ class Helike_spectroscopy(DiagnosticModel):
 
                 if line in self.pos.keys():
                     self.bckc[quantity].attrs["pos"] = self.pos[line]
+                    self.bckc[quantity].attrs["pos_err_in"] = self.pos_err_in[line]
+                    self.bckc[quantity].attrs["pos_err_out"] = self.pos_err_out[line]
 
             if "int_k" in self.bckc.keys() and "int_w" in self.bckc.keys():
                 self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
@@ -351,7 +376,7 @@ class Helike_spectroscopy(DiagnosticModel):
         Nh: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
-        moment_analysis: bool = True,
+        moment_analysis: bool = False,
         **kwargs,
     ):
         """
@@ -431,7 +456,9 @@ class Helike_spectroscopy(DiagnosticModel):
         return self.bckc
 
 
-def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
+def example_run(
+    pulse: int = None, plasma=None, plot=False, moment_analysis: bool = False, **kwargs
+):
     # TODO: LOS sometimes crossing bad EFIT reconstruction
     if plasma is None:
         plasma = example_plasma(
@@ -468,7 +495,7 @@ def example_run(pulse: int = None, plasma=None, plot=False, **kwargs):
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
-    bckc = model(**kwargs)
+    bckc = model(moment_analysis=moment_analysis, **kwargs)
 
     channels = model.los_transform.x1
     cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
