@@ -47,42 +47,44 @@ def plot_ts_cxrs_profiles(
         xdim="R",
     )
 
-    chan_slice = slice(3, 5)
-    _data = st40.raw_data["cxff_pi"]
-    pi_rho, _ = _data["ti"].transform.convert_to_rho_theta(t=_data["ti"].t)
-    pi_rho = pi_rho.sel(channel=chan_slice)
-    pi_ti = _data["ti"].sel(channel=chan_slice)
-    pi_ti_err = _data["ti"].error.sel(channel=chan_slice)
-    pi_spectra = _data["spectra"].sel(channel=chan_slice)
-    pi_fit = _data["fit"].sel(channel=chan_slice)
+    if "cxff_pi" in st40.raw_data.keys():
+        chan_slice = slice(3, 5)
+        _data = st40.raw_data["cxff_pi"]
+        pi_rho, _ = _data["ti"].transform.convert_to_rho_theta(t=_data["ti"].t)
+        pi_rho = pi_rho.sel(channel=chan_slice)
+        pi_ti = _data["ti"].sel(channel=chan_slice)
+        pi_ti_err = _data["ti"].error.sel(channel=chan_slice)
+        pi_spectra = _data["spectra"].sel(channel=chan_slice)
+        pi_fit = _data["fit"].sel(channel=chan_slice)
 
-    swap_dims = {"channel": "R"}
-    ti_cond = (pi_ti > 0) * (pi_ti_err / pi_ti <= max_norm_err)
-    spectra_cond = pi_ti.expand_dims({"wavelength": pi_spectra.wavelength}) > 0
-    pi_ti = xr.where(ti_cond, pi_ti, np.nan).swap_dims(swap_dims)
-    pi_ti_err = xr.where(ti_cond, pi_ti_err, np.nan).swap_dims(swap_dims)
-    pi_spectra = xr.where(spectra_cond, pi_spectra, np.nan).swap_dims(swap_dims)
-    pi_fit = xr.where(spectra_cond, pi_fit, np.nan).swap_dims(swap_dims)
-    if plot_rho:
-        pi_rho = pi_rho.assign_coords(R=("channel", pi_ti.R)).swap_dims(swap_dims)
+        swap_dims = {"channel": "R"}
+        ti_cond = (pi_ti > 0) * (pi_ti_err / pi_ti <= max_norm_err)
+        spectra_cond = pi_ti.expand_dims({"wavelength": pi_spectra.wavelength}) > 0
+        pi_ti = xr.where(ti_cond, pi_ti, np.nan).swap_dims(swap_dims)
+        pi_ti_err = xr.where(ti_cond, pi_ti_err, np.nan).swap_dims(swap_dims)
+        pi_spectra = xr.where(spectra_cond, pi_spectra, np.nan).swap_dims(swap_dims)
+        pi_fit = xr.where(spectra_cond, pi_fit, np.nan).swap_dims(swap_dims)
+        if plot_rho:
+            pi_rho = pi_rho.assign_coords(R=("channel", pi_ti.R)).swap_dims(swap_dims)
 
-    chan_slice = slice(0, 2)
-    _data = st40.raw_data["cxff_tws_c"]
-    tws_rho, _ = _data["ti"].transform.convert_to_rho_theta(t=_data["ti"].t)
-    tws_rho = tws_rho.sel(channel=chan_slice)
-    tws_ti = _data["ti"].sel(channel=chan_slice)
-    tws_ti_err = _data["ti"].error.sel(channel=chan_slice)
-    tws_spectra = _data["spectra"].sel(channel=chan_slice)
-    tws_fit = _data["fit"].sel(channel=chan_slice)
+    if "cxff_tws_c" in st40.raw_data.keys():
+        chan_slice = slice(0, 2)
+        _data = st40.raw_data["cxff_tws_c"]
+        tws_rho, _ = _data["ti"].transform.convert_to_rho_theta(t=_data["ti"].t)
+        tws_rho = tws_rho.sel(channel=chan_slice)
+        tws_ti = _data["ti"].sel(channel=chan_slice)
+        tws_ti_err = _data["ti"].error.sel(channel=chan_slice)
+        tws_spectra = _data["spectra"].sel(channel=chan_slice)
+        tws_fit = _data["fit"].sel(channel=chan_slice)
 
-    swap_dims = {"channel": "R"}
-    ti_cond = (tws_ti > 0) * (tws_ti_err / tws_ti <= max_norm_err)
-    spectra_cond = tws_ti.expand_dims({"wavelength": tws_spectra.wavelength}) > 0
-    tws_ti = xr.where(ti_cond, tws_ti, np.nan).swap_dims(swap_dims)
-    tws_ti_err = xr.where(ti_cond, tws_ti_err, np.nan).swap_dims(swap_dims)
-    tws_spectra = xr.where(spectra_cond, tws_spectra, np.nan).swap_dims(swap_dims)
-    tws_fit = xr.where(spectra_cond, tws_fit, np.nan).swap_dims(swap_dims)
-    tws_rho = tws_rho.assign_coords(R=("channel", tws_ti.R)).swap_dims(swap_dims)
+        swap_dims = {"channel": "R"}
+        ti_cond = (tws_ti > 0) * (tws_ti_err / tws_ti <= max_norm_err)
+        spectra_cond = tws_ti.expand_dims({"wavelength": tws_spectra.wavelength}) > 0
+        tws_ti = xr.where(ti_cond, tws_ti, np.nan).swap_dims(swap_dims)
+        tws_ti_err = xr.where(ti_cond, tws_ti_err, np.nan).swap_dims(swap_dims)
+        tws_spectra = xr.where(spectra_cond, tws_spectra, np.nan).swap_dims(swap_dims)
+        tws_fit = xr.where(spectra_cond, tws_fit, np.nan).swap_dims(swap_dims)
+        tws_rho = tws_rho.assign_coords(R=("channel", tws_ti.R)).swap_dims(swap_dims)
 
     plt.ioff()
     fig_name = f"{pulse}_TS_CXRS_profiles"
@@ -104,40 +106,40 @@ def plot_ts_cxrs_profiles(
             fig_name=f"{fig_name}_vs_R",
             color=COLORS["electron"],
         )
+        if "cxff_pi" in st40.raw_data.keys():
+            t_pi = pi_ti.t.sel(t=t, method="nearest").values
+            if np.abs(t_ts - t_pi) < 0.02:
+                plt.errorbar(
+                    pi_ti.R,
+                    pi_ti.sel(t=t_pi).values,
+                    pi_ti_err.sel(t=t_pi).values,
+                    color=COLORS["ion"],
+                )
+                plt.plot(
+                    pi_ti.R,
+                    pi_ti.sel(t=t_pi).values,
+                    marker="s",
+                    color=COLORS["ion"],
+                    label=f"Ion (PI) {t_pi:.3f} s",
+                )
 
-        t_pi = pi_ti.t.sel(t=t, method="nearest").values
-        if np.abs(t_ts - t_pi) < 0.02:
-            plt.errorbar(
-                pi_ti.R,
-                pi_ti.sel(t=t_pi).values,
-                pi_ti_err.sel(t=t_pi).values,
-                color=COLORS["ion"],
-            )
-            plt.plot(
-                pi_ti.R,
-                pi_ti.sel(t=t_pi).values,
-                marker="s",
-                color=COLORS["ion"],
-                label=f"Ion (PI) {t_pi:.3f} s",
-            )
-            plt.legend(loc="upper left")
-
-        t_tws = tws_ti.t.sel(t=t, method="nearest").values
-        if np.abs(t_ts - t_tws) < 0.02:
-            plt.errorbar(
-                tws_ti.R,
-                tws_ti.sel(t=t_tws).values,
-                tws_ti_err.sel(t=t_tws).values,
-                color=COLORS["ion"],
-            )
-            plt.plot(
-                tws_ti.R,
-                tws_ti.sel(t=t_tws).values,
-                marker="^",
-                color=COLORS["ion"],
-                label=f"Ion (TWS) {t_tws:.3f} s",
-            )
-            plt.legend(loc="upper left")
+        if "cxff_tws_c" in st40.raw_data.keys():
+            t_tws = tws_ti.t.sel(t=t, method="nearest").values
+            if np.abs(t_ts - t_tws) < 0.02:
+                plt.errorbar(
+                    tws_ti.R,
+                    tws_ti.sel(t=t_tws).values,
+                    tws_ti_err.sel(t=t_tws).values,
+                    color=COLORS["ion"],
+                )
+                plt.plot(
+                    tws_ti.R,
+                    tws_ti.sel(t=t_tws).values,
+                    marker="^",
+                    color=COLORS["ion"],
+                    label=f"Ion (TWS) {t_tws:.3f} s",
+                )
+        plt.legend(loc="upper left")
         if save_fig:
             save_figure(
                 FIG_PATH,
@@ -162,37 +164,38 @@ def plot_ts_cxrs_profiles(
                 color=COLORS["electron"],
             )
 
-            if np.abs(t_ts - t_pi) < 0.02:
-                plt.errorbar(
-                    pi_rho.sel(t=t_pi).values,
-                    pi_ti.sel(t=t_pi).values,
-                    pi_ti_err.sel(t=t_pi).values,
-                    color=COLORS["ion"],
-                )
-                plt.plot(
-                    pi_rho.sel(t=t_pi).values,
-                    pi_ti.sel(t=t_pi).values,
-                    marker="s",
-                    color=COLORS["ion"],
-                    label=f"Ion (PI) {t_pi:.3f} s",
-                )
-                plt.legend(loc="upper left")
+            if "cxff_pi" in st40.raw_data.keys():
+                if np.abs(t_ts - t_pi) < 0.02:
+                    plt.errorbar(
+                        pi_rho.sel(t=t_pi).values,
+                        pi_ti.sel(t=t_pi).values,
+                        pi_ti_err.sel(t=t_pi).values,
+                        color=COLORS["ion"],
+                    )
+                    plt.plot(
+                        pi_rho.sel(t=t_pi).values,
+                        pi_ti.sel(t=t_pi).values,
+                        marker="s",
+                        color=COLORS["ion"],
+                        label=f"Ion (PI) {t_pi:.3f} s",
+                    )
 
-            if np.abs(t_ts - t_tws) < 0.02:
-                plt.errorbar(
-                    tws_rho.sel(t=t_tws).values,
-                    tws_ti.sel(t=t_tws).values,
-                    tws_ti_err.sel(t=t_tws).values,
-                    color=COLORS["ion"],
-                )
-                plt.plot(
-                    tws_rho.sel(t=t_tws).values,
-                    tws_ti.sel(t=t_tws).values,
-                    marker="^",
-                    color=COLORS["ion"],
-                    label=f"Ion (TWS) {t_tws:.3f} s",
-                )
-                plt.legend(loc="upper left")
+            if "cxff_tws_c" in st40.raw_data.keys():
+                if np.abs(t_ts - t_tws) < 0.02:
+                    plt.errorbar(
+                        tws_rho.sel(t=t_tws).values,
+                        tws_ti.sel(t=t_tws).values,
+                        tws_ti_err.sel(t=t_tws).values,
+                        color=COLORS["ion"],
+                    )
+                    plt.plot(
+                        tws_rho.sel(t=t_tws).values,
+                        tws_ti.sel(t=t_tws).values,
+                        marker="^",
+                        color=COLORS["ion"],
+                        label=f"Ion (TWS) {t_tws:.3f} s",
+                    )
+            plt.legend(loc="upper left")
             if save_fig:
                 save_figure(
                     FIG_PATH,
@@ -202,28 +205,24 @@ def plot_ts_cxrs_profiles(
 
         if plot_spectra:
             R0 = 0.48
-            if np.abs(t_ts - t_pi) < 0.02:
-                plt.figure()
-                R = pi_spectra.R.sel(R=R0, method="nearest").values
-                pi_spectra.sel(t=t_pi, R=R).plot(label="Spectra", color="black")
-                pi_fit.sel(t=t_pi, R=R).plot(label="Fit", color="orange")
-                plt.legend(loc="upper left")
-                plt.title(f"PI spectra {t_tws:.3f} s, R={R:.2f}m")
+            if "cxff_pi" in st40.raw_data.keys():
+                if np.abs(t_ts - t_pi) < 0.02:
+                    plt.figure()
+                    R = pi_spectra.R.sel(R=R0, method="nearest").values
+                    pi_spectra.sel(t=t_pi, R=R).plot(label="Spectra", color="black")
+                    pi_fit.sel(t=t_pi, R=R).plot(label="Fit", color="orange")
+                    plt.legend(loc="upper left")
+                    plt.title(f"PI spectra {t_tws:.3f} s, R={R:.2f}m")
 
-            if np.abs(t_ts - t_tws) < 0.02:
-                plt.figure()
-                R = tws_spectra.R.sel(R=R0, method="nearest").values
-                tws_spectra.sel(t=t_tws, R=R).plot(label="Spectra", color="black")
-                tws_fit.sel(t=t_tws, R=R).plot(label="Fit", color="orange")
-                plt.legend(loc="upper left")
-                plt.title(f"TWS spectra {t_tws:.3f} s, R={R:.2f}m")
+            if "cxff_tws_c" in st40.raw_data.keys():
+                if np.abs(t_ts - t_tws) < 0.02:
+                    plt.figure()
+                    R = tws_spectra.R.sel(R=R0, method="nearest").values
+                    tws_spectra.sel(t=t_tws, R=R).plot(label="Spectra", color="black")
+                    tws_fit.sel(t=t_tws, R=R).plot(label="Fit", color="orange")
+                    plt.legend(loc="upper left")
+                    plt.title(f"TWS spectra {t_tws:.3f} s, R={R:.2f}m")
 
-            if save_fig:
-                save_figure(
-                    FIG_PATH,
-                    f"{fig_name}_vs_rho_{t:.3f}_s",
-                    save_fig=save_fig,
-                )
         if save_fig:
             plt.close("all")
         else:
