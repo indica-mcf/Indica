@@ -267,7 +267,7 @@ def plot_bayes_result(
     )
     key = "ion_temperature"
     plot_profile(
-        blobs[key].sel(element="ar"),
+        blobs[key].sel(element="c"),
         key,
         figheader=figheader,
         filename="temperature",
@@ -281,7 +281,7 @@ def plot_bayes_result(
     )
     key = "impurity_density"
     plot_profile(
-        blobs[key].sel(element="ar"),
+        blobs[key].sel(element="c"),
         key,
         figheader=figheader,
         phantom_profile=phantom_profiles[key],

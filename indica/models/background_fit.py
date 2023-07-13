@@ -32,7 +32,6 @@ def example_run(
     model.plasma = plasma
     model.set_los_transform(los_transform)
     bckc = model()
-    print(bckc)
     return plasma, model, bckc
 
 
@@ -90,6 +89,9 @@ def Bremsstrahlung(
     brem=DataArray(background, coords={'channel': channels,'t':times}, dims=["channel", "t"])
 
     brem.attrs=st40.binned_data["pi"]["spectra"].attrs
+    brem=st40.binned_data["pi"]["bremsstrahlung"]
+    print(type(brem))
     return brem
         
-run_tomo_1d.pi(10968)
+print(Bremsstrahlung(10607))
+#run_tomo_1d.pi(10968)

@@ -470,7 +470,7 @@ class Plasma:
         )
 
     def assign_profiles(
-        self, profile: str = "electron_density", t: float = None, element: str = "ar"
+        self, profile: str = "electron_density", t: float = None, element: str = "c"
     ):
         if profile == "electron_density":
             self.electron_density.loc[dict(t=t)] = self.Ne_prof()

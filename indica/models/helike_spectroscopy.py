@@ -35,7 +35,7 @@ class Helike_spectroscopy(DiagnosticModel):
         self,
         name: str,
         instrument_method="get_helike_spectroscopy",
-        element: str = "ar",
+        element: str = "c",
         window_len: int = 1030,
         window_lim: list = [0.394, 0.401],
         window_masks: list = [],

@@ -34,8 +34,8 @@ def run(
         tend=tend,
         dt=dt,
         main_ion="h",
-        impurities=("ar",),  #impurities: tuple = ("c", "ar"), impurity_concentration: tuple = (0.02, 0.001),
-        impurity_concentration=(0.001,),
+        impurities=("c",),  #impurities: tuple = ("c", "ar"), impurity_concentration: tuple = (0.02, 0.001),
+        impurity_concentration=(0.02,),
         full_run=False,
         n_rad=10,
     )
@@ -71,6 +71,7 @@ def run(
 
     from indica.models.plasma import example_run as example_plasma
     pi.set_plasma(example_plasma(pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,)))
+
 
     flat_data = {}
     flat_data["smmh1.ne"] = (
@@ -191,4 +192,9 @@ if __name__ == "__main__":
         "Ti_prof.y0": 5000,
         "Ti_prof.peaking": 2,
     }
-    run(10607, params, 10, "./results/test/", burn_in=0)
+    from sys import platform
+    if platform == "linux" or platform == "linux2":
+        pathname="./results/test/"
+    elif platform == "win32":
+        pathname="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
+    run(10607, params, 10, pathname, burn_in=0)

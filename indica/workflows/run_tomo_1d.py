@@ -12,6 +12,7 @@ from indica.readers.read_st40 import ReadST40
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
+from sys import platform
 
 DataArrayCoords = Tuple[DataArray, DataArray]
 
@@ -52,7 +53,9 @@ def sxrc_xy(
         data.transform.plot()
 
         data_R = data.transform.impact_parameter.R.sel(channel=channels)
-        data = data.assign_coords(R=("channel", data_R)).swap_dims({"channel": "R"})
+
+        
+
         fig_path=f"C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
         #fig_path = f"/home/{getpass.getuser()}/figures/Indica/time_evolution/"
         plt.figure()
@@ -204,7 +207,11 @@ def pi(
         data_measured = Bremsstrahlung(pulse).sel(channel=channels)
         data_modelled=example_run(pulse)[2]["brightness"].sel(channel=channels)
 
-        fig_path=f"C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
+        if platform == "linux" or platform == "linux2":
+            fig_path="./results/test/"
+        elif platform == "win32":
+            fig_path="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
+            
         length = (tend-tstart)/dt+1
         time_range=np.linspace(tstart, tend, int(length))
         data_R_measured = data_measured.transform.impact_parameter.R.sel(channel=channels)
