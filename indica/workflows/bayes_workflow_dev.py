@@ -15,7 +15,7 @@ from indica.models.plasma import Plasma
 from indica.converters.line_of_sight import LineOfSightTransform
 
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
-from indica.writers.bda_tree import create_nodes, write_nodes
+from indica.writers.bda_tree import create_nodes, write_nodes, check_analysis_run
 
 # global configurations
 DEFAULT_PHANTOM_PARAMS = {
@@ -107,6 +107,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             self,
             pulse=None,
             pulse_to_write=None,
+            run="RUN01",
             diagnostics=None,
             param_names=None,
             opt_quantity=None,
@@ -130,6 +131,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
     ):
         self.pulse = pulse
         self.pulse_to_write = pulse_to_write
+        self.run = run
         self.diagnostics = diagnostics
         self.param_names = param_names
         self.opt_quantity = opt_quantity
@@ -369,6 +371,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
     def __call__(self, filepath = "./results/test/", **kwargs):
 
         if self.mds_write:
+            check_analysis_run(self.pulse, self.run)
             self.node_structure = create_nodes(pulse_to_write=self.pulse_to_write,
                                                diagnostic_quantities=self.opt_quantity,
                                                mode="NEW")
@@ -391,6 +394,7 @@ if __name__ == "__main__":
     run = DevBayesWorkflow(
         pulse=10009,
         pulse_to_write=23000101,
+        run="RUN01",
         diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
         opt_quantity=OPTIMISED_QUANTITY,
         param_names=OPTIMISED_PARAMS,

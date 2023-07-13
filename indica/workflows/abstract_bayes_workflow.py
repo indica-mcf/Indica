@@ -154,13 +154,14 @@ class AbstractBayesWorkflow(ABC):
             "NNEUTR": self.phantom_profiles["neutral_density"],
             "NFAST": self.phantom_profiles["fast_density"],
         }
-        result["PHANTOMS"] = {**result["PHANTOMS"], **{
+        result["PHANTOMS"].update({
             f"NIZ{num_imp+1}": self.phantom_profiles["impurity_density"].sel(element=imp)
-            for num_imp, imp in enumerate(self.plasma.impurities)}}
-        result["PHANTOMS"] = {**result["PHANTOMS"], **{
+            for num_imp, imp in enumerate(self.plasma.impurities)
+        })
+        result["PHANTOMS"].update({
             f"TIZ{num_imp + 1}": self.phantom_profiles["ion_temperature"].sel(element=imp)
-            for num_imp, imp in enumerate(self.plasma.impurities)}}
-
+            for num_imp, imp in enumerate(self.plasma.impurities)
+        })
 
         result["PROFILES"] = {
             "RHO_POLOIDAL": self.plasma.rho,
