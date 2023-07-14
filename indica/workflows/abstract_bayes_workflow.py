@@ -27,8 +27,8 @@ class AbstractBayesWorkflow(ABC):
         self.setup_plasma()
         self.save_phantom_profiles()
         self.read_data(self.diagnostics)
-        self.setup_opt_data(self.phantoms)
         self.setup_models(self.diagnostics)
+        self.setup_opt_data(self.phantoms)
         self.setup_optimiser()
 
     @abstractmethod
@@ -47,14 +47,6 @@ class AbstractBayesWorkflow(ABC):
         self.plasma.set_equilibrium(self.reader.equilibrium)
         self.data = self.reader.binned_data
 
-
-    @abstractmethod
-    def setup_opt_data(self, phantom: bool = False):
-        """
-        Prepare the data in necessary format for optimiser i.e. flat dictionary
-        """
-        self.opt_data = {}
-
     @abstractmethod
     def setup_models(self, diagnostics: list):
         """
@@ -62,6 +54,13 @@ class AbstractBayesWorkflow(ABC):
 
         """
         self.models = {}
+
+    @abstractmethod
+    def setup_opt_data(self, phantom: bool = False):
+        """
+        Prepare the data in necessary format for optimiser i.e. flat dictionary
+        """
+        self.opt_data = {}
 
     @abstractmethod
     def setup_optimiser(self, model_kwargs):
