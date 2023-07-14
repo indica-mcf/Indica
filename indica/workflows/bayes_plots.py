@@ -292,7 +292,7 @@ def plot_bayes_result(
             figheader=figheader,
             ylabel="Energy [J]",
         )
-    key = "smmh1.ne"
+    key = "SMMH1.NE"
     if key in model_data.keys():
         violinplot(
             model_data,
@@ -362,7 +362,7 @@ def plot_bayes_result(
     )
     key = "TI"
     plot_profile(
-        profiles[key].sel(element="ar"),
+        profiles[key],
         key,
         figheader=figheader,
         filename="temperature",
@@ -384,7 +384,7 @@ def plot_bayes_result(
     )
     key = "NI"
     plot_profile(
-        profiles[key].sel(element="h"),
+        profiles[key],
         key,
         figheader=figheader,
         filetype=filetype,
