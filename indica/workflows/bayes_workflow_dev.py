@@ -74,25 +74,25 @@ DEFAULT_PRIORS = {
 }
 
 OPTIMISED_PARAMS = [
-    # "Ne_prof.y1",
+    "Ne_prof.y1",
     "Ne_prof.y0",
-    # "Ne_prof.peaking",
+    "Ne_prof.peaking",
     # "Ne_prof.wcenter",
     # "Ne_prof.wped",
     # "ar_conc",
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
     # "Nimp_prof.wcenter",
-    # "Nimp_prof.wped",
-    # "Nimp_prof.peaking",
+    "Nimp_prof.wped",
+    "Nimp_prof.peaking",
     "Te_prof.y0",
     # "Te_prof.wped",
-    # "Te_prof.wcenter",
-    # "Te_prof.peaking",
+    "Te_prof.wcenter",
+    "Te_prof.peaking",
     "Ti_prof.y0",
     # "Ti_prof.wped",
-    # "Ti_prof.wcenter",
-    # "Ti_prof.peaking",
+    "Ti_prof.wcenter",
+    "Ti_prof.peaking",
 ]
 
 OPTIMISED_QUANTITY = [
@@ -371,18 +371,17 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
     def __call__(self, filepath = "./results/test/", **kwargs):
 
         if self.mds_write:
-            check_analysis_run(self.pulse, self.run)
+            # check_analysis_run(self.pulse, self.run)
             self.node_structure = create_nodes(pulse_to_write=self.pulse_to_write,
                                                diagnostic_quantities=self.opt_quantity,
                                                mode="NEW")
 
         self.run_sampler()
         self.save_pickle(filepath=filepath)
-        self.result = self.dict_of_dataarray_to_numpy(self.result)
-
         if self.plot:
             plot_bayes_result(self.result, filepath)
 
+        self.result = self.dict_of_dataarray_to_numpy(self.result)
         if self.mds_write:
             write_nodes(self.pulse_to_write, self.node_structure, self.result)
 
@@ -401,14 +400,14 @@ if __name__ == "__main__":
         phantom_params=DEFAULT_PHANTOM_PARAMS,
         priors=DEFAULT_PRIORS,
 
-        iterations=5,
-        nwalkers=20,
+        iterations=100,
+        nwalkers=50,
         burn_frac=0.10,
         dt=0.005,
         tsample=0.060,
 
         mds_write=True,
-        plot=False,
+        plot=True,
         phantoms=False,
         sample_high_density=False,
         model_kwargs= { "background": 100}

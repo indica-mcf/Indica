@@ -74,25 +74,25 @@ DEFAULT_PRIORS = {
 }
 
 OPTIMISED_PARAMS = [
-    # "Ne_prof.y1",
+    "Ne_prof.y1",
     "Ne_prof.y0",
-    # "Ne_prof.peaking",
+    "Ne_prof.peaking",
     # "Ne_prof.wcenter",
     # "Ne_prof.wped",
     # "ar_conc",
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
     # "Nimp_prof.wcenter",
-    # "Nimp_prof.wped",
-    # "Nimp_prof.peaking",
+    "Nimp_prof.wped",
+    "Nimp_prof.peaking",
     "Te_prof.y0",
     # "Te_prof.wped",
-    # "Te_prof.wcenter",
-    # "Te_prof.peaking",
+    "Te_prof.wcenter",
+    "Te_prof.peaking",
     "Ti_prof.y0",
     # "Ti_prof.wped",
-    # "Ti_prof.wcenter",
-    # "Ti_prof.peaking",
+    "Ti_prof.wcenter",
+    "Ti_prof.peaking",
 ]
 
 OPTIMISED_QUANTITY = [
@@ -102,7 +102,7 @@ OPTIMISED_QUANTITY = [
                         "smmh1.ne"]
 
 
-class DevBayesWorkflow(AbstractBayesWorkflow):
+class ExampleBayesWorkflow(AbstractBayesWorkflow):
     def __init__(
             self,
             pulse=None,
@@ -158,8 +158,8 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         self.setup_plasma()
         self.save_phantom_profiles()
         self.read_data(self.diagnostics)
-        self.setup_opt_data(phantoms=self.phantoms)
         self.setup_models(self.diagnostics)
+        self.setup_opt_data(phantoms=self.phantoms)
         self.setup_optimiser(self.model_kwargs)
 
     def setup_plasma(self):
@@ -171,7 +171,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
             impurities=("ar", "c"),
             impurity_concentration=(
                 0.001,
-                0.02,
+                0.04,
             ),
             full_run=False,
             n_rad=20,
@@ -181,12 +181,6 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         ]
         self.plasma.update_profiles(self.phantom_params)
         self.plasma.build_atomic_data(calc_power_loss=False)
-
-    def setup_opt_data(self, phantoms=False):
-        if phantoms:
-            self._phantom_data()
-        else:
-            self._exp_data()
 
     def setup_models(self, diagnostics: list):
         self.models = {}
@@ -213,17 +207,13 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
                 model.set_los_transform(los_transform)
 
             elif diag == "xrcs":
-
-                self.xrcs_background = self.opt_data["xrcs.spectra"].sel(wavelength=slice(0.392, 0.388)).mean(
-                    dim="wavelength").sel(t=self.plasma.time_to_calculate)
                 los_transform = self.data["xrcs"]["te_kw"].transform
                 model = Helike_spectroscopy(
                     name="xrcs",
                     window_masks=[slice(0.394, 0.396)],
                     window_vector=self.data[diag][
                                       "spectra"
-                                  ].wavelength.values,
-                    background=self.xrcs_background,
+                                  ].wavelength.values * 0.1,
                 )
                 model.set_los_transform(los_transform)
 
@@ -242,33 +232,11 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
 
             self.models[diag] = model
 
-    def setup_optimiser(self, model_kwargs):
-
-        self.bayesopt = BayesModels(
-            plasma=self.plasma,
-            data=self.opt_data,
-            diagnostic_models=[*self.models.values()],
-            quant_to_optimise=self.opt_quantity,
-            priors=self.priors,
-        )
-
-        ndim = len(self.param_names)
-        self.move = [(emcee.moves.StretchMove(), 0.9), (emcee.moves.DEMove(), 0.1)]
-        self.sampler = emcee.EnsembleSampler(
-            self.nwalkers,
-            ndim,
-            log_prob_fn=self.bayesopt.ln_posterior,
-            parameter_names=self.param_names,
-            moves=self.move,
-            kwargs=model_kwargs,
-        )
-
-        if self.sample_high_density:
-            self.start_points = self.bayesopt.sample_from_high_density_region(self.param_names, self.sampler, self.nwalkers)
+    def setup_opt_data(self, phantoms=False):
+        if phantoms:
+            self._phantom_data()
         else:
-            self.start_points = self.bayesopt.sample_from_priors(
-                self.param_names, size=self.nwalkers
-            )
+            self._exp_data()
 
     def _phantom_data(self, noise=False, noise_factor=0.1):
         self.opt_data = {}
@@ -279,19 +247,22 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
                     .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
         if "xrcs" in self.diagnostics:
+
             self.opt_data["xrcs.spectra"] = (
                 self.models["xrcs"]()
                     .pop("spectra")
                     .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
-            self.opt_data["xrcs.background"] = None
+            self.opt_data["xrcs.spectra"]["error"] = np.sqrt(
+                self.opt_data["xrcs.spectra"]
+            )
         if "cxff_pi" in self.diagnostics:
             cxrs_data = (
                 self.models["cxff_pi"]()
                     .pop("ti")
                     .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
-            self.opt_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2)
+            self.opt_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2, drop=True)
         if "efit" in self.diagnostics:
             self.opt_data["efit.wp"] = (
                 self.models["efit"]()
@@ -337,7 +308,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
                 & (self.opt_data["xrcs.spectra"].wavelength > 0.388),
                 drop=True,
             )
-            self.opt_data["xrcs.background"] = background.mean(dim="wavelength")
+            self.models["xrcs"].background = background.mean(dim="wavelength").sel(t=self.plasma.time_to_calculate)
             self.opt_data["xrcs.spectra"]["error"] = np.sqrt(
                 self.opt_data["xrcs.spectra"] + background.std(dim="wavelength") ** 2
             )
@@ -345,6 +316,34 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         if "cxff_pi" in self.diagnostics:
             self.opt_data["cxff_pi"]["ti"] = self.opt_data["cxff_pi"]["ti"].where(
                 self.opt_data["cxff_pi"]["ti"].channel == 2, drop=True
+            )
+
+    def setup_optimiser(self, model_kwargs):
+
+        self.bayesopt = BayesModels(
+            plasma=self.plasma,
+            data=self.opt_data,
+            diagnostic_models=[*self.models.values()],
+            quant_to_optimise=self.opt_quantity,
+            priors=self.priors,
+        )
+
+        ndim = len(self.param_names)
+        self.move = [(emcee.moves.StretchMove(), 0.9), (emcee.moves.DEMove(), 0.1)]
+        self.sampler = emcee.EnsembleSampler(
+            self.nwalkers,
+            ndim,
+            log_prob_fn=self.bayesopt.ln_posterior,
+            parameter_names=self.param_names,
+            moves=self.move,
+            kwargs=model_kwargs,
+        )
+
+        if self.sample_high_density:
+            self.start_points = self.bayesopt.sample_from_high_density_region(self.param_names, self.sampler, self.nwalkers)
+        else:
+            self.start_points = self.bayesopt.sample_from_priors(
+                self.param_names, size=self.nwalkers
             )
 
     def __call__(self, filepath = "./results/test/", **kwargs):
@@ -358,7 +357,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
         self.run_sampler()
         self.save_pickle(filepath=filepath)
 
-        if self.plot: # currently requires result
+        if self.plot:  # currently requires result with DataArrays
             plot_bayes_result(self.result, filepath)
 
         self.result = self.dict_of_dataarray_to_numpy(self.result)
@@ -370,7 +369,7 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
 
 if __name__ == "__main__":
 
-    run = DevBayesWorkflow(
+    run = ExampleBayesWorkflow(
         pulse=10009,
         pulse_to_write=23000101,
         run="RUN01",
@@ -380,16 +379,16 @@ if __name__ == "__main__":
         phantom_params=DEFAULT_PHANTOM_PARAMS,
         priors=DEFAULT_PRIORS,
 
-        iterations=5,
-        nwalkers=20,
+        iterations=200,
+        nwalkers=50,
         burn_frac=0.10,
         dt=0.005,
         tsample=0.060,
 
         mds_write=True,
         plot=True,
-        phantoms=False,
-        sample_high_density=False,
+        phantoms=True,
+        sample_high_density=True,
         model_kwargs= {}
     )
     results = run(filepath="./results/test/",)
