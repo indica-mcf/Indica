@@ -8,7 +8,7 @@ import indica.readers.read_st40 as read_st40
 from indica.models.plasma import example_run as example_plasma
 from scipy.interpolate import interp1d
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.workflows import run_tomo_1d
+#from indica.workflows import run_tomo_1d
 
 
 def example_run(
@@ -92,4 +92,4 @@ def Bremsstrahlung(
     data["bremsstrahlung"]=(brem)
     return data, brem
 
-run_tomo_1d.pi(10968)
+#run_tomo_1d.pi(10968)

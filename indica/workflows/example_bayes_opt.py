@@ -35,7 +35,7 @@ def run(
         dt=dt,
         main_ion="h",
         impurities=("c",),  #impurities: tuple = ("c", "ar"), impurity_concentration: tuple = (0.02, 0.001),
-        impurity_concentration=(0.02,),
+        impurity_concentration=(0.2,),
         full_run=False,
         n_rad=10,
     )
@@ -51,46 +51,27 @@ def run(
     }
 
     ST40 = read_st40.ReadST40(pulse) 
-    ST40(["xrcs", "smmh1", "pi"])
+    ST40(["pi"])
 
-    los_transform = ST40.binned_data["smmh1"]["ne"].transform
-    smmh1 = Interferometry(name="smmh1")
-    smmh1.set_los_transform(los_transform)
-    smmh1.plasma = plasma
-    los_transform = ST40.binned_data["xrcs"]["te_kw"].transform
-    xrcs = Helike_spectroscopy(name="xrcs", window_masks=[slice(0.3945, 0.3962)])
-    xrcs.set_los_transform(los_transform)
-    xrcs.plasma = plasma
-
-    data_to_read=ST40.binned_data["pi"]["spectra"].sel(channel=slice(18,28))
+    data_to_read=ST40.binned_data["pi"]["spectra"]
     los_transform = data_to_read.transform
-    data_to_read.transform.set_equilibrium(
-        data_to_read.transform.equilibrium
-    )
-    pi = BremsstrahlungDiode(name="pi")
-
+    data_to_read.transform.set_equilibrium(data_to_read.transform.equilibrium)
+    pi = BremsstrahlungDiode(name="pi", channel_mask=slice(18, 28))
     pi.set_los_transform(los_transform)
 
-    from indica.models.plasma import example_run as example_plasma
-    pi.set_plasma(example_plasma(pulse=pulse, impurities=("c",), impurity_concentration=(0.02,)))
-    print(pi())
+    pi.plasma = plasma
+    pi_data = pi()["brightness"]
 
-    pi_data=pi()["brightness"].sel(channel=slice(18,28))
-
+    #from indica.models.background_fit import Bremsstrahlung
+    #pi_data = Bremsstrahlung(pulse)[1]
+    #data_measured = Bremsstrahlung(pulse)[1].sel(channel=channels)
+    #data_modelled = example_run(pulse)[2]["brightness"].sel(channel=channels)
 
 
     flat_data = {}
-    flat_data["smmh1.ne"] = (
-        smmh1().pop("ne").expand_dims(dim={"t": [plasma.time_to_calculate]})
-    )
-
-    flat_data["xrcs.spectra"] = (
-        xrcs().pop("spectra").expand_dims(dim={"t": [plasma.time_to_calculate]})
-    )
     flat_data["pi.brightness"] = (
-        pi_data
+        pi_data.expand_dims(dim={"t": [plasma.time_to_calculate]})
     )
-
 
     priors = {
         "Ne_prof.y0": get_uniform(1e19, 8e19),
@@ -129,17 +110,15 @@ def run(
     bm = BayesModels(
         plasma=plasma,
         data=flat_data,
-        diagnostic_models=[smmh1, xrcs, pi], 
+        diagnostic_models=[pi],
         quant_to_optimise=[
-            "smmh1.ne",
-            "xrcs.spectra",
             "pi.brightness",
         ],
         priors=priors,
     )
    
     ndim = param_names.__len__()
-    nwalkers = 20
+    nwalkers = 50
     start_points = bm.sample_from_priors(param_names, size=nwalkers)
     move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
     sampler = emcee.EnsembleSampler(
@@ -166,9 +145,7 @@ def run(
     }
 
     samples = sampler.get_chain(flat=True)
-
     prior_samples = bm.sample_from_priors(param_names, size=int(1e5))
-
     result = {
             "blobs": blob_dict,
             "diag_data": flat_data,
@@ -203,4 +180,4 @@ if __name__ == "__main__":
         pathname="./plots/"
     elif platform == "win32":
         pathname="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
-    run(10607, params, 10, pathname, burn_in=0)
+    run(10607, params, 200, pathname, burn_in=0)

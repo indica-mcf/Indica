@@ -33,6 +33,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         etendue: float = 1.0,
         calibration: float = 2.0e-5,
         instrument_method="get_diode_filters",
+        channel_mask=slice(18,28)
     ):
         """
         Filtered diode diagnostic measuring Bremsstrahlung
@@ -63,6 +64,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         self.calibration = calibration
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
+        self.channel_mask = channel_mask
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -116,9 +118,9 @@ class BremsstrahlungDiode(DiagnosticModel):
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            Ne = self.plasma.electron_density.interp(t=t)
-            Te = self.plasma.electron_temperature.interp(t=t)
-            Zeff = self.plasma.zeff.interp(t=t).sum("element")
+            Ne = self.plasma.electron_density.sel(t=t)
+            Te = self.plasma.electron_temperature.sel(t=t)
+            Zeff = self.plasma.zeff.sel(t=t).sum("element")
            # print(self.plasma.zeff)
         else:
             if Ne is None or Te is None or Zeff is None:
@@ -154,11 +156,12 @@ class BremsstrahlungDiode(DiagnosticModel):
             t=t,
             calc_rho=calc_rho,
         )
+        los_integral=los_integral.where((los_integral.channel>self.channel_mask.start)&(los_integral.channel<self.channel_mask.stop))
 
         self.los_integral = los_integral
 
         self._build_bckc_dictionary()
-
+        #print("test1",self.bckc)
         return self.bckc
 
 
@@ -190,7 +193,8 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
     bckc = model()
-    print(bckc)
+
+    print("test2", bckc)
     
     if plot:
         it = int(len(plasma.t) / 2)

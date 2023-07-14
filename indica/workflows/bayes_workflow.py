@@ -184,18 +184,6 @@ def plot_bayes_result(
             figheader=figheader,
             ylabel="Intensity (W m^-2)",
         )
-
-    key = "pi.spectra"
-    if key in blobs.keys():
-        _plot_0d(
-            blobs,
-            key,
-            diag_data,
-            f"{key.replace('.', '_')}.png",
-            figheader=figheader,
-            ylabel="Intensity (W m^-2)",
-        )
-
     key = "efit.wp"
     if key in blobs.keys():
         _plot_0d(

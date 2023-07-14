@@ -87,7 +87,7 @@ class Interferometry(DiagnosticModel):
         self.los_integral_ne = los_integral_ne
 
         self._build_bckc_dictionary()
-
+        print("INTERFEROMETRY", self.bckc)
         return self.bckc
 
 

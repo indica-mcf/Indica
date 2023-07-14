@@ -19,7 +19,8 @@ DataArrayCoords = Tuple[DataArray, DataArray]
 set_plot_rcparams("profiles")
 
 
-def sxrc_xy(
+"""
+    def sxrc_xy(
     pulse: int = 10820,
     tstart: float = 0.02,
     tend: float = 0.11,
@@ -179,6 +180,7 @@ def old_camera(
        # tomo.show_reconstruction()
 
     return input_dict
+    """
 
 def pi(
     pulse,
@@ -250,7 +252,7 @@ def pi(
                     f"{pulse}_{instrument}_{timestr}_{i}",
                     save_fig=save_fig,
                 )
-        """
+
         plt.figure()
         surf = data_measured.T.plot()
         set_axis_sci(plot_object=surf)
@@ -311,17 +313,19 @@ def pi(
             debug=debug,
             has_data=has_data,
         )
-    """
-    #tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
-    #tomo()
+
+    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
+    tomo()
 
     if plot:
         plt.ioff()
-        #tomo.show_reconstruction()
+        tomo.show_reconstruction()
         plt.show()
     return input_dict
 
-def fake_data(
+pi(10968)
+
+"""def fake_data(
     pulse: int = 9229,
     plasma=None,
     model=None,
@@ -394,3 +398,4 @@ def fake_data(
         tomo.show_reconstruction()
 
     return plasma
+    """

@@ -427,7 +427,6 @@ class Helike_spectroscopy(DiagnosticModel):
             self._moment_analysis()
 
         self._build_bckc_dictionary()
-
         return self.bckc
 
 
