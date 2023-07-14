@@ -345,17 +345,31 @@ class ExampleWorkflow(AbstractBayesWorkflow):
 if __name__ == "__main__":
     run = ExampleWorkflow(
         pulse=10009,
+        pulse_to_write=None,
         dt=0.005,
         tsample=0.060,
-        diagnostics=["efit", "smmh1", "cxff_pi"],
-        param_names=OPTIMISED_PARAMS,
-        opt_quantity=OPTIMISED_QUANTITY,
-        priors=DEFAULT_PRIORS,
+        diagnostics=None,
+        param_names=None,
+        opt_quantity=None,
+        priors=None,
+        phantoms=False,
+        phantom_params=None,
+        model_kwargs=None,
 
         iterations=20,
         nwalkers=50,
         burn_frac=0.10,
-        sample_high_density=True
+        tstart=0.02,
+        tend=0.10,
+        dt=0.01,
+        tsample=0.06,
+
+        sample_high_density=True,
+
+
+        mds_write=False,
+        plot=True,
+        sample_high_density=False,
     )
 
     test = run(filepath="./results/test/")
