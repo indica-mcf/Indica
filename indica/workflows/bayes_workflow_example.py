@@ -1,15 +1,12 @@
-import pickle
-
 import emcee
 import numpy as np
-import xarray as xr
-import pandas as pd
 import flatdict
+import copy
 from scipy.stats import loguniform
-from pathlib import Path
 
 from indica.readers.read_st40 import ReadST40
 from indica.bayesmodels import BayesModels, get_uniform
+from indica.workflows.bayes_plots import plot_bayes_result
 from indica.models.interferometry import Interferometry
 from indica.models.helike_spectroscopy import Helike_spectroscopy
 from indica.models.charge_exchange import ChargeExchange
@@ -17,11 +14,10 @@ from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
 from indica.models.plasma import Plasma
 from indica.converters.line_of_sight import LineOfSightTransform
 
-from abstract_bayes_workflow import AbstractBayesWorkflow
+from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
+from indica.writers.bda_tree import create_nodes, write_nodes, check_analysis_run
 
 # global configurations
-from indica.workflows.bayes_plots import plot_bayes_result
-
 DEFAULT_PHANTOM_PARAMS = {
     "Ne_prof.y0": 5e19,
     "Ne_prof.wcenter": 0.4,
@@ -54,7 +50,7 @@ DEFAULT_PRIORS = {
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
     "Ne_prof.peaking": get_uniform(1, 6),
     "ar_conc": loguniform(0.0001, 0.01),
-    "Nimp_prof.y0": get_uniform(1e16, 1e18),
+    "Nimp_prof.y0": loguniform(1e16, 1e18),
     "Nimp_prof.y1": get_uniform(1e15, 2e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
@@ -99,17 +95,26 @@ OPTIMISED_PARAMS = [
     # "Ti_prof.peaking",
 ]
 
-OPTIMISED_QUANTITY = ["cxff_pi.ti", "efit.wp", "smmh1.ne"]
+OPTIMISED_QUANTITY = [
+                        "xrcs.spectra",
+                        "cxff_pi.ti",
+                        "efit.wp",
+                        "smmh1.ne"]
 
 
-class ExampleWorkflow(AbstractBayesWorkflow):
+class DevBayesWorkflow(AbstractBayesWorkflow):
     def __init__(
             self,
             pulse=None,
+            pulse_to_write=None,
+            run="RUN01",
+            diagnostics=None,
             param_names=None,
             opt_quantity=None,
             priors = None,
-            diagnostics=None,
+            phantoms=False,
+            phantom_params=None,
+            model_kwargs = None,
 
             nwalkers=50,
             tstart=0.02,
@@ -119,37 +124,43 @@ class ExampleWorkflow(AbstractBayesWorkflow):
             iterations=100,
             burn_frac=0,
 
-            phantoms=False,
+            mds_write=False,
+            plot=True,
             sample_high_density = False,
     ):
-
         self.pulse = pulse
+        self.pulse_to_write = pulse_to_write
+        self.run = run
+        self.diagnostics = diagnostics
         self.param_names = param_names
         self.opt_quantity = opt_quantity
         self.priors = priors
-        self.diagnostics = diagnostics
+        self.phantom_params = phantom_params
+        self.model_kwargs = model_kwargs
+        self.phantoms = phantoms
 
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
         self.tsample = tsample
-
         self.nwalkers = nwalkers
         self.iterations = iterations
         self.burn_frac = burn_frac
-        self.phantoms = phantoms
+
+        self.mds_write = mds_write
+        self.plot = plot
         self.sample_high_density = sample_high_density
 
-        for attribute in ["pulse", "param_names", "opt_quantity", "priors", "diagnostics"]:
+        for attribute in ["pulse", "param_names", "opt_quantity", "priors", "diagnostics", "phantom_params"]:
             if getattr(self, attribute) is None:
                 raise ValueError(f"{attribute} needs to be defined")
 
         self.setup_plasma()
         self.save_phantom_profiles()
-        self.read_data(diagnostics)
+        self.read_data(self.diagnostics)
         self.setup_opt_data(phantoms=self.phantoms)
-        self.setup_models(diagnostics)
-        self.setup_optimiser()
+        self.setup_models(self.diagnostics)
+        self.setup_optimiser(self.model_kwargs)
 
     def setup_plasma(self):
         self.plasma = Plasma(
@@ -168,7 +179,7 @@ class ExampleWorkflow(AbstractBayesWorkflow):
         self.plasma.time_to_calculate = self.plasma.t[
             np.abs(self.tsample - self.plasma.t).argmin()
         ]
-        self.plasma.update_profiles(DEFAULT_PHANTOM_PARAMS)
+        self.plasma.update_profiles(self.phantom_params)
         self.plasma.build_atomic_data(calc_power_loss=False)
 
     def setup_opt_data(self, phantoms=False):
@@ -200,7 +211,6 @@ class ExampleWorkflow(AbstractBayesWorkflow):
                 los_transform.set_equilibrium(self.plasma.equilibrium)
                 model = Interferometry(name=diag)
                 model.set_los_transform(los_transform)
-                model.plasma = self.plasma
 
             elif diag == "xrcs":
                 los_transform = self.data["xrcs"]["te_kw"].transform
@@ -213,24 +223,23 @@ class ExampleWorkflow(AbstractBayesWorkflow):
                                   ,
                 )
                 model.set_los_transform(los_transform)
-                model.plasma = self.plasma
 
             elif diag == "efit":
                 model = EquilibriumReconstruction(name="efit")
-                model.plasma = self.plasma
 
             elif diag == "cxff_pi":
                 transform = self.data[diag]["ti"].transform
                 transform.set_equilibrium(self.plasma.equilibrium)
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
-                model.plasma = self.plasma
             else:
                 raise ValueError(f"{diag} not found in setup_models")
+            model.plasma = self.plasma
+
 
             self.models[diag] = model
 
-    def setup_optimiser(self, ):
+    def setup_optimiser(self, model_kwargs):
 
         self.bayesopt = BayesModels(
             plasma=self.plasma,
@@ -248,6 +257,7 @@ class ExampleWorkflow(AbstractBayesWorkflow):
             log_prob_fn=self.bayesopt.ln_posterior,
             parameter_names=self.param_names,
             moves=self.move,
+            kwargs=model_kwargs,
         )
 
         if self.sample_high_density:
@@ -335,45 +345,49 @@ class ExampleWorkflow(AbstractBayesWorkflow):
             )
 
     def __call__(self, filepath = "./results/test/", **kwargs):
+
+        if self.mds_write:
+            # check_analysis_run(self.pulse, self.run)
+            self.node_structure = create_nodes(pulse_to_write=self.pulse_to_write,
+                                               diagnostic_quantities=self.opt_quantity,
+                                               mode="NEW")
+
         self.run_sampler()
         self.save_pickle(filepath=filepath)
-        plot_bayes_result(self.result, filepath)
+
+        if self.plot: # currently requires result
+            plot_bayes_result(self.result, filepath)
+
+        self.result = self.dict_of_dataarray_to_numpy(self.result)
+        if self.mds_write:
+            write_nodes(self.pulse_to_write, self.node_structure, self.result)
+
         return self.result
 
 
-
 if __name__ == "__main__":
-    run = ExampleWorkflow(
+
+    run = DevBayesWorkflow(
         pulse=10009,
-        pulse_to_write=None,
+        pulse_to_write=23000101,
+        run="RUN01",
+        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
+        opt_quantity=OPTIMISED_QUANTITY,
+        param_names=OPTIMISED_PARAMS,
+        phantom_params=DEFAULT_PHANTOM_PARAMS,
+        priors=DEFAULT_PRIORS,
+
+        iterations=5,
+        nwalkers=20,
+        burn_frac=0.10,
         dt=0.005,
         tsample=0.060,
-        diagnostics=None,
-        param_names=None,
-        opt_quantity=None,
-        priors=None,
-        phantoms=False,
-        phantom_params=None,
-        model_kwargs=None,
 
-        iterations=20,
-        nwalkers=50,
-        burn_frac=0.10,
-        tstart=0.02,
-        tend=0.10,
-        dt=0.01,
-        tsample=0.06,
-
-        sample_high_density=True,
-
-
-        mds_write=False,
+        mds_write=True,
         plot=True,
+        phantoms=False,
         sample_high_density=False,
+        model_kwargs= { "background": 100}
     )
+    results = run(filepath="./results/test/",)
 
-    test = run(filepath="./results/test/")
-
-    flattest = flatdict.FlatDict(test, delimiter=".")
-    for key in flattest.keys():
-        print(key)
