@@ -48,6 +48,7 @@ class Helike_spectroscopy(DiagnosticModel):
         window_lim: list = [0.394, 0.401],
         window_vector=None,
         window_masks: list = [],
+        background = None,
     ):
         """
         Read all atomic data and initialise objects
@@ -87,6 +88,7 @@ class Helike_spectroscopy(DiagnosticModel):
         else:
             self.pecs = self._set_adas_pecs()
 
+        self.background = background
         self.window_masks = window_masks
         self.window_vector = window_vector
         if self.window_vector is not None:
@@ -581,7 +583,6 @@ class Helike_spectroscopy(DiagnosticModel):
         calc_rho: bool = False,
         minimum_lines: bool = False,
         moment_analysis: bool = False,
-        background=None,
         **kwargs,
     ):
         """
@@ -692,8 +693,8 @@ class Helike_spectroscopy(DiagnosticModel):
         )
         if moment_analysis:
             self._calculate_temperatures()
-        if background is not None:
-            self.measured_spectra = self.measured_spectra + background
+        if self.background is not None:
+            self.measured_spectra = self.measured_spectra + self.background
         self._build_bckc_dictionary()
 
         return self.bckc

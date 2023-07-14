@@ -213,14 +213,17 @@ class DevBayesWorkflow(AbstractBayesWorkflow):
                 model.set_los_transform(los_transform)
 
             elif diag == "xrcs":
+
+                self.xrcs_background = self.opt_data["xrcs.spectra"].sel(wavelength=slice(0.392, 0.388)).mean(
+                    dim="wavelength").sel(t=self.plasma.time_to_calculate)
                 los_transform = self.data["xrcs"]["te_kw"].transform
                 model = Helike_spectroscopy(
                     name="xrcs",
                     window_masks=[slice(0.394, 0.396)],
                     window_vector=self.data[diag][
                                       "spectra"
-                                  ].wavelength.values
-                                  ,
+                                  ].wavelength.values,
+                    background=self.xrcs_background,
                 )
                 model.set_los_transform(los_transform)
 
@@ -387,7 +390,7 @@ if __name__ == "__main__":
         plot=True,
         phantoms=False,
         sample_high_density=False,
-        model_kwargs= { "background": 100}
+        model_kwargs= {}
     )
     results = run(filepath="./results/test/",)
 
