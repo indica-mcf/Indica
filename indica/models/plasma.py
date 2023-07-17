@@ -350,7 +350,6 @@ class Plasma:
         self._pressure_th = assign_data(
             self.data2d, ("pressure", "thermal"), "Pa $m^{-3}$"
         )
-        self._ion_density = assign_data(self.data3d, ("density", "ion"), "$m^{-3}$")
         self._pressure_tot = assign_data(
             self.data2d, ("pressure", "total"), "Pa $m^{-3}$"
         )
@@ -598,7 +597,7 @@ class Plasma:
 
     @property
     def fz(self):
-        return self.Fz()
+        return self.calc_fz()  # self.Fz()
 
     def calc_fz(self):
         for elem in self.elements:
@@ -621,7 +620,7 @@ class Plasma:
 
     @property
     def zeff(self):
-        return self.Zeff()
+        return self.calc_zeff()  # Zeff()
 
     def calc_zeff(self):
         electron_density = self.electron_density
@@ -636,7 +635,7 @@ class Plasma:
 
     @property
     def ion_density(self):
-        return self.Ion_density()
+        return self.calc_ion_density()  # self.Ion_density()
 
     def calc_ion_density(self):
         meanz = self.meanz
@@ -656,7 +655,7 @@ class Plasma:
 
     @property
     def lz_tot(self):
-        return self.Lz_tot()
+        return self.calc_lz_tot()  # self.Lz_tot()
 
     def calc_lz_tot(self):
         fz = self.fz
@@ -681,7 +680,7 @@ class Plasma:
 
     @property
     def lz_sxr(self):
-        return self.Lz_sxr()
+        return self.calc_lz_sxr()  # self.Lz_sxr()
 
     def calc_lz_sxr(self):
         fz = self.fz
@@ -708,7 +707,7 @@ class Plasma:
 
     @property
     def total_radiation(self):
-        return self.Total_radiation()
+        return self.calc_total_radiation()  # self.Total_radiation()
 
     def calc_total_radiation(self):
         lz_tot = self.lz_tot
@@ -728,7 +727,7 @@ class Plasma:
 
     @property
     def sxr_radiation(self):
-        return self.Sxr_radiation()
+        return self.calc_sxr_radiation()  # self.Sxr_radiation()
 
     def calc_sxr_radiation(self):
         if not hasattr(self, "power_loss_sxr"):
@@ -1238,6 +1237,7 @@ class CachedCalculation(TrackDependecies):
 
     @lru_cache()
     def __call__(self):
+        print("Recalculating")
         if self.verbose:
             print("Recalculating")
         return self.operator()
