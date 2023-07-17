@@ -49,356 +49,6 @@ def read_modelling_runs(
     return code_raw_data, code_binned_data
 
 
-def read_exp_data(
-    pulse: int, tstart: float = 0, tend: float = 0.2, instruments: list = None
-):
-    print(f"Reading st40 data")
-    if instruments is None:
-        instruments = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit", "brems"]
-
-    st40 = ReadST40(pulse, tstart, tend, dt=dt, tree="st40")
-    st40(instruments=instruments, map_diagnostics=False)
-
-    return st40
-
-
-def assign_code_to_plasma():
-    print(f"Assigning {code} data to plasma")
-    plasmas: dict = {}
-    _plasma: Plasma = None
-    for run in runs:
-        print(run)
-        if equil == code:
-            equil_data = code_raw_data[run]
-        equilibrium[run] = Equilibrium(equil_data)
-        _plasma = plasma_code(
-            pulse_code,
-            tstart,
-            tend,
-            dt,
-            code_raw_data[run],
-            plasma=_plasma,
-            build_atomic_data=False,
-        )
-        _plasma.set_equilibrium(equilibrium[run])
-        plasmas[run] = deepcopy(_plasma)
-
-    print(f"Assigning {code} data to plasma")
-    binned = st40.binned_data
-    runs = list(plasmas.keys())
-    plasma = plasmas[runs[0]]
-    models = initialize_diagnostic_models(
-        binned, plasma=plasma, equilibrium=plasma.equilibrium
-    )
-    if "xrcs" in models.keys():
-        models["xrcs"].calibration = 0.2e-16
-
-    bckcs: dict = {}
-    for run in runs:
-        print(run)
-        bckcs[run] = {}
-        for instrument in models.keys():
-            print(f"Running {instrument} model")
-            models[instrument].set_plasma = plasmas[run]
-            _bckc = models[instrument]()
-            bckcs[run][instrument] = deepcopy(_bckc)
-
-    return plasmas, st40, models, bckcs
-
-
-def plot_modelling_results(
-    pulse_code: int = 13110009,
-    code: str = "astra",
-    runs: list = None,
-    equil: str = "efit",
-    pulse: int = 10009,
-    time: float = 0.06,
-    save_fig: bool = False,
-    plasmas: dict = None,
-    st40: ReadST40 = None,
-    models: dict = None,
-    bckcs: dict = None,
-):
-    if plasmas is None:
-        plasmas, st40, models, bckcs = read_modelling_runs(
-            pulse_code=pulse_code, code=code, runs=runs, equil=equil, pulse=pulse,
-        )
-
-        return plasmas, st40, models, bckcs
-
-    set_plot_rcparams("profiles")
-    cmap, colors = set_plot_colors()
-
-    plt.close("all")
-
-    runs = list(plasmas.keys())
-    run_range = f"{runs[0]}-{runs[-1]}"
-    fig_path = f"{FIG_PATH}{pulse_code}_{time}_{code}_{run_range}/"
-
-    plt.figure()
-    levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
-    for run in runs:
-        plasmas[run].equilibrium.rho.sel(t=time, method="nearest").plot.contour(
-            levels=levels,
-        )
-    plt.axis("scaled")
-    plt.title(f"Equilibrium @ {time:.3f} s")
-    save_figure(fig_path, f"Equilibrium_{time:.3f}_s", save_fig=save_fig)
-
-    plt.figure()
-    label: str = None
-    for run in runs:
-        if run == runs[-1]:
-            label = "electrons"
-        plasmas[run].electron_density.sel(t=time, method="nearest").plot(
-            label=label, color=colors["electron"],
-        )
-        if run == runs[-1]:
-            label = "main ion"
-        plasmas[run].ion_density.sel(element=plasmas[run].main_ion).sel(
-            t=time, method="nearest"
-        ).plot(
-            label=label, color=colors["ion"],
-        )
-        if run == runs[-1]:
-            label = "fast ions"
-        plasmas[run].fast_density.sel(t=time, method="nearest").plot(
-            label=label, color=colors["fast_ion"],
-        )
-    plt.title(f"Electron/Ion densities @ {time:.3f} s")
-    plt.ylabel(f"Densities [{plasmas[run].electron_density.units}]")
-    set_axis_sci()
-    plt.legend()
-    save_figure(fig_path, f"Electron_and_Ion_densities_{time:.3f}_s", save_fig=save_fig)
-
-    plt.figure()
-    label: str = None
-    for run in runs:
-        if run == runs[-1]:
-            label = "electrons"
-        plasmas[run].electron_temperature.sel(t=time, method="nearest").plot(
-            label=label, color=colors["electron"],
-        )
-        if run == runs[-1]:
-            label = "ions"
-        plasmas[run].ion_temperature.sel(element=plasmas[run].main_ion).sel(
-            t=time, method="nearest"
-        ).plot(
-            label=label, color=colors["ion"],
-        )
-    plt.ylabel(f"Temperatures [{plasmas[run].electron_temperature.units}]")
-    plt.title(f"Electron/Ion temperatures @ {time:.3f} s")
-    plt.legend()
-    set_axis_sci()
-    save_figure(
-        fig_path, f"Electron_and_Ion_temperatures_{time:.3f}_s", save_fig=save_fig,
-    )
-
-    plt.figure()
-    label: str = None
-    for run in runs:
-        if run == runs[-1]:
-            label = "fast ions"
-        plasmas[run].pressure_fast.sel(t=time, method="nearest").plot(
-            label=label, color=colors["fast_ion"],
-        )
-        if run == runs[-1]:
-            label = "thermal"
-        plasmas[run].pressure_th.sel(t=time, method="nearest").plot(
-            label=label, color="red",
-        )
-        if run == runs[-1]:
-            label = "total"
-        plasmas[run].pressure_tot.sel(t=time, method="nearest").plot(
-            label=label, color="black",
-        )
-    plt.ylabel(f"Pressures [{plasmas[run].pressure_el.units}]")
-    plt.title(f"Pressure @ {time:.3f} s")
-    set_axis_sci()
-    plt.legend()
-    save_figure(fig_path, f"Pressure_{time:.3f}_s", save_fig=save_fig)
-
-    plt.figure()
-    label: str = None
-    for run in runs:
-        impurity_conc = plasmas[run].ion_density / plasmas[run].electron_density
-        for element in plasmas[run].impurities:
-            if run == runs[-1]:
-                label = element
-            impurity_conc.sel(element=element).sel(t=time, method="nearest").plot(
-                label=label,
-            )
-    plt.title(f"Impurity concentrations @ {time:.3f} s")
-    plt.ylabel("%")
-    plt.yscale("log")
-    plt.legend()
-    save_figure(fig_path, f"Impurity_concentration_{time:.3f}_s", save_fig=save_fig)
-
-    # Plot time evolution of raw data vs back-calculated values
-    norm = {}
-    norm["brems"] = True
-    norm["sxr_camera_4"] = True
-    norm["sxr_diode_1"] = True
-    norm["xrcs"] = True
-    y0 = {}
-    y0["nirh1"] = True
-    y0["smmh1"] = True
-    y0["xrcs"] = True
-    y0["sxr_diode_1"] = True
-    y0["brems"] = True
-    y0["efit"] = True
-    binned_marker = "o"
-
-    for run in runs:
-        bckcs[run]["efit"] = {"wp": plasmas[run].wp}
-
-    instruments = bckcs[runs[0]].keys()
-    for instrument in instruments:
-        quantities = bckcs[runs[0]][instrument].keys()
-        for quantity in quantities:
-            print(instrument)
-            print(f"  {quantity}")
-            if (
-                quantity not in st40.binned_data[instrument].keys()
-                or quantity not in st40.raw_data[instrument].keys()
-            ):
-                continue
-
-            plt.figure()
-            _raw = st40.raw_data[instrument][quantity]
-            _binned = st40.binned_data[instrument][quantity]
-            _bckc = bckcs[runs[0]][instrument][quantity]
-            tslice = slice(_bckc.t.min().values, _bckc.t.max().values)
-            if len(_bckc.dims) > 1:
-                tslice_binned = _binned.t.sel(t=time, method="nearest")
-                tslice_raw = _raw.t.sel(t=time, method="nearest")
-            else:
-                tslice_raw = tslice
-                tslice_binned = tslice
-
-            if "error" not in _binned.attrs:
-                _binned.attrs["error"] = xr.full_like(_binned, 0.0)
-            if "stdev" not in _binned.attrs:
-                _binned.attrs["stdev"] = xr.full_like(_binned, 0.0)
-            err = np.sqrt(_binned.error ** 2 + _binned.stdev ** 2)
-            err = xr.where(err / _binned.values < 1.0, err, 0.0)
-
-            _raw = _raw.sel(t=tslice_raw)
-            _binned = _binned.sel(t=tslice_binned)
-            _err = err.sel(t=tslice_binned)
-            markersize = deepcopy(rcParams["lines.markersize"])
-            if instrument in "xrcs" and quantity == "spectra":
-                markersize /= 2
-                bgnd = _binned.sel(wavelength=slice(0.393, 0.388)).mean("wavelength")
-                _binned -= bgnd
-                _raw -= bgnd
-
-            _raw.plot(
-                label="Raw", color=colors["raw_data"], linestyle="dashed",
-            )
-            if "t" in _binned.dims:
-                _t = _binned.t.sel(t=tslice_binned)
-                plt.fill_between(
-                    _t,
-                    _binned.values - _err.values,
-                    _binned.values + _err.values,
-                    color=colors["binned_data"],
-                    alpha=0.7,
-                )
-            _binned.plot(
-                label="Binned",
-                color=colors["binned_data"],
-                marker=binned_marker,
-                markersize=markersize,
-            )
-
-            label = None
-            for run in runs:
-                if run == runs[-1]:
-                    label = "Model"
-                _bckc = bckcs[run][instrument][quantity].sel(t=tslice_binned)
-                mult = 1.0
-
-                if instrument in norm.keys():
-                    mult = _binned.max() / _bckc.max()
-                    if label is not None:
-                        label += " (scaled)"
-
-                (_bckc * mult).plot(
-                    label=label,
-                    color=colors["bckc_data"],
-                    linewidth=rcParams["lines.linewidth"] * 2,
-                    alpha=0.5,
-                )
-            set_axis_sci()
-            plt.title(f"{instrument.upper()} {quantity}")
-            if instrument in y0.keys():
-                plt.ylim(0,)
-
-            if quantity == "spectra":
-                # TODO: wavelength axis is sorted from max to min...
-                plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
-
-            plt.legend()
-            save_figure(fig_path, f"{instrument}_{quantity}", save_fig=save_fig)
-
-    return plasmas, st40, models, bckcs
-
-    for instrument in models.keys():
-        models[instrument].los_transform.plot(
-            t=time, save_fig=save_fig, fig_path=fig_path
-        )
-
-
-def compare_pulses_prl(data=None):
-
-    data = compare_pulses(data=data, qpop=["mhd:ampl_odd_n", "lines:h_alpha"])
-
-    return data
-
-
-def plot_aps(data=None, savefig=False, ext="png"):
-
-    pulses = [9520, 9539, 9783, 10009]
-
-    data = compare_pulses(
-        pulses,
-        data=data,
-        qpop=[
-            "mhd:ampl_odd_n",
-            "mag:vloop",
-            "diode_detr:filter_001",
-            "xrcs:te_avrg",
-            "xrcs:ti_w",
-            "cxrs:ti_ff",
-            "cxrs:vtor_ff",
-            # "lines:h_alpha",
-        ],
-        savefig=savefig,
-        ext=ext,
-    )
-
-    data = compare_pulses(
-        pulses,
-        data=data,
-        qpop=[
-            # "diode_detr:filter_001",
-            "mhd:ampl_odd_n",
-            "mag:vloop",
-            "efit:ipla",
-            "efit:wp",
-            "smmh1:ne_bar",
-            "lines:h_alpha",
-            "nbi:pin",
-        ],
-        figname="kinetics",
-        savefig=savefig,
-        ext=ext,
-    )
-
-    return data
-
-
 def plot_iaea_tm_2023(data=None, savefig=False, ext="png"):
 
     pulses = [9539, 9783, 10009]
@@ -419,26 +69,25 @@ def plot_iaea_tm_2023(data=None, savefig=False, ext="png"):
         ext=ext,
     )
 
-    return data
-
-    data = compare_pulses(
-        pulses,
-        data=data,
-        qpop=[
-            # "diode_detr:filter_001",
-            "mhd:ampl_odd_n",
-            "mag:vloop",
-            "efit:ipla",
-            "efit:wp",
-            "smmh1:ne_bar",
-            "lines:h_alpha",
-            "nbi:pin",
-        ],
-        figname="kinetics",
-        savefig=savefig,
-        ext=ext,
-    )
-
+    #
+    # data = compare_pulses(
+    #     pulses,
+    #     data=data,
+    #     qpop=[
+    #         # "diode_detr:filter_001",
+    #         "mhd:ampl_odd_n",
+    #         "mag:vloop",
+    #         "efit:ipla",
+    #         "efit:wp",
+    #         "smmh1:ne_bar",
+    #         "lines:h_alpha",
+    #         "nbi:pin",
+    #     ],
+    #     figname="kinetics",
+    #     savefig=savefig,
+    #     ext=ext,
+    # )
+    #
     return data
 
 
@@ -469,8 +118,8 @@ def plot_stan_ppcf_time_evol(data=None, savefig=False, ext="png"):
     return data
 
 
-def build_stan_ppcf_profiles(
-    pulse: int = 9520, plot: bool = True,
+def build_astra_profiles(
+    pulse: int = 9520, tstart:float=0.02, tend:float=0.12, dt:float=0.01, runs
 ):
     tstart = 0.02
     tend = 0.12
@@ -552,8 +201,15 @@ def build_stan_ppcf_profiles(
 
 
 def plot_stan_ppcf_profiles(
-    st40, bckc, plasma, tplot: float = None, ylim: tuple = None, save_fig: bool = False
+    st40=None,
+    bckc=None,
+    plasma=None,
+    tplot: float = None,
+    ylim: tuple = None,
+    save_fig: bool = False,
 ):
+    if st40 is None or bckc is None or plasma is None:
+        st40, bckc, models_to_run, plasma = build_astra_profiles()
 
     FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/profiles/"
     CMAP, COLORS = set_plot_colors()
@@ -562,16 +218,16 @@ def plot_stan_ppcf_profiles(
         9520: slice(2, 3),
         9539: slice(2, 3),
         9780: slice(2, 3),
-        10009: slice(2, 2),
+        10009: slice(2, 3),
     }
     R_shift_all = {
         9520: [-0.01, 0.01],
         9539: [-0.02, 0.0],
         9780: [0.0, 0.02],
-        10009: [0.01, 0.03],
+        10009: [0.00, 0.02],
     }
     tplot_all = {9520: 0.09, 9539: 0.071, 9780: 0.081, 10009: 0.059}
-    te_key = {9520: "mean", 9539: "mean", 9780: "n3w", 10009: "kw"}
+    te_key = {9520: "mean", 9539: "mean", 9780: "n3w", 10009: "mean"}
     if tplot is None and st40.pulse in tplot_all.keys():
         tplot = tplot_all[st40.pulse]
         R_shift_scan = R_shift_all[st40.pulse]
@@ -632,9 +288,14 @@ def plot_stan_ppcf_profiles(
     )
 
     Te_mean = np.mean([Te_kw, Te_n3w])
-    Te_mean_err = Te_mean * np.sqrt(
-        (Te_kw_err / Te_kw) ** 2 + (Te_n3w_err / Te_n3w) ** 2
-    )
+    err_kw = (Te_kw_err / Te_kw) ** 2
+    err_n3w = (Te_n3w_err / Te_n3w) ** 2
+    Te_mean_err = err_kw * 0
+    if err_kw < 0.2:
+        Te_mean_err += err_kw
+    if err_n3w < 0.2:
+        Te_mean_err += err_n3w
+    Te_mean_err = np.sqrt(Te_mean_err) * Te_mean
     if te_key[st40.pulse] == "mean":
         Te_xrcs = Te_mean
         Te_xrcs_err = Te_mean_err
