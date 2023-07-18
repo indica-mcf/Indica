@@ -81,72 +81,49 @@ class BremsstrahlungDiode(DiagnosticModel):
         )
         self.transmission = DataArray(transmission, coords=[("wavelength", wavelength)])
 
-    # def filter_spectra(self, spectra:DataArray):
-    #     """
-    #     Apply the diode transmission function to an input spectra
-    #
-    #     Parameters
-    #     ----------
-    #     spectra
-    #         Spectra with dimensions (channel, wavelength, time) in any order,
-    #         and with units of W/m**2
-    #
-    #     Returns
-    #     -------
-    #     Integral of the spectral brightness using the filter transmission curve
-    #     """
-    #
-    #     y = self.transmission
-    #     xdata = np.linspace(wavelength_start, wavelength_end, int(len(y)))
-    #     transmission_inter = interp1d(xdata, y)
-    #
-    #     bckgemission_full = []
-    #
-    #     for chan in channels:
-    #         for t in times:
-    #
-    #             reader = (
-    #                 st40.binned_data[instrument]["spectra"]
-    #                 .sel(t=t, method="nearest")
-    #                 .sel(channel=chan, wavelength=slice(wavelength_start,
-    #                 wavelength_end))
-    #             )
-    #
-    #             y_values = reader.where(reader < 0.05)
-    #             x_values = reader.where(reader < 0.05).coords["wavelength"]
-    #             y_data = np.array(y_values)
-    #             x_data = np.array(x_values)
-    #
-    #             xdata_new = np.linspace(wavelength_start, wavelength_end,
-    #             len(y_values))
-    #             transmission = transmission_inter(xdata_new)
-    #
-    #             yfit = []
-    #             fit, cov = np.polyfit(x_data, y_data, 1, cov=True)
-    #             for i in range(0, len(x_data)):
-    #                 yfit.append(fit[0] * x_data[i] + fit[1])
-    #             yfit = np.array(yfit)
-    #             yfit = yfit * transmission
-    #
-    #             bckgemission = np.mean(yfit)
-    #
-    #             coefficient = len(y_values)
-    #             bckgemission = bckgemission * coefficient
-    #             bckgemission_full.append(bckgemission)
-    #
-    #     background = [
-    #         bckgemission_full[i : i + len(times)]
-    #         for i in range(0, len(bckgemission_full), len(times))
-    #     ]
-    #     brem = DataArray(
-    #         background, coords={"channel": channels, "t": times},
-    #         dims=["channel", "t"]
-    #     )
-    #     brem.attrs = st40.binned_data["pi"]["spectra"].attrs
-    #
-    #     data = {}
-    #     data["bremsstrahlung"] = brem
-    #     return data, brem
+    def integrate_spectra(self, spectra: DataArray, fit_background: bool = True):
+        """
+        Apply the diode transmission function to an input spectra
+
+        Parameters
+        ----------
+        spectra
+            Spectra with dimensions (channel, wavelength, time) in any order,
+            and with units of W/m**2
+        fit_background
+            If True - background fitted and then integrated
+            If False - spectra integrated using filter without any fitting
+
+        Returns
+        -------
+        Background emission & integral of spectra using the filter transmission
+        """
+
+        # Interpolate transmission filter on spectral wavelength & restrict to > 0
+        _transmission = self.transmission.interp(wavelength=spectra.wavelength)
+        transmission = _transmission.where(_transmission > 1.0e-3, drop=True)
+        wavelength_slice = slice(
+            np.min(transmission.wavelength), np.max(transmission.wavelength)
+        )
+
+        # Take away neutron spikes in pixel intensity
+        _spectra = spectra.sel(wavelength=wavelength_slice)
+        _spectra = spectra.where(
+            xr.ufuncs.fabs(_spectra.diff("wavelength", n=2)) < 0.4e-3
+        )
+
+        # Fit spectra to calculate background emission, filter and integrate
+        if fit_background:
+            fit = _spectra.polyfit("wavelength", 0)
+            _spectra_to_integrate = fit.polyfit_coefficients.sel(degree=0)
+            spectra_to_integrate = _spectra_to_integrate.expand_dims(
+                dim={"wavelength": _spectra.wavelength}
+            )
+        else:
+            spectra_to_integrate = _spectra
+        integral = (spectra_to_integrate * transmission).sum("wavelength")
+
+        return spectra_to_integrate, integral
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
