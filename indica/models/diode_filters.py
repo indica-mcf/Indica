@@ -108,7 +108,8 @@ class BremsstrahlungDiode(DiagnosticModel):
     #             reader = (
     #                 st40.binned_data[instrument]["spectra"]
     #                 .sel(t=t, method="nearest")
-    #                 .sel(channel=chan, wavelength=slice(wavelength_start, wavelength_end))
+    #                 .sel(channel=chan, wavelength=slice(wavelength_start,
+    #                 wavelength_end))
     #             )
     #
     #             y_values = reader.where(reader < 0.05)
@@ -116,7 +117,8 @@ class BremsstrahlungDiode(DiagnosticModel):
     #             y_data = np.array(y_values)
     #             x_data = np.array(x_values)
     #
-    #             xdata_new = np.linspace(wavelength_start, wavelength_end, len(y_values))
+    #             xdata_new = np.linspace(wavelength_start, wavelength_end,
+    #             len(y_values))
     #             transmission = transmission_inter(xdata_new)
     #
     #             yfit = []
@@ -137,7 +139,8 @@ class BremsstrahlungDiode(DiagnosticModel):
     #         for i in range(0, len(bckgemission_full), len(times))
     #     ]
     #     brem = DataArray(
-    #         background, coords={"channel": channels, "t": times}, dims=["channel", "t"]
+    #         background, coords={"channel": channels, "t": times},
+    #         dims=["channel", "t"]
     #     )
     #     brem.attrs = st40.binned_data["pi"]["spectra"].attrs
     #

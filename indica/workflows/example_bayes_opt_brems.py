@@ -11,17 +11,6 @@ import indica.readers.read_st40 as read_st40
 from indica.workflows.bayes_workflow import plot_bayes_result
 from indica.workflows.bayes_workflow import sample_with_autocorr
 
-from indica.bayesmodels import BayesModels
-from indica.bayesmodels import get_uniform
-from indica.models.helike_spectroscopy import Helike_spectroscopy
-from indica.models.interferometry import Interferometry
-from indica.models.plasma import Plasma
-from indica.readers.read_st40 import ReadST40
-from indica.workflows.bayes_workflow import plot_bayes_result
-from indica.workflows.bayes_workflow import sample_with_autocorr
-import indica.readers.read_st40 as read_st40
-from indica.models.diode_filters import BremsstrahlungDiode
-
 # TODO: allow conditional prior usage even when only
 #  one param is being optimisied i.e. 1 is constant
 
@@ -166,6 +155,7 @@ def run(
     print(sampler.acceptance_fraction.sum())
     plot_bayes_result(**result, figheader=result_path)
 
+
 if __name__ == "__main__":
     phantom_profile_params = {
         "Ne_prof.y0": 5e19,
@@ -176,14 +166,14 @@ if __name__ == "__main__":
         "Ne_prof.wped": 2,
         "Nimp_prof.y0": 1e18,
         "Nimp_prof.y1": 1e17,
-        "Nimp_prof.peaking": 7,  
+        "Nimp_prof.peaking": 7,
         "Te_prof.y0": 3000,
         "Te_prof.peaking": 2,
         "Ti_prof.y0": 5000,
         "Ti_prof.peaking": 2,
     }
-    nwalkers = 50  # 10 #
-    iterations = 200  # 50 #
+    nwalkers = 10  # 50 #
+    iterations = 50  # 200 #
     from sys import platform
 
     if platform == "linux" or platform == "linux2":
