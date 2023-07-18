@@ -2,18 +2,16 @@ import emcee
 import numpy as np
 import pandas as pd
 import xarray as xr
-import matplotlib.pylab as plt
 
 from indica.bayesmodels import BayesModels
 from indica.bayesmodels import get_uniform
-from indica.models.helike_spectroscopy import Helike_spectroscopy
-from indica.models.interferometry import Interferometry
+from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.plasma import Plasma
-from indica.readers.read_st40 import ReadST40
+import indica.readers.read_st40 as read_st40
 from indica.workflows.bayes_workflow import plot_bayes_result
 from indica.workflows.bayes_workflow import sample_with_autocorr
-import indica.readers.read_st40 as read_st40
-from indica.models.diode_filters import BremsstrahlungDiode
+
+# import matplotlib.pylab as plt
 
 # TODO: allow conditional prior usage even when only
 #  one param is being optimisied i.e. 1 is constant
@@ -29,14 +27,14 @@ def run(
     tend=0.10,
     dt=0.01,
     tsample=3,
-    nwalkers = 10,
+    nwalkers=10,
 ):
     plasma = Plasma(
         tstart=tstart,
         tend=tend,
         dt=dt,
         main_ion="h",
-        impurities=("c",),  #impurities: tuple = ("c", "ar"), impurity_concentration: tuple = (0.02, 0.001),
+        impurities=("c",),
         impurity_concentration=(0.2,),
         full_run=False,
         n_rad=10,
@@ -47,7 +45,7 @@ def run(
     ST40 = read_st40.ReadST40(pulse)
     ST40(["pi"])
 
-    data_to_read=ST40.binned_data["pi"]["spectra"]
+    data_to_read = ST40.binned_data["pi"]["spectra"]
     los_transform = data_to_read.transform
     # data_to_read.transform.set_equilibrium(data_to_read.transform.equilibrium)
     pi = BremsstrahlungDiode(name="pi", channel_mask=slice(18, 28))
@@ -65,15 +63,14 @@ def run(
 
     pi_data = pi()["brightness"]
 
-    #from indica.models.background_fit import Bremsstrahlung
-    #pi_data = Bremsstrahlung(pulse)[1]
-    #data_measured = Bremsstrahlung(pulse)[1].sel(channel=channels)
-    #data_modelled = example_run(pulse)[2]["brightness"].sel(channel=channels)
-
+    # from indica.models.background_fit import Bremsstrahlung
+    # pi_data = Bremsstrahlung(pulse)[1]
+    # data_measured = Bremsstrahlung(pulse)[1].sel(channel=channels)
+    # data_modelled = example_run(pulse)[2]["brightness"].sel(channel=channels)
 
     flat_data = {}
-    flat_data["pi.brightness"] = (
-        pi_data.expand_dims(dim={"t": [plasma.time_to_calculate]})
+    flat_data["pi.brightness"] = pi_data.expand_dims(
+        dim={"t": [plasma.time_to_calculate]}
     )
 
     priors = {
@@ -103,10 +100,10 @@ def run(
         # "Ne_prof.peaking",
         "Nimp_prof.y0",
         "Nimp_prof.y1",
-         "Nimp_prof.peaking",
+        "Nimp_prof.peaking",
         # "Te_prof.y0",
-       #  "Te_prof.peaking",
-       #  "Ti_prof.y0",
+        #  "Te_prof.peaking",
+        #  "Ti_prof.y0",
         # "Ti_prof.peaking",
     ]
 
@@ -119,7 +116,7 @@ def run(
         ],
         priors=priors,
     )
-   
+
     ndim = param_names.__len__()
     start_points = bm.sample_from_priors(param_names, size=nwalkers)
     move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
@@ -149,18 +146,19 @@ def run(
     samples = sampler.get_chain(flat=True)
     prior_samples = bm.sample_from_priors(param_names, size=int(1e5))
     result = {
-            "blobs": blob_dict,
-            "diag_data": flat_data,
-            "samples": samples,
-            "prior_samples": prior_samples,
-            "param_names": param_names,
-            "phantom_profiles": phantom_profiles,
-            "plasma": plasma,
-            "autocorr": autocorr,
-        }
+        "blobs": blob_dict,
+        "diag_data": flat_data,
+        "samples": samples,
+        "prior_samples": prior_samples,
+        "param_names": param_names,
+        "phantom_profiles": phantom_profiles,
+        "plasma": plasma,
+        "autocorr": autocorr,
+    }
     print(sampler.acceptance_fraction.sum())
     plot_bayes_result(**result, figheader=result_path)
-    
+
+
 if __name__ == "__main__":
     phantom_profile_params = {
         "Ne_prof.y0": 5e19,
@@ -171,17 +169,25 @@ if __name__ == "__main__":
         "Ne_prof.wped": 2,
         "Nimp_prof.y0": 1e18,
         "Nimp_prof.y1": 1e17,
-        "Nimp_prof.peaking": 7, #2
+        "Nimp_prof.peaking": 7,  # 2
         "Te_prof.y0": 3000,
         "Te_prof.peaking": 2,
         "Ti_prof.y0": 5000,
         "Ti_prof.peaking": 2,
     }
-    nwalkers = 50 #10 #
-    iterations = 200 #50 #
+    nwalkers = 50  # 10 #
+    iterations = 200  # 50 #
     from sys import platform
+
     if platform == "linux" or platform == "linux2":
-        pathname="./plots/"
+        pathname = "./plots/"
     elif platform == "win32":
-        pathname="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
-    run(10607, phantom_profile_params, iterations, pathname, burn_in=0, nwalkers = nwalkers)
+        pathname = "C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\"
+    run(
+        10607,
+        phantom_profile_params,
+        iterations,
+        pathname,
+        burn_in=0,
+        nwalkers=nwalkers,
+    )
