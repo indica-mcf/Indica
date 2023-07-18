@@ -27,13 +27,13 @@ class BremsstrahlungDiode(DiagnosticModel):
     def __init__(
         self,
         name: str,
-        filter_wavelength: float = 531.5, #532
-        filter_fwhm: float = 1, #1
+        filter_wavelength: float = 531.5,  # 532
+        filter_fwhm: float = 1,  # 1
         filter_type: str = "boxcar",
         etendue: float = 1.0,
         calibration: float = 2.0e-5,
         instrument_method="get_diode_filters",
-        channel_mask=slice(18,28)
+        channel_mask: slice = None,  # =slice(18, 28),
     ):
         """
         Filtered diode diagnostic measuring Bremsstrahlung
@@ -118,10 +118,9 @@ class BremsstrahlungDiode(DiagnosticModel):
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            Ne = self.plasma.electron_density.sel(t=t)
-            Te = self.plasma.electron_temperature.sel(t=t)
-            Zeff = self.plasma.zeff.sel(t=t).sum("element")
-           # print(self.plasma.zeff)
+            Ne = self.plasma.electron_density.interp(t=t)
+            Te = self.plasma.electron_temperature.interp(t=t)
+            Zeff = self.plasma.zeff.interp(t=t).sum("element")
         else:
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
@@ -156,12 +155,15 @@ class BremsstrahlungDiode(DiagnosticModel):
             t=t,
             calc_rho=calc_rho,
         )
-        los_integral=los_integral.where((los_integral.channel>self.channel_mask.start)&(los_integral.channel<self.channel_mask.stop))
+        if self.channel_mask is not None:
+            los_integral = los_integral.where(
+                (los_integral.channel > self.channel_mask.start)
+                & (los_integral.channel < self.channel_mask.stop)
+            )
 
         self.los_integral = los_integral
 
         self._build_bckc_dictionary()
-        #print("test1",self.bckc)
         return self.bckc
 
 
@@ -194,8 +196,6 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
     model.set_plasma(plasma)
     bckc = model()
 
-    print("test2", bckc)
-    
     if plot:
         it = int(len(plasma.t) / 2)
         tplot = plasma.t[it].values
