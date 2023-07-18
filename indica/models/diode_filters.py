@@ -66,6 +66,85 @@ class BremsstrahlungDiode(DiagnosticModel):
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
         self.channel_mask = channel_mask
 
+        wavelength = np.linspace(
+            self.filter_wavelength - self.filter_fwhm * 2,
+            self.filter_wavelength + self.filter_fwhm * 2,
+        )
+        self.wavelength = DataArray(wavelength, coords=[("wavelength", wavelength)])
+
+        # Transmission filter function
+        transmission = ph.make_window(
+            wavelength,
+            self.filter_wavelength,
+            self.filter_fwhm,
+            window=self.filter_type,
+        )
+        self.transmission = DataArray(transmission, coords=[("wavelength", wavelength)])
+
+    # def filter_spectra(self, spectra:DataArray):
+    #     """
+    #     Apply the diode transmission function to an input spectra
+    #
+    #     Parameters
+    #     ----------
+    #     spectra
+    #         Spectra with dimensions (channel, wavelength, time) in any order,
+    #         and with units of W/m**2
+    #
+    #     Returns
+    #     -------
+    #     Integral of the spectral brightness using the filter transmission curve
+    #     """
+    #
+    #     y = self.transmission
+    #     xdata = np.linspace(wavelength_start, wavelength_end, int(len(y)))
+    #     transmission_inter = interp1d(xdata, y)
+    #
+    #     bckgemission_full = []
+    #
+    #     for chan in channels:
+    #         for t in times:
+    #
+    #             reader = (
+    #                 st40.binned_data[instrument]["spectra"]
+    #                 .sel(t=t, method="nearest")
+    #                 .sel(channel=chan, wavelength=slice(wavelength_start, wavelength_end))
+    #             )
+    #
+    #             y_values = reader.where(reader < 0.05)
+    #             x_values = reader.where(reader < 0.05).coords["wavelength"]
+    #             y_data = np.array(y_values)
+    #             x_data = np.array(x_values)
+    #
+    #             xdata_new = np.linspace(wavelength_start, wavelength_end, len(y_values))
+    #             transmission = transmission_inter(xdata_new)
+    #
+    #             yfit = []
+    #             fit, cov = np.polyfit(x_data, y_data, 1, cov=True)
+    #             for i in range(0, len(x_data)):
+    #                 yfit.append(fit[0] * x_data[i] + fit[1])
+    #             yfit = np.array(yfit)
+    #             yfit = yfit * transmission
+    #
+    #             bckgemission = np.mean(yfit)
+    #
+    #             coefficient = len(y_values)
+    #             bckgemission = bckgemission * coefficient
+    #             bckgemission_full.append(bckgemission)
+    #
+    #     background = [
+    #         bckgemission_full[i : i + len(times)]
+    #         for i in range(0, len(bckgemission_full), len(times))
+    #     ]
+    #     brem = DataArray(
+    #         background, coords={"channel": channels, "t": times}, dims=["channel", "t"]
+    #     )
+    #     brem.attrs = st40.binned_data["pi"]["spectra"].attrs
+    #
+    #     data = {}
+    #     data["bremsstrahlung"] = brem
+    #     return data, brem
+
     def _build_bckc_dictionary(self):
         self.bckc = {}
 
@@ -118,9 +197,9 @@ class BremsstrahlungDiode(DiagnosticModel):
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            Ne = self.plasma.electron_density.interp(t=t)
-            Te = self.plasma.electron_temperature.interp(t=t)
-            Zeff = self.plasma.zeff.interp(t=t).sum("element")
+            Ne = self.plasma.electron_density.sel(t=t)
+            Te = self.plasma.electron_temperature.sel(t=t)
+            Zeff = self.plasma.zeff.sel(t=t).sum("element")
         else:
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
@@ -129,21 +208,6 @@ class BremsstrahlungDiode(DiagnosticModel):
         self.Te: DataArray = Te
         self.Ne: DataArray = Ne
         self.Zeff: DataArray = Zeff
-
-        # Wavelength axis
-        wavelength = np.linspace(
-            self.filter_wavelength - self.filter_fwhm * 2,
-            self.filter_wavelength + self.filter_fwhm * 2,
-        )
-        self.wavelength = DataArray(wavelength, coords=[("wavelength", wavelength)])
-
-        # Transmission filter function
-        self.transmission = ph.make_window(
-            wavelength,
-            self.filter_wavelength,
-            self.filter_fwhm,
-            window=self.filter_type,
-        )
 
         # Bremsstrahlung emission for each time, radial position and wavelength
         wlength = deepcopy(self.wavelength)
