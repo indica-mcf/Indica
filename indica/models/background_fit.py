@@ -33,7 +33,7 @@ def example_run(
     return plasma, model, bckc
 
 
-def Bremsstrahlung(
+def bremsstrahlung(
     pulse,
     channels=np.linspace(18, 35, 18),
     tstart: float = 0.020,
