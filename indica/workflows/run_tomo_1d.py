@@ -10,8 +10,11 @@ import numpy as np
 from xarray import DataArray
 
 from indica.equilibrium import Equilibrium
+from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.diode_filters import example_run as brems_example
+from indica.models.plasma import example_run as example_plasma
 from indica.models.sxr_camera import example_run as sxr_example
+from indica.models.sxr_camera import SXRcamera
 from indica.operators import tomo_1D
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import save_figure
@@ -25,68 +28,128 @@ set_plot_rcparams("profiles")
 PHANTOMS: Dict[str, Callable] = {
     "sxrc_xy2": sxr_example,
     "sxr_camera_4": sxr_example,
-    "brems": brems_example,
+    "pi": brems_example,
+}
+
+PULSES: Dict[str, int] = {
+    "sxrc_xy2": 10821,
+    "sxr_camera_4": 9229,
+    "pi": 10821,
+}
+
+MODELS = {
+    "sxrc_xy2": SXRcamera("sxrc_xy2"),
+    "sxr_camera_4": SXRcamera("sxr_camera_4"),
+    "pi": BremsstrahlungDiode("pi"),
 }
 
 
-def examples(
-    pulse: int = 9229,
+def phantom_examples(
     instrument: str = "sxrc_xy2",
-    equil_instrument: str = "efit",
     reg_level_guess: float = 0.5,
-    nchannels=12,
-    phantom_data: bool = True,
+    plot: bool = True,
 ):
-    """
+    plasma, model, bckc = PHANTOMS[instrument]()
+    los_transform = model.los_transform
+    emissivity = model.emissivity
+    brightness = bckc["brightness"]
+    z = los_transform.z
+    R = los_transform.R
+    dl = los_transform.dl
 
-    Parameters
-    ----------
-    pulse
-        Pulse to read data from and assign diagnostic geometry
-        If == None: use phantom geometry
-    instrument
-        Instrument whose geometry should be used for phantom
-    equil_instrument
-        Instrument name for equilibrium reconstruction data
-    reg_level_guess
-        Guess of regularisation level
-    nchannels
-        Number of channels if using phantom instrument
-    phantom_data
-        If == True: use phantom data
-        If == False: use experimental data (pulse is not None)
-    """
+    has_data = np.logical_not(np.isnan(brightness.isel(t=0).data))
+    rho_equil = plasma.equilibrium.rho.interp(t=brightness.t)
+    input_dict = dict(
+        brightness=brightness.data,
+        dl=dl,
+        t=brightness.t.data,
+        R=R,
+        z=z,
+        rho_equil=dict(
+            R=rho_equil.R.data,
+            z=rho_equil.z.data,
+            t=rho_equil.t.data,
+            rho=rho_equil.data,
+        ),
+        has_data=has_data,
+        debug=False,
+    )
+    if emissivity is not None:
+        input_dict["emissivity"] = emissivity
 
-    plasma, model, bckc = PHANTOMS[instrument](pulse=pulse, nchannels=nchannels)
-    if pulse is not None:
-        tstart = plasma.t.min().values
-        tend = plasma.t.max().values
-        st40 = ReadST40(pulse, tstart, tend)
-        st40(instruments=[instrument, equil_instrument])
-        equilibrium = Equilibrium(st40.raw_data[equil_instrument])
-        los_transform = st40.binned_data[instrument]["brightness"].transform
-    else:
-        equilibrium = plasma.equilibrium
-        los_transform = model.los_transform
+    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
+    tomo()
+    if plot:
+        model.los_transform.plot()
+        tomo.show_reconstruction()
 
-    if not phantom_data and pulse is not None:
-        emissivity = None
-        brightness = st40.binned_data[instrument]["brightness"]
-    else:
-        if not phantom_data:
-            print("\n Using phantom data since pulse is None \n")
-        model.set_los_transform(los_transform)
-        model.los_transform.set_equilibrium(equilibrium, force=True)
-        model()
+    inverted_emissivity = DataArray(
+        tomo.emiss, coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)]
+    )
+    inverted_error = DataArray(
+        tomo.emiss_err,
+        coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)],
+    )
+    inverted_emissivity.attrs["error"] = inverted_error
+
+    data_tomo = brightness
+    bckc_tomo = DataArray(tomo.backprojection, coords=data_tomo.coords)
+
+    return inverted_emissivity, data_tomo, bckc_tomo
+
+
+def experimental_examples(
+    instrument: str = "sxrc_xy2",
+    reg_level_guess: float = 0.5,
+    phantom_data: bool = True,
+    plot: bool = True,
+):
+    pulse = PULSES[instrument]
+    model = MODELS[instrument]
+
+    tstart = 0.02
+    tend = 0.1
+    dt = 0.01
+    st40 = ReadST40(pulse, tstart, tend, dt=dt)
+    st40(instruments=[instrument, "efit"])
+    equilibrium = Equilibrium(st40.raw_data["efit"])
+    quantity = list(st40.binned_data[instrument])[0]
+    los_transform = st40.binned_data[instrument][quantity].transform
+    los_transform.set_equilibrium(equilibrium, force=True)
+    model.set_los_transform(los_transform)
+    if instrument == "pi":
+        attrs = st40.binned_data[instrument]["spectra"].attrs
+        background, brightness = model.integrate_spectra(
+            st40.binned_data[instrument]["spectra"]
+        )
+        background.attrs = attrs
+        brightness.attrs = attrs
+        st40.binned_data[instrument]["background"] = background
+        st40.binned_data[instrument]["brightness"] = brightness
+
+    if phantom_data:
+        plasma = example_plasma(
+            pulse,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+        )
+        plasma.build_atomic_data()
+        plasma.set_equilibrium(equilibrium)
+        model.set_plasma(plasma)
+        bckc = model()
         emissivity = model.emissivity
         brightness = bckc["brightness"]
+    else:
+        emissivity = None
+        brightness = st40.binned_data[instrument]["brightness"]
 
     z = los_transform.z
     R = los_transform.R
     dl = los_transform.dl
 
     data_t0 = brightness.isel(t=0).data
-    has_data = np.logical_not(np.isnan(data_t0))
+    has_data = np.logical_not(np.isnan(brightness.isel(t=0).data)) & (data_t0 > 0)
     rho_equil = equilibrium.rho.interp(t=brightness.t)
     input_dict = dict(
         brightness=brightness.data,
@@ -105,15 +168,30 @@ def examples(
     )
     if emissivity is not None:
         input_dict["emissivity"] = emissivity
-    # return input_dict
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
     tomo()
-    tomo.show_reconstruction()
+
+    if plot:
+        model.los_transform.plot()
+        tomo.show_reconstruction()
+
+    inverted_emissivity = DataArray(
+        tomo.emiss, coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)]
+    )
+    inverted_error = DataArray(
+        tomo.emiss_err,
+        coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)],
+    )
+    inverted_emissivity.attrs["error"] = inverted_error
+    data_tomo = brightness
+    bckc_tomo = DataArray(tomo.backprojection, coords=data_tomo.coords)
+
+    return inverted_emissivity, data_tomo, bckc_tomo
 
 
 def sxrc_xy(
-    pulse: int = 10820,
+    pulse: int = 10821,
     tstart: float = 0.02,
     tend: float = 0.11,
     dt: float = 0.01,
