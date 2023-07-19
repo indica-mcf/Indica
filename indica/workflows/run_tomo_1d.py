@@ -1,14 +1,17 @@
 """Inverts line of sight integrals to estimate local emissivity."""
 
 import getpass
+from typing import Callable
+from typing import Dict
 from typing import Tuple
 
 import matplotlib.pylab as plt
 import numpy as np
 from xarray import DataArray
 
-from indica.models.background_fit import bremsstrahlung
-from indica.models.background_fit import example_run
+from indica.equilibrium import Equilibrium
+from indica.models.diode_filters import example_run as brems_example
+from indica.models.sxr_camera import example_run as sxr_example
 from indica.operators import tomo_1D
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import save_figure
@@ -18,6 +21,95 @@ from indica.utilities import set_plot_rcparams
 DataArrayCoords = Tuple[DataArray, DataArray]
 
 set_plot_rcparams("profiles")
+
+PHANTOMS: Dict[str, Callable] = {
+    "sxrc_xy2": sxr_example,
+    "sxr_camera_4": sxr_example,
+    "brems": brems_example,
+}
+
+
+def examples(
+    pulse: int = 9229,
+    instrument: str = "sxrc_xy2",
+    equil_instrument: str = "efit",
+    reg_level_guess: float = 0.5,
+    nchannels=12,
+    phantom_data: bool = True,
+):
+    """
+
+    Parameters
+    ----------
+    pulse
+        Pulse to read data from and assign diagnostic geometry
+        If == None: use phantom geometry
+    instrument
+        Instrument whose geometry should be used for phantom
+    equil_instrument
+        Instrument name for equilibrium reconstruction data
+    reg_level_guess
+        Guess of regularisation level
+    nchannels
+        Number of channels if using phantom instrument
+    phantom_data
+        If == True: use phantom data
+        If == False: use experimental data (pulse is not None)
+    """
+
+    plasma, model, bckc = PHANTOMS[instrument](pulse=pulse, nchannels=nchannels)
+    if pulse is not None:
+        tstart = plasma.t.min().values
+        tend = plasma.t.max().values
+        st40 = ReadST40(pulse, tstart, tend)
+        st40(instruments=[instrument, equil_instrument])
+        equilibrium = Equilibrium(st40.raw_data[equil_instrument])
+        los_transform = st40.binned_data[instrument]["brightness"].transform
+    else:
+        equilibrium = plasma.equilibrium
+        los_transform = model.los_transform
+
+    if not phantom_data and pulse is not None:
+        emissivity = None
+        brightness = st40.binned_data[instrument]["brightness"]
+    else:
+        if not phantom_data:
+            print("\n Using phantom data since pulse is None \n")
+        model.set_los_transform(los_transform)
+        model.los_transform.set_equilibrium(equilibrium, force=True)
+        model()
+        emissivity = model.emissivity
+        brightness = bckc["brightness"]
+
+    z = los_transform.z
+    R = los_transform.R
+    dl = los_transform.dl
+
+    data_t0 = brightness.isel(t=0).data
+    has_data = np.logical_not(np.isnan(data_t0))
+    rho_equil = equilibrium.rho.interp(t=brightness.t)
+    input_dict = dict(
+        brightness=brightness.data,
+        dl=dl,
+        t=brightness.t.data,
+        R=R,
+        z=z,
+        rho_equil=dict(
+            R=rho_equil.R.data,
+            z=rho_equil.z.data,
+            t=rho_equil.t.data,
+            rho=rho_equil.data,
+        ),
+        has_data=has_data,
+        debug=False,
+    )
+    if emissivity is not None:
+        input_dict["emissivity"] = emissivity
+    # return input_dict
+
+    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
+    tomo()
+    tomo.show_reconstruction()
 
 
 def sxrc_xy(
@@ -254,141 +346,3 @@ def fake_data(
         tomo.show_reconstruction()
 
     return plasma
-
-
-def pi(
-    pulse,
-    tstart: float = 0.01,
-    tend: float = 0.11,
-    dt: float = 0.01,
-    debug=False,
-    exclude_bad_points=True,
-    plot=True,
-    reg_level_guess: float = 0.5,
-    channels=slice(18, 28),
-    save_fig: bool = False,
-    instrument: str = "pi",
-):
-    st40 = ReadST40(pulse, tstart, tend, dt=dt)
-    st40(instruments=[instrument], map_diagnostics=False)
-
-    data_measured = bremsstrahlung(pulse)[1].sel(channel=channels)
-    data_modelled = example_run(pulse)[2]["brightness"].sel(channel=channels)
-
-    length = (tend - tstart) / dt + 1
-    time_range = np.linspace(tstart, tend, int(length))
-    data_R_measured = data_measured.transform.impact_parameter.R.sel(channel=channels)
-    data_measured = data_measured.assign_coords(
-        R=("channel", data_R_measured)
-    ).swap_dims({"channel": "R"})
-    x_measured = np.array(data_measured.coords["R"])
-
-    y_measured_full = []
-    for t in time_range:
-        y_measured = np.array(data_measured.sel(t=t, method="nearest"))
-        y_measured_full.append(y_measured)
-
-    data_R_modelled = data_modelled.transform.impact_parameter.R.sel(channel=channels)
-    data_modelled = data_modelled.assign_coords(
-        R=("channel", data_R_modelled)
-    ).swap_dims({"channel": "R"})
-    x_model = np.array(data_modelled.coords["R"])
-
-    y_model_full = []
-    for t in time_range:
-        y_model = np.array(data_modelled.sel(t=t, method="nearest"))
-        y_model_full.append(y_model)
-
-    for i in range(0, len(time_range)):
-        plt.figure()
-        plt.plot(
-            x_measured,
-            y_measured_full[i],
-            ".",
-            label="experimental data",
-            color="indigo",
-        )
-        plt.plot(x_model, y_model_full[i], ".", label="modelled data", color="crimson")
-        plt.xlabel("Radius, m")
-        plt.ylabel("Background emission LoS integral, $W/m^2$")
-        plt.axvline(0.17, linestyle="--", color="skyblue", label="limiter", linewidth=1)
-        plt.legend(loc="upper right")
-        plt.grid(color="k", linestyle="--", linewidth=0.5)
-        plt.title(f"Pulse_{pulse}_{i}")
-
-        # if save_fig:
-        #     save_figure(
-        #         fig_path,
-        #         f"{pulse}_{instrument}_{timestr}_{i}",
-        #         save_fig=save_fig,
-        #     )
-
-    plt.figure()
-    surf = data_measured.T.plot()
-    set_axis_sci(plot_object=surf)
-    data_measured.transform.equilibrium.rmag.plot(
-        linestyle="dashed", color="w", label="R$_{mag}$"
-    )
-    plt.ylabel("R [m]")
-    plt.xlabel("t [s]")
-    plt.legend()
-    # if save_fig:
-    #     save_figure(
-    #         fig_path,
-    #         f"{pulse}_{instrument}_surface_plot",
-    #         save_fig=save_fig,
-    #     )
-
-    plt.figure()
-    data_measured.sel(R=0.4, method="nearest").plot(label="R=0.4 m")
-    data_measured.sel(R=0.47, method="nearest").plot(label="R=0.47 m")
-    data_measured.sel(R=0.55, method="nearest").plot(label="R=0.55 m")
-    plt.title("")
-    set_axis_sci()
-    plt.legend()
-    # if save_fig:
-    #     save_figure(
-    #         fig_path,
-    #         f"{pulse}_{instrument}_channel_evolution",
-    #         save_fig=save_fig,
-    #     )
-
-    dl = data_measured.transform.dl
-    z = data_measured.transform.z.sel(channel=channels)
-    R = data_measured.transform.R.sel(channel=channels)
-    equil = st40.equilibrium
-    rho, theta = data_measured.transform.convert_to_rho_theta(t=data_measured.t)
-    rho = rho.sel(channel=channels)
-    brightness = data_measured
-
-    data_t0 = brightness.isel(t=0).data
-    if exclude_bad_points:
-        has_data = np.logical_not(np.isnan(data_t0)) & (data_t0 >= 1.0e3)
-    else:
-        has_data = np.logical_not(np.isnan(data_t0))
-
-    rho_equil = equil.rho.interp(t=brightness.t, method="nearest")
-    input_dict = dict(
-        brightness=brightness.data,
-        dl=dl,
-        t=brightness.t.data,
-        R=R.data,
-        z=z.data,
-        rho_equil=dict(
-            R=rho_equil.R.data,
-            z=rho_equil.z.data,
-            t=rho_equil.t.data,
-            rho=rho_equil.data,
-        ),
-        debug=debug,
-        has_data=has_data,
-    )
-
-    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
-    tomo()
-
-    if plot:
-        plt.ioff()
-        tomo.show_reconstruction()
-        plt.show()
-    return input_dict
