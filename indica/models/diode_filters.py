@@ -172,6 +172,7 @@ class BremsstrahlungDiode(DiagnosticModel):
             Total effective charge
         t
             time
+        TODO: emission needs a new name as it's in units [W m**-2 nm**-1]
         """
 
         if self.plasma is not None:
@@ -194,8 +195,9 @@ class BremsstrahlungDiode(DiagnosticModel):
         for dim in Ne.dims:
             wlength = wlength.expand_dims(dim={dim: self.Ne[dim]})
         self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
+        self.emissivity = (self.emission * self.transmission).integrate("wavelength")
         los_integral = self.los_transform.integrate_on_los(
-            (self.emission * self.transmission).integrate("wavelength"),
+            self.emissivity,
             t=t,
             calc_rho=calc_rho,
         )
@@ -211,16 +213,26 @@ class BremsstrahlungDiode(DiagnosticModel):
         return self.bckc
 
 
-def example_run(pulse: int = None, plasma=None, plot: bool = False):
+def example_run(
+    pulse: int = None, nchannels: int = 12, plasma=None, plot: bool = False
+):
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     diagnostic_name = "diode_brems"
-    los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
-    los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.17
+    los_end[:, 1] = 0.0
+    los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
+    los_start = np.array([[2.0, 0, 0]] * los_end.shape[0])
     origin = los_start
     direction = los_end - los_start
+
+    # los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
+    # los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
+    # origin = los_start
+    # direction = los_end - los_start
     los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
@@ -264,8 +276,8 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plt.plot(
-                model.emission.rho_poloidal,
-                model.emission.sel(t=t).integrate("wavelength"),
+                model.emissivity.rho_poloidal,
+                model.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
