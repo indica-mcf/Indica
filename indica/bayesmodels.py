@@ -173,7 +173,7 @@ class BayesModels:
         ln_posterior = ln_likelihood + ln_prior
 
         kin_profs = {
-            "Zeff": self.plasma.zeff.sel(t=self.plasma.time_to_calculate),
+            "zeff": self.plasma.zeff.sel(t=self.plasma.time_to_calculate),
             
             "electron_density": self.plasma.electron_density.sel(
                 t=self.plasma.time_to_calculate
