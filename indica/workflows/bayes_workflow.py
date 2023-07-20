@@ -246,6 +246,11 @@ def plot_bayes_result(
             ylabel="temperature (eV)",
         )
 
+    key = "zeff"
+    plot_profile(
+        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
+    )
+            
     key = "electron_temperature"
     plot_profile(
         blobs[key],
