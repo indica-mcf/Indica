@@ -81,72 +81,49 @@ class BremsstrahlungDiode(DiagnosticModel):
         )
         self.transmission = DataArray(transmission, coords=[("wavelength", wavelength)])
 
-    # def filter_spectra(self, spectra:DataArray):
-    #     """
-    #     Apply the diode transmission function to an input spectra
-    #
-    #     Parameters
-    #     ----------
-    #     spectra
-    #         Spectra with dimensions (channel, wavelength, time) in any order,
-    #         and with units of W/m**2
-    #
-    #     Returns
-    #     -------
-    #     Integral of the spectral brightness using the filter transmission curve
-    #     """
-    #
-    #     y = self.transmission
-    #     xdata = np.linspace(wavelength_start, wavelength_end, int(len(y)))
-    #     transmission_inter = interp1d(xdata, y)
-    #
-    #     bckgemission_full = []
-    #
-    #     for chan in channels:
-    #         for t in times:
-    #
-    #             reader = (
-    #                 st40.binned_data[instrument]["spectra"]
-    #                 .sel(t=t, method="nearest")
-    #                 .sel(channel=chan, wavelength=slice(wavelength_start,
-    #                 wavelength_end))
-    #             )
-    #
-    #             y_values = reader.where(reader < 0.05)
-    #             x_values = reader.where(reader < 0.05).coords["wavelength"]
-    #             y_data = np.array(y_values)
-    #             x_data = np.array(x_values)
-    #
-    #             xdata_new = np.linspace(wavelength_start, wavelength_end,
-    #             len(y_values))
-    #             transmission = transmission_inter(xdata_new)
-    #
-    #             yfit = []
-    #             fit, cov = np.polyfit(x_data, y_data, 1, cov=True)
-    #             for i in range(0, len(x_data)):
-    #                 yfit.append(fit[0] * x_data[i] + fit[1])
-    #             yfit = np.array(yfit)
-    #             yfit = yfit * transmission
-    #
-    #             bckgemission = np.mean(yfit)
-    #
-    #             coefficient = len(y_values)
-    #             bckgemission = bckgemission * coefficient
-    #             bckgemission_full.append(bckgemission)
-    #
-    #     background = [
-    #         bckgemission_full[i : i + len(times)]
-    #         for i in range(0, len(bckgemission_full), len(times))
-    #     ]
-    #     brem = DataArray(
-    #         background, coords={"channel": channels, "t": times},
-    #         dims=["channel", "t"]
-    #     )
-    #     brem.attrs = st40.binned_data["pi"]["spectra"].attrs
-    #
-    #     data = {}
-    #     data["bremsstrahlung"] = brem
-    #     return data, brem
+    def integrate_spectra(self, spectra: DataArray, fit_background: bool = True):
+        """
+        Apply the diode transmission function to an input spectra
+
+        Parameters
+        ----------
+        spectra
+            Spectra with dimensions (channel, wavelength, time) in any order,
+            and with units of W/m**2
+        fit_background
+            If True - background fitted and then integrated
+            If False - spectra integrated using filter without any fitting
+
+        Returns
+        -------
+        Background emission & integral of spectra using the filter transmission
+        """
+
+        # Interpolate transmission filter on spectral wavelength & restrict to > 0
+        _transmission = self.transmission.interp(wavelength=spectra.wavelength)
+        transmission = _transmission.where(_transmission > 1.0e-3, drop=True)
+        wavelength_slice = slice(
+            np.min(transmission.wavelength), np.max(transmission.wavelength)
+        )
+
+        # Take away neutron spikes in pixel intensity
+        _spectra = spectra.sel(wavelength=wavelength_slice)
+        _spectra = spectra.where(
+            xr.ufuncs.fabs(_spectra.diff("wavelength", n=2)) < 0.4e-3
+        )
+
+        # Fit spectra to calculate background emission, filter and integrate
+        if fit_background:
+            fit = _spectra.polyfit("wavelength", 0)
+            _spectra_to_integrate = fit.polyfit_coefficients.sel(degree=0)
+            spectra_to_integrate = _spectra_to_integrate.expand_dims(
+                dim={"wavelength": _spectra.wavelength}
+            )
+        else:
+            spectra_to_integrate = _spectra
+        integral = (spectra_to_integrate * transmission).sum("wavelength")
+
+        return spectra_to_integrate, integral
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -195,6 +172,7 @@ class BremsstrahlungDiode(DiagnosticModel):
             Total effective charge
         t
             time
+        TODO: emission needs a new name as it's in units [W m**-2 nm**-1]
         """
 
         if self.plasma is not None:
@@ -217,8 +195,9 @@ class BremsstrahlungDiode(DiagnosticModel):
         for dim in Ne.dims:
             wlength = wlength.expand_dims(dim={dim: self.Ne[dim]})
         self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
+        self.emissivity = (self.emission * self.transmission).integrate("wavelength")
         los_integral = self.los_transform.integrate_on_los(
-            (self.emission * self.transmission).integrate("wavelength"),
+            self.emissivity,
             t=t,
             calc_rho=calc_rho,
         )
@@ -234,16 +213,28 @@ class BremsstrahlungDiode(DiagnosticModel):
         return self.bckc
 
 
-def example_run(pulse: int = None, plasma=None, plot: bool = False):
+def example_geometry(nchannels: int = 12):
+
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.0
+    los_end[:, 1] = np.linspace(-0.2, -1, nchannels)
+    los_end[:, 2] = 0.0
+    los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
+    origin = los_start
+    direction = los_end - los_start
+
+    return origin, direction
+
+
+def example_run(
+    pulse: int = None, nchannels: int = 12, plasma=None, plot: bool = False
+):
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     diagnostic_name = "diode_brems"
-    los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
-    los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
-    origin = los_start
-    direction = los_end - los_start
+    origin, direction = example_geometry(nchannels=nchannels)
     los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
@@ -287,8 +278,8 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plt.plot(
-                model.emission.rho_poloidal,
-                model.emission.sel(t=t).integrate("wavelength"),
+                model.emissivity.rho_poloidal,
+                model.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )

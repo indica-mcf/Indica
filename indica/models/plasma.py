@@ -146,6 +146,9 @@ class Plasma:
         """
 
         self.pulse = pulse
+        self.tstart = tstart
+        self.tend = tend
+        self.dt = dt
         self.full_run = full_run
         self.verbose = verbose
         self.ADASReader = ADASReader()
@@ -166,7 +169,7 @@ class Plasma:
         self.radial_coordinate_type = "rho_poloidal"
         self.machine_dimensions = machine_dimensions
 
-        self.initialize_variables(tstart, tend, dt)
+        self.initialize_variables()
 
         self.equilibrium: Equilibrium
 
@@ -188,18 +191,9 @@ class Plasma:
     def set_adf11(self, adf11: dict):
         self.adf11 = adf11
 
-    def initialize_variables(self, tstart: float, tend: float, dt: float):
+    def initialize_variables(self):
         """
         Initialize all class attributes
-
-        Parameters
-        ----------
-        tstart
-            start time
-        tend
-            end time
-        dt
-            time-step
 
         Description of variables being initialized
         ------------------------------------------
@@ -207,9 +201,6 @@ class Plasma:
             subset of time-point(s) to use for computation of the dependent variables
             (to be used e.g. in optimisation workflows)
         """
-        self.tstart = tstart
-        self.tend = tend
-        self.dt = dt
 
         # Dictionary keeping track of deta use for optimisations
         self.optimisation: dict = {}
@@ -1279,7 +1270,7 @@ def example_run(
     vrot0 = np.linspace(plasma.Vrot_prof.y0 * 1.1, plasma.Vrot_prof.y0 * 2.5, nt)
     ti0 = np.linspace(plasma.Ti_prof.y0 * 1.1, plasma.Te_prof.y0 * 2.5, nt)
     nimp_peaking = np.linspace(1, 5, nt)
-    nimp_y0 = plasma.Nimp_prof.y0 * np.linspace(1, 8, nt)
+    nimp_y0 = plasma.Nimp_prof.y0 * 5 * np.linspace(1, 8, nt)
     nimp_wcenter = np.linspace(0.4, 0.1, nt)
     for i, t in enumerate(plasma.t):
         plasma.Te_prof.peaking = te_peaking[i]

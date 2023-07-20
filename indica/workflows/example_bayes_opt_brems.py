@@ -46,7 +46,7 @@ def run(
     data_to_read = ST40.binned_data["pi"]["spectra"]
     los_transform = data_to_read.transform
     # data_to_read.transform.set_equilibrium(data_to_read.transform.equilibrium)
-    pi = BremsstrahlungDiode(name="pi", channel_mask=slice(18, 28))
+    pi = BremsstrahlungDiode(name="pi")
     pi.set_los_transform(los_transform)
     pi.plasma = plasma
 
