@@ -213,6 +213,19 @@ class BremsstrahlungDiode(DiagnosticModel):
         return self.bckc
 
 
+def example_geometry(nchannels: int = 12):
+
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.0
+    los_end[:, 1] = np.linspace(-0.2, -1, nchannels)
+    los_end[:, 2] = 0.0
+    los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
+    origin = los_start
+    direction = los_end - los_start
+
+    return origin, direction
+
+
 def example_run(
     pulse: int = None, nchannels: int = 12, plasma=None, plot: bool = False
 ):
@@ -221,18 +234,7 @@ def example_run(
 
     # Create new interferometers diagnostics
     diagnostic_name = "diode_brems"
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.17
-    los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
-    los_start = np.array([[2.0, 0, 0]] * los_end.shape[0])
-    origin = los_start
-    direction = los_end - los_start
-
-    # los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
-    # los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
-    # origin = los_start
-    # direction = los_end - los_start
+    origin, direction = example_geometry(nchannels=nchannels)
     los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
