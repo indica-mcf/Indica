@@ -57,6 +57,7 @@ def run(
         "electron_temperature": plasma.Te_prof.yspl,
         "ion_temperature": plasma.Ti_prof.yspl,
         "impurity_density": plasma.Nimp_prof.yspl,
+        "zeff": plasma.zeff,
     }
 
     pi_data = pi()["brightness"]
