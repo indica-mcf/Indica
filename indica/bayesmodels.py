@@ -173,8 +173,6 @@ class BayesModels:
         ln_posterior = ln_likelihood + ln_prior
 
         kin_profs = {
-            "zeff": self.plasma.zeff.sel(t=self.plasma.time_to_calculate),
-            
             "electron_density": self.plasma.electron_density.sel(
                 t=self.plasma.time_to_calculate
             ),
@@ -185,6 +183,9 @@ class BayesModels:
                 t=self.plasma.time_to_calculate
             ),
             "impurity_density": self.plasma.impurity_density.sel(
+                t=self.plasma.time_to_calculate
+            ),
+            "zeff": self.plasma.zeff.sum("element").sel(
                 t=self.plasma.time_to_calculate
             ),
             # TODO: add Nh
