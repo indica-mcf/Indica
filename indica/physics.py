@@ -1060,14 +1060,12 @@ def zeff_bremsstrahlung(
         * Ne_cm**2
         / (np.sqrt(Te) * wavelength_ang**2)
         * np.exp(-12400 / (wavelength_ang * Te))
-    )
+    ) * reconvert_units
 
     if zeff is None:
         result = bremsstrahlung / factor
     else:
         result = zeff * factor
-
-    result *= reconvert_units
 
     return result
 

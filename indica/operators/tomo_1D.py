@@ -532,8 +532,6 @@ class SXR_tomography:
             self.eq["R"], self.eq["z"], self.eq["rho"][0], cvals, colors="k"
         )
 
-        ax[2].set_ylim(self.eq["R"][[0, -1]])
-        ax[2].set_xlim(self.eq["z"][[0, -1]])
         ax[2].axis("equal")
         ax[2].plot(self.R.T, self.z.T, "b", zorder=99)
         R, z = np.meshgrid(self.eq["R"], self.eq["z"])
@@ -548,6 +546,8 @@ class SXR_tomography:
         )
         ax[2].set_ylabel("z [m]")
         ax[2].set_xlabel("R [m]")
+        ax[2].set_xlim(self.eq["R"][[0, -1]])
+        ax[2].set_ylim(self.eq["z"][[0, -1]])
 
         f.subplots_adjust(wspace=0.3)
 
