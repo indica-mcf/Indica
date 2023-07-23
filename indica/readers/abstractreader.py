@@ -382,6 +382,7 @@ class DataReader(BaseIO):
         """
         Reads spectroscopy data
         TODO: find better way to filter non-acquired channels
+        TODO: check spectra uncertainty...
         """
         database_results = self._get_spectrometer(uid, instrument, revision, quantities)
 
@@ -393,9 +394,10 @@ class DataReader(BaseIO):
                 * (database_results["spectra"][0, :, 0] > 0)
             )[0]
         database_results["spectra"] = database_results["spectra"][:, has_data, :]
-        database_results["spectra_error"] = database_results["spectra_error"][
-            :, has_data, :
-        ]
+        database_results["spectra_error"] = database_results["spectra"]*0.
+        # database_results["spectra_error"] = database_results["spectra_error"][
+        #     :, has_data, :
+        # ]
 
         _channel = np.array(has_data)  # np.arange(database_results["length"])
         channel = DataArray(
