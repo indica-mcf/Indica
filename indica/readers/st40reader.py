@@ -208,7 +208,7 @@ class ST40Reader(DataReader):
         "pi": {
             "spectra": ":emission",
         },
-        "tws": {
+        "tws_c": {
             "spectra": ":emission",
         },
         "ts": {
