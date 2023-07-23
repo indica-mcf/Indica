@@ -97,6 +97,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         Returns
         -------
         Background emission & integral of spectra using the filter transmission
+        TODO: uncertainty on fit not calculated
         """
 
         # Interpolate transmission filter on spectral wavelength & restrict to > 0
@@ -107,8 +108,8 @@ class BremsstrahlungDiode(DiagnosticModel):
         )
 
         # Take away neutron spikes in pixel intensity
-        _spectra = spectra.sel(wavelength=wavelength_slice)
-        _spectra = spectra.where(
+        _spectra = spectra.sortby("wavelength").sel(wavelength=wavelength_slice)
+        _spectra = _spectra.where(
             xr.ufuncs.fabs(_spectra.diff("wavelength", n=2)) < 0.4e-3
         )
 
@@ -122,6 +123,9 @@ class BremsstrahlungDiode(DiagnosticModel):
         else:
             spectra_to_integrate = _spectra
         integral = (spectra_to_integrate * transmission).sum("wavelength")
+
+        integral.attrs["error"] = integral * 0.0
+        spectra_to_integrate.attrs["error"] = spectra_to_integrate * 0.0
 
         return spectra_to_integrate, integral
 
