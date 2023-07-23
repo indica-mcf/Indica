@@ -1,7 +1,10 @@
+from copy import deepcopy
+
 import emcee
 import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
+from scipy.interpolate import CubicSpline
 import xarray as xr
 from xarray import DataArray
 
@@ -11,20 +14,24 @@ from indica.equilibrium import Equilibrium
 from indica.models.diode_filters import example_run as example_diode
 from indica.models.plasma import example_run as example_plasma
 from indica.operators import tomo_1D
+from indica.operators.gpr_fit import run_gpr_fit
 import indica.physics as ph
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import set_plot_colors
 from indica.workflows.bayes_workflow import plot_bayes_result
 from indica.workflows.bayes_workflow import sample_with_autocorr
 
 PATHNAME = "./plots/"
 
+PULSE = 11085  # 11088, 11086, 11089, 11092, 11093
+TIME = 0.07
 MAIN_ION = "h"
 IMPURITIES = ("c",)
 IMPURITY_CONCENTRATION = (0.03,)
 FULL_RUN = False
 N_RAD = 10
 
-PATHNAME = "./plots/"
+CM, COLS = set_plot_colors()
 
 PRIORS = {
     "Ne_prof.y0": get_uniform(1e19, 8e19),
@@ -37,17 +44,16 @@ PRIORS = {
     "Nimp_prof.wcenter": get_uniform(0.1, 0.4),
     "Nimp_prof.y0": get_uniform(1e16, 5e18),
     "Nimp_prof.y1": get_uniform(1e16, 5e18),
-    "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
-        (x1 > x2 * 100) & (x1 < x2 * 1e4), 1, 0
-    ),
-    "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where(
-        (x1 >= x2) & (x1 < x2 * 5), 1, 0
-    ),
+    # "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
+    #     (x1 > x2 * 100) & (x1 < x2 * 1e4), 1, 0
+    # ),
+    "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 >= x2), 1, 0),
     "Te_prof.y0": get_uniform(1000, 6000),
     "Te_prof.peaking": get_uniform(1, 4),
     "Ti_prof.y0": get_uniform(2000, 10000),
     "Ti_prof.peaking": get_uniform(1, 4),
 }
+
 PHANTOM_PROFILE_PARAMS = {
     "Ne_prof.y0": 5e19,
     "Ne_prof.wcenter": 0.4,
@@ -55,9 +61,9 @@ PHANTOM_PROFILE_PARAMS = {
     "Ne_prof.y1": 2e18,
     "Ne_prof.yend": 1e18,
     "Ne_prof.wped": 2,
-    "Nimp_prof.y0": 1e18,
-    "Nimp_prof.y1": 1e17,
-    "Nimp_prof.peaking": 7,
+    "Nimp_prof.y0": 2e18,
+    "Nimp_prof.y1": 5e16,
+    "Nimp_prof.peaking": 2,
     "Te_prof.y0": 3000,
     "Te_prof.peaking": 2,
     "Ti_prof.y0": 5000,
@@ -74,34 +80,135 @@ PARAM_NAMES = [
 #  one param is being optimisied i.e. 1 is constant
 
 
-def prepare_data(pulse, plasma, model, phantom_data: bool = True):
-    if pulse is not None:
-        st40 = ReadST40(pulse, tstart=plasma.tstart, tend=plasma.tend, dt=plasma.dt)
-        st40(["pi", "efit"])
-        attrs = st40.binned_data["pi"]["spectra"].attrs
-        (
-            st40.binned_data["pi"]["background"],
-            st40.binned_data["pi"]["brightness"],
-        ) = model.integrate_spectra(st40.binned_data["pi"]["spectra"])
-        st40.binned_data["pi"]["background"].attrs = attrs
-        st40.binned_data["pi"]["brightness"].attrs = attrs
+def prepare_data_ts(
+    plasma,
+    models,
+    st40: ReadST40 = None,
+    phantom_data: bool = True,
+    xdim: str = "R",
+    map_to_rho: bool = True,
+    err_bounds: tuple = (0, 0),
+    flat_data: dict = {},
+):
+    quantities = ["te", "ne"]
+    if st40 is not None and not phantom_data:
+        for quantity in quantities:
+            if "ts" not in st40.binned_data.keys():
+                continue
 
-        plasma.initialize_variables()
-        plasma.set_equilibrium(Equilibrium(st40.raw_data["efit"]))
+            _data = st40.binned_data["ts"][quantity]
+            if hasattr(_data.transform, "equilibrium"):
+                _data.transform.convert_to_rho_theta(t=_data.t)
 
-        model.set_los_transform(st40.binned_data["pi"]["spectra"].transform)
-        model.set_plasma(plasma)
+            flat_data[f"ts.{quantity}"] = _data
 
-        data = st40.binned_data["pi"]["brightness"].sel(t=plasma.time_to_calculate)
+            # TODO: normalizing data due to issues with fit convergence
+            const = 1.0
+            if quantity == "ne":
+                const = 1.0e-16
+            xr.set_options(keep_attrs=True)
+            data = deepcopy(st40.binned_data["ts"][quantity]) * const
+            data.attrs["error"] = (
+                deepcopy(st40.binned_data["ts"][quantity].error) * const
+            )
 
-    if phantom_data:
-        data = model()["brightness"]
+            y_bounds = (1, 1)
+            if xdim == "R":
+                x_bounds = plasma.machine_dimensions[0]
+            else:
+                x_bounds = (0, 1)
 
-    return data
+            if xdim not in data.dims and hasattr(data, xdim):
+                data = data.swap_dims({"channel": xdim})
+
+            fit, fit_err = run_gpr_fit(
+                data,
+                x_bounds=x_bounds,
+                y_bounds=y_bounds,
+                err_bounds=err_bounds,
+                xdim=xdim,
+            )
+            fit /= const
+            fit_err /= const
+
+            if not map_to_rho:
+                st40.binned_data["ts"][f"{quantity}_fit"] = fit
+                # _data["ts"][f"{quantity}_fit"].attrs["error"] = fit_err
+                flat_data[f"ts.{quantity}_fit"] = fit
+            else:
+                fit_rho, _, _ = plasma.equilibrium.flux_coords(fit.R, fit.R * 0, fit.t)
+                exp_rho = fit_rho.interp(R=data.R)
+                rmag = plasma.equilibrium.rmag.interp(t=fit.t)
+
+                fit_lfs = []
+                for t in fit.t:
+                    Rmag = rmag.sel(t=t)
+                    _x = exp_rho.sel(t=t).where(data.R >= Rmag, drop=True)
+                    _y = fit.sel(t=t).interp(R=_x.R)
+                    ind = np.argsort(_x.values)
+                    x = _x.values[ind]
+                    y = _y.values[ind]
+                    cubicspline = CubicSpline(
+                        np.append(0, x[1:]), np.append(y[0], y[1:]), bc_type="clamped"
+                    )
+                    _fit_lfs = cubicspline(plasma.rho)
+                    fit_lfs.append(
+                        DataArray(_fit_lfs, coords=[("rho_poloidal", plasma.rho)])
+                    )
+                fit_lfs = xr.concat(fit_lfs, "t").assign_coords(t=fit.t)
+                st40.binned_data["ts"][f"{quantity}_fit"] = fit_lfs
+                # _data["ts"][f"{quantity}_fit"].attrs["error"] = fit_lfs_err
+                flat_data[f"ts.{quantity}_fit"] = fit_lfs
+    # else:
+    #     for quantity in quantities:
+    #         flat_data[f"ts.{quantity}"] = models["ts"]()[quantity]
+
+    return flat_data
+
+
+def prepare_data_cxrs(
+    plasma,
+    models,
+    st40: ReadST40 = None,
+    phantom_data: bool = True,
+    flat_data: dict = {},
+):
+    instruments = ["pi", "tws_c"]
+    if st40 is not None:
+        for instrument in instruments:
+            if instrument not in models.keys() or instrument not in st40.binned_data:
+                continue
+            data = st40.binned_data[instrument]
+            attrs = data["spectra"].attrs
+            (data["background"], data["brightness"],) = models[
+                instrument
+            ].integrate_spectra(data["spectra"])
+            data["background"].attrs = attrs
+            data["brightness"].attrs = attrs
+
+            models[instrument].set_los_transform(data["spectra"].transform)
+            models[instrument].set_plasma(plasma)
+
+            for quantity in data.keys():
+                flat_data[f"{instrument}.{quantity}"] = data[quantity]
+
+    if phantom_data or st40 is None:
+        if "pi" in models.keys():
+            bckc = models["pi"]()
+            flat_data["pi.brightness"] = bckc["brightness"]
+            flat_data["pi.emissivity"] = models["pi"].emissivity
+
+        if "tws_c" in models.keys():
+            bckc = models["tws_c"]()
+            flat_data["tws_c.brightness"] = bckc["brightness"]
+            flat_data["tws_c.emissivity"] = models["tws_c"].emissivity
+
+    return flat_data
 
 
 def run_bayesian_analysis(
-    pulse,
+    pulse: int,
+    time: float,
     phantom_profile_params,
     iterations,
     result_path,
@@ -109,7 +216,6 @@ def run_bayesian_analysis(
     tend=0.1,
     dt=0.01,
     burn_in=0,
-    tsample=3,
     nwalkers=10,
     phantom_data: bool = True,
 ):
@@ -124,32 +230,83 @@ def run_bayesian_analysis(
         full_run=FULL_RUN,
         n_rad=N_RAD,
     )
-    plasma.time_to_calculate = plasma.t[tsample]
-    plasma.update_profiles(phantom_profile_params)
+    models = {}
+    if not phantom_data:
+        plasma.initialize_variables()
+
+    print("Reading data")
+    st40 = None
+    if pulse is not None:
+        st40 = ReadST40(pulse, tstart, tend, dt)
+        st40(["pi", "tws_c", "ts", "efit"])
+        plasma.set_equilibrium(Equilibrium(st40.raw_data["efit"]))
 
     print("Generating model")
     _, pi_model, bckc = example_diode(plasma=plasma)
-    pi_model.name = "pi"
+    models["pi"] = pi_model
+    models["pi"].name = "pi"
+    models["tws_c"] = deepcopy(pi_model)
+    models["tws_c"].name = "pi"
 
-    print("Preparing data")
-    data = prepare_data(pulse, plasma, pi_model, phantom_data=phantom_data)
+    flat_data: dict = {}
+    print("Preparing experimental data")
+    prepare_data_ts(
+        plasma,
+        models,
+        st40=st40,
+        phantom_data=phantom_data,
+        flat_data=flat_data,
+    )
+    prepare_data_cxrs(
+        plasma,
+        models,
+        st40=st40,
+        phantom_data=phantom_data,
+        flat_data=flat_data,
+    )
+
+    for key in flat_data.keys():
+        if "t" not in flat_data[key].dims:
+            flat_data[key] = flat_data[key].sel(t=[time])
+
+    # Reorganize channel names so they start at 0
+    t = flat_data["pi.brightness"].t
+    channel = np.arange(flat_data["pi.brightness"].channel.size)
+    flat_data["pi.brightness"] = DataArray(
+        flat_data["pi.brightness"].values,
+        coords=[("t", t), ("channel", channel)],
+    )
+
+    time = plasma.t.sel(t=time, method="nearest")
+    plasma.time_to_calculate = time
+    if pulse is not None and not phantom_data:
+        # Assign experimental data to plasma class
+        plasma.electron_density.loc[dict(t=time)] = (
+            flat_data["ts.ne_fit"].sel(t=time).interp(rho_poloidal=plasma.rho)
+        )
+        plasma.electron_temperature.loc[dict(t=time)] = (
+            flat_data["ts.te_fit"].sel(t=time).interp(rho_poloidal=plasma.rho)
+        )
+        plasma.ion_temperature.loc[dict(t=time)] = (
+            plasma.ion_temperature.sel(t=time) * 0.0
+        )
+        plasma.impurity_density.loc[dict(t=time)] = (
+            plasma.impurity_density.sel(t=time) * 0.0
+        )
+    else:
+        # Use phantom profiles
+        plasma.update_profiles(phantom_profile_params)
 
     phantom_profiles = {
-        "electron_density": plasma.electron_density.sel(t=plasma.time_to_calculate),
-        "electron_temperature": plasma.electron_temperature.sel(
-            t=plasma.time_to_calculate
-        ),
-        "ion_temperature": plasma.ion_temperature.sel(
-            t=plasma.time_to_calculate, element=IMPURITIES[0]
-        ),
-        "impurity_density": plasma.impurity_density.sel(
-            t=plasma.time_to_calculate, element=IMPURITIES[0]
-        ),
-        "zeff": plasma.zeff.sel(t=plasma.time_to_calculate, element=IMPURITIES[0]),
+        "electron_density": plasma.electron_density.sel(t=time),
+        "electron_temperature": plasma.electron_temperature.sel(t=time),
+        "ion_temperature": plasma.ion_temperature.sel(t=time, element=IMPURITIES[0]),
+        "impurity_density": plasma.impurity_density.sel(t=time, element=IMPURITIES[0]),
+        "zeff": plasma.zeff.sel(t=time).sum("element"),
     }
-
-    flat_data = {}
-    flat_data["pi.brightness"] = data.expand_dims(dim={"t": [plasma.time_to_calculate]})
+    if not pulse:
+        for key in phantom_profiles.keys():
+            phantom_profiles[key] = None
 
     print("Instatiating Bayes model")
     bm = BayesModels(
@@ -202,36 +359,22 @@ def run_bayesian_analysis(
     print(sampler.acceptance_fraction.sum())
     plot_bayes_result(**result, figheader=result_path)
 
+    plt.figure()
+    Te = flat_data["ts.te"].sel(t=time)
+    rho = Te.transform.rho.sel(t=time)
+    plt.plot(rho, Te, "o")
+    plasma.electron_temperature.sel(t=time).plot()
 
-def bayes(pulse: int = 10821, nwalkers: int = 50, iterations: int = 200):
-    phantom_profile_params = {
-        "Ne_prof.y0": 5e19,
-        "Ne_prof.wcenter": 0.4,
-        "Ne_prof.peaking": 2,
-        "Ne_prof.y1": 2e18,
-        "Ne_prof.yend": 1e18,
-        "Ne_prof.wped": 2,
-        "Nimp_prof.y0": 1e18,
-        "Nimp_prof.y1": 1e17,
-        "Nimp_prof.peaking": 7,
-        "Te_prof.y0": 3000,
-        "Te_prof.peaking": 2,
-        "Ti_prof.y0": 5000,
-        "Ti_prof.peaking": 2,
-    }
-    ff = run_bayesian_analysis(
-        pulse,
-        phantom_profile_params,
-        iterations,
-        PATHNAME,
-        burn_in=0,
-        nwalkers=nwalkers,
-    )
+    plt.figure()
+    Ne = flat_data["ts.ne"].sel(t=time)
+    rho = Ne.transform.rho.sel(t=time)
+    plt.plot(rho, Ne, "o")
+    plasma.electron_density.sel(t=time).plot()
 
-    return ff
+    return plasma, st40, flat_data
 
 
-def inversion(
+def run_inversion(
     pulse,
     tstart=0.01,
     tend=0.1,
@@ -239,6 +382,7 @@ def inversion(
     reg_level_guess: float = 0.3,
     phantom_data: bool = True,
 ):
+    models = {}
     print("Generating plasma")
     plasma = example_plasma(
         tstart=tstart,
@@ -250,31 +394,63 @@ def inversion(
         full_run=FULL_RUN,
         n_rad=N_RAD,
     )
+    print("Reading data")
+    st40 = None
+    if pulse is not None:
+        st40 = ReadST40(pulse, tstart, tend, dt)
+        st40(["pi", "tws_c", "ts", "efit"])
+        plasma.set_equilibrium(Equilibrium(st40.raw_data["efit"]))
 
     print("Generating model")
     _, pi_model, bckc = example_diode(plasma=plasma)
-    pi_model.name = "pi"
+    models["pi"] = pi_model
+    models["pi"].name = "pi"
+    models["tws_c"] = deepcopy(pi_model)
+    models["tws_c"].name = "pi"
 
-    print("Preparing data")
-    data = prepare_data(pulse, plasma, pi_model, phantom_data=phantom_data)
-    if phantom_data:
-        emissivity = pi_model.emissivity
-    else:
-        emissivity = None
+    # return plasma, models, st40
+    print("Preparing the data")
+    flat_data: dict = {}
+    prepare_data_ts(
+        plasma, models, st40=st40, phantom_data=phantom_data, flat_data=flat_data
+    )
+    prepare_data_cxrs(
+        plasma, models, st40=st40, phantom_data=phantom_data, flat_data=flat_data
+    )
 
-    los_transform = data.transform
-    equilibrium = los_transform.equilibrium
-    z = los_transform.z
-    R = los_transform.R
+    if pulse is not None and not phantom_data:
+        # Assign experimental data to plasma class
+        plasma.electron_density = flat_data["ts.ne_fit"].interp(
+            t=plasma.t, rho_poloidal=plasma.rho
+        )
+        plasma.electron_temperature = flat_data["ts.te_fit"].interp(
+            t=plasma.t, rho_poloidal=plasma.rho
+        )
+        plasma.ion_temperature = plasma.ion_temperature * 0.0
+        plasma.impurity_density = plasma.impurity_density * 0.0
+
+    t = flat_data["pi.brightness"].t
+    channel = np.arange(flat_data["pi.brightness"].channel.size)
+    los_transform = flat_data["pi.brightness"].transform
+    data = DataArray(
+        flat_data["pi.brightness"].values,
+        coords=[("t", t), ("channel", channel)],
+    )
+
+    has_data = np.isfinite(data) * (data > 0)
+    data_to_invert = data.where(has_data, drop=True)
+    channels = data_to_invert.channel
+
+    has_data = [True] * len(channels)
+    z = los_transform.z.sel(channel=channels)
+    R = los_transform.R.sel(channel=channels)
     dl = los_transform.dl
 
-    data_t0 = data.isel(t=0).data
-    has_data = np.logical_not(np.isnan(data.isel(t=0).data)) & (data_t0 > 0)
-    rho_equil = equilibrium.rho.interp(t=data.t)
+    rho_equil = los_transform.equilibrium.rho.interp(t=data.t)
     input_dict = dict(
-        brightness=data.data,
+        brightness=data_to_invert.data,
         dl=dl,
-        t=data.t.data,
+        t=data_to_invert.t.data,
         R=R,
         z=z,
         rho_equil=dict(
@@ -286,8 +462,9 @@ def inversion(
         has_data=has_data,
         debug=False,
     )
-    if emissivity is not None:
-        input_dict["emissivity"] = emissivity
+
+    if "pi.emissivity" in flat_data.keys() is not None:
+        input_dict["emissivity"] = flat_data["pi.emissivity"]
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
     tomo()
@@ -303,7 +480,7 @@ def inversion(
         coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)],
     )
     inverted_emissivity.attrs["error"] = inverted_error
-    data_tomo = data
+    # data_tomo = data
     # bckc_tomo = DataArray(tomo.backprojection, coords=data_tomo.coords)
 
     zeff = ph.zeff_bremsstrahlung(
@@ -313,12 +490,87 @@ def inversion(
         bremsstrahlung=inverted_emissivity,
         gaunt_approx="callahan",
     )
+    # zeff = zeff.where(zeff < 10, drop=True)
 
+    cols = CM(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
-    plasma.zeff.sum("element").sel(t=0.03).plot(label="Phantom")
-    zeff.sel(t=0.03).plot(marker="o", label="Recalculated")
+    for i, t in enumerate(zeff.t):
+        if i % 2:
+            zeff.sel(t=t).plot(color=cols[i])
+            if phantom_data:
+                plasma.zeff.sum("element").sel(t=t).plot(
+                    marker="o", color=cols[i], alpha=0.5, linestyle=""
+                )
+    if phantom_data:
+        plasma.zeff.sum("element").sel(t=t).plot(
+            marker="o", color=cols[i], alpha=0.5, linestyle="", label="Phantom"
+        )
+    zeff.sel(t=t).plot(label="Recalculated", color=cols[i])
+    plt.ylim(0, 10)
     plt.ylabel("Zeff")
     plt.legend()
 
-if __name__ == "__main__":
-    bayes()
+    if not phantom_data:
+        plt.figure()
+        Te = flat_data["ts.te"]
+        rho = Te.transform.rho
+        for i, t in enumerate(Te.t):
+            if i % 2:
+                plasma.electron_temperature.sel(t=t).plot(color=cols[i])
+                plt.plot(rho.sel(t=t), Te.sel(t=t), color=cols[i], marker="o")
+
+        plt.figure()
+        Ne = flat_data["ts.ne"]
+        rho = Ne.transform.rho
+        for i, t in enumerate(Ne.t):
+            if i % 2:
+                plasma.electron_density.sel(t=t).plot(color=cols[i])
+                plt.plot(rho.sel(t=t), Ne.sel(t=t), color=cols[i], marker="o")
+
+    return plasma, st40, flat_data, zeff
+
+
+def inversion_phantom_example(pulse: int = 11085):
+    ff = run_inversion(pulse, phantom_data=True)
+
+    return ff
+
+
+def inversion_data_example(pulse: int = 11085):
+    ff = run_inversion(pulse, phantom_data=False)
+
+    return ff
+
+
+def bayesian_phantom_example(
+    pulse: int = 11085, time: float = 0.04, iterations=200, nwalkers=30
+):
+    ff = run_bayesian_analysis(
+        pulse,
+        time,
+        PHANTOM_PROFILE_PARAMS,
+        iterations,
+        PATHNAME,
+        burn_in=0,
+        nwalkers=nwalkers,
+        phantom_data=True,
+    )
+
+    return ff
+
+
+def bayesian_data_example(
+    pulse: int = 11085, time: float = 0.04, iterations=200, nwalkers=30
+):
+    ff = run_bayesian_analysis(
+        pulse,
+        time,
+        PHANTOM_PROFILE_PARAMS,
+        iterations,
+        PATHNAME,
+        burn_in=0,
+        nwalkers=nwalkers,
+        phantom_data=False,
+    )
+
+    return ff
