@@ -1,11 +1,12 @@
 from pathlib import Path
+import time
 
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
 
-import time
 timestr = time.strftime("%Y%m%d%H%M")
+
 
 def plot_profile(
     profile,
@@ -61,9 +62,9 @@ def plot_profile(
         return
 
     if filename:
-        plt.savefig(figheader +timestr+ f"{filename}.png")
+        plt.savefig(figheader + timestr + f"{filename}.png")
     else:
-        plt.savefig(figheader + timestr+f"{blobkey}.png")
+        plt.savefig(figheader + timestr + f"{blobkey}.png")
     plt.close("all")
 
 
@@ -171,7 +172,7 @@ def plot_bayes_result(
     plt.legend()
     plt.xlabel("iterations")
     plt.ylabel("auto-correlation time (iterations)")
-    plt.savefig(figheader + timestr+"average_tau.png")
+    plt.savefig(figheader + timestr + "average_tau.png")
     plt.close()
 
     key = "pi.brightness"
@@ -245,6 +246,11 @@ def plot_bayes_result(
             ylabel="temperature (eV)",
         )
 
+    key = "zeff"
+    plot_profile(
+        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
+    )
+
     key = "electron_temperature"
     plot_profile(
         blobs[key],
@@ -279,10 +285,10 @@ def plot_bayes_result(
     )
 
     corner.corner(samples, labels=param_names)
-    plt.savefig(figheader + timestr+"posterior.png")
+    plt.savefig(figheader + timestr + "posterior.png")
 
     corner.corner(prior_samples, labels=param_names)
-    plt.savefig(figheader + timestr+"prior.png")
+    plt.savefig(figheader + timestr + "prior.png")
     plt.close("all")
 
 

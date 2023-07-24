@@ -185,6 +185,9 @@ class BayesModels:
             "impurity_density": self.plasma.impurity_density.sel(
                 t=self.plasma.time_to_calculate
             ),
+            "zeff": self.plasma.zeff.sum("element").sel(
+                t=self.plasma.time_to_calculate
+            ),
             # TODO: add Nh
         }
         blob = deepcopy({**self.bckc, **kin_profs})
