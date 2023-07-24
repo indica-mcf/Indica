@@ -394,7 +394,7 @@ class DataReader(BaseIO):
                 * (database_results["spectra"][0, :, 0] > 0)
             )[0]
         database_results["spectra"] = database_results["spectra"][:, has_data, :]
-        database_results["spectra_error"] = database_results["spectra"]*0.
+        database_results["spectra_error"] = database_results["spectra"] * 0.0
         # database_results["spectra_error"] = database_results["spectra_error"][
         #     :, has_data, :
         # ]
