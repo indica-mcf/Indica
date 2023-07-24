@@ -42,8 +42,8 @@ PRIORS = {
     "Ne_prof.peaking": get_uniform(1, 5),
     "Nimp_prof.peaking": get_uniform(1, 8),
     "Nimp_prof.wcenter": get_uniform(0.1, 0.4),
-    "Nimp_prof.y0": get_uniform(1e16, 5e18),
-    "Nimp_prof.y1": get_uniform(1e16, 5e18),
+    "Nimp_prof.y0": get_uniform(1e16, 1e19),
+    "Nimp_prof.y1": get_uniform(1e16, 1e19),
     # "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
     #     (x1 > x2 * 100) & (x1 < x2 * 1e4), 1, 0
     # ),
@@ -279,6 +279,7 @@ def run_bayesian_analysis(
 
     time = plasma.t.sel(t=time, method="nearest")
     plasma.time_to_calculate = time
+    plasma.update_profiles(phantom_profile_params)
     if pulse is not None and not phantom_data:
         # Assign experimental data to plasma class
         plasma.electron_density.loc[dict(t=time)] = (
@@ -287,22 +288,13 @@ def run_bayesian_analysis(
         plasma.electron_temperature.loc[dict(t=time)] = (
             flat_data["ts.te_fit"].sel(t=time).interp(rho_poloidal=plasma.rho)
         )
-        plasma.ion_temperature.loc[dict(t=time)] = (
-            plasma.ion_temperature.sel(t=time) * 0.0
-        )
-        plasma.impurity_density.loc[dict(t=time)] = (
-            plasma.impurity_density.sel(t=time) * 0.0
-        )
-    else:
-        # Use phantom profiles
-        plasma.update_profiles(phantom_profile_params)
 
     phantom_profiles = {
         "electron_density": plasma.electron_density.sel(t=time),
         "electron_temperature": plasma.electron_temperature.sel(t=time),
         "ion_temperature": plasma.ion_temperature.sel(t=time, element=IMPURITIES[0]),
         "impurity_density": plasma.impurity_density.sel(t=time, element=IMPURITIES[0]),
-        "zeff": plasma.zeff.sel(t=time).sum("element"),
+        "zeff": plasma.zeff.sum("element").sel(t=time),
     }
     if not pulse:
         for key in phantom_profiles.keys():
@@ -359,17 +351,18 @@ def run_bayesian_analysis(
     print(sampler.acceptance_fraction.sum())
     plot_bayes_result(**result, figheader=result_path)
 
-    plt.figure()
-    Te = flat_data["ts.te"].sel(t=time)
-    rho = Te.transform.rho.sel(t=time)
-    plt.plot(rho, Te, "o")
-    plasma.electron_temperature.sel(t=time).plot()
+    if not phantom_data and pulse is not None:
+        plt.figure()
+        Te = flat_data["ts.te"].sel(t=time)
+        rho = Te.transform.rho.sel(t=time)
+        plt.plot(rho, Te, "o")
+        plasma.electron_temperature.sel(t=time).plot()
 
-    plt.figure()
-    Ne = flat_data["ts.ne"].sel(t=time)
-    rho = Ne.transform.rho.sel(t=time)
-    plt.plot(rho, Ne, "o")
-    plasma.electron_density.sel(t=time).plot()
+        plt.figure()
+        Ne = flat_data["ts.ne"].sel(t=time)
+        rho = Ne.transform.rho.sel(t=time)
+        plt.plot(rho, Ne, "o")
+        plasma.electron_density.sel(t=time).plot()
 
     return plasma, st40, flat_data
 
