@@ -289,7 +289,6 @@ def run_bayesian_analysis(
     time = plasma.t.sel(t=time, method="nearest")
     plasma.time_to_calculate = time
     plasma.update_profiles(phantom_profile_params)
-
     if pulse is not None and not phantom_data:
         # Assign experimental data to plasma class
         plasma.electron_density.loc[dict(t=time)] = (
@@ -300,15 +299,11 @@ def run_bayesian_analysis(
         )
 
     phantom_profiles = {
-        "electron_density": deepcopy(plasma.electron_density.sel(t=time)),
-        "electron_temperature": deepcopy(plasma.electron_temperature.sel(t=time)),
-        "ion_temperature": deepcopy(
-            plasma.ion_temperature.sel(t=time, element=IMPURITIES[0])
-        ),
-        "impurity_density": deepcopy(
-            plasma.impurity_density.sel(t=time, element=IMPURITIES[0])
-        ),
-        "zeff": deepcopy(plasma.zeff.sum("element").sel(t=time)),
+        "electron_density": plasma.electron_density.sel(t=time),
+        "electron_temperature": plasma.electron_temperature.sel(t=time),
+        "ion_temperature": plasma.ion_temperature.sel(t=time, element=IMPURITIES[0]),
+        "impurity_density": plasma.impurity_density.sel(t=time, element=IMPURITIES[0]),
+        "zeff": plasma.zeff.sum("element").sel(t=time),
     }
 
     print("Instatiating Bayes model")

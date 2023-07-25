@@ -102,7 +102,6 @@ def experimental_examples(
     plot: bool = True,
 ):
     pulse = PULSES[instrument]
-
     tstart = 0.02
     tend = 0.1
     dt = 0.01
