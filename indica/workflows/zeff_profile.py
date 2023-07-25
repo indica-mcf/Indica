@@ -40,14 +40,14 @@ PRIORS = {
     "Ne_prof.wped": get_uniform(1, 5),
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
     "Ne_prof.peaking": get_uniform(1, 5),
-    "Nimp_prof.peaking": get_uniform(1, 8),
-    "Nimp_prof.wcenter": get_uniform(0.1, 0.4),
     "Nimp_prof.y0": get_uniform(1e16, 1e19),
-    "Nimp_prof.y1": get_uniform(1e16, 1e19),
-    # "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
-    #     (x1 > x2 * 100) & (x1 < x2 * 1e4), 1, 0
-    # ),
+    "Nimp_prof.y1": get_uniform(1e15, 1e19),
+    "Nimp_prof.yend": get_uniform(1e15, 1e19),
+    "Nimp_prof.peaking": get_uniform(1, 6),
+    "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
+    "Nimp_prof.wped": get_uniform(1, 5),
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 >= x2), 1, 0),
+    "Nimp_prof.y1/Nimp_prof.yend": lambda x1, x2: np.where((x1 == x2), 1, 0),
     "Te_prof.y0": get_uniform(1000, 6000),
     "Te_prof.peaking": get_uniform(1, 4),
     "Ti_prof.y0": get_uniform(2000, 10000),
@@ -61,9 +61,16 @@ PHANTOM_PROFILE_PARAMS = {
     "Ne_prof.y1": 2e18,
     "Ne_prof.yend": 1e18,
     "Ne_prof.wped": 2,
-    "Nimp_prof.y0": 2e18,
-    "Nimp_prof.y1": 5e16,
+    "Nimp_prof.y0": 1e18,
+    "Nimp_prof.y1": 1e17,
+    "Nimp_prof.yend": 1e16,
     "Nimp_prof.peaking": 2,
+    "Nimp_prof.wcenter": 0.4,
+    "Nimp_prof.wped": 2,
+    # "Nimp_prof.y0": 2e18,
+    # "Nimp_prof.y1": 5e17,
+    # "Nimp_prof.yend": 5e17,
+    # "Nimp_prof.peaking": 1,
     "Te_prof.y0": 3000,
     "Te_prof.peaking": 2,
     "Ti_prof.y0": 5000,
@@ -71,8 +78,10 @@ PHANTOM_PROFILE_PARAMS = {
 }
 PARAM_NAMES = [
     "Nimp_prof.y0",
-    "Nimp_prof.y1",
-    "Nimp_prof.peaking",
+    # "Nimp_prof.y1",
+    # "Nimp_prof.peaking",
+    # "Nimp_prof.wcenter",
+    # "Nimp_prof.wped",
 ]
 
 
@@ -280,6 +289,7 @@ def run_bayesian_analysis(
     time = plasma.t.sel(t=time, method="nearest")
     plasma.time_to_calculate = time
     plasma.update_profiles(phantom_profile_params)
+
     if pulse is not None and not phantom_data:
         # Assign experimental data to plasma class
         plasma.electron_density.loc[dict(t=time)] = (
@@ -290,15 +300,16 @@ def run_bayesian_analysis(
         )
 
     phantom_profiles = {
-        "electron_density": plasma.electron_density.sel(t=time),
-        "electron_temperature": plasma.electron_temperature.sel(t=time),
-        "ion_temperature": plasma.ion_temperature.sel(t=time, element=IMPURITIES[0]),
-        "impurity_density": plasma.impurity_density.sel(t=time, element=IMPURITIES[0]),
-        "zeff": plasma.zeff.sum("element").sel(t=time),
+        "electron_density": deepcopy(plasma.electron_density.sel(t=time)),
+        "electron_temperature": deepcopy(plasma.electron_temperature.sel(t=time)),
+        "ion_temperature": deepcopy(
+            plasma.ion_temperature.sel(t=time, element=IMPURITIES[0])
+        ),
+        "impurity_density": deepcopy(
+            plasma.impurity_density.sel(t=time, element=IMPURITIES[0])
+        ),
+        "zeff": deepcopy(plasma.zeff.sum("element").sel(t=time)),
     }
-    if not pulse:
-        for key in phantom_profiles.keys():
-            phantom_profiles[key] = None
 
     print("Instatiating Bayes model")
     bm = BayesModels(
@@ -483,6 +494,20 @@ def run_inversion(
         bremsstrahlung=inverted_emissivity,
         gaunt_approx="callahan",
     )
+    zeff_up = ph.zeff_bremsstrahlung(
+        plasma.electron_temperature,
+        plasma.electron_density,
+        pi_model.filter_wavelength,
+        bremsstrahlung=inverted_emissivity - inverted_error,
+        gaunt_approx="callahan",
+    )
+    zeff_down = ph.zeff_bremsstrahlung(
+        plasma.electron_temperature,
+        plasma.electron_density,
+        pi_model.filter_wavelength,
+        bremsstrahlung=inverted_emissivity + inverted_error,
+        gaunt_approx="callahan",
+    )
     # zeff = zeff.where(zeff < 10, drop=True)
 
     cols = CM(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
@@ -490,9 +515,20 @@ def run_inversion(
     for i, t in enumerate(zeff.t):
         if i % 2:
             zeff.sel(t=t).plot(color=cols[i])
+            plt.fill_between(
+                zeff.rho_poloidal,
+                zeff_up.sel(t=t),
+                zeff_down.sel(t=t),
+                color=cols[i],
+                alpha=0.6,
+            )
             if phantom_data:
                 plasma.zeff.sum("element").sel(t=t).plot(
-                    marker="o", color=cols[i], alpha=0.5, linestyle=""
+                    marker="o",
+                    color=cols[i],
+                    alpha=0.5,
+                    linestyle="",
+                    label=f"{t.values:.3f}",
                 )
     if phantom_data:
         plasma.zeff.sum("element").sel(t=t).plot(
@@ -502,6 +538,8 @@ def run_inversion(
     plt.ylim(0, 10)
     plt.ylabel("Zeff")
     plt.legend()
+    plt.title("Zeff from Bremsstrahlung inversion & TS data")
+    plt.legend()
 
     if not phantom_data:
         plt.figure()
@@ -509,16 +547,28 @@ def run_inversion(
         rho = Te.transform.rho
         for i, t in enumerate(Te.t):
             if i % 2:
-                plasma.electron_temperature.sel(t=t).plot(color=cols[i])
+                plasma.electron_temperature.sel(t=t).plot(
+                    color=cols[i], label=f"{t.values:.3f}"
+                )
                 plt.plot(rho.sel(t=t), Te.sel(t=t), color=cols[i], marker="o")
+        plasma.electron_temperature.sel(t=t).plot(color=cols[i], label="Fit")
+        plt.plot(rho.sel(t=t), Te.sel(t=t), color=cols[i], marker="o", label="Data")
+        plt.legend()
+        plt.title("TS electron temperature")
 
         plt.figure()
         Ne = flat_data["ts.ne"]
         rho = Ne.transform.rho
         for i, t in enumerate(Ne.t):
             if i % 2:
-                plasma.electron_density.sel(t=t).plot(color=cols[i])
+                plasma.electron_density.sel(t=t).plot(
+                    color=cols[i], label=f"{t.values:.3f}"
+                )
                 plt.plot(rho.sel(t=t), Ne.sel(t=t), color=cols[i], marker="o")
+        plasma.electron_density.sel(t=t).plot(color=cols[i], label="Fit")
+        plt.plot(rho.sel(t=t), Ne.sel(t=t), color=cols[i], marker="o", label="Data")
+        plt.legend()
+        plt.title("TS electron density")
 
     return plasma, st40, flat_data, zeff
 
