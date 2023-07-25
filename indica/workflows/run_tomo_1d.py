@@ -37,11 +37,8 @@ PULSES: Dict[str, int] = {
     "pi": 10821,
 }
 
-MODELS = {
-    "sxrc_xy2": SXRcamera("sxrc_xy2"),
-    "sxr_camera_4": SXRcamera("sxr_camera_4"),
-    "pi": BremsstrahlungDiode("pi"),
-}
+SXR_MODEL = SXRcamera("sxrc_xy2")
+BREMS_MODEL = BremsstrahlungDiode("pi")
 
 
 def phantom_examples(
@@ -105,7 +102,6 @@ def experimental_examples(
     plot: bool = True,
 ):
     pulse = PULSES[instrument]
-    model = MODELS[instrument]
 
     tstart = 0.02
     tend = 0.1
@@ -116,16 +112,20 @@ def experimental_examples(
     quantity = list(st40.binned_data[instrument])[0]
     los_transform = st40.binned_data[instrument][quantity].transform
     los_transform.set_equilibrium(equilibrium, force=True)
-    model.set_los_transform(los_transform)
     if instrument == "pi":
+        BREMS_MODEL.set_los_transform(los_transform)
         attrs = st40.binned_data[instrument]["spectra"].attrs
-        background, brightness = model.integrate_spectra(
+        background, brightness = BREMS_MODEL.integrate_spectra(
             st40.binned_data[instrument]["spectra"]
         )
         background.attrs = attrs
         brightness.attrs = attrs
         st40.binned_data[instrument]["background"] = background
         st40.binned_data[instrument]["brightness"] = brightness
+        model = SXR_MODEL
+    else:
+        SXR_MODEL.set_los_transform(los_transform)
+        model = SXR_MODEL
 
     if phantom_data:
         plasma = example_plasma(
