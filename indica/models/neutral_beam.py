@@ -1,7 +1,3 @@
-from typing import Tuple
-
-import numpy as np
-
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run
 
