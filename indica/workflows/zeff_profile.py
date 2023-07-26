@@ -24,7 +24,7 @@ from indica.workflows.bayes_workflow import sample_with_autocorr
 
 PATHNAME = "./plots/"
 
-PULSE = 11085  #
+PULSE = 11085  
 TIME = 0.07
 MAIN_ION = "h"
 IMPURITIES = ("c",)
@@ -78,7 +78,7 @@ PHANTOM_PROFILE_PARAMS = {
     "Ti_prof.peaking": 2,
 }
 PARAM_NAMES = [
-    "Nimp_prof.y0",
+    "Nimp_prof.y0
     # "Nimp_prof.y1",
     "Nimp_prof.peaking",
     "Nimp_prof.wcenter",
@@ -595,7 +595,6 @@ def plot_ts(plasma: Plasma, flat_data: dict, cols=None):
 
 def inversion_example(pulse: int = 11085, phantom_data: bool = True):
     ff = run_inversion(pulse, phantom_data=phantom_data)
-
     return ff
 
 

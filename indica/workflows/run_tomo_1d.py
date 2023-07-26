@@ -123,9 +123,6 @@ def experimental_examples(
         st40.binned_data[instrument]["background"] = background
         st40.binned_data[instrument]["brightness"] = brightness
         model = SXR_MODEL
-    else:
-        SXR_MODEL.set_los_transform(los_transform)
-        model = SXR_MODEL
 
     if phantom_data:
         plasma = example_plasma(
