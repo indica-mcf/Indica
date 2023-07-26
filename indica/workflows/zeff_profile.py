@@ -593,12 +593,6 @@ def plot_ts(plasma: Plasma, flat_data: dict, cols=None):
     plt.title("TS electron density")
 
 
-def inversion_phantom_example(pulse: int = 11085):
-    ff = run_inversion(pulse, phantom_data=True)
-
-    return ff
-
-
 def inversion_example(pulse: int = 11085, phantom_data: bool = True):
     ff = run_inversion(pulse, phantom_data=phantom_data)
 
