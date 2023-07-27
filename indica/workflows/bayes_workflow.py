@@ -250,6 +250,7 @@ def plot_bayes_result(
     plot_profile(
         blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
     )
+    plt.ylim(0, 10)
 
     key = "electron_temperature"
     plot_profile(
