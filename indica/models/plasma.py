@@ -460,20 +460,33 @@ class Plasma:
         )
 
     def assign_profiles(
-        self, profile: str = "electron_density", t: float = None, element: str = "c"
+        self, profile: str = "electron_density", t: float = None, element: str = None
     ):
+        # TODO: impurities and elements should be both either tuples or lists...
+        elements: list = []
+        impurities: tuple = ()
+        if element is None:
+            elements = self.elements
+            impurities = self.impurities
+        else:
+            elements = [element]
+            if element in self.impurities:
+                impurities = impurities
         if profile == "electron_density":
             self.electron_density.loc[dict(t=t)] = self.Ne_prof()
         elif profile == "electron_temperature":
             self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
         elif profile == "ion_temperature":
-            self.ion_temperature.loc[dict(t=t)] = self.Ti_prof()
+            for elem in elements:
+                self.ion_temperature.loc[dict(t=t, element=elem)] = self.Ti_prof()
         elif profile == "toroidal_rotation":
-            self.toroidal_rotation.loc[dict(t=t)] = self.Vrot_prof()
+            for elem in elements:
+                self.toroidal_rotation.loc[dict(t=t, element=elem)] = self.Vrot_prof()
         elif profile == "impurity_density":
-            self.impurity_density.loc[dict(t=t, element=element)] = self.Nimp_prof()
+            for imp in impurities:
+                self.impurity_density.loc[dict(t=t, element=imp)] = self.Nimp_prof()
         elif profile == "neutral_density":
-            self.neutral_density.loc[dict(t=t, element=element)] = self.Nh_prof()
+            self.neutral_density.loc[dict(t=t)] = self.Nh_prof()
         else:
             raise ValueError(
                 f"{profile} currently not found in possible Plasma properties"
@@ -1290,11 +1303,7 @@ def example_run(
         plasma.Nimp_prof.peaking = nimp_peaking[i]
         plasma.Nimp_prof.y0 = nimp_y0[i]
         plasma.Nimp_prof.wcenter = nimp_wcenter[i]
-        for elem in plasma.impurities:
-            plasma.assign_profiles(profile="impurity_density", t=t, element=elem)
-
-        for elem in plasma.elements:
-            plasma.assign_profiles(profile="toroidal_rotation", t=t, element=elem)
+        plasma.assign_profiles(profile="impurity_density", t=t)
 
     if pulse is None:
         equilibrium_data = fake_equilibrium_data(
