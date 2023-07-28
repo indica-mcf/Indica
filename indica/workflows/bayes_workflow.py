@@ -247,10 +247,11 @@ def plot_bayes_result(
         )
 
     key = "zeff"
-    plot_profile(
-        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
-    )
-    plt.ylim(0, 10)
+    if key in blobs and key in phantom_profiles:
+        plot_profile(
+            blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
+        )
+        plt.ylim(0, 10)
 
     key = "electron_temperature"
     plot_profile(
@@ -263,8 +264,9 @@ def plot_bayes_result(
         linestyle="dashdot",
     )
     key = "ion_temperature"
+    element = blobs[key].element[0]
     plot_profile(
-        blobs[key].sel(element="c"),
+        blobs[key].sel(element=element),
         key,
         figheader=figheader,
         filename="temperature",
@@ -277,8 +279,9 @@ def plot_bayes_result(
         blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
     )
     key = "impurity_density"
+    impurity = blobs[key].element[0]
     plot_profile(
-        blobs[key].sel(element="c"),
+        blobs[key].sel(element=impurity),
         key,
         figheader=figheader,
         phantom_profile=phantom_profiles[key],
