@@ -73,7 +73,7 @@ def _plot_0d(
     blobkey: str,
     diag_data: dict,
     filename: str,
-    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
+    figheader="./results/test/",
     xlabel="samples ()",
     ylabel="a.u.",
     **kwargs,
@@ -101,7 +101,7 @@ def _plot_1d(
     blobkey: str,
     diag_data: dict,
     filename: str,
-    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
+    figheader="./results/test/",
     ylabel="a.u.",
     **kwargs,
 ):
@@ -151,7 +151,7 @@ def _plot_1d(
 
 
 def plot_bayes_result(
-    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
+    figheader="./results/test/",
     blobs=None,
     diag_data=None,
     samples=None,
