@@ -32,19 +32,19 @@ REVISIONS = {
 }
 
 FILTER_LIMITS = {
-    "cxff_pi": (0, np.inf),
-    "cxff_tws_c": (0, np.inf),
-    "cxqf_tws_c": (0, np.inf),
-    "xrcs": (0, np.inf),
-    "brems": (0, np.inf),
-    "halpha": (0, np.inf),
-    "sxr_diode_1": (0, np.inf),
-    "sxr_camera_4": (0, np.inf),
-    "sxrc_xy1": (0, np.inf),
-    "sxrc_xy2": (0, np.inf),
-    "ts": (0, 10.0e3),
-    "pi": (0, np.inf),
-    "tws_c": (0, np.inf),
+    "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
+    "cxff_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
+    "cxqf_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
+    "xrcs": {"ti_w": (0, np.inf), "te_kw": (0, np.inf), "te_n3w": (0, np.inf)},
+    "brems": {"brightness": (0, np.inf)},
+    "halpha": {"brightness": (0, np.inf)},
+    "sxr_diode_1": {"brightness": (0, np.inf)},
+    "sxr_camera_4": {"brightness": (0, np.inf)},
+    "sxrc_xy1": {"brightness": (0, np.inf)},
+    "sxrc_xy2": {"brightness": (0, np.inf)},
+    "ts": {"te": (0, 10.0e3), "ne": (0, 1.0e21)},
+    "pi": {"spectra": (0, np.inf)},
+    "tws_c": {"spectra": (0, np.inf)},
 }
 
 LINESTYLES = {
@@ -143,6 +143,7 @@ class ReadST40:
 
                 if "t" in data_quant.coords:
                     data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
+
                 binned_quantities[quant] = data_quant
             self.binned_data[instr] = binned_quantities
 
@@ -186,10 +187,10 @@ class ReadST40:
             filter_general(
                 self.binned_data[instr],
                 quantities,
-                lim=FILTER_LIMITS[instr],
+                limits=FILTER_LIMITS[instr],
             )
 
-    def filter_ts(self, chi2_limit: float = 2.0):
+    def filter_ts(self, chi2_limit: float = 3.0):
         if "ts" not in self.binned_data.keys():
             print("No TS data to filter")
             return
@@ -301,7 +302,7 @@ class ReadST40:
         tend: float = None,
         dt: float = None,
         R_shift: float = 0.0,
-        chi2_limit: float = 2.0,
+        chi2_limit: float = 3.0,
         map_diagnostics: bool = False,
         raw_only: bool = False,
         debug: bool = False,
@@ -345,13 +346,15 @@ class ReadST40:
             self.map_diagnostics(instruments, map_raw=map_raw)
 
 
-def filter_general(data: DataArray, quantities: list, lim: tuple = (-np.inf, np.inf)):
+def filter_general(data: DataArray, quantities: list, limits: dict):
     for quantity in quantities:
-        attrs = data[quantity].attrs
-        condition = (data[quantity] >= lim[0]) * (data[quantity] < lim[1])
-        filtered = xr.where(condition, data[quantity], np.nan)
-        filtered.attrs = attrs
-        data[quantity] = filtered
+        if quantity in limits.keys():
+            lim = limits[quantity]
+            attrs = data[quantity].attrs
+            condition = (data[quantity] >= lim[0]) * (data[quantity] < lim[1])
+            filtered = xr.where(condition, data[quantity], np.nan)
+            filtered.attrs = attrs
+            data[quantity] = filtered
 
 
 def astra_equilibrium(pulse: int, revision: RevisionLike):

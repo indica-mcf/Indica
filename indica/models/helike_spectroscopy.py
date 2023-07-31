@@ -351,7 +351,7 @@ class Helike_spectroscopy(DiagnosticModel):
         Nh: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
-        moment_analysis: bool = True,
+        moment_analysis: bool = False,
         **kwargs,
     ):
         """
@@ -427,7 +427,6 @@ class Helike_spectroscopy(DiagnosticModel):
             self._moment_analysis()
 
         self._build_bckc_dictionary()
-
         return self.bckc
 
 
