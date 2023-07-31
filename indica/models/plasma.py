@@ -471,7 +471,7 @@ class Plasma:
         else:
             elements = [element]
             if element in self.impurities:
-                impurities = impurities
+                impurities = (element, )
         if profile == "electron_density":
             self.electron_density.loc[dict(t=t)] = self.Ne_prof()
         elif profile == "electron_temperature":
