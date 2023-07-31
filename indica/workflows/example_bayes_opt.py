@@ -57,7 +57,9 @@ def run(
     smmh1.set_los_transform(los_transform)
     smmh1.plasma = plasma
     los_transform = ST40.binned_data["xrcs"]["te_kw"].transform
-    xrcs = Helike_spectroscopy(name="xrcs", window_masks=[slice(0.3945, 0.3962)])
+    xrcs = Helike_spectroscopy(
+        name="xrcs", window_masks=[slice(0.3945, 0.3962)], element="ar"
+    )
     xrcs.set_los_transform(los_transform)
     xrcs.plasma = plasma
 

@@ -252,6 +252,8 @@ def plot_gpr_fit(
 
 def example_run(
     pulse: int = 10619,
+    tstart=0.02,
+    tend=0.1,
     kernel_name: str = "RBF_noise",
     plot=True,
     save_fig=False,
@@ -260,9 +262,6 @@ def example_run(
     y_bounds: tuple = (1, 1),
     err_bounds: tuple = (0, 0),
 ):
-
-    tstart = 0.02
-    tend = 0.10
 
     st40 = ReadST40(pulse, tstart, tend)
     st40(instruments=["ts", "efit"])

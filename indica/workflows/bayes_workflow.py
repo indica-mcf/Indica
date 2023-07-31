@@ -1,8 +1,11 @@
 from pathlib import Path
+import time
 
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
+
+timestr = time.strftime("%Y%m%d%H%M")
 
 
 def plot_profile(
@@ -59,9 +62,9 @@ def plot_profile(
         return
 
     if filename:
-        plt.savefig(figheader + f"{filename}.png")
+        plt.savefig(figheader + timestr + f"{filename}.png")
     else:
-        plt.savefig(figheader + f"{blobkey}.png")
+        plt.savefig(figheader + timestr + f"{blobkey}.png")
     plt.close("all")
 
 
@@ -169,9 +172,19 @@ def plot_bayes_result(
     plt.legend()
     plt.xlabel("iterations")
     plt.ylabel("auto-correlation time (iterations)")
-    plt.savefig(figheader + "average_tau.png")
+    plt.savefig(figheader + timestr + "average_tau.png")
     plt.close()
 
+    key = "pi.brightness"
+    if key in blobs.keys():
+        _plot_1d(
+            blobs,
+            key,
+            diag_data,
+            f"{timestr}_{key.replace('.', '_')}.png",
+            figheader=figheader,
+            ylabel="Intensity (W m^-2)",
+        )
     key = "efit.wp"
     if key in blobs.keys():
         _plot_0d(
@@ -188,7 +201,7 @@ def plot_bayes_result(
             blobs,
             key,
             diag_data,
-            f"{key.replace('.', '_')}.png",
+            f"{timestr}_{key.replace('.', '_')}.png",
             figheader=figheader,
             ylabel="ne_int (m^-2)",
         )
@@ -233,6 +246,13 @@ def plot_bayes_result(
             ylabel="temperature (eV)",
         )
 
+    key = "zeff"
+    if key in blobs and key in phantom_profiles:
+        plot_profile(
+            blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
+        )
+        plt.ylim(0, 10)
+
     key = "electron_temperature"
     plot_profile(
         blobs[key],
@@ -244,8 +264,9 @@ def plot_bayes_result(
         linestyle="dashdot",
     )
     key = "ion_temperature"
+    element = blobs[key].element[0]
     plot_profile(
-        blobs[key].sel(element="ar"),
+        blobs[key].sel(element=element),
         key,
         figheader=figheader,
         filename="temperature",
@@ -258,8 +279,9 @@ def plot_bayes_result(
         blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
     )
     key = "impurity_density"
+    impurity = blobs[key].element[0]
     plot_profile(
-        blobs[key].sel(element="ar"),
+        blobs[key].sel(element=impurity),
         key,
         figheader=figheader,
         phantom_profile=phantom_profiles[key],
@@ -267,10 +289,10 @@ def plot_bayes_result(
     )
 
     corner.corner(samples, labels=param_names)
-    plt.savefig(figheader + "posterior.png")
+    plt.savefig(figheader + timestr + "posterior.png")
 
     corner.corner(prior_samples, labels=param_names)
-    plt.savefig(figheader + "prior.png")
+    plt.savefig(figheader + timestr + "prior.png")
     plt.close("all")
 
 
