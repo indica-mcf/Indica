@@ -146,6 +146,9 @@ class Plasma:
         """
 
         self.pulse = pulse
+        self.tstart = tstart
+        self.tend = tend
+        self.dt = dt
         self.full_run = full_run
         self.verbose = verbose
         self.ADASReader = ADASReader()
@@ -166,7 +169,7 @@ class Plasma:
         self.radial_coordinate_type = "rho_poloidal"
         self.machine_dimensions = machine_dimensions
 
-        self.initialize_variables(tstart, tend, dt)
+        self.initialize_variables()
 
         self.equilibrium: Equilibrium
 
@@ -188,18 +191,9 @@ class Plasma:
     def set_adf11(self, adf11: dict):
         self.adf11 = adf11
 
-    def initialize_variables(self, tstart: float, tend: float, dt: float):
+    def initialize_variables(self):
         """
         Initialize all class attributes
-
-        Parameters
-        ----------
-        tstart
-            start time
-        tend
-            end time
-        dt
-            time-step
 
         Description of variables being initialized
         ------------------------------------------
@@ -207,9 +201,6 @@ class Plasma:
             subset of time-point(s) to use for computation of the dependent variables
             (to be used e.g. in optimisation workflows)
         """
-        self.tstart = tstart
-        self.tend = tend
-        self.dt = dt
 
         # Dictionary keeping track of deta use for optimisations
         self.optimisation: dict = {}
@@ -350,7 +341,6 @@ class Plasma:
         self._pressure_th = assign_data(
             self.data2d, ("pressure", "thermal"), "Pa $m^{-3}$"
         )
-        self._ion_density = assign_data(self.data3d, ("density", "ion"), "$m^{-3}$")
         self._pressure_tot = assign_data(
             self.data2d, ("pressure", "total"), "Pa $m^{-3}$"
         )
@@ -470,20 +460,33 @@ class Plasma:
         )
 
     def assign_profiles(
-        self, profile: str = "electron_density", t: float = None, element: str = "ar"
+        self, profile: str = "electron_density", t: float = None, element: str = None
     ):
+        # TODO: impurities and elements should be both either tuples or lists...
+        elements: list = []
+        impurities: tuple = ()
+        if element is None:
+            elements = self.elements
+            impurities = self.impurities
+        else:
+            elements = [element]
+            if element in self.impurities:
+                impurities = impurities
         if profile == "electron_density":
             self.electron_density.loc[dict(t=t)] = self.Ne_prof()
         elif profile == "electron_temperature":
             self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
         elif profile == "ion_temperature":
-            self.ion_temperature.loc[dict(t=t)] = self.Ti_prof()
+            for elem in elements:
+                self.ion_temperature.loc[dict(t=t, element=elem)] = self.Ti_prof()
         elif profile == "toroidal_rotation":
-            self.toroidal_rotation.loc[dict(t=t)] = self.Vrot_prof()
+            for elem in elements:
+                self.toroidal_rotation.loc[dict(t=t, element=elem)] = self.Vrot_prof()
         elif profile == "impurity_density":
-            self.impurity_density.loc[dict(t=t, element=element)] = self.Nimp_prof()
+            for imp in impurities:
+                self.impurity_density.loc[dict(t=t, element=imp)] = self.Nimp_prof()
         elif profile == "neutral_density":
-            self.neutral_density.loc[dict(t=t, element=element)] = self.Nh_prof()
+            self.neutral_density.loc[dict(t=t)] = self.Nh_prof()
         else:
             raise ValueError(
                 f"{profile} currently not found in possible Plasma properties"
@@ -598,7 +601,7 @@ class Plasma:
 
     @property
     def fz(self):
-        return self.Fz()
+        return self.calc_fz()  # self.Fz()
 
     def calc_fz(self):
         for elem in self.elements:
@@ -621,7 +624,7 @@ class Plasma:
 
     @property
     def zeff(self):
-        return self.Zeff()
+        return self.calc_zeff()  # Zeff()
 
     def calc_zeff(self):
         electron_density = self.electron_density
@@ -636,7 +639,7 @@ class Plasma:
 
     @property
     def ion_density(self):
-        return self.Ion_density()
+        return self.calc_ion_density()  # self.Ion_density()
 
     def calc_ion_density(self):
         meanz = self.meanz
@@ -656,7 +659,7 @@ class Plasma:
 
     @property
     def lz_tot(self):
-        return self.Lz_tot()
+        return self.calc_lz_tot()  # self.Lz_tot()
 
     def calc_lz_tot(self):
         fz = self.fz
@@ -681,7 +684,7 @@ class Plasma:
 
     @property
     def lz_sxr(self):
-        return self.Lz_sxr()
+        return self.calc_lz_sxr()  # self.Lz_sxr()
 
     def calc_lz_sxr(self):
         fz = self.fz
@@ -708,7 +711,7 @@ class Plasma:
 
     @property
     def total_radiation(self):
-        return self.Total_radiation()
+        return self.calc_total_radiation()  # self.Total_radiation()
 
     def calc_total_radiation(self):
         lz_tot = self.lz_tot
@@ -728,7 +731,7 @@ class Plasma:
 
     @property
     def sxr_radiation(self):
-        return self.Sxr_radiation()
+        return self.calc_sxr_radiation()  # self.Sxr_radiation()
 
     def calc_sxr_radiation(self):
         if not hasattr(self, "power_loss_sxr"):
@@ -1238,6 +1241,7 @@ class CachedCalculation(TrackDependecies):
 
     @lru_cache()
     def __call__(self):
+        print("Recalculating")
         if self.verbose:
             print("Recalculating")
         return self.operator()
@@ -1280,7 +1284,7 @@ def example_run(
     vrot0 = np.linspace(plasma.Vrot_prof.y0 * 1.1, plasma.Vrot_prof.y0 * 2.5, nt)
     ti0 = np.linspace(plasma.Ti_prof.y0 * 1.1, plasma.Te_prof.y0 * 2.5, nt)
     nimp_peaking = np.linspace(1, 5, nt)
-    nimp_y0 = plasma.Nimp_prof.y0 * np.linspace(1, 8, nt)
+    nimp_y0 = plasma.Nimp_prof.y0 * 5 * np.linspace(1, 8, nt)
     nimp_wcenter = np.linspace(0.4, 0.1, nt)
     for i, t in enumerate(plasma.t):
         plasma.Te_prof.peaking = te_peaking[i]
@@ -1300,11 +1304,7 @@ def example_run(
         plasma.Nimp_prof.peaking = nimp_peaking[i]
         plasma.Nimp_prof.y0 = nimp_y0[i]
         plasma.Nimp_prof.wcenter = nimp_wcenter[i]
-        for elem in plasma.impurities:
-            plasma.assign_profiles(profile="impurity_density", t=t, element=elem)
-
-        for elem in plasma.elements:
-            plasma.assign_profiles(profile="toroidal_rotation", t=t, element=elem)
+        plasma.assign_profiles(profile="impurity_density", t=t)
 
     if pulse is None:
         equilibrium_data = fake_equilibrium_data(

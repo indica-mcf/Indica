@@ -381,10 +381,25 @@ class DataReader(BaseIO):
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopy data
+        TODO: find better way to filter non-acquired channels
+        TODO: check spectra uncertainty...
         """
         database_results = self._get_spectrometer(uid, instrument, revision, quantities)
 
-        _channel = np.arange(database_results["length"])
+        if instrument == "pi":
+            has_data = np.arange(21, 28)
+        else:
+            has_data = np.where(
+                np.isfinite(database_results["spectra"][0, :, 0])
+                * (database_results["spectra"][0, :, 0] > 0)
+            )[0]
+        database_results["spectra"] = database_results["spectra"][:, has_data, :]
+        database_results["spectra_error"] = database_results["spectra"] * 0.0
+        # database_results["spectra_error"] = database_results["spectra_error"][
+        #     :, has_data, :
+        # ]
+
+        _channel = np.array(has_data)  # np.arange(database_results["length"])
         channel = DataArray(
             _channel,
             coords=[("channel", _channel)],
@@ -399,14 +414,9 @@ class DataReader(BaseIO):
             coords=[("pixel", pixel)],
             attrs={"long_name": "Wavelength", "units": "nm"},
         )
-        coords = [
-            ("t", t),
-            ("channel", channel),
-            ("wavelength", wavelength),
-        ]
 
-        location = database_results["location"]
-        direction = database_results["direction"]
+        location = database_results["location"][has_data, :]
+        direction = database_results["direction"][has_data, :]
         transform = LineOfSightTransform(
             location[:, 0],
             location[:, 1],
@@ -419,7 +429,11 @@ class DataReader(BaseIO):
             dl=dl,
             passes=passes,
         )
-
+        coords = [
+            ("t", t),
+            ("channel", channel),
+            ("wavelength", wavelength),
+        ]
         data = {}
         for quantity in quantities:
             quant_data = self.assign_dataarray(
