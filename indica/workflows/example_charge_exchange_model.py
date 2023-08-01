@@ -45,11 +45,8 @@ def run_fidasim(
     cxspec.set_los_transform(los_transform)
     cxspec.set_transect_transform(transect_transform)
 
-    print('Yo you made it!')
-
-    # ToDo: activate this method
     # Call FIDASIM
-    #cxspec(method='fidasim', run_fidasim=call_fidasim)
+    cxspec(method='fidasim', run_fidasim=call_fidasim)
 
     # Plotting
     if plot:
@@ -95,9 +92,9 @@ def run_fidasim(
 
 if __name__ == "__main__":
     # Example run
-    pulse = 11097
-    tstart = 0.09
-    tend = 0.10
+    pulse = 10009
+    tstart = 0.05
+    tend = 0.06
     dt = 0.01
     call_fidasim = True
 
