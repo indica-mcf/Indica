@@ -63,6 +63,7 @@ class ThomsonScattering(DiagnosticModel):
         Te: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
