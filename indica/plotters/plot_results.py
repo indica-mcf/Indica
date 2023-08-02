@@ -1,23 +1,20 @@
-import indica.workflows.load_modelling_plasma as load_modelling
 from copy import deepcopy
+import getpass
+
 import matplotlib.pylab as plt
 import numpy as np
-from matplotlib import rcParams
+import pandas as pd
 import xarray as xr
-from indica.readers.read_st40 import ReadST40
-from indica.utilities import (
-    save_figure,
-    set_plot_colors,
-    set_plot_rcparams,
-    set_axis_sci,
-)
-import getpass
-from indica.workflows.load_modelling_plasma import (
-    plasma_code,
-    initialize_diagnostic_models,
-)
-from indica.models.plasma import Plasma
+
 from indica.equilibrium import Equilibrium
+from indica.readers.read_st40 import ReadST40
+from indica.utilities import save_figure
+from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_colors
+from indica.utilities import set_plot_rcparams
+import indica.workflows.load_modelling_plasma as load_modelling
+from indica.workflows.load_modelling_plasma import initialize_diagnostic_models
+from indica.workflows.load_modelling_plasma import plasma_code
 
 plt.ion()
 PATH_NAME = f"/home/{getpass.getuser()}/figures/Indica/"
@@ -40,7 +37,7 @@ def read_modelling_runs(
     print(f"Reading {code} data")
     code_raw_data: dict = {}
     code_binned_data: dict = {}
-    equilibrium: dict = {}
+    # equilibrium: dict = {}
     code_reader = ReadST40(pulse, tstart, tend, dt=dt, tree=code)
     for run in runs:
         code_raw_data[run] = code_reader.get_raw_data("", code, run)
@@ -119,7 +116,11 @@ def plot_stan_ppcf_time_evol(data=None, savefig=False, ext="png"):
 
 
 def build_astra_profiles(
-    pulse: int = 9520, tstart:float=0.02, tend:float=0.12, dt:float=0.01, runs
+    pulse: int = 9520,
+    runs: list = None,
+    plot: bool = True,
+    save_fig: bool = False,
+    write_csv: bool = False,
 ):
     tstart = 0.02
     tend = 0.12
@@ -143,7 +144,12 @@ def build_astra_profiles(
         raise ValueError("Pulse not in runs dictionary")
 
     code_raw_data, code_binned_data, tstart, tend = load_modelling.read_modelling_runs(
-        code, pulse_code, runs, tstart=tstart, tend=tend, dt=dt,
+        code,
+        pulse_code,
+        runs,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
     )
     runs = list(code_raw_data.keys())
 
@@ -195,7 +201,9 @@ def build_astra_profiles(
             # models[run][instrument] = deepcopy(models_to_run[instrument])
 
     if plot:
-        plot_stan_ppcf_profiles(st40, bckc, plasma)
+        plot_stan_ppcf_profiles(
+            st40, bckc, plasma, save_fig=save_fig, write_csv=write_csv
+        )
 
     return st40, bckc, models_to_run, plasma
 
@@ -207,6 +215,7 @@ def plot_stan_ppcf_profiles(
     tplot: float = None,
     ylim: tuple = None,
     save_fig: bool = False,
+    write_csv: bool = False,
 ):
     if st40 is None or bckc is None or plasma is None:
         st40, bckc, models_to_run, plasma = build_astra_profiles()
@@ -235,28 +244,32 @@ def plot_stan_ppcf_profiles(
     if tplot is None:
         raise ValueError("Enter valid tplot")
 
-    Te = []
-    Ti = []
-    Ti_w_pos = []
-    Ti_w_pos_err_in = []
-    Ti_w_pos_err_out = []
+    __Ne = []
+    __Te = []
+    __Ti = []
+    __Ti_w_pos = []
+    __Ti_w_pos_err_in = []
+    __Ti_w_pos_err_out = []
     runs = list(bckc)
     for run in runs:
         t = plasma[run].t.sel(t=tplot, method="nearest")
-        Te.append(plasma[run].electron_temperature.sel(t=t))
-        Ti.append(
+        __Ne.append(plasma[run].electron_density.sel(t=t))
+        __Te.append(plasma[run].electron_temperature.sel(t=t))
+        __Ti.append(
             plasma[run].ion_temperature.sel(element=plasma[run].main_ion).sel(t=t)
         )
-        Ti_w_pos.append(bckc[run]["xrcs"]["ti_w"].pos.sel(t=t))
-        Ti_w_pos_err_in.append(bckc[run]["xrcs"]["ti_w"].pos_err_in.sel(t=t))
-        Ti_w_pos_err_out.append(bckc[run]["xrcs"]["ti_w"].pos_err_out.sel(t=t))
+        __Ti_w_pos.append(bckc[run]["xrcs"]["ti_w"].pos.sel(t=t))
+        __Ti_w_pos_err_in.append(bckc[run]["xrcs"]["ti_w"].pos_err_in.sel(t=t))
+        __Ti_w_pos_err_out.append(bckc[run]["xrcs"]["ti_w"].pos_err_out.sel(t=t))
 
-    _Te = xr.concat(Te, "run").assign_coords(run=runs)
-    _Ti = xr.concat(Ti, "run").assign_coords(run=runs)
-    _Ti_w_pos = xr.concat(Ti_w_pos, "run").assign_coords(run=runs)
-    _Ti_w_pos_err_in = xr.concat(Ti_w_pos_err_in, "run").assign_coords(run=runs)
-    _Ti_w_pos_err_out = xr.concat(Ti_w_pos_err_out, "run").assign_coords(run=runs)
+    _Ne = xr.concat(__Ne, "run").assign_coords(run=runs)
+    _Te = xr.concat(__Te, "run").assign_coords(run=runs)
+    _Ti = xr.concat(__Ti, "run").assign_coords(run=runs)
+    _Ti_w_pos = xr.concat(__Ti_w_pos, "run").assign_coords(run=runs)
+    _Ti_w_pos_err_in = xr.concat(__Ti_w_pos_err_in, "run").assign_coords(run=runs)
+    _Ti_w_pos_err_out = xr.concat(__Ti_w_pos_err_out, "run").assign_coords(run=runs)
 
+    Ne = _Ne.mean("run")
     Te = _Te.mean("run")
     Ti = _Ti.mean("run")
     Ti_w = st40.raw_data["xrcs"]["ti_w"].sel(t=tplot, method="nearest")
@@ -276,14 +289,14 @@ def plot_stan_ppcf_profiles(
         .sel(channel=cxff_pi_chans)
     )
 
-    Ti_cxff_pi_pos_all = []
+    _Ti_cxff_pi_pos_all = []
     for R_shift in R_shift_scan:
         R = Ti_cxff_pi.R + R_shift
         z = Ti_cxff_pi.z * 0
         pos, _, _ = plasma[run].equilibrium.flux_coords(R, z, Ti_cxff_pi.t)
-        Ti_cxff_pi_pos_all.append(pos)
+        _Ti_cxff_pi_pos_all.append(pos)
 
-    Ti_cxff_pi_pos_all = xr.concat(Ti_cxff_pi_pos_all, "R_shift").assign_coords(
+    Ti_cxff_pi_pos_all = xr.concat(_Ti_cxff_pi_pos_all, "R_shift").assign_coords(
         R_shift=R_shift_scan
     )
 
@@ -310,6 +323,7 @@ def plot_stan_ppcf_profiles(
     Ti_w_pos_err_in = _Ti_w_pos_err_in.max("run")
     Ti_w_pos_err_out = _Ti_w_pos_err_out.max("run")
 
+    Ne_err = _Ne.std("run")
     Te_err = _Te.std("run")
     Ti_err = _Ti.std("run")
 
@@ -376,7 +390,12 @@ def plot_stan_ppcf_profiles(
     )
     plt.vlines(Ti_w_pos, Ti_w - Ti_w_err, Ti_w + Ti_w_err, color=COLORS["ion"])
     plt.scatter(
-        Ti_w_pos, Ti_w, marker="o", color=COLORS["ion"], facecolor="white", zorder=3,
+        Ti_w_pos,
+        Ti_w,
+        marker="o",
+        color=COLORS["ion"],
+        facecolor="white",
+        zorder=3,
     )
 
     Ti_cxff_pi_pos = Ti_cxff_pi_pos_all.mean("R_shift")
@@ -445,30 +464,43 @@ def plot_stan_ppcf_profiles(
         )
     plt.legend()
 
+    if write_csv:
+        to_write = {
+            "Rho-poloidal": Te.rho_poloidal.values,
+            "Ne value (m**-3)": Ne.values,
+            "Ne error (m**-3)": Ne_err.values,
+            "Te value (eV)": Te.values,
+            "Te error (eV)": Te_err.values,
+            "Ti value (eV)": Ti.values,
+            "Ti error (eV)": Ti_err.values,
+        }
+        df = pd.DataFrame(to_write)
+        df.to_csv(f"{FIG_PATH}{st40.pulse}_{t.values:1.3f}s_HDA_profiles.csv")
+
     return
 
-    if plot or save_fig:
-        load_modelling.plot_plasmas(
-            plasma,
-            tplot,
-            code=code,
-            save_fig=save_fig,
-            fig_style=fig_style,
-            alpha=alpha,
-        )
+    # if plot or save_fig:
+    #     load_modelling.plot_plasmas(
+    #         plasma,
+    #         tplot,
+    #         code=code,
+    #         save_fig=save_fig,
+    #         fig_style=fig_style,
+    #         alpha=alpha,
+    #     )
+    #
+    #     load_modelling.plot_data_bckc_comparison(
+    #         st40,
+    #         bckc,
+    #         plasma,
+    #         tplot,
+    #         code=code,
+    #         save_fig=save_fig,
+    #         fig_style=fig_style,
+    #         alpha=alpha,
+    #     )
 
-        load_modelling.plot_data_bckc_comparison(
-            st40,
-            bckc,
-            plasma,
-            tplot,
-            code=code,
-            save_fig=save_fig,
-            fig_style=fig_style,
-            alpha=alpha,
-        )
-
-    return st40, bckc, plasma
+    # return st40, bckc, plasma
 
 
 def smmh1_evolution(data=None, savefig=False, ext="png"):
@@ -696,7 +728,9 @@ def plot_quantity(
     if len(qdict[qkey]["label"]) > 0:
         ax_label = ax.twinx()
         ax_label.plot(
-            [np.nan], [np.nan], label=qdict[qkey]["label"],
+            [np.nan],
+            [np.nan],
+            label=qdict[qkey]["label"],
         )
         ax_label.get_yaxis().set_visible(False)
         ax_label.legend(frameon=False, handlelength=0, loc="upper left")
@@ -728,10 +762,14 @@ def available_quantities():
             "ylabel": "$(MW)$",
             "ylim": (0, None),
         },
-        "mag:vloop": {"const": 1.0, "ylabel": "$V_{loop}$ $(V)$", "ylim": (0, None),},
+        "mag:vloop": {
+            "const": 1.0,
+            "ylabel": "$V_{loop}$ $(V)$",
+            "ylim": (0, None),
+        },
         "smmh1:ne_bar": {
             "const": 1.0e-19,
-            "label": "$\overline{N}_e$ $SMM$",
+            "label": r"$\overline{N}_e$ $SMM$",
             "ylabel": "($10^{19}$ $m^{-3}$)",
             "ylim": (0, 7),
         },
