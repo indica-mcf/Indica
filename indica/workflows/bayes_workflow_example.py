@@ -336,12 +336,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
     def _sample_start_points(self, sample_high_density: bool=True):
         if sample_high_density:
-            self.start_points = self.bayesmodel.sample_from_high_density_region(self.param_names, self.sampler,
+            start_points = self.bayesmodel.sample_from_high_density_region(self.param_names, self.sampler,
                                                                               self.nwalkers)
         else:
-            self.start_points = self.bayesmodel.sample_from_priors(
+            start_points = self.bayesmodel.sample_from_priors(
                 self.param_names, size=self.nwalkers
             )
+        return start_points
 
     def __call__(self, filepath="./results/test/", **kwargs):
 
