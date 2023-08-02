@@ -24,19 +24,12 @@ class AbstractBayesWorkflow(ABC):
         self.opt_quantity = opt_quantity
         self.priors = priors
 
+        self.read_data(self.diagnostics)
         self.setup_plasma()
         self.save_phantom_profiles()
-        self.read_data(self.diagnostics)
         self.setup_models(self.diagnostics)
         self.setup_opt_data(self.phantoms)
         self.setup_optimiser()
-
-    @abstractmethod
-    def setup_plasma(self):
-        """
-        Contains all methods and settings for plasma object to be used in optimisation
-        """
-        self.plasma = None
 
 
     def read_data(self, diagnostics: list):
@@ -44,8 +37,15 @@ class AbstractBayesWorkflow(ABC):
             self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt
         )
         self.reader(diagnostics)
-        self.plasma.set_equilibrium(self.reader.equilibrium)
         self.data = self.reader.binned_data
+
+    @abstractmethod
+    def setup_plasma(self):
+        """
+        Contains all methods and settings for setting up / initialising plasma object
+        """
+        self.plasma = None
+        self.plasma.set_equilibrium(self.reader.equilibrium)
 
     @abstractmethod
     def setup_models(self, diagnostics: list):
@@ -56,11 +56,24 @@ class AbstractBayesWorkflow(ABC):
         self.models = {}
 
     @abstractmethod
+    def _phantom_data(self):
+        opt_data = {}
+        return opt_data
+
+    @abstractmethod
+    def _exp_data(self):
+        opt_data = {}
+        return opt_data
+
+    @abstractmethod
     def setup_opt_data(self, phantom: bool = False):
         """
-        Prepare the data in necessary format for optimiser i.e. flat dictionary
+        Get and prepare the data in necessary format for optimiser
         """
-        self.opt_data = {}
+        if phantom:
+            self.opt_data = self._phantom_data()
+        else:
+            self.opt_data = self._exp_data()
 
     @abstractmethod
     def setup_optimiser(self, model_kwargs):
@@ -82,7 +95,7 @@ class AbstractBayesWorkflow(ABC):
                                     t=self.plasma.time_to_calculate) * 0
                                     for profile_key in kinetic_profiles}
 
-            self.phantom_profiles = phantom_profiles
+        self.phantom_profiles = phantom_profiles
 
     def _build_result_dict(self):
 
