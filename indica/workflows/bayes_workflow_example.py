@@ -375,8 +375,8 @@ if __name__ == "__main__":
         model_kwargs={"xrcs_moment_analysis":False, },
         phantoms=True,
 
-        iterations=10,
-        nwalkers=20,
+        iterations=200,
+        nwalkers=50,
         burn_frac=0.10,
         dt=0.005,
         tsample=0.060,
