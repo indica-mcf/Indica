@@ -18,7 +18,7 @@ from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.writers.bda_tree import create_nodes, write_nodes, check_analysis_run
 
 # global configurations
-DEFAULT_PHANTOM_PARAMS = {
+DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.y0": 5e19,
     "Ne_prof.wcenter": 0.4,
     "Ne_prof.peaking": 2,
@@ -370,7 +370,7 @@ if __name__ == "__main__":
         diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
         opt_quantity=OPTIMISED_QUANTITY,
         param_names=OPTIMISED_PARAMS,
-        profile_params=DEFAULT_PHANTOM_PARAMS,
+        profile_params=DEFAULT_PROFILE_PARAMS,
         priors=DEFAULT_PRIORS,
         model_kwargs={"xrcs_moment_analysis":False, },
 
