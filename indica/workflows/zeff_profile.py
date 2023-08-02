@@ -299,11 +299,13 @@ def prepare_inputs(
         zeff, impurity_density = None, None
 
     input_profiles = {
-        "electron_density": plasma.electron_density.sel(t=time),
-        "electron_temperature": plasma.electron_temperature.sel(t=time),
-        "ion_temperature": plasma.ion_temperature.sel(t=time, element=IMPURITIES[0]),
-        "impurity_density": impurity_density,
-        "zeff": zeff,
+        "electron_density": deepcopy(plasma.electron_density.sel(t=time)),
+        "electron_temperature": deepcopy(plasma.electron_temperature.sel(t=time)),
+        "ion_temperature": deepcopy(
+            plasma.ion_temperature.sel(t=time, element=IMPURITIES[0])
+        ),
+        "impurity_density": deepcopy(impurity_density),
+        "zeff": deepcopy(zeff),
     }
 
     for key in flat_data.keys():
