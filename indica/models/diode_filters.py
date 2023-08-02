@@ -98,6 +98,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         -------
         Background emission & integral of spectra using the filter transmission
         TODO: uncertainty on fit not calculated
+        TODO: move spectral fitting to separate method outside of the class
         """
 
         # Interpolate transmission filter on spectral wavelength & restrict to > 0
