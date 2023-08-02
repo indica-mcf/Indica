@@ -314,7 +314,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
     def setup_optimiser(self, model_kwargs):
 
-        self.bayesopt = BayesModels(
+        self.bayesmodel = BayesModels(
             plasma=self.plasma,
             data=self.opt_data,
             diagnostic_models=[*self.models.values()],
@@ -327,7 +327,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.sampler = emcee.EnsembleSampler(
             self.nwalkers,
             ndim,
-            log_prob_fn=self.bayesopt.ln_posterior,
+            log_prob_fn=self.bayesmodel.ln_posterior,
             parameter_names=self.param_names,
             moves=self.move,
             kwargs=model_kwargs,
@@ -373,6 +373,7 @@ if __name__ == "__main__":
         profile_params=DEFAULT_PROFILE_PARAMS,
         priors=DEFAULT_PRIORS,
         model_kwargs={"xrcs_moment_analysis":False, },
+        phantoms=True,
 
         iterations=10,
         nwalkers=20,
@@ -382,7 +383,6 @@ if __name__ == "__main__":
 
         mds_write=True,
         plot=True,
-        phantoms=True,
         sample_high_density=False,
     )
     results = run(filepath="./results/test/", )
