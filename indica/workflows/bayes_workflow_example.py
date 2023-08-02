@@ -332,8 +332,10 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             moves=self.move,
             kwargs=model_kwargs,
         )
+        self.start_points = self._sample_start_points(sample_high_density=self.sample_high_density)
 
-        if self.sample_high_density:
+    def _sample_start_points(self, sample_high_density: bool=True):
+        if sample_high_density:
             self.start_points = self.bayesopt.sample_from_high_density_region(self.param_names, self.sampler,
                                                                               self.nwalkers)
         else:
