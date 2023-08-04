@@ -394,7 +394,6 @@ def old_camera(
         z = data.transform.z - 0.02
         R = data.transform.R
         dl = data.transform.dl
-        impact_paramaters = data.transform.impact_parameter
 
         brightness = data
         data_t0 = brightness.isel(t=0).data
@@ -416,7 +415,6 @@ def old_camera(
                 t=rho_equil.t.data,
                 rho=rho_equil.data,
             ),
-            impact_parameters=impact_paramaters,
             debug=debug,
             has_data=has_data,
         )
