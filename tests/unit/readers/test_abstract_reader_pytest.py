@@ -36,7 +36,7 @@ class Reader(DataReader):
         "radiation": "get_radiation",
         "helike_spectroscopy": "get_helike_spectroscopy",
         "interferometry": "get_interferometry",
-        "filters": "get_diode_filters",
+        "lines": "get_diode_filters",
     }
 
     def __init__(
@@ -368,6 +368,7 @@ class Reader(DataReader):
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["labels"] = np.array(["label"] * results["length"])
 
         for quantity in quantities:
             results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
@@ -494,7 +495,7 @@ def test_get_helike_spectroscopy():
 
 def test_get_diode_filters():
     _test_get_methods(
-        instrument="filters",
+        instrument="lines",
         nsamples=10,
     )
 
