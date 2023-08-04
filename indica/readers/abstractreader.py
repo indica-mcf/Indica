@@ -863,7 +863,6 @@ class DataReader(BaseIO):
         t = database_results["times"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         label = database_results["labels"]
-        # coords = [("t", t), ("filter", label)]
         coords = [("t", t)]
         if database_results["length"] > 1:
             coords.append(("channel", np.arange(database_results["length"])))

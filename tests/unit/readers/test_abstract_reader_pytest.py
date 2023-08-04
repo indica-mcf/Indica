@@ -36,7 +36,7 @@ class Reader(DataReader):
         "radiation": "get_radiation",
         "helike_spectroscopy": "get_helike_spectroscopy",
         "interferometry": "get_interferometry",
-        "lines": "get_diode_filters",
+        "diode_filters": "get_diode_filters",
     }
 
     def __init__(
@@ -495,7 +495,7 @@ def test_get_helike_spectroscopy():
 
 def test_get_diode_filters():
     _test_get_methods(
-        instrument="lines",
+        instrument="diode_filters",
         nsamples=10,
     )
 
