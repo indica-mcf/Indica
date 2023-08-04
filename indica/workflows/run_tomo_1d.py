@@ -274,7 +274,7 @@ def pi_bremsstrahlung_example(
 
 
 def sxrc_xy(
-    pulse: int = 11100,
+    pulse: int = 10821,
     tstart: float = 0.02,
     tend: float = 0.11,
     dt: float = 0.01,
@@ -283,7 +283,7 @@ def sxrc_xy(
     plot=True,
     reg_level_guess: float = 0.5,
     input_dict: dict = None,
-    channels=slice(2, 15),
+    channels=slice(0, 15),
     save_fig: bool = False,
     instrument="sxrc_xy2",
 ):
