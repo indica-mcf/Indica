@@ -74,12 +74,13 @@ class ST40Reader(DataReader):
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
         "princeton": "get_charge_exchange",
-        "brems": "get_diode_filters",
-        "halpha": "get_diode_filters",
+        "lines": "get_diode_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
+        "smmh": "get_interferometry",
         "astra": "get_astra",
+        "sxr_spd": "get_diode_filters",
         "sxr_diode_1": "get_diode_filters",
         "sxr_diode_2": "get_diode_filters",
         "sxr_diode_3": "get_diode_filters",
@@ -97,12 +98,9 @@ class ST40Reader(DataReader):
     UIDS_MDS = {
         "xrcs": "sxr",
         "princeton": "spectrom",
-        "brems": "spectrom",
-        "halpha": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
         "smmh1": "interferom",
-        "astra": "",
         "sxr_diode_1": "sxr",
         "sxr_diode_2": "sxr",
         "sxr_diode_3": "sxr",
@@ -157,11 +155,14 @@ class ST40Reader(DataReader):
         "smmh1": {
             "ne": ".line_int:ne",
         },
-        "brems": {
-            "brightness": ".brem_mp1:intensity",
+        "smmh": {
+            "ne": ".global:ne_int",
         },
-        "halpha": {
-            "brightness": ".h_alpha_mp1:intensity",
+        "lines": {
+            "brightness": ":emission",
+        },
+        "sxr_spd": {
+            "brightness": ":emission",
         },
         "sxr_camera_4": {
             "brightness": ".middle_head.filter_4:",
@@ -909,47 +910,23 @@ class ST40Reader(DataReader):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-
+        """
+        TODO: labels are np.bytes_ type...is this correct?
+        """
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        # TODO: change once new MDS+ standardisation has been completed
-        try:
-            location, location_path = self._get_signal(
-                uid, instrument, ".geometry:location", revision
-            )
-            direction, position_path = self._get_signal(
-                uid, instrument, ".geometry:direction", revision
-            )
-        except TreeNNF:
-            location = np.array(
-                [
-                    [1.0, 0, 0],
-                ]
-            )
-            direction = (
-                np.array(
-                    [
-                        [0.17, 0, 0],
-                    ]
-                )
-                - location
-            )
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, position_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
         if len(np.shape(location)) == 1:
             location = np.array([location])
             direction = np.array([direction])
 
         length = location[:, 0].size
-        if instrument == "brems":
-            _instrument = "lines"
-            revision = -1
-        elif instrument == "halpha":
-            _instrument = "lines"
-            revision = -1
-        elif "sxr_diode" in instrument:
-            _instrument = "diode_detr"
-        else:
-            raise ValueError(f"{instrument} not yet supported")
 
         results: Dict[str, Any] = {
             "length": length,
@@ -957,23 +934,27 @@ class ST40Reader(DataReader):
         }
         results["location"] = location
         results["direction"] = direction
-        results["revision"] = self._get_revision(uid, _instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         results["revision"] = revision
         revision = results["revision"]
 
         quantity = "brightness"
         qval, q_path = self._get_signal(
-            uid, _instrument, self.QUANTITIES_MDS[instrument][quantity], revision
+            uid, instrument, self.QUANTITIES_MDS[instrument][quantity], revision
         )
-        times, _ = self._get_signal_dims(q_path, len(qval.shape))
-        times = times[0]
+        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        _labels, _ = self._get_signal(uid, instrument, ":label", revision)
+        if type(_labels[0]) == np.bytes_:
+            labels = np.array([label.decode("UTF-8") for label in _labels])
+
         results["times"] = times
+        results["labels"] = labels
         results[quantity + "_records"] = q_path
         results[quantity] = qval
         try:
             qval_err, q_path_err = self._get_signal(
                 uid,
-                _instrument,
+                instrument,
                 self.QUANTITIES_MDS[instrument][quantity] + "_ERR",
                 revision,
             )
@@ -992,6 +973,10 @@ class ST40Reader(DataReader):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
+        """
+        TODO: SMMH 2023 launcher/receiver cross plasma on different poloidal paths!
+        Currently setting location and direction as average of the two!!!!
+        """
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
@@ -1010,6 +995,17 @@ class ST40Reader(DataReader):
         direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
+
+        if instrument == "smmh":
+            location_r, _ = self._get_signal(
+                uid, instrument, ".geometry:location_r", revision
+            )
+            direction_r, _ = self._get_signal(
+                uid, instrument, ".geometry:direction_r", revision
+            )
+            location = (location + location_r) / 2.0
+            direction = (direction + direction_r) / 2.0
+
         if len(np.shape(location)) == 1:
             location = np.array([location])
             direction = np.array([direction])
