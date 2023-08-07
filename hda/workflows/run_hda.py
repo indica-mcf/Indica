@@ -1,31 +1,31 @@
-import xarray as xr
-from xarray import Dataset
-import hda.hda_tree as hda_tree
-from hda.models.xray_crystal_spectrometer import XRCSpectrometer
-from hda.models.interferometer import Interferometer
-from hda.models.diode_filter import Diode_filter
-from hda.manage_data import bin_data_in_time, map_on_equilibrium, initialize_bckc
-from hda.models.plasma import Plasma
-from hda.read_st40 import ST40data
-from indica.equilibrium import Equilibrium
-from indica.converters import FluxSurfaceCoordinates, LinesOfSightTransform
-from indica.converters.line_of_sight import LineOfSightTransform
-from indica.provenance import get_prov_attribute
-from hda.optimizations.interferometer import match_interferometer_los_int
-from hda.optimizations.xray_crystal_spectrometer import (
-    match_line_ratios,
-    match_ion_temperature,
-    match_intensity,
-)
-import hda.plots as plots
+from copy import deepcopy
 import os
 import pickle
 
+import hda.hda_tree as hda_tree
+from hda.manage_data import bin_data_in_time
+from hda.manage_data import initialize_bckc
+from hda.manage_data import map_on_equilibrium
+from hda.models.diode_filter import Diode_filter
+from hda.models.interferometer import Interferometer
+from hda.models.plasma import Plasma
+from hda.models.xray_crystal_spectrometer import XRCSpectrometer
+from hda.optimizations.interferometer import match_interferometer_los_int
+from hda.optimizations.xray_crystal_spectrometer import match_intensity
+from hda.optimizations.xray_crystal_spectrometer import match_ion_temperature
+from hda.optimizations.xray_crystal_spectrometer import match_line_ratios
+import hda.plots as plots
 from hda.profiles import profile_scans
-
+from hda.read_st40 import ST40data
 import matplotlib.pylab as plt
 import numpy as np
-from copy import deepcopy
+import xarray as xr
+
+from indica.converters import FluxSurfaceCoordinates
+from indica.converters import LinesOfSightTransform
+from indica.converters.line_of_sight import LineOfSightTransform
+from indica.equilibrium import Equilibrium
+from indica.provenance import get_prov_attribute
 
 plt.ion()
 
@@ -33,7 +33,8 @@ plt.ion()
 Refactored HDA workflows to check against hdatests.test_hda
 """
 
-INTERFEROMETERS = ["smmh1", "nirh1"]
+# INTERFEROMETERS = ["smmh1", "nirh1"]
+INTERFEROMETERS = ["smmh_ts"]
 
 
 def run_default(
@@ -120,6 +121,11 @@ def scan_profiles(
     modelling=True,
     force=True,
 ):
+
+    if "smmh" in INTERFEROMETERS and run_add != "REF":
+        print("If using SMMH, run_add must be == 'REF'")
+    if "smmh_ts" in INTERFEROMETERS and run_add != "SMM_TS":
+        print("If using SMMH_TS, run_add must be == 'SMM_TS'")
 
     profs = profile_scans()
 
@@ -434,7 +440,9 @@ def initialize_forward_models(
 def initialize_optimisations(
     plasma: Plasma,
     data: dict,
-    diagnostic_ne="smmh1",
+    # diagnostic_ne="smmh1",
+    # diagnostic_ne="smmh",
+    diagnostic_ne="smmh_ts",
     diagnostic_te="xrcs",
     diagnostic_ti="xrcs",
     diagnostic_ar="xrcs",
