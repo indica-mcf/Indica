@@ -206,7 +206,6 @@ def sxrc_xy(
         st40 = ReadST40(pulse, tstart, tend, dt=dt)
         st40(instruments=[instrument], map_diagnostics=False)
         data = st40.binned_data[instrument]["brightness"].sel(channel=channels)
-        data.transform.origin_x -= 0.02
         data.transform.set_dl(data.transform.dl)
         dl = data.transform.dl
         z = data.transform.z.sel(channel=channels)
