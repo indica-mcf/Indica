@@ -15,8 +15,6 @@ from MDSplus.mdsExceptions import TreeNNF
 import numpy as np
 
 from .abstractreader import DataReader
-from .abstractreader import DataSelector
-from .selectors import choose_on_plot
 from .. import session
 from ..numpy_typing import RevisionLike
 
@@ -80,6 +78,8 @@ class ST40Reader(DataReader):
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
+        "smmh": "get_interferometry",
+        "smmh_ts": "get_interferometry",
         "astra": "get_astra",
         "diode_arrays": "get_radiation",
     }
@@ -91,6 +91,8 @@ class ST40Reader(DataReader):
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
         "smmh1": "interferom",
+        "smmh": "",
+        "smmh_ts": "",
         "astra": "",
         "diode_arrays": "sxr",
     }
@@ -153,6 +155,12 @@ class ST40Reader(DataReader):
         },
         "smmh1": {
             "ne": ".line_int:ne",
+        },
+        "smmh": {
+            "ne": ".global:ne_int",
+        },
+        "ts": {
+            "ne": ".global:smm_nel",
         },
         "astra": {
             "upl": ".global:upl",
@@ -245,7 +253,6 @@ class ST40Reader(DataReader):
         tree: str = "ST40",
         default_error: float = 0.05,
         max_freq: float = 1e6,
-        selector: DataSelector = choose_on_plot,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"st40:{server.replace('-', '_')}:{pulse}"
@@ -255,7 +262,6 @@ class ST40Reader(DataReader):
             tend,
             max_freq,
             session,
-            selector,
             pulse=pulse,
             server=server,
             default_error=default_error,
@@ -738,31 +744,52 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
-        revision = results["revision"]
+        _instrument:str
+        if instrument=="smmh_ts":
+            _instrument = "ts"
+        else:
+            _instrument = instrument
 
-        # TODO: update when new MDS+ structure becomes available
-        # position, position_path = self._get_signal(uid, instrument,
-        # ".geometry:position", revision)
-        # direction, position_path = self._get_signal(uid, instrument,
-        # ".geometry:direction", revision)
-
-        if instrument == "smmh1":
+        if _instrument == "smmh1":
             location = np.array([1.0, 0, 0])
             direction = np.array([0.17, 0, 0]) - location
-        elif instrument == "nirh1" or instrument == "nirh1_bin":
+        elif _instrument == "nirh1" or _instrument == "nirh1_bin":
             location = np.array([-0.07, 0.9, 0])
             direction = np.array([0.37, -0.75, 0]) - location
         else:
-            raise ValueError(f"No geometry available for {instrument}")
-        times, _ = self._get_signal(uid, instrument, ":time", revision)
+            #TODO: issues with SMMH geometry written to MDS+????
+            location = np.array([1.0, 0, 0])
+            direction = np.array([0.17, 0, 0]) - location
+            # location, location_path = self._get_signal(
+            #     uid, instrument, ".geometry:location", revision
+            # )
+            # direction, direction_path = self._get_signal(
+            #     uid, instrument, ".geometry:direction", revision
+            # )
+            # location_r, location_path = self._get_signal(
+            #     uid, instrument, ".geometry:location_r", revision
+            # )
+            # direction_r, direction_path = self._get_signal(
+            #     uid, instrument, ".geometry:direction_r", revision
+            # )
+            # location = (location + location_r)/2.
+            # direction = (direction + direction_r)/2.
+
+        results["revision"] = self._get_revision(uid, _instrument, revision)
+        revision = results["revision"]
+
+        times, _ = self._get_signal(uid, _instrument, ":time", revision)
+
+        if len(location.shape) > 1:
+            location = location[0]
+            direction = direction[0]
 
         if np.array_equal(times, "FAILED"):
             return {}
 
         for q in quantities:
             qval, q_path = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
+                uid, _instrument, self.QUANTITIES_MDS[_instrument][q], revision
             )
 
             if "times" not in results:
@@ -771,7 +798,7 @@ class ST40Reader(DataReader):
             results[q] = qval
 
             qval_err, q_path_err = self._get_signal(
-                uid, instrument, self.QUANTITIES_MDS[instrument][q] + "_err", revision
+                uid, _instrument, self.QUANTITIES_MDS[_instrument][q] + "_err", revision
             )
             if np.array_equal(qval_err, "FAILED"):
                 qval_err = np.zeros_like(qval)
@@ -781,8 +808,8 @@ class ST40Reader(DataReader):
 
             qval_syserr, q_path_syserr = self._get_signal(
                 uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q] + "_syserr",
+                _instrument,
+                self.QUANTITIES_MDS[_instrument][q] + "_syserr",
                 revision,
             )
             if not np.array_equal(qval_syserr, "FAILED"):

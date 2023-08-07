@@ -1,15 +1,12 @@
-from copy import deepcopy
-
-from scipy import constants
 import matplotlib.pylab as plt
+from MDSplus.mdsExceptions import TreeNNF
 import numpy as np
-from indica.readers import ST40Reader
-
-from indica.converters.line_of_sight import LineOfSightTransform
-
+from scipy import constants
 import xarray as xr
 from xarray import DataArray
-from MDSplus.mdsExceptions import TreeNNF
+
+from indica.converters.line_of_sight import LineOfSightTransform
+from indica.readers import ST40Reader
 
 plt.ion()
 
@@ -45,6 +42,8 @@ class ST40data:
         xrcs_rev=0,
         nirh1_rev=0,
         smmh1_rev=0,
+        smmh_rev=0,
+        smmh_ts_rev=0,
         brems_rev=-1,
         sxr_rev=0,
         cxrs_rev=0,
@@ -59,8 +58,10 @@ class ST40data:
         self.get_brems(revision=brems_rev)
         if cxrs:
             self.get_cxrs(revision=cxrs_rev)
-        self.get_nirh1(revision=nirh1_rev)
+        # self.get_nirh1(revision=nirh1_rev)
         self.get_smmh1(revision=smmh1_rev)
+        self.get_smmh(revision=smmh_rev)
+        self.get_smmh_ts(revision=smmh_ts_rev)
         # self.get_other_data()
         # plt.ion()
 
@@ -303,6 +304,16 @@ class ST40data:
         data = self.reader.get("", "smmh1", revision)
         if len(data) > 0:
             self.data["smmh1"] = data
+
+    def get_smmh(self, revision=0):
+        data = self.reader.get("", "smmh", revision)
+        if len(data) > 0:
+            self.data["smmh"] = data
+
+    def get_smmh_ts(self, revision=0):
+        data = self.reader.get("", "smmh_ts", revision)
+        if len(data) > 0:
+            self.data["smmh_ts"] = data
 
     # def get_sxr(self, revision=0):
     #     data = self.reader.get("sxr", "diode_arrays", revision)
