@@ -1,16 +1,17 @@
 from copy import deepcopy
-import matplotlib.pylab as plt
-import numpy as np
-import xarray as xr
 import pickle
-from xarray import DataArray
-from scipy.interpolate import interp1d
-
-from indica.readers import ADASReader
-from indica.converters import LinesOfSightTransform, FluxSurfaceCoordinates
-from indica.numpy_typing import LabeledArray
 
 import hda.physics as ph
+import matplotlib.pylab as plt
+import numpy as np
+from scipy.interpolate import interp1d
+import xarray as xr
+from xarray import DataArray
+
+from indica.converters import FluxSurfaceCoordinates
+from indica.converters import LinesOfSightTransform
+from indica.numpy_typing import LabeledArray
+from indica.readers import ADASReader
 
 #TODO: add Marchuk PECs to repo or to .indica/ (more easily available to others)
 
@@ -83,7 +84,7 @@ class XRCSpectrometer:
 
         self.name = name
 
-    def set_los_transform(self, transform: LinesOfSightTransform, passes: int = 2):
+    def set_los_transform(self, transform: LinesOfSightTransform, passes: int = 1):
         """
         Parameters
         ----------
