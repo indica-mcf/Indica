@@ -1,7 +1,5 @@
 from copy import deepcopy
 import warnings
-
-import flatdict
 import numpy as np
 from scipy.stats import uniform
 
@@ -79,14 +77,14 @@ class BayesModels:
             _nuisance_params = {param_name.replace(model.name+"_", ""):
                                     param_value for param_name, param_value in params.items()
                                 if model.name in param_name}
-            _model_kwargs = {kwarg_name.replace(model.name+"_", ""):
+            _model_settings = {kwarg_name.replace(model.name+"_", ""):
                                     kwarg_value for kwarg_name, kwarg_value in kwargs.items()
                                 if model.name in kwarg_name}
 
-            model_bckc = {model.name: {**model(**{**_nuisance_params, **_model_kwargs})}}
-            self.bckc = dict(self.bckc, **model_bckc)
-
-        self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
+            _model_kwargs = {**_nuisance_params, **_model_settings}  # combine dictionaries
+            _bckc = model(**_model_kwargs)
+            _model_bckc = {f"{model.name}.{value_name}": value for value_name, value in _bckc.items()}  # prepend model name to bckc
+            self.bckc = dict(self.bckc, **_model_bckc)
         return
 
     def _ln_likelihood(self):
