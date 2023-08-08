@@ -7,8 +7,15 @@ np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
 
 
-PROFILES = ["electron_temperature", "electron_density", "ion_temperature", "ion_density",
-            "impurity_density", "fast_density", "neutral_density"]
+PROFILES = [
+    "electron_temperature",
+    "electron_density",
+    "ion_temperature",
+    "ion_density",
+    "impurity_density",
+    "fast_density",
+    "neutral_density",
+]
 
 
 def gaussian(x, mean, sigma):
@@ -76,16 +83,26 @@ class BayesModels:
         self.bckc: dict = {}
         for model in self.diagnostic_models:
             # removes "model.name_" from params and kwargs then passes them to model e.g. xrcs_background -> background
-            _nuisance_params = {param_name.replace(model.name+"_", ""):
-                                    param_value for param_name, param_value in params.items()
-                                if model.name in param_name}
-            _model_settings = {kwarg_name.replace(model.name+"_", ""):
-                                    kwarg_value for kwarg_name, kwarg_value in kwargs.items()
-                                if model.name in kwarg_name}
+            _nuisance_params = {
+                param_name.replace(model.name + "_", ""): param_value
+                for param_name, param_value in params.items()
+                if model.name in param_name
+            }
+            _model_settings = {
+                kwarg_name.replace(model.name + "_", ""): kwarg_value
+                for kwarg_name, kwarg_value in kwargs.items()
+                if model.name in kwarg_name
+            }
 
-            _model_kwargs = {**_nuisance_params, **_model_settings}  # combine dictionaries
+            _model_kwargs = {
+                **_nuisance_params,
+                **_model_settings,
+            }  # combine dictionaries
             _bckc = model(**_model_kwargs)
-            _model_bckc = {f"{model.name}.{value_name}": value for value_name, value in _bckc.items()}  # prepend model name to bckc
+            _model_bckc = {
+                f"{model.name}.{value_name}": value
+                for value_name, value in _bckc.items()
+            }  # prepend model name to bckc
             self.bckc = dict(self.bckc, **_model_bckc)
         return
 
@@ -99,12 +116,16 @@ class BayesModels:
                 self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
             )
 
-            exp_error = exp_data * self.percent_error  # Assume percentage error if none given.
+            exp_error = (
+                exp_data * self.percent_error
+            )  # Assume percentage error if none given.
             if hasattr(self.data[key], "error"):
                 if (
                     self.data[key].error != 0
                 ).any():  # TODO: Some models have an error of 0 given
-                    exp_error = self.data[key].error.sel(t=self.plasma.time_to_calculate)
+                    exp_error = self.data[key].error.sel(
+                        t=self.plasma.time_to_calculate
+                    )
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
             # treat channel as key dim which isn't averaged like other dims
@@ -171,10 +192,10 @@ class BayesModels:
         samples = samples[:, 0:size]
         return samples.transpose()
 
-    def sample_from_high_density_region(self, param_names: list, sampler: object, nwalkers: int, nsamples = 100):
-        start_points = self.sample_from_priors(
-            param_names, size=nsamples
-        )
+    def sample_from_high_density_region(
+        self, param_names: list, sampler: object, nwalkers: int, nsamples=100
+    ):
+        start_points = self.sample_from_priors(param_names, size=nsamples)
 
         ln_prob, _ = sampler.compute_log_prob(start_points)
         num_best_points = int(nsamples * 0.05)
@@ -190,17 +211,13 @@ class BayesModels:
                 best_points_std * 2,
                 size=(nwalkers * 5, len(param_names)),
             )
-            start = {
-                name: sample[:, idx] for idx, name in enumerate(param_names)
-            }
+            start = {name: sample[:, idx] for idx, name in enumerate(param_names)}
             ln_prior = self._ln_prior(start)
             # Convert from dictionary of arrays -> array,
             # then filtering out where ln_prior is -infinity
-            accepted_samples = np.array(list(start.values()))[
-                               :, ln_prior != -np.inf
-                               ]
+            accepted_samples = np.array(list(start.values()))[:, ln_prior != -np.inf]
             samples = np.append(samples, accepted_samples, axis=1)
-        start_points = samples[:, 0: nwalkers].transpose()
+        start_points = samples[:, 0:nwalkers].transpose()
         return start_points
 
     def ln_posterior(self, parameters: dict, **kwargs):
@@ -234,7 +251,9 @@ class BayesModels:
         kin_profs = {}
         for profile_key in PROFILES:
             if hasattr(self.plasma, profile_key):
-                kin_profs[profile_key] = getattr(self.plasma, profile_key).sel(t=self.plasma.time_to_calculate)
+                kin_profs[profile_key] = getattr(self.plasma, profile_key).sel(
+                    t=self.plasma.time_to_calculate
+                )
             else:
                 raise ValueError(f"plasma does not have attribute {profile_key}")
 

@@ -462,7 +462,9 @@ class Plasma:
         self.electron_density.loc[dict(t=t)] = self.Ne_prof()
         self.calc_impurity_density(self.impurities)
         self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
-        self.ion_temperature.loc[dict(t=t)] = self.Ti_prof(y0_ref=self.Te_prof.y0)  # Temp default Ti_ref
+        self.ion_temperature.loc[dict(t=t)] = self.Ti_prof(
+            y0_ref=self.Te_prof.y0
+        )  # Temp default Ti_ref
         self.toroidal_rotation.loc[dict(t=t)] = self.Vrot_prof()
         self.neutral_density.loc[dict(t=t)] = self.Nh_prof()
         if (
@@ -1281,7 +1283,9 @@ def example_run(
         plasma.Nimp_prof.peaking = nimp_peaking[i]
         plasma.Nimp_prof.y0 = nimp_y0[i]
         plasma.Nimp_prof.wcenter = nimp_wcenter[i]
-        plasma.assign_profiles(impurity_to_profile="ar",)
+        plasma.assign_profiles(
+            impurity_to_profile="ar",
+        )
 
     if pulse is None:
         equilibrium_data = fake_equilibrium_data(

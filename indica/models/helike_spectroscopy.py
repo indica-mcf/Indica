@@ -686,7 +686,6 @@ class HelikeSpectrometer(DiagnosticModel):
             self.intensity = self._calculate_intensity()
             self.spectra = self._make_spectra()
 
-
         self._calculate_los_integral(
             calc_rho=calc_rho,
         )

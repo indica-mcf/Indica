@@ -22,7 +22,6 @@ class ChargeExchange(DiagnosticModel):
         element: str = "c",
         instrument_method="get_charge_exchange",
     ):
-
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
@@ -106,7 +105,8 @@ class ChargeExchange(DiagnosticModel):
 
         return self.bckc
 
-def pi_transform_example(nchannels:int):
+
+def pi_transform_example(nchannels: int):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)
@@ -120,13 +120,13 @@ def pi_transform_example(nchannels:int):
     )
     return transect_transform
 
+
 def example_run(
     pulse: int = None,
     diagnostic_name: str = "cxrs",
     plasma=None,
     plot=False,
 ):
-
     # TODO: LOS sometimes crossing bad EFIT reconstruction
 
     if plasma is None:

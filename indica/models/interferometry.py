@@ -24,7 +24,6 @@ class Interferometry(DiagnosticModel):
         name: str,
         instrument_method="get_interferometry",
     ):
-
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -88,6 +87,7 @@ class Interferometry(DiagnosticModel):
 
         return self.bckc
 
+
 def smmh1_transform_example():
     los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
@@ -105,6 +105,7 @@ def smmh1_transform_example():
         passes=2,
     )
     return los_transform
+
 
 def example_run(pulse: int = None, plasma=None, plot=False):
     if plasma is None:

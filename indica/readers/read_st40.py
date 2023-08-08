@@ -153,7 +153,6 @@ class ReadST40:
                         break
 
     def filter_data(self, instruments: list):
-
         if not hasattr(self, "binned_data"):
             raise ValueError(
                 "Bin data before filtering. No action permitted on raw data structure!"
@@ -267,7 +266,6 @@ class ReadST40:
         map_diagnostics: bool = False,
         debug: bool = False,
     ):
-
         if instruments is None:
             instruments = list(REVISIONS.keys())
         if revisions is None:

@@ -176,7 +176,7 @@ def violinplot(
     axs.set_xlabel(key)
     top = axs.get_ylim()[1]
     bot = axs.get_ylim()[0]
-    axs.set_ylim( top=top * 1.1, bottom=bot * 0.9)
+    axs.set_ylim(top=top * 1.1, bottom=bot * 0.9)
     axs.set_ylabel(f"{ylabel}")
     y = diag_data[key].sel(t=data[key].t).values
     axs.errorbar(
@@ -218,17 +218,14 @@ def histograms(data, diag_data, filename):
     plt.close()
 
 
-
 def plot_autocorr(autocorr, param_names, figheader, filetype=".png"):
-
     plt.figure()
 
-    x_data = np.ones(shape=(autocorr.shape)) * np.arange(0, autocorr[:,0].__len__())[:,None]
-    plt.plot(
-        np.where(np.isfinite(autocorr), x_data, np.nan),
-        autocorr,
-        "x"
+    x_data = (
+        np.ones(shape=(autocorr.shape))
+        * np.arange(0, autocorr[:, 0].__len__())[:, None]
     )
+    plt.plot(np.where(np.isfinite(autocorr), x_data, np.nan), autocorr, "x")
     plt.legend(param_names)
     plt.xlabel("iterations")
     plt.ylabel("auto-correlation time (iterations)")
@@ -242,7 +239,6 @@ def plot_bayes_result(
     filetype=".png",
     **kwargs,
 ):
-
     # delete all but pickle in directory
     for root, dirs, files in os.walk(figheader):
         for f in files:
@@ -380,7 +376,7 @@ def plot_bayes_result(
         filetype=filetype,
         phantom_profile=phantom_profiles,
         color="blue",
-        sharefig=True
+        sharefig=True,
     )
     key = "NI"
     plot_profile(
