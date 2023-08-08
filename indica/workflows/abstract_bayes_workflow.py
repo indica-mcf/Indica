@@ -299,7 +299,7 @@ class AbstractBayesWorkflow(ABC):
             for blob_name in blob_names
         }
         self.accept_frac = self.sampler.acceptance_fraction.sum()
-        self.prior_sample = self.bayesopt.sample_from_priors(
+        self.prior_sample = self.bayesmodel.sample_from_priors(
             self.param_names, size=int(1e4)
         )
         self.post_sample = self.sampler.get_chain(flat=True)
