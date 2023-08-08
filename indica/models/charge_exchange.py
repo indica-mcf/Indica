@@ -106,6 +106,19 @@ class ChargeExchange(DiagnosticModel):
 
         return self.bckc
 
+def pi_transform_example(nchannels:int):
+    x_positions = np.linspace(0.2, 0.8, nchannels)
+    y_positions = np.linspace(0.0, 0.0, nchannels)
+    z_positions = np.linspace(0.0, 0.0, nchannels)
+
+    transect_transform = TransectCoordinates(
+        x_positions,
+        y_positions,
+        z_positions,
+        "pi",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
+    )
+    return transect_transform
 
 def example_run(
     pulse: int = None,
@@ -120,18 +133,7 @@ def example_run(
         plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
-    nchannels = 5
-    x_positions = np.linspace(0.2, 0.8, nchannels)
-    y_positions = np.linspace(0.0, 0.0, nchannels)
-    z_positions = np.linspace(0.0, 0.0, nchannels)
-
-    transect_transform = TransectCoordinates(
-        x_positions,
-        y_positions,
-        z_positions,
-        diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-    )
+    transect_transform = pi_transform_example(5)
     transect_transform.set_equilibrium(plasma.equilibrium)
     model = ChargeExchange(
         diagnostic_name,
