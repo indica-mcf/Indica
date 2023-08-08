@@ -1,21 +1,18 @@
 import emcee
 import numpy as np
 import flatdict
-import copy
 from scipy.stats import loguniform
 
-from indica.readers.read_st40 import ReadST40
 from indica.bayesmodels import BayesModels, get_uniform
 from indica.workflows.bayes_plots import plot_bayes_result
-from indica.models.interferometry import Interferometry
-from indica.models.helike_spectroscopy import Helike_spectroscopy
-from indica.models.charge_exchange import ChargeExchange
-from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
-from indica.models.plasma import Plasma
-from indica.converters.line_of_sight import LineOfSightTransform
-
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.writers.bda_tree import create_nodes, write_nodes, check_analysis_run
+
+from indica.models.interferometry import Interferometry, smmh1_transform_example
+from indica.models.helike_spectroscopy import HelikeSpectrometer, helike_transform_example
+from indica.models.charge_exchange import ChargeExchange, pi_transform_example
+from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
+from indica.models.plasma import Plasma
 
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
@@ -152,11 +149,20 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.plot = plot
         self.sample_high_density = sample_high_density
 
-        for attribute in ["pulse", "param_names", "opt_quantity", "priors", "diagnostics", "profile_params"]:
+        for attribute in ["param_names", "opt_quantity", "priors", "diagnostics", "profile_params"]:
             if getattr(self, attribute) is None:
                 raise ValueError(f"{attribute} needs to be defined")
 
-        self.read_data(self.diagnostics)
+        if self.pulse is None and self.phantoms is False:
+            raise ValueError("Set phantoms to True when running phantom plasma i.e. pulse=None")
+
+        if pulse is None:
+            print("Running in test mode")
+            self.read_test_data({"xrcs": helike_transform_example(1),
+                                 "smmh1": smmh1_transform_example(),
+                                 "cxff_pi": pi_transform_example(5)})
+        else:
+            self.read_data(self.diagnostics)
         self.setup_plasma()
         self.save_phantom_profiles()
         self.setup_models(self.diagnostics)
@@ -180,42 +186,46 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.plasma.time_to_calculate = self.plasma.t[
             np.abs(self.tsample - self.plasma.t).argmin()
         ]
-        self.plasma.set_equilibrium(self.reader.equilibrium)
+        self.plasma.set_equilibrium(self.equilibrium)
         self.plasma.update_profiles(self.profile_params)
         self.plasma.build_atomic_data(calc_power_loss=False)
 
     def setup_models(self, diagnostics: list):
         self.models = {}
-        for diag in self.diagnostics:
+        for diag in diagnostics:
             if diag == "smmh1":
-                # los_transform = self.data["smmh1"]["ne"].transform
-                machine_dims = self.plasma.machine_dimensions
-                origin = np.array([[-0.38063365, 0.91893092, 0.01]])
-                # end = np.array([[0,  0, 0.01]])
-                direction = np.array([[0.38173721, -0.92387953, -0.02689453]])
-                los_transform = LineOfSightTransform(
-                    origin[:, 0],
-                    origin[:, 1],
-                    origin[:, 2],
-                    direction[:, 0],
-                    direction[:, 1],
-                    direction[:, 2],
-                    name="",
-                    machine_dimensions=machine_dims,
-                    passes=2,
-                )
+                los_transform = self.transforms[diag]
+                # machine_dims = self.plasma.machine_dimensions
+                # origin = np.array([[-0.38063365, 0.91893092, 0.01]])
+                # # end = np.array([[0,  0, 0.01]])
+                # direction = np.array([[0.38173721, -0.92387953, -0.02689453]])
+                # los_transform = LineOfSightTransform(
+                #     origin[:, 0],
+                #     origin[:, 1],
+                #     origin[:, 2],
+                #     direction[:, 0],
+                #     direction[:, 1],
+                #     direction[:, 2],
+                #     name="",
+                #     machine_dimensions=machine_dims,
+                #     passes=2,
+                # )
                 los_transform.set_equilibrium(self.plasma.equilibrium)
                 model = Interferometry(name=diag)
                 model.set_los_transform(los_transform)
 
             elif diag == "xrcs":
-                los_transform = self.data["xrcs"]["te_kw"].transform
-                model = Helike_spectroscopy(
+                los_transform = self.transforms[diag]
+                los_transform.set_equilibrium(self.plasma.equilibrium)
+                window_vector = None
+                if hasattr(self, "data"):
+                    if diag in self.data.keys():
+                        window_vector = self.data[diag]["spectra"].wavelength.values * 0.1
+
+                model = HelikeSpectrometer(
                     name="xrcs",
                     window_masks=[slice(0.394, 0.396)],
-                    window_vector=self.data[diag][
-                                      "spectra"
-                                  ].wavelength.values * 0.1,
+                    window_vector=window_vector
                 )
                 model.set_los_transform(los_transform)
 
@@ -223,7 +233,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 model = EquilibriumReconstruction(name="efit")
 
             elif diag == "cxff_pi":
-                transform = self.data[diag]["ti"].transform
+                transform = self.transforms[diag]
                 transform.set_equilibrium(self.plasma.equilibrium)
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
@@ -301,7 +311,8 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 & (opt_data["xrcs.spectra"].wavelength > 0.388),
                 drop=True,
             )
-            self.model_kwargs["xrcs_background"] = background.mean(dim="wavelength").sel(t=self.plasma.time_to_calculate)
+            self.model_kwargs["xrcs_background"] = background.mean(dim="wavelength").sel(
+                t=self.plasma.time_to_calculate)
             opt_data["xrcs.spectra"]["error"] = np.sqrt(
                 opt_data["xrcs.spectra"] + background.std(dim="wavelength") ** 2
             )
@@ -334,10 +345,10 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         )
         self.start_points = self._sample_start_points(sample_high_density=self.sample_high_density)
 
-    def _sample_start_points(self, sample_high_density: bool=True):
+    def _sample_start_points(self, sample_high_density: bool = True):
         if sample_high_density:
             start_points = self.bayesmodel.sample_from_high_density_region(self.param_names, self.sampler,
-                                                                              self.nwalkers)
+                                                                           self.nwalkers)
         else:
             start_points = self.bayesmodel.sample_from_priors(
                 self.param_names, size=self.nwalkers
@@ -367,7 +378,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
 if __name__ == "__main__":
     run = BayesWorkflowExample(
-        pulse=10009,
+        pulse=None,
         pulse_to_write=23000101,
         run="RUN01",
         diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
@@ -375,7 +386,7 @@ if __name__ == "__main__":
         param_names=OPTIMISED_PARAMS,
         profile_params=DEFAULT_PROFILE_PARAMS,
         priors=DEFAULT_PRIORS,
-        model_kwargs={"xrcs_moment_analysis":False, },
+        model_kwargs={"xrcs_moment_analysis": False, },
         phantoms=True,
 
         iterations=200,
