@@ -45,7 +45,7 @@ class BayesModels:
         quant_to_optimise: list = [],
         priors: dict = {},
         diagnostic_models: list = [],
-        percent_error: float = None,
+        percent_error: float = 0.10,
     ):
         self.plasma = plasma
         self.data = data
