@@ -353,6 +353,7 @@ def run_bayes(
         phantom_profile_params=phantom_profile_params,
         phantom_data=phantom_data,
     )
+    phantom_plasma = deepcopy(plasma)
 
     print("Instatiating Bayes model")
     diagnostic_models = [models["pi"]]
@@ -408,17 +409,7 @@ def run_bayes(
     plot_bayes_result(**result, figheader=result_path)
 
     if not phantom_data and pulse is not None:
-        plt.figure()
-        Te = flat_data["ts.te"].sel(t=time)
-        rho = Te.transform.rho.sel(t=time)
-        plt.plot(rho, Te, "o")
-        plasma.electron_temperature.sel(t=time).plot()
-
-        plt.figure()
-        Ne = flat_data["ts.ne"].sel(t=time)
-        rho = Ne.transform.rho.sel(t=time)
-        plt.plot(rho, Ne, "o")
-        plasma.electron_density.sel(t=time).plot()
+        plot_ts(phantom_plasma, flat_data, tplot=[time])
 
     return result
 
@@ -549,50 +540,47 @@ def run_inversion(
     return zeff
 
 
-def plot_ts(plasma: Plasma, flat_data: dict, cols=None):
+def plot_ts(plasma: Plasma, flat_data: dict, cols=None, tplot: list = None):
     if cols is None:
         cols = CM(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
 
-    plt.figure()
-    Te = flat_data["ts.te"]
-    Te_err = flat_data["ts.te"].error
-    Ne = flat_data["ts.ne"]
-    Ne_err = flat_data["ts.ne"].error
-    rho = Te.transform.rho
-    rmag = plasma.equilibrium.rmag
-    for i, t in enumerate(Te.t):
-        if i % 2:
-            plasma.electron_temperature.sel(t=t).plot(
-                color=cols[i], label=f"{t.values:.3f}"
-            )
-            channels = np.where(Te.R > rmag.sel(t=t, method="nearest"))[0]
-            x = rho.sel(t=t, channel=channels)
-            y = Te.sel(t=t, channel=channels)
-            err = Te_err.sel(t=t, channel=channels)
-            plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
-    plasma.electron_temperature.sel(t=t).plot(color=cols[i], label="Fit")
-    plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
-    plt.ylim(
-        0, np.max([plasma.electron_temperature.max(), flat_data["ts.te"].max()]) * 1.1
-    )
-    plt.legend()
-    plt.title("TS electron temperature")
+    if tplot is None:
+        tplot = list(plasma.t.values)
+    else:
+        cols = [cols[int(np.size(plasma.t) / 2.0), :]]
 
     plt.figure()
-    for i, t in enumerate(Ne.t):
-        if i % 2:
-            plasma.electron_density.sel(t=t).plot(
-                color=cols[i], label=f"{t.values:.3f}"
-            )
-            channels = np.where(Te.R > rmag.sel(t=t, method="nearest"))[0]
-            x = rho.sel(t=t, channel=channels)
-            y = Ne.sel(t=t, channel=channels)
-            err = Ne_err.sel(t=t, channel=channels)
-            plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
-    plasma.electron_density.sel(t=t).plot(color=cols[i], label="Fit")
-    plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
-    plt.legend()
-    plt.title("TS electron density")
+    quantities = {"ts.te": "TS electron temperature", "ts.ne": "TS electron density"}
+    for quantity, title in quantities.items():
+        if "te" in quantity:
+            plasma_attr = plasma.electron_temperature
+        elif "ne" in quantity:
+            plasma_attr = plasma.electron_density
+
+        plt.figure()
+        value = flat_data[quantity]
+        error = flat_data[quantity].error
+        rho = value.transform.rho
+        rmag = plasma.equilibrium.rmag
+        for i, t in enumerate(tplot):
+            if (i + 1) % 2:
+                plasma_attr.sel(t=t, method="nearest").plot(
+                    color=cols[i], label=f"{t:.3f}"
+                )
+                channels = np.where(value.R > rmag.sel(t=t, method="nearest"))[0]
+                x = rho.sel(channel=channels).sel(t=t, method="nearest")
+                y = value.sel(channel=channels).sel(t=t, method="nearest")
+                err = error.sel(channel=channels).sel(t=t, method="nearest")
+                plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
+        plasma_attr.sel(t=t, method="nearest").plot(color=cols[i], label="Fit")
+        plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
+        plt.ylim(
+            0,
+            np.max([plasma.electron_temperature.max(), flat_data[quantity].max()])
+            * 1.1,
+        )
+        plt.legend()
+        plt.title(title)
 
 
 def inversion_example(pulse: int = 11085, phantom_data: bool = True):
