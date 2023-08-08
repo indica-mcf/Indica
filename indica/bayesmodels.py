@@ -45,12 +45,14 @@ class BayesModels:
         quant_to_optimise: list = [],
         priors: dict = {},
         diagnostic_models: list = [],
+        percent_error: float = None,
     ):
         self.plasma = plasma
         self.data = data
         self.quant_to_optimise = quant_to_optimise
         self.diagnostic_models = diagnostic_models
         self.priors = priors
+        self.percent_error = percent_error
 
         for diag_model in self.diagnostic_models:
             diag_model.plasma = self.plasma
@@ -97,7 +99,7 @@ class BayesModels:
                 self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
             )
 
-            exp_error = exp_data * 0.10  # Assume percentage error if none given.
+            exp_error = exp_data * self.percent_error  # Assume percentage error if none given.
             if hasattr(self.data[key], "error"):
                 if (
                     self.data[key].error != 0
