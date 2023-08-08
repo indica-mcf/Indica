@@ -117,4 +117,3 @@ if __name__ == "__main__":
     test = TestBayesWorkflowExample()
     test.setup_class()
 
-    print()
