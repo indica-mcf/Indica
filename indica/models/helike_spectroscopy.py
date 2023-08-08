@@ -752,7 +752,7 @@ def select_transition(adf15_data, transition: str, wavelength: float):
     return pec
 
 
-def helike_LOS_example(nchannels=3):
+def helike_transform_example(nchannels=3):
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -783,9 +783,9 @@ def example_run(pulse: int = 9229, plasma=None, plot=False, **kwargs):
         )
         # Create new diagnostic
     diagnostic_name = "xrcs"
-    los_transform = helike_LOS_example(3)
+    los_transform = helike_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = Helike_spectroscopy(
+    model = HelikeSpectrometer(
         diagnostic_name,
         window_masks=[],
     )
