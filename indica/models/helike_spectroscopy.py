@@ -28,7 +28,7 @@ ADF15 = {
 }
 
 
-class Helike_spectroscopy(DiagnosticModel):
+class HelikeSpectrometer(DiagnosticModel):
     """
     Data and methods to model XRCS spectrometer measurements
 
