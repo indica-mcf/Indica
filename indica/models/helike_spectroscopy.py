@@ -768,7 +768,7 @@ def helike_transform_example(nchannels=3):
         direction[0:nchannels, 0],
         direction[0:nchannels, 1],
         direction[0:nchannels, 2],
-        name="diagnostic_name",
+        name="xrcs",
         machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
         passes=1,
     )
