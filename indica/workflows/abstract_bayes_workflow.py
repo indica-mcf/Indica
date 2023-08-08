@@ -37,6 +37,7 @@ class AbstractBayesWorkflow(ABC):
             self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt
         )
         self.reader(diagnostics)
+        self.equilibrium = self.reader.equilibrium
         self.data = self.reader.binned_data
 
     @abstractmethod
