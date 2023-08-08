@@ -1257,6 +1257,7 @@ def example_run(
         impurity_concentration=impurity_concentration,
         full_run=full_run,
         verbose=verbose,
+        n_rad=n_rad,
         **kwargs,
     )
     plasma.build_atomic_data(default=True, calc_power_loss=calc_power_loss)
@@ -1272,27 +1273,15 @@ def example_run(
     nimp_wcenter = np.linspace(0.4, 0.1, nt)
     for i, t in enumerate(plasma.t):
         plasma.Te_prof.peaking = te_peaking[i]
-        plasma.assign_profiles(profile="electron_temperature", t=t)
-
         plasma.Ti_prof.peaking = te_peaking[i]
         plasma.Ti_prof.y0 = ti0[i]
-        plasma.assign_profiles(profile="ion_temperature", t=t)
-
         plasma.Vrot_prof.peaking = vrot_peaking[i]
         plasma.Vrot_prof.y0 = vrot0[i]
-        plasma.assign_profiles(profile="toroidal_rotation", t=t)
-
         plasma.Ne_prof.peaking = ne_peaking[i]
-        plasma.assign_profiles(profile="electron_density", t=t)
-
         plasma.Nimp_prof.peaking = nimp_peaking[i]
         plasma.Nimp_prof.y0 = nimp_y0[i]
         plasma.Nimp_prof.wcenter = nimp_wcenter[i]
-        for elem in plasma.impurities:
-            plasma.assign_profiles(profile="impurity_density", t=t, element=elem)
-
-        for elem in plasma.elements:
-            plasma.assign_profiles(profile="toroidal_rotation", t=t, element=elem)
+        plasma.assign_profiles(impurity_to_profile="ar",)
 
     if pulse is None:
         equilibrium_data = fake_equilibrium_data(
