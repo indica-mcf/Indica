@@ -31,13 +31,13 @@ class AbstractBayesWorkflow(ABC):
         self.setup_opt_data(self.phantoms)
         self.setup_optimiser()
 
-
     def read_data(self, diagnostics: list):
         self.reader = ReadST40(
             self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt
         )
         self.reader(diagnostics)
         self.equilibrium = self.reader.equilibrium
+        self.transforms = self.reader.transforms
         self.data = self.reader.binned_data
 
     @abstractmethod
