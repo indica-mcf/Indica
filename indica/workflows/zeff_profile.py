@@ -47,7 +47,7 @@ PRIORS = {
     "Nimp_prof.peaking": get_uniform(1, 6),
     "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
     "Nimp_prof.wped": get_uniform(1, 5),
-    #"Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 >= x2), 1, 0),
+    "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 >= x2), 1, 0),
     "Nimp_prof.y1/Nimp_prof.yend": lambda x1, x2: np.where((x1 == x2), 1, 0),
     "Te_prof.y0": get_uniform(1000, 6000),
     "Te_prof.peaking": get_uniform(1, 4),
@@ -62,19 +62,16 @@ PHANTOM_PROFILE_PARAMS = {
     "Ne_prof.y1": 2e18,
     "Ne_prof.yend": 1e18,
     "Ne_prof.wped": 2,
-    #"Nimp_prof.y0": 1e16,
-    #"Nimp_prof.y1": 5e16,
-    #"Nimp_prof.yend": 5e16,
-    #"Nimp_prof.peaking": 1, #'fix it'
-    "Nimp_prof.y0": 1e16,
+    "Nimp_prof.y0": 1e18,
     "Nimp_prof.y1": 1e17,
-    "Nimp_prof.yend": 1e17,
-     #"Nimp_prof.y0": 1e16,
-     #"Nimp_prof.y1": 1e18,
-     #"Nimp_prof.yend": 1e18,
-    "Nimp_prof.peaking": 1,
+    "Nimp_prof.yend": 1e16,
+    "Nimp_prof.peaking": 2,
     "Nimp_prof.wcenter": 0.4,
-    "Nimp_prof.wped": 6,  # more or less hollow
+    "Nimp_prof.wped": 2,
+    # "Nimp_prof.y0": 2e18,
+    # "Nimp_prof.y1": 5e17,
+    # "Nimp_prof.yend": 5e17,
+    # "Nimp_prof.peaking": 1,
     "Te_prof.y0": 3000,
     "Te_prof.peaking": 2,
     "Ti_prof.y0": 5000,
@@ -82,11 +79,10 @@ PHANTOM_PROFILE_PARAMS = {
 }
 PARAM_NAMES = [
     "Nimp_prof.y0",
-    #"Nimp_prof.yend",
-    "Nimp_prof.y1",
-    #"Nimp_prof.peaking",
-    #"Nimp_prof.wcenter",
-    "Nimp_prof.wped",
+    # "Nimp_prof.y1",
+    "Nimp_prof.peaking",
+    "Nimp_prof.wcenter",
+    # "Nimp_prof.wped",
 ]
 
 
@@ -297,18 +293,17 @@ def prepare_inputs(
             flat_data[f"{instrument}.emissivity"].attrs["transform"] = transform
 
     if phantom_data:
-        impurity_density = plasma.impurity_density.sel(t=time, element=IMPURITIES[0])
         zeff = plasma.zeff.sum("element").sel(t=time)
-
+        impurity_density = plasma.impurity_density.sel(t=time, element=IMPURITIES[0])
     else:
         zeff, impurity_density = None, None
 
     input_profiles = {
-        "electron_density": deepcopy(plasma.electron_density.sel(t=time)),
-        "electron_temperature": deepcopy(plasma.electron_temperature.sel(t=time)),
-        "ion_temperature": deepcopy(plasma.ion_temperature.sel(t=time, element=IMPURITIES[0])),
-        "impurity_density": deepcopy(impurity_density),
-        "zeff": deepcopy(zeff),
+        "electron_density": plasma.electron_density.sel(t=time),
+        "electron_temperature": plasma.electron_temperature.sel(t=time),
+        "ion_temperature": plasma.ion_temperature.sel(t=time, element=IMPURITIES[0]),
+        "impurity_density": impurity_density,
+        "zeff": zeff,
     }
 
     for key in flat_data.keys():
@@ -362,7 +357,6 @@ def run_bayes(
     quant_to_optimise = [
         "pi.brightness",
     ]
-
     bm = BayesModels(
         plasma=plasma,
         data=flat_data,
@@ -409,9 +403,7 @@ def run_bayes(
         "autocorr": autocorr,
     }
     print(sampler.acceptance_fraction.sum())
-    plot_bayes_result(**result, figheader=result_path)#, xlabel="rho")
-
-
+    plot_bayes_result(**result, figheader=result_path)
 
     if not phantom_data and pulse is not None:
         plt.figure()
@@ -434,7 +426,7 @@ def run_inversion(
     tstart=0.03,
     tend=0.1,
     dt=0.01,
-    reg_level_guess: float = 0.6,
+    reg_level_guess: float = 0.3,
     phantom_data: bool = True,
 ):
 
@@ -516,45 +508,38 @@ def run_inversion(
         bremsstrahlung=inverted_emissivity + inverted_error,
         gaunt_approx="callahan",
     )
-    #zeff = zeff.where(zeff < 10, np.nan)
+    zeff = zeff.where(zeff < 10, np.nan)
 
     cols = CM(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
-    lines = []
     for i, t in enumerate(zeff.t):
         if i % 2:
-            line3,= zeff.sel(t=t).plot(color=cols[i], label=f"{t.values:.3f}")
+            zeff.sel(t=t).plot(color=cols[i], label=f"{t.values:.3f}")
             plt.fill_between(
                 zeff.rho_poloidal,
                 zeff_up.sel(t=t),
                 zeff_down.sel(t=t),
                 color=cols[i],
-                alpha=0.1,
+                alpha=0.6,
             )
             if phantom_data:
                 plasma.zeff.sum("element").sel(t=t).plot(
-                   # marker="o",
+                    marker="o",
                     color=cols[i],
-                    alpha=0.7,
-                    linestyle="--",
+                    alpha=0.5,
+                    linestyle="",
                     label=f"{t.values:.3f}",
                 )
-            lines.append([line3])
     if phantom_data:
-        line1, = plasma.zeff.sum("element").sel(t=t).plot(
-            color=cols[i],  linestyle="--", label="Phantom" #alpha=0.5,
+        plasma.zeff.sum("element").sel(t=t).plot(
+            marker="o", color=cols[i], alpha=0.5, linestyle="", label="Phantom"
         )
-    line2, = zeff.sel(t=t).plot(label="Recalculated", color=cols[i])
+    zeff.sel(t=t).plot(label="Recalculated", color=cols[i])
     plt.ylim(0, 10)
-    plt.grid(alpha=0.25)
-    plt.ylabel("$Z_{eff}$")
-    plt.xlabel("$ρ_{pol}$")
-    plt.title("")
-    # plt.title("Zeff from Bremsstrahlung inversion & TS data")
-    first_legend = plt.legend(handles=[line1, line2], loc="upper left")
-    ax = plt.gca().add_artist(first_legend)
-    times = ["0.02 s", "0.04 s", "0.06 s", "0.08 s", "0.1 s"]
-    plt.legend([i[0] for i in lines], times, loc="upper right")
+    plt.ylabel("Zeff")
+    plt.legend()
+    plt.title("Zeff from Bremsstrahlung inversion & TS data")
+    plt.legend()
 
     if not phantom_data:
         plot_ts(plasma, flat_data, cols=cols)
@@ -608,17 +593,17 @@ def plot_ts(plasma: Plasma, flat_data: dict, cols=None):
     plt.title("TS electron density")
 
 
-def inversion_example(pulse: int = 11100, phantom_data: bool = True):
+def inversion_example(pulse: int = 11085, phantom_data: bool = True):
     ff = run_inversion(pulse, phantom_data=phantom_data)
     return ff
 
 
 def bayesian_example(
     pulse: int = 11085,
-    time: float = 0.04,
+    time: float = 0.03,
     iterations=200,
     nwalkers=50,
-    phantom_data: bool = False,
+    phantom_data: bool = True,
 ):
     ff = run_bayes(
         pulse,

@@ -8,7 +8,6 @@ import numpy as np
 timestr = time.strftime("%Y%m%d%H%M")
 
 
-
 def plot_profile(
     profile,
     blobkey: str,
@@ -17,9 +16,7 @@ def plot_profile(
     sharefig=False,
     filename="",
     linestyle="--",
-    color="skyblue",
-    xlabel="",
-    ylabel="",
+    color="blue",
 ):
     if not plt.get_fignums():  # If no figure is open
         plt.figure(figsize=(8, 6))
@@ -39,7 +36,7 @@ def plot_profile(
         profile.quantile(0.975, dim="index"),
         label=f"{blobkey}, 95% Confidence",
         zorder=2,
-        color="lavender",
+        color="grey",
         alpha=0.7,
     )
     plt.fill_between(
@@ -48,8 +45,8 @@ def plot_profile(
         profile.quantile(1.00, dim="index"),
         label=f"{blobkey}, Max-Min",
         zorder=1,
-        color="lavenderblush",
-        #alpha=0.7,
+        color="lightgrey",
+        alpha=0.7,
     )
 
     if phantom_profile is not None:
@@ -76,7 +73,7 @@ def _plot_0d(
     blobkey: str,
     diag_data: dict,
     filename: str,
-    figheader="./results/test/",
+    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
     xlabel="samples ()",
     ylabel="a.u.",
     **kwargs,
@@ -104,8 +101,7 @@ def _plot_1d(
     blobkey: str,
     diag_data: dict,
     filename: str,
-    figheader="./results/test/",
-    xlabel="ρ_{pol}",
+    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
     ylabel="a.u.",
     **kwargs,
 ):
@@ -121,7 +117,7 @@ def _plot_1d(
         blob_data.quantile(0.84, dim="index"),
         label=f"{blobkey}, 68% Confidence",
         zorder=3,
-        color="skyblue",
+        color="blue",
     )
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
@@ -129,7 +125,7 @@ def _plot_1d(
         blob_data.quantile(0.975, dim="index"),
         label=f"{blobkey}, 95% Confidence",
         zorder=2,
-        color="lavender",
+        color="grey",
     )
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
@@ -137,7 +133,7 @@ def _plot_1d(
         blob_data.quantile(1.00, dim="index"),
         label=f"{blobkey}, Max-Min",
         zorder=1,
-        color="lavenderblush",
+        color="lightgrey",
     )
     plt.plot(
         diag_data[blobkey].__getattr__(dims[0]),
@@ -148,15 +144,14 @@ def _plot_1d(
         zorder=4,
     )
     plt.ylabel(ylabel)
-    #plt.xlabel(dims[0])
-    plt.xlabel(xlabel)
+    plt.xlabel(dims[0])
     plt.legend()
     plt.savefig(figheader + filename)
     plt.close()
 
 
 def plot_bayes_result(
-    figheader="./results/test/",
+    figheader="C:\\Users\\Aleksandra.Alieva\\Desktop\\Plots\\New\\",
     blobs=None,
     diag_data=None,
     samples=None,
@@ -164,8 +159,6 @@ def plot_bayes_result(
     param_names=None,
     phantom_profiles=None,
     autocorr=None,
-    xlabel="rho",
-    ylabel="factor",
     **kwargs,
 ):
     Path(figheader).mkdir(parents=True, exist_ok=True)
@@ -182,17 +175,6 @@ def plot_bayes_result(
     plt.savefig(figheader + timestr + "average_tau.png")
     plt.close()
 
-    key = "zeff"
-    if key in blobs and key in phantom_profiles:
-        plot_profile(
-            blobs[key],
-            key,
-            figheader=figheader,
-            phantom_profile=phantom_profiles[key],
-            xlabel="$ρ_{pol}$",
-            ylabel="$Z_{eff}$",
-        )
-
     key = "pi.brightness"
     if key in blobs.keys():
         _plot_1d(
@@ -201,10 +183,8 @@ def plot_bayes_result(
             diag_data,
             f"{timestr}_{key.replace('.', '_')}.png",
             figheader=figheader,
-            xlabel="Channel",
-            ylabel="Intensity $[W m^{-2}]$",
+            ylabel="Intensity (W m^-2)",
         )
-
     key = "efit.wp"
     if key in blobs.keys():
         _plot_0d(
@@ -266,6 +246,12 @@ def plot_bayes_result(
             ylabel="temperature (eV)",
         )
 
+    key = "zeff"
+    plot_profile(
+        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
+    )
+    plt.ylim(0, 10)
+
     key = "electron_temperature"
     plot_profile(
         blobs[key],
@@ -273,41 +259,30 @@ def plot_bayes_result(
         figheader=figheader,
         phantom_profile=phantom_profiles[key],
         sharefig=True,
-        color="skyblue",
+        color="blue",
         linestyle="dashdot",
-        xlabel="rho",
-        ylabel="Temperature, eV"
     )
     key = "ion_temperature"
-    element = blobs[key].element[0]
     plot_profile(
-        blobs[key].sel(element=element),
+        blobs[key].sel(element="c"),
         key,
         figheader=figheader,
         filename="temperature",
         phantom_profile=phantom_profiles[key],
         color="red",
         linestyle="dotted",
-        xlabel="rho",
-        ylabel="Temperature, eV"
     )
     key = "electron_density"
     plot_profile(
-        blobs[key],
-        key,
-        figheader=figheader,
-        phantom_profile=phantom_profiles[key]
+        blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
     )
     key = "impurity_density"
-    impurity = blobs[key].element[0]
     plot_profile(
-        blobs[key].sel(element=impurity),
+        blobs[key].sel(element="c"),
         key,
         figheader=figheader,
         phantom_profile=phantom_profiles[key],
-        color="lightcoral",
-        xlabel="",
-
+        color="red",
     )
 
     corner.corner(samples, labels=param_names)
