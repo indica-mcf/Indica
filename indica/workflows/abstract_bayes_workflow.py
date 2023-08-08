@@ -6,7 +6,7 @@ from pathlib import Path
 import pickle
 
 from indica.readers.read_st40 import ReadST40
-
+from indica.equilibrium import fake_equilibrium
 
 class AbstractBayesWorkflow(ABC):
     @abstractmethod
@@ -30,6 +30,12 @@ class AbstractBayesWorkflow(ABC):
         self.setup_models(self.diagnostics)
         self.setup_opt_data(self.phantoms)
         self.setup_optimiser()
+
+    def read_test_data(self, diagnostic_transforms:dict):
+        # Used with phantom data for purposes of tests
+        self.equilibrium = fake_equilibrium(self.tstart, self.tend, self.dt, )
+        self.transforms = diagnostic_transforms
+        self.data = {}
 
     def read_data(self, diagnostics: list):
         self.reader = ReadST40(
