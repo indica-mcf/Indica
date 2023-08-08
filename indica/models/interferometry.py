@@ -88,20 +88,11 @@ class Interferometry(DiagnosticModel):
 
         return self.bckc
 
-
-def example_run(pulse: int = None, plasma=None, plot=False):
-    if plasma is None:
-        plasma = example_plasma(pulse=pulse)
-
-    # Create new interferometers diagnostics
-    diagnostic_name = "smmh1"
+def smmh1_transform_example():
     los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
     los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
     origin = los_start
     direction = los_end - los_start
-    model = Interferometry(
-        diagnostic_name,
-    )
     los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
@@ -109,10 +100,22 @@ def example_run(pulse: int = None, plasma=None, plot=False):
         direction[:, 0],
         direction[:, 1],
         direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
+        name="smmh1",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
         passes=2,
     )
+    return los_transform
+
+def example_run(pulse: int = None, plasma=None, plot=False):
+    if plasma is None:
+        plasma = example_plasma(pulse=pulse)
+
+    # Create new interferometers diagnostics
+    diagnostic_name = "smmh1"
+    model = Interferometry(
+        diagnostic_name,
+    )
+    los_transform = smmh1_transform_example()
     los_transform.set_equilibrium(plasma.equilibrium)
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
