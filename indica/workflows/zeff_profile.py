@@ -416,6 +416,7 @@ def run_bayes(
 
 def run_inversion(
     pulse,
+    phantom_profile_params,
     tstart=0.03,
     tend=0.1,
     dt=0.01,
@@ -428,6 +429,7 @@ def run_inversion(
         tstart=tstart,
         tend=tend,
         dt=dt,
+        phantom_profile_params=phantom_profile_params,
         phantom_data=phantom_data,
     )
 
@@ -445,7 +447,7 @@ def run_inversion(
     rho_equil = los_transform.equilibrium.rho.interp(t=data.t)
     input_dict = dict(
         brightness=data_to_invert.data,
-        brightness_error=data_to_invert.data * 0.1,
+        brightness_error=data_to_invert.data * 0.1, #check with 5%
         dl=dl,
         t=data_to_invert.t.data,
         R=R,
@@ -501,38 +503,51 @@ def run_inversion(
         bremsstrahlung=inverted_emissivity + inverted_error,
         gaunt_approx="callahan",
     )
-    zeff = zeff.where(zeff < 10, np.nan)
+    #zeff = zeff.where(zeff < 10, np.nan)
 
     cols = CM(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
     plt.figure()
+    lines = []
     for i, t in enumerate(zeff.t):
         if i % 2:
-            zeff.sel(t=t).plot(color=cols[i], label=f"{t.values:.3f}")
+            line3, = zeff.sel(t=t).plot(color=cols[i], label=f"{t.values:.3f}")
             plt.fill_between(
                 zeff.rho_poloidal,
                 zeff_up.sel(t=t),
                 zeff_down.sel(t=t),
                 color=cols[i],
-                alpha=0.6,
+                alpha=0.1,
             )
             if phantom_data:
                 plasma.zeff.sum("element").sel(t=t).plot(
-                    marker="o",
+                   # marker="o",
                     color=cols[i],
-                    alpha=0.5,
-                    linestyle="",
+                    alpha=0.25,
+                    linestyle="--",
                     label=f"{t.values:.3f}",
                 )
+            lines.append([line3])
     if phantom_data:
-        plasma.zeff.sum("element").sel(t=t).plot(
-            marker="o", color=cols[i], alpha=0.5, linestyle="", label="Phantom"
+        line1, = plasma.zeff.sum("element").sel(t=t).plot(
+            #marker="o",
+            color=cols[i], alpha=0.5, linestyle="--", label="Phantom"
         )
-    zeff.sel(t=t).plot(label="Recalculated", color=cols[i])
+    line2, = zeff.sel(t=t).plot(label="Recalculated", color=cols[i])
     plt.ylim(0, 10)
-    plt.ylabel("Zeff")
-    plt.legend()
-    plt.title("Zeff from Bremsstrahlung inversion & TS data")
-    plt.legend()
+    plt.grid(alpha=0.25)
+    plt.ylabel("$Z_{eff}$")
+    plt.xlabel("$ρ_{pol}$")
+    plt.title("")
+    #plt.legend()
+
+    #plt.title("Zeff from Bremsstrahlung inversion & TS data")
+    first_legend = plt.legend(handles=[line2], loc="upper left")
+    ax = plt.gca().add_artist(first_legend)
+    times = ["0.02 s", "0.04 s", "0.06 s", "0.08 s", "0.1 s"] # I am not sure if times in the plot are the real times
+    plt.legend([i[0] for i in lines], times, loc="upper right")
+
+    #plt.figure()
+    #plt.plot(input_profiles)
 
     if not phantom_data:
         plot_ts(plasma, flat_data, cols=cols)
@@ -584,16 +599,18 @@ def plot_ts(plasma: Plasma, flat_data: dict, cols=None, tplot: list = None):
 
 
 def inversion_example(pulse: int = 11085, phantom_data: bool = True):
-    ff = run_inversion(pulse, phantom_data=phantom_data)
+    ff = run_inversion(pulse,
+                       phantom_data=phantom_data,
+                       phantom_profile_params=PHANTOM_PROFILE_PARAMS)
     return ff
 
 
 def bayesian_example(
-    pulse: int = 11085,
+    pulse: int = 11085, #11228, 11227, 11226, 11225, 11224
     time: float = 0.03,
     iterations=200,
     nwalkers=50,
-    phantom_data: bool = True,
+    phantom_data: bool = False,
 ):
     ff = run_bayes(
         pulse,

@@ -82,7 +82,7 @@ class BayesModels:
                 .sel(t=self.plasma.time_to_calculate)
                 .values.astype("float64")
             )
-            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.10))
+            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.10)) #check it with 5%
             ln_likelihood += np.nanmean(_ln_likelihood)
         return ln_likelihood
 

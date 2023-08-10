@@ -16,7 +16,9 @@ def plot_profile(
     sharefig=False,
     filename="",
     linestyle="--",
-    color="blue",
+    color="skyblue",
+    xlabel="ρ",
+    ylabel="",
 ):
     if not plt.get_fignums():  # If no figure is open
         plt.figure(figsize=(8, 6))
@@ -36,7 +38,7 @@ def plot_profile(
         profile.quantile(0.975, dim="index"),
         label=f"{blobkey}, 95% Confidence",
         zorder=2,
-        color="grey",
+        color="lavender",
         alpha=0.7,
     )
     plt.fill_between(
@@ -45,8 +47,8 @@ def plot_profile(
         profile.quantile(1.00, dim="index"),
         label=f"{blobkey}, Max-Min",
         zorder=1,
-        color="lightgrey",
-        alpha=0.7,
+        color="lavenderblush",
+        alpha=0.8,
     )
 
     if phantom_profile is not None:
@@ -102,6 +104,7 @@ def _plot_1d(
     diag_data: dict,
     filename: str,
     figheader="./results/test/",
+    xlabel="",
     ylabel="a.u.",
     **kwargs,
 ):
@@ -117,7 +120,7 @@ def _plot_1d(
         blob_data.quantile(0.84, dim="index"),
         label=f"{blobkey}, 68% Confidence",
         zorder=3,
-        color="blue",
+        color="skyblue",
     )
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
@@ -125,7 +128,7 @@ def _plot_1d(
         blob_data.quantile(0.975, dim="index"),
         label=f"{blobkey}, 95% Confidence",
         zorder=2,
-        color="grey",
+        color="lavender",
     )
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
@@ -133,7 +136,7 @@ def _plot_1d(
         blob_data.quantile(1.00, dim="index"),
         label=f"{blobkey}, Max-Min",
         zorder=1,
-        color="lightgrey",
+        color="lavenderblush",
     )
     plt.plot(
         diag_data[blobkey].__getattr__(dims[0]),
@@ -144,7 +147,9 @@ def _plot_1d(
         zorder=4,
     )
     plt.ylabel(ylabel)
-    plt.xlabel(dims[0])
+    #plt.xlabel(dims[0])
+    xlabel="Channel"
+    plt.xlabel(xlabel)
     plt.legend()
     plt.savefig(figheader + filename)
     plt.close()
@@ -183,6 +188,7 @@ def plot_bayes_result(
             diag_data,
             f"{timestr}_{key.replace('.', '_')}.png",
             figheader=figheader,
+            xlabel="rho",
             ylabel="Intensity (W m^-2)",
         )
     key = "efit.wp"
@@ -246,12 +252,6 @@ def plot_bayes_result(
             ylabel="temperature (eV)",
         )
 
-    key = "zeff"
-    if key in blobs and key in phantom_profiles:
-        plot_profile(
-            blobs[key], key, figheader=figheader, phantom_profile=phantom_profiles[key]
-        )
-        plt.ylim(0, 10)
 
     key = "electron_temperature"
     plot_profile(
@@ -271,7 +271,7 @@ def plot_bayes_result(
         figheader=figheader,
         filename="temperature",
         phantom_profile=phantom_profiles[key],
-        color="red",
+        color="lightcoral",
         linestyle="dotted",
     )
     key = "electron_density"
@@ -285,8 +285,19 @@ def plot_bayes_result(
         key,
         figheader=figheader,
         phantom_profile=phantom_profiles[key],
-        color="red",
+        color="lightcoral",
     )
+    key = "zeff"
+    if key in blobs and key in phantom_profiles:
+        plot_profile(
+            blobs[key],
+            key,
+            figheader=figheader,
+            phantom_profile=phantom_profiles[key],
+            xlabel="$ρ$",
+            ylabel="$Z_{eff}$",
+        )
+        # plt.ylim(0, 10) #it does not work
 
     corner.corner(samples, labels=param_names)
     plt.savefig(figheader + timestr + "posterior.png")
