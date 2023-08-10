@@ -62,9 +62,9 @@ def run_default(
     plasma class, binned data and back-calculated values from optimisations, raw experimental data
 
     """
-    plasma, raw_data, data, bckc = initialize_workflow(pulse)
+    plasma, raw_data, data, bckc = initialize_workflow(pulse, INTERFEROMETERS)
 
-    run_optimisations(plasma, data, bckc, use_ref=use_ref)
+    run_optimisations(plasma, data, bckc, INTERFEROMETERS, use_ref=use_ref)
 
     # plot_results(plasma, data, bckc, raw_data)
     plots.compare_data_bckc(data, bckc, raw_data=raw_data, pulse=plasma.pulse)
@@ -112,25 +112,38 @@ def save_hda(
 
 
 def scan_profiles(
-    pulse: int = 9780,
+    pulse: int = 11261,
     tstart=0.02,
-    tend=0.10,
+    tend=0.14,
     dt=0.01,
-    write=False,
-    run_add="REF",
+    run_add="SMM_TS",
     modelling=True,
     force=True,
+    quantities_te=["int_n3/int_tot"],  # or ["int_k/int_w"]
+    interferometers: list = [
+        "smmh_ts"
+    ],  # or [smmh] to use current SMM.BEST:GLOBAL:NE_INT
 ):
 
-    if "smmh" in INTERFEROMETERS and run_add != "REF":
-        print("If using SMMH, run_add must be == 'REF'")
-    if "smmh_ts" in INTERFEROMETERS and run_add != "SMM_TS":
-        print("If using SMMH_TS, run_add must be == 'SMM_TS'")
+    if interferometers is None:
+        interferometers = INTERFEROMETERS
+    if "smmh" in interferometers and run_add != "REF":
+        print("If using SMMH, set run_add = 'REF'")
+        return
+    if "smmh_ts" in interferometers and run_add != "SMM_TS":
+        print("If using SMMH_TS, set run_add = 'SMM_TS'")
+        return
 
     profs = profile_scans()
 
     plasma, raw_data, data, bckc = initialize_workflow(
-        pulse, tstart=tstart, tend=tend, dt=dt
+        pulse,
+        interferometers,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        quantities_te=quantities_te,
+        diagnostic_ne=interferometers[0],
     )
 
     pulse = plasma.pulse
@@ -176,7 +189,9 @@ def scan_profiles(
                     print(f"\n{descr}\n")
                     run_dict[run_name] = descr
 
-                    run_optimisations(plasma, data, bckc, use_ref=use_ref)
+                    run_optimisations(
+                        plasma, data, bckc, interferometers, use_ref=use_ref
+                    )
 
                     pl_dict[run_name] = deepcopy(plasma)
                     bckc_dict[run_name] = deepcopy(bckc)
@@ -199,14 +214,14 @@ def scan_profiles(
     runs = list(pl_dict)
     plasma = average_runs(pl_dict)
     for t in plasma.t:
-        assign_bckc(plasma, t, bckc)
-
-    if write:
-        run_name = f"RUN{run}{run_add}"
-        descr = f"Average of runs {runs[0]}-{runs[-1]}"
-        save_hda(
-            pulse_to_write, plasma, raw_data, data, bckc, descr, run_name, force=force
-        )
+        assign_bckc(plasma, t, bckc, interferometers)
+    #
+    # if write:
+    #     run_name = f"RUN{run}{run_add}"
+    #     descr = f"Average of runs {runs[0]}-{runs[-1]}"
+    #     save_hda(
+    #         pulse_to_write, plasma, raw_data, data, bckc, descr, run_name, force=force
+    #     )
 
     return pl_dict, raw_data, data, bckc_dict, run_dict
 
@@ -244,7 +259,7 @@ def average_runs(pl_dict: dict):
     return plasma
 
 
-def run_optimisations(plasma, data, bckc, use_ref=False):
+def run_optimisations(plasma, data, bckc, interferometers, use_ref=False):
     opt = plasma.optimisation
 
     # Initialize some optimisation parameters
@@ -325,18 +340,26 @@ def run_optimisations(plasma, data, bckc, use_ref=False):
         ] = Nimp_prof.yspl.values
 
         # Calculate all BCKC values
-        assign_bckc(plasma, t, bckc)
+        assign_bckc(plasma, t, bckc, interferometers)
 
     return plasma, data, bckc
 
 
 def initialize_workflow(
-    pulse, tstart=0.02, tend=0.10, dt=0.01,
+    pulse,
+    interferometers: list,
+    tstart=0.02,
+    tend=0.10,
+    dt=0.01,
+    quantities_te=["int_n3/int_tot"],
+    diagnostic_ne="smmh_ts",
 ):
     plasma = initialize_plasma_object(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
     raw_data, data, bckc = initialize_plasma_data(pulse=pulse, plasma=plasma)
-    initialize_forward_models(plasma, data)
-    initialize_optimisations(plasma, data)
+    initialize_forward_models(plasma, data, interferometers)
+    initialize_optimisations(
+        plasma, data, quantities_te=quantities_te, diagnostic_ne=diagnostic_ne
+    )
 
     return plasma, raw_data, data, bckc
 
@@ -415,10 +438,14 @@ def initialize_plasma_data(
 
 
 def initialize_forward_models(
-    plasma: Plasma, data: dict, marchuk=True, extrapolate="constant",  # None
+    plasma: Plasma,
+    data: dict,
+    interferometers: list,
+    marchuk=True,
+    extrapolate="constant",  # None
 ):
 
-    for diag in INTERFEROMETERS:
+    for diag in interferometers:
         plasma.forward_models[diag] = Interferometer(name=diag)
         plasma.forward_models[diag].set_los_transform(
             data[diag]["ne"].attrs["transform"]
@@ -448,6 +475,7 @@ def initialize_optimisations(
     diagnostic_ar="xrcs",
     quantities_ne=["ne"],
     quantities_te=[
+        # "int_k/int_w"
         "int_n3/int_tot"
     ],  # ["int_k/int_w", "int_n3/int_w", "int_n3/int_tot"]
     quantities_ti=["ti_w"],
@@ -496,7 +524,7 @@ def initialize_optimisations(
     }
 
 
-def assign_bckc(plasma: Plasma, t: float, bckc: dict):
+def assign_bckc(plasma: Plasma, t: float, bckc: dict, interferometers: list):
     """
     Map xrcs forward model results to desired bckc dictionary structure
 
@@ -504,7 +532,7 @@ def assign_bckc(plasma: Plasma, t: float, bckc: dict):
     """
 
     # Interferometers
-    for diagnostic in INTERFEROMETERS:
+    for diagnostic in interferometers:
         bckc_tmp, _ = plasma.forward_models[diagnostic].integrate_on_los(
             plasma.electron_density.sel(t=t), t=t,
         )
@@ -662,7 +690,9 @@ def simulate_new_interferometer(
         bckc["smmh2_jw"][quantity] = los_integral[quantity]
 
 
-def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
+def plot_results(
+    plasma: Plasma, data: dict, bckc: dict, raw_data: dict, interferometers: list
+):
 
     simulate_new_interferometer(plasma, data, bckc, name="smmh2")
     if not hasattr(plasma, "ion_dens_2d"):
@@ -673,7 +703,7 @@ def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
     # Plot comparison of raw data, binned data and back-calculated values
     plt.figure()
     colors = {"nirh1": "blue", "smmh1": "purple"}
-    for diag in INTERFEROMETERS:
+    for diag in interferometers:
         for quantity in opt["electron_density"]["quantities"]:
             raw_data[diag][quantity].plot(color=colors[diag], label=diag)
             data[diag][quantity].plot(color=colors[diag], marker="o")
@@ -705,7 +735,7 @@ def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
     t = plasma.t[4]
     levels = [0.1, 0.3, 0.5, 0.7, 0.95]
     plasma.equilibrium.rho.sel(t=t, method="nearest").plot.contour(levels=levels)
-    for diag in INTERFEROMETERS:
+    for diag in interferometers:
         plt.plot(
             plasma.forward_models[diag].los_transform.R,
             plasma.forward_models[diag].los_transform.z,
@@ -735,7 +765,7 @@ def plot_results(plasma: Plasma, data: dict, bckc: dict, raw_data: dict):
 
     # Plot rho along line of sight
     plt.figure()
-    for diag in INTERFEROMETERS:
+    for diag in interferometers:
         plt.plot(
             plasma.forward_models[diag].los_transform.rho.transpose(),
             color=colors[diag],
