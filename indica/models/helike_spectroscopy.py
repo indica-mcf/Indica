@@ -46,7 +46,7 @@ class HelikeSpectrometer(DiagnosticModel):
         element: str = "ar",
         window_len: int = 1030,
         window_lim: list = [0.394, 0.401],
-        window_vector=None,
+        window: np.array = None,
         window_masks: list = [],
     ):
         """
@@ -77,6 +77,8 @@ class HelikeSpectrometer(DiagnosticModel):
         self.full_run = full_run
         self.adf15 = ADF15
         self.pecs: dict
+        self.window = window
+        self.window_masks = window_masks
 
         if self.marchuk:
             marchuck_reader = MARCHUKReader(
@@ -87,16 +89,13 @@ class HelikeSpectrometer(DiagnosticModel):
         else:
             self.pecs = self._set_adas_pecs()
 
-        self.window_masks = window_masks
-        self.window_vector = window_vector
-        if self.window_vector is not None:
-            window = self.window_vector
-        else:
-            window = np.linspace(window_lim[0], window_lim[1], window_len)
-        mask = np.zeros(shape=window.shape)
-        if window_masks:
-            for mslice in window_masks:
-                mask[(window > mslice.start) & (window < mslice.stop)] = 1
+        if self.window is None:
+            self.window = np.linspace(window_lim[0], window_lim[1], window_len)
+
+        mask = np.zeros(shape=self.window.shape)
+        if self.window_masks:
+            for mslice in self.window_masks:
+                mask[(self.window > mslice.start) & (self.window < mslice.stop)] = 1
         else:
             mask[:] = 1
 
