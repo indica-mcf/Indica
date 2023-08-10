@@ -70,7 +70,6 @@ class BayesModels:
 
     def _build_bckc(self, params, **kwargs):
         """
-        TODO: consider how to handle when models have overlapping kwargs
         Parameters
         ----------
         params - dictionary which is updated by optimiser
@@ -82,14 +81,14 @@ class BayesModels:
         """
         self.bckc: dict = {}
         for model in self.diagnostic_models:
-            # removes "model.name_" from params and kwargs then passes them to model e.g. xrcs_background -> background
+            # removes "model.name." from params and kwargs then passes them to model e.g. xrcs.background -> background
             _nuisance_params = {
-                param_name.replace(model.name + "_", ""): param_value
+                param_name.replace(model.name + ".", ""): param_value
                 for param_name, param_value in params.items()
                 if model.name in param_name
             }
             _model_settings = {
-                kwarg_name.replace(model.name + "_", ""): kwarg_value
+                kwarg_name.replace(model.name + ".", ""): kwarg_value
                 for kwarg_name, kwarg_value in kwargs.items()
                 if model.name in kwarg_name
             }
@@ -248,14 +247,14 @@ class BayesModels:
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_posterior = ln_likelihood + ln_prior
 
-        kin_profs = {}
+        plasma_profiles = {}
         for profile_key in PROFILES:
             if hasattr(self.plasma, profile_key):
-                kin_profs[profile_key] = getattr(self.plasma, profile_key).sel(
+                plasma_profiles[profile_key] = getattr(self.plasma, profile_key).sel(
                     t=self.plasma.time_to_calculate
                 )
             else:
                 raise ValueError(f"plasma does not have attribute {profile_key}")
 
-        blob = deepcopy({**self.bckc, **kin_profs})
+        blob = deepcopy({**self.bckc, **plasma_profiles})
         return ln_posterior, blob
