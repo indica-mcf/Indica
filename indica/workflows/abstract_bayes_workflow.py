@@ -13,24 +13,21 @@ class AbstractBayesWorkflow(ABC):
     @abstractmethod
     def __init__(
         self,
+        pulse=None,
         phantoms=None,
         diagnostics=None,
         param_names=None,
         opt_quantity=None,
         priors=None,
     ):
+        self.pulse = pulse
         self.phantoms = phantoms
         self.diagnostics = diagnostics
         self.param_names = param_names
         self.opt_quantity = opt_quantity
         self.priors = priors
-
         self.read_data(self.diagnostics)
-        self.setup_plasma()
-        self.save_phantom_profiles()
         self.setup_models(self.diagnostics)
-        self.setup_opt_data(self.phantoms)
-        self.setup_optimiser()
 
     def read_test_data(self, diagnostic_transforms: dict):
         # Used with phantom data for purposes of tests
@@ -59,6 +56,7 @@ class AbstractBayesWorkflow(ABC):
         """
         self.plasma = None
         self.plasma.set_equilibrium(self.reader.equilibrium)
+        self.save_phantom_profiles()
 
     @abstractmethod
     def setup_models(self, diagnostics: list):

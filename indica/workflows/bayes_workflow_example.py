@@ -105,50 +105,22 @@ OPTIMISED_QUANTITY = [
 
 class BayesWorkflowExample(AbstractBayesWorkflow):
     def __init__(
-        self,
-        pulse: int = None,
-        pulse_to_write: bool = None,
-        run: str = "RUN01",
-        diagnostics: list = None,
-        param_names: list = None,
-        opt_quantity: list = None,
-        priors: dict = None,
-        profile_params: dict = None,
-        phantoms: bool = False,
-        model_kwargs: dict = {},
-        nwalkers: int = 50,
-        tstart: float = 0.02,
-        tend: float = 0.10,
-        dt: float = 0.01,
-        tsample: float = 0.06,
-        iterations: int = 100,
-        burn_frac: float = 0,
-        mds_write: bool = False,
-        plot: bool = True,
-        sample_high_density: bool = False,
+            self,
+            pulse: int = None,
+            diagnostics: list = None,
+            param_names: list = None,
+            opt_quantity: list = None,
+            priors: dict = None,
+            profile_params: dict = None,
+            phantoms: bool = False,
     ):
         self.pulse = pulse
-        self.pulse_to_write = pulse_to_write
-        self.run = run
         self.diagnostics = diagnostics
         self.param_names = param_names
         self.opt_quantity = opt_quantity
         self.priors = priors
         self.profile_params = profile_params
-        self.model_kwargs = model_kwargs
         self.phantoms = phantoms
-
-        self.tstart = tstart
-        self.tend = tend
-        self.dt = dt
-        self.tsample = tsample
-        self.nwalkers = nwalkers
-        self.iterations = iterations
-        self.burn_frac = burn_frac
-
-        self.mds_write = mds_write
-        self.plot = plot
-        self.sample_high_density = sample_high_density
 
         for attribute in [
             "param_names",
@@ -165,6 +137,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 "Set phantoms to True when running phantom plasma i.e. pulse=None"
             )
 
+        # TODO: Add some abstraction here
         if pulse is None:
             print("Running in test mode")
             self.read_test_data(
@@ -176,17 +149,19 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             )
         else:
             self.read_data(self.diagnostics)
-        self.setup_plasma()
-        self.save_phantom_profiles()
         self.setup_models(self.diagnostics)
-        self.setup_opt_data(phantoms=self.phantoms)
-        self.setup_optimiser(self.model_kwargs)
 
-    def setup_plasma(self):
+    def setup_plasma(self,
+                     tstart=0.02,
+                     tend=0.10,
+                     dt=0.005,
+                     tsample=0.050,
+                     ):
+        # TODO: move to plasma.py
         self.plasma = Plasma(
-            tstart=self.tstart,
-            tend=self.tend,
-            dt=self.dt,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
             main_ion="h",
             impurities=("ar", "c"),
             impurity_concentration=(
@@ -197,11 +172,12 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             n_rad=20,
         )
         self.plasma.time_to_calculate = self.plasma.t[
-            np.abs(self.tsample - self.plasma.t).argmin()
+            np.abs(tsample - self.plasma.t).argmin()
         ]
         self.plasma.set_equilibrium(self.equilibrium)
         self.plasma.update_profiles(self.profile_params)
         self.plasma.build_atomic_data(calc_power_loss=False)
+        self.save_phantom_profiles()
 
     def setup_models(self, diagnostics: list):
         self.models = {}
@@ -230,17 +206,17 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             elif diag == "xrcs":
                 los_transform = self.transforms[diag]
                 los_transform.set_equilibrium(self.plasma.equilibrium)
-                window_vector = None
+                window = None
                 if hasattr(self, "data"):
                     if diag in self.data.keys():
-                        window_vector = (
-                            self.data[diag]["spectra"].wavelength.values * 0.1
+                        window = (
+                                self.data[diag]["spectra"].wavelength.values * 0.1
                         )
 
                 model = HelikeSpectrometer(
                     name="xrcs",
                     window_masks=[slice(0.394, 0.396)],
-                    window_vector=window_vector,
+                    window=window,
                 )
                 model.set_los_transform(los_transform)
 
@@ -254,7 +230,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 model.set_transect_transform(transform)
             else:
                 raise ValueError(f"{diag} not found in setup_models")
-            model.plasma = self.plasma
+            # model.plasma = self.plasma TODO: add this to the models somewhere
             self.models[diag] = model
 
     def setup_opt_data(self, phantoms=False):
@@ -268,28 +244,28 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         if "smmh1" in self.diagnostics:
             opt_data["smmh1.ne"] = (
                 self.models["smmh1"]()
-                .pop("ne")
-                .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+                    .pop("ne")
+                    .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
         if "xrcs" in self.diagnostics:
             opt_data["xrcs.spectra"] = (
                 self.models["xrcs"]()
-                .pop("spectra")
-                .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+                    .pop("spectra")
+                    .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
             opt_data["xrcs.spectra"]["error"] = np.sqrt(opt_data["xrcs.spectra"])
         if "cxff_pi" in self.diagnostics:
             cxrs_data = (
                 self.models["cxff_pi"]()
-                .pop("ti")
-                .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+                    .pop("ti")
+                    .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
             opt_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2, drop=True)
         if "efit" in self.diagnostics:
             opt_data["efit.wp"] = (
                 self.models["efit"]()
-                .pop("wp")
-                .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
+                    .pop("wp")
+                    .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
 
         if noise:
@@ -315,7 +291,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         opt_data = flatdict.FlatDict(self.data, ".")
         if "xrcs" in self.diagnostics:
             opt_data["xrcs.spectra"]["wavelength"] = (
-                opt_data["xrcs.spectra"].wavelength * 0.1
+                    opt_data["xrcs.spectra"].wavelength * 0.1
             )
             background = opt_data["xrcs.spectra"].where(
                 (opt_data["xrcs.spectra"].wavelength < 0.392)
@@ -335,7 +311,19 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             )
         return opt_data
 
-    def setup_optimiser(self, model_kwargs):
+    def setup_optimiser(self,
+                        model_kwargs,
+                        iterations=200,
+                        nwalkers=50,
+                        burn_frac=0.10,
+                        sample_high_density=False,
+                        ):
+        self.model_kwargs = model_kwargs
+        self.iterations = iterations
+        self.nwalkers = nwalkers
+        self.burn_frac = burn_frac
+        self.sample_high_density = sample_high_density
+
         self.bayesmodel = BayesModels(
             plasma=self.plasma,
             data=self.opt_data,
@@ -369,11 +357,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             )
         return start_points
 
-    def __call__(self, filepath="./results/test/", **kwargs):
-        if self.mds_write:
+    def __call__(self, filepath="./results/test/", run=None, mds_write=False, pulse_to_write=None, plot=False,
+                 **kwargs):
+        if mds_write:
             # check_analysis_run(self.pulse, self.run)
             self.node_structure = create_nodes(
-                pulse_to_write=self.pulse_to_write,
+                pulse_to_write=pulse_to_write,
+                run=run,
                 diagnostic_quantities=self.opt_quantity,
                 mode="NEW",
             )
@@ -381,11 +371,11 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.run_sampler()
         self.save_pickle(filepath=filepath)
 
-        if self.plot:  # currently requires result with DataArrays
+        if plot:  # currently requires result with DataArrays
             plot_bayes_result(self.result, filepath)
 
         self.result = self.dict_of_dataarray_to_numpy(self.result)
-        if self.mds_write:
+        if mds_write:
             write_nodes(self.pulse_to_write, self.node_structure, self.result)
 
         return self.result
@@ -394,26 +384,34 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 if __name__ == "__main__":
     run = BayesWorkflowExample(
         pulse=None,
-        pulse_to_write=23000101,
-        run="RUN01",
+        phantoms=True,
         diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
         opt_quantity=OPTIMISED_QUANTITY,
         param_names=OPTIMISED_PARAMS,
         profile_params=DEFAULT_PROFILE_PARAMS,
         priors=DEFAULT_PRIORS,
-        model_kwargs={
-            "xrcs_moment_analysis": False,
-        },
-        phantoms=True,
+    )
+
+    run.setup_plasma(
+         tstart=0.02,
+         tend=0.10,
+         dt=0.005,
+         tsample=0.060,
+    )
+    run.setup_opt_data(phantoms=run.phantoms)
+    run.setup_optimiser(
         iterations=200,
         nwalkers=50,
         burn_frac=0.10,
-        dt=0.005,
-        tsample=0.060,
-        mds_write=True,
-        plot=True,
         sample_high_density=False,
+        model_kwargs={
+            "xrcs_moment_analysis": False,
+        }
     )
     results = run(
         filepath="./results/test/",
+        pulse_to_write=23000101,
+        run="RUN01",
+        mds_write=True,
+        plot=True,
     )
