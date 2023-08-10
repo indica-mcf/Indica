@@ -3,10 +3,10 @@ from copy import deepcopy
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
-from scipy import constants
 import xarray as xr
 from xarray import DataArray
 
+from indica.physics import ev_doppler
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.datatypes import ELEMENTS
 from indica.models.abstractdiagnostic import DiagnosticModel
@@ -90,12 +90,12 @@ class HelikeSpectrometer(DiagnosticModel):
             self.pecs = self._set_adas_pecs()
 
         if self.window is None:
-            self.window = np.linspace(window_lim[0], window_lim[1], window_len)
+            window = np.linspace(window_lim[0], window_lim[1], window_len)
 
-        mask = np.zeros(shape=self.window.shape)
+        mask = np.zeros(shape=window.shape)
         if self.window_masks:
             for mslice in self.window_masks:
-                mask[(self.window > mslice.start) & (self.window < mslice.stop)] = 1
+                mask[(window > mslice.start) & (window < mslice.stop)] = 1
         else:
             mask[:] = 1
 
@@ -492,13 +492,8 @@ class HelikeSpectrometer(DiagnosticModel):
 
         """
         element = self.pecs["element"]
-        _spectra = doppler_broaden(
-            self.window[self.window > 0].wavelength,
-            self.intensity,
-            self.intensity.wavelength,
-            self.ion_mass,
-            self.Ti.sel(element=element),
-        )
+        _sigma = ev_doppler(self.Ti.sel(element=element), self.ion_mass) * self.window.wavelength
+        _spectra = gaussian(self.window[self.window > 0].wavelength, self.intensity, self.intensity.wavelength, _sigma)
         _spectra = _spectra.sum("line_name")
         # extend spectra to same coords as self.window.wavelength with NaNs
         # to maintain same shape as mds data
@@ -697,18 +692,9 @@ class HelikeSpectrometer(DiagnosticModel):
         return self.bckc
 
 
-# fmt: off
-def doppler_broaden(x, integral, center, ion_mass, ion_temp):
-    mass = (ion_mass * constants.proton_mass * constants.c ** 2)
-    sigma = np.sqrt(constants.e / mass * ion_temp) * center
-    gaussian_broadened = gaussian(x, integral, center, sigma, )
-    return gaussian_broadened
-
-
 def gaussian(x, integral, center, sigma):
     return (integral / (sigma * np.sqrt(2 * np.pi))
             * np.exp(-((x - center) ** 2) / (2 * sigma ** 2)))
-# fmt: on
 
 
 def select_transition(adf15_data, transition: str, wavelength: float):
