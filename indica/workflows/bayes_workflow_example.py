@@ -230,7 +230,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 model.set_transect_transform(transform)
             else:
                 raise ValueError(f"{diag} not found in setup_models")
-            # model.plasma = self.plasma TODO: add this to the models somewhere
+            model.plasma = self.plasma #TODO: add this to the models somewhere
             self.models[diag] = model
 
     def setup_opt_data(self, phantoms=False):
@@ -390,6 +390,9 @@ if __name__ == "__main__":
         param_names=OPTIMISED_PARAMS,
         profile_params=DEFAULT_PROFILE_PARAMS,
         priors=DEFAULT_PRIORS,
+        tstart=0.02,
+        tend=0.10,
+        dt=0.005,
     )
 
     run.setup_plasma(

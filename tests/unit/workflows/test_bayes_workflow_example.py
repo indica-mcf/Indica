@@ -21,30 +21,41 @@ Mock reader for testing experimental data methods
 
 class TestBayesWorkflowExample:
     def setup_class(self):
-        self.default_settings = dict(
+        self.init_settings = dict(
             pulse=None,
-            pulse_to_write=23000111,
-            run="RUN01",
+            phantoms = True,
             diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
             opt_quantity=OPTIMISED_QUANTITY,
             param_names=OPTIMISED_PARAMS,
             profile_params=DEFAULT_PROFILE_PARAMS,
             priors=DEFAULT_PRIORS,
-            model_kwargs={
-                "xrcs_moment_analysis": False,
-            },
-            phantoms=True,
-            iterations=1,
-            nwalkers=20,
-            burn_frac=0.10,
+            tstart=0.02,
+            tend=0.10,
             dt=0.005,
-            tsample=0.060,
-            mds_write=False,
-            plot=False,
-            sample_high_density=False,
+        )
+        self.plasma_settings = dict(
+
+         tsample=0.060,)
+
+
+        self.opt_settings = dict(
+            model_kwargs = {
+                           "xrcs_moment_analysis": False,
+                       },
+        iterations = 1,
+        nwalkers = 20,
+        burn_frac = 0.10,
+        sample_high_density = False,
         )
 
-        self.untouched_workflow = BayesWorkflowExample(**self.default_settings)
+        self.call_settings = dict(
+            filepath=None,
+            pulse_to_write=23000101,
+            run="RUN01",
+            mds_write = False,
+            plot = False,)
+
+        self.untouched_workflow = BayesWorkflowExample(**self.init_settings)
         self.workflow = copy.deepcopy(self.untouched_workflow)
 
     def setup_method(self):
@@ -55,13 +66,10 @@ class TestBayesWorkflowExample:
 
     def test_workflow_initializes(self):
         attributes_to_check = [
-            "plasma",
-            "phantom_profiles",
             "data",
             "reader",
-            "opt_data",
             "models",
-            "bayesmodel",
+            "equilibrium"
         ]
         for attribute in attributes_to_check:
             if not hasattr(self.workflow, attribute):
@@ -84,9 +92,11 @@ class TestBayesWorkflowExample:
     #     assert all(diag_name in self.workflow.reader.keys() for diag_name in self.workflow.diagnostics)
 
     def test_plasma_has_equilibrium(self):
+        self.workflow.setup_plasma()
         assert hasattr(self.workflow.plasma, "equilibrium")
 
     def test_phantom_profiles_are_not_mutatable(self):
+        self.workflow.setup_plasma()
         phantoms = copy.deepcopy(self.workflow.phantom_profiles)
         self.workflow.plasma.electron_temperature += 1
         assert phantoms is not self.workflow.phantom_profiles
@@ -126,6 +136,9 @@ class TestBayesWorkflowExample:
         assert True
 
     def test_worklow_has_results_after_run(self):
+        self.workflow.setup_plasma()
+        self.workflow.setup_opt_data(self.workflow.phantoms)
+        self.workflow.setup_optimiser()
         self.workflow.run_sampler()
         if not hasattr(self.workflow, "result"):
             raise ValueError(f"missing result in workflow object")
