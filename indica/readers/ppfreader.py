@@ -94,7 +94,8 @@ class PPFReader(DataReader):
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
         "ks3": "get_bremsstrahlung_spectroscopy",
-        "cwup": "get_vuv_spectroscopy",
+        "cwuv": "get_vuv_w_analyser",
+        "cwup": "get_vuv_w_analyser",
         "sxr": "get_radiation",
         "bolo": "get_radiation",
         "kg10": "get_thomson_scattering",
@@ -572,7 +573,7 @@ class PPFReader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
-    def _get_vuv_spectroscopy(
+    def _get_vuv_w_analyser(
         self,
         uid: str,
         instrument: str,

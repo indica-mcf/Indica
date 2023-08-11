@@ -20,7 +20,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "zefh": ("effective_charge", "plasma"),
         "zefv": ("effective_charge", "plasma"),
     },
-    "get_vuv_spectroscopy": {
+    "get_vuv_w_analyser": {
         "c_w": ("concentration", "tungsten"),
         "n_w": ("density", "tungsten"),
     },

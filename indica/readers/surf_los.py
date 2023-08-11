@@ -27,6 +27,8 @@ INSTRUMENT_MAP: DefaultDict[str, Tuple[Optional[str], re.Pattern]] = defaultdict
         "bolo/kb5v": ("Bolometry/KB5", re.compile(r"KB5V \d+")),
         "cwup/c_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
         "cwup/n_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
+        "cwuv/c_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
+        "cwuv/n_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
     },
 )
 

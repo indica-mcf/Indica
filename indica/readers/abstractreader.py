@@ -1215,7 +1215,7 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def get_vuv_spectroscopy(
+    def get_vuv_w_analyser(
         self,
         uid: str,
         instrument: str,
@@ -1223,7 +1223,7 @@ class DataReader(BaseIO):
         quantities: Set[str],
     ) -> Dict[str, DataArray]:
         available_quantities = self.available_quantities(instrument)
-        database_results = self._get_vuv_spectroscopy(
+        database_results = self._get_vuv_w_analyser(
             uid, instrument, revision, quantities
         )
         if len(database_results) == 0:
@@ -1306,7 +1306,7 @@ class DataReader(BaseIO):
         # self._warn_less_than_zero(instrument, data)
         return data
 
-    def _get_vuv_spectroscopy(
+    def _get_vuv_w_analyser(
         self,
         uid: str,
         instrument: str,
@@ -1314,7 +1314,7 @@ class DataReader(BaseIO):
         quantities: Set[str],
     ) -> Dict[str, Any]:
         raise NotImplementedError(
-            "{} does not implement a '_get_vuv_spectroscopy' "
+            "{} does not implement a '_get_vuv_w_analyser' "
             "method.".format(self.__class__.__name__)
         )
 
