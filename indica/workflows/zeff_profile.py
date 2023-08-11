@@ -35,8 +35,8 @@ N_RAD = 10
 CM, COLS = set_plot_colors()
 
 PRIORS = {
-    "Ne_prof.y0": get_uniform(1e19, 8e19),
-    "Ne_prof.y1": get_uniform(1e18, 5e18),
+    "Ne_prof.y0": get_uniform(1e19, 1e20),
+    "Ne_prof.y1": get_uniform(1e18, 5e19),
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where(((x1 > x2 * 2)), 1, 0),
     "Ne_prof.wped": get_uniform(1, 5),
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
@@ -48,7 +48,7 @@ PRIORS = {
     "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
     "Nimp_prof.wped": get_uniform(1, 5),
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 >= x2), 1, 0),
-    "Nimp_prof.y1/Nimp_prof.yend": lambda x1, x2: np.where((x1 == x2), 1, 0),
+    "Nimp_prof.y1/Nimp_prof.yend": lambda x1, x2: np.where((x1 >= x2), 1, 0),
     "Te_prof.y0": get_uniform(1000, 6000),
     "Te_prof.peaking": get_uniform(1, 4),
     "Ti_prof.y0": get_uniform(2000, 10000),
