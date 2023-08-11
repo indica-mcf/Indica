@@ -1236,7 +1236,7 @@ class DataReader(BaseIO):
         for quantity in quantities:
             if quantity not in available_quantities:
                 raise ValueError(
-                    "{} can not read VUV data for quantity {}".format(
+                    "{} can not read VUV W analyser data for quantity {}".format(
                         self.__class__.__name__, quantity
                     )
                 )
@@ -1258,9 +1258,6 @@ class DataReader(BaseIO):
             coords[transform.x1_name] = 0
             meta = {
                 "datatype": available_quantities[quantity],
-                # "error": DataArray(
-                #     database_results[quantity + "_error"], coords, dims
-                # ).indica.inclusive_timeslice(self._tstart, self._tend),
                 "transform": transform,
             }
             quant_data = DataArray(
@@ -1273,37 +1270,21 @@ class DataReader(BaseIO):
                 quant_data = quant_data.coarsen(
                     t=downsample_ratio, boundary="trim", keep_attrs=True
                 ).mean()
-                quant_data.attrs["error"] = np.sqrt(
-                    (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
-                    .mean()
-                    / downsample_ratio
-                )
+
             quant_data.name = instrument + "_" + quantity
-            # if len(database_results[quantity + "_xstart"]) > 1:
-            #     drop = self._select_channels(
-            #         "bremsstrahlung",
-            #         uid,
-            #         instrument,
-            #         quantity,
-            #         quant_data,
-            #         transform.x1_name,
-            #     )
-            # else:
-            #     drop = []
             quant_data.attrs["partial_provenance"] = self.create_provenance(
-                "vuv_spectroscopy",
+                "vuv_w_analyser",
                 uid,
                 instrument,
                 _revision,
                 quantity,
                 database_results[quantity + "_records"],
-                [],  # drop,
+                [],
             )
             quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-            data[quantity] = quant_data  # .indica.ignore_data(drop, transform.x1_name)
+            data[quantity] = quant_data
 
-        # self._warn_less_than_zero(instrument, data)
+        self._warn_less_than_zero(instrument, data)
         return data
 
     def _get_vuv_w_analyser(
