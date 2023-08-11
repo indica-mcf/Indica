@@ -24,3 +24,4 @@ indica/git_version
 emissivity
 emissivity.hpp
 bayesian_samples.nc
+runs/

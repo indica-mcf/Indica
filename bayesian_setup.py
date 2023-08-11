@@ -20,7 +20,7 @@ import numpy as np
 from indica.converters import FluxSurfaceCoordinates
 from indica.equilibrium import Equilibrium
 from indica.readers import PPFReader
-from indica.readers.selectors import use_cached_ignore_channels
+from indica.readers.selectors import choose_on_plot
 from indica.utilities import coord_array
 
 # config
@@ -32,7 +32,7 @@ N_rho = 7
 N_z = 25
 N_los_points = 65
 
-elements = ["W", "D"]
+elements = ["W"]
 
 server = "https://sal.jet.uk"
 
@@ -53,7 +53,7 @@ reader = PPFReader(
     tstart=float(t.isel(t=0)),
     tend=float(t.isel(t=-1)),
     server=server,
-    selector=use_cached_ignore_channels,
+    selector=choose_on_plot,
 )
 reader.authenticate("kcollie", getpass.getpass())
 

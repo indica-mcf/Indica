@@ -2,9 +2,7 @@ import matplotlib.pylab as plt
 import numpy as np
 
 
-def plot_jet_wall(
-    filewall="/home/msertoli/work/datapool/wall_coords_jet.txt", divertor=True
-):
+def plot_jet_wall(filewall="snippets/wall_coords_jet.txt", divertor=True):
     """
     Plot JET first wall poloidal cross-section
     """

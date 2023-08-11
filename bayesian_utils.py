@@ -197,6 +197,7 @@ def calc_R_square_diff(
         {"transform": binned_camera.attrs["transform"]},
     )
 
+    # x1_name = camera.attrs["transform"].x1_name
     x2_name = camera.attrs["transform"].x2_name
     dl = float(
         camera.attrs["transform"].distance(
@@ -244,6 +245,7 @@ def calc_R_square_diff(
         camera.attrs["transform"], flux_coords, times=t
     )
     impact_param, _ = camera.indica.convert_coords(ip_coords)
+    # weights = camera.camera.mean(dim=x1_name) * (0.02 + 0.18 * np.abs(impact_param))
     weights = camera.camera * (0.02 + 0.18 * np.abs(impact_param))
 
     return (

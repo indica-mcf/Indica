@@ -21,7 +21,7 @@ bolo_los_data = pre_computed["bolo_los_data"]
 draws = xr.open_dataset("bayesian_samples.nc")
 
 # plot the positive midplane density and asymmetry parameter
-fig, (ax0, ax1) = plt.subplots(2, 1, sharex=True)
+profiles_fig, (ax0, ax1) = plt.subplots(2, 1, sharex=True)
 plt.title("Full sampling Results")
 
 ax0.errorbar(
@@ -44,7 +44,7 @@ plt.xlabel("rho")
 ax0.grid(True)
 ax1.grid(True)
 
-plt.show()
+plt.savefig("profiles.pdf")
 
 # Pinch the equilibrium for impact parameters
 # TODO: find a sensible way to do this
@@ -56,7 +56,7 @@ ip_coords = ImpactParameterCoordinates(
     los_coords, flux_coords, times=pre_computed["sxr_los_data"].los_values.t
 )
 
-plt.figure()
+sxr_fig = plt.figure()
 plt.errorbar(
     ip_coords.rho_min.isel(t=t_index),
     pre_computed["sxr_los_data"].los_values.isel(t=t_index),
@@ -70,11 +70,12 @@ plt.errorbar(
     yerr=draws.predicted_sxr_los_vals.std(dim=("chain", "draw")),
     label="Back-fit",
 )
+plt.xlim(-1, 1)
 plt.grid()
 plt.legend()
 plt.xlabel("Rho min")
 plt.title("SXR Profile Reconstruction")
-plt.show()
+plt.savefig("sxr_reconstruction.pdf")
 
 los_coords = pre_computed["bolo_los_data"].los_values.attrs["transform"]
 equilibrium = los_coords.equilibrium
@@ -95,7 +96,7 @@ all_coords = set(ip_coords.rho_min.isel(t=t_index).bolo_kb5v_coords.data)
 selected_coords = list(all_coords - dropped_coords)
 rho_min = ip_coords.rho_min.isel(t=t_index).sel(bolo_kb5v_coords=selected_coords)
 
-plt.figure()
+bolo_fig = plt.figure()
 plt.errorbar(
     rho_min,
     pre_computed["bolo_los_data"].los_values.isel(t=t_index),
@@ -103,11 +104,15 @@ plt.errorbar(
     fmt=".",
     label="Data",
 )
-plt.plot(
-    rho_min, draws.predicted_bolo_los_vals.mean(dim=("chain", "draw")), label="Back-fit"
+plt.errorbar(
+    rho_min,
+    draws.predicted_bolo_los_vals.mean(dim=("chain", "draw")),
+    yerr=draws.predicted_bolo_los_vals.std(dim=("chain", "draw")),
+    label="Back-fit",
 )
+plt.xlim(-1, 1)
 plt.grid()
 plt.legend()
 plt.xlabel("Rho min")
 plt.title("BOLO Profile Reconstruction")
-plt.show()
+plt.savefig("bolo_reconstruction.pdf")
