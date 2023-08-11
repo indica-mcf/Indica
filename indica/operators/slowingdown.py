@@ -19,7 +19,7 @@ def coulomb_log(ma, qa, va, mb, qb, nb, Tb):
     nb: Background species density (1/m3)
     Tb: Background species temperature (1/m3)
     """
-    debyeLength = np.sqrt(epsilon0 / np.sum(nb * qb * qb / Tb))
+    debyeLength = np.sqrt(epsilon0/np.sum(nb*qb*qb/Tb))
     vbar = va * va + 2 * Tb / mb
     mr = ma * mb / (ma + mb)
     bcl = np.abs(qa * qb / (4 * np.pi * epsilon0 * mr * vbar))
@@ -29,14 +29,13 @@ def coulomb_log(ma, qa, va, mb, qb, nb, Tb):
 
     for i in range(len(clog)):
         if bcl[i] > bqm[i]:
-            clog[i] = np.log(debyeLength / bcl[i])
+            clog[i] = np.log( debyeLength / bcl[i])
         else:
-            clog[i] = np.log(debyeLength / bqm[i])
+            clog[i] = np.log( debyeLength / bqm[i])
 
     return clog
 
-
-def slowingdown(ma, qa, Ea, mb, qb, nb, Tb, Nmc=10, dt=1):
+def slowingdown(ma, qa, Ea, mb, qb, nb, Tb, Nmc=10, dt=1e-3):
     """
     Calculate slowing-down for a fast particle. Collision operator adopted from 
     Hirvijoki et al 2014 CPC.
@@ -65,37 +64,33 @@ def slowingdown(ma, qa, Ea, mb, qb, nb, Tb, Nmc=10, dt=1):
 
         while va > np.sqrt(2 * Tb / ma):
             t += dt
-            mu0 = (
-                erf(va / vb) - 2 * va / vb * np.exp(-va / vb * va / vb) / np.sqrt(np.pi)
-            ) / (va / vb * va / vb)
-            mu1 = erf(va / vb) - 0.5 * mu0
+            mu0 = (erf(va/vb) - 2*va/vb*np.exp(-va/vb*va/vb) / np.sqrt(np.pi)) / (va/vb*va/vb)
+            mu1 = erf(va/vb) - 0.5 * mu0
             clog = coulomb_log(ma, qa, va, mb, qb, nb, Tb)
             Cb = nb * qa * qa * qb * qb * clog / (4 * np.pi * epsilon0 * epsilon0)
-            F = np.sum(-(1 / mb + 1 / ma) * Cb * mu0 / (ma * vb * vb))
+            F = np.sum(-(1/mb + 1/ma) * Cb * mu0 / (ma * vb * vb))
             Dpara = np.sum(Cb * mu0 / (2 * ma * ma * va))
             Dperp = np.sum(Cb * mu1 / (2 * ma * ma * va))
 
             dW = np.random.normal()
 
             vav = np.array([va, 0, 0])
-            vav[0] += F * dt + np.sqrt(2 * Dpara * dt) * dW
-            vav[1] += np.sqrt(2 * Dperp * dt) * dW
-            vav[2] += np.sqrt(2 * Dperp * dt) * dW
+            vav[0] += F*dt + np.sqrt(2*Dpara*dt) * dW
+            vav[1] += np.sqrt(2*Dperp*dt) * dW
+            vav[2] += np.sqrt(2*Dperp*dt) * dW
             va = np.linalg.norm(vav)
 
-            it = np.argmin(np.abs(tv - t))
+            it = np.argmin(np.abs(tv-t))
 
             nfast[it] += dt
             pressure[it] += ma * va * va / 3 * dt
 
-    return nfast / Nmc, pressure / Nmc
+    return nfast/Nmc, pressure/Nmc
 
 
-def simulate_slowingdown(
-    ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10
-):
+def simulate_slowingdown(ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10):
     """
-    Calculate steady-state (time independent) fast ion density and pressure. Assumes zero orbit
+    Calculate steady-state fast ion density and pressure. Assumes zero orbit
     width and no FLR.
 
     ne: Background electron density profile (1/m3) - profile on rho
@@ -118,25 +113,16 @@ def simulate_slowingdown(
 
     for i in range(N):
         for j in range(3):
-            nfast_frac, pressure_frac = slowingdown(
-                mass_fast,
-                charge_fast,
-                E_fast[j] * 1.602e-19,
-                np.array([9.109e-31, mass]),
-                np.array([-1.602e-19, charge]),
-                ne[i],
-                Te[i] * 1.602e-19,
-                Nmc,
-            )
-            nfast[i] += source_fast[i, j] * nfast_frac
-            pressure[i] += source_fast[i, j] * pressure_frac
+            nfast_frac, pressure_frac = slowingdown(mass_fast, charge_fast, E_fast[j]*1.602e-19, np.array([9.109e-31,mass]), np.array([-1.602e-19,charge]), ne[i], Te[i]*1.602e-19,Nmc)
+            nfast[i] += source_fast[i,j] * np.sum(nfast_frac)
+            pressure[i] += source_fast[i,j] * np.sum(pressure_frac)
 
-    return nfast, pressure
+    out = {"nfast": nfast, "pressure": pressure}
+
+    return out
 
 
-def simulate_slowingdown_timedep(
-    tv, ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10
-):
+def simulate_slowingdown_timedep(tv, ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10):
     """
     Calculate steady-state fast ion density and pressure. Assumes zero orbit
     width and no FLR.
@@ -154,10 +140,10 @@ def simulate_slowingdown_timedep(
     nfast: Fast ion density profile (1/m3)
     pressure: Fast ion pressure profile (Pa)
     """
-    N = len(ne[0, :])
+    N = len(ne[0,:])
     Nt = len(tv)
 
-    dt = tv[1] - tv[0]
+    dt = tv[1]-tv[0]
 
     nfast = np.zeros((Nt, N))
     pressure = np.zeros((Nt, N))
@@ -165,29 +151,17 @@ def simulate_slowingdown_timedep(
     for it in range(Nt):
         for i in range(N):
             for j in range(3):
-                nfast_frac, pressure_frac = slowingdown(
-                    mass_fast,
-                    charge_fast,
-                    E_fast[j] * 1.602e-19,
-                    np.array([9.109e-31, mass]),
-                    np.array([-1.602e-19, charge]),
-                    ne[it, i],
-                    Te[it, i] * 1.602e-19,
-                    Nmc,
-                    dt,
-                )
+                nfast_frac, pressure_frac = slowingdown(mass_fast, charge_fast, E_fast[j]*1.602e-19, np.array([9.109e-31,mass]), np.array([-1.602e-19,charge]), ne[it,i], Te[it,i]*1.602e-19,Nmc,dt)
 
-                nfast_frac = nfast_frac[0 : Nt - it]
-                nfast[it : it + len(nfast_frac), i] += (
-                    source_fast[it, i, j] * nfast_frac
-                )
+                nfast_frac = nfast_frac[0:Nt-it]
+                nfast[it:it+len(nfast_frac),i] += source_fast[it,i,j] * nfast_frac
 
-                pressure_frac = pressure_frac[0 : Nt - it]
-                pressure[it : it + len(pressure_frac), i] += (
-                    source_fast[it, i, j] * pressure_frac
-                )
+                pressure_frac = pressure_frac[0:Nt-it]
+                pressure[it:it+len(pressure_frac),i] += source_fast[it,i,j] * pressure_frac
 
-    return nfast, pressure
+    out = {"nfast": nfast, "pressure": pressure}
+
+    return out
 
 
 def suzuki(E, ne, Te, Anum):
@@ -199,91 +173,83 @@ def suzuki(E, ne, Te, Anum):
     Te: Electron temperature (eV)
     """
     A = np.array(
-        [
-            [
-                -52.9,
-                -1.36,
-                0.0719,
-                0.0137,
-                0.454,
-                0.403,
-                -0.22,
-                0.0666,
-                -0.0677,
-                -0.00148,
-            ],
-            [
-                -67.9,
-                -1.22,
-                0.0814,
-                0.0139,
-                0.454,
-                0.465,
-                -0.273,
-                0.0751,
-                -0.063,
-                -0.000508,
-            ],
-            [
-                -74.2,
-                -1.18,
-                0.0843,
-                0.0139,
-                0.453,
-                0.491,
-                -0.294,
-                0.0788,
-                -0.0612,
-                -0.000185,
-            ],
-        ]
-    )
+        [[-52.9, -1.36, 0.0719, 0.0137, 0.454, 0.403, -0.22, 0.0666, -0.0677,
+          -0.00148],
+        [-67.9, -1.22, 0.0814, 0.0139, 0.454, 0.465, -0.273, 0.0751, -0.063,
+         -0.000508],
+        [-74.2, -1.18, 0.0843, 0.0139, 0.453, 0.491, -0.294, 0.0788, -0.0612,
+         -0.000185]]
+        )
 
-    sigmav = (
-        ne
-        * A[Anum - 1, 0]
-        * 1.0e-16
-        / E
-        * (1 + A[Anum - 1, 1] * np.log(E) + A[Anum - 1, 2] * np.log(E) * np.log(E))
-        * (
-            1
-            + (1 - np.exp(-A[Anum - 1, 3] * ne * 1e-19)) ** A[Anum - 1, 4]
-            * (
-                A[Anum - 1, 5]
-                + A[Anum - 1, 6] * np.log(E)
-                + A[Anum - 1, 7] * np.log(E) * np.log(E)
-            )
-        )
-        * (
-            1
-            + A[Anum - 1, 8] * np.log(Te * 1e-3)
-            + A[Anum - 1, 9] * np.log(Te * 1e-3) * np.log(Te * 1e-3)
-        )
-    ) / ne
+    sigmav = (ne * A[Anum-1,0] * 1.e-16 / E
+                * (1 + A[Anum-1,1]*np.log(E) + A[Anum-1,2]*np.log(E)*np.log(E))
+                * (1 + (1 - np.exp(-A[Anum-1,3]*ne*1e-19)) ** A[Anum-1,4]
+                * (A[Anum-1,5] + A[Anum-1,6]*np.log(E) + A[Anum-1,7]*np.log(E)*np.log(E)))
+                * (1 + A[Anum-1,8]*np.log(Te*1e-3) + A[Anum-1,9]*np.log(Te*1e-3)*np.log(Te*1e-3))) / ne
 
     return sigmav
 
 
-def simulate_source(
-    rhov, ne, Te, Anum, Rv, zv, rho2d, vol, source, direction, energy_per_anum
-):
+def simulate_finite_source(rhov, ne, Te, Anum, Rv, zv, rho2d, vol, source, direction, energy, Anum_fast, power, width, n=5):
     """
-    rhov - profiles rho values
-    ne (m**-3) - profiles
-    Te (eV) - profiles
-    Anum - mass number main ion
-    Rv - rho2d major radius grid
-    zv - rho2d z grid
-    rho2d - equilibrium rho 2D (R, z)
-    vol (m**3) - equilibrium_data["vjac"] * dpsin, not cumulative sum!
-    source (m) - position of the source in (x, y, z)
-    direction (m) - position of the source in (x, y, z)
-    energy_per_anum (keV) - 1 energy only, call this three times for each energy
+    Calculate fast ion source from beam ionisation.
 
-    Returns
-    -------
+    rhov: Rho axis for profiles
+    ne: Background electron density profile (1/m3)
+    Te: Background electron temperature profile (eV)
+    Anum: Background species mass number
+    Rv: R axis for 2d rho map (m)
+    zv: z axis for 2d rho map (m)
+    rho2d: 2d (R,z) rho map
+    vol: differential volume profile (m3)
+    source: beam source location (x,y,z) (m)
+    direction: beam direction (dx,dy,dz) unit vector
+    energy: Neutral energy (eV)
+    Anum_fast: Beam mass number
+    power: Beam power (W)
+    width: Width of circular beam (m)
+    n: number of MC pencil beams
 
+    Returns:
+    source_fast: Fast ion source profile (1/m3/s)
     """
+    source_fast = np.zeros(len(rhov))
+
+    dirz = np.array([0, 0, 1])
+    dirh = np.cross(direction, dirz)
+
+    for i in range(n):
+        source_shift = (np.random.rand()*width - width/2)*dirh + (np.random.rand()*width - width/2)*dirz
+        source_temp = simulate_source(rhov, ne, Te, Anum, Rv, zv, rho2d, vol, source + source_shift, direction, energy, Anum_fast, power)
+        source_fast += source_temp
+#        attenuation = attenuation_temp
+
+    return source_fast/n
+
+
+def simulate_source(rhov, ne, Te, Anum, Rv, zv, rho2d, vol, source, direction, energy, Anum_fast, power):
+    """
+    Calculate fast ion source from beam ionisation.
+
+    rhov: Rho axis for profiles
+    ne: Background electron density profile (1/m3)
+    Te: Background electron temperature profile (eV)
+    Anum: Background species mass number
+    Rv: R axis for 2d rho map (m)
+    zv: z axis for 2d rho map (m)
+    rho2d: 2d (R,z) rho map
+    vol: differential volume profile (m3)
+    source: beam source location (x,y,z) (m)
+    direction: beam direction (dx,dy,dz) unit vector
+    energy: Neutral energy (eV)
+    Anum_fast: Beam mass number
+    power: Beam power (W)
+
+    Returns:
+    source_fast: Fast ion source profile (1/m3/s)
+    """
+    energy_per_anum = energy/1e3 / Anum_fast
+
     ds = 0.001
     s = 0
     x = source
@@ -292,26 +258,39 @@ def simulate_source(
     # step until in plasma
     while rho > 1:
         x += ds * direction
+        s += ds
         rho = evaluate_rho(x, Rv, zv, rho2d)
 
     source_fast = np.zeros(len(ne))
     weight = 1
 
-    attenuation = []
+    attenuation=[]
 
     while rho <= 1:
         x += ds * direction
         s += ds
         rho = evaluate_rho(x, Rv, zv, rho2d)
-        irho = np.argmin(np.abs(rho - rhov))
-        rate = ne[irho] * 1e-4 * suzuki(energy_per_anum, ne[irho], Te[irho], Anum)
-        source_fast[irho] += weight * rate * ds
-        weight -= weight * rate * ds
-        attenuation.append([s, weight])
+        irho = np.argmin(np.abs(rho-rhov))
+        ne_x = np.interp(rho,rhov,ne)
+        Te_x = np.interp(rho,rhov,Te)
+        rate = ne_x * 1e-4 * suzuki(energy_per_anum, ne_x, Te_x, Anum)
+        source_fast[irho] += weight*rate*ds
+        weight-=weight*rate*ds
+        attenuation.append([s,weight])
 
-    return source_fast / vol, np.array(attenuation)
+    source_fast *= power / (energy*1.602e-19)
+
+    return source_fast/vol
 
 
 def evaluate_rho(x, Rv, zv, rho2d):
     frho = interp.interp2d(Rv, zv, rho2d, kind="cubic")
-    return frho(np.sqrt(x[0] ** 2 + x[1] ** 2), x[2])[0]
+    return frho(np.sqrt(x[0]**2 + x[1]**2), x[2])[0]
+
+
+def parabolic_plasma(rhov, neave, T0, Sn, ST):
+    ne = 0.1e19 + (3e19 - 0.1e19) * (1 - rhov**2)**Sn
+    ne = ne * neave / np.trapz(ne, rhov)/(rhov[-1] - rhov[0])
+    Te = 100 + (T0 - 100) * (1 - rhov**2)**ST
+
+    return ne, Te
