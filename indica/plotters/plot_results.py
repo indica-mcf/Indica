@@ -5,6 +5,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from xarray import DataArray
 
 from indica.equilibrium import Equilibrium
 from indica.readers.read_st40 import ReadST40
@@ -20,6 +21,104 @@ plt.ion()
 PATH_NAME = f"/home/{getpass.getuser()}/figures/Indica/"
 
 CMAP, COLORS = set_plot_colors()
+
+
+def stan_campaign1_2023(save_fig: bool = False):
+    pulses = [11224, 11225, 11226, 11227, 11228]
+    runs = [61, 62, 63, 64, 69, 70, 71, 72]
+    hda_runs = list([f"RUN{str(run)}SMM_TS" for run in runs])
+    _ = compare_ti_exp_hda(pulses, hda_runs, save_fig=save_fig)
+
+
+def paul_campaign1_2023(save_fig: bool = False):
+    pulses = [11089, 11098]
+    runs = [61, 62, 63, 64, 69, 70, 71, 72]
+    hda_runs = list([f"RUN{str(run)}SMM_TS" for run in runs])
+    _ = compare_ti_exp_hda(pulses, hda_runs, save_fig=save_fig)
+
+
+def alsu_campaign1_2023(save_fig: bool = False):
+    pulses = [11240, 11241, 11242, 11243]
+    runs = [61, 62, 63, 64, 69, 70, 71, 72]
+    hda_runs = list([f"RUN{str(run)}SMM_TS" for run in runs])
+    _ = compare_ti_exp_hda(pulses, hda_runs, save_fig=save_fig)
+
+
+def compare_ti_exp_hda(pulses: list, hda_runs: list, save_fig: bool = False):
+    fig_path = f"/home/{getpass.getuser()}/figures/Indica/time_evolution/"
+
+    pi_chan = 5
+    tws_chan = 1
+
+    set_plot_rcparams("time_evolution")
+
+    raw_data = {}
+
+    cols = CMAP(np.linspace(0.1, 0.75, len(hda_runs), dtype=float))
+    for pulse in pulses:
+        _reader = ReadST40(pulse, 0.01, 0.15)
+        _reader(["xrcs", "cxff_pi", "cxff_tws_c"])
+        _raw = _reader.raw_data
+        raw_data[pulse] = deepcopy(_raw)
+
+        xrcs = _raw["xrcs"]["ti_w"]
+        xrcs_err = _raw["xrcs"]["ti_w"].error
+        pi = _raw["cxff_pi"]["ti"].sel(channel=pi_chan)
+        pi_err = _raw["cxff_pi"]["ti"].error.sel(channel=pi_chan)
+        tws = _raw["cxff_tws_c"]["ti"].sel(channel=tws_chan)
+        tws_err = _raw["cxff_tws_c"]["ti"].error.sel(channel=tws_chan)
+
+        _ti_hda: list = []
+        raw_data[pulse]["hda"] = {}
+        _reader_hda = ReadST40(int(pulse + 25.0e6), 0.01, 0.15)
+        for hda_run in hda_runs:
+            ti, _ = _reader_hda.reader._get_signal(
+                "", "HDA", ".PROFILES.PSI_NORM.TI", hda_run
+            )
+            time, _ = _reader_hda.reader._get_signal("", "HDA", ".TIME", hda_run)
+            rhop, _ = _reader_hda.reader._get_signal(
+                "", "HDA", ".PROFILES.PSI_NORM.RHOP", hda_run
+            )
+            _ti_hda.append(DataArray(ti, coords=[("t", time), ("rho_poloidal", rhop)]))
+
+        ti_hda = xr.concat(_ti_hda, "run").assign_coords({"run": hda_runs})
+        raw_data[pulse]["hda"]["ti0"] = ti_hda
+
+        # Ti time evolution
+        plt.figure()
+        for i, run in enumerate(list(ti_hda.run.values)):
+            ti_hda.sel(run=run, rho_poloidal=0).plot(
+                label=f"HDA {str(run)[3:5]}", color=cols[i]
+            )
+
+        plt.errorbar(xrcs.t, xrcs, xrcs_err, label="XRCS", marker="o", color="black")
+        plt.errorbar(
+            pi.t,
+            pi,
+            pi_err,
+            label=f"PI R={pi.R.values:1.2f}",
+            marker="x",
+            color="orange",
+        )
+        plt.errorbar(
+            tws.t,
+            tws,
+            tws_err,
+            label=f"TWS R={tws.R.values:1.2f}",
+            marker="s",
+            color="red",
+        )
+
+        set_axis_sci()
+        plt.title(f"{pulse} Ti")
+        plt.ylabel("(eV)")
+        plt.xlabel("t (s)")
+        plt.legend()
+
+        if save_fig:
+            save_figure(fig_path, f"{pulse}_ti_exp_vs_hda", save_fig=save_fig)
+
+    return raw_data
 
 
 def read_modelling_runs(
