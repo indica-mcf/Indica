@@ -95,6 +95,7 @@ def prepare_data_ts(
     models: dict,
     st40: ReadST40,
     xdim: str = "R",
+    ts_side: str = "LFS",
     map_to_rho: bool = True,
     err_bounds: tuple = (0, 0),
     flat_data: dict = {},
@@ -152,7 +153,10 @@ def prepare_data_ts(
             fit_lfs = []
             for t in fit.t:
                 Rmag = rmag.sel(t=t)
-                _x = exp_rho.sel(t=t).where(data.R >= Rmag, drop=True)
+                if ts_side == "LFS":
+                    _x = exp_rho.sel(t=t).where(exp_rho.R >= Rmag, drop=True)
+                else:
+                    _x = exp_rho.sel(t=t).where(exp_rho.R <= Rmag, drop=True)
                 _y = fit.sel(t=t).interp(R=_x.R)
                 ind = np.argsort(_x.values)
                 x = _x.values[ind]
@@ -216,6 +220,7 @@ def prepare_inputs(
     time: float = None,
     phantom_profile_params: dict = None,
     phantom_data: bool = True,
+    ts_side: str = "LFS",
 ):
 
     flat_data: dict = {}
@@ -264,6 +269,7 @@ def prepare_inputs(
                 models,
                 st40,
                 flat_data=flat_data,
+                ts_side=ts_side,
             )
             plasma.electron_density.loc[dict(t=time)] = (
                 flat_data["ts.ne_fit"].sel(t=time).interp(rho_poloidal=plasma.rho)
@@ -342,6 +348,7 @@ def run_bayes(
     burn_in=0,
     nwalkers=10,
     phantom_data: bool = True,
+    ts_side: str = "LFS",
 ):
 
     plasma, models, flat_data, input_profiles = prepare_inputs(
@@ -352,8 +359,8 @@ def run_bayes(
         time=time,
         phantom_profile_params=phantom_profile_params,
         phantom_data=phantom_data,
+        ts_side=ts_side,
     )
-    phantom_plasma = deepcopy(plasma)
 
     print("Instatiating Bayes model")
     diagnostic_models = [models["pi"]]
@@ -408,8 +415,8 @@ def run_bayes(
     print(sampler.acceptance_fraction.sum())
     plot_bayes_result(**result, figheader=result_path)
 
-    if not phantom_data and pulse is not None:
-        plot_ts(phantom_plasma, flat_data, tplot=[time])
+    if not phantom_data:
+        plot_ts(plasma, flat_data, ts_side=ts_side)
 
     return result
 
@@ -421,6 +428,7 @@ def run_inversion(
     dt=0.01,
     reg_level_guess: float = 0.3,
     phantom_data: bool = True,
+    ts_side: str = "LFS",
 ):
 
     plasma, models, flat_data, input_profiles = prepare_inputs(
@@ -429,6 +437,7 @@ def run_inversion(
         tend=tend,
         dt=dt,
         phantom_data=phantom_data,
+        ts_side=ts_side,
     )
 
     data = flat_data["pi.brightness"]
@@ -467,7 +476,6 @@ def run_inversion(
     tomo()
 
     models["pi"].los_transform.plot()
-    tomo.show_reconstruction()
 
     inverted_emissivity = DataArray(
         tomo.emiss, coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)]
@@ -535,56 +543,64 @@ def run_inversion(
     plt.legend()
 
     if not phantom_data:
-        plot_ts(plasma, flat_data, cols=cols)
+        plot_ts(plasma, flat_data, cols=cols, ts_side=ts_side)
 
+    tomo.show_reconstruction()
     return zeff
 
 
-def plot_ts(plasma: Plasma, flat_data: dict, cols=None, tplot: list = None):
+def plot_ts(plasma: Plasma, flat_data: dict, cols=None, ts_side: str = "LFS"):
     if cols is None:
-        cols = CM(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-
-    if tplot is None:
-        tplot = list(plasma.t.values)
-    else:
-        cols = [cols[int(np.size(plasma.t) / 2.0), :]]
+        cols = CM(np.linspace(0.1, 0.75, len(plasma.time_to_calculate), dtype=float))
 
     plt.figure()
-    quantities = {"ts.te": "TS electron temperature", "ts.ne": "TS electron density"}
-    for quantity, title in quantities.items():
-        if "te" in quantity:
-            plasma_attr = plasma.electron_temperature
-        elif "ne" in quantity:
-            plasma_attr = plasma.electron_density
-
-        plt.figure()
-        value = flat_data[quantity]
-        error = flat_data[quantity].error
-        rho = value.transform.rho
-        rmag = plasma.equilibrium.rmag
-        for i, t in enumerate(tplot):
-            if (i + 1) % 2:
-                plasma_attr.sel(t=t, method="nearest").plot(
-                    color=cols[i], label=f"{t:.3f}"
-                )
-                channels = np.where(value.R > rmag.sel(t=t, method="nearest"))[0]
-                x = rho.sel(channel=channels).sel(t=t, method="nearest")
-                y = value.sel(channel=channels).sel(t=t, method="nearest")
-                err = error.sel(channel=channels).sel(t=t, method="nearest")
-                plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
-        plasma_attr.sel(t=t, method="nearest").plot(color=cols[i], label="Fit")
-        plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
-        plt.ylim(
-            0,
-            np.max([plasma.electron_temperature.max(), flat_data[quantity].max()])
-            * 1.1,
+    Te = flat_data["ts.te"]
+    Te_err = flat_data["ts.te"].error
+    Ne = flat_data["ts.ne"]
+    Ne_err = flat_data["ts.ne"].error
+    rho = Te.transform.rho
+    rmag = plasma.equilibrium.rmag
+    for i, t in enumerate(Te.t):
+        plasma.electron_temperature.sel(t=t).plot(
+            color=cols[i], label=f"{t.values:.3f}"
         )
-        plt.legend()
-        plt.title(title)
+        if ts_side == "LFS":
+            channels = np.where(Te.R >= rmag.sel(t=t, method="nearest"))[0]
+        else:
+            channels = np.where(Te.R <= rmag.sel(t=t, method="nearest"))[0]
+        x = rho.sel(t=t, channel=channels)
+        y = Te.sel(t=t, channel=channels)
+        err = Te_err.sel(t=t, channel=channels)
+        plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
+    plasma.electron_temperature.sel(t=t).plot(color=cols[i], label="Fit")
+    plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
+    plt.ylim(
+        0, np.max([plasma.electron_temperature.max(), flat_data["ts.te"].max()]) * 1.1
+    )
+    plt.legend()
+    plt.title("TS electron temperature")
+
+    plt.figure()
+    for i, t in enumerate(Ne.t):
+        plasma.electron_density.sel(t=t).plot(color=cols[i], label=f"{t.values:.3f}")
+        if ts_side == "LFS":
+            channels = np.where(Ne.R >= rmag.sel(t=t, method="nearest"))[0]
+        else:
+            channels = np.where(Ne.R <= rmag.sel(t=t, method="nearest"))[0]
+        x = rho.sel(t=t, channel=channels)
+        y = Ne.sel(t=t, channel=channels)
+        err = Ne_err.sel(t=t, channel=channels)
+        plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
+    plasma.electron_density.sel(t=t).plot(color=cols[i], label="Fit")
+    plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
+    plt.legend()
+    plt.title("TS electron density")
 
 
-def inversion_example(pulse: int = 11085, phantom_data: bool = True):
-    ff = run_inversion(pulse, phantom_data=phantom_data)
+def inversion_example(
+    pulse: int = 11085, phantom_data: bool = True, ts_side: str = "LFS"
+):
+    ff = run_inversion(pulse, phantom_data=phantom_data, ts_side=ts_side)
     return ff
 
 
@@ -594,6 +610,7 @@ def bayesian_example(
     iterations=200,
     nwalkers=50,
     phantom_data: bool = True,
+    ts_side: str = "LFS",
 ):
     ff = run_bayes(
         pulse,
@@ -604,6 +621,7 @@ def bayesian_example(
         burn_in=0,
         nwalkers=nwalkers,
         phantom_data=phantom_data,
+        ts_side=ts_side,
     )
 
     return ff
