@@ -712,6 +712,11 @@ def test_get_vuv_w_analyser(
         assert results[q + "_xstop"].shape == (1,)
         assert results[q + "_zstart"].shape == (1,)
         assert results[q + "_zstop"].shape == (1,)
+        assert results[q + "_ystart"].shape == (1,)
+        assert results[q + "_ystop"].shape == (1,)
+        assert results[q + "_records"] == get_record(
+            reader, pulse, uid, instrument, q, revision
+        )
 
 
 @given(
