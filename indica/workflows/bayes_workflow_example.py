@@ -7,6 +7,7 @@ from indica.bayesmodels import BayesModels, get_uniform
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.writers.bda_tree import create_nodes, write_nodes, check_analysis_run
+from indica.converters.line_of_sight import LineOfSightTransform
 
 from indica.models.interferometry import Interferometry, smmh1_transform_example
 from indica.models.helike_spectroscopy import (
@@ -97,7 +98,7 @@ OPTIMISED_PARAMS = [
 
 OPTIMISED_QUANTITY = [
     "xrcs.spectra",
-    "cxff_pi.ti",
+    # "cxff_pi.ti",
     "efit.wp",
     "smmh1.ne",
 ]
@@ -198,22 +199,22 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.models = {}
         for diag in diagnostics:
             if diag == "smmh1":
-                los_transform = self.transforms[diag]
-                # machine_dims = self.plasma.machine_dimensions
-                # origin = np.array([[-0.38063365, 0.91893092, 0.01]])
-                # # end = np.array([[0,  0, 0.01]])
-                # direction = np.array([[0.38173721, -0.92387953, -0.02689453]])
-                # los_transform = LineOfSightTransform(
-                #     origin[:, 0],
-                #     origin[:, 1],
-                #     origin[:, 2],
-                #     direction[:, 0],
-                #     direction[:, 1],
-                #     direction[:, 2],
-                #     name="",
-                #     machine_dimensions=machine_dims,
-                #     passes=2,
-                # )
+                # los_transform = self.transforms[diag]
+                machine_dims = ((0.15, 0.95), (-0.7, 0.7))
+                origin = np.array([[-0.38063365, 0.91893092, 0.01]])
+                # end = np.array([[0,  0, 0.01]])
+                direction = np.array([[0.38173721, -0.92387953, -0.02689453]])
+                los_transform = LineOfSightTransform(
+                    origin[:, 0],
+                    origin[:, 1],
+                    origin[:, 2],
+                    direction[:, 0],
+                    direction[:, 1],
+                    direction[:, 2],
+                    name="",
+                    machine_dimensions=machine_dims,
+                    passes=2,
+                )
                 los_transform.set_equilibrium(self.equilibrium)
                 model = Interferometry(name=diag)
                 model.set_los_transform(los_transform)
@@ -225,7 +226,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 if hasattr(self, "data"):
                     if diag in self.data.keys():
                         window = (
-                                self.data[diag]["spectra"].wavelength.values * 0.1
+                                self.data[diag]["spectra"].wavelength.values
                         )
 
                 model = HelikeSpectrometer(
@@ -395,16 +396,16 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
         self.result = self.dict_of_dataarray_to_numpy(self.result)
         if mds_write:
-            write_nodes(self.pulse_to_write, self.node_structure, self.result)
+            write_nodes(pulse_to_write, self.node_structure, self.result)
 
         return self.result
 
 
 if __name__ == "__main__":
     run = BayesWorkflowExample(
-        pulse=None,
+        pulse=9780,
         phantoms=True,
-        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
+        diagnostics=["xrcs", "efit", "smmh1",],
         opt_quantity=OPTIMISED_QUANTITY,
         param_names=OPTIMISED_PARAMS,
         profile_params=DEFAULT_PROFILE_PARAMS,
@@ -419,12 +420,11 @@ if __name__ == "__main__":
     )
     run.setup_opt_data(phantoms=run.phantoms)
     run.setup_optimiser(
-        iterations=200,
+        iterations=2,
         nwalkers=50,
         burn_frac=0.10,
-        sample_high_density=False,
+        sample_high_density=True,
         model_kwargs={
-            "xrcs_moment_analysis": False,
         }
     )
     results = run(
