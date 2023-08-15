@@ -172,16 +172,18 @@ def violinplot(
         # quantiles=[0.025, 0.975, 0.16, 0.84],
         # showmedians=True,
     )
+    y = diag_data[key].sel(t=data[key].t).values
+    # TODO abstract the yerr
+    axs.errorbar(
+        1, y=y, yerr=y * 0.10, fmt="D", ecolor="black", capsize=10, color="black"
+    )
     violin["bodies"][0].set_edgecolor("black")
     axs.set_xlabel(key)
     top = axs.get_ylim()[1]
     bot = axs.get_ylim()[0]
     axs.set_ylim(top=top * 1.1, bottom=bot * 0.9)
     axs.set_ylabel(f"{ylabel}")
-    y = diag_data[key].sel(t=data[key].t).values
-    axs.errorbar(
-        1, y=y, yerr=y * 0.10, fmt="D", ecolor="black", capsize=10, color="black"
-    )
+
     set_axis_sci()
     plt.setp([axs.get_xticklabels()], visible=False)
     plt.savefig(figheader + filename)
