@@ -113,6 +113,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             priors: dict = None,
             profile_params: dict = None,
             phantoms: bool = False,
+            tstart=0.02,
+            tend=0.10,
+            dt=0.005,
     ):
         self.pulse = pulse
         self.diagnostics = diagnostics
@@ -121,6 +124,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.priors = priors
         self.profile_params = profile_params
         self.phantoms = phantoms
+        self.tstart = tstart
+        self.tend = tend
+        self.dt = dt
 
         for attribute in [
             "param_names",
@@ -152,25 +158,34 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.setup_models(self.diagnostics)
 
     def setup_plasma(self,
-                     tstart=0.02,
-                     tend=0.10,
-                     dt=0.005,
+                     tstart=None,
+                     tend=None,
+                     dt=None,
                      tsample=0.050,
+                     main_ion = "h",
+                     impurities = ("ar", "c"),
+                     impurity_concentration = (0.001, 0.04),
+                     n_rad=20,
+                     **kwargs
                      ):
+
+        if not all([tstart, tend, dt]):
+            tstart = self.tstart
+            tend = self.tend
+            dt = self.dt
+
         # TODO: move to plasma.py
         self.plasma = Plasma(
             tstart=tstart,
             tend=tend,
             dt=dt,
-            main_ion="h",
-            impurities=("ar", "c"),
-            impurity_concentration=(
-                0.001,
-                0.04,
-            ),
+            main_ion=main_ion,
+            impurities=impurities,
+            impurity_concentration=impurity_concentration,
             full_run=False,
-            n_rad=20,
+            n_rad=n_rad,
         )
+        self.tsample = tsample
         self.plasma.time_to_calculate = self.plasma.t[
             np.abs(tsample - self.plasma.t).argmin()
         ]
@@ -199,13 +214,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 #     machine_dimensions=machine_dims,
                 #     passes=2,
                 # )
-                los_transform.set_equilibrium(self.plasma.equilibrium)
+                los_transform.set_equilibrium(self.equilibrium)
                 model = Interferometry(name=diag)
                 model.set_los_transform(los_transform)
 
             elif diag == "xrcs":
                 los_transform = self.transforms[diag]
-                los_transform.set_equilibrium(self.plasma.equilibrium)
+                los_transform.set_equilibrium(self.equilibrium)
                 window = None
                 if hasattr(self, "data"):
                     if diag in self.data.keys():
@@ -225,21 +240,25 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
             elif diag == "cxff_pi":
                 transform = self.transforms[diag]
-                transform.set_equilibrium(self.plasma.equilibrium)
+                transform.set_equilibrium(self.equilibrium)
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
             else:
                 raise ValueError(f"{diag} not found in setup_models")
-            model.plasma = self.plasma #TODO: add this to the models somewhere
             self.models[diag] = model
 
-    def setup_opt_data(self, phantoms=False):
-        if phantoms:
-            self.opt_data = self._phantom_data()
-        else:
-            self.opt_data = self._exp_data()
+    def setup_opt_data(self, phantoms=False, **kwargs):
+        if not hasattr(self, "plasma"):
+            raise ValueError("Missing plasma object required for setup_opt_data")
+        for model in self.models.values():  # Maybe refactor here...
+            model.plasma = self.plasma
 
-    def _phantom_data(self, noise=False, noise_factor=0.1):
+        if phantoms:
+            self.opt_data = self._phantom_data(**kwargs)
+        else:
+            self.opt_data = self._exp_data(**kwargs)
+
+    def _phantom_data(self, noise=False, noise_factor=0.1, **kwargs):
         opt_data = {}
         if "smmh1" in self.diagnostics:
             opt_data["smmh1.ne"] = (
@@ -269,7 +288,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             )
 
         if noise:
-            opt_data["smmh1.ne"] = opt_data["smmh1.ne"] + self.opt_data[
+            opt_data["smmh1.ne"] = opt_data["smmh1.ne"] + opt_data[
                 "smmh1.ne"
             ].max().values * np.random.normal(0, noise_factor, None)
             opt_data["xrcs.spectra"] = opt_data["xrcs.spectra"] + np.random.normal(
@@ -287,7 +306,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             ].max().values * np.random.normal(0, noise_factor, None)
         return opt_data
 
-    def _exp_data(self):
+    def _exp_data(self, **kwargs):
         opt_data = flatdict.FlatDict(self.data, ".")
         if "xrcs" in self.diagnostics:
             opt_data["xrcs.spectra"]["wavelength"] = (
@@ -396,9 +415,6 @@ if __name__ == "__main__":
     )
 
     run.setup_plasma(
-         tstart=0.02,
-         tend=0.10,
-         dt=0.005,
          tsample=0.060,
     )
     run.setup_opt_data(phantoms=run.phantoms)
