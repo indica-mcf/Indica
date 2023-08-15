@@ -4,7 +4,6 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.physics import ev_doppler
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.datatypes import ELEMENTS
 from indica.models.abstractdiagnostic import DiagnosticModel
@@ -38,8 +37,6 @@ class HelikeSpectrometer(DiagnosticModel):
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
         calibration: float = 8.0e-20,
-        marchuk: bool = True,
-        full_run: bool = False,
         element: str = "ar",
         window_len: int = 1030,
         window_lim: list = [0.394, 0.401],
@@ -70,7 +67,8 @@ class HelikeSpectrometer(DiagnosticModel):
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
 
-        window = np.linspace(window_lim[0], window_lim[1], window_len)
+        if window is None:
+            window = np.linspace(window_lim[0], window_lim[1], window_len)
         mask = np.zeros(shape=window.shape)
         if self.window_masks:
             for mslice in self.window_masks:
