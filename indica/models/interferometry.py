@@ -44,6 +44,8 @@ class Interferometry(DiagnosticModel):
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
+                    "long_name": "Ne",
+                    "units": "$m^{-2}$",
                 }
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
@@ -84,7 +86,6 @@ class Interferometry(DiagnosticModel):
         self.los_integral_ne = los_integral_ne
 
         self._build_bckc_dictionary()
-
         return self.bckc
 
 
@@ -125,9 +126,9 @@ def example_run(pulse: int = None, plasma=None, plot=False):
 
     if plot:
         it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
+        tplot = plasma.t[it].values
 
-        model.los_transform.plot_los(tplot, plot_all=True)
+        model.los_transform.plot(tplot)
 
         # Plot back-calculated values
         plt.figure()

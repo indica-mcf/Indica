@@ -13,29 +13,31 @@ from typing import Union
 GeneralDataType = str
 SpecificDataType = str
 
-#: Information on the general datatypes, stored in a dictionary. Keys
-#  are the names of the datatypes, values are tuples where the first
-#  element is a description and the second is the units for the data
-#  (empty if unitless).
+"""
+Information on the Indica datatypes are stored in a dictionary.
+ - Keys:str = datatype name
+ - Values:tuple = (long_name, units) to be assigned to DataArray attrs.
+"""
+
 GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
     "angular_freq": (
-        "Angular speed at which a species of ion completes a loop of the Tokamak",
-        "rad s^-1",
+        r"$\omega$",
+        r"$rad \; s^-1$",
     ),
     "asymmetry": (
-        "Parameter describing asymmetry between quantities on HFS and LFS",
+        "Asymmetry",
         "",
     ),
     "concentration": (
-        "Portion of nuclei which are the given type of ion",
+        "Concentration",
         "%",
     ),
     "effective_charge": (
-        "Zeff ratio of ion charge to electron charge in plasma",
+        "Zeff",
         "",
     ),
-    "emissivity": ("Radiation power produced per unit volume of space", "W m^-3"),
-    "line_emission": ("Line emission from excitation", "W m^3"),
+    "emissivity": ("Emissivity", r"$W \; m^{-3}$"),
+    "line_emission": ("Line", r"$W \; m^{-3}$"),
     "luminous_flux": (
         "Radiation power received per unit area at some point",
         "W m^-2",
@@ -51,16 +53,16 @@ GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
         "m^3",
     ),
     "f_value": (
-        "Product of toroidal magnetic field strength and major radius",
+        "f",
         "Wb m",
     ),
-    "magnetic_flux": ("Poloidal component of magnetic flux", "Wb/2\\pi"),
+    "magnetic_flux": ("Poloidal flux", r"$Wb/2\pi$"),
     "norm_flux_pol": (
-        "Square root of normalised poloidal component of magnetic flux",
+        "Rho-poloidal",
         "",
     ),
     "norm_flux_tor": (
-        "Square root of normalised toroidal component of magnetic flux",
+        "Rho-toroidal",
         "",
     ),
     "toroidal_flux": ("Toroidal component of magnetic flux", "Wb"),

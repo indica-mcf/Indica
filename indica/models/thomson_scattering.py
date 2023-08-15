@@ -34,9 +34,13 @@ class ThomsonScattering(DiagnosticModel):
             if quant == "ne":
                 quantity = quant
                 self.bckc[quantity] = self.Ne_at_channels
+                long_name = "Ne"
+                units = "$m^{-3}$"
             elif quant == "te":
                 quantity = quant
                 self.bckc[quantity] = self.Te_at_channels
+                long_name = "Te"
+                units = "eV"
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -49,6 +53,8 @@ class ThomsonScattering(DiagnosticModel):
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
+                "long_name": long_name,
+                "units": units,
             }
 
     def __call__(
@@ -57,6 +63,7 @@ class ThomsonScattering(DiagnosticModel):
         Te: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
@@ -86,12 +93,12 @@ class ThomsonScattering(DiagnosticModel):
         self.Ne = Ne
         self.Te = Te
 
-        Ne_at_channels = self.transect_transform.map_to_rho(
+        Ne_at_channels = self.transect_transform.map_profile_to_rho(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
         )
-        Te_at_channels = self.transect_transform.map_to_rho(
+        Te_at_channels = self.transect_transform.map_profile_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
@@ -141,11 +148,11 @@ def example_run(
 
     if plot:
         it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
+        tplot = plasma.t[it].values
 
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
 
-        model.transect_transform.plot_los(tplot, plot_all=True)
+        model.transect_transform.plot(tplot)
 
         # Plot back-calculated profiles
         plt.figure()

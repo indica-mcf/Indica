@@ -15,6 +15,7 @@ PROFILES = [
     "impurity_density",
     "fast_density",
     "neutral_density",
+    "zeff",
 ]
 
 
@@ -114,7 +115,6 @@ class BayesModels:
             exp_data = (
                 self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
             )
-
             exp_error = (
                 exp_data * self.percent_error
             )  # Assume percentage error if none given.

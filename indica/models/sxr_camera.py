@@ -43,6 +43,8 @@ class SXRcamera(DiagnosticModel):
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
+                    "long_name": "Brightness",
+                    "units": "W $m^{-2}$",
                 }
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
@@ -55,6 +57,7 @@ class SXRcamera(DiagnosticModel):
         Lz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
@@ -124,7 +127,7 @@ class SXRcamera(DiagnosticModel):
             tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
 
         # Line-of-sight information
-        self.los_transform.plot_los(tplot, plot_all=True)
+        self.los_transform.plot(tplot)
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
@@ -153,7 +156,7 @@ class SXRcamera(DiagnosticModel):
 
 def example_run(
     pulse: int = None,
-    diagnostic_name: str = "bolo_Rz",
+    diagnostic_name: str = "sxr_Rz",
     origin: LabeledArray = None,
     direction: LabeledArray = None,
     plasma=None,

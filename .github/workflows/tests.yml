@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         # Won't bother running the other cases until I know the tests pass on my computer
-        python-version: [3.8] #, 3.9]
+        python-version: [3.9] #, 3.9]
         os: [ubuntu-latest] #, macos-latest]
     runs-on: ${{ matrix.os }}
 
@@ -37,7 +37,7 @@ jobs:
     - name: Install Poetry
       uses: abatilo/actions-poetry@v2.0.0
       with:
-        poetry-version: 1.1.15
+        poetry-version: 1.4.2
 
     - name: Configure poetry
       shell: bash

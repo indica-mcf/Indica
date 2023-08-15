@@ -9,6 +9,7 @@ from typing import Tuple
 
 import numpy as np
 import prov.model as prov
+import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
 from xarray import where
@@ -123,9 +124,15 @@ class Equilibrium:
                 self.provenance.wasDerivedFrom(val.attrs["provenance"])
 
     def Bfield(
-        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        full_Rz: bool = False,
     ) -> Tuple[LabeledArray, LabeledArray, LabeledArray, LabeledArray]:
         """Magnetic field components at this location in space.
+
+        TODO: B_T approximated as following 1/R for any z to fill whole (R,z) space
 
         Parameters
         ----------
@@ -146,8 +153,9 @@ class Equilibrium:
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        _R = convert_to_dataarray(R, ("R", R))
-        _z = convert_to_dataarray(z, ("z", z))
+        _R, _z = prepare_coords(
+            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
+        )
         if t is not None:
             check_time_present(t, self.t)
             psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
@@ -159,38 +167,39 @@ class Equilibrium:
             f = self.f
             rho_, theta_, _ = self.flux_coords(_R, _z)
 
-        dpsi_dR = psi.differentiate("R").indica.interp2d(
+        dpsi_dR = psi.differentiate("R").interp(R=_R, z=_z)
+        dpsi_dz = psi.differentiate("z").interp(
             R=_R,
             z=_z,
-            method="cubic",
-            assume_sorted=True,
-        )
-        dpsi_dz = psi.differentiate("z").indica.interp2d(
-            R=R,
-            z=z,
-            method="cubic",
-            assume_sorted=True,
         )
         b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
+        b_R = b_R.T
         b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
+        b_z = b_z.T
         rho_ = where(
             rho_ > np.float64(0.0), rho_, np.float64(-1.0) * rho_  # type: ignore
         )
-        f = f.indica.interp2d(
-            rho_poloidal=rho_,
-            method="cubic",
-            assume_sorted=True,
-        )
+
+        f = f.interp(rho_poloidal=rho_)
         f.name = self.f.name
         b_T = f / _R
         b_T.name = "Toroidal Magnetic Field (T)"
 
+        if full_Rz:
+            _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
+            _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
+            b_T = _b_T.interp(R=_R, z=_z)
+
         return b_R, b_z, b_T, t
 
     def Btot(
-        self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
+        self,
+        R: LabeledArray,
+        z: LabeledArray,
+        t: Optional[LabeledArray] = None,
+        full_Rz: bool = False,
     ) -> Tuple[LabeledArray, LabeledArray]:
         """Total magnetic field strength at this location in space.
 
@@ -537,9 +546,9 @@ class Equilibrium:
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-
-        _R = convert_to_dataarray(R, ("R", R))
-        _z = convert_to_dataarray(z, ("z", z))
+        _R, _z = prepare_coords(
+            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
+        )
         if t is not None:
             check_time_present(t, self.t)
             rho = self.rho.interp(t=t, method="nearest")
@@ -553,33 +562,23 @@ class Equilibrium:
             t = self.rho.coords["t"]
             z_x_point = self.zx
 
-        rho_interp = rho.indica.interp2d(
-            R=_R + self.R_offset,
-            z=_z + self.z_offset,
-            zero_coords={"R": R_ax, "z": z_ax},
-            method="cubic",
-            assume_sorted=True,
-        )
-        # Correct for any interpolation errors resulting in negative fluxes
-        rho_interp = where(
-            np.logical_and(rho_interp < 0.0, rho_interp > -1e-12), 0.0, rho_interp
-        )
+        # TODO: rho and theta dimensions not in the same order...
+        rho = rho.interp(R=_R, z=_z)
         theta = np.arctan2(
-            _z + cast(np.ndarray, self.z_offset) - z_ax,
-            _R + cast(np.ndarray, self.R_offset) - R_ax,
+            _z - z_ax,
+            _R - R_ax,
         )
-        if len(np.shape(theta)) > 1:
-            theta = theta.transpose()
+
+        # Correct for any interpolation errors resulting in negative fluxes
+        rho = xr.where((rho < 0.0) * (rho > -1e-12), 0.0, rho)
 
         if kind != "poloidal":
-            rho_interp, t = self.convert_flux_coords(rho_interp, t, "poloidal", kind)
+            rho, t = self.convert_flux_coords(rho, t, "poloidal", kind)
 
         # Set rho to be negative in the private flux region
-        rho_interp = where(
-            np.logical_and(rho_interp < 1.0, z < z_x_point), -rho_interp, rho_interp
-        )
+        rho = xr.where((rho < 1.0) * (z < z_x_point), -rho, rho)
 
-        return rho_interp, theta, t
+        return rho, theta, t
 
     def spatial_coords(
         self,
@@ -781,11 +780,19 @@ class Equilibrium:
         raise NotImplementedError("Method not yet implemented")
 
 
-def convert_to_dataarray(value, coords) -> DataArray:
-    if type(value) != DataArray:
-        return DataArray(value, [coords])
+def prepare_coords(R: LabeledArray, z: LabeledArray) -> Tuple[DataArray, DataArray]:
+
+    if type(R) != DataArray or type(z) != DataArray:
+        coords: list = []
+        for idim, npts in enumerate(np.shape(R)):
+            coords.append((f"dim{idim}", np.arange(npts)))
+        _R = DataArray(np.array(R), coords=coords)
+        _z = DataArray(np.array(z), coords=coords)
     else:
-        return value
+        _R = R
+        _z = z
+
+    return _R, _z
 
 
 MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))

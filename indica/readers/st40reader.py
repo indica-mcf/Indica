@@ -11,6 +11,7 @@ from typing import Tuple
 
 from MDSplus import Connection
 from MDSplus.mdsExceptions import TreeNNF
+from MDSplus.mdsExceptions import TreeNODATA
 import numpy as np
 
 from .abstractreader import DataReader
@@ -83,17 +84,17 @@ class ST40Reader(DataReader):
         "sxr_diode_2": "get_diode_filters",
         "sxr_diode_3": "get_diode_filters",
         "sxr_diode_4": "get_diode_filters",
-        "sxr_camera_1": "get_radiation",
-        "sxr_camera_2": "get_radiation",
-        "sxr_camera_3": "get_radiation",
         "sxr_camera_4": "get_radiation",
+        "sxrc_xy1": "get_radiation",
+        "sxrc_xy2": "get_radiation",
         "cxff_pi": "get_charge_exchange",
         "cxff_tws_c": "get_charge_exchange",
         "cxqf_tws_c": "get_charge_exchange",
+        "pi": "get_spectrometer",
+        "tws_c": "get_spectrometer",
         "ts": "get_thomson_scattering",
     }
     UIDS_MDS = {
-        "efit": "",
         "xrcs": "sxr",
         "princeton": "spectrom",
         "brems": "spectrom",
@@ -110,10 +111,6 @@ class ST40Reader(DataReader):
         "sxr_camera_2": "sxr",
         "sxr_camera_3": "sxr",
         "sxr_camera_4": "sxr",
-        "cxff_pi": "",
-        "cxff_tws_c": "",
-        "cxqf_tws_c": "",
-        "ts": "",
     }
     QUANTITIES_MDS = {
         "efit": {
@@ -166,21 +163,6 @@ class ST40Reader(DataReader):
         "halpha": {
             "brightness": ".h_alpha_mp1:intensity",
         },
-        "sxr_camera_1": {
-            "brightness": ".middle_head.filter_1:",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
-        },
-        "sxr_camera_2": {
-            "brightness": ".middle_head.filter_2:",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
-        },
-        "sxr_camera_3": {
-            "brightness": ".middle_head.filter_3:",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
-        },
         "sxr_camera_4": {
             "brightness": ".middle_head.filter_4:",
             "location": ".middle_head.geometry:location",
@@ -190,6 +172,12 @@ class ST40Reader(DataReader):
             "brightness": ".middle_head.filter_4:",
             "location": ".middle_head.geometry:location",
             "direction": ".middle_head.geometry:direction",
+        },
+        "sxrc_xy1": {
+            "brightness": ".profiles:emission",
+        },
+        "sxrc_xy2": {
+            "brightness": ".profiles:emission",
         },
         "sxr_diode_1": {
             "brightness": ".filter_001:signal",
@@ -207,16 +195,21 @@ class ST40Reader(DataReader):
             "int": ".profiles:int",
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
+            "spectra": ":spectra",
+            "fit": ":full_fit",
         },
         "cxff_tws_c": {
             "int": ".profiles:int",
             "ti": ".profiles:ti",
             "vtor": ".profiles:vtor",
+            "spectra": ":spectra",
+            "fit": ":full_fit",
         },
-        "cxqf_tws_c": {
-            "int": ".profiles:int",
-            "ti": ".profiles:ti",
-            "vtor": ".profiles:vtor",
+        "pi": {
+            "spectra": ":emission",
+        },
+        "tws_c": {
+            "spectra": ":emission",
         },
         "ts": {
             "ne": ".profiles:ne",
@@ -319,7 +312,7 @@ class ST40Reader(DataReader):
         pulse: int,
         tstart: float,
         tend: float,
-        server: str = "10.0.40.13",
+        server: str = "192.168.1.7",  # 192.168.1.7 10.0.40.13
         tree: str = "ST40",
         default_error: float = 0.05,
         max_freq: float = 1e6,
@@ -533,14 +526,14 @@ class ST40Reader(DataReader):
 
         return results
 
-    def _get_radiation(
+    def _get_radiation_old(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-        """Fetch data from SXR camera."""
+        """Fetch data from SXR cameras, legacy old MDS+ structure."""
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
@@ -561,6 +554,7 @@ class ST40Reader(DataReader):
         location, location_path = self._get_signal(
             uid, _instrument, self.QUANTITIES_MDS[instrument]["location"], revision
         )
+
         direction, direction_path = self._get_signal(
             uid, _instrument, self.QUANTITIES_MDS[instrument]["direction"], revision
         )
@@ -603,6 +597,76 @@ class ST40Reader(DataReader):
 
         return results
 
+    def _get_radiation(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """Fetch data from SXR cameras."""
+
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
+            uid = self.UIDS_MDS[instrument]
+
+        if "sxr_camera" in instrument:
+            return self._get_radiation_old(uid, instrument, revision, quantities)
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        revision = results["revision"]
+
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, direction_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
+        # TODO: temporary fix! Change once the database entries have been fixed
+        if instrument == "sxrc_xy2" or instrument == "sxrc_xy1":
+            location = np.array(
+                [location[i] for i in range(location.shape[0] - 1, -1, -1)]
+            )
+            direction = np.array(
+                [direction[i] for i in range(direction.shape[0] - 1, -1, -1)]
+            )
+
+        quantity = "brightness"
+        times, times_path = self._get_signal(
+            uid,
+            instrument,
+            ":time",
+            revision,
+        )
+        qval, qval_record = self._get_signal(
+            uid,
+            instrument,
+            self.QUANTITIES_MDS[instrument][quantity],
+            revision,
+        )
+        qerr, qerr_record = self._get_signal(
+            uid,
+            instrument,
+            self.QUANTITIES_MDS[instrument][quantity] + "_err",
+            revision,
+        )
+
+        results["length"] = np.shape(qval)[1]
+        results["times"] = times
+        results[quantity] = np.array(qval)
+        results[quantity + "_records"] = qval_record
+        results[quantity + "_error"] = qerr
+        results["location"] = location
+        results["direction"] = direction
+
+        results["quantities"] = quantities
+
+        return results
+
     def _get_helike_spectroscopy(
         self,
         uid: str,
@@ -636,6 +700,8 @@ class ST40Reader(DataReader):
         results["wavelength"], _ = self._get_signal(
             uid, instrument, ":wavelength", revision
         )
+        # TODO: change once wavelength in MDS+ has been fixed to nanometers!
+        results["wavelength"] /= 10.0
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -684,34 +750,61 @@ class ST40Reader(DataReader):
 
         texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
         times, _ = self._get_signal(uid, instrument, ":time", revision)
-        # location, location_path = self._get_signal(
-        #     uid, instrument, ".geometry:location", revision
-        # )
-        # direction, direction_path = self._get_signal(
-        #     uid, instrument, ".geometry:direction", revision
-        # )
-        # if len(np.shape(location)) == 1:
-        #     location = np.array([location])
-        #     direction = np.array([direction])
+        try:
+            wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
+        except TreeNODATA:
+            wavelength = None
 
         x, x_path = self._get_signal(uid, instrument, ":x", revision)
         y, y_path = self._get_signal(uid, instrument, ":y", revision)
         z, z_path = self._get_signal(uid, instrument, ":z", revision)
         R, R_path = self._get_signal(uid, instrument, ":R", revision)
 
+        try:
+            location, location_path = self._get_signal(
+                uid, instrument, ".geometry:location", revision
+            )
+            direction, direction_path = self._get_signal(
+                uid, instrument, ".geometry:direction", revision
+            )
+            if len(np.shape(location)) == 1:
+                location = np.array([location])
+                direction = np.array([direction])
+
+            # TODO: temporary fix until geometry sorted
+            if location.shape[0] != x.shape[0]:
+                if self.pulse > 10200:
+                    index = np.arange(18, 36)
+                else:
+                    index = np.arange(21, 36)
+                location = location[index]
+                direction = direction[index]
+
+        except TreeNNF:
+            location = None
+            direction = None
+
         for q in quantities:
-            qval, q_path = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q],
-                revision,
-            )
-            qval_err, q_path_err = self._get_signal(
-                uid,
-                instrument,
-                self.QUANTITIES_MDS[instrument][q] + "_err",
-                revision,
-            )
+            try:
+                qval, q_path = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q],
+                    revision,
+                )
+            except TreeNODATA:
+                continue
+
+            try:
+                qval_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q] + "_err",
+                    revision,
+                )
+            except TreeNNF:
+                qval_err = np.full_like(qval, 0.0)
+                # q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
@@ -727,8 +820,85 @@ class ST40Reader(DataReader):
         results["times"] = times
         results["texp"] = texp
         results["element"] = ""
-        # results["location"] = location
-        # results["direction"] = direction
+        # TODO: check whether wlength should be channel agnostic or not...
+        if wavelength is not None:
+            results["wavelength"] = wavelength[0, :]
+        results["location"] = location
+        results["direction"] = direction
+
+        return results
+
+    def _get_spectrometer(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        if len(uid) == 0 and instrument in self.UIDS_MDS:
+            uid = self.UIDS_MDS[instrument]
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+        }
+
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        revision = results["revision"]
+
+        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
+
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, direction_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
+        if len(np.shape(location)) == 1:
+            location = np.array([location])
+            direction = np.array([direction])
+
+        # if self.pulse > 10200:
+        #     index = np.arange(18, 36)
+        # else:
+        #     index = np.arange(21, 36)
+        # location = location[index]
+        # direction = direction[index]
+
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q],
+                revision,
+            )
+
+            try:
+                qval_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q] + "_err",
+                    revision,
+                )
+            except TreeNNF:
+                qval_err = np.full_like(qval, 0.0)
+                # q_path_err = ""
+
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+
+            results[q + "_records"] = q_path
+            results[q] = qval
+            results[f"{q}_error"] = qval_err
+
+        results["length"] = location[:, 0].size
+        results["times"] = times
+        # TODO: check whether wlength should be channel agnostic or not...
+        if wavelength is not None:
+            results["wavelength"] = wavelength[0, :]
+        results["location"] = location
+        results["direction"] = direction
 
         return results
 

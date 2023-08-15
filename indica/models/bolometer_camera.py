@@ -9,6 +9,7 @@ from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import set_axis_sci
 
 
 class Bolometer(DiagnosticModel):
@@ -42,6 +43,8 @@ class Bolometer(DiagnosticModel):
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
+                    "long_name": "Brightness",
+                    "units": "W $m^{-2}$",
                 }
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
@@ -54,6 +57,7 @@ class Bolometer(DiagnosticModel):
         Lz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
@@ -123,7 +127,7 @@ class Bolometer(DiagnosticModel):
             tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
 
         # Line-of-sight information
-        self.los_transform.plot_los(tplot, plot_all=True)
+        self.los_transform.plot(tplot)
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
@@ -132,6 +136,7 @@ class Bolometer(DiagnosticModel):
             self.bckc["brightness"].sel(t=t, method="nearest").plot(
                 label=f"t={t:1.2f} s", color=cols_time[i]
             )
+        set_axis_sci()
         plt.xlabel("Channel")
         plt.ylabel("Measured brightness (W/m^2)")
         plt.legend()
@@ -145,6 +150,7 @@ class Bolometer(DiagnosticModel):
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
+        set_axis_sci()
         plt.xlabel("rho")
         plt.ylabel("Local radiated power (W/m^3)")
         plt.legend()
@@ -157,6 +163,7 @@ def example_run(
     direction: LabeledArray = None,
     plasma=None,
     plot=False,
+    tplot=None,
     nchannels: int = 11,
 ):
 
@@ -195,7 +202,7 @@ def example_run(
     bckc = model()
 
     if plot:
-        model.plot()
+        model.plot(tplot=tplot)
 
     return plasma, model, bckc
 

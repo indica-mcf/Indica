@@ -1025,7 +1025,8 @@ def zeff_bremsstrahlung(
         Bremsstrahlung emission in units [W / m^3 / nm]
     gaunt_approx
         approximation for free-free gaunt factors:
-            "callahan" see citation in KJ Callahan 2019 JINST 14 C10002
+            "callahan" see KJ Callahan 2019 JINST 14 C10002
+            "carson" see TR Carson 1988 Atron. Atrophys. 1889, 319324
 
     Returns
     -------
@@ -1041,10 +1042,14 @@ def zeff_bremsstrahlung(
 
     assert (zeff is not None) == (bremsstrahlung is None)
 
-    gaunt_funct = {"callahan": lambda Te: 1.35 * Te**0.15}
-    gaunt = gaunt_funct[gaunt_approx](Te)
-
     wavelength_ang = wavelength * 10  # nm to Angstrom
+
+    gaunt_funct = {
+        "callahan": 1.35 * Te**0.15,
+        "carson": -4.7499 + 0.5513 * np.log(Te * wavelength_ang),
+    }
+    gaunt = gaunt_funct[gaunt_approx]
+
     Ne_cm = Ne * 1e-6  # m^-3 to cm^-3
 
     reconvert_units = 1e6 * 10  # convert back to (nm) and (m**-3)
@@ -1055,14 +1060,12 @@ def zeff_bremsstrahlung(
         * Ne_cm**2
         / (np.sqrt(Te) * wavelength_ang**2)
         * np.exp(-12400 / (wavelength_ang * Te))
-    )
+    ) * reconvert_units
 
     if zeff is None:
         result = bremsstrahlung / factor
     else:
         result = zeff * factor
-
-    result *= reconvert_units
 
     return result
 
@@ -1095,6 +1098,26 @@ def derivative(y, x):
     der = finterp(x)
 
     return der
+
+
+def gaussian(x, integral, center, sigma):
+    return (
+        integral
+        / (sigma * np.sqrt(2 * np.pi))
+        * np.exp(-((x - center) ** 2) / (2 * sigma**2))
+    )
+
+
+def doppler_broaden(x, integral, center, ion_mass, ion_temp):
+    _mass = ion_mass * constants.proton_mass * constants.c**2
+    sigma = np.sqrt(constants.e / _mass * ion_temp) * center
+    gaussian_broadened = gaussian(
+        x,
+        integral,
+        center,
+        sigma,
+    )
+    return gaussian_broadened
 
 
 def make_window(

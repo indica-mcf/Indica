@@ -3,22 +3,30 @@
 
 from abc import ABC
 from abc import abstractmethod
+import getpass
 from typing import Callable
 from typing import cast
 from typing import Dict
 from typing import Optional
 from typing import Tuple
 
+from matplotlib import cm
+from matplotlib import rcParams
+import matplotlib.pylab as plt
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
 from indica.utilities import intersection
+from indica.utilities import save_figure
+from indica.utilities import set_plot_rcparams
 from ..equilibrium import Equilibrium
 from ..numpy_typing import ArrayLike
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
+from ..numpy_typing import OnlyArray
+
+FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/transform/"
 
 
 class EquilibriumException(Exception):
@@ -78,8 +86,24 @@ class CoordinateTransform(ABC):
     x2_name: str
     x1: LabeledArray
     x2: LabeledArray
-    rho: LabeledArray
     t: LabeledArray = None
+    name: str
+    instrument_name: str
+    _machine_dims: Tuple[Tuple[float, float], Tuple[float, float]]
+
+    dl: float
+    x: DataArray
+    y: DataArray
+    z: DataArray
+    R: DataArray
+    phi: DataArray
+    rho: DataArray
+    theta: DataArray
+    profile_to_map: DataArray
+    along_los: DataArray
+    los_integral: DataArray
+    _origin: OnlyArray
+    _direction: OnlyArray
 
     def set_equilibrium(self, equilibrium: Equilibrium, force: bool = False):
         """Initialise the object using a set of equilibrium data.
@@ -379,18 +403,19 @@ class CoordinateTransform(ABC):
         return boundaries, angles
 
     def get_equilibrium_boundaries(
-        self, tplot: float, npts: int = 1000
+        self, t: float, npts: int = 1000
     ) -> Tuple[dict, ArrayLike, DataArray]:
 
         boundaries = {}
         angles = np.linspace(0.0, 2 * np.pi, npts)
         if hasattr(self, "equilibrium"):
             angles = np.linspace(0.0, 2 * np.pi, npts)
-            rho_equil = self.equilibrium.rho.sel(t=tplot, method="nearest")
-            rho_equil = xr.where(rho_equil < 1.05, rho_equil, np.nan)
-            core_ind = np.where(np.isfinite(rho_equil.interp(z=0)))[0]
-            R_lfs = rho_equil.R[core_ind[0]].values
-            R_hfs = rho_equil.R[core_ind[-1]].values
+            rho_equil = self.equilibrium.rho.sel(t=t, method="nearest")
+            R = rho_equil.R[
+                np.where(rho_equil.sel(z=0, method="nearest") <= 1)[0]
+            ].values
+            R_lfs = R[-1]
+            R_hfs = R[0]
             x_plasma_inner = R_hfs * np.cos(angles)
             x_plasma_outer = R_lfs * np.cos(angles)
             y_plasma_inner = R_hfs * np.sin(angles)
@@ -403,6 +428,181 @@ class CoordinateTransform(ABC):
                 "y_out": y_plasma_outer,
             }
         return boundaries, angles, rho_equil
+
+    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
+        """
+        Convert R, z to rho, theta given the flux surface transform
+        """
+        if not hasattr(self, "equilibrium"):
+            raise Exception("Set equilibrium object to convert (R,z) to rho")
+
+        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
+        drop_vars = ["R", "z"]
+        for var in drop_vars:
+            if var in rho.coords:
+                rho = rho.drop_vars(var)
+            if var in theta.coords:
+                theta = theta.drop_vars(var)
+
+        self.t = t
+        self.rho = rho
+        self.theta = theta
+        self.impact_rho = self.rho.min("los_position")
+
+        return rho, theta
+
+    def plot(
+        self,
+        t: float = None,
+        orientation: str = "all",
+        figure: bool = True,
+        save_fig: bool = False,
+        fig_path: str = "",
+        fig_name: str = "",
+        markersize: float = None,
+        marker: str = "o",
+    ):
+
+        cols = cm.gnuplot2(
+            np.linspace(0.1, 0.75, np.size(np.array(self.x1)), dtype=float)
+        )
+
+        if len(fig_path) == 0:
+            fig_path = FIG_PATH
+
+        set_plot_rcparams("profiles")
+        if markersize is not None:
+            rcParams.update({"lines.markersize": markersize})
+
+        wall_bounds, angles = self.get_machine_boundaries(
+            machine_dimensions=self._machine_dims
+        )
+
+        if hasattr(self, "equilibrium"):
+            if t is None:
+                t = np.float(np.mean(self.equilibrium.rho.t))
+            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
+            x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
+                angles
+            )
+            y_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.sin(
+                angles
+            )
+
+        title = f"{self.instrument_name.upper()}"
+        if t is not None:
+            title += f" @ {t:.3f} s"
+
+        trans_name = str(self)
+
+        if orientation == "xy" or orientation == "all":
+            if figure:
+                plt.figure()
+            plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
+            plt.plot(wall_bounds["x_out"], wall_bounds["y_out"], color="k")
+            if hasattr(self, "equilibrium"):
+                plt.plot(equil_bounds["x_in"], equil_bounds["y_in"], color="red")
+                plt.plot(equil_bounds["x_out"], equil_bounds["y_out"], color="red")
+                plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
+            plot_geometry(
+                self.x,
+                self.y,
+                trans_name,
+                colors=cols,
+                marker=marker,
+            )
+            plt.xlabel("x [m]")
+            plt.ylabel("y [m]")
+            plt.axis("scaled")
+            plt.title(title)
+            save_figure(fig_path, f"{fig_name}{self.name}_xy", save_fig=save_fig)
+
+        if orientation == "Rz" or orientation == "all":
+            if figure:
+                plt.figure()
+            plt.plot(
+                [wall_bounds["x_out"].max()] * 2,
+                [wall_bounds["z_low"], wall_bounds["z_up"]],
+                color="k",
+            )
+            plt.plot(
+                [wall_bounds["x_in"].max()] * 2,
+                [wall_bounds["z_low"], wall_bounds["z_up"]],
+                color="k",
+            )
+            plt.plot(
+                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
+                [wall_bounds["z_low"]] * 2,
+                color="k",
+            )
+            plt.plot(
+                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
+                [wall_bounds["z_up"]] * 2,
+                color="k",
+            )
+            if hasattr(self, "equilibrium"):
+                rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
+
+            plot_geometry(
+                self.R,
+                self.z,
+                trans_name,
+                colors=cols,
+                marker=marker,
+            )
+            plt.xlabel("R [m]")
+            plt.ylabel("z [m]")
+            plt.title(title)
+            plt.axis("scaled")
+            save_figure(fig_path, f"{fig_name}{self.name}_Rz", save_fig=save_fig)
+
+        if hasattr(self, "equilibrium") and orientation == "all":
+            if not hasattr(self, "rho"):
+                self.convert_to_rho_theta(t=[t])
+            if figure:
+                plt.figure()
+            _rho = self.rho
+            if "t" in self.rho.dims:
+                _rho = _rho.sel(t=t, method="nearest")
+
+            if "LineOfSight" in trans_name:
+                abscissa = _rho.los_position.expand_dims(dim={"channel": _rho.channel})
+            elif "Transect" in trans_name:
+                abscissa = _rho.channel
+            plot_geometry(
+                abscissa,
+                _rho,
+                trans_name,
+                colors=cols,
+                marker=marker,
+            )
+            plt.xlabel("Channel")
+            plt.ylabel("Rho")
+            plt.title(title)
+            save_figure(fig_path, f"{fig_name}{self.name}_rho", save_fig=save_fig)
+
+
+def plot_geometry(
+    abscissa: DataArray,
+    ordinate: DataArray,
+    trans_name: str,
+    colors: ArrayLike,
+    marker: str = "o",
+):
+    for ch in abscissa.channel:
+        if "LineOfSight" in trans_name:
+            plt.plot(
+                abscissa.sel(channel=ch),
+                ordinate.sel(channel=ch),
+                color=colors[ch],
+            )
+        elif "Transect" in trans_name:
+            plt.scatter(
+                abscissa.sel(channel=ch),
+                ordinate.sel(channel=ch),
+                color=colors[ch],
+                marker=marker,
+            )
 
 
 def find_wall_intersections(

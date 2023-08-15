@@ -27,12 +27,13 @@ class BremsstrahlungDiode(DiagnosticModel):
     def __init__(
         self,
         name: str,
-        filter_wavelength: float = 530.0,
-        filter_fwhm: float = 10,
+        filter_wavelength: float = 531.5,  # 532
+        filter_fwhm: float = 1,  # 1
         filter_type: str = "boxcar",
         etendue: float = 1.0,
         calibration: float = 2.0e-5,
         instrument_method="get_diode_filters",
+        channel_mask: slice = None,  # =slice(18, 28),
     ):
         """
         Filtered diode diagnostic measuring Bremsstrahlung
@@ -63,6 +64,71 @@ class BremsstrahlungDiode(DiagnosticModel):
         self.calibration = calibration
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
+        self.channel_mask = channel_mask
+
+        wavelength = np.linspace(
+            self.filter_wavelength - self.filter_fwhm * 2,
+            self.filter_wavelength + self.filter_fwhm * 2,
+        )
+        self.wavelength = DataArray(wavelength, coords=[("wavelength", wavelength)])
+
+        # Transmission filter function
+        transmission = ph.make_window(
+            wavelength,
+            self.filter_wavelength,
+            self.filter_fwhm,
+            window=self.filter_type,
+        )
+        self.transmission = DataArray(transmission, coords=[("wavelength", wavelength)])
+
+    def integrate_spectra(self, spectra: DataArray, fit_background: bool = True):
+        """
+        Apply the diode transmission function to an input spectra
+
+        Parameters
+        ----------
+        spectra
+            Spectra with dimensions (channel, wavelength, time) in any order,
+            and with units of W/m**2
+        fit_background
+            If True - background fitted and then integrated
+            If False - spectra integrated using filter without any fitting
+
+        Returns
+        -------
+        Background emission & integral of spectra using the filter transmission
+        TODO: uncertainty on fit not calculated
+        TODO: move spectral fitting to separate method outside of the class
+        """
+
+        # Interpolate transmission filter on spectral wavelength & restrict to > 0
+        _transmission = self.transmission.interp(wavelength=spectra.wavelength)
+        transmission = _transmission.where(_transmission > 1.0e-3, drop=True)
+        wavelength_slice = slice(
+            np.min(transmission.wavelength), np.max(transmission.wavelength)
+        )
+
+        # Take away neutron spikes in pixel intensity
+        _spectra = spectra.sortby("wavelength").sel(wavelength=wavelength_slice)
+        _spectra = _spectra.where(
+            xr.ufuncs.fabs(_spectra.diff("wavelength", n=2)) < 0.4e-3
+        )
+
+        # Fit spectra to calculate background emission, filter and integrate
+        if fit_background:
+            fit = _spectra.polyfit("wavelength", 0)
+            _spectra_to_integrate = fit.polyfit_coefficients.sel(degree=0)
+            spectra_to_integrate = _spectra_to_integrate.expand_dims(
+                dim={"wavelength": _spectra.wavelength}
+            )
+        else:
+            spectra_to_integrate = _spectra
+        integral = (spectra_to_integrate * transmission).sum("wavelength")
+
+        integral.attrs["error"] = integral * 0.0
+        spectra_to_integrate.attrs["error"] = spectra_to_integrate * 0.0
+
+        return spectra_to_integrate, integral
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -80,6 +146,8 @@ class BremsstrahlungDiode(DiagnosticModel):
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
+                    "long_name": "Brightness",
+                    "units": "W m^{-2}",
                 }
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
@@ -92,6 +160,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         Zeff: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
+        **kwargs,
     ):
         """
         Calculate Bremsstrahlung emission and model measurement
@@ -108,14 +177,15 @@ class BremsstrahlungDiode(DiagnosticModel):
             Total effective charge
         t
             time
+        TODO: emission needs a new name as it's in units [W m**-2 nm**-1]
         """
 
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
-            Ne = self.plasma.electron_density.interp(t=t)
-            Te = self.plasma.electron_temperature.interp(t=t)
-            Zeff = self.plasma.zeff.interp(t=t).sum("element")
+                t = self.plasma.time_to_calculate
+            Ne = self.plasma.electron_density.sel(t=t)
+            Te = self.plasma.electron_temperature.sel(t=t)
+            Zeff = self.plasma.zeff.sel(t=t).sum("element")
         else:
             if Ne is None or Te is None or Zeff is None:
                 raise ValueError("Give inputs of assign plasma class!")
@@ -125,50 +195,51 @@ class BremsstrahlungDiode(DiagnosticModel):
         self.Ne: DataArray = Ne
         self.Zeff: DataArray = Zeff
 
-        # Wavelength axis
-        wavelength = np.linspace(
-            self.filter_wavelength - self.filter_fwhm * 2,
-            self.filter_wavelength + self.filter_fwhm * 2,
-        )
-        self.wavelength = DataArray(wavelength, coords=[("wavelength", wavelength)])
-
-        # Transmission filter function
-        self.transmission = ph.make_window(
-            wavelength,
-            self.filter_wavelength,
-            self.filter_fwhm,
-            window=self.filter_type,
-        )
-
         # Bremsstrahlung emission for each time, radial position and wavelength
         wlength = deepcopy(self.wavelength)
         for dim in Ne.dims:
             wlength = wlength.expand_dims(dim={dim: self.Ne[dim]})
         self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
-
+        self.emissivity = (self.emission * self.transmission).integrate("wavelength")
         los_integral = self.los_transform.integrate_on_los(
-            (self.emission * self.transmission).integrate("wavelength"),
+            self.emissivity,
             t=t,
             calc_rho=calc_rho,
         )
+        if self.channel_mask is not None:
+            los_integral = los_integral.where(
+                (los_integral.channel > self.channel_mask.start)
+                & (los_integral.channel < self.channel_mask.stop)
+            )
 
         self.los_integral = los_integral
 
         self._build_bckc_dictionary()
-
         return self.bckc
 
 
-def example_run(pulse: int = None, plasma=None, plot: bool = False):
+def example_geometry(nchannels: int = 12):
+
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.0
+    los_end[:, 1] = np.linspace(-0.2, -1, nchannels)
+    los_end[:, 2] = 0.0
+    los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
+    origin = los_start
+    direction = los_end - los_start
+
+    return origin, direction
+
+
+def example_run(
+    pulse: int = None, nchannels: int = 12, plasma=None, plot: bool = False
+):
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
 
     # Create new interferometers diagnostics
     diagnostic_name = "diode_brems"
-    los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
-    los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
-    origin = los_start
-    direction = los_end - los_start
+    origin, direction = example_geometry(nchannels=nchannels)
     los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
@@ -190,9 +261,9 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
 
     if plot:
         it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
+        tplot = plasma.t[it].values
 
-        model.los_transform.plot_los(tplot, plot_all=True)
+        model.los_transform.plot(tplot)
 
         # Plot back-calculated values
         plt.figure()
@@ -212,8 +283,8 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
         plt.figure()
         for i, t in enumerate(plasma.t.values):
             plt.plot(
-                model.emission.rho_poloidal,
-                model.emission.sel(t=t).integrate("wavelength"),
+                model.emissivity.rho_poloidal,
+                model.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
