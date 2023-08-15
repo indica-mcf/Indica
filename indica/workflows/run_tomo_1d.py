@@ -206,7 +206,6 @@ def sxrc_xy(
         st40 = ReadST40(pulse, tstart, tend, dt=dt)
         st40(instruments=[instrument], map_diagnostics=False)
         data = st40.binned_data[instrument]["brightness"].sel(channel=channels)
-        data.transform.origin_x -= 0.02
         data.transform.set_dl(data.transform.dl)
         dl = data.transform.dl
         z = data.transform.z.sel(channel=channels)
@@ -309,7 +308,6 @@ def old_camera(
         z = data.transform.z - 0.02
         R = data.transform.R
         dl = data.transform.dl
-        impact_paramaters = data.transform.impact_parameter
 
         brightness = data
         data_t0 = brightness.isel(t=0).data
@@ -331,7 +329,6 @@ def old_camera(
                 t=rho_equil.t.data,
                 rho=rho_equil.data,
             ),
-            impact_parameters=impact_paramaters,
             debug=debug,
             has_data=has_data,
         )
@@ -383,8 +380,6 @@ def fake_data(
         R = model.los_transform.R
         dl = model.los_transform.dl
 
-        impact_paramaters = model.los_transform.impact_parameter
-
         brightness = model.bckc["brightness"]
         data_t0 = brightness.isel(t=0).data
         if exclude_bad_points:
@@ -406,7 +401,6 @@ def fake_data(
                 t=rho_equil.t.data,
                 rho=rho_equil.data,
             ),
-            impact_parameters=impact_paramaters,
             debug=debug,
             has_data=has_data,
         )

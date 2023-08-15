@@ -57,6 +57,7 @@ class SXRcamera(DiagnosticModel):
         Lz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
