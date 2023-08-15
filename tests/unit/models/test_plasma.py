@@ -35,7 +35,7 @@ class TestPlasma:
     #     return
 
     def teardown_method(self):
-        self.plasma.initialize_variables(tstart=self.tstart, tend=self.tend, dt=self.dt)
+        self.plasma.initialize_variables()
 
     def test_plasma_initializes(self):
         assert hasattr(self, "plasma")
