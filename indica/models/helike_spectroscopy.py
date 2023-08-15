@@ -39,10 +39,10 @@ class HelikeSpectrometer(DiagnosticModel):
         calibration: float = 8.0e-20,
         element: str = "ar",
         window_len: int = 1030,
-        window_lim: list = [0.394, 0.401],
+        window_lim=None,
         window: np.array = None,
-        window_masks: list = [],
-        line_labels: list = ["w", "k", "n3", "n345", "z", "qra"],
+        window_masks=None,
+        line_labels=None,
     ):
         """
         Read all atomic data and initialise objects
@@ -53,14 +53,19 @@ class HelikeSpectrometer(DiagnosticModel):
             String identifier for the spectrometer
 
         """
+        if window_lim is None:
+            window_lim = [0.394, 0.401]
+        if window_masks is None:
+            window_masks = []
+        if line_labels is None:
+            line_labels = ["w", "k", "n3", "n345", "z", "qra"]
+
         self.name = name
         self.instrument_method = instrument_method
-
         self.element: str = element
         z_elem, a_elem, name_elem = ELEMENTS[element]
         self.ion_charge: int = z_elem - 2  # He-like
         self.ion_mass: float = a_elem
-
         self.etendue = etendue
         self.calibration = calibration
         self.window_masks = window_masks
@@ -408,7 +413,7 @@ class HelikeSpectrometer(DiagnosticModel):
                 "moment_analysis cannot be used when window_masks is not set to None"
             )
 
-        if self.plasma is not None:
+        if hasattr(self, "plasma"):
             if t is None:
                 t = self.plasma.time_to_calculate
             Te = self.plasma.electron_temperature.interp(
