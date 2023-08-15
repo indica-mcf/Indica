@@ -1,16 +1,41 @@
-from typing import Tuple
-
 import numpy as np
+from scipy import constants
+from xarray import DataArray
 
-from ..converters.line_of_sight import LineOfSightTransform
+from indica.converters.line_of_sight import LineOfSightTransform
+from indica.datatypes import ELEMENTS
+from indica.equilibrium import Equilibrium
+from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.plasma import example_run as example_plasma
+from indica.numpy_typing import LabeledArray
+from indica.operators.slowingdown import simulate_finite_source
+from indica.operators.slowingdown import simulate_slowingdown
 
+AMU2KG = constants.m_p
+EV2J = constants.e
 
-analytical_beam_defaults = {
-    "element": "H",
-    "amu": int(1),
-    "energy": 25.0 * 1e3,
-    "power": 500 * 1e3,
-    "fractions": (0.7, 0.1, 0.2, 0.0),
+LOCATION_HNBI = np.array([[0.33704, 0.93884, 0.0]])
+DIRECTION_HNBI = np.array([[-0.704, -0.709, 0.0]])
+
+LOCATION_RFX = np.array([[-0.341, -0.940, 0.0]])
+DIRECTION_RFX = np.array([[0.704, 0.709, 0.0]])
+
+RFX_DEFAULTS = {
+    "element": "d",
+    "energy": 25.0e3,
+    "power": 0.5e6,
+    "power_frac": (0.7, 0.1, 0.2),  # TODO: rename fractions
+    "divergence": (14 * 1e-3, 14e-3),
+    "width": (0.025, 0.025),
+    "location": (-0.3446, -0.9387, 0.0),
+    "direction": (0.707, 0.707, 0.0),
+    "focus": 1.8,
+}
+HNBI_DEFAULTS = {
+    "element": "d",
+    "energy": 55.0e3,
+    "power": 1.0e6,
+    "power_frac": (0.6, 0.3, 0.1),
     "divergence": (14 * 1e-3, 14e-3),
     "width": (0.025, 0.025),
     "location": (-0.3446, -0.9387, 0.0),
@@ -19,192 +44,231 @@ analytical_beam_defaults = {
 }
 
 
-class NeutralBeam:
-    def __init__(self, name: str, use_defaults=True, **kwargs):
-        """Set beam parameters, initialisation"""
-        self.name = name  # Beam name
-
-        # Use beam defaults
-        if use_defaults:
-            for (prop, default) in analytical_beam_defaults.items():
-                setattr(self, prop, kwargs.get(prop, default))
-        else:
-            for (prop, default) in analytical_beam_defaults.items():
-                setattr(self, prop, None)
-            return
-
-        # Set line_of_sight transform for centre of beam-line
-        self.set_los_transform()
-
-        # Set Attenuator
-        self.attenuator = None
-
-        # Print statements for debugging
-        print(f"Beam = {self.name}")
-        print(f"Energy = {self.energy} electron-volts")
-        print(f"Power = {self.power} watts")
-        print(f"Fractions (full, 1/2, 1/3, imp) = {self.fractions} %")
-        print(f"divergence (x, y) = {self.divergence} rad")
-        print(f"width (x, y) = {self.width} metres")
-
-    def set_los_transform(
+class NeutralBeam(DiagnosticModel):
+    def __init__(
         self,
-        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
-            (0.175, 1.0),
-            (-2.0, 2.0),
-        ),
+        name: str,
+        instrument_method: str = "get_neutral_beam",
+        element: str = "d",
+        energy: float = 55.0e3,
+        power: float = 1.0e6,
+        power_frac: LabeledArray = [0.6, 0.3, 0.1],
+        divergence: LabeledArray = [14 * 1e-3, 14e-3],
+        width: LabeledArray = [0.025, 0.025],
+        focus: float = 1.8,
+        n_beamlets: int = 10,
+        n_mc: int = 10,
+        **kwargs,
     ):
-        self.transform = LineOfSightTransform(
-            np.array([self.location[0]]),
-            np.array([self.location[1]]),
-            np.array([self.location[2]]),
-            np.array([self.direction[0]]),
-            np.array([self.direction[1]]),
-            np.array([self.direction[2]]),
-            name=f"{self.name}_los",
-            dl=0.01,
-            machine_dimensions=machine_dimensions,
+        """
+
+        Parameters
+        ----------
+        name
+            String identifier of the system
+        instrument_method
+            Corresponding method to read system's data from ST40 database
+        element
+            Beam gas
+        energy
+            Beam energy (V) (TODO: substitute with voltage?)
+        power
+            Beam power (W)
+        power_frac
+            Fraction of power in 1st, 2nd and 3rd energy
+        n_beamlets
+            Number of beamlets
+        n_mc
+            Number of MC-like samples
+        TODO: substitute energy with voltage (engineering parameter)
+        TODO: substitute power with current?
+        TODO: n_beamlets to be incorporated in LOS-transform as different LOSs
+              --> will substitute evaluate_rho in slowingdown.py
+              --> rho2d interpolation performed once!
+              --> this can become a version of VOS-implementation
+        TODO: rename anum, znum -> atomic_mass, atomic_number
+
+        """
+
+        self.name = name
+        self.instrument_method = instrument_method
+        self.element = element
+        self.anum_beam = ELEMENTS[element.lower()][1]
+        self.znum_beam = ELEMENTS[element.lower()][0]
+        self.power = power
+        self.power_frac = np.array(power_frac)
+        self.energy = energy
+        self.energy_frac = energy / np.arange(1, np.size(power_frac) + 1)
+        self.focus = focus
+        self.width = np.array(width)
+        self.divergence = np.array(divergence)
+        self.n_beamlets = n_beamlets
+        self.n_mc = n_mc
+
+    def get_beam_parameters(self):
+        beam_params = {
+            "element": self.element,
+            "anum_beam": self.anum_beam,
+            "znum_beam": self.znum_beam,
+            "power": self.power,
+            "power_frac": self.power_frac,
+            "energy": self.energy,
+            "energy_frac": self.energy_frac,
+            "focus": self.focus,
+            "divergence": self.divergence,
+            "width": self.width,
+        }
+
+        return beam_params
+
+    def set_beam_parameters(self, parameters: dict):
+        for k, v in parameters:
+            setattr(self, k, v)
+
+    def _build_bckc_dictionary(self):
+        self.bckc = {
+            "fast_density": self.fast_density,
+            "fast_pressure_parallel": self.fast_pressure_parallel,
+            "fast_pressure_perpendicular": self.fast_pressure_perpendicular,
+        }
+
+    def __call__(
+        self,
+        Ne: DataArray = None,
+        Te: DataArray = None,
+        equilibrium: Equilibrium = None,
+        main_ion: str = None,
+        t: LabeledArray = None,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        Ne
+            Electron density profile (m**-3)
+        Te
+            Electron temperature profile (eV)
+        equilibrium
+            indica.equilibrium.Equilibrium object
+        main_ion
+            String identifier of plasma main ion
+        t
+            Desired time(s) of analysis
+        kwargs
+            ...
+        Returns
+        -------
+            Dictionary with fast ion densities and pressure
+
+        TODO: rename Rv, zv, rho_v --> R_equil, z_equil, rho_equil
+        TODO: Indica native rho starts at 0 - check rho_profile below is self-consistent
+        TODO: current implementation assumes pure plasma: expand to include impurities?
+        TODO: fast pressure currently split equally between parallel and perpendicular
+        """
+
+        if self.plasma is not None:
+            if t is None:
+                t = self.plasma.time_to_calculate
+
+            Ne = self.plasma.electron_density.interp(t=t, method="nearest")
+            Te = self.plasma.electron_temperature.interp(t=t, method="nearest")
+            equilibrium = self.plasma.equilibrium
+            main_ion = self.plasma.main_ion
+        else:
+            if Ne is None or Te is None or equilibrium is None or main_ion is None:
+                raise ValueError("Give inputs or assign plasma class!")
+
+        R_equil = np.array(equilibrium.rho.R)
+        z_equil = np.array(equilibrium.rho.z)
+        rho_equil = np.array(equilibrium.rho.sel(t=t, method="nearest"))
+        rho_profile = np.array(Ne.rho_poloidal)
+        rho_profile[0] = rho_profile[1] / 2.0
+        vol_profile = np.array(
+            equilibrium.volume.sel(t=t, method="nearest")
+            .diff("rho_poloidal")
+            .interp(rho_poloidal=rho_profile)
         )
 
-    def run_BBNBI(self):
-        print("Add code to run BBNBI")
+        width = self.width.mean()
+        anum_plasma = ELEMENTS[main_ion][1]
+        znum_plasma = ELEMENTS[main_ion][0]
+        source = np.zeros((len(rho_profile), len(self.energy_frac)))
 
-    # def run_analytical_beam(
-    #     self,
-    #     x_dash: LabeledArray = DataArray(np.linspace(-0.25, 0.25, 101, dtype=float)),
-    #     y_dash: LabeledArray = DataArray(np.linspace(-0.25, 0.25, 101, dtype=float)),
-    # ):
-    #     """Analytical beam based on double gaussian formula"""
-    #
-    #     # Calculate Attenuator
-    #     x2 = self.transform.x2
-    #     attenuation_factor = np.ones_like(
-    #         x2
-    #     )  # Replace with Attenuation Object in future, interact with plasma
-    #
-    #     # Calculate beam velocity
-    #     # v_beam = self.beam_velocity()
-    #     # e = 1.602 * 1e-19
-    #
-    #     # Neutral beam
-    #     n_x = 101
-    #     n_y = 101
-    #     n_z = len(attenuation_factor)
-    #     nb_dash = np.zeros((n_z, n_x, n_y), dtype=float)
-    #     # for i_z in range(n_z):
-    #     #   for i_y in range(n_y):
-    #     #       y_here = y_dash[i_y]
-    #     #       exp_factor = np.exp(
-    #     #           -(x_dash**2 / self.width[0]**2) - (y_here**2 / self.width[1]**2)
-    #     #       )
-    #     #       nb_dash[i_z, :, i_y] = \
-    #     #           self.power * attenuation_factor[i_z] * exp_factor / \
-    #     #           (np.pi * self.energy * e * np.prod(self.width) * v_beam)
-    #
-    #     # mesh-grid of beam cross section coordinates
-    #     z_dash = x2
-    #     X_dash, Y_dash, Z_dash = np.meshgrid(x_dash, y_dash, z_dash)
-    #     R_dash = np.sqrt(X_dash**2 + Y_dash**2)
-    #     T_dash = np.arctan2(Y_dash, X_dash)
-    #
-    #     x_transform = self.transform.x
-    #     y_transform = self.transform.y
-    #     z_transform = self.transform.z
-    #     r_transform = np.sqrt(self.transform.x**2 + self.transform.y**2)
-    #     theta_transform = np.arctan2(
-    #         y_transform[1] - y_transform[0], x_transform[1] - x_transform[0]
-    #     )
-    #     phi_transform = np.arctan2(
-    #         z_transform[1] - z_transform[0], r_transform[1] - r_transform[0]
-    #     )
-    #     theta_n = theta_transform + (np.pi / 2)
-    #     phi_n = phi_transform + (np.pi / 2)
-    #
-    #     xd = np.zeros_like(X_dash)
-    #     yd = np.zeros_like(Y_dash)
-    #     zd = np.zeros_like(Z_dash)
-    #     for i_z in range(len(x2)):
-    #         delta_X_dash = R_dash[:, :, i_z] * np.cos(T_dash[:, :, i_z])
-    #         delta_Y_dash = R_dash[:, :, i_z] * np.sin(T_dash[:, :, i_z])
-    #
-    #         xd[:, :, i_z] = x_transform[i_z].data + delta_X_dash * np.cos(
-    #             theta_n.data
-    #         )  # + X_dash[:, :, i_z]*np.tan(theta_n)
-    #         yd[:, :, i_z] = y_transform[i_z].data + delta_X_dash * np.sin(
-    #             theta_n.data
-    #         )  # + Y_dash[:, :, i_z]*np.tan(theta_n)
-    #         zd[:, :, i_z] = z_transform[i_z].data + delta_Y_dash * np.sin(phi_n.data)
-    #
-    #     plt.figure()
-    #     for i_z in range(len(x2)):
-    #         plt.plot(xd[:, :, i_z].flatten(), yd[:, :, i_z].flatten(), "r.")
-    #     plt.plot(self.transform.x, self.transform.y, "k")
-    #     plt.axis("equal")
-    #     plt.show(block=True)
-    #
-    #     # print(X_dash)
-    #     # print(np.shape(X_dash))
-    #     # print("aa" ** 2)
-    #
-    #     # # Interpolate over tok-grid
-    #     # x_tok = DataArray(np.linspace(-1.0, 1.0, 101, dtype=float))
-    #     # y_tok = DataArray(np.linspace(-1.0, 1.0, 101, dtype=float))
-    #     # z_tok = DataArray(np.linspace(-0.5, 0.5, 51, dtype=float))
-    #     # points = (z_tok.data, x_tok.data, y_tok.data)
-    #
-    #     # X_tok, Y_tok, Z_tok = np.meshgrid(x_tok, y_tok, z_tok)
-    #     # X_tok = X_tok.flatten()
-    #     # Y_tok = Y_tok.flatten()
-    #     # Z_tok = Z_tok.flatten()
-    #     # nb_tok = np.zeros_like(X_tok)
-    #     # for i in range(len(X_tok)):
-    #     #     print(f'{i}out of {len(X_tok)}')
-    #     #     point = np.array([Z_tok[i], X_tok[i], Y_tok[i]])
-    #     #     nb_tok[i] = interpn(points, nb_dash, point, method='linear')
-    #
-    #     # print("aa" ** 2)
-    #
-    #     if True:
-    #
-    #         plt.figure()
-    #         plt.plot(x_dash, np.sum(nb_dash[0, :, :], axis=1))
-    #
-    #         plt.figure()
-    #         plt.contour(x_dash, y_dash, nb_dash[0, :, :], 100)
-    #         plt.xlabel("X (m)")
-    #         plt.ylabel("Y (m)")
-    #         plt.title("Initial beam cross section")
-    #         plt.show(block=True)
+        for i in range(len(self.energy_frac)):
+            source[:, i] = simulate_finite_source(
+                rho_profile,
+                Ne,
+                Te,
+                anum_plasma,
+                R_equil,
+                z_equil,
+                rho_equil,
+                vol_profile,
+                self.los_transform.origin,
+                self.los_transform.direction,
+                self.energy_frac[i],
+                self.anum_beam,
+                self.power,
+                width=width,
+                n=self.n_beamlets,
+            )
 
-    def beam_velocity(self):
-        return 4.38 * 1e5 * np.sqrt(self.energy * 1e-3 / float(self.amu))
+        result = simulate_slowingdown(
+            Ne,
+            Te,
+            anum_plasma * AMU2KG,
+            znum_plasma * EV2J,
+            self.energy_frac,
+            source,
+            self.anum_beam * AMU2KG,
+            self.znum_beam * EV2J,
+            Nmc=self.n_mc,
+        )
 
-    def set_energy(self, energy: float):
-        self.energy = energy
+        self.Ne = Ne
+        self.Te = Te
+        self.equilibrium = equilibrium
+        self.main_ion = main_ion
+        self.t = t
 
-    def set_power(self, power: float):
-        self.power = power
+        self.fast_density = result["nfast"]
+        self.fast_pressure_parallel = result["pressure"] / 2.0
+        self.fast_pressure_perpendicular = result["pressure"] / 2.0
 
-    def set_divergence(self, divergence: tuple):
-        self.divergence = divergence
+        self._build_bckc_dictionary()
 
-    def set_fractions(self, fractions: tuple):
-        self.fractions = fractions
+        return self.bckc
 
-    def set_width(self, width: tuple):
-        self.width = width
 
-    def set_element(self, element: str):
-        self.element = element
-        if self.element == "H":
-            self.amu = int(1)
-        elif self.element == "D":
-            self.amu = int(2)
-        else:
-            raise ValueError
+def example_run(
+    pulse: int = None, t: float = None, n_beamlets: int = 10, n_mc: int = 10
+):
+    plasma = example_plasma(pulse=pulse)
+    if t is None:
+        t = plasma.t.mean()
 
-    def set_location(self, location: tuple):
-        self.location = location
+    beam_name = "hnbi1"
+    beam_params = HNBI_DEFAULTS
+    beam_params["n_beamlets"] = n_beamlets
+    beam_params["n_mc"] = n_mc
 
-    def set_direction(self, direction: tuple):
-        self.direction = direction
+    origin = LOCATION_HNBI
+    direction = DIRECTION_RFX
+    los_transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name=beam_name,
+        machine_dimensions=plasma.machine_dimensions,
+        passes=1,
+    )
+    los_transform.set_equilibrium(plasma.equilibrium)
+    model = NeutralBeam(beam_name, **beam_params)
+    model.set_los_transform(los_transform)
+    model.set_plasma(plasma)
+    bckc = model(t=t)
+
+    return plasma, model, bckc
