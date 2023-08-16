@@ -274,8 +274,7 @@ def _parse_kt7d(
     (R_pinhole, Z_pinhole, theta_start, theta_end) = (float(x) for x in numbers)
 
     # for now get middle of line of sight, should account for spread instead
-    # theta = (theta_start + theta_end) / 2
-    theta = theta_start
+    theta = (theta_start + theta_end) / 2
 
     R_end = R_pinhole + np.cos(theta)
     Z_end = Z_pinhole + np.sin(theta)
