@@ -1222,6 +1222,51 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, DataArray]:
+        """
+        Gets estimated Tungsten density data output from VUV analysis.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        times : ndarray
+            The times at which measurements were taken
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time)
+        <quantity>_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
+        <quantity>_zstart : ndarray
+            Vertical location of start positions for lines of sight for this data.
+        <quantity>_zstop : ndarray
+            Vertical location of stop positions for lines of sight for this data.
+        """
         available_quantities = self.available_quantities(instrument)
         database_results = self._get_vuv_w_analyser(
             uid, instrument, revision, quantities
