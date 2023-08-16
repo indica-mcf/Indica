@@ -1268,7 +1268,7 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
 
             quant_data.name = instrument + "_" + quantity
