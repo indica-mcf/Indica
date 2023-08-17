@@ -1,9 +1,10 @@
 # Create trees from ppac standard utility tools
 
-import standard_utility as util
-from MDSplus import Connection
 import sys
+
+from MDSplus import Connection
 import numpy as np
+import standard_utility as util
 
 
 def bda():
@@ -165,8 +166,6 @@ def create_nodes(
         }
         for diag_name in diag_names
     }
-    # for diag_name in diag_names:
-    #     diag_nodes[diag_name]["RUN"] = ("TEXT", f"RUN from which {diag_name} data was taken")
 
     nodes = {
         "RUN": ("TEXT", "RUN used for diagnostic"),
@@ -219,7 +218,7 @@ def create_nodes(
 
 def write_nodes(pulse, node_info, data):
     util.StandardNodeWriting(
-        pulse_number=pulse,  # pulse number for which data should be written to the structure
+        pulse_number=pulse,  # pulse number for which data should be written
         dict_node_info=node_info,  # node information file
         nodes_to_write=[],  # selective nodes to be written
         data_to_write=data,

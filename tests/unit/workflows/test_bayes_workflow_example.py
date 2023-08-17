@@ -1,20 +1,14 @@
-import pytest
-from unittest.mock import Mock
-import sys
-
 import copy
-import numpy as np
+import sys
+from unittest.mock import Mock
 
-sys.modules["indica.writers.bda_tree"] = Mock()
+import pytest
 
-from indica.workflows.bayes_workflow_example import (
-    BayesWorkflowExample,
-    DEFAULT_PRIORS,
-    DEFAULT_PROFILE_PARAMS,
-    OPTIMISED_PARAMS,
-    OPTIMISED_QUANTITY,
-)
-
+from indica.workflows.bayes_workflow_example import BayesWorkflowExample
+from indica.workflows.bayes_workflow_example import DEFAULT_PRIORS
+from indica.workflows.bayes_workflow_example import DEFAULT_PROFILE_PARAMS
+from indica.workflows.bayes_workflow_example import OPTIMISED_PARAMS
+from indica.workflows.bayes_workflow_example import OPTIMISED_QUANTITY
 
 """
 TODO:
@@ -80,18 +74,15 @@ class TestBayesWorkflowExample:
 
     def test_init_phantoms_false_with_example_plasma(self):
         with pytest.raises(ValueError):
-            example = BayesWorkflowExample(
-                dict(self.init_settings, **{"phantoms": False})
-            )
+            BayesWorkflowExample(dict(self.init_settings, **{"phantoms": False}))
 
     def test_init_not_including_all_required_inputs(self):
         with pytest.raises(ValueError):
-            example = BayesWorkflowExample(
-                dict(self.init_settings, **{"param_names": None})
-            )
+            BayesWorkflowExample(dict(self.init_settings, **{"param_names": None}))
 
     # def test_reader_has_read_all_diagnostic_data(self):
-    #     assert all(diag_name in self.workflow.reader.keys() for diag_name in self.workflow.diagnostics)
+    #     assert all(diag_name in self.workflow.reader.keys()
+    #     for diag_name in self.workflow.diagnostics)
 
     def test_plasma_has_equilibrium(self):
         self.workflow.setup_plasma(**self.plasma_settings)
@@ -162,7 +153,7 @@ class TestBayesWorkflowExample:
         self.workflow.setup_optimiser(**self.optimiser_settings)
         self.workflow.run_sampler(**self.sampler_settings)
         if not hasattr(self.workflow, "result"):
-            raise ValueError(f"missing result in workflow object")
+            raise ValueError("missing result in workflow object")
         assert True
 
 

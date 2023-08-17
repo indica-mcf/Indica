@@ -14,7 +14,6 @@ from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.equilibrium import fake_equilibrium_data
-from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 import indica.physics as ph

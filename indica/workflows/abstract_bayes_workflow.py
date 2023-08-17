@@ -1,12 +1,14 @@
-from abc import ABC, abstractmethod
-import numpy as np
-import xarray as xr
-import pandas as pd
+from abc import ABC
+from abc import abstractmethod
 from pathlib import Path
 import pickle
 
-from indica.readers.read_st40 import ReadST40
+import numpy as np
+import pandas as pd
+import xarray as xr
+
 from indica.equilibrium import fake_equilibrium
+from indica.readers.read_st40 import ReadST40
 
 
 class AbstractBayesWorkflow(ABC):
@@ -162,7 +164,7 @@ class AbstractBayesWorkflow(ABC):
         }
         result["INPUT"]["WORKFLOW"] = {
             diag_name.upper(): {
-                "PULSE": self.pulse,  # Change this if different pulses used for diagnostics
+                "PULSE": self.pulse,  # Change this if different pulses used
                 "USAGE": "".join(
                     [quantity[1] for quantity in quant_list if quantity[0] == diag_name]
                 ),
@@ -464,11 +466,15 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
         if sampler.iteration % auto_sample:
             continue
         new_tau = sampler.get_autocorr_time(tol=0)
-        autocorr[sampler.iteration - 1,] = new_tau
+        autocorr[
+            sampler.iteration - 1,
+        ] = new_tau
         converged = np.all(new_tau * 50 < sampler.iteration)
         converged &= np.all(np.abs(old_tau - new_tau) / new_tau < 0.01)
         if converged:
             break
         old_tau = new_tau
-    autocorr = autocorr[: sampler.iteration,]
+    autocorr = autocorr[
+        : sampler.iteration,
+    ]
     return autocorr

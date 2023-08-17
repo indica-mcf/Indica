@@ -1,12 +1,13 @@
 import os
+import pickle
 
 import corner
+import flatdict
 import matplotlib.pyplot as plt
 import numpy as np
-import pickle
-import flatdict
 
-from indica.utilities import set_plot_rcparams, set_axis_sci
+from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_rcparams
 
 
 def plot_profile(
@@ -406,7 +407,7 @@ def plot_bayes_result(
         profiles[key],
         key,
         figheader=figheader,
-        filename=f"ar density",
+        filename="ar density",
         filetype=filetype,
         phantom_profile=phantom_profiles,
         color="red",
@@ -417,7 +418,7 @@ def plot_bayes_result(
         profiles[key],
         key,
         figheader=figheader,
-        filename=f"c density",
+        filename="c density",
         filetype=filetype,
         phantom_profile=phantom_profiles,
         color="red",

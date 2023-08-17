@@ -1,22 +1,22 @@
 import emcee
-import numpy as np
 import flatdict
+import numpy as np
 from scipy.stats import loguniform
 
-from indica.bayesmodels import BayesModels, get_uniform
-from indica.workflows.bayes_plots import plot_bayes_result
-from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
-from indica.writers.bda_tree import create_nodes, write_nodes
-from indica.converters.line_of_sight import LineOfSightTransform
-
-from indica.models.interferometry import Interferometry, smmh1_transform_example
-from indica.models.helike_spectroscopy import (
-    HelikeSpectrometer,
-    helike_transform_example,
-)
-from indica.models.charge_exchange import ChargeExchange, pi_transform_example
+from indica.bayesmodels import BayesModels
+from indica.bayesmodels import get_uniform
+from indica.models.charge_exchange import ChargeExchange
+from indica.models.charge_exchange import pi_transform_example
 from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
+from indica.models.helike_spectroscopy import helike_transform_example
+from indica.models.helike_spectroscopy import HelikeSpectrometer
+from indica.models.interferometry import Interferometry
+from indica.models.interferometry import smmh1_transform_example
 from indica.models.plasma import Plasma
+from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
+from indica.workflows.bayes_plots import plot_bayes_result
+from indica.writers.bda_tree import create_nodes
+from indica.writers.bda_tree import write_nodes
 
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
@@ -289,7 +289,11 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             ].max().values * np.random.normal(0, noise_factor, None)
             opt_data["xrcs.spectra"] = opt_data["xrcs.spectra"] + np.random.normal(
                 0,
-                np.sqrt(opt_data["xrcs.spectra"].values[0,]),
+                np.sqrt(
+                    opt_data["xrcs.spectra"].values[
+                        0,
+                    ]
+                ),
                 opt_data["xrcs.spectra"].shape[1],
             )
             opt_data["cxff_pi.ti"] = opt_data["cxff_pi.ti"] + opt_data[

@@ -196,10 +196,7 @@ def prepare_data_cxrs(
             continue
         data = st40.binned_data[instrument]
         attrs = data["spectra"].attrs
-        (
-            data["background"],
-            data["brightness"],
-        ) = models[
+        (data["background"], data["brightness"],) = models[
             instrument
         ].integrate_spectra(data["spectra"])
         data["background"].attrs = attrs
