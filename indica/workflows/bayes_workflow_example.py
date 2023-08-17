@@ -6,7 +6,7 @@ from scipy.stats import loguniform
 from indica.bayesmodels import BayesModels, get_uniform
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
-from indica.writers.bda_tree import create_nodes, write_nodes, check_analysis_run
+from indica.writers.bda_tree import create_nodes, write_nodes
 from indica.converters.line_of_sight import LineOfSightTransform
 
 from indica.models.interferometry import Interferometry, smmh1_transform_example
@@ -99,7 +99,12 @@ OPTIMISED_PARAMS = [
     "Ti_prof.wcenter",
     "Ti_prof.peaking",
 ]
-
+OPTIMISED_QUANTITY = [
+                        "xrcs.spectra",
+                        "cxff_pi.ti",
+                        "efit.wp",
+                        "smmh1.ne",
+                        ]
 
 class BayesWorkflowExample(AbstractBayesWorkflow):
     def __init__(
@@ -330,13 +335,11 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
     def setup_optimiser(self,
                         model_kwargs,
-                        iterations=200,
                         nwalkers=50,
                         burn_frac=0.10,
                         sample_high_density=False,
                         ):
         self.model_kwargs = model_kwargs
-        self.iterations = iterations
         self.nwalkers = nwalkers
         self.burn_frac = burn_frac
         self.sample_high_density = sample_high_density
@@ -352,7 +355,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         ndim = len(self.param_names)
         self.move = [(emcee.moves.StretchMove(), 0.9), (emcee.moves.DEMove(), 0.1)]
         self.sampler = emcee.EnsembleSampler(
-            self.nwalkers,
+            nwalkers,
             ndim,
             log_prob_fn=self.bayesmodel.ln_posterior,
             parameter_names=self.param_names,
@@ -366,7 +369,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
     def _sample_start_points(self, sample_high_density: bool = True):
         if sample_high_density:
             start_points = self.bayesmodel.sample_from_high_density_region(
-                self.param_names, self.sampler, self.nwalkers
+                self.param_names, self.sampler, self.nwalkers, nsamples=100
             )
         else:
             start_points = self.bayesmodel.sample_from_priors(
@@ -374,8 +377,8 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             )
         return start_points
 
-    def __call__(self, filepath="./results/test/", run=None, mds_write=False, pulse_to_write=None, plot=False,
-                 **kwargs):
+    def __call__(self, filepath="./results/test/", run=None, mds_write=False, pulse_to_write=None,
+                 plot=False, iterations=100, burn_frac=0.10, **kwargs):
         if mds_write:
             # check_analysis_run(self.pulse, self.run)
             self.node_structure = create_nodes(
@@ -385,7 +388,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 mode="NEW",
             )
 
-        self.run_sampler()
+        self.run_sampler(iterations=iterations, burn_frac=burn_frac)
         self.save_pickle(filepath=filepath)
 
         if plot:  # currently requires result with DataArrays
@@ -422,9 +425,7 @@ if __name__ == "__main__":
     )
     run.setup_opt_data(phantoms=run.phantoms)
     run.setup_optimiser(
-        iterations=100,
         nwalkers=50,
-        burn_frac=0.10,
         sample_high_density=True,
         model_kwargs={
         }
@@ -435,4 +436,6 @@ if __name__ == "__main__":
         run="RUN01",
         mds_write=True,
         plot=True,
+        burn_frac=0.10,
+        iterations=100,
     )
