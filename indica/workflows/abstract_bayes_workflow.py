@@ -387,7 +387,7 @@ class AbstractBayesWorkflow(ABC):
         self.result = result
         return self.result
 
-    def run_sampler(self):
+    def run_sampler(self, iterations, burn_frac):
         """
         TODO: unsure if keeping in abstract class is best practice
 
@@ -398,15 +398,18 @@ class AbstractBayesWorkflow(ABC):
         result in MDSPlus node formatting
 
         """
+        self.burn_frac = burn_frac
+        self.iterations = iterations
+
         self.autocorr = sample_with_autocorr(
             self.sampler,
             self.start_points,
-            self.iterations,
+            iterations,
             self.param_names.__len__(),
             auto_sample=10,
         )
         blobs = self.sampler.get_blobs(
-            discard=int(self.iterations * self.burn_frac), flat=True
+            discard=int(iterations * burn_frac), flat=True
         )
         blob_names = self.sampler.get_blobs().flatten()[0].keys()
         self.samples = np.arange(0, blobs.__len__())
