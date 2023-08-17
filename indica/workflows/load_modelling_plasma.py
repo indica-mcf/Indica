@@ -13,7 +13,7 @@ from indica.converters.transect import TransectCoordinates
 from indica.equilibrium import Equilibrium
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
