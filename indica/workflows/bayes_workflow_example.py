@@ -234,7 +234,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                     window=window,
                 )
                 xrcs.set_los_transform(los_transform)
-                self.models[diag] = xrcs
+                # self.models[diag] = xrcs
 
             elif diag == "efit":
                 efit = EquilibriumReconstruction(name="efit")
