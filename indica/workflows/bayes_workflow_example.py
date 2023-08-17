@@ -1,8 +1,9 @@
+from typing import Optional
+
 import emcee
 import flatdict
 import numpy as np
 from scipy.stats import loguniform
-from typing import Optional
 
 from indica.bayesmodels import BayesModels
 from indica.bayesmodels import get_uniform
@@ -105,12 +106,12 @@ OPTIMISED_QUANTITY = [
 class BayesWorkflowExample(AbstractBayesWorkflow):
     def __init__(
         self,
+        diagnostics: list,
+        param_names: list,
+        opt_quantity: list,
+        priors: dict,
+        profile_params: dict,
         pulse: int = None,
-        diagnostics: Optional[list] = None,
-        param_names: Optional[list] = None,
-        opt_quantity: Optional[list] = None,
-        priors: dict = None,
-        profile_params: dict = None,
         phantoms: bool = False,
         tstart=0.02,
         tend=0.10,
@@ -414,18 +415,19 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
 if __name__ == "__main__":
     run = BayesWorkflowExample(
-        pulse=None,
-        phantoms=True,
-        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
-        opt_quantity=[
+        ["xrcs", "efit", "smmh1", "cxff_pi"],
+        [
             "xrcs.spectra",
             "cxff_pi.ti",
             "efit.wp",
             "smmh1.ne",
         ],
-        param_names=OPTIMISED_PARAMS,
-        profile_params=DEFAULT_PROFILE_PARAMS,
-        priors=DEFAULT_PRIORS,
+        OPTIMISED_PARAMS,
+        DEFAULT_PROFILE_PARAMS,
+        DEFAULT_PRIORS,
+
+        pulse=None,
+        phantoms=True,
         tstart=0.02,
         tend=0.10,
         dt=0.005,
