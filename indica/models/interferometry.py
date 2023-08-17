@@ -89,9 +89,12 @@ class Interferometry(DiagnosticModel):
         return self.bckc
 
 
-def smmh1_transform_example():
-    los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
-    los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
+def smmh1_transform_example(nchannels):
+
+    los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels,3))
+    los_start[:,2] = np.linspace(0, -0.2, nchannels)
+    los_end = np.array([[0.17, 0, 0]]) * np.ones((nchannels, 3))
+    los_end[:, 2] = np.linspace(0, -0.2, nchannels)
     origin = los_start
     direction = los_end - los_start
     los_transform = LineOfSightTransform(
@@ -117,7 +120,7 @@ def example_run(pulse: int = None, plasma=None, plot=False):
     model = Interferometry(
         diagnostic_name,
     )
-    los_transform = smmh1_transform_example()
+    los_transform = smmh1_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
