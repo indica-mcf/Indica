@@ -1,6 +1,4 @@
 import copy
-import sys
-from unittest.mock import Mock
 
 import pytest
 
