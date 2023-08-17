@@ -2,6 +2,7 @@ import emcee
 import flatdict
 import numpy as np
 from scipy.stats import loguniform
+from typing import Optional
 
 from indica.bayesmodels import BayesModels
 from indica.bayesmodels import get_uniform
@@ -105,9 +106,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
     def __init__(
         self,
         pulse: int = None,
-        diagnostics: list = None,
-        param_names: list = None,
-        opt_quantity: list = None,
+        diagnostics: Optional[list] = None,
+        param_names: Optional[list] = None,
+        opt_quantity: Optional[list] = None,
         priors: dict = None,
         profile_params: dict = None,
         phantoms: bool = False,
@@ -144,15 +145,18 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         # TODO: Add some abstraction here
         if pulse is None:
             print("Running in test mode")
+            example_transforms = {
+                "xrcs": helike_transform_example(1),
+                "smmh1": smmh1_transform_example(1),
+                "cxff_pi": pi_transform_example(5),
+            }
             self.read_test_data(
-                {
-                    "xrcs": helike_transform_example(1),
-                    "smmh1": smmh1_transform_example(1),
-                    "cxff_pi": pi_transform_example(5),
-                }
+                example_transforms, tstart=self.tstart, tend=self.tend, dt=self.dt
             )
         else:
-            self.read_data(self.diagnostics)
+            self.read_data(
+                self.diagnostics, tstart=self.tstart, tend=self.tend, dt=self.dt
+            )
         self.setup_models(self.diagnostics)
 
     def setup_plasma(
