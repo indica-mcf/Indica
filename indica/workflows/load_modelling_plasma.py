@@ -31,7 +31,7 @@ CMAP, COLORS = set_plot_colors()
 DIAGNOSTIC_MODELS = {
     "smmh1": Interferometry,
     "nirh1": Interferometry,
-    "xrcs": Helike_spectroscopy,
+    "xrcs": HelikeSpectrometer,
     "ts": ThomsonScattering,
     "cxff_pi": ChargeExchange,
     "cxff_tws_c": ChargeExchange,
