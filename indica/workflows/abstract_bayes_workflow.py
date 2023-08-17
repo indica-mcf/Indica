@@ -31,6 +31,7 @@ class AbstractBayesWorkflow(ABC):
 
     def read_test_data(self, diagnostic_transforms: dict):
         # Used with phantom data for purposes of tests
+        print("Reading fake data")
         self.reader = None
         self.equilibrium = fake_equilibrium(
             self.tstart,
