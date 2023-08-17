@@ -12,13 +12,13 @@ from indica.equilibrium import fake_equilibrium
 class AbstractBayesWorkflow(ABC):
     @abstractmethod
     def __init__(
-            self,
-            pulse=None,
-            phantoms=None,
-            diagnostics=None,
-            param_names=None,
-            opt_quantity=None,
-            priors=None,
+        self,
+        pulse=None,
+        phantoms=None,
+        diagnostics=None,
+        param_names=None,
+        opt_quantity=None,
+        priors=None,
     ):
         self.pulse = pulse
         self.phantoms = phantoms
@@ -111,8 +111,8 @@ class AbstractBayesWorkflow(ABC):
         if self.phantoms:
             phantom_profiles = {
                 profile_key: getattr(self.plasma, profile_key)
-                    .sel(t=self.plasma.time_to_calculate)
-                    .copy()
+                .sel(t=self.plasma.time_to_calculate)
+                .copy()
                 for profile_key in kinetic_profiles
             }
         else:
@@ -120,7 +120,7 @@ class AbstractBayesWorkflow(ABC):
                 profile_key: getattr(self.plasma, profile_key).sel(
                     t=self.plasma.time_to_calculate
                 )
-                             * 0
+                * 0
                 for profile_key in kinetic_profiles
             }
 
@@ -225,22 +225,22 @@ class AbstractBayesWorkflow(ABC):
             "RHO_TOR": self.plasma.equilibrium.rhotor.interp(t=self.plasma.t),
             "NE": self.blobs["electron_density"].median(dim="index"),
             "NI": self.blobs["ion_density"]
-                .sel(element=self.plasma.main_ion)
-                .median(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .median(dim="index"),
             "TE": self.blobs["electron_temperature"].median(dim="index"),
             "TI": self.blobs["ion_temperature"]
-                .sel(element=self.plasma.main_ion)
-                .median(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .median(dim="index"),
             "NFAST": self.blobs["fast_density"].median(dim="index"),
             "NNEUTR": self.blobs["neutral_density"].median(dim="index"),
             "NE_ERR": self.blobs["electron_density"].std(dim="index"),
             "NI_ERR": self.blobs["ion_density"]
-                .sel(element=self.plasma.main_ion)
-                .std(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .std(dim="index"),
             "TE_ERR": self.blobs["electron_temperature"].std(dim="index"),
             "TI_ERR": self.blobs["ion_temperature"]
-                .sel(element=self.plasma.main_ion)
-                .std(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .std(dim="index"),
             "NFAST_ERR": self.blobs["fast_density"].std(dim="index"),
             "NNEUTR_ERR": self.blobs["neutral_density"].std(dim="index"),
         }
@@ -248,8 +248,8 @@ class AbstractBayesWorkflow(ABC):
             **result["PROFILES"],
             **{
                 f"NIZ{num_imp + 1}": self.blobs["impurity_density"]
-                    .sel(element=imp)
-                    .median(dim="index")
+                .sel(element=imp)
+                .median(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -257,8 +257,8 @@ class AbstractBayesWorkflow(ABC):
             **result["PROFILES"],
             **{
                 f"NIZ{num_imp + 1}_ERR": self.blobs["impurity_density"]
-                    .sel(element=imp)
-                    .std(dim="index")
+                .sel(element=imp)
+                .std(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -266,8 +266,8 @@ class AbstractBayesWorkflow(ABC):
             **result["PROFILES"],
             **{
                 f"TIZ{num_imp + 1}": self.blobs["ion_temperature"]
-                    .sel(element=imp)
-                    .median(dim="index")
+                .sel(element=imp)
+                .median(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -275,8 +275,8 @@ class AbstractBayesWorkflow(ABC):
             **result["PROFILES"],
             **{
                 f"TIZ{num_imp + 1}_ERR": self.blobs["ion_temperature"]
-                    .sel(element=imp)
-                    .std(dim="index")
+                .sel(element=imp)
+                .std(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -315,41 +315,41 @@ class AbstractBayesWorkflow(ABC):
 
         result["GLOBAL"] = {
             "TI0": self.blobs["ion_temperature"]
-                .sel(element=self.plasma.main_ion)
-                .sel(rho_poloidal=0, method="nearest")
-                .median(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .sel(rho_poloidal=0, method="nearest")
+            .median(dim="index"),
             "TE0": self.blobs["electron_temperature"]
-                .sel(rho_poloidal=0, method="nearest")
-                .median(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .median(dim="index"),
             "NE0": self.blobs["electron_density"]
-                .sel(rho_poloidal=0, method="nearest")
-                .median(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .median(dim="index"),
             "NI0": self.blobs["ion_density"]
-                .sel(element=self.plasma.main_ion)
-                .sel(rho_poloidal=0, method="nearest")
-                .median(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .sel(rho_poloidal=0, method="nearest")
+            .median(dim="index"),
             "TI0_ERR": self.blobs["ion_temperature"]
-                .sel(element=self.plasma.main_ion)
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
             "TE0_ERR": self.blobs["electron_temperature"]
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
             "NE0_ERR": self.blobs["electron_density"]
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
             "NI0_ERR": self.blobs["ion_density"]
-                .sel(element=self.plasma.main_ion)
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(element=self.plasma.main_ion)
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
         }
         result["GLOBAL"] = {
             **result["GLOBAL"],
             **{
                 f"TI0Z{num_imp + 1}": self.blobs["ion_temperature"]
-                    .sel(element=imp)
-                    .sel(rho_poloidal=0, method="nearest")
-                    .median(dim="index")
+                .sel(element=imp)
+                .sel(rho_poloidal=0, method="nearest")
+                .median(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -357,9 +357,9 @@ class AbstractBayesWorkflow(ABC):
             **result["GLOBAL"],
             **{
                 f"TI0Z{num_imp + 1}_ERR": self.blobs["ion_temperature"]
-                    .sel(element=imp)
-                    .sel(rho_poloidal=0, method="nearest")
-                    .std(dim="index")
+                .sel(element=imp)
+                .sel(rho_poloidal=0, method="nearest")
+                .std(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -367,9 +367,9 @@ class AbstractBayesWorkflow(ABC):
             **result["GLOBAL"],
             **{
                 f"NI0Z{num_imp + 1}": self.blobs["impurity_density"]
-                    .sel(element=imp)
-                    .sel(rho_poloidal=0, method="nearest")
-                    .median(dim="index")
+                .sel(element=imp)
+                .sel(rho_poloidal=0, method="nearest")
+                .median(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -377,9 +377,9 @@ class AbstractBayesWorkflow(ABC):
             **result["GLOBAL"],
             **{
                 f"NI0Z{num_imp + 1}_ERR": self.blobs["impurity_density"]
-                    .sel(element=imp)
-                    .sel(rho_poloidal=0, method="nearest")
-                    .std(dim="index")
+                .sel(element=imp)
+                .sel(rho_poloidal=0, method="nearest")
+                .std(dim="index")
                 for num_imp, imp in enumerate(self.plasma.impurities)
             },
         }
@@ -408,9 +408,7 @@ class AbstractBayesWorkflow(ABC):
             self.param_names.__len__(),
             auto_sample=10,
         )
-        blobs = self.sampler.get_blobs(
-            discard=int(iterations * burn_frac), flat=True
-        )
+        blobs = self.sampler.get_blobs(discard=int(iterations * burn_frac), flat=True)
         blob_names = self.sampler.get_blobs().flatten()[0].keys()
         self.samples = np.arange(0, blobs.__len__())
 
@@ -459,9 +457,9 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(
-            start_points,
-            iterations=iterations,
-            progress=True,
+        start_points,
+        iterations=iterations,
+        progress=True,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -472,5 +470,5 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
         if converged:
             break
         old_tau = new_tau
-    autocorr = autocorr[: sampler.iteration, ]
+    autocorr = autocorr[: sampler.iteration,]
     return autocorr

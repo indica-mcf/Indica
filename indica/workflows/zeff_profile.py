@@ -196,7 +196,10 @@ def prepare_data_cxrs(
             continue
         data = st40.binned_data[instrument]
         attrs = data["spectra"].attrs
-        (data["background"], data["brightness"],) = models[
+        (
+            data["background"],
+            data["brightness"],
+        ) = models[
             instrument
         ].integrate_spectra(data["spectra"])
         data["background"].attrs = attrs
@@ -222,7 +225,6 @@ def prepare_inputs(
     phantom_data: bool = True,
     ts_side: str = "LFS",
 ):
-
     flat_data: dict = {}
     models: dict = {}
 
@@ -350,7 +352,6 @@ def run_bayes(
     phantom_data: bool = True,
     ts_side: str = "LFS",
 ):
-
     plasma, models, flat_data, input_profiles = prepare_inputs(
         pulse,
         tstart=tstart,
@@ -430,7 +431,6 @@ def run_inversion(
     phantom_data: bool = True,
     ts_side: str = "LFS",
 ):
-
     plasma, models, flat_data, input_profiles = prepare_inputs(
         pulse,
         tstart=tstart,
