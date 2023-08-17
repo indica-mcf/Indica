@@ -26,8 +26,8 @@ DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.y1": 2e18,
     "Ne_prof.yend": 1e18,
     "Ne_prof.wped": 2,
-    "Nimp_prof.y0": 3e16,
-    "Nimp_prof.y1": 0.5e16,
+    "Nimp_prof.y0": 1e17,
+    "Nimp_prof.y1": 5e15,
     "Nimp_prof.wcenter": 0.4,
     "Nimp_prof.wped": 6,
     "Nimp_prof.peaking": 2,
@@ -50,28 +50,30 @@ DEFAULT_PRIORS = {
     "Ne_prof.wped": get_uniform(1, 6),
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
     "Ne_prof.peaking": get_uniform(1, 6),
-    "ar_conc": loguniform(0.0001, 0.01),
+
     "Nimp_prof.y0": loguniform(1e16, 1e18),
-    "Nimp_prof.y1": get_uniform(1e15, 2e16),
+    "Nimp_prof.y1": get_uniform(1e15, 1e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
     ),
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
     "Nimp_prof.wped": get_uniform(1, 6),
     "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
-    "Nimp_prof.peaking": get_uniform(1, 20),
+    "Nimp_prof.peaking": get_uniform(1, 10),
     "Nimp_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where(
         (x1 > x2), 1, 0
     ),  # impurity always more peaked
+
     "Te_prof.y0": get_uniform(1000, 5000),
     "Te_prof.wped": get_uniform(1, 6),
-    "Te_prof.wcenter": get_uniform(0.1, 0.6),
-    "Te_prof.peaking": get_uniform(1, 6),
-    "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
-    "Ti_prof.y0": get_uniform(3000, 10000),
+    "Te_prof.wcenter": get_uniform(0.1, 0.8),
+    "Te_prof.peaking": get_uniform(1, 10),
+
+    # "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
+    "Ti_prof.y0": get_uniform(1000, 10000),
     "Ti_prof.wped": get_uniform(1, 6),
-    "Ti_prof.wcenter": get_uniform(0.1, 0.6),
-    "Ti_prof.peaking": get_uniform(1, 20),
+    "Ti_prof.wcenter": get_uniform(0.1, 0.8),
+    "Ti_prof.peaking": get_uniform(1, 10),
 }
 
 OPTIMISED_PARAMS = [
@@ -80,27 +82,22 @@ OPTIMISED_PARAMS = [
     # "Ne_prof.peaking",
     # "Ne_prof.wcenter",
     # "Ne_prof.wped",
-    # "ar_conc",
+
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
     # "Nimp_prof.wcenter",
     # "Nimp_prof.wped",
     # "Nimp_prof.peaking",
+
     "Te_prof.y0",
     # "Te_prof.wped",
     "Te_prof.wcenter",
     "Te_prof.peaking",
+
     "Ti_prof.y0",
-    "Ti_prof.wped",
+    # "Ti_prof.wped",
     "Ti_prof.wcenter",
     "Ti_prof.peaking",
-]
-
-OPTIMISED_QUANTITY = [
-    "xrcs.spectra",
-    # "cxff_pi.ti",
-    "efit.wp",
-    "smmh1.ne",
 ]
 
 
@@ -150,7 +147,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             self.read_test_data(
                 {
                     "xrcs": helike_transform_example(1),
-                    "smmh1": smmh1_transform_example(),
+                    "smmh1": smmh1_transform_example(1),
                     "cxff_pi": pi_transform_example(5),
                 }
             )
@@ -199,22 +196,22 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.models = {}
         for diag in diagnostics:
             if diag == "smmh1":
-                # los_transform = self.transforms[diag]
-                machine_dims = ((0.15, 0.95), (-0.7, 0.7))
-                origin = np.array([[-0.38063365, 0.91893092, 0.01]])
-                # end = np.array([[0,  0, 0.01]])
-                direction = np.array([[0.38173721, -0.92387953, -0.02689453]])
-                los_transform = LineOfSightTransform(
-                    origin[:, 0],
-                    origin[:, 1],
-                    origin[:, 2],
-                    direction[:, 0],
-                    direction[:, 1],
-                    direction[:, 2],
-                    name="",
-                    machine_dimensions=machine_dims,
-                    passes=2,
-                )
+                los_transform = self.transforms[diag]
+                # machine_dims = ((0.15, 0.95), (-0.7, 0.7))
+                # origin = np.array([[-0.38063365, 0.91893092, 0.01]])
+                # # end = np.array([[0,  0, 0.01]])
+                # direction = np.array([[0.38173721, -0.92387953, -0.02689453]])
+                # los_transform = LineOfSightTransform(
+                #     origin[:, 0],
+                #     origin[:, 1],
+                #     origin[:, 2],
+                #     direction[:, 0],
+                #     direction[:, 1],
+                #     direction[:, 2],
+                #     name="",
+                #     machine_dimensions=machine_dims,
+                #     passes=2,
+                # )
                 los_transform.set_equilibrium(self.equilibrium)
                 model = Interferometry(name=diag)
                 model.set_los_transform(los_transform)
@@ -403,10 +400,15 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
 if __name__ == "__main__":
     run = BayesWorkflowExample(
-        pulse=9780,
+        pulse=None,
         phantoms=True,
-        diagnostics=["xrcs", "efit", "smmh1",],
-        opt_quantity=OPTIMISED_QUANTITY,
+        diagnostics=["xrcs", "efit", "smmh1","cxff_pi"],
+        opt_quantity=[
+                        "xrcs.spectra",
+                        "cxff_pi.ti",
+                        "efit.wp",
+                        "smmh1.ne",
+                        ],
         param_names=OPTIMISED_PARAMS,
         profile_params=DEFAULT_PROFILE_PARAMS,
         priors=DEFAULT_PRIORS,
@@ -420,7 +422,7 @@ if __name__ == "__main__":
     )
     run.setup_opt_data(phantoms=run.phantoms)
     run.setup_optimiser(
-        iterations=2,
+        iterations=100,
         nwalkers=50,
         burn_frac=0.10,
         sample_high_density=True,
