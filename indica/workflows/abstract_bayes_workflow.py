@@ -31,7 +31,9 @@ class AbstractBayesWorkflow(ABC):
         self.read_data(self.diagnostics)
         self.setup_models(self.diagnostics)
 
-    def read_test_data(self, diagnostic_transforms: dict, tstart=None, tend=None, dt=None):
+    def read_test_data(
+        self, diagnostic_transforms: dict, tstart=None, tend=None, dt=None
+    ):
         # Used with phantom data for purposes of tests
         print("Reading fake data")
         self.equilibrium = fake_equilibrium(
@@ -44,7 +46,7 @@ class AbstractBayesWorkflow(ABC):
 
     def read_data(self, diagnostics: list, tstart=None, tend=None, dt=None):
         self.reader = ReadST40(
-            self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt
+            self.pulse, tstart=tstart, tend=tend, dt=dt
         )
         self.reader(diagnostics)
         self.equilibrium = self.reader.equilibrium
