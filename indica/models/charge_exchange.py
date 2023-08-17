@@ -22,7 +22,6 @@ class ChargeExchange(DiagnosticModel):
         element: str = "c",
         instrument_method="get_charge_exchange",
     ):
-
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
@@ -43,6 +42,12 @@ class ChargeExchange(DiagnosticModel):
                 self.bckc[quantity] = self.Ti_at_channels
                 long_name = "Ion temperature"
                 units = "eV"
+            elif quant == "spectra":
+                # Placeholder
+                continue
+            elif quant == "fit":
+                # Placeholder
+                continue
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -115,20 +120,7 @@ class ChargeExchange(DiagnosticModel):
         return self.bckc
 
 
-def example_run(
-    pulse: int = None,
-    diagnostic_name: str = "cxrs",
-    plasma=None,
-    plot=False,
-):
-
-    # TODO: LOS sometimes crossing bad EFIT reconstruction
-
-    if plasma is None:
-        plasma = example_plasma(pulse=pulse)
-
-    # Create new interferometers diagnostics
-    nchannels = 5
+def pi_transform_example(nchannels: int):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)
@@ -137,9 +129,25 @@ def example_run(
         x_positions,
         y_positions,
         z_positions,
-        diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
+        "pi",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
     )
+    return transect_transform
+
+
+def example_run(
+    pulse: int = None,
+    diagnostic_name: str = "cxrs",
+    plasma=None,
+    plot=False,
+):
+    # TODO: LOS sometimes crossing bad EFIT reconstruction
+
+    if plasma is None:
+        plasma = example_plasma(pulse=pulse)
+
+    # Create new interferometers diagnostics
+    transect_transform = pi_transform_example(5)
     transect_transform.set_equilibrium(plasma.equilibrium)
     model = ChargeExchange(
         diagnostic_name,

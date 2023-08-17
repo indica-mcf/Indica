@@ -13,7 +13,7 @@ from indica.converters.transect import TransectCoordinates
 from indica.equilibrium import Equilibrium
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
@@ -31,7 +31,7 @@ CMAP, COLORS = set_plot_colors()
 DIAGNOSTIC_MODELS = {
     "smmh1": Interferometry,
     "nirh1": Interferometry,
-    "xrcs": Helike_spectroscopy,
+    "xrcs": HelikeSpectrometer,
     "ts": ThomsonScattering,
     "cxff_pi": ChargeExchange,
     "cxff_tws_c": ChargeExchange,

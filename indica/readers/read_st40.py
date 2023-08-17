@@ -94,6 +94,7 @@ class ReadST40:
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
         self.binned_data: dict = {}
+        self.transforms: dict = {}
 
     def reset_data(self):
         self.raw_data = {}
@@ -121,6 +122,7 @@ class ReadST40:
                 transform = data[quant].transform
                 if hasattr(transform, "set_equilibrium"):
                     transform.set_equilibrium(self.equilibrium)
+                self.transforms[instrument] = transform
         self.raw_data[instrument] = data
 
         return data
@@ -173,7 +175,6 @@ class ReadST40:
                         break
 
     def filter_data(self, instruments: list):
-
         if not hasattr(self, "binned_data"):
             raise ValueError(
                 "Bin data before filtering. No action permitted on raw data structure!"
@@ -308,7 +309,6 @@ class ReadST40:
         debug: bool = False,
     ):
         self.debug = debug
-
         if instruments is None:
             instruments = list(REVISIONS.keys())
         if revisions is None:
