@@ -417,17 +417,12 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
 if __name__ == "__main__":
     run = BayesWorkflowExample(
-        ["xrcs", "efit", "smmh1", "cxff_pi"],
-        [
-            "xrcs.spectra",
-            "cxff_pi.ti",
-            "efit.wp",
-            "smmh1.ne",
-        ],
-        OPTIMISED_PARAMS,
-        DEFAULT_PROFILE_PARAMS,
-        DEFAULT_PRIORS,
         pulse=None,
+        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
+        param_names=OPTIMISED_PARAMS,
+        opt_quantity=OPTIMISED_QUANTITY,
+        priors=DEFAULT_PRIORS,
+        profile_params=DEFAULT_PROFILE_PARAMS,
         phantoms=True,
         tstart=0.02,
         tend=0.10,

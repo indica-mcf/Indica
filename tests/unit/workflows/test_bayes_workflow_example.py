@@ -64,7 +64,7 @@ class TestBayesWorkflowExample:
         self.workflow = None
 
     def test_workflow_initializes(self):
-        attributes_to_check = ["data", "reader", "models", "equilibrium"]
+        attributes_to_check = ["data", "models", "equilibrium"]
         for attribute in attributes_to_check:
             if not hasattr(self.workflow, attribute):
                 raise ValueError(f"missing {attribute} in workflow object")
@@ -72,11 +72,11 @@ class TestBayesWorkflowExample:
 
     def test_init_phantoms_false_with_example_plasma(self):
         with pytest.raises(ValueError):
-            BayesWorkflowExample(dict(self.init_settings, **{"phantoms": False}))
+            BayesWorkflowExample(**dict(self.init_settings, **{"phantoms": False}))
 
     def test_init_not_including_all_required_inputs(self):
         with pytest.raises(ValueError):
-            BayesWorkflowExample(dict(self.init_settings, **{"param_names": None}))
+            BayesWorkflowExample(**dict(self.init_settings, **{"param_names": None}))
 
     # def test_reader_has_read_all_diagnostic_data(self):
     #     assert all(diag_name in self.workflow.reader.keys()
