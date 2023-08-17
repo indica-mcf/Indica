@@ -34,14 +34,13 @@ class AbstractBayesWorkflow(ABC):
     def read_test_data(self, diagnostic_transforms: dict, tstart=None, tend=None, dt=None):
         # Used with phantom data for purposes of tests
         print("Reading fake data")
-        self.reader = None
         self.equilibrium = fake_equilibrium(
             tstart,
             tend,
             dt,
         )
         self.transforms = diagnostic_transforms
-        self.data = {}
+        self.data: dict = {}
 
     def read_data(self, diagnostics: list, tstart=None, tend=None, dt=None):
         self.reader = ReadST40(
@@ -67,7 +66,7 @@ class AbstractBayesWorkflow(ABC):
         Initialising models normally requires data to be read so transforms can be set
 
         """
-        self.models = {}
+        self.models: dict = {}
 
     @abstractmethod
     def _phantom_data(self):

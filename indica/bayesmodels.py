@@ -194,7 +194,7 @@ class BayesModels:
         return samples.transpose()
 
     def sample_from_high_density_region(
-        self, param_names: list, sampler: object, nwalkers: int, nsamples=100
+        self, param_names: list, sampler, nwalkers: int, nsamples=100
     ):
         start_points = self.sample_from_priors(param_names, size=nsamples)
 
