@@ -1,5 +1,6 @@
 from copy import deepcopy
 import warnings
+
 import numpy as np
 from scipy.stats import uniform
 
@@ -82,7 +83,8 @@ class BayesModels:
         """
         self.bckc: dict = {}
         for model in self.diagnostic_models:
-            # removes "model.name." from params and kwargs then passes them to model e.g. xrcs.background -> background
+            # removes "model.name." from params and kwargs then passes them to model
+            # e.g. xrcs.background -> background
             _nuisance_params = {
                 param_name.replace(model.name + ".", ""): param_value
                 for param_name, param_value in params.items()
