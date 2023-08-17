@@ -465,12 +465,13 @@ class HelikeSpectrometer(DiagnosticModel):
         self._build_bckc_dictionary()
         return self.bckc
 
-def helike_transform_example(nchannels=3):
+def helike_transform_example(nchannels):
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.43, -0.43, nchannels)
-    los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
+    los_end[:, 2] = np.linspace(0.2, -0.5, nchannels)
+    los_start = np.array([[0.9, 0, 0]] * los_end.shape[0])
+    los_start[:, 2] = -0.1
     origin = los_start
     direction = los_end - los_start
 
@@ -531,8 +532,7 @@ def example_run(
             plt.ylabel("spectra")
             plt.legend()
 
-        # model.los_transform.plot(tplot,
-        # plot_all=model.los_transform.x1.__len__() > 1)
+            los_transform.plot()
 
         if "int_w" in bckc.keys() & "t" in bckc["int_w"].dims:
             plt.figure()
