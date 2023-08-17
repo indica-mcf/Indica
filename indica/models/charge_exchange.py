@@ -42,6 +42,12 @@ class ChargeExchange(DiagnosticModel):
                 self.bckc[quantity] = self.Ti_at_channels
                 long_name = "Ion temperature"
                 units = "eV"
+            elif quant == "spectra":
+                # Placeholder
+                continue
+            elif quant == "fit":
+                # Placeholder
+                continue
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
