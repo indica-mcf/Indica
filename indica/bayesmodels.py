@@ -1,13 +1,23 @@
 from copy import deepcopy
 import warnings
 
-import flatdict
 import numpy as np
 from scipy.stats import uniform
 
 np.seterr(all="ignore")
-
 warnings.simplefilter("ignore", category=FutureWarning)
+
+
+PROFILES = [
+    "electron_temperature",
+    "electron_density",
+    "ion_temperature",
+    "ion_density",
+    "impurity_density",
+    "fast_density",
+    "neutral_density",
+    "zeff",
+]
 
 
 def gaussian(x, mean, sigma):
@@ -44,46 +54,85 @@ class BayesModels:
         quant_to_optimise: list = [],
         priors: dict = {},
         diagnostic_models: list = [],
+        percent_error: float = 0.10,
     ):
         self.plasma = plasma
         self.data = data
         self.quant_to_optimise = quant_to_optimise
         self.diagnostic_models = diagnostic_models
         self.priors = priors
+        self.percent_error = percent_error
 
         for diag_model in self.diagnostic_models:
             diag_model.plasma = self.plasma
 
         missing_data = list(set(quant_to_optimise).difference(data.keys()))
-        if missing_data:  # list of keys in quant_to_optimise but not data
+        if missing_data:  # gives list of keys in quant_to_optimise but not data
             raise ValueError(f"{missing_data} not found in data given")
 
-    def _build_bckc(self, params: dict, **kwargs):
-        # TODO: consider how to handle if models have overlapping kwargs
-        # Params is a dictionary which is updated by optimiser,
-        # kwargs is constant i.e. settings for models
+    def _build_bckc(self, params, **kwargs):
+        """
+        Parameters
+        ----------
+        params - dictionary which is updated by optimiser
+        kwargs - passed to model i.e. settings
+
+        Returns
+        -------
+        bckc of results
+        """
         self.bckc: dict = {}
         for model in self.diagnostic_models:
-            self.bckc = dict(
-                self.bckc, **{model.name: {**model(**{**params, **kwargs})}}
-            )
-        self.bckc = flatdict.FlatDict(self.bckc, delimiter=".")
+            # removes "model.name." from params and kwargs then passes them to model
+            # e.g. xrcs.background -> background
+            _nuisance_params = {
+                param_name.replace(model.name + ".", ""): param_value
+                for param_name, param_value in params.items()
+                if model.name in param_name
+            }
+            _model_settings = {
+                kwarg_name.replace(model.name + ".", ""): kwarg_value
+                for kwarg_name, kwarg_value in kwargs.items()
+                if model.name in kwarg_name
+            }
+
+            _model_kwargs = {
+                **_nuisance_params,
+                **_model_settings,
+            }  # combine dictionaries
+            _bckc = model(**_model_kwargs)
+            _model_bckc = {
+                f"{model.name}.{value_name}": value
+                for value_name, value in _bckc.items()
+            }  # prepend model name to bckc
+            self.bckc = dict(self.bckc, **_model_bckc)
         return
 
     def _ln_likelihood(self):
         ln_likelihood = 0
         for key in self.quant_to_optimise:
-            # TODO: What to use as error?  Assume percentage error if none given...
-            # Float128 is used since rounding of small numbers causes
-            # problems when initial results are bad fits
-            model_data = self.bckc[key].values.astype("float64")
+            # Float128 since rounding of small numbers causes problems
+            # when initial results are bad fits
+            model_data = self.bckc[key].astype("float128")
             exp_data = (
-                self.data[key]
-                .sel(t=self.plasma.time_to_calculate)
-                .values.astype("float64")
+                self.data[key].sel(t=self.plasma.time_to_calculate).astype("float128")
             )
-            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.10))
-            ln_likelihood += np.nanmean(_ln_likelihood)
+            exp_error = (
+                exp_data * self.percent_error
+            )  # Assume percentage error if none given.
+            if hasattr(self.data[key], "error"):
+                if (
+                    self.data[key].error != 0
+                ).any():  # TODO: Some models have an error of 0 given
+                    exp_error = self.data[key].error.sel(
+                        t=self.plasma.time_to_calculate
+                    )
+
+            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
+            # treat channel as key dim which isn't averaged like other dims
+            if "channel" in _ln_likelihood.dims:
+                _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
+            ln_likelihood += _ln_likelihood.mean(skipna=True).values
         return ln_likelihood
 
     def _ln_prior(self, parameters: dict):
@@ -144,6 +193,34 @@ class BayesModels:
         samples = samples[:, 0:size]
         return samples.transpose()
 
+    def sample_from_high_density_region(
+        self, param_names: list, sampler, nwalkers: int, nsamples=100
+    ):
+        start_points = self.sample_from_priors(param_names, size=nsamples)
+
+        ln_prob, _ = sampler.compute_log_prob(start_points)
+        num_best_points = int(nsamples * 0.05)
+        index_best_start = np.argsort(ln_prob)[-num_best_points:]
+        best_start_points = start_points[index_best_start, :]
+        best_points_std = np.std(best_start_points, axis=0)
+
+        # Passing samples through ln_prior and redrawing if they fail
+        samples = np.empty((param_names.__len__(), 0))
+        while samples.size < param_names.__len__() * nwalkers:
+            sample = np.random.normal(
+                np.mean(best_start_points, axis=0),
+                best_points_std * 2,
+                size=(nwalkers * 5, len(param_names)),
+            )
+            start = {name: sample[:, idx] for idx, name in enumerate(param_names)}
+            ln_prior = self._ln_prior(start)
+            # Convert from dictionary of arrays -> array,
+            # then filtering out where ln_prior is -infinity
+            accepted_samples = np.array(list(start.values()))[:, ln_prior != -np.inf]
+            samples = np.append(samples, accepted_samples, axis=1)
+        start_points = samples[:, 0:nwalkers].transpose()
+        return start_points
+
     def ln_posterior(self, parameters: dict, **kwargs):
         """
         Posterior probability given to optimisers
@@ -164,7 +241,7 @@ class BayesModels:
         """
 
         ln_prior = self._ln_prior(parameters)
-        if ln_prior == -np.inf:  # Don't call model if outside priors
+        if ln_prior == -np.inf:  # Don't call models if outside priors
             return -np.inf, {}
 
         self.plasma.update_profiles(parameters)
@@ -172,23 +249,14 @@ class BayesModels:
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_posterior = ln_likelihood + ln_prior
 
-        kin_profs = {
-            "electron_density": self.plasma.electron_density.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "electron_temperature": self.plasma.electron_temperature.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "ion_temperature": self.plasma.ion_temperature.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "impurity_density": self.plasma.impurity_density.sel(
-                t=self.plasma.time_to_calculate
-            ),
-            "zeff": self.plasma.zeff.sum("element").sel(
-                t=self.plasma.time_to_calculate
-            ),
-            # TODO: add Nh
-        }
-        blob = deepcopy({**self.bckc, **kin_profs})
+        plasma_profiles = {}
+        for profile_key in PROFILES:
+            if hasattr(self.plasma, profile_key):
+                plasma_profiles[profile_key] = getattr(self.plasma, profile_key).sel(
+                    t=self.plasma.time_to_calculate
+                )
+            else:
+                raise ValueError(f"plasma does not have attribute {profile_key}")
+
+        blob = deepcopy({**self.bckc, **plasma_profiles})
         return ln_posterior, blob

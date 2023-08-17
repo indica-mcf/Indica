@@ -14,7 +14,6 @@ from indica.converters.time import get_tlabels_dt
 from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.equilibrium import fake_equilibrium_data
-from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import FractionalAbundance
 from indica.operators.atomic_data import PowerLoss
 import indica.physics as ph
@@ -202,7 +201,6 @@ class Plasma:
             (to be used e.g. in optimisation workflows)
         """
 
-        # Dictionary keeping track of deta use for optimisations
         self.optimisation: dict = {}
         self.forward_models: dict = {}
         self.power_loss_sxr: dict = {}
@@ -304,7 +302,7 @@ class Plasma:
             self.data2d, ("density", "electron"), "$m^{-3}$"
         )
         self.neutral_density: DataArray = assign_data(
-            self.data2d, ("thermal_neutral", "density"), "eV"
+            self.data2d, ("density", "thermal_neutral"), "$m^{-3}$"
         )
         self.tau: DataArray = assign_data(self.data2d, ("time", "residence"), "s")
 
@@ -495,18 +493,18 @@ class Plasma:
     def update_profiles(
         self,
         parameters: dict,
+    ):
+        """
+        Update plasma profiles with profile parameters i.e.
+        {"Ne_prof.y0":1e19} -> Ne_prof.y0
+        """
         profile_prefixs: list = [
             "Te_prof",
             "Ti_prof",
             "Ne_prof",
             "Nimp_prof",
             "Vrot_prof",
-        ],
-    ):
-        """
-        Update plasma profiles with profile parameters i.e.
-        {"Ne_prof.y0":1e19} -> Ne_prof.y0
-        """
+        ]
         for param, value in parameters.items():
             _prefix = [pref for pref in profile_prefixs if pref in param]
             if _prefix:
@@ -857,22 +855,17 @@ class Plasma:
             self._vloop.loc[dict(t=t)] = vloop.values
         return self._vloop
 
-    def calc_impurity_density(self, t=None):
+    def calc_impurity_density(self, elements):
         """
-        Calculate impurity density from concentration
+        Calculate impurity density from concentration and electron density
         """
-        if t is None:
-            t = self.t
-        if type(t) is not LabeledArray:
-            t = [t]
-
-        profile_shape = self.Nimp_prof.yspl / self.Nimp_prof.yspl.sel(rho_poloidal=0)
-        for elem in self.impurities:
-            conc = self.impurity_concentration.sel(element=elem)
-            for _t in t:
-                dens_0 = self.electron_density.sel(rho_poloidal=0, t=t) * conc
-                Nimp = profile_shape * dens_0.sel(t=_t)
-                self.impurity_density.loc[dict(element=elem, t=_t)] = Nimp.values
+        for elem in elements:
+            Nimp = self.electron_density * self.impurity_concentration.sel(element=elem)
+            self.impurity_density.loc[
+                dict(
+                    element=elem,
+                )
+            ] = Nimp.values
 
     def impose_flat_zeff(self):
         """
@@ -1272,6 +1265,7 @@ def example_run(
         impurity_concentration=impurity_concentration,
         full_run=full_run,
         verbose=verbose,
+        n_rad=n_rad,
         **kwargs,
     )
     plasma.build_atomic_data(default=True, calc_power_loss=calc_power_loss)
@@ -1287,18 +1281,18 @@ def example_run(
     nimp_wcenter = np.linspace(0.4, 0.1, nt)
     for i, t in enumerate(plasma.t):
         plasma.Te_prof.peaking = te_peaking[i]
-        plasma.assign_profiles(profile="electron_temperature", t=t)
+        plasma.assign_profiles("electron_temperature", t=t)
 
         plasma.Ti_prof.peaking = te_peaking[i]
         plasma.Ti_prof.y0 = ti0[i]
-        plasma.assign_profiles(profile="ion_temperature", t=t)
+        plasma.assign_profiles("ion_temperature", t=t)
 
         plasma.Vrot_prof.peaking = vrot_peaking[i]
         plasma.Vrot_prof.y0 = vrot0[i]
-        plasma.assign_profiles(profile="toroidal_rotation", t=t)
+        plasma.assign_profiles("toroidal_rotation", t=t)
 
         plasma.Ne_prof.peaking = ne_peaking[i]
-        plasma.assign_profiles(profile="electron_density", t=t)
+        plasma.assign_profiles("electron_density", t=t)
 
         plasma.Nimp_prof.peaking = nimp_peaking[i]
         plasma.Nimp_prof.y0 = nimp_y0[i]

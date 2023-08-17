@@ -60,7 +60,6 @@ def profile_scans_pca(
     save_fig: bool = False,
     fig_path: str = None,
 ):
-
     if fig_path is None:
         fig_path = FIG_PATH
 

@@ -24,7 +24,7 @@ LINE_RANGES = {
 }
 
 
-class Helike_spectroscopy(DiagnosticModel):
+class HelikeSpectrometer(DiagnosticModel):
     """
     Data and methods to model XRCS spectrometer measurements
 
@@ -35,13 +35,14 @@ class Helike_spectroscopy(DiagnosticModel):
         self,
         name: str,
         instrument_method="get_helike_spectroscopy",
+        etendue: float = 1.0,
+        calibration: float = 8.0e-20,
         element: str = "ar",
         window_len: int = 1030,
-        window_lim: list = [0.394, 0.401],
-        window_masks: list = [],
-        etendue: float = 1.0,
-        calibration: float = 1.0e-27,
-        line_labels: list = ["w", "k", "n3", "n345", "z", "qra"],
+        window_lim=None,
+        window: np.array = None,
+        window_masks=None,
+        line_labels=None,
     ):
         """
         Read all atomic data and initialise objects
@@ -50,25 +51,32 @@ class Helike_spectroscopy(DiagnosticModel):
         ----------
         name
             String identifier for the spectrometer
+
         """
+        if window_lim is None:
+            window_lim = [0.394, 0.401]
+        if window_masks is None:
+            window_masks = []
+        if line_labels is None:
+            line_labels = ["w", "k", "n3", "n345", "z", "qra"]
+
         self.name = name
         self.instrument_method = instrument_method
-
         self.element: str = element
         z_elem, a_elem, name_elem = ELEMENTS[element]
         self.ion_charge: int = z_elem - 2  # He-like
         self.ion_mass: float = a_elem
-
         self.etendue = etendue
         self.calibration = calibration
         self.window_masks = window_masks
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
 
-        window = np.linspace(window_lim[0], window_lim[1], window_len)
+        if window is None:
+            window = np.linspace(window_lim[0], window_lim[1], window_len)
         mask = np.zeros(shape=window.shape)
-        if window_masks:
-            for mslice in window_masks:
+        if self.window_masks:
+            for mslice in self.window_masks:
                 mask[(window > mslice.start) & (window < mslice.stop)] = 1
         else:
             mask[:] = 1
@@ -377,6 +385,7 @@ class Helike_spectroscopy(DiagnosticModel):
         t: LabeledArray = None,
         calc_rho: bool = False,
         moment_analysis: bool = False,
+        background: int = None,
         **kwargs,
     ):
         """
@@ -404,7 +413,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 "moment_analysis cannot be used when window_masks is not set to None"
             )
 
-        if self.plasma is not None:
+        if hasattr(self, "plasma"):
             if t is None:
                 t = self.plasma.time_to_calculate
             Te = self.plasma.electron_temperature.interp(
@@ -444,15 +453,41 @@ class Helike_spectroscopy(DiagnosticModel):
         self.quantities: dict = AVAILABLE_QUANTITIES[self.instrument_method]
 
         # TODO: check that inputs have compatible dimensions/coordinates
-
         self._calculate_intensity()
         self._make_spectra()
 
         if moment_analysis:
             self._moment_analysis()
 
+        if background is not None:
+            self.measured_spectra = self.measured_spectra + background
+
         self._build_bckc_dictionary()
         return self.bckc
+
+
+def helike_transform_example(nchannels):
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.17
+    los_end[:, 1] = 0.0
+    los_end[:, 2] = np.linspace(0.2, -0.5, nchannels)
+    los_start = np.array([[0.9, 0, 0]] * los_end.shape[0])
+    los_start[:, 2] = -0.1
+    origin = los_start
+    direction = los_end - los_start
+
+    los_transform = LineOfSightTransform(
+        origin[0:nchannels, 0],
+        origin[0:nchannels, 1],
+        origin[0:nchannels, 2],
+        direction[0:nchannels, 0],
+        direction[0:nchannels, 1],
+        direction[0:nchannels, 2],
+        name="xrcs",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
+        passes=1,
+    )
+    return los_transform
 
 
 def example_run(
@@ -466,28 +501,9 @@ def example_run(
         plasma.time_to_calculate = plasma.t[5]
         # Create new diagnostic
     diagnostic_name = "xrcs"
-    nchannels = 3
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.17
-    los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.43, -0.43, nchannels)
-    los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
-    origin = los_start
-    direction = los_end - los_start
-
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-        passes=1,
-    )
+    los_transform = helike_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = Helike_spectroscopy(
+    model = HelikeSpectrometer(
         diagnostic_name,
         window_masks=[],
     )
@@ -518,8 +534,7 @@ def example_run(
             plt.ylabel("spectra")
             plt.legend()
 
-        # model.los_transform.plot(tplot,
-        # plot_all=model.los_transform.x1.__len__() > 1)
+            los_transform.plot()
 
         if "int_w" in bckc.keys() & "t" in bckc["int_w"].dims:
             plt.figure()
