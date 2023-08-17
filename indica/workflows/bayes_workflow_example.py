@@ -1,8 +1,10 @@
+from typing import Any
+from typing import Dict
+
 import emcee
 import flatdict
 import numpy as np
 from scipy.stats import loguniform
-from typing import Dict, Any
 
 from indica.bayesmodels import BayesModels
 from indica.bayesmodels import get_uniform
@@ -294,7 +296,11 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             ].max().values * np.random.normal(0, noise_factor, None)
             opt_data["xrcs.spectra"] = opt_data["xrcs.spectra"] + np.random.normal(
                 0,
-                np.sqrt(opt_data["xrcs.spectra"].values[0,]),
+                np.sqrt(
+                    opt_data["xrcs.spectra"].values[
+                        0,
+                    ]
+                ),
                 opt_data["xrcs.spectra"].shape[1],
             )
             opt_data["cxff_pi.ti"] = opt_data["cxff_pi.ti"] + opt_data[
