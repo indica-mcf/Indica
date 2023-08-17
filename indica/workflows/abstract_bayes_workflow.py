@@ -45,9 +45,7 @@ class AbstractBayesWorkflow(ABC):
         self.data: dict = {}
 
     def read_data(self, diagnostics: list, tstart=None, tend=None, dt=None):
-        self.reader = ReadST40(
-            self.pulse, tstart=tstart, tend=tend, dt=dt
-        )
+        self.reader = ReadST40(self.pulse, tstart=tstart, tend=tend, dt=dt)
         self.reader(diagnostics)
         self.equilibrium = self.reader.equilibrium
         self.transforms = self.reader.transforms
@@ -467,15 +465,11 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
         if sampler.iteration % auto_sample:
             continue
         new_tau = sampler.get_autocorr_time(tol=0)
-        autocorr[
-            sampler.iteration - 1,
-        ] = new_tau
+        autocorr[sampler.iteration - 1,] = new_tau
         converged = np.all(new_tau * 50 < sampler.iteration)
         converged &= np.all(np.abs(old_tau - new_tau) / new_tau < 0.01)
         if converged:
             break
         old_tau = new_tau
-    autocorr = autocorr[
-        : sampler.iteration,
-    ]
+    autocorr = autocorr[: sampler.iteration,]
     return autocorr

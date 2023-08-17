@@ -1,5 +1,3 @@
-from typing import Optional
-
 import emcee
 import flatdict
 import numpy as np
@@ -218,8 +216,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 #     passes=2,
                 # )
                 los_transform.set_equilibrium(self.equilibrium)
-                model = Interferometry(name=diag)
-                model.set_los_transform(los_transform)
+                smmh = Interferometry(name=diag)
+                smmh.set_los_transform(los_transform)
+                self.models[diag] = smmh
 
             elif diag == "xrcs":
                 los_transform = self.transforms[diag]
@@ -229,24 +228,27 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                     if diag in self.data.keys():
                         window = self.data[diag]["spectra"].wavelength.values
 
-                model = HelikeSpectrometer(
+                xrcs = HelikeSpectrometer(
                     name="xrcs",
                     window_masks=[slice(0.394, 0.396)],
                     window=window,
                 )
-                model.set_los_transform(los_transform)
+                xrcs.set_los_transform(los_transform)
+                self.models[diag] = xrcs
 
             elif diag == "efit":
-                model = EquilibriumReconstruction(name="efit")
+                efit = EquilibriumReconstruction(name="efit")
+                self.models[diag] = efit
 
             elif diag == "cxff_pi":
                 transform = self.transforms[diag]
                 transform.set_equilibrium(self.equilibrium)
-                model = ChargeExchange(name=diag, element="ar")
-                model.set_transect_transform(transform)
+                cxrs = ChargeExchange(name=diag, element="ar")
+                cxrs.set_transect_transform(transform)
+                self.models[diag] = cxrs
+
             else:
                 raise ValueError(f"{diag} not found in setup_models")
-            self.models[diag] = model
 
     def setup_opt_data(self, phantoms=False, **kwargs):
         if not hasattr(self, "plasma"):
@@ -294,11 +296,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             ].max().values * np.random.normal(0, noise_factor, None)
             opt_data["xrcs.spectra"] = opt_data["xrcs.spectra"] + np.random.normal(
                 0,
-                np.sqrt(
-                    opt_data["xrcs.spectra"].values[
-                        0,
-                    ]
-                ),
+                np.sqrt(opt_data["xrcs.spectra"].values[0,]),
                 opt_data["xrcs.spectra"].shape[1],
             )
             opt_data["cxff_pi.ti"] = opt_data["cxff_pi.ti"] + opt_data[
@@ -425,7 +423,6 @@ if __name__ == "__main__":
         OPTIMISED_PARAMS,
         DEFAULT_PROFILE_PARAMS,
         DEFAULT_PRIORS,
-
         pulse=None,
         phantoms=True,
         tstart=0.02,
