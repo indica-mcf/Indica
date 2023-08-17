@@ -1,4 +1,7 @@
 import pytest
+from unittest.mock import Mock
+import sys
+
 import copy
 import numpy as np
 
@@ -10,10 +13,15 @@ from indica.workflows.bayes_workflow_example import (
     OPTIMISED_QUANTITY,
 )
 
+
+
+
 """
 TODO:
 Mock reader for testing experimental data reading
 """
+
+sys.modules["indica.writers.bda_tree"] = Mock()
 
 
 class TestBayesWorkflowExample:
@@ -39,9 +47,7 @@ class TestBayesWorkflowExample:
             model_kwargs = {
                            "xrcs_moment_analysis": False,
                        },
-            iterations = 1,
             nwalkers = 20,
-            burn_frac = 0.10,
             sample_high_density = False,
         )
 
@@ -50,7 +56,13 @@ class TestBayesWorkflowExample:
             pulse_to_write=23000101,
             run="RUN01",
             mds_write = False,
-            plot = False,)
+            plot = False,
+            iterations=1,
+            burn_frac=0.10,
+        )
+        self.sampler_settings = dict(
+            iterations=1,
+            burn_frac=0.10,)
 
         self.workflow_untouched = BayesWorkflowExample(**self.init_settings)
         self.workflow=None
@@ -147,7 +159,7 @@ class TestBayesWorkflowExample:
         self.workflow.setup_plasma(**self.plasma_settings)
         self.workflow.setup_opt_data(phantoms=True)
         self.workflow.setup_optimiser(**self.optimiser_settings)
-        self.workflow.run_sampler()
+        self.workflow.run_sampler(**self.sampler_settings)
         if not hasattr(self.workflow, "result"):
             raise ValueError(f"missing result in workflow object")
         assert True
