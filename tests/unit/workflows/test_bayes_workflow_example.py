@@ -4,6 +4,7 @@ import sys
 
 import copy
 import numpy as np
+
 sys.modules["indica.writers.bda_tree"] = Mock()
 
 from indica.workflows.bayes_workflow_example import (

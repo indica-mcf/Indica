@@ -465,6 +465,7 @@ class HelikeSpectrometer(DiagnosticModel):
         self._build_bckc_dictionary()
         return self.bckc
 
+
 def helike_transform_example(nchannels):
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
@@ -487,6 +488,7 @@ def helike_transform_example(nchannels):
         passes=1,
     )
     return los_transform
+
 
 def example_run(
     pulse: int = None, plasma=None, plot=False, moment_analysis: bool = False, **kwargs

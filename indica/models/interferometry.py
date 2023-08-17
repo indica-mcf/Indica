@@ -90,9 +90,8 @@ class Interferometry(DiagnosticModel):
 
 
 def smmh1_transform_example(nchannels):
-
-    los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels,3))
-    los_start[:,2] = np.linspace(0, -0.2, nchannels)
+    los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels, 3))
+    los_start[:, 2] = np.linspace(0, -0.2, nchannels)
     los_end = np.array([[0.17, 0, 0]]) * np.ones((nchannels, 3))
     los_end[:, 2] = np.linspace(0, -0.2, nchannels)
     origin = los_start

@@ -517,7 +517,13 @@ class Plasma:
                 else:
                     raise ValueError(f"parameter: {key} not found in {prefix}")
 
-        for key in ["electron_density", "electron_temperature", "ion_temperature", "toroidal_rotation", "impurity_density"]:
+        for key in [
+            "electron_density",
+            "electron_temperature",
+            "ion_temperature",
+            "toroidal_rotation",
+            "impurity_density",
+        ]:
             self.assign_profiles(key, t=self.time_to_calculate)
 
     @property
