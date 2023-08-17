@@ -198,6 +198,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
     def setup_models(self, diagnostics: list):
         self.models: Dict[str, Any] = {}
+        model: Any = None
         for diag in diagnostics:
             if diag == "smmh1":
                 los_transform = self.transforms[diag]
@@ -236,7 +237,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 model.set_los_transform(los_transform)
 
             elif diag == "efit":
-                efit = EquilibriumReconstruction(name="efit")
+                model = EquilibriumReconstruction(name="efit")
 
             elif diag == "cxff_pi":
                 transform = self.transforms[diag]
