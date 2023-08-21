@@ -58,7 +58,8 @@ def plot_profile(
             color="black",
             zorder=4,
         )
-
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     plt.legend()
     if sharefig:
         return
@@ -189,7 +190,7 @@ def plot_bayes_result(
             f"{timestr}_{key.replace('.', '_')}.png",
             figheader=figheader,
             xlabel="rho",
-            ylabel="Intensity (W m^-2)",
+            ylabel="Intensity, $W⋅m^{-2}$",
         )
     key = "efit.wp"
     if key in blobs.keys():
@@ -273,6 +274,7 @@ def plot_bayes_result(
         phantom_profile=phantom_profiles[key],
         color="lightcoral",
         linestyle="dotted",
+        ylabel="T, eV"
     )
     key = "electron_density"
     plot_profile(
@@ -286,6 +288,7 @@ def plot_bayes_result(
         figheader=figheader,
         phantom_profile=phantom_profiles[key],
         color="lightcoral",
+        ylabel="$N_{imp}, m^{-3}$"
     )
     key = "zeff"
     if key in blobs and key in phantom_profiles:

@@ -522,7 +522,7 @@ class SXR_tomography:
         print(ymax)
 
         ax[0].set_xlabel(r"$\rho$")
-        ax[1].set_xlabel(r"index")
+        ax[1].set_xlabel(r"Channel")
         ax[1].set_ylabel("Brightness [kW/m$^2$]")
         ax[0].set_ylabel("Emissivity [kW/m$^3$]")
         global cont

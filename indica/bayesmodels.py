@@ -76,13 +76,13 @@ class BayesModels:
             # TODO: What to use as error?  Assume percentage error if none given...
             # Float128 is used since rounding of small numbers causes
             # problems when initial results are bad fits
-            model_data = self.bckc[key].values.astype("float64")
+            model_data = self.bckc[key].values.astype("float128")
             exp_data = (
                 self.data[key]
                 .sel(t=self.plasma.time_to_calculate)
-                .values.astype("float64")
+                .values.astype("float128")
             )
-            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.10)) #check it with 5%
+            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_data * 0.1)) #check it with 5%
             ln_likelihood += np.nanmean(_ln_likelihood)
         return ln_likelihood
 
