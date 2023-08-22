@@ -140,8 +140,8 @@ class AbstractBayesWorkflow(ABC):
         result = {}
         quant_list = [item.split(".") for item in self.opt_quantity]
 
-        result["TIME"] = self.plasma.t
-        result["TIME_OPT"] = self.plasma.time_to_calculate
+        result["TIME_BINS"] = self.plasma.t
+        result["TIME"] = self.plasma.time_to_calculate
 
         result["METADATA"] = {
             "GITCOMMIT": "PLACEHOLDER",
@@ -244,6 +244,8 @@ class AbstractBayesWorkflow(ABC):
             .std(dim="index"),
             "NFAST_ERR": self.blobs["fast_density"].std(dim="index"),
             "NNEUTR_ERR": self.blobs["neutral_density"].std(dim="index"),
+            "ZEFF": self.blobs["zeff"].sum("element").median(dim="index"),
+            "ZEFF_ERR": self.blobs["zeff"].sum("element").std(dim="index"),
         }
         result["PROFILES"] = {
             **result["PROFILES"],
@@ -329,20 +331,23 @@ class AbstractBayesWorkflow(ABC):
             .sel(element=self.plasma.main_ion)
             .sel(rho_poloidal=0, method="nearest")
             .median(dim="index"),
-            "TI0_ERR": self.blobs["ion_temperature"]
-            .sel(element=self.plasma.main_ion)
-            .sel(rho_poloidal=0, method="nearest")
+            "WP": self.blobs["wp"]
+            .median(dim="index"),
+            "WP_ERR": self.blobs["wp"]
             .std(dim="index"),
-            "TE0_ERR": self.blobs["electron_temperature"]
-            .sel(rho_poloidal=0, method="nearest")
+            "WTH": self.blobs["wth"]
+            .median(dim="index"),
+            "WTH_ERR": self.blobs["wth"]
             .std(dim="index"),
-            "NE0_ERR": self.blobs["electron_density"]
-            .sel(rho_poloidal=0, method="nearest")
-            .std(dim="index"),
-            "NI0_ERR": self.blobs["ion_density"]
-            .sel(element=self.plasma.main_ion)
-            .sel(rho_poloidal=0, method="nearest")
-            .std(dim="index"),
+            "PTOT": self.blobs["ptot"]
+                .median(dim="index"),
+            "PTOT_ERR": self.blobs["ptot"]
+                .std(dim="index"),
+            "PTH": self.blobs["pth"]
+                .median(dim="index"),
+            "PTH_ERR": self.blobs["pth"]
+                .std(dim="index"),
+
         }
         result["GLOBAL"] = {
             **result["GLOBAL"],

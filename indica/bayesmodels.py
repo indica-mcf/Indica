@@ -8,7 +8,7 @@ np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
 
 
-PROFILES = [
+PLASMA_ATTRIBUTES = [
     "electron_temperature",
     "electron_density",
     "ion_temperature",
@@ -17,6 +17,10 @@ PROFILES = [
     "fast_density",
     "neutral_density",
     "zeff",
+    "wp",
+    "wth",
+    "ptot",
+    "pth",
 ]
 
 
@@ -249,14 +253,14 @@ class BayesModels:
         ln_likelihood = self._ln_likelihood()  # compare results to data
         ln_posterior = ln_likelihood + ln_prior
 
-        plasma_profiles = {}
-        for profile_key in PROFILES:
-            if hasattr(self.plasma, profile_key):
-                plasma_profiles[profile_key] = getattr(self.plasma, profile_key).sel(
+        plasma_attributes = {}
+        for plasma_key in PLASMA_ATTRIBUTES:
+            if hasattr(self.plasma, plasma_key):
+                plasma_attributes[plasma_key] = getattr(self.plasma, plasma_key).sel(
                     t=self.plasma.time_to_calculate
                 )
             else:
-                raise ValueError(f"plasma does not have attribute {profile_key}")
+                raise ValueError(f"plasma does not have attribute {plasma_key}")
 
-        blob = deepcopy({**self.bckc, **plasma_profiles})
+        blob = deepcopy({**self.bckc, **plasma_attributes})
         return ln_posterior, blob

@@ -9,8 +9,8 @@ import standard_utility as util
 
 def bda():
     nodes = {
-        "TIME": ("NUMERIC", "time vector, s"),
-        "TIME_OPT": ("NUMERIC", "time of optimisation, s"),
+        "TIME": ("NUMERIC", "time vector of optimisation, s"),
+        "TIME_BINS": ("NUMERIC", "time vector used for binning, s"),
         "INPUT": {
             "BURN_FRAC": ("NUMERIC", "Burn in fraction for chains"),
             "ITER": ("NUMERIC", "Iterations of optimiser"),
@@ -104,12 +104,21 @@ def bda():
             "NI0_ERR": ("SIGNAL", "Central ion density error, m^-3"),
             "TE0_ERR": ("SIGNAL", "Central electron temperature error, eV"),
             "TI0_ERR": ("SIGNAL", "Central ion temperature of main ion error, eV"),
-            "TI0Z1_ERR": ("SIGNAL", "Central ion temperature of impurity Z1, eV"),
-            "TI0Z2_ERR": ("SIGNAL", "Central ion temperature of impurity Z2, eV"),
-            "TI0Z3_ERR": ("SIGNAL", "Central ion temperature of impurity Z3, eV"),
-            "NI0Z1_ERR": ("SIGNAL", "Central density of impurity Z1, m^-3"),
-            "NI0Z2_ERR": ("SIGNAL", "Central density of impurity Z2, m^-3"),
-            "NI0Z3_ERR": ("SIGNAL", "Central density of impurity Z3, m^-3"),
+            "TI0Z1_ERR": ("SIGNAL", "Central ion temperature of impurity Z1 error, eV"),
+            "TI0Z2_ERR": ("SIGNAL", "Central ion temperature of impurity Z2 error, eV"),
+            "TI0Z3_ERR": ("SIGNAL", "Central ion temperature of impurity Z3 error, eV"),
+            "NI0Z1_ERR": ("SIGNAL", "Central density of impurity Z1 error, m^-3"),
+            "NI0Z2_ERR": ("SIGNAL", "Central density of impurity Z2 error, m^-3"),
+            "NI0Z3_ERR": ("SIGNAL", "Central density of impurity Z3 error, m^-3"),
+            "WP": ("SIGNAL", "Stored energy, J"),
+            "WTH": ("SIGNAL", "Thermal component of stored energy, J"),
+            "PTOT": ("SIGNAL", "Total pressure, Pa"),
+            "PTH": ("SIGNAL", "Thermal pressure, Pa"),
+            "WP_ERR": ("SIGNAL", "Stored energy error, J"),
+            "WTH_ERR": ("SIGNAL", "Thermal component of stored energy error, J"),
+            "PTOT_ERR": ("SIGNAL", "Total pressure error, Pa"),
+            "PTH_ERR": ("SIGNAL", "Thermal pressure error, Pa"),
+
         },
         "PHANTOMS": {
             "FLAG": ("TEXT", "True if phantoms used"),
