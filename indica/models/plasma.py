@@ -628,18 +628,15 @@ class Plasma:
 
     def calc_ion_density(self):
         meanz = self.meanz
-        main_ion_density = self.electron_density - self.fast_density * meanz.sel(
-            element=self.main_ion
-        )
         for elem in self.impurities:
             self._ion_density.loc[dict(element=elem)] = self.impurity_density.sel(
                 element=elem
             ).values
-            main_ion_density -= self.impurity_density.sel(element=elem) * meanz.sel(
-                element=elem
-            )
 
-        self._ion_density.loc[dict(element=self.main_ion)] = main_ion_density.values
+        main_ion_density = self.electron_density - self.fast_density * meanz.sel(element=self.main_ion) \
+                           - (self.impurity_density * meanz).sum("element")
+
+        self._ion_density.loc[dict(element=self.main_ion)] =  main_ion_density
         return self._ion_density
 
     @property
