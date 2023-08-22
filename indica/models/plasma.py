@@ -545,13 +545,7 @@ class Plasma:
 
     @property
     def pressure_th(self):
-        ion_density = self.ion_density
-        self._pressure_th.values = self.pressure_el
-        for elem in self.elements:
-            self._pressure_th.values += ph.calc_pressure(
-                ion_density.sel(element=elem).values,
-                self.ion_temperature.sel(element=elem).values,
-            )
+        self._pressure_th = ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element") + self.pressure_el
         return self._pressure_th
 
     @property
@@ -625,14 +619,7 @@ class Plasma:
         return self.calc_zeff()  # Zeff()
 
     def calc_zeff(self):
-        electron_density = self.electron_density
-        ion_density = self.ion_density
-        meanz = self.meanz
-        for elem in self.elements:
-            self._zeff.loc[dict(element=elem)] = (
-                (ion_density.sel(element=elem) * meanz.sel(element=elem) ** 2)
-                / electron_density
-            ).values
+        self._zeff = (self.ion_density * self.meanz) ** 2 / self.electron_density
         return self._zeff
 
     @property
@@ -753,6 +740,7 @@ class Plasma:
     @property
     def meanz(self):
         fz = self.fz
+
         for elem in self.elements:
             self._meanz.loc[dict(element=elem)] = (
                 (fz[elem] * fz[elem].ion_charges).sum("ion_charges").values
