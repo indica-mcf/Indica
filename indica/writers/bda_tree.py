@@ -266,4 +266,4 @@ def query_yes_no(
 
 
 if __name__ == "__main__":
-    create_nodes(pulse_to_write=23000101)
+    create_nodes(pulse_to_write=23000101, mode="EDIT", run="RUN02")
