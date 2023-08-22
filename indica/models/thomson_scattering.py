@@ -41,6 +41,9 @@ class ThomsonScattering(DiagnosticModel):
                 self.bckc[quantity] = self.Te_at_channels
                 long_name = "Te"
                 units = "eV"
+            elif quant == "chi2":
+                # Placeholder
+                continue
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -82,7 +85,7 @@ class ThomsonScattering(DiagnosticModel):
         """
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
             Te = self.plasma.electron_temperature.interp(t=t)
         else:
