@@ -419,6 +419,28 @@ class Plasma:
             ],
         )
 
+        self.Pth = CachedCalculation(
+            self.calc_pth,
+            [
+                self.electron_density,
+                self.ion_density,
+                self.electron_temperature,
+                self.ion_temperature,
+            ],
+        )
+
+        self.Ptot = CachedCalculation(
+            self.calc_ptot,
+            [
+                self.electron_density,
+                self.ion_density,
+                self.electron_temperature,
+                self.ion_temperature,
+                self.pressure_fast,
+            ],
+        )
+
+
         self.Lz_tot = CachedCalculation(
             self.calc_lz_tot,
             [
@@ -563,6 +585,9 @@ class Plasma:
 
     @property
     def pth(self):
+        return self.Pth()
+
+    def calc_pth(self):
         pressure_th = self.pressure_th
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._pth.loc[dict(t=t)] = np.trapz(
@@ -572,6 +597,9 @@ class Plasma:
 
     @property
     def ptot(self):
+        return self.Ptot()
+
+    def calc_ptot(self):
         pressure_tot = self.pressure_tot
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._ptot.loc[dict(t=t)] = np.trapz(
@@ -593,7 +621,8 @@ class Plasma:
 
     @property
     def fz(self):
-        return self.calc_fz()  # self.Fz()
+        return self.Fz()
+        # return self.calc_fz()  # self.Fz()
 
     def calc_fz(self):
         for elem in self.elements:
@@ -616,7 +645,8 @@ class Plasma:
 
     @property
     def zeff(self):
-        return self.calc_zeff()  # Zeff()
+        return self.Zeff()
+        # return self.calc_zeff()
 
     def calc_zeff(self):
         self._zeff = (self.ion_density * self.meanz) ** 2 / self.electron_density
@@ -624,7 +654,8 @@ class Plasma:
 
     @property
     def ion_density(self):
-        return self.calc_ion_density()  # self.Ion_density()
+        return self.Ion_density()
+        # return self.calc_ion_density()
 
     def calc_ion_density(self):
         meanz = self.meanz
@@ -1219,7 +1250,6 @@ class CachedCalculation(TrackDependecies):
 
     @lru_cache()
     def __call__(self):
-        print("Recalculating")
         if self.verbose:
             print("Recalculating")
         return self.operator()
