@@ -47,6 +47,11 @@ class AbstractBayesWorkflow(ABC):
     def read_data(self, diagnostics: list, tstart=None, tend=None, dt=None):
         self.reader = ReadST40(self.pulse, tstart=tstart, tend=tend, dt=dt)
         self.reader(diagnostics)
+
+        missing_keys = set(diagnostics) - set(self.reader.binned_data.keys())
+        if len(missing_keys) > 0:
+            raise ValueError(f"missing data: {missing_keys}")
+
         self.equilibrium = self.reader.equilibrium
         self.transforms = self.reader.transforms
         self.data = self.reader.binned_data
