@@ -347,6 +347,28 @@ def plot_bayes_result(
             ylabel="Temperature [eV]",
             xlabel="Channel",
         )
+    key = "TS.TE"
+    if key in model_data.keys():
+        _plot_1d(
+            model_data,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}" + filetype,
+            figheader=figheader,
+            ylabel="Temperature [eV]",
+            xlabel="Channel",
+        )
+    key = "TS.NE"
+    if key in model_data.keys():
+        _plot_1d(
+            model_data,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}" + filetype,
+            figheader=figheader,
+            ylabel="Density [m^-3]",
+            xlabel="Channel",
+        )
 
     key = "TE"
     plot_profile(
