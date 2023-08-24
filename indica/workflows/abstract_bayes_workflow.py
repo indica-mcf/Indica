@@ -162,9 +162,13 @@ class AbstractBayesWorkflow(ABC):
             "OPT_QUANTITY": self.opt_quantity,
             "PARAM_NAMES": self.param_names,
             "PULSE": self.pulse,
-            "DT": self.dt,
             "IMPURITIES": self.plasma.impurities,
             "MAIN_ION": self.plasma.main_ion,
+            "TSTART":self.tstart,
+            "TEND": self.tend,
+            "DT": self.dt,
+            "TSAMPLE": self.tsample,
+
         }
         result["INPUT"]["WORKFLOW"] = {
             diag_name.upper(): {
