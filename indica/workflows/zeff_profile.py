@@ -257,8 +257,8 @@ def prepare_inputs(
     _, pi_model, bckc = example_diode(plasma=plasma)
     models["pi"] = pi_model
     models["pi"].name = "pi"
-    models["tws_c"] = deepcopy(pi_model) #why here deepcopy, and previously not? 258
-    models["tws_c"].name = "pi" #tws_c ~pi, are we assining data to the same name?..
+    models["tws_c"] = deepcopy(pi_model)
+    models["tws_c"].name = "pi" #
 
     if pulse is not None:
         print("Reading experimental data")
@@ -317,7 +317,8 @@ def prepare_inputs(
         "impurity_density": deepcopy(impurity_density),
         "zeff": deepcopy(zeff),
     }
-
+    plasma.Ne_prof=lambda: plasma.electron_density.loc[dict(t=time)]
+    plasma.Te_prof = lambda: plasma.electron_temperature.loc[dict(t=time)]
     for key in flat_data.keys():
         if "t" not in flat_data[key].dims:
             flat_data[key] = flat_data[key].expand_dims(
