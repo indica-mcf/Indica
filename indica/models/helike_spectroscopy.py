@@ -204,8 +204,6 @@ class HelikeSpectrometer(DiagnosticModel):
                 ),
             )
         spectra = xr.concat([_spectra, empty], "wavelength")
-        spectra = spectra.sortby("wavelength")
-
         self.spectra = spectra
 
         measured_spectra = self.los_transform.integrate_on_los(
@@ -213,9 +211,10 @@ class HelikeSpectrometer(DiagnosticModel):
             t=self.spectra.t,
             calc_rho=calc_rho,
         )
-        self.measured_spectra = measured_spectra.assign_coords(
-            {"wavelength": self.window.wavelength}
+        measured_spectra = measured_spectra.assign_coords(
+            {"wavelength": self.spectra.wavelength}
         )
+        self.measured_spectra = measured_spectra.sortby("wavelength")
         self.spectra_los = self.los_transform.along_los
 
     def _moment_analysis(self):
