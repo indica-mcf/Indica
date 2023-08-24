@@ -386,6 +386,7 @@ class HelikeSpectrometer(DiagnosticModel):
         calc_rho: bool = False,
         moment_analysis: bool = False,
         background: int = None,
+        pixel_offset: int = None,
         **kwargs,
     ):
         """
@@ -461,6 +462,9 @@ class HelikeSpectrometer(DiagnosticModel):
 
         if background is not None:
             self.measured_spectra = self.measured_spectra + background
+
+        if pixel_offset is not None:
+            self.measured_spectra = self.measured_spectra.shift(wavelength=round(pixel_offset), fill_value=np.nan)
 
         self._build_bckc_dictionary()
         return self.bckc
