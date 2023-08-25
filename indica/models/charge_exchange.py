@@ -219,8 +219,8 @@ class ChargeExchange(DiagnosticModel):
         geom_dict = dict()
         for i_chord, id in enumerate(chord_ids):
             geom_dict[id] = {}
-            geom_dict[id]["origin"] = origin[i_chord, :] * 1e2
-            geom_dict[id]["diruvec"] = direction[i_chord, :]
+            geom_dict[id]["origin"] = list(origin[i_chord, :] * 1e2)
+            geom_dict[id]["diruvec"] = list(direction[i_chord, :])
         specconfig = {
             "chord_IDs": chord_ids,
             "geom_dict": geom_dict,
