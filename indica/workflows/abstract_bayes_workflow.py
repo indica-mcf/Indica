@@ -323,6 +323,7 @@ class AbstractBayesWorkflow(ABC):
             "PRIOR_SAMPLE": self.prior_sample,
             "POST_SAMPLE": self.post_sample,
             "AUTOCORR": self.autocorr,
+            "GELMANRUBIN": gelman_rubin(self.sampler.get_chain(flat=False))
         }
 
         result["GLOBAL"] = {
@@ -438,7 +439,7 @@ class AbstractBayesWorkflow(ABC):
         self.prior_sample = self.bayesmodel.sample_from_priors(
             self.param_names, size=int(1e4)
         )
-        self.post_sample = self.sampler.get_chain(flat=True)
+        self.post_sample = self.sampler.get_chain(discard=int(iterations * burn_frac), flat=True)
         self.result = self._build_result_dict()
 
     def save_pickle(self, filepath):
@@ -491,3 +492,16 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
         : sampler.iteration,
     ]
     return autocorr
+
+
+def gelman_rubin(chain):
+    ssq = np.var(chain, axis=1, ddof=1)
+    w = np.mean(ssq, axis=0)
+    theta_b = np.mean(chain, axis=1)
+    theta_bb = np.mean(theta_b, axis=0)
+    m = chain.shape[0]
+    n = chain.shape[1]
+    B = n/(m-1) * np.sum((theta_bb - theta_b)**2, axis=0)
+    var_theta = (n-1) / n * w + 1 / n * B
+    R = np.sqrt(var_theta / w)
+    return  R
