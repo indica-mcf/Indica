@@ -200,10 +200,11 @@ class BayesModels:
     def sample_from_high_density_region(
         self, param_names: list, sampler, nwalkers: int, nsamples=100
     ):
+        # TODO: implement smarter MLE (maximum likelihood estimate)
         start_points = self.sample_from_priors(param_names, size=nsamples)
 
         ln_prob, _ = sampler.compute_log_prob(start_points)
-        num_best_points = int(nsamples * 0.05)
+        num_best_points = 3
         index_best_start = np.argsort(ln_prob)[-num_best_points:]
         best_start_points = start_points[index_best_start, :]
         best_points_std = np.std(best_start_points, axis=0)
