@@ -15,6 +15,8 @@ from indica.models.helike_spectroscopy import helike_transform_example
 from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
 from indica.models.interferometry import smmh1_transform_example
+from indica.models.thomson_scattering import ThomsonScattering
+from indica.models.thomson_scattering import ts_transform_example
 from indica.models.plasma import Plasma
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
@@ -32,8 +34,8 @@ DEFAULT_PROFILE_PARAMS = {
     "Nimp_prof.y0": 1e17,
     "Nimp_prof.y1": 5e15,
     "Nimp_prof.wcenter": 0.4,
-    "Nimp_prof.wped": 6,
-    "Nimp_prof.peaking": 2,
+    "Nimp_prof.wped": 2,
+    "Nimp_prof.peaking": 4,
     "Te_prof.y0": 3000,
     "Te_prof.y1": 50,
     "Te_prof.wcenter": 0.4,
@@ -47,16 +49,16 @@ DEFAULT_PROFILE_PARAMS = {
 }
 
 DEFAULT_PRIORS = {
-    "Ne_prof.y0": get_uniform(2e19, 4e20),
-    "Ne_prof.y1": get_uniform(1e18, 1e19),
+    "Ne_prof.y0": get_uniform(1e19, 2e20),
+    "Ne_prof.y1": get_uniform(1e18, 2e19),
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
     "Ne_prof.wped": get_uniform(1, 6),
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
-    "Ne_prof.peaking": get_uniform(1, 6),
+    "Ne_prof.peaking": get_uniform(1, 10),
     "Nimp_prof.y0": loguniform(1e16, 1e18),
-    "Nimp_prof.y1": get_uniform(1e15, 1e16),
+    "Nimp_prof.y1": loguniform(1e15, 1e17),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
-        (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
+        (x1 > x2 * 10) & (x1 < x2 * 1e5), 1, 0
     ),
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
     "Nimp_prof.wped": get_uniform(1, 6),
@@ -74,21 +76,22 @@ DEFAULT_PRIORS = {
     "Ti_prof.wped": get_uniform(1, 6),
     "Ti_prof.wcenter": get_uniform(0.1, 0.8),
     "Ti_prof.peaking": get_uniform(1, 10),
+    "xrcs.pixel_offset": get_uniform(-4.01, -3.99),
 }
 
 OPTIMISED_PARAMS = [
     # "Ne_prof.y1",
     "Ne_prof.y0",
-    # "Ne_prof.peaking",
-    # "Ne_prof.wcenter",
-    # "Ne_prof.wped",
+    "Ne_prof.peaking",
+    "Ne_prof.wcenter",
+    "Ne_prof.wped",
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
     # "Nimp_prof.wcenter",
     # "Nimp_prof.wped",
-    # "Nimp_prof.peaking",
+    "Nimp_prof.peaking",
     "Te_prof.y0",
-    # "Te_prof.wped",
+    "Te_prof.wped",
     "Te_prof.wcenter",
     "Te_prof.peaking",
     "Ti_prof.y0",
@@ -98,9 +101,11 @@ OPTIMISED_PARAMS = [
 ]
 OPTIMISED_QUANTITY = [
     "xrcs.spectra",
-    "cxff_pi.ti",
+    # "cxff_pi.ti",
     "efit.wp",
-    "smmh1.ne",
+    # "smmh1.ne",
+    "ts.te",
+    "ts.ne",
 ]
 
 
@@ -128,6 +133,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
+        self.model_kwargs = {}
 
         for attribute in [
             "param_names",
@@ -151,6 +157,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 "xrcs": helike_transform_example(1),
                 "smmh1": smmh1_transform_example(1),
                 "cxff_pi": pi_transform_example(5),
+                "ts":ts_transform_example(11),
             }
             self.read_test_data(
                 example_transforms, tstart=self.tstart, tend=self.tend, dt=self.dt
@@ -246,6 +253,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 transform.set_equilibrium(self.equilibrium)
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
+
+            elif diag == "ts":
+                transform = self.transforms[diag]
+                transform.set_equilibrium(self.equilibrium)
+                model = ThomsonScattering(name=diag, )
+                model.set_transect_transform(transform)
+
             else:
                 raise ValueError(f"{diag} not found in setup_models")
             self.models[diag] = model
@@ -283,6 +297,17 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
             opt_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2, drop=True)
+
+        if "ts" in self.diagnostics:
+            _ts_data = self.models["ts"]()
+            ts_data = {key: _ts_data[key].expand_dims(dim={"t": [self.plasma.time_to_calculate]}) for key in ["te", "ne"]}
+            opt_data["ts.te"] = ts_data["te"]
+            opt_data["ts.ne"] = ts_data["ne"]
+            opt_data["ts.te"]["error"] = opt_data["ts.te"] / opt_data["ts.te"] * (
+                        0.10 * opt_data["ts.te"].max(dim="channel"))
+            opt_data["ts.ne"]["error"] = opt_data["ts.ne"] / opt_data["ts.ne"] * (
+                        0.10 * opt_data["ts.ne"].max(dim="channel"))
+
         if "efit" in self.diagnostics:
             opt_data["efit.wp"] = (
                 self.models["efit"]()
@@ -291,6 +316,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             )
 
         if noise:
+            #TODO: add TS
             opt_data["smmh1.ne"] = opt_data["smmh1.ne"] + opt_data[
                 "smmh1.ne"
             ].max().values * np.random.normal(0, noise_factor, None)
@@ -317,14 +343,14 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         opt_data = flatdict.FlatDict(self.data, ".")
         if "xrcs" in self.diagnostics:
             opt_data["xrcs.spectra"]["wavelength"] = (
-                opt_data["xrcs.spectra"].wavelength * 0.1
+                opt_data["xrcs.spectra"].wavelength
             )
             background = opt_data["xrcs.spectra"].where(
                 (opt_data["xrcs.spectra"].wavelength < 0.392)
                 & (opt_data["xrcs.spectra"].wavelength > 0.388),
                 drop=True,
             )
-            self.model_kwargs["xrcs_background"] = background.mean(
+            self.model_kwargs["xrcs.background"] = background.mean(
                 dim="wavelength"
             ).sel(t=self.plasma.time_to_calculate)
             opt_data["xrcs.spectra"]["error"] = np.sqrt(
@@ -333,8 +359,16 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
         if "cxff_pi" in self.diagnostics:
             opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
-                opt_data["cxff_pi"]["ti"].channel == 2, drop=True
+                opt_data["cxff_pi"]["ti"] != 0,
             )
+        if "ts" in self.diagnostics:
+            # TODO: fix error, for now flat error
+            opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel >19, drop=True)
+            opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel >19, drop=True)
+
+            opt_data["ts.te"]["error"] = opt_data["ts.te"] * 0.10 + 10
+            opt_data["ts.ne"]["error"] = opt_data["ts.ne"] * 0.10 + 10
+
         return opt_data
 
     def setup_optimiser(
@@ -343,6 +377,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         nwalkers=50,
         burn_frac=0.10,
         sample_high_density=False,
+        **kwargs,
     ):
         self.model_kwargs = model_kwargs
         self.nwalkers = nwalkers
@@ -368,13 +403,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             kwargs=model_kwargs,
         )
         self.start_points = self._sample_start_points(
-            sample_high_density=self.sample_high_density
+            sample_high_density=self.sample_high_density, **kwargs
         )
 
-    def _sample_start_points(self, sample_high_density: bool = True):
+    def _sample_start_points(self, sample_high_density: bool = True, nsamples=100, **kwargs):
         if sample_high_density:
             start_points = self.bayesmodel.sample_from_high_density_region(
-                self.param_names, self.sampler, self.nwalkers, nsamples=100
+                self.param_names, self.sampler, self.nwalkers, nsamples=nsamples
             )
         else:
             start_points = self.bayesmodel.sample_from_priors(
@@ -399,7 +434,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 pulse_to_write=pulse_to_write,
                 run=run,
                 diagnostic_quantities=self.opt_quantity,
-                mode="NEW",
+                mode="EDIT",
             )
 
         self.run_sampler(iterations=iterations, burn_frac=burn_frac)
@@ -418,7 +453,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 if __name__ == "__main__":
     run = BayesWorkflowExample(
         pulse=None,
-        diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
+        diagnostics=[
+                    "xrcs",
+                    "efit",
+                    "smmh1",
+                    "cxff_pi",
+                    "ts",
+                    ],
         param_names=OPTIMISED_PARAMS,
         opt_quantity=OPTIMISED_QUANTITY,
         priors=DEFAULT_PRIORS,
@@ -430,16 +471,17 @@ if __name__ == "__main__":
     )
 
     run.setup_plasma(
-        tsample=0.060,
+        tsample=0.05,
     )
     run.setup_opt_data(phantoms=run.phantoms)
-    run.setup_optimiser(nwalkers=50, sample_high_density=True, model_kwargs={})
+    run.setup_optimiser(nwalkers=50, sample_high_density=True, model_kwargs=run.model_kwargs)
     results = run(
-        filepath="./results/test/",
-        pulse_to_write=23000101,
+        filepath=f"./results/test/",
+        pulse_to_write=25000000,
         run="RUN01",
         mds_write=True,
         plot=True,
         burn_frac=0.10,
         iterations=100,
     )
+
