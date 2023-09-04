@@ -45,8 +45,8 @@ def plot_profile(
         )
         plt.fill_between(
             profile.rho_poloidal,
-            profile.quantile(0.00, dim="index"),
-            profile.quantile(1.00, dim="index"),
+            profile.quantile(0.005, dim="index"),
+            profile.quantile(0.995, dim="index"),
             label=f"{blobkey}, Max-Min",
             zorder=1,
             color="lightgrey",
@@ -118,8 +118,8 @@ def _plot_1d(
     )
     plt.fill_between(
         blob_data.__getattr__(dims[0]),
-        blob_data.quantile(0.00, dim="index"),
-        blob_data.quantile(1.00, dim="index"),
+        blob_data.quantile(0.005, dim="index"),
+        blob_data.quantile(0.995, dim="index"),
         label=f"{blobkey}, Max-Min",
         zorder=1,
         color="lightgrey",
@@ -263,12 +263,19 @@ def plot_bayes_result(
     plot_autocorr(autocorr, param_names, figheader, filetype=filetype)
 
     if "CXFF_PI.TI" in model_data.keys():
+        max_channel = diag_data["CXFF_PI.TI"].sel(t=model_data["CXFF_PI.TI"].t).idxmax("channel").values
         model_data["CXFF_PI.TI0"] = model_data["CXFF_PI.TI"].sel(
-            channel=diag_data["CXFF_PI.TI"].channel
-        )
+                channel=max_channel
+            )
         diag_data["CXFF_PI.TI0"] = diag_data["CXFF_PI.TI"].sel(
-            channel=diag_data["CXFF_PI.TI"].channel
+            channel=max_channel
         )
+        # model_data["CXFF_PI.TI0"] = model_data["CXFF_PI.TI"].sel(
+        #     channel=diag_data["CXFF_PI.TI"].channel
+        # )
+        # diag_data["CXFF_PI.TI0"] = diag_data["CXFF_PI.TI"].sel(
+        #     channel=diag_data["CXFF_PI.TI"].channel
+        # )
 
     key = "CXFF_PI.TI0"
     if key in model_data.keys():
