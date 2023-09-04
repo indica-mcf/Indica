@@ -36,7 +36,7 @@ class HelikeSpectrometer(DiagnosticModel):
         name: str,
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
-        calibration: float = 8.0e-20,
+        calibration: float = 1.0e-18,
         element: str = "ar",
         window_len: int = 1030,
         window_lim=None,
