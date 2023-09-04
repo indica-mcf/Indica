@@ -142,6 +142,7 @@ def bda():
             "AUTO_CORR": ("NUMERIC", "Auto-correlation (iteration nwalker)"),
             "POST_SAMPLE": ("NUMERIC", "Posterior probability samples (sample)"),
             "PRIOR_SAMPLE": ("NUMERIC", "Prior samples"),
+            "GELMANRUBIN": ("NUMERIC", "Gelmin-Rubin convergence diagnostic"),
         },
     }
     return nodes
