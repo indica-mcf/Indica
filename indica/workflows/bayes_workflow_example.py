@@ -24,75 +24,83 @@ from indica.writers.bda_tree import write_nodes
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.y0": 5e19,
-    "Ne_prof.wcenter": 0.4,
-    "Ne_prof.peaking": 2,
     "Ne_prof.y1": 2e18,
     "Ne_prof.yend": 1e18,
-    "Ne_prof.wped": 2,
+    "Ne_prof.wped": 3,
+    "Ne_prof.wcenter": 0.3,
+    "Ne_prof.peaking": 1.2,
+
     "Nimp_prof.y0": 1e17,
     "Nimp_prof.y1": 5e15,
-    "Nimp_prof.wcenter": 0.4,
+    "Nimp_prof.yend": 1e15,
+    "Nimp_prof.wcenter": 0.3,
     "Nimp_prof.wped": 6,
     "Nimp_prof.peaking": 2,
+
     "Te_prof.y0": 3000,
     "Te_prof.y1": 50,
-    "Te_prof.wcenter": 0.4,
+    "Te_prof.yend": 10,
+    "Te_prof.wcenter": 0.2,
     "Te_prof.wped": 3,
-    "Te_prof.peaking": 2,
+    "Te_prof.peaking": 1.5,
+
     "Ti_prof.y0": 6000,
     "Ti_prof.y1": 50,
-    "Ti_prof.wcenter": 0.4,
+    "Ti_prof.yend": 10,
+    "Ti_prof.wcenter": 0.2,
     "Ti_prof.wped": 3,
-    "Ti_prof.peaking": 2,
+    "Ti_prof.peaking": 1.5,
 }
 
 DEFAULT_PRIORS = {
     "Ne_prof.y0": get_uniform(2e19, 4e20),
     "Ne_prof.y1": get_uniform(1e18, 1e19),
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
-    "Ne_prof.wped": get_uniform(1, 6),
-    "Ne_prof.wcenter": get_uniform(0.1, 0.8),
-    "Ne_prof.peaking": get_uniform(1, 6),
+    "Ne_prof.wped": get_uniform(2, 6),
+    "Ne_prof.wcenter": get_uniform(0.2, 0.4),
+    "Ne_prof.peaking": get_uniform(1, 4),
+
     "Nimp_prof.y0": loguniform(1e16, 1e18),
     "Nimp_prof.y1": get_uniform(1e15, 1e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
     ),
     "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
-    "Nimp_prof.wped": get_uniform(1, 6),
-    "Nimp_prof.wcenter": get_uniform(0.1, 0.8),
-    "Nimp_prof.peaking": get_uniform(1, 10),
+    "Nimp_prof.wped": get_uniform(2, 6),
+    "Nimp_prof.wcenter": get_uniform(0.2, 0.4),
+    "Nimp_prof.peaking": get_uniform(1, 6),
     "Nimp_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where(
         (x1 > x2), 1, 0
     ),  # impurity always more peaked
+
     "Te_prof.y0": get_uniform(1000, 5000),
-    "Te_prof.wped": get_uniform(1, 6),
-    "Te_prof.wcenter": get_uniform(0.1, 0.8),
-    "Te_prof.peaking": get_uniform(1, 10),
+    "Te_prof.wped": get_uniform(2, 6),
+    "Te_prof.wcenter": get_uniform(0.2, 0.4),
+    "Te_prof.peaking": get_uniform(1, 4),
     # "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
     "Ti_prof.y0": get_uniform(1000, 10000),
-    "Ti_prof.wped": get_uniform(1, 6),
-    "Ti_prof.wcenter": get_uniform(0.1, 0.8),
-    "Ti_prof.peaking": get_uniform(1, 10),
+    "Ti_prof.wped": get_uniform(2, 6),
+    "Ti_prof.wcenter": get_uniform(0.2, 0.4),
+    "Ti_prof.peaking": get_uniform(1, 6),
 }
 
 OPTIMISED_PARAMS = [
-    # "Ne_prof.y1",
+    "Ne_prof.y1",
     "Ne_prof.y0",
-    # "Ne_prof.peaking",
-    # "Ne_prof.wcenter",
-    # "Ne_prof.wped",
+    "Ne_prof.peaking",
+    "Ne_prof.wcenter",
+    "Ne_prof.wped",
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
     # "Nimp_prof.wcenter",
     # "Nimp_prof.wped",
-    # "Nimp_prof.peaking",
+    "Nimp_prof.peaking",
     "Te_prof.y0",
-    # "Te_prof.wped",
+    "Te_prof.wped",
     "Te_prof.wcenter",
     "Te_prof.peaking",
     "Ti_prof.y0",
-    # "Ti_prof.wped",
+    "Ti_prof.wped",
     "Ti_prof.wcenter",
     "Ti_prof.peaking",
 ]
@@ -374,7 +382,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
     def _sample_start_points(self, sample_high_density: bool = True):
         if sample_high_density:
             start_points = self.bayesmodel.sample_from_high_density_region(
-                self.param_names, self.sampler, self.nwalkers, nsamples=100
+                self.param_names, self.sampler, self.nwalkers, nsamples=200
             )
         else:
             start_points = self.bayesmodel.sample_from_priors(
