@@ -27,33 +27,33 @@ from indica.writers.bda_tree import write_nodes
 
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
-    "Ne_prof.y0": 5e19,
+    "Ne_prof.y0": 1e20,
     "Ne_prof.y1": 2e18,
     "Ne_prof.yend": 1e18,
     "Ne_prof.wped": 3,
     "Ne_prof.wcenter": 0.3,
-    "Ne_prof.peaking": 1.2,
+    "Ne_prof.peaking": 2,
 
     "Nimp_prof.y0": 1e17,
     "Nimp_prof.y1": 5e15,
     "Nimp_prof.yend": 1e15,
     "Nimp_prof.wcenter": 0.3,
-    "Nimp_prof.wped": 6,
+    "Nimp_prof.wped": 5,
     "Nimp_prof.peaking": 2,
 
     "Te_prof.y0": 3000,
     "Te_prof.y1": 50,
     "Te_prof.yend": 10,
-    "Te_prof.wcenter": 0.2,
+    "Te_prof.wcenter": 0.25,
     "Te_prof.wped": 3,
-    "Te_prof.peaking": 1.5,
+    "Te_prof.peaking": 2,
 
     "Ti_prof.y0": 6000,
     "Ti_prof.y1": 50,
     "Ti_prof.yend": 10,
-    "Ti_prof.wcenter": 0.2,
+    "Ti_prof.wcenter": 0.25,
     "Ti_prof.wped": 3,
-    "Ti_prof.peaking": 1.5,
+    "Ti_prof.peaking": 2,
 }
 
 DEFAULT_PRIORS = {
@@ -416,6 +416,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             sample_high_density=self.sample_high_density, **kwargs
         )
 
+        # BO opt goes here
+
+
     def _sample_start_points(self, sample_high_density: bool = True, nsamples=100, **kwargs):
         if sample_high_density:
             start_points = self.bayesmodel.sample_from_high_density_region(
@@ -484,14 +487,14 @@ if __name__ == "__main__":
         tsample=0.05,
     )
     run.setup_opt_data(phantoms=run.phantoms)
-    run.setup_optimiser(nwalkers=50, sample_high_density=True, model_kwargs=run.model_kwargs)
-    results = run(
-        filepath=f"./results/test/",
-        pulse_to_write=25000000,
-        run="RUN01",
-        mds_write=True,
-        plot=True,
-        burn_frac=0.10,
-        iterations=100,
-    )
+    run.setup_optimiser(nwalkers=50, sample_high_density=False, model_kwargs=run.model_kwargs)
+    # results = run(
+    #     filepath=f"./results/test/",
+    #     pulse_to_write=25000000,
+    #     run="RUN01",
+    #     mds_write=False,
+    #     plot=True,
+    #     burn_frac=0.10,
+    #     iterations=200,
+    # )
 
