@@ -20,8 +20,8 @@ from indica.models.thomson_scattering import ts_transform_example
 from indica.models.plasma import Plasma
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
-from indica.writers.bda_tree import create_nodes
-from indica.writers.bda_tree import write_nodes
+#from indica.writers.bda_tree import create_nodes
+#from indica.writers.bda_tree import write_nodes
 
 
 
@@ -389,6 +389,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         sample_high_density=False,
         **kwargs,
     ):
+        
         self.model_kwargs = model_kwargs
         self.nwalkers = nwalkers
         self.burn_frac = burn_frac
@@ -416,7 +417,101 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             sample_high_density=self.sample_high_density, **kwargs
         )
 
-        # BO opt goes here
+
+    # BO opt goes here
+
+
+
+
+    #For some, this is defined well enough.  The try catch is for some 
+    #priors that ar defined differently, like nimp_prof.yo. This is janky and we should not do this, I'm just
+    #illustrating a point. Basically, we get the bounds from the defined priors.
+
+
+
+        self.bounds=[]
+        for param in self.param_names:
+            try:
+                first_bound=DEFAULT_PRIORS[param].kwds['loc']
+                second_bound=DEFAULT_PRIORS[param].kwds['loc']+DEFAULT_PRIORS[param].kwds['scale']
+                self.bounds.append({'name':param, 'type':'continuous','domain': (first_bound,second_bound)})
+
+            except KeyError as e:
+                print(e)
+                first_bound=DEFAULT_PRIORS[param].a
+                second_bound=DEFAULT_PRIORS[param].b
+                self.bounds.append({'name':param, 'type':'continuous','domain': (first_bound,second_bound)})
+
+
+
+
+
+    #We have the start_points which is 50 points of 15 values. 
+    #They are not labeled (ehhh, should be, we'll do it later)
+    #These are ordered so that they align with thatever is in self.param_names
+    #ln_posterior takes a dictionary with name:value.
+
+
+    #We construct a list of all the function values of the starting point observations
+        self.fits=np.array([a for a,_ in [self.bayesmodel.ln_posterior(dict(zip(self.param_names, s))) for s in self.start_points]])
+
+        #abs
+        self.fits=np.abs(self.fits)
+
+    #Convert 1D array into 2D column vector. This is weird but the GPyOpt like sthis!
+        self.fits_column=self.fits[..., np.newaxis]
+
+
+    #A lot of these seem to be -inf, is this intended? Anyway, we ignore that for now, and just assume it's no good.
+
+
+        import GPyOpt
+        self.bsf= np.inf
+        self.it=0
+
+
+
+        #This is the actual goal function the BO tries to optimize. Basically, 
+        #the ln_posterior just wants a dict so we give it just that (gpyopt tries to give the objective a numpy array by default)
+        #This also logs the results.
+        def idiot_proof(x):
+            res ,_ = self.bayesmodel.ln_posterior(dict(zip(self.param_names,x[0])))
+
+
+            #W want to minimize the abs of this. Oh well. Assume that 
+            #We get values from -inf to zero from the black box?
+            #If so, then we take abs of it, and minimize, because we want it to tend towards a zero from -inf.
+            #I hate the feasible infs. There are ways to avoid unfeasible areas..
+
+
+            res=np.abs(res)
+            self.bsf=res if res<self.bsf else self.bsf
+            self.it+=1
+
+            print(f"Iteration {self.it}/50, current result {res}, best so far {-self.bsf}")
+
+            return res
+        
+
+
+
+        #Then, prepopulate the BO with your sample points, basically this operates as cheap preconditioning
+        optModel = GPyOpt.methods.BayesianOptimization(idiot_proof, domain=self.bounds,X=self.start_points,Y=self.fits_column)
+
+
+
+
+        #RUN FOOLS
+        optModel.run_optimization(max_iter = 30)
+
+        #Gettem
+        optimal_objective_value= -optModel.fx_opt
+        optimal_parameters = dict(zip(optModel.x_opt,self.param_names))
+
+
+        print(f"Optimal objective value: {optimal_objective_value}")
+        print(f"Parameters for the optimal value: {optimal_parameters}")
+
 
 
     def _sample_start_points(self, sample_high_density: bool = True, nsamples=100, **kwargs):
