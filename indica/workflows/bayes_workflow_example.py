@@ -22,7 +22,7 @@ from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import write_nodes
-
+from indica.readers.read_st40 import ReadST40
 
 
 # global configurations
@@ -129,6 +129,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         profile_params: dict,
         pulse: int = None,
         phantoms: bool = False,
+        fast_particles = False,
         tstart=0.02,
         tend=0.10,
         dt=0.005,
@@ -140,6 +141,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.priors = priors
         self.profile_params = profile_params
         self.phantoms = phantoms
+        self.fast_particles = fast_particles
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
@@ -212,6 +214,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         ]
         self.plasma.set_equilibrium(self.equilibrium)
         self.plasma.update_profiles(self.profile_params)
+        if self.fast_particles:
+            self._init_fast_particles()
+
         self.plasma.build_atomic_data(calc_power_loss=False)
         self.save_phantom_profiles()
 
@@ -273,6 +278,26 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             else:
                 raise ValueError(f"{diag} not found in setup_models")
             self.models[diag] = model
+
+    def _init_fast_particles(self):
+        st40_code = ReadST40(13000000 + self.pulse, self.tstart, self.tend, dt=self.dt, tree="astra")
+        st40_code.get_raw_data("", "astra", "RUN602")
+        st40_code.bin_data_in_time(["astra"], self.tstart, self.tend, self.dt)
+        code_data = st40_code.binned_data["astra"]
+        Nf = (
+            code_data["nf"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
+            * 1.0e19
+        )
+        self.plasma.fast_density.values = Nf.values
+        Nn = (
+            code_data["nn"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
+            * 1.0e19
+        )
+        self.plasma.neutral_density.values = Nn.values
+        Pblon = code_data["pblon"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
+        self.plasma.pressure_fast_parallel.values = Pblon.values
+        Pbper = code_data["pbper"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
+        self.plasma.pressure_fast_perpendicular.values = Pbper.values
 
     def setup_opt_data(self, phantoms=False, **kwargs):
         if not hasattr(self, "plasma"):
@@ -371,6 +396,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
                 opt_data["cxff_pi"]["ti"] != 0,
             )
+            # opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
+            #     opt_data["cxff_pi"]["ti"].channel == 0,
+            # )
         if "ts" in self.diagnostics:
             # TODO: fix error, for now flat error
             opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel >19, drop=True)
@@ -475,6 +503,7 @@ if __name__ == "__main__":
         priors=DEFAULT_PRIORS,
         profile_params=DEFAULT_PROFILE_PARAMS,
         phantoms=True,
+        fast_particles=True,
         tstart=0.02,
         tend=0.10,
         dt=0.005,
