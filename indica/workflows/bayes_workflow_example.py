@@ -23,8 +23,6 @@ from indica.workflows.bayes_plots import plot_bayes_result
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import write_nodes
 
-
-
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.y0": 5e19,
@@ -63,7 +61,6 @@ DEFAULT_PRIORS = {
     "Ne_prof.wped": get_uniform(2, 6),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
-
     "Nimp_prof.y0": loguniform(1e16, 1e18),
     "Nimp_prof.y1": get_uniform(1e15, 1e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
@@ -263,13 +260,11 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 transform.set_equilibrium(self.equilibrium)
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
-
             elif diag == "ts":
                 transform = self.transforms[diag]
                 transform.set_equilibrium(self.equilibrium)
                 model = ThomsonScattering(name=diag, )
                 model.set_transect_transform(transform)
-
             else:
                 raise ValueError(f"{diag} not found in setup_models")
             self.models[diag] = model
@@ -307,7 +302,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
             opt_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2, drop=True)
-
+            
         if "ts" in self.diagnostics:
             _ts_data = self.models["ts"]()
             ts_data = {key: _ts_data[key].expand_dims(dim={"t": [self.plasma.time_to_calculate]}) for key in ["te", "ne"]}
@@ -317,7 +312,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                         0.10 * opt_data["ts.te"].max(dim="channel"))
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"] / opt_data["ts.ne"] * (
                         0.10 * opt_data["ts.ne"].max(dim="channel"))
-
+            
         if "efit" in self.diagnostics:
             opt_data["efit.wp"] = (
                 self.models["efit"]()
@@ -378,7 +373,6 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
             opt_data["ts.te"]["error"] = opt_data["ts.te"] * 0.10 + 10
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"] * 0.10 + 10
-
         return opt_data
 
     def setup_optimiser(
@@ -494,4 +488,3 @@ if __name__ == "__main__":
         burn_frac=0.10,
         iterations=100,
     )
-
