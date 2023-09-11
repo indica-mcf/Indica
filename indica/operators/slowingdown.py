@@ -307,34 +307,29 @@ def simulate_finite_source(
     Returns:
     source_fast: Fast ion source profile (1/m3/s)
     """
-    source_fast = np.zeros(len(rhov))
 
     dirz = np.array([0, 0, 1])
     dirh = np.cross(direction, dirz)
+
+    dist_los = []
+    rho_los = []
 
     for i in range(n):
         source_shift = (np.random.rand() * width - width / 2) * dirh + (
             np.random.rand() * width - width / 2
         ) * dirz
-        source_temp = simulate_source(
-            rhov,
-            ne,
-            Te,
-            Anum,
-            Rv,
-            zv,
-            rho2d,
-            vol,
-            source + source_shift,
-            direction,
-            energy,
-            Anum_fast,
-            power,
-        )
-        source_fast += source_temp
-    #        attenuation = attenuation_temp
 
-    return source_fast / n
+        dist_los_temp, rho_los_temp = precalc_source_los(Rv, zv, rho2d, source + source_shift, direction)
+
+        dist_los.append(dist_los_temp)
+        rho_los.append(rho_los_temp)
+
+    source_fast = np.zeros(len(ne))
+
+    for i in range(n):
+        source_fast += simulate_source_los(rhov, ne, Te, Anum, dist_los[i], rho_los[i], energy, Anum_fast, power)
+
+    return source_fast / n / vol
 
 
 def simulate_source(
@@ -360,7 +355,33 @@ def simulate_source(
     Returns:
     source_fast: Fast ion source profile (1/m3/s)
     """
-    energy_per_anum = energy / 1e3 / Anum_fast
+
+    dist_los, rho_los = precalc_source_los(Rv, zv, rho2d, source, direction)
+
+    source_fast = simulate_source_los(rhov, ne, Te, Anum, dist_los, rho_los, energy, Anum_fast, power)
+
+    return source_fast / vol
+
+
+def precalc_source_los(
+    Rv, zv, rho2d, source, direction
+):
+    """
+    Calculate fast ion source from beam ionisation.
+
+    Rv: R axis for 2d rho map (m)
+    zv: z axis for 2d rho map (m)
+    rho2d: 2d (R,z) rho map
+    vol: differential volume profile (m3)
+    source: beam source location (x,y,z) (m)
+    direction: beam direction (dx,dy,dz) unit vector
+    energy: Neutral energy (eV)
+    Anum_fast: Beam mass number
+    power: Beam power (W)
+
+    Returns:
+    source_fast: Fast ion source profile (1/m3/s)
+    """
 
     ds = 0.001
     s = 0
@@ -373,28 +394,61 @@ def simulate_source(
         s += ds
         rho = evaluate_rho(x, Rv, zv, rho2d)
 
+    rho_los = []
+    dist_los = []
+
+    s = 0
+
+    while rho <= 1:
+        rho_los.append(rho)
+        dist_los.append(s)
+        
+        x += ds * direction
+        s += ds
+        rho = evaluate_rho(x, Rv, zv, rho2d)
+
+    return dist_los, rho_los
+
+
+def simulate_source_los(
+    rhov, ne, Te, Anum, dist_los, rho_los, energy, Anum_fast, power
+):
+    """
+    Calculate fast ion source from beam ionisation for a single precalculated
+    LoS.
+
+    rhov: Rho axis for profiles
+    ne: Background electron density profile (1/m3)
+    Te: Background electron temperature profile (eV)
+    Anum: Background species mass number
+    dist_los: Distance axis along the LoS
+    rho_los: Corresponding rho values anong the LoS
+    energy: Neutral energy (eV)
+    Anum_fast: Beam mass number
+    power: Beam power (W)
+
+    Returns:
+    source_fast: Fast ion source profile (1/m3/s)
+    """
+    energy_per_anum = energy / 1e3 / Anum_fast
+
+    ds = dist_los[1] - dist_los[0]
+    s = 0
+
     source_fast = np.zeros(len(ne))
     weight = 1
 
-    attenuation = []
-
-    while rho <= 1:
-        x += ds * direction
-        s += ds
-        print(x, ds)
-
-        rho = evaluate_rho(x, Rv, zv, rho2d)
-        irho = np.argmin(np.abs(rho - rhov))
-        ne_x = np.interp(rho, rhov, ne)
-        Te_x = np.interp(rho, rhov, Te)
+    for i in range(len(rho_los)):
+        ne_x = np.interp(rho_los[i], rhov, ne)
+        Te_x = np.interp(rho_los[i], rhov, Te)
         rate = ne_x * 1e-4 * suzuki(energy_per_anum, ne_x, Te_x, Anum)
+        irho = np.argmin(np.abs(rho_los[i] - rhov))
         source_fast[irho] += weight * rate * ds
         weight -= weight * rate * ds
-        attenuation.append([s, weight])
 
     source_fast *= power / (energy * 1.602e-19)
 
-    return source_fast / vol
+    return source_fast
 
 
 def evaluate_rho(x, Rv, zv, rho2d):
