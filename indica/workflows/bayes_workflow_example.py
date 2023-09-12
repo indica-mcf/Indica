@@ -23,6 +23,7 @@ from indica.workflows.bayes_plots import plot_bayes_result
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import write_nodes
 from indica.readers.read_st40 import ReadST40
+from indica.equilibrium import Equilibrium
 
 
 # global configurations
@@ -128,11 +129,18 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         priors: dict,
         profile_params: dict,
         pulse: int = None,
-        phantoms: bool = False,
-        fast_particles = False,
         tstart=0.02,
         tend=0.10,
         dt=0.005,
+
+        phantoms: bool = False,
+        fast_particles = False,
+        astra_run=None,
+        astra_pulse_range=13000000,
+        astra_equilibrium=False,
+        efit_revision = 0,
+        set_ts_profiles = False,
+        astra_wp = False,
     ):
         self.pulse = pulse
         self.diagnostics = diagnostics
@@ -140,11 +148,19 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.opt_quantity = opt_quantity
         self.priors = priors
         self.profile_params = profile_params
-        self.phantoms = phantoms
-        self.fast_particles = fast_particles
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
+
+        self.phantoms = phantoms
+        self.fast_particles = fast_particles
+        self.astra_run= astra_run
+        self.astra_pulse_range = astra_pulse_range
+        self.astra_equilibrium = astra_equilibrium
+        self.efit_revision = efit_revision
+        self.set_ts_profiles = set_ts_profiles
+        self.astra_wp = astra_wp
+
         self.model_kwargs = {}
 
         for attribute in [
@@ -178,6 +194,10 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             self.read_data(
                 self.diagnostics, tstart=self.tstart, tend=self.tend, dt=self.dt
             )
+        if self.efit_revision != 0:
+            self.reader.get_equilibrium(revision=efit_revision, )
+            self.equilibrium = self.reader.equilibrium
+
         self.setup_models(self.diagnostics)
 
     def setup_plasma(
@@ -215,7 +235,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.plasma.set_equilibrium(self.equilibrium)
         self.plasma.update_profiles(self.profile_params)
         if self.fast_particles:
-            self._init_fast_particles()
+            self._init_fast_particles(run=self.astra_run)
 
         self.plasma.build_atomic_data(calc_power_loss=False)
         self.save_phantom_profiles()
@@ -269,6 +289,12 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
 
+            elif diag == "cxff_tws_c":
+                transform = self.transforms[diag]
+                transform.set_equilibrium(self.equilibrium)
+                model = ChargeExchange(name=diag, element="c")
+                model.set_transect_transform(transform)
+
             elif diag == "ts":
                 transform = self.transforms[diag]
                 transform.set_equilibrium(self.equilibrium)
@@ -279,9 +305,14 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 raise ValueError(f"{diag} not found in setup_models")
             self.models[diag] = model
 
-    def _init_fast_particles(self):
-        st40_code = ReadST40(13000000 + self.pulse, self.tstart, self.tend, dt=self.dt, tree="astra")
-        st40_code.get_raw_data("", "astra", "RUN602")
+    def _init_fast_particles(self, run="RUN602", ):
+        st40_code = ReadST40(self.astra_pulse_range + self.pulse, self.tstart, self.tend, dt=self.dt, tree="astra")
+        astra_data = st40_code.get_raw_data("", "astra", run)
+
+        if self.astra_equilibrium:
+            self.equilibrium = Equilibrium(astra_data)
+            self.plasma.equilibrium = self.equilibrium
+
         st40_code.bin_data_in_time(["astra"], self.tstart, self.tend, self.dt)
         code_data = st40_code.binned_data["astra"]
         Nf = (
@@ -298,6 +329,16 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.plasma.pressure_fast_parallel.values = Pblon.values
         Pbper = code_data["pbper"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
         self.plasma.pressure_fast_perpendicular.values = Pbper.values
+        self.astra_data = code_data
+
+        if self.set_ts_profiles:
+            overwritten_params = [param for param in self.param_names if any(xs in param for xs in ["Te", "Ne"])]
+            if any(overwritten_params):
+                raise ValueError(f"Te/Ne set by TS but then the following params overwritten: {overwritten_params}")
+            Te = code_data["te"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
+            self.plasma.electron_temperature.values = Te.values
+            Ne = code_data["ne"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
+            self.plasma.electron_density.values = Ne.values
 
     def setup_opt_data(self, phantoms=False, **kwargs):
         if not hasattr(self, "plasma"):
@@ -350,6 +391,8 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
 
+        # TODO: add chers
+
         if noise:
             #TODO: add TS
             opt_data["smmh1.ne"] = opt_data["smmh1.ne"] + opt_data[
@@ -372,6 +415,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             opt_data["efit.wp"] = opt_data["efit.wp"] + opt_data[
                 "efit.wp"
             ].max().values * np.random.normal(0, noise_factor, None)
+
         return opt_data
 
     def _exp_data(self, **kwargs):
@@ -396,9 +440,18 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
                 opt_data["cxff_pi"]["ti"] != 0,
             )
+
             # opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
             #     opt_data["cxff_pi"]["ti"].channel == 0,
             # )
+        if "cxff_tws_c" in self.diagnostics:
+            opt_data["cxff_tws_c"]["ti"] = opt_data["cxff_tws_c"]["ti"].where(
+                opt_data["cxff_tws_c"]["ti"] != 0,
+            )
+            # opt_data["cxff_tws_c"]["ti"] = opt_data["cxff_tws_c"]["ti"].where(
+            #     opt_data["cxff_tws_c"]["ti"].channel == 1,
+            # )
+
         if "ts" in self.diagnostics:
             # TODO: fix error, for now flat error
             opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel >19, drop=True)
@@ -406,6 +459,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
             opt_data["ts.te"]["error"] = opt_data["ts.te"] * 0.10 + 10
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"] * 0.10 + 10
+
+        if self.astra_wp:
+            opt_data["efit.wp"] = self.astra_data["wth"]
 
         return opt_data
 
