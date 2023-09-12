@@ -92,6 +92,7 @@ def _plot_1d(
     xlabel="[]",
     xlim=None,
     figsize=(6.4, 4.8),
+    hide_legend=False,
     **kwargs,
 ):
     if blobkey not in blobs.keys():
@@ -140,11 +141,14 @@ def _plot_1d(
             label=f"{blobkey} data",
             zorder=4,
         )
+
+    plt.gca().set_ylim(bottom=0)
     set_axis_sci()
     plt.ylabel(ylabel)
     plt.xlabel(xlabel)
     plt.xlim(xlim)
-    plt.legend()
+    if not hide_legend:
+        plt.legend()
     plt.savefig(figheader + filename)
     plt.close()
 
@@ -181,8 +185,8 @@ def violinplot(
     violin["bodies"][0].set_edgecolor("black")
     axs.set_xlabel(key)
     top = axs.get_ylim()[1]
-    bot = axs.get_ylim()[0]
-    axs.set_ylim(top=top * 1.1, bottom=bot * 0.9)
+    # bot = axs.get_ylim()[0]
+    axs.set_ylim(top=top * 1.1, bottom=0)
     axs.set_ylabel(f"{ylabel}")
 
     set_axis_sci()
@@ -353,7 +357,22 @@ def plot_bayes_result(
             figheader=figheader,
             ylabel="Temperature [eV]",
             xlabel="Channel",
+            hide_legend=True,
         )
+    key = "CXFF_TWS_C.TI"
+    if key in model_data.keys():
+        _plot_1d(
+            model_data,
+            key,
+            diag_data,
+            f"{key.replace('.', '_')}" + filetype,
+            figheader=figheader,
+            ylabel="Temperature [eV]",
+            xlabel="Channel",
+            hide_legend=True,
+
+        )
+
     key = "TS.TE"
     if key in model_data.keys():
         _plot_1d(
@@ -473,7 +492,7 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/test/"
+    filehead = "./results/11312_ASTRA/"
     with open(filehead + "results.pkl", "rb") as handle:
         results = pickle.load(handle)
     plot_bayes_result(results, filehead, filetype=".png")
