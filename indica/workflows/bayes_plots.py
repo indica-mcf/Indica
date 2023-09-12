@@ -492,7 +492,7 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/11312_ASTRA/"
+    filehead = "./results/test/"
     with open(filehead + "results.pkl", "rb") as handle:
         results = pickle.load(handle)
     plot_bayes_result(results, filehead, filetype=".png")
