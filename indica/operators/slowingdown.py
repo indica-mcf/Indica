@@ -6,6 +6,8 @@ from scipy.special import erf
 epsilon0 = 8.854e-12
 hbar = 1.054e-34
 
+max_tslow = 0.1
+
 
 def coulomb_log(ma, qa, va, mb, qb, nb, Tb):
     """
@@ -50,7 +52,6 @@ def slowingdown(ma, qa, Ea, mb, qb, nb, Tb, Nmc=10, dt=1e-3):
     Tb: Background species temperature (eV)
     dt: Timestep for output (s)
     """
-    max_tslow = 0.1
 
     tv = np.arange(0, max_tslow, dt)
     nfast = np.zeros(len(tv))
@@ -136,6 +137,31 @@ def simulate_slowingdown(
     return out
 
 
+def simulate_slowingdown_precalc(
+    ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, precalc_data
+):
+    N = len(ne)
+
+    nfast = np.zeros(N)
+    pressure = np.zeros(N)
+
+    for i in range(N):
+        for j in range(3):
+            nfast_frac = np.zeros(precalc_data["tv"].shape)
+            pressure_frac = np.zeros(precalc_data["tv"].shape)
+                
+            for k in range(len(nfast_frac)):
+                nfast_frac[k] = precalc_data["nfast"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+                pressure_frac[k] = precalc_data["pressure"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+
+            nfast[i] += source_fast[i, j] * np.sum(nfast_frac)
+            pressure[i] += source_fast[i, j] * np.sum(pressure_frac)
+
+    out = {"nfast": nfast, "pressure": pressure}
+
+    return out
+
+
 def simulate_slowingdown_timedep(
     tv, ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10
 ):
@@ -193,6 +219,39 @@ def simulate_slowingdown_timedep(
 
     return out
 
+
+def simulate_slowingdown_timedep_precalc(
+    tv, ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, precalc_data):
+    N = len(ne[0, :])
+    Nt = len(tv)
+
+    dt = tv[1] - tv[0]
+
+    nfast = np.zeros((Nt, N))
+    pressure = np.zeros((Nt, N))
+
+    for it in range(Nt):
+        for i in range(N):
+            for j in range(3):
+                nfast_frac = np.zeros(precalc_data["tv"].shape)
+                pressure_frac = np.zeros(precalc_data["tv"].shape)
+                for k in range(len(nfast_frac)):
+                    nfast_frac[k] = precalc_data["nfast"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+                    pressure_frac[k] = precalc_data["pressure"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+
+                nfast_frac = nfast_frac[0 : Nt - it]
+                nfast[it : it + len(nfast_frac), i] += (
+                    source_fast[it, i, j] * nfast_frac
+                )
+
+                pressure_frac = pressure_frac[0 : Nt - it]
+                pressure[it : it + len(pressure_frac), i] += (
+                    source_fast[it, i, j] * pressure_frac
+                )
+
+    out = {"nfast": nfast, "pressure": pressure}
+
+    return out
 
 def suzuki(E, ne, Te, Anum):
     """
@@ -462,3 +521,33 @@ def parabolic_plasma(rhov, neave, T0, Sn, ST):
     Te = 100 + (T0 - 100) * (1 - rhov**2) ** ST
 
     return ne, Te
+
+
+def precalc_slowingdown(anum_plasma, anum_beam, Ev, nev, Tev,Nmc=10,dt=1e-3):
+    tv = np.arange(0, max_tslow, dt)
+
+    out = dict()
+    out["Ev"] = Ev
+    out["nev"] = nev
+    out["Tev"] = Tev
+    out["tv"] = tv
+    nfast = np.zeros((len(Ev), len(nev), len(Tev), len(tv)))
+    pressure = np.zeros((len(Ev), len(nev), len(Tev), len(tv)))
+
+    for k in range(len(Ev)):
+        for l in range(len(nev)):
+            for m in range(len(Tev)):
+                nfast_temp, pressure_temp = slowingdown(anum_beam * 1.661e-27, 1.602e-19, Ev[k]*1.602e-19, np.array([9.109e-31, anum_plasma * 1.661e-27]), np.array([-1.602e-19,1.602e-19]), nev[l], Tev[m]*1.602e-19, Nmc=Nmc, dt=dt)
+                nfast[k,l,m,:] = nfast_temp
+                pressure[k,l,m,:] = pressure_temp
+
+    out["nfast"] = interp.RegularGridInterpolator(
+        (Ev, nev, Tev, tv),
+        nfast
+    )
+
+    out["pressure"] = interp.RegularGridInterpolator(
+        (Ev, nev, Tev, tv),
+        pressure
+    )
+    return out
