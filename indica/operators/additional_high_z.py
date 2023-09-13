@@ -1,5 +1,8 @@
+from typing import Sequence
+
 import xarray as xr
 
+from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from .abstractoperator import Operator
 from .. import session
 
@@ -87,6 +90,13 @@ class AdditionalHighZ(Operator):
     def _calc_normalised_additional_high_z_density(
         n_additional_high_z_unnormalised_midplane: xr.DataArray,
         additional_high_z_asymmetry_parameter: xr.DataArray,
+        flux_surfs: FluxSurfaceCoordinates,
+        LoS_bolometry_data: Sequence,
+        impurity_densities: xr.DataArray,
+        frac_abunds: xr.DataArray,
+        impurity_elements: Sequence[str],
+        electron_density: xr.DataArray,
+        power_loss: xr.DataArray,
     ) -> xr.DataArray:
         """
         Calculate the normalised additional high Z density using the bolometry data.
@@ -95,6 +105,28 @@ class AdditionalHighZ(Operator):
 
         Parameters
         ----------
+        flux_surfs
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
+        LoS_bolometry_data
+            Line-of-sight bolometry data in the same format as given in:
+            tests/unit/operator/KB5_Bolometry_data.py
+        impurity_densities
+            Densities for all impurities. Dimensions (elements, rho, theta, t).
+        frac_abunds
+            Fractional abundances list of fractional abundances.
+            Dimensions  (element, ion_charges, rho, t).
+        impurity_elements
+            List of element symbols(as strings) for all impurities.
+        electron_density
+            Electron density. Dimensions (rho, t)
+        power_loss
+            Power loss associated with each ion.
+            Dimensions (elements, rho, t).
 
+        Returns
+        -------
+        n_additional_high_z_midplane
+            Normalised midplane additional high Z density. Dimensions (rho, t).
         """
         raise NotImplementedError

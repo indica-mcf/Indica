@@ -27,7 +27,7 @@ class BolometryDerivation(Operator):
 
     Parameters
     ----------
-    flux_surfaces
+    flux_surfs
         FluxSurfaceCoordinates object representing polar coordinate systems
         using flux surfaces for the radial coordinate.
     LoS_bolometry_data
