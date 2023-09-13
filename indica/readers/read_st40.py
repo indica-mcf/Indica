@@ -120,8 +120,8 @@ class ReadST40:
                     continue
 
                 transform = data[quant].transform
-                if hasattr(transform, "set_equilibrium"):
-                    transform.set_equilibrium(self.equilibrium)
+                # if hasattr(transform, "set_equilibrium"):
+                #     transform.set_equilibrium(self.equilibrium)
                 self.transforms[instrument] = transform
         self.raw_data[instrument] = data
 
