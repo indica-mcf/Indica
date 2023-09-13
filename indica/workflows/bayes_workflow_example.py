@@ -61,7 +61,7 @@ DEFAULT_PRIORS = {
     "Ne_prof.y0": get_uniform(2e19, 4e20),
     "Ne_prof.y1": get_uniform(1e18, 2e19),
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
-    "Ne_prof.wped": get_uniform(2, 20),
+    "Ne_prof.wped": get_uniform(2, 30),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
 
@@ -459,10 +459,10 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         if "ts" in self.diagnostics:
             # TODO: fix error, for now flat error
             opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel >19, drop=True)
-            opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel >19, drop=True)
+            opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel > 19, drop=True)
 
-            opt_data["ts.te"]["error"] = opt_data["ts.te"] * 0.10 + 10
-            opt_data["ts.ne"]["error"] = opt_data["ts.ne"] * 0.10 + 10
+            opt_data["ts.te"]["error"] = opt_data["ts.te"] * 0.10 + 50
+            opt_data["ts.ne"]["error"] = opt_data["ts.ne"] * 0.10
 
         if self.astra_wp:
             opt_data["efit.wp"] = self.astra_data["wth"]
