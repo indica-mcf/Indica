@@ -36,10 +36,10 @@ DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.peaking": 1.2,
 
     "Nimp_prof.y0": 1e17,
-    "Nimp_prof.y1": 5e15,
+    "Nimp_prof.y1": 1e15,
     "Nimp_prof.yend": 1e15,
     "Nimp_prof.wcenter": 0.3,
-    "Nimp_prof.wped": 6,
+    "Nimp_prof.wped": 3,
     "Nimp_prof.peaking": 2,
 
     "Te_prof.y0": 3000,
@@ -59,14 +59,14 @@ DEFAULT_PROFILE_PARAMS = {
 
 DEFAULT_PRIORS = {
     "Ne_prof.y0": get_uniform(2e19, 4e20),
-    "Ne_prof.y1": get_uniform(1e18, 1e19),
+    "Ne_prof.y1": get_uniform(1e18, 2e19),
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
-    "Ne_prof.wped": get_uniform(2, 6),
+    "Ne_prof.wped": get_uniform(2, 20),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
 
-    "Nimp_prof.y0": loguniform(1e16, 1e18),
-    "Nimp_prof.y1": get_uniform(1e15, 1e16),
+    "Nimp_prof.y0": loguniform(1e15, 1e18),
+    "Nimp_prof.y1": loguniform(1e14, 1e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
     ),
@@ -195,8 +195,8 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 self.diagnostics, tstart=self.tstart, tend=self.tend, dt=self.dt
             )
         if self.efit_revision != 0:
-            self.reader.get_equilibrium(revision=efit_revision, )
-            self.equilibrium = self.reader.equilibrium
+            efit_equilibrium = self.reader.reader_equil.get("", "efit", self.efit_revision)
+            self.equilibrium = Equilibrium(efit_equilibrium)
 
         self.setup_models(self.diagnostics)
 
@@ -261,13 +261,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 #     machine_dimensions=machine_dims,
                 #     passes=2,
                 # )
-                los_transform.set_equilibrium(self.equilibrium)
+                los_transform.set_equilibrium(self.equilibrium, force=True)
                 model = Interferometry(name=diag)
                 model.set_los_transform(los_transform)
 
             elif diag == "xrcs":
                 los_transform = self.transforms[diag]
-                los_transform.set_equilibrium(self.equilibrium)
+                los_transform.set_equilibrium(self.equilibrium, force=True)
                 window = None
                 if hasattr(self, "data"):
                     if diag in self.data.keys():
@@ -285,19 +285,19 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
             elif diag == "cxff_pi":
                 transform = self.transforms[diag]
-                transform.set_equilibrium(self.equilibrium)
+                transform.set_equilibrium(self.equilibrium, force=True)
                 model = ChargeExchange(name=diag, element="ar")
                 model.set_transect_transform(transform)
 
             elif diag == "cxff_tws_c":
                 transform = self.transforms[diag]
-                transform.set_equilibrium(self.equilibrium)
+                transform.set_equilibrium(self.equilibrium, force=True)
                 model = ChargeExchange(name=diag, element="c")
                 model.set_transect_transform(transform)
 
             elif diag == "ts":
                 transform = self.transforms[diag]
-                transform.set_equilibrium(self.equilibrium)
+                transform.set_equilibrium(self.equilibrium, force=True)
                 model = ThomsonScattering(name=diag, )
                 model.set_transect_transform(transform)
 
@@ -306,7 +306,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             self.models[diag] = model
 
     def _init_fast_particles(self, run="RUN602", ):
-        st40_code = ReadST40(self.astra_pulse_range + self.pulse, self.tstart, self.tend, dt=self.dt, tree="astra")
+        st40_code = ReadST40(self.astra_pulse_range + self.pulse, self.tstart-self.dt, self.tend+self.dt, dt=self.dt, tree="astra")
         astra_data = st40_code.get_raw_data("", "astra", run)
 
         if self.astra_equilibrium:
@@ -441,16 +441,20 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 opt_data["cxff_pi"]["ti"] != 0,
             )
 
-            # opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
-            #     opt_data["cxff_pi"]["ti"].channel == 0,
-            # )
+            opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
+                opt_data["cxff_pi"]["ti"].channel > 3,
+            )
+            opt_data["cxff_pi"]["ti"] = opt_data["cxff_pi"]["ti"].where(
+                opt_data["cxff_pi"]["ti"].channel < 6,
+            )
+
         if "cxff_tws_c" in self.diagnostics:
             opt_data["cxff_tws_c"]["ti"] = opt_data["cxff_tws_c"]["ti"].where(
                 opt_data["cxff_tws_c"]["ti"] != 0,
             )
-            # opt_data["cxff_tws_c"]["ti"] = opt_data["cxff_tws_c"]["ti"].where(
-            #     opt_data["cxff_tws_c"]["ti"].channel == 1,
-            # )
+            opt_data["cxff_tws_c"]["ti"] = opt_data["cxff_tws_c"]["ti"].where(
+                opt_data["cxff_tws_c"]["ti"].channel < 2,
+            )
 
         if "ts" in self.diagnostics:
             # TODO: fix error, for now flat error
@@ -559,7 +563,7 @@ if __name__ == "__main__":
         priors=DEFAULT_PRIORS,
         profile_params=DEFAULT_PROFILE_PARAMS,
         phantoms=True,
-        fast_particles=True,
+        fast_particles=False,
         tstart=0.02,
         tend=0.10,
         dt=0.005,
@@ -577,6 +581,6 @@ if __name__ == "__main__":
         mds_write=True,
         plot=True,
         burn_frac=0.10,
-        iterations=100,
+        iterations=2000,
     )
 
