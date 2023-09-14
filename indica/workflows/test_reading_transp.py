@@ -242,19 +242,25 @@ def plot_modelling_results(
 
 
 # GaCODE + ASTRA interpretative using HDA/EFIT:
-pulse = 10009
-pulse_code = 34010009  # 13109850
-run_code = "V50"  # 61
-code = "transp_test"  # "astra"
+
 
 # pulse_code1 = 13109850
 # run_code1 = 61
 # code1 = "astra"
-
+# pulse = 10009
+# pulse_code = 34010009  # 13109850
+# run_code = "V50"  # 61
+pulse = 11294
+pulse_code = 34011294  # 13109850
+run_code = "X01"  # 61
+code = "transp_test"  # "astra"
 equil = "transp_test"
-tstart = 0.02
-tend = 0.06
-dt = 0.01
+# tstart = 0.02
+# tend = 0.06
+# dt = 0.01
+tstart = 0.055015
+tend = 0.120015
+dt = 0.005
 verbose = True
 instruments = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit"]
 st40_code = ReadST40(pulse_code, tstart, tend, dt=dt, tree=code)
@@ -270,6 +276,8 @@ st40(instruments=instruments, map_diagnostics=False)
 # st40_a.get_raw_data("", code1, run_code1)
 # st40_a.bin_data_in_time([code1], tstart, tend, dt)
 # data_code_a = st40_a.binned_data[code1]
+
+#todo issue with get f parameter maybe be fpo from eqdsk but maybe wrong shape
 equilibrium = Equilibrium(data_code)
 plasma = plasma_code(pulse_code, tstart, tend, dt, data_code, verbose=verbose)
 plasma.set_equilibrium(equilibrium)

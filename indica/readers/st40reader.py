@@ -449,6 +449,7 @@ class ST40Reader(DataReader):
         if quantity.lower() == ":best_run":
             data = str(self.conn.get(path))
         else:
+            print("path",path)
             data = np.array(self.conn.get(path))
             # data = np.array(self.conn.get(path_check))
 
