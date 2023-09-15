@@ -117,6 +117,7 @@ def scan_profiles(
     tend=0.14,
     dt=0.01,
     run_add="SMM_TS",
+    efit_rev=0,
     modelling=True,
     force=True,
     quantities_te=["int_n3/int_tot"],  # or ["int_k/int_w"]
@@ -144,6 +145,7 @@ def scan_profiles(
         dt=dt,
         quantities_te=quantities_te,
         diagnostic_ne=interferometers[0],
+        efit_rev=efit_rev
     )
 
     pulse = plasma.pulse
@@ -353,9 +355,10 @@ def initialize_workflow(
     dt=0.01,
     quantities_te=["int_n3/int_tot"],
     diagnostic_ne="smmh_ts",
+    efit_rev=0,
 ):
     plasma = initialize_plasma_object(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
-    raw_data, data, bckc = initialize_plasma_data(pulse=pulse, plasma=plasma)
+    raw_data, data, bckc = initialize_plasma_data(pulse=pulse, plasma=plasma, efit_rev=efit_rev)
     initialize_forward_models(plasma, data, interferometers)
     initialize_optimisations(
         plasma, data, quantities_te=quantities_te, diagnostic_ne=diagnostic_ne
@@ -392,7 +395,7 @@ def initialize_plasma_object(
 
 
 def initialize_plasma_data(
-    pulse: int, plasma: Plasma = None, equilibrium_diagnostic="efit",
+    pulse: int, plasma: Plasma = None, equilibrium_diagnostic="efit", efit_rev=0
 ):
     """
     Read ST40 data, initialize Equilibrium class and Flux Transforms,
@@ -411,7 +414,7 @@ def initialize_plasma_data(
     """
     plasma.pulse = pulse
     raw = ST40data(pulse, plasma.tstart - plasma.dt * 4, plasma.tend + plasma.dt * 4)
-    raw_data = raw.get_all()
+    raw_data = raw.get_all(efit_rev=efit_rev)
 
     equilibrium_data = raw_data[equilibrium_diagnostic]
     equilibrium = Equilibrium(equilibrium_data)
