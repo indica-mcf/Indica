@@ -12,25 +12,25 @@ from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
 from indica.utilities import print_like
 
-REVISIONS = {
-    "efit": 0,
-    "brems": -1,
-    "halpha": -1,
-    "nirh1": 0,
-    "smmh1": 0,
-    "cxff_pi": 0,
-    "cxff_tws_c": 0,
-    "cxqf_tws_c": 0,
-    "sxr_camera_4": 0,
-    "sxrc_xy1": 0,
-    "sxrc_xy2": 0,
-    "blom_xy1": 0,
-    "sxr_diode_1": 0,
-    "xrcs": 0,
-    "ts": 0,
-    "pi": 0,
-    "tws_c": 0,
-}
+INSTRUMENTS: list = [
+    "efit",
+    "lines",
+    "nirh1",
+    "smmh1",
+    "smmh",
+    "cxff_pi",
+    "cxff_tws_c",
+    "cxqf_tws_c",
+    "sxr_spd",
+    "sxr_camera_4",
+    "sxrc_xy1",
+    "sxrc_xy2",
+    "sxr_diode_1",
+    "xrcs",
+    "ts",
+    "pi",
+    "tws_c",
+]
 
 FILTER_LIMITS = {
     "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
@@ -39,6 +39,7 @@ FILTER_LIMITS = {
     "xrcs": {"ti_w": (0, np.inf), "te_kw": (0, np.inf), "te_n3w": (0, np.inf)},
     "brems": {"brightness": (0, np.inf)},
     "halpha": {"brightness": (0, np.inf)},
+    "sxr_spd": {"brightness": (0, np.inf)},
     "sxr_diode_1": {"brightness": (0, np.inf)},
     "sxr_camera_4": {"brightness": (0, np.inf)},
     "sxrc_xy1": {"brightness": (0, np.inf)},
@@ -177,6 +178,7 @@ class ReadST40:
                         break
 
     def filter_data(self, instruments: list):
+
         if not hasattr(self, "binned_data"):
             raise ValueError(
                 "Bin data before filtering. No action permitted on raw data structure!"
@@ -298,8 +300,8 @@ class ReadST40:
 
     def __call__(
         self,
-        instruments: list = None,
-        revisions: dict = None,
+        instruments: list = [],
+        revisions: list = None,
         map_raw: bool = False,
         tstart: float = None,
         tend: float = None,
@@ -311,10 +313,11 @@ class ReadST40:
         debug: bool = False,
     ):
         self.debug = debug
-        if instruments is None:
-            instruments = list(REVISIONS.keys())
+
+        if len(instruments) == 0:
+            instruments = INSTRUMENTS
         if revisions is None:
-            revisions = REVISIONS
+            revisions = [0] * len(instruments)
         if tstart is None:
             tstart = self.tstart
         if tend is None:
@@ -324,13 +327,13 @@ class ReadST40:
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift)
-        for instrument in instruments:
+        for i, instrument in enumerate(instruments):
             print(f"Reading {instrument}")
             if debug:
-                self.get_raw_data("", instrument, revisions[instrument])
+                self.get_raw_data("", instrument, revisions[i])
             else:
                 try:
-                    self.get_raw_data("", instrument, revisions[instrument])
+                    self.get_raw_data("", instrument, revisions[i])
                 except Exception as e:
                     print(f"Error reading {instrument}: {e}")
 
@@ -363,12 +366,17 @@ def astra_equilibrium(pulse: int, revision: RevisionLike):
     """Assign ASTRA to equilibrium class"""
 
 
-def read_cxff_pi():
+def sxr_spd():
     import indica.readers.read_st40 as read_st40
+    from indica.utilities import set_axis_sci
 
-    st40 = read_st40.ReadST40(10607)
-    st40(["cxff_pi"])
-    st40.raw_data["cxff_pi"]["ti"].los_transform.set_equilibrium(
-        st40.raw_data["cxff_pi"]["ti"].transform.equilibrium
-    )
-    st40.raw_data["cxff_pi"]["ti"].los_transform.plot()
+    st40 = read_st40.ReadST40(11215)
+    st40(["sxr_spd"])
+
+    st40.raw_data["sxr_spd"]["brightness"].transform.plot()
+
+    plt.figure()
+    st40.raw_data["sxr_spd"]["brightness"].sel(channel=0).plot()
+    set_axis_sci()
+
+    return st40.raw_data["sxr_spd"]["brightness"]
