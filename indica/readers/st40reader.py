@@ -88,6 +88,7 @@ class ST40Reader(DataReader):
         "sxr_camera_4": "get_radiation",
         "sxrc_xy1": "get_radiation",
         "sxrc_xy2": "get_radiation",
+        "blom_xy1": "get_radiation",
         "cxff_pi": "get_charge_exchange",
         "cxff_tws_c": "get_charge_exchange",
         "cxqf_tws_c": "get_charge_exchange",
@@ -178,6 +179,9 @@ class ST40Reader(DataReader):
             "brightness": ".profiles:emission",
         },
         "sxrc_xy2": {
+            "brightness": ".profiles:emission",
+        },
+        "blom_xy1": {
             "brightness": ".profiles:emission",
         },
         "sxr_diode_1": {
