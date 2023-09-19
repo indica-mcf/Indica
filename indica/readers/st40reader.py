@@ -697,11 +697,14 @@ class ST40Reader(DataReader):
             direction = np.array([direction])
 
         results["times"], _ = self._get_signal(uid, instrument, ":time", revision)
-        results["wavelength"], _ = self._get_signal(
-            uid, instrument, ":wavelength", revision
-        )
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
         # TODO: change once wavelength in MDS+ has been fixed to nanometers!
-        results["wavelength"] /= 10.0
+        wavelength /= 10.0
+        if self.pulse >= 10307:
+            dlambda = float(np.abs(wavelength[1] - wavelength[0])) * 4
+            wavelength += dlambda
+        results["wavelength"] = wavelength
+
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
