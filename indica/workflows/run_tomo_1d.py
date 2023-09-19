@@ -287,7 +287,6 @@ def sxrc_xy(
     save_fig: bool = False,
     instrument="sxrc_xy2",
 ):
-
     if input_dict is None:
         st40 = ReadST40(pulse, tstart, tend, dt=dt)
         st40(instruments=[instrument], map_diagnostics=False)
@@ -384,7 +383,6 @@ def old_camera(
     reg_level_guess: float = 0.5,
     input_dict: dict = None,
 ):
-
     if input_dict is None:
         st40 = ReadST40(pulse, tstart, tend)
         # return st40
