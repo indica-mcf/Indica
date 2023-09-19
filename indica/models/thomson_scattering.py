@@ -163,7 +163,8 @@ def example_run(
                 alpha=0.7,
             )
             Ne = bckc["ne"].sel(t=t, method="nearest")
-            plt.scatter(Ne.rho_poloidal, Ne, color=cols_time[i], marker="o", alpha=0.7)
+            rho = Ne.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(rho, Ne, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured electron density (m^-3)")
         plt.legend()
@@ -176,7 +177,8 @@ def example_run(
                 alpha=0.7,
             )
             Te = bckc["te"].sel(t=t, method="nearest")
-            plt.scatter(Te.rho_poloidal, Te, color=cols_time[i], marker="o", alpha=0.7)
+            rho = Te.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(rho, Te, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured electron temperature (eV)")
         plt.legend()
