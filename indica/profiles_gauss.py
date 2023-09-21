@@ -32,6 +32,7 @@ class Profiles:
         self.xend = xend
         self.coord = f"rho_{coord}"
         self.x = np.linspace(0, 1, 15) ** 0.7
+        # self.x = 1-np.logspace(0, -2, 30)
         self.datatype = datatype
         if xspl is None:
             xspl = np.linspace(0, 1.0, 30)
@@ -55,6 +56,9 @@ class Profiles:
 
         if parameters is None:
             parameters = get_defaults(datatype)
+        elif {"y0", "y1", "yend", "wcenter", "wped", "peaking",} >= set(parameters):
+            _parameters = get_defaults(datatype)
+            parameters = dict(_parameters, **parameters)
 
         for k, p in parameters.items():
             setattr(self, k, p)

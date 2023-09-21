@@ -103,11 +103,11 @@ OPTIMISED_PARAMS = [
     # "Nimp_prof.wped",
     "Nimp_prof.peaking",
     "Te_prof.y0",
-    # "Te_prof.wped",
+    "Te_prof.wped",
     "Te_prof.wcenter",
     "Te_prof.peaking",
     "Ti_prof.y0",
-    # "Ti_prof.wped",
+    "Ti_prof.wped",
     "Ti_prof.wcenter",
     "Ti_prof.peaking",
 ]
