@@ -93,7 +93,8 @@ def slowingdown(ma, qa, Ea, mb, qb, nb, Tb, Nmc=10, dt=1e-3):
 
 
 def simulate_slowingdown(
-    ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10
+    ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10,
+    precalc_data = None
 ):
     """
     Calculate steady-state fast ion density and pressure. Assumes zero orbit
@@ -119,40 +120,25 @@ def simulate_slowingdown(
 
     for i in range(N):
         for j in range(3):
-            nfast_frac, pressure_frac = slowingdown(
-                mass_fast,
-                charge_fast,
-                E_fast[j] * 1.602e-19,
-                np.array([9.109e-31, mass]),
-                np.array([-1.602e-19, charge]),
-                ne[i],
-                Te[i] * 1.602e-19,
-                Nmc,
-            )
-            nfast[i] += source_fast[i, j] * np.sum(nfast_frac)
-            pressure[i] += source_fast[i, j] * np.sum(pressure_frac)
+            if precalc_data is not None:
+                nfast_frac = np.zeros(precalc_data["tv"].shape)
+                pressure_frac = np.zeros(precalc_data["tv"].shape)
 
-    out = {"nfast": nfast, "pressure": pressure}
+                for k in range(len(nfast_frac)):
+                    nfast_frac[k] = precalc_data["nfast_interp"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+                    pressure_frac[k] = precalc_data["pressure_interp"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
 
-    return out
-
-
-def simulate_slowingdown_precalc(
-    ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, precalc_data
-):
-    N = len(ne)
-
-    nfast = np.zeros(N)
-    pressure = np.zeros(N)
-
-    for i in range(N):
-        for j in range(3):
-            nfast_frac = np.zeros(precalc_data["tv"].shape)
-            pressure_frac = np.zeros(precalc_data["tv"].shape)
-                
-            for k in range(len(nfast_frac)):
-                nfast_frac[k] = precalc_data["nfast"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
-                pressure_frac[k] = precalc_data["pressure"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+            else:
+                nfast_frac, pressure_frac = slowingdown(
+                    mass_fast,
+                    charge_fast,
+                    E_fast[j] * 1.602e-19,
+                    np.array([9.109e-31, mass]),
+                    np.array([-1.602e-19, charge]),
+                    ne[i],
+                    Te[i] * 1.602e-19,
+                    Nmc,
+                )
 
             nfast[i] += source_fast[i, j] * np.sum(nfast_frac)
             pressure[i] += source_fast[i, j] * np.sum(pressure_frac)
@@ -163,7 +149,7 @@ def simulate_slowingdown_precalc(
 
 
 def simulate_slowingdown_timedep(
-    tv, ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10
+    tv, ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, Nmc=10, precalc_data=None
 ):
     """
     Calculate steady-state fast ion density and pressure. Assumes zero orbit
@@ -193,17 +179,26 @@ def simulate_slowingdown_timedep(
     for it in range(Nt):
         for i in range(N):
             for j in range(3):
-                nfast_frac, pressure_frac = slowingdown(
-                    mass_fast,
-                    charge_fast,
-                    E_fast[j] * 1.602e-19,
-                    np.array([9.109e-31, mass]),
-                    np.array([-1.602e-19, charge]),
-                    ne[it, i],
-                    Te[it, i] * 1.602e-19,
-                    Nmc,
-                    dt,
-                )
+                if precalc_data is not None:
+                    nfast_frac = np.zeros(precalc_data["tv"].shape)
+                    pressure_frac = np.zeros(precalc_data["tv"].shape)
+
+                    for k in range(len(nfast_frac)):
+                        nfast_frac[k] = precalc_data["nfast"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+                        pressure_frac[k] = precalc_data["pressure"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
+
+                else:
+                    nfast_frac, pressure_frac = slowingdown(
+                        mass_fast,
+                        charge_fast,
+                        E_fast[j] * 1.602e-19,
+                        np.array([9.109e-31, mass]),
+                        np.array([-1.602e-19, charge]),
+                        ne[it, i],
+                        Te[it, i] * 1.602e-19,
+                        Nmc,
+                        dt,
+                    )
 
                 nfast_frac = nfast_frac[0 : Nt - it]
                 nfast[it : it + len(nfast_frac), i] += (
@@ -219,39 +214,6 @@ def simulate_slowingdown_timedep(
 
     return out
 
-
-def simulate_slowingdown_timedep_precalc(
-    tv, ne, Te, mass, charge, E_fast, source_fast, mass_fast, charge_fast, precalc_data):
-    N = len(ne[0, :])
-    Nt = len(tv)
-
-    dt = tv[1] - tv[0]
-
-    nfast = np.zeros((Nt, N))
-    pressure = np.zeros((Nt, N))
-
-    for it in range(Nt):
-        for i in range(N):
-            for j in range(3):
-                nfast_frac = np.zeros(precalc_data["tv"].shape)
-                pressure_frac = np.zeros(precalc_data["tv"].shape)
-                for k in range(len(nfast_frac)):
-                    nfast_frac[k] = precalc_data["nfast"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
-                    pressure_frac[k] = precalc_data["pressure"]([E_fast[j], ne[i], Te[i], precalc_data["tv"][k]])
-
-                nfast_frac = nfast_frac[0 : Nt - it]
-                nfast[it : it + len(nfast_frac), i] += (
-                    source_fast[it, i, j] * nfast_frac
-                )
-
-                pressure_frac = pressure_frac[0 : Nt - it]
-                pressure[it : it + len(pressure_frac), i] += (
-                    source_fast[it, i, j] * pressure_frac
-                )
-
-    out = {"nfast": nfast, "pressure": pressure}
-
-    return out
 
 def suzuki(E, ne, Te, Anum):
     """
@@ -332,17 +294,11 @@ def simulate_finite_source(
     ne,
     Te,
     Anum,
-    Rv,
-    zv,
-    rho2d,
     vol,
-    source,
-    direction,
+    precalc_los,
     energy,
     Anum_fast,
-    power,
-    width,
-    n=5,
+    power
 ):
     """
     Calculate fast ion source from beam ionisation.
@@ -367,28 +323,14 @@ def simulate_finite_source(
     source_fast: Fast ion source profile (1/m3/s)
     """
 
-    dirz = np.array([0, 0, 1])
-    dirh = np.cross(direction, dirz)
-
-    dist_los = []
-    rho_los = []
-
-    for i in range(n):
-        source_shift = (np.random.rand() * width - width / 2) * dirh + (
-            np.random.rand() * width - width / 2
-        ) * dirz
-
-        dist_los_temp, rho_los_temp = precalc_source_los(Rv, zv, rho2d, source + source_shift, direction)
-
-        dist_los.append(dist_los_temp)
-        rho_los.append(rho_los_temp)
-
     source_fast = np.zeros(len(ne))
 
-    for i in range(n):
-        source_fast += simulate_source_los(rhov, ne, Te, Anum, dist_los[i], rho_los[i], energy, Anum_fast, power)
+    n_los = len(precalc_los)
 
-    return source_fast / n / vol
+    for i_los in range(n_los):
+        source_fast += simulate_source_los(rhov, ne, Te, Anum, precalc_los[i_los], energy, Anum_fast, power)
+
+    return source_fast / n_los / vol
 
 
 def simulate_source(
@@ -415,11 +357,37 @@ def simulate_source(
     source_fast: Fast ion source profile (1/m3/s)
     """
 
-    dist_los, rho_los = precalc_source_los(Rv, zv, rho2d, source, direction)
+    precalc_los = precalc_source_los(Rv, zv, rho2d, source, direction)
 
-    source_fast = simulate_source_los(rhov, ne, Te, Anum, dist_los, rho_los, energy, Anum_fast, power)
+    source_fast = simulate_source_los(rhov, ne, Te, Anum, precalc_los, energy, Anum_fast, power)
 
     return source_fast / vol
+
+
+def precalc_finite_source_los(
+    Rv,
+    zv,
+    rho2d,
+    source,
+    direction,
+    width,
+    n=5
+):
+    dirz = np.array([0, 0, 1])
+    dirh = np.cross(direction, dirz)
+
+    precalc_los = []
+
+    for i in range(n):
+        source_shift = (np.random.rand() * width - width / 2) * dirh + (
+            np.random.rand() * width - width / 2
+        ) * dirz
+
+        precalc_los_temp = precalc_source_los(Rv, zv, rho2d, source + source_shift, direction)
+
+        precalc_los.append(precalc_los_temp)
+
+    return precalc_los
 
 
 def precalc_source_los(
@@ -466,11 +434,11 @@ def precalc_source_los(
         s += ds
         rho = evaluate_rho(x, Rv, zv, rho2d)
 
-    return dist_los, rho_los
+    return {"rho": rho_los, "dist": dist_los}
 
 
 def simulate_source_los(
-    rhov, ne, Te, Anum, dist_los, rho_los, energy, Anum_fast, power
+    rhov, ne, Te, Anum, precalc_los, energy, Anum_fast, power
 ):
     """
     Calculate fast ion source from beam ionisation for a single precalculated
@@ -491,17 +459,17 @@ def simulate_source_los(
     """
     energy_per_anum = energy / 1e3 / Anum_fast
 
-    ds = dist_los[1] - dist_los[0]
+    ds = precalc_los["dist"][1] - precalc_los["dist"][0]
     s = 0
 
     source_fast = np.zeros(len(ne))
     weight = 1
 
-    for i in range(len(rho_los)):
-        ne_x = np.interp(rho_los[i], rhov, ne)
-        Te_x = np.interp(rho_los[i], rhov, Te)
+    for i in range(len(precalc_los["rho"])):
+        ne_x = np.interp(precalc_los["rho"][i], rhov, ne)
+        Te_x = np.interp(precalc_los["rho"][i], rhov, Te)
         rate = ne_x * 1e-4 * suzuki(energy_per_anum, ne_x, Te_x, Anum)
-        irho = np.argmin(np.abs(rho_los[i] - rhov))
+        irho = np.argmin(np.abs(precalc_los["rho"][i] - rhov))
         source_fast[irho] += weight * rate * ds
         weight -= weight * rate * ds
 
@@ -541,13 +509,47 @@ def precalc_slowingdown(anum_plasma, anum_beam, Ev, nev, Tev,Nmc=10,dt=1e-3):
                 nfast[k,l,m,:] = nfast_temp
                 pressure[k,l,m,:] = pressure_temp
 
-    out["nfast"] = interp.RegularGridInterpolator(
+    out["nfast"] = nfast
+    out["nfast_interp"] = interp.RegularGridInterpolator(
         (Ev, nev, Tev, tv),
-        nfast
+        nfast,
+        bounds_error = False,
+        fill_value = None
     )
 
-    out["pressure"] = interp.RegularGridInterpolator(
+    out["pressure"] = pressure
+    out["pressure_interp"] = interp.RegularGridInterpolator(
         (Ev, nev, Tev, tv),
-        pressure
+        pressure,
+        bounds_error = False,
+        fill_value = None
     )
     return out
+
+def save_precalc_data(fn, precalc_data):
+    out = dict()
+    out["Ev"] = precalc_data["Ev"]
+    out["nev"] = precalc_data["nev"]
+    out["Tev"] = precalc_data["Tev"]
+    out["tv"] = precalc_data["tv"]
+    out["nfast"] = precalc_data["nfast"]
+    out["pressure"] = precalc_data["pressure"]
+    np.save(fn, out)
+
+def load_precalc_data(fn):
+    data = np.load(fn, allow_pickle=True).item()
+
+    data["pressure_interp"] = interp.RegularGridInterpolator(
+        (data["Ev"], data["nev"], data["Tev"], data["tv"]),
+        data["pressure"],
+        bounds_error = False,
+        fill_value = None
+    )
+    data["nfast_interp"] = interp.RegularGridInterpolator(
+        (data["Ev"], data["nev"], data["Tev"], data["tv"]),
+        data["nfast"],
+        bounds_error = False,
+        fill_value = None
+    )
+
+    return data

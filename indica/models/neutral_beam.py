@@ -8,8 +8,10 @@ from indica.equilibrium import Equilibrium
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
+from indica.operators.slowingdown import precalc_finite_source_los
 from indica.operators.slowingdown import simulate_finite_source
 from indica.operators.slowingdown import simulate_slowingdown
+from indica.operators.slowingdown import load_precalc_data
 
 AMU2KG = constants.m_p
 EV2J = constants.e
@@ -37,7 +39,7 @@ HNBI_DEFAULTS = {
     "power": 1.0e6,
     "power_frac": (0.6, 0.3, 0.1),
     "divergence": (14 * 1e-3, 14e-3),
-    "width": (0.025, 0.025),
+    "width": (0.075, 0.075),
     "location": (-0.3446, -0.9387, 0.0),
     "direction": (0.707, 0.707, 0.0),
     "focus": 1.8,
@@ -194,35 +196,39 @@ class NeutralBeam(DiagnosticModel):
         znum_plasma = ELEMENTS[main_ion][0]
         source = np.zeros((len(rho_profile), len(self.energy_frac)))
 
+        precalc_los = precalc_finite_source_los(
+            R_equil,
+            z_equil,
+            rho_equil,
+            self.los_transform.origin[0],
+            self.los_transform.direction[0],
+            width=width,
+            n=self.n_beamlets
+        )
+
         for i in range(len(self.energy_frac)):
             source[:, i] = simulate_finite_source(
                 rho_profile,
                 Ne,
                 Te,
                 anum_plasma,
-                R_equil,
-                z_equil,
-                rho_equil,
                 vol_profile,
-                self.los_transform.origin,
-                self.los_transform.direction,
+                precalc_los,
                 self.energy_frac[i],
                 self.anum_beam,
-                self.power,
-                width=width,
-                n=self.n_beamlets,
+                self.power_frac[i] * self.power,
             )
 
         result = simulate_slowingdown(
-            Ne,
-            Te,
+            Ne.values,
+            Te.values,
             anum_plasma * AMU2KG,
             znum_plasma * EV2J,
             self.energy_frac,
             source,
             self.anum_beam * AMU2KG,
             self.znum_beam * EV2J,
-            Nmc=self.n_mc,
+            Nmc=self.n_mc
         )
 
         self.Ne = Ne
@@ -253,7 +259,7 @@ def example_run(
     beam_params["n_mc"] = n_mc
 
     origin = LOCATION_HNBI
-    direction = DIRECTION_RFX
+    direction = DIRECTION_HNBI
     los_transform = LineOfSightTransform(
         origin[:, 0],
         origin[:, 1],
