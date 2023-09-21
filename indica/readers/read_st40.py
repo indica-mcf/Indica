@@ -327,13 +327,13 @@ class ReadST40:
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift)
-        for instrument in instruments:
+        for i, instrument in enumerate(instruments):
             print(f"Reading {instrument}")
             if debug:
-                self.get_raw_data("", instrument, revisions[instrument])
+                self.get_raw_data("", instrument, revisions[i])
             else:
                 try:
-                    self.get_raw_data("", instrument, revisions[instrument])
+                    self.get_raw_data("", instrument, revisions[i])
                 except Exception as e:
                     print(f"Error reading {instrument}: {e}")
 

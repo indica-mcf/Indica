@@ -862,6 +862,7 @@ class DataReader(BaseIO):
 
         t = database_results["times"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        label = database_results["labels"]
         coords = [("t", t)]
         if database_results["length"] > 1:
             coords.append(("channel", np.arange(database_results["length"])))
@@ -876,7 +877,7 @@ class DataReader(BaseIO):
                 coords,
                 transform=transform,
             )
-            data[quantity] = quant_data
+            data[quantity] = quant_data.assign_coords(label=("channel", label))
 
         return data
 
