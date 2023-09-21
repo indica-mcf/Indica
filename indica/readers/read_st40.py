@@ -301,7 +301,7 @@ class ReadST40:
     def __call__(
         self,
         instruments: list = [],
-        revisions: list = None,
+        revisions: dict = None,
         map_raw: bool = False,
         tstart: float = None,
         tend: float = None,
@@ -317,7 +317,7 @@ class ReadST40:
         if len(instruments) == 0:
             instruments = INSTRUMENTS
         if revisions is None:
-            revisions = [0] * len(instruments)
+            revisions = {instrument: 0 for instrument in instruments}
         if tstart is None:
             tstart = self.tstart
         if tend is None:
