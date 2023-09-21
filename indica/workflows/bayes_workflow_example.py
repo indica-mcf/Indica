@@ -1,10 +1,11 @@
-from typing import Any
+from typing import Any, List, Tuple
 from typing import Dict
 
 import emcee
 import flatdict
 import numpy as np
 from scipy.stats import loguniform
+import xarray as xr
 
 from indica.bayesmodels import BayesModels
 from indica.bayesmodels import get_uniform
@@ -61,7 +62,7 @@ DEFAULT_PRIORS = {
     "Ne_prof.y0": get_uniform(2e19, 4e20),
     "Ne_prof.y1": get_uniform(1e18, 2e19),
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
-    "Ne_prof.wped": get_uniform(2, 30),
+    "Ne_prof.wped": get_uniform(2, 6),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
 
@@ -87,14 +88,14 @@ DEFAULT_PRIORS = {
     "Ti_prof.wped": get_uniform(2, 6),
     "Ti_prof.wcenter": get_uniform(0.2, 0.4),
     "Ti_prof.peaking": get_uniform(1, 6),
-    "xrcs.pixel_offset": get_uniform(-4.01, -3.99),
+    "xrcs.pixel_offset": get_uniform(-4.01, -4.0),
 }
 
 OPTIMISED_PARAMS = [
     "Ne_prof.y1",
     "Ne_prof.y0",
     "Ne_prof.peaking",
-    "Ne_prof.wcenter",
+    # "Ne_prof.wcenter",
     "Ne_prof.wped",
     # "Nimp_prof.y1",
     "Nimp_prof.y0",
@@ -102,17 +103,17 @@ OPTIMISED_PARAMS = [
     # "Nimp_prof.wped",
     "Nimp_prof.peaking",
     "Te_prof.y0",
-    "Te_prof.wped",
+    # "Te_prof.wped",
     "Te_prof.wcenter",
     "Te_prof.peaking",
     "Ti_prof.y0",
-    "Ti_prof.wped",
+    # "Ti_prof.wped",
     "Ti_prof.wcenter",
     "Ti_prof.peaking",
 ]
 OPTIMISED_QUANTITY = [
     "xrcs.spectra",
-    # "cxff_pi.ti",
+    "cxff_pi.ti",
     "efit.wp",
     # "smmh1.ne",
     "ts.te",
@@ -140,6 +141,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         astra_equilibrium=False,
         efit_revision = 0,
         set_ts_profiles = False,
+        set_all_profiles=False,
         astra_wp = False,
     ):
         self.pulse = pulse
@@ -159,6 +161,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.astra_equilibrium = astra_equilibrium
         self.efit_revision = efit_revision
         self.set_ts_profiles = set_ts_profiles
+        self.set_all_profiles = set_all_profiles
         self.astra_wp = astra_wp
 
         self.model_kwargs = {}
@@ -205,7 +208,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         tstart=None,
         tend=None,
         dt=None,
-        tsample=0.050,
+        tsample=None,
         main_ion="h",
         impurities=("ar", "c"),
         impurity_concentration=(0.001, 0.04),
@@ -228,14 +231,20 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             full_run=False,
             n_rad=n_rad,
         )
-        self.tsample = tsample
-        self.plasma.time_to_calculate = self.plasma.t[
-            np.abs(tsample - self.plasma.t).argmin()
-        ]
+
+        if tsample == None:
+            self.tsample = self.plasma.t
+        else:
+            self.tsample = self.plasma.t[
+                np.abs(tsample - self.plasma.t).argmin()
+            ]
+
+        self.plasma.time_to_calculate = self.tsample
         self.plasma.set_equilibrium(self.equilibrium)
         self.plasma.update_profiles(self.profile_params)
         if self.fast_particles:
             self._init_fast_particles(run=self.astra_run)
+            self.plasma.update_profiles({})
 
         self.plasma.build_atomic_data(calc_power_loss=False)
         self.save_phantom_profiles()
@@ -306,6 +315,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             self.models[diag] = model
 
     def _init_fast_particles(self, run="RUN602", ):
+
         st40_code = ReadST40(self.astra_pulse_range + self.pulse, self.tstart-self.dt, self.tend+self.dt, dt=self.dt, tree="astra")
         astra_data = st40_code.get_raw_data("", "astra", run)
 
@@ -335,10 +345,23 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             overwritten_params = [param for param in self.param_names if any(xs in param for xs in ["Te", "Ne"])]
             if any(overwritten_params):
                 raise ValueError(f"Te/Ne set by TS but then the following params overwritten: {overwritten_params}")
-            Te = code_data["te"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
-            self.plasma.electron_temperature.values = Te.values
-            Ne = code_data["ne"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
-            self.plasma.electron_density.values = Ne.values
+            Te = code_data["te"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e3
+            self.plasma.Te_prof = lambda: Te.values
+            Ne = code_data["ne"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e19
+            self.plasma.Ne_prof = lambda:  Ne.values
+
+        if self.set_all_profiles:
+            overwritten_params = [param for param in self.param_names if any(xs in param for xs in ["Te", "Ti", "Ne", "Nimp"])]
+            if any(overwritten_params):
+                raise ValueError(f"Te/Ne set by TS but then the following params overwritten: {overwritten_params}")
+            Te = code_data["te"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e3
+            self.plasma.Te_prof = lambda: Te.values
+            Ne = code_data["ne"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e19
+            self.plasma.Ne_prof = lambda: Ne.values
+            Ti = code_data["ti"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e3
+            self.plasma.Ti_prof = lambda: Ti.values
+            Nimp = code_data["niz1"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e19
+            self.plasma.Nimp_prof = lambda: Nimp.values
 
     def setup_opt_data(self, phantoms=False, **kwargs):
         if not hasattr(self, "plasma"):
@@ -461,8 +484,8 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel >19, drop=True)
             opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel > 19, drop=True)
 
-            opt_data["ts.te"]["error"] = opt_data["ts.te"] * 0.10 + 50
-            opt_data["ts.ne"]["error"] = opt_data["ts.ne"] * 0.10
+            opt_data["ts.te"]["error"] = opt_data["ts.te"].max(dim="channel") * 0.05
+            opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
 
         if self.astra_wp:
             opt_data["efit.wp"] = self.astra_data["wth"]
@@ -474,13 +497,13 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         model_kwargs,
         nwalkers=50,
         burn_frac=0.10,
-        sample_high_density=False,
+        sample_method="random",
         **kwargs,
     ):
         self.model_kwargs = model_kwargs
         self.nwalkers = nwalkers
         self.burn_frac = burn_frac
-        self.sample_high_density = sample_high_density
+        self.sample_method = sample_method
 
         self.bayesmodel = BayesModels(
             plasma=self.plasma,
@@ -500,20 +523,105 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
             moves=self.move,
             kwargs=model_kwargs,
         )
-        self.start_points = self._sample_start_points(
-            sample_high_density=self.sample_high_density, **kwargs
-        )
 
-    def _sample_start_points(self, sample_high_density: bool = True, nsamples=100, **kwargs):
-        if sample_high_density:
+
+
+    def _sample_start_points(self, sample_method: str = "random", nsamples=100, **kwargs):
+        if sample_method == "high_density":
             start_points = self.bayesmodel.sample_from_high_density_region(
                 self.param_names, self.sampler, self.nwalkers, nsamples=nsamples
             )
+
+        elif sample_method == "ga":
+            self.start_points = self._sample_start_points(sample_method="random", **kwargs)
+            samples_in_weird_format = self.ga_opt(**kwargs)
+            sample_start_points = np.array([idx[1] for idx in samples_in_weird_format])
+
+            start_points = np.random.normal(
+                np.mean(sample_start_points, axis=0),
+                np.std(sample_start_points, axis=0),
+                size=(self.nwalkers, sample_start_points.shape[1]),
+            )
+
+
+        elif sample_method == "random":
+            start_points = self.bayesmodel.sample_from_priors(
+                self.param_names, size=self.nwalkers
+            )
+
         else:
+            print(f"Sample method: {sample_method} not recognised, Defaulting to random sampling")
             start_points = self.bayesmodel.sample_from_priors(
                 self.param_names, size=self.nwalkers
             )
         return start_points
+
+
+    def ga_opt(self, num_gens=30, popsize=50, sols_to_return=5, mutation_probability=None, **kwargs) -> list(tuple((float, []))):
+        """Runs the GA optimization, and returns a number of the best solutions. Uses
+        a population convergence stopping criteria: fitness does not improve in 3 successive generations, we stop.
+
+        Args:
+            num_gens (int, optional): Maximum number of generations to run. Defaults to 30.
+            popsize (int, optional): Population size. Defaults to 50.
+            sols_to_return (int, optional): How many of the best solutions the function shall return. Defaults to 5.
+
+        Returns:
+            list(tuple(float, np.Array(float))): list of tuples, where first element is fitness, second np.array of the parameters.
+        """
+
+        import pygad
+        import time
+
+        # Packaged evaluation function
+        def idiot_proof(ga_instance, x, sol_idx):
+            res, _ = self.bayesmodel.ln_posterior(dict(zip(self.param_names, x)))
+            # print(-res)
+            return float(res)
+
+        print(f"Running GA for a maximum of {num_gens} generations of {popsize} individuals each.")
+
+        # Initialize the GA instance
+        ga_instance = pygad.GA(num_generations=num_gens,
+                               num_parents_mating=20,
+                               sol_per_pop=popsize,
+                               num_genes=len(self.start_points[0]),
+                               fitness_func=idiot_proof,
+                               initial_population=self.start_points,
+                               save_best_solutions=True,
+                               stop_criteria="saturate_5",
+                               mutation_probability=mutation_probability)
+
+        st = time.time()
+        # Execute
+        ga_instance.run()
+
+        print(
+            f"Time ran: {time.time() - st:.2f} seconds. Ran total of {ga_instance.generations_completed} generations.")
+
+        # Saves the fitness evolution plot
+        # figure = ga_instance.plot_fitness()
+        # figure.savefig(f'GA_plot.png', dpi=300)
+
+        # Organizing all the non-inf individuals from the last generation
+        feasible_indices = [i for i in range(len(ga_instance.last_generation_fitness)) if
+                            ga_instance.last_generation_fitness[i] != -np.inf]
+        feasible_individuals = [ga_instance.population[i] for i in feasible_indices]
+        feasible_fitnesses = [ga_instance.last_generation_fitness[i] for i in feasible_indices]
+
+        # for i, item in enumerate(feasible_individuals_with_keywords):
+        #    item["fitness"]=feasible_fitnesses[i
+        # feasible_individuals_with_keywords=sorted(feasible_individuals_with_keywords,key= lambda d:d['fitness'],reverse=True)
+        # feasible_individuals_and_fitnesses=[tuple(feasible_fitnesses[i],feasible_individuals[i]) for i in len(feasible_individuals)]
+
+        # Combining the last individuals to a collection and sorting
+        feasible_individuals_and_fitnesses = []
+        for i in range(len(feasible_fitnesses)):
+            feasible_individuals_and_fitnesses.append(tuple((feasible_fitnesses[i], feasible_individuals[i])))
+        feasible_individuals_and_fitnesses = sorted(feasible_individuals_and_fitnesses, key=lambda x: x[0],
+                                                    reverse=True)
+
+        return feasible_individuals_and_fitnesses[:sols_to_return]
 
     def __call__(
         self,
@@ -526,6 +634,10 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         burn_frac=0.10,
         **kwargs,
     ):
+
+        self.iterations = iterations
+        self.burn_frac = burn_frac
+
         if mds_write:
             # check_analysis_run(self.pulse, self.run)
             self.node_structure = create_nodes(
@@ -535,11 +647,54 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 mode="EDIT",
             )
 
-        self.run_sampler(iterations=iterations, burn_frac=burn_frac)
-        self.save_pickle(filepath=filepath)
+        self.result = self._build_inputs_dict()
+        results = []
 
-        if plot:  # currently requires result with DataArrays
-            plot_bayes_result(self.result, filepath)
+        if not self.tsample.shape:
+            self.tsample = np.array([self.tsample])
+
+        self.plasma.time_to_calculate = self.tsample[0]
+        self.start_points = self._sample_start_points(
+            sample_method=self.sample_method, **kwargs
+        )
+
+        for t in self.tsample:
+            self.plasma.time_to_calculate = t
+            print(f"Time: {t}")
+            self.run_sampler(iterations=iterations, burn_frac=burn_frac)
+            _result = self._build_result_dict()
+            results.append(_result)
+
+            self.start_points = self.sampler.get_chain()[-1,:,:]
+            self.sampler.reset()
+
+            _result = dict(_result, ** self.result)
+
+            self.save_pickle(_result, filepath=filepath, )
+
+            if plot:  # currently requires result with DataArrays
+                plot_bayes_result(_result, filepath)
+
+        self.result = dict(self.result, ** results[-1])
+        profiles = {}
+        globals = {}
+        for key, prof in results[0]["PROFILES"].items():
+            if key == "RHO_POLOIDAL":
+                profiles[key] = results[0]["PROFILES"]["RHO_POLOIDAL"]
+            elif key == "RHO_TOR":
+                profiles[key] = results[0]["PROFILES"]["RHO_TOR"]
+            else:
+                _profs = [result["PROFILES"][key] for result in results]
+                profiles[key] = xr.concat(_profs, self.tsample)
+
+
+        for key, prof in results[0]["GLOBAL"].items():
+            _glob = [result["GLOBAL"][key] for result in results]
+            globals[key] = xr.concat(_glob, self.tsample)
+
+        result = {"PROFILES":profiles, "GLOBAL":globals}
+
+        self.result = dict(self.result, **result,)
 
         self.result = self.dict_of_dataarray_to_numpy(self.result)
         if mds_write:
@@ -573,14 +728,15 @@ if __name__ == "__main__":
         tsample=0.05,
     )
     run.setup_opt_data(phantoms=run.phantoms)
-    run.setup_optimiser(nwalkers=50, sample_high_density=True, model_kwargs=run.model_kwargs)
+    run.setup_optimiser(nwalkers=50, sample_method="high_density", model_kwargs=run.model_kwargs, nsamples=100)
+    # run.setup_optimiser(nwalkers=50, sample_method="ga", model_kwargs=run.model_kwargs, num_gens=50, popsize=100, sols_to_return=3,  mutation_probability=None)
     results = run(
         filepath=f"./results/test/",
         pulse_to_write=25000000,
         run="RUN01",
         mds_write=True,
         plot=True,
-        burn_frac=0.10,
-        iterations=2000,
+        burn_frac=0.0,
+        iterations=500,
     )
 
