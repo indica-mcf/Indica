@@ -317,7 +317,7 @@ class ReadST40:
         if len(instruments) == 0:
             instruments = INSTRUMENTS
         if revisions is None:
-            revisions = {instrument:0 for instrument in instruments}
+            revisions = {instrument: 0 for instrument in instruments}
         if tstart is None:
             tstart = self.tstart
         if tend is None:
