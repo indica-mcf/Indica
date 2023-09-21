@@ -301,7 +301,7 @@ class ReadST40:
     def __call__(
         self,
         instruments: list = [],
-        revisions: list = None,
+        revisions: dict = None,
         map_raw: bool = False,
         tstart: float = None,
         tend: float = None,
@@ -317,7 +317,7 @@ class ReadST40:
         if len(instruments) == 0:
             instruments = INSTRUMENTS
         if revisions is None:
-            revisions = [0] * len(instruments)
+            revisions = {instrument: 0 for instrument in instruments}
         if tstart is None:
             tstart = self.tstart
         if tend is None:
@@ -327,13 +327,13 @@ class ReadST40:
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift)
-        for i, instrument in enumerate(instruments):
+        for instrument in instruments:
             print(f"Reading {instrument}")
             if debug:
-                self.get_raw_data("", instrument, revisions[i])
+                self.get_raw_data("", instrument, revisions[instrument])
             else:
                 try:
-                    self.get_raw_data("", instrument, revisions[i])
+                    self.get_raw_data("", instrument, revisions[instrument])
                 except Exception as e:
                     print(f"Error reading {instrument}: {e}")
 

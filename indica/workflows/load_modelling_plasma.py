@@ -11,6 +11,7 @@ import xarray as xr
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
 from indica.equilibrium import Equilibrium
+from indica.models.bolometer_camera import Bolometer
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.helike_spectroscopy import HelikeSpectrometer
@@ -18,6 +19,7 @@ from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
+from indica.numpy_typing import RevisionLike
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
@@ -37,10 +39,22 @@ DIAGNOSTIC_MODELS = {
     "cxff_tws_c": ChargeExchange,
     "cxqf_tws_c": ChargeExchange,
     "brems": BremsstrahlungDiode,
-    "sxr_diode_1": SXRcamera,
-    "sxr_camera_4": SXRcamera,
+    "sxrc_xy1": Bolometer,
+    "sxrc_xy2": SXRcamera,
+    "sxr_spd": SXRcamera,
+    "blom_xy1": Bolometer,
 }
-INSTRUMENTS = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit", "brems"]
+INSTRUMENTS: list = [
+    "smmh1",
+    "nirh1",
+    "xrcs",
+    "blom_xy1",
+    "sxrc_xy1",
+    "sxrc_xy2",
+    "efit",
+    "sxr_spd",
+]
+REVISIONS: dict = {instr: 0 for instr in INSTRUMENTS}
 
 FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/load_modelling_examples/"
 plt.ion()
@@ -79,6 +93,7 @@ def plasma_code(
     n_rad = len(data[runs[0]]["ne"].rho_poloidal)
     main_ion = "h"
     impurities = ("ar", "c", "he")
+    impurities = ("c", "ar", "he")
     impurity_concentration = (0.001, 0.03, 0.01)
     _plasma = Plasma(
         tstart=tstart,
@@ -112,11 +127,24 @@ def plasma_code(
         for element in _plasma.elements:
             _plasma.ion_temperature.loc[dict(element=element)] = Ti.values
         for i, impurity in enumerate(_plasma.impurities):
-            Nimp = (
-                _data[f"niz{i+1}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
-                * 1.0e19
-            )
-            _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
+            if impurity == "c":
+                Nimp = (
+                    _data[f"niz{i+1}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
+                    * 1.0e19
+                )
+                _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
+            elif impurity == "ar":
+                Nimp = (
+                    _data[f"niz{i}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
+                    * 1.0e19
+                ) / 100
+                _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
+            else:
+                Nimp = (
+                    _data[f"niz{i+1}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
+                    * 1.0e19
+                )
+                _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
 
         Nf = _data["nf"].interp(rho_poloidal=_plasma.rho, t=_plasma.t) * 1.0e19
         _plasma.fast_density.values = Nf.values
@@ -216,6 +244,7 @@ def example_run(
         pulse_code,
         pulse,
         equil,
+        equil_run,
         code,
         runs,
         comment,
@@ -237,7 +266,8 @@ def example_run(
     if pulse is not None:
         print("Reading ST40 data")
         st40 = ReadST40(pulse, tstart, tend, dt=dt, tree="st40")
-        st40(instruments=INSTRUMENTS, map_diagnostics=False)
+        REVISIONS["efit"] = equil_run
+        st40(instruments=INSTRUMENTS, map_diagnostics=False, revisions=REVISIONS)
 
     if equil != code:
         equilibrium = {run: Equilibrium(st40.raw_data[equil]) for run in runs}
@@ -283,7 +313,10 @@ def example_run(
 
             models[instrument].set_plasma(_plasma)
 
-            _bckc = models[instrument]()
+            if instrument == "xrcs":
+                _bckc = models[instrument](moment_analysis=True)
+            else:
+                _bckc = models[instrument]()
             bckc[run][instrument] = deepcopy(_bckc)
 
     if plot or save_fig:
@@ -501,11 +534,13 @@ def plot_data_bckc_comparison(
             run_str += f"-{runs[1]}"
         fig_path = f"{FIG_PATH}{pulse_code}_{time}_{code}_{run_str}/"
 
-    norm = {}
-    norm["brems"] = True
-    norm["sxr_camera_4"] = True
-    norm["sxr_diode_1"] = True
-    norm["xrcs"] = True
+    norm: dict = {}
+    norm["xrcs"] = {}
+    norm["xrcs"]["spectra"] = True
+    # norm["brems"] = True
+    # norm["sxr_camera_4"] = True
+    norm["sxrc_xy2"] = {}
+    norm["sxrc_xy2"]["brightness"] = True
     y0 = {}
     y0["nirh1"] = True
     y0["smmh1"] = True
@@ -590,10 +625,10 @@ def plot_data_bckc_comparison(
 
                 _bckc = bckc[run][instrument][quantity].sel(t=tslice_binned)
                 if instrument in norm.keys():
-                    _bckc = _bckc * _binned.max() / _bckc.max()
-
-                if label is not None:
-                    label += " (scaled)"
+                    if quantity in norm[instrument].keys():
+                        _bckc = _bckc / _bckc.max() * _binned.max()
+                    if label is not None:
+                        label += " (scaled)"
 
                 (_bckc).plot(
                     label=label,
@@ -626,6 +661,7 @@ def example_params(example: str, all_runs: bool = False):
     tend: float
     tplot: float
     runs = [f"RUN{run}" for run in (500 + np.arange(61, 77))]
+    equil_run: RevisionLike = 0
 
     if example == "predictive":
         comment = "Tests using fixed-boundary predictive ASTRA"
@@ -682,10 +718,56 @@ def example_params(example: str, all_runs: bool = False):
         tstart = 0.03
         tend = 0.11
         tplot = 0.1
+    elif example == "aleksei_11228":
+        comment = "ASTRA using TS and invented Ti shapes"
+        pulse = 11228
+        pulse_code = 13011228
+        equil = "efit"  # "astra"
+        equil_run = 1
+        code = "astra"
+        if not all_runs:
+            runs = ["RUN610", "RUN611", "RUN612"]  # C and Ar
+            runs = ["RUN623"]  # C and Ar
+        tstart = 0.03
+        tend = 0.11
+        tplot = 0.08
+    elif example == "alsu_11312":
+        comment = "ASTRA using TS and peaked Ti scaled to CXRS"
+        pulse = 11312
+        pulse_code = 33011312
+        equil = "astra"
+        code = "astra"
+        if not all_runs:
+            runs = ["RUN21"]
+        tstart = 0.065
+        tend = 0.095
+        tplot = 0.075
+    elif example == "alsu_11314":
+        comment = "ASTRA using TS and peaked Ti scaled to CXRS"
+        pulse = 11314
+        pulse_code = 33011314
+        equil = "astra"
+        code = "astra"
+        if not all_runs:
+            runs = ["RUN12"]
+        tstart = 0.065
+        tend = 0.095
+        tplot = 0.075
+    elif example == "alsu_11317":
+        comment = "ASTRA using TS and peaked Ti scaled to CXRS"
+        pulse = 11317
+        pulse_code = 33011317
+        equil = "astra"
+        code = "astra"
+        if not all_runs:
+            runs = ["RUN9"]
+        tstart = 0.065
+        tend = 0.095
+        tplot = 0.075
     else:
         raise ValueError(f"No parameters for example {example}")
 
-    return pulse_code, pulse, equil, code, runs, comment, tstart, tend, tplot
+    return pulse_code, pulse, equil, equil_run, code, runs, comment, tstart, tend, tplot
 
 
 # def add_gacode_data(
