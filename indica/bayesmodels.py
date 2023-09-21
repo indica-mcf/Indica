@@ -214,7 +214,7 @@ class BayesModels:
         while samples.size < param_names.__len__() * nwalkers:
             sample = np.random.normal(
                 np.mean(best_start_points, axis=0),
-                best_points_std * 2,
+                best_points_std,
                 size=(nwalkers * 5, len(param_names)),
             )
             start = {name: sample[:, idx] for idx, name in enumerate(param_names)}
