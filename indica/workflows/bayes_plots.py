@@ -274,12 +274,9 @@ def plot_bayes_result(
         diag_data["CXFF_PI.TI0"] = diag_data["CXFF_PI.TI"].sel(
             channel=max_channel
         )
-        # model_data["CXFF_PI.TI0"] = model_data["CXFF_PI.TI"].sel(
-        #     channel=diag_data["CXFF_PI.TI"].channel
-        # )
-        # diag_data["CXFF_PI.TI0"] = diag_data["CXFF_PI.TI"].sel(
-        #     channel=diag_data["CXFF_PI.TI"].channel
-        # )
+        model_data["CXFF_PI.TI0"] = model_data["CXFF_PI.TI"].sel(
+            channel=diag_data["CXFF_PI.TI"].channel
+        )
 
     key = "CXFF_PI.TI0"
     if key in model_data.keys():
