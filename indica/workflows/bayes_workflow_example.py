@@ -27,6 +27,7 @@ from indica.readers.read_st40 import ReadST40
 from indica.equilibrium import Equilibrium
 
 
+
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.y0": 5e19,
@@ -65,7 +66,6 @@ DEFAULT_PRIORS = {
     "Ne_prof.wped": get_uniform(2, 6),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
-
     "Nimp_prof.y0": loguniform(1e15, 1e18),
     "Nimp_prof.y1": loguniform(1e14, 1e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
@@ -309,7 +309,6 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 transform.set_equilibrium(self.equilibrium, force=True)
                 model = ThomsonScattering(name=diag, )
                 model.set_transect_transform(transform)
-
             else:
                 raise ValueError(f"{diag} not found in setup_models")
             self.models[diag] = model
@@ -396,7 +395,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 .expand_dims(dim={"t": [self.plasma.time_to_calculate]})
             )
             opt_data["cxff_pi.ti"] = cxrs_data.where(cxrs_data.channel == 2, drop=True)
-
+            
         if "ts" in self.diagnostics:
             _ts_data = self.models["ts"]()
             ts_data = {key: _ts_data[key].expand_dims(dim={"t": [self.plasma.time_to_calculate]}) for key in ["te", "ne"]}
@@ -406,7 +405,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                         0.10 * opt_data["ts.te"].max(dim="channel"))
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"] / opt_data["ts.ne"] * (
                         0.10 * opt_data["ts.ne"].max(dim="channel"))
-
+            
         if "efit" in self.diagnostics:
             opt_data["efit.wp"] = (
                 self.models["efit"]()
@@ -736,7 +735,6 @@ if __name__ == "__main__":
         run="RUN01",
         mds_write=True,
         plot=True,
-        burn_frac=0.0,
+        burn_frac=0.2,
         iterations=500,
     )
-

@@ -118,7 +118,6 @@ def bda():
             "WTH_ERR": ("SIGNAL", "Thermal component of stored energy error, J"),
             "PTOT_ERR": ("SIGNAL", "Total pressure error, Pa"),
             "PTH_ERR": ("SIGNAL", "Thermal pressure error, Pa"),
-
         },
         "PHANTOMS": {
             "FLAG": ("TEXT", "True if phantoms used"),

@@ -366,7 +366,6 @@ class AbstractBayesWorkflow(ABC):
                 .median(dim="index"),
             "PTH_ERR": self.blobs["pth"]
                 .std(dim="index"),
-
         }
         result["GLOBAL"] = {
             **result["GLOBAL"],
@@ -502,7 +501,6 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
         : sampler.iteration,
     ]
     return autocorr
-
 
 def gelman_rubin(chain):
     ssq = np.var(chain, axis=1, ddof=1)
