@@ -318,6 +318,12 @@ class ReadST40:
             instruments = INSTRUMENTS
         if revisions is None:
             revisions = {instrument: 0 for instrument in instruments}
+        for instr in instruments:
+            if instr not in revisions.keys():
+                revisions[instr] = 0
+        if "efit" not in revisions:
+            revisions["efit"] = 0
+
         if tstart is None:
             tstart = self.tstart
         if tend is None:
@@ -326,7 +332,7 @@ class ReadST40:
             dt = self.dt
 
         self.reset_data()
-        self.get_equilibrium(R_shift=R_shift)
+        self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
         for instrument in instruments:
             print(f"Reading {instrument}")
             if debug:
