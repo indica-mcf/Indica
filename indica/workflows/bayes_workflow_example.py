@@ -120,6 +120,36 @@ OPTIMISED_QUANTITY = [
     "ts.ne",
 ]
 
+FAST_OPT_QUANTITY = [
+    # "xrcs.spectra",
+    "cxff_pi.ti",
+    "efit.wp",
+    "smmh1.ne",
+    "ts.te",
+    "ts.ne",
+]
+
+FAST_OPT_PARAMS = [
+    # "Ne_prof.y1",
+    "Ne_prof.y0",
+    # "Ne_prof.peaking",
+    # "Ne_prof.wcenter",
+    # "Ne_prof.wped",
+    # "Nimp_prof.y1",
+    # "Nimp_prof.y0",
+    # "Nimp_prof.wcenter",
+    # "Nimp_prof.wped",
+    # "Nimp_prof.peaking",
+    "Te_prof.y0",
+    # "Te_prof.wped",
+    # "Te_prof.wcenter",
+    # "Te_prof.peaking",
+    "Ti_prof.y0",
+    # "Ti_prof.wped",
+    # "Ti_prof.wcenter",
+    # "Ti_prof.peaking",
+]
+
 
 class BayesWorkflowExample(AbstractBayesWorkflow):
     def __init__(
@@ -706,14 +736,14 @@ if __name__ == "__main__":
     run = BayesWorkflowExample(
         pulse=None,
         diagnostics=[
-                    "xrcs",
+                    # "xrcs",
                     "efit",
                     "smmh1",
                     "cxff_pi",
                     "ts",
                     ],
-        param_names=OPTIMISED_PARAMS,
-        opt_quantity=OPTIMISED_QUANTITY,
+        param_names=FAST_OPT_PARAMS,
+        opt_quantity=FAST_OPT_QUANTITY,
         priors=DEFAULT_PRIORS,
         profile_params=DEFAULT_PROFILE_PARAMS,
         phantoms=True,
@@ -727,10 +757,12 @@ if __name__ == "__main__":
         tsample=0.05,
     )
     run.setup_opt_data(phantoms=run.phantoms)
-    run.setup_optimiser(nwalkers=50, sample_method="high_density", model_kwargs=run.model_kwargs, nsamples=100)
+
+
+    run.setup_optimiser(nwalkers=20, sample_method="high_density", model_kwargs=run.model_kwargs, nsamples=50)
     # run.setup_optimiser(nwalkers=50, sample_method="ga", model_kwargs=run.model_kwargs, num_gens=50, popsize=100, sols_to_return=3,  mutation_probability=None)
     results = run(
-        filepath=f"./results/test/",
+        filepath=f"./results/test_moments/",
         pulse_to_write=25000000,
         run="RUN01",
         mds_write=True,

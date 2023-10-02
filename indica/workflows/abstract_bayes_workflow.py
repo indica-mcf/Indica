@@ -9,7 +9,7 @@ import xarray as xr
 
 from indica.equilibrium import fake_equilibrium
 from indica.readers.read_st40 import ReadST40
-
+import scipy.stats as stats
 
 class AbstractBayesWorkflow(ABC):
     @abstractmethod
@@ -423,14 +423,15 @@ class AbstractBayesWorkflow(ABC):
         self.burn_frac = burn_frac
         self.iterations = iterations
 
-        self.autocorr = sample_with_autocorr(
+        self.autocorr = sample_with_moments(
             self.sampler,
             self.start_points,
             iterations,
             self.param_names.__len__(),
             auto_sample=10,
+            fractional_difference=0.05
         )
-        _blobs = self.sampler.get_blobs(discard=int(iterations * burn_frac), flat=True)
+        _blobs = self.sampler.get_blobs(discard=int(self.sampler.iteration * burn_frac), flat=True)
         blobs = [blob for blob in _blobs if blob]  # remove empty blobs
 
         blob_names = blobs[0].keys()
@@ -448,7 +449,7 @@ class AbstractBayesWorkflow(ABC):
         self.prior_sample = self.bayesmodel.sample_from_priors(
             self.param_names, size=int(1e4)
         )
-        self.post_sample = self.sampler.get_chain(discard=int(iterations * burn_frac), flat=True)
+        self.post_sample = self.sampler.get_chain(discard=int(self.sampler.iteration * burn_frac), flat=True)
 
     def save_pickle(self, result, filepath):
         if filepath:
@@ -484,7 +485,7 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
         start_points,
         iterations=iterations,
         progress=True,
-        skip_initial_state_check=True,
+        skip_initial_state_check=False,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -501,6 +502,37 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
         : sampler.iteration,
     ]
     return autocorr
+
+def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, fractional_difference = 0.001):
+    autocorr = np.ones(shape=(iterations, n_params)) * np.nan
+    old_mean = np.inf
+    old_std = np.inf
+    for sample in sampler.sample(
+        start_points,
+        iterations=iterations,
+        progress=True,
+        skip_initial_state_check=False,
+    ):
+        if sampler.iteration % auto_sample:
+            continue
+        new_tau = sampler.get_autocorr_time(tol=0)
+        autocorr[sampler.iteration - 1] = new_tau
+
+        dist_stats = stats.describe(sampler.get_chain(flat=True))
+
+        new_mean = dist_stats.mean
+        new_std = np.sqrt(dist_stats.variance)
+
+        if all(np.abs(new_mean - old_mean) / old_mean < fractional_difference) and all(np.abs(new_std - old_std) / old_std < fractional_difference):
+            break
+        old_mean = new_mean
+        old_std = new_std
+
+    autocorr = autocorr[
+        : sampler.iteration,
+    ]
+    return autocorr
+
 
 def gelman_rubin(chain):
     ssq = np.var(chain, axis=1, ddof=1)
