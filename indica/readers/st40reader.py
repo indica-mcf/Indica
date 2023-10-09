@@ -318,7 +318,7 @@ class ST40Reader(DataReader):
         pulse: int,
         tstart: float,
         tend: float,
-        server: str = "192.168.1.7",  # 192.168.1.7 10.0.40.13
+        server: str = "smaug",
         tree: str = "ST40",
         default_error: float = 0.05,
         max_freq: float = 1e6,
