@@ -22,14 +22,9 @@ def fit_profile(
     """Fit a profile"""
 
     def residuals(yknots):
-        spline = CubicSpline(
-            xknots,
-            yknots,
-            axis=0,
-            bc_type=bc_type,
-        )
+        spline = CubicSpline(xknots, yknots, axis=0, bc_type=bc_type,)
         bckc = np.interp(x, xspl, spline(xspl))
-        residuals = np.sqrt((y - bckc) ** 2 / err**2)
+        residuals = np.sqrt((y - bckc) ** 2 / err ** 2)
         return residuals
 
     yspl = xr.DataArray(
@@ -81,12 +76,7 @@ def fit_profile(
                     bounds=(lower_bound, upper_bound),
                     verbose=verbose,
                 )
-                spline = CubicSpline(
-                    xknots,
-                    fit.x,
-                    axis=0,
-                    bc_type=bc_type,
-                )
+                spline = CubicSpline(xknots, fit.x, axis=0, bc_type=bc_type,)
                 _yspl = spline(xspl)
             except ValueError:
                 _yspl = np.full_like(xspl, 0.0)
@@ -112,7 +102,7 @@ def spline_fit_ts(
     st40(["ts"], R_shift=R_shift)
 
     if quantity == "te" and knots is None:
-        knots = [0, 0.3, 0.6, 0.95, 1.1]
+        knots = [0, 0.3, 0.6, 0.8, 1.1]
     if quantity == "ne" and knots is None:
         knots = [0, 0.3, 0.6, 0.8, 0.95, 1.1]
     data_all = st40.raw_data["ts"][quantity]
@@ -180,10 +170,5 @@ def spline_fit_ts(
 
 if __name__ == "__main__":
     plt.ioff()
-    spline_fit_ts(
-        11314,
-        tstart=0.0,
-        tend=0.2,
-        plot=True,
-    )
+    spline_fit_ts(11089, quantity="ne")
     plt.show()
