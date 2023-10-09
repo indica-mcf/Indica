@@ -231,7 +231,7 @@ def check_analysis_run(
     which_run,
 ):
     # Checker function to see if data already exists in a run
-    IP_address_smaug = "192.168.1.7:8000"
+    IP_address_smaug = "smaug"
     conn = Connection(IP_address_smaug)
     conn.openTree("BDA", pulseNo)
 
