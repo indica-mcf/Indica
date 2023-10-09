@@ -31,6 +31,7 @@ from indica.utilities import set_plot_rcparams
 CMAP, COLORS = set_plot_colors()
 
 DIAGNOSTIC_MODELS = {
+    "smmh": Interferometry,
     "smmh1": Interferometry,
     "nirh1": Interferometry,
     "xrcs": HelikeSpectrometer,
@@ -45,6 +46,7 @@ DIAGNOSTIC_MODELS = {
     "blom_xy1": Bolometer,
 }
 INSTRUMENTS: list = [
+    "smmh",
     "smmh1",
     "nirh1",
     "xrcs",
@@ -93,7 +95,6 @@ def plasma_code(
     n_rad = len(data[runs[0]]["ne"].rho_poloidal)
     main_ion = "h"
     impurities = ("ar", "c", "he")
-    impurities = ("c", "ar", "he")
     impurity_concentration = (0.001, 0.03, 0.01)
     _plasma = Plasma(
         tstart=tstart,
@@ -127,24 +128,11 @@ def plasma_code(
         for element in _plasma.elements:
             _plasma.ion_temperature.loc[dict(element=element)] = Ti.values
         for i, impurity in enumerate(_plasma.impurities):
-            if impurity == "c":
-                Nimp = (
-                    _data[f"niz{i+1}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
-                    * 1.0e19
-                )
-                _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
-            elif impurity == "ar":
-                Nimp = (
-                    _data[f"niz{i}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
-                    * 1.0e19
-                ) / 100
-                _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
-            else:
-                Nimp = (
-                    _data[f"niz{i+1}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
-                    * 1.0e19
-                )
-                _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
+            Nimp = (
+                _data[f"niz{i+1}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
+                * 1.0e19
+            )
+            _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
 
         Nf = _data["nf"].interp(rho_poloidal=_plasma.rho, t=_plasma.t) * 1.0e19
         _plasma.fast_density.values = Nf.values
@@ -229,9 +217,9 @@ def initialize_diagnostic_models(
 def example_run(
     dt: float = 0.01,
     verbose: bool = True,
-    example: str = "predictive",
+    example: str = "alsu_11314",
     all_runs: bool = False,
-    plot: bool = False,
+    plot: bool = True,
     save_fig: bool = False,
     fig_style="profiles",
     alpha: float = 1.0,
@@ -539,8 +527,8 @@ def plot_data_bckc_comparison(
     norm["xrcs"]["spectra"] = True
     # norm["brems"] = True
     # norm["sxr_camera_4"] = True
-    norm["sxrc_xy2"] = {}
-    norm["sxrc_xy2"]["brightness"] = True
+    # norm["sxrc_xy2"] = {}
+    # norm["sxrc_xy2"]["brightness"] = True
     y0 = {}
     y0["nirh1"] = True
     y0["smmh1"] = True
@@ -727,7 +715,7 @@ def example_params(example: str, all_runs: bool = False):
         code = "astra"
         if not all_runs:
             runs = ["RUN610", "RUN611", "RUN612"]  # C and Ar
-            runs = ["RUN623"]  # C and Ar
+            # runs = ["RUN623"]  # C and Ar
         tstart = 0.03
         tend = 0.11
         tplot = 0.08
@@ -805,4 +793,6 @@ def example_params(example: str, all_runs: bool = False):
 
 
 if __name__ == "__main__":
+    plt.ioff()
     example_run()
+    plt.show()
