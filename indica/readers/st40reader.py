@@ -97,7 +97,7 @@ class ST40Reader(DataReader):
         "tws_c": "get_spectrometer",
         "ts": "get_thomson_scattering",
     }
-    #TODO: this will not be necessary once the MDS+ standardisation is complete
+    # TODO: this will not be necessary once the MDS+ standardisation is complete
     UIDS_MDS = {
         "xrcs": "sxr",
         "princeton": "spectrom",

@@ -14,7 +14,9 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "te": ("temperature", "electrons"),
         "chi2": ("chi-squared", "fit"),
     },
-    "get_spectrometer": {"spectra": ("emission", "spectral"),},
+    "get_spectrometer": {
+        "spectra": ("emission", "spectral"),
+    },
     "get_charge_exchange": {
         # "angf": ("angular_freq", "ion"),
         "vtor": ("linear_rotation", "ion"),
@@ -22,7 +24,9 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "spectra": ("spectra", "experimental"),
         "fit": ("spectra", "fit"),
     },
-    "get_bremsstrahlung_spectroscopy": {"zeff": ("effective_charge", "plasma"),},
+    "get_bremsstrahlung_spectroscopy": {
+        "zeff": ("effective_charge", "plasma"),
+    },
     "get_helike_spectroscopy": {
         "int_w": ("intensity", "spectral_line"),
         "int_k": ("intensity", "spectral_line"),
@@ -34,8 +38,12 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "ti_z": ("temperature", "ions"),
         "spectra": ("spectra", "passive"),
     },
-    "get_diode_filters": {"brightness": ("luminous_flux", None),},
-    "get_interferometry": {"ne": ("density", "electrons"),},
+    "get_diode_filters": {
+        "brightness": ("luminous_flux", None),
+    },
+    "get_interferometry": {
+        "ne": ("density", "electrons"),
+    },
     "get_equilibrium": {
         "f": ("f_value", "plasma"),
         "faxs": ("magnetic_flux_axis", "poloidal"),
@@ -55,8 +63,12 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "wp": ("energy", "plasma"),
         "psin": ("poloidal_flux", "normalised"),
     },
-    "get_cyclotron_emissions": {"te": ("temperature", "electrons"),},
-    "get_radiation": {"brightness": ("luminous_flux", None),},
+    "get_cyclotron_emissions": {
+        "te": ("temperature", "electrons"),
+    },
+    "get_radiation": {
+        "brightness": ("luminous_flux", None),
+    },
     "get_astra": {
         "f": ("f_value", "plasma"),
         "faxs": ("magnetic_flux_axis", "poloidal"),
@@ -77,10 +89,22 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "rbnd": ("major_rad", "separatrix"),
         "zbnd": ("z", "separatrix"),
         "ipla": ("current", "plasma"),
-        "upl": ("voltage", "loop",),  # Loop voltage V
-        "wth": ("stored_energy", "equilibrium",),
-        "wtherm": ("stored_energy", "thermal",),
-        "wfast": ("stored_energy", "fast",),  # Thermal stored energy
+        "upl": (
+            "voltage",
+            "loop",
+        ),  # Loop voltage V
+        "wth": (
+            "stored_energy",
+            "equilibrium",
+        ),
+        "wtherm": (
+            "stored_energy",
+            "thermal",
+        ),
+        "wfast": (
+            "stored_energy",
+            "fast",
+        ),  # Thermal stored energy
         "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
         "j_nbi": (
             "current_density",
@@ -104,8 +128,14 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
             "electron",
         ),  # Beam power density to electrons, MW/m3
         "qnbi": ("power_density_nbi", "ion"),  # Beam power density to ions, MW/m3
-        "q_oh": ("power_density_ohm", "total",),  # Ohmic heating power profile, MW/m3
-        "q_rf": ("power_density_rf", "electron",),  # RF power density to electron,MW/m3
+        "q_oh": (
+            "power_density_ohm",
+            "total",
+        ),  # Ohmic heating power profile, MW/m3
+        "q_rf": (
+            "power_density_rf",
+            "electron",
+        ),  # RF power density to electron,MW/m3
         "sbm": ("particle_source", "nbi"),  # Particle source from beam, 10^19/m^3/s
         "swall": (
             "particle_source",

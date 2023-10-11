@@ -22,9 +22,14 @@ def fit_profile(
     """Fit a profile"""
 
     def residuals(yknots):
-        spline = CubicSpline(xknots, yknots, axis=0, bc_type=bc_type,)
+        spline = CubicSpline(
+            xknots,
+            yknots,
+            axis=0,
+            bc_type=bc_type,
+        )
         bckc = np.interp(x, xspl, spline(xspl))
-        residuals = np.sqrt((y - bckc) ** 2 / err ** 2)
+        residuals = np.sqrt((y - bckc) ** 2 / err**2)
         return residuals
 
     yspl = xr.DataArray(
@@ -76,7 +81,12 @@ def fit_profile(
                     bounds=(lower_bound, upper_bound),
                     verbose=verbose,
                 )
-                spline = CubicSpline(xknots, fit.x, axis=0, bc_type=bc_type,)
+                spline = CubicSpline(
+                    xknots,
+                    fit.x,
+                    axis=0,
+                    bc_type=bc_type,
+                )
                 _yspl = spline(xspl)
             except ValueError:
                 _yspl = np.full_like(xspl, 0.0)
