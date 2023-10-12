@@ -32,8 +32,8 @@ def choose_kernel(kernel: str):
 
     """
     kernels = {
-        "RBF_noise": RadialBasisFunction_NoNoise(),
-        "RBF": RadialBasisFunction_WithNoise(),
+        "RBF_noise": RadialBasisFunction_WithNoise(),
+        "RBF": RadialBasisFunction_NoNoise(),
     }
 
     if kernel in kernels.keys():
@@ -42,7 +42,7 @@ def choose_kernel(kernel: str):
         raise ValueError
 
 
-def RadialBasisFunction_NoNoise(length_scale=0.1, dlength_scale=0.001, **kwargs):
+def RadialBasisFunction_NoNoise(length_scale=0.2, dlength_scale=0.001, **kwargs):
     kernel = 1.0 * kernels.RBF(
         length_scale=length_scale,
         length_scale_bounds=(
@@ -75,8 +75,6 @@ def gpr_fit(
     y_err: np.array,
     x_fit: np.array,
     kernel_name: str = "RBF_noise",
-    y_bounds: tuple = (1, 1),
-    err_bounds: tuple = (0, 0),
 ):
     """
     Run GPR fit given input data and desired x-grid
@@ -93,10 +91,6 @@ def gpr_fit(
         x-axis for fitting
     kernel
         Kernel name
-    y_bounds
-        Boundery value at the edge of the x-grid
-    err_bounds
-        Boundery error at the edge of the x-grid
 
     Returns
     -------
@@ -107,14 +101,9 @@ def gpr_fit(
     kernel = choose_kernel(kernel_name)
 
     isort = np.argsort(x)
-    _x = np.sort(np.append(x, [x_fit[0], x_fit[-1]]))
+    _x = np.sort(x)
     _y = np.interp(_x, x[isort], y[isort])
-
-    _y[0] = y_bounds[0]
-    _y[-1] = y_bounds[1]
     _y_err = np.interp(_x, x[isort], y_err[isort])
-    _y_err[0] = err_bounds[0]
-    _y_err[-1] = err_bounds[1]
 
     idx = np.isfinite(_y)
 
@@ -122,8 +111,8 @@ def gpr_fit(
     _y_err = _y_err[idx]
     _y = _y[idx].reshape(-1, 1)
 
-    gpr = GaussianProcessRegressor(kernel=kernel, alpha=_y_err**2)  # alpha is sigma^2
-    gpr.fit(_x, _y)
+    gpr = GaussianProcessRegressor(kernel=kernel, alpha=_y_err**2,)  # alpha is sigma^2
+    gpr.fit(_x, _y, )
 
     _x_fit = x_fit.reshape(-1, 1)
     y_fit, y_fit_err = gpr.predict(_x_fit, return_std=True)
@@ -131,192 +120,134 @@ def gpr_fit(
     return y_fit, y_fit_err
 
 
-def run_gpr_fit(
-    data: DataArray,
-    xdim: str = "R",
-    kernel_name: str = "RBF_noise",
-    x_bounds: tuple = (0, 1),
-    y_bounds: tuple = (1, 1),
-    err_bounds: tuple = (0, 0),
-):
-    """
-    Run GPR fit for experimental Indica-native DataArray structures
-
-    Parameters
-    ----------
-    data
-        Data to be fitted dims = (x, t)
-    xdim
-        Dimension on which fit is to be performed
-    kernel_name
-        Name of kernel to be used for fitting
-
-    Returns
-    -------
-
-    """
-
-    x_fit = np.linspace(x_bounds[0], x_bounds[1], 1000)
-
-    y_fit = []
-    y_fit_err = []
-    for t in data.t:
-        x = data.R.values
-        y = data.sel(t=t).values
-        y_err = data.error.sel(t=t).values
-        _y_fit, _y_fit_err = gpr_fit(
-            x,
-            y,
-            y_err,
-            x_fit,
-            kernel_name=kernel_name,
-            y_bounds=y_bounds,
-            err_bounds=err_bounds,
-        )
-
-        y_fit.append(DataArray(_y_fit, coords=[(xdim, x_fit)]))
-        y_fit_err.append(DataArray(_y_fit_err, coords=[(xdim, x_fit)]))
-
-    fit = xr.concat(y_fit, "t").assign_coords(t=data.t)
-    fit_err = xr.concat(y_fit_err, "t").assign_coords(t=data.t)
-
-    return fit, fit_err
-
-
 def plot_gpr_fit(
     data: DataArray,
-    fit: DataArray,
-    fit_err: DataArray,
-    tplot: float,
-    x_data: DataArray = None,
-    x_fit: DataArray = None,
+    y_fit: DataArray,
+    y_fit_err: DataArray,
     fig_style: str = "profiles",
     ylabel: str = "",
     xlabel: str = "",
     label: str = "",
     title: str = "",
     fig_name: str = "",
-    figure: bool = True,
     save_fig: bool = False,
     color=None,
 ):
     set_plot_rcparams(fig_style)
 
-    if figure:
-        plt.figure()
+    plt.figure()
 
-    if x_data is None:
-        xdim = [dim for dim in data.dims if dim != "t"][0]
-        x_data = getattr(data, xdim)
-
-    if x_fit is None:
-        xdim = [dim for dim in fit.dims if dim != "t"][0]
-        x_fit = getattr(fit, xdim)
-
-    if "t" in x_data.dims:
-        _x_data = x_data.sel(t=tplot)
-    else:
-        _x_data = x_data
-
-    if "t" in x_fit.dims:
-        _x_fit = x_fit.sel(t=tplot)
-    else:
-        _x_fit = x_fit
-
-    y_data = data.sel(t=tplot)
-    y_err = data.error.sel(t=tplot)
-
-    y_fit = fit.sel(t=tplot)
-    y_fit_err = fit_err.sel(t=tplot)
+    x_data = getattr(data, data.dims[0])
+    x_fit = getattr(y_fit, data.dims[0])
+    y_err = data.error.sel(t=data.t)
 
     plt.fill_between(
-        _x_fit,
+        x_fit,
         y_fit - y_fit_err,
         y_fit + y_fit_err,
         alpha=0.5,
         color=color,
     )
-    plt.plot(_x_fit, y_fit, color=color)
-    plt.errorbar(_x_data, y_data, y_err, linestyle="", color=color)
-    plt.plot(_x_data, y_data, marker="o", linestyle="", color=color, label=label)
+    plt.plot(x_fit, y_fit, color=color)
+    plt.errorbar(x_data, data, y_err, linestyle="", color=color)
+    plt.plot(x_data, data, marker="o", linestyle="", color=color, label=label)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.title(f"{title} t = {tplot:.3f} s")
+    plt.title(f"{title} t = {data.t.values:.3f} s")
     set_axis_sci()
     if len(label) > 0:
         plt.legend()
 
     if save_fig:
-        save_figure(FIG_PATH, f"{fig_name}_GPR_fit_{tplot:.3f}_s", save_fig=save_fig)
+        save_figure(FIG_PATH, f"{fig_name}_GPR_fit_{data.t:.3f}_s", save_fig=save_fig)
 
 
 def example_run(
     pulse: int = 10619,
-    tstart=0.02,
+    tstart=0.06,
     tend=0.1,
     kernel_name: str = "RBF_noise",
     plot=True,
     save_fig=False,
     xdim: str = "R",
-    x_bounds: tuple = (0, 1),
-    y_bounds: tuple = (1, 1),
-    err_bounds: tuple = (0, 0),
+    split="LFS",
+    virtual_obs=True,
+
 ):
 
     st40 = ReadST40(pulse, tstart, tend)
     st40(instruments=["ts", "efit"])
+    rmag = st40.binned_data["efit"]["rmag"]
 
     data = st40.raw_data["ts"]["te"]
-    if xdim not in data.dims and hasattr(data, xdim):
-        data = data.swap_dims({"channel": xdim})
+    data.transform.set_equilibrium(st40.equilibrium)
+    data.transform.convert_to_rho_theta(t=data.t)
+    data["rho"] = data.transform.rho
+
     if xdim == "R":
         x_bounds = data.transform._machine_dims[0]
-    if hasattr(data, "equilibrium"):
-        data.transform.convert_to_rho_theta(t=data.t)
+    else:
+        x_bounds = (0, 1.2)
 
-    fit, fit_err = run_gpr_fit(
-        data,
-        kernel_name=kernel_name,
-        x_bounds=x_bounds,
-        y_bounds=y_bounds,
-        err_bounds=err_bounds,
-        xdim=xdim,
-    )
+    data = data[(data.t >= tstart) & (data.t <= tend)]
+    rmag = rmag[0]
+
+    if split == "HFS":
+        data = data.where(data.R < rmag)
+    elif split == "LFS":
+        data = data.where(data.R > rmag)
+    else:
+        data = data
+
+    x_fit = np.linspace(x_bounds[0], x_bounds[1], 1000)
+    dx = x_fit[1] - x_fit[0]
+    y_fit = []
+    y_fit_err = []
+    for t in data.t:
+        if "t" in data.__getattr__(xdim).dims:
+            x = data.__getattr__(xdim).sel(t=t).values
+        else:
+            x = data.__getattr__(xdim).values
+        y = data.sel(t=t).values
+        y_err = data.error.sel(t=t).values
+
+        if virtual_obs:
+            x = np.insert(x, [0, x.size], [x_bounds[0], x_bounds[1]])
+            if xdim == "rho":
+                y = np.insert(y, [0, y.size], [np.nanmax(y), 0])
+            else:
+                y = np.insert(y, [0, y.size], [0, 0])
+
+            y_err = np.insert(y_err, [0, y_err.size], [1, 1])
+
+        _y_fit, _y_fit_err = gpr_fit(
+            x,
+            y,
+            y_err,
+            x_fit,
+            kernel_name=kernel_name,
+        )
+        y_fit.append(DataArray(_y_fit, coords=[(xdim, x_fit)]))
+        y_fit_err.append(DataArray(_y_fit_err, coords=[(xdim, x_fit)]))
+
+    fit = xr.concat(y_fit, "t").assign_coords(t=data.t)
+    fit_err = xr.concat(y_fit_err, "t").assign_coords(t=data.t)
 
     if plot or save_fig:
         plt.ioff()
         fig_name = f"{pulse}_TS_Te"
         for tplot in data.t.values:
             plot_gpr_fit(
-                data,
-                fit,
-                fit_err,
-                tplot,
+                data.sel(t=tplot).swap_dims({"channel":xdim}),
+                fit.sel(t=tplot),
+                fit_err.sel(t=tplot),
                 ylabel="Te [eV]",
-                xlabel="R [m]",
+                xlabel=f"{xdim}",
                 title=str(st40.pulse),
                 fig_name=f"{fig_name}_vs_R",
                 save_fig=save_fig,
             )
 
-            if hasattr(data, "equilibrium"):
-                x_data = data.transform.rho.assign_coords(
-                    R=("channel", data.R)
-                ).swap_dims({"channel": "R"})
-                x_fit = x_data.interp(R=fit.R)
-                plot_gpr_fit(
-                    data,
-                    fit,
-                    fit_err,
-                    tplot,
-                    x_data=x_data,
-                    x_fit=x_fit,
-                    ylabel="Te [eV]",
-                    xlabel="rho-poloidal",
-                    title=str(st40.pulse),
-                    fig_name=f"{fig_name}_vs_rho",
-                    save_fig=save_fig,
-                )
             if not save_fig:
                 plt.show()
 
@@ -324,4 +255,6 @@ def example_run(
 
 
 if __name__ == "__main__":
-    example_run()
+
+    # example_run(pulse=11314, xdim="rho", split="HFS", virtual_obs=True, kernel_name="RBF")
+    example_run(pulse=11314, xdim="rho", split="LFS", virtual_obs=True, kernel_name="RBF")
