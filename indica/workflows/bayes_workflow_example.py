@@ -275,7 +275,19 @@ class BayesSettings:
 
 
 @dataclass
+class PlasmaSettings:
+    tstart = None
+    tend = None
+    dt = None
+    main_ion = "h"
+    impurities = ("ar", "c")
+    impurity_concentration = (0.001, 0.04)
+    n_rad = 20
+
+
+@dataclass
 class PlasmaContext:
+    plasma_settings: PlasmaSettings
     equilibrium: Equilibrium = None
     profile_params: dict = field(default_factory=lambda: DEFAULT_PROFILE_PARAMS)
 
@@ -289,21 +301,17 @@ class PlasmaContext:
             tstart=None,
             tend=None,
             dt=None,
-            main_ion="h",
-            impurities=("ar", "c"),
-            impurity_concentration=(0.001, 0.04),
-            n_rad=20,
     ):
 
         self.plasma = Plasma(
             tstart=tstart,
             tend=tend,
             dt=dt,
-            main_ion=main_ion,
-            impurities=impurities,
-            impurity_concentration=impurity_concentration,
+            main_ion=self.plasma_settings.main_ion,
+            impurities=self.plasma_settings.impurities,
+            impurity_concentration=self.plasma_settings.impurity_concentration,
             full_run=False,
-            n_rad=n_rad,
+            n_rad=self.plasma_settings.n_rad,
         )
 
         self.plasma.set_equilibrium(equilibrium)
@@ -374,8 +382,6 @@ class PlasmaContext:
         self.phantom_profiles = phantom_profiles
 
     #
-    #
-    #
     # def _init_fast_particles(self, run="RUN602", ):
     #
     #     st40_code = ReadST40(self.astra_pulse_range + self.pulse, self.tstart-self.dt, self.tend+self.dt, dt=self.dt, tree="astra")
@@ -429,7 +435,7 @@ class PlasmaContext:
 @dataclass
 class ModelContext:
     diagnostics: list
-    plasma: Plasma
+    plasma_context: PlasmaContext
     equilibrium: Equilibrium
     transforms: dict
     model_kwargs: Dict[str, Dict[str, Any]]
@@ -440,7 +446,7 @@ class ModelContext:
     TODO: remove repeating code / likely make general methods
     """
 
-    def update_model_kwargs(self, data):
+    def update_model_kwargs(self, data: dict):
         if self.model_kwargs is None:
             self.model_kwargs = {}
         for diag in diagnostics:
@@ -459,8 +465,10 @@ class ModelContext:
             self.model_kwargs["xrcs"]["background"] = background.mean(dim="wavelength")
 
     def init_models(self, ):
-        if not hasattr(self, "plasma"):
-            raise ValueError("needs plasma to setup_models")
+        if not hasattr(self, "plasma_context"):
+            raise ValueError("needs plasma_context to setup_models")
+        if not hasattr(self.plasma_context, "plasma"):
+            raise ValueError("plasma_context needs plasma to setup_models")
 
         self.models: Dict[str, Any] = {}
         for diag in self.diagnostics:
@@ -495,7 +503,7 @@ class ModelContext:
                 raise ValueError(f"{diag} not implemented in ModelHandler.setup_models")
 
         for model_name, model in self.models.items():
-            model.plasma = self.plasma
+            model.plasma = self.plasma_context.plasma
 
         return self.models
 
@@ -889,12 +897,10 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.tend = tend
         self.dt = dt
 
-        self.plasma_context.init_plasma(equilibrium=data_context.equilibrium, tstart=tstart, tend=tend, dt=dt, )
+        self.plasma_context.init_plasma(equilibrium=self.data_context.equilibrium, tstart=self.tstart, tend=self.tend, dt=self.dt, )
         self.plasma_context.save_phantom_profiles(phantoms=False)
 
-
-
-        self.model_context.update_model_kwargs(data_context.data)
+        self.model_context.update_model_kwargs(self.data_context.binned_data)
         self.model_context.init_models()
 
         self.model_call_kwargs = {"xrcs.pixel_offset": 4.0}
@@ -1000,44 +1006,35 @@ if __name__ == "__main__":
     bayes_settings = BayesSettings(diagnostics=diagnostics, param_names=opt_params,
                                    opt_quantity=opt_quant, priors=DEFAULT_PRIORS, )
 
-    data_settings = ReaderSettings(filters={},
-                                     revisions={})  # Add general methods for filtering data co-ords to ReadST40
+    data_settings = ReaderSettings(filters={}, revisions={})  # Add general methods for filtering data co-ords to ReadST40
 
     data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
     plasma_settings = PlasmaSettings()
-    plasma_context = PlasmaContext(plasma_settings = plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
+    plasma_context = PlasmaContext(plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
 
-
-
-    model_init_kwargs = {"cxff_pi": {"element": "ar"},
-                              "cxff_tws_c": {"element": "c"},
-                              "xrcs": {
-                                  "window_masks": [slice(0.394, 0.396)],
+    model_init_kwargs = {
+                        "cxff_pi": {"element": "ar"},
+                        "cxff_tws_c": {"element": "c"},
+                        "xrcs": {
+                              "window_masks": [slice(0.394, 0.396)],
                               },
                               }
 
-    model_settings = ModelSettings(model_init_kwargs=model_init_kwargs)
-
     model_context = ModelContext(diagnostics=diagnostics,
-                                  plasma=plasma_context.plasma,
-                                  equilibrium=data_context.equilibrium,
-                                  transforms=data_context.transforms,
-                                model_settings = model_settings,
-                                      )
-
-
-
-
+                                 plasma_context=plasma_context,
+                                 equilibrium=data_context.equilibrium,
+                                 transforms=data_context.transforms,
+                                 model_kwargs = model_init_kwargs,
+                                 )
 
     optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=6,
                                                 sample_method="high_density", starting_samples=10, burn_frac=0.20,
                                                 stopping_criterion="mode", priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
-
     BayesWorkflowExample(tstart=tstart, tend=tend, dt=dt,
                          bayes_settings=bayes_settings, data_context=data_context, optimiser_context=optimiser_context,
-                         plasma_context=plasma_context, model_context=ModelContext)
+                         plasma_context=plasma_context, model_context=model_context)
