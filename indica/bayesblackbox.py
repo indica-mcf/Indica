@@ -3,10 +3,8 @@ import warnings
 
 import numpy as np
 from scipy.stats import uniform
-
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
-
 
 def gaussian(x, mean, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
@@ -16,6 +14,35 @@ def get_uniform(lower, upper):
     # Less confusing parameterisation of scipy.stats uniform
     return uniform(loc=lower, scale=upper - lower)
 
+
+def ln_prior(priors: dict, parameters: dict):
+    ln_prior = 0
+    for prior_name, prior_func in priors.items():
+        param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
+        if param_names_in_prior.__len__() == 0:
+            # if prior assigned but no parameter then skip
+            continue
+        param_values = [parameters[x] for x in param_names_in_prior]
+        if hasattr(prior_func, "pdf"):
+            # for scipy.stats objects use pdf / for lambda functions just call
+            ln_prior += np.log(prior_func.pdf(*param_values))
+        else:
+            # if lambda prior with 2+ args is defined when only 1 of
+            # its parameters is given ignore it
+            if prior_func.__code__.co_argcount != param_values.__len__():
+                continue
+            else:
+                # Sorting to make sure args are given in the same order
+                # as the prior_name string
+                name_index = [
+                    prior_name.find(param_name_in_prior)
+                    for param_name_in_prior in param_names_in_prior
+                ]
+                sorted_name_index, sorted_param_values = (
+                    list(x) for x in zip(*sorted(zip(name_index, param_values)))
+                )
+                ln_prior += np.log(prior_func(*sorted_param_values))
+    return ln_prior
 
 class BayesBlackBox:
     """
@@ -42,8 +69,8 @@ class BayesBlackBox:
         quant_to_optimise: list,
         priors: dict,
 
-        plasma_context=None,
-        model_handler= None,
+        plasma_context = None,
+        model_context = None,
 
         percent_error: float = 0.10,
     ):
@@ -52,7 +79,7 @@ class BayesBlackBox:
         self.priors = priors
 
         self.plasma_context = plasma_context
-        self.model_handler = model_handler
+        self.model_context = model_context
 
         self.percent_error = percent_error
 
@@ -60,10 +87,10 @@ class BayesBlackBox:
         if missing_data:  # gives list of keys in quant_to_optimise but not data
             raise ValueError(f"{missing_data} not found in data given")
 
-    def _ln_likelihood(self):
+    def ln_likelihood(self):
         ln_likelihood = 0
         for key in self.quant_to_optimise:
-            time_coord = self.plasma_context.time_to_calculate
+            time_coord = self.plasma_context.plasma.time_to_calculate
             model_data = self.bckc[key]
             exp_data = self.data[key].sel(t=time_coord)
             exp_error = exp_data * self.percent_error
@@ -79,35 +106,6 @@ class BayesBlackBox:
                 _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
             ln_likelihood += _ln_likelihood.mean(skipna=True).values
         return ln_likelihood
-
-    def _ln_prior(self, parameters: dict):
-        ln_prior = 0
-        for prior_name, prior_func in self.priors.items():
-            param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
-            if param_names_in_prior.__len__() == 0:
-                # if prior assigned but no parameter then skip
-                continue
-            param_values = [parameters[x] for x in param_names_in_prior]
-            if hasattr(prior_func, "pdf"):
-                # for scipy.stats objects use pdf / for lambda functions just call
-                ln_prior += np.log(prior_func.pdf(*param_values))
-            else:
-                # if lambda prior with 2+ args is defined when only 1 of
-                # its parameters is given ignore it
-                if prior_func.__code__.co_argcount != param_values.__len__():
-                    continue
-                else:
-                    # Sorting to make sure args are given in the same order
-                    # as the prior_name string
-                    name_index = [
-                        prior_name.find(param_name_in_prior)
-                        for param_name_in_prior in param_names_in_prior
-                    ]
-                    sorted_name_index, sorted_param_values = (
-                        list(x) for x in zip(*sorted(zip(name_index, param_values)))
-                    )
-                    ln_prior += np.log(prior_func(*sorted_param_values))
-        return ln_prior
 
 
     def ln_posterior(self, parameters: dict, **kwargs):
@@ -129,17 +127,17 @@ class BayesBlackBox:
             model outputs from bckc and kinetic profiles
         """
 
-        ln_prior = self._ln_prior(parameters)
-        if ln_prior == -np.inf:  # Don't call models if outside priors
+        _ln_prior = ln_prior(self.priors, parameters)
+        if _ln_prior == -np.inf:  # Don't call models if outside priors
             return -np.inf, {}
 
         self.plasma_context.update_profiles(parameters)
-        plasma_attributes = self.plasma_context.return_plasma_attributes()
+        plasma_attributes = self.plasma_context.return_plasma_attrs()
 
-        self.bckc = self.model_handler._build_bckc(parameters, **kwargs)  # model calls
+        self.bckc = self.model_context._build_bckc(parameters, **kwargs)  # model calls
 
-        ln_likelihood = self._ln_likelihood()  # compare results to data
-        ln_posterior = ln_likelihood + ln_prior
+        _ln_likelihood = self.ln_likelihood()  # compare results to data
+        ln_posterior = _ln_likelihood + _ln_prior
 
         blob = deepcopy({**self.bckc, **plasma_attributes})
         return ln_posterior, blob
