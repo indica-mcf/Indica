@@ -43,6 +43,7 @@ class HelikeSpectrometer(DiagnosticModel):
         window: np.array = None,
         window_masks=None,
         line_labels=None,
+        background=None,
     ):
         """
         Read all atomic data and initialise objects
@@ -71,6 +72,7 @@ class HelikeSpectrometer(DiagnosticModel):
         self.window_masks = window_masks
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
+        self.background = background
 
         if window is None:
             window = np.linspace(window_lim[0], window_lim[1], window_len)
@@ -417,22 +419,22 @@ class HelikeSpectrometer(DiagnosticModel):
         if hasattr(self, "plasma"):
             if t is None:
                 t = self.plasma.time_to_calculate
-            Te = self.plasma.electron_temperature.interp(
+            Te = self.plasma.electron_temperature.sel(
                 t=t,
             )
-            Ne = self.plasma.electron_density.interp(
+            Ne = self.plasma.electron_density.sel(
                 t=t,
             )
-            Nh = self.plasma.neutral_density.interp(
+            Nh = self.plasma.neutral_density.sel(
                 t=t,
             )
             Fz = {}
             _Fz = self.plasma.fz
             for elem in _Fz.keys():
-                Fz[elem] = _Fz[elem].interp(t=t)
+                Fz[elem] = _Fz[elem].sel(t=t)
 
-            Ti = self.plasma.ion_temperature.interp(t=t)
-            Nimp = self.plasma.impurity_density.interp(t=t)
+            Ti = self.plasma.ion_temperature.sel(t=t)
+            Nimp = self.plasma.impurity_density.sel(t=t)
         else:
             if (
                 Ne is None
@@ -443,6 +445,10 @@ class HelikeSpectrometer(DiagnosticModel):
                 or Nimp is None
             ):
                 raise ValueError("Give inputs or assign plasma class!")
+
+        if background is None:
+            if self.background is not None:
+                background = self.background.sel(t=t)
 
         self.t = t
         self.Te = Te
