@@ -298,6 +298,7 @@ class ReadST40:
         self,
         instruments: list = None,
         revisions: dict = None,
+        filters: dict = None,
         map_raw: bool = False,
         tstart: float = None,
         tend: float = None,
@@ -311,8 +312,12 @@ class ReadST40:
         self.debug = debug
         if instruments is None:
             instruments = list(REVISIONS.keys())
-        if revisions is None:
+        if not revisions:
+            # TODO: fix default behaviour if missing key
             revisions = REVISIONS
+        if not filters:
+            # TODO: fix default behaviour if missing key
+            filters = FILTER_LIMITS
         if tstart is None:
             tstart = self.tstart
         if tend is None:
