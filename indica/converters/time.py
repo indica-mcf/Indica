@@ -329,7 +329,7 @@ def bin_in_time_dt(tstart: float, tend: float, dt: float, data: DataArray) -> Da
     -------
     :
         Array like the input, but binned along the time axis.
-
+    TODO: add possibility of doing 50% overlap of time bins!
     """
     check_bounds_bin(tstart, tend, dt, data)
     tlabels = get_tlabels_dt(tstart, tend, dt)

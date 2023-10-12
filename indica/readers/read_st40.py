@@ -45,7 +45,7 @@ FILTER_LIMITS = {
     "sxrc_xy1": {"brightness": (0, np.inf)},
     "sxrc_xy2": {"brightness": (0, np.inf)},
     "blom_xy1": {"brightness": (0, np.inf)},
-    "ts": {"te": (0, 10.0e3), "ne": (0, 1.0e21)},
+    "ts": {"te": (0, np.inf), "ne": (0, np.inf)},
     "pi": {"spectra": (0, np.inf)},
     "tws_c": {"spectra": (0, np.inf)},
 }
@@ -91,8 +91,12 @@ class ReadST40:
         self.tend = tend
         self.dt = dt
 
-        self.reader = ST40Reader(pulse, tstart - 0.05, tend + 0.05, tree=tree)
-        self.reader_equil = ST40Reader(pulse, tstart - 0.1, tend + 0.1, tree=tree)
+        _tend = tend + dt * 2
+        _tstart = tstart - dt * 2
+        if _tstart < 0:
+            _tstart = 0.0
+        self.reader = ST40Reader(pulse, _tstart, _tend, tree=tree)
+        self.reader_equil = ST40Reader(pulse, _tstart, _tend, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}

@@ -3,6 +3,7 @@ reading MDS+ data produced by ST40.
 
 """
 
+from copy import deepcopy
 from typing import Any
 from typing import Dict
 from typing import List
@@ -96,6 +97,7 @@ class ST40Reader(DataReader):
         "tws_c": "get_spectrometer",
         "ts": "get_thomson_scattering",
     }
+    # TODO: this will not be necessary once the MDS+ standardisation is complete
     UIDS_MDS = {
         "xrcs": "sxr",
         "princeton": "spectrom",
@@ -296,7 +298,8 @@ class ST40Reader(DataReader):
         },
     }
 
-    _IMPLEMENTATION_QUANTITIES = {  # TODO: these will be different diagnostics!!!!!!!
+    # TODO: this can be deleted once MDS+ standardisation is complete
+    _IMPLEMENTATION_QUANTITIES = {
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
             "sxr_camera_1": ("brightness", "total"),
             "sxr_camera_2": ("brightness", "50_Al_filtered"),
@@ -305,6 +308,7 @@ class ST40Reader(DataReader):
         },
     }
 
+    # TODO: this can be deleted once MDS+ standardisation is complete
     _RADIATION_RANGES = {
         "sxr_camera_1": (1, 20),
         "sxr_camera_2": (21, 40),
@@ -768,6 +772,7 @@ class ST40Reader(DataReader):
         z, z_path = self._get_signal(uid, instrument, ":z", revision)
         R, R_path = self._get_signal(uid, instrument, ":R", revision)
 
+        # TODO: temporary fix until geometry sorted (especially pulse if statement..)
         try:
             location, location_path = self._get_signal(
                 uid, instrument, ".geometry:location", revision
@@ -779,7 +784,6 @@ class ST40Reader(DataReader):
                 location = np.array([location])
                 direction = np.array([direction])
 
-            # TODO: temporary fix until geometry sorted
             if location.shape[0] != x.shape[0]:
                 if self.pulse > 10200:
                     index = np.arange(18, 36)
@@ -787,7 +791,6 @@ class ST40Reader(DataReader):
                     index = np.arange(21, 36)
                 location = location[index]
                 direction = direction[index]
-
         except TreeNNF:
             location = None
             direction = None
@@ -812,10 +815,8 @@ class ST40Reader(DataReader):
                 )
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
-                # q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
-
             results[q + "_records"] = q_path
             results[q] = qval
             results[f"{q}_error"] = qval_err
@@ -868,13 +869,6 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        # if self.pulse > 10200:
-        #     index = np.arange(18, 36)
-        # else:
-        #     index = np.arange(21, 36)
-        # location = location[index]
-        # direction = direction[index]
-
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid,
@@ -892,7 +886,6 @@ class ST40Reader(DataReader):
                 )
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
-                # q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
@@ -953,6 +946,8 @@ class ST40Reader(DataReader):
         _labels, _ = self._get_signal(uid, instrument, ":label", revision)
         if type(_labels[0]) == np.bytes_:
             labels = np.array([label.decode("UTF-8") for label in _labels])
+        else:
+            labels = _labels
 
         results["times"] = times
         results["labels"] = labels
@@ -1085,6 +1080,8 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         times, times_path = self._get_signal(uid, instrument, ":time", revision)
+        # TODO: hardcoded correction to TS coordinates to be fixed in MDS+
+        print("\n Hardcoded correction to TS coordinates to be fixed in MDS+ \n")
         # location, location_path = self._get_signal(
         #     uid, instrument, ".geometry:location", revision
         # )
@@ -1095,6 +1092,9 @@ class ST40Reader(DataReader):
         y, y_path = self._get_signal(uid, instrument, ":y", revision)
         z, z_path = self._get_signal(uid, instrument, ":z", revision)
         R, R_path = self._get_signal(uid, instrument, ":R", revision)
+        z = R * 0.0
+        x = deepcopy(R)
+        y = 0
 
         for q in quantities:
             qval, q_path = self._get_signal(
@@ -1170,6 +1170,7 @@ class ST40Reader(DataReader):
         """Return string defining RUN## or BEST if revision = 0"""
 
         if type(revision) == int:
+            rev_str = ""
             if revision < 0:
                 rev_str = ""
             elif revision == 0:

@@ -99,63 +99,86 @@ def fit_profile(
 
 
 def spline_fit_ts(
-    pulse: int,
-    tstart: float = 0.0,
-    tend: float = 0.2,
-    plot: bool = False,
+    pulse: int = 11314,
+    tstart: float = 0.03,
+    tend: float = 0.1,
+    dt: float = 0.01,
+    quantity: str = "te",
+    R_shift: float = 0.0,
+    knots: list = None,
+    plot: bool = True,
 ):
+    st40 = ReadST40(pulse, tstart=tstart, tend=tend, dt=dt)
+    st40(["ts"], R_shift=R_shift)
 
-    ST40 = ReadST40(pulse, tstart=tstart, tend=tend)
-    ST40(["ts"])
+    if quantity == "te" and knots is None:
+        knots = [0, 0.3, 0.6, 0.8, 1.1]
+    if quantity == "ne" and knots is None:
+        knots = [0, 0.3, 0.6, 0.8, 0.95, 1.1]
+    data_all = st40.raw_data["ts"][quantity]
+    t = data_all.t
+    transform = data_all.transform
+    transform.convert_to_rho_theta(t=data_all.t)
 
-    Te_data_all = ST40.binned_data["ts"]["te"]
-    t = ST40.binned_data["ts"]["te"].t
-    transform = ST40.binned_data["ts"]["te"].transform
     R = transform.R
     Rmag = transform.equilibrium.rmag.interp(t=t)
 
     # Fit all available TS data
-    ind = np.full_like(Te_data_all, True)
+    ind = np.full_like(data_all, True)
     rho = xr.where(ind, transform.rho, np.nan)
-    Te_data = xr.where(ind, Te_data_all, np.nan)
-    Te_err = xr.where(ind, Te_data_all.error, np.nan)
-    Te_fit = fit_profile(
-        rho, Te_data, Te_err, knots=[0, 0.3, 0.5, 0.75, 0.95, 1.05], virtual_knots=False
-    )
+    data = xr.where(ind, data_all, np.nan)
+    err = xr.where(ind, data_all.error, np.nan)
+    fit = fit_profile(rho, data, err, knots=knots, virtual_knots=False)
 
     # Use only HFS channels
     ind = R <= Rmag
-    rho = xr.where(ind, transform.rho, np.nan)
-    Te_data = xr.where(ind, Te_data_all, np.nan)
-    Te_err = xr.where(ind, Te_data_all.error, np.nan)
-    Te_fit_hfs = fit_profile(rho, Te_data, Te_err, virtual_knots=True)
+    rho_hfs = xr.where(ind, transform.rho, np.nan)
+    data_hfs = xr.where(ind, data_all, np.nan)
+    err_hfs = xr.where(ind, data_all.error, np.nan)
+    fit_hfs = fit_profile(rho_hfs, data_hfs, err_hfs, knots=knots, virtual_knots=True)
+
+    # Use only LFS channels
+    ind = R >= Rmag
+    rho_lfs = xr.where(ind, transform.rho, np.nan)
+    data_lfs = xr.where(ind, data_all, np.nan)
+    err_lfs = xr.where(ind, data_all.error, np.nan)
+    fit_lfs = fit_profile(rho_lfs, data_lfs, err_lfs, knots=knots, virtual_knots=True)
 
     if plot:
-        for t in Te_data_all.t:
+        for t in data_all.t:
             plt.ioff()
             plt.errorbar(
-                Te_data_all.transform.rho.sel(t=t),
-                Te_data_all.sel(t=t),
-                Te_data_all.error.sel(t=t),
+                rho_hfs.sel(t=t),
+                data_hfs.sel(t=t),
+                err_hfs.sel(t=t),
                 marker="o",
-                label="data",
+                label="data HFS",
+                color="blue",
             )
-            Te_fit.sel(t=t).plot(
-                linewidth=5, alpha=0.5, color="orange", label="spline fit all"
+            plt.errorbar(
+                rho_lfs.sel(t=t),
+                data_lfs.sel(t=t),
+                err_lfs.sel(t=t),
+                marker="o",
+                label="data LFS",
+                color="red",
             )
-            Te_fit_hfs.sel(t=t).plot(
-                linewidth=5, alpha=0.5, color="red", label="spline fit HFS"
+            fit.sel(t=t).plot(
+                linewidth=5, alpha=0.5, color="black", label="spline fit all"
+            )
+            fit_lfs.sel(t=t).plot(
+                linewidth=5, alpha=0.5, color="red", label="spline fit LFS"
+            )
+            fit_hfs.sel(t=t).plot(
+                linewidth=5, alpha=0.5, color="blue", label="spline fit HFS"
             )
             plt.legend()
             plt.show()
 
-    return Te_data_all, Te_fit
+    return data_all, fit
 
 
 if __name__ == "__main__":
-    spline_fit_ts(
-        10619,
-        tstart=0.0,
-        tend=0.2,
-        plot=True,
-    )
+    plt.ioff()
+    spline_fit_ts(11089, quantity="ne")
+    plt.show()

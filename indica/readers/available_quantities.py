@@ -1,5 +1,6 @@
 """
 Quantities that can be read with the current abstract reader implementation
+TODO: change the tuple to DataArray (long_name, units) - see examples in abstractreader
 """
 
 from typing import Dict
