@@ -54,7 +54,7 @@ def RadialBasisFunction_NoNoise(length_scale=0.2, dlength_scale=0.001, **kwargs)
 
 
 def RadialBasisFunction_WithNoise(
-    length_scale=0.1, dlength_scale=0.001, noise_level=1000, dnoise_level=3000, **kwargs
+    length_scale=0.2, dlength_scale=0.001, noise_level=10, dnoise_level=10, **kwargs
 ):
     kernel = 1.0 * kernels.RBF(
         length_scale=length_scale,
@@ -139,7 +139,7 @@ def plot_gpr_fit(
 
     x_data = getattr(data, data.dims[0])
     x_fit = getattr(y_fit, data.dims[0])
-    y_err = data.error.sel(t=data.t)
+    y_err = data.error
 
     plt.fill_between(
         x_fit,
@@ -172,6 +172,7 @@ def example_run(
     xdim: str = "R",
     split="LFS",
     virtual_obs=True,
+    quant = "te",
 
 ):
 
@@ -179,10 +180,20 @@ def example_run(
     st40(instruments=["ts", "efit"])
     rmag = st40.binned_data["efit"]["rmag"]
 
-    data = st40.raw_data["ts"]["te"]
+    data = st40.raw_data["ts"][quant]
     data.transform.set_equilibrium(st40.equilibrium)
     data.transform.convert_to_rho_theta(t=data.t)
     data["rho"] = data.transform.rho
+
+    # Normalising
+    if quant == "ne":
+        data.values = data.values * 1e-19
+        data["error"] = data.error * 1e-19
+        units = "n19"
+    else:
+        data.values = data.values * 1e-3
+        data["error"] = data.error * 1e-3
+        units = "keV"
 
     if xdim == "R":
         x_bounds = data.transform._machine_dims[0]
@@ -200,7 +211,7 @@ def example_run(
         data = data
 
     x_fit = np.linspace(x_bounds[0], x_bounds[1], 1000)
-    dx = x_fit[1] - x_fit[0]
+    # dx = x_fit[1] - x_fit[0]
     y_fit = []
     y_fit_err = []
     for t in data.t:
@@ -218,7 +229,7 @@ def example_run(
             else:
                 y = np.insert(y, [0, y.size], [0, 0])
 
-            y_err = np.insert(y_err, [0, y_err.size], [1, 1])
+            y_err = np.insert(y_err, [0, y_err.size], [0.01, 0.01])
 
         _y_fit, _y_fit_err = gpr_fit(
             x,
@@ -235,13 +246,13 @@ def example_run(
 
     if plot or save_fig:
         plt.ioff()
-        fig_name = f"{pulse}_TS_Te"
+        fig_name = f"{pulse}_TS_{quant}"
         for tplot in data.t.values:
             plot_gpr_fit(
                 data.sel(t=tplot).swap_dims({"channel":xdim}),
                 fit.sel(t=tplot),
                 fit_err.sel(t=tplot),
-                ylabel="Te [eV]",
+                ylabel=f"{quant} ({units})",
                 xlabel=f"{xdim}",
                 title=str(st40.pulse),
                 fig_name=f"{fig_name}_vs_R",
@@ -256,5 +267,7 @@ def example_run(
 
 if __name__ == "__main__":
 
-    # example_run(pulse=11314, xdim="rho", split="HFS", virtual_obs=True, kernel_name="RBF")
-    example_run(pulse=11314, xdim="rho", split="LFS", virtual_obs=True, kernel_name="RBF")
+    # example_run(pulse=11314, xdim="rho", split="HFS", virtual_obs=True, kernel_name="RBF_noise", quant="ne")
+    example_run(pulse=11314, xdim="rho", split="LFS", virtual_obs=True, kernel_name="RBF_noise", quant="ne")
+    # example_run(pulse=11314, xdim="rho", split="HFS", virtual_obs=True, kernel_name="RBF_noise", quant="te")
+    # example_run(pulse=11314, xdim="rho", split="LFS", virtual_obs=True, kernel_name="RBF_noise", quant="te")
