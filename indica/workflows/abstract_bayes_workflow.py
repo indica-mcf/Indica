@@ -28,109 +28,7 @@ class AbstractBayesWorkflow(ABC):
         self.param_names = param_names
         self.opt_quantity = opt_quantity
         self.priors = priors
-        self.read_data(self.diagnostics)
-        self.setup_models(self.diagnostics)
 
-    def read_test_data(
-        self, diagnostic_transforms: dict, tstart=None, tend=None, dt=None
-    ):
-        # Used with phantom data for purposes of tests
-        print("Reading fake data")
-        self.equilibrium = fake_equilibrium(
-            tstart,
-            tend,
-            dt,
-        )
-        self.transforms = diagnostic_transforms
-        self.data: dict = {}
-
-    def read_data(self, diagnostics: list, tstart=None, tend=None, dt=None):
-        self.reader = ReadST40(self.pulse, tstart=tstart, tend=tend, dt=dt)
-        self.reader(diagnostics)
-
-        missing_keys = set(diagnostics) - set(self.reader.binned_data.keys())
-        if len(missing_keys) > 0:
-            raise ValueError(f"missing data: {missing_keys}")
-
-        self.equilibrium = self.reader.equilibrium
-        self.transforms = self.reader.transforms
-        self.data = self.reader.binned_data
-
-    @abstractmethod
-    def setup_plasma(self):
-        """
-        Contains all methods and settings for setting up / initialising plasma object
-        """
-        self.plasma = None
-        self.plasma.set_equilibrium(self.reader.equilibrium)
-        self.save_phantom_profiles()
-
-    @abstractmethod
-    def setup_models(self, diagnostics: list):
-        """
-        Initialising models normally requires data to be read so transforms can be set
-
-        """
-        self.models: dict = {}
-
-    @abstractmethod
-    def _phantom_data(self):
-        opt_data = {}
-        return opt_data
-
-    @abstractmethod
-    def _exp_data(self):
-        opt_data = {}
-        return opt_data
-
-    @abstractmethod
-    def setup_opt_data(self, phantom: bool = False):
-        """
-        Get and prepare the data in necessary format for optimiser
-        """
-        for model in self.models:
-            model.plasma = self.plasma
-
-        if phantom:
-            self.opt_data = self._phantom_data()
-        else:
-            self.opt_data = self._exp_data()
-
-    @abstractmethod
-    def setup_optimiser(self, model_kwargs):
-        """
-        Initialise and provide settings for optimiser
-        """
-        self.bayesopt = None
-
-    def save_phantom_profiles(self, kinetic_profiles=None):
-        if kinetic_profiles is None:
-            kinetic_profiles = [
-                "electron_density",
-                "impurity_density",
-                "electron_temperature",
-                "ion_temperature",
-                "ion_density",
-                "fast_density",
-                "neutral_density",
-            ]
-        if self.phantoms:
-            phantom_profiles = {
-                profile_key: getattr(self.plasma, profile_key)
-                .sel(t=self.plasma.time_to_calculate)
-                .copy()
-                for profile_key in kinetic_profiles
-            }
-        else:
-            phantom_profiles = {
-                profile_key: getattr(self.plasma, profile_key).sel(
-                    t=self.plasma.time_to_calculate
-                )
-                * 0
-                for profile_key in kinetic_profiles
-            }
-
-        self.phantom_profiles = phantom_profiles
 
     def _build_inputs_dict(self):
         """
@@ -332,7 +230,7 @@ class AbstractBayesWorkflow(ABC):
             "PRIOR_SAMPLE": self.prior_sample,
             "POST_SAMPLE": self.post_sample,
             "AUTOCORR": self.autocorr,
-            "GELMANRUBIN": gelman_rubin(self.sampler.get_chain(flat=False))
+            # "GELMANRUBIN": gelman_rubin(self.sampler.get_chain(flat=False))
         }
 
         result["GLOBAL"] = {
@@ -409,47 +307,6 @@ class AbstractBayesWorkflow(ABC):
         }
         return result
 
-    def run_sampler(self, iterations, burn_frac):
-        """
-        TODO: unsure if keeping in abstract class is best practice
-
-        Runs the sampler and saves certain attributes from the sampler
-
-        Returns
-
-        result in MDSPlus node formatting
-
-        """
-        self.burn_frac = burn_frac
-        self.iterations = iterations
-
-        self.autocorr = sample_with_moments(
-            self.sampler,
-            self.start_points,
-            iterations,
-            self.param_names.__len__(),
-            auto_sample=10,
-            fractional_difference=0.05
-        )
-        _blobs = self.sampler.get_blobs(discard=int(self.sampler.iteration * burn_frac), flat=True)
-        blobs = [blob for blob in _blobs if blob]  # remove empty blobs
-
-        blob_names = blobs[0].keys()
-        self.samples = np.arange(0, blobs.__len__())
-
-
-        self.blobs = {
-            blob_name: xr.concat(
-                [data[blob_name] for data in blobs],
-                dim=pd.Index(self.samples, name="index"),
-            )
-            for blob_name in blob_names
-        }
-        self.accept_frac = self.sampler.acceptance_fraction.sum()
-        self.prior_sample = self.bayesmodel.sample_from_priors(
-            self.param_names, size=int(1e4)
-        )
-        self.post_sample = self.sampler.get_chain(discard=int(self.sampler.iteration * burn_frac), flat=True)
 
     def save_pickle(self, result, filepath):
         if filepath:
@@ -457,17 +314,6 @@ class AbstractBayesWorkflow(ABC):
             with open(filepath + "results.pkl", "wb") as handle:
                 pickle.dump(result, handle)
 
-    def dict_of_dataarray_to_numpy(self, dict_of_dataarray):
-        """
-        Mutates input dictionary to change xr.DataArray objects to np.array
-
-        """
-        for key, value in dict_of_dataarray.items():
-            if isinstance(value, dict):
-                self.dict_of_dataarray_to_numpy(value)
-            elif isinstance(value, xr.DataArray):
-                dict_of_dataarray[key] = dict_of_dataarray[key].values
-        return dict_of_dataarray
 
     @abstractmethod
     def __call__(self, filepath="./results/test/", **kwargs):
@@ -477,71 +323,3 @@ class AbstractBayesWorkflow(ABC):
 
         return self.result
 
-
-def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sample=5,):
-    autocorr = np.ones(shape=(iterations, n_params)) * np.nan
-    old_tau = np.inf
-    for sample in sampler.sample(
-        start_points,
-        iterations=iterations,
-        progress=True,
-        skip_initial_state_check=False,
-    ):
-        if sampler.iteration % auto_sample:
-            continue
-        new_tau = sampler.get_autocorr_time(tol=0)
-        autocorr[
-            sampler.iteration - 1,
-        ] = new_tau
-        converged = np.all(new_tau * 50 < sampler.iteration)
-        converged &= np.all(np.abs(old_tau - new_tau) / new_tau < 0.01)
-        if converged:
-            break
-        old_tau = new_tau
-    autocorr = autocorr[
-        : sampler.iteration,
-    ]
-    return autocorr
-
-def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, fractional_difference = 0.001):
-    autocorr = np.ones(shape=(iterations, n_params)) * np.nan
-    old_mean = np.inf
-    old_std = np.inf
-    for sample in sampler.sample(
-        start_points,
-        iterations=iterations,
-        progress=True,
-        skip_initial_state_check=False,
-    ):
-        if sampler.iteration % auto_sample:
-            continue
-        new_tau = sampler.get_autocorr_time(tol=0)
-        autocorr[sampler.iteration - 1] = new_tau
-
-        dist_stats = stats.describe(sampler.get_chain(flat=True))
-
-        new_mean = dist_stats.mean
-        new_std = np.sqrt(dist_stats.variance)
-
-        if all(np.abs(new_mean - old_mean) / old_mean < fractional_difference) and all(np.abs(new_std - old_std) / old_std < fractional_difference):
-            break
-        old_mean = new_mean
-        old_std = new_std
-
-    autocorr = autocorr[
-        : sampler.iteration,
-    ]
-    return autocorr
-
-
-def gelman_rubin(chain):
-    ssq = np.var(chain, axis=1, ddof=1)
-    w = np.mean(ssq, axis=0)
-    theta_b = np.mean(chain, axis=1)
-    theta_bb = np.mean(theta_b, axis=0)
-    m = chain.shape[0]
-    n = chain.shape[1]
-    B = n/(m-1) * np.sum((theta_bb - theta_b)**2, axis=0)
-    var_theta = (n-1) / n * w + 1 / n * B
-    R = np.sqrt(var_theta / w)
-    return  R
