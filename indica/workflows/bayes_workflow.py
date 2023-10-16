@@ -60,6 +60,10 @@ def plot_profile(
         )
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    plt.grid(alpha=0.25, linestyle="--")
+    plt.xticks(minor=True)
+    plt.ylim(0, 10)
+
     plt.legend()
     if sharefig:
         return
@@ -94,6 +98,8 @@ def _plot_0d(
     )
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    plt.xticks(minor=True)
+    plt.grid(alpha=0.25, linestyle="--")
     plt.legend()
     plt.savefig(figheader + filename)
     plt.close()
@@ -300,6 +306,7 @@ def plot_bayes_result(
             xlabel="$ρ$",
             ylabel="$Z_{eff}$",
         )
+        #plt.xticks(minor=True)
         # plt.ylim(0, 10) #it does not work
 
     corner.corner(samples, labels=param_names)

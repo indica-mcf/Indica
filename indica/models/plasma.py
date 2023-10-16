@@ -1300,9 +1300,9 @@ def example_run(
         plasma.Ne_prof.peaking = ne_peaking[i]
         plasma.assign_profiles(profile="electron_density", t=t)
 
-        plasma.Nimp_prof.peaking = nimp_peaking[i]
-        plasma.Nimp_prof.y0 = nimp_y0[i]
-        plasma.Nimp_prof.wcenter = nimp_wcenter[i]
+        plasma.Nimp_prof.peaking =  1 # nimp_peaking[i]
+        plasma.Nimp_prof.y0 =  1e17 #0.01*nimp_y0[i]
+        plasma.Nimp_prof.wcenter = 1 #nimp_wcenter[i]
         plasma.assign_profiles(profile="impurity_density", t=t)
 
     if pulse is None:

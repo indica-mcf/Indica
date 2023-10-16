@@ -42,12 +42,12 @@ PRIORS = {
     "Ne_prof.wcenter": get_uniform(0.1, 0.8),
     "Ne_prof.peaking": get_uniform(1, 5),
     "Nimp_prof.y0": get_uniform(8e16, 2e19),
-    "Nimp_prof.y1": get_uniform(8e16, 2e19),
+    "Nimp_prof.y1": get_uniform(1e16, 2e19),
     "Nimp_prof.yend": get_uniform(8e16, 2e19),
-    "Nimp_prof.peaking": get_uniform(0.05, 8),
-    "Nimp_prof.wcenter": get_uniform(0.005, 0.6),
-    "Nimp_prof.wped": get_uniform(0.05, 5),
-   # "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 >= x2), 1, 0),
+    "Nimp_prof.peaking": get_uniform(0.05, 12),
+    "Nimp_prof.wcenter": get_uniform(0.1, 0.5),
+    "Nimp_prof.wped": get_uniform(1, 5),
+    "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 >= x2), 1, 0),
     "Nimp_prof.y1/Nimp_prof.yend": lambda x1, x2: np.where((x1 >= x2), 1, 0),
     "Te_prof.y0": get_uniform(1000, 6000),
     "Te_prof.peaking": get_uniform(1, 4),
@@ -71,10 +71,10 @@ PHANTOM_PROFILE_PARAMS = {
     "Ti_prof.y0": 5000,
     "Ti_prof.peaking": 2,
 
-    "Nimp_prof.y0": 1e16,
-    "Nimp_prof.y1": 5e16,
-    "Nimp_prof.yend": 5e16,
-    "Nimp_prof.peaking": 1,
+    "Nimp_prof.y0": 1e18,
+    "Nimp_prof.y1": 1e16,
+    "Nimp_prof.yend": 1e16,
+    "Nimp_prof.peaking": 5,
     "Nimp_prof.wcenter": 0.4,
     "Nimp_prof.wped":6,
 
@@ -258,7 +258,7 @@ def prepare_inputs(
     models["pi"] = pi_model
     models["pi"].name = "pi"
     models["tws_c"] = deepcopy(pi_model)
-    models["tws_c"].name = "pi" #
+    models["tws_c"].name = "pi"
 
     if pulse is not None:
         print("Reading experimental data")
@@ -283,7 +283,6 @@ def prepare_inputs(
             )
             plasma.Ne_prof = lambda: plasma.electron_density.loc[dict(t=time)]
             plasma.Te_prof = lambda: plasma.electron_temperature.loc[dict(t=time)]
-
         print("Fitting Bremsstrahlung PI/TWS_C spectra")
         prepare_data_cxrs(
             plasma,
@@ -313,12 +312,14 @@ def prepare_inputs(
     input_profiles = {
         "electron_density": deepcopy(plasma.electron_density.sel(t=time)),
         "electron_temperature": deepcopy(plasma.electron_temperature.sel(t=time)),
-        "ion_temperature": deepcopy(plasma.ion_temperature.sel(t=time, element=IMPURITIES[0])),
+        "ion_temperature": deepcopy(
+            plasma.ion_temperature.sel(t=time, element=IMPURITIES[0])
+        ),
         "impurity_density": deepcopy(impurity_density),
         "zeff": deepcopy(zeff),
     }
-    plasma.Ne_prof=lambda: plasma.electron_density.loc[dict(t=time)]
-    plasma.Te_prof = lambda: plasma.electron_temperature.loc[dict(t=time)]
+    #plasma.Ne_prof=lambda: plasma.electron_density.loc[dict(t=time)]
+    #plasma.Te_prof = lambda: plasma.electron_temperature.loc[dict(t=time)]
     for key in flat_data.keys():
         if "t" not in flat_data[key].dims:
             flat_data[key] = flat_data[key].expand_dims(
@@ -329,10 +330,10 @@ def prepare_inputs(
                 flat_data[key] = flat_data[key].sel(t=[time])
 
         if "brightness" in key:
-            print(f"Reorganising {key} channel range starting at 0")
-            t = flat_data[key].t
-            channel = np.arange(flat_data[key].channel.size)
-            flat_data[key] = DataArray(
+           print(f"Reorganising {key} channel range starting at 0")
+           t = flat_data[key].t
+           channel = np.arange(flat_data[key].channel.size)
+           flat_data[key] = DataArray(
                 flat_data[key].values,
                 coords=[("t", t), ("channel", channel)],
                 attrs=flat_data[key].attrs,
@@ -366,14 +367,13 @@ def run_bayes(
         phantom_data=phantom_data,
         ts_side=ts_side,
     )
-    #phantom_plasma = deepcopy(plasma)
+    phantom_plasma = deepcopy(plasma)
 
     print("Instatiating Bayes model")
     diagnostic_models = [models["pi"]]
     quant_to_optimise = [
         "pi.brightness",
     ]
-
     bm = BayesModels(
         plasma=plasma,
         data=flat_data,
@@ -432,7 +432,7 @@ def run_bayes(
 
 def run_inversion(
     pulse,
-    phantom_profile_params,
+    #phantom_profile_params,
     tstart=0.03,
     tend=0.1,
     dt=0.01,
@@ -446,15 +446,14 @@ def run_inversion(
         tstart=tstart,
         tend=tend,
         dt=dt,
-        phantom_profile_params=phantom_profile_params,
+        #phantom_profile_params=phantom_profile_params,
         phantom_data=phantom_data,
         ts_side=ts_side,
     )
 
     data = flat_data["pi.brightness"]
-    has_data = np.isfinite(data) * (data > 0)
+    has_data = np.isfinite(data) #* (data > 0)
     data_to_invert = data.where(has_data, drop=True)
-    #data_to_invert=data_to_invert.where(data_to_invert.coords["channel"]<6)
     channels = data_to_invert.channel
     has_data = [True] * len(channels)
 
@@ -487,8 +486,8 @@ def run_inversion(
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
     tomo()
 
-    models["pi"].los_transform.plot()
-
+    #models["pi"].los_transform.plot()
+    tomo.show_reconstruction()
 
     inverted_emissivity = DataArray(
         tomo.emiss, coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)]
@@ -521,10 +520,9 @@ def run_inversion(
         bremsstrahlung=inverted_emissivity + inverted_error,
         gaunt_approx="callahan",
     )
-    zeff = zeff.where(zeff < 10, np.nan)
+    #zeff = zeff.where(zeff < 10, np.nan)
 
     cols = CM(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-
     plt.figure()
     lines = []
     for i, t in enumerate(zeff.t):
@@ -538,13 +536,18 @@ def run_inversion(
                 alpha=0.1,
             )
             if phantom_data:
-                plasma.zeff.sum("element").sel(t=t).plot(color=cols[i],alpha=0.25,
-                    linestyle="--",label=f"{t.values:.3f}",
+                plasma.zeff.sum("element").sel(t=t).plot(
+                    color=cols[i],
+                    alpha=0.25,
+                    linestyle="--",
+                    label=f"{t.values:.3f}",
                 )
             lines.append([line3])
     if phantom_data:
-        line1, = plasma.zeff.sum("element").sel(t=t).plot(color=cols[i], alpha=0.5,
-                                                           linestyle="--", label="Phantom")
+        line1, = plasma.zeff.sum("element").sel(t=t).plot(
+            color=cols[i], alpha=0.5,
+            linestyle="--", label="Phantom"
+        )
     line2, = zeff.sel(t=t).plot(label="Recalculated", color=cols[i])
     plt.ylim(0, 10)
     plt.grid(alpha=0.25)
@@ -562,11 +565,8 @@ def run_inversion(
 
     if not phantom_data:
         plot_ts(plasma, flat_data, cols=cols, ts_side=ts_side)
-
-    tomo.show_reconstruction()
     plt.figure()
-    #return input_profiles #zeff
-    return zeff
+    return input_profiles
 
 
 def plot_ts(plasma: Plasma, flat_data: dict, cols=None, ts_side: str="LFS"):
@@ -592,17 +592,25 @@ def plot_ts(plasma: Plasma, flat_data: dict, cols=None, ts_side: str="LFS"):
         #plt.legend()
         #plt.title(title)
         if ts_side == "LFS":
-            channels = np.where(Te.R >= rmag.sel(t=t, method="nearest"))[0]
+            channels = np.where(Te.R >= rmag.sel(t=t,
+                                        method="nearest"))[0]
         else:
-            channels = np.where(Te.R <= rmag.sel(t=t, method="nearest"))[0]
-        x = rho.sel(t=t, channel=channels)
-        y = Te.sel(t=t, channel=channels)
-        err = Te_err.sel(t=t, channel=channels)
-        plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
+            channels = np.where(Te.R <= rmag.sel(t=t,
+                                        method="nearest"))[0]
+        x = rho.sel(channel=channels).sel(t=t,
+                                          method="nearest")
+        y = Te.sel(channel=channels).sel(t=t,
+                                         method="nearest")
+        err = Te_err.sel(channel=channels).sel(t=t,
+                                               method="nearest")
+        plt.errorbar(x, y, err, color=cols[i],
+                     marker="o", linestyle="")
     plasma.electron_temperature.sel(t=t).plot(color=cols[i], label="Fit")
     plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
     plt.ylim(
-        0, np.max([plasma.electron_temperature.max(), flat_data["ts.te"].max()]) * 1.1
+        0,
+        np.max([plasma.electron_temperature.max(),
+                flat_data["ts.te"].max()]) * 1.1
     )
     plt.legend()
     plt.title("TS electron temperature")
@@ -614,9 +622,9 @@ def plot_ts(plasma: Plasma, flat_data: dict, cols=None, ts_side: str="LFS"):
             channels = np.where(Ne.R >= rmag.sel(t=t, method="nearest"))[0]
         else:
             channels = np.where(Ne.R <= rmag.sel(t=t, method="nearest"))[0]
-        x = rho.sel(t=t, channel=channels)
-        y = Ne.sel(t=t, channel=channels)
-        err = Ne_err.sel(t=t, channel=channels)
+        x = rho.sel(channel=channels).sel(t=t, method="nearest")
+        y = Ne.sel(channel=channels).sel(t=t, method="nearest")
+        err = Ne_err.sel(channel=channels).sel(t=t, method="nearest")
         plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="")
     plasma.electron_density.sel(t=t).plot(color=cols[i], label="Fit")
     plt.errorbar(x, y, err, color=cols[i], marker="o", linestyle="", label="Data")
@@ -625,10 +633,14 @@ def plot_ts(plasma: Plasma, flat_data: dict, cols=None, ts_side: str="LFS"):
 
 
 def inversion_example(
-    pulse: int = 11085, phantom_data: bool = True, ts_side: str = "LFS"
+    pulse: int = 11085, phantom_data: bool = True,
+        ts_side: str = "LFS"
 ):
-    ff = run_inversion(pulse, phantom_data=phantom_data, phantom_profile_params=PHANTOM_PROFILE_PARAMS,
-                       ts_side=ts_side)
+    ff = run_inversion(pulse,
+                       phantom_data=phantom_data,
+                       #phantom_profile_params=PHANTOM_PROFILE_PARAMS,
+                       ts_side=ts_side
+                       )
     return ff
 
 
@@ -637,7 +649,7 @@ def bayesian_example(
     time: float = 0.06,
     iterations=200,
     nwalkers=50,
-    phantom_data: bool = True,
+    phantom_data: bool = False,
     ts_side: str="LFS",
 ):
     ff = run_bayes(

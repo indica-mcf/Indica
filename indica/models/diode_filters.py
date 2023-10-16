@@ -200,6 +200,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         for dim in Ne.dims:
             wlength = wlength.expand_dims(dim={dim: self.Ne[dim]})
         self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
+        self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
         self.emissivity = (self.emission * self.transmission).integrate("wavelength")
         los_integral = self.los_transform.integrate_on_los(
             self.emissivity,
