@@ -1069,4 +1069,4 @@ if __name__ == "__main__":
                             optimiser_context=optimiser_context,
                             plasma_context=plasma_context, model_context=model_context)
 
-    workflow(pulse_to_write=25000000, run="RUN01", mds_write=True, plot=True, filepath="./results/test_moments/")
+    workflow(pulse_to_write=25000000, run="RUN01", mds_write=True, plot=True, filepath="./results/test/")
