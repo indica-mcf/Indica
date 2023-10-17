@@ -624,6 +624,9 @@ class ExpData(DataContext):
         raise ValueError("Data strategy: Fail")
 
     def _process_data(self):
+        """
+        Returns flattened bin data and adds custom errors
+        """
         opt_data = flatdict.FlatDict(self.binned_data, ".")
 
         if "xrcs.spectra" in opt_data.keys():
