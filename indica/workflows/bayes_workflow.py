@@ -456,7 +456,7 @@ class ModelContext:
     def update_model_kwargs(self, data: dict):
         if self.model_kwargs is None:
             self.model_kwargs = {}
-        for diag in diagnostics:
+        for diag in self.diagnostics:
             if diag not in self.model_kwargs.keys():
                 self.model_kwargs[diag] = {}
 
