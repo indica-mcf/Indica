@@ -892,7 +892,7 @@ class EmceeOptimiser(OptimiserContext):
         return results
 
 
-class BayesWorkflowExample(AbstractBayesWorkflow):
+class BayesWorkflow(AbstractBayesWorkflow):
     def __init__(
             self,
             bayes_settings: BayesSettings,
@@ -1064,9 +1064,9 @@ if __name__ == "__main__":
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
-    workflow = BayesWorkflowExample(tstart=tstart, tend=tend, dt=dt,
-                                    bayes_settings=bayes_settings, data_context=data_context,
-                                    optimiser_context=optimiser_context,
-                                    plasma_context=plasma_context, model_context=model_context)
+    workflow = BayesWorkflow(tstart=tstart, tend=tend, dt=dt,
+                            bayes_settings=bayes_settings, data_context=data_context,
+                            optimiser_context=optimiser_context,
+                            plasma_context=plasma_context, model_context=model_context)
 
     workflow(pulse_to_write=25000000, run="RUN01", mds_write=True, plot=True, filepath="./results/test_moments/")
