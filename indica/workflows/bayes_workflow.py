@@ -172,7 +172,7 @@ FAST_OPT_PARAMS = [
 ]
 
 
-def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, stopping_factor=10, debug=False):
+def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, stopping_factor=0.01, debug=False):
     # TODO: Compare old_chain to new_chain: if moments are different then keep going / convergence diagnostics here
 
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
@@ -194,14 +194,12 @@ def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample
         new_mean = dist_stats.mean
 
         dmean = np.abs(new_mean - old_mean)
-        nsamples = sampler.flatchain.shape[0]
-
-        dmean_normed = dmean / old_mean * nsamples
+        rel_dmean = dmean / old_mean
 
         if debug:
             print("")
-            print(f"dmean_normed: {dmean_normed.max()}")
-        if dmean_normed.max() < stopping_factor:
+            print(f"rel_dmean: {rel_dmean.max()}")
+        if rel_dmean.max() < stopping_factor:
             if success_flag:
                 break
             else:
@@ -721,7 +719,7 @@ class OptimiserEmceeSettings:
     sample_method: str = "random"
     starting_samples: int = 100
     stopping_criterion: str = "mode"
-    stopping_criterion_factor: float = 10
+    stopping_criterion_factor: float = 0.01
     stopping_criteria_debug: bool = False
 
 
@@ -1062,7 +1060,7 @@ if __name__ == "__main__":
 
     optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=500,
                                                 sample_method="high_density", starting_samples=100, burn_frac=0.20,
-                                                stopping_criterion="mode", stopping_criterion_factor=10,
+                                                stopping_criterion="mode", stopping_criterion_factor=0.01,
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
