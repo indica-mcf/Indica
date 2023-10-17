@@ -3,6 +3,7 @@ reading MDS+ data produced by ST40.
 
 """
 
+from copy import deepcopy
 from typing import Any
 from typing import Dict
 from typing import List
@@ -1092,6 +1093,9 @@ class ST40Reader(DataReader):
         y, y_path = self._get_signal(uid, instrument, ":y", revision)
         z, z_path = self._get_signal(uid, instrument, ":z", revision)
         R, R_path = self._get_signal(uid, instrument, ":R", revision)
+        z = R * 0.0
+        x = deepcopy(R)
+        y = 0
 
         for q in quantities:
             qval, q_path = self._get_signal(
