@@ -5,16 +5,17 @@ import corner
 import flatdict
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
-
+from pathlib import Path
 
 def plot_profile(
-    profile,
-    blobkey: str,
+    profile: xr.DataArray,
+    phantom_profile: xr.DataArray,
+    label: str,
     figheader="./results/test/",
-    phantom_profile=None,
     logscale=False,
     sharefig=False,
     filename="",
@@ -28,17 +29,17 @@ def plot_profile(
         profile.rho_poloidal,
         profile.quantile(0.16, dim="index"),
         profile.quantile(0.84, dim="index"),
-        label=f"{blobkey}, 68% Confidence",
+        label=f"{label}, 68% Confidence",
         zorder=3,
         color=color,
         alpha=0.9,
     )
-    if blobkey != "NFAST":
+    if label != "NFAST":
         plt.fill_between(
             profile.rho_poloidal,
             profile.quantile(0.025, dim="index"),
             profile.quantile(0.975, dim="index"),
-            label=f"{blobkey}, 95% Confidence",
+            label=f"{label}, 95% Confidence",
             zorder=2,
             color="grey",
             alpha=0.4,
@@ -47,19 +48,15 @@ def plot_profile(
             profile.rho_poloidal,
             profile.quantile(0.005, dim="index"),
             profile.quantile(0.995, dim="index"),
-            label=f"{blobkey}, Max-Min",
+            label=f"{label}, Max-Min",
             zorder=1,
             color="lightgrey",
             alpha=0.2,
         )
 
-    if phantom_profile["FLAG"]:
-        if "element" in phantom_profile[blobkey].dims:
-            phantom = phantom_profile[blobkey].sel(element="ar")
-        else:
-            phantom = phantom_profile[blobkey]
-        phantom.plot(
-            label=f"{blobkey}, phantom profile",
+    if phantom_profile.any():
+        phantom_profile.plot(
+            label=f"{label}, phantom profile",
             linestyle=linestyle,
             color="black",
             zorder=4,
@@ -78,16 +75,16 @@ def plot_profile(
     if filename:
         plt.savefig(figheader + f"{filename}{filetype}")
     else:
-        plt.savefig(figheader + f"{blobkey}{filetype}")
+        plt.savefig(figheader + f"{label}{filetype}")
     plt.close("all")
 
 
 def _plot_1d(
-    blobs: dict,
-    blobkey: str,
-    diag_data: dict,
+    data: xr.DataArray,
+    diag_data: xr.DataArray,
     filename: str,
     figheader="./results/test/",
+    label = "",
     ylabel="a.u.",
     xlabel="[]",
     xlim=None,
@@ -95,50 +92,46 @@ def _plot_1d(
     hide_legend=False,
     **kwargs,
 ):
-    if blobkey not in blobs.keys():
-        raise ValueError(f"{blobkey} not in blobs")
-
     plt.figure(figsize=figsize)
-    blob_data = blobs[blobkey]
-    dims = tuple(name for name in blob_data.dims if name != "index")
+    dims = tuple(name for name in data.dims if name != "index")
     plt.fill_between(
-        blob_data.__getattr__(dims[0]),
-        blob_data.quantile(0.16, dim="index"),
-        blob_data.quantile(0.84, dim="index"),
-        label=f"{blobkey}, 68% Confidence",
+        data.__getattr__(dims[0]),
+        data.quantile(0.16, dim="index"),
+        data.quantile(0.84, dim="index"),
+        label=f"{label}, 68% Confidence",
         zorder=3,
         color="blue",
     )
     plt.fill_between(
-        blob_data.__getattr__(dims[0]),
-        blob_data.quantile(0.025, dim="index"),
-        blob_data.quantile(0.975, dim="index"),
-        label=f"{blobkey}, 95% Confidence",
+        data.__getattr__(dims[0]),
+        data.quantile(0.025, dim="index"),
+        data.quantile(0.975, dim="index"),
+        label=f"{label}, 95% Confidence",
         zorder=2,
         color="grey",
     )
     plt.fill_between(
-        blob_data.__getattr__(dims[0]),
-        blob_data.quantile(0.005, dim="index"),
-        blob_data.quantile(0.995, dim="index"),
-        label=f"{blobkey}, Max-Min",
+        data.__getattr__(dims[0]),
+        data.quantile(0.005, dim="index"),
+        data.quantile(0.995, dim="index"),
+        label=f"{label}, Max-Min",
         zorder=1,
         color="lightgrey",
     )
     if "channel" in dims:
         plt.plot(
-            diag_data[blobkey].__getattr__(dims[0]),
-            diag_data[blobkey].sel(t=blob_data.t).values,
+            diag_data.__getattr__(dims[0]),
+            diag_data,
             "k^",
-            label=f"{blobkey} data",
+            label=f"{label} data",
             zorder=4,
         )
     else:
         plt.plot(
-            diag_data[blobkey].__getattr__(dims[0]),
-            diag_data[blobkey].sel(t=blob_data.t).values,
+            diag_data.__getattr__(dims[0]),
+            diag_data,
             "k-",
-            label=f"{blobkey} data",
+            label=f"{label} data",
             zorder=4,
         )
 
@@ -154,10 +147,10 @@ def _plot_1d(
 
 
 def violinplot(
-    data: dict,
-    key: str,
-    diag_data: dict,
+    data,
+    diag_data,
     filename: str,
+    xlabel="",
     ylabel="[a.u.]",
     figheader="./results/test/",
     **kwargs,
@@ -167,23 +160,25 @@ def violinplot(
         1,
         1,
     )
-    _data = data[key].values
-    _data = _data[
-        ((_data > np.quantile(_data, 0.16)) & (_data < np.quantile(_data, 0.84)))
+    _data = data[
+        ((data > np.quantile(data, 0.16)) & (data < np.quantile(data, 0.84)))
     ]
+    if hasattr(diag_data, "error"):
+        diag_data_err = diag_data.error
+    else:
+        diag_data_err = diag_data * 0.10
+
     violin = axs.violinplot(
         _data,
         showextrema=False,
         # quantiles=[0.025, 0.975, 0.16, 0.84],
         # showmedians=True,
     )
-    y = diag_data[key].sel(t=data[key].t).values
-    # TODO abstract the yerr
     axs.errorbar(
-        1, y=y, yerr=y * 0.10, fmt="D", ecolor="black", capsize=10, color="black"
+        1, y=diag_data, yerr=diag_data_err, fmt="D", ecolor="black", capsize=10, color="black"
     )
     violin["bodies"][0].set_edgecolor("black")
-    axs.set_xlabel(key)
+    axs.set_xlabel(xlabel)
     top = axs.get_ylim()[1]
     # bot = axs.get_ylim()[0]
     axs.set_ylim(top=top * 1.1, bottom=0)
@@ -242,12 +237,16 @@ def plot_autocorr(autocorr, param_names, figheader, filetype=".png"):
 
 def plot_bayes_result(
     results,
-    figheader="./results/test/",
+    filepath="./results/test/",
     filetype=".png",
     **kwargs,
 ):
-    # delete all but pickle in directory
-    for root, dirs, files in os.walk(figheader):
+    # delete all but pickle in directory and remove empty directories
+    for root, dirs, files in os.walk(filepath):
+        for dir in dirs:
+            if not os.listdir(root+dir):
+                print(f"Deleting {os.path.join(root, dir)}")
+                os.rmdir(os.path.join(root, dir))
         for f in files:
             if f.endswith(".pkl"):
                 continue
@@ -255,237 +254,227 @@ def plot_bayes_result(
                 print(f"Deleting {os.path.join(root, f)}")
                 os.remove(os.path.join(root, f))
 
+    # Create time directories
+    time = results["TIME"]
+    for t in time.values:
+        Path(filepath+f"/t:{t:.2f}").mkdir(parents=True, exist_ok=True)
+
+
     diag_data = flatdict.FlatDict(results["DIAG_DATA"], ".")
     model_data = flatdict.FlatDict(results["MODEL_DATA"], ".")
     profiles = flatdict.FlatDict(results["PROFILE_STAT"], ".")
     post_sample = results["OPTIMISATION"]["POST_SAMPLE"]
     prior_sample = results["OPTIMISATION"]["PRIOR_SAMPLE"]
-    autocorr = results["OPTIMISATION"]["AUTOCORR"]
+    auto_corr = results["OPTIMISATION"]["AUTO_CORR"]
     param_names = results["INPUT"]["PARAM_NAMES"]
     phantom_profiles = flatdict.FlatDict(results["PHANTOMS"], ".")
 
-    plot_autocorr(autocorr, param_names, figheader, filetype=filetype)
+    # select time index for plotting
+    for t_idx, t in enumerate(time):
+        figheader = filepath+f"t:{t.values:.2f}/"
 
-    if "CXFF_PI.TI" in model_data.keys():
-        max_channel = diag_data["CXFF_PI.TI"].sel(t=model_data["CXFF_PI.TI"].t).idxmax("channel").values
-        model_data["CXFF_PI.TI0"] = model_data["CXFF_PI.TI"].sel(
-                channel=max_channel
+        plot_autocorr(auto_corr[t_idx,], param_names, figheader, filetype=filetype)
+        # set_plot_rcparams("multi")
+
+        # check if model key exists
+
+        key = "EFIT.WP"
+        if key in model_data.keys():
+            violinplot(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                xlabel=key,
+                figheader=figheader,
+                ylabel="Energy [J]",
             )
-        diag_data["CXFF_PI.TI0"] = diag_data["CXFF_PI.TI"].sel(
-            channel=max_channel
-        )
-        model_data["CXFF_PI.TI0"] = model_data["CXFF_PI.TI"].sel(
-            channel=diag_data["CXFF_PI.TI"].channel
-        )
+        key = "SMMH1.NE"
+        if key in model_data.keys():
+            violinplot(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                figheader=figheader,
+                xlabel=key,
+                ylabel=r"Line Integrated Density [$m^{-2}$]",
+            )
+        key = "XRCS.TE_KW"
+        if key in model_data.keys():
+            violinplot(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                figheader=figheader,
+                xlabel=key,
+                ylabel="Temperature [eV]",
+            )
+        key = "XRCS.TI_W"
+        if key in model_data.keys():
+            violinplot(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                figheader=figheader,
+                xlabel = key,
+                ylabel="Temperature [eV]",
+            )
 
-    key = "CXFF_PI.TI0"
-    if key in model_data.keys():
-        violinplot(
-            model_data,
+        key = "XRCS.SPECTRA"
+        if key in model_data.keys():
+            _plot_1d(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                label=key,
+                figheader=figheader,
+                ylabel="Intensity [a.u.]",
+                xlabel="Wavelength [nm]",
+                xlim=(0.394, 0.401),
+                figsize=(6, 4),
+            )
+        key = "CXFF_PI.TI"
+        if key in model_data.keys():
+            _plot_1d(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                label=key,
+                figheader=figheader,
+                ylabel="Temperature [eV]",
+                xlabel="Channel",
+                hide_legend=True,
+            )
+        key = "CXFF_TWS_C.TI"
+        if key in model_data.keys():
+            _plot_1d(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                label=key,
+                figheader=figheader,
+                ylabel="Temperature [eV]",
+                xlabel="Channel",
+                hide_legend=True,
+
+            )
+
+        key = "TS.TE"
+        if key in model_data.keys():
+            _plot_1d(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                label=key,
+                figheader=figheader,
+                ylabel="Temperature [eV]",
+                xlabel="Channel",
+            )
+        key = "TS.NE"
+        if key in model_data.keys():
+            _plot_1d(
+                model_data[key].sel(t=t),
+                diag_data[key].sel(t=t),
+                f"{key.replace('.', '_')}" + filetype,
+                label=key,
+                figheader=figheader,
+                ylabel="Density [m^-3]",
+                xlabel="Channel",
+            )
+
+        key = "TE"
+        plot_profile(
+            profiles[key].sel(t=t),
+            phantom_profiles[key].sel(t=t),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="Temperature [eV]",
+            filetype=filetype,
+            sharefig=True,
+            color="blue",
+            linestyle="dashdot",
         )
-
-    key = "EFIT.WP"
-    if key in model_data.keys():
-        violinplot(
-            model_data,
+        key = "TI"
+        plot_profile(
+            profiles[key].sel(t=t, ),
+            phantom_profiles[key].sel(t=t, ),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="Energy [J]",
+            filename="temperature",
+            filetype=filetype,
+            color="red",
+            linestyle="dotted",
         )
-    key = "SMMH1.NE"
-    if key in model_data.keys():
-        violinplot(
-            model_data,
+
+        key = "NE"
+        plot_profile(
+            profiles[key].sel(t=t),
+            phantom_profiles[key].sel(t=t),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel=r"Line Integrated Density [$m^{-2}$]",
+            filetype=filetype,
+            color="blue",
+            sharefig=True,
         )
-    key = "XRCS.TE_KW"
-    if key in model_data.keys():
-        violinplot(
-            model_data,
+        key = "NI"
+        plot_profile(
+            profiles[key].sel(t=t),
+            phantom_profiles[key].sel(t=t),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="Temperature [eV]",
+            filetype=filetype,
+            sharefig=True,
+            color="red",
         )
-    key = "XRCS.TI_W"
-    if key in model_data.keys():
-        violinplot(
-            model_data,
+        key = "NFAST"
+        plot_profile(
+            profiles[key].sel(t=t),
+            phantom_profiles[key].sel(t=t),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="Temperature [eV]",
+            filename="densities",
+            filetype=filetype,
+            color="green",
         )
 
-    set_plot_rcparams("multi")
-    key = "XRCS.SPECTRA"
-    if key in model_data.keys():
-        _plot_1d(
-            model_data,
+        key = "NIZ1"
+        plot_profile(
+            profiles[key].sel(t=t),
+            phantom_profiles[key].sel(t=t),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="Intensity [a.u.]",
-            xlabel="Wavelength [nm]",
-            xlim=(0.394, 0.401),
-            figsize=(6, 4),
+            filename=f"{profiles[key].element.values} density",
+            filetype=filetype,
+            color="red",
         )
-    key = "CXFF_PI.TI"
-    if key in model_data.keys():
-        _plot_1d(
-            model_data,
+
+        key = "NIZ2"
+        plot_profile(
+            profiles[key].sel(t=t),
+            phantom_profiles[key].sel(t=t),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
             figheader=figheader,
-            ylabel="Temperature [eV]",
-            xlabel="Channel",
-            hide_legend=True,
+            filename=f"{profiles[key].element.values} density",
+            filetype=filetype,
+            color="red",
         )
-    key = "CXFF_TWS_C.TI"
-    if key in model_data.keys():
-        _plot_1d(
-            model_data,
+
+        key = "NNEUTR"
+        plot_profile(
+            profiles[key].sel(t=t),
+            phantom_profiles[key].sel(t=t),
             key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
+            filename="neutral density",
             figheader=figheader,
-            ylabel="Temperature [eV]",
-            xlabel="Channel",
-            hide_legend=True,
-
+            filetype=filetype,
+            logscale=True,
         )
 
-    key = "TS.TE"
-    if key in model_data.keys():
-        _plot_1d(
-            model_data,
-            key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
-            figheader=figheader,
-            ylabel="Temperature [eV]",
-            xlabel="Channel",
-        )
-    key = "TS.NE"
-    if key in model_data.keys():
-        _plot_1d(
-            model_data,
-            key,
-            diag_data,
-            f"{key.replace('.', '_')}" + filetype,
-            figheader=figheader,
-            ylabel="Density [m^-3]",
-            xlabel="Channel",
-        )
+        post_sample_filtered = post_sample[t_idx,][~np.isnan(post_sample[t_idx,]).any(axis=1)]
+        corner.corner(post_sample_filtered, labels=param_names)
+        plt.savefig(figheader + "posterior" + filetype)
 
-    key = "TE"
-    plot_profile(
-        profiles[key],
-        key,
-        figheader=figheader,
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        sharefig=True,
-        color="blue",
-        linestyle="dashdot",
-    )
-    key = "TI"
-    plot_profile(
-        profiles[key],
-        key,
-        figheader=figheader,
-        filename="temperature",
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        color="red",
-        linestyle="dotted",
-    )
-
-    key = "NE"
-    plot_profile(
-        profiles[key],
-        key,
-        figheader=figheader,
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        color="blue",
-        sharefig=True,
-    )
-    key = "NI"
-    plot_profile(
-        profiles[key],
-        key,
-        figheader=figheader,
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        sharefig=True,
-        color="red",
-    )
-    key = "NFAST"
-    plot_profile(
-        profiles[key],
-        key,
-        figheader=figheader,
-        filename="densities",
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        color="green",
-    )
-
-    key = "NIZ1"
-    plot_profile(
-        profiles[key],
-        key,
-        figheader=figheader,
-        filename="ar density",
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        color="red",
-    )
-
-    key = "NIZ2"
-    plot_profile(
-        profiles[key],
-        key,
-        figheader=figheader,
-        filename="c density",
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        color="red",
-    )
-
-    key = "NNEUTR"
-    plot_profile(
-        profiles[key],
-        key,
-        filename="neutral density",
-        figheader=figheader,
-        filetype=filetype,
-        phantom_profile=phantom_profiles,
-        logscale=True,
-    )
-
-    corner.corner(post_sample, labels=param_names)
-    plt.savefig(figheader + "posterior" + filetype)
-
-    corner.corner(prior_sample, labels=param_names)
-    plt.savefig(figheader + "prior" + filetype)
-    plt.close("all")
+        corner.corner(prior_sample[t_idx,], labels=param_names)
+        plt.savefig(figheader + "prior" + filetype)
+        plt.close("all")
 
 
 if __name__ == "__main__":
