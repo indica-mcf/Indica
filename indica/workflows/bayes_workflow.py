@@ -172,7 +172,7 @@ FAST_OPT_PARAMS = [
 ]
 
 
-def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, stopping_factor=10, debug=True):
+def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, stopping_factor=10, debug=False):
     # TODO: Compare old_chain to new_chain: if moments are different then keep going / convergence diagnostics here
 
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
