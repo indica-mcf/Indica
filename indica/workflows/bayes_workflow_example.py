@@ -85,12 +85,12 @@ DEFAULT_PRIORS = {
     ),  # impurity always more peaked
 
     "Te_prof.y0": get_uniform(1000, 5000),
-    "Te_prof.wped": get_uniform(2, 6),
+    "Te_prof.wped": get_uniform(1, 6),
     "Te_prof.wcenter": get_uniform(0.2, 0.4),
     "Te_prof.peaking": get_uniform(1, 4),
     # "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
     "Ti_prof.y0": get_uniform(1000, 10000),
-    "Ti_prof.wped": get_uniform(2, 6),
+    "Ti_prof.wped": get_uniform(1, 6),
     "Ti_prof.wcenter": get_uniform(0.2, 0.4),
     "Ti_prof.peaking": get_uniform(1, 6),
     "xrcs.pixel_offset": get_uniform(-4.01, -4.0),
@@ -172,10 +172,12 @@ FAST_OPT_PARAMS = [
 ]
 
 
-def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, fractional_difference=0.001):
+def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, stopping_factor=10, debug=True):
+    # TODO: Compare old_chain to new_chain: if moments are different then keep going / convergence diagnostics here
+
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
     old_mean = np.inf
-    old_std = np.inf
+    success_flag = False  # requires succeeding check twice in a row
     for sample in sampler.sample(
             start_points,
             iterations=iterations,
@@ -190,19 +192,28 @@ def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample
         dist_stats = describe(sampler.get_chain(flat=True))
 
         new_mean = dist_stats.mean
-        new_std = np.sqrt(dist_stats.variance)
 
-        if all(np.abs(new_mean - old_mean) / old_mean < fractional_difference) and all(
-                np.abs(new_std - old_std) / old_std < fractional_difference):
-            break
+        dmean = np.abs(new_mean - old_mean)
+        nsamples = sampler.flatchain.shape[0]
+
+        dmean_normed = dmean / old_mean * nsamples
+
+        if debug:
+            print("")
+            print(f"dmean_normed: {dmean_normed.max()}")
+        if dmean_normed.max() < stopping_factor:
+            if success_flag:
+                break
+            else:
+                success_flag = True
+        else:
+            success_flag = False
         old_mean = new_mean
-        old_std = new_std
 
     autocorr = autocorr[
                : sampler.iteration,
                ]
     return autocorr
-
 
 def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sample=5, ):
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
@@ -243,14 +254,14 @@ def gelman_rubin(chain):
     return R
 
 
-def dict_of_dataarray_to_numpy(self, dict_of_dataarray):
+def dict_of_dataarray_to_numpy(dict_of_dataarray):
     """
     Mutates input dictionary to change xr.DataArray objects to np.array
 
     """
     for key, value in dict_of_dataarray.items():
         if isinstance(value, dict):
-            self.dict_of_dataarray_to_numpy(value)
+            dict_of_dataarray_to_numpy(value)
         elif isinstance(value, xr.DataArray):
             dict_of_dataarray[key] = dict_of_dataarray[key].values
     return dict_of_dataarray
@@ -276,19 +287,15 @@ class BayesSettings:
 
 @dataclass
 class PlasmaSettings:
-    tstart = None
-    tend = None
-    dt = None
-    main_ion = "h"
-    impurities = ("ar", "c")
-    impurity_concentration = (0.001, 0.04)
-    n_rad = 20
+    main_ion: str = "h"
+    impurities: Tuple[str] = ("ar", "c")
+    impurity_concentration: Tuple[float] = (0.001, 0.04)
+    n_rad: int = 20
 
 
 @dataclass
 class PlasmaContext:
     plasma_settings: PlasmaSettings
-    equilibrium: Equilibrium = None
     profile_params: dict = field(default_factory=lambda: DEFAULT_PROFILE_PARAMS)
 
     """
@@ -560,11 +567,13 @@ class ReaderSettings:
 @dataclass
 class DataContext(ABC):
     reader_settings: ReaderSettings
+    pulse: int
     tstart: float
     tend: float
     dt: float
     transforms = None
     equilibrium = None
+    phantoms = False
 
     @abstractmethod
     def read_data(self, ):
@@ -589,6 +598,7 @@ class DataContext(ABC):
 class ExpData(DataContext):
     pulse: int
     diagnostics: list
+    phantoms = False
 
     """
     Considering: either rewriting this class to take over from ReadST40 or vice versa
@@ -638,8 +648,10 @@ class ExpData(DataContext):
 
 @dataclass
 class MockData(DataContext):
+    pulse = None
     diagnostic_transforms: dict = field(default_factory=lambda: {})
     model_call_params: dict = field(default_factory=lambda: {})
+    phantoms = True
 
     def read_data(self):
         # Used with phantom data for purposes of tests
@@ -652,7 +664,6 @@ class MockData(DataContext):
         self.transforms = self.diagnostic_transforms
         self.binned_data: dict = {}
         self.raw_data: dict = {}
-
 
     def process_data(self, model_callables: Callable):
         self.model_callables = model_callables
@@ -673,6 +684,7 @@ class PhantomData(DataContext):
     pulse: int
     diagnostics: list
     model_call_kwargs: dict = field(default_factory=lambda: {})
+    phantoms = True
 
     def read_data(self, ):
         self.reader = ReadST40(self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt, )
@@ -709,7 +721,7 @@ class OptimiserEmceeSettings:
     sample_method: str = "random"
     starting_samples: int = 100
     stopping_criterion: str = "mode"
-    stopping_criterion_fract: float = 0.05
+    stopping_criterion_factor: float = 10
 
 
 @dataclass
@@ -840,7 +852,7 @@ class EmceeOptimiser(OptimiserContext):
                 self.optimiser_settings.iterations,
                 self.optimiser_settings.param_names.__len__(),
                 auto_sample=10,
-                fractional_difference=self.optimiser_settings.stopping_criterion_fract
+                stopping_factor=self.optimiser_settings.stopping_criterion_factor
             )
         else:
             raise ValueError(f"Stopping criterion: {self.optimiser_settings.stopping_criterion} not recognised")
@@ -868,8 +880,15 @@ class EmceeOptimiser(OptimiserContext):
         results["prior_sample"] = self.sample_from_priors(
             self.optimiser_settings.param_names, self.optimiser_settings.priors, size=int(1e4)
         )
-        results["post_sample"] = self.optimiser.get_chain(
+
+        post_sample = self.optimiser.get_chain(
             discard=int(self.optimiser.iteration * self.optimiser_settings.burn_frac), flat=True)
+        # pad index dim with maximum number of iterations
+        max_iter = self.optimiser_settings.iterations * self.optimiser_settings.nwalkers
+        npad = ((0, int(max_iter*(1-self.optimiser_settings.burn_frac) - post_sample.shape[0])), (0, 0))
+        results["post_sample"] = np.pad(post_sample, npad, constant_values=np.nan)
+
+        results["auto_corr"] = self.autocorr
         return results
 
 
@@ -897,8 +916,9 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
         self.tend = tend
         self.dt = dt
 
-        self.plasma_context.init_plasma(equilibrium=self.data_context.equilibrium, tstart=self.tstart, tend=self.tend, dt=self.dt, )
-        self.plasma_context.save_phantom_profiles(phantoms=False)
+        self.plasma_context.init_plasma(equilibrium=self.data_context.equilibrium, tstart=self.tstart, tend=self.tend,
+                                        dt=self.dt, )
+        self.plasma_context.save_phantom_profiles(phantoms=self.data_context.phantoms)
 
         self.model_context.update_model_kwargs(self.data_context.binned_data)
         self.model_context.init_models()
@@ -912,12 +932,12 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                                       quant_to_optimise=self.bayes_settings.opt_quantity,
                                       priors=self.bayes_settings.priors)
 
-        self.optimiser_context.init_optimiser(self.blackbox.ln_posterior, model_kwargs={})
+        self.optimiser_context.init_optimiser(self.blackbox.ln_posterior, model_kwargs=self.model_call_kwargs)
 
     def __call__(
             self,
             filepath="./results/test/",
-            run=None,
+            run="RUN01",
             mds_write=False,
             pulse_to_write=None,
             plot=False,
@@ -925,47 +945,40 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
     ):
 
         self.result = self._build_inputs_dict()
-
         results = []
 
         for time in self.plasma_context.time_iterator():
             self.plasma_context.plasma.time_to_calculate = time
-            print(f"Time: {self.plasma_context.plasma.time_to_calculate}")
+            print(f"Time: {time.values:.2f}")
             self.optimiser_context.sample_start_points()
             self.optimiser_context.run()
             results.append(self.optimiser_context.format_results())
             self.optimiser_context.optimiser.reset()
 
-        # result = self._build_result_dict()
+        # unpack results and add time axis
+        blobs = {}
+        for key in results[0]["blobs"].keys():
+            _blob = [result["blobs"][key] for result in results]
+            blobs[key] = xr.concat(_blob, self.plasma_context.plasma.t)
+        self.blobs = blobs
 
-        # Combine the blobs/results from optimiser and add time dim
+        opt_samples = {}
+        for key in results[0].keys():
+            if key == "blobs":
+                continue
+            _opt_samples = [result[key] for result in results]
+            opt_samples[key] = np.array(_opt_samples)
+        self.opt_samples = opt_samples
 
-        profiles = {}
-        globals = {}
-        for key, prof in results[0]["PROFILES"].items():
-            if key == "RHO_POLOIDAL":
-                profiles[key] = results[0]["PROFILES"]["RHO_POLOIDAL"]
-            elif key == "RHO_TOR":
-                profiles[key] = results[0]["PROFILES"]["RHO_TOR"]
-            else:
-                _profs = [result["PROFILES"][key] for result in results]
-                profiles[key] = xr.concat(_profs, self.tsample)
+        result = self._build_result_dict()
+        self.result = dict(self.result, **result)
 
-        for key, prof in results[0]["GLOBAL"].items():
-            _glob = [result["GLOBAL"][key] for result in results]
-            globals[key] = xr.concat(_glob, self.tsample)
-
-        result = {"PROFILES": profiles, "GLOBAL": globals}
-
-        self.result = dict(self.result, **result, )
-        _result = dict(result, **self.result)
-
-        self.result = self.dict_of_dataarray_to_numpy(self.result)
-
-        self.save_pickle(_result, filepath=filepath, )
+        self.save_pickle(self.result, filepath=filepath, )
 
         if plot:  # currently requires result with DataArrays
-            plot_bayes_result(_result, filepath)
+            plot_bayes_result(self.result, filepath)
+
+        self.result = dict_of_dataarray_to_numpy(self.result)
 
         if mds_write:
             # check_analysis_run(self.pulse, self.run)
@@ -973,7 +986,7 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
                 pulse_to_write=pulse_to_write,
                 run=run,
                 diagnostic_quantities=self.bayes_settings.opt_quantity,
-                mode="EDIT",
+                mode="NEW",
             )
             write_nodes(pulse_to_write, self.node_structure, self.result)
 
@@ -981,60 +994,79 @@ class BayesWorkflowExample(AbstractBayesWorkflow):
 
 
 if __name__ == "__main__":
+    pulse = 11336
+    tstart = 0.07
+    tend = 0.08
+    dt = 0.01
+
+    diagnostics = [
+        # "xrcs",
+        # "efit",
+        # "smmh1",
+        # "cxff_pi",
+        "ts",
+    ]
+    # diagnostic_quantities
+    opt_quant = [
+                # "xrcs.spectra",
+                #  "efit.wp",
+                "ts.te"
+                ]
+    opt_params = [
+                  "Te_prof.y0",
+                  "Te_prof.peaking",
+                  "Te_prof.wped",
+                    "Te_prof.wcenter",
+
+                  # "Ti_prof.y0",
+                  # "Ne_prof.y0",
+                  ]
+
+    # BlackBoxSettings
+    bayes_settings = BayesSettings(diagnostics=diagnostics, param_names=opt_params,
+                                   opt_quantity=opt_quant, priors=DEFAULT_PRIORS, )
+
+    data_settings = ReaderSettings(filters={},
+                                   revisions={})  # Add general methods for filtering data co-ords to ReadST40
+
     # mock_transforms = {"xrcs": helike_transform_example(1),
     #  "smmh1": smmh1_transform_example(1),
     #  "cxff_pi": pi_transform_example(5),
     #  "ts": ts_transform_example(11), }
-
-    pulse = 11216
-    tstart = 0.05
-    tend = 0.06
-    dt = 0.01
-
-    diagnostics = [
-        "xrcs",
-        "efit",
-        # "smmh1",
-        # "cxff_pi",
-        # "ts",
-    ]
-    opt_quant = ["xrcs.spectra", "efit.wp"]
-    opt_params = ["Te_prof.y0",
-                  "Ti_prof.y0",
-                  "Ne_prof.y0"]
-
-    bayes_settings = BayesSettings(diagnostics=diagnostics, param_names=opt_params,
-                                   opt_quantity=opt_quant, priors=DEFAULT_PRIORS, )
-
-    data_settings = ReaderSettings(filters={}, revisions={})  # Add general methods for filtering data co-ords to ReadST40
+    # data_context = MockData(pulse=None, diagnostic_transforms=mock_transforms, )
 
     data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
-    plasma_settings = PlasmaSettings()
+    plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"), impurity_concentration=(0.001, 0.04),
+                                     n_rad=20)
     plasma_context = PlasmaContext(plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
 
     model_init_kwargs = {
-                        "cxff_pi": {"element": "ar"},
-                        "cxff_tws_c": {"element": "c"},
-                        "xrcs": {
-                              "window_masks": [slice(0.394, 0.396)],
-                              },
-                              }
+        "cxff_pi": {"element": "ar"},
+        "cxff_tws_c": {"element": "c"},
+        "xrcs": {
+            "window_masks": [slice(0.394, 0.396)],
+        },
+    }
 
     model_context = ModelContext(diagnostics=diagnostics,
                                  plasma_context=plasma_context,
                                  equilibrium=data_context.equilibrium,
                                  transforms=data_context.transforms,
-                                 model_kwargs = model_init_kwargs,
+                                 model_kwargs=model_init_kwargs,
                                  )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=6,
-                                                sample_method="high_density", starting_samples=10, burn_frac=0.20,
-                                                stopping_criterion="mode", priors=bayes_settings.priors)
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=500,
+                                                sample_method="high_density", starting_samples=100, burn_frac=0.20,
+                                                stopping_criterion="mode", stopping_criterion_factor=10,
+                                                priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
-    BayesWorkflowExample(tstart=tstart, tend=tend, dt=dt,
-                         bayes_settings=bayes_settings, data_context=data_context, optimiser_context=optimiser_context,
-                         plasma_context=plasma_context, model_context=model_context)
+    workflow = BayesWorkflowExample(tstart=tstart, tend=tend, dt=dt,
+                                    bayes_settings=bayes_settings, data_context=data_context,
+                                    optimiser_context=optimiser_context,
+                                    plasma_context=plasma_context, model_context=model_context)
+
+    workflow(pulse_to_write=25000000, run="RUN01", mds_write=True, plot=True, filepath="./results/test_moments/")
