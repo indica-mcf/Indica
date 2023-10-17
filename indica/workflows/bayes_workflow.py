@@ -747,6 +747,35 @@ class OptimiserContext(ABC):
         results = None
         return results
 
+def sample_from_priors(param_names: list, priors: dict, size=10):
+    #  Use priors to generate samples
+    for name in param_names:
+        if name in priors.keys():
+            if hasattr(priors[name], "rvs"):
+                continue
+            else:
+                raise TypeError(f"prior object {name} missing rvs method")
+        else:
+            raise ValueError(f"Missing prior for {name}")
+
+    #  Throw out samples that don't meet conditional priors and redraw
+    samples = np.empty((param_names.__len__(), 0))
+    while samples.size < param_names.__len__() * size:
+        # Some mangling of dictionaries so _ln_prior works
+        # Increase size * n if too slow / looping too much
+        new_sample = {
+            name: priors[name].rvs(size=size * 2) for name in param_names
+        }
+        _ln_prior = ln_prior(priors, new_sample)
+        # Convert from dictionary of arrays -> array,
+        # then filtering out where ln_prior is -infinity
+        accepted_samples = np.array(list(new_sample.values()))[
+                           :, _ln_prior != -np.inf
+                           ]
+        samples = np.append(samples, accepted_samples, axis=1)
+    samples = samples[:, 0:size]
+    return samples.transpose()
+
 
 @dataclass
 class EmceeOptimiser(OptimiserContext):
@@ -777,7 +806,7 @@ class EmceeOptimiser(OptimiserContext):
             )
 
         elif self.optimiser_settings.sample_method == "random":
-            self.start_points = self.sample_from_priors(
+            self.start_points = sample_from_priors(
                 param_names=self.optimiser_settings.param_names,
                 priors=self.optimiser_settings.priors,
                 size=self.optimiser_settings.nwalkers
@@ -786,41 +815,13 @@ class EmceeOptimiser(OptimiserContext):
             raise ValueError(f"Sample method: {self.optimiser_settings.sample_method} "
                              f"not recognised, Defaulting to random sampling")
 
-    def sample_from_priors(self, param_names: list, priors: dict, size=10):
-        #  Use priors to generate samples
-        for name in param_names:
-            if name in priors.keys():
-                if hasattr(priors[name], "rvs"):
-                    continue
-                else:
-                    raise TypeError(f"prior object {name} missing rvs method")
-            else:
-                raise ValueError(f"Missing prior for {name}")
-
-        #  Throw out samples that don't meet conditional priors and redraw
-        samples = np.empty((param_names.__len__(), 0))
-        while samples.size < param_names.__len__() * size:
-            # Some mangling of dictionaries so _ln_prior works
-            # Increase size * n if too slow / looping too much
-            new_sample = {
-                name: priors[name].rvs(size=size * 2) for name in param_names
-            }
-            _ln_prior = ln_prior(priors, new_sample)
-            # Convert from dictionary of arrays -> array,
-            # then filtering out where ln_prior is -infinity
-            accepted_samples = np.array(list(new_sample.values()))[
-                               :, _ln_prior != -np.inf
-                               ]
-            samples = np.append(samples, accepted_samples, axis=1)
-        samples = samples[:, 0:size]
-        return samples.transpose()
 
     def sample_from_high_density_region(
             self, param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
     ):
 
         # TODO: remove repeated code
-        start_points = self.sample_from_priors(param_names, priors, size=nsamples)
+        start_points = sample_from_priors(param_names, priors, size=nsamples)
 
         ln_prob, _ = optimiser.compute_log_prob(start_points)
         num_best_points = 3
