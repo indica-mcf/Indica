@@ -10,10 +10,9 @@ import standard_utility as util
 def bda():
     nodes = {
         "TIME": ("NUMERIC", "time vector of optimisation, s"),
-        "TIME_BINS": ("NUMERIC", "time vector used for binning, s"),
         "INPUT": {
             "BURN_FRAC": ("NUMERIC", "Burn in fraction for chains"),
-            "ITER": ("NUMERIC", "Iterations of optimiser"),
+            "ITER": ("NUMERIC", "Maximum iterations of optimiser"),
             "PARAM_NAMES": ("TEXT", "Names of parameters optimised"),
             "OPT_QUANTITY": ("TEXT", "Names of quantities optimised"),
             "MODEL_KWARGS": ("TEXT", "Model key word arguments"),
@@ -22,7 +21,6 @@ def bda():
             "TSTART": ("NUMERIC", "Start of time vector, s"),
             "TEND": ("NUMERIC", "End of time vector, s"),
             "DT": ("NUMERIC", "Distance between time points, s"),
-            "TSAMPLE": ("NUMERIC", "Sample time, s"),
             "IMPURITIES": ("TEXT", "Names of impurity elements"),
             "MAIN_ION": ("TEXT", "Name of main ion"),
         },
@@ -67,7 +65,7 @@ def bda():
             "NFAST_ERR": ("SIGNAL", "Density of fast ion error, m^-3"),
         },
         "PROFILE_STAT": {
-            "SAMPLES": ("NUMERIC", "Numerical index of the optimisation samples"),
+            "SAMPLE_IDX": ("NUMERIC", "Index of the optimisation samples"),
             "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
             "NE": ("SIGNAL", "Electron density, m^-3"),
             "NI": ("SIGNAL", "Ion density, m^-3"),
@@ -138,10 +136,10 @@ def bda():
         },
         "OPTIMISATION": {
             "ACCEPT_FRAC": ("NUMERIC", "Fraction of samples accepted by optimiser"),
-            "AUTO_CORR": ("NUMERIC", "Auto-correlation (iteration nwalker)"),
-            "POST_SAMPLE": ("NUMERIC", "Posterior probability samples (sample)"),
+            "AUTO_CORR": ("NUMERIC", "Auto-correlation"),
+            "POST_SAMPLE": ("NUMERIC", "Posterior probability samples"),
             "PRIOR_SAMPLE": ("NUMERIC", "Prior samples"),
-            "GELMANRUBIN": ("NUMERIC", "Gelmin-Rubin convergence diagnostic"),
+            "GELMAN_RUBIN": ("NUMERIC", "Gelmin-Rubin convergence diagnostic"),
         },
     }
     return nodes
@@ -192,7 +190,7 @@ def create_nodes(
         }
         for diag_name in diag_names
     }
-    model_nodes["SAMPLES"] = ("NUMERIC", "index of samples taken from optimisation")
+    model_nodes["SAMPLE_IDX"] = ("NUMERIC", "Index of the optimisation samples")
     bda_nodes["MODEL_DATA"] = model_nodes
     bda_nodes["DIAG_DATA"] = diag_nodes
     bda_nodes["INPUT"]["WORKFLOW"] = workflow_nodes
