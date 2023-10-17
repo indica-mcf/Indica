@@ -722,6 +722,7 @@ class OptimiserEmceeSettings:
     starting_samples: int = 100
     stopping_criterion: str = "mode"
     stopping_criterion_factor: float = 10
+    stopping_criteria_debug: bool = False
 
 
 @dataclass
@@ -852,7 +853,8 @@ class EmceeOptimiser(OptimiserContext):
                 self.optimiser_settings.iterations,
                 self.optimiser_settings.param_names.__len__(),
                 auto_sample=10,
-                stopping_factor=self.optimiser_settings.stopping_criterion_factor
+                stopping_factor=self.optimiser_settings.stopping_criterion_factor,
+                debug = self.optimiser_settings.stopping_criteria_debug
             )
         else:
             raise ValueError(f"Stopping criterion: {self.optimiser_settings.stopping_criterion} not recognised")
