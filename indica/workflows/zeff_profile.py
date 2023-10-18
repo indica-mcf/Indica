@@ -566,7 +566,7 @@ def run_inversion(
     if not phantom_data:
         plot_ts(plasma, flat_data, cols=cols, ts_side=ts_side)
     plt.figure()
-    return input_profiles
+    return zeff
 
 
 def plot_ts(plasma: Plasma, flat_data: dict, cols=None, ts_side: str="LFS"):
