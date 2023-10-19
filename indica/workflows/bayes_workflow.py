@@ -282,6 +282,16 @@ class BayesSettings:
         if missing_quantities:
             raise ValueError(f"{missing_quantities} missing the relevant diagnostic")
 
+        # check all priors are defined
+        for name in self.param_names:
+            if name in self.priors.keys():
+                if hasattr(self.priors[name], "rvs"):
+                    continue
+                else:
+                    raise TypeError(f"prior object {name} missing rvs method")
+            else:
+                raise ValueError(f"Missing prior for {name}")
+
 
 @dataclass
 class PlasmaSettings:
@@ -748,16 +758,6 @@ class OptimiserContext(ABC):
         return results
 
 def sample_from_priors(param_names: list, priors: dict, size=10):
-    #  Use priors to generate samples
-    for name in param_names:
-        if name in priors.keys():
-            if hasattr(priors[name], "rvs"):
-                continue
-            else:
-                raise TypeError(f"prior object {name} missing rvs method")
-        else:
-            raise ValueError(f"Missing prior for {name}")
-
     #  Throw out samples that don't meet conditional priors and redraw
     samples = np.empty((param_names.__len__(), 0))
     while samples.size < param_names.__len__() * size:
