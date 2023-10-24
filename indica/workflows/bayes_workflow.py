@@ -265,34 +265,30 @@ def dict_of_dataarray_to_numpy(dict_of_dataarray):
     return dict_of_dataarray
 
 
-@dataclass
-class BayesSettings:
-    diagnostics: list = field(default_factory=lambda: DEFAULT_DIAG_NAMES)
-    param_names: list = field(default_factory=lambda: OPTIMISED_PARAMS)
-    opt_quantity: list = field(default_factory=lambda: OPTIMISED_QUANTITY)
-    priors: dict = field(default_factory=lambda: DEFAULT_PRIORS)
-    percent_error: float = 0.10
-
+def sample_from_priors(param_names: list, priors: dict, size=10):
     """
-    TODO: default methods / getter + setters
-          print warning if using default values
+    TODO: may be able to remove param_names from here and at some point earlier remove priors that aren't used
+        then loop over remaining priors while handling conditional priors somehow...
+        The order of samples may need to be checked / reordered at some point then
     """
 
-    def __post_init__(self):
-        missing_quantities = [quant for quant in self.opt_quantity if quant.split(".")[0] not in self.diagnostics]
-        if missing_quantities:
-            raise ValueError(f"{missing_quantities} missing the relevant diagnostic")
-
-        # check all priors are defined
-        for name in self.param_names:
-            if name in self.priors.keys():
-                if hasattr(self.priors[name], "rvs"):
-                    continue
-                else:
-                    raise TypeError(f"prior object {name} missing rvs method")
-            else:
-                raise ValueError(f"Missing prior for {name}")
-
+    #  Throw out samples that don't meet conditional priors and redraw
+    samples = np.empty((param_names.__len__(), 0))
+    while samples.size < param_names.__len__() * size:
+        # Some mangling of dictionaries so _ln_prior works
+        # Increase size * n if too slow / looping too much
+        new_sample = {
+            name: priors[name].rvs(size=size * 2) for name in param_names
+        }
+        _ln_prior = ln_prior(priors, new_sample)
+        # Convert from dictionary of arrays -> array,
+        # then filtering out where ln_prior is -infinity
+        accepted_samples = np.array(list(new_sample.values()))[
+                           :, _ln_prior != -np.inf
+                           ]
+        samples = np.append(samples, accepted_samples, axis=1)
+    samples = samples[:, 0:size]
+    return samples.transpose()
 
 @dataclass
 class PlasmaSettings:
@@ -731,31 +727,6 @@ class OptimiserContext(ABC):
         results = None
         return results
 
-def sample_from_priors(param_names: list, priors: dict, size=10):
-    """
-    TODO: may be able to remove param_names from here and at some point earlier remove priors that aren't used
-        then loop over remaining priors while handling conditional priors somehow...
-        The order of samples may need to be checked / reordered at some point then
-    """
-
-    #  Throw out samples that don't meet conditional priors and redraw
-    samples = np.empty((param_names.__len__(), 0))
-    while samples.size < param_names.__len__() * size:
-        # Some mangling of dictionaries so _ln_prior works
-        # Increase size * n if too slow / looping too much
-        new_sample = {
-            name: priors[name].rvs(size=size * 2) for name in param_names
-        }
-        _ln_prior = ln_prior(priors, new_sample)
-        # Convert from dictionary of arrays -> array,
-        # then filtering out where ln_prior is -infinity
-        accepted_samples = np.array(list(new_sample.values()))[
-                           :, _ln_prior != -np.inf
-                           ]
-        samples = np.append(samples, accepted_samples, axis=1)
-    samples = samples[:, 0:size]
-    return samples.transpose()
-
 
 @dataclass
 class EmceeOptimiser(OptimiserContext):
@@ -876,10 +847,40 @@ class EmceeOptimiser(OptimiserContext):
         return results
 
 
+
+@dataclass
+class BayesBBSettings:
+    diagnostics: list = field(default_factory=lambda: DEFAULT_DIAG_NAMES)
+    param_names: list = field(default_factory=lambda: OPTIMISED_PARAMS)
+    opt_quantity: list = field(default_factory=lambda: OPTIMISED_QUANTITY)
+    priors: dict = field(default_factory=lambda: DEFAULT_PRIORS)
+    percent_error: float = 0.10
+
+    """
+    TODO: default methods / getter + setters
+          print warning if using default values
+    """
+
+    def __post_init__(self):
+        missing_quantities = [quant for quant in self.opt_quantity if quant.split(".")[0] not in self.diagnostics]
+        if missing_quantities:
+            raise ValueError(f"{missing_quantities} missing the relevant diagnostic")
+
+        # check all priors are defined
+        for name in self.param_names:
+            if name in self.priors.keys():
+                if hasattr(self.priors[name], "rvs"):
+                    continue
+                else:
+                    raise TypeError(f"prior object {name} missing rvs method")
+            else:
+                raise ValueError(f"Missing prior for {name}")
+
+
 class BayesWorkflow(AbstractBayesWorkflow):
     def __init__(
             self,
-            bayes_settings: BayesSettings,
+            blackbox_settings: BayesBBSettings,
             data_context: DataContext,
             plasma_context: PlasmaContext,
             model_context: ModelContext,
@@ -890,7 +891,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
             dt: float = 0.01,
 
     ):
-        self.bayes_settings = bayes_settings
+        self.blackbox_settings = blackbox_settings
         self.data_context = data_context
         self.plasma_context = plasma_context
         self.model_context = model_context
@@ -913,9 +914,9 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self.blackbox = BayesBlackBox(data=self.data_context.opt_data,
                                       plasma_context=self.plasma_context,
                                       model_context=self.model_context,
-                                      quant_to_optimise=self.bayes_settings.opt_quantity,
-                                      priors=self.bayes_settings.priors,
-                                      percent_error=self.bayes_settings.percent_error)
+                                      quant_to_optimise=self.blackbox_settings.opt_quantity,
+                                      priors=self.blackbox_settings.priors,
+                                      percent_error=self.blackbox_settings.percent_error)
 
         self.optimiser_context.init_optimiser(self.blackbox.ln_posterior, model_kwargs=self.model_call_kwargs)
 

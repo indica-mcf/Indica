@@ -4,12 +4,6 @@ from pathlib import Path
 import pickle
 
 import numpy as np
-import pandas as pd
-import xarray as xr
-
-from indica.equilibrium import fake_equilibrium
-from indica.readers.read_st40 import ReadST40
-import scipy.stats as stats
 
 class AbstractBayesWorkflow(ABC):
     @abstractmethod
@@ -41,7 +35,7 @@ class AbstractBayesWorkflow(ABC):
         """
 
         result = {}
-        quant_list = [item.split(".") for item in self.bayes_settings.opt_quantity]
+        quant_list = [item.split(".") for item in self.blackbox_settings.opt_quantity]
 
         result["TIME"] = self.plasma_context.plasma.t
 
@@ -56,8 +50,8 @@ class AbstractBayesWorkflow(ABC):
             "ITER": self.optimiser_context.optimiser_settings.iterations,
             "NWALKERS": self.optimiser_context.optimiser_settings.nwalkers,
             "MODEL_KWARGS": self.model_call_kwargs,
-            "OPT_QUANTITY": self.bayes_settings.opt_quantity,
-            "PARAM_NAMES": self.bayes_settings.param_names,
+            "OPT_QUANTITY": self.blackbox_settings.opt_quantity,
+            "PARAM_NAMES": self.blackbox_settings.param_names,
             "PULSE": self.data_context.pulse,
             "IMPURITIES": self.plasma_context.plasma_settings.impurities,
             "MAIN_ION": self.plasma_context.plasma_settings.main_ion,
@@ -74,7 +68,7 @@ class AbstractBayesWorkflow(ABC):
                 ),
                 "RUN": "PLACEHOLDER",
             }
-            for diag_name in self.bayes_settings.diagnostics
+            for diag_name in self.blackbox_settings.diagnostics
         }
 
         result["DIAG_DATA"] = {
@@ -83,7 +77,7 @@ class AbstractBayesWorkflow(ABC):
                 for quantity in quant_list
                 if quantity[0] == diag_name
             }
-            for diag_name in self.bayes_settings.diagnostics
+            for diag_name in self.blackbox_settings.diagnostics
         }
 
         return result
@@ -91,7 +85,7 @@ class AbstractBayesWorkflow(ABC):
 
     def _build_result_dict(self,  ):
         result = {}
-        quant_list = [item.split(".") for item in self.bayes_settings.opt_quantity]
+        quant_list = [item.split(".") for item in self.blackbox_settings.opt_quantity]
 
         result["MODEL_DATA"] = {
             diag_name.upper(): {
@@ -99,7 +93,7 @@ class AbstractBayesWorkflow(ABC):
                 for quantity in quant_list
                 if quantity[0] == diag_name
             }
-            for diag_name in self.bayes_settings.diagnostics
+            for diag_name in self.blackbox_settings.diagnostics
         }
         result["MODEL_DATA"]["SAMPLE_IDX"] = np.arange(self.optimiser_context.optimiser_settings.iterations*
                                                        (1-self.optimiser_context.optimiser_settings.burn_frac))
