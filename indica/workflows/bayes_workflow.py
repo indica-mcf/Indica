@@ -674,7 +674,10 @@ class PhantomData(DataContext):
 
 @dataclass
 class MockData(PhantomData):
-    diagnostic_transforms: dict = field(default_factory=lambda: {})
+    diagnostic_transforms: dict = field(default_factory=lambda: {"xrcs": helike_transform_example(1),
+                                                                 "smmh1": smmh1_transform_example(1),
+                                                                 "cxff_pi": pi_transform_example(5),
+                                                                 "ts": ts_transform_example(11), })
 
     def read_data(self):
         print("Reading mock equilibrium / transforms")
