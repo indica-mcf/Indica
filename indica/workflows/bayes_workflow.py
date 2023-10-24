@@ -670,7 +670,7 @@ class PhantomData(DataContext):
     def read_data(self, ):
         self.reader = ReadST40(self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt, )
         self.reader(self.diagnostics, revisions=self.reader_settings.revisions, filters=self.reader_settings.filters)
-        missing_keys = set(diagnostics) - set(self.reader.binned_data.keys())
+        missing_keys = set(self.diagnostics) - set(self.reader.binned_data.keys())
         if len(missing_keys) > 0:
             raise ValueError(f"missing data: {missing_keys}")
         self.equilibrium = self.reader.equilibrium
