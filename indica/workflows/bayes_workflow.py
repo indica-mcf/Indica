@@ -971,7 +971,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
             self.node_structure = create_nodes(
                 pulse_to_write=pulse_to_write,
                 run=run,
-                diagnostic_quantities=self.bayes_settings.opt_quantity,
+                diagnostic_quantities=self.blackbox_settings.opt_quantity,
                 mode="NEW",
             )
             write_nodes(pulse_to_write, self.node_structure, self.result)
