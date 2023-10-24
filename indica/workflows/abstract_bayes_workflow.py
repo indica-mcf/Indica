@@ -49,7 +49,7 @@ class AbstractBayesWorkflow(ABC):
             "BURN_FRAC": self.optimiser_context.optimiser_settings.burn_frac,
             "ITER": self.optimiser_context.optimiser_settings.iterations,
             "NWALKERS": self.optimiser_context.optimiser_settings.nwalkers,
-            "MODEL_KWARGS": self.model_call_kwargs,
+            "MODEL_KWARGS": self.model_context.model_settings.init_kwargs,
             "OPT_QUANTITY": self.blackbox_settings.opt_quantity,
             "PARAM_NAMES": self.blackbox_settings.param_names,
             "PULSE": self.data_context.pulse,
