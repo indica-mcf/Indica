@@ -131,7 +131,7 @@ def scan_profiles(
     if "smmh" in interferometers and run_add != "REF":
         print("If using SMMH, set run_add = 'REF'")
         return
-    if "smmh_ts" in interferometers and run_add != "SMM_TS":
+    if "smmh_ts" in interferometers and "SMM_TS" not in run_add:
         print("If using SMMH_TS, set run_add = 'SMM_TS'")
         return
 
