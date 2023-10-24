@@ -1057,7 +1057,7 @@ if __name__ == "__main__":
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
     workflow = BayesWorkflow(tstart=tstart, tend=tend, dt=dt,
-                            bayes_settings=bayes_settings, data_context=data_context,
+                            blackbox_settings=bayes_settings, data_context=data_context,
                             optimiser_context=optimiser_context,
                             plasma_context=plasma_context, model_context=model_context)
 
