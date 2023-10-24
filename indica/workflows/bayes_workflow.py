@@ -722,7 +722,7 @@ class OptimiserEmceeSettings:
     starting_samples: int = 100
     stopping_criteria: str = "mode"
     stopping_criteria_factor: float = 0.01
-    stopping_criteria_sample: int = 20,
+    stopping_criteria_sample: int = 20
     stopping_criteria_debug: bool = False
 
 
