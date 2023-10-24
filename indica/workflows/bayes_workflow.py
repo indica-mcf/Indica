@@ -271,6 +271,7 @@ class BayesSettings:
     param_names: list = field(default_factory=lambda: OPTIMISED_PARAMS)
     opt_quantity: list = field(default_factory=lambda: OPTIMISED_QUANTITY)
     priors: dict = field(default_factory=lambda: DEFAULT_PRIORS)
+    percent_error: float = 0.10
 
     """
     TODO: default methods / getter + setters
@@ -339,7 +340,7 @@ class PlasmaContext:
 
         self.plasma.update_profiles(params)
 
-    def time_iterator(self):  # TODO: Why is this being called anytime plasma attributes are accessed?
+    def time_iterator(self):
         print("resetting time iterator")
         return iter(self.plasma.t)
 
@@ -522,7 +523,7 @@ class ModelContext:
 
         return self.models
 
-    def _build_bckc(self, params: dict, **kwargs):
+    def _build_bckc(self, params: dict = None, **kwargs):
         """
         Parameters
         ----------
@@ -531,13 +532,14 @@ class ModelContext:
 
         Returns
         -------
-        bckc of results
+        nested bckc of results
         """
 
         # Float128 since rounding of small numbers causes problems
         # when initial results are bad fits
         # model_data = self.bckc[key].astype("float128")
-
+        if params is None:
+            params = {}
         self.bckc: dict = {}
         for model_name, model in self.models.items():
             # removes "model.name." from params and kwargs then passes them to model
@@ -558,10 +560,8 @@ class ModelContext:
                 **_model_settings,
             }  # combine dictionaries
             _bckc = model(**_model_kwargs)
-            _model_bckc = {
-                f"{model.name}.{value_name}": value
-                for value_name, value in _bckc.items()
-            }  # prepend model name to bckc
+            _model_bckc = {model.name: {value_name: value for value_name, value in _bckc.items()}}
+              # prepend model name to bckc
             self.bckc = dict(self.bckc, **_model_bckc)
         return self.bckc
 
@@ -579,6 +579,7 @@ class DataContext(ABC):
     tstart: float
     tend: float
     dt: float
+    diagnostics: list
     transforms = None
     equilibrium = None
     phantoms = False
@@ -590,22 +591,27 @@ class DataContext(ABC):
         self.raw_data = None
         self.binned_data = None
 
-    def check_if_data_present(self, data_strategy: Callable):
+    @abstractmethod
+    def data_strategy(self):
+        return None
+
+    def _check_if_data_present(self, data_strategy: Callable = lambda: None):
         if not self.binned_data:
             print("Data not given: using data strategy")
             self.binned_data = data_strategy()
 
+    def pre_process_data(self, model_callable: Callable):
+        self.model_callable = model_callable  # TODO: handle this dependency (phantom data) some other way?
+        self._check_if_data_present(self.data_strategy)
+
     @abstractmethod
-    def process_data(self, model_context: ModelContext):
-        self.model_context = model_context  # TODO: handle this dependency (phantom data) some other way
-        self.check_if_data_present(lambda: {})
+    def process_data(self, model_callable: Callable):
+        self.pre_process_data(model_context)
         self.opt_data = flatdict.FlatDict(self.binned_data)
 
 
 @dataclass
 class ExpData(DataContext):
-    pulse: int
-    diagnostics: list
     phantoms = False
 
     """
@@ -625,20 +631,12 @@ class ExpData(DataContext):
         self.raw_data = self.reader.raw_data
         self.binned_data = self.reader.binned_data
 
-    def process_data(self, model_callables: Callable):
-        self.model_callables = model_callables
-        self.check_if_data_present(self._fail_strategy)
-        self.opt_data = self._process_data()
-
-    def _fail_strategy(self):
+    def data_strategy(self):
         raise ValueError("Data strategy: Fail")
 
-    def _process_data(self):
-        """
-        Returns flattened bin data and adds custom errors
-        """
+    def process_data(self, model_callable: Callable):
+        self.pre_process_data(model_callable)
         opt_data = flatdict.FlatDict(self.binned_data, ".")
-
         if "xrcs.spectra" in opt_data.keys():
             background = opt_data["xrcs.spectra"].where(
                 (opt_data["xrcs.spectra"].wavelength < 0.392)
@@ -653,48 +651,10 @@ class ExpData(DataContext):
 
         if "ts.te" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
-
-        return opt_data
-
-
-@dataclass
-class MockData(DataContext):
-    pulse = None
-    diagnostic_transforms: dict = field(default_factory=lambda: {})
-    model_call_params: dict = field(default_factory=lambda: {})
-    phantoms = True
-
-    def read_data(self):
-        # Used with phantom data for purposes of tests
-        print("Reading mock equilibrium / transforms")
-        self.equilibrium = fake_equilibrium(
-            tstart,
-            tend,
-            dt,
-        )
-        self.transforms = self.diagnostic_transforms
-        self.binned_data: dict = {}
-        self.raw_data: dict = {}
-
-    def process_data(self, model_callables: Callable):
-        self.model_callables = model_callables
-        self.check_if_data_present(self._gen_data_strategy)
-
-    def _gen_data_strategy(self):
-        print("Data strategy: generating from model bckc")
-        self.binned_data = self._process_data()
-
-    def _process_data(self):
-        binned_data = self.model_callables()
-        self.opt_data = flatdict.FlatDict(binned_data, ".")
-        return binned_data
-
+        self.opt_data = opt_data
 
 @dataclass
 class PhantomData(DataContext):
-    pulse: int
-    diagnostics: list
-    model_call_kwargs: dict = field(default_factory=lambda: {})
     phantoms = True
 
     def read_data(self, ):
@@ -708,18 +668,32 @@ class PhantomData(DataContext):
         self.raw_data = {}
         self.binned_data = {}
 
-    def process_data(self, model_callables: Callable):
-        self.model_callables = model_callables
-        self.check_if_data_present(self._gen_data_strategy)
+    def data_strategy(self):
+        print("Data strategy: Phantom data")
+        return self.model_callable()
 
-    def _gen_data_strategy(self):
-        print("Data strategy: generating from model bckc")
-        self.binned_data = self._process_data()
+    def process_data(self, model_callable: Callable):
+        self.pre_process_data(model_callable)
+        self.opt_data = flatdict.FlatDict(self.binned_data, ".")
 
-    def _process_data(self):
-        binned_data = self.model_callables()
-        self.opt_data = flatdict.FlatDict(binned_data, ".")
-        return binned_data
+@dataclass
+class MockData(PhantomData):
+    diagnostic_transforms: dict = field(default_factory=lambda: {})
+
+    def read_data(self):
+        print("Reading mock equilibrium / transforms")
+        self.equilibrium = fake_equilibrium(
+            tstart,
+            tend,
+            dt,
+        )
+        missing_transforms = list(set(diagnostics).difference(self.diagnostic_transforms.keys()))
+        if missing_transforms:
+            raise ValueError(f"Missing transforms: {missing_transforms}")
+
+        self.transforms = self.diagnostic_transforms
+        self.binned_data: dict = {}
+        self.raw_data: dict = {}
 
 
 @dataclass
@@ -758,6 +732,12 @@ class OptimiserContext(ABC):
         return results
 
 def sample_from_priors(param_names: list, priors: dict, size=10):
+    """
+    TODO: may be able to remove param_names from here and at some point earlier remove priors that aren't used
+        then loop over remaining priors while handling conditional priors somehow...
+        The order of samples may need to be checked / reordered at some point then
+    """
+
     #  Throw out samples that don't meet conditional priors and redraw
     samples = np.empty((param_names.__len__(), 0))
     while samples.size < param_names.__len__() * size:
@@ -881,7 +861,7 @@ class EmceeOptimiser(OptimiserContext):
             for blob_name in blob_names
         }
         results["accept_frac"] = self.optimiser.acceptance_fraction.sum()
-        results["prior_sample"] = self.sample_from_priors(
+        results["prior_sample"] = sample_from_priors(
             self.optimiser_settings.param_names, self.optimiser_settings.priors, size=int(1e4)
         )
 
@@ -927,14 +907,15 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self.model_context.update_model_kwargs(self.data_context.binned_data)
         self.model_context.init_models()
 
-        self.model_call_kwargs = {"xrcs.pixel_offset": 4.0}
-        self.data_context.process_data(partial(self.model_context._build_bckc, self.model_call_kwargs))
+        self.model_call_kwargs = {"xrcs.pixel_offset": -4.0}
+        self.data_context.process_data(partial(self.model_context._build_bckc, **self.model_call_kwargs))
 
         self.blackbox = BayesBlackBox(data=self.data_context.opt_data,
                                       plasma_context=self.plasma_context,
                                       model_context=self.model_context,
                                       quant_to_optimise=self.bayes_settings.opt_quantity,
-                                      priors=self.bayes_settings.priors)
+                                      priors=self.bayes_settings.priors,
+                                      percent_error=self.bayes_settings.percent_error)
 
         self.optimiser_context.init_optimiser(self.blackbox.ln_posterior, model_kwargs=self.model_call_kwargs)
 
@@ -1004,15 +985,16 @@ if __name__ == "__main__":
     dt = 0.01
 
     diagnostics = [
-        # "xrcs",
-        # "efit",
+        "xrcs",
+        "efit",
         # "smmh1",
         # "cxff_pi",
+        "cxff_tws_c",
         "ts",
     ]
     # diagnostic_quantities
     opt_quant = [
-                # "xrcs.spectra",
+                "xrcs.spectra",
                 #  "efit.wp",
                 "ts.te"
                 ]
@@ -1038,10 +1020,15 @@ if __name__ == "__main__":
     #  "cxff_pi": pi_transform_example(5),
     #  "ts": ts_transform_example(11), }
     # data_context = MockData(pulse=None, diagnostic_transforms=mock_transforms, )
+    #
+    # data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
+    #                        tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    # data_context.read_data()
 
     data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
-                           tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+                                tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
+
 
     plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"), impurity_concentration=(0.001, 0.04),
                                      n_rad=20)
@@ -1062,7 +1049,7 @@ if __name__ == "__main__":
                                  model_kwargs=model_init_kwargs,
                                  )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=500,
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=5,
                                                 sample_method="high_density", starting_samples=100, burn_frac=0.20,
                                                 stopping_criterion="mode", stopping_criterion_factor=0.01,
                                                 priors=bayes_settings.priors)

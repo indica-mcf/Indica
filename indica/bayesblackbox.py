@@ -1,6 +1,6 @@
 from copy import deepcopy
 import warnings
-
+from flatdict import FlatDict
 import numpy as np
 from scipy.stats import uniform
 np.seterr(all="ignore")
@@ -134,7 +134,7 @@ class BayesBlackBox:
         self.plasma_context.update_profiles(parameters)
         plasma_attributes = self.plasma_context.return_plasma_attrs()
 
-        self.bckc = self.model_context._build_bckc(parameters, **kwargs)  # model calls
+        self.bckc = FlatDict(self.model_context._build_bckc(parameters, **kwargs), ".")  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data
         ln_posterior = _ln_likelihood + _ln_prior
