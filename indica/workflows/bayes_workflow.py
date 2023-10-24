@@ -1010,7 +1010,7 @@ if __name__ == "__main__":
                   ]
 
     # BlackBoxSettings
-    bayes_settings = BayesSettings(diagnostics=diagnostics, param_names=opt_params,
+    bayes_settings = BayesBBSettings(diagnostics=diagnostics, param_names=opt_params,
                                    opt_quantity=opt_quant, priors=DEFAULT_PRIORS, )
 
     data_settings = ReaderSettings(filters={},
