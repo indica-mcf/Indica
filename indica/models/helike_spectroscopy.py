@@ -216,7 +216,7 @@ class HelikeSpectrometer(DiagnosticModel):
         measured_spectra = measured_spectra.assign_coords(
             {"wavelength": self.spectra.wavelength}
         )
-        measured_spectra[measured_spectra==0] = np.nan
+        measured_spectra = xr.where(measured_spectra == 0, np.nan, measured_spectra)
         self.measured_spectra = measured_spectra.sortby("wavelength")
         self.spectra_los = self.los_transform.along_los
 
