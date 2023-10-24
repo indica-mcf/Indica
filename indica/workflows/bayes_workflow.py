@@ -720,8 +720,9 @@ class OptimiserEmceeSettings:
     burn_frac: float = 0.20
     sample_method: str = "random"
     starting_samples: int = 100
-    stopping_criterion: str = "mode"
-    stopping_criterion_factor: float = 0.01
+    stopping_criteria: str = "mode"
+    stopping_criteria_factor: float = 0.01
+    stopping_criteria_sample: int = 20,
     stopping_criteria_debug: bool = False
 
 
@@ -815,18 +816,18 @@ class EmceeOptimiser(OptimiserContext):
 
     def run(self, ):
 
-        if self.optimiser_settings.stopping_criterion == "mode":
+        if self.optimiser_settings.stopping_criteria == "mode":
             self.autocorr = sample_with_moments(
                 self.optimiser,
                 self.start_points,
                 self.optimiser_settings.iterations,
                 self.optimiser_settings.param_names.__len__(),
-                auto_sample=10,
-                stopping_factor=self.optimiser_settings.stopping_criterion_factor,
+                auto_sample=self.optimiser_settings.stopping_criteria_sample,
+                stopping_factor=self.optimiser_settings.stopping_criteria_factor,
                 debug=self.optimiser_settings.stopping_criteria_debug
             )
         else:
-            raise ValueError(f"Stopping criterion: {self.optimiser_settings.stopping_criterion} not recognised")
+            raise ValueError(f"Stopping criteria: {self.optimiser_settings.stopping_criteria} not recognised")
 
         optimiser_results = self.format_results()
         return optimiser_results
@@ -1052,7 +1053,7 @@ if __name__ == "__main__":
 
     optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=5,
                                                 sample_method="high_density", starting_samples=100, burn_frac=0.20,
-                                                stopping_criterion="mode", stopping_criterion_factor=0.01,
+                                                stopping_criteria="mode", stopping_criteria_factor=0.01,
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
