@@ -71,7 +71,7 @@ DEFAULT_PRIORS = {
     "Ne_prof.wped": get_uniform(2, 6),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
-    "Nimp_prof.y0": loguniform(1e15, 1e18),
+    "Nimp_prof.y0": loguniform(1e16, 1e18),
     "Nimp_prof.y1": loguniform(1e14, 1e16),
     "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
