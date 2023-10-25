@@ -1001,16 +1001,16 @@ if __name__ == "__main__":
     dt = 0.01
 
     diagnostics = [
-        "xrcs",
-        "efit",
+        # "xrcs",
+        # "efit",
         # "smmh1",
         # "cxff_pi",
-        "cxff_tws_c",
+        # "cxff_tws_c",
         "ts",
     ]
     # diagnostic_quantities
     opt_quant = [
-        "xrcs.spectra",
+        # "xrcs.spectra",
         #  "efit.wp",
         "ts.te"
     ]
@@ -1051,7 +1051,7 @@ if __name__ == "__main__":
                                  model_settings=model_settings,
                                  )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=5,
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=100,
                                                 sample_method="high_density", starting_samples=100, burn_frac=0.20,
                                                 stopping_criteria="mode", stopping_criteria_factor=0.01,
                                                 priors=bayes_settings.priors)
