@@ -115,7 +115,6 @@ if __name__ == "__main__":
 
     pulse_info = [
         # stopping criteria test / integration test
-
         [(11226,
           ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
           PARAMS_DEFAULT,
@@ -132,12 +131,12 @@ if __name__ == "__main__":
              tend=0.08,
              dt=0.01,
              iterations=5000,
-             nwalkers=50,
-             stopping_criteria_factor=0.02,
+             nwalkers=26,
+             stopping_criteria_factor=0.01,
              mds_write=True,
              plot=True,
              run="RUN01",
-             dirname=f"{11226}_phantom_moment_02",
+             dirname=f"{11226}_phantom_walkers_26",
          )],
 
         [(11226,
@@ -161,7 +160,7 @@ if __name__ == "__main__":
              mds_write=True,
              plot=True,
              run="RUN01",
-             dirname=f"{11226}_phantom_moment_01",
+             dirname=f"{11226}_phantom_walkers_50",
          )],
 
         [(11226,
@@ -180,13 +179,86 @@ if __name__ == "__main__":
              tend=0.08,
              dt=0.01,
              iterations=5000,
-             nwalkers=50,
-             stopping_criteria_factor=0.001,
+             nwalkers=100,
+             stopping_criteria_factor=0.01,
              mds_write=True,
              plot=True,
              run="RUN01",
-             dirname=f"{11226}_phantom_moment_001",
+             dirname=f"{11226}_phantom_walkers_100",
          )],
+
+
+        # [(11226,
+        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
+        #   PARAMS_DEFAULT,
+        #   [
+        #       "xrcs.spectra",
+        #       "cxff_pi.ti",
+        #       "cxff_tws_c.ti",
+        #       "ts.ne",
+        #       "ts.te",
+        #   ]),
+        #  dict(
+        #      phantom=True,
+        #      tstart=0.07,
+        #      tend=0.08,
+        #      dt=0.01,
+        #      iterations=5000,
+        #      nwalkers=50,
+        #      stopping_criteria_factor=0.02,
+        #      mds_write=True,
+        #      plot=True,
+        #      run="RUN01",
+        #      dirname=f"{11226}_phantom_moment_02",
+        #  )],
+        #
+        # [(11226,
+        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
+        #   PARAMS_DEFAULT,
+        #   [
+        #       "xrcs.spectra",
+        #       "cxff_pi.ti",
+        #       "cxff_tws_c.ti",
+        #       "ts.ne",
+        #       "ts.te",
+        #   ]),
+        #  dict(
+        #      phantom=True,
+        #      tstart=0.07,
+        #      tend=0.08,
+        #      dt=0.01,
+        #      iterations=5000,
+        #      nwalkers=50,
+        #      stopping_criteria_factor=0.01,
+        #      mds_write=True,
+        #      plot=True,
+        #      run="RUN01",
+        #      dirname=f"{11226}_phantom_moment_01",
+        #  )],
+        #
+        # [(11226,
+        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
+        #   PARAMS_DEFAULT,
+        #   [
+        #       "xrcs.spectra",
+        #       "cxff_pi.ti",
+        #       "cxff_tws_c.ti",
+        #       "ts.ne",
+        #       "ts.te",
+        #   ]),
+        #  dict(
+        #      phantom=True,
+        #      tstart=0.07,
+        #      tend=0.08,
+        #      dt=0.01,
+        #      iterations=5000,
+        #      nwalkers=50,
+        #      stopping_criteria_factor=0.001,
+        #      mds_write=True,
+        #      plot=True,
+        #      run="RUN01",
+        #      dirname=f"{11226}_phantom_moment_001",
+        #  )],
 
         [(11226,
           ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
@@ -203,7 +275,8 @@ if __name__ == "__main__":
              tstart=0.07,
              tend=0.08,
              dt=0.01,
-             iterations=10,
+             iterations=5000,
+             stopping_criteria_factor=0.01,
              nwalkers=50,
              mds_write=True,
              plot=True,
@@ -232,6 +305,9 @@ if __name__ == "__main__":
         #      run="RUN01",
         #      dirname=f"{11336}_phantom",
         #  )],
+
+
+        # RFX low ti/te pulse
 
     ]
 
