@@ -615,7 +615,7 @@ class DataContext(ABC):
 
     @abstractmethod
     def process_data(self, model_callable: Callable):
-        self.pre_process_data(model_context)
+        self.pre_process_data(model_callable)
         self.opt_data = flatdict.FlatDict(self.binned_data)
 
 
