@@ -617,7 +617,7 @@ def plot_data_bckc_comparison(
                 (_bckc).plot(
                     label=label,
                     color=COLORS["bckc"],
-                    linewidth=rcParams["lines.linewidth"] * 1.5,
+                    linewidth=rcParams["lines.linewidth"],
                     alpha=alpha,
                 )
                 del label
@@ -698,6 +698,18 @@ def example_params(example: str, all_runs: bool = False):
             tstart=0.03,
             tend=0.11,
             tplot=0.1,
+        ),
+        "michail_10014": dict(
+            comment="predictive ASTRA",
+            pulse_code=36010014,
+            pulse=10014,
+            equil="efit",
+            equil_run=0,
+            code="astra",
+            runs=["RUN24"],
+            tstart=0.03,
+            tend=0.1,
+            tplot=0.07,
         ),
         "aleksei_11228": dict(
             comment="ASTRA using TS and invented Ti shapes",
@@ -803,5 +815,5 @@ def example_params(example: str, all_runs: bool = False):
 
 if __name__ == "__main__":
     plt.ioff()
-    example_run()
+    example_run(example="alsu_11314")
     plt.show()

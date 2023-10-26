@@ -30,8 +30,8 @@ QUANTITIES: list = [
     # "cxff_pi:vtor",
     # "cxff_tws_c:ti",
     # "cxff_tws_c:vtor",
-    # "ts:te",
-    # "ts:ne",
+    "ts:te",
+    "ts:ne",
     # "lines",
 ]
 
@@ -69,7 +69,10 @@ def plot_st40_data(
 
     set_plot_rcparams(fig_style)
     xr.set_options(keep_attrs=True)
-    colors = CMAP(np.linspace(0.75, 0.1, len(pulses), dtype=float))
+    if len(pulses) > 1:
+        colors = CMAP(np.linspace(0.75, 0.1, len(pulses), dtype=float))
+    else:
+        colors = ["blue"]
 
     raw: dict = {quant: {} for quant in quantities}
     binned = deepcopy(raw)
@@ -103,6 +106,8 @@ def plot_st40_data(
             plt.legend()
             plt.autoscale()
             save_figure(fig_path, f"{quantity}", save_fig=save_fig)
+
+    return data, st40
 
 
 def plot_data(data, quantity: str, pulse: int, tplot: float, key="raw", color=None):
