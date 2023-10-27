@@ -98,7 +98,7 @@ def fit_profile(
     return yspl
 
 
-def spline_fit_ts(
+def example_run(
     pulse: int = 11314,
     tstart: float = 0.03,
     tend: float = 0.1,
@@ -180,5 +180,5 @@ def spline_fit_ts(
 
 if __name__ == "__main__":
     plt.ioff()
-    spline_fit_ts(11089, quantity="ne")
+    example_run(11089, quantity="ne")
     plt.show()
