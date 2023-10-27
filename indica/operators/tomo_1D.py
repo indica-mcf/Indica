@@ -499,12 +499,12 @@ class SXR_tomography:
         tomo_var = ax[0].fill_between(
             r, r * 0, r * 0, alpha=0.5, facecolor="b", edgecolor="None"
         )
-        (expected_emissivity,) = ax[0].plot(
-            [], [], alpha=0.5, color="r", linestyle="dashed", lw=2
-        )
+        (expected_emissivity,) = ax[0].plot([], [], color="r", linestyle="dashed", lw=2)
         (tomo_mean,) = ax[0].plot([], [], lw=2)
 
-        errorbar = ax[1].errorbar(0, np.nan, 0, capsize=4, c="g", marker="o", ls="none")
+        errorbar = ax[1].errorbar(
+            0, np.nan, 0, capsize=4, c="r", marker="o", ls="none", alpha=0.5
+        )
         (retro_inter,) = ax[1].plot([], [], "b-")
         (retro,) = ax[1].plot([], [], "bx")
 
@@ -522,20 +522,18 @@ class SXR_tomography:
         print(ymax)
 
         ax[0].set_xlabel(r"$\rho$")
-        ax[1].set_xlabel(r"index")
+        ax[1].set_xlabel(r"Channel")
         ax[1].set_ylabel("Brightness [kW/m$^2$]")
         ax[0].set_ylabel("Emissivity [kW/m$^3$]")
         global cont
         cvals = np.linspace(0, 1, 20)
 
         cont = ax[2].contour(
-            self.eq["R"], self.eq["z"], self.eq["rho"][0], cvals, colors="k"
+            self.eq["R"], self.eq["z"], self.eq["rho"][0], cvals, colors="red"
         )
 
         ax[2].axis("equal")
         ax[2].plot(self.R.T, self.z.T, "b", zorder=99)
-        R, z = np.meshgrid(self.eq["R"], self.eq["z"])
-        ax[2].plot(R, z, "k,", zorder=99)
         ax[2].axis(
             [
                 0.15,
@@ -589,7 +587,12 @@ class SXR_tomography:
             it_eq = np.argmin(np.abs(self.eq["t"] - time))
 
             cont = ax[2].contour(
-                self.eq["R"], self.eq["z"], self.eq["rho"][it_eq], cvals, colors="k"
+                self.eq["R"],
+                self.eq["z"],
+                self.eq["rho"][it_eq],
+                cvals,
+                colors=["r"] * len(cvals),
+                alpha=0.8,
             )
 
             title.set_text(
