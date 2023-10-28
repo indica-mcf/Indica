@@ -174,12 +174,20 @@ def example_run(
     # Create new interferometers diagnostics
     if origin is None or direction is None:
         los_end = np.full((nchannels, 3), 0.0)
-        los_end[:, 0] = 0.17
-        los_end[:, 1] = 0.0
-        los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
-        los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
+        los_end[:, 0] = 0.0
+        los_end[:, 1] = np.linspace(-0.2, -1, nchannels)
+        los_end[:, 2] = 0.0
+        los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
         origin = los_start
         direction = los_end - los_start
+
+        # los_end = np.full((nchannels, 3), 0.0)
+        # los_end[:, 0] = 0.17
+        # los_end[:, 1] = 0.0
+        # los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
+        # los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
+        # origin = los_start
+        # direction = los_end - los_start
 
     los_transform = LineOfSightTransform(
         origin[:, 0],
