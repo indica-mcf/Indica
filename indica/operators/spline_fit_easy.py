@@ -29,8 +29,7 @@ def fit_profile(
             bc_type=bc_type,
         )
         bckc = np.interp(x, xspl, spline(xspl))
-        residuals = np.sqrt((y - bckc) ** 2 / err**2)
-        return residuals
+        return (y - bckc) / err
 
     yspl = xr.DataArray(
         np.empty((len(xspl), len(ydata.t))),
