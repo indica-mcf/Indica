@@ -655,11 +655,19 @@ class ExpData(DataContext):
             opt_data["xrcs.spectra"]["error"] = np.sqrt(
                 opt_data["xrcs.spectra"] + background.std(dim="wavelength") ** 2
             )
+        # TODO move the channel filtering to the read_data method in filtering = {}
         if "ts.ne" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
+            opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel<21)
 
         if "ts.te" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
+            opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel<21)
+
+        if "cxff_tws_c.ti" in opt_data.keys():
+            opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(opt_data["cxff_tws_c.ti"].channel==0)
+
+
         self.opt_data = opt_data
 
 
