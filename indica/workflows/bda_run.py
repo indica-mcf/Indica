@@ -306,9 +306,33 @@ if __name__ == "__main__":
         #      dirname=f"{11336}_phantom",
         #  )],
 
+        # [(11089,
+        # ["xrcs", "cxff_tws_c", "ts"],
+        # PARAMS_DEFAULT,
+        #   [
+        #       "xrcs.spectra",
+        #       "cxff_tws_c.ti",
+        #       "ts.ne",
+        #       "ts.te",
+        #   ]),
+        #  dict(
+        #      phantom=False,
+        #      tstart=0.050,
+        #      tend=0.150,
+        #      dt=0.01,
+        #      iterations=5000,
+        #      nwalkers=50,
+        #      stopping_criteria_factor=0.01,
+        #      mds_write=True,
+        #      plot=True,
+        #      revisions={},
+        #      run="RUN01",
+        #      dirname=f"{11089}_quicktest",
+        #  )],
+
         [(11089,
-        ["xrcs", "cxff_tws_c", "ts"],
-        PARAMS_DEFAULT,
+          ["xrcs", "cxff_tws_c", "ts"],
+          PARAMS_DEFAULT,
           [
               "xrcs.spectra",
               "cxff_tws_c.ti",
@@ -322,14 +346,13 @@ if __name__ == "__main__":
              dt=0.01,
              iterations=5000,
              nwalkers=50,
-             stopping_criteria_factor=0.01,
+             stopping_criteria_factor=0.002,
              mds_write=True,
              plot=True,
              revisions={},
              run="RUN01",
-             dirname=f"{11089}_quicktest",
+             dirname=f"{11089}",
          )],
-
         # RFX low ti/te pulse
     ]
 
