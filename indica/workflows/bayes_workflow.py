@@ -68,7 +68,7 @@ DEFAULT_PRIORS = {
     "Ne_prof.y0": get_uniform(2e19, 4e20),
     "Ne_prof.y1": get_uniform(1e18, 2e19),
     "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
-    "Ne_prof.wped": get_uniform(2, 6),
+    "Ne_prof.wped": loguniform(2, 20),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
     "Nimp_prof.y0": loguniform(1e16, 1e18),
@@ -85,7 +85,7 @@ DEFAULT_PRIORS = {
     ),  # impurity always more peaked
 
     "Te_prof.y0": get_uniform(1000, 5000),
-    "Te_prof.wped": get_uniform(1, 6),
+    "Te_prof.wped": get_uniform(1, 8),
     "Te_prof.wcenter": get_uniform(0.2, 0.4),
     "Te_prof.peaking": get_uniform(1, 4),
     # "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
