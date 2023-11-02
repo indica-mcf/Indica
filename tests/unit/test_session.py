@@ -70,6 +70,7 @@ def test_session_context_manager():
         assert session.global_session == new_session
     assert session.global_session == old_session
 
+
 def test_dependency_provenance():
     session = Session("rand.m.person@ukaea.uk")
     dependencies = list(
