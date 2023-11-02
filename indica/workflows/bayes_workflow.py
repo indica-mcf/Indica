@@ -85,7 +85,7 @@ DEFAULT_PRIORS = {
     ),  # impurity always more peaked
 
     "Te_prof.y0": get_uniform(1000, 5000),
-    "Te_prof.wped": get_uniform(1, 8),
+    "Te_prof.wped": get_uniform(1, 6),
     "Te_prof.wcenter": get_uniform(0.2, 0.4),
     "Te_prof.peaking": get_uniform(1, 4),
     # "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
@@ -761,7 +761,7 @@ class EmceeOptimiser(OptimiserContext):
 
     def init_optimiser(self, blackbox_func: Callable):
         ndim = len(self.optimiser_settings.param_names)
-        self.move = [(emcee.moves.StretchMove(), 0.9), (emcee.moves.DEMove(), 0.1)]
+        self.move = [(emcee.moves.StretchMove(), 0.0), (emcee.moves.DEMove(), 0.7), (emcee.moves.DESnookerMove(), 0.3)]
         self.optimiser = emcee.EnsembleSampler(
             self.optimiser_settings.nwalkers,
             ndim,
@@ -1004,8 +1004,8 @@ class BayesWorkflow(AbstractBayesWorkflow):
 
 if __name__ == "__main__":
     pulse = 11336
-    tstart = 0.07
-    tend = 0.08
+    tstart = 0.05
+    tend = 0.07
     dt = 0.01
 
     diagnostics = [
