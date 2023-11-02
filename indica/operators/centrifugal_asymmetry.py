@@ -81,7 +81,7 @@ def centrifugal_asymmetry_2d_map(
     return profile_2d
 
 
-def example_run():
+def example_run(plot: bool = False):
 
     plasma = example_plasma()
 
@@ -105,14 +105,15 @@ def example_run():
         ion_density_2d, ("density", "ion"), "$m^{-3}$", long_name="Ion density"
     )
 
-    tplot = ion_density_2d.t[2]
-    element = ion_density_2d.element[2]
-    plot_2d = ion_density_2d.sel(t=tplot, element=element)
-    plt.figure()
-    plot_2d.plot()
+    if plot:
+        tplot = ion_density_2d.t[2]
+        element = ion_density_2d.element[2]
+        plot_2d = ion_density_2d.sel(t=tplot, element=element)
+        plt.figure()
+        plot_2d.plot()
 
-    plt.figure()
-    plot_2d.sel(z=0, method="nearest").plot(label="Midplane z=0")
-    plt.legend()
+        plt.figure()
+        plot_2d.sel(z=0, method="nearest").plot(label="Midplane z=0")
+        plt.legend()
 
     return plasma, ion_density_2d

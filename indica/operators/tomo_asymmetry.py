@@ -1,4 +1,3 @@
-from copy import deepcopy
 from typing import Tuple
 
 import matplotlib.pylab as plt
@@ -9,7 +8,10 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.numpy_typing import ArrayLike, LabeledArray
+import indica.models.bolometer_camera as bolo
+from indica.numpy_typing import ArrayLike
+from indica.numpy_typing import LabeledArray
+import indica.operators.centrifugal_asymmetry as centrifugal_asymmetry
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 
 DataArrayCoords = Tuple[DataArray, DataArray]
@@ -97,6 +99,7 @@ class InvertPoloidalAsymmetry:
         def evaluate(xknots, yconcat):
             """
             1. Separate profile and asymmetry knots + add boundaries
+                asymmetry(rho>=1)
             2. Initialize and call splines.
             3. Map profile and asymmetry to 2D
             """
@@ -106,12 +109,25 @@ class InvertPoloidalAsymmetry:
             yasymmetry = np.append(yasymmetry[0], yasymmetry)
             yasymmetry = np.append(yasymmetry, [yasymmetry[-1], yasymmetry[-1]])
 
-            profile_spline = CubicSpline(xknots, yprofile, 0, bc_profile,)
+            profile_spline = CubicSpline(
+                xknots,
+                yprofile,
+                0,
+                bc_profile,
+            )
             profile_to_map = DataArray(profile_spline(xspl), coords=coords)
-            asymmetry_spline = CubicSpline(xknots, yasymmetry, 0, bc_asymmetry,)
+            asymmetry_spline = CubicSpline(
+                xknots,
+                yasymmetry,
+                0,
+                bc_asymmetry,
+            )
             asymmetry_parameter = DataArray(asymmetry_spline(xspl), coords=coords)
             profile_2d = centrifugal_asymmetry_2d_map(
-                profile_to_map, asymmetry_parameter, equilibrium=equilibrium, t=t,
+                profile_to_map,
+                asymmetry_parameter,
+                equilibrium=equilibrium,
+                t=t,
             )
             return profile_2d, profile_to_map, asymmetry_parameter
 
@@ -135,24 +151,31 @@ class InvertPoloidalAsymmetry:
 
         self.t = np.array(t, ndmin=1)
         self.los_transform = los_transform
+        self.data = los_integral
+        self.error = error
+
+        # Normalise to have similar ranges for profile and asymmetry
         norm_factor = los_integral.max().values
-        self.data = los_integral / norm_factor
-        self.error = error / norm_factor
+        data = los_integral / norm_factor
+        error = error / norm_factor
 
         # Initial guesses
-        _guess_profile = self.data.sel(t=self.t[0]).mean().values
+        _guess_profile = data.sel(t=self.t[0]).mean().values
         _guess_asymmetry = 0.0
         guess_profile = np.full_like(xknots, _guess_profile)
         guess_asymmetry = np.full_like(xknots, _guess_asymmetry)
-        yconcat = np.append(guess_profile[mask_profile], guess_asymmetry[mask_asymmetry],)
+        yconcat = np.append(
+            guess_profile[mask_profile],
+            guess_asymmetry[mask_asymmetry],
+        )
 
         profile = []
         asymmetry = []
         profile_2d = []
         bckc = []
         for t in self.t:
-            _data = self.data.sel(t=t).values
-            _error = self.error.sel(t=t).values
+            _data = data.sel(t=t).values
+            _error = error.sel(t=t).values
             _x = np.arange(len(_data))
 
             if debug:
@@ -160,10 +183,17 @@ class InvertPoloidalAsymmetry:
                 plt.ioff()
                 plt.errorbar(_x, _data, _error, marker="o")
 
-            fit = least_squares(residuals, yconcat, bounds=self.bounds, verbose=debug,)
+            fit = least_squares(
+                residuals,
+                yconcat,
+                bounds=self.bounds,
+                verbose=debug,
+            )
             yconcat = fit.x
 
-            _profile_2d, _profile_to_map, _asymmetry_parameter = evaluate(xknots, yconcat)
+            _profile_2d, _profile_to_map, _asymmetry_parameter = evaluate(
+                xknots, yconcat
+            )
             _bckc = los_transform.integrate_on_los(_profile_2d, t=t)
             if debug:
                 plt.plot(_x, _bckc, linewidth=2)
@@ -188,9 +218,6 @@ class InvertPoloidalAsymmetry:
 
 
 def example_run():
-    import indica.models.bolometer_camera as bolo
-    import indica.operators.centrifugal_asymmetry as centrifugal_asymmetry
-    from indica.operators.tomo_asymmetry_class import InvertPoloidalAsymmetry
 
     plasma, ion_density_2d = centrifugal_asymmetry.example_run()
     _, model, _ = bolo.example_run()
@@ -200,23 +227,48 @@ def example_run():
     los_integral = los_transform.integrate_on_los(profile_2d, profile_2d.t.values)
 
     print("\n Running asymmetry inference...")
-    self = InvertPoloidalAsymmetry()
+    invert_asymm = InvertPoloidalAsymmetry()
 
-    profile_2d_bckc, bckc, profile, asymmetry = self(
-        los_integral, los_transform,
+    profile_2d_bckc, bckc, profile, asymmetry = invert_asymm(
+        los_integral,
+        los_transform,
     )
     print("...and finished \n")
 
     for t in bckc.t:
         plt.ioff()
+
+        kwargs_phantom = dict(
+            marker="o",
+            label="Phantom",
+            color="k",
+            zorder=1,
+        )
+        kwargs_bckc = dict(
+            marker="x", label="Bckc", color="b", zorder=2, linewidth=4, alpha=0.5
+        )
         plt.figure()
-        los_integral.sel(t=t).plot(marker="o")
-        bckc.sel(t=t).plot()
+        plt.errorbar(
+            invert_asymm.data.channel,
+            invert_asymm.data.sel(t=t),
+            invert_asymm.error.sel(t=t),
+            **kwargs_phantom,
+        )
+        bckc.sel(t=t).plot(**kwargs_bckc)
+        plt.title("LOS integrals")
+
         plt.figure()
-        ((profile_2d.sel(t=t) - profile_2d_bckc.sel(t=t)) / profile_2d.sel(t=t)).plot()
+        profile_2d.sel(t=t).plot()
+        plt.title("2D phantom")
+
         plt.figure()
-        profile_2d.sel(t=t).sel(z=0, method="nearest").plot(marker="o")
-        profile_2d_bckc.sel(t=t).sel(z=0, method="nearest").plot()
+        profile_2d_bckc.sel(t=t).plot()
+        plt.title("2D bckc")
+
+        plt.figure()
+        profile_2d.sel(t=t).sel(z=0, method="nearest").plot(**kwargs_phantom)
+        profile_2d_bckc.sel(t=t).sel(z=0, method="nearest").plot(**kwargs_bckc)
+        plt.title("Midplane cut (z=0)")
         plt.show()
 
 
