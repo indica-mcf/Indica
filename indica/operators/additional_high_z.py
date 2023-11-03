@@ -10,6 +10,7 @@ from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from indica.datatypes import DataType
 from indica.utilities import coord_array
 from .abstractoperator import Operator
+from .centrifugal_asymmetry import AsymmetryParameter
 from .extrapolate_impurity_density import asymmetry_modifier_from_parameter
 
 
@@ -158,6 +159,7 @@ class AdditionalHighZ(Operator):
         impurity: str,
         Zeff: xr.DataArray,
         electron_temp: xr.DataArray,
+        flux_surfaces: FluxSurfaceCoordinates,
     ) -> xr.DataArray:
         """
         Calculate the unnormalised additional high Z density on the midplane
@@ -182,6 +184,9 @@ class AdditionalHighZ(Operator):
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data. In units of eV.
+        flux_surfaces
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
 
         Returns
         -------
@@ -190,7 +195,33 @@ class AdditionalHighZ(Operator):
         additional_high_z_asymmetry_parameter
             Additional high Z impurity asymmetry parameter. Dimensions (t, rho).
         """
-        raise NotImplementedError
+        # first calculate asymmetry_parameter
+        asym_operator = AsymmetryParameter()
+        n_additional_high_z_asymmetry_parameter = asym_operator(
+            toroidal_rotations,
+            ion_temperature,
+            main_ion,
+            impurity,
+            Zeff,
+            electron_temp,
+        )
+
+        # second convert fsa density to midplane density
+        rho = n_additional_high_z_unnormalised_fsa.coords["rho_poloidal"]
+        # number of points to use for fsa to midplane conversion
+        ntheta = 12
+        theta = coord_array(np.linspace(0.0, 2.0 * np.pi, ntheta), "theta")
+
+        R_mid, z_mid = flux_surfaces.convert_to_Rz(rho, theta)
+
+        asymmetry_modifier = asymmetry_modifier_from_parameter(
+            n_additional_high_z_asymmetry_parameter, R_mid
+        )
+        # TODO: check maths for fsa of asymmetry modifier
+        asymmetry_modifier_fsa = calc_fsa_quantity(
+            asymmetry_modifier, xr.ones_like(asymmetry_modifier), flux_surfaces, ntheta
+        )
+        return n_additional_high_z_unnormalised_fsa / asymmetry_modifier_fsa
 
     def _calc_normalised_additional_high_z_density(
         n_additional_high_z_unnormalised_midplane: xr.DataArray,

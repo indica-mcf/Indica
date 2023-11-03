@@ -26,9 +26,7 @@ def test_calc_shape():
     t = coord_array([45], "t")
 
     flux_surfs = FluxSurfaceCoordinates("poloidal")
-
     equilib = FakeEquilibrium(default_t=t)
-
     flux_surfs.set_equilibrium(equilib)
 
     n_high_z_midplane = make_dataarray(
@@ -75,3 +73,81 @@ def test_calc_shape():
 
 
 # TODO: analytic calc_shape test using known function
+
+
+def test_calc_unnormalised_additional_high_z_density():
+    rho = coord_array([0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0], "rho_poloidal")
+    t = coord_array([45], "t")
+
+    n_additional_high_z_unnormalised_fsa = make_dataarray(
+        np.array(
+            [[1.0, 0.91161082, 0.77385276, 0.61048717, 0.38180397, 0.09532643, 0.0]]
+        ),
+        rho,
+        t,
+    )
+
+    flux_surfs = FluxSurfaceCoordinates("poloidal")
+    equilib = FakeEquilibrium(default_t=t)
+    flux_surfs.set_equilibrium(equilib)
+
+    main_ion = "d"
+    additional_high_z_ion = "ni"
+
+    electron_temp = make_dataarray(
+        np.array([3.0e3, 2.0e3, 1.7e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3]), rho, t
+    )
+
+    ion_temperature = xr.DataArray(
+        data=np.array([[[2.0e3, 1.6e3, 1.4e3, 1.2e3, 0.5e3, 0.2e3, 0.1e3]]]),
+        dims=["element", "t", "rho_poloidal"],
+        coords=dict(
+            element=[additional_high_z_ion],
+            rho_poloidal=rho,
+            t=t,
+        ),
+    )
+
+    zeff = 1.85 * xr.ones_like(n_additional_high_z_unnormalised_fsa)
+
+    toroidal_rotations = xr.DataArray(
+        data=np.array([[[200.0e3, 180.0e3, 170.0e3, 150.0e3, 100.0e3, 30.0e3, 5.0e3]]]),
+        dims=["element", "t", "rho_poloidal"],
+        coords=dict(
+            element=[additional_high_z_ion],
+            rho_poloidal=rho,
+            t=t,
+        ),
+    )
+
+    n_additional_high_z_unnormalised_midplane = (
+        AdditionalHighZ._calc_unnormalised_additional_high_z_density(
+            n_additional_high_z_unnormalised_fsa,
+            toroidal_rotations,
+            ion_temperature,
+            main_ion,
+            additional_high_z_ion,
+            zeff,
+            electron_temp,
+            flux_surfs,
+        )
+    )
+
+    n_additional_high_z_unnormalised_midplane_expected = xr.DataArray(
+        data=np.array(
+            [[1.0, 1.88312029, 2.01645164, 1.89535224, 1.37875282, 0.30532248, 0.0]]
+        ),
+        dims=["t", "rho_poloidal"],
+        coords=dict(
+            t=t,
+            rho_poloidal=rho,
+        ),
+    )
+
+    np.testing.assert_allclose(
+        n_additional_high_z_unnormalised_midplane,
+        n_additional_high_z_unnormalised_midplane_expected,
+    )
+
+
+# TODO: analytic calc_unnormalised_additional_high_z_density test using known function
