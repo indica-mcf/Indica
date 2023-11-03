@@ -75,12 +75,13 @@ class ST40Reader(DataReader):
         "efit": "get_equilibrium",
         "xrcs": "get_helike_spectroscopy",
         "princeton": "get_charge_exchange",
-        "brems": "get_diode_filters",
-        "halpha": "get_diode_filters",
+        "lines": "get_diode_filters",
         "nirh1": "get_interferometry",
         "nirh1_bin": "get_interferometry",
         "smmh1": "get_interferometry",
+        "smmh": "get_interferometry",
         "astra": "get_astra",
+        "sxr_spd": "get_diode_filters",
         "sxr_diode_1": "get_diode_filters",
         "sxr_diode_2": "get_diode_filters",
         "sxr_diode_3": "get_diode_filters",
@@ -88,6 +89,7 @@ class ST40Reader(DataReader):
         "sxr_camera_4": "get_radiation",
         "sxrc_xy1": "get_radiation",
         "sxrc_xy2": "get_radiation",
+        "blom_xy1": "get_radiation",
         "cxff_pi": "get_charge_exchange",
         "cxff_tws_c": "get_charge_exchange",
         "cxqf_tws_c": "get_charge_exchange",
@@ -95,15 +97,13 @@ class ST40Reader(DataReader):
         "tws_c": "get_spectrometer",
         "ts": "get_thomson_scattering",
     }
+    # TODO: this will not be necessary once the MDS+ standardisation is complete
     UIDS_MDS = {
         "xrcs": "sxr",
         "princeton": "spectrom",
-        "brems": "spectrom",
-        "halpha": "spectrom",
         "nirh1": "interferom",
         "nirh1_bin": "interferom",
         "smmh1": "interferom",
-        "astra": "",
         "sxr_diode_1": "sxr",
         "sxr_diode_2": "sxr",
         "sxr_diode_3": "sxr",
@@ -158,11 +158,14 @@ class ST40Reader(DataReader):
         "smmh1": {
             "ne": ".line_int:ne",
         },
-        "brems": {
-            "brightness": ".brem_mp1:intensity",
+        "smmh": {
+            "ne": ".global:ne_int",
         },
-        "halpha": {
-            "brightness": ".h_alpha_mp1:intensity",
+        "lines": {
+            "brightness": ":emission",
+        },
+        "sxr_spd": {
+            "brightness": ":emission",
         },
         "sxr_camera_4": {
             "brightness": ".middle_head.filter_4:",
@@ -178,6 +181,9 @@ class ST40Reader(DataReader):
             "brightness": ".profiles:emission",
         },
         "sxrc_xy2": {
+            "brightness": ".profiles:emission",
+        },
+        "blom_xy1": {
             "brightness": ".profiles:emission",
         },
         "sxr_diode_1": {
@@ -292,7 +298,8 @@ class ST40Reader(DataReader):
         },
     }
 
-    _IMPLEMENTATION_QUANTITIES = {  # TODO: these will be different diagnostics!!!!!!!
+    # TODO: this can be deleted once MDS+ standardisation is complete
+    _IMPLEMENTATION_QUANTITIES = {
         "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
             "sxr_camera_1": ("brightness", "total"),
             "sxr_camera_2": ("brightness", "50_Al_filtered"),
@@ -301,6 +308,7 @@ class ST40Reader(DataReader):
         },
     }
 
+    # TODO: this can be deleted once MDS+ standardisation is complete
     _RADIATION_RANGES = {
         "sxr_camera_1": (1, 20),
         "sxr_camera_2": (21, 40),
@@ -313,7 +321,7 @@ class ST40Reader(DataReader):
         pulse: int,
         tstart: float,
         tend: float,
-        server: str = "192.168.1.7",  # 192.168.1.7 10.0.40.13
+        server: str = "smaug",
         tree: str = "ST40",
         default_error: float = 0.05,
         max_freq: float = 1e6,
@@ -698,11 +706,14 @@ class ST40Reader(DataReader):
             direction = np.array([direction])
 
         results["times"], _ = self._get_signal(uid, instrument, ":time", revision)
-        results["wavelength"], _ = self._get_signal(
-            uid, instrument, ":wavelength", revision
-        )
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
         # TODO: change once wavelength in MDS+ has been fixed to nanometers!
-        results["wavelength"] /= 10.0
+        wavelength /= 10.0
+        if self.pulse >= 10307:
+            dlambda = float(np.abs(wavelength[1] - wavelength[0])) * 4
+            wavelength += dlambda
+        results["wavelength"] = wavelength
+
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -761,6 +772,7 @@ class ST40Reader(DataReader):
         z, z_path = self._get_signal(uid, instrument, ":z", revision)
         R, R_path = self._get_signal(uid, instrument, ":R", revision)
 
+        # TODO: temporary fix until geometry sorted (especially pulse if statement..)
         try:
             location, location_path = self._get_signal(
                 uid, instrument, ".geometry:location", revision
@@ -772,7 +784,6 @@ class ST40Reader(DataReader):
                 location = np.array([location])
                 direction = np.array([direction])
 
-            # TODO: temporary fix until geometry sorted
             if location.shape[0] != x.shape[0]:
                 if self.pulse > 10200:
                     index = np.arange(18, 36)
@@ -780,7 +791,6 @@ class ST40Reader(DataReader):
                     index = np.arange(21, 36)
                 location = location[index]
                 direction = direction[index]
-
         except TreeNNF:
             location = None
             direction = None
@@ -805,10 +815,8 @@ class ST40Reader(DataReader):
                 )
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
-                # q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
-
             results[q + "_records"] = q_path
             results[q] = qval
             results[f"{q}_error"] = qval_err
@@ -861,13 +869,6 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        # if self.pulse > 10200:
-        #     index = np.arange(18, 36)
-        # else:
-        #     index = np.arange(21, 36)
-        # location = location[index]
-        # direction = direction[index]
-
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid,
@@ -885,7 +886,6 @@ class ST40Reader(DataReader):
                 )
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
-                # q_path_err = ""
 
             dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
@@ -910,47 +910,23 @@ class ST40Reader(DataReader):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-
+        """
+        TODO: labels are np.bytes_ type...is this correct?
+        """
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        # TODO: change once new MDS+ standardisation has been completed
-        try:
-            location, location_path = self._get_signal(
-                uid, instrument, ".geometry:location", revision
-            )
-            direction, position_path = self._get_signal(
-                uid, instrument, ".geometry:direction", revision
-            )
-        except TreeNNF:
-            location = np.array(
-                [
-                    [1.0, 0, 0],
-                ]
-            )
-            direction = (
-                np.array(
-                    [
-                        [0.17, 0, 0],
-                    ]
-                )
-                - location
-            )
+        location, location_path = self._get_signal(
+            uid, instrument, ".geometry:location", revision
+        )
+        direction, position_path = self._get_signal(
+            uid, instrument, ".geometry:direction", revision
+        )
         if len(np.shape(location)) == 1:
             location = np.array([location])
             direction = np.array([direction])
 
         length = location[:, 0].size
-        if instrument == "brems":
-            _instrument = "lines"
-            revision = -1
-        elif instrument == "halpha":
-            _instrument = "lines"
-            revision = -1
-        elif "sxr_diode" in instrument:
-            _instrument = "diode_detr"
-        else:
-            raise ValueError(f"{instrument} not yet supported")
 
         results: Dict[str, Any] = {
             "length": length,
@@ -958,23 +934,29 @@ class ST40Reader(DataReader):
         }
         results["location"] = location
         results["direction"] = direction
-        results["revision"] = self._get_revision(uid, _instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         results["revision"] = revision
         revision = results["revision"]
 
         quantity = "brightness"
         qval, q_path = self._get_signal(
-            uid, _instrument, self.QUANTITIES_MDS[instrument][quantity], revision
+            uid, instrument, self.QUANTITIES_MDS[instrument][quantity], revision
         )
-        times, _ = self._get_signal_dims(q_path, len(qval.shape))
-        times = times[0]
+        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        _labels, _ = self._get_signal(uid, instrument, ":label", revision)
+        if type(_labels[0]) == np.bytes_:
+            labels = np.array([label.decode("UTF-8") for label in _labels])
+        else:
+            labels = _labels
+
         results["times"] = times
+        results["labels"] = labels
         results[quantity + "_records"] = q_path
         results[quantity] = qval
         try:
             qval_err, q_path_err = self._get_signal(
                 uid,
-                _instrument,
+                instrument,
                 self.QUANTITIES_MDS[instrument][quantity] + "_ERR",
                 revision,
             )
@@ -993,6 +975,10 @@ class ST40Reader(DataReader):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
+        """
+        TODO: SMMH 2023 launcher/receiver cross plasma on different poloidal paths!
+        Currently setting location and direction as average of the two!!!!
+        """
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
@@ -1011,6 +997,17 @@ class ST40Reader(DataReader):
         direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
+
+        if instrument == "smmh":
+            location_r, _ = self._get_signal(
+                uid, instrument, ".geometry:location_r", revision
+            )
+            direction_r, _ = self._get_signal(
+                uid, instrument, ".geometry:direction_r", revision
+            )
+            location = (location + location_r) / 2.0
+            direction = (direction + direction_r) / 2.0
+
         if len(np.shape(location)) == 1:
             location = np.array([location])
             direction = np.array([direction])
@@ -1083,6 +1080,8 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         times, times_path = self._get_signal(uid, instrument, ":time", revision)
+        # TODO: hardcoded correction to TS coordinates to be fixed in MDS+
+        print("\n Hardcoded correction to TS coordinates to be fixed in MDS+ \n")
         # location, location_path = self._get_signal(
         #     uid, instrument, ".geometry:location", revision
         # )
@@ -1171,6 +1170,7 @@ class ST40Reader(DataReader):
         """Return string defining RUN## or BEST if revision = 0"""
 
         if type(revision) == int:
+            rev_str = ""
             if revision < 0:
                 rev_str = ""
             elif revision == 0:
