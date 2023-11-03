@@ -98,7 +98,7 @@ def bda_run(pulse, diagnostics, param_names, opt_quantity, phantom=False,
                                  )
 
     optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=nwalkers, iterations=iterations,
-                                                sample_method="high_density", starting_samples=200, burn_frac=0.20,
+                                                sample_method="high_density", starting_samples=300, burn_frac=0.20,
                                                 stopping_criteria="mode", stopping_criteria_factor=stopping_criteria_factor,
                                                 stopping_criteria_debug=True, priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
@@ -346,12 +346,12 @@ if __name__ == "__main__":
              dt=0.01,
              iterations=5000,
              nwalkers=50,
-             stopping_criteria_factor=0.004,
+             stopping_criteria_factor=0.002,
              mds_write=True,
              plot=True,
              revisions={},
              run="RUN01",
-             dirname=f"{11089}_DEWALKER",
+             dirname=f"{11089}_DEWALKER_NOSNOOKER",
          )],
         # RFX low ti/te pulse
     ]
