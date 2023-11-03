@@ -761,7 +761,7 @@ class EmceeOptimiser(OptimiserContext):
 
     def init_optimiser(self, blackbox_func: Callable):
         ndim = len(self.optimiser_settings.param_names)
-        self.move = [(emcee.moves.StretchMove(), 0.0), (emcee.moves.DEMove(), 0.7), (emcee.moves.DESnookerMove(), 0.3)]
+        self.move = [(emcee.moves.StretchMove(), 0.0), (emcee.moves.DEMove(), 1.0), (emcee.moves.DESnookerMove(), 0.0)]
         self.optimiser = emcee.EnsembleSampler(
             self.optimiser_settings.nwalkers,
             ndim,
