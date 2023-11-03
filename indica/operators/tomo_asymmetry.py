@@ -235,6 +235,8 @@ def example_run():
     )
     print("...and finished \n")
 
+    los_transform.plot()
+
     for t in bckc.t:
         plt.ioff()
 
@@ -256,6 +258,7 @@ def example_run():
         )
         bckc.sel(t=t).plot(**kwargs_bckc)
         plt.title("LOS integrals")
+        plt.legend()
 
         plt.figure()
         profile_2d.sel(t=t).plot()
@@ -269,6 +272,7 @@ def example_run():
         profile_2d.sel(t=t).sel(z=0, method="nearest").plot(**kwargs_phantom)
         profile_2d_bckc.sel(t=t).sel(z=0, method="nearest").plot(**kwargs_bckc)
         plt.title("Midplane cut (z=0)")
+        plt.legend()
         plt.show()
 
 
