@@ -10,6 +10,7 @@ from indica.converters.flux_surfaces import FluxSurfaceCoordinates
 from indica.datatypes import DataType
 from indica.utilities import coord_array
 from .abstractoperator import Operator
+from .bolometry_derivation import BolometryDerivation
 from .centrifugal_asymmetry import AsymmetryParameter
 from .extrapolate_impurity_density import asymmetry_modifier_from_parameter
 
@@ -228,38 +229,27 @@ class AdditionalHighZ(Operator):
         additional_high_z_asymmetry_parameter: xr.DataArray,
         flux_surfs: FluxSurfaceCoordinates,
         LoS_bolometry_data: Sequence,
-        # TODO: take bolometry object rather than impurity_densities
-        impurity_densities: xr.DataArray,
-        frac_abunds: xr.DataArray,
-        impurity_elements: Sequence[str],
-        electron_density: xr.DataArray,
-        power_loss: xr.DataArray,
+        bolometry_obj: BolometryDerivation,
     ) -> xr.DataArray:
         """
         Calculate the normalised additional high Z density using the bolometry data.
 
-        Implements equations 2.9 and 2.10 from the main paper.
+        Implements equations 2.8, 2.9 and 2.10 from the main paper.
 
         Parameters
         ----------
+        n_additional_high_z_unnormalised_midplane
+            Additional high Z impurity density along the midplane. Dimensions (t, rho).
+        additional_high_z_asymmetry_parameter
+            Additional high Z impurity asymmetry parameter. Dimensions (t, rho).
         flux_surfs
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
         LoS_bolometry_data
             Line-of-sight bolometry data in the same format as given in:
             tests/unit/operator/KB5_Bolometry_data.py
-        impurity_densities
-            Densities for all impurities. Dimensions (elements, t, rho, theta).
-        frac_abunds
-            Fractional abundances list of fractional abundances.
-            Dimensions  (element, ion_charges, t, rho).
-        impurity_elements
-            List of element symbols(as strings) for all impurities.
-        electron_density
-            Electron density. Dimensions (t, rho)
-        power_loss
-            Power loss associated with each ion.
-            Dimensions (elements, t, rho).
+        bolometry_obj
+            BolometryDerivation object.
 
         Returns
         -------
