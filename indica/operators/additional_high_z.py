@@ -109,7 +109,7 @@ class AdditionalHighZ(Operator):
 
         Returns
         -------
-        n_additional_high_z_unnormalised_fsa_density
+        n_additional_high_z_unnormalised_fsa
             Flux surface averaged additional high Z impurity density.
             Dimensions (t, rho).
         """
@@ -131,26 +131,99 @@ class AdditionalHighZ(Operator):
             n_high_z_fsa * q_high_z
         )
 
-        n_additional_high_z_unnormalised_fsa_density = np.exp(
+        n_additional_high_z_unnormalised_fsa = np.exp(
             sp.integrate.cumulative_trapezoid(integrand_points, x=rho, initial=0)
         )
 
-        n_additional_high_z_unnormalised_fsa_density = xr.DataArray(
-            data=n_additional_high_z_unnormalised_fsa_density,
+        n_additional_high_z_unnormalised_fsa = xr.DataArray(
+            data=n_additional_high_z_unnormalised_fsa,
             coords=n_high_z_midplane.coords,
             dims=n_high_z_midplane.dims,
         )
 
         # fix density to 0 at rho=1 if present
-        n_additional_high_z_unnormalised_fsa_density = (
-            n_additional_high_z_unnormalised_fsa_density.where(
-                n_additional_high_z_unnormalised_fsa_density.coords["rho_poloidal"]
-                != 1,
+        n_additional_high_z_unnormalised_fsa = (
+            n_additional_high_z_unnormalised_fsa.where(
+                n_additional_high_z_unnormalised_fsa.coords["rho_poloidal"] != 1,
                 other=0,
             )
         )
 
-        return n_additional_high_z_unnormalised_fsa_density
+        return n_additional_high_z_unnormalised_fsa
+
+    def _calc_first_normalisation(
+        n_additional_high_z_unnormalised_fsa: xr.DataArray,
+        n_main_high_z_midplane: xr.DataArray,
+        n_main_high_z_asymmetry_parameter: xr.DataArray,
+        flux_surfaces: FluxSurfaceCoordinates,
+    ) -> xr.DataArray:
+        """
+        Calculate the first normalisation to set the number of additional high Z ions
+        equal to the number of main high Z ions.
+
+        Implements equation 2.8 from the main paper.
+
+        Parameters
+        ----------
+        n_additional_high_z_unnormalised_fsa
+            Flux surface averaged additional high Z impurity density.
+            Dimensions (t, rho).
+        n_main_high_z_midplane
+            Density of the main high Z impurity element, usually Tungsten along
+            the midplane. Dimensions (t, rho).
+        n_main_high_z_asymmetry_parameter
+            Asymmetry parameter for the main high Z impurity. Dimensions (t, rho).
+        flux_surfaces
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
+
+        Returns
+        -------
+        n_additional_high_z_seminormalised_fsa
+            Flux surface averaged additional high Z impurity density and partly
+            normalised using the main high Z density.
+            Dimensions (t, rho).
+        """
+        t = n_additional_high_z_unnormalised_fsa.coords["t"]
+        rho = n_additional_high_z_unnormalised_fsa.coords["rho_poloidal"]
+
+        n_main_high_z_fsa = calc_fsa_quantity(
+            n_main_high_z_midplane, n_main_high_z_asymmetry_parameter, flux_surfaces
+        )
+
+        rho_arr = rho.data
+        # get midpoints between rho points
+        rho_mid_arr = (rho_arr[:-1] + rho_arr[1:]) / 2
+        rho_mid_arr = np.append(rho_mid_arr, 1)
+        rho_mid = coord_array(rho_mid_arr, "rho_poloidal")
+
+        # find volume for each shell using diff from enclosed volume for each rho_mid
+        cumulative_volumes, _, _ = flux_surfaces.equilibrium.enclosed_volume(rho_mid, t)
+        rho_axis = cumulative_volumes.get_axis_num("rho_poloidal")
+        volume_elems_arr = np.diff(cumulative_volumes, axis=rho_axis)
+        # missing centre volume after diff, insert it
+        volume_elems_arr = np.insert(
+            volume_elems_arr,
+            0,
+            values=cumulative_volumes.isel(rho_poloidal=0),
+            axis=rho_axis,
+        )
+        volume_elems = xr.DataArray(
+            data=volume_elems_arr,
+            dims=cumulative_volumes.dims,
+            # shift volumes back onto main rho grid
+            coords=n_main_high_z_fsa.coords,
+        )
+
+        # compute numbers of confined ions
+        main_high_z_counts = (volume_elems * n_main_high_z_fsa).sum(dim="rho_poloidal")
+        additional_high_z_counts = (
+            volume_elems * n_additional_high_z_unnormalised_fsa
+        ).sum(dim="rho_poloidal")
+
+        return (
+            (main_high_z_counts) / (additional_high_z_counts)
+        ) * n_additional_high_z_unnormalised_fsa
 
     def _calc_unnormalised_additional_high_z_density(
         n_additional_high_z_unnormalised_fsa: xr.DataArray,
@@ -227,22 +300,22 @@ class AdditionalHighZ(Operator):
     def _calc_normalised_additional_high_z_density(
         n_additional_high_z_unnormalised_midplane: xr.DataArray,
         additional_high_z_asymmetry_parameter: xr.DataArray,
-        flux_surfs: FluxSurfaceCoordinates,
+        flux_surfaces: FluxSurfaceCoordinates,
         LoS_bolometry_data: Sequence,
         bolometry_obj: BolometryDerivation,
     ) -> xr.DataArray:
         """
         Calculate the normalised additional high Z density using the bolometry data.
 
-        Implements equations 2.8, 2.9 and 2.10 from the main paper.
+        Implements equations 2.9 and 2.10 from the main paper.
 
         Parameters
         ----------
         n_additional_high_z_unnormalised_midplane
             Additional high Z impurity density along the midplane. Dimensions (t, rho).
-        additional_high_z_asymmetry_parameter
+            additional_high_z_asymmetry_parameter
             Additional high Z impurity asymmetry parameter. Dimensions (t, rho).
-        flux_surfs
+        flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
         LoS_bolometry_data

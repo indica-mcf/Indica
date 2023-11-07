@@ -75,6 +75,61 @@ def test_calc_shape():
 # TODO: analytic calc_shape test using known function
 
 
+def test_calc_first_normalisation():
+    rho = coord_array([0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0], "rho_poloidal")
+    t = coord_array([45], "t")
+
+    flux_surfs = FluxSurfaceCoordinates("poloidal")
+    equilib = FakeEquilibrium(default_t=t)
+    flux_surfs.set_equilibrium(equilib)
+
+    n_high_z_midplane = make_dataarray(
+        [1e-14, 9.5e-15, 8e-15, 8e-15, 7e-15, 3e-15, 0], rho, t
+    )
+
+    n_high_z_asymmetry_parameter = make_dataarray(
+        [0.0, 0.1, 0.15, 0.2, 0.3, 0.8, 0.0], rho, t
+    )
+
+    n_additional_high_z_unnormalised_fsa = make_dataarray(
+        np.array(
+            [[1.0, 0.91161082, 0.77385276, 0.61048717, 0.38180397, 0.09532643, 0.0]]
+        ),
+        rho,
+        t,
+    )
+
+    n_additional_high_z_seminormalised_fsa = AdditionalHighZ._calc_first_normalisation(
+        n_additional_high_z_unnormalised_fsa,
+        n_high_z_midplane,
+        n_high_z_asymmetry_parameter,
+        flux_surfs,
+    )
+
+    n_additional_high_z_seminormalised_fsa_expected = make_dataarray(
+        np.array(
+            [
+                [
+                    1.02114531e-14,
+                    9.30887110e-15,
+                    7.90216113e-15,
+                    6.23396108e-15,
+                    3.89877332e-15,
+                    9.73421365e-16,
+                    0.0,
+                ]
+            ]
+        ),
+        rho,
+        t,
+    )
+
+    np.testing.assert_allclose(
+        n_additional_high_z_seminormalised_fsa,
+        n_additional_high_z_seminormalised_fsa_expected,
+    )
+
+
 def test_calc_unnormalised_additional_high_z_density():
     rho = coord_array([0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0], "rho_poloidal")
     t = coord_array([45], "t")
