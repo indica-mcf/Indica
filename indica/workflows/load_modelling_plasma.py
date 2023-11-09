@@ -11,9 +11,10 @@ import xarray as xr
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
 from indica.equilibrium import Equilibrium
+from indica.models.bolometer_camera import Bolometer
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.helike_spectroscopy import Helike_spectroscopy
+from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
@@ -29,18 +30,32 @@ from indica.utilities import set_plot_rcparams
 CMAP, COLORS = set_plot_colors()
 
 DIAGNOSTIC_MODELS = {
+    "smmh": Interferometry,
     "smmh1": Interferometry,
     "nirh1": Interferometry,
-    "xrcs": Helike_spectroscopy,
+    "xrcs": HelikeSpectrometer,
     "ts": ThomsonScattering,
     "cxff_pi": ChargeExchange,
     "cxff_tws_c": ChargeExchange,
     "cxqf_tws_c": ChargeExchange,
     "brems": BremsstrahlungDiode,
-    "sxr_diode_1": SXRcamera,
-    "sxr_camera_4": SXRcamera,
+    "sxrc_xy1": Bolometer,
+    "sxrc_xy2": SXRcamera,
+    "sxr_spd": SXRcamera,
+    "blom_xy1": Bolometer,
 }
-INSTRUMENTS = ["smmh1", "nirh1", "xrcs", "sxr_diode_1", "efit", "brems"]
+INSTRUMENTS: list = [
+    "smmh",
+    "smmh1",
+    "nirh1",
+    "xrcs",
+    "blom_xy1",
+    "sxrc_xy1",
+    "sxrc_xy2",
+    "efit",
+    "sxr_spd",
+]
+REVISIONS: dict = {instr: 0 for instr in INSTRUMENTS}
 
 FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/load_modelling_examples/"
 plt.ion()
@@ -201,9 +216,9 @@ def initialize_diagnostic_models(
 def example_run(
     dt: float = 0.01,
     verbose: bool = True,
-    example: str = "predictive",
+    example: str = "alsu_11314",
     all_runs: bool = False,
-    plot: bool = False,
+    plot: bool = True,
     save_fig: bool = False,
     fig_style="profiles",
     alpha: float = 1.0,
@@ -216,6 +231,7 @@ def example_run(
         pulse_code,
         pulse,
         equil,
+        equil_run,
         code,
         runs,
         comment,
@@ -237,7 +253,8 @@ def example_run(
     if pulse is not None:
         print("Reading ST40 data")
         st40 = ReadST40(pulse, tstart, tend, dt=dt, tree="st40")
-        st40(instruments=INSTRUMENTS, map_diagnostics=False)
+        REVISIONS["efit"] = equil_run
+        st40(instruments=INSTRUMENTS, map_diagnostics=False, revisions=REVISIONS)
 
     if equil != code:
         equilibrium = {run: Equilibrium(st40.raw_data[equil]) for run in runs}
@@ -283,7 +300,10 @@ def example_run(
 
             models[instrument].set_plasma(_plasma)
 
-            _bckc = models[instrument]()
+            if instrument == "xrcs":
+                _bckc = models[instrument](moment_analysis=True)
+            else:
+                _bckc = models[instrument]()
             bckc[run][instrument] = deepcopy(_bckc)
 
     if plot or save_fig:
@@ -501,11 +521,13 @@ def plot_data_bckc_comparison(
             run_str += f"-{runs[1]}"
         fig_path = f"{FIG_PATH}{pulse_code}_{time}_{code}_{run_str}/"
 
-    norm = {}
-    norm["brems"] = True
-    norm["sxr_camera_4"] = True
-    norm["sxr_diode_1"] = True
-    norm["xrcs"] = True
+    norm: dict = {}
+    norm["xrcs"] = {}
+    norm["xrcs"]["spectra"] = True
+    # norm["brems"] = True
+    # norm["sxr_camera_4"] = True
+    # norm["sxrc_xy2"] = {}
+    # norm["sxrc_xy2"]["brightness"] = True
     y0 = {}
     y0["nirh1"] = True
     y0["smmh1"] = True
@@ -518,39 +540,38 @@ def plot_data_bckc_comparison(
     for run in runs:
         bckc[run]["efit"] = {"wp": plasma[run].wp}
 
-    for instrument in st40.raw_data.keys():
-        for quantity in bckc[run][instrument].keys():
-            print(instrument)
-            print(f"  {quantity}")
-            run = runs[0]
-
+    instruments = st40.raw_data.keys()
+    for instrument in instruments:
+        quantities = bckc[runs[0]][instrument].keys()
+        for quantity in quantities:
             if (
                 quantity not in st40.binned_data[instrument].keys()
                 or quantity not in st40.raw_data[instrument].keys()
             ):
                 continue
 
-            plt.figure()
+            print(instrument)
+            print(f"  {quantity}")
             _raw = st40.raw_data[instrument][quantity]
             _binned = st40.binned_data[instrument][quantity]
-            _bckc = bckc[run][instrument][quantity]
+            _bckc = bckc[runs[0]][instrument][quantity]
+
             tslice = slice(_bckc.t.min().values, _bckc.t.max().values)
+            str_to_add = ""
+            tslice_raw = tslice
+            tslice_binned = tslice
+
             if "error" not in _binned.attrs:
                 _binned.attrs["error"] = xr.full_like(_binned, 0.0)
             if "stdev" not in _binned.attrs:
                 _binned.attrs["stdev"] = xr.full_like(_binned, 0.0)
-
             err = np.sqrt(_binned.error**2 + _binned.stdev**2)
             err = xr.where(err / _binned.values < 1.0, err, 0.0)
 
-            if len(_bckc.dims) > 1:
+            if len(_binned.dims) > 1:
                 str_to_add = f" @ {time:.3f} s"
                 tslice_binned = _binned.t.sel(t=time, method="nearest")
                 tslice_raw = _raw.t.sel(t=time, method="nearest")
-            else:
-                str_to_add = ""
-                tslice_raw = tslice
-                tslice_binned = tslice
 
             _raw = _raw.sel(t=tslice_raw)
             _binned = _binned.sel(t=tslice_binned)
@@ -562,6 +583,7 @@ def plot_data_bckc_comparison(
                 _binned -= bgnd
                 _raw -= bgnd
 
+            plt.figure()
             _raw.plot(
                 label="Raw",
                 color=COLORS["raw"],
@@ -583,109 +605,178 @@ def plot_data_bckc_comparison(
                 markersize=markersize,
             )
 
-            label = None
+            label: str = "Model"
             for run in runs:
-                if run == runs[-1]:
-                    label = "Model"
-
                 _bckc = bckc[run][instrument][quantity].sel(t=tslice_binned)
                 if instrument in norm.keys():
-                    _bckc = _bckc * _binned.max() / _bckc.max()
-
-                if label is not None:
-                    label += " (scaled)"
+                    if quantity in norm[instrument].keys():
+                        _bckc = _bckc / _bckc.max() * _binned.max()
+                    if label is not None:
+                        label += " (scaled)"
 
                 (_bckc).plot(
                     label=label,
                     color=COLORS["bckc"],
-                    linewidth=rcParams["lines.linewidth"] * 1.5,
+                    linewidth=rcParams["lines.linewidth"],
                     alpha=alpha,
                 )
-                set_axis_sci()
-                plt.title(f"{instrument.upper()} {quantity}" + str_to_add)
-                if instrument in y0.keys():
-                    plt.ylim(
-                        0,
-                    )
+                del label
 
-                if quantity == "spectra":
-                    # TODO: wavelength axis is sorted from max to min...
-                    plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
+            set_axis_sci()
+            plt.title(f"{instrument.upper()} {quantity}" + str_to_add)
+            if instrument in y0.keys():
+                plt.ylim(
+                    0,
+                )
+            if quantity == "spectra":
+                plt.xlim(_bckc.wavelength.min(), _bckc.wavelength.max())
 
-                plt.legend()
-                save_figure(fig_path, f"{instrument}_{quantity}", save_fig=save_fig)
+            plt.legend()
+            save_figure(fig_path, f"{instrument}_{quantity}", save_fig=save_fig)
 
 
 def example_params(example: str, all_runs: bool = False):
-    comment: str
-    pulse_code: int
-    pulse: int
-    equil: str
-    code: str
-    tstart: float
-    tend: float
-    tplot: float
-    runs = [f"RUN{run}" for run in (500 + np.arange(61, 77))]
+    runs_all: list = [f"RUN{run}" for run in (500 + np.arange(61, 77))]
 
-    if example == "predictive":
-        comment = "Tests using fixed-boundary predictive ASTRA"
-        pulse_code = 13110009
-        pulse = 10009
-        equil = "astra"
-        code = "astra"
-        if not all_runs:
-            runs = ["RUN2621"]
-        tstart = 0.02
-        tend = 0.08
-        tplot = 0.06
-    elif example == "interpretative_10009":
-        comment = "interpretative ASTRA using HDA/EFIT"
-        pulse_code = 13110009
-        pulse = 10009
-        equil = "efit"
-        code = "astra"
-        if not all_runs:
-            runs = ["RUN564"]
-        tstart = 0.03
-        tend = 0.1
-        tplot = 0.06
-    elif example == "interpretative_9850":
-        comment = "ASTRA interpretative using HDA/EFIT"
-        pulse = 9850
-        pulse_code = 13109850
-        equil = "efit"
-        code = "astra"
-        if not all_runs:
-            runs = ["RUN564"]
-        tstart = 0.02
-        tend = 0.1
-        tplot = 0.08
-    elif example == "interpretative_9229":
-        comment = "ASTRA interpretative using HDA/EFIT"
-        pulse = 9229
-        pulse_code = 13109229
-        equil = "efit"
-        code = "astra"
-        if not all_runs:
-            runs = ["RUN572"]
-        tstart = 0.03
-        tend = 0.11
-        tplot = 0.06
-    elif example == "diverted":
-        comment = "predictive ASTRA using for diverted scenario"
-        pulse_code = 13000040
-        pulse = 10009
-        equil = "astra"
-        code = "astra"
-        if not all_runs:
-            runs = ["RUN292"]
-        tstart = 0.03
-        tend = 0.11
-        tplot = 0.1
-    else:
-        raise ValueError(f"No parameters for example {example}")
+    params = {
+        "predictive": dict(
+            comment="Tests using fixed-boundary predictive ASTRA",
+            pulse_code=13110009,
+            pulse=10009,
+            equil="astra",
+            equil_run=0,
+            code="astra",
+            runs=["RUN2621"],
+            tstart=0.02,
+            tend=0.08,
+            tplot=0.06,
+        ),
+        "interpretative_10009": dict(
+            comment="interpretative ASTRA using HDA/EFIT",
+            pulse_code=13110009,
+            pulse=10009,
+            equil="efit",
+            equil_run=0,
+            code="astra",
+            runs=["RUN564"],
+            tstart=0.03,
+            tend=0.1,
+            tplot=0.06,
+        ),
+        "interpretative_9850": dict(
+            comment="ASTRA interpretative using HDA/EFIT",
+            pulse=9850,
+            pulse_code=13109850,
+            equil="efit",
+            equil_run=0,
+            code="astra",
+            runs=["RUN564"],
+            tstart=0.02,
+            tend=0.1,
+            tplot=0.08,
+        ),
+        "interpretative_9229": dict(
+            comment="ASTRA interpretative using HDA/EFIT",
+            pulse=9229,
+            pulse_code=13109229,
+            equil="efit",
+            equil_run=0,
+            code="astra",
+            runs=["RUN572"],
+            tstart=0.03,
+            tend=0.11,
+            tplot=0.06,
+        ),
+        "diverted": dict(
+            comment="predictive ASTRA using for diverted scenario",
+            pulse_code=13000040,
+            pulse=10009,
+            equil="astra",
+            equil_run=0,
+            code="astra",
+            runs=["RUN292"],
+            tstart=0.03,
+            tend=0.11,
+            tplot=0.1,
+        ),
+        "michail_10014": dict(
+            comment="predictive ASTRA",
+            pulse_code=36010014,
+            pulse=10014,
+            equil="efit",
+            equil_run=0,
+            code="astra",
+            runs=["RUN24"],
+            tstart=0.03,
+            tend=0.1,
+            tplot=0.07,
+        ),
+        "aleksei_11228": dict(
+            comment="ASTRA using TS and invented Ti shapes",
+            pulse=11228,
+            pulse_code=13011228,
+            equil="efit",  # "astra"
+            equil_run=1,
+            code="astra",
+            runs=["RUN610", "RUN611", "RUN612"],
+            tstart=0.03,
+            tend=0.11,
+            tplot=0.08,
+        ),
+        "alsu_11312": dict(
+            comment="ASTRA using TS and peaked Ti scaled to CXRS",
+            pulse=11312,
+            pulse_code=33011312,
+            equil="astra",
+            equil_run=0,
+            code="astra",
+            runs=["RUN21"],
+            tstart=0.065,
+            tend=0.095,
+            tplot=0.075,
+        ),
+        "alsu_11314": dict(
+            comment="ASTRA using TS and peaked Ti scaled to CXRS",
+            pulse=11314,
+            pulse_code=33011314,
+            equil="astra",
+            equil_run=0,
+            code="astra",
+            runs=["RUN12"],
+            tstart=0.065,
+            tend=0.095,
+            tplot=0.075,
+        ),
+        "alsu_11317": dict(
+            comment="ASTRA using TS and peaked Ti scaled to CXRS",
+            pulse=11317,
+            pulse_code=33011317,
+            equil="astra",
+            equil_run=0,
+            code="astra",
+            runs=["RUN9"],
+            tstart=0.065,
+            tend=0.095,
+            tplot=0.075,
+        ),
+    }
 
-    return pulse_code, pulse, equil, code, runs, comment, tstart, tend, tplot
+    _params = params[example]
+    if all_runs:
+        _params["runs"] = runs_all
+
+    return (
+        _params["pulse_code"],
+        _params["pulse"],
+        _params["equil"],
+        _params["equil_run"],
+        _params["code"],
+        _params["runs"],
+        _params["comment"],
+        _params["tstart"],
+        _params["tend"],
+        _params["tplot"],
+    )
 
 
 # def add_gacode_data(
@@ -723,4 +814,6 @@ def example_params(example: str, all_runs: bool = False):
 
 
 if __name__ == "__main__":
-    example_run()
+    plt.ioff()
+    example_run(example="alsu_11314")
+    plt.show()
