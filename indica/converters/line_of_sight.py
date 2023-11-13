@@ -75,6 +75,12 @@ class LineOfSightTransform(CoordinateTransform):
         ),
         dl: float = 0.01,
         passes: int = 1,
+        beamlets: int = 1,
+        spot_width: float = 0.0,
+        spot_height: float = 0.0,
+        spot_shape: str = "Gaussian",
+        div_w: float = 0.0,
+        div_h: float = 0.0,
     ):
 
         self.instrument_name: str = name
@@ -90,6 +96,15 @@ class LineOfSightTransform(CoordinateTransform):
         self.direction_x = direction_x
         self.direction_y = direction_y
         self.direction_z = direction_z
+
+        # Spot info
+        self.spot_height = spot_height
+        self.spot_width = spot_width
+        self.spot_shape = spot_shape
+        self.beamlets = beamlets
+        self.div_width = div_w
+        self.div_height = div_h
+        self.distribute_beamlets()
 
         # Number of lines of sight
         self.x1: list = list(np.arange(0, len(origin_x)))
@@ -211,6 +226,91 @@ class LineOfSightTransform(CoordinateTransform):
         result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
+
+    def distribute_beamlets(self):
+        print('Hello!')
+
+        # Grid
+        n_w = int(np.sqrt(self.beamlets))
+        n_v = int(np.sqrt(self.beamlets))
+        grid_w = np.linspace(-self.spot_width/2, self.spot_width/2, n_w*2 + 1, dtype=float)
+        grid_w = grid_w[1::2]
+        grid_v = np.linspace(-self.spot_height/2, self.spot_height/2, n_v*2 + 1, dtype=float)
+        grid_v = grid_v[1::2]
+        W, V = np.meshgrid(grid_w, grid_v)
+
+        # Draw spot
+        if self.spot_shape == 'round':
+
+            th = np.linspace(0.0, 2*np.pi, 1000)
+            spot_w = 0.5 * self.spot_width * np.cos(th)
+            spot_y = 0.5 * self.spot_width * np.sin(th)
+
+            if False:
+                plt.figure()
+                plt.plot(spot_w, spot_y, 'k')
+                plt.scatter(W.flatten(), V.flatten(), c='r')
+                plt.show()
+
+            print('Implement shape')
+        else:
+            raise ValueError('Spot shape not available')
+
+        # Build beamlets
+        d_origin_x = np.zeros((len(self.direction_x), self.beamlets))
+        d_origin_y = np.zeros((len(self.direction_x), self.beamlets))
+        d_origin_z = np.zeros((len(self.direction_x), self.beamlets))
+        d_direction_x = np.zeros((len(self.direction_x), self.beamlets))
+        d_direction_y = np.zeros((len(self.direction_x), self.beamlets))
+        d_direction_z = np.zeros((len(self.direction_x), self.beamlets))
+        for i_los in range(len(self.direction_x)):
+
+            dir_x = self.direction_x[i_los]
+            dir_y = self.direction_y[i_los]
+            dir_z = self.direction_z[i_los]
+
+            orig_x = self.origin_x[i_los]
+            orig_y = self.origin_y[i_los]
+            orig_z = self.origin_z[i_los]
+
+            normal = np.array([-dir_y, dir_x])
+            ang_norm = np.arctan2(normal[1], normal[0])
+
+            count = 0
+            for i_w in range(n_w):
+                for i_v in range(n_v):
+                    # Move origin along plane normal to the direction
+                    d_origin_x[i_los, count] = grid_w[i_w] * np.cos(ang_norm)
+                    d_origin_y[i_los, count] = grid_w[i_w] * np.sin(ang_norm)
+                    d_origin_z[i_los, count] = grid_v[i_v]
+
+                    ## Rotate direction # ToDo implement divergence
+                    #d_direction_x[i_los, count] = grid_w[i_w] * np.sin(self.div_width) / (0.5*self.spot_width)
+                    #d_direction_x[i_los, count] = grid_w[i_w] * np.cos(self.div_width) / (0.5 * self.spot_width)
+
+                    count += 1
+
+            if False:
+                plt.figure()
+                plt.plot(orig_x, orig_y, 'kx')
+                for i_beamlet in range(self.beamlets):
+                    x_ = np.array([
+                        orig_x + d_origin_x[i_los, i_beamlet],
+                        orig_x + d_origin_x[i_los, i_beamlet] + 1.0 * dir_x,
+                    ])
+                    y_ = np.array([
+                        orig_y + d_origin_y[i_los, i_beamlet],
+                        orig_y + d_origin_y[i_los, i_beamlet] + 1.0 * dir_y,
+                    ])
+                    plt.plot(x_, y_)
+                plt.show()
+
+        self.delta_origin_x = d_origin_x
+        self.delta_origin_y = d_origin_y
+        self.delta_origin_z = d_origin_z
+        self.delta_direction_x = d_direction_x
+        self.delta_direction_y = d_direction_y
+        self.delta_direction_z = d_direction_z
 
     def set_dl(
         self,
