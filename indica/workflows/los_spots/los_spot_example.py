@@ -22,8 +22,8 @@ beamlets = int(5 * 5)
 spot_width = 0.01
 spot_height = 0.01
 spot_shape = 'round'
-div_w = 0.0 * 10 * 1e-3  # radians
-div_h = 0.0 * 10 * 1e-3  # radians
+div_w = 10 * 1e-3  # radians
+div_h = 10 * 1e-3  # radians
 
 los = LineOfSightTransform(
     origin_x,
@@ -47,5 +47,5 @@ print(los.spot_width)
 print(los.spot_shape)
 print(los.beamlets)
 
-los.distribute_beamlets()
-
+print(los.x)
+print(los.x_start)

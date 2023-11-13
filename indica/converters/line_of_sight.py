@@ -227,9 +227,7 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def distribute_beamlets(self):
-        print('Hello!')
-
+    def distribute_beamlets(self, debug=True):
         # Grid
         n_w = int(np.sqrt(self.beamlets))
         n_v = int(np.sqrt(self.beamlets))
@@ -246,13 +244,12 @@ class LineOfSightTransform(CoordinateTransform):
             spot_w = 0.5 * self.spot_width * np.cos(th)
             spot_y = 0.5 * self.spot_width * np.sin(th)
 
-            if False:
+            if debug:
                 plt.figure()
                 plt.plot(spot_w, spot_y, 'k')
                 plt.scatter(W.flatten(), V.flatten(), c='r')
                 plt.show()
 
-            print('Implement shape')
         else:
             raise ValueError('Spot shape not available')
 
@@ -275,6 +272,7 @@ class LineOfSightTransform(CoordinateTransform):
 
             normal = np.array([-dir_y, dir_x])
             ang_norm = np.arctan2(normal[1], normal[0])
+            ang_xy = np.arctan2(dir_y, dir_x)
 
             count = 0
             for i_w in range(n_w):
@@ -284,23 +282,28 @@ class LineOfSightTransform(CoordinateTransform):
                     d_origin_y[i_los, count] = grid_w[i_w] * np.sin(ang_norm)
                     d_origin_z[i_los, count] = grid_v[i_v]
 
-                    ## Rotate direction # ToDo implement divergence
+                    ## Rotate direction # ToDo implement divergence, in vertical and horizontal dimensions
                     #d_direction_x[i_los, count] = grid_w[i_w] * np.sin(self.div_width) / (0.5*self.spot_width)
                     #d_direction_x[i_los, count] = grid_w[i_w] * np.cos(self.div_width) / (0.5 * self.spot_width)
+                    ang_new = ang_xy + self.div_width * grid_w[i_w] / (0.5*self.spot_width)
+                    dir_x_new = np.cos(ang_new)
+                    dir_y_new = np.sin(ang_new)
+                    d_direction_x[i_los, count] = dir_x_new - dir_x
+                    d_direction_y[i_los, count] = dir_y_new - dir_y
 
                     count += 1
 
-            if False:
+            if debug:
                 plt.figure()
                 plt.plot(orig_x, orig_y, 'kx')
                 for i_beamlet in range(self.beamlets):
                     x_ = np.array([
                         orig_x + d_origin_x[i_los, i_beamlet],
-                        orig_x + d_origin_x[i_los, i_beamlet] + 1.0 * dir_x,
+                        orig_x + d_origin_x[i_los, i_beamlet] + 1.0 * (dir_x + d_direction_x[i_los, i_beamlet]),
                     ])
                     y_ = np.array([
                         orig_y + d_origin_y[i_los, i_beamlet],
-                        orig_y + d_origin_y[i_los, i_beamlet] + 1.0 * dir_y,
+                        orig_y + d_origin_y[i_los, i_beamlet] + 1.0 * (dir_y + d_direction_y[i_los, i_beamlet]),
                     ])
                     plt.plot(x_, y_)
                 plt.show()
