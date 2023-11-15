@@ -581,6 +581,8 @@ class CoordinateTransform(ABC):
             plt.title(title)
             save_figure(fig_path, f"{fig_name}{self.name}_rho", save_fig=save_fig)
 
+        return cols
+
 
 def plot_geometry(
     abscissa: DataArray,

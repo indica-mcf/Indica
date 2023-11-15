@@ -20,7 +20,7 @@ import pytest
 
 import indica.readers.surf_los as surf_los
 
-filepath = Path(surf_los.__file__).parent / "surf_los.dat"
+filepath = Path(surf_los.__file__).parent.parent / "data/surf_los.dat"
 PIXEL = 0.00099
 
 
