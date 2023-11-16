@@ -227,7 +227,7 @@ class LineOfSightTransform(CoordinateTransform):
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
 
-    def distribute_beamlets(self, debug=True):
+    def distribute_beamlets(self, debug=False):
         # Grid
         n_w = int(np.sqrt(self.beamlets))
         n_v = int(np.sqrt(self.beamlets))
@@ -333,32 +333,40 @@ class LineOfSightTransform(CoordinateTransform):
         x_start, y_start, z_start = [], [], []
         x_end, y_end, z_end = [], [], []
         for channel in self.x1:
-            origin = (
-                self.origin_x[channel],
-                self.origin_y[channel],
-                self.origin_z[channel],
-            )
-            direction = (
-                self.direction_x[channel],
-                self.direction_y[channel],
-                self.direction_z[channel],
-            )
-            _start, _end = find_wall_intersections(
-                origin, direction, machine_dimensions=self._machine_dims
-            )
-            x_start.append(_start[0])
-            y_start.append(_start[1])
-            z_start.append(_start[2])
-            x_end.append(_end[0])
-            y_end.append(_end[1])
-            z_end.append(_end[2])
+            x_start.append([])
+            y_start.append([])
+            z_start.append([])
+            x_end.append([])
+            y_end.append([])
+            z_end.append([])
+            for beamlet in range(self.beamlets):
+                origin = (
+                    self.origin_x[channel] + self.delta_origin_x[channel, beamlet],
+                    self.origin_y[channel] + self.delta_origin_y[channel, beamlet],
+                    self.origin_z[channel] + self.delta_origin_z[channel, beamlet],
+                )
+                direction = (
+                    self.direction_x[channel] + self.delta_direction_x[channel, beamlet],
+                    self.direction_y[channel] + self.delta_direction_y[channel, beamlet],
+                    self.direction_z[channel] + self.delta_direction_z[channel, beamlet],
+                )
+                _start, _end = find_wall_intersections(
+                    origin, direction, machine_dimensions=self._machine_dims
+                )
+                x_start[channel].append(_start[0])
+                y_start[channel].append(_start[1])
+                z_start[channel].append(_start[2])
+                x_end[channel].append(_end[0])
+                y_end[channel].append(_end[1])
+                z_end[channel].append(_end[2])
 
-        self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1)])
-        self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1)])
-        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
-        x_end = DataArray(x_end, coords=[(self.x1_name, self.x1)])
-        y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
-        z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
+        self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1), ('beamlet', np.arange(0, self.beamlets))])
+        self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1), ('beamlet', np.arange(0, self.beamlets))])
+        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1), ('beamlet', np.arange(0, self.beamlets))])
+
+        x_end = DataArray(x_end, coords=[(self.x1_name, self.x1), ('beamlet', np.arange(0, self.beamlets))])
+        y_end = DataArray(y_end, coords=[(self.x1_name, self.x1), ('beamlet', np.arange(0, self.beamlets))])
+        z_end = DataArray(z_end, coords=[(self.x1_name, self.x1), ('beamlet', np.arange(0, self.beamlets))])
 
         # Fix identical length of all lines of sight
         los_lengths = np.sqrt(
@@ -383,15 +391,33 @@ class LineOfSightTransform(CoordinateTransform):
         _x2 = np.linspace(0, 1, npts, dtype=float)
         x2 = DataArray(_x2, coords=[(self.x2_name, _x2)])
         for x1 in self.x1:
+
             _x, _y = self.convert_to_xy(x1, x2, 0)
             _R, _z = self.convert_to_Rz(x1, x2, 0)
             dist = self.distance(self.x2_name, x1, x2, 0)
-            x.append(xr.where(dist <= los_lengths[x1].values, _x, np.nan))
-            y.append(xr.where(dist <= los_lengths[x1].values, _y, np.nan))
-            z.append(xr.where(dist <= los_lengths[x1].values, _z, np.nan))
-            R.append(xr.where(dist <= los_lengths[x1].values, _R, np.nan))
+
+            x.append(_x)
+            y.append(_y)
+            z.append(_z)
+            R.append(_R)
             _phi = np.arctan2(_y, _x)
             phi.append(_phi)
+
+        # Loop over DataArray to NaN where los length is greater than the LOS distance - ToDo
+        for x1 in self.x1:
+
+            for beamlet in range(self.beamlets):
+                dist = self.distance(self.x2_name, x1, x2, 0)
+                _x = x[x1].sel(beamlet=beamlet)
+                _y = y[x1].sel(beamlet=beamlet)
+                _z = z[x1].sel(beamlet=beamlet)
+                _R = R[x1].sel(beamlet=beamlet)
+                _phi = phi[x1].sel(beamlet=beamlet)
+                x[x1][beamlet] = xr.where(dist[beamlet, :] <= los_lengths[x1, beamlet].values, _x, np.nan)
+                y[x1][beamlet] = xr.where(dist[beamlet, :] <= los_lengths[x1, beamlet].values, _y, np.nan)
+                z[x1][beamlet] = xr.where(dist[beamlet, :] <= los_lengths[x1, beamlet].values, _z, np.nan)
+                R[x1][beamlet] = xr.where(dist[beamlet, :] <= los_lengths[x1, beamlet].values, _R, np.nan)
+                phi[x1][beamlet] = xr.where(dist[beamlet, :] <= los_lengths[x1, beamlet].values, _phi, np.nan)
 
         # Reset end coordinates to values intersecting the machine walls
         self.x_end = x_end
@@ -400,7 +426,7 @@ class LineOfSightTransform(CoordinateTransform):
 
         self.x2 = x2
         # self.mask = xr.concat(mask, "channel").assign_coords({"channel":self.x1})
-        self.dl = float(dist[1] - dist[0])
+        self.dl = float(dist[1, 0] - dist[0, 0])
         self.x = xr.concat(x, "channel")
         self.y = xr.concat(y, "channel")
         self.z = xr.concat(z, "channel")
@@ -570,8 +596,9 @@ class LineOfSightTransform(CoordinateTransform):
                 + self.y.sel(channel=ch) ** 2
                 + self.z.sel(channel=ch) ** 2
             )
-            _index = distance.argmin()
-            index.append(_index)
+            _index = np.unravel_index(distance.argmin(), distance.shape)
+            _index_temp = distance.argmin()
+            index.append(_index_temp)
             impact.append(distance[_index])
             x.append(self.x.sel(channel=ch)[_index])
             y.append(self.y.sel(channel=ch)[_index])
