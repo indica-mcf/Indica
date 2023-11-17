@@ -22,12 +22,28 @@ direction_y = np.array([0.0], dtype=float)
 direction_z = np.array([0.0], dtype=float)
 name = 'wowzers'
 
-beamlets = int(3 * 3)
+origin_x = np.array([1.0], dtype=float)
+origin_y = np.array([0.0], dtype=float)
+origin_z = np.array([0.0], dtype=float)
+direction_x = np.array([-0.8], dtype=float)
+direction_y = np.array([0.4], dtype=float)
+direction_z = np.array([0.0], dtype=float)
+name = 'wowzers'
+
+origin_x = np.array([1.0, 1.0], dtype=float)
+origin_y = np.array([0.0, 0.0], dtype=float)
+origin_z = np.array([0.0, 0.0], dtype=float)
+direction_x = np.array([-0.8, -0.8], dtype=float)
+direction_y = np.array([0.4, 0.1], dtype=float)
+direction_z = np.array([0.0, 0.0], dtype=float)
+name = 'wowzers'
+
+beamlets = int(5 * 5)
 spot_width = 0.01
 spot_height = 0.01
 spot_shape = 'round'
-div_w = 100 * 1e-3  # radians
-div_h = 100 * 1e-3  # radians
+div_w = 50 * 1e-3  # radians
+div_h = 50 * 1e-3  # radians
 
 los = LineOfSightTransform(
     origin_x,

@@ -253,13 +253,19 @@ class LineOfSightTransform(CoordinateTransform):
         else:
             raise ValueError('Spot shape not available')
 
+        # Find distance to virtual focus position
+        if self.div_width > 0.0:
+            distance = self.spot_width/2 / np.tan(self.div_width)
+        else:
+            distance = np.nan
+
         # Build beamlets
-        d_origin_x = np.zeros((len(self.direction_x), self.beamlets))
-        d_origin_y = np.zeros((len(self.direction_x), self.beamlets))
-        d_origin_z = np.zeros((len(self.direction_x), self.beamlets))
-        d_direction_x = np.zeros((len(self.direction_x), self.beamlets))
-        d_direction_y = np.zeros((len(self.direction_x), self.beamlets))
-        d_direction_z = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_origin_x = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_origin_y = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_origin_z = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_direction_x = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_direction_y = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_direction_z = np.zeros((len(self.direction_x), self.beamlets))
         for i_los in range(len(self.direction_x)):
 
             dir_x = self.direction_x[i_los]
@@ -274,22 +280,45 @@ class LineOfSightTransform(CoordinateTransform):
             ang_norm = np.arctan2(normal[1], normal[0])
             ang_xy = np.arctan2(dir_y, dir_x)
 
+            # Calculate virtual system reference coordinate
+            system_x = orig_x - dir_x * distance
+            system_y = orig_y - dir_y * distance
+            system_z = orig_z - dir_z * distance
+
             count = 0
             for i_w in range(n_w):
                 for i_v in range(n_v):
                     # Move origin along plane normal to the direction
-                    d_origin_x[i_los, count] = grid_w[i_w] * np.cos(ang_norm)
-                    d_origin_y[i_los, count] = grid_w[i_w] * np.sin(ang_norm)
-                    d_origin_z[i_los, count] = grid_v[i_v]
+                    beamlet_origin_x[i_los, count] = orig_x + grid_w[i_w] * np.cos(ang_norm)
+                    beamlet_origin_y[i_los, count] = orig_y + grid_w[i_w] * np.sin(ang_norm)
+                    beamlet_origin_z[i_los, count] = orig_z + grid_v[i_v]
+
+                    # Direction
+                    if self.div_width > 0.0:
+                        dir_vec = np.array([
+                            beamlet_origin_x[i_los, count] - system_x,
+                            beamlet_origin_y[i_los, count] - system_y,
+                            beamlet_origin_z[i_los, count] - system_z,
+                        ])
+                        dir_vec_norm = dir_vec / np.linalg.norm(dir_vec)
+                        beamlet_direction_x[i_los, count] = dir_vec_norm[0]
+                        beamlet_direction_y[i_los, count] = dir_vec_norm[1]
+                        beamlet_direction_z[i_los, count] = dir_vec_norm[2]
+                    else:
+                        beamlet_direction_x[i_los, count] = dir_x
+                        beamlet_direction_y[i_los, count] = dir_y
+                        beamlet_direction_z[i_los, count] = dir_z
+
 
                     ## Rotate direction # ToDo implement divergence, in vertical and horizontal dimensions
                     #d_direction_x[i_los, count] = grid_w[i_w] * np.sin(self.div_width) / (0.5*self.spot_width)
                     #d_direction_x[i_los, count] = grid_w[i_w] * np.cos(self.div_width) / (0.5 * self.spot_width)
-                    ang_new = ang_xy + self.div_width * grid_w[i_w] / (0.5*self.spot_width)
-                    dir_x_new = np.cos(ang_new)
-                    dir_y_new = np.sin(ang_new)
-                    d_direction_x[i_los, count] = dir_x_new - dir_x
-                    d_direction_y[i_los, count] = dir_y_new - dir_y
+                    #ang_xy_new = ang_xy + self.div_width * grid_w[i_w] / (0.5*self.spot_width)
+                    #ang_Rz_new = self.div_width * grid_v[i_v] / (0.5*self.spot_width)
+                    #dir_x_new = np.cos(ang_xy_new)
+                    #dir_y_new = np.sin(ang_xy_new)
+                    #d_direction_x[i_los, count] = dir_x_new - dir_x
+                    #d_direction_y[i_los, count] = dir_y_new - dir_y
 
                     count += 1
 
@@ -298,22 +327,22 @@ class LineOfSightTransform(CoordinateTransform):
                 plt.plot(orig_x, orig_y, 'kx')
                 for i_beamlet in range(self.beamlets):
                     x_ = np.array([
-                        orig_x + d_origin_x[i_los, i_beamlet],
-                        orig_x + d_origin_x[i_los, i_beamlet] + 1.0 * (dir_x + d_direction_x[i_los, i_beamlet]),
+                        beamlet_origin_x[i_los, i_beamlet],
+                        beamlet_origin_x[i_los, i_beamlet] + 1.0 * beamlet_direction_x[i_los, i_beamlet],
                     ])
                     y_ = np.array([
-                        orig_y + d_origin_y[i_los, i_beamlet],
-                        orig_y + d_origin_y[i_los, i_beamlet] + 1.0 * (dir_y + d_direction_y[i_los, i_beamlet]),
+                        beamlet_origin_y[i_los, i_beamlet],
+                        beamlet_origin_y[i_los, i_beamlet] + 1.0 * beamlet_direction_y[i_los, i_beamlet],
                     ])
                     plt.plot(x_, y_)
                 plt.show()
 
-        self.delta_origin_x = d_origin_x
-        self.delta_origin_y = d_origin_y
-        self.delta_origin_z = d_origin_z
-        self.delta_direction_x = d_direction_x
-        self.delta_direction_y = d_direction_y
-        self.delta_direction_z = d_direction_z
+        self.beamlet_origin_x = beamlet_origin_x
+        self.beamlet_origin_y = beamlet_origin_y
+        self.beamlet_origin_z = beamlet_origin_z
+        self.beamlet_direction_x = beamlet_direction_x
+        self.beamlet_direction_y = beamlet_direction_y
+        self.beamlet_direction_z = beamlet_direction_z
 
     def set_dl(
         self,
@@ -340,15 +369,25 @@ class LineOfSightTransform(CoordinateTransform):
             y_end.append([])
             z_end.append([])
             for beamlet in range(self.beamlets):
+                #origin = (
+                #    self.origin_x[channel] + self.delta_origin_x[channel, beamlet],
+                #    self.origin_y[channel] + self.delta_origin_y[channel, beamlet],
+                #    self.origin_z[channel] + self.delta_origin_z[channel, beamlet],
+                #)
+                #direction = (
+                #    self.direction_x[channel] + self.delta_direction_x[channel, beamlet],
+                #    self.direction_y[channel] + self.delta_direction_y[channel, beamlet],
+                #    self.direction_z[channel] + self.delta_direction_z[channel, beamlet],
+                #)
                 origin = (
-                    self.origin_x[channel] + self.delta_origin_x[channel, beamlet],
-                    self.origin_y[channel] + self.delta_origin_y[channel, beamlet],
-                    self.origin_z[channel] + self.delta_origin_z[channel, beamlet],
+                    self.beamlet_origin_x[channel, beamlet],
+                    self.beamlet_origin_y[channel, beamlet],
+                    self.beamlet_origin_z[channel, beamlet],
                 )
                 direction = (
-                    self.direction_x[channel] + self.delta_direction_x[channel, beamlet],
-                    self.direction_y[channel] + self.delta_direction_y[channel, beamlet],
-                    self.direction_z[channel] + self.delta_direction_z[channel, beamlet],
+                    self.beamlet_direction_x[channel, beamlet],
+                    self.beamlet_direction_y[channel, beamlet],
+                    self.beamlet_direction_z[channel, beamlet],
                 )
                 _start, _end = find_wall_intersections(
                     origin, direction, machine_dimensions=self._machine_dims
