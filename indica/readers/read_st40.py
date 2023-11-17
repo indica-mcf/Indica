@@ -12,24 +12,25 @@ from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
 from indica.utilities import print_like
 
-REVISIONS = {
-    "efit": 0,
-    "brems": -1,
-    "halpha": -1,
-    "nirh1": 0,
-    "smmh1": 0,
-    "cxff_pi": 0,
-    "cxff_tws_c": 0,
-    "cxqf_tws_c": 0,
-    "sxr_camera_4": 0,
-    "sxrc_xy1": 0,
-    "sxrc_xy2": 0,
-    "sxr_diode_1": 0,
-    "xrcs": 0,
-    "ts": 0,
-    "pi": 0,
-    "tws_c": 0,
-}
+INSTRUMENTS: list = [
+    "efit",
+    "lines",
+    "nirh1",
+    "smmh1",
+    "smmh",
+    "cxff_pi",
+    "cxff_tws_c",
+    "cxqf_tws_c",
+    "sxr_spd",
+    "sxr_camera_4",
+    "sxrc_xy1",
+    "sxrc_xy2",
+    "sxr_diode_1",
+    "xrcs",
+    "ts",
+    "pi",
+    "tws_c",
+]
 
 FILTER_LIMITS = {
     "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
@@ -38,11 +39,13 @@ FILTER_LIMITS = {
     "xrcs": {"ti_w": (0, np.inf), "te_kw": (0, np.inf), "te_n3w": (0, np.inf)},
     "brems": {"brightness": (0, np.inf)},
     "halpha": {"brightness": (0, np.inf)},
+    "sxr_spd": {"brightness": (0, np.inf)},
     "sxr_diode_1": {"brightness": (0, np.inf)},
     "sxr_camera_4": {"brightness": (0, np.inf)},
     "sxrc_xy1": {"brightness": (0, np.inf)},
     "sxrc_xy2": {"brightness": (0, np.inf)},
-    "ts": {"te": (0, 10.0e3), "ne": (0, 1.0e21)},
+    "blom_xy1": {"brightness": (0, np.inf)},
+    "ts": {"te": (0, np.inf), "ne": (0, np.inf)},
     "pi": {"spectra": (0, np.inf)},
     "tws_c": {"spectra": (0, np.inf)},
 }
@@ -88,8 +91,12 @@ class ReadST40:
         self.tend = tend
         self.dt = dt
 
-        self.reader = ST40Reader(pulse, tstart - 0.05, tend + 0.05, tree=tree)
-        self.reader_equil = ST40Reader(pulse, tstart - 0.1, tend + 0.1, tree=tree)
+        _tend = tend + dt * 2
+        _tstart = tstart - dt * 2
+        if _tstart < 0:
+            _tstart = 0.0
+        self.reader = ST40Reader(pulse, _tstart, _tend, tree=tree)
+        self.reader_equil = ST40Reader(pulse, _tstart, _tend, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
@@ -175,6 +182,7 @@ class ReadST40:
                         break
 
     def filter_data(self, instruments: list):
+
         if not hasattr(self, "binned_data"):
             raise ValueError(
                 "Bin data before filtering. No action permitted on raw data structure!"
@@ -296,7 +304,7 @@ class ReadST40:
 
     def __call__(
         self,
-        instruments: list = None,
+        instruments: list = [],
         revisions: dict = None,
         filters: dict = None,
         map_raw: bool = False,
@@ -310,11 +318,15 @@ class ReadST40:
         debug: bool = False,
     ):
         self.debug = debug
-        if instruments is None:
-            instruments = list(REVISIONS.keys())
-        if not revisions:
-            # TODO: fix default behaviour if missing key
-            revisions = REVISIONS
+        if len(instruments) == 0:
+            instruments = INSTRUMENTS
+        if revisions is None:
+            revisions = {instrument: 0 for instrument in instruments}
+        for instr in instruments:
+            if instr not in revisions.keys():
+                revisions[instr] = 0
+        if "efit" not in revisions:
+            revisions["efit"] = 0
         if not filters:
             # TODO: fix default behaviour if missing key
             filters = FILTER_LIMITS
@@ -326,7 +338,7 @@ class ReadST40:
             dt = self.dt
 
         self.reset_data()
-        self.get_equilibrium(R_shift=R_shift)
+        self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
         for instrument in instruments:
             print(f"Reading {instrument}")
             if debug:
@@ -366,12 +378,17 @@ def astra_equilibrium(pulse: int, revision: RevisionLike):
     """Assign ASTRA to equilibrium class"""
 
 
-def read_cxff_pi():
+def sxr_spd():
     import indica.readers.read_st40 as read_st40
+    from indica.utilities import set_axis_sci
 
-    st40 = read_st40.ReadST40(10607)
-    st40(["cxff_pi"])
-    st40.raw_data["cxff_pi"]["ti"].los_transform.set_equilibrium(
-        st40.raw_data["cxff_pi"]["ti"].transform.equilibrium
-    )
-    st40.raw_data["cxff_pi"]["ti"].los_transform.plot()
+    st40 = read_st40.ReadST40(11215)
+    st40(["sxr_spd"])
+
+    st40.raw_data["sxr_spd"]["brightness"].transform.plot()
+
+    plt.figure()
+    st40.raw_data["sxr_spd"]["brightness"].sel(channel=0).plot()
+    set_axis_sci()
+
+    return st40.raw_data["sxr_spd"]["brightness"]
