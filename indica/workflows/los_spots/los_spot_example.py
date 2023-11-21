@@ -10,6 +10,8 @@ sys.path.append(path_to_indica)
 
 # Import Indica things
 from indica.converters import LineOfSightTransform
+from indica.models.plasma import example_run as example_plasma
+from indica.readers.read_st40 import ReadST40
 
 
 # Dummy line-of-sight
@@ -38,14 +40,23 @@ direction_y = np.array([0.4, 0.1], dtype=float)
 direction_z = np.array([0.0, 0.0], dtype=float)
 name = 'wowzers'
 
-beamlets = int(5 * 5)
+origin_x = np.array([1.0, 1.0, 1.0], dtype=float)
+origin_y = np.array([0.0, 0.0, 0.0], dtype=float)
+origin_z = np.array([0.0, 0.0, 0.0], dtype=float)
+direction_x = np.array([-0.8, -0.8, -0.8], dtype=float)
+direction_y = np.array([0.4, 0.1, 0.0], dtype=float)
+direction_z = np.array([0.0, 0.0, 0.0], dtype=float)
+name = 'wowzers'
+
+
+beamlets = int(3 * 3)
 spot_width = 0.01
 spot_height = 0.01
 spot_shape = 'round'
 div_w = 50 * 1e-3  # radians
 div_h = 50 * 1e-3  # radians
 
-los = LineOfSightTransform(
+los_transform = LineOfSightTransform(
     origin_x,
     origin_y,
     origin_z,
@@ -64,7 +75,7 @@ los = LineOfSightTransform(
     passes=1,
 )
 
-cols = cm.gnuplot2(np.linspace(0.3, 0.75, len(los.x1), dtype=float))
+cols = cm.gnuplot2(np.linspace(0.3, 0.75, len(los_transform.x1), dtype=float))
 
 plt.figure()
 
@@ -77,10 +88,10 @@ y_cc = machine_dims[0][0] * np.sin(th)
 plt.plot(x_cc, y_cc, c='k', lw=2.0)
 plt.plot(x_ivc, y_ivc, c='k', lw=2.0)
 
-for x1 in los.x1:
-    for beamlet in range(los.beamlets):
-        x = los.x.sel(channel=x1, beamlet=beamlet)
-        y = los.y.sel(channel=x1, beamlet=beamlet)
+for x1 in los_transform.x1:
+    for beamlet in range(los_transform.beamlets):
+        x = los_transform.x.sel(channel=x1, beamlet=beamlet)
+        y = los_transform.y.sel(channel=x1, beamlet=beamlet)
 
         plt.plot(x, y, c=cols[x1])
 
@@ -102,65 +113,61 @@ plt.plot(
     lw=2.0,
 )
 
-for x1 in los.x1:
-    for beamlet in range(los.beamlets):
-        R = los.R.sel(channel=x1, beamlet=beamlet)
-        z = los.z.sel(channel=x1, beamlet=beamlet)
+for x1 in los_transform.x1:
+    for beamlet in range(los_transform.beamlets):
+        R = los_transform.R.sel(channel=x1, beamlet=beamlet)
+        z = los_transform.z.sel(channel=x1, beamlet=beamlet)
 
         plt.plot(R, z, c=cols[x1])
 
 plt.tight_layout()
-plt.show(block=True)
+#plt.show(block=True)
 
 '''
 NEXT UP PLASMA
 '''
 
-# Plasma model
-from indica.models.plasma import example_run as example_plasma
-
+# Inputs -- default tests equilibrium
+run = 'RUN01'
 pulse = 10009
-plasma = example_plasma(pulse=pulse)
+tstart = 0.05
+tend = 0.06
+dt = 0.01
 
-machine_dims = ((0.15, 0.85), (-0.75, 0.75))
+# Read ST40 data
+st40 = ReadST40(tstart=tstart, tend=tend, dt=dt, pulse=pulse)
+st40()
 
-nchannels = 11
-los_end = np.full((nchannels, 3), 0.0)
-los_end[:, 0] = 0.17
-los_end[:, 1] = 0.0
-los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
-los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
-origin = los_start
-direction = los_end - los_start
-
-beamlets = int(5 * 5)
-spot_width = 0.01
-spot_height = 0.01
-spot_shape = 'round'
-div_w = 20 * 1e-3  # radians
-div_h = 20 * 1e-3  # radians
-
-los_transform = LineOfSightTransform(
-    origin[:, 0],
-    origin[:, 1],
-    origin[:, 2],
-    direction[:, 0],
-    direction[:, 1],
-    direction[:, 2],
-    name="",
-    machine_dimensions=machine_dims,
-    passes=1,
-    spot_width=spot_width,
-    spot_height=spot_height,
-    spot_shape=spot_shape,
-    beamlets=beamlets,
-    div_h=div_h,
-    div_w=div_w,
-)
-los_transform = los
+# Get plasma
+plasma = example_plasma(tstart=tstart, tend=tend, dt=dt, pulse=pulse)
+plasma.set_equilibrium(st40.equilibrium)
 los_transform.set_equilibrium(plasma.equilibrium)
 
-time = los_transform.equilibrium.rho.t.values[1:5]
+#
+time = plasma.t
+
+# Along LOS
+Ti = plasma.ion_temperature.sel(element="c")
+print(Ti)
+Ti_along_los = los_transform.map_profile_to_los(Ti, t=time)
+print(Ti_along_los)
+
+for i_time in range(len(time)):
+    plt.figure()
+    for i_channel in range(len(los_transform.x1)):
+        for i_beamlet in range(los_transform.beamlets):
+            plt.plot(
+                Ti_along_los.los_position,
+                Ti_along_los.sel(channel=i_channel, beamlet=i_beamlet, t=time[i_time]),
+                c = cols[i_channel],
+            )
+
+    plt.ylabel('Ti (eV)')
+
+plt.show(block=True)
+
+
+# Line integration
 rho = los_transform.equilibrium.rho.interp(t=time)
 R = rho.R
 z = rho.z
@@ -178,7 +185,7 @@ plt.contourf(
 plt.colorbar()
 
 plt.figure()
-for i_beamlet in range(los.beamlets):
+for i_beamlet in range(los_transform.beamlets):
     plt.plot(b_tot_los_int_beamlets.sel(channel=0, beamlet=i_beamlet))
 
 plt.figure()
