@@ -465,7 +465,7 @@ class LineOfSightTransform(CoordinateTransform):
 
         self.x2 = x2
         # self.mask = xr.concat(mask, "channel").assign_coords({"channel":self.x1})
-        self.dl = float(dist[1, 0] - dist[0, 0])
+        self.dl = float(dist[0, 1] - dist[0, 0])
         self.x = xr.concat(x, "channel")
         self.y = xr.concat(y, "channel")
         self.z = xr.concat(z, "channel")
@@ -588,6 +588,7 @@ class LineOfSightTransform(CoordinateTransform):
         t: LabeledArray = None,
         limit_to_sep=True,
         calc_rho=False,
+        sum_beamlet=True,
     ) -> DataArray:
         """
         Integrate 1D profile along LOS
@@ -610,9 +611,16 @@ class LineOfSightTransform(CoordinateTransform):
             limit_to_sep=limit_to_sep,
             calc_rho=calc_rho,
         )
-        los_integral = (
-            self.passes * along_los.sum("los_position", skipna=True) * self.dl
-        )
+
+        if sum_beamlet:
+            los_integral = (
+                self.passes * along_los.sum(["los_position", "beamlet"], skipna=True) * self.dl / float(self.beamlets)
+            )
+
+        else:
+            los_integral = (
+                self.passes * along_los.sum(["los_position"], skipna=True) * self.dl
+            )
 
         if len(los_integral.channel) == 1:
             los_integral = los_integral.sel(channel=0)

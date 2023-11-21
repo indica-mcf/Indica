@@ -61,6 +61,7 @@ los = LineOfSightTransform(
     div_h=div_h,
     div_w=div_w,
     machine_dimensions=machine_dims,
+    passes=1,
 )
 
 cols = cm.gnuplot2(np.linspace(0.3, 0.75, len(los.x1), dtype=float))
@@ -111,11 +112,78 @@ for x1 in los.x1:
 plt.tight_layout()
 plt.show(block=True)
 
+'''
+NEXT UP PLASMA
+'''
 
-print(los.spot_height)
-print(los.spot_width)
-print(los.spot_shape)
-print(los.beamlets)
+# Plasma model
+from indica.models.plasma import example_run as example_plasma
 
-print(los.x)
-print(los.x_start)
+pulse = 10009
+plasma = example_plasma(pulse=pulse)
+
+machine_dims = ((0.15, 0.85), (-0.75, 0.75))
+
+nchannels = 11
+los_end = np.full((nchannels, 3), 0.0)
+los_end[:, 0] = 0.17
+los_end[:, 1] = 0.0
+los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
+los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
+origin = los_start
+direction = los_end - los_start
+
+beamlets = int(5 * 5)
+spot_width = 0.01
+spot_height = 0.01
+spot_shape = 'round'
+div_w = 20 * 1e-3  # radians
+div_h = 20 * 1e-3  # radians
+
+los_transform = LineOfSightTransform(
+    origin[:, 0],
+    origin[:, 1],
+    origin[:, 2],
+    direction[:, 0],
+    direction[:, 1],
+    direction[:, 2],
+    name="",
+    machine_dimensions=machine_dims,
+    passes=1,
+    spot_width=spot_width,
+    spot_height=spot_height,
+    spot_shape=spot_shape,
+    beamlets=beamlets,
+    div_h=div_h,
+    div_w=div_w,
+)
+los_transform = los
+los_transform.set_equilibrium(plasma.equilibrium)
+
+time = los_transform.equilibrium.rho.t.values[1:5]
+rho = los_transform.equilibrium.rho.interp(t=time)
+R = rho.R
+z = rho.z
+b_tot, t = plasma.equilibrium.Btot(R, z, t=time)
+b_tot_los_int = los_transform.integrate_on_los(b_tot, t=time)
+
+b_tot_los_int_beamlets = los_transform.integrate_on_los(b_tot, t=time, sum_beamlet=False)
+print(b_tot_los_int)
+print(b_tot_los_int_beamlets)
+
+plt.figure()
+plt.contourf(
+    R, z, b_tot.sel(t=time[0])
+)
+plt.colorbar()
+
+plt.figure()
+for i_beamlet in range(los.beamlets):
+    plt.plot(b_tot_los_int_beamlets.sel(channel=0, beamlet=i_beamlet))
+
+plt.figure()
+for i_channel in range(len(los_transform.x1)):
+    plt.plot(b_tot_los_int.sel(channel=i_channel))
+
+
+plt.show(block=True)
