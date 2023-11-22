@@ -1,5 +1,6 @@
-from typing import Sequence
+from typing import List
 from typing import Tuple
+from typing import Union
 
 import numpy as np
 import scipy as sp
@@ -13,6 +14,21 @@ from .abstractoperator import Operator
 from .bolometry_derivation import BolometryDerivation
 from .centrifugal_asymmetry import AsymmetryParameter
 from .extrapolate_impurity_density import asymmetry_modifier_from_parameter
+
+
+def bolo_los(bolo_diag_array: xr.DataArray) -> List[List[Union[List, str]]]:
+    return [
+        [
+            np.array([bolo_diag_array.attrs["transform"].x_start.data[i].tolist()]),
+            np.array([bolo_diag_array.attrs["transform"].z_start.data[i].tolist()]),
+            np.array([bolo_diag_array.attrs["transform"].y_start.data[i].tolist()]),
+            np.array([bolo_diag_array.attrs["transform"].x_end.data[i].tolist()]),
+            np.array([bolo_diag_array.attrs["transform"].z_end.data[i].tolist()]),
+            np.array([bolo_diag_array.attrs["transform"].y_end.data[i].tolist()]),
+            "bolo_kb5" + str(i.values),
+        ]
+        for i in bolo_diag_array.bolo_kb5v_coords
+    ]
 
 
 def calc_fsa_quantity(
@@ -225,7 +241,7 @@ class AdditionalHighZ(Operator):
             (main_high_z_counts) / (additional_high_z_counts)
         ) * n_additional_high_z_unnormalised_fsa
 
-    def _calc_unnormalised_additional_high_z_density(
+    def _calc_seminormalised_additional_high_z_density(
         n_additional_high_z_unnormalised_fsa: xr.DataArray,
         toroidal_rotations: xr.DataArray,
         ion_temperature: xr.DataArray,
@@ -266,7 +282,7 @@ class AdditionalHighZ(Operator):
         -------
         n_additional_high_z_unnormalised_midplane
             Additional high Z impurity density along the midplane. Dimensions (t, rho).
-        additional_high_z_asymmetry_parameter
+        n_additional_high_z_asymmetry_parameter
             Additional high Z impurity asymmetry parameter. Dimensions (t, rho).
         """
         # first calculate asymmetry_parameter
@@ -295,13 +311,17 @@ class AdditionalHighZ(Operator):
         asymmetry_modifier_fsa = calc_fsa_quantity(
             asymmetry_modifier, xr.ones_like(asymmetry_modifier), flux_surfaces, ntheta
         )
-        return n_additional_high_z_unnormalised_fsa / asymmetry_modifier_fsa
+        return (
+            n_additional_high_z_unnormalised_fsa / asymmetry_modifier_fsa,
+            n_additional_high_z_asymmetry_parameter,
+        )
 
     def _calc_normalised_additional_high_z_density(
-        n_additional_high_z_unnormalised_midplane: xr.DataArray,
-        additional_high_z_asymmetry_parameter: xr.DataArray,
+        n_additional_high_z_seminormalised_midplane: xr.DataArray,
+        n_additional_high_z_asymmetry_parameter: xr.DataArray,
+        additional_high_z_element: str,
         flux_surfaces: FluxSurfaceCoordinates,
-        LoS_bolometry_data: Sequence,
+        bolometry_observation: xr.DataArray,
         bolometry_obj: BolometryDerivation,
     ) -> xr.DataArray:
         """
@@ -311,16 +331,18 @@ class AdditionalHighZ(Operator):
 
         Parameters
         ----------
-        n_additional_high_z_unnormalised_midplane
-            Additional high Z impurity density along the midplane. Dimensions (t, rho).
-            additional_high_z_asymmetry_parameter
+        n_additional_high_z_seminormalised_midplane
+            Additional high Z impurity density along the midplane after first
+            normalisation. Dimensions (t, rho).
+        n_additional_high_z_asymmetry_parameter
             Additional high Z impurity asymmetry parameter. Dimensions (t, rho).
+        additional_high_z_element
+            Symbol for additional high Z impurity element.
         flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
-        LoS_bolometry_data
-            Line-of-sight bolometry data in the same format as given in:
-            tests/unit/operator/KB5_Bolometry_data.py
+        bolometry_observation
+            Measured bolometry data used for normalisation. Dimensions (t, channel).
         bolometry_obj
             BolometryDerivation object.
 
@@ -329,7 +351,31 @@ class AdditionalHighZ(Operator):
         n_additional_high_z_midplane
             Normalised midplane additional high Z density. Dimensions (t, rho).
         """
-        raise NotImplementedError
+        rho = n_additional_high_z_seminormalised_midplane.coords["rho_poloidal"]
+        theta = bolometry_obj.impurity_densities.coords["theta"]
+        R_mid, z_mid = flux_surfaces.convert_to_Rz(rho, theta)
+        asymmetry_modifier = asymmetry_modifier_from_parameter(
+            n_additional_high_z_asymmetry_parameter, R_mid
+        )
+        # construct density on a rho, theta grid
+        n_additional_high_z = (
+            n_additional_high_z_seminormalised_midplane * asymmetry_modifier
+        )
+
+        # ensure data is transposed correctly
+        n_additional_high_z = n_additional_high_z.transpose(
+            "rho_poloidal", "theta", "t"
+        )
+        # insert density into bolometry obj
+        bolometry_obj.impurity_densities.loc[
+            additional_high_z_element, :, :, :
+        ] = n_additional_high_z
+
+        bolometry_prediction = bolometry_obj(False, False, t_val=None)
+
+        C = 1 / (bolometry_prediction / bolometry_observation).mean()
+
+        return C * n_additional_high_z_seminormalised_midplane
 
     def __call__(self):
         raise NotImplementedError
