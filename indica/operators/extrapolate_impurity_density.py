@@ -99,7 +99,7 @@ def asymmetry_from_R_z(
     # Set constant asymmetry parameter for rho<0.1
     derived_asymmetry_parameter = derived_asymmetry_parameter.where(
         derived_asymmetry_parameter.coords["rho_poloidal"] > 0.1,
-        other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="nearest"),
+        other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="backfill"),
     )
 
     if threshold_rho is not None:
@@ -183,7 +183,7 @@ def asymmetry_from_rho_theta(
     # Set constant asymmetry parameter for rho<0.1
     derived_asymmetry_parameter = derived_asymmetry_parameter.where(
         derived_asymmetry_parameter.coords["rho_poloidal"] > 0.1,
-        other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="nearest"),
+        other=derived_asymmetry_parameter.sel({"rho_poloidal": 0.1}, method="backfill"),
     )
 
     derived_asymmetry_parameter = derived_asymmetry_parameter.transpose(

@@ -3,6 +3,8 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
+import numpy as np
+import scipy.constants as spc
 from xarray.core.dataarray import DataArray
 
 from .abstractoperator import EllipsisType
@@ -49,6 +51,7 @@ class ToroidalRotation(Operator):
         impurity: str,
         Zeff: DataArray,
         electron_temp: DataArray,
+        mean_charges: DataArray,
     ):
         """Calculates the toroidal rotation frequency from the asymmetry parameter.
 
@@ -66,6 +69,8 @@ class ToroidalRotation(Operator):
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data. In units of eV.
+        mean_charges
+            xarray.DataArray containing impurity mean charge data
 
         Returns
         -------
@@ -114,15 +119,24 @@ class ToroidalRotation(Operator):
             strictly_positive=True,
         )
 
+        input_check(
+            "mean_charge",
+            mean_charges,
+            DataArray,
+            ndim_to_check=3,
+            strictly_positive=True,
+        )
+
         asymmetry_parameter = asymmetry_parameters.sel(element=impurity)
 
         impurity_mass_int = ELEMENTS[impurity][1]
 
-        unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
+        unified_atomic_mass_unit = spc.value(
+            "atomic mass unit-electron volt relationship"
+        )  # in eV/c^2
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
-        mean_charge = ELEMENTS[impurity][0]
-
+        mean_charge = mean_charges.sel({"element": impurity}, drop=True)
         main_ion_mass_int = ELEMENTS[main_ion][1]
 
         main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
@@ -131,19 +145,20 @@ class ToroidalRotation(Operator):
 
         # mypy on the github CI suggests that * is an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
-        toroidal_rotation = 2.0 * ion_temperature * asymmetry_parameter  # type: ignore
-        toroidal_rotation /= impurity_mass * (
-            1.0
-            - (mean_charge * main_ion_mass * Zeff * electron_temp)  # type: ignore
-            / (impurity_mass * (ion_temperature + Zeff * electron_temp))
+        return (
+            np.sqrt(
+                (2.0 * ion_temperature * asymmetry_parameter)  # type: ignore
+                / (
+                    impurity_mass
+                    * (
+                        1.0
+                        - (mean_charge * main_ion_mass * Zeff * electron_temp)
+                        / (impurity_mass * (ion_temperature + Zeff * electron_temp))
+                    )
+                )
+            )
+            * spc.speed_of_light
         )
-
-        toroidal_rotation = toroidal_rotation**0.5
-
-        c = 3.0e8  # speed of light in vacuum
-        toroidal_rotation *= c
-
-        return toroidal_rotation
 
 
 class AsymmetryParameter(Operator):
@@ -175,6 +190,7 @@ class AsymmetryParameter(Operator):
         impurity: str,
         Zeff: DataArray,
         electron_temp: DataArray,
+        mean_charges: DataArray,
     ):
         """Calculates the asymmetry parameter from the toroidal rotation frequency.
 
@@ -193,6 +209,8 @@ class AsymmetryParameter(Operator):
             xarray.DataArray containing Z-effective data from diagnostics.
         electron_temp
             xarray.DataArray containing electron temperature data. In units of eV.
+        mean_charges
+            xarray.DataArray containing impurity mean charge data
 
         Returns
         -------
@@ -240,33 +258,38 @@ class AsymmetryParameter(Operator):
             strictly_positive=True,
         )
 
+        input_check(
+            "mean_charge",
+            mean_charges,
+            DataArray,
+            ndim_to_check=3,
+            strictly_positive=True,
+        )
+
         toroidal_rotations = toroidal_rotations.sel(element=impurity)
 
         impurity_mass_int = ELEMENTS[impurity][1]
 
-        unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
+        unified_atomic_mass_unit = spc.value(
+            "atomic mass unit-electron volt relationship"
+        )  # in eV/c^2
         impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
 
-        mean_charge = ELEMENTS[impurity][0]
-
+        mean_charge = mean_charges.sel({"element": impurity}, drop=True)
         main_ion_mass_int = ELEMENTS[main_ion][1]
 
         main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
 
         ion_temperature = ion_temperature.sel(element=impurity)
 
-        c = 3.0e8  # speed of light in m/s
-        toroidal_rotations /= c
-
         # mypy on the github CI suggests that * is in an Unsupported operand type
         # between float and DataArray, don't know how to fix yet so for now ignored
-        asymmetry_parameter = (
+        return (
             impurity_mass
-            * (toroidal_rotations**2)  # type: ignore
+            * ((toroidal_rotations / spc.speed_of_light) ** 2)  # type: ignore
             / (2.0 * ion_temperature)  # type: ignore
+        ) * (
+            1.0
+            - (mean_charge * main_ion_mass * Zeff * electron_temp)
+            / (impurity_mass * (ion_temperature + Zeff * electron_temp))
         )
-        asymmetry_parameter *= 1.0 - (
-            mean_charge * main_ion_mass * Zeff * electron_temp  # type: ignore
-        ) / (impurity_mass * (ion_temperature + Zeff * electron_temp))
-
-        return asymmetry_parameter
