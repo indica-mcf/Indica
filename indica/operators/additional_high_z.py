@@ -95,6 +95,7 @@ class AdditionalHighZ(Operator):
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         return (("number_density", "impurity_element"),)
 
+    @staticmethod
     def _calc_shape(
         n_high_z_midplane: xr.DataArray,
         n_high_z_asymmetry_parameter: xr.DataArray,
@@ -167,6 +168,7 @@ class AdditionalHighZ(Operator):
 
         return n_additional_high_z_unnormalised_fsa
 
+    @staticmethod
     def _calc_first_normalisation(
         n_additional_high_z_unnormalised_fsa: xr.DataArray,
         n_main_high_z_midplane: xr.DataArray,
@@ -241,26 +243,28 @@ class AdditionalHighZ(Operator):
             (main_high_z_counts) / (additional_high_z_counts)
         ) * n_additional_high_z_unnormalised_fsa
 
+    @staticmethod
     def _calc_seminormalised_additional_high_z_density(
-        n_additional_high_z_unnormalised_fsa: xr.DataArray,
+        n_additional_high_z_seminormalised_fsa: xr.DataArray,
         toroidal_rotations: xr.DataArray,
         ion_temperature: xr.DataArray,
         main_ion: str,
-        impurity: str,
+        additional_high_z_element: str,
         Zeff: xr.DataArray,
         electron_temp: xr.DataArray,
         flux_surfaces: FluxSurfaceCoordinates,
     ) -> xr.DataArray:
         """
-        Calculate the unnormalised additional high Z density on the midplane
+        Calculate the seminormalised additional high Z density on the midplane
         and the asymmetry parameter.
 
         Uses equation 2.12 and implements 2.13.
 
         Parameters
         ----------
-        n_additional_high_z_unnormalised_fsa
-            Unnormalised additional high Z impurity density. Dimensions (t, rho).
+        n_additional_high_z_seminormalised_fsa
+            Additional high Z impurity density after first normalisation.
+            Dimensions (t, rho).
         toroidal_rotations
             xarray.DataArray containing toroidal rotation frequencies data.
             In units of ms^-1.
@@ -268,7 +272,7 @@ class AdditionalHighZ(Operator):
             xarray.DataArray containing ion temperature data. In units of eV.
         main_ion
             Element symbol of main ion.
-        impurity
+        additional_high_z_element
             Element symbol of chosen impurity element.
         Zeff
             xarray.DataArray containing Z-effective data from diagnostics.
@@ -280,7 +284,7 @@ class AdditionalHighZ(Operator):
 
         Returns
         -------
-        n_additional_high_z_unnormalised_midplane
+        n_additional_high_z_seminormalised_midplane
             Additional high Z impurity density along the midplane. Dimensions (t, rho).
         n_additional_high_z_asymmetry_parameter
             Additional high Z impurity asymmetry parameter. Dimensions (t, rho).
@@ -291,13 +295,13 @@ class AdditionalHighZ(Operator):
             toroidal_rotations,
             ion_temperature,
             main_ion,
-            impurity,
+            additional_high_z_element,
             Zeff,
             electron_temp,
         )
 
         # second convert fsa density to midplane density
-        rho = n_additional_high_z_unnormalised_fsa.coords["rho_poloidal"]
+        rho = n_additional_high_z_seminormalised_fsa.coords["rho_poloidal"]
         # number of points to use for fsa to midplane conversion
         ntheta = 12
         theta = coord_array(np.linspace(0.0, 2.0 * np.pi, ntheta), "theta")
@@ -312,10 +316,11 @@ class AdditionalHighZ(Operator):
             asymmetry_modifier, xr.ones_like(asymmetry_modifier), flux_surfaces, ntheta
         )
         return (
-            n_additional_high_z_unnormalised_fsa / asymmetry_modifier_fsa,
+            n_additional_high_z_seminormalised_fsa / asymmetry_modifier_fsa,
             n_additional_high_z_asymmetry_parameter,
         )
 
+    @staticmethod
     def _calc_normalised_additional_high_z_density(
         n_additional_high_z_seminormalised_midplane: xr.DataArray,
         n_additional_high_z_asymmetry_parameter: xr.DataArray,
@@ -377,5 +382,100 @@ class AdditionalHighZ(Operator):
 
         return C * n_additional_high_z_seminormalised_midplane
 
-    def __call__(self):
-        raise NotImplementedError
+    def __call__(  # type: ignore[override]
+        self,
+        n_high_z_midplane: xr.DataArray,
+        n_high_z_asymmetry_parameter: xr.DataArray,
+        q_high_z: xr.DataArray,
+        q_additional_high_z: xr.DataArray,
+        main_ion_symbol: str,
+        additional_high_z_symbol: str,
+        electron_temp: xr.DataArray,
+        ion_temp: xr.DataArray,
+        toroidal_rotations: xr.DataArray,
+        zeff: xr.DataArray,
+        bolometry_observation: xr.DataArray,
+        bolometry_obj: BolometryDerivation,
+        flux_surfaces: FluxSurfaceCoordinates,
+    ) -> xr.DataArray:
+        """
+        Calculate the normalised additional high Z density using charge exchange and
+        bolomety data, and following an empirical rule using the effective charges to
+        find profile shape.
+
+        Parameters
+        ----------
+        n_high_z_midplane
+            Density of the main high Z impurity element, usually Tungsten along
+            the midplane. Dimensions (t, rho).
+        n_high_z_asymmetry_parameter
+            Asymmetry parameter for the main high Z impurity. Dimensions (t, rho).
+        q_high_z
+            Impurity charge for the main high Z impurity. Dimensions (t, rho).
+        q_additional_high_z
+            Impurity charge for the additional high Z impurity. Dimensions (t, rho).
+        main_ion_symbol
+            Element symbol of main ion.
+        additional_high_z_symbol
+            Element symbol of chosen impurity element.
+        electron_temp
+            xarray.DataArray containing electron temperature data. In units of eV.
+        ion_temp
+            xarray.DataArray containing ion temperature data. In units of eV.
+        toroidal_rotations
+            xarray.DataArray containing toroidal rotation frequencies data.
+            In units of ms^-1.
+        zeff
+            xarray.DataArray containing Z-effective data from diagnostics.
+        bolometry_observation
+            Measured bolometry data used for normalisation. Dimensions (t, channel).
+        bolometry_obj
+            BolometryDerivation object.
+        flux_surfaces
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
+
+        Returns
+        -------
+        n_additional_high_z_midplane
+            Normalised midplane additional high Z density. Dimensions (t, rho).
+        """
+        n_additional_high_z_unnormalised_fsa = self._calc_shape(
+            n_high_z_midplane,
+            n_high_z_asymmetry_parameter,
+            q_high_z,
+            q_additional_high_z,
+            flux_surfaces,
+        )
+
+        n_additional_high_z_seminormalised_fsa = self._calc_first_normalisation(
+            n_additional_high_z_unnormalised_fsa,
+            n_high_z_midplane,
+            n_high_z_asymmetry_parameter,
+            flux_surfaces,
+        )
+
+        (
+            n_additional_high_z_seminormalised_midplane,
+            n_additional_high_z_asymmetry_parameter,
+        ) = self._calc_seminormalised_additional_high_z_density(
+            n_additional_high_z_seminormalised_fsa,
+            toroidal_rotations,
+            ion_temp,
+            main_ion_symbol,
+            additional_high_z_symbol,
+            zeff,
+            electron_temp,
+            flux_surfaces,
+        )
+
+        n_additional_high_z_midplane = self._calc_normalised_additional_high_z_density(
+            n_additional_high_z_seminormalised_midplane,
+            n_additional_high_z_asymmetry_parameter,
+            additional_high_z_symbol,
+            flux_surfaces,
+            bolometry_observation,
+            bolometry_obj,
+        )
+
+        return n_additional_high_z_midplane
