@@ -10,6 +10,7 @@ sys.path.append(path_to_indica)
 
 # Import Indica things
 from indica.converters import LineOfSightTransform
+from indica.converters import SpotWeightings
 from indica.models.plasma import example_run as example_plasma
 from indica.readers.read_st40 import ReadST40
 
@@ -53,8 +54,8 @@ beamlets = int(3 * 3)
 spot_width = 0.01
 spot_height = 0.01
 spot_shape = 'round'
-div_w = 50 * 1e-3  # radians
-div_h = 50 * 1e-3  # radians
+div_w = 70 * 1e-3  # radians
+div_h = 70 * 1e-3  # radians
 
 los_transform = LineOfSightTransform(
     origin_x,
@@ -75,6 +76,14 @@ los_transform = LineOfSightTransform(
     passes=1,
 )
 
+# Set spot weightings
+spot_weights = SpotWeightings(
+    los_transform,
+    "gaussian"
+)
+
+
+# Plotting...
 cols = cm.gnuplot2(np.linspace(0.3, 0.75, len(los_transform.x1), dtype=float))
 
 plt.figure()
