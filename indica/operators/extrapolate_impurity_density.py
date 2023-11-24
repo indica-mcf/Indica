@@ -840,7 +840,9 @@ class ExtrapolateImpurityDensity(Operator):
             orig_bolometry = orig_bolometry_data
 
         extrapolated_smooth_data_mean = np.mean(
-            extrapolated_smooth_data.loc[self.threshold_rho[0] :, :, :]
+            extrapolated_smooth_data.sel(
+                rho_poloidal=slice(threshold_rho.isel(t=0), None)
+            )
         )
 
         def objective_func(objective_array: Sequence, time: float):
@@ -924,10 +926,10 @@ class ExtrapolateImpurityDensity(Operator):
 
         lower_width_bound = (drho / self.halfwidthhalfmax_coeff) / 3
         upper_width_bound = (
-            (1.1 - self.threshold_rho[0].data) / self.fullwidthhalfmax_coeff
+            (1.1 - threshold_rho[0].data) / self.fullwidthhalfmax_coeff
         ) / 3
 
-        lower_pos_bound = self.threshold_rho[0].data + drho
+        lower_pos_bound = threshold_rho[0].data + drho
         upper_pos_bound = 1.1
 
         initial_guesses = np.array(
@@ -938,7 +940,7 @@ class ExtrapolateImpurityDensity(Operator):
                     np.mean([lower_pos_bound, upper_pos_bound]),
                     # asymmetry initial guess is value at threshold
                     asymmetry_parameter.isel(t=0).sel(
-                        rho_poloidal=threshold_rho, method="ffill"
+                        rho_poloidal=threshold_rho.isel(t=0), method="ffill"
                     ),
                 ]
             ]
@@ -994,10 +996,10 @@ class ExtrapolateImpurityDensity(Operator):
 
         for ind_t, it in enumerate(extrapolated_smooth_data.coords["t"].data[1:]):
             upper_width_bound = (
-                (1.1 - self.threshold_rho[ind_t].data) / self.fullwidthhalfmax_coeff
+                (1.1 - threshold_rho[ind_t].data) / self.fullwidthhalfmax_coeff
             ) / 3
 
-            lower_pos_bound = self.threshold_rho[ind_t].data + drho
+            lower_pos_bound = threshold_rho[ind_t].data + drho
 
             fitting_bounds[0][2] = lower_pos_bound
             fitting_bounds[1][1] = upper_width_bound
