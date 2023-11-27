@@ -20,6 +20,10 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "zefh": ("effective_charge", "plasma"),
         "zefv": ("effective_charge", "plasma"),
     },
+    "get_vuv_spectroscopy": {
+        "c_w": ("concentration", "tungsten"),
+        "n_w": ("density", "tungsten"),
+    },
     "get_helike_spectroscopy": {
         "int_w": ("intensity", "spectral_line"),
         "int_k": ("intensity", "spectral_line"),
