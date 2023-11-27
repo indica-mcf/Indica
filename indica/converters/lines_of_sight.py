@@ -225,9 +225,9 @@ class LinesOfSightTransform(CoordinateTransform):
         x = x_s + (x_e - x_s) * x2
         y = y_s + (y_e - y_s) * x2
         z = z_s + (z_e - z_s) * x2
-        spacings = np.sqrt(
+        spacings = (
             x.diff(direction) ** 2 + z.diff(direction) ** 2 + y.diff(direction) ** 2
-        )
+        ) ** 0.5
         result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result

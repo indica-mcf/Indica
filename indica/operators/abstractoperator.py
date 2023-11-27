@@ -18,6 +18,7 @@ from xarray import DataArray
 from xarray import Dataset
 
 from .. import session
+from ..datatypes import ArrayType
 from ..datatypes import DatasetType
 from ..datatypes import DataType
 from ..datatypes import DatatypeWarning
@@ -178,6 +179,7 @@ class Operator(ABC):
         for i, (arg, expected) in enumerate(iterator):
             if isinstance(arg, DataArray):
                 datatype = arg.attrs["datatype"]
+                expected = cast(ArrayType, expected)
                 if expected[0] and datatype[0] != expected[0]:
                     message = (
                         "Argument {} of wrong general data type for operator {}: "
@@ -202,6 +204,7 @@ class Operator(ABC):
                     raise OperatorError(message)
             elif isinstance(arg, Dataset):
                 datatype = arg.attrs["datatype"]
+                expected = cast(DatasetType, expected)
                 if expected[0] and datatype[0] != expected[0]:
                     message = (
                         "Argument {} of wrong specific data type for operator {}: "

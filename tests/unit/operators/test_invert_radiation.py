@@ -123,12 +123,14 @@ def test_invert_radiation():
         InvertRadiation.knot_positions(6, rho_max.mean("t")), "rho_poloidal"
     )
     expected_sym = (
-        DataArray([1.0, 0.9, 0.8, 0.2, 0.1, 0.0], coords=[("rho_poloidal", knot_locs)])
+        DataArray(
+            [1.0, 0.9, 0.8, 0.2, 0.1, 0.0], coords=[("rho_poloidal", knot_locs.data)]
+        )
         * (1 + 0.01 * times)
         * 3e3
     )
     expected_asym = DataArray(
-        [0.0, 0.1, 0.2, 0.22, 0.05, 0.0], coords=[("rho_poloidal", knot_locs)]
+        [0.0, 0.1, 0.2, 0.22, 0.05, 0.0], coords=[("rho_poloidal", knot_locs.data)]
     ) * (1 - 0.002 * times)
     expected_profile = EmissivityProfile(expected_sym, expected_asym, flux_coords)
     los_x1_grid = coord_array(np.arange(n_los), "alpha_coords")
@@ -144,7 +146,7 @@ def test_invert_radiation():
     flux.attrs["partial_provenance"] = MagicMock()
     flux.attrs["provenance"] = MagicMock()
     flux.attrs["transform"] = los_transform
-    inverter = InvertRadiation(1, "sxr", len(knot_locs), n_int, MagicMock())
+    inverter = InvertRadiation(1, "sxr", len(knot_locs.data), n_int, MagicMock())
     R_grid = coord_array(np.linspace(0.1, 1.1, 6), "R")
     z_grid = coord_array(np.linspace(-1.0, 1.0, 5), "z")
     emissivity, fit_params, cam_data = inverter(R_grid, z_grid, times, flux)

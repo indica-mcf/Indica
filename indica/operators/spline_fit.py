@@ -251,7 +251,7 @@ class SplineFit(Operator):
             all_knots[:, :-1] = knotvals.reshape(nt, n_knots - 1)
             all_knots[:, -1] = 0.0
             return DataArray(
-                all_knots, coords=[("t", times), ("rho_poloidal", self.knots)]
+                all_knots, coords=[("t", times.data), ("rho_poloidal", self.knots.data)]
             )
 
         # TODO: Consider how to handle locations outside of interpolation range.

@@ -246,11 +246,11 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .coarsen(t=downsample_ratio, boundary="trim")
                     .mean()
                     / downsample_ratio
                 )
@@ -417,11 +417,11 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .coarsen(t=downsample_ratio, boundary="trim")
                     .mean()
                     / downsample_ratio
                 )
@@ -631,7 +631,7 @@ class DataReader(BaseIO):
                 quant_data = quant_data.isel(t=ind_unique)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
             quant_data.name = instrument + "_" + quantity
             quant_data.attrs["partial_provenance"] = self.create_provenance(
@@ -784,11 +784,11 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .coarsen(t=downsample_ratio, boundary="trim")
                     .mean()
                     / downsample_ratio
                 )
@@ -948,11 +948,11 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .coarsen(t=downsample_ratio, boundary="trim")
                     .mean()
                     / downsample_ratio
                 )
@@ -1119,11 +1119,11 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .coarsen(t=downsample_ratio, boundary="trim")
                     .mean()
                     / downsample_ratio
                 )
@@ -1415,12 +1415,12 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 if quantity_error in database_results.keys():
                     quant_data.attrs["error"] = np.sqrt(
                         (quant_data.attrs["error"] ** 2)
-                        .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                        .coarsen(t=downsample_ratio, boundary="trim")
                         .mean()
                         / downsample_ratio
                     )
@@ -1579,11 +1579,11 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .coarsen(t=downsample_ratio, boundary="trim")
                     .mean()
                     / downsample_ratio
                 )
@@ -1746,11 +1746,11 @@ class DataReader(BaseIO):
             ).indica.inclusive_timeslice(self._tstart, self._tend)
             if downsample_ratio > 1:
                 quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
+                    t=downsample_ratio, boundary="trim"
                 ).mean()
                 quant_data.attrs["error"] = np.sqrt(
                     (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
+                    .coarsen(t=downsample_ratio, boundary="trim")
                     .mean()
                     / downsample_ratio
                 )

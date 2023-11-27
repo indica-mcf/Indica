@@ -2,6 +2,7 @@ import copy
 from typing import cast
 from typing import get_args
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import Union
 import warnings
@@ -92,7 +93,7 @@ class FractionalAbundance(Operator):
         self,
         SCD: DataArray,
         ACD: DataArray,
-        CCD: DataArray = None,
+        CCD: Optional[DataArray] = None,
         sess: session.Session = session.global_session,
     ):
         """Initialises FractionalAbundance class and additionally performs error
@@ -103,7 +104,7 @@ class FractionalAbundance(Operator):
         self.Te = None
         self.Nh = None
         self.tau = None
-        self.F_z_t0 = None
+        self.F_z_t0: Optional[DataArray] = None
         self.SCD = SCD
         self.ACD = ACD
         self.CCD = CCD
@@ -287,7 +288,7 @@ class FractionalAbundance(Operator):
     def calc_ionisation_balance_matrix(
         self,
         Ne: DataArray,
-        Nh: DataArray = None,
+        Nh: Optional[DataArray] = None,
     ):
         """Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
@@ -469,7 +470,7 @@ class FractionalAbundance(Operator):
 
     def calc_eigen_coeffs(
         self,
-        F_z_t0: DataArray = None,
+        F_z_t0: Optional[DataArray] = None,
     ):
         """Calculates the coefficients from the eigenvalues and eigenvectors for the
         time evolution equation.
@@ -608,9 +609,9 @@ class FractionalAbundance(Operator):
         self,
         Ne: DataArray,
         Te: DataArray,
-        Nh: DataArray = None,
+        Nh: Optional[DataArray] = None,
         tau: LabeledArray = 1e3,
-        F_z_t0: DataArray = None,
+        F_z_t0: Optional[DataArray] = None,
         full_run: bool = True,
     ) -> DataArray:
         """Executes all functions in correct order to calculate the fractional
@@ -712,7 +713,7 @@ class PowerLoss(Operator):
         self,
         PLT: DataArray,
         PRB: DataArray,
-        PRC: DataArray = None,
+        PRC: Optional[DataArray] = None,
         sess: session.Session = session.global_session,
     ):
         super().__init__(sess)
@@ -722,7 +723,7 @@ class PowerLoss(Operator):
         self.Ne = None
         self.Nh = None
         self.Te = None
-        self.F_z_t = None
+        self.F_z_t: Optional[DataArray] = None
 
         imported_data = {}
         imported_data["PLT"] = self.PLT
@@ -896,7 +897,7 @@ class PowerLoss(Operator):
         return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
 
     def calculate_power_loss(
-        self, Ne: DataArray, F_z_t: DataArray, Nh: DataArray = None
+        self, Ne: DataArray, F_z_t: DataArray, Nh: Optional[DataArray] = None
     ):
         """Calculates total radiated power of all ionisation charges of a given
         impurity element.
@@ -1012,7 +1013,7 @@ class PowerLoss(Operator):
         Ne: DataArray,
         Te: DataArray,
         F_z_t: DataArray,
-        Nh: DataArray = None,
+        Nh: Optional[DataArray] = None,
         full_run: bool = True,
     ):
         """Executes all functions in correct order to calculate the total radiated

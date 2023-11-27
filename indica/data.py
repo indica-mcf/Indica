@@ -34,6 +34,7 @@ from scipy.interpolate import interp1d
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.interpolate import RectBivariateSpline
 import xarray as xr
+from xarray.core.types import InterpOptions
 from xarray.core.utils import either_dict_or_kwargs
 
 from . import session
@@ -159,7 +160,7 @@ class InDiCAArrayAccessor:
         target: str,
         new_dims: Optional[Union[Tuple[str, ...], str]] = None,
         coords: Optional[Mapping[Hashable, ArrayLike]] = None,
-        method: str = "linear",
+        method: InterpOptions = "linear",
         assume_sorted: bool = False,
         kwargs: Optional[Mapping[str, Any]] = None,
         **coords_kwargs: ArrayLike,
@@ -279,7 +280,7 @@ class InDiCAArrayAccessor:
         guess: Optional[ArrayLike] = None,
         new_dims: Optional[Union[Tuple[str, ...], str]] = None,
         coords: Optional[Mapping[Hashable, ArrayLike]] = None,
-        method: str = "linear",
+        method: InterpOptions = "linear",
         assume_sorted: bool = False,
         kwargs: Optional[Mapping[str, Any]] = None,
         **coords_kwargs: ArrayLike,
@@ -787,10 +788,10 @@ class InDiCAArrayAccessor:
         status
             Whether the datatype of this array matches the argument.
         message
-            If ``status == False``, an explaination of why.
+            If ``status == False``, an explanation of why.
 
         """
-        pass
+        return NotImplementedError  # type: ignore
 
     def _update_prov_for_equilibrium(
         self,
@@ -1043,7 +1044,7 @@ class InDiCADatasetAccessor:
         (unless the value is the same). This behaviour can be
         overridden with the `overwrite` argument.
 
-        This function will fail if the specific datatyp for ``array``
+        This function will fail if the specific datatype for ``array``
         differs from that for this Dataset. It will also fail if the
         dimensions of ``array`` differ from those of the Dataset.
 
@@ -1137,7 +1138,7 @@ class InDiCADatasetAccessor:
             If ``status == False``, an explanation of why.
 
         """
-        pass
+        raise NotImplementedError
 
     def inclusive_timeslice(self, t_start: float, t_end: float) -> xr.Dataset:
         """

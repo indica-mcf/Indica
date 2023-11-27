@@ -3,6 +3,7 @@ and a desired time resolution"""
 
 import numpy as np
 from xarray import DataArray
+from xarray.core.types import InterpOptions
 
 
 def strip_provenance(arr: DataArray):
@@ -19,7 +20,7 @@ def convert_in_time(
     tend: float,
     frequency: float,
     data: DataArray,
-    method: str = "linear",
+    method: InterpOptions = "linear",
 ) -> DataArray:
     """Interpolate or bin (as appropriate) the given data along the time
     axis, discarding data before or after the limits.
@@ -57,7 +58,7 @@ def convert_in_time_dt(
     tend: float,
     dt: float,
     data: DataArray,
-    method: str = "linear",
+    method: InterpOptions = "linear",
 ) -> DataArray:
     """
     Interpolate or bin given data along the time axis, discarding data before
@@ -90,7 +91,7 @@ def convert_in_time_dt(
 
 
 def interpolate_to_time_labels(
-    tlabels: np.ndarray, data: DataArray, method: str = "linear"
+    tlabels: np.ndarray, data: DataArray, method: InterpOptions = "linear"
 ) -> DataArray:
     """
     Interpolate data to sit on the specified time labels.
@@ -124,6 +125,9 @@ def interpolate_to_time_labels(
                 t=tlabels, method=method
             )
         interpolated.attrs["dropped"] = dropped
+
+    if "transform" in data.attrs:
+        interpolated.attrs["transform"] = data.attrs["transform"]
 
     strip_provenance(interpolated)
 
@@ -163,17 +167,14 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
 
     if "error" in data.attrs:
         grouped = (
-            data.attrs["error"]
+            (data.attrs["error"] ** 2)
             .sel(t=slice(tbins[0], tbins[-1]))
             .groupby_bins("t", tbins, labels=tlabels)
         )
-        uncertainty = np.sqrt(
-            grouped.reduce(
-                lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
-            )
-        )
-        error = np.sqrt(uncertainty**2 + stdev**2)
+        uncertainty_square = grouped.sum("t") / grouped.count("t")
+        error = (uncertainty_square + stdev**2) ** 0.5
         averaged.attrs["error"] = error.rename(t_bins="t")
+
     if "dropped" in data.attrs:
         grouped = (
             data.attrs["dropped"]
@@ -190,13 +191,12 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
                 .sel(t=slice(tbins[0], tbins[-1]))
                 .groupby_bins("t", tbins, labels=tlabels)
             )
-            uncertainty = np.sqrt(
-                grouped.reduce(
-                    lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
-                )
-            )
-            error = np.sqrt(uncertainty**2 + stdev**2)
+            uncertainty_square = grouped.sum("t") / grouped.count("t")
+            error = (uncertainty_square + stdev**2) ** 0.5
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
+
+    if "transform" in data.attrs:
+        averaged.attrs["transform"] = data.attrs["transform"]
 
     strip_provenance(averaged)
 
@@ -208,7 +208,7 @@ def interpolate_in_time(
     tend: float,
     frequency: float,
     data: DataArray,
-    method: str = "linear",
+    method: InterpOptions = "linear",
 ) -> DataArray:
     """Interpolate the given data along the time axis, discarding data
     before or after the limits.
@@ -245,7 +245,7 @@ def interpolate_in_time_dt(
     tend: float,
     dt: float,
     data: DataArray,
-    method: str = "linear",
+    method: InterpOptions = "linear",
 ) -> DataArray:
     """Interpolate the given data along the time axis, discarding data
     before or after the limits.

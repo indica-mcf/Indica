@@ -3,6 +3,7 @@ of a given element.
 """
 
 from typing import List
+from typing import Optional
 from typing import Tuple
 from typing import Union
 
@@ -50,16 +51,14 @@ class ImpurityConcentration(Operator):
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("impurity_concentration", "impurity_element"),
-        ("time", "impurity_element"),
-    ]
-
     def __init__(self, sess: session.Session = session.global_session):
         super().__init__(sess=sess)
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        return super().return_types(*args)
+        return (
+            ("impurity_concentration", "impurity_element"),
+            ("time", "impurity_element"),
+        )
 
     def __call__(  # type: ignore
         self,
@@ -69,7 +68,7 @@ class ImpurityConcentration(Operator):
         electron_density: DataArray,
         mean_charge: DataArray,
         flux_surfaces: FluxSurfaceCoordinates,
-        t: DataArray = None,
+        t: Optional[DataArray] = None,
     ):
         """Calculates the impurity concentration for the inputted element.
 

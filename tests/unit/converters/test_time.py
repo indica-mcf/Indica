@@ -70,9 +70,9 @@ pytestmark = mark.filterwarnings("ignore:Mean of empty slice")
 
 def linear_data_array(a, b, times, abs_err):
     """Create a DataArray where values are ``a*times + b``."""
-    result = DataArray(a * times + b, coords=[("t", times)])
+    result = DataArray(a * times + b, coords=[("t", times.data)])
     result.attrs["error"] = DataArray(
-        np.ones_like(times) * abs_err, coords=[("t", times)]
+        np.ones_like(times) * abs_err, coords=[("t", times.data)]
     )
     return result
 
@@ -254,14 +254,15 @@ def test_interpolate_downsample(tstart, tend, n, data, method):
     frequency = (n - 1) / (tend - tstart)
     result = convert_in_time(tstart, tend, frequency, data, "cubic")
     result2 = convert_in_time(new_tstart, new_tend, original_freq, result, method)
-    assert np.all(
-        result2.values
-        == approx(data.sel(t=new_times).values, rel=1e-1, abs=1e-2, nan_ok=True)
+    np.testing.assert_allclose(
+        result2.values, data.sel(t=new_times).values, rtol=1e-1, atol=1e-2
     )
     if "dropped" in data.attrs:
-        assert np.all(
-            result2.attrs["dropped"].values
-            == approx(data.attrs["dropped"].sel(t=new_times).values, rel=1e-1, abs=1e-2)
+        np.testing.assert_allclose(
+            result2.attrs["dropped"].values,
+            data.attrs["dropped"].sel(t=new_times).values,
+            rtol=1e-1,
+            atol=1e-2,
         )
 
 

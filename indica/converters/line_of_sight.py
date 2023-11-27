@@ -2,6 +2,7 @@
 """
 
 from typing import cast
+from typing import Optional
 from typing import Tuple
 
 import numpy as np
@@ -205,9 +206,9 @@ class LinesOfSightTransform(CoordinateTransform):
         x = self.x_start + (self.x_end - self.x_start) * x2
         y = self.y_start + (self.y_end - self.y_start) * x2
         z = self.z_start + (self.z_end - self.z_start) * x2
-        spacings = np.sqrt(
+        spacings = (
             x.diff(direction) ** 2 + z.diff(direction) ** 2 + y.diff(direction) ** 2
-        )
+        ) ** 0.5
         result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
         return result.values
@@ -225,7 +226,7 @@ class LinesOfSightTransform(CoordinateTransform):
         )
 
         # Find the number of points
-        npts = np.ceil(los_length.data / dl).astype(int)
+        npts = np.ceil(los_length.data / dl).astype(int)  # type: ignore
 
         # Set dl, calculate dl
         ind = np.linspace(0, 1, npts, dtype=float)
@@ -237,7 +238,7 @@ class LinesOfSightTransform(CoordinateTransform):
     def assign_flux_transform(self, flux_transform: FluxSurfaceCoordinates):
         self.flux_transform = flux_transform
 
-    def convert_to_rho(self, t: float = None):
+    def convert_to_rho(self, t: Optional[float] = None):
         self.rho = self.flux_transform.convert_from_Rz(self.R, self.z, t=t)
 
 
