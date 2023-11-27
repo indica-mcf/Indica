@@ -14,7 +14,8 @@ from indica.readers import ADASReader
 
 
 def input_data_setup():
-    """Initial set-up for the majority of the data needed for ExtrapolateImpurityDensity.
+    """
+    Initial set-up for the majority of the data needed for ExtrapolateImpurityDensity.
 
     Returns
     -------
@@ -37,6 +38,7 @@ def input_data_setup():
         Dimensions (theta)
     """
     base_rho_profile = np.array([0.0, 0.4, 0.8, 0.95, 1.0])
+
     base_t = np.linspace(75.0, 80.0, 20)
 
     input_Te = np.array([3.0e3, 1.5e3, 0.5e3, 0.2e3, 0.1e3])
@@ -244,23 +246,32 @@ def bolometry_input_data_setup(input_data):
     return (example_frac_abunds, main_ion_power_loss, impurity_power_losses)
 
 
-def test_bolometry_derivation():
-    """Regression test for bolometry derivation.
-    Original bolometry data is hardcoded within this function.
+def bolometry_object_setup(input_data) -> BolometryDerivation:
     """
-    initial_data = input_data_setup()
-    bolometry_input_data = bolometry_input_data_setup(initial_data)
+    Set-up for example bolometry data.
 
-    flux_surfs = initial_data[2]
+    Parameters
+    ----------
+    input_data
+        Output of input_data_setup().
+
+    Returns
+    -------
+    example_bolometry_derivation
+        Bolometry derivation object used for regression test.
+    """
+    bolometry_input_data = bolometry_input_data_setup(input_data)
+
+    flux_surfs = input_data[2]
     LoS_bolometry_data = example_bolometry_LoS
-    t_arr = initial_data[3]
+    t_arr = input_data[3]
     frac_abunds = bolometry_input_data[0]
-    impurity_elements = initial_data[4]
-    electron_density = initial_data[0]
+    impurity_elements = input_data[4]
+    electron_density = input_data[0]
     main_ion_power_loss = bolometry_input_data[1]
     impurities_power_loss = bolometry_input_data[2]
-    rho_arr = initial_data[5]
-    theta_arr = initial_data[6]
+    rho_arr = input_data[5]
+    theta_arr = input_data[6]
 
     beryllium_density = np.tile(
         0.03 * electron_density.data, (theta_arr.shape[0], 1, 1)
@@ -289,19 +300,9 @@ def test_bolometry_derivation():
     impurity_densities.data[1] = neon_density
     impurity_densities.data[2] = nickel_density
 
-    deriv_only = False
-    trim = True
-    t_val = t_arr[0]
-
     t_arr = DataArray(data=t_arr, coords={"t": t_arr}, dims=["t"])
 
-    original_bolometry_data = DataArray(
-        data=np.array([0.00000000e00, 1.84150833e09, 4.65631669e09, 2.11855843e09]),
-        coords={"channels": np.array([0.0, 1.0, 2.0, 3.0])},
-        dims=["channels"],
-    )
-
-    example_bolometry_derivation = BolometryDerivation(
+    return BolometryDerivation(
         flux_surfs,
         LoS_bolometry_data,
         t_arr,
@@ -313,10 +314,25 @@ def test_bolometry_derivation():
         impurities_power_loss,
     )
 
+
+def test_bolometry_derivation():
+    """Regression test for bolometry derivation.
+    Original bolometry data is hardcoded within this function.
+    """
+    input_data = input_data_setup()
+    t_arr = input_data[3]
+    example_bolometry_derivation = bolometry_object_setup(input_data)
+
+    original_bolometry_data = DataArray(
+        data=np.array([0.00000000e00, 1.84150833e09, 4.65631669e09, 2.11855843e09]),
+        coords={"channels": np.array([0.0, 1.0, 2.0, 3.0])},
+        dims=["channels"],
+    )
+
+    deriv_only = False
+    trim = True
+    t_val = t_arr[0]
+
     new_bolometry_data = example_bolometry_derivation(deriv_only, trim, t_val)
 
-    regression_checks = np.isclose(
-        original_bolometry_data.data, new_bolometry_data.data
-    )
-    regression_check = np.all(regression_checks)
-    assert regression_check
+    np.testing.assert_allclose(original_bolometry_data.data, new_bolometry_data.data)
