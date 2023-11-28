@@ -47,10 +47,12 @@ class SpotWeightings():
         grid_w = grid_w[1::2]
         grid_v = np.linspace(-los_transform.spot_height / 2, los_transform.spot_height / 2, n_v * 2 + 1, dtype=float)
         grid_v = grid_v[1::2]
-        # W, V = np.meshgrid(grid_w, grid_v)
+        W, V = np.meshgrid(grid_w, grid_v)
 
         self.delta_w = grid_w
         self.delta_v = grid_v
+        self.W = W
+        self.V = V
 
         if dist_func.lower() == "gaussian":
             print("GAUSSIAN DRAGON")
@@ -60,7 +62,10 @@ class SpotWeightings():
             raise ValueError("dist_func does not exist")
 
     def super_gaussian(self):
-        self.weightings = np.nan
+        self.weightings = np.exp(
+            - ((self.W)**2/(2 * self.sigma_w**2))**self.p_w
+            - ((self.V)**2/(2 * self.sigma_v**2))**self.p_v
+        )
 
 
 

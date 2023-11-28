@@ -78,7 +78,7 @@ class LineOfSightTransform(CoordinateTransform):
         beamlets: int = 1,
         spot_width: float = 0.0,
         spot_height: float = 0.0,
-        spot_shape: str = "Gaussian",
+        spot_shape: str = "Gaussian", # ?
         div_w: float = 0.0,
         div_h: float = 0.0,
     ):
@@ -236,6 +236,7 @@ class LineOfSightTransform(CoordinateTransform):
         grid_v = np.linspace(-self.spot_height/2, self.spot_height/2, n_v*2 + 1, dtype=float)
         grid_v = grid_v[1::2]
         W, V = np.meshgrid(grid_w, grid_v)
+        self.weightings = np.ones_like(W)
 
         # Draw spot
         if self.spot_shape == 'round':
@@ -343,6 +344,23 @@ class LineOfSightTransform(CoordinateTransform):
         self.beamlet_direction_x = beamlet_direction_x
         self.beamlet_direction_y = beamlet_direction_y
         self.beamlet_direction_z = beamlet_direction_z
+
+    def set_weightings(
+            self,
+            weightings: LabeledArray,
+    ):
+        """
+
+        Parameters
+        ----------
+        weightings
+
+        Returns
+        -------
+
+        """
+
+        self.weightings = weightings
 
     def set_dl(
         self,

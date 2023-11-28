@@ -5,8 +5,8 @@ import matplotlib.cm as cm
 
 
 # Add Indica to python path
-path_to_indica = '/home/jonathan.wood/git_home/Indica/'
-sys.path.append(path_to_indica)
+# path_to_indica = '/home/jonathan.wood/git_home/Indica/'
+# sys.path.append(path_to_indica)
 
 # Import Indica things
 from indica.converters import LineOfSightTransform
@@ -79,8 +79,15 @@ los_transform = LineOfSightTransform(
 # Set spot weightings
 spot_weights = SpotWeightings(
     los_transform,
-    "gaussian"
+    "gaussian",
+    sigma_w=0.003,
+    sigma_v=0.003,
+    p_w=2.,
+    p_v=2.
 )
+
+los_transform.set_weightings(spot_weights.weightings)
+print(los_transform.weightings)
 
 
 # Plotting...
