@@ -1,3 +1,4 @@
+"""Forward model to calculate estimated bolometry emission."""
 from typing import cast
 from typing import List
 from typing import Optional
@@ -22,45 +23,9 @@ from ..utilities import input_check
 
 
 class BolometryDerivation(Operator):
-    """Class to hold relevant variables and functions relating to the derivation of
-    bolometry data from plasma quantities (densities, temperatures, etc.)
-
-    Parameters
-    ----------
-    flux_surfaces
-        FluxSurfaceCoordinates object representing polar coordinate systems
-        using flux surfaces for the radial coordinate.
-    LoS_bolometry_data
-        Line-of-sight bolometry data in the same format as given in:
-        tests/unit/operator/KB5_Bolometry_data.py
-    t_arr
-        Array of time values to interpolate the (rho, theta) grids on.
-        xarray.DataArray with dimensions (t).
-    impurity_densities
-        Densities for all impurities
-        (including the extrapolated smooth density of the impurity in question),
-        xarray.DataArray with dimensions (elements, rho, theta, t).
-    frac_abunds
-        Fractional abundances list of fractional abundances
-        (an xarray.DataArray for each impurity) dimensions of each element in
-        the list are (ion_charges, rho, t).
-    impurity_elements
-        List of element symbols(as strings) for all impurities.
-    electron_density
-        xarray.DataArray of electron density, xarray.DataArray wit dimensions (rho, t)
-    main_ion_power_loss
-        Power loss associated with the main ion (eg. deuterium),
-        xarray.DataArray with dimensions (rho, t)
-    main_ion_density
-        Density profile for the main ion,
-        xarray.DataArray with dimensions (rho, theta, t)
-
-    Returns
-    -------
-    derived_power_loss_LoS_tot
-        Total derived bolometric power loss values along all lines-of-sight.
-        xarray.DataArray with dimensions (channels, t) or (channels) depending
-        on whether t_val is provided.
+    """
+    Holds relevant variables and functions relating to bolometry derivation.
+    Includes plasma quantities (densities, temperatures, etc.).
 
     Attributes
     ----------
@@ -96,7 +61,42 @@ class BolometryDerivation(Operator):
         impurities_power_loss: DataArray,
         sess: session.Session = session.global_session,
     ):
-        """Initialises the BolometryDerivation class. Checks all inputs for errors."""
+        """
+        Initialise the BolometryDerivation class. Checks all inputs for errors.
+
+        Parameters
+        ----------
+        flux_surfs
+            FluxSurfaceCoordinates object representing polar coordinate systems
+            using flux surfaces for the radial coordinate.
+        LoS_bolometry_data
+            Line-of-sight bolometry data in the same format as given in:
+            tests/unit/operator/KB5_Bolometry_data.py
+        t_arr
+            Array of time values to interpolate the (rho, theta) grids on.
+            xarray.DataArray with dimensions (t).
+        impurity_densities
+            Densities for all impurities
+            (including the extrapolated smooth density of the impurity in question),
+            xarray.DataArray with dimensions (elements, rho, theta, t).
+        frac_abunds
+            Fractional abundances list of fractional abundances
+            (an xarray.DataArray for each impurity) dimensions of each element in
+            the list are (ion_charges, rho, t).
+        impurity_elements
+            List of element symbols(as strings) for all impurities.
+        electron_density
+            xarray.DataArray of electron density. Dimensions (rho, t).
+        main_ion_power_loss
+            Power loss associated with the main ion (eg. deuterium),
+            xarray.DataArray with dimensions (rho, t)
+        impurities_power_loss
+            Power loss associated with the impurity elements.
+            xarray.DataArray with dimensions (element, rho, t)
+        sess
+            An object representing the session being run. Contains information
+            such as provenance data.
+        """
         super().__init__(sess=sess)
 
         input_check(
@@ -156,10 +156,25 @@ class BolometryDerivation(Operator):
         self.impurities_power_loss = impurities_power_loss
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
+        """
+        Get the return types for this operator.
+
+        Parameters
+        ----------
+        args
+            Unused, arguments to call this operator with.
+
+        Returns
+        -------
+        Types
+            Return types for this operator.
+
+        """
         return (("bolometric", "lines_of_sight_data"),)
 
     def __bolometry_coord_transforms(self):
-        """Transform the bolometry coords from LoS to (rho, theta) and (R, z).
+        """
+        Transform the bolometry coords from LoS to (rho, theta) and (R, z).
 
         Returns
         -------
@@ -222,7 +237,8 @@ class BolometryDerivation(Operator):
         return LoS_coords
 
     def __bolometry_setup(self):
-        """Calculating main ion density for the bolometry derivation.
+        """
+        Calculate main ion density for the bolometry derivation.
 
         Returns
         -------
@@ -262,8 +278,10 @@ class BolometryDerivation(Operator):
         return main_ion_density
 
     def __bolometry_channel_filter(self):
-        """Filters the bolometry data to reduce the number of channels by eliminating
-        channels that are too close together.
+        """
+        Filter bolometry channels that are too close together.
+
+        Useful for reducing total number of channels.
 
         Returns
         -------
@@ -274,6 +292,7 @@ class BolometryDerivation(Operator):
             LoS coordinates (as returned by bolometry_coord_transforms) with a
             reduced number of channels. List with the same formatting as
             self.LoS_coords.
+
         """
         LoS_bolometry_data_in = self.LoS_bolometry_data
         LoS_coords_in = self.LoS_coords
@@ -368,7 +387,8 @@ class BolometryDerivation(Operator):
         trim: bool = False,
         t_val: Optional[float] = None,
     ):
-        """Derive bolometry including the extrapolated smoothed impurity density.
+        """
+        Derive bolometry including the extrapolated smoothed impurity density.
 
         Parameters
         ----------
@@ -383,6 +403,12 @@ class BolometryDerivation(Operator):
             Total derived bolometric power loss values along all lines-of-sight.
             xarray.DataArray with dimensions (channels, t) or (channels) depending
             on whether t_val is provided.
+
+        Raises
+        ------
+        AttributeError
+            If trim is set and bolometry_channel_filter has not been called.
+
         """
         if trim:
             if not (
@@ -499,8 +525,9 @@ class BolometryDerivation(Operator):
         trim: bool = False,
         t_val: Optional[float] = None,
     ):
-        """Varying workflow to derive bolometry from plasma quantities.
-        (Varying as in, if full setup and derivation is needed or only derivaiton.)
+        """
+        Varying workflow to derive bolometry from plasma quantities.
+        Varying as in, if full setup and derivation is needed or only derivation.
 
         Parameters
         ----------
