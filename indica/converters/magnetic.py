@@ -18,7 +18,8 @@ class ConvergenceError(Exception):
 
 
 class MagneticCoordinates(CoordinateTransform):
-    """Class for transect-like coordinate systems using total magnetic
+    """
+    Class for transect-like coordinate systems using total magnetic
     field strength for location along the transect. The line of sight
     is assumed to be perfectly horizontal. The second coordinate in
     this system is the vertical offset from the line of sight (the
@@ -57,7 +58,8 @@ class MagneticCoordinates(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system.
+        """
+        Convert from this coordinate to the R-z coordinate system.
 
         Parameters
         ----------
@@ -101,7 +103,8 @@ class MagneticCoordinates(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate.
+        """
+        Convert from the master coordinate system to this coordinate.
 
         Parameters
         ----------
@@ -124,6 +127,20 @@ class MagneticCoordinates(CoordinateTransform):
         return B, z - self.z_los
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)
@@ -133,9 +150,23 @@ class MagneticCoordinates(CoordinateTransform):
 def find_brackets(
     left: float, right: float, function: Callable[[float], float]
 ) -> Tuple[float, float]:
-    """Find suitable brackets around a root of the function. Relies in standard
+    """
+    Find suitable brackets around a root of the function. Relies on standard
     shape of total magnetic field strength.
 
+    Parameters
+    ----------
+    left
+        Guessed lower bound for root
+    right
+        Guessed upper bound for root
+    function
+        Magnetic field strength function
+
+    Returns
+    -------
+    bracket
+        Interval containing root of ``function``
     """
     fleft = function(left)
     fright = function(right)

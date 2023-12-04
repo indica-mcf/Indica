@@ -1,5 +1,4 @@
-"""Provides an abstract interface for coordinate conversion.
-"""
+"""Provides an abstract interface for coordinate conversion."""
 
 from abc import ABC
 from abc import abstractmethod
@@ -20,14 +19,15 @@ OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]
 
 
 class EquilibriumException(Exception):
-    """Exception raised if a converter object's equilibrium object is set
-    twice."""
+    """Exception raised if a converter object's equilibrium object is set twice."""
 
 
 class CoordinateTransform(ABC):
-    """Class for converting between different coordinate systems. This is
-    an abstract base class; each coordinate system should provide its own
-    implementation.
+    """
+    Class for converting between different coordinate systems.
+
+    This is an abstract base class; each coordinate system should provide its
+    own implementation.
 
     Subclasses should allow each instance to have a "default grid" on
     which to calculate results. This can be cached for efficient
@@ -76,7 +76,8 @@ class CoordinateTransform(ABC):
     x2_name: str
 
     def set_equilibrium(self, equilibrium: AbstractEquilibrium, force: bool = False):
-        """Initialise the object using a set of equilibrium data.
+        """
+        Initialise the object using a set of equilibrium data.
 
         If it has already been initialised with the same equilibrium
         data then do nothing. If already initialised with a different
@@ -89,10 +90,14 @@ class CoordinateTransform(ABC):
         equilibrium
             A set of equilibrium data with which to calculate coordinate
             transforms.
-        force : bool
+        force
             If true, re-initialise the transform if provided with a new set of
             equilibrium data.
 
+        Raises
+        ------
+        EquilibriumException
+            If the equilibrium is already set.
         """
         if not hasattr(self, "equilibrium") or force:
             self.equilibrium = equilibrium
@@ -102,7 +107,10 @@ class CoordinateTransform(ABC):
     def get_converter(
         self, other: "CoordinateTransform", reverse=False
     ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
-        """Checks if there is a shortcut to convert between these coordiantes,
+        """
+        Attempt to retrieve direct converter to ``other`` coordinate system.
+
+        Checks if there is a shortcut to convert between these coordiantes,
         returning it if so. This can sometimes save the step of
         converting to (R, z) coordinates first.
 
@@ -137,8 +145,10 @@ class CoordinateTransform(ABC):
         x2: LabeledArray,
         t: LabeledArray,
     ) -> Coordinates:
-        """General routine to map coordinates from this system to those used
-        in ``other``. Array broadcasting will be performed as necessary.
+        """
+        Map coordinates from this system to those used in ``other``.
+
+        Array broadcasting will be performed as necessary.
 
         If this transform class provides a specialised method for
         doing this (specified in :py:attr:`_CONVERSION_METHODS`) then that is
@@ -180,8 +190,10 @@ class CoordinateTransform(ABC):
         x2: LabeledArray,
         t: LabeledArray,
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system. Each
-        subclass must implement this method.
+        """
+        Convert from this coordinate to the R-z coordinate system.
+
+        Each subclass must implement this method.
 
         Parameters
         ----------
@@ -211,8 +223,10 @@ class CoordinateTransform(ABC):
         z: LabeledArray,
         t: LabeledArray,
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate. Each
-        subclass must implement this method.
+        """
+        Convert from the master coordinate system to this coordinate.
+
+        Each subclass must implement this method.
 
         Parameters
         ----------
@@ -237,9 +251,19 @@ class CoordinateTransform(ABC):
         )
 
     def _abstract_equals(self, other: "CoordinateTransform") -> bool:
-        """Checks that default coordinate values and equilibrium objects are
+        """
+        Check that default coordinate values and equilibrium objects are
         the same on two transform classes.
 
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        :
+            Whether objects are the same.
         """
         if not hasattr(self, "equilibrium"):
             return not hasattr(other, "equilibrium")
@@ -253,7 +277,20 @@ class CoordinateTransform(ABC):
 
     @abstractmethod
     def __eq__(self, other: object) -> bool:
-        """Check that two transforms are describing the same coordinate system."""
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         raise NotImplementedError(
             "{} does not implement an '__eq__' method".format(self.__class__.__name__)
         )
@@ -265,7 +302,8 @@ class CoordinateTransform(ABC):
         x2: LabeledArray,
         t: LabeledArray,
     ) -> LabeledArray:
-        """Give the distance (in physical space) from the origin along the
+        """
+        Find the distance (in physical space) from the origin along the
         specified direction.
 
         This is useful for when taking spatial integrals and differentials in
@@ -290,6 +328,11 @@ class CoordinateTransform(ABC):
         :
            Distance from the origin in the specified direction.
 
+        Raises
+        ------
+        ValueError
+            If x1 or x2 are not DataArrays.
+
         """
         R, z = cast(Tuple[DataArray, DataArray], self.convert_to_Rz(x1, x2, t))
         if isinstance(R, (int, float)) or isinstance(z, (int, float)):
@@ -300,12 +343,14 @@ class CoordinateTransform(ABC):
         return result
 
     def encode(self) -> str:
-        """Returns a JSON representation of this object. Should be sufficient
+        """
+        Return a JSON representation of this object. Should be sufficient
         to recreate it identically from scratch (except for the
-        equilibrium)."""
+        equilibrium).
+        """
         raise NotImplementedError
 
     @staticmethod
     def decode(json: str) -> "CoordinateTransform":
-        """Takes some JSON and decodes it into a CoordinateTransform object."""
+        """Take some JSON and decode it into a CoordinateTransform object."""
         raise NotImplementedError

@@ -1,4 +1,4 @@
-"""Coordinate system for data collected on a 1-D along through the Tokamak"""
+"""Coordinate system for data collected on a 1-D along through the Tokamak."""
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -12,7 +12,8 @@ from ..numpy_typing import LabeledArray
 
 
 class TransectCoordinates(CoordinateTransform):
-    """Coordinate system for measurements taken along a 1-D line through
+    """
+    Coordinate system for measurements taken along a 1-D line through
     the Tokamak.
 
     The first spatial position corresponds to an arbitrary index along
@@ -67,7 +68,8 @@ class TransectCoordinates(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system.
+        """
+        Convert from this coordinate to the R-z coordinate system.
 
         Parameters
         ----------
@@ -95,7 +97,8 @@ class TransectCoordinates(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate.
+        """
+        Convert from the master coordinate system to this coordinate.
 
         Parameters
         ----------
@@ -122,6 +125,20 @@ class TransectCoordinates(CoordinateTransform):
         return x1, x2
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         if not isinstance(other, self.__class__):
             return False
         return self._abstract_equals(other)

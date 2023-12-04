@@ -11,7 +11,8 @@ from ..numpy_typing import LabeledArray
 
 
 class EnclosedVolumeCoordinates(CoordinateTransform):
-    """Class for polar coordinate systems using volume enclosed by flux
+    """
+    Class for polar coordinate systems using volume enclosed by flux
     surfaces as the radial coordinate.
 
     Parameters
@@ -35,7 +36,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     def get_converter(
         self, other: CoordinateTransform, reverse=False
     ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
-        """Checks if there is a shortcut to convert between these coordiantes,
+        """
+        Check if there is a shortcut to convert between these coordiantes,
         returning it if so. This can sometimes save the step of
         converting to (R, z) coordinates first.
 
@@ -74,7 +76,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     def _convert_to_rho(
         self, volume: LabeledArray, theta: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from this coordinate system to a flux surface coordinate
+        """
+        Convert from this coordinate system to a flux surface coordinate
         system.
 
         Parameters
@@ -102,7 +105,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system.
+        """
+        Convert from this coordinate to the R-z coordinate system.
 
         Parameters
         ----------
@@ -127,7 +131,8 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate.
+        """
+        Convert from the master coordinate system to this coordinate.
 
         Parameters
         ----------
@@ -150,6 +155,20 @@ class EnclosedVolumeCoordinates(CoordinateTransform):
         return self.flux_transform._convert_to_vol(rho, theta, t)
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)

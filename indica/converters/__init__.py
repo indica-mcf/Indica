@@ -1,5 +1,7 @@
-"""Classes to convert between coordinate systems. Also contains
-routines for interpolating or downsampling in time."""
+"""
+Classes to convert between coordinate systems. Also contains
+routines for interpolating or downsampling in time.
+"""
 
 from .abstractconverter import CoordinateTransform
 from .abstractconverter import EquilibriumException

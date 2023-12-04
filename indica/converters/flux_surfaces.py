@@ -11,7 +11,8 @@ from ..numpy_typing import LabeledArray
 
 
 class FluxSurfaceCoordinates(CoordinateTransform):
-    """Class for polar coordinate systems using flux surfaces
+    """
+    Class for polar coordinate systems using flux surfaces
     for the radial coordinate.
 
     Parameters
@@ -34,7 +35,8 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: Optional[LabeledArray] = None
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system.
+        """
+        Convert from this coordinate to the R-z coordinate system.
 
         Parameters
         ----------
@@ -58,7 +60,8 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: Optional[LabeledArray] = None
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate.
+        """
+        Convert from the master coordinate system to this coordinate.
 
         Parameters
         ----------
@@ -82,7 +85,8 @@ class FluxSurfaceCoordinates(CoordinateTransform):
     def _convert_to_vol(
         self, rho: LabeledArray, theta: LabeledArray, t: Optional[LabeledArray] = None
     ) -> Coordinates:
-        """Convert from this coordinate system to one using volume enclosed by
+        """
+        Convert from this coordinate system to one using volume enclosed by
         the flux surfaces as a coordinate.
 
         Parameters
@@ -98,6 +102,8 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         -------
         vol
             Volume enclosed by the flux surface rho.
+        area
+            Cross sectional area enclosed by the flux surfaces.
 
         """
         vol, area, t = self.equilibrium.enclosed_volume(rho, t, self.flux_kind)
@@ -115,6 +121,20 @@ class FluxSurfaceCoordinates(CoordinateTransform):
         return area, t
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)

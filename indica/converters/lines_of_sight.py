@@ -1,5 +1,4 @@
-"""Coordinate system representing a collection of lines of sight.
-"""
+"""Coordinate system representing a collection of lines of sight."""
 
 from typing import Callable
 from typing import cast
@@ -17,7 +16,8 @@ from ..numpy_typing import LabeledArray
 
 
 class LinesOfSightTransform(CoordinateTransform):
-    """Coordinate system for data collected along a number of lines-of-sight.
+    """
+    Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
     line-of-site a location is on. The second coordinate ranges from 0
@@ -25,35 +25,6 @@ class LinesOfSightTransform(CoordinateTransform):
     the line-of-sight. Note that diagnostic using this coordinate
     system will usually only be indexed in the first coordinate, as
     the measurements were integrated along the line-of-sight.
-
-    If not passed to the constructor, the default grid for converting
-    from the x-z system is chosen as follows:
-
-    - The x-grid ranges from ``min(x_start.min(), x_end.min())`` to
-      ``max(x_start.max(), x_end.max())`` with ``num_points`` intervals.
-    - The z-grid ranges from ``min(z_start.min(), z_end.min())`` to
-      ``max(z_start.max(), z_end.max())`` with ``num_points`` intervals.
-
-    Parameters
-    ----------
-    x_start
-        1-D array of x positions of the start for each line-of-sight.
-    z_start
-        1-D array of z positions of the start for each line-of-sight.
-    y_start
-        1-D array of y positions for the start of each line-of-sight.
-    x_end
-        1-D array of x positions of the end for each line-of-sight.
-    z_end
-        1-D array of z positions of the end for each line-of-sight.
-    y_end
-        1-D array of y positions for the end of each line-of-sight.
-    name
-        The name to refer to this coordinate system by, typically taken
-        from the instrument it describes.
-    machine_dimensions
-        A tuple giving the boundaries of the Tokamak in x-z space:
-        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
 
     """
 
@@ -71,6 +42,39 @@ class LinesOfSightTransform(CoordinateTransform):
             (-1.75, 2.0),
         ),
     ):
+        """
+        Construct a LinesOfSightTransform.
+
+        If not passed to the constructor, the default grid for converting
+        from the x-z system is chosen as follows:
+
+        - The x-grid ranges from ``min(x_start.min(), x_end.min())`` to
+          ``max(x_start.max(), x_end.max())`` with ``num_points`` intervals.
+        - The z-grid ranges from ``min(z_start.min(), z_end.min())`` to
+          ``max(z_start.max(), z_end.max())`` with ``num_points`` intervals.
+
+        Parameters
+        ----------
+        x_start
+            1-D array of x positions of the start for each line-of-sight.
+        z_start
+            1-D array of z positions of the start for each line-of-sight.
+        y_start
+            1-D array of y positions for the start of each line-of-sight.
+        x_end
+            1-D array of x positions of the end for each line-of-sight.
+        z_end
+            1-D array of z positions of the end for each line-of-sight.
+        y_end
+            1-D array of y positions for the end of each line-of-sight.
+        name
+            The name to refer to this coordinate system by, typically taken
+            from the instrument it describes.
+        machine_dimensions
+            A tuple giving the boundaries of the Tokamak in x-z space:
+            ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
+
+        """
         lengths = _get_wall_intersection_distances(
             x_start, z_start, y_start, x_end, z_end, y_end, machine_dimensions
         )
@@ -99,6 +103,20 @@ class LinesOfSightTransform(CoordinateTransform):
         self.x2_name = name + "_los_position"
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)
@@ -114,6 +132,26 @@ class LinesOfSightTransform(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
+        """
+        Convert from this coordinate to the R-z coordinate system.
+
+        Parameters
+        ----------
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+        t
+            The time coordinate
+
+        Returns
+        -------
+        R
+            Major radius coordinate
+        z
+            Height coordinate
+
+        """
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
         x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
@@ -130,6 +168,27 @@ class LinesOfSightTransform(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
+        """
+        Convert from the master coordinate system to this coordinate.
+
+        Parameters
+        ----------
+        R
+            Major radius coordinate
+        z
+            Height coordinate
+        t
+            Time coordinate
+
+        Returns
+        -------
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+
+        """
+
         def jacobian(x):
             x1 = x[0]
             x2 = x[1]
@@ -209,10 +268,33 @@ class LinesOfSightTransform(CoordinateTransform):
         x2: LabeledArray,
         t: LabeledArray,
     ) -> LabeledArray:
-        """Implementation of calculation of physical distances between points
-        in this coordinate system. This accounts for potential toroidal skew of
-        lines.
+        """
+        Calculate physical distances between points in this coordinate system.
+        This accounts for potential toroidal skew of lines.
 
+        This is useful for when taking spatial integrals and differentials in
+        that direction.
+
+        Parameters
+        ----------
+        direction : str
+            Which dimension to give the distance along.
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+        t
+            The time coordinate
+
+        Returns
+        -------
+        :
+           Distance from the origin in the specified direction.
+
+        Raises
+        ------
+        ValueError
+            If x1 or x2 are not DataArrays.
         """
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
