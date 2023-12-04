@@ -1,3 +1,4 @@
+from typing import cast
 from typing import List
 from typing import Tuple
 from typing import Union
@@ -16,7 +17,7 @@ from .centrifugal_asymmetry import AsymmetryParameter
 from .extrapolate_impurity_density import asymmetry_modifier_from_parameter
 
 
-def bolo_los(bolo_diag_array: xr.DataArray) -> List[List[Union[List, str]]]:
+def bolo_los(bolo_diag_array: xr.DataArray) -> List[List[Union[np.ndarray, str]]]:
     return [
         [
             np.array([bolo_diag_array.attrs["transform"].x_start.data[i].tolist()]),
@@ -61,7 +62,7 @@ def calc_fsa_quantity(
     rho = symmetric_component.coords["rho_poloidal"]
     theta = coord_array(np.linspace(0.0, 2.0 * np.pi, ntheta), "theta")
 
-    R_mid, z_mid = flux_surfaces.convert_to_Rz(rho, theta)
+    R_mid = cast(xr.DataArray, flux_surfaces.convert_to_Rz(rho, theta)[0])
 
     asymmetry_modifier = asymmetry_modifier_from_parameter(asymmetry_parameter, R_mid)
     # quantity evaluated at midpoint between low and high on flux surface
@@ -217,7 +218,7 @@ class AdditionalHighZ(Operator):
 
         # find volume for each shell using diff from enclosed volume for each rho_mid
         cumulative_volumes, _, _ = flux_surfaces.equilibrium.enclosed_volume(rho_mid, t)
-        rho_axis = cumulative_volumes.get_axis_num("rho_poloidal")
+        rho_axis = cast(int, cumulative_volumes.get_axis_num("rho_poloidal"))
         volume_elems_arr = np.diff(cumulative_volumes, axis=rho_axis)
         # missing centre volume after diff, insert it
         volume_elems_arr = np.insert(
@@ -253,7 +254,7 @@ class AdditionalHighZ(Operator):
         Zeff: xr.DataArray,
         electron_temp: xr.DataArray,
         flux_surfaces: FluxSurfaceCoordinates,
-    ) -> xr.DataArray:
+    ) -> Tuple[xr.DataArray, xr.DataArray]:
         """
         Calculate the seminormalised additional high Z density on the midplane
         and the asymmetry parameter.
@@ -306,7 +307,7 @@ class AdditionalHighZ(Operator):
         ntheta = 12
         theta = coord_array(np.linspace(0.0, 2.0 * np.pi, ntheta), "theta")
 
-        R_mid, z_mid = flux_surfaces.convert_to_Rz(rho, theta)
+        R_mid = cast(xr.DataArray, flux_surfaces.convert_to_Rz(rho, theta)[0])
 
         asymmetry_modifier = asymmetry_modifier_from_parameter(
             n_additional_high_z_asymmetry_parameter, R_mid
@@ -358,7 +359,7 @@ class AdditionalHighZ(Operator):
         """
         rho = n_additional_high_z_seminormalised_midplane.coords["rho_poloidal"]
         theta = bolometry_obj.impurity_densities.coords["theta"]
-        R_mid, z_mid = flux_surfaces.convert_to_Rz(rho, theta)
+        R_mid = cast(xr.DataArray, flux_surfaces.convert_to_Rz(rho, theta)[0])
         asymmetry_modifier = asymmetry_modifier_from_parameter(
             n_additional_high_z_asymmetry_parameter, R_mid
         )
