@@ -129,8 +129,8 @@ class AbstractBayesWorkflow(ABC):
         )
 
         result["PROFILES"] = {
-            "RHO_POLOIDAL": self.plasma_context.plasma.rho,
-            "RHO_TOR": self.plasma_context.plasma.equilibrium.rhotor.interp(t=self.plasma_context.plasma.t),
+            "RHOP": self.plasma_context.plasma.rho,
+            "RHOT": self.plasma_context.plasma.equilibrium.rhotor.interp(t=self.plasma_context.plasma.t),
             "NE": self.blobs["electron_density"].median(dim="index"),
             "NI": self.blobs["ion_density"]
                 .sel(element=self.plasma_context.plasma_settings.main_ion)
