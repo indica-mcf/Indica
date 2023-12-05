@@ -90,8 +90,13 @@ def asymmetry_from_R_z(
     R_lfs_midplane = cast(DataArray, R_deriv).isel(theta=0)  # theta = 0.0
     R_hfs_midplane = cast(DataArray, R_deriv).isel(theta=1)  # theta = np.pi
 
-    derived_asymmetry_parameter = np.log(
-        data_rho_theta.isel(theta=1) / data_rho_theta.isel(theta=0)
+    data_lfs = data_rho_theta.isel(theta=0)
+    data_hfs = data_rho_theta.isel(theta=1)
+
+    derived_asymmetry_parameter = np.log(data_hfs / data_lfs)
+    # if both lfs and hfs density are 0 then set asymmetry parameter to 1
+    derived_asymmetry_parameter = derived_asymmetry_parameter.where(
+        np.logical_and(data_lfs != 0, data_hfs != 0), other=1
     )
 
     derived_asymmetry_parameter /= R_hfs_midplane**2 - R_lfs_midplane**2
@@ -171,9 +176,13 @@ def asymmetry_from_rho_theta(
     R_lfs_midplane = cast(DataArray, R_deriv).isel(theta=0)  # theta = 0.0
     R_hfs_midplane = cast(DataArray, R_deriv).isel(theta=1)  # theta = np.pi
 
-    derived_asymmetry_parameter = np.log(
-        data_rho_theta.interp(theta=np.pi, method="linear")
-        / data_rho_theta.interp(theta=0.0, method="linear")
+    data_lfs = data_rho_theta.interp(theta=0.0, method="linear")
+    data_hfs = data_rho_theta.interp(theta=np.pi, method="linear")
+
+    derived_asymmetry_parameter = np.log(data_hfs / data_lfs)
+    # if both lfs and hfs density are 0 then set asymmetry parameter to 1
+    derived_asymmetry_parameter = derived_asymmetry_parameter.where(
+        np.logical_and(data_lfs != 0, data_hfs != 0), other=1
     )
     # assert for mypy, numpy array predicted
     assert isinstance(derived_asymmetry_parameter, DataArray)
@@ -747,7 +756,6 @@ class ExtrapolateImpurityDensity(Operator):
         bolometry_obj: BolometryDerivation,
         impurity_element: str,
         asymmetry_parameter: DataArray,
-        threshold_rho: DataArray,
         R_deriv: DataArray,
         time_correlation: bool = True,
     ):
@@ -771,9 +779,6 @@ class ExtrapolateImpurityDensity(Operator):
             Asymmetry parameter used to transform a low-field side only rho-profile
             of a poloidally asymmetric quantity to a full poloidal cross-sectional
             profile ie. (rho, t) -> (rho, theta, t). Dimensions (rho, t)
-        threshold_rho
-            Threshold rho value beyond which asymmetry parameter is invalid and
-            should be fitted from bolometry.
         R_deriv
             Variable describing value of R in every coordinate on a (rho, theta) grid.
             xarray.DataArray with dimensions (rho, theta, t)
@@ -881,7 +886,7 @@ class ExtrapolateImpurityDensity(Operator):
 
             # fit asymmetry parameter for region where it was invalid
             asymmetry_parameter_cont = asymmetry_parameter.where(
-                asymmetry_parameter.rho_poloidal < threshold_rho,
+                asymmetry_parameter.rho_poloidal < self.threshold_rho,
                 other=edge_asymmetry_parameter,
             )
             asymmetry_modifier = asymmetry_modifier_from_parameter(
@@ -938,7 +943,7 @@ class ExtrapolateImpurityDensity(Operator):
                     np.mean([lower_pos_bound, upper_pos_bound]),
                     # asymmetry initial guess is value at threshold
                     asymmetry_parameter.isel(t=0).sel(
-                        rho_poloidal=threshold_rho, method="ffill"
+                        rho_poloidal=self.threshold_rho.isel(t=0), method="ffill"
                     ),
                 ]
             ]
