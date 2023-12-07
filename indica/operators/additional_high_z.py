@@ -98,8 +98,7 @@ class AdditionalHighZ(Operator):
 
     @staticmethod
     def _calc_shape(
-        n_high_z_midplane: xr.DataArray,
-        n_high_z_asymmetry_parameter: xr.DataArray,
+        n_high_z_fsa: xr.DataArray,
         q_high_z: xr.DataArray,
         q_additional_high_z: xr.DataArray,
         flux_surfaces: FluxSurfaceCoordinates,
@@ -131,10 +130,6 @@ class AdditionalHighZ(Operator):
             Flux surface averaged additional high Z impurity density.
             Dimensions (t, rho).
         """
-        n_high_z_fsa = calc_fsa_quantity(
-            n_high_z_midplane, n_high_z_asymmetry_parameter, flux_surfaces
-        )
-
         # Use a spline to get derivative
         n_high_z_fsa_spline = sp.interpolate.CubicSpline(
             n_high_z_fsa.coords["rho_poloidal"],
@@ -155,8 +150,8 @@ class AdditionalHighZ(Operator):
 
         n_additional_high_z_unnormalised_fsa = xr.DataArray(
             data=n_additional_high_z_unnormalised_fsa,
-            coords=n_high_z_midplane.coords,
-            dims=n_high_z_midplane.dims,
+            coords=n_high_z_fsa.coords,
+            dims=n_high_z_fsa.dims,
         )
 
         # fix density to 0 at rho=1 if present
@@ -172,8 +167,7 @@ class AdditionalHighZ(Operator):
     @staticmethod
     def _calc_first_normalisation(
         n_additional_high_z_unnormalised_fsa: xr.DataArray,
-        n_main_high_z_midplane: xr.DataArray,
-        n_main_high_z_asymmetry_parameter: xr.DataArray,
+        n_main_high_z_fsa: xr.DataArray,
         flux_surfaces: FluxSurfaceCoordinates,
     ) -> xr.DataArray:
         """
@@ -205,10 +199,6 @@ class AdditionalHighZ(Operator):
         """
         t = n_additional_high_z_unnormalised_fsa.coords["t"]
         rho = n_additional_high_z_unnormalised_fsa.coords["rho_poloidal"]
-
-        n_main_high_z_fsa = calc_fsa_quantity(
-            n_main_high_z_midplane, n_main_high_z_asymmetry_parameter, flux_surfaces
-        )
 
         rho_arr = rho.data
         # get midpoints between rho points
@@ -385,8 +375,7 @@ class AdditionalHighZ(Operator):
 
     def __call__(  # type: ignore[override]
         self,
-        n_high_z_midplane: xr.DataArray,
-        n_high_z_asymmetry_parameter: xr.DataArray,
+        n_high_z_flux_surface_averaged: xr.DataArray,
         q_high_z: xr.DataArray,
         q_additional_high_z: xr.DataArray,
         main_ion_symbol: str,
@@ -442,8 +431,7 @@ class AdditionalHighZ(Operator):
             Normalised midplane additional high Z density. Dimensions (t, rho).
         """
         n_additional_high_z_unnormalised_fsa = self._calc_shape(
-            n_high_z_midplane,
-            n_high_z_asymmetry_parameter,
+            n_high_z_flux_surface_averaged,
             q_high_z,
             q_additional_high_z,
             flux_surfaces,
@@ -451,8 +439,7 @@ class AdditionalHighZ(Operator):
 
         n_additional_high_z_seminormalised_fsa = self._calc_first_normalisation(
             n_additional_high_z_unnormalised_fsa,
-            n_high_z_midplane,
-            n_high_z_asymmetry_parameter,
+            n_high_z_flux_surface_averaged,
             flux_surfaces,
         )
 

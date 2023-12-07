@@ -4,7 +4,7 @@ from tests.regression.operators.test_bolometry_derivation import input_data_setu
 import xarray as xr
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
-from indica.operators.additional_high_z import AdditionalHighZ
+from indica.operators.additional_high_z import AdditionalHighZ, calc_fsa_quantity
 from indica.operators.extrapolate_impurity_density import (
     asymmetry_modifier_from_parameter,
 )
@@ -41,12 +41,18 @@ def test_calc_shape():
     n_high_z_asymmetry_parameter = make_dataarray(
         [0.0, 0.1, 0.15, 0.2, 0.3, 0.8, 0.0], rho, t
     )
+
+    n_high_z_fsa = calc_fsa_quantity(
+        symmetric_component=n_high_z_midplane,
+        asymmetry_parameter=n_high_z_asymmetry_parameter,
+        flux_surfaces=flux_surfs,
+    )
+
     q_high_z = make_dataarray([25, 23, 22, 15, 7, 3, 0], rho, t)
     q_additional_high_z = make_dataarray([20, 19, 17, 14, 8, 3, 0], rho, t)
 
     n_additional_high_z_shape = AdditionalHighZ._calc_shape(
-        n_high_z_midplane,
-        n_high_z_asymmetry_parameter,
+        n_high_z_fsa,
         q_high_z,
         q_additional_high_z,
         flux_surfs,
@@ -96,6 +102,12 @@ def test_calc_first_normalisation():
         [0.0, 0.1, 0.15, 0.2, 0.3, 0.8, 0.0], rho, t
     )
 
+    n_high_z_fsa = calc_fsa_quantity(
+        symmetric_component=n_high_z_midplane,
+        asymmetry_parameter=n_high_z_asymmetry_parameter,
+        flux_surfaces=flux_surfs,
+    )
+
     n_additional_high_z_unnormalised_fsa = make_dataarray(
         np.array(
             [[1.0, 0.91161082, 0.77385276, 0.61048717, 0.38180397, 0.09532643, 0.0]]
@@ -106,8 +118,7 @@ def test_calc_first_normalisation():
 
     n_additional_high_z_seminormalised_fsa = AdditionalHighZ._calc_first_normalisation(
         n_additional_high_z_unnormalised_fsa,
-        n_high_z_midplane,
-        n_high_z_asymmetry_parameter,
+        n_high_z_fsa,
         flux_surfs,
     )
 
@@ -453,10 +464,14 @@ def test_call():
     n_high_z_midplane = make_dataarray(
         np.tile([1e16, 9.5e15, 8e15, 8e15, 7e15, 3e15, 0], (len(t), 1)), rho, t
     ).interp(rho_poloidal=bolometry_rho)
-
     n_high_z_asymmetry_parameter = make_dataarray(
         np.tile([0.0, 0.1, 0.15, 0.2, 0.3, 0.8, 0.0], (len(t), 1)), rho, t
     ).interp(rho_poloidal=bolometry_rho)
+    n_high_z_fsa = calc_fsa_quantity(
+        symmetric_component=n_high_z_midplane,
+        asymmetry_parameter=n_high_z_asymmetry_parameter,
+        flux_surfaces=flux_surfaces,
+    )
     q_high_z = make_dataarray(
         np.tile([25, 23, 22, 15, 7, 3, 0], (len(t), 1)), rho, t
     ).interp(rho_poloidal=bolometry_rho)
@@ -507,8 +522,7 @@ def test_call():
     additional_high_z_operator = AdditionalHighZ()
 
     n_additional_high_z = additional_high_z_operator(
-        n_high_z_midplane,
-        n_high_z_asymmetry_parameter,
+        n_high_z_fsa,
         q_high_z,
         q_additional_high_z,
         main_ion,
