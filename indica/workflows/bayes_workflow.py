@@ -11,6 +11,7 @@ import numpy as np
 from scipy.stats import loguniform, describe
 import xarray as xr
 import pandas as pd
+from sklearn.gaussian_process import kernels
 
 from indica.bayesblackbox import BayesBlackBox, ln_prior
 from indica.bayesblackbox import get_uniform
@@ -24,11 +25,11 @@ from indica.models.interferometry import smmh1_transform_example
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.models.thomson_scattering import ts_transform_example
 from indica.models.plasma import Plasma
+from indica.operators.gpr_fit import read_ts, gpr_fit_ts
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import write_nodes
-from indica.readers.read_st40 import ReadST40
 from indica.equilibrium import Equilibrium
 from indica.equilibrium import fake_equilibrium
 from indica.readers.read_st40 import ReadST40
@@ -394,55 +395,26 @@ class PlasmaContext:
             }
         self.phantom_profiles = phantom_profiles
 
-    #
-    # def _init_fast_particles(self, run="RUN602", ):
-    #
-    #     st40_code = ReadST40(self.astra_pulse_range + self.pulse, self.tstart-self.dt, self.tend+self.dt, dt=self.dt, tree="astra")
-    #     astra_data = st40_code.get_raw_data("", "astra", run)
-    #
-    #     if self.astra_equilibrium:
-    #         self.equilibrium = Equilibrium(astra_data)
-    #         self.plasma.equilibrium = self.equilibrium
-    #
-    #     st40_code.bin_data_in_time(["astra"], self.tstart, self.tend, self.dt)
-    #     code_data = st40_code.binned_data["astra"]
-    #     Nf = (
-    #         code_data["nf"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
-    #         * 1.0e19
-    #     )
-    #     self.plasma.fast_density.values = Nf.values
-    #     Nn = (
-    #         code_data["nn"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
-    #         * 1.0e19
-    #     )
-    #     self.plasma.neutral_density.values = Nn.values
-    #     Pblon = code_data["pblon"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
-    #     self.plasma.pressure_fast_parallel.values = Pblon.values
-    #     Pbper = code_data["pbper"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.t)
-    #     self.plasma.pressure_fast_perpendicular.values = Pbper.values
-    #     self.astra_data = code_data
-    #
-    #     if self.set_ts_profiles:
-    #         overwritten_params = [param for param in self.param_names if any(xs in param for xs in ["Te", "Ne"])]
-    #         if any(overwritten_params):
-    #             raise ValueError(f"Te/Ne set by TS but then the following params overwritten: {overwritten_params}")
-    #         Te = code_data["te"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e3
-    #         self.plasma.Te_prof = lambda: Te.values
-    #         Ne = code_data["ne"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e19
-    #         self.plasma.Ne_prof = lambda:  Ne.values
-    #
-    #     if self.set_all_profiles:
-    #         overwritten_params = [param for param in self.param_names if any(xs in param for xs in ["Te", "Ti", "Ne", "Nimp"])]
-    #         if any(overwritten_params):
-    #             raise ValueError(f"Te/Ne set by TS but then the following params overwritten: {overwritten_params}")
-    #         Te = code_data["te"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e3
-    #         self.plasma.Te_prof = lambda: Te.values
-    #         Ne = code_data["ne"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e19
-    #         self.plasma.Ne_prof = lambda: Ne.values
-    #         Ti = code_data["ti"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e3
-    #         self.plasma.Ti_prof = lambda: Ti.values
-    #         Nimp = code_data["niz1"].interp(rho_poloidal=self.plasma.rho, t=self.plasma.time_to_calculate) * 1e19
-    #         self.plasma.Nimp_prof = lambda: Nimp.values
+
+    def fit_ts_profile(self, pulse, tstart, tend, dt, split="LFS", quant="ne"):
+        kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.1, 0.5),
+                                                 length_scale_bounds=(1, 2.0)) + kernels.WhiteKernel(
+            noise_level_bounds=(0.01, 10))
+
+        data = read_ts(pulse=pulse, tstart=tstart, tend=tend, dt=dt, quant=quant, split=split, )
+        fit, _ = gpr_fit_ts(data=data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
+        fit = xr.where(fit < 0, 0, fit)
+        return fit
+
+    def set_ts_profiles(self, pulse, tstart, tend, dt, split="LFS"):
+
+        ne_fit = self.fit_ts_profile(pulse, tstart, tend, dt, quant="ne", split=split) * 1e19
+        te_fit = self.fit_ts_profile(pulse, tstart, tend, dt, quant="te", split=split) * 1e3
+
+        self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
+        self.plasma.electron_temperature.loc[dict()] = te_fit.interp(rho=self.plasma.rho)
+
+
 
 
 @dataclass
@@ -457,6 +429,7 @@ class ModelSettings:
     call_kwargs: dict = field(default_factory=lambda: {
         "xrcs": {"pixel_offset": -4.0}
     })
+
 
 @dataclass
 class ModelContext:
@@ -479,7 +452,6 @@ class ModelContext:
                 self.model_settings.init_kwargs[diag] = {}
             if diag not in self.model_settings.call_kwargs.keys():
                 self.model_settings.call_kwargs[diag] = {}
-
 
     def update_model_kwargs(self, data: dict):
         if "xrcs" in data.keys():
@@ -658,15 +630,14 @@ class ExpData(DataContext):
         # TODO move the channel filtering to the read_data method in filtering = {}
         if "ts.ne" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
-            opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel<21)
+            opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel < 21)
 
         if "ts.te" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
-            opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel<21)
+            opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel < 21)
 
         if "cxff_tws_c.ti" in opt_data.keys():
-            opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(opt_data["cxff_tws_c.ti"].channel==0)
-
+            opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(opt_data["cxff_tws_c.ti"].channel == 0)
 
         self.opt_data = opt_data
 
@@ -925,15 +896,6 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self.tend = tend
         self.dt = dt
 
-        self.plasma_context.init_plasma(equilibrium=self.data_context.equilibrium, tstart=self.tstart, tend=self.tend,
-                                        dt=self.dt, )
-        self.plasma_context.save_phantom_profiles(phantoms=self.data_context.phantoms)
-
-        self.model_context.update_model_kwargs(self.data_context.binned_data)
-        self.model_context.init_models()
-
-        self.data_context.process_data(self.model_context._build_bckc, )
-
         self.blackbox = BayesBlackBox(data=self.data_context.opt_data,
                                       plasma_context=self.plasma_context,
                                       model_context=self.model_context,
@@ -1005,30 +967,35 @@ class BayesWorkflow(AbstractBayesWorkflow):
 if __name__ == "__main__":
     pulse = 11336
     tstart = 0.05
-    tend = 0.07
+    tend = 0.06
     dt = 0.01
 
     diagnostics = [
-        # "xrcs",
+        "xrcs",
         # "efit",
         # "smmh1",
         # "cxff_pi",
-        # "cxff_tws_c",
+        "cxff_tws_c",
         "ts",
     ]
     # diagnostic_quantities
     opt_quant = [
-        # "xrcs.spectra",
+        "xrcs.spectra",
+        "cxff_tws_c.ti",
         #  "efit.wp",
-        "ts.te"
+        "ts.te",
+        "ts.ne",
     ]
     opt_params = [
-        "Te_prof.y0",
-        "Te_prof.peaking",
-        "Te_prof.wped",
-        "Te_prof.wcenter",
-
-        # "Ti_prof.y0",
+        # "Te_prof.y0",
+        # "Te_prof.peaking",
+        # "Te_prof.wped",
+        # "Te_prof.wcenter",
+        "Ti_prof.y0",
+        "Ti_prof.peaking",
+        "Ti_prof.wped",
+        "Ti_prof.wcenter",
+        "Nimp_prof.y0",
         # "Ne_prof.y0",
     ]
 
@@ -1043,7 +1010,7 @@ if __name__ == "__main__":
     # data_context = PhantomData(pulse=pulse, diagnostics=diagnostics,
     #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
-                                tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+                           tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
     plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"), impurity_concentration=(0.001, 0.04),
@@ -1059,7 +1026,20 @@ if __name__ == "__main__":
                                  model_settings=model_settings,
                                  )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=100,
+    # Initialise context objects
+    plasma_context.init_plasma(equilibrium=data_context.equilibrium, tstart=tstart, tend=tend,
+                               dt=dt, )
+
+    plasma_context.set_ts_profiles(pulse, tstart, tend, dt, split="HFS")
+
+    plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
+
+    model_context.update_model_kwargs(data_context.binned_data)
+    model_context.init_models()
+
+    data_context.process_data(model_context._build_bckc, )
+
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=20,
                                                 sample_method="high_density", starting_samples=100, burn_frac=0.20,
                                                 stopping_criteria="mode", stopping_criteria_factor=0.01,
                                                 priors=bayes_settings.priors)
@@ -1070,4 +1050,4 @@ if __name__ == "__main__":
                              optimiser_context=optimiser_context,
                              plasma_context=plasma_context, model_context=model_context)
 
-    workflow(pulse_to_write=25000000, run="RUN01", mds_write=True, plot=True, filepath="./results/test/")
+    workflow(pulse_to_write=25000000, run="RUN01", mds_write=False, plot=True, filepath="./results/test/")
