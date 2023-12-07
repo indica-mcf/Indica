@@ -100,7 +100,6 @@ class AdditionalHighZ(Operator):
         n_high_z_fsa: xr.DataArray,
         q_high_z: xr.DataArray,
         q_additional_high_z: xr.DataArray,
-        flux_surfaces: FluxSurfaceCoordinates,
     ) -> xr.DataArray:
         """
         Calculate the flux surface averaged additional high Z impurity density
@@ -119,9 +118,6 @@ class AdditionalHighZ(Operator):
             Impurity charge for the main high Z impurity. Dimensions (t, rho).
         q_additional_high_z
             Impurity charge for the additional high Z impurity. Dimensions (t, rho).
-        flux_surfaces
-            FluxSurfaceCoordinates object representing polar coordinate systems
-            using flux surfaces for the radial coordinate.
 
         Returns
         -------
@@ -369,11 +365,9 @@ class AdditionalHighZ(Operator):
 
         Parameters
         ----------
-        n_high_z_midplane
-            Density of the main high Z impurity element, usually Tungsten along
-            the midplane. Dimensions (t, rho).
-        n_high_z_asymmetry_parameter
-            Asymmetry parameter for the main high Z impurity. Dimensions (t, rho).
+        n_high_z_flux_surface_averaged
+            Density of the main high Z impurity element, usually Tungsten, averaged
+            along flux surfaces. Dimensions (t, rho).
         q_high_z
             Impurity charge for the main high Z impurity. Dimensions (t, rho).
         q_additional_high_z
@@ -397,7 +391,6 @@ class AdditionalHighZ(Operator):
             n_high_z_flux_surface_averaged,
             q_high_z,
             q_additional_high_z,
-            flux_surfaces,
         )
 
         n_additional_high_z_seminormalised_fsa = self._calc_first_normalisation(
