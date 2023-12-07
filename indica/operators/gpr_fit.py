@@ -199,10 +199,7 @@ def gpr_fit_ts(
     fit_err = xr.concat(y_fit_err, "t").assign_coords(t=data.t)
 
     if plot or save_fig:
-        plt.ioff()
         Path(FIG_PATH).mkdir(parents=True, exist_ok=True)
-
-
         for idx, tplot in enumerate(data.t.values):
             plot_gpr_fit(
                 data.sel(t=tplot).swap_dims({"channel":xdim}),
@@ -218,6 +215,7 @@ def gpr_fit_ts(
             if not save_fig:
                 plt.show()
 
+    plt.close("all")
     return fit, fit_err
 
 
