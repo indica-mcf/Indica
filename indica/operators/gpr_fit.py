@@ -107,8 +107,8 @@ def plot_gpr_fit(
         plt.savefig(FIG_PATH + f"{fig_name}_GPR_t:{data.t.values:.3f}.png", bbox_inches="tight")
 
 
-def read_ts(pulse, tstart, tend, quant, split=""):
-    st40 = ReadST40(pulse, tstart, tend)
+def read_ts(pulse, tstart, tend, dt, quant, split=""):
+    st40 = ReadST40(pulse, tstart, tend, dt)
     st40(instruments=["ts", "efit"])
     rmag = st40.binned_data["efit"]["rmag"]
 
@@ -229,6 +229,6 @@ if __name__ == "__main__":
 
     quant = "ne"
 
-    data = read_ts(pulse = 11417, tstart=0.05, tend=0.15, quant=quant, split = "LFS",)
+    data = read_ts(pulse = 11417, tstart=0.05, tend=0.15, dt=0.01, quant=quant, split = "LFS",)
     gpr_fit_ts(data=data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
 
