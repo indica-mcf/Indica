@@ -520,7 +520,7 @@ class Plasma:
         Update plasma profiles with profile parameters i.e.
         {"Ne_prof.y0":1e19} -> Ne_prof.y0
         """
-        profile_prefixs: list = [
+        profile_prefixes: list = [
             "Te_prof",
             "Ti_prof",
             "Ne_prof",
@@ -528,7 +528,7 @@ class Plasma:
             "Vrot_prof",
         ]
         for param, value in parameters.items():
-            _prefix = [pref for pref in profile_prefixs if pref in param]
+            _prefix = [pref for pref in profile_prefixes if pref in param]
             if _prefix:
                 prefix: str = _prefix[0]
                 key = param.replace(prefix + ".", "")
@@ -538,14 +538,21 @@ class Plasma:
                 else:
                     raise ValueError(f"parameter: {key} not found in {prefix}")
 
-        for key in [
-            "electron_density",
-            "electron_temperature",
-            "ion_temperature",
-            "toroidal_rotation",
-            "impurity_density",
-        ]:
-            self.assign_profiles(key, t=self.time_to_calculate)
+        # Only update profiles which are given in parameters
+        parameter_prefixes = [key.split(".")[0] for key in parameters.keys()]
+        profile_names = set(parameter_prefixes) & set(profile_prefixes)
+
+        profile_mapping = {
+            "Te_prof": "electron_temperature",
+            "Ti_prof": "ion_temperature",
+            "Ne_prof": "electron_density",
+            "Vrot_prof": "toroidal_rotation",
+            "Nimp_prof": "impurity_density",
+            "Nh_prof": "neutral_density",
+        }
+
+        for key in profile_names:
+            self.assign_profiles(profile_mapping[key], t=self.time_to_calculate)
 
     @property
     def time_to_calculate(self):
