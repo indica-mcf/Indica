@@ -112,11 +112,9 @@ def read_ts(pulse, tstart, tend, dt, quant, split=""):
     st40(instruments=["ts", "efit"])
     rmag = st40.binned_data["efit"]["rmag"]
 
-    data = st40.raw_data["ts"][quant]
+    data = st40.binned_data["ts"][quant]
     data["quantity"] = quant
     data["pulse"] = pulse
-
-    data = data[(data.t >= tstart) & (data.t <= tend)]
 
     data.transform.set_equilibrium(st40.equilibrium)
     data.transform.convert_to_rho_theta(t=data.t)
