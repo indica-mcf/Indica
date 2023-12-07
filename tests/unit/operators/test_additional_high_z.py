@@ -1,4 +1,5 @@
 import numpy as np
+from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from tests.regression.operators.test_bolometry_derivation import bolometry_object_setup
 from tests.regression.operators.test_bolometry_derivation import input_data_setup
 import xarray as xr
@@ -201,18 +202,21 @@ def test_calc_seminormalised_additional_high_z_density():
         ),
     )
 
-    (
-        n_additional_high_z_seminormalised_midplane,
-        n_additional_high_z_asymmetry_parameter,
-    ) = AdditionalHighZ._calc_seminormalised_additional_high_z_density(
-        n_additional_high_z_seminormalised_fsa,
-        toroidal_rotations,
-        ion_temperature,
-        main_ion,
-        additional_high_z_ion,
-        zeff,
-        electron_temp,
-        flux_surfs,
+    n_additional_high_z_asymmetry_parameter = AsymmetryParameter()(
+        toroidal_rotations=toroidal_rotations,
+        ion_temperature=ion_temperature,
+        main_ion=main_ion,
+        impurity=additional_high_z_ion,
+        Zeff=zeff,
+        electron_temp=electron_temp,
+    )
+
+    n_additional_high_z_seminormalised_midplane = (
+        AdditionalHighZ._calc_seminormalised_additional_high_z_density(
+            n_additional_high_z_seminormalised_fsa,
+            n_additional_high_z_asymmetry_parameter,
+            flux_surfs,
+        )
     )
 
     n_additional_high_z_seminormalised_midplane_expected = xr.DataArray(
@@ -519,18 +523,23 @@ def test_call():
         ),
     ).interp(rho_poloidal=bolometry_rho)
 
+    n_additional_high_z_asymmetry_parameter = AsymmetryParameter()(
+        toroidal_rotations=toroidal_rotations,
+        ion_temperature=ion_temperature,
+        main_ion=main_ion,
+        impurity=additional_high_z_ion,
+        Zeff=zeff,
+        electron_temp=electron_temp,
+    )
+
     additional_high_z_operator = AdditionalHighZ()
 
     n_additional_high_z = additional_high_z_operator(
         n_high_z_fsa,
+        n_additional_high_z_asymmetry_parameter,
         q_high_z,
         q_additional_high_z,
-        main_ion,
         additional_high_z_ion,
-        electron_temp,
-        ion_temperature,
-        toroidal_rotations,
-        zeff,
         bolometry_observation,
         bolometry_obj,
         flux_surfaces,
