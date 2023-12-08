@@ -1,3 +1,4 @@
+from copy import deepcopy
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -19,6 +20,7 @@ def fit_profile_and_Rshift(
     xknots: ArrayLike = None,
     xspl: ArrayLike = np.linspace(0, 1.05, 51),
     bc_type: str = "clamped",
+    Rshift_bounds:tuple = (-0.02, 0.02),
     verbose=0,
 ):
     """Fit a profile and the R_shift of the equilibrium"""
@@ -50,10 +52,12 @@ def fit_profile_and_Rshift(
     upper_bound = np.full(len(xknots) + 1, np.inf)
     lower_bound[-2] = 0.0
     upper_bound[-2] = 0.01
-    lower_bound[-1] = -0.02
-    upper_bound[-1] = 0.02
+    lower_bound[-1] = Rshift_bounds[0]
+    upper_bound[-1] = Rshift_bounds[1]
 
+    all_knots = None
     for t in ydata.t.values:
+        # Normalize data so range of parameters to scan is all similar
         norm_factor = np.nanmax(ydata.sel(t=t).values)
         _y = ydata.sel(t=t).values / norm_factor
         _yerr = yerr.sel(t=t).values / norm_factor
@@ -66,7 +70,9 @@ def fit_profile_and_Rshift(
             err = _yerr[ind]
 
             # Initial guess: profile linearly increasing edge>core & Rshift = 0.
-            all_knots = np.append(np.linspace(np.max(y), 0, len(xknots)), 0.0)
+            if all_knots is None:
+                all_knots = np.append(np.linspace(np.max(y), 0, len(xknots)), 0.0)
+
             try:
                 fit = least_squares(
                     residuals,
@@ -76,11 +82,13 @@ def fit_profile_and_Rshift(
                 )
 
                 yknots = fit.x[:-1]
+                all_knots = deepcopy(fit.x)
                 spline = CubicSpline(xknots, yknots, axis=0, bc_type=bc_type,)
 
                 _yspl = spline(xspl) * norm_factor
                 _Rshift = fit.x[-1]
             except ValueError:
+                all_knots = None
                 _yspl = np.full_like(xspl, 0.0)
                 _Rshift = 0.0
         else:
@@ -113,22 +121,19 @@ def example_run(
             xknots = [0, 0.4, 0.8, 0.95, 1.1]
         else:
             raise ValueError
-    data_all = st40.raw_data["ts"][quantity]
 
-    transform = data_all.transform
+    data = st40.raw_data["ts"][quantity]
+    err = data.error
+    transform = data.transform
     equilibrium = transform.equilibrium
-
     R = transform.R
     z = transform.z
 
-    ind = np.full_like(data_all, True)
-    data = xr.where(ind, data_all, np.nan)
-    err = xr.where(ind, data_all.error, np.nan)
     fit, Rshift = fit_profile_and_Rshift(
         R, z, data, err, equilibrium, xknots=xknots, verbose=verbose
     )
 
-    for t in data_all.t:
+    for t in data.t:
         _Rshift = Rshift.sel(t=t).values
         rho, _, _ = equilibrium.flux_coords(R + _Rshift, z, t=t)
 
@@ -141,7 +146,7 @@ def example_run(
         plt.legend()
         plt.show()
 
-    return data_all, fit
+    return data, fit
 
 
 if __name__ == "__main__":
