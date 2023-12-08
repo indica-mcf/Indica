@@ -397,13 +397,13 @@ class PlasmaContext:
 
 
     def fit_ts_profile(self, pulse, tstart, tend, dt, split="LFS", quant="ne"):
-        kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.1, 0.5),
-                                                 length_scale_bounds=(1, 2.0)) + kernels.WhiteKernel(
+        kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.5, 1.0),
+                                                 length_scale_bounds=(0.4, 0.7)) + kernels.WhiteKernel(
             noise_level_bounds=(0.01, 10))
 
         data = read_ts(pulse=pulse, tstart=tstart, tend=tend, dt=dt, quant=quant, split=split, )
         fit, _ = gpr_fit_ts(data=data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
-        fit = xr.where(fit < 0, 0, fit)
+        fit = xr.where(fit < 0, 1e-10, fit)
         return fit
 
     def set_ts_profiles(self, pulse, tstart, tend, dt, split="LFS"):
@@ -630,11 +630,11 @@ class ExpData(DataContext):
         # TODO move the channel filtering to the read_data method in filtering = {}
         if "ts.ne" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
-            opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel < 21)
+            # opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel < 21)
 
         if "ts.te" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
-            opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel < 21)
+            # opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel < 21)
 
         if "cxff_tws_c.ti" in opt_data.keys():
             opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(opt_data["cxff_tws_c.ti"].channel == 0)
@@ -965,7 +965,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
 
 
 if __name__ == "__main__":
-    pulse = 11336
+    pulse = None
     tstart = 0.05
     tend = 0.06
     dt = 0.01
@@ -987,15 +987,19 @@ if __name__ == "__main__":
         "ts.ne",
     ]
     opt_params = [
-        # "Te_prof.y0",
+        "Ne_prof.y0",
+        "Te_prof.y0",
         # "Te_prof.peaking",
         # "Te_prof.wped",
         # "Te_prof.wcenter",
         "Ti_prof.y0",
-        "Ti_prof.peaking",
-        "Ti_prof.wped",
-        "Ti_prof.wcenter",
-        "Nimp_prof.y0",
+        # "Ti_prof.peaking",
+        # "Ti_prof.wped",
+        # "Ti_prof.wcenter",
+        # "Nimp_prof.y0",
+        # "Nimp_prof.peaking",
+        # "Nimp_prof.wcenter",
+        # "Nimp_prof.wped",
         # "Ne_prof.y0",
     ]
 
@@ -1005,19 +1009,19 @@ if __name__ == "__main__":
 
     data_settings = ReaderSettings(filters={},
                                    revisions={})  # Add general methods for filtering data co-ords to ReadST40
-    # data_context = MockData(pulse=pulse, diagnostics=diagnostics,
-    #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    data_context = MockData(pulse=pulse, diagnostics=diagnostics,
+                               tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     # data_context = PhantomData(pulse=pulse, diagnostics=diagnostics,
     #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
-    data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
-                           tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    # data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
+    #                        tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
     plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"), impurity_concentration=(0.001, 0.04),
                                      n_rad=20)
     plasma_context = PlasmaContext(plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
 
-    model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": -4.0}})
+    model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
 
     model_context = ModelContext(diagnostics=diagnostics,
                                  plasma_context=plasma_context,
@@ -1030,7 +1034,7 @@ if __name__ == "__main__":
     plasma_context.init_plasma(equilibrium=data_context.equilibrium, tstart=tstart, tend=tend,
                                dt=dt, )
 
-    plasma_context.set_ts_profiles(pulse, tstart, tend, dt, split="HFS")
+    # plasma_context.set_ts_profiles(pulse, tstart, tend, dt, split="LFS")
 
     plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
 
@@ -1039,9 +1043,9 @@ if __name__ == "__main__":
 
     data_context.process_data(model_context._build_bckc, )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=20,
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=1000,
                                                 sample_method="high_density", starting_samples=100, burn_frac=0.20,
-                                                stopping_criteria="mode", stopping_criteria_factor=0.01,
+                                                stopping_criteria="mode", stopping_criteria_factor=0.01, stopping_criteria_debug=True,
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
@@ -1050,4 +1054,4 @@ if __name__ == "__main__":
                              optimiser_context=optimiser_context,
                              plasma_context=plasma_context, model_context=model_context)
 
-    workflow(pulse_to_write=25000000, run="RUN01", mds_write=False, plot=True, filepath="./results/test/")
+    workflow(pulse_to_write=43000000, run="RUN01", mds_write=True, plot=True, filepath=f"./results/test/")
