@@ -161,7 +161,7 @@ def gpr_fit_ts(
 
     if virtual_points is None:
         if xdim is "rho":
-            virtual_points = [(-0.2, lambda y: np.nanmax(y)), (1.2, lambda y: 0), ]
+            virtual_points = [(-0.2, lambda y: np.nanmax(y)), (2.0, lambda y: 0), ]
         elif xdim is "R":
             virtual_points = [(0, lambda y: 0), (0.9, lambda y: 0)]
 
@@ -220,11 +220,11 @@ def gpr_fit_ts(
 
 
 if __name__ == "__main__":
-    kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.1, 0.5), length_scale_bounds=(1, 2.0)) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
+    kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.5, 1.0), length_scale_bounds=(0.4, 0.7)) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
     # kernel = kernels.RBF(length_scale_bounds=(0.1, 1.0)) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
     quant = "ne"
 
-    data = read_ts(pulse = 11417, tstart=0.05, tend=0.15, dt=0.01, quant=quant, split = "LFS",)
+    data = read_ts(pulse = 11089, tstart=0.05, tend=0.15, dt=0.01, quant=quant, split = "LFS",)
     gpr_fit_ts(data=data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
 
