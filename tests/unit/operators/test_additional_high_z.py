@@ -1,11 +1,12 @@
 import numpy as np
-from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from tests.regression.operators.test_bolometry_derivation import bolometry_object_setup
 from tests.regression.operators.test_bolometry_derivation import input_data_setup
 import xarray as xr
 
 from indica.converters.flux_surfaces import FluxSurfaceCoordinates
-from indica.operators.additional_high_z import AdditionalHighZ, calc_fsa_quantity
+from indica.operators.additional_high_z import AdditionalHighZ
+from indica.operators.additional_high_z import calc_fsa_quantity
+from indica.operators.centrifugal_asymmetry import AsymmetryParameter
 from indica.operators.extrapolate_impurity_density import (
     asymmetry_modifier_from_parameter,
 )
@@ -56,7 +57,6 @@ def test_calc_shape():
         n_high_z_fsa,
         q_high_z,
         q_additional_high_z,
-        flux_surfs,
     )
 
     n_additional_high_z_shape_expected = make_dataarray(

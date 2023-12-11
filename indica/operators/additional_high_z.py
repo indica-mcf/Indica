@@ -109,11 +109,9 @@ class AdditionalHighZ(Operator):
 
         Parameters
         ----------
-        n_high_z_midplane
-            Density of the main high Z impurity element, usually Tungsten along
-            the midplane. Dimensions (t, rho).
-        n_high_z_asymmetry_parameter
-            Asymmetry parameter for the main high Z impurity. Dimensions (t, rho).
+        n_high_z_fsa
+            Density of the main high Z impurity element, usually Tungsten,
+            averaged over flux surfaces. Dimensions (t, rho).
         q_high_z
             Impurity charge for the main high Z impurity. Dimensions (t, rho).
         q_additional_high_z
@@ -176,11 +174,9 @@ class AdditionalHighZ(Operator):
         n_additional_high_z_unnormalised_fsa
             Flux surface averaged additional high Z impurity density.
             Dimensions (t, rho).
-        n_main_high_z_midplane
-            Density of the main high Z impurity element, usually Tungsten along
-            the midplane. Dimensions (t, rho).
-        n_main_high_z_asymmetry_parameter
-            Asymmetry parameter for the main high Z impurity. Dimensions (t, rho).
+        n_main_high_z_fsa
+            Density of the main high Z impurity element, usually Tungsten,
+            averaged over flux surfaces. Dimensions (t, rho).
         flux_surfaces
             FluxSurfaceCoordinates object representing polar coordinate systems
             using flux surfaces for the radial coordinate.
@@ -257,18 +253,7 @@ class AdditionalHighZ(Operator):
         n_additional_high_z_seminormalised_midplane
             Additional high Z impurity density along the midplane. Dimensions (t, rho).
         """
-        # first calculate asymmetry_parameter
-        # asym_operator = AsymmetryParameter()
-        # n_additional_high_z_asymmetry_parameter = asym_operator(
-        #     toroidal_rotations,
-        #     ion_temperature,
-        #     main_ion,
-        #     additional_high_z_element,
-        #     Zeff,
-        #     electron_temp,
-        # )
-
-        # second convert fsa density to midplane density
+        # convert fsa density to midplane density
         rho = n_additional_high_z_seminormalised_fsa.coords["rho_poloidal"]
         # number of points to use for fsa to midplane conversion
         ntheta = 12
@@ -368,6 +353,8 @@ class AdditionalHighZ(Operator):
         n_high_z_flux_surface_averaged
             Density of the main high Z impurity element, usually Tungsten, averaged
             along flux surfaces. Dimensions (t, rho).
+        n_additional_high_z_asymmetry_parameter
+            Additional high Z impurity asymmetry parameter. Dimensions (t, rho).
         q_high_z
             Impurity charge for the main high Z impurity. Dimensions (t, rho).
         q_additional_high_z
