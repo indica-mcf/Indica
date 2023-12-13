@@ -149,7 +149,7 @@ def test_invert_radiation():
     inverter = InvertRadiation(1, "sxr", len(knot_locs.data), n_int, MagicMock())
     R_grid = coord_array(np.linspace(0.1, 1.1, 6), "R")
     z_grid = coord_array(np.linspace(-1.0, 1.0, 5), "z")
-    emissivity, fit_params, cam_data = inverter(R_grid, z_grid, times, flux)
+    emissivity, fit_params, cam_data = inverter(times, flux)
     assert_allclose(
         cam_data.camera.drop_vars("alpha_rho_poloidal").transpose(*flux.dims), flux
     )
@@ -158,15 +158,11 @@ def test_invert_radiation():
         flux,
         rtol=1e-3,
     )
+    assert isinstance(emissivity, EmissivityProfile)
     assert_allclose(
-        emissivity,
+        emissivity(TrivialTransform(), R_grid, z_grid, times),
         expected_profile(TrivialTransform(), R_grid, z_grid, times),
         rtol=2e-2,
-    )
-    assert isinstance(emissivity.attrs["emissivity_model"], EmissivityProfile)
-    assert_allclose(
-        emissivity,
-        emissivity.attrs["emissivity_model"](TrivialTransform(), R_grid, z_grid, times),
     )
     assert_allclose(
         fit_params.symmetric_emissivity.transpose(*expected_sym.dims),
