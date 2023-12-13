@@ -24,7 +24,6 @@ from ..converters import CoordinateTransform
 from ..converters import FluxMajorRadCoordinates
 from ..converters import FluxSurfaceCoordinates
 from ..converters import ImpactParameterCoordinates
-from ..converters import TrivialTransform
 from ..datatypes import DataType
 from ..datatypes import SpecificDataType
 from ..utilities import broadcast_spline
@@ -290,21 +289,15 @@ class InvertRadiation(Operator):
 
     def __call__(  # type: ignore[override]
         self,
-        R: DataArray,
-        z: DataArray,
         times: DataArray,
         *cameras: DataArray,
-    ) -> Tuple[Union[DataArray, Dataset], ...]:
+    ) -> Tuple[EmissivityProfile, Dataset, List[Dataset]]:
         """Calculate the emissivity profile for the plasma.
 
         Parameters
         ----------
-        R
-            Major radii on which to return emissivity result.
-        z
-            Theta coordinates on which to return emissivity result.
         times
-            Time coordinatse on which to return emissivity result.
+            Time coordinates on which to calculate emissivity result.
         cameras
             The luminosity data being fit to, with each camera passed
             as a separate argument.
@@ -336,7 +329,7 @@ class InvertRadiation(Operator):
               camera when fitting emissivity.
 
         """
-        self.validate_arguments(R, z, times, *cameras)
+        self.validate_arguments(times, *cameras)
         flux_coords = FluxSurfaceCoordinates("poloidal")
         flux_coords.set_equilibrium(cameras[0].attrs["transform"].equilibrium)
         n = self.n_knots
@@ -468,14 +461,9 @@ class InvertRadiation(Operator):
         integral: List[DataArray] = []
         for data in zip(*integrals):
             integral.append(concat(data, dim=times))
-        estimate = EmissivityProfile(
+        emissivity = EmissivityProfile(
             symmetric_emissivity, asymmetry_parameter, flux_coords
         )
-        trivial = TrivialTransform()
-        emissivity = estimate(trivial, R, z, times)
-        emissivity.attrs["datatype"] = ("emissivity", self.datatype)
-        emissivity.attrs["emissivity_model"] = estimate
-        emissivity.name = self.datatype + "_emissivity"
 
         results: Dataset = Dataset(
             {
@@ -488,8 +476,6 @@ class InvertRadiation(Operator):
             i.attrs["datatype"] = ("luminous_flux", self.datatype)
             i.attrs["transform"] = c.camera.attrs["transform"]
             c["back_integral"] = i
-        self.assign_provenance(emissivity)
+            self.assign_provenance(c)
         self.assign_provenance(results)
-        for cam in unfolded_cameras:
-            self.assign_provenance(cam)
-        return emissivity, results, *unfolded_cameras
+        return emissivity, results, unfolded_cameras
