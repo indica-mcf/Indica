@@ -656,7 +656,7 @@ class Plasma:
         # return self.calc_zeff()
 
     def calc_zeff(self):
-        self._zeff = (self.ion_density * self.meanz) ** 2 / self.electron_density
+        self._zeff = self.ion_density * self.meanz ** 2 / self.electron_density
         return self._zeff
 
     @property
