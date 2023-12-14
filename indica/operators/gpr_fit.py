@@ -1,5 +1,6 @@
 import getpass
 from pathlib import Path
+from typing import Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -107,14 +108,11 @@ def plot_gpr_fit(
         plt.savefig(FIG_PATH + f"{fig_name}_GPR_t:{data.t.values:.3f}.png", bbox_inches="tight")
 
 
-def read_ts(pulse, tstart, tend, dt, quant, split=""):
-    st40 = ReadST40(pulse, tstart, tend, dt)
-    st40(instruments=["ts", "efit"])
+def post_process_ts(st40: ReadST40, quant, pulse, split=""):
     rmag = st40.binned_data["efit"]["rmag"]
-
     data = st40.binned_data["ts"][quant]
-    data["quantity"] = quant
     data["pulse"] = pulse
+    data["quantity"] = quant
 
     data.transform.set_equilibrium(st40.equilibrium)
     data.transform.convert_to_rho_theta(t=data.t)
@@ -224,7 +222,14 @@ if __name__ == "__main__":
     # kernel = kernels.RBF(length_scale_bounds=(0.1, 1.0)) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
     quant = "ne"
+    pulse = 11089
+    tstart = 0.05
+    tend = 0.15
+    dt = 0.01
 
-    data = read_ts(pulse = 11089, tstart=0.05, tend=0.15, dt=0.01, quant=quant, split = "LFS",)
+    st40 = ReadST40(pulse, tstart, tend, dt)
+    st40(instruments=["ts", "efit"])
+
+    data = post_process_ts(st40, quant, pulse, split = "LFS",)
     gpr_fit_ts(data=data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
 
