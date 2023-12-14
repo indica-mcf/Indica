@@ -279,7 +279,7 @@ class LineOfSightTransform(CoordinateTransform):
 
             normal = np.array([-dir_y, dir_x])
             ang_norm = np.arctan2(normal[1], normal[0])
-            ang_xy = np.arctan2(dir_y, dir_x)
+            # ang_xy = np.arctan2(dir_y, dir_x)
 
             # Calculate virtual system reference coordinate
             system_x = orig_x - dir_x * distance
@@ -315,16 +315,6 @@ class LineOfSightTransform(CoordinateTransform):
                         beamlet_direction_x[i_los, count] = dir_x
                         beamlet_direction_y[i_los, count] = dir_y
                         beamlet_direction_z[i_los, count] = dir_z
-
-                    ## Rotate direction # ToDo implement divergence, in vertical and horizontal dimensions
-                    # d_direction_x[i_los, count] = grid_w[i_w] * np.sin(self.div_width) / (0.5*self.spot_width)
-                    # d_direction_x[i_los, count] = grid_w[i_w] * np.cos(self.div_width) / (0.5 * self.spot_width)
-                    # ang_xy_new = ang_xy + self.div_width * grid_w[i_w] / (0.5*self.spot_width)
-                    # ang_Rz_new = self.div_width * grid_v[i_v] / (0.5*self.spot_width)
-                    # dir_x_new = np.cos(ang_xy_new)
-                    # dir_y_new = np.sin(ang_xy_new)
-                    # d_direction_x[i_los, count] = dir_x_new - dir_x
-                    # d_direction_y[i_los, count] = dir_y_new - dir_y
 
                     count += 1
 
@@ -385,7 +375,7 @@ class LineOfSightTransform(CoordinateTransform):
             Spatial resolution (m)
         """
 
-        ##x_start: List[] = []
+        # x_start: List[] = []
 
         # Calculate start and end coordinates, R, z and phi for all LOS
         x_start, y_start, z_start = [], [], []
@@ -398,16 +388,6 @@ class LineOfSightTransform(CoordinateTransform):
             y_end.append([])
             z_end.append([])
             for beamlet in range(self.beamlets):
-                # origin = (
-                #    self.origin_x[channel] + self.delta_origin_x[channel, beamlet],
-                #    self.origin_y[channel] + self.delta_origin_y[channel, beamlet],
-                #    self.origin_z[channel] + self.delta_origin_z[channel, beamlet],
-                # )
-                # direction = (
-                #    self.direction_x[channel] + self.delta_direction_x[channel, beamlet],
-                #    self.direction_y[channel] + self.delta_direction_y[channel, beamlet],
-                #    self.direction_z[channel] + self.delta_direction_z[channel, beamlet],
-                # )
                 origin = (
                     self.beamlet_origin_x[channel, beamlet],
                     self.beamlet_origin_y[channel, beamlet],

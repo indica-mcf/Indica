@@ -5,9 +5,7 @@ import getpass
 from typing import cast
 from typing import Tuple
 
-import matplotlib.pylab as plt
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
