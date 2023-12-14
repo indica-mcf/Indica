@@ -207,8 +207,6 @@ class InvertRadiation(Operator):
         # TODO: Update RETURN_TYPES
         # TODO: Revise to include R, z, t
         self.ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-            ("major_rad", None),
-            ("z", None),
             ("time", None),
             ("luminous_flux", datatype),
             ...,
