@@ -4,6 +4,7 @@
 import getpass
 from typing import cast
 from typing import Tuple
+from typing import List
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -378,8 +379,12 @@ class LineOfSightTransform(CoordinateTransform):
         # x_start: List[] = []
 
         # Calculate start and end coordinates, R, z and phi for all LOS
-        x_start, y_start, z_start = [], [], []
-        x_end, y_end, z_end = [], [], []
+        x_start: List = []
+        y_start: List = []
+        z_start: List = []
+        x_end: List = []
+        y_end: List = []
+        z_end: List = []
         for channel in self.x1:
             x_start.append([])
             y_start.append([])
@@ -469,7 +474,8 @@ class LineOfSightTransform(CoordinateTransform):
             _phi = np.arctan2(_y, _x)
             phi.append(_phi)
 
-        # Loop over DataArray to NaN where los length is greater than the LOS distance - ToDo
+        # Loop over DataArray to NaN where los length is greater
+        # than the LOS distance - ToDo
         for x1 in self.x1:
 
             for beamlet in range(self.beamlets):
