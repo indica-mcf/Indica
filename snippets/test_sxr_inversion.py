@@ -4,11 +4,11 @@ import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 
+from indica.converters import TrivialTransform
 from indica.equilibrium import Equilibrium
 from indica.operators import InvertRadiation
 from indica.readers import PPFReader
 from indica.utilities import coord_array
-
 
 cameras = ["v"]
 R = coord_array(np.linspace(1.83, 3.9, 25), "R")
@@ -38,7 +38,11 @@ for data in itertools.chain(hrts.values(), sxr.values()):
 
 inverter = InvertRadiation(len(cameras), "sxr", 6)
 
-emissivity, emiss_fit, *camera_results = inverter(R, z, t, *(sxr[c] for c in cameras))
+emissivity_profile, emiss_fit, camera_results = inverter(
+    R, z, t, *(sxr[c] for c in cameras)
+)
+
+emissivity = emissivity_profile(TrivialTransform(), R, z, t)
 
 for time in t:
     emissivity.sel(t=time).plot(x="R", y="z", cmap="plasma")
