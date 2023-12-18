@@ -19,18 +19,23 @@ def fit_profile_and_Rshift(
     yerr: DataArray,
     equilibrium: Equilibrium,
     xknots: ArrayLike = None,
+    Rshift: DataArray = None,
     xspl: ArrayLike = np.linspace(0, 1.05, 51),
     bc_type: str = "clamped",
-    Rshift_bounds: tuple = (-0.02, 0.02),
-    verbose=0,
+    bounds_Rshift: tuple = (-0.02, 0.02),
+    verbose: bool = False,
 ):
     """Fit a profile and the R_shift of the equilibrium"""
 
     def residuals(all_knots):
-        _Rshift = all_knots[-1]
+        if Rshift is None:
+            _Rshift = all_knots[-1]
+            yknots = all_knots[:-1]
+        else:
+            _Rshift = Rshift.sel(t=t).values
+            yknots = all_knots
 
         _xknots, _, _ = equilibrium.flux_coords(R + _Rshift, z, t=t)
-        yknots = all_knots[:-1]
 
         spline = CubicSpline(
             xknots,
@@ -44,25 +49,28 @@ def fit_profile_and_Rshift(
 
         return _residuals
 
+    # Boundary conditions
+    # values go to --> 0 outside separatrix (index = -2)
+    nknots = np.size(xknots)
+    lower_bound = np.full(nknots, -np.inf)
+    upper_bound = np.full(nknots, np.inf)
+    lower_bound[-1] = 0.0
+    upper_bound[-1] = 0.01
+    if Rshift is None:
+        # If Rshift to be fitted, add additional knot and bounds
+        nknots += 1
+        lower_bound = np.append(lower_bound, bounds_Rshift[0])
+        upper_bound = np.append(upper_bound, bounds_Rshift[1])
+
     # Initialize DataArray that will contain the final fit result
     yspl = xr.DataArray(
         np.empty((len(xspl), len(ydata.t))),
         coords=[("rho_poloidal", xspl), ("t", ydata.t.values)],
     )
-    Rshift = xr.DataArray(
+    Rshift_fit = xr.DataArray(
         np.empty(len(ydata.t)),
         coords=[("t", ydata.t.values)],
     )
-
-    # Boundary conditions
-    # values go to --> 0 outside separatrix (index = -2)
-    # [-0.02, 0.02] for R_shift (index = -1)
-    lower_bound = np.full(np.size(xknots) + 1, -np.inf)
-    upper_bound = np.full(np.size(xknots) + 1, np.inf)
-    lower_bound[-2] = 0.0
-    upper_bound[-2] = 0.01
-    lower_bound[-1] = Rshift_bounds[0]
-    upper_bound[-1] = Rshift_bounds[1]
 
     all_knots = None
     for t in ydata.t.values:
@@ -80,7 +88,9 @@ def fit_profile_and_Rshift(
 
             # Initial guess: profile linearly increasing edge>core & Rshift = 0.
             if all_knots is None:
-                all_knots = np.append(np.linspace(np.max(y), 0, np.size(xknots)), 0.0)
+                all_knots = np.linspace(np.max(y), 0, np.size(xknots))
+                if Rshift is None:
+                    all_knots = np.append(all_knots, 0.0)
 
             try:
                 fit = least_squares(
@@ -90,7 +100,12 @@ def fit_profile_and_Rshift(
                     verbose=verbose,
                 )
 
-                yknots = fit.x[:-1]
+                if Rshift is None:
+                    yknots = fit.x[:-1]
+                    _Rshift = fit.x[-1]
+                else:
+                    yknots = fit.x
+
                 all_knots = deepcopy(fit.x)
                 spline = CubicSpline(
                     xknots,
@@ -100,20 +115,23 @@ def fit_profile_and_Rshift(
                 )
 
                 _yspl = spline(xspl) * norm_factor
-                _Rshift = fit.x[-1]
             except ValueError:
                 all_knots = None
-                _yspl = np.full_like(xspl, 0.0)
                 _Rshift = 0.0
+                _yspl = np.full_like(xspl, 0.0)
         else:
             print("   bad data...")
-            _yspl = np.full_like(xspl, 0.0)
             _Rshift = 0.0
+            _yspl = np.full_like(xspl, 0.0)
 
         yspl.loc[dict(t=t)] = _yspl
-        Rshift.loc[dict(t=t)] = _Rshift
+        if Rshift is None:
+            Rshift_fit.loc[dict(t=t)] = _Rshift
 
-    return yspl, Rshift
+    if Rshift is not None:
+        Rshift_fit = Rshift
+
+    return yspl, Rshift_fit
 
 
 def example_run(
