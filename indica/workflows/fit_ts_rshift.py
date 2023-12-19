@@ -1,5 +1,6 @@
-from xarray import DataArray
 import xarray as xr
+from xarray import DataArray
+
 from indica.operators.spline_fit_Rshift import fit_profile_and_Rshift
 
 
