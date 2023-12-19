@@ -4,6 +4,7 @@
 from abc import ABC
 from abc import abstractmethod
 import getpass
+import itertools
 from typing import Callable
 from typing import cast
 from typing import Dict
@@ -566,7 +567,9 @@ class CoordinateTransform(ABC):
                 _rho = _rho.sel(t=t, method="nearest")
 
             if "LineOfSight" in trans_name:
-                abscissa = _rho.los_position.expand_dims(dim={"channel": _rho.channel})
+                abscissa = _rho.los_position.expand_dims(
+                    dim={"channel": _rho.channel, "beamlet": _rho.beamlet}
+                )
             elif "Transect" in trans_name:
                 abscissa = _rho.channel
             plot_geometry(
@@ -591,18 +594,20 @@ def plot_geometry(
     colors: ArrayLike,
     marker: str = "o",
 ):
-    for ch in abscissa.channel:
+    channels = abscissa.channel.values
+    beamlets = abscissa.beamlet.values
+    for channel, beamlet in itertools.product(channels, beamlets):
         if "LineOfSight" in trans_name:
             plt.plot(
-                abscissa.sel(channel=ch),
-                ordinate.sel(channel=ch),
-                color=colors[ch],
+                abscissa.sel(channel=channel, beamlet=beamlet),
+                ordinate.sel(channel=channel, beamlet=beamlet),
+                color=colors[channel],
             )
         elif "Transect" in trans_name:
             plt.scatter(
-                abscissa.sel(channel=ch),
-                ordinate.sel(channel=ch),
-                color=colors[ch],
+                abscissa.sel(channel=channel, beamlet=beamlet),
+                ordinate.sel(channel=channel, beamlet=beamlet),
+                color=colors[channel],
                 marker=marker,
             )
 
