@@ -7,15 +7,12 @@ from xarray import DataArray
 
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.operators import tomo_1D
-from indica.operators.spline_fit_Rshift import fit_profile_and_Rshift
 from indica.operators.tomo_1D import SXR_tomography
 import indica.physics as ph
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
-
-PATHNAME = "./plots/"
-CM, COLS = set_plot_colors()
+from indica.workflows.fit_ts_rshift import fit_ts
 
 
 def calculate_zeff(
@@ -84,68 +81,7 @@ def calculate_zeff(
             tomo,
         )
 
-    return zeff_los_avrg, spectra
-
-
-def fit_ts(
-    te_data: DataArray,
-    te_err: DataArray,
-    ne_data: DataArray,
-    ne_err: DataArray,
-    fit_Rshift: bool = True,
-    verbose: bool = False,
-):
-    """
-    Fit TS data including (or not) an ad-hoc Rshift of scattering volume positions
-    (that can also be interpreted as a shift in the equilibrium)
-
-    N.B. Rshift calculated only for Te and then applied to Ne!!!!
-
-    Parameters
-    ----------
-    te_data - electron temperature data
-    te_err - electron temperature error
-    ne_data - electron density data
-    ne_err - electron density data
-    fit_Rshift - True if Rshift is to be fitted
-
-    Returns
-    -------
-    Te and Ne fits, and corresponding Rshift
-
-    """
-    if not fit_Rshift:
-        Rshift = xr.full_like(te_data.t, 0.0)
-    else:
-        Rshift = None
-
-    ts_R = te_data.R
-    ts_z = te_data.z
-    equilibrium = te_data.transform.equilibrium
-    print("  Te")
-    te_fit, te_Rshift = fit_profile_and_Rshift(
-        ts_R,
-        ts_z,
-        te_data,
-        te_err,
-        xknots=[0, 0.4, 0.6, 0.8, 1.1],
-        equilibrium=equilibrium,
-        Rshift=Rshift,
-        verbose=verbose,
-    )
-    print("  Ne")
-    ne_fit, ne_Rshift = fit_profile_and_Rshift(
-        ts_R,
-        ts_z,
-        ne_data,
-        ne_err,
-        xknots=[0, 0.4, 0.8, 0.95, 1.1],
-        equilibrium=equilibrium,
-        Rshift=te_Rshift,
-        verbose=verbose,
-    )
-
-    return te_fit, ne_fit, te_Rshift, ne_Rshift
+    return zeff_los_avrg, zeff_profile, spectra
 
 
 def calculate_zeff_los_averaged(
@@ -180,6 +116,8 @@ def calculate_zeff_los_averaged(
     ).sum("los_position")
     los_length.coords["channel"] = spectra.channel
     zeff_los_avrg = filter_data * factor_los_int / los_length**2
+    if "beamlet" in zeff_los_avrg.dims:
+        zeff_los_avrg = zeff_los_avrg.mean("beamlet")
 
     return zeff_los_avrg, filter_data, filter_model, spectra_to_integrate
 
@@ -201,8 +139,8 @@ def calculate_zeff_profile(
         brightness_error=data_to_invert.data * 0.1,
         t=data_to_invert.t.data,
         dl=filter_model.los_transform.dl,
-        R=filter_model.los_transform.R,
-        z=filter_model.los_transform.z,
+        R=filter_model.los_transform.R.mean("beamlet"),
+        z=filter_model.los_transform.z.mean("beamlet"),
         rho_equil=dict(
             R=rho_equil.R.data,
             z=rho_equil.z.data,
@@ -269,8 +207,11 @@ def plot_results(
     ne_fit: DataArray,
     tomo: SXR_tomography,
 ):
+    # pathname = "./plots/"
+    cm, cols = set_plot_colors()
+
     time = zeff_profile.t
-    cols = CM(np.linspace(0.1, 0.75, len(time), dtype=float))
+    cols = cm(np.linspace(0.1, 0.75, len(time), dtype=float))
     plt.figure()
     for i, t in enumerate(time.values):
         if i % 2:
@@ -299,6 +240,8 @@ def plot_results(
     Rlfs = spectra.transform.equilibrium.rmjo.interp(rho_poloidal=1, t=time)
     Rhfs = spectra.transform.equilibrium.rmji.interp(rho_poloidal=1, t=time)
     Rimpact = spectra.transform.impact_parameter.R
+    if "beamlet" in Rimpact.dims:
+        Rimpact = Rimpact.mean("beamlet")
     good_channels = ((Rimpact - 0.01) > Rhfs) * ((Rimpact + 0.01) < Rlfs)
     good_channels.coords["channel"] = spectra.channel
     _mean = xr.where(good_channels, zeff_los_avrg, np.nan).mean("channel", skipna=True)
