@@ -149,6 +149,7 @@ def _plot_1d(
 def violinplot(
     data,
     diag_data,
+    diag_data_err,
     filename: str,
     xlabel="",
     ylabel="[a.u.]",
@@ -163,10 +164,6 @@ def violinplot(
     _data = data[
         ((data > np.quantile(data, 0.16)) & (data < np.quantile(data, 0.84)))
     ]
-    if hasattr(diag_data, "error"):
-        diag_data_err = diag_data.error
-    else:
-        diag_data_err = diag_data * 0.10
 
     violin = axs.violinplot(
         _data,
@@ -269,6 +266,16 @@ def plot_bayes_result(
     param_names = results["INPUT"]["PARAM_NAMES"]
     phantom_profiles = flatdict.FlatDict(results["PHANTOMS"], ".")
 
+    diag_data_err = {}
+    for key, value in diag_data.items():
+        if hasattr(value, "error"):
+            error = value.error
+            if np.any(error == 0):
+                error = value * 0.10
+        else:
+            error = value * 0.10
+        diag_data_err[key] = error
+
     # select time index for plotting
     for t_idx, t in enumerate(time):
         figheader = filepath+f"t:{t.values:.2f}/"
@@ -283,6 +290,7 @@ def plot_bayes_result(
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
+                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 xlabel=key,
                 figheader=figheader,
@@ -293,6 +301,7 @@ def plot_bayes_result(
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
+                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 figheader=figheader,
                 xlabel=key,
@@ -303,6 +312,7 @@ def plot_bayes_result(
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
+                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 figheader=figheader,
                 xlabel=key,
@@ -313,6 +323,7 @@ def plot_bayes_result(
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
+                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 figheader=figheader,
                 xlabel = key,
