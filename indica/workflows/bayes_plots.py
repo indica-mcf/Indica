@@ -272,6 +272,8 @@ def plot_bayes_result(
             error = value.error
             if np.any(error == 0):
                 error = value * 0.10
+        elif isinstance(value, flatdict.FlatDict):
+            continue
         else:
             error = value * 0.10
         diag_data_err[key] = error
