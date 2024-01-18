@@ -2,7 +2,8 @@ from abc import ABC
 from abc import abstractmethod
 from pathlib import Path
 import pickle
-
+import git
+import getpass
 import numpy as np
 
 class AbstractBayesWorkflow(ABC):
@@ -40,8 +41,8 @@ class AbstractBayesWorkflow(ABC):
         result["TIME"] = self.plasma_context.plasma.t
 
         result["METADATA"] = {
-            "GITCOMMIT": "PLACEHOLDER",
-            "USER": "PLACEHOLDER",
+            "GITCOMMIT": f"{git.Repo(search_parent_directories=True).head.object.hexsha}",
+            "USER": f"{getpass.getuser()}",
             "EQUIL": "PLACEHOLDER",
         }
 
