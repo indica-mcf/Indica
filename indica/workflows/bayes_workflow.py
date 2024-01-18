@@ -4,6 +4,7 @@ from abc import ABC
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from functools import partial
+from copy import deepcopy
 
 import emcee
 import flatdict
@@ -25,7 +26,7 @@ from indica.models.interferometry import smmh1_transform_example
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.models.thomson_scattering import ts_transform_example
 from indica.models.plasma import Plasma
-from indica.operators.gpr_fit import read_ts, gpr_fit_ts
+from indica.operators.gpr_fit import post_process_ts, gpr_fit_ts
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.writers.bda_tree import create_nodes
@@ -395,27 +396,52 @@ class PlasmaContext:
             }
         self.phantom_profiles = phantom_profiles
 
-
-    def fit_ts_profile(self, pulse, tstart, tend, dt, split="LFS", quant="ne"):
+    def fit_ts_profile(self, data_context, split="LFS", quant="ne"):
         kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.5, 1.0),
                                                  length_scale_bounds=(0.4, 0.7)) + kernels.WhiteKernel(
             noise_level_bounds=(0.01, 10))
 
-        data = read_ts(pulse=pulse, tstart=tstart, tend=tend, dt=dt, quant=quant, split=split, )
-        fit, _ = gpr_fit_ts(data=data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
+        processed_data = post_process_ts(deepcopy(data_context.binned_data), data_context.equilibrium, quant, data_context.pulse, split=split, )
+        fit, _ = gpr_fit_ts(data=processed_data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
         fit = xr.where(fit < 0, 1e-10, fit)
         return fit
 
-    def set_ts_profiles(self, pulse, tstart, tend, dt, split="LFS"):
+    def set_ts_profiles(self, data_context, split="LFS"):
 
-        ne_fit = self.fit_ts_profile(pulse, tstart, tend, dt, quant="ne", split=split) * 1e19
-        te_fit = self.fit_ts_profile(pulse, tstart, tend, dt, quant="te", split=split) * 1e3
+        ne_fit = self.fit_ts_profile(data_context, quant="ne", split=split) * 1e19
+        te_fit = self.fit_ts_profile(data_context, quant="te", split=split) * 1e3
 
         self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
         self.plasma.electron_temperature.loc[dict()] = te_fit.interp(rho=self.plasma.rho)
 
+    def map_profiles_to_midplane(self, blobs):
+        kinetic_profiles = [
+            "electron_density",
+            "impurity_density",
+            "electron_temperature",
+            "ion_temperature",
+            "ion_density",
+            "fast_density",
+            "neutral_density",
+            "zeff"
+        ]
+        nchan = len(self.plasma.R_midplane)
+        chan = np.arange(nchan)
+        R = xr.DataArray(self.plasma.R_midplane, coords=[("channel", chan)])
+        z = xr.DataArray(self.plasma.z_midplane, coords=[("channel", chan)])
 
-
+        rho = (
+            self.plasma.equilibrium.rho
+                .interp(t=self.plasma.t, R=R, z=z)
+                .drop_vars(["R", "z"])
+        )
+        midplane_profiles = {}
+        for profile in kinetic_profiles:
+            midplane_profiles[profile] = blobs[profile].interp(rho_poloidal=rho).drop_vars("rho_poloidal")
+            midplane_profiles[profile]["R"] = R
+            midplane_profiles[profile]["z"] = z
+            midplane_profiles[profile] = midplane_profiles[profile].swap_dims({"channel": "R"})
+        return midplane_profiles
 
 @dataclass
 class ModelSettings:
@@ -926,12 +952,14 @@ class BayesWorkflow(AbstractBayesWorkflow):
             results.append(self.optimiser_context.format_results())
             self.optimiser_context.optimiser.reset()
 
+
         # unpack results and add time axis
         blobs = {}
         for key in results[0]["blobs"].keys():
             _blob = [result["blobs"][key] for result in results]
             blobs[key] = xr.concat(_blob, self.plasma_context.plasma.t)
         self.blobs = blobs
+        self.midplane_blobs = self.plasma_context.map_profiles_to_midplane(blobs)
 
         opt_samples = {}
         for key in results[0].keys():
@@ -965,14 +993,14 @@ class BayesWorkflow(AbstractBayesWorkflow):
 
 
 if __name__ == "__main__":
-    pulse = None
+    pulse = 11089
     tstart = 0.05
-    tend = 0.06
+    tend = 0.12
     dt = 0.01
 
     diagnostics = [
         "xrcs",
-        # "efit",
+        "efit",
         # "smmh1",
         # "cxff_pi",
         "cxff_tws_c",
@@ -987,19 +1015,19 @@ if __name__ == "__main__":
         "ts.ne",
     ]
     opt_params = [
-        "Ne_prof.y0",
-        "Te_prof.y0",
+        # "Ne_prof.y0",
+        # "Te_prof.y0",
         # "Te_prof.peaking",
         # "Te_prof.wped",
         # "Te_prof.wcenter",
         "Ti_prof.y0",
-        # "Ti_prof.peaking",
-        # "Ti_prof.wped",
-        # "Ti_prof.wcenter",
-        # "Nimp_prof.y0",
-        # "Nimp_prof.peaking",
-        # "Nimp_prof.wcenter",
-        # "Nimp_prof.wped",
+        "Ti_prof.peaking",
+        "Ti_prof.wped",
+        "Ti_prof.wcenter",
+        "Nimp_prof.y0",
+        "Nimp_prof.peaking",
+        "Nimp_prof.wcenter",
+        "Nimp_prof.wped",
         # "Ne_prof.y0",
     ]
 
@@ -1008,13 +1036,13 @@ if __name__ == "__main__":
                                      opt_quantity=opt_quant, priors=DEFAULT_PRIORS, )
 
     data_settings = ReaderSettings(filters={},
-                                   revisions={})  # Add general methods for filtering data co-ords to ReadST40
-    data_context = MockData(pulse=pulse, diagnostics=diagnostics,
-                               tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+                                   revisions={"efit": "RUN02"})  # Add general methods for filtering data co-ords to ReadST40
+    # data_context = MockData(pulse=pulse, diagnostics=diagnostics,
+    #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     # data_context = PhantomData(pulse=pulse, diagnostics=diagnostics,
     #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
-    # data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
-    #                        tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
+                           tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
     plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"), impurity_concentration=(0.001, 0.04),
@@ -1034,7 +1062,7 @@ if __name__ == "__main__":
     plasma_context.init_plasma(equilibrium=data_context.equilibrium, tstart=tstart, tend=tend,
                                dt=dt, )
 
-    # plasma_context.set_ts_profiles(pulse, tstart, tend, dt, split="LFS")
+    plasma_context.set_ts_profiles(data_context, split="LFS")
 
     plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
 
@@ -1043,9 +1071,9 @@ if __name__ == "__main__":
 
     data_context.process_data(model_context._build_bckc, )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=1000,
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=2000,
                                                 sample_method="high_density", starting_samples=100, burn_frac=0.20,
-                                                stopping_criteria="mode", stopping_criteria_factor=0.01, stopping_criteria_debug=True,
+                                                stopping_criteria="mode", stopping_criteria_factor=0.002, stopping_criteria_debug=True,
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
@@ -1054,4 +1082,4 @@ if __name__ == "__main__":
                              optimiser_context=optimiser_context,
                              plasma_context=plasma_context, model_context=model_context)
 
-    workflow(pulse_to_write=43000000, run="RUN01", mds_write=True, plot=True, filepath=f"./results/test/")
+    workflow(pulse_to_write=43011089, run="RUN02", mds_write=True, plot=True, filepath=f"./results/11089_EFIT_2/")
