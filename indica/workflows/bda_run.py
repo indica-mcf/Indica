@@ -24,6 +24,27 @@ PARAMS_DEFAULT =[
             "Ti_prof.peaking",
         ]
 
+PARAMS_SET_TS = [
+            # "Ne_prof.y1",
+            # "Ne_prof.y0",
+            # "Ne_prof.peaking",
+            # "Ne_prof.wcenter",
+            # "Ne_prof.wped",
+            # "Nimp_prof.y1",
+            "Nimp_prof.y0",
+            # "Nimp_prof.wcenter",
+            # "Nimp_prof.wped",
+            "Nimp_prof.peaking",
+            # "Te_prof.y0",
+            # "Te_prof.wped",
+            # "Te_prof.wcenter",
+            # "Te_prof.peaking",
+            "Ti_prof.y0",
+            # "Ti_prof.wped",
+            "Ti_prof.wcenter",
+            "Ti_prof.peaking",
+]
+
 DIAG_DEFAULT = [
                 "xrcs",
                 "ts",
@@ -63,9 +84,9 @@ OPT_DEFAULT = [
 
 
 def bda_run(pulse, diagnostics, param_names, opt_quantity, phantom=False,
-            tstart=0.02, tend=0.03, dt=0.01, revisions = {}, filters={},
-            iterations=500, nwalkers=50, stopping_criteria_factor=0.01,
-            mds_write=False, plot=False, run="RUN01", dirname=None, **kwargs):
+            tstart=0.02, tend=0.05, dt=0.01, revisions = {}, filters={},
+            iterations=500, nwalkers=50, stopping_criteria_factor=0.002,
+            mds_write=False, plot=False, run="RUN01", dirname=None, set_ts=False, **kwargs):
 
     if dirname is None:
         dirname = f"{pulse}"
@@ -88,7 +109,13 @@ def bda_run(pulse, diagnostics, param_names, opt_quantity, phantom=False,
                                      n_rad=20)
     plasma_context = PlasmaContext(plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
 
-    model_settings = ModelSettings()
+    plasma_context.init_plasma(data_context.equilibrium, tstart=tstart, tend=tend, dt=dt)
+    plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
+
+    if set_ts:
+        plasma_context.set_ts_profiles(data_context, split="LFS")
+
+    model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
 
     model_context = ModelContext(diagnostics=diagnostics,
                                  plasma_context=plasma_context,
@@ -96,9 +123,13 @@ def bda_run(pulse, diagnostics, param_names, opt_quantity, phantom=False,
                                  transforms=data_context.transforms,
                                  model_settings=model_settings,
                                  )
+    model_context.update_model_kwargs(data_context.binned_data)
+    model_context.init_models()
+
+    data_context.process_data(model_context._build_bckc, )
 
     optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=nwalkers, iterations=iterations,
-                                                sample_method="high_density", starting_samples=300, burn_frac=0.20,
+                                                sample_method="high_density", starting_samples=100, burn_frac=0.20,
                                                 stopping_criteria="mode", stopping_criteria_factor=stopping_criteria_factor,
                                                 stopping_criteria_debug=True, priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
@@ -108,36 +139,12 @@ def bda_run(pulse, diagnostics, param_names, opt_quantity, phantom=False,
                              optimiser_context=optimiser_context,
                              plasma_context=plasma_context, model_context=model_context)
 
-    workflow(pulse_to_write=25000000+pulse, run=run, mds_write=mds_write, plot=plot, filepath=f"./results/{dirname}/")
+    workflow(pulse_to_write=43000000+pulse, run=run, mds_write=mds_write, plot=plot, filepath=f"./results/{dirname}/")
 
 
 if __name__ == "__main__":
 
     pulse_info = [
-        # stopping criteria test / integration test
-        # [(11226,
-        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
-        #   PARAMS_DEFAULT,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_pi.ti",
-        #       "cxff_tws_c.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=True,
-        #      tstart=0.07,
-        #      tend=0.08,
-        #      dt=0.01,
-        #      iterations=5000,
-        #      nwalkers=26,
-        #      stopping_criteria_factor=0.01,
-        #      mds_write=True,
-        #      plot=True,
-        #      run="RUN01",
-        #      dirname=f"{11226}_phantom_walkers_26",
-        #  )],
 
         # [(11226,
         #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
@@ -151,140 +158,17 @@ if __name__ == "__main__":
         #   ]),
         #  dict(
         #      phantom=True,
-        #      tstart=0.07,
-        #      tend=0.08,
+        #      tstart=0.05,
+        #      tend=0.10,
         #      dt=0.01,
         #      iterations=5000,
         #      nwalkers=50,
-        #      stopping_criteria_factor=0.01,
+        #      stopping_criteria_factor=0.002,
         #      mds_write=True,
         #      plot=True,
         #      run="RUN01",
-        #      dirname=f"{11226}_phantom_walkers_50",
+        #      dirname=f"{11226}",
         #  )],
-        #
-        # [(11226,
-        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
-        #   PARAMS_DEFAULT,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_pi.ti",
-        #       "cxff_tws_c.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=True,
-        #      tstart=0.07,
-        #      tend=0.08,
-        #      dt=0.01,
-        #      iterations=5000,
-        #      nwalkers=100,
-        #      stopping_criteria_factor=0.01,
-        #      mds_write=True,
-        #      plot=True,
-        #      run="RUN01",
-        #      dirname=f"{11226}_phantom_walkers_100",
-        #  )],
-
-
-        # [(11226,
-        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
-        #   PARAMS_DEFAULT,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_pi.ti",
-        #       "cxff_tws_c.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=True,
-        #      tstart=0.07,
-        #      tend=0.08,
-        #      dt=0.01,
-        #      iterations=5000,
-        #      nwalkers=50,
-        #      stopping_criteria_factor=0.02,
-        #      mds_write=True,
-        #      plot=True,
-        #      run="RUN01",
-        #      dirname=f"{11226}_phantom_moment_02",
-        #  )],
-        #
-        # [(11226,
-        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
-        #   PARAMS_DEFAULT,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_pi.ti",
-        #       "cxff_tws_c.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=True,
-        #      tstart=0.07,
-        #      tend=0.08,
-        #      dt=0.01,
-        #      iterations=5000,
-        #      nwalkers=50,
-        #      stopping_criteria_factor=0.01,
-        #      mds_write=True,
-        #      plot=True,
-        #      run="RUN01",
-        #      dirname=f"{11226}_phantom_moment_01",
-        #  )],
-        #
-        # [(11226,
-        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
-        #   PARAMS_DEFAULT,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_pi.ti",
-        #       "cxff_tws_c.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=True,
-        #      tstart=0.07,
-        #      tend=0.08,
-        #      dt=0.01,
-        #      iterations=5000,
-        #      nwalkers=50,
-        #      stopping_criteria_factor=0.001,
-        #      mds_write=True,
-        #      plot=True,
-        #      run="RUN01",
-        #      dirname=f"{11226}_phantom_moment_001",
-        #  )],
-
-        # [(11226,
-        #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
-        #   PARAMS_DEFAULT,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_pi.ti",
-        #       "cxff_tws_c.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=False,
-        #      tstart=0.07,
-        #      tend=0.08,
-        #      dt=0.01,
-        #      iterations=5000,
-        #      stopping_criteria_factor=0.01,
-        #      nwalkers=50,
-        #      mds_write=True,
-        #      plot=True,
-        #      run="RUN01",
-        #      dirname=f"{11226}_exp",
-        #  )],
-
-
 
         # [(10009,
         # ["xrcs", "cxff_pi"],
@@ -306,33 +190,9 @@ if __name__ == "__main__":
         #      dirname=f"{11336}_phantom",
         #  )],
 
-        # [(11089,
-        # ["xrcs", "cxff_tws_c", "ts"],
-        # PARAMS_DEFAULT,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_tws_c.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=False,
-        #      tstart=0.050,
-        #      tend=0.150,
-        #      dt=0.01,
-        #      iterations=5000,
-        #      nwalkers=50,
-        #      stopping_criteria_factor=0.01,
-        #      mds_write=True,
-        #      plot=True,
-        #      revisions={},
-        #      run="RUN01",
-        #      dirname=f"{11089}_quicktest",
-        #  )],
-
         [(11089,
-          ["xrcs", "cxff_tws_c", "ts"],
-          PARAMS_DEFAULT,
+          ["xrcs", "cxff_tws_c", "ts", "efit"],
+          PARAMS_SET_TS,
           [
               "xrcs.spectra",
               "cxff_tws_c.ti",
@@ -342,16 +202,17 @@ if __name__ == "__main__":
          dict(
              phantom=False,
              tstart=0.05,
-             tend=0.12,
+             tend=0.10,
              dt=0.01,
-             iterations=5000,
-             nwalkers=50,
+             iterations=1000,
+             nwalkers=20,
              stopping_criteria_factor=0.002,
              mds_write=True,
              plot=True,
              revisions={},
              run="RUN01",
-             dirname=f"{11089}_DEWALKER_NOSNOOKER",
+             # dirname="test",
+             set_ts=True,
          )],
         # RFX low ti/te pulse
     ]
