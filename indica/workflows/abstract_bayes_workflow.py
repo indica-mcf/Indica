@@ -129,33 +129,66 @@ class AbstractBayesWorkflow(ABC):
         )
 
         result["PROFILES"] = {
-            "RHOP": self.plasma_context.plasma.rho,
-            "RHOT": self.plasma_context.plasma.equilibrium.rhotor.interp(t=self.plasma_context.plasma.t),
-            "NE": self.blobs["electron_density"].median(dim="index"),
-            "NI": self.blobs["ion_density"]
-                .sel(element=self.plasma_context.plasma_settings.main_ion)
-                .median(dim="index"),
-            "TE": self.blobs["electron_temperature"].median(dim="index"),
-            "TI": self.blobs["ion_temperature"]
-                .sel(element=self.plasma_context.plasma_settings.main_ion)
-                .median(dim="index"),
-            "NFAST": self.blobs["fast_density"].median(dim="index"),
-            "NNEUTR": self.blobs["neutral_density"].median(dim="index"),
-            "NE_ERR": self.blobs["electron_density"].std(dim="index"),
-            "NI_ERR": self.blobs["ion_density"]
-                .sel(element=self.plasma_context.plasma_settings.main_ion)
-                .std(dim="index"),
-            "TE_ERR": self.blobs["electron_temperature"].std(dim="index"),
-            "TI_ERR": self.blobs["ion_temperature"]
-                .sel(element=self.plasma_context.plasma_settings.main_ion)
-                .std(dim="index"),
-            "NFAST_ERR": self.blobs["fast_density"].std(dim="index"),
-            "NNEUTR_ERR": self.blobs["neutral_density"].std(dim="index"),
-            "ZEFF": self.blobs["zeff"].sum("element").median(dim="index"),
-            "ZEFF_ERR": self.blobs["zeff"].sum("element").std(dim="index"),
+            "PSI_NORM":{
+                "RHOP": self.plasma_context.plasma.rho,
+                "RHOT": self.plasma_context.plasma.equilibrium.rhotor.interp(t=self.plasma_context.plasma.t),
+                "NE": self.blobs["electron_density"].median(dim="index"),
+                "NI": self.blobs["ion_density"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .median(dim="index"),
+                "TE": self.blobs["electron_temperature"].median(dim="index"),
+                "TI": self.blobs["ion_temperature"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .median(dim="index"),
+                "NFAST": self.blobs["fast_density"].median(dim="index"),
+                "NNEUTR": self.blobs["neutral_density"].median(dim="index"),
+                "NE_ERR": self.blobs["electron_density"].std(dim="index"),
+                "NI_ERR": self.blobs["ion_density"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .std(dim="index"),
+                "TE_ERR": self.blobs["electron_temperature"].std(dim="index"),
+                "TI_ERR": self.blobs["ion_temperature"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .std(dim="index"),
+                "NFAST_ERR": self.blobs["fast_density"].std(dim="index"),
+                "NNEUTR_ERR": self.blobs["neutral_density"].std(dim="index"),
+                "ZEFF": self.blobs["zeff"].sum("element").median(dim="index"),
+                "ZEFF_ERR": self.blobs["zeff"].sum("element").std(dim="index"),
+                "ZI": self.blobs["zeff"].sel(element=self.plasma_context.plasma_settings.main_ion).median(dim="index"),
+                "ZI_ERR": self.blobs["zeff"].sel(element=self.plasma_context.plasma_settings.main_ion).std(dim="index"),
+            },
+            "R_MIDPLANE": {
+                "RPOS": self.midplane_blobs["electron_temperature"].R,
+                "ZPOS": self.midplane_blobs["electron_temperature"].z,
+                "NE": self.midplane_blobs["electron_density"].median(dim="index"),
+                "NI": self.midplane_blobs["ion_density"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .median(dim="index"),
+                "TE": self.midplane_blobs["electron_temperature"].median(dim="index"),
+                "TI": self.midplane_blobs["ion_temperature"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .median(dim="index"),
+                "NFAST": self.midplane_blobs["fast_density"].median(dim="index"),
+                "NNEUTR": self.midplane_blobs["neutral_density"].median(dim="index"),
+                "NE_ERR": self.midplane_blobs["electron_density"].std(dim="index"),
+                "NI_ERR": self.midplane_blobs["ion_density"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .std(dim="index"),
+                "TE_ERR": self.midplane_blobs["electron_temperature"].std(dim="index"),
+                "TI_ERR": self.midplane_blobs["ion_temperature"]
+                    .sel(element=self.plasma_context.plasma_settings.main_ion)
+                    .std(dim="index"),
+                "NFAST_ERR": self.midplane_blobs["fast_density"].std(dim="index"),
+                "NNEUTR_ERR": self.midplane_blobs["neutral_density"].std(dim="index"),
+                "ZEFF": self.midplane_blobs["zeff"].sum("element").median(dim="index"),
+                "ZEFF_ERR": self.midplane_blobs["zeff"].sum("element").std(dim="index"),
+                "ZI": self.midplane_blobs["zeff"].sel(element=self.plasma_context.plasma_settings.main_ion).median(dim="index"),
+                "ZI_ERR": self.midplane_blobs["zeff"].sel(element=self.plasma_context.plasma_settings.main_ion).std(dim="index"),
+
+        },
         }
-        result["PROFILES"] = {
-            **result["PROFILES"],
+        result["PROFILES"]["PSI_NORM"] = {
+            **result["PROFILES"]["PSI_NORM"],
             **{
                 f"NIZ{num_imp + 1}": self.blobs["impurity_density"]
                     .sel(element=imp)
@@ -163,8 +196,8 @@ class AbstractBayesWorkflow(ABC):
                 for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
             },
         }
-        result["PROFILES"] = {
-            **result["PROFILES"],
+        result["PROFILES"]["PSI_NORM"] = {
+            **result["PROFILES"]["PSI_NORM"],
             **{
                 f"NIZ{num_imp + 1}_ERR": self.blobs["impurity_density"]
                     .sel(element=imp)
@@ -172,8 +205,8 @@ class AbstractBayesWorkflow(ABC):
                 for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
             },
         }
-        result["PROFILES"] = {
-            **result["PROFILES"],
+        result["PROFILES"]["PSI_NORM"] = {
+            **result["PROFILES"]["PSI_NORM"],
             **{
                 f"TIZ{num_imp + 1}": self.blobs["ion_temperature"]
                     .sel(element=imp)
@@ -181,10 +214,84 @@ class AbstractBayesWorkflow(ABC):
                 for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
             },
         }
-        result["PROFILES"] = {
-            **result["PROFILES"],
+        result["PROFILES"]["PSI_NORM"] = {
+            **result["PROFILES"]["PSI_NORM"],
             **{
                 f"TIZ{num_imp + 1}_ERR": self.blobs["ion_temperature"]
+                    .sel(element=imp)
+                    .std(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+
+        result["PROFILES"]["PSI_NORM"] = {
+            **result["PROFILES"]["PSI_NORM"],
+            **{
+                f"ZIM{num_imp + 1}": self.blobs["zeff"]
+                    .sel(element=imp)
+                    .median(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+        result["PROFILES"]["PSI_NORM"] = {
+            **result["PROFILES"]["PSI_NORM"],
+            **{
+                f"ZIM{num_imp + 1}_ERR": self.blobs["zeff"]
+                    .sel(element=imp)
+                    .std(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+
+        result["PROFILES"]["R_MIDPLANE"] = {
+            **result["PROFILES"]["R_MIDPLANE"],
+            **{
+                f"NIZ{num_imp + 1}": self.midplane_blobs["impurity_density"]
+                    .sel(element=imp)
+                    .median(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+        result["PROFILES"]["R_MIDPLANE"] = {
+            **result["PROFILES"]["R_MIDPLANE"],
+            **{
+                f"NIZ{num_imp + 1}_ERR": self.midplane_blobs["impurity_density"]
+                    .sel(element=imp)
+                    .std(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+        result["PROFILES"]["R_MIDPLANE"] = {
+            **result["PROFILES"]["R_MIDPLANE"],
+            **{
+                f"TIZ{num_imp + 1}": self.midplane_blobs["ion_temperature"]
+                    .sel(element=imp)
+                    .median(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+        result["PROFILES"]["R_MIDPLANE"] = {
+            **result["PROFILES"]["R_MIDPLANE"],
+            **{
+                f"TIZ{num_imp + 1}_ERR": self.midplane_blobs["ion_temperature"]
+                    .sel(element=imp)
+                    .std(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+        result["PROFILES"]["R_MIDPLANE"] = {
+            **result["PROFILES"]["R_MIDPLANE"],
+            **{
+                f"ZIM{num_imp + 1}": self.midplane_blobs["zeff"]
+                    .sel(element=imp)
+                    .median(dim="index")
+                for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
+            },
+        }
+        result["PROFILES"]["R_MIDPLANE"] = {
+            **result["PROFILES"]["R_MIDPLANE"],
+            **{
+                f"ZIM{num_imp + 1}_ERR": self.midplane_blobs["zeff"]
                     .sel(element=imp)
                     .std(dim="index")
                 for num_imp, imp in enumerate(self.plasma_context.plasma_settings.impurities)
