@@ -698,7 +698,9 @@ class MockData(PhantomData):
                                                                  "smmh1": smmh1_transform_example(1),
                                                                  "cxff_pi": pi_transform_example(5),
                                                                  "cxff_tws_c": pi_transform_example(3),
-                                                                 "ts": ts_transform_example(11), })
+                                                                 "ts": ts_transform_example(11),
+                                                                 "efit": lambda: None,  # placeholder to stop missing_transforms error
+                                                                 })
 
     def read_data(self):
         print("Reading mock equilibrium / transforms")
@@ -993,29 +995,32 @@ class BayesWorkflow(AbstractBayesWorkflow):
 
 
 if __name__ == "__main__":
-    pulse = 11089
+    pulse = None
     tstart = 0.05
-    tend = 0.12
+    tend = 0.06
     dt = 0.01
 
     diagnostics = [
         "xrcs",
-        "efit",
+        # "efit",
         # "smmh1",
-        # "cxff_pi",
+        "cxff_pi",
         "cxff_tws_c",
-        "ts",
+        # "ts",
     ]
     # diagnostic_quantities
     opt_quant = [
         "xrcs.spectra",
+        # "efit.wp",
+        # "smmh1.ne",
+        "cxff_pi.ti",
         "cxff_tws_c.ti",
-        #  "efit.wp",
-        "ts.te",
-        "ts.ne",
+        # "ts.te",
+        # "ts.ne",
     ]
     opt_params = [
         # "Ne_prof.y0",
+        # "Ne_prof.peaking",
         # "Te_prof.y0",
         # "Te_prof.peaking",
         # "Te_prof.wped",
@@ -1023,12 +1028,11 @@ if __name__ == "__main__":
         "Ti_prof.y0",
         "Ti_prof.peaking",
         "Ti_prof.wped",
-        "Ti_prof.wcenter",
-        "Nimp_prof.y0",
-        "Nimp_prof.peaking",
-        "Nimp_prof.wcenter",
-        "Nimp_prof.wped",
-        # "Ne_prof.y0",
+        # "Ti_prof.wcenter",
+        # "Nimp_prof.y0",
+        # "Nimp_prof.peaking",
+        # "Nimp_prof.wcenter",
+        # "Nimp_prof.wped",
     ]
 
     # BlackBoxSettings
@@ -1036,13 +1040,13 @@ if __name__ == "__main__":
                                      opt_quantity=opt_quant, priors=DEFAULT_PRIORS, )
 
     data_settings = ReaderSettings(filters={},
-                                   revisions={"efit": "RUN02"})  # Add general methods for filtering data co-ords to ReadST40
-    # data_context = MockData(pulse=pulse, diagnostics=diagnostics,
-    #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+                                   revisions={})  # Add general methods for filtering data co-ords to ReadST40
+    data_context = MockData(pulse=pulse, diagnostics=diagnostics,
+                               tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     # data_context = PhantomData(pulse=pulse, diagnostics=diagnostics,
     #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
-    data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
-                           tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    # data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
+    #                        tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
     plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"), impurity_concentration=(0.001, 0.04),
@@ -1062,7 +1066,7 @@ if __name__ == "__main__":
     plasma_context.init_plasma(equilibrium=data_context.equilibrium, tstart=tstart, tend=tend,
                                dt=dt, )
 
-    plasma_context.set_ts_profiles(data_context, split="LFS")
+    # plasma_context.set_ts_profiles(data_context, split="LFS")
 
     plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
 
@@ -1071,8 +1075,8 @@ if __name__ == "__main__":
 
     data_context.process_data(model_context._build_bckc, )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=2000,
-                                                sample_method="high_density", starting_samples=100, burn_frac=0.20,
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=1000,
+                                                sample_method="high_density", starting_samples=50, burn_frac=0.20,
                                                 stopping_criteria="mode", stopping_criteria_factor=0.002, stopping_criteria_debug=True,
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
@@ -1082,4 +1086,4 @@ if __name__ == "__main__":
                              optimiser_context=optimiser_context,
                              plasma_context=plasma_context, model_context=model_context)
 
-    workflow(pulse_to_write=43011089, run="RUN02", mds_write=True, plot=True, filepath=f"./results/11089_EFIT_2/")
+    workflow(pulse_to_write=43000000, run="RUN01", mds_write=True, plot=True, filepath=f"./results/test/")
