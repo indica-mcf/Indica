@@ -108,13 +108,13 @@ def plot_gpr_fit(
         plt.savefig(FIG_PATH + f"{fig_name}_GPR_t:{data.t.values:.3f}.png", bbox_inches="tight")
 
 
-def post_process_ts(st40: ReadST40, quant, pulse, split=""):
-    rmag = st40.binned_data["efit"]["rmag"]
-    data = st40.binned_data["ts"][quant]
+def post_process_ts(binned_data, equilibrium, quant, pulse, split=""):
+    rmag = binned_data["efit"]["rmag"]
+    data = binned_data["ts"][quant]
     data["pulse"] = pulse
     data["quantity"] = quant
 
-    data.transform.set_equilibrium(st40.equilibrium)
+    data.transform.set_equilibrium(equilibrium)
     data.transform.convert_to_rho_theta(t=data.t)
     data["rho"] = data.transform.rho
 
@@ -230,6 +230,6 @@ if __name__ == "__main__":
     st40 = ReadST40(pulse, tstart, tend, dt)
     st40(instruments=["ts", "efit"])
 
-    data = post_process_ts(st40, quant, pulse, split = "LFS",)
+    data = post_process_ts(st40.binned_data, st40.equilibrium, quant, pulse, split = "LFS",)
     gpr_fit_ts(data=data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
 
