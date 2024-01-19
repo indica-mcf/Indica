@@ -182,28 +182,6 @@ class LineOfSightTransform(CoordinateTransform):
             "method."
         )
 
-    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
-        """
-        Convert (R, z) to (rho, theta) for all LOS
-        """
-        if not hasattr(self, "equilibrium"):
-            raise Exception("Set equilibrium object to convert (R,z) to rho")
-
-        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
-        drop_vars = ["R", "z"]
-        for var in drop_vars:
-            if var in rho.coords:
-                rho = rho.drop_vars(var)
-            if var in theta.coords:
-                theta = theta.drop_vars(var)
-
-        self.t = t
-        self.rho = rho
-        self.theta = theta
-        self.impact_rho = self.rho.min("los_position")
-
-        return rho, theta
-
     def distance(
         self,
         direction: str,
@@ -541,7 +519,6 @@ class LineOfSightTransform(CoordinateTransform):
         self.z_end = z_end
 
         self.x2 = x2
-        # self.mask = xr.concat(mask, "channel").assign_coords({"channel":self.x1})
         self.dl = float(dist[0, 1] - dist[0, 0])
         self.x = xr.concat(x, "channel")
         self.y = xr.concat(y, "channel")
@@ -665,7 +642,7 @@ class LineOfSightTransform(CoordinateTransform):
         t: LabeledArray = None,
         limit_to_sep=True,
         calc_rho=False,
-        sum_beamlet=True,
+        sum_beamlets=True,
     ) -> DataArray:
         """
         Integrate 1D profile along LOS
@@ -689,14 +666,13 @@ class LineOfSightTransform(CoordinateTransform):
             calc_rho=calc_rho,
         )
 
-        if sum_beamlet:
+        if sum_beamlets:
             los_integral = (
                 self.passes
                 * along_los.sum(["los_position", "beamlet"], skipna=True)
                 * self.dl
                 / float(self.beamlets)
             )
-
         else:
             los_integral = (
                 self.passes * along_los.sum(["los_position"], skipna=True) * self.dl

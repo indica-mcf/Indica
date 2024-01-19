@@ -157,27 +157,6 @@ class TransectCoordinates(CoordinateTransform):
 
         return x1, x2
 
-    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
-        """
-        Convert R, z to rho given the equilibrium object
-        """
-        if not hasattr(self, "equilibrium"):
-            raise Exception("Set equilibrium object to convert (R,z) to rho")
-
-        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
-        drop_vars = ["R", "z"]
-        for var in drop_vars:
-            if var in rho.coords:
-                rho = rho.drop_vars(var)
-            if var in theta.coords:
-                theta = theta.drop_vars(var)
-
-        self.t = t
-        self.rho = rho
-        self.theta = theta
-
-        return rho, theta
-
     def map_profile_to_rho(
         self,
         profile_to_map: DataArray,
