@@ -371,13 +371,14 @@ class ST40Reader(DataReader):
 
     def _get_data(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
-    ) -> Tuple[np.array, List[np.array]]:
+    ) -> Tuple[np.array, List[np.array], str, str]:
         """Gets the signal and its coordinates for the given INSTRUMENT, at the
         given revision."""
         data, _path = self._get_signal(uid, instrument, quantity, revision)
         dims, _ = self._get_signal_dims(_path, len(data.shape))
+        unit = self._get_signal_units(_path)
 
-        return data, dims
+        return data, dims, unit, _path
 
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -410,6 +411,18 @@ class ST40Reader(DataReader):
             paths.append(path)
             dimensions.append(np.array(dim_tmp))
         return dimensions, paths
+
+    def _get_signal_units(
+        self,
+        mds_path: str,
+    ) -> str:
+        """Gets the units of a signal given the path to the signal
+        and the number of dimensions"""
+
+        path = f"units_of({mds_path})"
+        unit = self.conn.get(path).data()
+
+        return unit
 
     def _get_revision(
         self, uid: str, instrument: str, revision: RevisionLike
@@ -635,14 +648,6 @@ class ST40Reader(DataReader):
         direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
-        # TODO: temporary fix! Change once the database entries have been fixed
-        if instrument == "sxrc_xy2" or instrument == "sxrc_xy1":
-            location = np.array(
-                [location[i] for i in range(location.shape[0] - 1, -1, -1)]
-            )
-            direction = np.array(
-                [direction[i] for i in range(direction.shape[0] - 1, -1, -1)]
-            )
 
         quantity = "brightness"
         times, times_path = self._get_signal(
