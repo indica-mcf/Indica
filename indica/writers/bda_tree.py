@@ -280,7 +280,7 @@ def write_nodes(pulse, node_info, data):
     )
 
 
-def check_analysis_run(
+def check_to_overwrite_run(
     pulseNo,
     which_run,
 ):
@@ -303,6 +303,17 @@ def check_analysis_run(
         overwrite_flag = query_yes_no(question)
     return overwrite_flag
 
+def does_tree_exist(pulse, ):
+    IP_address_smaug = "smaug"
+    conn = Connection(IP_address_smaug)
+
+    try:
+        conn.openTree("BDA", pulse)
+        conn.closeAllTrees()
+        return True
+    except:
+        return False
+
 
 def query_yes_no(
     question,
@@ -320,4 +331,13 @@ def query_yes_no(
 
 
 if __name__ == "__main__":
-    create_nodes(pulse_to_write=43000000, mode="EDIT", run="RUN01")
+
+    pulse = 43000000
+    run = "RUN01"
+
+    tree_exists = does_tree_exist(pulse)
+    if tree_exists:
+        mode = "EDIT"
+    else:
+        mode = "NEW"
+    create_nodes(pulse_to_write=pulse, mode=mode, run=run)
