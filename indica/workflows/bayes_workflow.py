@@ -29,7 +29,7 @@ from indica.models.plasma import Plasma
 from indica.operators.gpr_fit import post_process_ts, gpr_fit_ts
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
-from indica.writers.bda_tree import create_nodes
+from indica.writers.bda_tree import create_nodes, does_tree_exist
 from indica.writers.bda_tree import write_nodes
 from indica.equilibrium import Equilibrium
 from indica.equilibrium import fake_equilibrium
@@ -401,7 +401,8 @@ class PlasmaContext:
                                                  length_scale_bounds=(0.4, 0.7)) + kernels.WhiteKernel(
             noise_level_bounds=(0.01, 10))
 
-        processed_data = post_process_ts(deepcopy(data_context.binned_data), data_context.equilibrium, quant, data_context.pulse, split=split, )
+        processed_data = post_process_ts(deepcopy(data_context.binned_data), data_context.equilibrium, quant,
+                                         data_context.pulse, split=split, )
         fit, _ = gpr_fit_ts(data=processed_data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
         fit = xr.where(fit < 0, 1e-10, fit)
         return fit
@@ -442,6 +443,7 @@ class PlasmaContext:
             midplane_profiles[profile]["z"] = z
             midplane_profiles[profile] = midplane_profiles[profile].swap_dims({"channel": "R"})
         return midplane_profiles
+
 
 @dataclass
 class ModelSettings:
@@ -699,7 +701,8 @@ class MockData(PhantomData):
                                                                  "cxff_pi": pi_transform_example(5),
                                                                  "cxff_tws_c": pi_transform_example(3),
                                                                  "ts": ts_transform_example(11),
-                                                                 "efit": lambda: None,  # placeholder to stop missing_transforms error
+                                                                 "efit": lambda: None,
+                                                                 # placeholder to stop missing_transforms error
                                                                  })
 
     def read_data(self):
@@ -954,7 +957,6 @@ class BayesWorkflow(AbstractBayesWorkflow):
             results.append(self.optimiser_context.format_results())
             self.optimiser_context.optimiser.reset()
 
-
         # unpack results and add time axis
         blobs = {}
         for key in results[0]["blobs"].keys():
@@ -982,15 +984,19 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self.result = dict_of_dataarray_to_numpy(self.result)
 
         if mds_write:
-            # check_analysis_run(self.pulse, self.run)
+            tree_exists = does_tree_exist(pulse_to_write)
+            if tree_exists:
+                mode = "EDIT"
+            else:
+                mode = "NEW"
+
             self.node_structure = create_nodes(
                 pulse_to_write=pulse_to_write,
                 run=run,
                 diagnostic_quantities=self.blackbox_settings.opt_quantity,
-                mode="NEW",
+                mode=mode,
             )
             write_nodes(pulse_to_write, self.node_structure, self.result)
-
         return
 
 
@@ -1042,7 +1048,7 @@ if __name__ == "__main__":
     data_settings = ReaderSettings(filters={},
                                    revisions={})  # Add general methods for filtering data co-ords to ReadST40
     data_context = MockData(pulse=pulse, diagnostics=diagnostics,
-                               tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     # data_context = PhantomData(pulse=pulse, diagnostics=diagnostics,
     #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     # data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
@@ -1077,7 +1083,8 @@ if __name__ == "__main__":
 
     optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=1000,
                                                 sample_method="high_density", starting_samples=50, burn_frac=0.20,
-                                                stopping_criteria="mode", stopping_criteria_factor=0.002, stopping_criteria_debug=True,
+                                                stopping_criteria="mode", stopping_criteria_factor=0.002,
+                                                stopping_criteria_debug=True,
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
