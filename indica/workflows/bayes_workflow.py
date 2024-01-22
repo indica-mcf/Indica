@@ -44,12 +44,12 @@ DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.wcenter": 0.3,
     "Ne_prof.peaking": 1.2,
 
-    "Niz1_prof.y0": 1e17,
-    "Niz1_prof.y1": 1e15,
-    "Niz1_prof.yend": 1e15,
-    "Niz1_prof.wcenter": 0.3,
-    "Niz1_prof.wped": 3,
-    "Niz1_prof.peaking": 2,
+    # "Niz1_prof.y0": 1e17,
+    # "Niz1_prof.y1": 1e15,
+    # "Niz1_prof.yend": 1e15,
+    # "Niz1_prof.wcenter": 0.3,
+    # "Niz1_prof.wped": 3,
+    # "Niz1_prof.peaking": 2,
 
     "Te_prof.y0": 3000,
     "Te_prof.y1": 50,
@@ -1081,7 +1081,7 @@ if __name__ == "__main__":
 
     data_context.process_data(model_context._build_bckc, )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=1000,
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=100,
                                                 sample_method="high_density", starting_samples=50, burn_frac=0.20,
                                                 stopping_criteria="mode", stopping_criteria_factor=0.002,
                                                 stopping_criteria_debug=True,

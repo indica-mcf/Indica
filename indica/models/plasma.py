@@ -279,6 +279,8 @@ class Plasma:
         self.Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=self.rho)
         self.Ne_prof = Profiles(datatype=("density", "electron"), xspl=self.rho)
         self.Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
+        self.Niz1_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
+        self.Niz2_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
         self.Nh_prof = Profiles(datatype=("density", "thermal_neutral"), xspl=self.rho)
         self.Vrot_prof = Profiles(datatype=("rotation", "toroidal"), xspl=self.rho)
 
@@ -519,12 +521,15 @@ class Plasma:
         """
         Update plasma profiles with profile parameters i.e.
         {"Ne_prof.y0":1e19} -> Ne_prof.y0
+        TODO: refactor profiles into profiler structure and take care of initialisation of impurity profiles
         """
         profile_prefixes: list = [
             "Te_prof",
             "Ti_prof",
             "Ne_prof",
-            "Nimp_prof",
+            "Niz1_prof",
+            "Niz2_prof",
+            "Nh_prof",
             "Vrot_prof",
         ]
         for param, value in parameters.items():
@@ -542,17 +547,25 @@ class Plasma:
         parameter_prefixes = [key.split(".")[0] for key in parameters.keys()]
         profile_names = set(parameter_prefixes) & set(profile_prefixes)
 
-        profile_mapping = {
-            "Te_prof": "electron_temperature",
-            "Ti_prof": "ion_temperature",
-            "Ne_prof": "electron_density",
-            "Vrot_prof": "toroidal_rotation",
-            "Nimp_prof": "impurity_density",
-            "Nh_prof": "neutral_density",
-        }
+        if "Te_prof" in profile_names:
+            self.electron_temperature.loc[dict(t=self.time_to_calculate)] = self.Te_prof()
+        if "Ti_prof" in profile_names:
+            self.ion_temperature.loc[dict(t=self.time_to_calculate)] = self.Ti_prof()
+        if "Ne_prof" in profile_names:
+            self.electron_density.loc[dict(t=self.time_to_calculate)] = self.Ne_prof()
+        if "Nh_prof" in profile_names:
+            self.neutral_density.loc[dict(t=self.time_to_calculate)] = self.Nh_prof()
+        if "Vrot_prof" in profile_names:
+            self.electron_temperature.loc[dict(t=self.time_to_calculate)] = self.Ne_prof()
+        if "Niz1_prof" in profile_names:
+            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[0])] = self.Niz1_prof()
+        else:
+            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[0])] = self.Ne_prof() * self.impurity_concentration[0]
 
-        for key in profile_names:
-            self.assign_profiles(profile_mapping[key], t=self.time_to_calculate)
+        if "Niz2_prof" in profile_names:
+            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[1])] = self.Niz2_prof()
+        else:
+            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[1])] = self.Ne_prof() * self.impurity_concentration[1]
 
     @property
     def time_to_calculate(self):
