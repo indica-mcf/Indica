@@ -1,5 +1,9 @@
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run
+from indica.models.plasma import Plasma
+import h5py
+import numpy as np
+from xarray import DataArray
 
 
 class NeutralBeam(DiagnosticModel):
@@ -47,8 +51,54 @@ class NeutralBeam(DiagnosticModel):
 
     def __call__(
             self,
+            plasma: Plasma,
+            code: str,
+            data_input: dict,
     ):
-        print('To be implemented!')
+
+        # Print inputs
+        self.code = code
+        self.plasma = plasma
+
+        if code.lower() == "fidasim":
+            self.map_fidasim_to_plasma(data_input)
+
+        else:
+            raise ValueError()
+
+        return
+
+    def map_fidasim_to_plasma(
+            self,
+            input_data: dict,
+    ):
+
+        # Set a bunch of data
+        self.t = input_data["fdens"].t
+        self.source = input_data["source"]
+        self.angle = input_data["angle"]
+        self.height_grid = input_data["height_grid"]
+        self.width_grid = input_data["width_grid"]
+        self.depth_grid = input_data["depth_grid"]
+
+        # Neutral density
+        self.nh = DataArray(
+            [input_data["fdens"], input_data["tdens"], input_data["hdens"]],
+            coords=[
+                ("energy", np.arange(0, 3, 1, dtype=int)),
+                ("t", input_data["fdens"].t),
+                ("height_grid", input_data["height_grid"]),
+                ("width_grid", input_data["width_grid"]),
+                ("depth_grid", input_data["depth_grid"]),
+                ("excitations", input_data["fdens"].excitations),
+            ]
+        ),
+
+        # Fast particles
+        self.fp = DataArray(
+            []
+        )
+
         return
 
 

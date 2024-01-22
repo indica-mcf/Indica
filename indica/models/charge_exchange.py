@@ -392,6 +392,108 @@ class ChargeExchange(DiagnosticModel):
 
         return out
 
+    def calculate_neutral_density_along_los(self, debug=True):
+
+        # Neutral density map
+        nh = self.beam.nh
+        beam_source = self.beam.source
+        beam_angle = self.beam.angle
+
+        # Get neutral density along CX LOS chords
+        los_x = self.los_transform.x
+        los_y = self.los_transform.y
+        los_z = self.los_transform.z
+        print(f"los_x = {los_x}")
+
+        # Rotate LOS to beam axis
+        def rotate(x, y, xo, yo, theta):
+            xr = np.cos(theta) * (x - xo) - np.sin(theta) * (y - yo) + xo
+            yr = np.sin(theta) * (x - xo) + np.cos(theta) * (y - yo) + yo
+            return [xr, yr]
+
+        vec = rotate(
+            los_x - beam_source[0],
+            los_y - beam_source[1],
+            0.0,
+            0.0,
+            -beam_angle,
+        )
+        los_x_rot = vec[0]
+        los_y_rot = vec[1]
+        los_z_rot = los_z
+
+        print(los_x_rot)
+        print(los_y_rot)
+        print(los_z_rot)
+        print(vec)
+
+        # Interpolate along neutral density grid
+        excite = 1
+        nh_ = nh[0].isel(excitations=excite)
+        print(nh_)
+        print(nh_.shape)
+        #print("aa"**2)
+
+        # Loop over channel
+        if debug:
+            from matplotlib import pyplot as plt
+            plt.figure()
+            ax1 = plt.axes()
+
+            plt.figure()
+            ax2 = plt.axes()
+
+            ax2.contour(
+                self.beam.depth_grid,
+                self.beam.width_grid,
+                nh_[0, 0, 19, :, :], 50)
+
+            plt.figure()
+            ax3 = plt.axes()
+
+        nh_along_chord_list: list = []
+        for i, i_ch in enumerate(self.los_transform.x1):
+
+            print(f"i_ch = {i_ch}")
+            print(los_x_rot)
+
+            nh_along_chord = nh_.interp(
+                depth_grid=los_x_rot.isel(channel=i_ch),
+                width_grid=los_y_rot.isel(channel=i_ch),
+                height_grid=los_z_rot.isel(channel=i_ch)
+            )
+
+            print(nh_along_chord.isel(energy=0))
+            print(nh_along_chord.isel(energy=0).shape)
+
+            nh_along_chord_list.append(nh_along_chord)
+
+            if debug:
+                ax1.plot(nh_along_chord.isel(energy=0)[0, :])
+
+                ax2.plot(los_x_rot.isel(channel=i_ch), los_y_rot.isel(channel=i_ch))
+                ax2.plot(los_x_rot.isel(channel=i_ch)[0], los_y_rot.isel(channel=i_ch)[0], 'ko')
+
+                ax3.plot(los_x.isel(channel=i_ch), los_y.isel(channel=i_ch))
+
+        nh_along_chord_array = DataArray(
+            nh_along_chord_list,
+            coords=[
+                ("channel", los_x.channel),
+                ("energy", np.arange(0, 3, 1, dtype=int)),
+                ("time", nh_.t),
+                ("los_position", los_x.los_position)
+            ]
+
+        )
+
+        if debug:
+            plt.show(block=True)
+
+        self.nh_along_chord = nh_along_chord_array
+
+        return
+
 
 def example_run(
     pulse: int = None,
