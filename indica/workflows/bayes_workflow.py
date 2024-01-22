@@ -44,12 +44,12 @@ DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.wcenter": 0.3,
     "Ne_prof.peaking": 1.2,
 
-    "Nimp_prof.y0": 1e17,
-    "Nimp_prof.y1": 1e15,
-    "Nimp_prof.yend": 1e15,
-    "Nimp_prof.wcenter": 0.3,
-    "Nimp_prof.wped": 3,
-    "Nimp_prof.peaking": 2,
+    "Niz1_prof.y0": 1e17,
+    "Niz1_prof.y1": 1e15,
+    "Niz1_prof.yend": 1e15,
+    "Niz1_prof.wcenter": 0.3,
+    "Niz1_prof.wped": 3,
+    "Niz1_prof.peaking": 2,
 
     "Te_prof.y0": 3000,
     "Te_prof.y1": 50,
@@ -73,16 +73,16 @@ DEFAULT_PRIORS = {
     "Ne_prof.wped": loguniform(2, 20),
     "Ne_prof.wcenter": get_uniform(0.2, 0.4),
     "Ne_prof.peaking": get_uniform(1, 4),
-    "Nimp_prof.y0": loguniform(1e16, 1e18),
-    "Nimp_prof.y1": loguniform(1e14, 1e16),
-    "Ne_prof.y0/Nimp_prof.y0": lambda x1, x2: np.where(
+    "Niz1_prof.y0": loguniform(1e16, 1e18),
+    "Niz1_prof.y1": loguniform(1e14, 1e16),
+    "Ne_prof.y0/Niz1_prof.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
     ),
-    "Nimp_prof.y0/Nimp_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
-    "Nimp_prof.wped": get_uniform(2, 6),
-    "Nimp_prof.wcenter": get_uniform(0.2, 0.4),
-    "Nimp_prof.peaking": get_uniform(1, 6),
-    "Nimp_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where(
+    "Niz1_prof.y0/Niz1_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
+    "Niz1_prof.wped": get_uniform(2, 6),
+    "Niz1_prof.wcenter": get_uniform(0.2, 0.4),
+    "Niz1_prof.peaking": get_uniform(1, 6),
+    "Niz1_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where(
         (x1 > x2), 1, 0
     ),  # impurity always more peaked
 
@@ -103,11 +103,11 @@ OPTIMISED_PARAMS = [
     "Ne_prof.peaking",
     # "Ne_prof.wcenter",
     "Ne_prof.wped",
-    # "Nimp_prof.y1",
-    "Nimp_prof.y0",
-    # "Nimp_prof.wcenter",
-    # "Nimp_prof.wped",
-    "Nimp_prof.peaking",
+    # "Niz1_prof.y1",
+    "Niz1_prof.y0",
+    # "Niz1_prof.wcenter",
+    # "Niz1_prof.wped",
+    "Niz1_prof.peaking",
     "Te_prof.y0",
     "Te_prof.wped",
     "Te_prof.wcenter",
@@ -157,11 +157,11 @@ FAST_OPT_PARAMS = [
     # "Ne_prof.peaking",
     # "Ne_prof.wcenter",
     # "Ne_prof.wped",
-    # "Nimp_prof.y1",
-    # "Nimp_prof.y0",
-    # "Nimp_prof.wcenter",
-    # "Nimp_prof.wped",
-    # "Nimp_prof.peaking",
+    # "Niz1_prof.y1",
+    # "Niz1_prof.y0",
+    # "Niz1_prof.wcenter",
+    # "Niz1_prof.wped",
+    # "Niz1_prof.peaking",
     "Te_prof.y0",
     # "Te_prof.wped",
     # "Te_prof.wcenter",
@@ -1035,10 +1035,10 @@ if __name__ == "__main__":
         "Ti_prof.peaking",
         "Ti_prof.wped",
         # "Ti_prof.wcenter",
-        # "Nimp_prof.y0",
-        # "Nimp_prof.peaking",
-        # "Nimp_prof.wcenter",
-        # "Nimp_prof.wped",
+        # "Niz1_prof.y0",
+        # "Niz1_prof.peaking",
+        # "Niz1_prof.wcenter",
+        # "Niz1_prof.wped",
     ]
 
     # BlackBoxSettings
