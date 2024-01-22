@@ -581,7 +581,6 @@ def compare_pulses(
             print(pulse)
             st40_data = ReadST40(pulse, tstart, tend)
             st40_data(instruments=instruments, raw_only=True)
-            st40_data.add_mhd()
             raw_data = st40_data.raw_data
 
             if "cxff_pi" in raw_data.keys():
