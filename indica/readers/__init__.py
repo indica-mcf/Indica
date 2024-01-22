@@ -9,5 +9,6 @@ from .abstractreader import DataReader
 from .adas import ADASReader
 from .ppfreader import PPFReader
 from .st40reader import ST40Reader
+from .fidasimreader import get_fidasim_data
 
-__all__ = ["ADASReader", "DataReader", "PPFReader", "ST40Reader"]
+__all__ = ["ADASReader", "DataReader", "PPFReader", "ST40Reader", "get_fidasim_data"]
