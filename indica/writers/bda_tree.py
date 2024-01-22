@@ -202,7 +202,7 @@ DIAGNOSTIC_QUANTITY = [
 
 
 def create_nodes(
-    pulse_to_write=23000101,
+    pulse_to_write=43000000,
     run="RUN01",
     best=True,
     diagnostic_quantities=DIAGNOSTIC_QUANTITY,
@@ -322,4 +322,4 @@ def query_yes_no(
 
 
 if __name__ == "__main__":
-    create_nodes(pulse_to_write=23000101, mode="EDIT", run="RUN02")
+    create_nodes(pulse_to_write=43000000, mode="EDIT", run="RUN01")
