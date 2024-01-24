@@ -7,7 +7,19 @@ functionality for a different format of data.
 
 from .abstractreader import DataReader
 from .adas import ADASReader
-from .ppfreader import PPFReader
-from .st40reader import ST40Reader
 
-__all__ = ["ADASReader", "DataReader", "PPFReader", "ST40Reader"]
+__all__ = ["ADASReader", "DataReader"]
+
+try:
+    from .ppfreader import PPFReader
+
+    __all__ += ["PPFReader"]
+except ImportError:
+    pass
+
+try:
+    from .st40reader import ST40Reader
+
+    __all__ += ["ST40Reader"]
+except ImportError:
+    pass
