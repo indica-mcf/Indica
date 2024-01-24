@@ -83,7 +83,7 @@ class NeutralBeam(DiagnosticModel):
 
         # Neutral density
         self.nh = DataArray(
-            [input_data["fdens"], input_data["tdens"], input_data["hdens"]],
+            [input_data["fdens"], input_data["hdens"], input_data["tdens"]],
             coords=[
                 ("energy", np.arange(0, 3, 1, dtype=int)),
                 ("t", input_data["fdens"].t),

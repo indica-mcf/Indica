@@ -99,7 +99,6 @@ def get_fidasim_data(
         'depth_grid': xgrid,
         'angle': beam_angle,
         'source': source,
-
     }
 
     return data
