@@ -8,6 +8,8 @@ from indica.operators import tomo_1D
 from indica.operators.tomo_1D import SXR_tomography
 import indica.physics as ph
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import FIG_PATH
+from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 from indica.workflows.fit_ts_rshift import fit_ts
@@ -22,11 +24,13 @@ def calculate_zeff(
     fit_Rshift: bool = True,
     plot: bool = True,
     nplot: int = 2,
+    save_fig: bool = False,
     verbose: bool = False,
+    revisions: dict = None,
 ):
     print("Reading data")
     st40 = ReadST40(pulse, tstart, tend, dt)
-    st40(["pi", "tws_c", "ts", "efit"])
+    st40(["pi", "tws_c", "ts", "efit"], revisions=revisions)
 
     print("Fitting TS data")
     te_data = st40.raw_data_trange["ts"]["te"]
@@ -68,6 +72,7 @@ def calculate_zeff(
             ne_fit,
             tomo,
             nplot=nplot,
+            save_fig=save_fig,
         )
 
     return zeff_los_avrg, zeff_profile, spectra_to_integrate
@@ -231,12 +236,16 @@ def plot_results(
     ne_fit: DataArray,
     tomo: SXR_tomography,
     nplot: int = 2,
+    save_fig: bool = False,
+    fig_path: str = None,
 ):
-    # pathname = "./plots/"
+    if fig_path is None:
+        fig_path = FIG_PATH
+
     cm, cols = set_plot_colors()
     los_transform = spectra_to_integrate.transform
 
-    los_transform.plot()
+    los_transform.plot(fig_path=fig_path, fig_name=f"{pulse}_", save_fig=save_fig)
 
     time = zeff_profile.t
     cols = cm(np.linspace(0.1, 0.75, len(time), dtype=float))
@@ -262,6 +271,7 @@ def plot_results(
     ylim = plt.ylim()
     if ylim[1] > 8:
         plt.ylim(0.5, 8)
+    save_figure(fig_path, f"{pulse}_zeff_profile_PI_inversion", save_fig=save_fig)
 
     # Select only channels with impact parameter inside the separatrix by 1 cm
     plt.figure()
@@ -278,6 +288,7 @@ def plot_results(
     ylim = plt.ylim()
     if ylim[1] > 8:
         plt.ylim(0.5, 8)
+    save_figure(fig_path, f"{pulse}_zeff_LOS_and_channel-avrg", save_fig=save_fig)
 
     plt.figure()
     for i, t in enumerate(time.values):
@@ -299,6 +310,7 @@ def plot_results(
     plt.xlim(0, 1.1)
     plt.ylim(0, np.nanmax(ne_data) * 1.1)
     plt.legend()
+    save_figure(fig_path, f"{pulse}_TS_Ne_fits", save_fig=save_fig)
 
     plt.figure()
     for i, t in enumerate(time.values):
@@ -320,6 +332,7 @@ def plot_results(
     plt.xlim(0, 1.1)
     plt.ylim(0, np.nanmax(te_data) * 1.1)
     plt.legend()
+    save_figure(fig_path, f"{pulse}_TS_Te_fits", save_fig=save_fig)
 
     plt.figure()
     central_channel = spectra_to_integrate.channel[
@@ -339,6 +352,7 @@ def plot_results(
     plt.title(f"{pulse} Spectra filtered")
     set_axis_sci()
     plt.legend()
+    save_figure(fig_path, f"{pulse}_PI_filtered_spectra", save_fig=save_fig)
 
     plt.figure()
     spectra_mean = spectra_to_integrate.sel(channel=central_channel).mean("wavelength")
@@ -360,6 +374,7 @@ def plot_results(
     plt.title(rf"{pulse} Spectra integrated over $\lambda$")
     set_axis_sci()
     plt.legend()
+    save_figure(fig_path, f"{pulse}_PI_Brightness_central_channel", save_fig=save_fig)
 
     tomo.show_reconstruction()
 

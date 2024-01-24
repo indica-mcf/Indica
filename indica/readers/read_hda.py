@@ -1,13 +1,10 @@
 from copy import deepcopy
-import getpass
 
 import numpy as np
 from xarray import DataArray
 
 from indica.readers import ST40Reader
 import indica.writers.mds_tree_structures as trees
-
-user = getpass.getuser()
 
 
 def read_hda_data(

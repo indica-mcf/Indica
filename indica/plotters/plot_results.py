@@ -1,5 +1,4 @@
 from copy import deepcopy
-import getpass
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -8,6 +7,7 @@ import xarray as xr
 
 from indica.equilibrium import Equilibrium
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
@@ -17,7 +17,6 @@ from indica.workflows.load_modelling_plasma import initialize_diagnostic_models
 from indica.workflows.load_modelling_plasma import plasma_code
 
 plt.ion()
-PATH_NAME = f"/home/{getpass.getuser()}/figures/Indica/"
 
 CMAP, COLORS = set_plot_colors()
 
@@ -220,7 +219,6 @@ def plot_stan_ppcf_profiles(
     if st40 is None or bckc is None or plasma is None:
         st40, bckc, models_to_run, plasma = build_astra_profiles()
 
-    FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/profiles/"
     CMAP, COLORS = set_plot_colors()
     set_plot_rcparams("profiles")
     cxff_pi_chans_all = {
@@ -641,7 +639,7 @@ def compare_pulses(
         if len(figname) > 1:
             name += f"_{figname}"
         save_figure(
-            path_name=PATH_NAME, fig_name=f"time_evolution_comparison{name}", ext=ext
+            path_name=FIG_PATH, fig_name=f"time_evolution_comparison{name}", ext=ext
         )
 
     return data

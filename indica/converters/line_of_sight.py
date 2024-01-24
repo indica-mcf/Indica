@@ -1,7 +1,6 @@
 """Coordinate system representing a collection of lines of sight.
 """
 
-import getpass
 from typing import cast
 from typing import Tuple
 
@@ -17,8 +16,6 @@ from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
-
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/transform/"
 
 
 class LineOfSightTransform(CoordinateTransform):

@@ -3,7 +3,6 @@
 
 from abc import ABC
 from abc import abstractmethod
-import getpass
 import itertools
 from typing import Callable
 from typing import cast
@@ -18,6 +17,7 @@ import numpy as np
 from xarray import DataArray
 from xarray import zeros_like
 
+from indica.utilities import FIG_PATH
 from indica.utilities import intersection
 from indica.utilities import save_figure
 from indica.utilities import set_plot_rcparams
@@ -26,8 +26,6 @@ from ..numpy_typing import ArrayLike
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
-
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/transform/"
 
 
 class EquilibriumException(Exception):

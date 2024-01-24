@@ -1,5 +1,4 @@
 from copy import deepcopy
-import getpass
 from typing import Dict
 
 from matplotlib import rcParams
@@ -20,6 +19,7 @@ from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
@@ -56,8 +56,6 @@ INSTRUMENTS: list = [
     "sxr_spd",
 ]
 REVISIONS: dict = {instr: 0 for instr in INSTRUMENTS}
-
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/load_modelling_examples/"
 plt.ion()
 
 

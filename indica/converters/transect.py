@@ -1,5 +1,4 @@
 """Coordinate system for data collected on a 1-D along through the Tokamak"""
-import getpass
 from typing import Tuple
 
 import numpy as np
@@ -10,8 +9,6 @@ from .abstractconverter import CoordinateTransform
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
-
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/transform/"
 
 
 class TransectCoordinates(CoordinateTransform):
