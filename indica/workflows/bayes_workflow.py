@@ -403,7 +403,8 @@ class PlasmaContext:
 
         processed_data = post_process_ts(deepcopy(data_context.binned_data), data_context.equilibrium, quant,
                                          data_context.pulse, split=split, )
-        fit, _ = gpr_fit_ts(data=processed_data, xdim="rho", virtual_obs=True, kernel=kernel, save_fig=True)
+        fit, _ = gpr_fit_ts(data=processed_data, xdim="rho", virtual_obs=True, virtual_symmetry=True,
+                            kernel=kernel, save_fig=True)
         fit = xr.where(fit < 0, 1e-10, fit)
         return fit
 
