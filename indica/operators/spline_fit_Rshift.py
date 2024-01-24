@@ -164,13 +164,13 @@ def example_run(
     R = transform.R
     z = transform.z
 
-    fit, Rshift = fit_profile_and_Rshift(
+    fit, Rshift, rho_data = fit_profile_and_Rshift(
         R, z, data, err, equilibrium, xknots=xknots, verbose=verbose
     )
 
     for t in data.t:
         _Rshift = Rshift.sel(t=t).values
-        rho, _, _ = equilibrium.flux_coords(R + _Rshift, z, t=t)
+        rho = rho_data.sel(t=t)
 
         plt.ioff()
         plt.errorbar(
