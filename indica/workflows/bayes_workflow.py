@@ -1007,7 +1007,7 @@ if __name__ == "__main__":
     dt = 0.01
 
     diagnostics = [
-        "xrcs",
+        # "xrcs",
         # "efit",
         # "smmh1",
         "cxff_pi",
@@ -1016,7 +1016,7 @@ if __name__ == "__main__":
     ]
     # diagnostic_quantities
     opt_quant = [
-        "xrcs.spectra",
+        # "xrcs.spectra",
         # "efit.wp",
         # "smmh1.ne",
         "cxff_pi.ti",
@@ -1032,9 +1032,9 @@ if __name__ == "__main__":
         # "Te_prof.wped",
         # "Te_prof.wcenter",
         "Ti_prof.y0",
-        "Ti_prof.peaking",
+        # "Ti_prof.peaking",
         "Ti_prof.wped",
-        # "Ti_prof.wcenter",
+        "Ti_prof.wcenter",
         # "Niz1_prof.y0",
         # "Niz1_prof.peaking",
         # "Niz1_prof.wcenter",
@@ -1081,9 +1081,9 @@ if __name__ == "__main__":
 
     data_context.process_data(model_context._build_bckc, )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=10, iterations=100,
+    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=1000,
                                                 sample_method="high_density", starting_samples=50, burn_frac=0.20,
-                                                stopping_criteria="mode", stopping_criteria_factor=0.002,
+                                                stopping_criteria="mode", stopping_criteria_factor=0.005,
                                                 stopping_criteria_debug=True,
                                                 priors=bayes_settings.priors)
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
