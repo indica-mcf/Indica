@@ -71,6 +71,7 @@ def fit_profile_and_Rshift(
         np.empty(len(ydata.t)),
         coords=[("t", ydata.t.values)],
     )
+    rho_data = xr.full_like(ydata, np.nan)
 
     all_knots = None
     for t in ydata.t.values:
@@ -79,6 +80,8 @@ def fit_profile_and_Rshift(
         _y = ydata.sel(t=t).values / norm_factor
         _yerr = yerr.sel(t=t).values / norm_factor
 
+        _Rshift = 0.0
+        _yspl = np.full_like(xspl, 0.0)
         ind = np.where(np.isfinite(_y) * np.isfinite(_yerr))[0]
         if len(ind) > 2:
             R = Rdata[ind]
@@ -105,6 +108,7 @@ def fit_profile_and_Rshift(
                     _Rshift = fit.x[-1]
                 else:
                     yknots = fit.x
+                    _Rshift = Rshift.sel(t=t)
 
                 all_knots = deepcopy(fit.x)
                 spline = CubicSpline(
@@ -119,19 +123,18 @@ def fit_profile_and_Rshift(
                 all_knots = None
                 _Rshift = 0.0
                 _yspl = np.full_like(xspl, 0.0)
-        else:
-            print("   bad data...")
-            _Rshift = 0.0
-            _yspl = np.full_like(xspl, 0.0)
 
         yspl.loc[dict(t=t)] = _yspl
         if Rshift is None:
             Rshift_fit.loc[dict(t=t)] = _Rshift
 
+        _rho_data, _, _ = equilibrium.flux_coords(Rdata + _Rshift, zdata, t=t)
+        rho_data.loc[dict(t=t)] = _rho_data
+
     if Rshift is not None:
         Rshift_fit = Rshift
 
-    return yspl, Rshift_fit
+    return yspl, Rshift_fit, rho_data
 
 
 def example_run(
@@ -161,13 +164,13 @@ def example_run(
     R = transform.R
     z = transform.z
 
-    fit, Rshift = fit_profile_and_Rshift(
+    fit, Rshift, rho_data = fit_profile_and_Rshift(
         R, z, data, err, equilibrium, xknots=xknots, verbose=verbose
     )
 
     for t in data.t:
         _Rshift = Rshift.sel(t=t).values
-        rho, _, _ = equilibrium.flux_coords(R + _Rshift, z, t=t)
+        rho = rho_data.sel(t=t)
 
         plt.ioff()
         plt.errorbar(

@@ -1,5 +1,4 @@
 from copy import deepcopy
-import getpass
 
 from matplotlib import rcParams
 import matplotlib.pylab as plt
@@ -11,12 +10,11 @@ from indica.models.plasma import example_run as example_plasma
 from indica.models.plasma import Plasma
 from indica.operators import tomo_1D
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 from indica.utilities import set_plot_rcparams
-
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/bolometer_vos/"
 
 CMAP, COLORS = set_plot_colors()
 set_plot_rcparams("profiles")
