@@ -7,7 +7,6 @@ from typing import Dict
 
 from ..datatypes import ArrayType
 
-
 AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
     "get_thomson_scattering": {
         "ne": ("number_density", "electrons"),
@@ -18,9 +17,10 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
         "spectra": ("emission", "spectral"),
     },
     "get_charge_exchange": {
-        # "angf": ("angular_freq", "ion"),
+        "angf": ("angular_freq", "ion"),
         "vtor": ("linear_rotation", "ion"),
         "ti": ("temperature", "ion"),
+        "conc": ("concentration", "ion"),
         "spectra": ("spectra", "experimental"),
         "fit": ("spectra", "fit"),
     },

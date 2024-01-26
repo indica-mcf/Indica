@@ -32,7 +32,6 @@ from ..datatypes import ELEMENTS
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
-
 SURF_PATH = Path(surf_los.__file__).parent.parent / "data/surf_los.dat"
 
 
@@ -104,6 +103,32 @@ class PPFReader(DataReader):
         **{"cx{}4".format(val): "get_charge_exchange" for val in ("s", "d", "f", "h")},
     }
     _IMPLEMENTATION_QUANTITIES = {
+        "hrts": {
+            "ne": ("number_density", "electrons"),
+            "te": ("temperature", "electrons"),
+        },
+        "lidr": {
+            "ne": ("number_density", "electrons"),
+            "te": ("temperature", "electrons"),
+        },
+        "efit": {
+            "f": ("f_value", "plasma"),
+            "faxs": ("magnetic_flux_axis", "poloidal"),
+            "fbnd": ("magnetic_flux_separatrix", "poloidal"),
+            "ftor": ("magnetic_flux", "toroidal"),
+            "rmji": ("major_rad", "hfs"),
+            "rmjo": ("major_rad", "lfs"),
+            "psi": ("magnetic_flux", "poloidal"),
+            "vjac": ("volume_jacobian", "plasma"),
+            "ajac": ("area_jacobian", "plasma"),
+            "rmag": ("major_rad", "mag_axis"),
+            "rgeo": ("major_rad", "geometric"),
+            "rbnd": ("major_rad", "separatrix"),
+            "zmag": ("z", "mag_axis"),
+            "zbnd": ("z", "separatrix"),
+            "wp": ("energy", "plasma"),
+            "psin": ("poloidal_flux", "normalised"),
+        },
         "kg10": {"ne": ("number_density", "electron")},
         "sxr": {
             "h": ("luminous_flux", "sxr"),
@@ -120,9 +145,9 @@ class PPFReader(DataReader):
         },
         **{
             "cx{}m".format(val): {
-                "angf": ("angular_freq", "ions"),
-                "ti": ("temperature", "ions"),
-                "conc": ("concentration", "ions"),
+                "angf": ("angular_freq", "ion"),
+                "ti": ("temperature", "ion"),
+                "conc": ("concentration", "ion"),
             }
             for val in ("s", "d", "f", "g", "h")
         },
@@ -353,10 +378,13 @@ class PPFReader(DataReader):
         z, z_path = self._get_signal(uid, instrument, "z", revision)
         results["z"] = z.data
         results["R"] = z.dimensions[0].data
+        results["x"] = z.dimensions[0].data
+        results["y"] = z.dimensions[0].data
         results["length"] = len(z.data)
         if "te" in quantities:
             te, t_path = self._get_signal(uid, instrument, "te", revision)
             results["te"] = te.data
+            results["times"] = te.dimensions[0].data
             if instrument == "lidr":
                 tehi, e_path = self._get_signal(uid, instrument, "teu", revision)
                 results["te_error"] = tehi.data - results["te"]
@@ -367,6 +395,7 @@ class PPFReader(DataReader):
         if "ne" in quantities:
             ne, d_path = self._get_signal(uid, instrument, "ne", revision)
             results["ne"] = ne.data
+            results["times"] = ne.dimensions[0].data
             if instrument == "lidr":
                 nehi, e_path = self._get_signal(uid, instrument, "neu", revision)
                 results["ne_error"] = nehi.data - results["ne"]
@@ -380,6 +409,7 @@ class PPFReader(DataReader):
                 results["ne_records"].append(e_path)
 
         results["revision"] = self._get_revision(uid, instrument, revision)
+        results["machine_dims"] = self.MACHINE_DIMS
         return results
 
     def _get_equilibrium(
@@ -393,13 +423,18 @@ class PPFReader(DataReader):
         """Fetch raw data for plasma equilibrium."""
         results: Dict[str, Any] = {}
         for q in quantities:
+            if q == "psin":
+                continue
             qval, q_path = self._get_signal(uid, instrument, q, revision)
+            if qval.dimensions[0].temporal:
+                results["times"] = qval.dimensions[0].data
             if (
                 len(qval.dimensions) > 1
                 and q not in {"psi", "rbnd", "zbnd"}
                 and "psin" not in results
             ):
                 results["psin"] = qval.dimensions[1].data
+                results["psin_records"] = [q_path]
             if q == "psi":
                 r, r_path = self._get_signal(uid, instrument, "psir", revision)
                 z, z_path = self._get_signal(uid, instrument, "psiz", revision)
