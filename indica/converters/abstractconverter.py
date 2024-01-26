@@ -3,7 +3,6 @@
 
 from abc import ABC
 from abc import abstractmethod
-import getpass
 import itertools
 from typing import Callable
 from typing import cast
@@ -18,6 +17,7 @@ import numpy as np
 from xarray import DataArray
 from xarray import zeros_like
 
+from indica.utilities import FIG_PATH
 from indica.utilities import intersection
 from indica.utilities import save_figure
 from indica.utilities import set_plot_rcparams
@@ -26,8 +26,6 @@ from ..numpy_typing import ArrayLike
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
-
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/transform/"
 
 
 class EquilibriumException(Exception):
@@ -103,6 +101,7 @@ class CoordinateTransform(ABC):
     profile_to_map: DataArray
     along_los: DataArray
     los_integral: DataArray
+    impact_parameter: DataArray
     _origin: OnlyArray
     _direction: OnlyArray
 
@@ -412,11 +411,12 @@ class CoordinateTransform(ABC):
         if hasattr(self, "equilibrium"):
             angles = np.linspace(0.0, 2 * np.pi, npts)
             rho_equil = self.equilibrium.rho.sel(t=t, method="nearest")
-            R = rho_equil.R[
-                np.where(rho_equil.sel(z=0, method="nearest") <= 1)[0]
-            ].values
-            R_lfs = R[-1]
-            R_hfs = R[0]
+            R_hfs = self.equilibrium.rmji.sel(
+                t=t, rho_poloidal=1, method="nearest"
+            ).values
+            R_lfs = self.equilibrium.rmjo.sel(
+                t=t, rho_poloidal=1, method="nearest"
+            ).values
             x_plasma_inner = R_hfs * np.cos(angles)
             x_plasma_outer = R_lfs * np.cos(angles)
             y_plasma_inner = R_hfs * np.sin(angles)
@@ -448,7 +448,10 @@ class CoordinateTransform(ABC):
         self.t = t
         self.rho = rho
         self.theta = theta
-        self.impact_rho = self.rho.min("los_position")
+        if "los_position" in self.rho.dims:
+            self.impact_rho = self.rho.mean("beamlet").sel(
+                los_position=self.impact_parameter.index.los_position
+            )
 
         return rho, theta
 
@@ -579,7 +582,7 @@ class CoordinateTransform(ABC):
                 colors=cols,
                 marker=marker,
             )
-            plt.xlabel("Channel")
+            plt.xlabel("Path along LOS")
             plt.ylabel("Rho")
             plt.title(title)
             save_figure(fig_path, f"{fig_name}{self.name}_rho", save_fig=save_fig)

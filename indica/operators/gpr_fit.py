@@ -1,5 +1,3 @@
-import getpass
-
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -8,12 +6,12 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 from indica.utilities import set_plot_rcparams
 
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/profile_fits/"
 CMAP, COLORS = set_plot_colors()
 
 

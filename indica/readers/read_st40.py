@@ -100,11 +100,13 @@ class ReadST40:
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
+        self.raw_data_trange: dict = {}
         self.binned_data: dict = {}
         self.transforms: dict = {}
 
     def reset_data(self):
         self.raw_data = {}
+        self.raw_data_trange = {}
         self.binned_data = {}
 
     def get_equilibrium(
@@ -132,6 +134,18 @@ class ReadST40:
                 self.transforms[instrument] = transform
         self.raw_data[instrument] = data
 
+        self.raw_data_trange[instrument] = {}
+        for quant in data.keys():
+            if "t" in data[quant].dims:
+                self.raw_data_trange[instrument][quant] = data[quant].sel(
+                    t=slice(self.tstart, self.tend)
+                )
+                if "error" in data[quant].attrs:
+                    self.raw_data_trange[instrument][quant].attrs["error"] = data[
+                        quant
+                    ].error.sel(t=slice(self.tstart, self.tend))
+                else:
+                    self.raw_data_trange[instrument][quant] = data[quant]
         return data
 
     def bin_data_in_time(
@@ -212,24 +226,24 @@ class ReadST40:
             filtered.attrs = attrs
             self.binned_data["ts"][quantity] = filtered
 
-    def add_mhd(self):
-        t_slice = slice(self.tstart, self.tend)
-        rev = 0
-
-        even, even_dims = self.reader._get_data(
-            "", "mhd_tor_mode", ".output.spectrogram:ampl_even", rev
-        )
-        odd, odd_dims = self.reader._get_data(
-            "", "mhd_tor_mode", ".output.spectrogram:ampl_odd", rev
-        )
-        try:
-            even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
-            odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
-            self.raw_data["mhd"] = {}
-            self.raw_data["mhd"]["ampl_even_n"] = even
-            self.raw_data["mhd"]["ampl_odd_n"] = odd
-        except IndexError:
-            return
+    # def add_mhd(self):
+    #     t_slice = slice(self.tstart, self.tend)
+    #     rev = 0
+    #
+    #     even, even_dims = self.reader._get_data(
+    #         "", "mhd_tor_mode", ".output.spectrogram:ampl_even", rev
+    #     )
+    #     odd, odd_dims = self.reader._get_data(
+    #         "", "mhd_tor_mode", ".output.spectrogram:ampl_odd", rev
+    #     )
+    #     try:
+    #         even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
+    #         odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
+    #         self.raw_data["mhd"] = {}
+    #         self.raw_data["mhd"]["ampl_even_n"] = even
+    #         self.raw_data["mhd"]["ampl_odd_n"] = odd
+    #     except IndexError:
+    #         return
 
     def plot_profile(
         self,
@@ -339,16 +353,16 @@ class ReadST40:
         self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
         for instrument in instruments:
             print(f"Reading {instrument}")
-            if debug:
+            try:
                 self.get_raw_data("", instrument, revisions[instrument])
-            else:
-                try:
-                    self.get_raw_data("", instrument, revisions[instrument])
-                except Exception as e:
-                    print(f"Error reading {instrument}: {e}")
+            except Exception as e:
+                print(f"Error reading {instrument}: {e}")
+                if debug:
+                    raise e
 
         if raw_only:
             return
+
         instruments = list(self.raw_data)
 
         print_like("Binning in time")

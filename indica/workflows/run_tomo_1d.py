@@ -1,6 +1,5 @@
 """Inverts line of sight integrals to estimate local emissivity."""
 
-import getpass
 from typing import Callable
 from typing import Dict
 from typing import Tuple
@@ -17,6 +16,7 @@ from indica.models.sxr_camera import example_run as sxr_example
 from indica.models.sxr_camera import SXRcamera
 from indica.operators import tomo_1D
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
@@ -307,7 +307,6 @@ def sxrc_xy(
         data_R = data.transform.impact_parameter.R.sel(channel=channels)
         data = data.assign_coords(R=("channel", data_R)).swap_dims({"channel": "R"})
 
-        fig_path = f"/home/{getpass.getuser()}/figures/Indica/time_evolution/"
         plt.figure()
         surf = data.T.plot()
         set_axis_sci(plot_object=surf)
@@ -319,7 +318,7 @@ def sxrc_xy(
         plt.legend()
         if save_fig:
             save_figure(
-                fig_path,
+                FIG_PATH,
                 f"{pulse}_{instrument}_surface_plot",
                 save_fig=save_fig,
             )
@@ -333,7 +332,7 @@ def sxrc_xy(
         plt.legend()
         if save_fig:
             save_figure(
-                fig_path,
+                FIG_PATH,
                 f"{pulse}_{instrument}_channel_evolution",
                 save_fig=save_fig,
             )

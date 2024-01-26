@@ -40,7 +40,7 @@ def fit_ts(
     ts_z = te_data.z
     equilibrium = te_data.transform.equilibrium
     print("  Te")
-    te_fit, te_Rshift = fit_profile_and_Rshift(
+    te_fit, te_Rshift, te_rho = fit_profile_and_Rshift(
         ts_R,
         ts_z,
         te_data,
@@ -51,7 +51,7 @@ def fit_ts(
         verbose=verbose,
     )
     print("  Ne")
-    ne_fit, ne_Rshift = fit_profile_and_Rshift(
+    ne_fit, ne_Rshift, ne_rho = fit_profile_and_Rshift(
         ts_R,
         ts_z,
         ne_data,
@@ -62,4 +62,9 @@ def fit_ts(
         verbose=verbose,
     )
 
-    return te_fit, ne_fit, te_Rshift, ne_Rshift
+    te_fit.attrs["Rshift"] = te_Rshift
+    ne_fit.attrs["Rshift"] = ne_Rshift
+    te_data.attrs["rho"] = te_rho
+    ne_data.attrs["rho"] = ne_rho
+
+    return te_fit, ne_fit

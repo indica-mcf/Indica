@@ -514,17 +514,19 @@ class SXR_tomography:
         ax[0].set_xlim(0, 1)
         ax[1].set_xlim(self.x_inter.min(), self.x_inter.max())
 
-        ax[1].set_ylim(0, np.nanmax(self.data) * 1.2 / 1e3)
+        ax[1].set_ylim(0, np.nanmax(self.data) * 1.2)
         ymax = np.nanmax(self.emiss)
         if hasattr(self, "expected_emissivity"):
             ymax = np.nanmax([ymax, self.expected_emissivity.max()])
-        ax[0].set_ylim(0, ymax * 1.2 / 1e3)
-        print(ymax)
+        ax[0].set_ylim(0, ymax * 1.2)
 
         ax[0].set_xlabel(r"$\rho$")
         ax[1].set_xlabel(r"Channel")
-        ax[1].set_ylabel("Brightness [kW/m$^2$]")
-        ax[0].set_ylabel("Emissivity [kW/m$^3$]")
+        ax[1].set_ylabel("Brightness [W/m$^2$]")
+        ax[0].set_ylabel("Emissivity [W/m$^3$]")
+        ax[0].ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
+        ax[1].ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
+
         global cont
         cvals = np.linspace(0, 1, 20)
 
@@ -564,22 +566,22 @@ class SXR_tomography:
             update_fill_between(
                 tomo_var,
                 r,
-                self.emiss[it] / 1e3 - self.emiss_err[it] / 1e3,
-                self.emiss[it] / 1e3 + self.emiss_err[it] / 1e3,
+                self.emiss[it] - self.emiss_err[it],
+                self.emiss[it] + self.emiss_err[it],
                 -np.inf,
                 np.inf,
             )
             if hasattr(self, "expected_emissivity"):
                 expected_emissivity.set_data(
                     self.expected_emissivity.rho_poloidal,
-                    self.expected_emissivity.sel(t=time, method="nearest") / 1.0e3,
+                    self.expected_emissivity.sel(t=time, method="nearest"),
                 )
-            tomo_mean.set_data(r, self.emiss[it] / 1e3)
+            tomo_mean.set_data(r, self.emiss[it])
 
-            retro_inter.set_data(self.x_inter, self.backprojection_int[it] / 1e3)
-            retro.set_data(self.x, self.backprojection[it] / 1e3)
+            retro_inter.set_data(self.x_inter, self.backprojection_int[it])
+            retro.set_data(self.x, self.backprojection[it])
 
-            update_errorbar(errorbar, self.x, self.data[it] / 1e3, self.err[it] / 1e3)
+            update_errorbar(errorbar, self.x, self.data[it], self.err[it])
 
             for c in cont.collections:
                 c.remove()  # removes only the contours, leaves the rest intact
@@ -756,21 +758,79 @@ class SXR_tomography:
         return return_data
 
 
-def main():
+def example_run(plot: bool = True):
+    from indica.models.plasma import example_run as example_plasma
+    from indica.converters.line_of_sight import LineOfSightTransform
+    from indica.models.bolometer_camera import Bolometer
 
-    import time
+    plt.ioff()
 
-    tomo = SXR_tomography()
-    t = time.time()
-    tomo.geom_matrix()
-    print("Geometry matrix calculated in %.2fs" % (time.time() - t))
+    diagnostic_name = "bolo_xy"
+    reg_level_guess = 0.3
 
-    t = time.time()
-    tomo.calc_tomo(optim_regul=False)
-    print("Tomographic reconstruction calculates in %.2fs" % (time.time() - t))
+    los_end = np.full((11, 3), 0.0)
+    los_end[:, 0] = 0.0
+    los_end[:, 1] = np.linspace(-0.2, -1, 11)
+    los_end[:, 2] = 0.0
+    los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
+    origin = los_start
+    direction = los_end - los_start
 
-    tomo.show_reconstruction()
+    plasma = example_plasma(calc_power_loss=True)
+
+    los_transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name=diagnostic_name,
+        machine_dimensions=plasma.machine_dimensions,
+        passes=1,
+        beamlets=16,
+        spot_width=0.03,
+    )
+    los_transform.set_equilibrium(plasma.equilibrium)
+    model = Bolometer(
+        diagnostic_name,
+    )
+    model.set_los_transform(los_transform)
+    model.set_plasma(plasma)
+
+    bckc = model(sum_beamlets=False)
+
+    brightness = bckc["brightness"].mean("beamlet")
+    emissivity = model.emissivity
+    rho_equil = los_transform.equilibrium.rho
+
+    has_data = np.logical_not(np.isnan(brightness.isel(t=0).data))
+    rho_equil = plasma.equilibrium.rho.interp(t=brightness.t)
+    input_dict = dict(
+        brightness=brightness.data,
+        dl=los_transform.dl,
+        t=brightness.t.data,
+        R=los_transform.R.mean("beamlet").data,
+        z=los_transform.z.mean("beamlet").data,
+        rho_equil=dict(
+            R=rho_equil.R.data,
+            z=rho_equil.z.data,
+            t=rho_equil.t.data,
+            rho=rho_equil.data,
+        ),
+        has_data=has_data,
+        debug=False,
+    )
+    if emissivity is not None:
+        input_dict["emissivity"] = emissivity
+
+    tomo = SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
+    tomo()
+    if plot:
+        model.plot()
+        tomo.show_reconstruction()
+        plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    example_run()

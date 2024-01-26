@@ -1,17 +1,16 @@
 from copy import deepcopy
-import getpass
 
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
 from indica.readers.read_st40 import ReadST40
+from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 from indica.utilities import set_plot_rcparams
 
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/time_evolution/"
 CMAP, COLORS = set_plot_colors()
 LINESTYLES = ["solid", "dashed", "dotted"]
 set_plot_rcparams("profiles")

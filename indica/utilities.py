@@ -1,5 +1,6 @@
 """Various miscellanious helper functions."""
 from copy import deepcopy
+from getpass import getuser
 import inspect
 import os
 import string
@@ -25,6 +26,9 @@ from xarray.core.variable import Variable
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
 from .numpy_typing import OnlyArray
+
+DATA_PATH = f"/home/{getuser()}/data/Indica/"
+FIG_PATH = f"/home/{getuser()}/figures/Indica/"
 
 
 def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional[str]]:
