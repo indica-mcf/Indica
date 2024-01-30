@@ -33,7 +33,7 @@ from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
 
-SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
+SURF_PATH = Path(surf_los.__file__).parent.parent / "data/surf_los.dat"
 
 
 class PPFError(Exception):

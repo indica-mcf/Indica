@@ -31,7 +31,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         filter_fwhm: float = 1,  # 1
         filter_type: str = "boxcar",
         etendue: float = 1.0,
-        calibration: float = 2.0e-5,
+        calibration: float = 1,
         instrument_method="get_diode_filters",
         channel_mask: slice = None,  # =slice(18, 28),
     ):

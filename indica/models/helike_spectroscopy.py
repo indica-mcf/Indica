@@ -12,6 +12,8 @@ from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
+from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_rcparams
 
 # TODO: why resonance lines in upper case, others lower?
 LINE_RANGES = {
@@ -24,7 +26,7 @@ LINE_RANGES = {
 }
 
 
-class Helike_spectroscopy(DiagnosticModel):
+class HelikeSpectrometer(DiagnosticModel):
     """
     Data and methods to model XRCS spectrometer measurements
 
@@ -35,13 +37,14 @@ class Helike_spectroscopy(DiagnosticModel):
         self,
         name: str,
         instrument_method="get_helike_spectroscopy",
+        etendue: float = 1.0,
+        calibration: float = 8.0e-20,
         element: str = "ar",
         window_len: int = 1030,
-        window_lim: list = [0.394, 0.401],
-        window_masks: list = [],
-        etendue: float = 1.0,
-        calibration: float = 1.0e-27,
-        line_labels: list = ["w", "k", "n3", "n345", "z", "qra"],
+        window_lim=None,
+        window: np.array = None,
+        window_masks=None,
+        line_labels=None,
     ):
         """
         Read all atomic data and initialise objects
@@ -50,25 +53,32 @@ class Helike_spectroscopy(DiagnosticModel):
         ----------
         name
             String identifier for the spectrometer
+
         """
+        if window_lim is None:
+            window_lim = [0.394, 0.401]
+        if window_masks is None:
+            window_masks = []
+        if line_labels is None:
+            line_labels = ["w", "k", "n3", "n345", "z", "qra"]
+
         self.name = name
         self.instrument_method = instrument_method
-
         self.element: str = element
         z_elem, a_elem, name_elem = ELEMENTS[element]
         self.ion_charge: int = z_elem - 2  # He-like
         self.ion_mass: float = a_elem
-
         self.etendue = etendue
         self.calibration = calibration
         self.window_masks = window_masks
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
 
-        window = np.linspace(window_lim[0], window_lim[1], window_len)
+        if window is None:
+            window = np.linspace(window_lim[0], window_lim[1], window_len)
         mask = np.zeros(shape=window.shape)
-        if window_masks:
-            for mslice in window_masks:
+        if self.window_masks:
+            for mslice in self.window_masks:
                 mask[(window > mslice.start) & (window < mslice.stop)] = 1
         else:
             mask[:] = 1
@@ -253,7 +263,9 @@ class Helike_spectroscopy(DiagnosticModel):
 
             emission = self.line_emission[line]
             los_integral = self.los_transform.integrate_on_los(emission, t=emission.t)
-            emission_los = self.los_transform.along_los.sel(channel=channels)
+            emission_los = self.los_transform.along_los.sel(channel=channels).mean(
+                "beamlet"
+            )
             emission_sum = emission_los.sum("los_position", skipna=True)
             rho_los = self.los_transform.rho.sel(channel=channels)
 
@@ -377,6 +389,7 @@ class Helike_spectroscopy(DiagnosticModel):
         t: LabeledArray = None,
         calc_rho: bool = False,
         moment_analysis: bool = False,
+        background: int = None,
         **kwargs,
     ):
         """
@@ -404,7 +417,7 @@ class Helike_spectroscopy(DiagnosticModel):
                 "moment_analysis cannot be used when window_masks is not set to None"
             )
 
-        if self.plasma is not None:
+        if hasattr(self, "plasma"):
             if t is None:
                 t = self.plasma.time_to_calculate
             Te = self.plasma.electron_temperature.interp(
@@ -444,15 +457,129 @@ class Helike_spectroscopy(DiagnosticModel):
         self.quantities: dict = AVAILABLE_QUANTITIES[self.instrument_method]
 
         # TODO: check that inputs have compatible dimensions/coordinates
-
         self._calculate_intensity()
         self._make_spectra()
 
         if moment_analysis:
             self._moment_analysis()
 
+        if background is not None:
+            self.measured_spectra = self.measured_spectra + background
+
         self._build_bckc_dictionary()
         return self.bckc
+
+    def plot(self):
+        set_plot_rcparams("profiles")
+
+        self.los_transform.plot()
+
+        plt.figure()
+        channels = self.los_transform.x1
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.plasma.t), dtype=float))
+        if "spectra" in self.bckc.keys():
+            spectra = self.bckc["spectra"].sel(channel=np.median(channels))
+            for i, t in enumerate(np.array(self.t, ndmin=1)):
+                plt.plot(
+                    spectra.wavelength,
+                    spectra.sel(t=t),
+                    color=cols_time[i],
+                    label=f"t={t:1.2f} s",
+                )
+            plt.ylabel("Brightness (a.u.)")
+            plt.xlabel("Wavelength (nm)")
+            plt.legend()
+            set_axis_sci()
+
+        # Plot the temperatures profiles
+        plt.figure()
+        elem = self.Ti.element[0].values
+        for i, t in enumerate(self.t):
+            plt.plot(
+                self.plasma.ion_temperature.rho_poloidal,
+                self.plasma.ion_temperature.sel(t=t, element=elem),
+                color=cols_time[i],
+            )
+            plt.plot(
+                self.plasma.electron_temperature.rho_poloidal,
+                self.plasma.electron_temperature.sel(t=t),
+                color=cols_time[i],
+                linestyle="dashed",
+            )
+        plt.xlabel("rho")
+        set_axis_sci()
+        plt.ylabel("Ti and Te profiles (eV)")
+
+        # Plot the emission profiles
+        if self.moment_analysis:
+            if "w" in self.line_emission.keys():
+                plt.figure()
+                if "t" in self.line_emission["w"].dims:
+                    for i, t in enumerate(self.plasma.t.values):
+                        plt.plot(
+                            self.line_emission["w"].rho_poloidal,
+                            self.line_emission["w"].sel(t=t),
+                            color=cols_time[i],
+                            label=f"t={t:1.2f} s",
+                        )
+                else:
+                    plt.plot(
+                        self.line_emission["w"].rho_poloidal,
+                        self.line_emission["w"],
+                        color=cols_time[i],
+                        label=f"t={t:1.2f} s",
+                    )
+                plt.xlabel("rho")
+                plt.ylabel("w-line emissivity (W/m^3)")
+                set_axis_sci()
+                plt.legend()
+
+        # Plot moment analysis of measured temperatures
+        if "ti_w" in self.bckc.keys() & "te_kw" in self.bckc.keys():
+            plt.figure()
+            for i, t in enumerate(self.plasma.t.values):
+                self.bckc["ti_w"].mean("beamlet").sel(t=t).plot(
+                    label=f"t={t:1.2f} s",
+                    marker="o",
+                    color=cols_time[i],
+                )
+                self.bckc["te_kw"].mean("beamlet").sel(t=t).plot(
+                    color=cols_time[i],
+                    marker="x",
+                    linestyle="dashed",
+                )
+
+            plt.xlabel("Channel")
+            plt.ylabel("Measured Ti and Te (eV)")
+            set_axis_sci()
+            plt.title("")
+            # plt.legend()
+
+        plt.show(block=True)
+
+
+def helike_transform_example(nchannels):
+    los_end = np.full((nchannels, 3), 0.0)
+    los_end[:, 0] = 0.17
+    los_end[:, 1] = 0.0
+    los_end[:, 2] = np.linspace(0.2, -0.5, nchannels)
+    los_start = np.array([[0.9, 0, 0]] * los_end.shape[0])
+    los_start[:, 2] = -0.1
+    origin = los_start
+    direction = los_end - los_start
+
+    los_transform = LineOfSightTransform(
+        origin[0:nchannels, 0],
+        origin[0:nchannels, 1],
+        origin[0:nchannels, 2],
+        direction[0:nchannels, 0],
+        direction[0:nchannels, 1],
+        direction[0:nchannels, 2],
+        name="xrcs",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
+        passes=1,
+    )
+    return los_transform
 
 
 def example_run(
@@ -463,31 +590,12 @@ def example_run(
         plasma = example_plasma(
             pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10
         )
-        plasma.time_to_calculate = plasma.t[5]
+        # plasma.time_to_calculate = plasma.t[3:5]
         # Create new diagnostic
     diagnostic_name = "xrcs"
-    nchannels = 3
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.17
-    los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.43, -0.43, nchannels)
-    los_start = np.array([[0.8, 0, 0]] * los_end.shape[0])
-    origin = los_start
-    direction = los_end - los_start
-
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-        passes=1,
-    )
+    los_transform = helike_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)
-    model = Helike_spectroscopy(
+    model = HelikeSpectrometer(
         diagnostic_name,
         window_masks=[],
     )
@@ -496,107 +604,10 @@ def example_run(
 
     bckc = model(moment_analysis=moment_analysis, **kwargs)
 
-    channels = model.los_transform.x1
-    cols = cm.gnuplot2(np.linspace(0.1, 0.75, len(channels), dtype=float))
-
     # Plot spectra
     if plot:
-        # tplot = plasma.time_to_calculate
-        if "spectra" in bckc.keys():
-            plt.figure()
-            for chan in channels:
-                _spec = bckc["spectra"]
-                if "channel" in _spec.dims:
-                    _spec = _spec.sel(channel=chan, method="nearest")
-                if "t" in bckc["spectra"].dims:
-                    _spec.sel(t=plasma.time_to_calculate.mean(), method="nearest").plot(
-                        label=f"CH{chan}", color=cols[chan]
-                    )
-                else:
-                    _spec.plot(label=f"CH{chan}", color=cols[chan])
-            plt.xlabel("wavelength (nm)")
-            plt.ylabel("spectra")
-            plt.legend()
+        model.plot()
 
-        # model.los_transform.plot(tplot,
-        # plot_all=model.los_transform.x1.__len__() > 1)
-
-        if "int_w" in bckc.keys() & "t" in bckc["int_w"].dims:
-            plt.figure()
-            for chan in channels:
-                if "channel" in bckc["int_w"].dims:
-                    bckc["int_w"].sel(channel=chan).plot(
-                        label=f"CH{chan}", color=cols[chan]
-                    )
-                else:
-                    bckc["int_w"].plot(label=f"CH{chan}", color=cols[chan])
-            plt.xlabel("Time (s)")
-            plt.ylabel("w-line intensity (W/m^2)")
-            plt.legend()
-
-        if "ti_w" in bckc.keys() & "te_kw" in bckc.keys():
-            plt.figure()
-            for chan in channels:
-                if "channel" in bckc["ti_w"].dims:
-                    bckc["ti_w"].sel(channel=chan).plot(
-                        label=f"CH{chan} ti_w", color=cols[chan]
-                    )
-                    bckc["te_kw"].sel(channel=chan).plot(
-                        label=f"CH{chan} te_kw", color=cols[chan], linestyle="dashed"
-                    )
-                else:
-                    bckc["ti_w"].plot(label=f"CH{chan} ti_w", color=cols[chan])
-                    bckc["te_kw"].plot(
-                        label=f"CH{chan} te_kw", color=cols[chan], linestyle="dashed"
-                    )
-            plt.xlabel("Time (s)")
-            plt.ylabel("Te and Ti from moment analysis (eV)")
-            plt.legend()
-
-        # Plot the temperatures profiles
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-        plt.figure()
-        elem = model.Ti.element[0].values
-        for i, t in enumerate(plasma.t.values):
-            plt.plot(
-                plasma.ion_temperature.rho_poloidal,
-                plasma.ion_temperature.sel(t=t, element=elem),
-                color=cols_time[i],
-            )
-            plt.plot(
-                plasma.electron_temperature.rho_poloidal,
-                plasma.electron_temperature.sel(t=t),
-                color=cols_time[i],
-                linestyle="dashed",
-            )
-
-        plt.xlabel("rho")
-        plt.ylabel("Ti and Te profiles (eV)")
-
-        # Plot the emission profiles
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-        if model.moment_analysis:
-            if "w" in model.line_emission.keys():
-                plt.figure()
-                if "t" in model.line_emission["w"].dims:
-                    for i, t in enumerate(plasma.t.values):
-                        plt.plot(
-                            model.line_emission["w"].rho_poloidal,
-                            model.line_emission["w"].sel(t=t),
-                            color=cols_time[i],
-                            label=f"t={t:1.2f} s",
-                        )
-                else:
-                    plt.plot(
-                        model.line_emission["w"].rho_poloidal,
-                        model.line_emission["w"],
-                        color=cols_time[i],
-                        label=f"t={t:1.2f} s",
-                    )
-                plt.xlabel("rho")
-                plt.ylabel("w-line local radiated power (W/m^3)")
-                plt.legend()
-        plt.show(block=True)
     return plasma, model, bckc
 
 
