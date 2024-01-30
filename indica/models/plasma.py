@@ -1265,6 +1265,7 @@ def example_run(
         full_run=full_run,
         verbose=verbose,
         n_rad=n_rad,
+        pulse=pulse,
         **kwargs,
     )
     plasma.build_atomic_data(default=True, calc_power_loss=calc_power_loss)
