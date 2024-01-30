@@ -459,32 +459,38 @@ class ChargeExchange(DiagnosticModel):
         nh_along_chord_list: list = []
         for i, i_ch in enumerate(self.los_transform.x1):
 
-            print(f"i_ch = {i_ch}")
-            print(los_x_rot)
+            nh_along_chord_beamlet: list = []
+            for i_beamlet in range(self.los_transform.beamlets):
 
-            nh_along_chord = nh_.interp(
-                depth_grid=los_x_rot.isel(channel=i_ch),
-                width_grid=los_y_rot.isel(channel=i_ch),
-                height_grid=los_z_rot.isel(channel=i_ch)
-            )
+                print(f"i_ch = {i_ch}")
+                print(los_x_rot)
 
-            print(nh_along_chord.isel(energy=0))
-            print(nh_along_chord.isel(energy=0).shape)
+                nh_along_chord = nh_.interp(
+                    depth_grid=los_x_rot.isel(channel=i_ch, beamlet=i_beamlet),
+                    width_grid=los_y_rot.isel(channel=i_ch, beamlet=i_beamlet),
+                    height_grid=los_z_rot.isel(channel=i_ch, beamlet=i_beamlet)
+                )
 
-            nh_along_chord_list.append(nh_along_chord)
+                print(nh_along_chord.isel(energy=0))
+                print(nh_along_chord.isel(energy=0).shape)
 
-            if debug:
-                ax1.plot(nh_along_chord.isel(energy=0)[0, :])
+                nh_along_chord_beamlet.append(nh_along_chord)
 
-                ax2.plot(los_x_rot.isel(channel=i_ch), los_y_rot.isel(channel=i_ch))
-                ax2.plot(los_x_rot.isel(channel=i_ch)[0], los_y_rot.isel(channel=i_ch)[0], 'ko')
+                if debug:
+                    ax1.plot(nh_along_chord.isel(energy=0)[0, :])
 
-                ax3.plot(los_x.isel(channel=i_ch), los_y.isel(channel=i_ch))
+                    ax2.plot(los_x_rot.isel(channel=i_ch, beamlet=i_beamlet), los_y_rot.isel(channel=i_ch, beamlet=i_beamlet))
+                    ax2.plot(los_x_rot.isel(channel=i_ch, beamlet=i_beamlet)[0], los_y_rot.isel(channel=i_ch, beamlet=i_beamlet)[0], 'ko')
+
+                    ax3.plot(los_x.isel(channel=i_ch, beamlet=i_beamlet), los_y.isel(channel=i_ch, beamlet=i_beamlet))
+
+            nh_along_chord_list.append(nh_along_chord_beamlet)
 
         nh_along_chord_array = DataArray(
             nh_along_chord_list,
             coords=[
                 ("channel", los_x.channel),
+                ("beamlet", los_x.beamlet),
                 ("energy", np.arange(0, 3, 1, dtype=int)),
                 ("time", nh_.t),
                 ("los_position", los_x.los_position)
