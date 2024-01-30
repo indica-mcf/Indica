@@ -442,6 +442,10 @@ class ChargeExchange(DiagnosticModel):
         # Loop over channel
         if debug:
             from matplotlib import pyplot as plt
+            import matplotlib.cm as cm
+
+            cols = cm.gnuplot2(np.linspace(0.3, 0.75, len(self.los_transform.x1), dtype=float))
+
             plt.figure()
             ax1 = plt.axes()
 
@@ -477,12 +481,26 @@ class ChargeExchange(DiagnosticModel):
                 nh_along_chord_beamlet.append(nh_along_chord)
 
                 if debug:
-                    ax1.plot(nh_along_chord.isel(energy=0)[0, :])
+                    ax1.plot(
+                        nh_along_chord.isel(energy=0)[0, :],
+                        c = cols[i],
+                    )
 
-                    ax2.plot(los_x_rot.isel(channel=i_ch, beamlet=i_beamlet), los_y_rot.isel(channel=i_ch, beamlet=i_beamlet))
-                    ax2.plot(los_x_rot.isel(channel=i_ch, beamlet=i_beamlet)[0], los_y_rot.isel(channel=i_ch, beamlet=i_beamlet)[0], 'ko')
+                    ax2.plot(
+                        los_x_rot.isel(channel=i_ch, beamlet=i_beamlet),
+                        los_y_rot.isel(channel=i_ch, beamlet=i_beamlet),
+                        c = cols[i],
+                    )
+                    ax2.plot(
+                        los_x_rot.isel(channel=i_ch, beamlet=i_beamlet)[0],
+                        los_y_rot.isel(channel=i_ch, beamlet=i_beamlet)[0],
+                        'ko')
 
-                    ax3.plot(los_x.isel(channel=i_ch, beamlet=i_beamlet), los_y.isel(channel=i_ch, beamlet=i_beamlet))
+                    ax3.plot(
+                        los_x.isel(channel=i_ch, beamlet=i_beamlet),
+                        los_y.isel(channel=i_ch, beamlet=i_beamlet),
+                        c=cols[i],
+                    )
 
             nh_along_chord_list.append(nh_along_chord_beamlet)
 
