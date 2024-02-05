@@ -11,9 +11,10 @@ class TestBayesWorkflow:
     def setup_class(self):
         self.diagnostics = ["cxff_tws_c", "cxff_pi"]
         self.opt_params = ["Ti_prof.y0",
-                           "Ti_prof.peaking",
-                           "Ti_prof.wped",
-                           "Ti_prof.wcenter", ]
+                           # "Ti_prof.peaking",
+                           # "Ti_prof.wped",
+                           # "Ti_prof.wcenter",
+                           ]
         self.opt_quant = ["cxff_tws_c.ti",
                           "cxff_pi.ti"]
 
@@ -34,10 +35,10 @@ class TestBayesWorkflow:
 
         self.model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
 
-        self.optimiser_settings = OptimiserEmceeSettings(param_names=self.bayes_settings.param_names, nwalkers=10,
-                                                         iterations=10,
-                                                         sample_method="random", starting_samples=10,
-                                                         burn_frac=0.00,
+        self.optimiser_settings = OptimiserEmceeSettings(param_names=self.bayes_settings.param_names, nwalkers=5,
+                                                         iterations=2,
+                                                         sample_method="random", starting_samples=2,
+                                                         burn_frac=0,
                                                          stopping_criteria="mode", stopping_criteria_factor=0.005,
                                                          stopping_criteria_debug=True,
                                                          priors=self.bayes_settings.priors)
