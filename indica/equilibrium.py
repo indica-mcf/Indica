@@ -575,7 +575,7 @@ class Equilibrium:
             z_x_point = self.zx
 
         # TODO: rho and theta dimensions not in the same order...
-        rho = rho.astype("float64").interp(R=_R, z=_z)
+        rho = rho.interp(R=_R, z=_z)
         theta = np.arctan2(
             _z - z_ax,
             _R - R_ax,
