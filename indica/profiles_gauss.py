@@ -32,7 +32,6 @@ class Profiles:
         self.xend = xend
         self.coord = f"rho_{coord}"
         self.x = np.linspace(0, 1, 15) ** 0.7
-        # self.x = 1-np.logspace(0, -2, 30)
         self.datatype = datatype
         if xspl is None:
             xspl = np.linspace(0, 1.0, 30)
