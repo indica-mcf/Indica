@@ -709,9 +709,9 @@ class MockData(PhantomData):
     def read_data(self):
         print("Reading mock equilibrium / transforms")
         self.equilibrium = fake_equilibrium(
-            tstart,
-            tend,
-            dt,
+            self.tstart,
+            self.tend,
+            self.dt,
         )
         missing_transforms = list(set(diagnostics).difference(self.diagnostic_transforms.keys()))
         if missing_transforms:
