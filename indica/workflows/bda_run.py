@@ -86,7 +86,7 @@ OPT_DEFAULT = [
 def bda_run(pulse, diagnostics, param_names, opt_quantity, phantom=False,
             tstart=0.02, tend=0.05, dt=0.01, revisions = {}, filters={},
             iterations=500, nwalkers=50, stopping_criteria_factor=0.002,
-            mds_write=False, plot=False, run="RUN01", dirname=None, set_ts=False, **kwargs):
+            mds_write=False, plot=False, run="RUN01", dirname=None, set_ts=False, ts_split="LFS", **kwargs):
 
     if dirname is None:
         dirname = f"{pulse}"
@@ -113,7 +113,7 @@ def bda_run(pulse, diagnostics, param_names, opt_quantity, phantom=False,
     plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
 
     if set_ts:
-        plasma_context.set_ts_profiles(data_context, split="LFS")
+        plasma_context.set_ts_profiles(data_context, split=ts_split)
 
     model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
 
@@ -247,66 +247,66 @@ if __name__ == "__main__":
         #      set_ts=True,
         #  )],
 
-        [(11314,
-          ["xrcs", "cxff_pi", "ts", "efit"],
-          [
-              "Niz1_prof.y0",
-              "Niz1_prof.peaking",
-              "Ti_prof.y0",
-              "Ti_prof.wcenter",
-              "Ti_prof.peaking",
-          ],
-          [
-              "xrcs.spectra",
-              "cxff_pi.ti",
-              "ts.ne",
-              "ts.te",
-          ]),
-         dict(
-             phantom=False,
-             tstart=0.05,
-             tend=0.10,
-             dt=0.01,
-             iterations=2000,
-             nwalkers=20,
-             stopping_criteria_factor=0.001,
-             mds_write=True,
-             plot=True,
-             revisions={},
-             run="RUN01",
-             # dirname="test",
-             set_ts=True,
-         )],
-        [(11317,
-          ["xrcs", "cxff_pi", "ts", "efit"],
-          [
-              "Niz1_prof.y0",
-              "Niz1_prof.peaking",
-              "Ti_prof.y0",
-              "Ti_prof.wcenter",
-              "Ti_prof.peaking",
-          ],
-          [
-              "xrcs.spectra",
-              "cxff_pi.ti",
-              "ts.ne",
-              "ts.te",
-          ]),
-         dict(
-             phantom=False,
-             tstart=0.05,
-             tend=0.10,
-             dt=0.01,
-             iterations=2000,
-             nwalkers=20,
-             stopping_criteria_factor=0.001,
-             mds_write=True,
-             plot=True,
-             revisions={},
-             run="RUN01",
-             # dirname="test",
-             set_ts=True,
-         )],
+        # [(11314,
+        #   ["xrcs", "cxff_pi", "ts", "efit"],
+        #   [
+        #       "Niz1_prof.y0",
+        #       "Niz1_prof.peaking",
+        #       "Ti_prof.y0",
+        #       "Ti_prof.wcenter",
+        #       "Ti_prof.peaking",
+        #   ],
+        #   [
+        #       "xrcs.spectra",
+        #       "cxff_pi.ti",
+        #       "ts.ne",
+        #       "ts.te",
+        #   ]),
+        #  dict(
+        #      phantom=False,
+        #      tstart=0.05,
+        #      tend=0.10,
+        #      dt=0.01,
+        #      iterations=2000,
+        #      nwalkers=20,
+        #      stopping_criteria_factor=0.001,
+        #      mds_write=True,
+        #      plot=True,
+        #      revisions={},
+        #      run="RUN01",
+        #      # dirname="test",
+        #      set_ts=True,
+        #  )],
+        # [(11317,
+        #   ["xrcs", "cxff_pi", "ts", "efit"],
+        #   [
+        #       "Niz1_prof.y0",
+        #       "Niz1_prof.peaking",
+        #       "Ti_prof.y0",
+        #       "Ti_prof.wcenter",
+        #       "Ti_prof.peaking",
+        #   ],
+        #   [
+        #       "xrcs.spectra",
+        #       "cxff_pi.ti",
+        #       "ts.ne",
+        #       "ts.te",
+        #   ]),
+        #  dict(
+        #      phantom=False,
+        #      tstart=0.05,
+        #      tend=0.10,
+        #      dt=0.01,
+        #      iterations=2000,
+        #      nwalkers=20,
+        #      stopping_criteria_factor=0.001,
+        #      mds_write=True,
+        #      plot=True,
+        #      revisions={},
+        #      run="RUN01",
+        #      # dirname="test",
+        #      set_ts=True,
+        #  )],
 
         # [(11419,
         #   ["xrcs", "cxff_pi", "ts", "efit"],
@@ -338,6 +338,38 @@ if __name__ == "__main__":
         #      # dirname="test",
         #      set_ts=True,
         #  )],
+
+        [(11032,
+          ["xrcs", "cxff_pi", "ts", "efit"],
+          [
+              "Niz1_prof.y0",
+              "Niz1_prof.peaking",
+              "Ti_prof.y0",
+              "Ti_prof.wcenter",
+              "Ti_prof.peaking",
+          ],
+          [
+              "xrcs.spectra",
+              "cxff_pi.ti",
+              "ts.ne",
+              "ts.te",
+          ]),
+         dict(
+             phantom=False,
+             tstart=0.03,
+             tend=0.09,
+             dt=0.01,
+             iterations=2000,
+             nwalkers=20,
+             stopping_criteria_factor=0.001,
+             mds_write=True,
+             plot=True,
+             revisions={},
+             run="RUN01",
+             # dirname="test",
+             set_ts=True,
+             ts_split="",
+         )],
 
     ]
 
