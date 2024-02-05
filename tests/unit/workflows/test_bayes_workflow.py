@@ -1,160 +1,108 @@
 import copy
-
 import pytest
+from unittest.mock import MagicMock
 
-from indica.workflows.bayes_workflow_example import BayesWorkflowExample
-from indica.workflows.bayes_workflow_example import DEFAULT_PRIORS
-from indica.workflows.bayes_workflow_example import DEFAULT_PROFILE_PARAMS
-from indica.workflows.bayes_workflow_example import OPTIMISED_PARAMS
-from indica.workflows.bayes_workflow_example import OPTIMISED_QUANTITY
-
-"""
-TODO:
-Mock reader for testing experimental data reading
-"""
+from indica.workflows.bayes_workflow import BayesWorkflow, PlasmaSettings, BayesBBSettings, ReaderSettings, MockData, \
+    PlasmaContext, ModelSettings, ModelContext, OptimiserEmceeSettings, EmceeOptimiser
+from indica.workflows.bayes_workflow import DEFAULT_PRIORS
+from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS
 
 
-class TestBayesWorkflowExample:
+class TestBayesWorkflow:
     def setup_class(self):
-        self.init_settings = dict(
-            pulse=None,
-            phantoms=True,
-            diagnostics=["xrcs", "efit", "smmh1", "cxff_pi"],
-            opt_quantity=OPTIMISED_QUANTITY,
-            param_names=OPTIMISED_PARAMS,
-            profile_params=DEFAULT_PROFILE_PARAMS,
-            priors=DEFAULT_PRIORS,
-            tstart=0.02,
-            tend=0.10,
-            dt=0.005,
-        )
-        self.plasma_settings = dict(
-            tsample=0.060,
-        )
+        self.diagnostics = ["cxff_tws_c", "cxff_pi"]
+        self.opt_params = ["Ti_prof.y0",
+                           "Ti_prof.peaking",
+                           "Ti_prof.wped",
+                           "Ti_prof.wcenter", ]
+        self.opt_quant = ["cxff_tws_c.ti",
+                          "cxff_pi.ti"]
 
-        self.optimiser_settings = dict(
-            model_kwargs={
-                "xrcs_moment_analysis": False,
-            },
-            nwalkers=20,
-            sample_high_density=False,
-        )
+        self.pulse = None
+        self.tstart = 0.01
+        self.tend = 0.10
+        self.dt = 0.01
+        self.phantoms = True
 
-        self.call_settings = dict(
-            filepath=None,
-            pulse_to_write=23000101,
-            run="RUN01",
-            mds_write=False,
-            plot=False,
-            iterations=1,
-            burn_frac=0.10,
-        )
-        self.sampler_settings = dict(
-            iterations=1,
-            burn_frac=0.10,
-        )
+        self.plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"),
+                                              impurity_concentration=(0.001, 0.04),
+                                              n_rad=10)
 
-        self.workflow_untouched = BayesWorkflowExample(**self.init_settings)
-        self.workflow = None
+        self.bayes_settings = BayesBBSettings(diagnostics=self.diagnostics, param_names=self.opt_params,
+                                              opt_quantity=self.opt_quant, priors=DEFAULT_PRIORS, )
 
-    def setup_method(self):
-        self.workflow = copy.deepcopy(self.workflow_untouched)
+        self.data_settings = ReaderSettings(filters={},
+                                            revisions={})
 
-    def teardown_method(self):
-        self.workflow = None
+        self.model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
 
-    def test_workflow_initializes(self):
-        attributes_to_check = ["data", "models", "equilibrium"]
-        for attribute in attributes_to_check:
-            if not hasattr(self.workflow, attribute):
-                raise ValueError(f"missing {attribute} in workflow object")
+        self.optimiser_settings = OptimiserEmceeSettings(param_names=self.bayes_settings.param_names, nwalkers=10,
+                                                         iterations=10,
+                                                         sample_method="random", starting_samples=10,
+                                                         burn_frac=0.05,
+                                                         stopping_criteria="mode", stopping_criteria_factor=0.005,
+                                                         stopping_criteria_debug=True,
+                                                         priors=self.bayes_settings.priors)
+
+        self.data_context = MagicMock(pulse=self.pulse, diagnostics=self.diagnostics,
+                                      tstart=self.tstart, tend=self.tend,
+                                      dt=self.dt, reader_settings=self.data_settings, )
+        self.data_context.opt_data.keys = MagicMock(return_value=self.opt_quant)
+
+        self.plasma_context = MagicMock(plasma_settings=self.plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
+
+        self.model_context = MagicMock(diagnostics=self.diagnostics,
+                                       plasma_context=self.plasma_context,
+                                       equilibrium=self.data_context.equilibrium,
+                                       transforms=self.data_context.transforms,
+                                       model_settings=self.model_settings, )
+
+        self.optimiser_context = MagicMock(optimiser_settings=self.optimiser_settings)
+
+        self.workflow = MagicMock(tstart=self.tstart, tend=self.tend, dt=self.dt,
+                                  blackbox_settings=self.bayes_settings, data_context=self.data_context,
+                                  optimiser_context=self.optimiser_context,
+                                  plasma_context=self.plasma_context, model_context=self.model_context)
+
+    def test_data_context_initialises(self):
+        data_context = MockData(pulse=self.pulse, diagnostics=self.diagnostics,
+                                tstart=self.tstart, tend=self.tend,
+                                dt=self.dt, reader_settings=self.data_settings, )
+        data_context.read_data()
+        data_context.process_data(self.model_context._build_bckc, )
         assert True
 
-    def test_init_phantoms_false_with_example_plasma(self):
-        with pytest.raises(ValueError):
-            BayesWorkflowExample(**dict(self.init_settings, **{"phantoms": False}))
-
-    def test_init_not_including_all_required_inputs(self):
-        with pytest.raises(ValueError):
-            BayesWorkflowExample(**dict(self.init_settings, **{"param_names": None}))
-
-    # def test_reader_has_read_all_diagnostic_data(self):
-    #     assert all(diag_name in self.workflow.reader.keys()
-    #     for diag_name in self.workflow.diagnostics)
-
-    def test_plasma_has_equilibrium(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        assert hasattr(self.workflow.plasma, "equilibrium")
-
-    def test_phantom_profiles_are_not_mutatable(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        phantoms = copy.deepcopy(self.workflow.phantom_profiles)
-        self.workflow.plasma.electron_temperature += 1
-        assert phantoms is not self.workflow.phantom_profiles
-
-    def test_setup_models_with_wrong_diagnostic_names(self):
-        with pytest.raises(ValueError):
-            self.workflow.setup_models(["foo", "bar", "xrcs"])
-
-    def test_opt_data_without_plasma(self):
-        with pytest.raises(ValueError):
-            self.workflow.setup_opt_data(phantoms=True)
-
-    def test_phantom_data_exists(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        self.workflow.setup_opt_data(phantoms=True)
-        assert self.workflow.opt_data
-
-    # def test_experimental_data_exists(self):
-    #     self.workflow._exp_data()
-    #     assert self.workflow.opt_data
-
-    def test_phantom_data_has_time_dim(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        self.workflow.setup_opt_data(phantoms=True)
-        for key, value in self.workflow.opt_data.items():
-            assert "t" in value.dims
-
-    # def test_experimental_data_has_time_dim(self):
-    #     self.workflow._exp_data()
-    #     for key, value in self.workflow.opt_data.items():
-    #       assert "t" in value.dims
-
-    def test_phantom_data_runs_with_noise_added(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        self.workflow.setup_opt_data(phantoms=True, noise=True)
-        assert self.workflow.opt_data
-
-    def test_sampling_from_priors(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        self.workflow.setup_opt_data(
-            phantoms=True,
-        )
-        self.workflow.setup_optimiser(
-            **dict(self.optimiser_settings, **{"sample_high_density": False})
-        )
+    def test_plasma_context_initialises(self):
+        plasma_context = PlasmaContext(plasma_settings=self.plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
+        plasma_context.init_plasma(equilibrium=self.data_context.equilibrium, tstart=self.tstart, tend=self.tend,
+                                   dt=self.dt, )
+        plasma_context.save_phantom_profiles(phantoms=self.data_context.phantoms)
         assert True
 
-    def test_sampling_from_high_density(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        self.workflow.setup_opt_data(
-            phantoms=True,
-        )
-        self.workflow.setup_optimiser(
-            **dict(self.optimiser_settings, **{"sample_high_density": True})
-        )
+    def test_model_context_initialises(self):
+        model_context = ModelContext(diagnostics=self.diagnostics,
+                                     plasma_context=self.plasma_context,
+                                     equilibrium=self.data_context.equilibrium,
+                                     transforms=self.data_context.transforms,
+                                     model_settings=self.model_settings,
+                                     )
+        model_context.update_model_kwargs(self.data_context.binned_data)
+        model_context.init_models()
         assert True
 
-    def test_worklow_has_results_after_run(self):
-        self.workflow.setup_plasma(**self.plasma_settings)
-        self.workflow.setup_opt_data(phantoms=True)
-        self.workflow.setup_optimiser(**self.optimiser_settings)
-        self.workflow.run_sampler(**self.sampler_settings)
-        if not hasattr(self.workflow, "result"):
-            raise ValueError("missing result in workflow object")
+    def test_optimiser_context_initialises(self):
+        optimiser_context = EmceeOptimiser(optimiser_settings=self.optimiser_settings)
+        assert True
+
+    def test_workflow_initialises(self):
+        workflow = BayesWorkflow(tstart=self.tstart, tend=self.tend, dt=self.dt,
+                                 blackbox_settings=self.bayes_settings, data_context=self.data_context,
+                                 optimiser_context=self.optimiser_context,
+                                 plasma_context=self.plasma_context, model_context=self.model_context)
         assert True
 
 
 if __name__ == "__main__":
-    test = TestBayesWorkflowExample()
+    test = TestBayesWorkflow()
     test.setup_class()
+    test.test_workflow_initialises()
