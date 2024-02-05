@@ -977,7 +977,8 @@ class BayesWorkflow(AbstractBayesWorkflow):
         result = self._build_result_dict()
         self.result = dict(self.result, **result)
 
-        self.save_pickle(self.result, filepath=filepath, )
+        if mds_write or plot:
+            self.save_pickle(self.result, filepath=filepath, )
 
         if plot:  # currently requires result with DataArrays
             plot_bayes_result(self.result, filepath)
