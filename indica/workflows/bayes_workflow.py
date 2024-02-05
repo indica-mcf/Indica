@@ -713,7 +713,7 @@ class MockData(PhantomData):
             self.tend,
             self.dt,
         )
-        missing_transforms = list(set(diagnostics).difference(self.diagnostic_transforms.keys()))
+        missing_transforms = list(set(self.diagnostics).difference(self.diagnostic_transforms.keys()))
         if missing_transforms:
             raise ValueError(f"Missing transforms: {missing_transforms}")
 
