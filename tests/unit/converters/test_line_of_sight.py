@@ -96,9 +96,12 @@ class TestHelike:
         t = self.los_transform.equilibrium.t[0]
 
         dist = self.los_transform.distance("los_position", x1, x2, t)
-        dls = [dist[i + 1] - dist[i] for i in range(len(dist) - 1)]
+        for beamlet in dist.beamlet:
+            _dist = dist.sel(beamlet=beamlet).values
+            dls = [_dist[i + 1] - _dist[i] for i in range(len(_dist) - 1)]
+            print(dls)
 
-        assert all(np.abs(dls - dls[0]) / dls[0] < (dls[0] * 1.0e-6))
+            assert all(np.abs(dls - dls[0]) / dls[0] < (dls[0] * 1.0e-6))
 
     def test_set_dl(self):
         dl = 0.002
