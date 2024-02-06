@@ -519,7 +519,8 @@ class Plasma:
         """
         Update plasma profiles with profile parameters i.e.
         {"Ne_prof.y0":1e19} -> Ne_prof.y0
-        TODO: refactor profiles into profiler structure and take care of initialisation of impurity profiles
+        TODO: refactor profiles into profiler structure
+            and take care of initialisation of impurity profiles
         """
         profile_prefixes: list = [
             "Te_prof",

@@ -40,9 +40,10 @@ class AbstractBayesWorkflow(ABC):
         quant_list = [item.split(".") for item in self.blackbox_settings.opt_quantity]
 
         result["TIME"] = self.plasma_context.plasma.t
+        git_id = git.Repo(search_parent_directories=True).head.object.hexsha
 
         result["METADATA"] = {
-            "GITCOMMIT": f"{git.Repo(search_parent_directories=True).head.object.hexsha}",
+            "GITCOMMIT": f"{git_id}",
             "USER": f"{getpass.getuser()}",
             "EQUIL": "PLACEHOLDER",
         }
@@ -63,7 +64,7 @@ class AbstractBayesWorkflow(ABC):
         }
         result["INPUT"]["WORKFLOW"] = {
             diag_name.upper(): {
-                "PULSE": self.data_context.pulse,  # Change this if different pulses used
+                "PULSE": self.data_context.pulse,
                 "USAGE": "".join(
                     [quantity[1] for quantity in quant_list if quantity[0] == diag_name]
                 ),

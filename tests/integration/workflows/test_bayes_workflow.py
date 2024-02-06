@@ -109,7 +109,7 @@ class TestBayesWorkflow:
             run="TEST",
             mds_write=False,
             plot=False,
-            filepath=f"./results/test/",
+            filepath="./results/test/",
         )
 
 

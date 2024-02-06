@@ -50,7 +50,8 @@ def ln_prior(priors: dict, parameters: dict):
 
 class BayesBlackBox:
     """
-    Bayesian black box model that creates _ln_posterior function from plasma and diagnostic model objects
+    Bayesian black box model that creates _ln_posterior function
+    from plasma and diagnostic model objects
 
     Parameters
     ----------

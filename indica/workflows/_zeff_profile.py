@@ -1,26 +1,22 @@
 from copy import deepcopy
 
-import emcee
 import matplotlib.pylab as plt
 import numpy as np
-import pandas as pd
 from scipy.interpolate import CubicSpline
+from sklearn.gaussian_process import kernels
 import xarray as xr
 from xarray import DataArray
 
-from indica.bayesmodels import BayesModels
-from indica.bayesmodels import get_uniform
+from indica.bayesblackbox import get_uniform
 from indica.equilibrium import Equilibrium
 from indica.models.diode_filters import example_run as example_diode
 from indica.models.plasma import example_run as example_plasma
 from indica.models.plasma import Plasma
 from indica.operators import tomo_1D
-from indica.operators.gpr_fit import run_gpr_fit
+from indica.operators.gpr_fit import gpr_fit_ts
 import indica.physics as ph
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import set_plot_colors
-from indica.workflows.bayes_workflow import plot_bayes_result
-from indica.workflows.bayes_workflow import sample_with_autocorr
 
 PATHNAME = "./plots/"
 
@@ -122,7 +118,7 @@ def prepare_data_ts(
         data = deepcopy(st40.binned_data["ts"][quantity]) * const
         data.attrs["error"] = deepcopy(st40.binned_data["ts"][quantity].error) * const
 
-        y_bounds = (1, 1)
+        # y_bounds = (1, 1)
         if xdim == "R":
             x_bounds = plasma.machine_dimensions[0]
         else:
@@ -131,13 +127,11 @@ def prepare_data_ts(
         if xdim not in data.dims and hasattr(data, xdim):
             data = data.swap_dims({"channel": xdim})
 
-        fit, fit_err = run_gpr_fit(
-            data,
-            x_bounds=x_bounds,
-            y_bounds=y_bounds,
-            err_bounds=err_bounds,
-            xdim=xdim,
-        )
+        kernel = 1.0 * kernels.RationalQuadratic(
+            alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
+        ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
+
+        fit, fit_err = gpr_fit_ts(data, x_bounds=x_bounds, xdim=xdim, kernel=kernel)
         fit /= const
         fit_err /= const
 
@@ -335,88 +329,88 @@ def prepare_inputs(
     return plasma, models, flat_data, input_profiles
 
 
-def run_bayes(
-    pulse: int,
-    time: float,
-    phantom_profile_params,
-    iterations,
-    result_path,
-    tstart=0.03,
-    tend=0.1,
-    dt=0.01,
-    burn_in=0,
-    nwalkers=10,
-    phantom_data: bool = True,
-    ts_side: str = "LFS",
-):
-    plasma, models, flat_data, input_profiles = prepare_inputs(
-        pulse,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        time=time,
-        phantom_profile_params=phantom_profile_params,
-        phantom_data=phantom_data,
-        ts_side=ts_side,
-    )
+# def run_bayes(
+#     pulse: int,
+#     time: float,
+#     phantom_profile_params,
+#     iterations,
+#     result_path,
+#     tstart=0.03,
+#     tend=0.1,
+#     dt=0.01,
+#     burn_in=0,
+#     nwalkers=10,
+#     phantom_data: bool = True,
+#     ts_side: str = "LFS",
+# ):
+#     plasma, models, flat_data, input_profiles = prepare_inputs(
+#         pulse,
+#         tstart=tstart,
+#         tend=tend,
+#         dt=dt,
+#         time=time,
+#         phantom_profile_params=phantom_profile_params,
+#         phantom_data=phantom_data,
+#         ts_side=ts_side,
+#     )
+#
+#     print("Instatiating Bayes model")
+#     diagnostic_models = [models["pi"]]
+#     quant_to_optimise = [
+#         "pi.brightness",
+#     ]
+# bm = BayesBlackBox(
+#     plasma=plasma,
+#     data=flat_data,
+#     diagnostic_models=diagnostic_models,
+#     quant_to_optimise=quant_to_optimise,
+#     priors=PRIORS,
+# )
+# ndim = PARAM_NAMES.__len__()
+# start_points = bm.sample_from_priors(PARAM_NAMES, size=nwalkers)
+# move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
+# sampler = emcee.EnsembleSampler(
+#     nwalkers,
+#     ndim,
+#     log_prob_fn=bm.ln_posterior,
+#     parameter_names=PARAM_NAMES,
+#     moves=move,
+# )
+#
+# print("Sampling")
+# autocorr = sample_with_autocorr(
+#     sampler, start_points, iterations=iterations, auto_sample=5
+# )
+#
+# blobs = sampler.get_blobs(discard=burn_in, flat=True)
+# blob_names = sampler.get_blobs().flatten()[0].keys()
+# blob_dict = {
+#     blob_name: xr.concat(
+#         [data[blob_name] for data in blobs],
+#         dim=pd.Index(np.arange(0, blobs.__len__()), name="index"),
+#     )
+#     for blob_name in blob_names
+# }
+#
+# samples = sampler.get_chain(flat=True)
+# prior_samples = bm.sample_from_priors(PARAM_NAMES, size=int(1e5))
+# result = {
+#     "blobs": blob_dict,
+#     "diag_data": flat_data,
+#     "samples": samples,
+#     "prior_samples": prior_samples,
+#     "param_names": PARAM_NAMES,
+#     "phantom_profiles": input_profiles,
+#     "plasma": plasma,
+#     "autocorr": autocorr,
+# }
+# print(sampler.acceptance_fraction.sum())
+# plot_bayes_result(**result, figheader=result_path)
+#
+# if not phantom_data:
+#     plot_ts(plasma, flat_data, ts_side=ts_side)
 
-    print("Instatiating Bayes model")
-    diagnostic_models = [models["pi"]]
-    quant_to_optimise = [
-        "pi.brightness",
-    ]
-    bm = BayesModels(
-        plasma=plasma,
-        data=flat_data,
-        diagnostic_models=diagnostic_models,
-        quant_to_optimise=quant_to_optimise,
-        priors=PRIORS,
-    )
-    ndim = PARAM_NAMES.__len__()
-    start_points = bm.sample_from_priors(PARAM_NAMES, size=nwalkers)
-    move = [(emcee.moves.StretchMove(), 1.0), (emcee.moves.DEMove(), 0.0)]
-    sampler = emcee.EnsembleSampler(
-        nwalkers,
-        ndim,
-        log_prob_fn=bm.ln_posterior,
-        parameter_names=PARAM_NAMES,
-        moves=move,
-    )
-
-    print("Sampling")
-    autocorr = sample_with_autocorr(
-        sampler, start_points, iterations=iterations, auto_sample=5
-    )
-
-    blobs = sampler.get_blobs(discard=burn_in, flat=True)
-    blob_names = sampler.get_blobs().flatten()[0].keys()
-    blob_dict = {
-        blob_name: xr.concat(
-            [data[blob_name] for data in blobs],
-            dim=pd.Index(np.arange(0, blobs.__len__()), name="index"),
-        )
-        for blob_name in blob_names
-    }
-
-    samples = sampler.get_chain(flat=True)
-    prior_samples = bm.sample_from_priors(PARAM_NAMES, size=int(1e5))
-    result = {
-        "blobs": blob_dict,
-        "diag_data": flat_data,
-        "samples": samples,
-        "prior_samples": prior_samples,
-        "param_names": PARAM_NAMES,
-        "phantom_profiles": input_profiles,
-        "plasma": plasma,
-        "autocorr": autocorr,
-    }
-    print(sampler.acceptance_fraction.sum())
-    plot_bayes_result(**result, figheader=result_path)
-
-    if not phantom_data:
-        plot_ts(plasma, flat_data, ts_side=ts_side)
-
-    return result
+# return result
 
 
 def run_inversion(
@@ -601,24 +595,24 @@ def inversion_example(
     return ff
 
 
-def bayesian_example(
-    pulse: int = 11085,
-    time: float = 0.03,
-    iterations=200,
-    nwalkers=50,
-    phantom_data: bool = True,
-    ts_side: str = "LFS",
-):
-    ff = run_bayes(
-        pulse,
-        time,
-        PHANTOM_PROFILE_PARAMS,
-        iterations,
-        PATHNAME,
-        burn_in=0,
-        nwalkers=nwalkers,
-        phantom_data=phantom_data,
-        ts_side=ts_side,
-    )
+# def bayesian_example(
+#     pulse: int = 11085,
+#     time: float = 0.03,
+#     iterations=200,
+#     nwalkers=50,
+#     phantom_data: bool = True,
+#     ts_side: str = "LFS",
+# ):
+#     ff = run_bayes(
+#         pulse,
+#         time,
+#         PHANTOM_PROFILE_PARAMS,
+#         iterations,
+#         PATHNAME,
+#         burn_in=0,
+#         nwalkers=nwalkers,
+#         phantom_data=phantom_data,
+#         ts_side=ts_side,
+#     )
 
-    return ff
+# return ff

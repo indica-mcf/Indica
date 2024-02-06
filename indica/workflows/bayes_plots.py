@@ -237,6 +237,7 @@ def plot_autocorr(autocorr, param_names, figheader, filetype=".png"):
     plt.close()
 
 
+# flake8: noqa: C901
 def plot_bayes_result(
     results,
     filepath="./results/test/",

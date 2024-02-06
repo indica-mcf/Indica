@@ -139,6 +139,7 @@ class TestBayesWorkflow:
 
     def test_optimiser_context_initialises(self):
         optimiser_context = EmceeOptimiser(optimiser_settings=self.optimiser_settings)
+        optimiser_context.init_optimiser(MagicMock())
         assert True
 
     def test_workflow_initialises(self):
@@ -152,6 +153,7 @@ class TestBayesWorkflow:
             plasma_context=self.plasma_context,
             model_context=self.model_context,
         )
+        workflow.dummy = ""
         assert True
 
 

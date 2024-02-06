@@ -312,7 +312,7 @@ def does_tree_exist(
         conn.openTree("BDA", pulse)
         conn.closeAllTrees()
         return True
-    except:
+    except Exception:
         return False
 
 

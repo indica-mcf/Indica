@@ -1,3 +1,6 @@
+from typing import Any
+from typing import List
+
 from indica.workflows.bayes_workflow import BayesBBSettings
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_PRIORS
@@ -217,7 +220,7 @@ def bda_run(
 
 if __name__ == "__main__":
 
-    pulse_info = [
+    pulse_info: List[Any] = [
         # [(11226,
         #   ["xrcs", "cxff_pi", "cxff_tws_c", "ts"],
         #   PARAMS_DEFAULT,

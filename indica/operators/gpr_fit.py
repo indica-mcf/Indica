@@ -160,17 +160,17 @@ def gpr_fit_ts(
     save_fig=False,
 ):
     if x_bounds is None:
-        if xdim is "rho":
+        if xdim == "rho":
             x_bounds = (0, 1.3)
-        elif xdim is "R":
+        elif xdim == "R":
             x_bounds = (0.1, 0.9)
 
     if virtual_points is None:
-        if xdim is "rho":
+        if xdim == "rho":
             virtual_points = [
                 (1.5, lambda y: 0),
             ]
-        elif xdim is "R":
+        elif xdim == "R":
             virtual_points = [(0, lambda y: 0), (0.9, lambda y: 0)]
 
     x_fit = np.linspace(x_bounds[0], x_bounds[1], 1000)

@@ -6,7 +6,9 @@ from dataclasses import field
 from typing import Any
 from typing import Callable
 from typing import Dict
+from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import emcee
 import flatdict
@@ -184,7 +186,8 @@ def sample_with_moments(
     stopping_factor=0.01,
     debug=False,
 ):
-    # TODO: Compare old_chain to new_chain: if moments are different then keep going / convergence diagnostics here
+    # TODO: Compare old_chain to new_chain
+    #  if moments are different then keep going / convergence diagnostics here
 
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
     old_mean = np.inf
@@ -285,7 +288,8 @@ def dict_of_dataarray_to_numpy(dict_of_dataarray):
 
 def sample_from_priors(param_names: list, priors: dict, size=10):
     """
-    TODO: may be able to remove param_names from here and at some point earlier remove priors that aren't used
+    TODO: may be able to remove param_names from here and at some point earlier
+        remove priors that aren't used
         then loop over remaining priors while handling conditional priors somehow...
         The order of samples may need to be checked / reordered at some point then
     """
@@ -308,8 +312,8 @@ def sample_from_priors(param_names: list, priors: dict, size=10):
 @dataclass
 class PlasmaSettings:
     main_ion: str = "h"
-    impurities: Tuple[str] = ("ar", "c")
-    impurity_concentration: Tuple[float] = (0.001, 0.04)
+    impurities: Tuple[str, ...] = ("ar", "c")
+    impurity_concentration: Tuple[float, ...] = (0.001, 0.04)
     n_rad: int = 20
 
 
@@ -492,11 +496,12 @@ class ModelContext:
     model_settings: ModelSettings
     diagnostics: list
     plasma_context: PlasmaContext
-    equilibrium: Equilibrium
-    transforms: dict
+    equilibrium: Union[Equilibrium, None]
+    transforms: Union[dict, None]
 
     """
-    Setup models so that they have transforms / plasma / equilibrium etc.. everything needed to produce bckc from models
+    Setup models so that they have transforms / plasma / equilibrium etc..
+    everything needed to produce bckc from models
 
     TODO: remove repeating code / likely make general methods
     """
@@ -634,16 +639,14 @@ class ReaderSettings:
     filters: dict = field(default_factory=lambda: {})
 
 
-@dataclass
+@dataclass  # type: ignore[misc]
 class DataContext(ABC):
     reader_settings: ReaderSettings
-    pulse: int
+    pulse: Optional[int]
     tstart: float
     tend: float
     dt: float
     diagnostics: list
-    transforms = None
-    equilibrium = None
     phantoms = False
 
     @abstractmethod
@@ -665,7 +668,8 @@ class DataContext(ABC):
             self.binned_data = data_strategy()
 
     def pre_process_data(self, model_callable: Callable):
-        self.model_callable = model_callable  # TODO: handle this dependency (phantom data) some other way?
+        self.model_callable = model_callable
+        # TODO: handle this dependency (phantom data) some other way?
         self._check_if_data_present(self.data_strategy)
 
     @abstractmethod
@@ -724,11 +728,13 @@ class ExpData(DataContext):
         # TODO move the channel filtering to the read_data method in filtering = {}
         if "ts.ne" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
-            # opt_data["ts.ne"] = opt_data["ts.ne"].where(opt_data["ts.ne"].channel < 21)
+            # opt_data["ts.ne"] = opt_data["ts.ne"].where(
+            #     opt_data["ts.ne"].channel < 21)
 
         if "ts.te" in opt_data.keys():
             opt_data["ts.ne"]["error"] = opt_data["ts.ne"].max(dim="channel") * 0.05
-            # opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel < 21)
+            # opt_data["ts.te"] = opt_data["ts.te"].where(
+            # opt_data["ts.te"].channel < 21)
 
         if "cxff_tws_c.ti" in opt_data.keys():
             opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(
@@ -820,7 +826,7 @@ class OptimiserEmceeSettings:
     stopping_criteria_debug: bool = False
 
 
-@dataclass
+@dataclass  # type: ignore[misc]
 class OptimiserContext(ABC):
     optimiser_settings: OptimiserEmceeSettings
 
@@ -844,7 +850,7 @@ class OptimiserContext(ABC):
 
 @dataclass
 class EmceeOptimiser(OptimiserContext):
-    def init_optimiser(self, blackbox_func: Callable):
+    def init_optimiser(self, blackbox_func: Callable, *args, **kwargs):  # type: ignore
         ndim = len(self.optimiser_settings.param_names)
         self.move = [
             (emcee.moves.StretchMove(), 0.0),
@@ -934,7 +940,8 @@ class EmceeOptimiser(OptimiserContext):
             )
         else:
             raise ValueError(
-                f"Stopping criteria: {self.optimiser_settings.stopping_criteria} not recognised"
+                f"Stopping criteria: "
+                f"{self.optimiser_settings.stopping_criteria} invalid"
             )
 
         optimiser_results = self.format_results()
@@ -1184,9 +1191,9 @@ if __name__ == "__main__":
         reader_settings=data_settings,
     )
     # data_context = PhantomData(pulse=pulse, diagnostics=diagnostics,
-    #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    #                tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     # data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
-    #                        tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    #                tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
     plasma_settings = PlasmaSettings(
@@ -1258,5 +1265,5 @@ if __name__ == "__main__":
         run="RUN01",
         mds_write=True,
         plot=True,
-        filepath=f"./results/test/",
+        filepath="./results/test/",
     )
